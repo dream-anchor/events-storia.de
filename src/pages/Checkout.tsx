@@ -1148,7 +1148,7 @@ const Checkout = () => {
                 </div>
 
                 {/* Right Column: Sticky Cart (Desktop only) */}
-                <div className="hidden lg:block lg:sticky lg:top-24">
+                <div className="hidden lg:block lg:sticky lg:top-24 self-start">
                   <CartSummary showItems={true} />
                 </div>
               </div>
