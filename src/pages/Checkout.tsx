@@ -71,6 +71,7 @@ const Checkout = () => {
   const [deliveryCalc, setDeliveryCalc] = useState<DeliveryCalculation | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [addressDebounce, setAddressDebounce] = useState<NodeJS.Timeout | null>(null);
+  const [dateTimeWarning, setDateTimeWarning] = useState<string | null>(null);
 
   // Check if order contains only pizza (no equipment pickup needed)
   const isPizzaOnly = items.length > 0 && items.every(item => item.category === 'pizza');
@@ -137,6 +138,28 @@ const Checkout = () => {
       setDeliveryCalc(null);
     }
   }, [formData.deliveryType, isPizzaOnly]);
+
+  // Validate 24-hour advance booking
+  useEffect(() => {
+    if (!formData.date || !formData.time) {
+      setDateTimeWarning(null);
+      return;
+    }
+    
+    const selectedDateTime = new Date(`${formData.date}T${formData.time}`);
+    const minDateTime = new Date();
+    minDateTime.setHours(minDateTime.getHours() + 24);
+    
+    if (selectedDateTime < minDateTime) {
+      setDateTimeWarning(
+        language === 'de'
+          ? 'Der gewählte Termin liegt weniger als 24 Stunden in der Zukunft. Bitte wählen Sie einen späteren Zeitpunkt.'
+          : 'The selected date is less than 24 hours away. Please choose a later time.'
+      );
+    } else {
+      setDateTimeWarning(null);
+    }
+  }, [formData.date, formData.time, language]);
 
   // Calculate minimum order surcharge if needed
   const minimumOrderSurcharge = deliveryCalc && totalPrice < deliveryCalc.minimumOrder 
@@ -901,6 +924,12 @@ const Checkout = () => {
                           ? 'Bitte wählen Sie einen Termin mindestens 24 Stunden im Voraus.'
                           : 'Please select a date at least 24 hours in advance.'}
                       </p>
+                      {dateTimeWarning && (
+                        <div className="flex items-start gap-2 mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                          <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                          <p className="text-sm text-amber-700 dark:text-amber-300">{dateTimeWarning}</p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Setup Service Option */}
@@ -933,6 +962,16 @@ const Checkout = () => {
                         {language === 'de' 
                           ? 'Reinigung ist im Preis aller Platten inklusive'
                           : 'Cleaning is included in the price of all platters'}
+                      </span>
+                    </div>
+
+                    {/* Equipment Info */}
+                    <div className="flex items-start gap-2 mt-3 text-sm text-muted-foreground">
+                      <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                      <span>
+                        {language === 'de' 
+                          ? 'Besteck, Stoffservietten und weiteres Zubehör können auf Wunsch gegen Aufpreis hinzugebucht werden.'
+                          : 'Cutlery, cloth napkins and additional accessories can be added upon request for an extra charge.'}
                       </span>
                     </div>
                   </section>
