@@ -15,7 +15,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText, LogIn, Lock } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText, LogIn, Lock, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -91,9 +92,9 @@ const validateEmail = (email: string): { valid: boolean; suggestion?: string; er
 };
 
 const Checkout = () => {
-  const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
+const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
   const { language } = useLanguage();
-  const { formatPrice, showGross } = usePriceDisplay();
+  const { formatPrice, showGross, setShowGross } = usePriceDisplay();
   const navigate = useNavigate();
   const { user, profile } = useCustomerAuth();
   const isMobile = useIsMobile();
@@ -462,10 +463,14 @@ const Checkout = () => {
         };
 
     try {
-      // Insert order and get the ID back
-      const { data: orderData, error } = await supabase
+      // Generate order ID client-side to avoid RLS SELECT issues
+      const orderId = crypto.randomUUID();
+      
+      // Insert order without returning (RLS allows INSERT but not SELECT for anon)
+      const { error } = await supabase
         .from('catering_orders')
         .insert({
+          id: orderId,
           order_number: newOrderNumber,
           customer_name: formData.name,
           customer_email: formData.email,
@@ -497,13 +502,9 @@ const Checkout = () => {
           payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending',
           // Link to customer account if logged in or just created
           user_id: user?.id || newUserId || null
-        })
-        .select('id')
-        .single();
+        });
 
       if (error) throw error;
-
-      const orderId = orderData?.id;
 
       // Send email notifications
       try {
@@ -847,9 +848,29 @@ const Checkout = () => {
         
         <main className="flex-1 container mx-auto px-4 py-6 md:py-10">
           <div className="max-w-6xl mx-auto">
-            <h1 className="text-2xl md:text-3xl font-serif font-medium mb-6 text-center lg:col-span-full">
+            <h1 className="text-2xl md:text-3xl font-serif font-medium mb-4 text-center lg:col-span-full">
               {language === 'de' ? 'Bestellung aufgeben' : 'Place Your Order'}
             </h1>
+
+            {/* Prominent Brutto/Netto Toggle */}
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <span className={`text-sm font-medium transition-colors ${!showGross ? 'text-foreground' : 'text-muted-foreground'}`}>
+                Netto
+              </span>
+              <Switch 
+                checked={showGross} 
+                onCheckedChange={setShowGross}
+                className="data-[state=checked]:bg-primary"
+              />
+              <span className={`text-sm font-medium transition-colors ${showGross ? 'text-foreground' : 'text-muted-foreground'}`}>
+                Brutto
+              </span>
+              <span className="text-xs text-muted-foreground">
+                ({showGross 
+                  ? (language === 'de' ? 'inkl. MwSt.' : 'incl. VAT')
+                  : (language === 'de' ? 'exkl. MwSt.' : 'excl. VAT')})
+              </span>
+            </div>
 
             <form onSubmit={handleSubmit}>
               {/* Two-Column Layout: Form left, Sticky Cart right on desktop */}
