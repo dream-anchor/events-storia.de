@@ -393,36 +393,63 @@ const Checkout = () => {
         </div>
       )}
       
-      {/* Pricing Summary */}
-      <div className="space-y-2 pt-2 border-t border-border">
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-muted-foreground">{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
-          <span>{totalPrice.toFixed(2).replace('.', ',')} €</span>
-        </div>
-        {minimumOrderSurcharge > 0 && (
-          <div className="flex justify-between items-center text-sm text-amber-600 dark:text-amber-400">
-            <span className="flex items-center gap-1">
-              <Info className="h-3 w-3" />
-              {language === 'de' ? 'Mindestbest.-Aufschlag' : 'Min. order surcharge'}
-            </span>
-            <span>+{minimumOrderSurcharge.toFixed(2).replace('.', ',')} €</span>
+      {/* Pricing Summary with VAT breakdown */}
+      {(() => {
+        const vatRate = 0.07;
+        const netTotal = grandTotal / (1 + vatRate);
+        const vatAmount = grandTotal - netTotal;
+        
+        return (
+          <div className="space-y-2 pt-2 border-t border-border">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
+              <span>{totalPrice.toFixed(2).replace('.', ',')} €</span>
+            </div>
+            {minimumOrderSurcharge > 0 && (
+              <div className="flex justify-between items-center text-sm text-amber-600 dark:text-amber-400">
+                <span className="flex items-center gap-1">
+                  <Info className="h-3 w-3" />
+                  {language === 'de' ? 'Mindestbest.-Aufschlag' : 'Min. order surcharge'}
+                </span>
+                <span>+{minimumOrderSurcharge.toFixed(2).replace('.', ',')} €</span>
+              </div>
+            )}
+            {formData.deliveryType === 'delivery' && deliveryCalc && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
+                <span>
+                  {deliveryCalc.isFreeDelivery 
+                    ? (language === 'de' ? 'Kostenlos' : 'Free')
+                    : `${deliveryCalc.deliveryCost.toFixed(2).replace('.', ',')} €`}
+                </span>
+              </div>
+            )}
+            {formData.deliveryType === 'pickup' && (
+              <div className="flex justify-between items-center text-sm text-green-600 dark:text-green-400">
+                <span>{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
+                <span>{language === 'de' ? 'Abholung – 0,00 €' : 'Pickup – €0.00'}</span>
+              </div>
+            )}
+            
+            {/* VAT Breakdown */}
+            <div className="pt-2 mt-2 border-t border-dashed border-border space-y-1">
+              <div className="flex justify-between items-center text-xs text-muted-foreground">
+                <span>{language === 'de' ? 'Nettobetrag' : 'Net amount'}</span>
+                <span>{netTotal.toFixed(2).replace('.', ',')} €</span>
+              </div>
+              <div className="flex justify-between items-center text-xs text-muted-foreground">
+                <span>{language === 'de' ? '+ 7% MwSt.' : '+ 7% VAT'}</span>
+                <span>{vatAmount.toFixed(2).replace('.', ',')} €</span>
+              </div>
+            </div>
+            
+            <div className="flex justify-between items-center pt-3 border-t border-border">
+              <span className="font-semibold">{language === 'de' ? 'Gesamtbetrag (brutto)' : 'Total (gross)'}</span>
+              <span className="text-xl font-bold text-primary">{grandTotal.toFixed(2).replace('.', ',')} €</span>
+            </div>
           </div>
-        )}
-        {formData.deliveryType === 'delivery' && deliveryCalc && (
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
-            <span>
-              {deliveryCalc.isFreeDelivery 
-                ? (language === 'de' ? 'Kostenlos' : 'Free')
-                : `${deliveryCalc.deliveryCost.toFixed(2).replace('.', ',')} €`}
-            </span>
-          </div>
-        )}
-        <div className="flex justify-between items-center pt-3 border-t border-border">
-          <span className="font-semibold">{language === 'de' ? 'Gesamt' : 'Total'}</span>
-          <span className="text-xl font-bold text-primary">{grandTotal.toFixed(2).replace('.', ',')} €</span>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* CTA Button */}
       <Button 
@@ -465,7 +492,7 @@ const Checkout = () => {
         
         <main className="flex-1 container mx-auto px-4 py-6 md:py-10">
           <div className="max-w-6xl mx-auto">
-            <h1 className="text-2xl md:text-3xl font-serif font-medium mb-6 text-center">
+            <h1 className="text-2xl md:text-3xl font-serif font-medium mb-6 text-center lg:col-span-full">
               {language === 'de' ? 'Bestellung aufgeben' : 'Place Your Order'}
             </h1>
 
@@ -697,7 +724,7 @@ const Checkout = () => {
                                 )}
                                 
                                 <p className="text-xs mt-2 text-muted-foreground">
-                                  {language === 'de' ? 'zzgl. MwSt.' : 'excl. VAT'}
+                                  {language === 'de' ? 'Alle Preise inkl. 7% MwSt.' : 'All prices incl. 7% VAT'}
                                 </p>
                               </div>
                             </div>
@@ -717,7 +744,7 @@ const Checkout = () => {
                                 <ul className="space-y-1">
                                   <li>✓ {language === 'de' ? 'Bis 1 km: Kostenlos (Mindestbestellwert 50 €)' : 'Up to 1 km: Free (min. order €50)'}</li>
                                   <li>• {language === 'de' ? '1-25 km München: 25 € (Mindestbestellwert 150 €)' : '1-25 km Munich: €25 (min. order €150)'}</li>
-                                  <li>• {language === 'de' ? 'Außerhalb: 1,20 €/km (Mindestbestellwert 200 €)' : 'Outside: €1.20/km (min. order €200)'}</li>
+                                  <li>• {language === 'de' ? 'Außerhalb: 1,28 €/km brutto (Mindestbestellwert 200 €)' : 'Outside: €1.28/km gross (min. order €200)'}</li>
                                 </ul>
                               </div>
                             </div>
