@@ -210,6 +210,7 @@ const DishCard = ({ dish, language }: DishCardProps) => {
 
 const ChafingDishOption = ({ language }: { language: string }) => {
   const { addToCart } = useCart();
+  const { formatPrice } = usePriceDisplay();
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
 
@@ -235,7 +236,7 @@ const ChafingDishOption = ({ language }: { language: string }) => {
           <div>
             <h3 className="text-lg font-serif font-medium flex items-center gap-2">
               {language === 'de' ? 'Optional: Chafing Dish' : 'Optional: Chafing Dish'}
-              <span className="text-primary font-bold">+{chafingDish.price.toFixed(2)} €</span>
+              <span className="text-primary font-bold">+{formatPrice(chafingDish.price)}</span>
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
               {language === 'de' ? chafingDish.description : chafingDish.description_en}
