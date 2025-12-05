@@ -196,6 +196,7 @@ const PlatterCard = ({ platter, language }: PlatterCardProps) => {
       price: platter.price,
       image: platter.image || undefined,
       serving_info: platter.serving_info,
+      category: 'platter',
     }, quantity);
     
     setIsAdded(true);

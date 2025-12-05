@@ -11,6 +11,7 @@ export interface CartItem {
   image?: string;
   serving_info?: string;
   min_order?: number;
+  category?: 'pizza' | 'buffet' | 'platter' | 'equipment';
 }
 
 interface CartContextType {

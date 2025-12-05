@@ -75,7 +75,8 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
       price: item.price,
       image,
       serving_info: servingInfo || undefined,
-      min_order: 4
+      min_order: 4,
+      category: 'buffet',
     }, quantity);
     
     setIsAdded(true);

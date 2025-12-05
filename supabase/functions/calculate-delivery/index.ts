@@ -18,6 +18,8 @@ interface DeliveryCalculation {
   minimumOrder: number;
   message: string;
   messageEn: string;
+  isRoundTrip: boolean;
+  oneWayDistanceKm: number;
 }
 
 serve(async (req) => {
@@ -27,7 +29,7 @@ serve(async (req) => {
   }
 
   try {
-    const { address } = await req.json();
+    const { address, isPizzaOnly } = await req.json();
     
     if (!address || address.trim().length < 5) {
       return new Response(
@@ -47,6 +49,7 @@ serve(async (req) => {
 
     // Step 1: Geocode the delivery address
     console.log('Geocoding address:', address);
+    console.log('isPizzaOnly:', isPizzaOnly);
     const geocodeUrl = `https://api.openrouteservice.org/geocode/search?api_key=${OPENROUTE_API_KEY}&text=${encodeURIComponent(address)}&boundary.country=DE`;
     
     const geocodeResponse = await fetch(geocodeUrl);
@@ -105,42 +108,57 @@ serve(async (req) => {
       );
     }
 
-    const distanceKm = distanceMeters / 1000;
-    console.log('Distance:', distanceKm, 'km');
+    const oneWayDistanceKm = distanceMeters / 1000;
+    console.log('One-way distance:', oneWayDistanceKm, 'km');
 
     // Step 3: Calculate delivery cost based on distance
     let result: DeliveryCalculation;
 
-    if (distanceKm <= 1) {
+    if (oneWayDistanceKm <= 1) {
       // Free delivery within 1km, minimum order €50
       result = {
-        distanceKm: Math.round(distanceKm * 10) / 10,
+        distanceKm: Math.round(oneWayDistanceKm * 10) / 10,
         deliveryCost: 0,
         isFreeDelivery: true,
         minimumOrder: 50,
         message: 'Kostenlose Lieferung',
-        messageEn: 'Free delivery'
+        messageEn: 'Free delivery',
+        isRoundTrip: false,
+        oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };
-    } else if (distanceKm <= 25) {
+    } else if (oneWayDistanceKm <= 25) {
       // Flat €25 fee for 1-25km in Munich area, minimum order €150
+      // For pizza: single trip, for others: round trip (but flat fee anyway)
       result = {
-        distanceKm: Math.round(distanceKm * 10) / 10,
+        distanceKm: Math.round(oneWayDistanceKm * 10) / 10,
         deliveryCost: 25,
         isFreeDelivery: false,
         minimumOrder: 150,
         message: 'Lieferung im Münchner Raum',
-        messageEn: 'Delivery in Munich area'
+        messageEn: 'Delivery in Munich area',
+        isRoundTrip: !isPizzaOnly, // Round trip for equipment pickup, but flat fee
+        oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };
     } else {
-      // €1.28 per km outside Munich (gross price incl. 7% VAT)
-      const cost = Math.round(distanceKm * 1.28 * 100) / 100;
+      // Outside Munich: €1.28 per km (gross price incl. 7% VAT)
+      // Pizza: single trip (one-way), Equipment: round trip (×2)
+      const tripMultiplier = isPizzaOnly ? 1 : 2;
+      const totalDistanceKm = oneWayDistanceKm * tripMultiplier;
+      const cost = Math.round(totalDistanceKm * 1.28 * 100) / 100;
+      
       result = {
-        distanceKm: Math.round(distanceKm * 10) / 10,
+        distanceKm: Math.round(totalDistanceKm * 10) / 10,
         deliveryCost: cost,
         isFreeDelivery: false,
         minimumOrder: 200,
-        message: 'Lieferung außerhalb München',
-        messageEn: 'Delivery outside Munich'
+        message: isPizzaOnly 
+          ? `Lieferung außerhalb München (${Math.round(oneWayDistanceKm)} km)`
+          : `Lieferung außerhalb München (${Math.round(oneWayDistanceKm)} km × 2 Fahrten)`,
+        messageEn: isPizzaOnly
+          ? `Delivery outside Munich (${Math.round(oneWayDistanceKm)} km)`
+          : `Delivery outside Munich (${Math.round(oneWayDistanceKm)} km × 2 trips)`,
+        isRoundTrip: !isPizzaOnly,
+        oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };
     }
 
