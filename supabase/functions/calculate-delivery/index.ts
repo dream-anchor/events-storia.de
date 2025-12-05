@@ -132,8 +132,8 @@ serve(async (req) => {
         messageEn: 'Delivery in Munich area'
       };
     } else {
-      // €1.20 per km outside Munich
-      const cost = Math.round(distanceKm * 1.20 * 100) / 100;
+      // €1.28 per km outside Munich (gross price incl. 7% VAT)
+      const cost = Math.round(distanceKm * 1.28 * 100) / 100;
       result = {
         distanceKm: Math.round(distanceKm * 10) / 10,
         deliveryCost: cost,

@@ -1,10 +1,14 @@
 import { ShoppingCart } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
 import { cn } from '@/lib/utils';
 
 const CartButton = () => {
   const { totalItems, totalPrice, setIsOpen, isOpen } = useCart();
+  const location = useLocation();
 
+  // Hide on checkout page
+  if (location.pathname === '/checkout') return null;
   if (totalItems === 0) return null;
 
   return (
