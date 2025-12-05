@@ -17,7 +17,7 @@ export interface CateringOrder {
   total_amount: number | null;
   status: string | null;
   created_at: string | null;
-  // New fields for billing and delivery costs
+  // Billing and delivery costs
   billing_name: string | null;
   billing_street: string | null;
   billing_zip: string | null;
@@ -26,6 +26,12 @@ export interface CateringOrder {
   delivery_cost: number | null;
   minimum_order_surcharge: number | null;
   calculated_distance_km: number | null;
+  // Customer and payment info
+  user_id: string | null;
+  payment_method: string | null;
+  payment_status: string | null;
+  lexoffice_document_type: string | null;
+  lexoffice_invoice_id: string | null;
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';

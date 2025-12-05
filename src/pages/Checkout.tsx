@@ -128,6 +128,7 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState<'invoice' | 'stripe'>('invoice');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [newsletterSignup, setNewsletterSignup] = useState(true);
 
   // Pre-fill form with customer profile data
   useEffect(() => {
@@ -915,6 +916,19 @@ const Checkout = () => {
                         {emailError && (
                           <p className="text-sm text-destructive mt-1">{emailError}</p>
                         )}
+                        {/* Newsletter Signup */}
+                        <div className="flex items-start gap-2 mt-3">
+                          <Checkbox
+                            id="newsletter"
+                            checked={newsletterSignup}
+                            onCheckedChange={(checked) => setNewsletterSignup(checked as boolean)}
+                          />
+                          <Label htmlFor="newsletter" className="text-sm text-muted-foreground cursor-pointer leading-tight">
+                            {language === 'de' 
+                              ? 'Ja, ich möchte den STORIA Newsletter erhalten und über Angebote und Neuigkeiten informiert werden.'
+                              : 'Yes, I want to receive the STORIA newsletter and be informed about offers and news.'}
+                          </Label>
+                        </div>
                       </div>
                       <div>
                         <Label htmlFor="phone">{language === 'de' ? 'Telefon' : 'Phone'} *</Label>
