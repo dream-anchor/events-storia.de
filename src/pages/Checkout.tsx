@@ -715,9 +715,9 @@ const Checkout = () => {
                                     : 'Enter your full address to calculate delivery costs.'}
                                 </p>
                                 <ul className="space-y-1">
-                                  <li>✓ {language === 'de' ? 'Bis 1 km: Kostenlos (ab 50 €)' : 'Up to 1 km: Free (min. €50)'}</li>
-                                  <li>• {language === 'de' ? '1-25 km München: 25 € (ab 150 €)' : '1-25 km Munich: €25 (min. €150)'}</li>
-                                  <li>• {language === 'de' ? 'Außerhalb: 1,20 €/km (ab 200 €)' : 'Outside: €1.20/km (min. €200)'}</li>
+                                  <li>✓ {language === 'de' ? 'Bis 1 km: Kostenlos (Mindestbestellwert 50 €)' : 'Up to 1 km: Free (min. order €50)'}</li>
+                                  <li>• {language === 'de' ? '1-25 km München: 25 € (Mindestbestellwert 150 €)' : '1-25 km Munich: €25 (min. order €150)'}</li>
+                                  <li>• {language === 'de' ? 'Außerhalb: 1,20 €/km (Mindestbestellwert 200 €)' : 'Outside: €1.20/km (min. order €200)'}</li>
                                 </ul>
                               </div>
                             </div>
@@ -759,7 +759,11 @@ const Checkout = () => {
                             value={formData.date}
                             onChange={handleInputChange}
                             className="mt-1"
-                            min={new Date().toISOString().split('T')[0]}
+                            min={(() => {
+                              const tomorrow = new Date();
+                              tomorrow.setDate(tomorrow.getDate() + 1);
+                              return tomorrow.toISOString().split('T')[0];
+                            })()}
                           />
                         </div>
                         <div>
@@ -777,6 +781,11 @@ const Checkout = () => {
                           />
                         </div>
                       </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {language === 'de' 
+                          ? 'Bitte wählen Sie einen Termin mindestens 24 Stunden im Voraus.'
+                          : 'Please select a date at least 24 hours in advance.'}
+                      </p>
                     </div>
 
                     {/* Setup Service Option */}

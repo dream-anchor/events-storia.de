@@ -73,6 +73,18 @@ export const useAdminAuth = () => {
     return { error };
   };
 
+  const signUp = async (email: string, password: string) => {
+    const redirectUrl = `${window.location.origin}/admin-login`;
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl
+      }
+    });
+    return { error };
+  };
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     return { error };
@@ -84,6 +96,7 @@ export const useAdminAuth = () => {
     isAdmin,
     loading,
     signIn,
+    signUp,
     signOut,
   };
 };
