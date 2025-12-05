@@ -16,51 +16,75 @@ export type Database = {
     Tables: {
       catering_orders: {
         Row: {
+          billing_city: string | null
+          billing_country: string | null
+          billing_name: string | null
+          billing_street: string | null
+          billing_zip: string | null
+          calculated_distance_km: number | null
           company_name: string | null
           created_at: string | null
           customer_email: string
           customer_name: string
           customer_phone: string
           delivery_address: string | null
+          delivery_cost: number | null
           desired_date: string | null
           desired_time: string | null
           id: string
           is_pickup: boolean | null
           items: Json
+          minimum_order_surcharge: number | null
           notes: string | null
           order_number: string
           status: string | null
           total_amount: number | null
         }
         Insert: {
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_name?: string | null
+          billing_street?: string | null
+          billing_zip?: string | null
+          calculated_distance_km?: number | null
           company_name?: string | null
           created_at?: string | null
           customer_email: string
           customer_name: string
           customer_phone: string
           delivery_address?: string | null
+          delivery_cost?: number | null
           desired_date?: string | null
           desired_time?: string | null
           id?: string
           is_pickup?: boolean | null
           items: Json
+          minimum_order_surcharge?: number | null
           notes?: string | null
           order_number: string
           status?: string | null
           total_amount?: number | null
         }
         Update: {
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_name?: string | null
+          billing_street?: string | null
+          billing_zip?: string | null
+          calculated_distance_km?: number | null
           company_name?: string | null
           created_at?: string | null
           customer_email?: string
           customer_name?: string
           customer_phone?: string
           delivery_address?: string | null
+          delivery_cost?: number | null
           desired_date?: string | null
           desired_time?: string | null
           id?: string
           is_pickup?: boolean | null
           items?: Json
+          minimum_order_surcharge?: number | null
           notes?: string | null
           order_number?: string
           status?: string | null
