@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import SEO from '@/components/SEO';
 import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -41,6 +42,7 @@ import {
 const Checkout = () => {
   const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
   const { language } = useLanguage();
+  const { formatPrice, showGross } = usePriceDisplay();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -387,7 +389,7 @@ const Checkout = () => {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{name}</p>
-                  <p className="text-xs text-muted-foreground">{item.quantity}× {item.price.toFixed(2).replace('.', ',')} €</p>
+                  <p className="text-xs text-muted-foreground">{item.quantity}× {formatPrice(item.price)}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -423,7 +425,7 @@ const Checkout = () => {
       <div className="space-y-2 pt-2 border-t border-border">
         <div className="flex justify-between items-center text-sm">
           <span className="text-muted-foreground">{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
-          <span>{totalPrice.toFixed(2).replace('.', ',')} €</span>
+          <span>{formatPrice(totalPrice)}</span>
         </div>
         {minimumOrderSurcharge > 0 && (
           <div className="flex justify-between items-center text-sm text-amber-600 dark:text-amber-400">
@@ -431,7 +433,7 @@ const Checkout = () => {
               <Info className="h-3 w-3" />
               {language === 'de' ? 'Mindestbest.-Aufschlag' : 'Min. order surcharge'}
             </span>
-            <span>+{minimumOrderSurcharge.toFixed(2).replace('.', ',')} €</span>
+            <span>+{formatPrice(minimumOrderSurcharge)}</span>
           </div>
         )}
         {formData.deliveryType === 'delivery' && deliveryCalc && (
@@ -448,7 +450,7 @@ const Checkout = () => {
               <span>
                 {deliveryCalc.isFreeDelivery 
                   ? (language === 'de' ? 'Kostenlos' : 'Free')
-                  : `${deliveryCalc.deliveryCostGross.toFixed(2).replace('.', ',')} €`}
+                  : formatPrice(deliveryCalc.deliveryCostGross, 0.19)}
               </span>
             </div>
           </div>
@@ -479,8 +481,16 @@ const Checkout = () => {
         </div>
         
         <div className="flex justify-between items-center pt-3 border-t border-border">
-          <span className="font-semibold">{language === 'de' ? 'Gesamtbetrag (brutto)' : 'Total (gross)'}</span>
-          <span className="text-xl font-bold text-primary">{grandTotal.toFixed(2).replace('.', ',')} €</span>
+          <span className="font-semibold">
+            {language === 'de' 
+              ? `Gesamtbetrag (${showGross ? 'brutto' : 'netto'})`
+              : `Total (${showGross ? 'gross' : 'net'})`}
+          </span>
+          <span className="text-xl font-bold text-primary">
+            {showGross 
+              ? formatPrice(grandTotal)
+              : formatPrice(totalNet, 0)}
+          </span>
         </div>
       </div>
 
@@ -494,8 +504,8 @@ const Checkout = () => {
         {isSubmitting 
           ? (language === 'de' ? 'Wird gesendet...' : 'Sending...')
           : (language === 'de' 
-              ? `Anfragen · ${grandTotal.toFixed(2).replace('.', ',')} €`
-              : `Submit · €${grandTotal.toFixed(2)}`)}
+              ? `Anfragen · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`
+              : `Submit · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`)}
       </Button>
 
       {/* Trust Elements */}
@@ -542,7 +552,7 @@ const Checkout = () => {
                       <CollapsibleTrigger className="flex items-center justify-between w-full">
                         <span className="font-serif text-lg">{language === 'de' ? 'Ihre Auswahl' : 'Your Selection'} ({items.length})</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-primary">{grandTotal.toFixed(2).replace('.', ',')} €</span>
+                          <span className="font-bold text-primary">{showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}</span>
                           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
                         </div>
                       </CollapsibleTrigger>
@@ -557,7 +567,7 @@ const Checkout = () => {
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm truncate">{name}</p>
-                                  <p className="text-xs text-muted-foreground">{item.quantity}× {item.price.toFixed(2).replace('.', ',')} €</p>
+                                  <p className="text-xs text-muted-foreground">{item.quantity}× {formatPrice(item.price)}</p>
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <button
