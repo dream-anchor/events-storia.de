@@ -183,7 +183,8 @@ const Checkout = () => {
         };
 
     try {
-      const { error } = await supabase
+      // Insert order and get the ID back
+      const { data: orderData, error } = await supabase
         .from('catering_orders')
         .insert({
           order_number: newOrderNumber,
@@ -204,7 +205,6 @@ const Checkout = () => {
             price: item.price
           })),
           total_amount: grandTotal,
-          // New fields
           billing_name: billingAddress.name || null,
           billing_street: billingAddress.street || null,
           billing_zip: billingAddress.zip || null,
@@ -213,9 +213,13 @@ const Checkout = () => {
           delivery_cost: deliveryCalc?.deliveryCost || 0,
           minimum_order_surcharge: minimumOrderSurcharge,
           calculated_distance_km: deliveryCalc?.distanceKm || null
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
+
+      const orderId = orderData?.id;
 
       // Send email notifications
       try {
@@ -252,6 +256,44 @@ const Checkout = () => {
         }
       } catch (emailError) {
         console.error('Email notification error:', emailError);
+      }
+
+      // Create Lexoffice invoice (graceful - won't block order if it fails)
+      try {
+        const invoiceResponse = await supabase.functions.invoke('create-lexoffice-invoice', {
+          body: {
+            orderId: orderId,
+            orderNumber: newOrderNumber,
+            customerName: formData.name,
+            customerEmail: formData.email,
+            customerPhone: formData.phone,
+            companyName: formData.company || undefined,
+            billingAddress: billingAddress,
+            items: items.map(item => ({
+              id: item.id,
+              name: item.name,
+              name_en: item.name_en,
+              quantity: item.quantity,
+              price: item.price
+            })),
+            subtotal: totalPrice,
+            deliveryCost: deliveryCalc?.deliveryCost || 0,
+            minimumOrderSurcharge: minimumOrderSurcharge,
+            distanceKm: deliveryCalc?.distanceKm || undefined,
+            grandTotal: grandTotal,
+            isPickup: formData.deliveryType === 'pickup'
+          }
+        });
+        
+        if (invoiceResponse.error) {
+          console.warn('Lexoffice invoice creation failed:', invoiceResponse.error);
+        } else if (invoiceResponse.data?.skipped) {
+          console.log('Lexoffice invoice skipped:', invoiceResponse.data.reason);
+        } else {
+          console.log('Lexoffice invoice created:', invoiceResponse.data?.invoiceId);
+        }
+      } catch (invoiceError) {
+        console.warn('Lexoffice invoice error:', invoiceError);
       }
 
       setOrderNumber(newOrderNumber);

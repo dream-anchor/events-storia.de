@@ -34,6 +34,8 @@ export type Database = {
           id: string
           is_pickup: boolean | null
           items: Json
+          lexoffice_contact_id: string | null
+          lexoffice_invoice_id: string | null
           minimum_order_surcharge: number | null
           notes: string | null
           order_number: string
@@ -59,6 +61,8 @@ export type Database = {
           id?: string
           is_pickup?: boolean | null
           items: Json
+          lexoffice_contact_id?: string | null
+          lexoffice_invoice_id?: string | null
           minimum_order_surcharge?: number | null
           notes?: string | null
           order_number: string
@@ -84,6 +88,8 @@ export type Database = {
           id?: string
           is_pickup?: boolean | null
           items?: Json
+          lexoffice_contact_id?: string | null
+          lexoffice_invoice_id?: string | null
           minimum_order_surcharge?: number | null
           notes?: string | null
           order_number?: string
