@@ -24,6 +24,8 @@ interface DeliveryCalculation {
   minimumOrder: number;
   message: string;
   messageEn: string;
+  isRoundTrip: boolean;
+  oneWayDistanceKm: number;
 }
 import {
   Dialog,
@@ -65,8 +67,11 @@ const Checkout = () => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [addressDebounce, setAddressDebounce] = useState<NodeJS.Timeout | null>(null);
 
+  // Check if order contains only pizza (no equipment pickup needed)
+  const isPizzaOnly = items.length > 0 && items.every(item => item.category === 'pizza');
+
   // Calculate delivery cost when address changes
-  const calculateDelivery = useCallback(async (address: string) => {
+  const calculateDelivery = useCallback(async (address: string, pizzaOnlyOrder: boolean) => {
     if (!address || address.trim().length < 10) {
       setDeliveryCalc(null);
       return;
@@ -75,7 +80,7 @@ const Checkout = () => {
     setIsCalculating(true);
     try {
       const { data, error } = await supabase.functions.invoke('calculate-delivery', {
-        body: { address }
+        body: { address, isPizzaOnly: pizzaOnlyOrder }
       });
 
       if (error) {
@@ -112,21 +117,21 @@ const Checkout = () => {
     // Set new debounced calculation
     const timeout = setTimeout(() => {
       if (formData.deliveryType === 'delivery') {
-        calculateDelivery(newAddress);
+        calculateDelivery(newAddress, isPizzaOnly);
       }
     }, 1000);
 
     setAddressDebounce(timeout);
   };
 
-  // Recalculate when switching to delivery
+  // Recalculate when switching to delivery or when cart changes (pizza vs non-pizza)
   useEffect(() => {
     if (formData.deliveryType === 'delivery' && formData.address.length >= 10) {
-      calculateDelivery(formData.address);
+      calculateDelivery(formData.address, isPizzaOnly);
     } else {
       setDeliveryCalc(null);
     }
-  }, [formData.deliveryType]);
+  }, [formData.deliveryType, isPizzaOnly]);
 
   // Calculate minimum order surcharge if needed
   const minimumOrderSurcharge = deliveryCalc && totalPrice < deliveryCalc.minimumOrder 
@@ -415,13 +420,22 @@ const Checkout = () => {
               </div>
             )}
             {formData.deliveryType === 'delivery' && deliveryCalc && (
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
-                <span>
-                  {deliveryCalc.isFreeDelivery 
-                    ? (language === 'de' ? 'Kostenlos' : 'Free')
-                    : `${deliveryCalc.deliveryCost.toFixed(2).replace('.', ',')} €`}
-                </span>
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">
+                    {language === 'de' ? 'Lieferung' : 'Delivery'}
+                    {deliveryCalc.isRoundTrip && deliveryCalc.oneWayDistanceKm > 25 && (
+                      <span className="text-xs block text-muted-foreground/70">
+                        ({deliveryCalc.oneWayDistanceKm} km × 2)
+                      </span>
+                    )}
+                  </span>
+                  <span>
+                    {deliveryCalc.isFreeDelivery 
+                      ? (language === 'de' ? 'Kostenlos' : 'Free')
+                      : `${deliveryCalc.deliveryCost.toFixed(2).replace('.', ',')} €`}
+                  </span>
+                </div>
               </div>
             )}
             {formData.deliveryType === 'pickup' && (
@@ -699,7 +713,15 @@ const Checkout = () => {
                                       {language === 'de' ? deliveryCalc.message : deliveryCalc.messageEn}
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                      {language === 'de' ? 'Entfernung' : 'Distance'}: {deliveryCalc.distanceKm} km
+                                      {deliveryCalc.isRoundTrip ? (
+                                        language === 'de' 
+                                          ? `${deliveryCalc.oneWayDistanceKm} km × 2 Fahrten (Hin + Rück)`
+                                          : `${deliveryCalc.oneWayDistanceKm} km × 2 trips (there & back)`
+                                      ) : (
+                                        language === 'de' 
+                                          ? `Entfernung: ${deliveryCalc.distanceKm} km`
+                                          : `Distance: ${deliveryCalc.distanceKm} km`
+                                      )}
                                     </p>
                                   </div>
                                   <div className="text-right">
@@ -714,6 +736,24 @@ const Checkout = () => {
                                     )}
                                   </div>
                                 </div>
+                                
+                                {/* Round trip explanation */}
+                                {deliveryCalc.isRoundTrip && deliveryCalc.oneWayDistanceKm > 25 && (
+                                  <p className="text-xs text-muted-foreground mb-2 italic">
+                                    {language === 'de' 
+                                      ? 'Hin- und Rückfahrt für Equipment-Abholung (Geschirr, Wärmebehälter etc.)'
+                                      : 'Round trip for equipment pickup (dishes, warming containers etc.)'}
+                                  </p>
+                                )}
+                                
+                                {/* Pizza only - no round trip */}
+                                {!deliveryCalc.isRoundTrip && !deliveryCalc.isFreeDelivery && deliveryCalc.oneWayDistanceKm > 25 && (
+                                  <p className="text-xs text-green-600 dark:text-green-400 mb-2">
+                                    {language === 'de' 
+                                      ? '✓ Nur Hinfahrt – Einwegverpackung, keine Rückfahrt nötig'
+                                      : '✓ One-way only – disposable packaging, no return trip needed'}
+                                  </p>
+                                )}
                                 
                                 {minimumOrderSurcharge > 0 && (
                                   <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
@@ -744,7 +784,12 @@ const Checkout = () => {
                                 <ul className="space-y-1">
                                   <li>✓ {language === 'de' ? 'Bis 1 km: Kostenlos (Mindestbestellwert 50 €)' : 'Up to 1 km: Free (min. order €50)'}</li>
                                   <li>• {language === 'de' ? '1-25 km München: 25 € (Mindestbestellwert 150 €)' : '1-25 km Munich: €25 (min. order €150)'}</li>
-                                  <li>• {language === 'de' ? 'Außerhalb: 1,28 €/km brutto (Mindestbestellwert 200 €)' : 'Outside: €1.28/km gross (min. order €200)'}</li>
+                                  <li>• {language === 'de' ? 'Außerhalb: 1,28 €/km × 2 Fahrten (Mindestbestellwert 200 €)' : 'Outside: €1.28/km × 2 trips (min. order €200)'}</li>
+                                  <li className="text-xs text-muted-foreground pl-4">
+                                    {language === 'de' 
+                                      ? '(Bei reinen Pizza-Bestellungen nur einfache Fahrt)'
+                                      : '(Pizza-only orders: single trip only)'}
+                                  </li>
                                 </ul>
                               </div>
                             </div>

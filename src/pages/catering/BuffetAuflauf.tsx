@@ -134,7 +134,8 @@ const DishCard = ({ dish, language }: DishCardProps) => {
       name_en: dish.name_en,
       price: dish.price,
       image: dish.image,
-      serving_info: language === 'de' ? dish.serving_info : dish.serving_info_en
+      serving_info: language === 'de' ? dish.serving_info : dish.serving_info_en,
+      category: 'buffet',
     }, quantity);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -215,7 +216,8 @@ const ChafingDishOption = ({ language }: { language: string }) => {
       id: chafingDish.id,
       name: chafingDish.name,
       name_en: chafingDish.name_en,
-      price: chafingDish.price
+      price: chafingDish.price,
+      category: 'equipment',
     }, quantity);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);

@@ -84,6 +84,7 @@ const PizzaListItem = ({ pizza, language }: { pizza: Pizza; language: string }) 
       name: pizza.name,
       name_en: pizza.name_en,
       price: pizza.price,
+      category: 'pizza',
     }, quantity);
     setQuantity(1);
   };
@@ -162,6 +163,7 @@ const PizzaPaneCard = ({ language }: { language: string }) => {
       name: pizzaPane.name,
       name_en: pizzaPane.name_en,
       price: pizzaPane.price,
+      category: 'pizza',
     }, quantity);
     setQuantity(1);
   };
