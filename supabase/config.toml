@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.calculate-delivery]
 verify_jwt = false
+
+[functions.create-lexoffice-invoice]
+verify_jwt = false
