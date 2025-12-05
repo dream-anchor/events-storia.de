@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
@@ -12,9 +12,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles } from 'lucide-react';
+import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+interface DeliveryCalculation {
+  distanceKm: number;
+  deliveryCost: number;
+  isFreeDelivery: boolean;
+  minimumOrder: number;
+  message: string;
+  messageEn: string;
+}
 import {
   Dialog,
   DialogContent,
@@ -43,6 +52,76 @@ const Checkout = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
+  const [deliveryCalc, setDeliveryCalc] = useState<DeliveryCalculation | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [addressDebounce, setAddressDebounce] = useState<NodeJS.Timeout | null>(null);
+
+  // Calculate delivery cost when address changes
+  const calculateDelivery = useCallback(async (address: string) => {
+    if (!address || address.trim().length < 10) {
+      setDeliveryCalc(null);
+      return;
+    }
+
+    setIsCalculating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('calculate-delivery', {
+        body: { address }
+      });
+
+      if (error) {
+        console.error('Delivery calculation error:', error);
+        setDeliveryCalc(null);
+        return;
+      }
+
+      if (data.error) {
+        console.error('Delivery calculation failed:', data.error);
+        setDeliveryCalc(null);
+        return;
+      }
+
+      setDeliveryCalc(data as DeliveryCalculation);
+    } catch (err) {
+      console.error('Delivery calculation error:', err);
+      setDeliveryCalc(null);
+    } finally {
+      setIsCalculating(false);
+    }
+  }, []);
+
+  // Debounced address change handler
+  const handleAddressChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newAddress = e.target.value;
+    setFormData(prev => ({ ...prev, address: newAddress }));
+
+    // Clear previous timeout
+    if (addressDebounce) {
+      clearTimeout(addressDebounce);
+    }
+
+    // Set new debounced calculation
+    const timeout = setTimeout(() => {
+      if (formData.deliveryType === 'delivery') {
+        calculateDelivery(newAddress);
+      }
+    }, 1000);
+
+    setAddressDebounce(timeout);
+  };
+
+  // Recalculate when switching to delivery
+  useEffect(() => {
+    if (formData.deliveryType === 'delivery' && formData.address.length >= 10) {
+      calculateDelivery(formData.address);
+    } else {
+      setDeliveryCalc(null);
+    }
+  }, [formData.deliveryType]);
+
+  // Total with delivery
+  const grandTotal = totalPrice + (deliveryCalc?.deliveryCost || 0);
+  const meetsMinimum = !deliveryCalc || totalPrice >= deliveryCalc.minimumOrder;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -235,9 +314,25 @@ const Checkout = () => {
                     );
                   })}
                 </div>
-                <div className="flex justify-between items-center mt-4 pt-4 border-t border-border">
-                  <span className="font-medium">{language === 'de' ? 'Gesamt' : 'Total'}</span>
-                  <span className="text-xl font-bold text-primary">{totalPrice.toFixed(2).replace('.', ',')} €</span>
+                <div className="mt-4 pt-4 border-t border-border space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
+                    <span className="font-medium">{totalPrice.toFixed(2).replace('.', ',')} €</span>
+                  </div>
+                  {formData.deliveryType === 'delivery' && deliveryCalc && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'} ({deliveryCalc.distanceKm} km)</span>
+                      <span className="font-medium">
+                        {deliveryCalc.isFreeDelivery 
+                          ? (language === 'de' ? 'Kostenlos' : 'Free')
+                          : `${deliveryCalc.deliveryCost.toFixed(2).replace('.', ',')} €`}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-2 border-t border-border">
+                    <span className="font-medium">{language === 'de' ? 'Gesamt' : 'Total'}</span>
+                    <span className="text-xl font-bold text-primary">{grandTotal.toFixed(2).replace('.', ',')} €</span>
+                  </div>
                 </div>
               </section>
 
@@ -332,7 +427,7 @@ const Checkout = () => {
                         id="address"
                         name="address"
                         value={formData.address}
-                        onChange={handleInputChange}
+                        onChange={handleAddressChange}
                         required={formData.deliveryType === 'delivery'}
                         className="mt-1"
                         rows={2}
@@ -340,26 +435,78 @@ const Checkout = () => {
                       />
                     </div>
 
-                    {/* Delivery Info Box */}
-                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-4">
-                      <div className="flex items-start gap-3">
-                        <Info className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                        <div className="text-sm">
-                          <p className="font-medium text-foreground mb-1">
-                            {language === 'de' ? 'Lieferinformationen' : 'Delivery Information'}
-                          </p>
-                          <ul className="text-muted-foreground space-y-1">
-                            <li>✓ {language === 'de' ? 'Bis 1 km: Kostenlose Lieferung' : 'Up to 1 km: Free delivery'}</li>
-                            <li>⚠ {language === 'de' ? 'Über 1 km: Lieferkosten nach Vereinbarung' : 'Over 1 km: Delivery costs by arrangement'}</li>
-                          </ul>
-                          <p className="text-xs mt-2 text-muted-foreground">
-                            {language === 'de' 
-                              ? 'Wir kontaktieren Sie zur Abstimmung der Lieferdetails.'
-                              : 'We will contact you to coordinate delivery details.'}
-                          </p>
+                    {/* Delivery Calculation Result */}
+                    {isCalculating && (
+                      <div className="bg-muted/50 rounded-lg p-4 mb-4 flex items-center gap-3">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <span className="text-sm text-muted-foreground">
+                          {language === 'de' ? 'Berechne Lieferentfernung...' : 'Calculating delivery distance...'}
+                        </span>
+                      </div>
+                    )}
+
+                    {deliveryCalc && !isCalculating && (
+                      <div className={`rounded-lg p-4 mb-4 border ${meetsMinimum ? 'bg-primary/5 border-primary/20' : 'bg-destructive/10 border-destructive/20'}`}>
+                        <div className="flex items-start gap-3">
+                          <Truck className={`h-5 w-5 mt-0.5 shrink-0 ${meetsMinimum ? 'text-primary' : 'text-destructive'}`} />
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <p className="font-medium text-foreground">
+                                  {language === 'de' ? deliveryCalc.message : deliveryCalc.messageEn}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {language === 'de' ? 'Entfernung' : 'Distance'}: {deliveryCalc.distanceKm} km
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                {deliveryCalc.isFreeDelivery ? (
+                                  <span className="text-lg font-bold text-primary">
+                                    {language === 'de' ? 'Kostenlos' : 'Free'}
+                                  </span>
+                                ) : (
+                                  <span className="text-lg font-bold text-foreground">
+                                    {deliveryCalc.deliveryCost.toFixed(2).replace('.', ',')} €
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {!meetsMinimum && (
+                              <p className="text-sm text-destructive font-medium">
+                                {language === 'de' 
+                                  ? `Mindestbestellwert: ${deliveryCalc.minimumOrder} € (fehlen noch ${(deliveryCalc.minimumOrder - totalPrice).toFixed(2).replace('.', ',')} €)`
+                                  : `Minimum order: €${deliveryCalc.minimumOrder} (need €${(deliveryCalc.minimumOrder - totalPrice).toFixed(2)} more)`}
+                              </p>
+                            )}
+                            
+                            <p className="text-xs mt-2 text-muted-foreground">
+                              {language === 'de' ? 'zzgl. MwSt.' : 'excl. VAT'}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
+
+                    {!deliveryCalc && !isCalculating && formData.address.length < 10 && (
+                      <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                        <div className="flex items-start gap-3">
+                          <Info className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                          <div className="text-sm text-muted-foreground">
+                            <p className="mb-2">
+                              {language === 'de' 
+                                ? 'Geben Sie Ihre vollständige Adresse ein, um die Lieferkosten zu berechnen.'
+                                : 'Enter your full address to calculate delivery costs.'}
+                            </p>
+                            <ul className="space-y-1">
+                              <li>✓ {language === 'de' ? 'Bis 1 km: Kostenlos (ab 50 €)' : 'Up to 1 km: Free (min. €50)'}</li>
+                              <li>• {language === 'de' ? '1-25 km München: 25 € (ab 150 €)' : '1-25 km Munich: €25 (min. €150)'}</li>
+                              <li>• {language === 'de' ? 'Außerhalb: 1,20 €/km (ab 200 €)' : 'Outside: €1.20/km (min. €200)'}</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
 
@@ -460,11 +607,23 @@ const Checkout = () => {
                     ? 'Diese Anfrage ist unverbindlich. Wir kontaktieren Sie zur Bestätigung.'
                     : 'This request is non-binding. We will contact you to confirm.'}
                 </p>
-                <Button type="submit" size="lg" className="px-12" disabled={isSubmitting}>
+                <Button 
+                  type="submit" 
+                  size="lg" 
+                  className="px-12" 
+                  disabled={isSubmitting || (formData.deliveryType === 'delivery' && deliveryCalc && !meetsMinimum)}
+                >
                   {isSubmitting 
                     ? (language === 'de' ? 'Wird gesendet...' : 'Sending...')
                     : (language === 'de' ? 'Unverbindlich anfragen' : 'Submit Request')}
                 </Button>
+                {formData.deliveryType === 'delivery' && deliveryCalc && !meetsMinimum && (
+                  <p className="text-sm text-destructive mt-2">
+                    {language === 'de' 
+                      ? `Mindestbestellwert von ${deliveryCalc.minimumOrder} € nicht erreicht`
+                      : `Minimum order of €${deliveryCalc.minimumOrder} not met`}
+                  </p>
+                )}
               </div>
             </form>
           </div>
