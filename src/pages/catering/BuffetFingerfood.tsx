@@ -119,12 +119,12 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
             )}
           </div>
           <div className="text-right">
-            {item.price_display ? (
-              <span className="font-semibold text-primary">{item.price_display}</span>
-            ) : item.price ? (
+            {item.price ? (
               <span className="font-semibold text-primary">
                 {formatPrice(item.price)}
               </span>
+            ) : item.price_display ? (
+              <span className="font-semibold text-primary">{item.price_display}</span>
             ) : null}
           </div>
         </div>
