@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Phone, Mail, Building2, MapPin, Calendar, Clock, FileText } from 'lucide-react';
+import { Phone, Mail, Building2, MapPin, Calendar, Clock, FileText, Ruler, Receipt } from 'lucide-react';
 
 interface CateringOrderDetailProps {
   order: CateringOrder | null;
@@ -132,6 +132,12 @@ const CateringOrderDetail = ({ order, open, onOpenChange }: CateringOrderDetailP
                   {order.delivery_address}
                 </p>
               )}
+              {order.calculated_distance_km != null && order.calculated_distance_km > 0 && (
+                <p className="flex items-center gap-2 text-sm">
+                  <Ruler className="h-4 w-4" />
+                  Entfernung: {order.calculated_distance_km.toFixed(1).replace('.', ',')} km
+                </p>
+              )}
               {order.desired_date && (
                 <p className="flex items-center gap-2 text-sm">
                   <Calendar className="h-4 w-4" />
@@ -147,7 +153,33 @@ const CateringOrderDetail = ({ order, open, onOpenChange }: CateringOrderDetailP
             </div>
           </div>
 
-          {/* Bestellte Artikel */}
+          {/* Rechnungsadresse */}
+          {order.billing_name && (
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">
+                Rechnungsadresse
+              </h3>
+              <div className="bg-muted/50 rounded-lg p-4 space-y-1">
+                <p className="flex items-center gap-2 text-sm font-medium">
+                  <Receipt className="h-4 w-4" />
+                  {order.billing_name}
+                </p>
+                {order.billing_street && (
+                  <p className="text-sm text-muted-foreground pl-6">{order.billing_street}</p>
+                )}
+                {(order.billing_zip || order.billing_city) && (
+                  <p className="text-sm text-muted-foreground pl-6">
+                    {order.billing_zip} {order.billing_city}
+                  </p>
+                )}
+                {order.billing_country && order.billing_country !== 'Deutschland' && (
+                  <p className="text-sm text-muted-foreground pl-6">{order.billing_country}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Bestellte Artikel & Preisübersicht */}
           <div className="space-y-3">
             <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">
               Bestellte Artikel
@@ -172,10 +204,43 @@ const CateringOrderDetail = ({ order, open, onOpenChange }: CateringOrderDetailP
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="bg-muted font-medium">
-                  <tr>
+                <tfoot className="bg-muted/50">
+                  {/* Zwischensumme */}
+                  <tr className="border-t">
+                    <td className="p-3" colSpan={2}>Zwischensumme</td>
+                    <td className="p-3 text-right">
+                      {items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1), 0).toFixed(2).replace('.', ',')} €
+                    </td>
+                  </tr>
+                  {/* Mindestbestellwert-Aufschlag */}
+                  {order.minimum_order_surcharge != null && order.minimum_order_surcharge > 0 && (
+                    <tr className="border-t text-amber-600 dark:text-amber-400">
+                      <td className="p-3" colSpan={2}>Mindestbestellwert-Aufschlag</td>
+                      <td className="p-3 text-right">
+                        +{order.minimum_order_surcharge.toFixed(2).replace('.', ',')} €
+                      </td>
+                    </tr>
+                  )}
+                  {/* Lieferkosten */}
+                  {order.delivery_cost != null && order.delivery_cost > 0 && (
+                    <tr className="border-t">
+                      <td className="p-3" colSpan={2}>
+                        Lieferkosten
+                        {order.calculated_distance_km != null && order.calculated_distance_km > 0 && (
+                          <span className="text-muted-foreground ml-1">
+                            ({order.calculated_distance_km.toFixed(1).replace('.', ',')} km)
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 text-right">
+                        +{order.delivery_cost.toFixed(2).replace('.', ',')} €
+                      </td>
+                    </tr>
+                  )}
+                  {/* Gesamtsumme */}
+                  <tr className="border-t-2 border-primary/30 font-semibold bg-muted">
                     <td className="p-3" colSpan={2}>Gesamtsumme</td>
-                    <td className="p-3 text-right text-primary">
+                    <td className="p-3 text-right text-primary text-base">
                       {(order.total_amount || 0).toFixed(2).replace('.', ',')} €
                     </td>
                   </tr>
