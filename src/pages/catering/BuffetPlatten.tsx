@@ -7,7 +7,8 @@ import SEO from "@/components/SEO";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
-import { Plus, Minus, ShoppingCart, Check, Truck, Utensils, Sparkles } from "lucide-react";
+import { Plus, Minus, ShoppingCart, Check, Wheat } from "lucide-react";
+import { HighlightCard, ServicesGrid } from "@/components/catering/ServiceInfoCard";
 
 // Import images
 import spiediniImg from "@/assets/catering/platten/spiedini.webp";
@@ -312,15 +313,14 @@ const BuffetPlatten = () => {
             </div>
 
             {/* Steinhofenbrot Info */}
-            <div className="max-w-3xl mx-auto mb-12">
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 text-center">
-                <p className="text-sm text-primary font-medium">
-                  🍞 {language === 'de' 
-                    ? 'Zu jeder Platte servieren wir unser hausgemachtes Steinhofenbrot'
-                    : 'With every platter we serve our homemade stone-oven bread'}
-                </p>
-              </div>
-            </div>
+            <HighlightCard
+              icon={Wheat}
+              title="Hausgemachtes Steinhofenbrot"
+              title_en="Homemade Stone Oven Bread"
+              description="Zu jeder Platte servieren wir unser frisch gebackenes Brot aus dem Steinofen."
+              description_en="We serve our freshly baked stone oven bread with every platter."
+              className="max-w-3xl mx-auto mb-8"
+            />
 
             {/* Menu Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
@@ -335,49 +335,11 @@ const BuffetPlatten = () => {
                 : 'All platters can be customized to your preferences.'}
             </p>
 
-            {/* Zusatzleistungen Box */}
-            <div className="max-w-3xl mx-auto mt-16">
-              <div className="bg-card border border-border rounded-lg p-6 md:p-8">
-                <h2 className="text-xl font-serif font-medium mb-6 text-center">
-                  {language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                    <Truck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm">
-                        {language === 'de' ? 'Lieferung & Abholung' : 'Delivery & Pickup'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {language === 'de' ? 'Kostenlos im nahen Umkreis' : 'Free within nearby area'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                    <Utensils className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm">
-                        {language === 'de' ? 'Aufbau & Service' : 'Setup & Service'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {language === 'de' ? 'Optional buchbar' : 'Optionally bookable'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                    <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm">
-                        {language === 'de' ? 'Reinigung' : 'Cleaning'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {language === 'de' ? 'Im Preis inklusive' : 'Included in price'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Zusatzleistungen */}
+            <ServicesGrid 
+              title={language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
+              className="mt-16"
+            />
           </section>
           
           <CateringCTA />
