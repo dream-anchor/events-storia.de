@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
+import { CartProvider } from "@/contexts/CartContext";
 import Index from "./pages/Index";
 import Kontakt from "./pages/Kontakt";
 import NotFound from "./pages/NotFound";
@@ -23,6 +24,9 @@ import FloatingActions from "./components/FloatingActions";
 import CookieBanner from "./components/CookieBanner";
 import CookieSettingsButton from "./components/CookieSettingsButton";
 import ScrollToTop from "./components/ScrollToTop";
+import CartButton from "./components/cart/CartButton";
+import CartSheet from "./components/cart/CartSheet";
+import Checkout from "./pages/Checkout";
 
 // Catering Pages
 import BuffetFingerfood from "./pages/catering/BuffetFingerfood";
@@ -43,45 +47,52 @@ const App = () => {
     <TooltipProvider>
       <LanguageProvider>
         <CookieConsentProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <ScrollToTop />
-            <FloatingActions />
-            <CookieBanner />
-            <CookieSettingsButton />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/kontakt" element={<Kontakt />} />
-              
-              {/* Catering Pages */}
-              <Route path="/catering/buffet-fingerfood" element={<BuffetFingerfood />} />
-              <Route path="/catering/buffet-platten" element={<BuffetPlatten />} />
-              <Route path="/catering/buffet-auflauf" element={<BuffetAuflauf />} />
-              <Route path="/catering/pizze-napoletane" element={<PizzeNapoletane />} />
-              <Route path="/catering/antipasti" element={<Antipasti />} />
-              <Route path="/catering/desserts" element={<Desserts />} />
-              <Route path="/catering/business-lunch" element={<BusinessLunch />} />
-              <Route path="/catering/catering-zuhause" element={<CateringZuhause />} />
-              
-              {/* Admin */}
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/admin/login" element={<AdminLogin />} />
-              
-              {/* Legal Pages */}
-              <Route path="/impressum" element={<Impressum />} />
-              <Route path="/datenschutz" element={<Datenschutz />} />
-              <Route path="/cookie-richtlinie" element={<CookieRichtlinie />} />
-              <Route path="/agb-restaurant" element={<AGBRestaurant />} />
-              <Route path="/agb-gutscheine" element={<AGBGutscheine />} />
-              <Route path="/widerrufsbelehrung" element={<Widerrufsbelehrung />} />
-              <Route path="/zahlungsinformationen" element={<Zahlungsinformationen />} />
-              <Route path="/lebensmittelhinweise" element={<Lebensmittelhinweise />} />
-              <Route path="/haftungsausschluss" element={<Haftungsausschluss />} />
-              
-            <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+          <CartProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <ScrollToTop />
+              <FloatingActions />
+              <CartButton />
+              <CartSheet />
+              <CookieBanner />
+              <CookieSettingsButton />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/kontakt" element={<Kontakt />} />
+                
+                {/* Catering Pages */}
+                <Route path="/catering/buffet-fingerfood" element={<BuffetFingerfood />} />
+                <Route path="/catering/buffet-platten" element={<BuffetPlatten />} />
+                <Route path="/catering/buffet-auflauf" element={<BuffetAuflauf />} />
+                <Route path="/catering/pizze-napoletane" element={<PizzeNapoletane />} />
+                <Route path="/catering/antipasti" element={<Antipasti />} />
+                <Route path="/catering/desserts" element={<Desserts />} />
+                <Route path="/catering/business-lunch" element={<BusinessLunch />} />
+                <Route path="/catering/catering-zuhause" element={<CateringZuhause />} />
+                
+                {/* Checkout */}
+                <Route path="/checkout" element={<Checkout />} />
+                
+                {/* Admin */}
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/admin/login" element={<AdminLogin />} />
+                
+                {/* Legal Pages */}
+                <Route path="/impressum" element={<Impressum />} />
+                <Route path="/datenschutz" element={<Datenschutz />} />
+                <Route path="/cookie-richtlinie" element={<CookieRichtlinie />} />
+                <Route path="/agb-restaurant" element={<AGBRestaurant />} />
+                <Route path="/agb-gutscheine" element={<AGBGutscheine />} />
+                <Route path="/widerrufsbelehrung" element={<Widerrufsbelehrung />} />
+                <Route path="/zahlungsinformationen" element={<Zahlungsinformationen />} />
+                <Route path="/lebensmittelhinweise" element={<Lebensmittelhinweise />} />
+                <Route path="/haftungsausschluss" element={<Haftungsausschluss />} />
+                
+              <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </CartProvider>
         </CookieConsentProvider>
       </LanguageProvider>
     </TooltipProvider>

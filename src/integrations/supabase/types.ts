@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      catering_orders: {
+        Row: {
+          company_name: string | null
+          created_at: string | null
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          delivery_address: string | null
+          desired_date: string | null
+          desired_time: string | null
+          id: string
+          is_pickup: boolean | null
+          items: Json
+          notes: string | null
+          order_number: string
+          status: string | null
+          total_amount: number | null
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string | null
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          delivery_address?: string | null
+          desired_date?: string | null
+          desired_time?: string | null
+          id?: string
+          is_pickup?: boolean | null
+          items: Json
+          notes?: string | null
+          order_number: string
+          status?: string | null
+          total_amount?: number | null
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string | null
+          customer_email?: string
+          customer_name?: string
+          customer_phone?: string
+          delivery_address?: string | null
+          desired_date?: string | null
+          desired_time?: string | null
+          id?: string
+          is_pickup?: boolean | null
+          items?: Json
+          notes?: string | null
+          order_number?: string
+          status?: string | null
+          total_amount?: number | null
+        }
+        Relationships: []
+      }
       menu_categories: {
         Row: {
           created_at: string | null
