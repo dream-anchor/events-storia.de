@@ -30,6 +30,7 @@ import CartSheet from "./components/cart/CartSheet";
 import Checkout from "./pages/Checkout";
 import CustomerAuth from "./pages/CustomerAuth";
 import CustomerProfile from "./pages/CustomerProfile";
+import PasswordReset from "./pages/PasswordReset";
 
 // Catering Pages
 import BuffetFingerfood from "./pages/catering/BuffetFingerfood";
@@ -79,6 +80,7 @@ const App = () => {
                 {/* Customer Account */}
                 <Route path="/login" element={<CustomerAuth />} />
                 <Route path="/konto" element={<CustomerProfile />} />
+                <Route path="/konto/passwort-reset" element={<PasswordReset />} />
                 
                 {/* Admin */}
                 <Route path="/admin" element={<Admin />} />

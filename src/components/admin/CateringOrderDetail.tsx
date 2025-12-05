@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Phone, Mail, Building2, MapPin, Calendar, Clock, FileText, Ruler, Receipt } from 'lucide-react';
+import { Phone, Mail, Building2, MapPin, Calendar, Clock, FileText, Ruler, Receipt, User, CreditCard, BadgeCheck } from 'lucide-react';
 
 interface CateringOrderDetailProps {
   order: CateringOrder | null;
@@ -61,6 +61,27 @@ const CateringOrderDetail = ({ order, open, onOpenChange }: CateringOrderDetailP
 
   const items = Array.isArray(order.items) ? order.items : [];
 
+  // Payment method display
+  const getPaymentMethodLabel = (method: string | null) => {
+    switch (method) {
+      case 'stripe': return 'Sofortzahlung (Stripe)';
+      case 'invoice': return 'Rechnung';
+      default: return method || 'Rechnung';
+    }
+  };
+
+  // Payment status display
+  const getPaymentStatusConfig = (status: string | null) => {
+    switch (status) {
+      case 'paid': return { label: 'Bezahlt', variant: 'default' as const, className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' };
+      case 'pending': return { label: 'Ausstehend', variant: 'secondary' as const, className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' };
+      case 'failed': return { label: 'Fehlgeschlagen', variant: 'destructive' as const, className: '' };
+      default: return { label: status || 'Ausstehend', variant: 'secondary' as const, className: '' };
+    }
+  };
+
+  const paymentStatusConfig = getPaymentStatusConfig(order.payment_status);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
@@ -91,6 +112,62 @@ const CateringOrderDetail = ({ order, open, onOpenChange }: CateringOrderDetailP
                 <SelectItem value="cancelled">Storniert</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Bestellinfo (Customer type & Payment) */}
+          <div className="space-y-3">
+            <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">
+              Bestellinfo
+            </h3>
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              {/* Kundentyp */}
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Kundentyp:</span>
+                {order.user_id ? (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                    <BadgeCheck className="h-3 w-3 mr-1" />
+                    Registrierter Kunde
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-muted text-muted-foreground">
+                    Gast
+                  </Badge>
+                )}
+              </div>
+              
+              {/* Zahlungsmethode */}
+              <div className="flex items-center gap-2 text-sm">
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Zahlung:</span>
+                <span className="font-medium">{getPaymentMethodLabel(order.payment_method)}</span>
+              </div>
+              
+              {/* Zahlungsstatus */}
+              <div className="flex items-center gap-2 text-sm">
+                <Receipt className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Status:</span>
+                <Badge variant={paymentStatusConfig.variant} className={paymentStatusConfig.className}>
+                  {paymentStatusConfig.label}
+                </Badge>
+              </div>
+              
+              {/* LexOffice Dokument */}
+              {order.lexoffice_document_type && (
+                <div className="flex items-center gap-2 text-sm">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">LexOffice:</span>
+                  <span className="font-medium">
+                    {order.lexoffice_document_type === 'invoice' ? 'Rechnung' : 'Angebot'}
+                    {order.lexoffice_invoice_id && (
+                      <span className="text-xs text-muted-foreground ml-1">
+                        (ID: {order.lexoffice_invoice_id.slice(0, 8)}...)
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Kundendaten */}

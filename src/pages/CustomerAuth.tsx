@@ -6,11 +6,19 @@ import Footer from '@/components/Footer';
 import SEO from '@/components/SEO';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCustomerAuth } from '@/hooks/useCustomerAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Loader2, Mail, Lock, User, ArrowLeft } from 'lucide-react';
 
@@ -31,6 +39,11 @@ const CustomerAuth = () => {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerPasswordConfirm, setRegisterPasswordConfirm] = useState('');
+
+  // Password reset
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -99,6 +112,31 @@ const CustomerAuth = () => {
       setLoginEmail(registerEmail);
     }
     setIsSubmitting(false);
+  };
+
+  const handlePasswordReset = async () => {
+    if (!resetEmail) {
+      toast.error(language === 'de' ? 'Bitte E-Mail eingeben' : 'Please enter email');
+      return;
+    }
+
+    setIsResetting(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/konto/passwort-reset`,
+    });
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(
+        language === 'de' 
+          ? 'Falls ein Konto existiert, wurde ein Link gesendet.' 
+          : 'If an account exists, a reset link has been sent.'
+      );
+      setShowResetDialog(false);
+      setResetEmail('');
+    }
+    setIsResetting(false);
   };
 
   if (authLoading) {
@@ -187,6 +225,20 @@ const CustomerAuth = () => {
                       ) : null}
                       {language === 'de' ? 'Anmelden' : 'Login'}
                     </Button>
+                    
+                    {/* Password Reset Link */}
+                    <div className="text-center pt-2">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setResetEmail(loginEmail);
+                          setShowResetDialog(true);
+                        }}
+                        className="text-sm text-muted-foreground hover:text-primary underline transition-colors"
+                      >
+                        {language === 'de' ? 'Passwort vergessen?' : 'Forgot password?'}
+                      </button>
+                    </div>
                   </form>
                 </TabsContent>
 
@@ -265,6 +317,44 @@ const CustomerAuth = () => {
           </Card>
         </div>
       </main>
+
+      {/* Password Reset Dialog */}
+      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'de' ? 'Passwort zurücksetzen' : 'Reset Password'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'de' 
+                ? 'Geben Sie Ihre E-Mail-Adresse ein und wir senden Ihnen einen Link zum Zurücksetzen.' 
+                : 'Enter your email address and we will send you a reset link.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="reset-email">E-Mail</Label>
+              <Input
+                id="reset-email"
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="ihre@email.de"
+              />
+            </div>
+            <Button 
+              onClick={handlePasswordReset} 
+              className="w-full" 
+              disabled={isResetting}
+            >
+              {isResetting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              {language === 'de' ? 'Link senden' : 'Send Link'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>
