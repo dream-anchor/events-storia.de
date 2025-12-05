@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
@@ -5,7 +6,10 @@ import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCateringMenuBySlug, CateringMenuItem } from "@/hooks/useCateringMenus";
+import { useCart } from "@/contexts/CartContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Plus, Minus, ShoppingCart, Check } from "lucide-react";
 
 // Import images
 import grillgemueseImg from "@/assets/catering/fingerfood/grillgemuese.webp";
@@ -33,27 +37,73 @@ const imageMap: Record<string, string> = {
   "Pistazien-Törtchen": pistazienImg,
 };
 
+// Image position map to focus on the food
+const imagePositionMap: Record<string, string> = {
+  "Grillgemüse": "center center",
+  "Auberginenbällchen": "center 40%",
+  "Mini-Frittata mit Zucchini": "center 35%",
+  "Caponata siciliana": "center center",
+  "Burratina": "center 45%",
+  "Oktopus-Kartoffelsalat": "center 40%",
+  "Avocadocreme mit Garnelen": "center center",
+  "Meeresfrüchtesalat": "center 40%",
+  "Tiramisù STORIA": "center center",
+  "Pistazien-Törtchen": "center 45%",
+};
+
 interface MenuItemCardProps {
   item: CateringMenuItem;
   language: string;
 }
 
 const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
+  const { addToCart, items } = useCart();
+  const [quantity, setQuantity] = useState(4);
+  const [isAdded, setIsAdded] = useState(false);
+  
   const name = language === 'en' && item.name_en ? item.name_en : item.name;
   const description = language === 'en' && item.description_en ? item.description_en : item.description;
   const servingInfo = language === 'en' && item.serving_info_en ? item.serving_info_en : item.serving_info;
   const minOrder = language === 'en' && item.min_order_en ? item.min_order_en : item.min_order;
   const image = imageMap[item.name] || item.image_url;
+  const imagePosition = imagePositionMap[item.name] || "center center";
+  
+  const cartItem = items.find(i => i.id === item.id);
+  const isInCart = !!cartItem;
+
+  const handleAddToCart = () => {
+    if (!item.price) return;
+    
+    addToCart({
+      id: item.id,
+      name: item.name,
+      name_en: item.name_en || null,
+      price: item.price,
+      image,
+      serving_info: servingInfo || undefined,
+      min_order: 4
+    }, quantity);
+    
+    setIsAdded(true);
+    setTimeout(() => setIsAdded(false), 2000);
+  };
 
   return (
-    <div className="bg-card rounded-lg overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-card rounded-lg overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group">
       {image && (
-        <div className="aspect-square overflow-hidden">
+        <div className="aspect-square overflow-hidden relative">
           <img
             src={image}
             alt={name}
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            style={{ objectPosition: imagePosition }}
           />
+          {isInCart && (
+            <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+              <Check className="h-3 w-3" />
+              {cartItem.quantity}x
+            </div>
+          )}
         </div>
       )}
       <div className="p-4">
@@ -64,7 +114,8 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
         {description && (
           <p className="text-sm text-muted-foreground mb-3">{description}</p>
         )}
-        <div className="flex justify-between items-end">
+        
+        <div className="flex justify-between items-end mb-3">
           <div>
             {minOrder && (
               <p className="text-xs text-muted-foreground">{minOrder}</p>
@@ -80,6 +131,48 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
             ) : null}
           </div>
         </div>
+
+        {/* Add to Cart Controls */}
+        {item.price && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center border border-border rounded-md">
+              <button
+                onClick={() => setQuantity(q => Math.max(4, q - 1))}
+                className="px-2 py-1.5 hover:bg-muted transition-colors"
+                aria-label="Menge reduzieren"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="px-3 py-1.5 text-sm font-medium min-w-[40px] text-center">
+                {quantity}
+              </span>
+              <button
+                onClick={() => setQuantity(q => q + 1)}
+                className="px-2 py-1.5 hover:bg-muted transition-colors"
+                aria-label="Menge erhöhen"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            <Button 
+              onClick={handleAddToCart}
+              size="sm"
+              className={`flex-1 transition-all ${isAdded ? 'bg-green-600 hover:bg-green-600' : ''}`}
+            >
+              {isAdded ? (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  {language === 'de' ? 'Hinzugefügt' : 'Added'}
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="h-4 w-4 mr-1" />
+                  {language === 'de' ? 'In den Warenkorb' : 'Add to Cart'}
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
