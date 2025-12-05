@@ -13,6 +13,9 @@ import SortableMenuCard from "@/components/admin/SortableMenuCard";
 import { LogOut, ExternalLink } from "lucide-react";
 import SpecialOccasionsManager from "@/components/admin/SpecialOccasionsManager";
 import CateringMenusManager from "@/components/admin/CateringMenusManager";
+import CateringOrdersManager from "@/components/admin/CateringOrdersManager";
+import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
+import { Badge } from "@/components/ui/badge";
 import {
   DndContext,
   closestCenter,
@@ -35,6 +38,7 @@ const Admin = () => {
   const { user, isAdmin, loading, signOut } = useAdminAuth();
   const { data: menus } = useAdminMenus();
   const updateOrderMutation = useUpdateMenuOrder();
+  const { data: pendingOrdersCount } = usePendingOrdersCount();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -173,8 +177,22 @@ const Admin = () => {
         </div>
       </header>
 
-      {/* Main Content */}
+        {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-8">
+        {/* Catering Orders Section - FIRST */}
+        <div className="mb-8 md:mb-12">
+          <div className="flex items-center gap-3 mb-2">
+            <h2 className="text-xl md:text-2xl font-serif font-semibold">Catering-Bestellungen</h2>
+            {pendingOrdersCount && pendingOrdersCount > 0 && (
+              <Badge className="bg-amber-500 text-white">{pendingOrdersCount} neu</Badge>
+            )}
+          </div>
+          <p className="text-sm md:text-base text-muted-foreground mb-6">
+            Verwalten Sie eingehende Catering-Anfragen und ändern Sie den Status.
+          </p>
+          <CateringOrdersManager />
+        </div>
+
         <div className="mb-6 md:mb-8">
           <h2 className="text-xl md:text-2xl font-serif font-semibold mb-2">Menü-Verwaltung</h2>
           <p className="text-sm md:text-base text-muted-foreground">
