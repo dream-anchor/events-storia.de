@@ -37,7 +37,8 @@ import CateringZuhause from "./pages/catering/CateringZuhause";
 const queryClient = new QueryClient();
 
 // App component with all providers and contexts
-const App = () => (
+const App = () => {
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <LanguageProvider>
@@ -78,13 +79,14 @@ const App = () => (
               <Route path="/lebensmittelhinweise" element={<Lebensmittelhinweise />} />
               <Route path="/haftungsausschluss" element={<Haftungsausschluss />} />
               
-              <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
         </CookieConsentProvider>
       </LanguageProvider>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
