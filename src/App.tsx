@@ -37,6 +37,7 @@ import Antipasti from "./pages/catering/Antipasti";
 import Desserts from "./pages/catering/Desserts";
 import BusinessLunch from "./pages/catering/BusinessLunch";
 import CateringZuhause from "./pages/catering/CateringZuhause";
+import FlyingBuffet from "./pages/catering/FlyingBuffet";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ const App = () => {
                 <Route path="/catering/buffet-platten" element={<BuffetPlatten />} />
                 <Route path="/catering/buffet-auflauf" element={<BuffetAuflauf />} />
                 <Route path="/catering/pizze-napoletane" element={<PizzeNapoletane />} />
+                <Route path="/catering/flying-buffet" element={<FlyingBuffet />} />
                 <Route path="/catering/antipasti" element={<Antipasti />} />
                 <Route path="/catering/desserts" element={<Desserts />} />
                 <Route path="/catering/business-lunch" element={<BusinessLunch />} />
