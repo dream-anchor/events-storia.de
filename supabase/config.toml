@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.create-lexoffice-invoice]
 verify_jwt = false
+
+[functions.create-catering-payment]
+verify_jwt = false

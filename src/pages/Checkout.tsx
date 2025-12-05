@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck } from 'lucide-react';
+import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -72,6 +72,8 @@ const Checkout = () => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [addressDebounce, setAddressDebounce] = useState<NodeJS.Timeout | null>(null);
   const [dateTimeWarning, setDateTimeWarning] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'invoice' | 'stripe'>('invoice');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Check if order contains only pizza (no equipment pickup needed)
   const isPizzaOnly = items.length > 0 && items.every(item => item.category === 'pizza');
@@ -139,6 +141,30 @@ const Checkout = () => {
     }
   }, [formData.deliveryType, isPizzaOnly]);
 
+  // Handle Stripe payment redirect feedback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    const orderNum = urlParams.get('order');
+    
+    if (paymentStatus === 'success' && orderNum) {
+      toast.success(
+        language === 'de' 
+          ? `Zahlung erfolgreich! Bestellung #${orderNum} wurde bezahlt.`
+          : `Payment successful! Order #${orderNum} has been paid.`
+      );
+      // Clear URL params
+      window.history.replaceState({}, '', '/checkout');
+    } else if (paymentStatus === 'cancelled') {
+      toast.error(
+        language === 'de'
+          ? 'Zahlung abgebrochen. Bitte versuchen Sie es erneut.'
+          : 'Payment cancelled. Please try again.'
+      );
+      window.history.replaceState({}, '', '/checkout');
+    }
+  }, [language]);
+
   // Validate 24-hour advance booking
   useEffect(() => {
     if (!formData.date || !formData.time) {
@@ -153,8 +179,8 @@ const Checkout = () => {
     if (selectedDateTime < minDateTime) {
       setDateTimeWarning(
         language === 'de'
-          ? 'Der gewählte Termin liegt weniger als 24 Stunden in der Zukunft. Bitte wählen Sie einen späteren Zeitpunkt.'
-          : 'The selected date is less than 24 hours away. Please choose a later time.'
+          ? 'Der gewählte Termin liegt weniger als 24 Stunden in der Zukunft. Bitte wählen Sie einen späteren Zeitpunkt. In Notfällen rufen Sie uns an unter <a href="tel:01636033912" class="underline font-medium hover:text-amber-800 dark:hover:text-amber-200">0163 6033912</a>.'
+          : 'The selected date is less than 24 hours away. Please choose a later time. In emergencies, call us at <a href="tel:01636033912" class="underline font-medium hover:text-amber-800 dark:hover:text-amber-200">0163 6033912</a>.'
       );
     } else {
       setDateTimeWarning(null);
@@ -354,6 +380,49 @@ const Checkout = () => {
       }
 
       setOrderNumber(newOrderNumber);
+      
+      // If Stripe payment selected, redirect to payment
+      if (paymentMethod === 'stripe') {
+        setIsProcessingPayment(true);
+        try {
+          const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
+            'create-catering-payment',
+            {
+              body: {
+                amount: grandTotal,
+                customerEmail: formData.email,
+                customerName: formData.name,
+                orderNumber: newOrderNumber,
+                items: items.map(i => ({ name: i.name, quantity: i.quantity })),
+              },
+            }
+          );
+
+          if (paymentError || !paymentData?.url) {
+            console.error('Payment error:', paymentError);
+            toast.error(language === 'de' ? 'Fehler bei der Zahlungsweiterleitung' : 'Payment redirect error');
+            setIsProcessingPayment(false);
+            // Still show success since order was created
+            setShowSuccess(true);
+            clearCart();
+            return;
+          }
+
+          // Redirect to Stripe Checkout
+          clearCart();
+          window.location.href = paymentData.url;
+          return;
+        } catch (payErr) {
+          console.error('Payment error:', payErr);
+          toast.error(language === 'de' ? 'Fehler bei der Zahlung' : 'Payment error');
+          setIsProcessingPayment(false);
+          // Still show success since order was created
+          setShowSuccess(true);
+          clearCart();
+          return;
+        }
+      }
+      
       setShowSuccess(true);
       clearCart();
     } catch (error) {
@@ -522,13 +591,17 @@ const Checkout = () => {
         type="submit" 
         size="lg" 
         className="w-full text-base py-6 font-semibold shadow-lg hover:shadow-xl transition-all"
-        disabled={isSubmitting}
+        disabled={isSubmitting || isProcessingPayment}
       >
-        {isSubmitting 
-          ? (language === 'de' ? 'Wird gesendet...' : 'Sending...')
-          : (language === 'de' 
-              ? `Anfragen · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`
-              : `Submit · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`)}
+        {(isSubmitting || isProcessingPayment)
+          ? (language === 'de' ? 'Wird verarbeitet...' : 'Processing...')
+          : paymentMethod === 'stripe'
+            ? (language === 'de' 
+                ? `Jetzt bezahlen · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`
+                : `Pay Now · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`)
+            : (language === 'de' 
+                ? `Anfragen · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`
+                : `Submit · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`)}
       </Button>
 
       {/* Trust Elements */}
@@ -538,9 +611,13 @@ const Checkout = () => {
           <span>{language === 'de' ? 'Sichere Übertragung' : 'Secure transmission'}</span>
         </div>
         <p className="text-xs text-center text-muted-foreground">
-          {language === 'de' 
-            ? 'Unverbindliche Anfrage – keine Zahlung jetzt'
-            : 'Non-binding request – no payment now'}
+          {paymentMethod === 'stripe'
+            ? (language === 'de' 
+                ? 'Weiterleitung zu Stripe für sichere Zahlung'
+                : 'Redirect to Stripe for secure payment')
+            : (language === 'de' 
+                ? 'Unverbindliche Anfrage – Zahlung per Rechnung'
+                : 'Non-binding request – payment by invoice')}
         </p>
       </div>
     </div>
@@ -927,7 +1004,10 @@ const Checkout = () => {
                       {dateTimeWarning && (
                         <div className="flex items-start gap-2 mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                           <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                          <p className="text-sm text-amber-700 dark:text-amber-300">{dateTimeWarning}</p>
+                          <p 
+                            className="text-sm text-amber-700 dark:text-amber-300"
+                            dangerouslySetInnerHTML={{ __html: dateTimeWarning }}
+                          />
                         </div>
                       )}
                     </div>
@@ -1142,7 +1222,54 @@ const Checkout = () => {
                     )}
                   </section>
 
-                  {/* Section 4: Notes */}
+                  {/* Section 4: Payment Method */}
+                  <section className="bg-card border border-border rounded-xl p-4 md:p-6">
+                    <h2 className="font-serif text-lg mb-4">
+                      {language === 'de' ? 'Zahlungsart' : 'Payment Method'}
+                    </h2>
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="invoice"
+                          checked={paymentMethod === 'invoice'}
+                          onChange={() => setPaymentMethod('invoice')}
+                          className="h-4 w-4 text-primary"
+                        />
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{language === 'de' ? 'Rechnung' : 'Invoice'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'de' 
+                              ? 'Zahlung nach Erhalt der Rechnung' 
+                              : 'Payment after receiving invoice'}
+                          </p>
+                        </div>
+                      </label>
+                      <label className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="stripe"
+                          checked={paymentMethod === 'stripe'}
+                          onChange={() => setPaymentMethod('stripe')}
+                          className="h-4 w-4 text-primary"
+                        />
+                        <CreditCard className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{language === 'de' ? 'Sofort bezahlen' : 'Pay Now'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'de' 
+                              ? 'Kreditkarte, Apple Pay, Google Pay' 
+                              : 'Credit card, Apple Pay, Google Pay'}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </section>
+
+                  {/* Section 5: Notes */}
                   <section className="bg-card border border-border rounded-xl p-4 md:p-6">
                     <h2 className="font-serif text-lg mb-4">
                       {language === 'de' ? 'Anmerkungen (optional)' : 'Notes (optional)'}
@@ -1164,13 +1291,17 @@ const Checkout = () => {
                       type="submit" 
                       size="lg" 
                       className="w-full text-base py-6 font-semibold shadow-lg"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isProcessingPayment}
                     >
-                      {isSubmitting 
-                        ? (language === 'de' ? 'Wird gesendet...' : 'Sending...')
-                        : (language === 'de' 
-                            ? `Anfragen · ${grandTotal.toFixed(2).replace('.', ',')} €`
-                            : `Submit · €${grandTotal.toFixed(2)}`)}
+                      {(isSubmitting || isProcessingPayment)
+                        ? (language === 'de' ? 'Wird verarbeitet...' : 'Processing...')
+                        : paymentMethod === 'stripe'
+                          ? (language === 'de' 
+                              ? `Jetzt bezahlen · ${grandTotal.toFixed(2).replace('.', ',')} €`
+                              : `Pay Now · €${grandTotal.toFixed(2)}`)
+                          : (language === 'de' 
+                              ? `Anfragen · ${grandTotal.toFixed(2).replace('.', ',')} €`
+                              : `Submit · €${grandTotal.toFixed(2)}`)}
                     </Button>
                     <div className="text-center space-y-1">
                       <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
@@ -1178,9 +1309,13 @@ const Checkout = () => {
                         <span>{language === 'de' ? 'Sichere Übertragung' : 'Secure transmission'}</span>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {language === 'de' 
-                          ? 'Unverbindliche Anfrage – keine Zahlung jetzt'
-                          : 'Non-binding request – no payment now'}
+                        {paymentMethod === 'stripe'
+                          ? (language === 'de' 
+                              ? 'Weiterleitung zu Stripe für sichere Zahlung'
+                              : 'Redirect to Stripe for secure payment')
+                          : (language === 'de' 
+                              ? 'Unverbindliche Anfrage – Zahlung per Rechnung'
+                              : 'Non-binding request – payment by invoice')}
                       </p>
                     </div>
                   </div>
