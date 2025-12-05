@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useCateringMenuBySlug, CateringMenuItem } from "@/hooks/useCateringMenus";
 import { useCart } from "@/contexts/CartContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,6 +53,7 @@ interface MenuItemCardProps {
 
 const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
   const { addToCart, items } = useCart();
+  const { formatPrice } = usePriceDisplay();
   const [quantity, setQuantity] = useState(4);
   const [isAdded, setIsAdded] = useState(false);
   
@@ -121,7 +123,7 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
               <span className="font-semibold text-primary">{item.price_display}</span>
             ) : item.price ? (
               <span className="font-semibold text-primary">
-                {item.price.toFixed(2).replace(".", ",")} €
+                {formatPrice(item.price)}
               </span>
             ) : null}
           </div>

@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { Plus, Minus, ShoppingCart, Check, Wheat } from "lucide-react";
@@ -178,6 +179,7 @@ interface PlatterCardProps {
 
 const PlatterCard = ({ platter, language }: PlatterCardProps) => {
   const { addToCart, items } = useCart();
+  const { formatPrice } = usePriceDisplay();
   const [quantity, setQuantity] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
   
@@ -238,7 +240,7 @@ const PlatterCard = ({ platter, language }: PlatterCardProps) => {
         
         <div className="flex justify-end mb-3">
           <span className="font-semibold text-primary text-lg">
-            {platter.price.toFixed(2).replace(".", ",")} €
+            {formatPrice(platter.price)}
           </span>
         </div>
 

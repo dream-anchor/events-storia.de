@@ -13,7 +13,10 @@ const RESTAURANT_COORDS = {
 
 interface DeliveryCalculation {
   distanceKm: number;
-  deliveryCost: number;
+  deliveryCostNet: number;
+  deliveryCostGross: number;
+  deliveryVat: number;
+  deliveryVatRate: number;
   isFreeDelivery: boolean;
   minimumOrder: number;
   message: string;
@@ -114,11 +117,18 @@ serve(async (req) => {
     // Step 3: Calculate delivery cost based on distance
     let result: DeliveryCalculation;
 
+    // VAT rate for delivery is 19%
+    const VAT_RATE = 0.19;
+    const NET_COST_PER_KM = 1.20;
+    
     if (oneWayDistanceKm <= 1) {
       // Free delivery within 1km, minimum order €50
       result = {
         distanceKm: Math.round(oneWayDistanceKm * 10) / 10,
-        deliveryCost: 0,
+        deliveryCostNet: 0,
+        deliveryCostGross: 0,
+        deliveryVat: 0,
+        deliveryVatRate: VAT_RATE,
         isFreeDelivery: true,
         minimumOrder: 50,
         message: 'Kostenlose Lieferung',
@@ -127,28 +137,39 @@ serve(async (req) => {
         oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };
     } else if (oneWayDistanceKm <= 25) {
-      // Flat €25 fee for 1-25km in Munich area, minimum order €150
-      // For pizza: single trip, for others: round trip (but flat fee anyway)
+      // Flat €25 NET fee for 1-25km in Munich area, minimum order €150
+      const netCost = 25;
+      const grossCost = Math.round(netCost * (1 + VAT_RATE) * 100) / 100;
+      const vatAmount = Math.round((grossCost - netCost) * 100) / 100;
+      
       result = {
         distanceKm: Math.round(oneWayDistanceKm * 10) / 10,
-        deliveryCost: 25,
+        deliveryCostNet: netCost,
+        deliveryCostGross: grossCost,
+        deliveryVat: vatAmount,
+        deliveryVatRate: VAT_RATE,
         isFreeDelivery: false,
         minimumOrder: 150,
         message: 'Lieferung im Münchner Raum',
         messageEn: 'Delivery in Munich area',
-        isRoundTrip: !isPizzaOnly, // Round trip for equipment pickup, but flat fee
+        isRoundTrip: !isPizzaOnly,
         oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };
     } else {
-      // Outside Munich: €1.28 per km (gross price incl. 7% VAT)
+      // Outside Munich: €1.20 per km NET (+ 19% VAT)
       // Pizza: single trip (one-way), Equipment: round trip (×2)
       const tripMultiplier = isPizzaOnly ? 1 : 2;
       const totalDistanceKm = oneWayDistanceKm * tripMultiplier;
-      const cost = Math.round(totalDistanceKm * 1.28 * 100) / 100;
+      const netCost = Math.round(totalDistanceKm * NET_COST_PER_KM * 100) / 100;
+      const grossCost = Math.round(netCost * (1 + VAT_RATE) * 100) / 100;
+      const vatAmount = Math.round((grossCost - netCost) * 100) / 100;
       
       result = {
         distanceKm: Math.round(totalDistanceKm * 10) / 10,
-        deliveryCost: cost,
+        deliveryCostNet: netCost,
+        deliveryCostGross: grossCost,
+        deliveryVat: vatAmount,
+        deliveryVatRate: VAT_RATE,
         isFreeDelivery: false,
         minimumOrder: 200,
         message: isPizzaOnly 

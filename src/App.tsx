@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { PriceDisplayProvider } from "@/contexts/PriceDisplayContext";
 import Index from "./pages/Index";
 import Kontakt from "./pages/Kontakt";
 import NotFound from "./pages/NotFound";
@@ -45,9 +46,10 @@ const App = () => {
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <LanguageProvider>
-        <CookieConsentProvider>
-          <CartProvider>
-            <Toaster />
+        <PriceDisplayProvider>
+          <CookieConsentProvider>
+            <CartProvider>
+              <Toaster />
             <Sonner />
             <BrowserRouter>
               <ScrollToTop />
@@ -87,11 +89,12 @@ const App = () => {
                 <Route path="/lebensmittelhinweise" element={<Lebensmittelhinweise />} />
                 <Route path="/haftungsausschluss" element={<Haftungsausschluss />} />
                 
-              <Route path="*" element={<NotFound />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-          </CartProvider>
-        </CookieConsentProvider>
+            </CartProvider>
+          </CookieConsentProvider>
+        </PriceDisplayProvider>
       </LanguageProvider>
     </TooltipProvider>
   </QueryClientProvider>

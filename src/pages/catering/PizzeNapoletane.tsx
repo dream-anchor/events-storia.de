@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -73,6 +74,7 @@ const allergenKey = {
 const PizzaListItem = ({ pizza, language }: { pizza: Pizza; language: string }) => {
   const [quantity, setQuantity] = useState(1);
   const { addToCart, items } = useCart();
+  const { formatPrice } = usePriceDisplay();
   
   const cartItem = items.find(item => item.id === pizza.id);
   const displayName = language === 'en' ? pizza.name_en : pizza.name;
@@ -115,7 +117,7 @@ const PizzaListItem = ({ pizza, language }: { pizza: Pizza; language: string }) 
         
         <div className="flex items-center gap-3 sm:gap-4">
           <span className="font-semibold text-foreground whitespace-nowrap">
-            {pizza.price.toFixed(2).replace('.', ',')} €
+            {formatPrice(pizza.price)}
           </span>
           
           <div className="flex items-center gap-1 bg-muted/50 rounded-full p-1">
