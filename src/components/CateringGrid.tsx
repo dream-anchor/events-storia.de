@@ -1,16 +1,17 @@
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-// Import placeholder images from existing assets
-import fingerfoodImg from "@/assets/meeresfruchte.webp";
-import plattenImg from "@/assets/pasta.jpg";
-import auflaufImg from "@/assets/ravioli.webp";
-import pizzaImg from "@/assets/aussen.webp";
+// Import first images from detail pages
+import fingerfoodImg from "@/assets/catering/fingerfood/grillgemuese.webp";
+import plattenImg from "@/assets/catering/platten/insalate-stagione.webp";
+import auflaufImg from "@/assets/catering/auflauf/parmigiana.webp";
+import pizzaImg from "@/assets/catering/pizze/hero-pizza.webp";
+import flyingBuffetImg from "@/assets/catering/flying-buffet/hero.webp";
+import festmenusImg from "@/assets/catering/festmenus/hero.webp";
 import antipastiImg from "@/assets/cocktails.webp";
 import dessertsImg from "@/assets/tiramisu.webp";
 import businessImg from "@/assets/weinservice.webp";
 import zuhauseImg from "@/assets/menschen-aussen.jpeg";
-import flyingBuffetImg from "@/assets/catering/flying-buffet/hero.webp";
 
 interface CateringItem {
   id: string;
@@ -67,6 +68,15 @@ const cateringItems: CateringItem[] = [
     descriptionEn: "Events at the restaurant – custom menus for your celebration.",
     path: "/catering/flying-buffet",
     image: flyingBuffetImg,
+  },
+  {
+    id: "festmenus",
+    titleDe: "3- & 4-Gänge Festmenüs",
+    titleEn: "3 & 4 Course Set Menus",
+    descriptionDe: "Exklusive Menüs für besondere Anlässe – direkt im Restaurant.",
+    descriptionEn: "Exclusive menus for special occasions – at the restaurant.",
+    path: "/catering/festmenus",
+    image: festmenusImg,
   },
   {
     id: "antipasti",
