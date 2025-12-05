@@ -1,12 +1,9 @@
 import { Phone, Mail, Instagram, User } from "lucide-react";
 import { Link } from "react-router-dom";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-import { useScrolled } from "@/hooks/useScrolled";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const Header = () => {
-  const isScrolled = useScrolled();
   const { user } = useCustomerAuth();
   const { language } = useLanguage();
 
@@ -50,9 +47,6 @@ const Header = () => {
                 }
               </span>
             </Link>
-            <div className={`transition-opacity duration-300 ${isScrolled ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-              <LanguageSwitcher />
-            </div>
           </div>
         </div>
       </div>
