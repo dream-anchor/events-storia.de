@@ -17,6 +17,15 @@ export interface CateringOrder {
   total_amount: number | null;
   status: string | null;
   created_at: string | null;
+  // New fields for billing and delivery costs
+  billing_name: string | null;
+  billing_street: string | null;
+  billing_zip: string | null;
+  billing_city: string | null;
+  billing_country: string | null;
+  delivery_cost: number | null;
+  minimum_order_surcharge: number | null;
+  calculated_distance_km: number | null;
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
