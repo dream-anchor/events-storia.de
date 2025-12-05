@@ -8,8 +8,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Minus, ShoppingCart, Check, Flame } from "lucide-react";
+import { Plus, Minus, ShoppingCart, Check, Flame, Wheat } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HighlightCard, ServicesGrid } from "@/components/catering/ServiceInfoCard";
 
 // Images
 import parmigianaImg from "@/assets/catering/auflauf/parmigiana.webp";
@@ -312,15 +313,14 @@ const BuffetAuflauf = () => {
             </div>
 
             {/* Bread info */}
-            <div className="max-w-3xl mx-auto mb-8">
-              <div className="bg-muted/50 rounded-lg p-4 text-center">
-                <p className="text-sm text-muted-foreground italic">
-                  {language === 'de' 
-                    ? '🍞 Zu jeder Ofenterrine servieren wir unser hausgemachtes Steinhofenbrot'
-                    : '🍞 We serve our homemade stone oven bread with every casserole'}
-                </p>
-              </div>
-            </div>
+            <HighlightCard
+              icon={Wheat}
+              title="Hausgemachtes Steinhofenbrot"
+              title_en="Homemade Stone Oven Bread"
+              description="Zu jeder Ofenterrine servieren wir unser frisch gebackenes Brot aus dem Steinofen."
+              description_en="We serve our freshly baked stone oven bread with every casserole."
+              className="max-w-3xl mx-auto"
+            />
 
             {/* Chafing Dish Option */}
             <div className="max-w-5xl mx-auto">
@@ -337,37 +337,10 @@ const BuffetAuflauf = () => {
             </div>
 
             {/* Additional Services */}
-            <div className="max-w-3xl mx-auto mt-16">
-              <h2 className="text-xl font-serif font-medium mb-6 text-center">
-                {language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
-              </h2>
-              <div className="bg-muted/30 rounded-xl p-6 space-y-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-primary">✓</span>
-                  <span className="text-muted-foreground">
-                    {language === 'de' 
-                      ? 'Lieferung & Abholung: Kostenlos im nahen Umkreis'
-                      : 'Delivery & Pickup: Free in nearby areas'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-primary">✓</span>
-                  <span className="text-muted-foreground">
-                    {language === 'de' 
-                      ? 'Aufbau & Service: Optional buchbar'
-                      : 'Setup & Service: Optionally available'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-primary">✓</span>
-                  <span className="text-muted-foreground">
-                    {language === 'de' 
-                      ? 'Reinigung: Im Preis inklusive'
-                      : 'Cleaning: Included in price'}
-                  </span>
-                </div>
-              </div>
-            </div>
+            <ServicesGrid 
+              title={language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
+              className="mt-16"
+            />
           </section>
           
           <CateringCTA />

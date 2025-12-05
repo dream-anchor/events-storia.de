@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ServicesGrid, AllergenInfo } from "@/components/catering/ServiceInfoCard";
 import heroImage from "@/assets/catering/pizze/hero-pizza.webp";
 
 interface Pizza {
@@ -279,30 +280,13 @@ const PizzeNapoletane = () => {
               </div>
 
               {/* Allergen Key */}
-              <div className="bg-muted/30 rounded-xl p-6 mt-12">
-                <h3 className="font-medium mb-3">
-                  {language === 'de' ? 'Allergenkennzeichnung' : 'Allergen Information'}
-                </h3>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                  {Object.entries(allergenKey).map(([key, value]) => (
-                    <span key={key}>
-                      <span className="font-mono">[{key}]</span> {language === 'de' ? value.de : value.en}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              <AllergenInfo allergens={allergenKey} className="mt-12" />
 
               {/* Additional Services */}
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 mt-8">
-                <h3 className="font-medium mb-3">
-                  {language === 'de' ? '📦 Zusatzleistungen' : '📦 Additional Services'}
-                </h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• {language === 'de' ? 'Lieferung & Abholung: Kostenlos im nahen Umkreis' : 'Delivery & Pickup: Free in the nearby area'}</li>
-                  <li>• {language === 'de' ? 'Aufbau & Service: Optional buchbar' : 'Setup & Service: Optionally bookable'}</li>
-                  <li>• {language === 'de' ? 'Reinigung: Im Preis inklusive' : 'Cleaning: Included in price'}</li>
-                </ul>
-              </div>
+              <ServicesGrid 
+                title={language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
+                className="mt-12"
+              />
             </div>
           </section>
           

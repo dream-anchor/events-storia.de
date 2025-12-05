@@ -10,6 +10,7 @@ import { useCart } from "@/contexts/CartContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Plus, Minus, ShoppingCart, Check } from "lucide-react";
+import { ServicesGrid } from "@/components/catering/ServiceInfoCard";
 
 // Import images
 import grillgemueseImg from "@/assets/catering/fingerfood/grillgemuese.webp";
@@ -253,18 +254,12 @@ const BuffetFingerfood = () => {
               </div>
             )}
 
-            {/* Additional Info / Services */}
-            {additionalInfo && (
-              <div className="max-w-3xl mx-auto mt-16">
-                <div className="bg-card border border-border rounded-lg p-6 md:p-8">
-                  <h2 className="text-xl font-serif font-medium mb-4 text-center">
-                    {language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
-                  </h2>
-                  <div className="text-muted-foreground whitespace-pre-line text-center">
-                    {additionalInfo}
-                  </div>
-                </div>
-              </div>
+            {/* Additional Services */}
+            {!isLoading && !error && allItems.length > 0 && (
+              <ServicesGrid 
+                title={language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
+                className="mt-16"
+              />
             )}
 
             {!isLoading && !error && allItems.length > 0 && (
