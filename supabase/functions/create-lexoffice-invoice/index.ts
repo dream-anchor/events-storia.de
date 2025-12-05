@@ -38,7 +38,15 @@ interface InvoiceRequest {
   distanceKm?: number;
   grandTotal: number;
   isPickup: boolean;
+  // NEW: Document type - 'quotation' for unpaid, 'invoice' for paid orders
+  documentType?: 'quotation' | 'invoice';
+  isPaid?: boolean;
 }
+
+const logStep = (step: string, details?: Record<string, unknown>) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[LEXOFFICE] ${step}${detailsStr}`);
+};
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -50,12 +58,12 @@ serve(async (req) => {
   
   // Graceful degradation if API key not configured
   if (!lexofficeApiKey) {
-    console.warn('LEXOFFICE_API_KEY not configured - skipping invoice creation');
+    console.warn('LEXOFFICE_API_KEY not configured - skipping document creation');
     return new Response(
       JSON.stringify({ 
         skipped: true, 
         reason: 'API key not configured',
-        message: 'Lexoffice invoice creation skipped - API key not set'
+        message: 'Lexoffice document creation skipped - API key not set'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -63,7 +71,16 @@ serve(async (req) => {
 
   try {
     const body: InvoiceRequest = await req.json();
-    console.log('Creating Lexoffice invoice for order:', body.orderNumber);
+    
+    // Determine document type: default to 'quotation' for unpaid orders
+    const documentType = body.documentType || 'quotation';
+    const isInvoice = documentType === 'invoice';
+    
+    logStep('Creating Lexoffice document', { 
+      orderNumber: body.orderNumber, 
+      documentType,
+      isPaid: body.isPaid 
+    });
 
     // Initialize Supabase client for updating order
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -106,7 +123,7 @@ serve(async (req) => {
       }
     };
 
-    console.log('Creating Lexoffice contact...');
+    logStep('Creating Lexoffice contact...');
     const contactResponse = await fetch('https://api.lexoffice.io/v1/contacts', {
       method: 'POST',
       headers: {
@@ -122,14 +139,16 @@ serve(async (req) => {
     if (contactResponse.ok) {
       const contactData = await contactResponse.json();
       contactId = contactData.id;
-      console.log('Contact created:', contactId);
+      logStep('Contact created', { contactId });
     } else {
       const errorText = await contactResponse.text();
-      console.warn('Contact creation failed:', contactResponse.status, errorText);
-      // Continue without contact - invoice will use address directly
+      logStep('Contact creation failed (continuing without)', { 
+        status: contactResponse.status, 
+        error: errorText 
+      });
     }
 
-    // Step 2: Build line items for invoice
+    // Step 2: Build line items
     const lineItems = [];
 
     // Add order items
@@ -141,8 +160,8 @@ serve(async (req) => {
         unitName: 'Stück',
         unitPrice: {
           currency: 'EUR',
-          netAmount: item.price,
-          taxRatePercentage: 19
+          netAmount: item.price / 1.07, // Convert gross to net (7% VAT for food)
+          taxRatePercentage: 7
         }
       });
     }
@@ -156,8 +175,8 @@ serve(async (req) => {
         unitName: 'Stück',
         unitPrice: {
           currency: 'EUR',
-          netAmount: body.minimumOrderSurcharge,
-          taxRatePercentage: 19
+          netAmount: body.minimumOrderSurcharge / 1.07,
+          taxRatePercentage: 7
         }
       });
     }
@@ -175,34 +194,52 @@ serve(async (req) => {
         unitName: 'Stück',
         unitPrice: {
           currency: 'EUR',
-          netAmount: body.deliveryCost,
+          netAmount: body.deliveryCost / 1.19, // Convert gross to net (19% VAT for delivery)
           taxRatePercentage: 19
         }
       });
     }
 
-    // Step 3: Create invoice
+    // Step 3: Create document (quotation or invoice)
     const today = new Date().toISOString().split('T')[0];
     
-    const invoicePayload: Record<string, unknown> = {
+    // Configure document-specific settings
+    const documentConfig = isInvoice 
+      ? {
+          title: 'Catering-Rechnung',
+          introduction: 'Vielen Dank für Ihre Bestellung und Zahlung bei STORIA Events!',
+          remark: `Bestellnummer: ${body.orderNumber}\n\nDiese Rechnung wurde bereits bezahlt.`,
+          paymentConditions: {
+            paymentTermLabel: 'Bereits bezahlt - Vielen Dank!',
+            paymentTermDuration: 0
+          }
+        }
+      : {
+          title: 'Catering-Angebot',
+          introduction: 'Vielen Dank für Ihre Anfrage bei STORIA Events! Nachfolgend finden Sie unser Angebot.',
+          remark: `Bestellnummer: ${body.orderNumber}\n\nDieses Angebot ist 14 Tage gültig.`,
+          paymentConditions: {
+            paymentTermLabel: 'Zahlbar innerhalb von 14 Tagen nach Rechnungseingang',
+            paymentTermDuration: 14
+          }
+        };
+
+    const documentPayload: Record<string, unknown> = {
       voucherDate: today,
       lineItems,
       totalPrice: { currency: 'EUR' },
       taxConditions: { taxType: 'net' },
-      title: 'Catering-Rechnung',
-      introduction: 'Vielen Dank für Ihre Bestellung bei STORIA Events!',
-      remark: `Bestellnummer: ${body.orderNumber}`,
-      paymentConditions: {
-        paymentTermLabel: 'Zahlbar innerhalb von 14 Tagen nach Rechnungseingang',
-        paymentTermDuration: 14
-      }
+      title: documentConfig.title,
+      introduction: documentConfig.introduction,
+      remark: documentConfig.remark,
+      paymentConditions: documentConfig.paymentConditions
     };
 
     // Use contact ID if available, otherwise use address directly
     if (contactId) {
-      invoicePayload.address = { contactId };
+      documentPayload.address = { contactId };
     } else {
-      invoicePayload.address = {
+      documentPayload.address = {
         name: body.companyName || body.customerName,
         street: body.billingAddress.street || '',
         zip: body.billingAddress.zip || '',
@@ -211,24 +248,31 @@ serve(async (req) => {
       };
     }
 
-    console.log('Creating Lexoffice invoice...');
-    const invoiceResponse = await fetch('https://api.lexoffice.io/v1/invoices', {
+    // Choose endpoint based on document type
+    const endpoint = isInvoice ? 'invoices' : 'quotations';
+    
+    // Use finalize=true to enable automatic email sending from LexOffice
+    logStep(`Creating Lexoffice ${documentType}...`, { endpoint });
+    const documentResponse = await fetch(`https://api.lexoffice.io/v1/${endpoint}?finalize=true`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${lexofficeApiKey}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify(invoicePayload)
+      body: JSON.stringify(documentPayload)
     });
 
-    if (!invoiceResponse.ok) {
-      const errorText = await invoiceResponse.text();
-      console.error('Invoice creation failed:', invoiceResponse.status, errorText);
+    if (!documentResponse.ok) {
+      const errorText = await documentResponse.text();
+      logStep('Document creation failed', { 
+        status: documentResponse.status, 
+        error: errorText 
+      });
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Lexoffice API error: ${invoiceResponse.status}`,
+          error: `Lexoffice API error: ${documentResponse.status}`,
           details: errorText
         }),
         { 
@@ -238,45 +282,54 @@ serve(async (req) => {
       );
     }
 
-    const invoiceData = await invoiceResponse.json();
-    const invoiceId = invoiceData.id;
-    console.log('Invoice created:', invoiceId);
+    const documentData = await documentResponse.json();
+    const documentId = documentData.id;
+    logStep('Document created', { documentId, documentType });
 
-    // Step 4: Update order with Lexoffice IDs
+    // Step 4: Update order with Lexoffice IDs and document type
     if (body.orderId) {
+      const updateData: Record<string, unknown> = {
+        lexoffice_invoice_id: documentId,
+        lexoffice_contact_id: contactId,
+        lexoffice_document_type: documentType
+      };
+      
+      // If this is an invoice (paid), also update payment status
+      if (isInvoice && body.isPaid) {
+        updateData.payment_status = 'paid';
+      }
+
       const { error: updateError } = await supabase
         .from('catering_orders')
-        .update({
-          lexoffice_invoice_id: invoiceId,
-          lexoffice_contact_id: contactId
-        })
+        .update(updateData)
         .eq('id', body.orderId);
 
       if (updateError) {
-        console.warn('Failed to update order with Lexoffice IDs:', updateError);
+        logStep('Failed to update order with Lexoffice IDs', { error: updateError });
       } else {
-        console.log('Order updated with Lexoffice IDs');
+        logStep('Order updated with Lexoffice IDs');
       }
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        invoiceId,
+        documentId,
+        documentType,
         contactId,
-        message: 'Lexoffice invoice created successfully'
+        message: `Lexoffice ${documentType} created and email sent to customer`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error in create-lexoffice-invoice:', error);
+    logStep('Error in create-lexoffice-invoice', { error: errorMessage });
     return new Response(
       JSON.stringify({ 
         success: false, 
         error: errorMessage,
-        message: 'Failed to create Lexoffice invoice'
+        message: 'Failed to create Lexoffice document'
       }),
       { 
         status: 200, // Return 200 so order isn't marked as failed

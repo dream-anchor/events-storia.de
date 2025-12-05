@@ -35,10 +35,13 @@ export type Database = {
           is_pickup: boolean | null
           items: Json
           lexoffice_contact_id: string | null
+          lexoffice_document_type: string | null
           lexoffice_invoice_id: string | null
           minimum_order_surcharge: number | null
           notes: string | null
           order_number: string
+          payment_method: string | null
+          payment_status: string | null
           status: string | null
           total_amount: number | null
         }
@@ -62,10 +65,13 @@ export type Database = {
           is_pickup?: boolean | null
           items: Json
           lexoffice_contact_id?: string | null
+          lexoffice_document_type?: string | null
           lexoffice_invoice_id?: string | null
           minimum_order_surcharge?: number | null
           notes?: string | null
           order_number: string
+          payment_method?: string | null
+          payment_status?: string | null
           status?: string | null
           total_amount?: number | null
         }
@@ -89,10 +95,13 @@ export type Database = {
           is_pickup?: boolean | null
           items?: Json
           lexoffice_contact_id?: string | null
+          lexoffice_document_type?: string | null
           lexoffice_invoice_id?: string | null
           minimum_order_surcharge?: number | null
           notes?: string | null
           order_number?: string
+          payment_method?: string | null
+          payment_status?: string | null
           status?: string | null
           total_amount?: number | null
         }
