@@ -17,7 +17,7 @@ const CartButton = () => {
     <button
       onClick={() => setIsOpen(!isOpen)}
       className={cn(
-        "fixed top-24 right-4 z-[60]",
+        "fixed top-24 right-4 z-40",
         "flex items-center gap-2 px-4 py-3",
         "rounded-full",
         // Glassmorphism effect
