@@ -1,5 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCart } from '@/contexts/CartContext';
+import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
@@ -58,6 +59,7 @@ const dessertItems: DessertItem[] = [
 
 const DessertCard = ({ item, language }: { item: DessertItem; language: string }) => {
   const { addToCart, items } = useCart();
+  const { formatPrice } = usePriceDisplay();
   const [quantity, setQuantity] = useState(4);
   const [justAdded, setJustAdded] = useState(false);
 
@@ -110,7 +112,7 @@ const DessertCard = ({ item, language }: { item: DessertItem; language: string }
         
         {/* Price Badge */}
         <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-background/90 backdrop-blur-sm text-foreground font-semibold shadow-lg">
-          {item.price.toFixed(2).replace('.', ',')} €
+          {formatPrice(item.price)}
         </div>
       </div>
 

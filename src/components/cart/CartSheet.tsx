@@ -2,12 +2,14 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const CartSheet = () => {
   const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, totalPrice, clearCart, totalItems } = useCart();
   const { language } = useLanguage();
+  const { formatPrice } = usePriceDisplay();
   const navigate = useNavigate();
 
   const handleCheckout = () => {
@@ -81,7 +83,7 @@ const CartSheet = () => {
                           )}
                         </div>
                         <p className="text-primary font-semibold">
-                          {(item.price * item.quantity).toFixed(2).replace('.', ',')} €
+                          {formatPrice(item.price * item.quantity)}
                         </p>
                       </div>
                     </div>
@@ -125,7 +127,7 @@ const CartSheet = () => {
                   {language === 'de' ? 'Zwischensumme' : 'Subtotal'}
                 </span>
                 <span className="text-2xl font-bold text-foreground">
-                  {totalPrice.toFixed(2).replace('.', ',')} €
+                  {formatPrice(totalPrice)}
                 </span>
               </div>
               
