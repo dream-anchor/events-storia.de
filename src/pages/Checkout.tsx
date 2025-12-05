@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
@@ -7,13 +7,15 @@ import SEO from '@/components/SEO';
 import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
+import { useCustomerAuth } from '@/hooks/useCustomerAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText } from 'lucide-react';
+import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText, LogIn } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -39,11 +41,62 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 
+// Email validation helper
+const validateEmail = (email: string): { valid: boolean; suggestion?: string; error?: string } => {
+  const trimmed = email.trim().toLowerCase();
+  
+  if (!trimmed) {
+    return { valid: false, error: 'de:Bitte E-Mail eingeben|en:Please enter email' };
+  }
+  
+  // Basic format check
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  if (!emailRegex.test(trimmed)) {
+    return { valid: false, error: 'de:Bitte gültige E-Mail-Adresse eingeben|en:Please enter a valid email address' };
+  }
+  
+  // Common typo detection
+  const typoMap: Record<string, string> = {
+    'gmial.com': 'gmail.com',
+    'gmal.com': 'gmail.com',
+    'gamil.com': 'gmail.com',
+    'gnail.com': 'gmail.com',
+    'gmeil.com': 'gmail.com',
+    'gmaill.com': 'gmail.com',
+    'gmail.de': 'gmail.com',
+    'outloo.com': 'outlook.com',
+    'outlok.com': 'outlook.com',
+    'outllok.com': 'outlook.com',
+    'hotmal.com': 'hotmail.com',
+    'hotmai.com': 'hotmail.com',
+    'hotmial.com': 'hotmail.com',
+    'yahooo.com': 'yahoo.com',
+    'yaho.com': 'yahoo.com',
+    'yhoo.com': 'yahoo.com',
+    'web.de.de': 'web.de',
+    'gmx.de.de': 'gmx.de',
+  };
+  
+  const domain = trimmed.split('@')[1];
+  if (domain && typoMap[domain]) {
+    const corrected = trimmed.replace(domain, typoMap[domain]);
+    return { 
+      valid: false, 
+      suggestion: corrected,
+      error: `de:Meinten Sie ${corrected}?|en:Did you mean ${corrected}?`
+    };
+  }
+  
+  return { valid: true };
+};
+
 const Checkout = () => {
   const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
   const { language } = useLanguage();
   const { formatPrice, showGross } = usePriceDisplay();
   const navigate = useNavigate();
+  const { user, profile } = useCustomerAuth();
+  const isMobile = useIsMobile();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -74,6 +127,27 @@ const Checkout = () => {
   const [dateTimeWarning, setDateTimeWarning] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'invoice' | 'stripe'>('invoice');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  // Pre-fill form with customer profile data
+  useEffect(() => {
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || profile.name || '',
+        email: prev.email || profile.email || '',
+        phone: prev.phone || profile.phone || '',
+        company: prev.company || profile.company || '',
+        address: prev.address || (profile.delivery_street 
+          ? `${profile.delivery_street}\n${profile.delivery_zip} ${profile.delivery_city}`
+          : ''),
+        billingName: prev.billingName || profile.billing_name || '',
+        billingStreet: prev.billingStreet || profile.billing_street || '',
+        billingZip: prev.billingZip || profile.billing_zip || '',
+        billingCity: prev.billingCity || profile.billing_city || '',
+      }));
+    }
+  }, [profile]);
 
   // Check if order contains only pizza (no equipment pickup needed)
   const isPizzaOnly = items.length > 0 && items.every(item => item.category === 'pizza');
@@ -233,15 +307,18 @@ const Checkout = () => {
     minDateTime.setHours(minDateTime.getHours() + 24);
     
     if (selectedDateTime < minDateTime) {
+      const phoneText = isMobile 
+        ? '<a href="tel:01636033912" class="underline font-medium hover:text-amber-800 dark:hover:text-amber-200">0163 6033912</a>'
+        : '0163 6033912';
       setDateTimeWarning(
         language === 'de'
-          ? 'Der gewählte Termin liegt weniger als 24 Stunden in der Zukunft. Bitte wählen Sie einen späteren Zeitpunkt. In Notfällen rufen Sie uns an unter <a href="tel:01636033912" class="underline font-medium hover:text-amber-800 dark:hover:text-amber-200">0163 6033912</a>.'
-          : 'The selected date is less than 24 hours away. Please choose a later time. In emergencies, call us at <a href="tel:01636033912" class="underline font-medium hover:text-amber-800 dark:hover:text-amber-200">0163 6033912</a>.'
+          ? `Der gewählte Termin liegt weniger als 24 Stunden in der Zukunft. Bitte wählen Sie einen späteren Zeitpunkt. In dringenden Fällen rufen Sie uns an unter ${phoneText}.`
+          : `The selected date is less than 24 hours away. Please choose a later time. For urgent cases, call us at ${phoneText}.`
       );
     } else {
       setDateTimeWarning(null);
     }
-  }, [formData.date, formData.time, language]);
+  }, [formData.date, formData.time, language, isMobile]);
 
   // Calculate minimum order surcharge if needed
   const minimumOrderSurcharge = deliveryCalc && totalPrice < deliveryCalc.minimumOrder 
@@ -284,6 +361,15 @@ const Checkout = () => {
     
     if (items.length === 0) {
       toast.error(language === 'de' ? 'Warenkorb ist leer' : 'Cart is empty');
+      return;
+    }
+
+    // Validate email before submit
+    const emailValidation = validateEmail(formData.email);
+    if (!emailValidation.valid) {
+      const errorMsg = emailValidation.error?.split('|').find(s => s.startsWith(language === 'de' ? 'de:' : 'en:'));
+      setEmailError(errorMsg ? errorMsg.slice(3) : emailValidation.error || 'Invalid email');
+      toast.error(language === 'de' ? 'Bitte prüfen Sie die E-Mail-Adresse' : 'Please check your email address');
       return;
     }
 
@@ -350,7 +436,9 @@ const Checkout = () => {
           calculated_distance_km: deliveryCalc?.distanceKm || null,
           // Payment tracking
           payment_method: paymentMethod,
-          payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending'
+          payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending',
+          // Link to customer account if logged in
+          user_id: user?.id || null
         })
         .select('id')
         .single();
@@ -773,6 +861,25 @@ const Checkout = () => {
                       <User className="h-5 w-5 text-primary" />
                       {language === 'de' ? 'Kontaktdaten' : 'Contact Details'}
                     </h2>
+                    
+                    {/* Login hint for guests */}
+                    {!user && (
+                      <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-border/50">
+                        <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                          <LogIn className="h-4 w-4" />
+                          {language === 'de' 
+                            ? 'Haben Sie ein Konto? ' 
+                            : 'Have an account? '}
+                          <Link to="/login" className="text-primary hover:underline font-medium">
+                            {language === 'de' ? 'Anmelden' : 'Log in'}
+                          </Link>
+                          {language === 'de' 
+                            ? ' für schnelleres Bestellen.' 
+                            : ' for faster checkout.'}
+                        </p>
+                      </div>
+                    )}
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="name">{language === 'de' ? 'Name' : 'Name'} *</Label>
@@ -793,9 +900,21 @@ const Checkout = () => {
                           type="email"
                           value={formData.email}
                           onChange={handleInputChange}
+                          onBlur={(e) => {
+                            const result = validateEmail(e.target.value);
+                            if (!result.valid && result.error) {
+                              const errorMsg = result.error.split('|').find(s => s.startsWith(language === 'de' ? 'de:' : 'en:'));
+                              setEmailError(errorMsg ? errorMsg.slice(3) : result.error);
+                            } else {
+                              setEmailError(null);
+                            }
+                          }}
                           required
-                          className="mt-1"
+                          className={`mt-1 ${emailError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                         />
+                        {emailError && (
+                          <p className="text-sm text-destructive mt-1">{emailError}</p>
+                        )}
                       </div>
                       <div>
                         <Label htmlFor="phone">{language === 'de' ? 'Telefon' : 'Phone'} *</Label>
