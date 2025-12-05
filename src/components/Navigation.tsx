@@ -9,6 +9,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useScrolled } from "@/hooks/useScrolled";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
@@ -31,7 +32,35 @@ const Navigation = () => {
   const [openMenus, setOpenMenus] = useState<string[]>(["CATERING & LIEFERSERVICE", "VERANSTALTUNGEN"]);
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const { language } = useLanguage();
+  const { showGross, setShowGross } = usePriceDisplay();
   const isScrolled = useScrolled();
+
+  // Brutto/Netto Toggle Component
+  const PriceToggle = () => (
+    <div className="flex items-center gap-1 text-xs">
+      <button
+        onClick={() => setShowGross(true)}
+        className={`px-2 py-1 rounded transition-colors ${
+          showGross 
+            ? 'bg-primary-foreground/20 font-medium' 
+            : 'hover:bg-primary-foreground/10'
+        }`}
+      >
+        Brutto
+      </button>
+      <span className="text-primary-foreground/40">|</span>
+      <button
+        onClick={() => setShowGross(false)}
+        className={`px-2 py-1 rounded transition-colors ${
+          !showGross 
+            ? 'bg-primary-foreground/20 font-medium' 
+            : 'hover:bg-primary-foreground/10'
+        }`}
+      >
+        Netto
+      </button>
+    </div>
+  );
 
   // Shop-Kategorie: Bestellbare Produkte
   const shopChildren: NavChild[] = language === 'de' ? [
@@ -166,8 +195,12 @@ const Navigation = () => {
                     </Link>
                   )
                 )}
-                {/* Language Switcher im Mobile Menu */}
-                <div className="mt-6 px-4 pt-4 border-t border-primary-foreground/10">
+                {/* Price Toggle & Language Switcher im Mobile Menu */}
+                <div className="mt-6 px-4 pt-4 border-t border-primary-foreground/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-primary-foreground/70">{language === 'de' ? 'Preisanzeige' : 'Price display'}</span>
+                    <PriceToggle />
+                  </div>
                   <LanguageSwitcher />
                 </div>
               </div>
@@ -265,8 +298,9 @@ const Navigation = () => {
               )
             )}
           </div>
-          {/* Language Switcher Desktop - rechts */}
-          <div className={`w-24 flex justify-end transition-opacity duration-300 ${isScrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          {/* Price Toggle & Language Switcher Desktop - rechts */}
+          <div className={`flex items-center gap-3 transition-opacity duration-300 ${isScrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <PriceToggle />
             <LanguageSwitcher />
           </div>
         </div>

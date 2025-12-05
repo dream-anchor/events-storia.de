@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -124,6 +125,7 @@ interface DishCardProps {
 
 const DishCard = ({ dish, language }: DishCardProps) => {
   const { addToCart } = useCart();
+  const { formatPrice } = usePriceDisplay();
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
 
@@ -151,7 +153,7 @@ const DishCard = ({ dish, language }: DishCardProps) => {
           style={{ objectPosition: dish.objectPosition || 'center center' }}
         />
         <div className="absolute top-3 right-3 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
-          {dish.price.toFixed(2)} €
+          {formatPrice(dish.price)}
         </div>
       </div>
       <CardContent className="p-5">
