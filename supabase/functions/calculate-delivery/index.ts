@@ -137,8 +137,11 @@ serve(async (req) => {
         oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };
     } else if (oneWayDistanceKm <= 25) {
-      // Flat €25 NET fee for 1-25km in Munich area, minimum order €150
-      const netCost = 25;
+      // €25 NET per trip for 1-25km in Munich area
+      // Round trip (2×25 = €50) for equipment pickup, single trip (€25) for pizza-only
+      const tripMultiplier = isPizzaOnly ? 1 : 2;
+      const netCostPerTrip = 25;
+      const netCost = netCostPerTrip * tripMultiplier;
       const grossCost = Math.round(netCost * (1 + VAT_RATE) * 100) / 100;
       const vatAmount = Math.round((grossCost - netCost) * 100) / 100;
       
@@ -150,8 +153,12 @@ serve(async (req) => {
         deliveryVatRate: VAT_RATE,
         isFreeDelivery: false,
         minimumOrder: 150,
-        message: 'Lieferung im Münchner Raum',
-        messageEn: 'Delivery in Munich area',
+        message: isPizzaOnly 
+          ? 'Lieferung im Münchner Raum (nur Hinfahrt)'
+          : 'Lieferung im Münchner Raum (Hin- und Rückfahrt)',
+        messageEn: isPizzaOnly
+          ? 'Delivery in Munich area (one-way)'
+          : 'Delivery in Munich area (round trip)',
         isRoundTrip: !isPizzaOnly,
         oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };

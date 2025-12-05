@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText, LogIn, Lock, Mail } from 'lucide-react';
+import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText, LogIn } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -129,9 +129,6 @@ const Checkout = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [newsletterSignup, setNewsletterSignup] = useState(true);
-  const [createAccount, setCreateAccount] = useState(false);
-  const [accountPassword, setAccountPassword] = useState('');
-  const [accountPasswordConfirm, setAccountPasswordConfirm] = useState('');
 
   // Pre-fill form with customer profile data
   useEffect(() => {
@@ -390,59 +387,8 @@ const Checkout = () => {
     setIsSubmitting(true);
     const newOrderNumber = generateOrderNumber();
 
-    // Handle account creation if requested
-    let newUserId: string | null = null;
-    if (createAccount && !user) {
-      if (accountPassword.length < 6) {
-        toast.error(language === 'de' ? 'Passwort muss mindestens 6 Zeichen haben' : 'Password must be at least 6 characters');
-        setIsSubmitting(false);
-        return;
-      }
-      if (accountPassword !== accountPasswordConfirm) {
-        toast.error(language === 'de' ? 'Passwörter stimmen nicht überein' : 'Passwords do not match');
-        setIsSubmitting(false);
-        return;
-      }
-      
-      // Create account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: accountPassword,
-        options: {
-          emailRedirectTo: `${window.location.origin}/konto`
-        }
-      });
-      
-      if (authError) {
-        console.error('Account creation error:', authError);
-        toast.error(language === 'de' 
-          ? `Kontoerstellung fehlgeschlagen: ${authError.message}` 
-          : `Account creation failed: ${authError.message}`);
-        setIsSubmitting(false);
-        return;
-      }
-      
-      newUserId = authData.user?.id || null;
-      
-      // Update profile with form data
-      if (newUserId) {
-        const addressParts = formData.address.split('\n');
-        await supabase.from('customer_profiles').update({
-          name: formData.name,
-          phone: formData.phone,
-          company: formData.company || null,
-          delivery_street: addressParts[0] || null,
-          delivery_city: addressParts.length > 1 ? addressParts[1].split(' ').slice(1).join(' ') : null,
-          delivery_zip: addressParts.length > 1 ? addressParts[1].split(' ')[0] : null,
-          billing_name: formData.billingName || null,
-          billing_street: formData.billingStreet || null,
-          billing_city: formData.billingCity || null,
-          billing_zip: formData.billingZip || null,
-        }).eq('user_id', newUserId);
-        
-        toast.success(language === 'de' ? 'Kundenkonto erstellt!' : 'Account created!');
-      }
-    }
+    // User ID for linking (existing user only, no account creation during checkout)
+    const existingUserId = user?.id || null;
 
     // Build notes with service options
     let fullNotes = formData.notes || '';
@@ -509,8 +455,8 @@ const Checkout = () => {
           // Payment tracking
           payment_method: paymentMethod,
           payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending',
-          // Link to customer account if logged in or just created
-          user_id: user?.id || newUserId || null
+          // Link to customer account if logged in
+          user_id: existingUserId
         });
 
       if (error) throw error;
@@ -630,9 +576,16 @@ const Checkout = () => {
             return;
           }
 
-          // Redirect to Stripe Checkout
+          // Redirect to Stripe Checkout - use direct assignment with fallback
           clearCart();
-          window.location.href = paymentData.url;
+          
+          // Try immediate redirect
+          try {
+            window.location.assign(paymentData.url);
+          } catch {
+            // Fallback: open in same tab
+            window.open(paymentData.url, '_self');
+          }
           return;
         } catch (payErr) {
           console.error('Payment error:', payErr);
@@ -1021,63 +974,6 @@ const Checkout = () => {
                       </div>
                     </div>
                     
-                    {/* Account Creation Option (for guests only) */}
-                    {!user && (
-                      <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-border/50">
-                        <div className="flex items-start gap-2">
-                          <Checkbox
-                            id="createAccount"
-                            checked={createAccount}
-                            onCheckedChange={(checked) => setCreateAccount(checked as boolean)}
-                          />
-                          <div className="flex-1">
-                            <Label htmlFor="createAccount" className="text-sm font-medium cursor-pointer">
-                              {language === 'de' 
-                                ? 'Kundenkonto erstellen' 
-                                : 'Create customer account'}
-                            </Label>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {language === 'de' 
-                                ? 'Bestellungen einsehen, Adressen speichern, schneller bestellen'
-                                : 'View orders, save addresses, checkout faster'}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        {createAccount && (
-                          <div className="mt-4 space-y-3 pl-6 border-l-2 border-primary/20">
-                            <div className="space-y-2">
-                              <Label htmlFor="accountPassword" className="text-sm">
-                                {language === 'de' ? 'Passwort' : 'Password'} *
-                              </Label>
-                              <Input
-                                id="accountPassword"
-                                type="password"
-                                value={accountPassword}
-                                onChange={(e) => setAccountPassword(e.target.value)}
-                                placeholder="••••••••"
-                                minLength={6}
-                              />
-                              <p className="text-xs text-muted-foreground">
-                                {language === 'de' ? 'Mindestens 6 Zeichen' : 'At least 6 characters'}
-                              </p>
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="accountPasswordConfirm" className="text-sm">
-                                {language === 'de' ? 'Passwort bestätigen' : 'Confirm password'} *
-                              </Label>
-                              <Input
-                                id="accountPasswordConfirm"
-                                type="password"
-                                value={accountPasswordConfirm}
-                                onChange={(e) => setAccountPasswordConfirm(e.target.value)}
-                                placeholder="••••••••"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </section>
 
                   {/* Section 2: Delivery/Pickup + Date/Time (Combined) */}
@@ -1198,7 +1094,7 @@ const Checkout = () => {
                                 </div>
                                 
                                 {/* Round trip explanation */}
-                                {deliveryCalc.isRoundTrip && deliveryCalc.oneWayDistanceKm > 25 && (
+                                {deliveryCalc.isRoundTrip && (
                                   <p className="text-xs text-muted-foreground mb-2 italic">
                                     {language === 'de' 
                                       ? 'Hin- und Rückfahrt für Equipment-Abholung (Geschirr, Wärmebehälter etc.)'
@@ -1228,6 +1124,13 @@ const Checkout = () => {
                                     ? 'Speisen inkl. 7% MwSt. · Lieferung zzgl. 19% MwSt.' 
                                     : 'Food incl. 7% VAT · Delivery + 19% VAT'}
                                 </p>
+                                
+                                {/* Waiting time notice */}
+                                <p className="text-xs mt-1 text-muted-foreground">
+                                  {language === 'de' 
+                                    ? 'Wartezeit über 15 Min. bei Anlieferung: 35 €/angefangene Stunde' 
+                                    : 'Waiting time over 15 min on delivery: €35/started hour'}
+                                </p>
                               </div>
                             </div>
                           </div>
@@ -1245,7 +1148,7 @@ const Checkout = () => {
                                 </p>
                                 <ul className="space-y-1">
                                   <li>✓ {language === 'de' ? 'Bis 1 km: Kostenlos (Mindestbestellwert 50 €)' : 'Up to 1 km: Free (min. order €50)'}</li>
-                                  <li>• {language === 'de' ? '1-25 km München: 25 € netto (Mindestbestellwert 150 €)' : '1-25 km Munich: €25 net (min. order €150)'}</li>
+                                  <li>• {language === 'de' ? '1-25 km München: 2 × 25 € netto (Mindestbestellwert 150 €)' : '1-25 km Munich: 2 × €25 net (min. order €150)'}</li>
                                   <li>• {language === 'de' ? 'Außerhalb: 1,20 €/km netto × 2 Fahrten (Mindestbestellwert 200 €)' : 'Outside: €1.20/km net × 2 trips (min. order €200)'}</li>
                                   <li className="text-xs text-muted-foreground pl-4">
                                     {language === 'de' 
@@ -1256,6 +1159,11 @@ const Checkout = () => {
                                     {language === 'de' 
                                       ? '(Alle Lieferpreise zzgl. 19% MwSt.)'
                                       : '(All delivery prices + 19% VAT)'}
+                                  </li>
+                                  <li className="text-xs text-muted-foreground pl-4">
+                                    {language === 'de' 
+                                      ? '(Wartezeit über 15 Min.: 35 €/angefangene Stunde)'
+                                      : '(Waiting time over 15 min: €35/started hour)'}
                                   </li>
                                 </ul>
                               </div>
