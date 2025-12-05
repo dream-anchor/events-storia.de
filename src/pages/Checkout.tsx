@@ -12,9 +12,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2 } from 'lucide-react';
+import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface DeliveryCalculation {
   distanceKm: number;
@@ -50,6 +51,7 @@ const Checkout = () => {
     wantsSetupService: false,
     // Billing address
     sameAsDelivery: true,
+    showBillingAddress: false, // For pickup: expandable
     billingName: '',
     billingStreet: '',
     billingZip: '',
@@ -166,7 +168,11 @@ const Checkout = () => {
     }
 
     // Determine billing address
-    const billingAddress = formData.sameAsDelivery && formData.deliveryType === 'delivery'
+    const needsBillingAddress = formData.deliveryType === 'pickup' 
+      ? formData.showBillingAddress 
+      : !formData.sameAsDelivery;
+    
+    const billingAddress = !needsBillingAddress && formData.deliveryType === 'delivery'
       ? {
           name: formData.company || formData.name,
           street: formData.address.split('\n')[0] || formData.address,
@@ -247,7 +253,7 @@ const Checkout = () => {
             minimumOrderSurcharge: minimumOrderSurcharge,
             distanceKm: deliveryCalc?.distanceKm || undefined,
             grandTotal: grandTotal,
-            billingAddress: !formData.sameAsDelivery || formData.deliveryType === 'pickup' ? billingAddress : undefined
+            billingAddress: needsBillingAddress ? billingAddress : undefined
           }
         });
         
@@ -311,6 +317,7 @@ const Checkout = () => {
     }
   };
 
+  // Empty cart view
   if (items.length === 0 && !showSuccess) {
     return (
       <>
@@ -336,6 +343,116 @@ const Checkout = () => {
     );
   }
 
+  // Cart Summary Component (used in sticky sidebar on desktop)
+  const CartSummary = ({ showItems = false }: { showItems?: boolean }) => (
+    <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+      <h2 className="font-serif text-lg flex items-center gap-2">
+        {language === 'de' ? 'Ihre Bestellung' : 'Your Order'}
+      </h2>
+      
+      {showItems && (
+        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+          {items.map((item) => {
+            const name = language === 'en' && item.name_en ? item.name_en : item.name;
+            return (
+              <div key={item.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                {item.image && (
+                  <img src={item.image} alt={name} className="w-10 h-10 rounded object-cover" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{name}</p>
+                  <p className="text-xs text-muted-foreground">{item.quantity}× {item.price.toFixed(2).replace('.', ',')} €</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                    className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="w-6 text-center text-xs">{item.quantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                    className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeFromCart(item.id)}
+                  className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      
+      {/* Pricing Summary */}
+      <div className="space-y-2 pt-2 border-t border-border">
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-muted-foreground">{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
+          <span>{totalPrice.toFixed(2).replace('.', ',')} €</span>
+        </div>
+        {minimumOrderSurcharge > 0 && (
+          <div className="flex justify-between items-center text-sm text-amber-600 dark:text-amber-400">
+            <span className="flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              {language === 'de' ? 'Mindestbest.-Aufschlag' : 'Min. order surcharge'}
+            </span>
+            <span>+{minimumOrderSurcharge.toFixed(2).replace('.', ',')} €</span>
+          </div>
+        )}
+        {formData.deliveryType === 'delivery' && deliveryCalc && (
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
+            <span>
+              {deliveryCalc.isFreeDelivery 
+                ? (language === 'de' ? 'Kostenlos' : 'Free')
+                : `${deliveryCalc.deliveryCost.toFixed(2).replace('.', ',')} €`}
+            </span>
+          </div>
+        )}
+        <div className="flex justify-between items-center pt-3 border-t border-border">
+          <span className="font-semibold">{language === 'de' ? 'Gesamt' : 'Total'}</span>
+          <span className="text-xl font-bold text-primary">{grandTotal.toFixed(2).replace('.', ',')} €</span>
+        </div>
+      </div>
+
+      {/* CTA Button */}
+      <Button 
+        type="submit" 
+        size="lg" 
+        className="w-full text-base py-6 font-semibold shadow-lg hover:shadow-xl transition-all"
+        disabled={isSubmitting}
+      >
+        {isSubmitting 
+          ? (language === 'de' ? 'Wird gesendet...' : 'Sending...')
+          : (language === 'de' 
+              ? `Anfragen · ${grandTotal.toFixed(2).replace('.', ',')} €`
+              : `Submit · €${grandTotal.toFixed(2)}`)}
+      </Button>
+
+      {/* Trust Elements */}
+      <div className="space-y-2 pt-2">
+        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          <span>{language === 'de' ? 'Sichere Übertragung' : 'Secure transmission'}</span>
+        </div>
+        <p className="text-xs text-center text-muted-foreground">
+          {language === 'de' 
+            ? 'Unverbindliche Anfrage – keine Zahlung jetzt'
+            : 'Non-binding request – no payment now'}
+        </p>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <SEO 
@@ -346,458 +463,570 @@ const Checkout = () => {
         <Header />
         <Navigation />
         
-        <main className="flex-1 container mx-auto px-4 py-8 md:py-16">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-2xl md:text-3xl font-serif font-medium mb-8 text-center">
+        <main className="flex-1 container mx-auto px-4 py-6 md:py-10">
+          <div className="max-w-6xl mx-auto">
+            <h1 className="text-2xl md:text-3xl font-serif font-medium mb-6 text-center">
               {language === 'de' ? 'Bestellung aufgeben' : 'Place Your Order'}
             </h1>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Cart Overview */}
-              <section className="bg-card border border-border rounded-lg p-4 md:p-6">
-                <h2 className="font-serif text-lg mb-4">
-                  {language === 'de' ? 'Ihre Auswahl' : 'Your Selection'}
-                </h2>
-                <div className="space-y-3">
-                  {items.map((item) => {
-                    const name = language === 'en' && item.name_en ? item.name_en : item.name;
-                    return (
-                      <div key={item.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                        {item.image && (
-                          <img src={item.image} alt={name} className="w-12 h-12 rounded object-cover" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{name}</p>
-                          <p className="text-sm text-primary">{item.price.toFixed(2).replace('.', ',')} €</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="w-7 h-7 rounded-full border border-border flex items-center justify-center hover:bg-muted"
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="w-8 text-center text-sm">{item.quantity}</span>
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="w-7 h-7 rounded-full border border-border flex items-center justify-center hover:bg-muted"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeFromCart(item.id)}
-                          className="p-1.5 text-destructive hover:bg-destructive/10 rounded"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="mt-4 pt-4 border-t border-border space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
-                    <span className="font-medium">{totalPrice.toFixed(2).replace('.', ',')} €</span>
-                  </div>
-                  {minimumOrderSurcharge > 0 && (
-                    <div className="flex justify-between items-center text-amber-600 dark:text-amber-400">
-                      <span className="flex items-center gap-1 text-sm">
-                        <Info className="h-3.5 w-3.5" />
-                        {language === 'de' ? 'Mindestbestellwert-Aufschlag' : 'Minimum order surcharge'}
-                      </span>
-                      <span className="font-medium">+{minimumOrderSurcharge.toFixed(2).replace('.', ',')} €</span>
-                    </div>
-                  )}
-                  {formData.deliveryType === 'delivery' && deliveryCalc && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'} ({deliveryCalc.distanceKm} km)</span>
-                      <span className="font-medium">
-                        {deliveryCalc.isFreeDelivery 
-                          ? (language === 'de' ? 'Kostenlos' : 'Free')
-                          : `${deliveryCalc.deliveryCost.toFixed(2).replace('.', ',')} €`}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center pt-2 border-t border-border">
-                    <span className="font-medium">{language === 'de' ? 'Gesamt' : 'Total'}</span>
-                    <span className="text-xl font-bold text-primary">{grandTotal.toFixed(2).replace('.', ',')} €</span>
-                  </div>
-                  {minimumOrderSurcharge > 0 && (
-                    <p className="text-xs text-muted-foreground pt-1">
-                      {language === 'de' 
-                        ? `Um den Mindestbestellwert von ${deliveryCalc?.minimumOrder} € zu erreichen, wird ein Aufschlag berechnet.`
-                        : `A surcharge is applied to meet the minimum order of €${deliveryCalc?.minimumOrder}.`}
-                    </p>
-                  )}
-                </div>
-              </section>
-
-              {/* Contact Details */}
-              <section className="bg-card border border-border rounded-lg p-4 md:p-6">
-                <h2 className="font-serif text-lg mb-4">
-                  {language === 'de' ? 'Kontaktdaten' : 'Contact Details'}
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">{language === 'de' ? 'Name' : 'Name'} *</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      required
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">E-Mail *</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">{language === 'de' ? 'Telefon' : 'Phone'} *</Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      required
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="company">{language === 'de' ? 'Firma (optional)' : 'Company (optional)'}</Label>
-                    <Input
-                      id="company"
-                      name="company"
-                      value={formData.company}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-              </section>
-
-              {/* Billing Address */}
-              <section className="bg-card border border-border rounded-lg p-4 md:p-6">
-                <h2 className="font-serif text-lg mb-4">
-                  {language === 'de' ? 'Rechnungsadresse' : 'Billing Address'}
-                </h2>
+            <form onSubmit={handleSubmit}>
+              {/* Two-Column Layout: Form left, Sticky Cart right on desktop */}
+              <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-8 lg:items-start">
                 
-                {formData.deliveryType === 'delivery' && (
-                  <div className="flex items-center space-x-2 mb-4">
-                    <Checkbox
-                      id="sameAsDelivery"
-                      checked={formData.sameAsDelivery}
-                      onCheckedChange={(checked) => 
-                        setFormData(prev => ({ ...prev, sameAsDelivery: checked === true }))
-                      }
-                    />
-                    <Label htmlFor="sameAsDelivery" className="font-normal cursor-pointer">
-                      {language === 'de' ? 'Entspricht Lieferadresse' : 'Same as delivery address'}
-                    </Label>
-                  </div>
-                )}
-
-                {(formData.deliveryType === 'pickup' || !formData.sameAsDelivery) && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <Label htmlFor="billingName">{language === 'de' ? 'Name / Firma' : 'Name / Company'} *</Label>
-                      <Input
-                        id="billingName"
-                        name="billingName"
-                        value={formData.billingName}
-                        onChange={handleInputChange}
-                        required={formData.deliveryType === 'pickup' || !formData.sameAsDelivery}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label htmlFor="billingStreet">{language === 'de' ? 'Straße und Hausnummer' : 'Street and number'} *</Label>
-                      <Input
-                        id="billingStreet"
-                        name="billingStreet"
-                        value={formData.billingStreet}
-                        onChange={handleInputChange}
-                        required={formData.deliveryType === 'pickup' || !formData.sameAsDelivery}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="billingZip">{language === 'de' ? 'PLZ' : 'Postal Code'} *</Label>
-                      <Input
-                        id="billingZip"
-                        name="billingZip"
-                        value={formData.billingZip}
-                        onChange={handleInputChange}
-                        required={formData.deliveryType === 'pickup' || !formData.sameAsDelivery}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="billingCity">{language === 'de' ? 'Stadt' : 'City'} *</Label>
-                      <Input
-                        id="billingCity"
-                        name="billingCity"
-                        value={formData.billingCity}
-                        onChange={handleInputChange}
-                        required={formData.deliveryType === 'pickup' || !formData.sameAsDelivery}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label htmlFor="billingCountry">{language === 'de' ? 'Land' : 'Country'}</Label>
-                      <Input
-                        id="billingCountry"
-                        name="billingCountry"
-                        value={formData.billingCountry}
-                        onChange={handleInputChange}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* Delivery Options */}
-              <section className="bg-card border border-border rounded-lg p-4 md:p-6">
-                <h2 className="font-serif text-lg mb-4 flex items-center gap-2">
-                  <Truck className="h-5 w-5" />
-                  {language === 'de' ? 'Lieferoptionen' : 'Delivery Options'}
-                </h2>
-
-                <RadioGroup
-                  value={formData.deliveryType}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, deliveryType: value }))}
-                  className="mb-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="delivery" id="delivery" />
-                    <Label htmlFor="delivery" className="font-normal cursor-pointer">
-                      {language === 'de' ? 'Lieferung' : 'Delivery'}
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="pickup" id="pickup" />
-                    <Label htmlFor="pickup" className="font-normal cursor-pointer">
-                      {language === 'de' ? 'Selbstabholung' : 'Pickup'}
-                    </Label>
-                  </div>
-                </RadioGroup>
-
-                {formData.deliveryType === 'delivery' && (
-                  <>
-                    <div className="mb-4">
-                      <Label htmlFor="address" className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {language === 'de' ? 'Lieferadresse' : 'Delivery Address'} *
-                      </Label>
-                      <Textarea
-                        id="address"
-                        name="address"
-                        value={formData.address}
-                        onChange={handleAddressChange}
-                        required={formData.deliveryType === 'delivery'}
-                        className="mt-1"
-                        rows={2}
-                        placeholder={language === 'de' ? 'Straße, Hausnummer, PLZ, Stadt' : 'Street, house number, postal code, city'}
-                      />
-                    </div>
-
-                    {/* Delivery Calculation Result */}
-                    {isCalculating && (
-                      <div className="bg-muted/50 rounded-lg p-4 mb-4 flex items-center gap-3">
-                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        <span className="text-sm text-muted-foreground">
-                          {language === 'de' ? 'Berechne Lieferentfernung...' : 'Calculating delivery distance...'}
-                        </span>
-                      </div>
-                    )}
-
-                    {deliveryCalc && !isCalculating && (
-                      <div className="rounded-lg p-4 mb-4 border bg-muted/50 border-border">
-                        <div className="flex items-start gap-3">
-                          <Truck className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
-                          <div className="flex-1">
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <p className="font-medium text-foreground">
-                                  {language === 'de' ? deliveryCalc.message : deliveryCalc.messageEn}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {language === 'de' ? 'Entfernung' : 'Distance'}: {deliveryCalc.distanceKm} km
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                {deliveryCalc.isFreeDelivery ? (
-                                  <span className="text-lg font-bold text-primary">
-                                    {language === 'de' ? 'Kostenlos' : 'Free'}
-                                  </span>
-                                ) : (
-                                  <span className="text-lg font-bold text-foreground">
-                                    {deliveryCalc.deliveryCost.toFixed(2).replace('.', ',')} €
-                                  </span>
+                {/* Left Column: Form Sections */}
+                <div className="space-y-6">
+                  
+                  {/* Mobile Cart Overview (hidden on desktop) */}
+                  <section className="lg:hidden bg-card border border-border rounded-xl p-4">
+                    <Collapsible defaultOpen={false}>
+                      <CollapsibleTrigger className="flex items-center justify-between w-full">
+                        <span className="font-serif text-lg">{language === 'de' ? 'Ihre Auswahl' : 'Your Selection'} ({items.length})</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-primary">{grandTotal.toFixed(2).replace('.', ',')} €</span>
+                          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-4">
+                        <div className="space-y-3">
+                          {items.map((item) => {
+                            const name = language === 'en' && item.name_en ? item.name_en : item.name;
+                            return (
+                              <div key={item.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                                {item.image && (
+                                  <img src={item.image} alt={name} className="w-10 h-10 rounded object-cover" />
                                 )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">{name}</p>
+                                  <p className="text-xs text-muted-foreground">{item.quantity}× {item.price.toFixed(2).replace('.', ',')} €</p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                    className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:bg-muted"
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </button>
+                                  <span className="w-6 text-center text-xs">{item.quantity}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                    className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:bg-muted"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeFromCart(item.id)}
+                                  className="p-1 text-destructive hover:bg-destructive/10 rounded"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </section>
+
+                  {/* Section 1: Contact Details */}
+                  <section className="bg-card border border-border rounded-xl p-4 md:p-6">
+                    <h2 className="font-serif text-lg mb-4 flex items-center gap-2">
+                      <User className="h-5 w-5 text-primary" />
+                      {language === 'de' ? 'Kontaktdaten' : 'Contact Details'}
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="name">{language === 'de' ? 'Name' : 'Name'} *</Label>
+                        <Input
+                          id="name"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          required
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="email">E-Mail *</Label>
+                        <Input
+                          id="email"
+                          name="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          required
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="phone">{language === 'de' ? 'Telefon' : 'Phone'} *</Label>
+                        <Input
+                          id="phone"
+                          name="phone"
+                          type="tel"
+                          value={formData.phone}
+                          onChange={handleInputChange}
+                          required
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="company">{language === 'de' ? 'Firma (optional)' : 'Company (optional)'}</Label>
+                        <Input
+                          id="company"
+                          name="company"
+                          value={formData.company}
+                          onChange={handleInputChange}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Section 2: Delivery/Pickup + Date/Time (Combined) */}
+                  <section className="bg-card border border-border rounded-xl p-4 md:p-6">
+                    <h2 className="font-serif text-lg mb-4 flex items-center gap-2">
+                      <Truck className="h-5 w-5 text-primary" />
+                      {language === 'de' ? 'Lieferung & Termin' : 'Delivery & Schedule'}
+                    </h2>
+
+                    {/* Delivery Type Selection */}
+                    <RadioGroup
+                      value={formData.deliveryType}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, deliveryType: value }))}
+                      className="mb-5"
+                    >
+                      <div className="grid grid-cols-2 gap-3">
+                        <label 
+                          htmlFor="delivery" 
+                          className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                            formData.deliveryType === 'delivery' 
+                              ? 'border-primary bg-primary/5' 
+                              : 'border-border hover:border-muted-foreground/50'
+                          }`}
+                        >
+                          <RadioGroupItem value="delivery" id="delivery" />
+                          <div>
+                            <span className="font-medium block">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
+                            <span className="text-xs text-muted-foreground">{language === 'de' ? 'Wir liefern zu Ihnen' : 'We deliver to you'}</span>
+                          </div>
+                        </label>
+                        <label 
+                          htmlFor="pickup" 
+                          className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                            formData.deliveryType === 'pickup' 
+                              ? 'border-primary bg-primary/5' 
+                              : 'border-border hover:border-muted-foreground/50'
+                          }`}
+                        >
+                          <RadioGroupItem value="pickup" id="pickup" />
+                          <div>
+                            <span className="font-medium block">{language === 'de' ? 'Abholung' : 'Pickup'}</span>
+                            <span className="text-xs text-muted-foreground">Karlstr. 47a, München</span>
+                          </div>
+                        </label>
+                      </div>
+                    </RadioGroup>
+
+                    {/* Delivery Address */}
+                    {formData.deliveryType === 'delivery' && (
+                      <>
+                        <div className="mb-4">
+                          <Label htmlFor="address" className="flex items-center gap-1">
+                            <MapPin className="h-4 w-4" />
+                            {language === 'de' ? 'Lieferadresse' : 'Delivery Address'} *
+                          </Label>
+                          <Textarea
+                            id="address"
+                            name="address"
+                            value={formData.address}
+                            onChange={handleAddressChange}
+                            required={formData.deliveryType === 'delivery'}
+                            className="mt-1"
+                            rows={2}
+                            placeholder={language === 'de' ? 'Straße, Hausnummer, PLZ, Stadt' : 'Street, house number, postal code, city'}
+                          />
+                        </div>
+
+                        {/* Delivery Calculation Result */}
+                        {isCalculating && (
+                          <div className="bg-muted/50 rounded-lg p-4 mb-4 flex items-center gap-3">
+                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                            <span className="text-sm text-muted-foreground">
+                              {language === 'de' ? 'Berechne Lieferentfernung...' : 'Calculating delivery distance...'}
+                            </span>
+                          </div>
+                        )}
+
+                        {deliveryCalc && !isCalculating && (
+                          <div className="rounded-lg p-4 mb-4 border bg-muted/50 border-border">
+                            <div className="flex items-start gap-3">
+                              <Truck className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
+                              <div className="flex-1">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <p className="font-medium text-foreground">
+                                      {language === 'de' ? deliveryCalc.message : deliveryCalc.messageEn}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {language === 'de' ? 'Entfernung' : 'Distance'}: {deliveryCalc.distanceKm} km
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    {deliveryCalc.isFreeDelivery ? (
+                                      <span className="text-lg font-bold text-primary">
+                                        {language === 'de' ? 'Kostenlos' : 'Free'}
+                                      </span>
+                                    ) : (
+                                      <span className="text-lg font-bold text-foreground">
+                                        {deliveryCalc.deliveryCost.toFixed(2).replace('.', ',')} €
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {minimumOrderSurcharge > 0 && (
+                                  <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                                    {language === 'de' 
+                                      ? `Aufschlag von ${minimumOrderSurcharge.toFixed(2).replace('.', ',')} € wird hinzugefügt, um Mindestbestellwert von ${deliveryCalc.minimumOrder} € zu erreichen.`
+                                      : `A surcharge of €${minimumOrderSurcharge.toFixed(2)} will be added to meet the minimum order of €${deliveryCalc.minimumOrder}.`}
+                                  </p>
+                                )}
+                                
+                                <p className="text-xs mt-2 text-muted-foreground">
+                                  {language === 'de' ? 'zzgl. MwSt.' : 'excl. VAT'}
+                                </p>
                               </div>
                             </div>
-                            
-                            {minimumOrderSurcharge > 0 && (
-                              <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
-                                {language === 'de' 
-                                  ? `Aufschlag von ${minimumOrderSurcharge.toFixed(2).replace('.', ',')} € wird hinzugefügt, um Mindestbestellwert von ${deliveryCalc.minimumOrder} € zu erreichen.`
-                                  : `A surcharge of €${minimumOrderSurcharge.toFixed(2)} will be added to meet the minimum order of €${deliveryCalc.minimumOrder}.`}
-                              </p>
-                            )}
-                            
-                            <p className="text-xs mt-2 text-muted-foreground">
-                              {language === 'de' ? 'zzgl. MwSt.' : 'excl. VAT'}
-                            </p>
                           </div>
-                        </div>
-                      </div>
+                        )}
+
+                        {!deliveryCalc && !isCalculating && formData.address.length < 10 && (
+                          <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                            <div className="flex items-start gap-3">
+                              <Info className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                              <div className="text-sm text-muted-foreground">
+                                <p className="mb-2">
+                                  {language === 'de' 
+                                    ? 'Geben Sie Ihre vollständige Adresse ein, um die Lieferkosten zu berechnen.'
+                                    : 'Enter your full address to calculate delivery costs.'}
+                                </p>
+                                <ul className="space-y-1">
+                                  <li>✓ {language === 'de' ? 'Bis 1 km: Kostenlos (ab 50 €)' : 'Up to 1 km: Free (min. €50)'}</li>
+                                  <li>• {language === 'de' ? '1-25 km München: 25 € (ab 150 €)' : '1-25 km Munich: €25 (min. €150)'}</li>
+                                  <li>• {language === 'de' ? 'Außerhalb: 1,20 €/km (ab 200 €)' : 'Outside: €1.20/km (min. €200)'}</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
 
-                    {!deliveryCalc && !isCalculating && formData.address.length < 10 && (
+                    {/* Pickup Info */}
+                    {formData.deliveryType === 'pickup' && (
                       <div className="bg-muted/50 rounded-lg p-4 mb-4">
-                        <div className="flex items-start gap-3">
-                          <Info className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                          <div className="text-sm text-muted-foreground">
-                            <p className="mb-2">
-                              {language === 'de' 
-                                ? 'Geben Sie Ihre vollständige Adresse ein, um die Lieferkosten zu berechnen.'
-                                : 'Enter your full address to calculate delivery costs.'}
-                            </p>
-                            <ul className="space-y-1">
-                              <li>✓ {language === 'de' ? 'Bis 1 km: Kostenlos (ab 50 €)' : 'Up to 1 km: Free (min. €50)'}</li>
-                              <li>• {language === 'de' ? '1-25 km München: 25 € (ab 150 €)' : '1-25 km Munich: €25 (min. €150)'}</li>
-                              <li>• {language === 'de' ? 'Außerhalb: 1,20 €/km (ab 200 €)' : 'Outside: €1.20/km (min. €200)'}</li>
-                            </ul>
-                          </div>
-                        </div>
+                        <p className="text-sm font-medium mb-1">
+                          {language === 'de' ? 'Abholadresse:' : 'Pickup Address:'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          STORIA – Ristorante & Bar<br />
+                          Karlstr. 47a<br />
+                          80333 München
+                        </p>
                       </div>
                     )}
-                  </>
-                )}
 
-                {formData.deliveryType === 'pickup' && (
-                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
-                    <p className="text-sm font-medium mb-1">
-                      {language === 'de' ? 'Abholadresse:' : 'Pickup Address:'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      STORIA – Ristorante & Bar<br />
-                      Karlstr. 47a<br />
-                      80333 München
-                    </p>
-                  </div>
-                )}
+                    {/* Date and Time - Prominent */}
+                    <div className="border-t border-border pt-5 mt-4">
+                      <h3 className="font-medium mb-3 flex items-center gap-2">
+                        <CalendarDays className="h-4 w-4 text-primary" />
+                        {language === 'de' ? 'Wann wird Ihr Catering benötigt?' : 'When do you need your catering?'}
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="date" className="flex items-center gap-1 text-sm">
+                            <CalendarDays className="h-3.5 w-3.5" />
+                            {language === 'de' ? 'Datum' : 'Date'}
+                          </Label>
+                          <Input
+                            id="date"
+                            name="date"
+                            type="date"
+                            value={formData.date}
+                            onChange={handleInputChange}
+                            className="mt-1"
+                            min={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="time" className="flex items-center gap-1 text-sm">
+                            <Clock className="h-3.5 w-3.5" />
+                            {language === 'de' ? 'Uhrzeit' : 'Time'}
+                          </Label>
+                          <Input
+                            id="time"
+                            name="time"
+                            type="time"
+                            value={formData.time}
+                            onChange={handleInputChange}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
 
-                {/* Date and Time */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <Label htmlFor="date">{language === 'de' ? 'Wunschdatum' : 'Preferred Date'}</Label>
-                    <Input
-                      id="date"
-                      name="date"
-                      type="date"
-                      value={formData.date}
+                    {/* Setup Service Option */}
+                    <div className="border-t border-border pt-4 mt-4">
+                      <div className="flex items-start space-x-3">
+                        <Checkbox
+                          id="setupService"
+                          checked={formData.wantsSetupService}
+                          onCheckedChange={(checked) => 
+                            setFormData(prev => ({ ...prev, wantsSetupService: checked === true }))
+                          }
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                          <Label htmlFor="setupService" className="font-medium cursor-pointer">
+                            {language === 'de' ? 'Aufbau & Service buchen (optional)' : 'Book Setup & Service (optional)'}
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            {language === 'de' 
+                              ? 'Preis nach Vereinbarung – wir beraten Sie gerne'
+                              : 'Price by arrangement – we\'ll be happy to advise you'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cleaning Info */}
+                    <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      <span>
+                        {language === 'de' 
+                          ? 'Reinigung ist im Preis aller Platten inklusive'
+                          : 'Cleaning is included in the price of all platters'}
+                      </span>
+                    </div>
+                  </section>
+
+                  {/* Section 3: Billing Address (Smart Hidden) */}
+                  <section className="bg-card border border-border rounded-xl p-4 md:p-6">
+                    <h2 className="font-serif text-lg mb-4">
+                      {language === 'de' ? 'Rechnungsadresse' : 'Billing Address'}
+                    </h2>
+                    
+                    {formData.deliveryType === 'delivery' ? (
+                      // Delivery: Checkbox "Same as delivery"
+                      <>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="sameAsDelivery"
+                            checked={formData.sameAsDelivery}
+                            onCheckedChange={(checked) => 
+                              setFormData(prev => ({ ...prev, sameAsDelivery: checked === true }))
+                            }
+                          />
+                          <Label htmlFor="sameAsDelivery" className="font-normal cursor-pointer">
+                            {language === 'de' ? 'Entspricht Lieferadresse' : 'Same as delivery address'}
+                          </Label>
+                        </div>
+                        
+                        {!formData.sameAsDelivery && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-border">
+                            <div className="md:col-span-2">
+                              <Label htmlFor="billingName">{language === 'de' ? 'Name / Firma' : 'Name / Company'} *</Label>
+                              <Input
+                                id="billingName"
+                                name="billingName"
+                                value={formData.billingName}
+                                onChange={handleInputChange}
+                                required={!formData.sameAsDelivery}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <Label htmlFor="billingStreet">{language === 'de' ? 'Straße und Hausnummer' : 'Street and number'} *</Label>
+                              <Input
+                                id="billingStreet"
+                                name="billingStreet"
+                                value={formData.billingStreet}
+                                onChange={handleInputChange}
+                                required={!formData.sameAsDelivery}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="billingZip">{language === 'de' ? 'PLZ' : 'Postal Code'} *</Label>
+                              <Input
+                                id="billingZip"
+                                name="billingZip"
+                                value={formData.billingZip}
+                                onChange={handleInputChange}
+                                required={!formData.sameAsDelivery}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="billingCity">{language === 'de' ? 'Stadt' : 'City'} *</Label>
+                              <Input
+                                id="billingCity"
+                                name="billingCity"
+                                value={formData.billingCity}
+                                onChange={handleInputChange}
+                                required={!formData.sameAsDelivery}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <Label htmlFor="billingCountry">{language === 'de' ? 'Land' : 'Country'}</Label>
+                              <Input
+                                id="billingCountry"
+                                name="billingCountry"
+                                value={formData.billingCountry}
+                                onChange={handleInputChange}
+                                className="mt-1"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      // Pickup: Expandable "Add billing address"
+                      <>
+                        <Collapsible 
+                          open={formData.showBillingAddress} 
+                          onOpenChange={(open) => setFormData(prev => ({ ...prev, showBillingAddress: open }))}
+                        >
+                          <CollapsibleTrigger className="flex items-center gap-2 text-sm text-primary hover:underline">
+                            <ChevronDown className={`h-4 w-4 transition-transform ${formData.showBillingAddress ? 'rotate-180' : ''}`} />
+                            {formData.showBillingAddress 
+                              ? (language === 'de' ? 'Rechnungsadresse ausblenden' : 'Hide billing address')
+                              : (language === 'de' ? 'Abweichende Rechnungsadresse hinzufügen' : 'Add different billing address')
+                            }
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-border">
+                              <div className="md:col-span-2">
+                                <Label htmlFor="billingName">{language === 'de' ? 'Name / Firma' : 'Name / Company'} *</Label>
+                                <Input
+                                  id="billingName"
+                                  name="billingName"
+                                  value={formData.billingName}
+                                  onChange={handleInputChange}
+                                  required={formData.showBillingAddress}
+                                  className="mt-1"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <Label htmlFor="billingStreet">{language === 'de' ? 'Straße und Hausnummer' : 'Street and number'} *</Label>
+                                <Input
+                                  id="billingStreet"
+                                  name="billingStreet"
+                                  value={formData.billingStreet}
+                                  onChange={handleInputChange}
+                                  required={formData.showBillingAddress}
+                                  className="mt-1"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="billingZip">{language === 'de' ? 'PLZ' : 'Postal Code'} *</Label>
+                                <Input
+                                  id="billingZip"
+                                  name="billingZip"
+                                  value={formData.billingZip}
+                                  onChange={handleInputChange}
+                                  required={formData.showBillingAddress}
+                                  className="mt-1"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="billingCity">{language === 'de' ? 'Stadt' : 'City'} *</Label>
+                                <Input
+                                  id="billingCity"
+                                  name="billingCity"
+                                  value={formData.billingCity}
+                                  onChange={handleInputChange}
+                                  required={formData.showBillingAddress}
+                                  className="mt-1"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <Label htmlFor="billingCountry">{language === 'de' ? 'Land' : 'Country'}</Label>
+                                <Input
+                                  id="billingCountry"
+                                  name="billingCountry"
+                                  value={formData.billingCountry}
+                                  onChange={handleInputChange}
+                                  className="mt-1"
+                                />
+                              </div>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                        
+                        {!formData.showBillingAddress && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {language === 'de' 
+                              ? 'Keine Angabe? Die Rechnung wird an die Kontaktperson adressiert.'
+                              : 'No entry? The invoice will be addressed to the contact person.'}
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </section>
+
+                  {/* Section 4: Notes */}
+                  <section className="bg-card border border-border rounded-xl p-4 md:p-6">
+                    <h2 className="font-serif text-lg mb-4">
+                      {language === 'de' ? 'Anmerkungen (optional)' : 'Notes (optional)'}
+                    </h2>
+                    <Textarea
+                      name="notes"
+                      value={formData.notes}
                       onChange={handleInputChange}
-                      className="mt-1"
-                      min={new Date().toISOString().split('T')[0]}
+                      placeholder={language === 'de' 
+                        ? 'Besondere Wünsche, Allergien, etc.'
+                        : 'Special requests, allergies, etc.'}
+                      rows={3}
                     />
-                  </div>
-                  <div>
-                    <Label htmlFor="time">{language === 'de' ? 'Wunschzeit' : 'Preferred Time'}</Label>
-                    <Input
-                      id="time"
-                      name="time"
-                      type="time"
-                      value={formData.time}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
+                  </section>
 
-                {/* Setup Service Option */}
-                <div className="border-t border-border pt-4">
-                  <div className="flex items-start space-x-3">
-                    <Checkbox
-                      id="setupService"
-                      checked={formData.wantsSetupService}
-                      onCheckedChange={(checked) => 
-                        setFormData(prev => ({ ...prev, wantsSetupService: checked === true }))
-                      }
-                    />
-                    <div className="grid gap-1.5 leading-none">
-                      <Label htmlFor="setupService" className="font-medium cursor-pointer">
-                        {language === 'de' ? 'Aufbau & Service buchen (optional)' : 'Book Setup & Service (optional)'}
-                      </Label>
+                  {/* Mobile Submit (hidden on desktop) */}
+                  <div className="lg:hidden space-y-4 pt-2">
+                    <Button 
+                      type="submit" 
+                      size="lg" 
+                      className="w-full text-base py-6 font-semibold shadow-lg"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting 
+                        ? (language === 'de' ? 'Wird gesendet...' : 'Sending...')
+                        : (language === 'de' 
+                            ? `Anfragen · ${grandTotal.toFixed(2).replace('.', ',')} €`
+                            : `Submit · €${grandTotal.toFixed(2)}`)}
+                    </Button>
+                    <div className="text-center space-y-1">
+                      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        <span>{language === 'de' ? 'Sichere Übertragung' : 'Secure transmission'}</span>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {language === 'de' 
-                          ? 'Preis nach Vereinbarung – wir beraten Sie gerne'
-                          : 'Price by arrangement – we\'ll be happy to advise you'}
+                          ? 'Unverbindliche Anfrage – keine Zahlung jetzt'
+                          : 'Non-binding request – no payment now'}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Cleaning Info */}
-                <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <span>
-                    {language === 'de' 
-                      ? 'Reinigung ist im Preis aller Platten inklusive'
-                      : 'Cleaning is included in the price of all platters'}
-                  </span>
+                {/* Right Column: Sticky Cart (Desktop only) */}
+                <div className="hidden lg:block lg:sticky lg:top-24">
+                  <CartSummary showItems={true} />
                 </div>
-              </section>
-
-              {/* Notes */}
-              <section className="bg-card border border-border rounded-lg p-4 md:p-6">
-                <h2 className="font-serif text-lg mb-4">
-                  {language === 'de' ? 'Anmerkungen' : 'Notes'}
-                </h2>
-                <Textarea
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleInputChange}
-                  placeholder={language === 'de' 
-                    ? 'Besondere Wünsche, Allergien, etc.'
-                    : 'Special requests, allergies, etc.'}
-                  rows={3}
-                />
-              </section>
-
-              {/* Submit */}
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-4">
-                  {language === 'de' 
-                    ? 'Diese Anfrage ist unverbindlich. Wir kontaktieren Sie zur Bestätigung.'
-                    : 'This request is non-binding. We will contact you to confirm.'}
-                </p>
-                <Button 
-                  type="submit" 
-                  size="lg" 
-                  className="px-12" 
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting 
-                    ? (language === 'de' ? 'Wird gesendet...' : 'Sending...')
-                    : (language === 'de' ? 'Unverbindlich anfragen' : 'Submit Request')}
-                </Button>
               </div>
             </form>
           </div>
@@ -819,11 +1048,14 @@ const Checkout = () => {
             <DialogDescription className="text-center space-y-2">
               <p>
                 {language === 'de' 
-                  ? 'Vielen Dank für Ihre Anfrage. Wir melden uns innerhalb von 24 Stunden bei Ihnen.'
-                  : 'Thank you for your request. We will contact you within 24 hours.'}
+                  ? `Vielen Dank für Ihre Anfrage.`
+                  : `Thank you for your request.`}
               </p>
-              <p className="font-mono font-medium text-foreground">
-                {language === 'de' ? 'Bestellnummer' : 'Order Number'}: {orderNumber}
+              <p className="font-mono text-lg text-foreground">{orderNumber}</p>
+              <p>
+                {language === 'de'
+                  ? 'Wir haben Ihnen eine Bestätigung per E-Mail gesendet und melden uns in Kürze bei Ihnen.'
+                  : 'We have sent you a confirmation email and will get back to you shortly.'}
               </p>
             </DialogDescription>
           </DialogHeader>
