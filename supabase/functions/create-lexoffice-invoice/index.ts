@@ -48,6 +48,9 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[LEXOFFICE] ${step}${detailsStr}`);
 };
 
+// Round to 2 decimal places for currency values (LexOffice requires max 4 decimals)
+const roundCurrency = (value: number): number => Math.round(value * 100) / 100;
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -160,7 +163,7 @@ serve(async (req) => {
         unitName: 'Stück',
         unitPrice: {
           currency: 'EUR',
-          netAmount: item.price / 1.07, // Convert gross to net (7% VAT for food)
+          netAmount: roundCurrency(item.price / 1.07), // Convert gross to net (7% VAT for food)
           taxRatePercentage: 7
         }
       });
@@ -175,7 +178,7 @@ serve(async (req) => {
         unitName: 'Stück',
         unitPrice: {
           currency: 'EUR',
-          netAmount: body.minimumOrderSurcharge / 1.07,
+          netAmount: roundCurrency(body.minimumOrderSurcharge / 1.07),
           taxRatePercentage: 7
         }
       });
@@ -194,7 +197,7 @@ serve(async (req) => {
         unitName: 'Stück',
         unitPrice: {
           currency: 'EUR',
-          netAmount: body.deliveryCost / 1.19, // Convert gross to net (19% VAT for delivery)
+          netAmount: roundCurrency(body.deliveryCost / 1.19), // Convert gross to net (19% VAT for delivery)
           taxRatePercentage: 19
         }
       });
