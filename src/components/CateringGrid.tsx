@@ -1,13 +1,13 @@
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-// Import first images from detail pages
-import fingerfoodImg from "@/assets/catering/fingerfood/grillgemuese.webp";
-import plattenImg from "@/assets/catering/platten/insalate-stagione.webp";
-import auflaufImg from "@/assets/catering/auflauf/parmigiana.webp";
+// Bessere Bildauswahl mit echten Fotos
+import fingerfoodImg from "@/assets/catering/fingerfood/burratina.webp";
+import plattenImg from "@/assets/catering/platten/vitello-tonnato.webp";
+import auflaufImg from "@/assets/catering/auflauf/lasagna.webp";
 import pizzaImg from "@/assets/catering/pizze/hero-pizza.webp";
-import flyingBuffetImg from "@/assets/catering/flying-buffet/hero.webp";
-import festmenusImg from "@/assets/catering/festmenus/hero.webp";
+import flyingBuffetImg from "@/assets/menschen-aussen.jpeg";
+import festmenusImg from "@/assets/weinservice.webp";
 
 interface CateringItem {
   id: string;
@@ -83,22 +83,32 @@ const CateringCard = ({ item, language }: { item: CateringItem; language: string
   return (
     <Link 
       to={item.path}
-      className="group relative overflow-hidden rounded-lg aspect-square block"
+      className="group relative overflow-hidden rounded-xl aspect-[4/3] block shadow-lg hover:shadow-xl transition-all duration-300"
     >
+      {/* Bild mit Zoom-Effekt */}
       <img
         src={item.image}
         alt={title}
-        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         loading="lazy"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 text-white">
-        <h3 className="text-lg md:text-xl font-serif font-medium mb-2">
-          {title}
-        </h3>
-        <p className="text-sm text-white/80 leading-relaxed">
-          {description}
-        </p>
+      
+      {/* Verstärkter Gradient für bessere Lesbarkeit */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/10" />
+      
+      {/* Hover-Overlay */}
+      <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors duration-300" />
+      
+      {/* Text-Container mit Glassmorphism */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
+        <div className="backdrop-blur-sm bg-black/20 rounded-lg p-3">
+          <h3 className="text-base md:text-lg font-serif font-semibold mb-1 text-white drop-shadow-lg">
+            {title}
+          </h3>
+          <p className="text-sm text-white/90 leading-relaxed drop-shadow-md line-clamp-2">
+            {description}
+          </p>
+        </div>
       </div>
     </Link>
   );
@@ -123,7 +133,8 @@ const CateringGrid = () => {
           </p>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        {/* 3-Spalten Grid für symmetrisches 3x2 Layout */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
           {cateringItems.map((item) => (
             <CateringCard key={item.id} item={item} language={language} />
           ))}
