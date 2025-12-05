@@ -134,7 +134,7 @@ const CartSheet = () => {
                 className="w-full rounded-full h-12 text-base font-medium shadow-lg hover:shadow-xl transition-all duration-300 group"
                 size="lg"
               >
-                {language === 'de' ? 'Anfrage absenden' : 'Send Inquiry'}
+                {language === 'de' ? 'Zur Kasse' : 'To Checkout'}
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
               

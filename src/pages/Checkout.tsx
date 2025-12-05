@@ -47,7 +47,14 @@ const Checkout = () => {
     date: '',
     time: '',
     notes: '',
-    wantsSetupService: false
+    wantsSetupService: false,
+    // Billing address
+    sameAsDelivery: true,
+    billingName: '',
+    billingStreet: '',
+    billingZip: '',
+    billingCity: '',
+    billingCountry: 'Deutschland'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -119,9 +126,13 @@ const Checkout = () => {
     }
   }, [formData.deliveryType]);
 
-  // Total with delivery
-  const grandTotal = totalPrice + (deliveryCalc?.deliveryCost || 0);
-  const meetsMinimum = !deliveryCalc || totalPrice >= deliveryCalc.minimumOrder;
+  // Calculate minimum order surcharge if needed
+  const minimumOrderSurcharge = deliveryCalc && totalPrice < deliveryCalc.minimumOrder 
+    ? deliveryCalc.minimumOrder - totalPrice 
+    : 0;
+  
+  // Total with delivery and surcharge
+  const grandTotal = totalPrice + (deliveryCalc?.deliveryCost || 0) + minimumOrderSurcharge;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -319,6 +330,15 @@ const Checkout = () => {
                     <span className="text-muted-foreground">{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
                     <span className="font-medium">{totalPrice.toFixed(2).replace('.', ',')} €</span>
                   </div>
+                  {minimumOrderSurcharge > 0 && (
+                    <div className="flex justify-between items-center text-amber-600 dark:text-amber-400">
+                      <span className="flex items-center gap-1 text-sm">
+                        <Info className="h-3.5 w-3.5" />
+                        {language === 'de' ? 'Mindestbestellwert-Aufschlag' : 'Minimum order surcharge'}
+                      </span>
+                      <span className="font-medium">+{minimumOrderSurcharge.toFixed(2).replace('.', ',')} €</span>
+                    </div>
+                  )}
                   {formData.deliveryType === 'delivery' && deliveryCalc && (
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'} ({deliveryCalc.distanceKm} km)</span>
@@ -333,6 +353,13 @@ const Checkout = () => {
                     <span className="font-medium">{language === 'de' ? 'Gesamt' : 'Total'}</span>
                     <span className="text-xl font-bold text-primary">{grandTotal.toFixed(2).replace('.', ',')} €</span>
                   </div>
+                  {minimumOrderSurcharge > 0 && (
+                    <p className="text-xs text-muted-foreground pt-1">
+                      {language === 'de' 
+                        ? `Um den Mindestbestellwert von ${deliveryCalc?.minimumOrder} € zu erreichen, wird ein Aufschlag berechnet.`
+                        : `A surcharge is applied to meet the minimum order of €${deliveryCalc?.minimumOrder}.`}
+                    </p>
+                  )}
                 </div>
               </section>
 
@@ -388,6 +415,87 @@ const Checkout = () => {
                     />
                   </div>
                 </div>
+              </section>
+
+              {/* Billing Address */}
+              <section className="bg-card border border-border rounded-lg p-4 md:p-6">
+                <h2 className="font-serif text-lg mb-4">
+                  {language === 'de' ? 'Rechnungsadresse' : 'Billing Address'}
+                </h2>
+                
+                {formData.deliveryType === 'delivery' && (
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Checkbox
+                      id="sameAsDelivery"
+                      checked={formData.sameAsDelivery}
+                      onCheckedChange={(checked) => 
+                        setFormData(prev => ({ ...prev, sameAsDelivery: checked === true }))
+                      }
+                    />
+                    <Label htmlFor="sameAsDelivery" className="font-normal cursor-pointer">
+                      {language === 'de' ? 'Entspricht Lieferadresse' : 'Same as delivery address'}
+                    </Label>
+                  </div>
+                )}
+
+                {(formData.deliveryType === 'pickup' || !formData.sameAsDelivery) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <Label htmlFor="billingName">{language === 'de' ? 'Name / Firma' : 'Name / Company'} *</Label>
+                      <Input
+                        id="billingName"
+                        name="billingName"
+                        value={formData.billingName}
+                        onChange={handleInputChange}
+                        required={formData.deliveryType === 'pickup' || !formData.sameAsDelivery}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="billingStreet">{language === 'de' ? 'Straße und Hausnummer' : 'Street and number'} *</Label>
+                      <Input
+                        id="billingStreet"
+                        name="billingStreet"
+                        value={formData.billingStreet}
+                        onChange={handleInputChange}
+                        required={formData.deliveryType === 'pickup' || !formData.sameAsDelivery}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="billingZip">{language === 'de' ? 'PLZ' : 'Postal Code'} *</Label>
+                      <Input
+                        id="billingZip"
+                        name="billingZip"
+                        value={formData.billingZip}
+                        onChange={handleInputChange}
+                        required={formData.deliveryType === 'pickup' || !formData.sameAsDelivery}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="billingCity">{language === 'de' ? 'Stadt' : 'City'} *</Label>
+                      <Input
+                        id="billingCity"
+                        name="billingCity"
+                        value={formData.billingCity}
+                        onChange={handleInputChange}
+                        required={formData.deliveryType === 'pickup' || !formData.sameAsDelivery}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="billingCountry">{language === 'de' ? 'Land' : 'Country'}</Label>
+                      <Input
+                        id="billingCountry"
+                        name="billingCountry"
+                        value={formData.billingCountry}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                )}
               </section>
 
               {/* Delivery Options */}
@@ -446,9 +554,9 @@ const Checkout = () => {
                     )}
 
                     {deliveryCalc && !isCalculating && (
-                      <div className={`rounded-lg p-4 mb-4 border ${meetsMinimum ? 'bg-primary/5 border-primary/20' : 'bg-destructive/10 border-destructive/20'}`}>
+                      <div className="rounded-lg p-4 mb-4 border bg-primary/5 border-primary/20">
                         <div className="flex items-start gap-3">
-                          <Truck className={`h-5 w-5 mt-0.5 shrink-0 ${meetsMinimum ? 'text-primary' : 'text-destructive'}`} />
+                          <Truck className="h-5 w-5 mt-0.5 shrink-0 text-primary" />
                           <div className="flex-1">
                             <div className="flex justify-between items-start mb-2">
                               <div>
@@ -472,11 +580,11 @@ const Checkout = () => {
                               </div>
                             </div>
                             
-                            {!meetsMinimum && (
-                              <p className="text-sm text-destructive font-medium">
+                            {minimumOrderSurcharge > 0 && (
+                              <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
                                 {language === 'de' 
-                                  ? `Mindestbestellwert: ${deliveryCalc.minimumOrder} € (fehlen noch ${(deliveryCalc.minimumOrder - totalPrice).toFixed(2).replace('.', ',')} €)`
-                                  : `Minimum order: €${deliveryCalc.minimumOrder} (need €${(deliveryCalc.minimumOrder - totalPrice).toFixed(2)} more)`}
+                                  ? `Aufschlag von ${minimumOrderSurcharge.toFixed(2).replace('.', ',')} € wird hinzugefügt, um Mindestbestellwert von ${deliveryCalc.minimumOrder} € zu erreichen.`
+                                  : `A surcharge of €${minimumOrderSurcharge.toFixed(2)} will be added to meet the minimum order of €${deliveryCalc.minimumOrder}.`}
                               </p>
                             )}
                             
@@ -611,19 +719,12 @@ const Checkout = () => {
                   type="submit" 
                   size="lg" 
                   className="px-12" 
-                  disabled={isSubmitting || (formData.deliveryType === 'delivery' && deliveryCalc && !meetsMinimum)}
+                  disabled={isSubmitting}
                 >
                   {isSubmitting 
                     ? (language === 'de' ? 'Wird gesendet...' : 'Sending...')
                     : (language === 'de' ? 'Unverbindlich anfragen' : 'Submit Request')}
                 </Button>
-                {formData.deliveryType === 'delivery' && deliveryCalc && !meetsMinimum && (
-                  <p className="text-sm text-destructive mt-2">
-                    {language === 'de' 
-                      ? `Mindestbestellwert von ${deliveryCalc.minimumOrder} € nicht erreicht`
-                      : `Minimum order of €${deliveryCalc.minimumOrder} not met`}
-                  </p>
-                )}
               </div>
             </form>
           </div>
