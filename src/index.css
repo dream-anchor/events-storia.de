@@ -1,0 +1,167 @@
+@import './styles/fonts.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 35 30% 97%;
+    --foreground: 25 20% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 25 20% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 25 20% 15%;
+
+    --primary: 358 65% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 25 25% 95%;
+    --secondary-foreground: 25 20% 15%;
+
+    --muted: 25 15% 96%;
+    --muted-foreground: 25 10% 35%;
+
+    --accent: 358 75% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 25 20% 90%;
+    --input: 25 20% 90%;
+    --ring: 358 65% 35%;
+
+    --radius: 0.25rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 25 20% 8%;
+    --foreground: 25 10% 95%;
+
+    --card: 25 20% 10%;
+    --card-foreground: 25 10% 95%;
+
+    --popover: 25 20% 10%;
+    --popover-foreground: 25 10% 95%;
+
+    --primary: 358 65% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 25 20% 15%;
+    --secondary-foreground: 25 10% 95%;
+
+    --muted: 25 15% 18%;
+    --muted-foreground: 25 10% 60%;
+
+    --accent: 358 75% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 40%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 25 15% 20%;
+    --input: 25 15% 20%;
+    --ring: 358 65% 45%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-serif antialiased;
+    font-feature-settings: "liga" 1, "kern" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+
+  /* UI elements use sans-serif for better readability */
+  button, input, select, textarea, label, nav {
+    @apply font-sans;
+  }
+}
+
+/* Touch optimizations for mobile devices */
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Touch device optimizations */
+@media (pointer: coarse) {
+  /* Prevent text selection during drag */
+  [data-sortable],
+  [aria-label*="Ziehen"],
+  [aria-label*="Sortieren"] {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  
+  /* Better tap highlighting */
+  button, 
+  [role="button"], 
+  input, 
+  textarea, 
+  select,
+  a {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Larger minimum touch targets and prevent iOS zoom */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    min-height: 44px;
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+  
+  /* Ensure buttons are touch-friendly */
+  button,
+  [role="button"] {
+    min-height: 44px;
+  }
+}
+
+/* Safe area padding for notched devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}

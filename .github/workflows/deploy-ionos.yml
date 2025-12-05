@@ -1,0 +1,49 @@
+name: Deploy to IONOS (SFTP - ristorantestoria.de)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build      # erzeugt ./dist
+
+      - name: Deploy via SFTP to IONOS
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.6
+        with:
+          server: ${{ secrets.IONOS_SFTP_HOST }}
+          username: ${{ secrets.IONOS_SFTP_USER }}
+          password: ${{ secrets.IONOS_SFTP_PASSWORD }}
+          port: 22
+          sftp_only: true
+          local_path: "./dist/*"
+          remote_path: "/ristorantestoria-de"
+          delete_remote_files: true
+
+      - name: Upload .htaccess explicitly
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.6
+        with:
+          server: ${{ secrets.IONOS_SFTP_HOST }}
+          username: ${{ secrets.IONOS_SFTP_USER }}
+          password: ${{ secrets.IONOS_SFTP_PASSWORD }}
+          port: 22
+          sftp_only: true
+          local_path: "./public/.htaccess"
+          remote_path: "/ristorantestoria-de/.htaccess"
+          delete_remote_files: false

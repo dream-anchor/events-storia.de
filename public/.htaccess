@@ -1,0 +1,79 @@
+RewriteEngine On
+
+# ============================================
+# 0. HTTPS + WWW Kanonisierung (SEO)
+# ============================================
+# Alle Anfragen auf https://www.ristorantestoria.de umleiten
+
+# Schritt 1: HTTP zu HTTPS erzwingen
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+# Schritt 2: Non-www zu www umleiten (nur bei HTTPS)
+RewriteCond %{HTTP_HOST} ^ristorantestoria\.de$ [NC]
+RewriteRule ^(.*)$ https://www.ristorantestoria.de/$1 [R=301,L]
+
+# ============================================
+# 1. Spezielle Weiterleitungen (Query-String)
+# ============================================
+RewriteCond %{QUERY_STRING} ^page_id=2881$
+RewriteRule ^$ /impressum? [R=301,L]
+
+# ============================================
+# 2. 301 Redirects für alte URLs (VOR dem SPA-Fallback!)
+# ============================================
+RewriteRule ^weihnachtsmenues$ /besondere-anlaesse/weihnachtsmenues [R=301,L]
+RewriteRule ^silvesterparty$ /besondere-anlaesse/silvesterparty [R=301,L]
+RewriteRule ^ristorantestoria-de/?$ / [R=301,L]
+
+# ============================================
+# 3. SPA-Routing (React Router)
+# ============================================
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ /index.html [L]
+
+# ============================================
+# 4. MIME-Types für korrekte Dateiauslieferung
+# ============================================
+<IfModule mod_mime.c>
+  AddType application/javascript .js
+  AddType text/css .css
+  AddType image/webp .webp
+  AddType image/svg+xml .svg
+  AddType font/woff2 .woff2
+  AddType application/xml .xml
+  AddType text/plain .txt
+</IfModule>
+
+# ============================================
+# 5. GZIP-Komprimierung für bessere Performance
+# ============================================
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+# ============================================
+# 6. Browser-Caching für statische Assets
+# ============================================
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+
+# ============================================
+# 7. Erzwungene MIME-Types für spezifische Dateien
+# ============================================
+<FilesMatch "\.xml$">
+  ForceType application/xml
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  <FilesMatch "sitemap\.xml$">
+    Header set Content-Type "application/xml; charset=UTF-8"
+  </FilesMatch>
+</IfModule>
