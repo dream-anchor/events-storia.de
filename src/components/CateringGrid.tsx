@@ -118,22 +118,9 @@ const CateringGrid = () => {
   const { language } = useLanguage();
 
   return (
-    <section className="bg-background py-16 md:py-24">
+    <section className="bg-background py-6 md:py-10">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl md:text-3xl font-serif font-medium mb-4">
-            {language === 'de' 
-              ? 'Catering für jeden Anlass: Events, Büro & Zuhause' 
-              : 'Catering for Every Occasion: Events, Office & Home'}
-          </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            {language === 'de'
-              ? 'Entdecken Sie unsere beliebtesten Speisen – flexibel kombinierbar und für jede Gruppengröße geeignet.'
-              : 'Discover our most popular dishes – flexibly combinable and suitable for any group size.'}
-          </p>
-        </div>
-        
-        {/* 3-Spalten Grid für symmetrisches 3x2 Layout */}
+        {/* Grid direkt ohne Header für "above the fold" */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
           {cateringItems.map((item) => (
             <CateringCard key={item.id} item={item} language={language} />
