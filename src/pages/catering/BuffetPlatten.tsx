@@ -20,6 +20,7 @@ import kaeseplatteImg from "@/assets/catering/platten/kaeseplatte.webp";
 import grillgemueseImg from "@/assets/catering/platten/grillgemuese.webp";
 import lachsImg from "@/assets/catering/platten/lachs.webp";
 import aufschnittImg from "@/assets/catering/platten/aufschnitt.webp";
+import insalateImg from "@/assets/catering/platten/insalate-stagione.webp";
 
 interface Platter {
   id: string;
@@ -44,7 +45,8 @@ const platters: Platter[] = [
     price: 45.00,
     serving_info: "Ideal für 4 Personen",
     serving_info_en: "Ideal for 4 people",
-    image: null
+    image: insalateImg,
+    objectPosition: "center center"
   },
   {
     id: "spiedini-mozzarelline",
