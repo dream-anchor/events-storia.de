@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Loader2, User, MapPin, FileText, LogOut, ArrowLeft, Package, Calendar, Check, Clock } from 'lucide-react';
+import { Loader2, User, MapPin, FileText, LogOut, ArrowLeft, Package, Calendar, Check, Clock, Download } from 'lucide-react';
 
 interface OrderItem {
   name: string;
@@ -31,6 +31,8 @@ interface Order {
   desired_date: string | null;
   desired_time: string | null;
   items: unknown;
+  lexoffice_invoice_id: string | null;
+  lexoffice_document_type: string | null;
 }
 
 const CustomerProfile = () => {
@@ -41,6 +43,7 @@ const CustomerProfile = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -169,6 +172,47 @@ const CustomerProfile = () => {
         {config.label}
       </span>
     );
+  };
+
+  // Download LexOffice document
+  const downloadDocument = async (orderId: string) => {
+    setDownloadingDoc(orderId);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-lexoffice-document', {
+        body: { orderId }
+      });
+      
+      if (error || data?.error) {
+        console.error('Document download error:', error || data?.error);
+        toast.error(language === 'de' ? 'Dokument nicht verfügbar' : 'Document not available');
+        return;
+      }
+      
+      // Create download link from base64
+      const byteCharacters = atob(data.pdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = data.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(language === 'de' ? 'Dokument heruntergeladen' : 'Document downloaded');
+    } catch (err) {
+      console.error('Download error:', err);
+      toast.error(language === 'de' ? 'Fehler beim Herunterladen' : 'Error downloading');
+    } finally {
+      setDownloadingDoc(null);
+    }
   };
 
   if (authLoading) {
@@ -439,10 +483,32 @@ const CustomerProfile = () => {
 
                           <Separator className="my-3" />
 
-                          <div className="flex justify-between font-medium">
+                          <div className="flex justify-between items-center font-medium">
                             <span>{language === 'de' ? 'Gesamt' : 'Total'}</span>
                             <span>{order.total_amount?.toFixed(2)} €</span>
                           </div>
+                          
+                          {/* Document Download */}
+                          {order.lexoffice_invoice_id && (
+                            <div className="mt-3 pt-3 border-t border-border">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => downloadDocument(order.id)}
+                                disabled={downloadingDoc === order.id}
+                                className="gap-2 w-full sm:w-auto"
+                              >
+                                {downloadingDoc === order.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Download className="h-4 w-4" />
+                                )}
+                                {order.lexoffice_document_type === 'invoice' 
+                                  ? (language === 'de' ? 'Rechnung herunterladen' : 'Download Invoice')
+                                  : (language === 'de' ? 'Angebot herunterladen' : 'Download Quotation')}
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
