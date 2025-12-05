@@ -1,8 +1,8 @@
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Hero from "@/components/Hero";
-import ImageGrid from "@/components/ImageGrid";
-import InternalLinks from "@/components/InternalLinks";
+import CateringGrid from "@/components/CateringGrid";
+import CateringCTA from "@/components/CateringCTA";
 import Footer from "@/components/Footer";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
@@ -13,45 +13,45 @@ const Index = () => {
 
   const faqItems = language === 'de' ? [
     {
-      question: 'Wo befindet sich das Ristorante STORIA?',
-      answer: 'Das STORIA – Ihr Italiener in der Maxvorstadt – befindet sich in der Karlstraße 47a, 80333 München. Nur wenige Gehminuten vom Königsplatz, den Pinakotheken und der TU München entfernt, nahe dem Hauptbahnhof.',
+      question: 'Was bietet STORIA Catering an?',
+      answer: 'STORIA Catering bietet authentische italienische Küche für Events, Büro und Zuhause: Fingerfood, Platten, warme Gerichte, Pizza Napoletana, Antipasti, Desserts und individuelles Business Catering.',
     },
     {
-      question: 'Wie kann ich einen Tisch im STORIA reservieren?',
-      answer: 'Sie können einen Tisch online über OpenTable auf unserer Reservierungsseite buchen oder telefonisch unter +49 89 515196 reservieren. Als beliebte Pizzeria Maxvorstadt empfehlen wir besonders für Wochenenden eine vorherige Reservierung.',
+      question: 'Wie kann ich ein Catering-Angebot anfragen?',
+      answer: 'Sie können ganz einfach über unser Kontaktformular oder telefonisch unter +49 89 515196 ein unverbindliches Angebot anfragen. Wir beraten Sie gerne zu Ihrem Event.',
     },
     {
-      question: 'Was bietet La Storia an?',
-      answer: 'La Storia bietet authentische italienische Küche: Neapolitanische Pizza München aus dem Steinofen, hausgemachte Pasta, frische Antipasti, feiner Fisch sowie erlesene Weine und Aperitivo.',
+      question: 'Wohin liefert STORIA Catering?',
+      answer: 'Wir liefern in ganz München und Umgebung. Kontaktieren Sie uns für Lieferungen außerhalb Münchens.',
     },
     {
-      question: 'Was sind die Öffnungszeiten des STORIA?',
-      answer: 'Unsere Trattoria München hat Montag bis Freitag von 09:00 bis 01:00 Uhr und Samstag/Sonntag von 12:00 bis 01:00 Uhr geöffnet. Lunch München Maxvorstadt servieren wir Mo-Fr von 11:30 bis 14:30 Uhr.',
+      question: 'Für wie viele Personen kann ich Catering bestellen?',
+      answer: 'Unser Catering ist flexibel – von kleinen Team-Lunches ab 5 Personen bis hin zu großen Events mit mehreren hundert Gästen.',
     },
     {
-      question: 'Bietet das Ristorante Pizzeria STORIA Mittagsmenüs an?',
-      answer: 'Ja, wir bieten wochentags ein wechselndes Mittagsmenü zu attraktiven Preisen an – ideal für Ihre Mittagspause in der Maxvorstadt. Schauen Sie auf unserer Mittagsmenü-Seite für die aktuellen Angebote.',
+      question: 'Bietet STORIA auch Business Lunch und Office Catering an?',
+      answer: 'Ja, wir bieten spezielles Business Catering für Meetings, Workshops und Team-Events. Frische italienische Küche direkt ins Büro geliefert.',
     },
   ] : [
     {
-      question: 'Where is Ristorante STORIA located?',
-      answer: 'STORIA – your Italian restaurant in Maxvorstadt – is located at Karlstraße 47a, 80333 Munich. Just a few minutes walk from Königsplatz, the Pinakothek museums and TU Munich, near the main train station.',
+      question: 'What does STORIA Catering offer?',
+      answer: 'STORIA Catering offers authentic Italian cuisine for events, office and home: finger food, platters, hot dishes, Pizza Napoletana, antipasti, desserts and custom business catering.',
     },
     {
-      question: 'How can I make a reservation at STORIA?',
-      answer: 'You can book a table online via OpenTable on our reservation page or by calling +49 89 515196. As a popular pizzeria in Maxvorstadt, we especially recommend making a reservation for weekends.',
+      question: 'How can I request a catering quote?',
+      answer: 'You can easily request a non-binding quote via our contact form or by calling +49 89 515196. We are happy to advise you on your event.',
     },
     {
-      question: 'What does La Storia offer?',
-      answer: 'La Storia offers authentic Italian cuisine: Neapolitan stone-oven pizza, homemade pasta, fresh antipasti, fine fish, as well as exquisite wines and aperitivo.',
+      question: 'Where does STORIA Catering deliver?',
+      answer: 'We deliver throughout Munich and surrounding areas. Contact us for deliveries outside Munich.',
     },
     {
-      question: 'What are the opening hours of STORIA?',
-      answer: 'Our Italian trattoria in Munich is open Monday to Friday from 9:00 AM to 1:00 AM and Saturday/Sunday from 12:00 PM to 1:00 AM. Lunch is served Mon-Fri from 11:30 AM to 2:30 PM.',
+      question: 'For how many people can I order catering?',
+      answer: 'Our catering is flexible – from small team lunches starting at 5 people to large events with several hundred guests.',
     },
     {
-      question: 'Does Ristorante Pizzeria STORIA offer lunch menus?',
-      answer: 'Yes, we offer a changing lunch menu on weekdays at attractive prices – ideal for your lunch break in Maxvorstadt. Check our lunch menu page for current offerings.',
+      question: 'Does STORIA also offer business lunch and office catering?',
+      answer: 'Yes, we offer special business catering for meetings, workshops and team events. Fresh Italian cuisine delivered directly to your office.',
     },
   ];
 
@@ -63,8 +63,8 @@ const Index = () => {
         <Header />
         <Hero />
         <Navigation />
-        <ImageGrid />
-        <InternalLinks />
+        <CateringGrid />
+        <CateringCTA />
         <Footer />
       </div>
     </>

@@ -7,7 +7,7 @@ import mammaVideo from "@/assets/lamamma.mp4";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const Footer = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
     <footer className="bg-primary text-primary-foreground">
@@ -56,18 +56,10 @@ const Footer = () => {
               <p className="text-lg font-serif italic tracking-wider text-primary-foreground/90">Nicola</p>
             </div>
           </div>
-          
-          {/* Discover Restaurant Link */}
-          <Link 
-            to="/ueber-uns"
-            className="mt-10 inline-flex items-center gap-2 text-base font-serif italic text-primary-foreground/50 hover:text-primary-foreground/80 transition-colors"
-          >
-            ~ {t.footer.discoverRestaurant} ~
-          </Link>
         </div>
       </div>
 
-      {/* Kontakt & Öffnungszeiten */}
+      {/* Kontakt & Lieferzeiten */}
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 items-center">
@@ -88,7 +80,9 @@ const Footer = () => {
                   className="flex items-center justify-center md:justify-start gap-2.5 hover:text-primary-foreground transition-colors"
                 >
                   <MapPin className="h-3.5 w-3.5" />
-                  <span>Karlstr. 47a, 80333 München<br /><span className="text-xs opacity-70">Nähe Königsplatz & Hauptbahnhof</span></span>
+                  <span>
+                    {language === 'de' ? 'Liefergebiet: München & Umgebung' : 'Delivery area: Munich & surroundings'}
+                  </span>
                 </Link>
               </div>
             </div>
@@ -97,20 +91,20 @@ const Footer = () => {
             <div className="flex flex-col items-center justify-center order-first md:order-none py-6 md:py-0">
               <img 
                 src={storiaLogo}
-                alt="STORIA"
+                alt="STORIA Catering"
                 className="h-16 md:h-20 brightness-0 invert opacity-20"
               />
             </div>
 
-            {/* Öffnungszeiten */}
+            {/* Lieferzeiten */}
             <div className="space-y-4 text-center md:text-right">
               <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-6 text-primary-foreground/90">{t.footer.openingHours}</h3>
               <div className="space-y-1.5 text-sm font-sans text-primary-foreground/60">
                 <div className="flex items-center justify-center md:justify-end gap-2.5">
                   <Clock className="h-3.5 w-3.5" />
-                  <span>{t.footer.monFri}: 09:00 – 01:00</span>
+                  <span>{t.footer.monFri}: 09:00 – 20:00</span>
                 </div>
-                <p>{t.footer.satSun}: 12:00 – 01:00</p>
+                <p>{t.footer.satSun}: {language === 'de' ? 'auf Anfrage' : 'on request'}</p>
                 <p className="pt-2 italic text-primary-foreground/70">{t.footer.welcomeMessage}</p>
               </div>
             </div>

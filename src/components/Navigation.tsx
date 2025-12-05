@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Menu, ChevronDown } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -9,8 +9,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { usePublishedSpecialMenus } from "@/hooks/useSpecialMenus";
-import { usePublishedStandardMenus } from "@/hooks/usePublishedStandardMenus";
 import { useScrolled } from "@/hooks/useScrolled";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
@@ -22,72 +20,43 @@ interface NavChild {
 interface NavItem {
   label: string;
   path?: string;
-  externalUrl?: string;
   children?: NavChild[];
 }
-
-// Mapping von menu_type zu Route
-const menuTypeConfig: Record<string, { path: string }> = {
-  lunch: { path: '/mittagsmenu' },
-  food: { path: '/speisekarte' },
-  drinks: { path: '/getraenke' },
-};
 
 const Navigation = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const [openMenus, setOpenMenus] = useState<string[]>([]);
+  const [openMenus, setOpenMenus] = useState<string[]>(["CATERING"]);
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
-  const { t, language } = useLanguage();
-
-  // Mobile: Alle Untermenüs standardmäßig aufklappen
-  useEffect(() => {
-    setOpenMenus([t.nav.menu, t.nav.specialOccasions]);
-  }, [t.nav.menu, t.nav.specialOccasions]);
-  const { data: specialMenus } = usePublishedSpecialMenus();
-  const { data: standardMenus } = usePublishedStandardMenus();
+  const { language } = useLanguage();
   const isScrolled = useScrolled();
 
-  // Dynamische Kinder für "Besondere Anlässe" basierend auf veröffentlichten Menüs
-  const specialOccasionsChildren: NavChild[] = specialMenus && specialMenus.length > 0
-    ? specialMenus.map(menu => ({
-        label: (language === 'en' && menu.title_en ? menu.title_en : menu.title)?.toUpperCase() || 'MENÜ',
-        path: `/besondere-anlaesse/${(menu as any).slug || menu.id}`
-      }))
-    : [{ label: t.nav.specialOccasions, path: "/besondere-anlaesse" }];
-
-  // Mapping von menu_type zu Label (Translation-basiert)
-  const menuTypeLabels: Record<string, string> = {
-    lunch: t.nav.lunchMenu,
-    food: t.nav.foodMenu,
-    drinks: t.nav.drinks,
-  };
-
-  // Dynamische Kinder für "Menü" basierend auf sort_order aus der Datenbank
-  const menuChildren: NavChild[] = standardMenus && standardMenus.length > 0
-    ? standardMenus.map(menu => ({
-        label: menuTypeLabels[menu.menu_type] || menu.title || 'MENÜ',
-        path: menuTypeConfig[menu.menu_type]?.path || '/speisekarte',
-      }))
-    : [
-        // Fallback während des Ladens
-        { label: t.nav.lunchMenu, path: "/mittagsmenu" },
-        { label: t.nav.foodMenu, path: "/speisekarte" },
-        { label: t.nav.drinks, path: "/getraenke" },
-      ];
+  const cateringChildren: NavChild[] = language === 'de' ? [
+    { label: "FINGERFOOD", path: "/catering/buffet-fingerfood" },
+    { label: "PLATTEN & SHARING", path: "/catering/buffet-platten" },
+    { label: "WARME GERICHTE", path: "/catering/buffet-auflauf" },
+    { label: "PIZZA NAPOLETANA", path: "/catering/pizze-napoletane" },
+    { label: "ANTIPASTI", path: "/catering/antipasti" },
+    { label: "DESSERTS", path: "/catering/desserts" },
+    { label: "BUSINESS LUNCH", path: "/catering/business-lunch" },
+    { label: "FÜR ZUHAUSE", path: "/catering/catering-zuhause" },
+  ] : [
+    { label: "FINGER FOOD", path: "/catering/buffet-fingerfood" },
+    { label: "PLATTERS & SHARING", path: "/catering/buffet-platten" },
+    { label: "HOT DISHES", path: "/catering/buffet-auflauf" },
+    { label: "PIZZA NAPOLETANA", path: "/catering/pizze-napoletane" },
+    { label: "ANTIPASTI", path: "/catering/antipasti" },
+    { label: "DESSERTS", path: "/catering/desserts" },
+    { label: "BUSINESS LUNCH", path: "/catering/business-lunch" },
+    { label: "FOR HOME", path: "/catering/catering-zuhause" },
+  ];
 
   const navItems: NavItem[] = [
-    { label: t.nav.reservation, path: "/reservierung" },
     {
-      label: t.nav.menu,
-      children: menuChildren,
+      label: "CATERING",
+      children: cateringChildren,
     },
-    {
-      label: t.nav.specialOccasions,
-      children: specialOccasionsChildren,
-    },
-    { label: t.nav.catering, externalUrl: "https://www.events-storia.de/" },
-    { label: t.nav.contact, path: "/kontakt" },
+    { label: language === 'de' ? "KONTAKT" : "CONTACT", path: "/kontakt" },
   ];
 
   const toggleMobileMenu = (label: string) => {
@@ -162,17 +131,6 @@ const Navigation = () => {
                         ))}
                       </CollapsibleContent>
                     </Collapsible>
-                  ) : item.externalUrl ? (
-                    <a
-                      key={item.label}
-                      href={item.externalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setIsOpen(false)}
-                      className="px-4 py-3 text-sm font-medium tracking-wider rounded-md transition-colors hover:bg-accent/50 hover:text-accent-foreground"
-                    >
-                      {item.label}
-                    </a>
                   ) : (
                     <Link
                       key={item.path}
@@ -245,19 +203,6 @@ const Navigation = () => {
                   </div>
                 )}
               </div>
-            ) : item.externalUrl ? (
-              <a
-                key={item.label}
-                href={item.externalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group whitespace-nowrap px-5 py-4 text-sm font-medium tracking-wider transition-colors relative"
-              >
-                <span className="relative">
-                  {item.label}
-                  <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-primary-foreground transform transition-transform duration-300 origin-left scale-x-0 group-hover:scale-x-100" />
-                </span>
-              </a>
             ) : (
               <Link
                 key={item.path}
