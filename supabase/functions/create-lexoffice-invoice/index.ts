@@ -201,7 +201,8 @@ serve(async (req) => {
     }
 
     // Step 3: Create document (quotation or invoice)
-    const today = new Date().toISOString().split('T')[0];
+    // LexOffice requires full ISO 8601 datetime format
+    const today = new Date().toISOString();
     
     // Configure document-specific settings
     const documentConfig = isInvoice 
