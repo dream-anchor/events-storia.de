@@ -28,7 +28,7 @@ interface NavItem {
 const Navigation = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const [openMenus, setOpenMenus] = useState<string[]>(["BESTELLEN", "EVENTS"]);
+  const [openMenus, setOpenMenus] = useState<string[]>(["CATERING & LIEFERSERVICE", "VERANSTALTUNGEN"]);
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const { language } = useLanguage();
   const isScrolled = useScrolled();
@@ -57,12 +57,12 @@ const Navigation = () => {
 
   const navItems: NavItem[] = [
     {
-      label: language === 'de' ? "BESTELLEN" : "ORDER",
+      label: language === 'de' ? "CATERING & LIEFERSERVICE" : "CATERING & DELIVERY",
       children: shopChildren,
       icon: <ShoppingBag className="h-4 w-4" />,
     },
     {
-      label: "EVENTS",
+      label: language === 'de' ? "VERANSTALTUNGEN" : "PRIVATE EVENTS",
       children: eventChildren,
       icon: <Sparkles className="h-4 w-4" />,
     },
@@ -216,9 +216,9 @@ const Navigation = () => {
                       {/* Dropdown Header */}
                       <div className="px-5 py-3 border-b border-primary-foreground/10 bg-primary-foreground/5">
                         <span className="text-xs font-medium tracking-widest text-primary-foreground/60 uppercase">
-                          {item.label === (language === 'de' ? "BESTELLEN" : "ORDER") 
-                            ? (language === 'de' ? "Online Shop" : "Online Shop")
-                            : (language === 'de' ? "Full-Service" : "Full-Service")
+                          {item.label.includes("CATERING") 
+                            ? (language === 'de' ? "Online Bestellung" : "Online Order")
+                            : (language === 'de' ? "Im Restaurant" : "At Restaurant")
                           }
                         </span>
                       </div>
