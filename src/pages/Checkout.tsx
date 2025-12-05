@@ -141,7 +141,7 @@ const Checkout = () => {
     }
   }, [formData.deliveryType, isPizzaOnly]);
 
-  // Handle Stripe payment redirect feedback
+  // Handle Stripe payment redirect feedback and create LexOffice invoice for paid orders
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentStatus = urlParams.get('payment');
@@ -153,6 +153,62 @@ const Checkout = () => {
           ? `Zahlung erfolgreich! Bestellung #${orderNum} wurde bezahlt.`
           : `Payment successful! Order #${orderNum} has been paid.`
       );
+      
+      // Create LexOffice invoice for the paid order
+      const createInvoiceForPaidOrder = async () => {
+        try {
+          // Fetch the order details from database
+          const { data: orderData, error: fetchError } = await supabase
+            .from('catering_orders')
+            .select('*')
+            .eq('order_number', orderNum)
+            .single();
+          
+          if (fetchError || !orderData) {
+            console.error('Failed to fetch order for invoice:', fetchError);
+            return;
+          }
+
+          // Create LexOffice invoice (Rechnung) since payment was successful
+          const invoiceResponse = await supabase.functions.invoke('create-lexoffice-invoice', {
+            body: {
+              orderId: orderData.id,
+              orderNumber: orderNum,
+              customerName: orderData.customer_name,
+              customerEmail: orderData.customer_email,
+              customerPhone: orderData.customer_phone,
+              companyName: orderData.company_name || undefined,
+              billingAddress: {
+                name: orderData.billing_name || orderData.customer_name,
+                street: orderData.billing_street || '',
+                zip: orderData.billing_zip || '',
+                city: orderData.billing_city || '',
+                country: orderData.billing_country || 'Deutschland'
+              },
+              items: orderData.items as { id: string; name: string; name_en?: string; quantity: number; price: number }[],
+              subtotal: orderData.total_amount - (orderData.delivery_cost || 0) - (orderData.minimum_order_surcharge || 0),
+              deliveryCost: orderData.delivery_cost || 0,
+              minimumOrderSurcharge: orderData.minimum_order_surcharge || 0,
+              distanceKm: orderData.calculated_distance_km || undefined,
+              grandTotal: orderData.total_amount,
+              isPickup: orderData.is_pickup || false,
+              documentType: 'invoice', // Rechnung weil bezahlt
+              isPaid: true
+            }
+          });
+          
+          if (invoiceResponse.error) {
+            console.warn('Lexoffice invoice creation failed:', invoiceResponse.error);
+          } else {
+            console.log('Lexoffice invoice created for paid order:', invoiceResponse.data?.documentId);
+          }
+        } catch (err) {
+          console.error('Error creating invoice for paid order:', err);
+        }
+      };
+
+      createInvoiceForPaidOrder();
+      
       // Clear URL params
       window.history.replaceState({}, '', '/checkout');
     } else if (paymentStatus === 'cancelled') {
@@ -291,7 +347,10 @@ const Checkout = () => {
           billing_country: billingAddress.country || null,
           delivery_cost: deliveryCalc?.deliveryCostGross || 0,
           minimum_order_surcharge: minimumOrderSurcharge,
-          calculated_distance_km: deliveryCalc?.distanceKm || null
+          calculated_distance_km: deliveryCalc?.distanceKm || null,
+          // Payment tracking
+          payment_method: paymentMethod,
+          payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending'
         })
         .select('id')
         .single();
@@ -339,45 +398,52 @@ const Checkout = () => {
         console.error('Email notification error:', emailError);
       }
 
-      // Create Lexoffice invoice (graceful - won't block order if it fails)
-      try {
-        const invoiceResponse = await supabase.functions.invoke('create-lexoffice-invoice', {
-          body: {
-            orderId: orderId,
-            orderNumber: newOrderNumber,
-            customerName: formData.name,
-            customerEmail: formData.email,
-            customerPhone: formData.phone,
-            companyName: formData.company || undefined,
-            billingAddress: billingAddress,
-            items: items.map(item => ({
-              id: item.id,
-              name: item.name,
-              name_en: item.name_en,
-              quantity: item.quantity,
-              price: item.price
-            })),
-            subtotal: totalPrice,
-            deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-            deliveryCostNet: deliveryCalc?.deliveryCostNet || 0,
-            deliveryVat: deliveryCalc?.deliveryVat || 0,
-            minimumOrderSurcharge: minimumOrderSurcharge,
-            distanceKm: deliveryCalc?.distanceKm || undefined,
-            grandTotal: grandTotal,
-            isPickup: formData.deliveryType === 'pickup'
+      // Create Lexoffice document:
+      // - For invoice payment: Create QUOTATION (Angebot) immediately
+      // - For Stripe payment: Invoice (Rechnung) will be created after successful payment
+      if (paymentMethod === 'invoice') {
+        try {
+          const invoiceResponse = await supabase.functions.invoke('create-lexoffice-invoice', {
+            body: {
+              orderId: orderId,
+              orderNumber: newOrderNumber,
+              customerName: formData.name,
+              customerEmail: formData.email,
+              customerPhone: formData.phone,
+              companyName: formData.company || undefined,
+              billingAddress: billingAddress,
+              items: items.map(item => ({
+                id: item.id,
+                name: item.name,
+                name_en: item.name_en,
+                quantity: item.quantity,
+                price: item.price
+              })),
+              subtotal: totalPrice,
+              deliveryCost: deliveryCalc?.deliveryCostGross || 0,
+              deliveryCostNet: deliveryCalc?.deliveryCostNet || 0,
+              deliveryVat: deliveryCalc?.deliveryVat || 0,
+              minimumOrderSurcharge: minimumOrderSurcharge,
+              distanceKm: deliveryCalc?.distanceKm || undefined,
+              grandTotal: grandTotal,
+              isPickup: formData.deliveryType === 'pickup',
+              documentType: 'quotation', // Angebot für unbezahlte Bestellungen
+              isPaid: false
+            }
+          });
+          
+          if (invoiceResponse.error) {
+            console.warn('Lexoffice quotation creation failed:', invoiceResponse.error);
+          } else if (invoiceResponse.data?.skipped) {
+            console.log('Lexoffice quotation skipped:', invoiceResponse.data.reason);
+          } else {
+            console.log('Lexoffice quotation created:', invoiceResponse.data?.documentId);
           }
-        });
-        
-        if (invoiceResponse.error) {
-          console.warn('Lexoffice invoice creation failed:', invoiceResponse.error);
-        } else if (invoiceResponse.data?.skipped) {
-          console.log('Lexoffice invoice skipped:', invoiceResponse.data.reason);
-        } else {
-          console.log('Lexoffice invoice created:', invoiceResponse.data?.invoiceId);
+        } catch (invoiceError) {
+          console.warn('Lexoffice quotation error:', invoiceError);
         }
-      } catch (invoiceError) {
-        console.warn('Lexoffice invoice error:', invoiceError);
       }
+      // Note: For Stripe payments, the invoice will be created after payment success (see useEffect above)
 
       setOrderNumber(newOrderNumber);
       
