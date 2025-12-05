@@ -44,6 +44,7 @@ export type Database = {
           payment_status: string | null
           status: string | null
           total_amount: number | null
+          user_id: string | null
         }
         Insert: {
           billing_city?: string | null
@@ -74,6 +75,7 @@ export type Database = {
           payment_status?: string | null
           status?: string | null
           total_amount?: number | null
+          user_id?: string | null
         }
         Update: {
           billing_city?: string | null
@@ -104,6 +106,67 @@ export type Database = {
           payment_status?: string | null
           status?: string | null
           total_amount?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      customer_profiles: {
+        Row: {
+          billing_city: string | null
+          billing_country: string | null
+          billing_name: string | null
+          billing_street: string | null
+          billing_zip: string | null
+          company: string | null
+          created_at: string | null
+          delivery_city: string | null
+          delivery_country: string | null
+          delivery_street: string | null
+          delivery_zip: string | null
+          email: string | null
+          id: string
+          name: string | null
+          phone: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_name?: string | null
+          billing_street?: string | null
+          billing_zip?: string | null
+          company?: string | null
+          created_at?: string | null
+          delivery_city?: string | null
+          delivery_country?: string | null
+          delivery_street?: string | null
+          delivery_zip?: string | null
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_name?: string | null
+          billing_street?: string | null
+          billing_zip?: string | null
+          company?: string | null
+          created_at?: string | null
+          delivery_city?: string | null
+          delivery_country?: string | null
+          delivery_street?: string | null
+          delivery_zip?: string | null
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }

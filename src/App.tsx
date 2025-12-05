@@ -28,6 +28,8 @@ import ScrollToTop from "./components/ScrollToTop";
 import CartButton from "./components/cart/CartButton";
 import CartSheet from "./components/cart/CartSheet";
 import Checkout from "./pages/Checkout";
+import CustomerAuth from "./pages/CustomerAuth";
+import CustomerProfile from "./pages/CustomerProfile";
 
 // Catering Pages
 import BuffetFingerfood from "./pages/catering/BuffetFingerfood";
@@ -73,6 +75,10 @@ const App = () => {
                 
                 {/* Checkout */}
                 <Route path="/checkout" element={<Checkout />} />
+                
+                {/* Customer Account */}
+                <Route path="/login" element={<CustomerAuth />} />
+                <Route path="/konto" element={<CustomerProfile />} />
                 
                 {/* Admin */}
                 <Route path="/admin" element={<Admin />} />

@@ -1,10 +1,14 @@
-import { Phone, Mail, Instagram } from "lucide-react";
+import { Phone, Mail, Instagram, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useScrolled } from "@/hooks/useScrolled";
+import { useCustomerAuth } from "@/hooks/useCustomerAuth";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const Header = () => {
   const isScrolled = useScrolled();
+  const { user } = useCustomerAuth();
+  const { language } = useLanguage();
 
   return (
     <header className="border-b border-border bg-background">
@@ -30,6 +34,22 @@ const Header = () => {
             >
               <Instagram className="h-4 w-4" />
             </a>
+            <Link 
+              to={user ? "/konto" : "/login"}
+              className="flex items-center gap-2 hover:text-foreground transition-colors"
+              title={user 
+                ? (language === 'de' ? 'Mein Konto' : 'My Account')
+                : (language === 'de' ? 'Anmelden' : 'Login')
+              }
+            >
+              <User className="h-4 w-4" />
+              <span className="hidden lg:inline">
+                {user 
+                  ? (language === 'de' ? 'Mein Konto' : 'My Account')
+                  : (language === 'de' ? 'Anmelden' : 'Login')
+                }
+              </span>
+            </Link>
             <div className={`transition-opacity duration-300 ${isScrolled ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
               <LanguageSwitcher />
             </div>
