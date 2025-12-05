@@ -8,10 +8,6 @@ import auflaufImg from "@/assets/catering/auflauf/parmigiana.webp";
 import pizzaImg from "@/assets/catering/pizze/hero-pizza.webp";
 import flyingBuffetImg from "@/assets/catering/flying-buffet/hero.webp";
 import festmenusImg from "@/assets/catering/festmenus/hero.webp";
-import antipastiImg from "@/assets/cocktails.webp";
-import dessertsImg from "@/assets/tiramisu.webp";
-import businessImg from "@/assets/weinservice.webp";
-import zuhauseImg from "@/assets/menschen-aussen.jpeg";
 
 interface CateringItem {
   id: string;
@@ -77,42 +73,6 @@ const cateringItems: CateringItem[] = [
     descriptionEn: "Exclusive menus for special occasions – at the restaurant.",
     path: "/catering/festmenus",
     image: festmenusImg,
-  },
-  {
-    id: "antipasti",
-    titleDe: "Antipasti & Klassiker",
-    titleEn: "Antipasti & Classics",
-    descriptionDe: "Mediterrane Vorspeisen für Zuhause, Office-Lunch oder Aperitivo.",
-    descriptionEn: "Mediterranean starters for home, office lunch or aperitivo.",
-    path: "/catering/antipasti",
-    image: antipastiImg,
-  },
-  {
-    id: "desserts",
-    titleDe: "Desserts & Dolci",
-    titleEn: "Desserts & Dolci",
-    descriptionDe: "Der perfekte Abschluss – ideal auch für Zuhause & kleine Feiern.",
-    descriptionEn: "The perfect finish – also ideal for home & small celebrations.",
-    path: "/catering/desserts",
-    image: dessertsImg,
-  },
-  {
-    id: "business",
-    titleDe: "Business Lunch & Office Catering",
-    titleEn: "Business Lunch & Office Catering",
-    descriptionDe: "Frische italienische Küche fürs Büro – Meetings, Workshops & Teams.",
-    descriptionEn: "Fresh Italian cuisine for the office – meetings, workshops & teams.",
-    path: "/catering/business-lunch",
-    image: businessImg,
-  },
-  {
-    id: "zuhause",
-    titleDe: "Catering für Zuhause",
-    titleEn: "Catering for Home",
-    descriptionDe: "Für private Feiern, Geburtstage oder ein entspanntes Essen daheim.",
-    descriptionEn: "For private parties, birthdays or a relaxed meal at home.",
-    path: "/catering/catering-zuhause",
-    image: zuhauseImg,
   },
 ];
 
