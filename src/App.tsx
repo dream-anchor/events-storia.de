@@ -33,10 +33,6 @@ import BuffetFingerfood from "./pages/catering/BuffetFingerfood";
 import BuffetPlatten from "./pages/catering/BuffetPlatten";
 import BuffetAuflauf from "./pages/catering/BuffetAuflauf";
 import PizzeNapoletane from "./pages/catering/PizzeNapoletane";
-import Antipasti from "./pages/catering/Antipasti";
-import Desserts from "./pages/catering/Desserts";
-import BusinessLunch from "./pages/catering/BusinessLunch";
-import CateringZuhause from "./pages/catering/CateringZuhause";
 import FlyingBuffet from "./pages/catering/FlyingBuffet";
 import Festmenus from "./pages/catering/Festmenus";
 
@@ -70,10 +66,6 @@ const App = () => {
                 <Route path="/catering/pizze-napoletane" element={<PizzeNapoletane />} />
                 <Route path="/catering/flying-buffet" element={<FlyingBuffet />} />
                 <Route path="/catering/festmenus" element={<Festmenus />} />
-                <Route path="/catering/antipasti" element={<Antipasti />} />
-                <Route path="/catering/desserts" element={<Desserts />} />
-                <Route path="/catering/business-lunch" element={<BusinessLunch />} />
-                <Route path="/catering/catering-zuhause" element={<CateringZuhause />} />
                 
                 {/* Checkout */}
                 <Route path="/checkout" element={<Checkout />} />
