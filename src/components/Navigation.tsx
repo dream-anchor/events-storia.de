@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/collapsible";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
-import { useScrolled } from "@/hooks/useScrolled";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 interface NavChild {
@@ -33,7 +32,6 @@ const Navigation = () => {
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const { language } = useLanguage();
   const { showGross, setShowGross } = usePriceDisplay();
-  const isScrolled = useScrolled();
 
   // Brutto/Netto Toggle Component
   const PriceToggle = () => (
@@ -207,7 +205,8 @@ const Navigation = () => {
             </SheetContent>
           </Sheet>
           {/* Language Switcher Mobile (außerhalb Sheet) */}
-          <div className={`transition-opacity duration-300 ${isScrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <div className="flex items-center gap-2">
+            <PriceToggle />
             <LanguageSwitcher />
           </div>
         </div>
@@ -299,7 +298,7 @@ const Navigation = () => {
             )}
           </div>
           {/* Price Toggle & Language Switcher Desktop - rechts */}
-          <div className={`flex items-center gap-3 transition-opacity duration-300 ${isScrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <div className="flex items-center gap-3">
             <PriceToggle />
             <LanguageSwitcher />
           </div>
