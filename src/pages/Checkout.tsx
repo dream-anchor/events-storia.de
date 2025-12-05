@@ -627,9 +627,9 @@ const Checkout = () => {
                     )}
 
                     {deliveryCalc && !isCalculating && (
-                      <div className="rounded-lg p-4 mb-4 border bg-primary/5 border-primary/20">
+                      <div className="rounded-lg p-4 mb-4 border bg-muted/50 border-border">
                         <div className="flex items-start gap-3">
-                          <Truck className="h-5 w-5 mt-0.5 shrink-0 text-primary" />
+                          <Truck className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
                           <div className="flex-1">
                             <div className="flex justify-between items-start mb-2">
                               <div>
@@ -698,7 +698,7 @@ const Checkout = () => {
                     </p>
                     <p className="text-sm text-muted-foreground">
                       STORIA – Ristorante & Bar<br />
-                      Steinhofer Allee 2<br />
+                      Karlstr. 47a<br />
                       80333 München
                     </p>
                   </div>
