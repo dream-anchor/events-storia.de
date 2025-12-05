@@ -21,9 +21,6 @@ import burratinaImg from "@/assets/catering/fingerfood/burratina.webp";
 import oktopusImg from "@/assets/catering/fingerfood/oktopus.webp";
 import avocadoGarnelenImg from "@/assets/catering/fingerfood/avocado-garnelen.webp";
 import meeresfruchteImg from "@/assets/catering/fingerfood/meeresfruechte.webp";
-import tiramisuImg from "@/assets/catering/fingerfood/tiramisu.webp";
-import pistazienImg from "@/assets/catering/fingerfood/pistazien.webp";
-
 // Map item names to images
 const imageMap: Record<string, string> = {
   "Grillgemüse": grillgemueseImg,
@@ -34,8 +31,6 @@ const imageMap: Record<string, string> = {
   "Oktopus-Kartoffelsalat": oktopusImg,
   "Avocadocreme mit Garnelen": avocadoGarnelenImg,
   "Meeresfrüchtesalat": meeresfruchteImg,
-  "Tiramisù STORIA": tiramisuImg,
-  "Pistazien-Törtchen": pistazienImg,
 };
 
 // Image position map to focus on the food
@@ -48,8 +43,6 @@ const imagePositionMap: Record<string, string> = {
   "Oktopus-Kartoffelsalat": "center 40%",
   "Avocadocreme mit Garnelen": "center center",
   "Meeresfrüchtesalat": "center 40%",
-  "Tiramisù STORIA": "center center",
-  "Pistazien-Törtchen": "center 45%",
 };
 
 interface MenuItemCardProps {
