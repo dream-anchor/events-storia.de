@@ -16,6 +16,14 @@ interface OrderItem {
   price: number;
 }
 
+interface BillingAddress {
+  name: string;
+  street: string;
+  zip: string;
+  city: string;
+  country: string;
+}
+
 interface OrderNotificationRequest {
   orderNumber: string;
   customerName: string;
@@ -28,7 +36,15 @@ interface OrderNotificationRequest {
   desiredTime?: string;
   notes?: string;
   items: OrderItem[];
-  totalAmount: number;
+  // New fields for detailed pricing
+  subtotal: number;
+  deliveryCost?: number;
+  minimumOrderSurcharge?: number;
+  distanceKm?: number;
+  grandTotal: number;
+  billingAddress?: BillingAddress;
+  // Legacy field for backwards compatibility
+  totalAmount?: number;
 }
 
 const formatPrice = (price: number) => price.toFixed(2).replace('.', ',') + ' €';
@@ -39,6 +55,9 @@ const formatDate = (dateStr: string) => {
 };
 
 const generateCustomerEmailHtml = (data: OrderNotificationRequest) => {
+  const subtotal = data.subtotal || data.totalAmount || 0;
+  const grandTotal = data.grandTotal || data.totalAmount || 0;
+  
   const itemsHtml = data.items.map(item => `
     <tr>
       <td style="padding: 12px; border-bottom: 1px solid #e5e5e5;">${item.name}</td>
@@ -46,6 +65,49 @@ const generateCustomerEmailHtml = (data: OrderNotificationRequest) => {
       <td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: right;">${formatPrice(item.price * item.quantity)}</td>
     </tr>
   `).join('');
+
+  // Build price breakdown
+  let priceBreakdownHtml = `
+    <tr>
+      <td style="padding: 8px 0;">Zwischensumme (Warenwert)</td>
+      <td style="padding: 8px 0; text-align: right;">${formatPrice(subtotal)}</td>
+    </tr>
+  `;
+  
+  if (data.minimumOrderSurcharge && data.minimumOrderSurcharge > 0) {
+    priceBreakdownHtml += `
+      <tr>
+        <td style="padding: 8px 0; color: #8B7355;">Mindestbestellwert-Aufschlag</td>
+        <td style="padding: 8px 0; text-align: right; color: #8B7355;">+${formatPrice(data.minimumOrderSurcharge)}</td>
+      </tr>
+    `;
+  }
+  
+  if (!data.isPickup && data.deliveryCost !== undefined) {
+    const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1)} km)` : '';
+    priceBreakdownHtml += `
+      <tr>
+        <td style="padding: 8px 0;">Lieferung${distanceText}</td>
+        <td style="padding: 8px 0; text-align: right;">${data.deliveryCost === 0 ? 'Kostenlos' : formatPrice(data.deliveryCost)}</td>
+      </tr>
+    `;
+  }
+
+  // Billing address section
+  let billingAddressHtml = '';
+  if (data.billingAddress && data.billingAddress.name) {
+    billingAddressHtml = `
+      <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <h4 style="margin: 0 0 10px; color: #8B7355;">Rechnungsadresse</h4>
+        <p style="margin: 0;">
+          ${data.billingAddress.name}<br>
+          ${data.billingAddress.street}<br>
+          ${data.billingAddress.zip ? `${data.billingAddress.zip} ` : ''}${data.billingAddress.city}<br>
+          ${data.billingAddress.country}
+        </p>
+      </div>
+    `;
+  }
 
   return `
     <!DOCTYPE html>
@@ -62,7 +124,8 @@ const generateCustomerEmailHtml = (data: OrderNotificationRequest) => {
         .order-number span { font-family: monospace; font-size: 18px; font-weight: bold; color: #8B7355; }
         table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         th { background: #f9f9f9; padding: 12px; text-align: left; font-weight: 600; }
-        .total { font-size: 20px; font-weight: bold; text-align: right; padding: 20px 0; border-top: 2px solid #1a1a1a; }
+        .total-section { border-top: 2px solid #1a1a1a; padding-top: 15px; margin-top: 15px; }
+        .grand-total { font-size: 20px; font-weight: bold; }
         .info-box { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }
         .footer { text-align: center; padding: 30px; color: #666; font-size: 14px; }
       </style>
@@ -94,15 +157,27 @@ const generateCustomerEmailHtml = (data: OrderNotificationRequest) => {
               ${itemsHtml}
             </tbody>
           </table>
-          <div class="total">Gesamtsumme: ${formatPrice(data.totalAmount)}</div>
+          
+          <div class="total-section">
+            <table style="margin: 0;">
+              ${priceBreakdownHtml}
+              <tr class="grand-total">
+                <td style="padding: 15px 0; border-top: 1px solid #ccc;">Gesamtsumme</td>
+                <td style="padding: 15px 0; border-top: 1px solid #ccc; text-align: right;">${formatPrice(grandTotal)}</td>
+              </tr>
+            </table>
+          </div>
           
           <div class="info-box">
-            <h4 style="margin-top: 0;">Details</h4>
+            <h4 style="margin-top: 0;">Lieferdetails</h4>
             <p><strong>Lieferart:</strong> ${data.isPickup ? 'Selbstabholung' : 'Lieferung'}</p>
             ${data.deliveryAddress ? `<p><strong>Adresse:</strong> ${data.deliveryAddress}</p>` : ''}
+            ${data.distanceKm ? `<p><strong>Entfernung:</strong> ${data.distanceKm.toFixed(1)} km</p>` : ''}
             ${data.desiredDate ? `<p><strong>Wunschtermin:</strong> ${formatDate(data.desiredDate)}${data.desiredTime ? ` um ${data.desiredTime} Uhr` : ''}</p>` : ''}
             ${data.notes ? `<p><strong>Anmerkungen:</strong> ${data.notes}</p>` : ''}
           </div>
+          
+          ${billingAddressHtml}
           
           <p style="margin-top: 30px;">Bei Fragen erreichen Sie uns unter:</p>
           <p>
@@ -122,6 +197,9 @@ const generateCustomerEmailHtml = (data: OrderNotificationRequest) => {
 };
 
 const generateRestaurantEmailHtml = (data: OrderNotificationRequest) => {
+  const subtotal = data.subtotal || data.totalAmount || 0;
+  const grandTotal = data.grandTotal || data.totalAmount || 0;
+  
   const itemsHtml = data.items.map(item => `
     <tr>
       <td style="padding: 10px; border-bottom: 1px solid #e5e5e5;">${item.name}</td>
@@ -135,6 +213,49 @@ const generateRestaurantEmailHtml = (data: OrderNotificationRequest) => {
     dateStyle: 'full', 
     timeStyle: 'short' 
   });
+
+  // Build price breakdown
+  let priceBreakdownHtml = `
+    <tr>
+      <td style="padding: 8px 15px;">Warenwert</td>
+      <td style="padding: 8px 15px; text-align: right;">${formatPrice(subtotal)}</td>
+    </tr>
+  `;
+  
+  if (data.minimumOrderSurcharge && data.minimumOrderSurcharge > 0) {
+    priceBreakdownHtml += `
+      <tr style="background: #fff8e1;">
+        <td style="padding: 8px 15px;">⚠️ Mindestbestellwert-Aufschlag</td>
+        <td style="padding: 8px 15px; text-align: right;">+${formatPrice(data.minimumOrderSurcharge)}</td>
+      </tr>
+    `;
+  }
+  
+  if (!data.isPickup && data.deliveryCost !== undefined) {
+    const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1)} km)` : '';
+    priceBreakdownHtml += `
+      <tr>
+        <td style="padding: 8px 15px;">Lieferkosten${distanceText}</td>
+        <td style="padding: 8px 15px; text-align: right;">${data.deliveryCost === 0 ? 'Kostenlos' : formatPrice(data.deliveryCost)}</td>
+      </tr>
+    `;
+  }
+
+  // Billing address section
+  let billingAddressHtml = '';
+  if (data.billingAddress && data.billingAddress.name) {
+    billingAddressHtml = `
+      <div class="customer-info" style="background: #e8f5e9;">
+        <h3 style="color: #2e7d32;">📄 Rechnungsadresse</h3>
+        <p style="margin: 0;">
+          <strong>${data.billingAddress.name}</strong><br>
+          ${data.billingAddress.street}<br>
+          ${data.billingAddress.zip ? `${data.billingAddress.zip} ` : ''}${data.billingAddress.city}<br>
+          ${data.billingAddress.country}
+        </p>
+      </div>
+    `;
+  }
 
   return `
     <!DOCTYPE html>
@@ -151,7 +272,9 @@ const generateRestaurantEmailHtml = (data: OrderNotificationRequest) => {
         .customer-info h3 { margin-top: 0; color: #8B7355; }
         table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         th { background: #1a1a1a; color: #fff; padding: 12px; text-align: left; }
-        .total { font-size: 22px; font-weight: bold; background: #f0f0f0; padding: 15px; text-align: right; }
+        .price-breakdown { background: #f0f0f0; margin: 20px 0; border-radius: 8px; overflow: hidden; }
+        .price-breakdown table { margin: 0; }
+        .grand-total { background: #1a1a1a; color: #fff; font-size: 18px; font-weight: bold; }
         .notes { background: #fff8e1; padding: 15px; border-radius: 8px; margin: 20px 0; }
         .cta { text-align: center; margin: 30px 0; }
         .cta a { background: #8B7355; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; }
@@ -205,14 +328,26 @@ const generateRestaurantEmailHtml = (data: OrderNotificationRequest) => {
             ${itemsHtml}
           </tbody>
         </table>
-        <div class="total">Gesamtsumme: ${formatPrice(data.totalAmount)}</div>
+        
+        <div class="price-breakdown">
+          <table>
+            ${priceBreakdownHtml}
+            <tr class="grand-total">
+              <td style="padding: 15px;">GESAMTSUMME</td>
+              <td style="padding: 15px; text-align: right;">${formatPrice(grandTotal)}</td>
+            </tr>
+          </table>
+        </div>
         
         <div class="customer-info">
           <h3>Lieferdetails</h3>
           <p><strong>Art:</strong> ${data.isPickup ? '🚗 Selbstabholung' : '🚚 Lieferung'}</p>
           ${data.deliveryAddress ? `<p><strong>Adresse:</strong> ${data.deliveryAddress}</p>` : ''}
+          ${data.distanceKm ? `<p><strong>Entfernung:</strong> ${data.distanceKm.toFixed(1)} km vom Restaurant</p>` : ''}
           ${data.desiredDate ? `<p><strong>Wunschtermin:</strong> ${formatDate(data.desiredDate)}${data.desiredTime ? ` um ${data.desiredTime} Uhr` : ''}</p>` : '<p><em>Kein Wunschtermin angegeben</em></p>'}
         </div>
+        
+        ${billingAddressHtml}
         
         ${data.notes ? `
         <div class="notes">

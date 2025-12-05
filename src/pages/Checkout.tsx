@@ -165,6 +165,23 @@ const Checkout = () => {
       fullNotes += (fullNotes ? '\n\n' : '') + '📦 Aufbau & Service gewünscht';
     }
 
+    // Determine billing address
+    const billingAddress = formData.sameAsDelivery && formData.deliveryType === 'delivery'
+      ? {
+          name: formData.company || formData.name,
+          street: formData.address.split('\n')[0] || formData.address,
+          zip: '',
+          city: '',
+          country: 'Deutschland'
+        }
+      : {
+          name: formData.billingName,
+          street: formData.billingStreet,
+          zip: formData.billingZip,
+          city: formData.billingCity,
+          country: formData.billingCountry
+        };
+
     try {
       const { error } = await supabase
         .from('catering_orders')
@@ -186,7 +203,16 @@ const Checkout = () => {
             quantity: item.quantity,
             price: item.price
           })),
-          total_amount: totalPrice
+          total_amount: grandTotal,
+          // New fields
+          billing_name: billingAddress.name || null,
+          billing_street: billingAddress.street || null,
+          billing_zip: billingAddress.zip || null,
+          billing_city: billingAddress.city || null,
+          billing_country: billingAddress.country || null,
+          delivery_cost: deliveryCalc?.deliveryCost || 0,
+          minimum_order_surcharge: minimumOrderSurcharge,
+          calculated_distance_km: deliveryCalc?.distanceKm || null
         });
 
       if (error) throw error;
@@ -212,7 +238,12 @@ const Checkout = () => {
               quantity: item.quantity,
               price: item.price
             })),
-            totalAmount: totalPrice
+            subtotal: totalPrice,
+            deliveryCost: deliveryCalc?.deliveryCost || 0,
+            minimumOrderSurcharge: minimumOrderSurcharge,
+            distanceKm: deliveryCalc?.distanceKm || undefined,
+            grandTotal: grandTotal,
+            billingAddress: !formData.sameAsDelivery || formData.deliveryType === 'pickup' ? billingAddress : undefined
           }
         });
         
