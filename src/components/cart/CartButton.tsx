@@ -1,10 +1,12 @@
 import { ShoppingCart } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
+import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
 import { cn } from '@/lib/utils';
 
 const CartButton = () => {
   const { totalItems, totalPrice, setIsOpen, isOpen } = useCart();
+  const { formatPrice } = usePriceDisplay();
   const location = useLocation();
 
   // Hide on checkout page
@@ -44,7 +46,7 @@ const CartButton = () => {
       
       {/* Price - hidden on mobile for cleaner look */}
       <span className="hidden sm:block text-sm font-medium text-foreground border-l border-border/50 pl-2 ml-1">
-        {totalPrice.toFixed(2).replace('.', ',')} €
+        {formatPrice(totalPrice)}
       </span>
     </button>
   );

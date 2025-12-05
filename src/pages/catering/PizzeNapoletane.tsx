@@ -154,6 +154,7 @@ const PizzaListItem = ({ pizza, language }: { pizza: Pizza; language: string }) 
 const PizzaPaneCard = ({ language }: { language: string }) => {
   const [quantity, setQuantity] = useState(1);
   const { addToCart, items } = useCart();
+  const { formatPrice } = usePriceDisplay();
   
   const cartItem = items.find(item => item.id === pizzaPane.id);
   const displayName = language === 'en' ? pizzaPane.name_en : pizzaPane.name;
@@ -181,7 +182,7 @@ const PizzaPaneCard = ({ language }: { language: string }) => {
       
       <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
         <span className="text-xl font-semibold">
-          {pizzaPane.price.toFixed(2).replace('.', ',')} €
+          {formatPrice(pizzaPane.price)}
         </span>
         
         <div className="flex items-center gap-2 bg-background rounded-full p-1 border border-border/50">
