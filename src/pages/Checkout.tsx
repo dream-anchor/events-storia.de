@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Minus, Plus, Trash2, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -36,7 +37,8 @@ const Checkout = () => {
     address: '',
     date: '',
     time: '',
-    notes: ''
+    notes: '',
+    wantsSetupService: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -67,6 +69,12 @@ const Checkout = () => {
     setIsSubmitting(true);
     const newOrderNumber = generateOrderNumber();
 
+    // Build notes with service options
+    let fullNotes = formData.notes || '';
+    if (formData.wantsSetupService) {
+      fullNotes += (fullNotes ? '\n\n' : '') + '📦 Aufbau & Service gewünscht';
+    }
+
     try {
       const { error } = await supabase
         .from('catering_orders')
@@ -80,7 +88,7 @@ const Checkout = () => {
           is_pickup: formData.deliveryType === 'pickup',
           desired_date: formData.date || null,
           desired_time: formData.time || null,
-          notes: formData.notes || null,
+          notes: fullNotes || null,
           items: items.map(item => ({
             id: item.id,
             name: item.name,
@@ -106,7 +114,7 @@ const Checkout = () => {
             isPickup: formData.deliveryType === 'pickup',
             desiredDate: formData.date || undefined,
             desiredTime: formData.time || undefined,
-            notes: formData.notes || undefined,
+            notes: fullNotes || undefined,
             items: items.map(item => ({
               id: item.id,
               name: item.name,
@@ -120,13 +128,9 @@ const Checkout = () => {
         
         if (emailResponse.error) {
           console.error('Email notification error:', emailResponse.error);
-          // Don't fail the order if email fails
-        } else {
-          console.log('Email notifications sent successfully');
         }
       } catch (emailError) {
         console.error('Email notification error:', emailError);
-        // Don't fail the order if email fails
       }
 
       setOrderNumber(newOrderNumber);
@@ -289,45 +293,91 @@ const Checkout = () => {
                     />
                   </div>
                 </div>
+              </section>
 
-                <div className="mt-6">
-                  <Label>{language === 'de' ? 'Lieferung / Abholung' : 'Delivery / Pickup'}</Label>
-                  <RadioGroup
-                    value={formData.deliveryType}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, deliveryType: value }))}
-                    className="mt-2"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="delivery" id="delivery" />
-                      <Label htmlFor="delivery" className="font-normal cursor-pointer">
-                        {language === 'de' ? 'Lieferung' : 'Delivery'}
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="pickup" id="pickup" />
-                      <Label htmlFor="pickup" className="font-normal cursor-pointer">
-                        {language === 'de' ? 'Selbstabholung' : 'Pickup'}
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+              {/* Delivery Options */}
+              <section className="bg-card border border-border rounded-lg p-4 md:p-6">
+                <h2 className="font-serif text-lg mb-4 flex items-center gap-2">
+                  <Truck className="h-5 w-5" />
+                  {language === 'de' ? 'Lieferoptionen' : 'Delivery Options'}
+                </h2>
+
+                <RadioGroup
+                  value={formData.deliveryType}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, deliveryType: value }))}
+                  className="mb-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="delivery" id="delivery" />
+                    <Label htmlFor="delivery" className="font-normal cursor-pointer">
+                      {language === 'de' ? 'Lieferung' : 'Delivery'}
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="pickup" id="pickup" />
+                    <Label htmlFor="pickup" className="font-normal cursor-pointer">
+                      {language === 'de' ? 'Selbstabholung' : 'Pickup'}
+                    </Label>
+                  </div>
+                </RadioGroup>
 
                 {formData.deliveryType === 'delivery' && (
-                  <div className="mt-4">
-                    <Label htmlFor="address">{language === 'de' ? 'Lieferadresse' : 'Delivery Address'} *</Label>
-                    <Textarea
-                      id="address"
-                      name="address"
-                      value={formData.address}
-                      onChange={handleInputChange}
-                      required={formData.deliveryType === 'delivery'}
-                      className="mt-1"
-                      rows={2}
-                    />
+                  <>
+                    <div className="mb-4">
+                      <Label htmlFor="address" className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        {language === 'de' ? 'Lieferadresse' : 'Delivery Address'} *
+                      </Label>
+                      <Textarea
+                        id="address"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleInputChange}
+                        required={formData.deliveryType === 'delivery'}
+                        className="mt-1"
+                        rows={2}
+                        placeholder={language === 'de' ? 'Straße, Hausnummer, PLZ, Stadt' : 'Street, house number, postal code, city'}
+                      />
+                    </div>
+
+                    {/* Delivery Info Box */}
+                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-4">
+                      <div className="flex items-start gap-3">
+                        <Info className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                        <div className="text-sm">
+                          <p className="font-medium text-foreground mb-1">
+                            {language === 'de' ? 'Lieferinformationen' : 'Delivery Information'}
+                          </p>
+                          <ul className="text-muted-foreground space-y-1">
+                            <li>✓ {language === 'de' ? 'Bis 1 km: Kostenlose Lieferung' : 'Up to 1 km: Free delivery'}</li>
+                            <li>⚠ {language === 'de' ? 'Über 1 km: Lieferkosten nach Vereinbarung' : 'Over 1 km: Delivery costs by arrangement'}</li>
+                          </ul>
+                          <p className="text-xs mt-2 text-muted-foreground">
+                            {language === 'de' 
+                              ? 'Wir kontaktieren Sie zur Abstimmung der Lieferdetails.'
+                              : 'We will contact you to coordinate delivery details.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {formData.deliveryType === 'pickup' && (
+                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                    <p className="text-sm font-medium mb-1">
+                      {language === 'de' ? 'Abholadresse:' : 'Pickup Address:'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      STORIA – Ristorante & Bar<br />
+                      Steinhofer Allee 2<br />
+                      80333 München
+                    </p>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                {/* Date and Time */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
                     <Label htmlFor="date">{language === 'de' ? 'Wunschdatum' : 'Preferred Date'}</Label>
                     <Input
@@ -351,6 +401,39 @@ const Checkout = () => {
                       className="mt-1"
                     />
                   </div>
+                </div>
+
+                {/* Setup Service Option */}
+                <div className="border-t border-border pt-4">
+                  <div className="flex items-start space-x-3">
+                    <Checkbox
+                      id="setupService"
+                      checked={formData.wantsSetupService}
+                      onCheckedChange={(checked) => 
+                        setFormData(prev => ({ ...prev, wantsSetupService: checked === true }))
+                      }
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <Label htmlFor="setupService" className="font-medium cursor-pointer">
+                        {language === 'de' ? 'Aufbau & Service buchen (optional)' : 'Book Setup & Service (optional)'}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'de' 
+                          ? 'Preis nach Vereinbarung – wir beraten Sie gerne'
+                          : 'Price by arrangement – we\'ll be happy to advise you'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cleaning Info */}
+                <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span>
+                    {language === 'de' 
+                      ? 'Reinigung ist im Preis aller Platten inklusive'
+                      : 'Cleaning is included in the price of all platters'}
+                  </span>
                 </div>
               </section>
 
