@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Menu, ChevronDown } from "lucide-react";
+import { Menu, ChevronDown, ShoppingBag, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -15,46 +15,56 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 interface NavChild {
   label: string;
   path: string;
+  description?: string;
 }
 
 interface NavItem {
   label: string;
   path?: string;
   children?: NavChild[];
+  icon?: React.ReactNode;
 }
 
 const Navigation = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const [openMenus, setOpenMenus] = useState<string[]>(["CATERING"]);
+  const [openMenus, setOpenMenus] = useState<string[]>(["BESTELLEN", "EVENTS"]);
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const { language } = useLanguage();
   const isScrolled = useScrolled();
 
-  const cateringChildren: NavChild[] = language === 'de' ? [
-    { label: "FINGERFOOD", path: "/catering/buffet-fingerfood" },
-    { label: "PLATTEN & SHARING", path: "/catering/buffet-platten" },
-    { label: "WARME GERICHTE", path: "/catering/buffet-auflauf" },
-    { label: "PIZZA NAPOLETANA", path: "/catering/pizze-napoletane" },
-    { label: "ANTIPASTI", path: "/catering/antipasti" },
-    { label: "DESSERTS", path: "/catering/desserts" },
-    { label: "BUSINESS LUNCH", path: "/catering/business-lunch" },
-    { label: "FÜR ZUHAUSE", path: "/catering/catering-zuhause" },
+  // Shop-Kategorie: Bestellbare Produkte
+  const shopChildren: NavChild[] = language === 'de' ? [
+    { label: "FINGERFOOD", path: "/catering/buffet-fingerfood", description: "Häppchen & Snacks" },
+    { label: "PLATTEN & SHARING", path: "/catering/buffet-platten", description: "Kalte Buffet-Platten" },
+    { label: "WARME GERICHTE", path: "/catering/buffet-auflauf", description: "Aufläufe & Schmorgerichte" },
+    { label: "PIZZA NAPOLETANA", path: "/catering/pizze-napoletane", description: "Authentisch aus Neapel" },
   ] : [
-    { label: "FINGER FOOD", path: "/catering/buffet-fingerfood" },
-    { label: "PLATTERS & SHARING", path: "/catering/buffet-platten" },
-    { label: "HOT DISHES", path: "/catering/buffet-auflauf" },
-    { label: "PIZZA NAPOLETANA", path: "/catering/pizze-napoletane" },
-    { label: "ANTIPASTI", path: "/catering/antipasti" },
-    { label: "DESSERTS", path: "/catering/desserts" },
-    { label: "BUSINESS LUNCH", path: "/catering/business-lunch" },
-    { label: "FOR HOME", path: "/catering/catering-zuhause" },
+    { label: "FINGER FOOD", path: "/catering/buffet-fingerfood", description: "Bites & Snacks" },
+    { label: "PLATTERS & SHARING", path: "/catering/buffet-platten", description: "Cold Buffet Platters" },
+    { label: "HOT DISHES", path: "/catering/buffet-auflauf", description: "Casseroles & Braised Dishes" },
+    { label: "PIZZA NAPOLETANA", path: "/catering/pizze-napoletane", description: "Authentic from Naples" },
+  ];
+
+  // Events-Kategorie: Full-Service Angebote
+  const eventChildren: NavChild[] = language === 'de' ? [
+    { label: "FLYING BUFFET", path: "/catering/flying-buffet", description: "Service mit Stil" },
+    { label: "FESTMENÜS", path: "/catering/festmenus", description: "Mehrgängige Menüs" },
+  ] : [
+    { label: "FLYING BUFFET", path: "/catering/flying-buffet", description: "Service with Style" },
+    { label: "SET MENUS", path: "/catering/festmenus", description: "Multi-Course Menus" },
   ];
 
   const navItems: NavItem[] = [
     {
-      label: "CATERING",
-      children: cateringChildren,
+      label: language === 'de' ? "BESTELLEN" : "ORDER",
+      children: shopChildren,
+      icon: <ShoppingBag className="h-4 w-4" />,
+    },
+    {
+      label: "EVENTS",
+      children: eventChildren,
+      icon: <Sparkles className="h-4 w-4" />,
     },
     { label: language === 'de' ? "KONTAKT" : "CONTACT", path: "/kontakt" },
   ];
@@ -90,9 +100,9 @@ const Navigation = () => {
             </SheetTrigger>
             <SheetContent
               side="left"
-              className="w-[280px] bg-primary text-primary-foreground border-r-accent"
+              className="w-[300px] bg-primary text-primary-foreground border-r-accent"
             >
-              <div className="flex flex-col gap-2 mt-8">
+              <div className="flex flex-col gap-1 mt-8">
                 {navItems.map((item) =>
                   item.children ? (
                     <Collapsible
@@ -101,34 +111,42 @@ const Navigation = () => {
                       onOpenChange={() => toggleMobileMenu(item.label)}
                     >
                       <CollapsibleTrigger
-                        className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium tracking-wider rounded-md transition-colors ${
+                        className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium tracking-wider rounded-lg transition-all duration-300 ${
                           isActive(item)
-                            ? "bg-accent text-accent-foreground"
-                            : "hover:bg-accent/50 hover:text-accent-foreground"
+                            ? "bg-primary-foreground/15 text-primary-foreground"
+                            : "hover:bg-primary-foreground/10"
                         }`}
                       >
-                        {item.label}
+                        <span className="flex items-center gap-2">
+                          {item.icon}
+                          {item.label}
+                        </span>
                         <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
+                          className={`h-4 w-4 transition-transform duration-300 ${
                             openMenus.includes(item.label) ? "rotate-180" : ""
                           }`}
                         />
                       </CollapsibleTrigger>
-                      <CollapsibleContent className="pl-4">
-                        {item.children.map((child) => (
-                          <Link
-                            key={child.path}
-                            to={child.path}
-                            onClick={() => setIsOpen(false)}
-                            className={`block px-4 py-2 text-sm tracking-wider rounded-md transition-colors ${
-                              location.pathname === child.path
-                                ? "bg-accent text-accent-foreground"
-                                : "hover:bg-accent/50 hover:text-accent-foreground"
-                            }`}
-                          >
-                            {child.label}
-                          </Link>
-                        ))}
+                      <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
+                        <div className="pl-4 py-2 space-y-1">
+                          {item.children.map((child) => (
+                            <Link
+                              key={child.path}
+                              to={child.path}
+                              onClick={() => setIsOpen(false)}
+                              className={`block px-4 py-3 rounded-lg transition-all duration-300 ${
+                                location.pathname === child.path
+                                  ? "bg-primary-foreground/15"
+                                  : "hover:bg-primary-foreground/10"
+                              }`}
+                            >
+                              <span className="text-sm font-medium tracking-wider block">{child.label}</span>
+                              {child.description && (
+                                <span className="text-xs text-primary-foreground/60 mt-0.5 block">{child.description}</span>
+                              )}
+                            </Link>
+                          ))}
+                        </div>
                       </CollapsibleContent>
                     </Collapsible>
                   ) : (
@@ -136,10 +154,10 @@ const Navigation = () => {
                       key={item.path}
                       to={item.path!}
                       onClick={() => setIsOpen(false)}
-                      className={`px-4 py-3 text-sm font-medium tracking-wider rounded-md transition-colors ${
+                      className={`px-4 py-3 text-sm font-medium tracking-wider rounded-lg transition-all duration-300 ${
                         location.pathname === item.path
-                          ? "bg-accent text-accent-foreground"
-                          : "hover:bg-accent/50 hover:text-accent-foreground"
+                          ? "bg-primary-foreground/15"
+                          : "hover:bg-primary-foreground/10"
                       }`}
                     >
                       {item.label}
@@ -147,7 +165,7 @@ const Navigation = () => {
                   )
                 )}
                 {/* Language Switcher im Mobile Menu */}
-                <div className="mt-4 px-4">
+                <div className="mt-6 px-4 pt-4 border-t border-primary-foreground/10">
                   <LanguageSwitcher />
                 </div>
               </div>
@@ -162,62 +180,88 @@ const Navigation = () => {
         {/* Desktop Navigation */}
         <div className="hidden lg:flex items-center justify-between">
           <div className="w-24" /> {/* Spacer für Balance */}
-          <div className="flex items-center justify-center">
-          {navItems.map((item) =>
-            item.children ? (
-              <div
-                key={item.label}
-                className="relative"
-                onMouseEnter={() => setHoveredMenu(item.label)}
-                onMouseLeave={() => setHoveredMenu(null)}
-              >
-                <button
-                  className={`group flex items-center gap-1 whitespace-nowrap px-5 py-4 text-sm font-medium tracking-wider transition-colors relative ${
-                    isActive(item) ? "text-accent-foreground" : ""
-                  }`}
+          <div className="flex items-center justify-center gap-1">
+            {navItems.map((item) =>
+              item.children ? (
+                <div
+                  key={item.label}
+                  className="relative"
+                  onMouseEnter={() => setHoveredMenu(item.label)}
+                  onMouseLeave={() => setHoveredMenu(null)}
+                >
+                  <button
+                    className={`group flex items-center gap-2 whitespace-nowrap px-5 py-4 text-sm font-medium tracking-wider transition-all duration-300 relative ${
+                      isActive(item) ? "text-accent-foreground" : ""
+                    }`}
+                  >
+                    {item.icon}
+                    <span className="relative">
+                      {item.label}
+                      <span className={`absolute -bottom-1 left-0 w-full h-0.5 bg-primary-foreground transform transition-transform duration-300 origin-left ${
+                        isActive(item) ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                      }`} />
+                    </span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-300 ${hoveredMenu === item.label ? "rotate-180" : ""}`} />
+                  </button>
+                  
+                  {/* 2025 Mega-Menu Dropdown with Glassmorphism */}
+                  <div 
+                    className={`absolute top-full left-1/2 -translate-x-1/2 pt-2 transition-all duration-300 ${
+                      hoveredMenu === item.label 
+                        ? "opacity-100 translate-y-0 pointer-events-auto" 
+                        : "opacity-0 -translate-y-2 pointer-events-none"
+                    }`}
+                  >
+                    <div className="bg-primary/95 backdrop-blur-xl border border-primary-foreground/10 rounded-xl shadow-2xl min-w-[280px] overflow-hidden">
+                      {/* Dropdown Header */}
+                      <div className="px-5 py-3 border-b border-primary-foreground/10 bg-primary-foreground/5">
+                        <span className="text-xs font-medium tracking-widest text-primary-foreground/60 uppercase">
+                          {item.label === (language === 'de' ? "BESTELLEN" : "ORDER") 
+                            ? (language === 'de' ? "Online Shop" : "Online Shop")
+                            : (language === 'de' ? "Full-Service" : "Full-Service")
+                          }
+                        </span>
+                      </div>
+                      {/* Dropdown Items */}
+                      <div className="py-2">
+                        {item.children.map((child, index) => (
+                          <Link
+                            key={child.path}
+                            to={child.path}
+                            className={`group/item flex flex-col px-5 py-3 transition-all duration-300 hover:bg-primary-foreground/10 ${
+                              location.pathname === child.path ? "bg-primary-foreground/10" : ""
+                            }`}
+                            style={{ animationDelay: `${index * 50}ms` }}
+                          >
+                            <span className="text-sm font-medium tracking-wider group-hover/item:translate-x-1 transition-transform duration-300">
+                              {child.label}
+                            </span>
+                            {child.description && (
+                              <span className="text-xs text-primary-foreground/50 mt-0.5 group-hover/item:text-primary-foreground/70 transition-colors duration-300">
+                                {child.description}
+                              </span>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <Link
+                  key={item.path}
+                  to={item.path!}
+                  className={`group whitespace-nowrap px-5 py-4 text-sm font-medium tracking-wider transition-all duration-300 relative`}
                 >
                   <span className="relative">
                     {item.label}
                     <span className={`absolute -bottom-1 left-0 w-full h-0.5 bg-primary-foreground transform transition-transform duration-300 origin-left ${
-                      isActive(item) ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                      location.pathname === item.path ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
                     }`} />
                   </span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${hoveredMenu === item.label ? "rotate-180" : ""}`} />
-                </button>
-                
-                {hoveredMenu === item.label && (
-                  <div className="absolute top-full left-0 bg-primary text-primary-foreground border border-primary-foreground/20 rounded-sm shadow-lg min-w-[200px] z-50 animate-fade-in">
-                    {item.children.map((child) => (
-                      <Link
-                        key={child.path}
-                        to={child.path}
-                        className={`block px-5 py-3 text-sm tracking-wider hover:bg-primary-foreground/10 transition-colors first:rounded-t-sm last:rounded-b-sm ${
-                          location.pathname === child.path
-                            ? "bg-primary-foreground/10"
-                            : ""
-                        }`}
-                      >
-                        {child.label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link
-                key={item.path}
-                to={item.path!}
-                className={`group whitespace-nowrap px-5 py-4 text-sm font-medium tracking-wider transition-colors relative`}
-              >
-                <span className="relative">
-                  {item.label}
-                  <span className={`absolute -bottom-1 left-0 w-full h-0.5 bg-primary-foreground transform transition-transform duration-300 origin-left ${
-                    location.pathname === item.path ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
-                  }`} />
-                </span>
-              </Link>
-            )
-          )}
+                </Link>
+              )
+            )}
           </div>
           {/* Language Switcher Desktop - rechts */}
           <div className={`w-24 flex justify-end transition-opacity duration-300 ${isScrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
