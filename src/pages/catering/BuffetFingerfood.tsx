@@ -4,25 +4,97 @@ import Footer from "@/components/Footer";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useCateringMenuBySlug, CateringMenuItem } from "@/hooks/useCateringMenus";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Import images
+import grillgemueseImg from "@/assets/catering/fingerfood/grillgemuese.jpg";
+import auberginenImg from "@/assets/catering/fingerfood/auberginen.jpg";
+import frittataImg from "@/assets/catering/fingerfood/frittata.jpg";
+import caponataImg from "@/assets/catering/fingerfood/caponata.jpg";
+import burratinaImg from "@/assets/catering/fingerfood/burratina.jpg";
+import oktopusImg from "@/assets/catering/fingerfood/oktopus.jpg";
+import avocadoGarnelenImg from "@/assets/catering/fingerfood/avocado-garnelen.jpg";
+import meeresfruchteImg from "@/assets/catering/fingerfood/meeresfruechte.jpg";
+import tiramisuImg from "@/assets/catering/fingerfood/tiramisu.jpg";
+import pistazienImg from "@/assets/catering/fingerfood/pistazien.jpg";
+
+// Map item names to images
+const imageMap: Record<string, string> = {
+  "Grillgemüse": grillgemueseImg,
+  "Auberginenbällchen": auberginenImg,
+  "Mini-Frittata mit Zucchini": frittataImg,
+  "Caponata siciliana": caponataImg,
+  "Burratina": burratinaImg,
+  "Oktopus-Kartoffelsalat": oktopusImg,
+  "Avocadocreme mit Garnelen": avocadoGarnelenImg,
+  "Meeresfrüchtesalat": meeresfruchteImg,
+  "Tiramisù STORIA": tiramisuImg,
+  "Pistazien-Törtchen": pistazienImg,
+};
+
+interface MenuItemCardProps {
+  item: CateringMenuItem;
+  language: string;
+}
+
+const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
+  const name = language === 'en' && item.name_en ? item.name_en : item.name;
+  const description = language === 'en' && item.description_en ? item.description_en : item.description;
+  const servingInfo = language === 'en' && item.serving_info_en ? item.serving_info_en : item.serving_info;
+  const minOrder = language === 'en' && item.min_order_en ? item.min_order_en : item.min_order;
+  const image = imageMap[item.name] || item.image_url;
+
+  return (
+    <div className="bg-card rounded-lg overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow">
+      {image && (
+        <div className="aspect-square overflow-hidden">
+          <img
+            src={image}
+            alt={name}
+            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+          />
+        </div>
+      )}
+      <div className="p-4">
+        <h3 className="font-serif font-medium text-lg mb-1">{name}</h3>
+        {servingInfo && (
+          <p className="text-xs text-primary/80 mb-2">{servingInfo}</p>
+        )}
+        {description && (
+          <p className="text-sm text-muted-foreground mb-3">{description}</p>
+        )}
+        <div className="flex justify-between items-end">
+          <div>
+            {minOrder && (
+              <p className="text-xs text-muted-foreground">{minOrder}</p>
+            )}
+          </div>
+          <div className="text-right">
+            {item.price_display ? (
+              <span className="font-semibold text-primary">{item.price_display}</span>
+            ) : item.price ? (
+              <span className="font-semibold text-primary">
+                {item.price.toFixed(2).replace(".", ",")} €
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const BuffetFingerfood = () => {
   const { language } = useLanguage();
+  const { data: menu, isLoading, error } = useCateringMenuBySlug("buffet-fingerfood");
 
-  const dishes = language === 'de' ? [
-    { name: "Bruschetta Trio", desc: "Tomate, Sardellen, Trüffel" },
-    { name: "Mini Arancini", desc: "Sizilianische Reisbällchen" },
-    { name: "Caprese Spieße", desc: "Mozzarella, Tomate, Basilikum" },
-    { name: "Prosciutto Crostini", desc: "Mit Feigen und Rucola" },
-    { name: "Mini Focaccia", desc: "Rosmarin und Meersalz" },
-    { name: "Gegrillte Zucchini Röllchen", desc: "Mit Ricotta gefüllt" },
-  ] : [
-    { name: "Bruschetta Trio", desc: "Tomato, anchovies, truffle" },
-    { name: "Mini Arancini", desc: "Sicilian rice balls" },
-    { name: "Caprese Skewers", desc: "Mozzarella, tomato, basil" },
-    { name: "Prosciutto Crostini", desc: "With figs and arugula" },
-    { name: "Mini Focaccia", desc: "Rosemary and sea salt" },
-    { name: "Grilled Zucchini Rolls", desc: "Filled with ricotta" },
-  ];
+  const title = language === 'en' && menu?.title_en ? menu.title_en : menu?.title;
+  const subtitle = language === 'en' && menu?.subtitle_en ? menu.subtitle_en : menu?.subtitle;
+  const additionalInfo = language === 'en' && menu?.additional_info_en ? menu.additional_info_en : menu?.additional_info;
+
+  // Flatten all items from all categories
+  const allItems = menu?.categories.flatMap(cat => cat.items) || [];
 
   return (
     <>
@@ -39,35 +111,76 @@ const BuffetFingerfood = () => {
           <section className="container mx-auto px-4 py-16 md:py-24">
             <div className="max-w-4xl mx-auto text-center mb-12">
               <h1 className="text-3xl md:text-4xl font-serif font-medium mb-6">
-                {language === 'de' ? 'Fingerfood & Mini-Gerichte' : 'Finger Food & Mini Dishes'}
+                {isLoading ? (
+                  <Skeleton className="h-10 w-64 mx-auto" />
+                ) : (
+                  title || (language === 'de' ? 'Buffet / Fingerfood' : 'Buffet / Finger Food')
+                )}
               </h1>
-              <p className="text-lg text-muted-foreground">
-                {language === 'de' 
-                  ? 'Elegante Häppchen für Empfänge, Meetings & gesellige Runden. Unsere Fingerfood-Auswahl ist perfekt für jeden Anlass – von Business-Events bis hin zu privaten Feiern.'
-                  : 'Elegant bites for receptions, meetings & social gatherings. Our finger food selection is perfect for any occasion – from business events to private celebrations.'}
-              </p>
+              {isLoading ? (
+                <Skeleton className="h-20 w-full max-w-2xl mx-auto" />
+              ) : (
+                <p className="text-lg text-muted-foreground">
+                  {subtitle || (language === 'de' 
+                    ? 'Elegante Häppchen für Empfänge, Meetings & gesellige Runden. Unsere Fingerfood-Auswahl ist perfekt für jeden Anlass – von Business-Events bis hin zu privaten Feiern.'
+                    : 'Elegant bites for receptions, meetings & social gatherings. Our finger food selection is perfect for any occasion – from business events to private celebrations.')}
+                </p>
+              )}
             </div>
 
-            <div className="max-w-3xl mx-auto">
-              <h2 className="text-xl font-serif font-medium mb-6 text-center">
-                {language === 'de' ? 'Beliebte Auswahl' : 'Popular Selection'}
-              </h2>
-              <div className="grid gap-4">
-                {dishes.map((dish, index) => (
-                  <div key={index} className="flex justify-between items-center py-3 border-b border-border">
-                    <div>
-                      <h3 className="font-medium">{dish.name}</h3>
-                      <p className="text-sm text-muted-foreground">{dish.desc}</p>
-                    </div>
+            {/* Menu Grid */}
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="space-y-3">
+                    <Skeleton className="aspect-square w-full" />
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-1/2" />
                   </div>
                 ))}
               </div>
+            ) : error ? (
+              <div className="text-center py-12 text-muted-foreground">
+                {language === 'de' 
+                  ? 'Menü konnte nicht geladen werden. Bitte versuchen Sie es später erneut.'
+                  : 'Menu could not be loaded. Please try again later.'}
+              </div>
+            ) : allItems.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                {language === 'de' 
+                  ? 'Das Menü wird derzeit aktualisiert. Bitte schauen Sie später wieder vorbei.'
+                  : 'The menu is currently being updated. Please check back later.'}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                {allItems.map((item) => (
+                  <MenuItemCard key={item.id} item={item} language={language} />
+                ))}
+              </div>
+            )}
+
+            {/* Additional Info / Services */}
+            {additionalInfo && (
+              <div className="max-w-3xl mx-auto mt-16">
+                <div className="bg-card border border-border rounded-lg p-6 md:p-8">
+                  <h2 className="text-xl font-serif font-medium mb-4 text-center">
+                    {language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
+                  </h2>
+                  <div className="text-muted-foreground whitespace-pre-line text-center">
+                    {additionalInfo}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!isLoading && !error && allItems.length > 0 && (
               <p className="text-center text-muted-foreground mt-8 italic">
                 {language === 'de' 
                   ? 'Individuelle Zusammenstellung auf Anfrage möglich.'
                   : 'Custom selection available upon request.'}
               </p>
-            </div>
+            )}
           </section>
           
           <CateringCTA />

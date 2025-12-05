@@ -12,6 +12,7 @@ import CollapsibleMenuCard from "@/components/admin/CollapsibleMenuCard";
 import SortableMenuCard from "@/components/admin/SortableMenuCard";
 import { LogOut, ExternalLink } from "lucide-react";
 import SpecialOccasionsManager from "@/components/admin/SpecialOccasionsManager";
+import CateringMenusManager from "@/components/admin/CateringMenusManager";
 import {
   DndContext,
   closestCenter,
@@ -217,6 +218,15 @@ const Admin = () => {
 
         {/* Besondere Anlässe Section */}
         <SpecialOccasionsManager />
+
+        {/* Catering Menüs Section */}
+        <div className="mt-8 md:mt-12">
+          <h2 className="text-xl md:text-2xl font-serif font-semibold mb-2">Catering-Menüs</h2>
+          <p className="text-sm md:text-base text-muted-foreground mb-6">
+            Verwalten Sie die Catering-Angebote für Ihre Kunden.
+          </p>
+          <CateringMenusManager />
+        </div>
       </main>
     </div>
   );

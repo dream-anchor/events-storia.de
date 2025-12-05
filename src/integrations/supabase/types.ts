@@ -63,12 +63,17 @@ export type Database = {
           description: string | null
           description_en: string | null
           id: string
+          image_url: string | null
           is_vegan: boolean | null
           is_vegetarian: boolean | null
+          min_order: string | null
+          min_order_en: string | null
           name: string
           name_en: string | null
           price: number | null
           price_display: string | null
+          serving_info: string | null
+          serving_info_en: string | null
           sort_order: number | null
         }
         Insert: {
@@ -78,12 +83,17 @@ export type Database = {
           description?: string | null
           description_en?: string | null
           id?: string
+          image_url?: string | null
           is_vegan?: boolean | null
           is_vegetarian?: boolean | null
+          min_order?: string | null
+          min_order_en?: string | null
           name: string
           name_en?: string | null
           price?: number | null
           price_display?: string | null
+          serving_info?: string | null
+          serving_info_en?: string | null
           sort_order?: number | null
         }
         Update: {
@@ -93,12 +103,17 @@ export type Database = {
           description?: string | null
           description_en?: string | null
           id?: string
+          image_url?: string | null
           is_vegan?: boolean | null
           is_vegetarian?: boolean | null
+          min_order?: string | null
+          min_order_en?: string | null
           name?: string
           name_en?: string | null
           price?: number | null
           price_display?: string | null
+          serving_info?: string | null
+          serving_info_en?: string | null
           sort_order?: number | null
         }
         Relationships: [
@@ -113,6 +128,8 @@ export type Database = {
       }
       menus: {
         Row: {
+          additional_info: string | null
+          additional_info_en: string | null
           created_at: string | null
           id: string
           is_published: boolean | null
@@ -128,6 +145,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          additional_info?: string | null
+          additional_info_en?: string | null
           created_at?: string | null
           id?: string
           is_published?: boolean | null
@@ -143,6 +162,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          additional_info?: string | null
+          additional_info_en?: string | null
           created_at?: string | null
           id?: string
           is_published?: boolean | null
@@ -202,6 +223,7 @@ export type Database = {
         | "christmas"
         | "valentines"
         | "special"
+        | "catering"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -337,6 +359,7 @@ export const Constants = {
         "christmas",
         "valentines",
         "special",
+        "catering",
       ],
     },
   },
