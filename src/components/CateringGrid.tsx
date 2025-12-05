@@ -10,6 +10,7 @@ import antipastiImg from "@/assets/cocktails.webp";
 import dessertsImg from "@/assets/tiramisu.webp";
 import businessImg from "@/assets/weinservice.webp";
 import zuhauseImg from "@/assets/menschen-aussen.jpeg";
+import flyingBuffetImg from "@/assets/catering/flying-buffet/hero.webp";
 
 interface CateringItem {
   id: string;
@@ -57,6 +58,15 @@ const cateringItems: CateringItem[] = [
     descriptionEn: "Fresh from the stone oven – delivered hot, enjoyable anywhere.",
     path: "/catering/pizze-napoletane",
     image: pizzaImg,
+  },
+  {
+    id: "flying-buffet",
+    titleDe: "Flying Buffet & Events",
+    titleEn: "Flying Buffet & Events",
+    descriptionDe: "Veranstaltungen im Restaurant – individuelle Menüs für Ihr Event.",
+    descriptionEn: "Events at the restaurant – custom menus for your celebration.",
+    path: "/catering/flying-buffet",
+    image: flyingBuffetImg,
   },
   {
     id: "antipasti",
