@@ -1,34 +1,297 @@
+import { useState } from "react";
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useCart } from "@/contexts/CartContext";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Minus, ShoppingCart, Check, Flame } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// Images
+import parmigianaImg from "@/assets/catering/auflauf/parmigiana.webp";
+import lasagnaImg from "@/assets/catering/auflauf/lasagna.webp";
+import kabeljauImg from "@/assets/catering/auflauf/kabeljau.webp";
+import polloImg from "@/assets/catering/auflauf/pollo-cacciatora.webp";
+import spezzatinoImg from "@/assets/catering/auflauf/spezzatino.webp";
+import arrostoImg from "@/assets/catering/auflauf/arrosto-vitello.webp";
+
+interface Dish {
+  id: string;
+  name: string;
+  name_en: string;
+  description: string;
+  description_en: string;
+  price: number;
+  serving_info: string;
+  serving_info_en: string;
+  image: string;
+  objectPosition?: string;
+}
+
+const dishes: Dish[] = [
+  {
+    id: "parmigiana-melanzane",
+    name: "Parmigiana di Melanzane",
+    name_en: "Eggplant Parmesan",
+    description: "Hausgemachte Parmigiana di Melanzane – Auberginenauflauf mit Tomatensugo, Mozzarella und Parmigiano, im Ofen gebacken.",
+    description_en: "Homemade Parmigiana di Melanzane – eggplant bake with tomato sugo, mozzarella and parmigiano, oven-baked.",
+    price: 45.00,
+    serving_info: "Ideal für 6 Personen",
+    serving_info_en: "Ideal for 6 people",
+    image: parmigianaImg,
+    objectPosition: "center 60%"
+  },
+  {
+    id: "lasagna-bolognese",
+    name: "Lasagna alla Bolognese",
+    name_en: "Lasagna Bolognese",
+    description: "Hausgemachte Lasagne mit Ragù a la Bolognese, Mozzarella, Béchamel und Parmesan, im Ofen gebacken.",
+    description_en: "Homemade lasagna with Bolognese ragù, mozzarella, béchamel and parmesan, oven-baked.",
+    price: 55.00,
+    serving_info: "Ideal für 6 Personen",
+    serving_info_en: "Ideal for 6 people",
+    image: lasagnaImg,
+    objectPosition: "center center"
+  },
+  {
+    id: "kabeljau-livornese",
+    name: "Kabeljaufilet a la Livornese",
+    name_en: "Cod Fillet Livornese Style",
+    description: "Zartes Kabeljaufilet in Tomatensauce-Oliven-Knoblauch, mit Kartoffeln und Muscheln.",
+    description_en: "Tender cod fillet in tomato-olive-garlic sauce with potatoes and mussels.",
+    price: 60.00,
+    serving_info: "Ideal für 4 Personen",
+    serving_info_en: "Ideal for 4 people",
+    image: kabeljauImg,
+    objectPosition: "center center"
+  },
+  {
+    id: "pollo-cacciatora",
+    name: "Pollo alla Cacciatora",
+    name_en: "Hunter's Style Chicken",
+    description: "Zart geschmortes Hähnchenbrust in Kirschtomaten-Kräuter-Weißweinsauce mit schwarzen Oliven.",
+    description_en: "Tender braised chicken breast in cherry tomato herb white wine sauce with black olives.",
+    price: 45.00,
+    serving_info: "Ideal für 4 Personen",
+    serving_info_en: "Ideal for 4 people",
+    image: polloImg,
+    objectPosition: "center 60%"
+  },
+  {
+    id: "spezzatino-vitello",
+    name: "Spezzatino di Vitello",
+    name_en: "Veal Stew",
+    description: "Zartes Kalbsragout mit mediterranem Gemüse und Weißwein-Sauce – rustikal und elegant zugleich.",
+    description_en: "Tender veal stew with Mediterranean vegetables and white wine sauce – rustic yet elegant.",
+    price: 60.00,
+    serving_info: "Ideal für 4 Personen",
+    serving_info_en: "Ideal for 4 people",
+    image: spezzatinoImg,
+    objectPosition: "center center"
+  },
+  {
+    id: "arrosto-vitello",
+    name: "Arrosto di Vitello con patate",
+    name_en: "Roast Veal with Potatoes",
+    description: "Zarter Kalbsbraten im eigenen Jus mit Kartoffeln.",
+    description_en: "Tender roast veal in its own jus with potatoes.",
+    price: 72.00,
+    serving_info: "Ideal für 4 Personen",
+    serving_info_en: "Ideal for 4 people",
+    image: arrostoImg,
+    objectPosition: "center 55%"
+  }
+];
+
+const chafingDish = {
+  id: "chafing-dish",
+  name: "Chafing Dish",
+  name_en: "Chafing Dish",
+  description: "Warmhaltebehälter für Ihre Auflaufgerichte – hält das Essen servierbereit warm.",
+  description_en: "Warming container for your casserole dishes – keeps food warm and ready to serve.",
+  price: 25.00
+};
+
+interface DishCardProps {
+  dish: Dish;
+  language: string;
+}
+
+const DishCard = ({ dish, language }: DishCardProps) => {
+  const { addToCart } = useCart();
+  const [quantity, setQuantity] = useState(1);
+  const [added, setAdded] = useState(false);
+
+  const handleAddToCart = () => {
+    addToCart({
+      id: dish.id,
+      name: dish.name,
+      name_en: dish.name_en,
+      price: dish.price,
+      image: dish.image,
+      serving_info: language === 'de' ? dish.serving_info : dish.serving_info_en
+    }, quantity);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
+
+  return (
+    <Card className="overflow-hidden group hover:shadow-lg transition-shadow duration-300">
+      <div className="aspect-[4/3] overflow-hidden relative">
+        <img
+          src={dish.image}
+          alt={language === 'de' ? dish.name : dish.name_en}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          style={{ objectPosition: dish.objectPosition || 'center center' }}
+        />
+        <div className="absolute top-3 right-3 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
+          {dish.price.toFixed(2)} €
+        </div>
+      </div>
+      <CardContent className="p-5">
+        <h3 className="text-lg font-serif font-medium mb-1">{language === 'de' ? dish.name : dish.name_en}</h3>
+        <p className="text-xs text-primary font-medium mb-2">{language === 'de' ? dish.serving_info : dish.serving_info_en}</p>
+        <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
+          {language === 'de' ? dish.description : dish.description_en}
+        </p>
+        
+        <div className="flex items-center gap-3">
+          <div className="flex items-center border rounded-md">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <span className="w-8 text-center font-medium">{quantity}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setQuantity(quantity + 1)}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button
+            onClick={handleAddToCart}
+            className={cn(
+              "flex-1 transition-all duration-300",
+              added && "bg-green-600 hover:bg-green-600"
+            )}
+          >
+            {added ? (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                {language === 'de' ? 'Hinzugefügt' : 'Added'}
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                {language === 'de' ? 'In den Warenkorb' : 'Add to Cart'}
+              </>
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const ChafingDishOption = ({ language }: { language: string }) => {
+  const { addToCart } = useCart();
+  const [quantity, setQuantity] = useState(1);
+  const [added, setAdded] = useState(false);
+
+  const handleAddToCart = () => {
+    addToCart({
+      id: chafingDish.id,
+      name: chafingDish.name,
+      name_en: chafingDish.name_en,
+      price: chafingDish.price
+    }, quantity);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
+
+  return (
+    <div className="bg-accent/30 border-2 border-accent rounded-xl p-6 mb-12">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="bg-primary/10 p-3 rounded-full">
+            <Flame className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-lg font-serif font-medium flex items-center gap-2">
+              {language === 'de' ? 'Optional: Chafing Dish' : 'Optional: Chafing Dish'}
+              <span className="text-primary font-bold">+{chafingDish.price.toFixed(2)} €</span>
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {language === 'de' ? chafingDish.description : chafingDish.description_en}
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3 ml-auto md:ml-0">
+          <div className="flex items-center border rounded-md bg-background">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <span className="w-8 text-center font-medium">{quantity}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setQuantity(quantity + 1)}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button
+            onClick={handleAddToCart}
+            variant={added ? "default" : "outline"}
+            className={cn(
+              "transition-all duration-300 min-w-[140px]",
+              added && "bg-green-600 hover:bg-green-600"
+            )}
+          >
+            {added ? (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                {language === 'de' ? 'Hinzugefügt' : 'Added'}
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                {language === 'de' ? 'Hinzufügen' : 'Add'}
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const BuffetAuflauf = () => {
   const { language } = useLanguage();
 
-  const dishes = language === 'de' ? [
-    { name: "Lasagne Bolognese", desc: "Klassiker mit hausgemachter Ragù" },
-    { name: "Lasagne Vegetariana", desc: "Mit gegrilltem Gemüse und Béchamel" },
-    { name: "Melanzane alla Parmigiana", desc: "Auberginenauflauf mit Tomaten und Mozzarella" },
-    { name: "Cannelloni Ricotta e Spinaci", desc: "Mit Ricotta und Spinat gefüllt" },
-    { name: "Gnocchi al Forno", desc: "Überbackene Kartoffelnocken" },
-    { name: "Polenta mit Ragù", desc: "Cremige Polenta mit Fleischsauce" },
-  ] : [
-    { name: "Lasagne Bolognese", desc: "Classic with homemade ragù" },
-    { name: "Lasagne Vegetariana", desc: "With grilled vegetables and béchamel" },
-    { name: "Melanzane alla Parmigiana", desc: "Eggplant bake with tomatoes and mozzarella" },
-    { name: "Cannelloni Ricotta e Spinaci", desc: "Filled with ricotta and spinach" },
-    { name: "Gnocchi al Forno", desc: "Oven-baked potato gnocchi" },
-    { name: "Polenta with Ragù", desc: "Creamy polenta with meat sauce" },
-  ];
-
   return (
     <>
       <SEO 
-        title={language === 'de' ? "Warme Gerichte & Aufläufe | STORIA Catering München" : "Hot Dishes & Casseroles | STORIA Catering Munich"}
-        description={language === 'de' ? "Wie hausgemacht – ofenfrisch geliefert für Büro, Zuhause oder Events. STORIA Catering München." : "Like homemade – delivered oven-fresh for office, home or events. STORIA Catering Munich."}
+        title={language === 'de' ? "Buffet & Warme Gerichte | STORIA Catering München" : "Buffet & Hot Dishes | STORIA Catering Munich"}
+        description={language === 'de' ? "Perfekt zum Teilen in geselliger Runde – servierfertig, frisch und ofenheiß. STORIA Catering München." : "Perfect for sharing in good company – ready to serve, fresh and oven-hot. STORIA Catering Munich."}
         canonical="/catering/buffet-auflauf"
       />
       <div className="min-h-screen bg-background flex flex-col">
@@ -37,36 +300,73 @@ const BuffetAuflauf = () => {
         
         <main className="flex-1">
           <section className="container mx-auto px-4 py-16 md:py-24">
-            <div className="max-w-4xl mx-auto text-center mb-12">
+            <div className="max-w-4xl mx-auto text-center mb-8">
               <h1 className="text-3xl md:text-4xl font-serif font-medium mb-6">
-                {language === 'de' ? 'Warme Gerichte & Aufläufe' : 'Hot Dishes & Casseroles'}
+                {language === 'de' ? 'Buffet / Warme Gerichte' : 'Buffet / Hot Dishes'}
               </h1>
               <p className="text-lg text-muted-foreground">
                 {language === 'de' 
-                  ? 'Wie hausgemacht – ofenfrisch geliefert für Büro, Zuhause oder Events. Unsere Aufläufe und warmen Gerichte sind perfekt zum Teilen.'
-                  : 'Like homemade – delivered oven-fresh for office, home or events. Our casseroles and hot dishes are perfect for sharing.'}
+                  ? 'Perfekt zum Teilen in geselliger Runde – servierfertig, frisch und ofenheiß.'
+                  : 'Perfect for sharing in good company – ready to serve, fresh and oven-hot.'}
               </p>
             </div>
 
-            <div className="max-w-3xl mx-auto">
-              <h2 className="text-xl font-serif font-medium mb-6 text-center">
-                {language === 'de' ? 'Ofenfrische Klassiker' : 'Oven-Fresh Classics'}
-              </h2>
-              <div className="grid gap-4">
-                {dishes.map((dish, index) => (
-                  <div key={index} className="flex justify-between items-center py-3 border-b border-border">
-                    <div>
-                      <h3 className="font-medium">{dish.name}</h3>
-                      <p className="text-sm text-muted-foreground">{dish.desc}</p>
-                    </div>
-                  </div>
+            {/* Bread info */}
+            <div className="max-w-3xl mx-auto mb-8">
+              <div className="bg-muted/50 rounded-lg p-4 text-center">
+                <p className="text-sm text-muted-foreground italic">
+                  {language === 'de' 
+                    ? '🍞 Zu jeder Ofenterrine servieren wir unser hausgemachtes Steinhofenbrot'
+                    : '🍞 We serve our homemade stone oven bread with every casserole'}
+                </p>
+              </div>
+            </div>
+
+            {/* Chafing Dish Option */}
+            <div className="max-w-5xl mx-auto">
+              <ChafingDishOption language={language} />
+            </div>
+
+            {/* Dishes Grid */}
+            <div className="max-w-5xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {dishes.map((dish) => (
+                  <DishCard key={dish.id} dish={dish} language={language} />
                 ))}
               </div>
-              <p className="text-center text-muted-foreground mt-8 italic">
-                {language === 'de' 
-                  ? 'Alle Gerichte werden heiß geliefert und sind sofort servierbereit.'
-                  : 'All dishes are delivered hot and ready to serve immediately.'}
-              </p>
+            </div>
+
+            {/* Additional Services */}
+            <div className="max-w-3xl mx-auto mt-16">
+              <h2 className="text-xl font-serif font-medium mb-6 text-center">
+                {language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
+              </h2>
+              <div className="bg-muted/30 rounded-xl p-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-primary">✓</span>
+                  <span className="text-muted-foreground">
+                    {language === 'de' 
+                      ? 'Lieferung & Abholung: Kostenlos im nahen Umkreis'
+                      : 'Delivery & Pickup: Free in nearby areas'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-primary">✓</span>
+                  <span className="text-muted-foreground">
+                    {language === 'de' 
+                      ? 'Aufbau & Service: Optional buchbar'
+                      : 'Setup & Service: Optionally available'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-primary">✓</span>
+                  <span className="text-muted-foreground">
+                    {language === 'de' 
+                      ? 'Reinigung: Im Preis inklusive'
+                      : 'Cleaning: Included in price'}
+                  </span>
+                </div>
+              </div>
             </div>
           </section>
           
