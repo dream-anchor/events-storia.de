@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Loader2, Lock, CheckCircle } from 'lucide-react';
+import { Loader2, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 
 const PasswordReset = () => {
   const { language } = useLanguage();
@@ -21,18 +21,80 @@ const PasswordReset = () => {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Check if we have a valid session from the reset link
+  // Parse URL hash and set up recovery session
   useEffect(() => {
+    const handleRecovery = async () => {
+      // Parse hash params from Supabase magic link
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const type = hashParams.get('type');
+      
+      // Also check query params (some email clients may convert)
+      const queryParams = new URLSearchParams(window.location.search);
+      const queryAccessToken = queryParams.get('access_token');
+      const queryRefreshToken = queryParams.get('refresh_token');
+      const queryType = queryParams.get('type');
+      
+      const finalAccessToken = accessToken || queryAccessToken;
+      const finalRefreshToken = refreshToken || queryRefreshToken;
+      const finalType = type || queryType;
+
+      if (finalAccessToken && finalType === 'recovery') {
+        try {
+          // Set session with the recovery token
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: finalAccessToken,
+            refresh_token: finalRefreshToken || '',
+          });
+          
+          if (sessionError) {
+            console.error('Session error:', sessionError);
+            setError(language === 'de' 
+              ? 'Der Link ist ungültig oder abgelaufen. Bitte fordern Sie einen neuen Link an.' 
+              : 'The link is invalid or expired. Please request a new link.');
+          } else {
+            setIsRecoveryMode(true);
+            // Clean URL
+            window.history.replaceState({}, '', '/konto/passwort-reset');
+          }
+        } catch (err) {
+          console.error('Recovery error:', err);
+          setError(language === 'de' 
+            ? 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.' 
+            : 'An error occurred. Please try again.');
+        }
+      } else {
+        // No token in URL, check if user came from auth state change
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setIsRecoveryMode(true);
+        } else {
+          setError(language === 'de' 
+            ? 'Kein gültiger Reset-Link gefunden. Bitte fordern Sie einen neuen Link an.' 
+            : 'No valid reset link found. Please request a new link.');
+        }
+      }
+      
+      setIsLoading(false);
+    };
+
+    // Also listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
-        // User has clicked the reset link and is now in recovery mode
-        console.log('Password recovery mode active');
+        setIsRecoveryMode(true);
+        setIsLoading(false);
       }
     });
 
+    handleRecovery();
+
     return () => subscription.unsubscribe();
-  }, []);
+  }, [language]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +124,63 @@ const PasswordReset = () => {
     setIsSubmitting(false);
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <SEO 
+          title={language === 'de' ? 'Passwort zurücksetzen | STORIA' : 'Reset Password | STORIA'}
+          description=""
+        />
+        <Header />
+        <Navigation />
+        
+        <main className="flex-1 container mx-auto px-4 py-12 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">
+              {language === 'de' ? 'Wird geladen...' : 'Loading...'}
+            </p>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
+
+  // Error state (invalid/expired link)
+  if (error && !isRecoveryMode) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <SEO 
+          title={language === 'de' ? 'Link ungültig | STORIA' : 'Invalid Link | STORIA'}
+          description=""
+        />
+        <Header />
+        <Navigation />
+        
+        <main className="flex-1 container mx-auto px-4 py-12 flex items-center justify-center">
+          <Card className="max-w-md w-full text-center">
+            <CardContent className="pt-8 pb-8">
+              <AlertCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
+              <h2 className="font-serif text-xl mb-2">
+                {language === 'de' ? 'Link ungültig' : 'Invalid Link'}
+              </h2>
+              <p className="text-muted-foreground mb-6">{error}</p>
+              <Button onClick={() => navigate('/login')} variant="outline">
+                {language === 'de' ? 'Zurück zum Login' : 'Back to Login'}
+              </Button>
+            </CardContent>
+          </Card>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
+
+  // Success state
   if (isSuccess) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -93,6 +212,7 @@ const PasswordReset = () => {
     );
   }
 
+  // Password reset form
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <SEO 

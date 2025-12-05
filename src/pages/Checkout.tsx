@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText, LogIn } from 'lucide-react';
+import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText, LogIn, Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -129,6 +129,9 @@ const Checkout = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [newsletterSignup, setNewsletterSignup] = useState(true);
+  const [createAccount, setCreateAccount] = useState(false);
+  const [accountPassword, setAccountPassword] = useState('');
+  const [accountPasswordConfirm, setAccountPasswordConfirm] = useState('');
 
   // Pre-fill form with customer profile data
   useEffect(() => {
@@ -377,6 +380,60 @@ const Checkout = () => {
     setIsSubmitting(true);
     const newOrderNumber = generateOrderNumber();
 
+    // Handle account creation if requested
+    let newUserId: string | null = null;
+    if (createAccount && !user) {
+      if (accountPassword.length < 6) {
+        toast.error(language === 'de' ? 'Passwort muss mindestens 6 Zeichen haben' : 'Password must be at least 6 characters');
+        setIsSubmitting(false);
+        return;
+      }
+      if (accountPassword !== accountPasswordConfirm) {
+        toast.error(language === 'de' ? 'Passwörter stimmen nicht überein' : 'Passwords do not match');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Create account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: accountPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/konto`
+        }
+      });
+      
+      if (authError) {
+        console.error('Account creation error:', authError);
+        toast.error(language === 'de' 
+          ? `Kontoerstellung fehlgeschlagen: ${authError.message}` 
+          : `Account creation failed: ${authError.message}`);
+        setIsSubmitting(false);
+        return;
+      }
+      
+      newUserId = authData.user?.id || null;
+      
+      // Update profile with form data
+      if (newUserId) {
+        const addressParts = formData.address.split('\n');
+        await supabase.from('customer_profiles').update({
+          name: formData.name,
+          phone: formData.phone,
+          company: formData.company || null,
+          delivery_street: addressParts[0] || null,
+          delivery_city: addressParts.length > 1 ? addressParts[1].split(' ').slice(1).join(' ') : null,
+          delivery_zip: addressParts.length > 1 ? addressParts[1].split(' ')[0] : null,
+          billing_name: formData.billingName || null,
+          billing_street: formData.billingStreet || null,
+          billing_city: formData.billingCity || null,
+          billing_zip: formData.billingZip || null,
+        }).eq('user_id', newUserId);
+        
+        toast.success(language === 'de' ? 'Kundenkonto erstellt!' : 'Account created!');
+      }
+    }
+
     // Build notes with service options
     let fullNotes = formData.notes || '';
     if (formData.wantsSetupService) {
@@ -438,8 +495,8 @@ const Checkout = () => {
           // Payment tracking
           payment_method: paymentMethod,
           payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending',
-          // Link to customer account if logged in
-          user_id: user?.id || null
+          // Link to customer account if logged in or just created
+          user_id: user?.id || newUserId || null
         })
         .select('id')
         .single();
@@ -953,6 +1010,64 @@ const Checkout = () => {
                         />
                       </div>
                     </div>
+                    
+                    {/* Account Creation Option (for guests only) */}
+                    {!user && (
+                      <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-border/50">
+                        <div className="flex items-start gap-2">
+                          <Checkbox
+                            id="createAccount"
+                            checked={createAccount}
+                            onCheckedChange={(checked) => setCreateAccount(checked as boolean)}
+                          />
+                          <div className="flex-1">
+                            <Label htmlFor="createAccount" className="text-sm font-medium cursor-pointer">
+                              {language === 'de' 
+                                ? 'Kundenkonto erstellen' 
+                                : 'Create customer account'}
+                            </Label>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {language === 'de' 
+                                ? 'Bestellungen einsehen, Adressen speichern, schneller bestellen'
+                                : 'View orders, save addresses, checkout faster'}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {createAccount && (
+                          <div className="mt-4 space-y-3 pl-6 border-l-2 border-primary/20">
+                            <div className="space-y-2">
+                              <Label htmlFor="accountPassword" className="text-sm">
+                                {language === 'de' ? 'Passwort' : 'Password'} *
+                              </Label>
+                              <Input
+                                id="accountPassword"
+                                type="password"
+                                value={accountPassword}
+                                onChange={(e) => setAccountPassword(e.target.value)}
+                                placeholder="••••••••"
+                                minLength={6}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                {language === 'de' ? 'Mindestens 6 Zeichen' : 'At least 6 characters'}
+                              </p>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="accountPasswordConfirm" className="text-sm">
+                                {language === 'de' ? 'Passwort bestätigen' : 'Confirm password'} *
+                              </Label>
+                              <Input
+                                id="accountPasswordConfirm"
+                                type="password"
+                                value={accountPasswordConfirm}
+                                onChange={(e) => setAccountPasswordConfirm(e.target.value)}
+                                placeholder="••••••••"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </section>
 
                   {/* Section 2: Delivery/Pickup + Date/Time (Combined) */}
