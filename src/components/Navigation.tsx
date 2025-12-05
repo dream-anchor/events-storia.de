@@ -39,11 +39,13 @@ const Navigation = () => {
     { label: "PLATTEN & SHARING", path: "/catering/buffet-platten", description: "Kalte Buffet-Platten" },
     { label: "WARME GERICHTE", path: "/catering/buffet-auflauf", description: "Aufläufe & Schmorgerichte" },
     { label: "PIZZA NAPOLETANA", path: "/catering/pizze-napoletane", description: "Authentisch aus Neapel" },
+    { label: "DESSERTS", path: "/catering/desserts", description: "Süße Verführungen" },
   ] : [
     { label: "FINGER FOOD", path: "/catering/buffet-fingerfood", description: "Bites & Snacks" },
     { label: "PLATTERS & SHARING", path: "/catering/buffet-platten", description: "Cold Buffet Platters" },
     { label: "HOT DISHES", path: "/catering/buffet-auflauf", description: "Casseroles & Braised Dishes" },
     { label: "PIZZA NAPOLETANA", path: "/catering/pizze-napoletane", description: "Authentic from Naples" },
+    { label: "DESSERTS", path: "/catering/desserts", description: "Sweet Temptations" },
   ];
 
   // Events-Kategorie: Full-Service Angebote

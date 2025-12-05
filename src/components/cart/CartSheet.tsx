@@ -2,11 +2,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const CartSheet = () => {
-  const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
+  const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, totalPrice, clearCart, totalItems } = useCart();
   const { language } = useLanguage();
   const navigate = useNavigate();
 
@@ -17,91 +17,130 @@ const CartSheet = () => {
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetContent className="w-full sm:max-w-md flex flex-col">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5" />
-            {language === 'de' ? 'Warenkorb' : 'Shopping Cart'}
+      <SheetContent className="w-full sm:max-w-md flex flex-col bg-background/95 backdrop-blur-xl border-l border-border/50">
+        <SheetHeader className="border-b border-border/50 pb-4">
+          <SheetTitle className="flex items-center gap-3 text-xl">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <ShoppingBag className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex flex-col">
+              <span>{language === 'de' ? 'Warenkorb' : 'Shopping Cart'}</span>
+              {totalItems > 0 && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  {totalItems} {language === 'de' ? 'Artikel' : 'items'}
+                </span>
+              )}
+            </div>
           </SheetTitle>
         </SheetHeader>
 
         {items.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground text-center">
-              {language === 'de' 
-                ? 'Ihr Warenkorb ist leer'
-                : 'Your cart is empty'}
-            </p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12">
+            <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center">
+              <ShoppingBag className="h-10 w-10 text-muted-foreground/50" />
+            </div>
+            <div className="text-center">
+              <p className="text-muted-foreground font-medium">
+                {language === 'de' 
+                  ? 'Ihr Warenkorb ist leer'
+                  : 'Your cart is empty'}
+              </p>
+              <p className="text-sm text-muted-foreground/70 mt-1">
+                {language === 'de' 
+                  ? 'Stöbern Sie in unseren Catering-Angeboten'
+                  : 'Browse our catering offerings'}
+              </p>
+            </div>
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto py-4 space-y-4">
+            <div className="flex-1 overflow-y-auto py-4 space-y-3 -mx-6 px-6">
               {items.map((item) => {
                 const name = language === 'en' && item.name_en ? item.name_en : item.name;
                 return (
-                  <div key={item.id} className="flex gap-3 p-3 bg-muted/50 rounded-lg">
-                    {item.image && (
-                      <img 
-                        src={item.image} 
-                        alt={name}
-                        className="w-16 h-16 rounded-md object-cover flex-shrink-0"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm truncate">{name}</h4>
-                      <p className="text-primary font-semibold text-sm">
-                        {item.price.toFixed(2).replace('.', ',')} €
-                      </p>
-                      
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="w-7 h-7 rounded-full bg-background border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                            aria-label="Menge reduzieren"
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="w-8 text-center font-medium text-sm">{item.quantity}</span>
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="w-7 h-7 rounded-full bg-background border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                            aria-label="Menge erhöhen"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
+                  <div 
+                    key={item.id} 
+                    className="group relative bg-card/80 backdrop-blur-sm rounded-xl overflow-hidden border border-border/50 shadow-sm hover:shadow-md transition-all duration-300"
+                  >
+                    <div className="flex gap-3 p-3">
+                      {item.image && (
+                        <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                          <img 
+                            src={item.image} 
+                            alt={name}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                         </div>
+                      )}
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div>
+                          <h4 className="font-medium text-sm leading-tight line-clamp-2">{name}</h4>
+                          {item.serving_info && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{item.serving_info}</p>
+                          )}
+                        </div>
+                        <p className="text-primary font-semibold">
+                          {(item.price * item.quantity).toFixed(2).replace('.', ',')} €
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Bottom Controls Bar */}
+                    <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-t border-border/30">
+                      <div className="flex items-center gap-0.5 bg-background rounded-full p-0.5 shadow-inner">
                         <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="p-1.5 text-destructive hover:bg-destructive/10 rounded-full transition-colors"
-                          aria-label="Artikel entfernen"
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-muted transition-colors"
+                          aria-label="Menge reduzieren"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                        <span className="w-8 text-center font-medium text-sm tabular-nums">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-muted transition-colors"
+                          aria-label="Menge erhöhen"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
                         </button>
                       </div>
+                      <button
+                        onClick={() => removeFromCart(item.id)}
+                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-all duration-200"
+                        aria-label="Artikel entfernen"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            <div className="border-t border-border pt-4 space-y-4">
+            {/* Sticky Footer */}
+            <div className="border-t border-border/50 pt-4 space-y-4 bg-background/80 backdrop-blur-sm -mx-6 px-6 pb-2">
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">
                   {language === 'de' ? 'Zwischensumme' : 'Subtotal'}
                 </span>
-                <span className="text-xl font-bold text-primary">
+                <span className="text-2xl font-bold text-foreground">
                   {totalPrice.toFixed(2).replace('.', ',')} €
                 </span>
               </div>
               
-              <Button onClick={handleCheckout} className="w-full" size="lg">
-                {language === 'de' ? 'Zur Bestellung' : 'Proceed to Order'}
+              <Button 
+                onClick={handleCheckout} 
+                className="w-full rounded-full h-12 text-base font-medium shadow-lg hover:shadow-xl transition-all duration-300 group"
+                size="lg"
+              >
+                {language === 'de' ? 'Anfrage absenden' : 'Send Inquiry'}
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
               
               <button
                 onClick={clearCart}
-                className="w-full text-sm text-muted-foreground hover:text-destructive transition-colors text-center"
+                className="w-full text-sm text-muted-foreground hover:text-destructive transition-colors text-center py-2"
               >
                 {language === 'de' ? 'Warenkorb leeren' : 'Clear cart'}
               </button>

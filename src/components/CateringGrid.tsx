@@ -6,6 +6,7 @@ import fingerfoodImg from "@/assets/catering/fingerfood/burratina.webp";
 import plattenImg from "@/assets/catering/platten/vitello-tonnato.webp";
 import auflaufImg from "@/assets/catering/auflauf/lasagna.webp";
 import pizzaImg from "@/assets/catering/pizze/hero-pizza.webp";
+import dessertsImg from "@/assets/catering/fingerfood/tiramisu.webp";
 import flyingBuffetImg from "@/assets/menschen-aussen.jpeg";
 import festmenusImg from "@/assets/weinservice.webp";
 
@@ -55,6 +56,15 @@ const cateringItems: CateringItem[] = [
     descriptionEn: "Fresh from the stone oven – delivered hot, enjoyable anywhere.",
     path: "/catering/pizze-napoletane",
     image: pizzaImg,
+  },
+  {
+    id: "desserts",
+    titleDe: "Desserts",
+    titleEn: "Desserts",
+    descriptionDe: "Süße Verführungen im Glas – Tiramisù & Pistazien-Törtchen.",
+    descriptionEn: "Sweet temptations in a glass – Tiramisù & Pistachio Tartlets.",
+    path: "/catering/desserts",
+    image: dessertsImg,
   },
   {
     id: "flying-buffet",
