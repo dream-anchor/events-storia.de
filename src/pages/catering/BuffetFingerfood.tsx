@@ -8,16 +8,16 @@ import { useCateringMenuBySlug, CateringMenuItem } from "@/hooks/useCateringMenu
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Import images
-import grillgemueseImg from "@/assets/catering/fingerfood/grillgemuese.jpg";
-import auberginenImg from "@/assets/catering/fingerfood/auberginen.jpg";
-import frittataImg from "@/assets/catering/fingerfood/frittata.jpg";
-import caponataImg from "@/assets/catering/fingerfood/caponata.jpg";
-import burratinaImg from "@/assets/catering/fingerfood/burratina.jpg";
-import oktopusImg from "@/assets/catering/fingerfood/oktopus.jpg";
-import avocadoGarnelenImg from "@/assets/catering/fingerfood/avocado-garnelen.jpg";
-import meeresfruchteImg from "@/assets/catering/fingerfood/meeresfruechte.jpg";
-import tiramisuImg from "@/assets/catering/fingerfood/tiramisu.jpg";
-import pistazienImg from "@/assets/catering/fingerfood/pistazien.jpg";
+import grillgemueseImg from "@/assets/catering/fingerfood/grillgemuese.webp";
+import auberginenImg from "@/assets/catering/fingerfood/auberginen.webp";
+import frittataImg from "@/assets/catering/fingerfood/frittata.webp";
+import caponataImg from "@/assets/catering/fingerfood/caponata.webp";
+import burratinaImg from "@/assets/catering/fingerfood/burratina.webp";
+import oktopusImg from "@/assets/catering/fingerfood/oktopus.webp";
+import avocadoGarnelenImg from "@/assets/catering/fingerfood/avocado-garnelen.webp";
+import meeresfruchteImg from "@/assets/catering/fingerfood/meeresfruechte.webp";
+import tiramisuImg from "@/assets/catering/fingerfood/tiramisu.webp";
+import pistazienImg from "@/assets/catering/fingerfood/pistazien.webp";
 
 // Map item names to images
 const imageMap: Record<string, string> = {
