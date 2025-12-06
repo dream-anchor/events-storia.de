@@ -36,8 +36,9 @@ const formSchema = z.object({
   name: z.string().min(2, "Name erforderlich"),
   email: z.string().email("Ungültige E-Mail-Adresse"),
   phone: z.string().optional(),
-  guests: z.string().min(1, "Bitte Gästezahl wählen"),
+  guests: z.string().min(1, "Bitte Gästezahl angeben"),
   eventType: z.string().min(1, "Bitte Event-Art wählen"),
+  eventTypeOther: z.string().optional(),
   date: z.date().optional(),
   message: z.string().optional(),
   newsletter: z.boolean().default(true),
@@ -63,18 +64,14 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
       phone: "",
       guests: "",
       eventType: "",
+      eventTypeOther: "",
       message: "",
       newsletter: true,
       selectedPackage: preselectedPackage || "",
     },
   });
 
-  const guestOptions = [
-    { value: "10-30", label: "10-30" },
-    { value: "30-60", label: "30-60" },
-    { value: "60-90", label: "60-90" },
-    { value: "90-120", label: "90-120" },
-  ];
+  const watchEventType = form.watch("eventType");
 
   const eventTypes = language === 'de' 
     ? [
@@ -215,20 +212,15 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{language === 'de' ? 'Anzahl Gäste *' : 'Number of Guests *'}</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={language === 'de' ? 'Bitte wählen' : 'Please select'} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {guestOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label} {language === 'de' ? 'Gäste' : 'Guests'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min={10} 
+                          max={200}
+                          placeholder={language === 'de' ? 'z.B. 50' : 'e.g. 50'} 
+                          {...field} 
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -258,6 +250,26 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
                   )}
                 />
               </div>
+
+              {/* Event Type Other - conditional */}
+              {watchEventType === 'sonstiges' && (
+                <FormField
+                  control={form.control}
+                  name="eventTypeOther"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'de' ? 'Bitte beschreiben Sie Ihr Event' : 'Please describe your event'}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder={language === 'de' ? 'Art Ihres Events...' : 'Type of your event...'} 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {/* Date */}
               <FormField
@@ -367,8 +379,8 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
 
               <p className="text-xs text-center text-muted-foreground">
                 {language === 'de'
-                  ? 'Ihre Daten werden vertraulich behandelt. Wir melden uns innerhalb von 24 Stunden.'
-                  : 'Your data will be treated confidentially. We will contact you within 24 hours.'}
+                  ? 'Ihre Daten werden vertraulich behandelt. Wir melden uns Mo-Fr innerhalb von 24 Stunden.'
+                  : 'Your data will be treated confidentially. We will contact you Mon-Fri within 24 hours.'}
               </p>
             </form>
           </Form>
