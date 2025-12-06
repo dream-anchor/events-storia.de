@@ -38,13 +38,7 @@ interface DeliveryCalculation {
   isRoundTrip: boolean;
   oneWayDistanceKm: number;
 }
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+// Dialog removed - using direct navigation to success page
 
 // Email validation helper
 const validateEmail = (email: string): { valid: boolean; suggestion?: string; error?: string } => {
@@ -124,7 +118,7 @@ const Checkout = () => {
     billingCountry: 'Deutschland'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  // showSuccess state removed - using direct navigation
   const [orderNumber, setOrderNumber] = useState('');
   const [deliveryCalc, setDeliveryCalc] = useState<DeliveryCalculation | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -690,9 +684,12 @@ const Checkout = () => {
             toast.error(language === 'de' ? 'Fehler bei der Zahlungsweiterleitung' : 'Payment redirect error');
             setIsProcessingPayment(false);
             localStorage.removeItem(cachedOrderKey); // Clean up on error
-            // Still show success since order was created
-            setShowSuccess(true);
+            // Still navigate to success since order was created
             clearCart();
+            navigate('/kunde/registrieren', { 
+              state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
+              replace: true
+            });
             return;
           }
 
@@ -712,15 +709,22 @@ const Checkout = () => {
           toast.error(language === 'de' ? 'Fehler bei der Zahlung' : 'Payment error');
           setIsProcessingPayment(false);
           localStorage.removeItem(cachedOrderKey); // Clean up on error
-          // Still show success since order was created
-          setShowSuccess(true);
+          // Still navigate to success since order was created
           clearCart();
+          navigate('/kunde/registrieren', { 
+            state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
+            replace: true
+          });
           return;
         }
       }
       
-      setShowSuccess(true);
+      // Navigate directly to success page
       clearCart();
+      navigate('/kunde/registrieren', { 
+        state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
+        replace: true
+      });
     } catch (error) {
       console.error('Order error:', error);
       toast.error(
@@ -734,7 +738,7 @@ const Checkout = () => {
   };
 
   // Empty cart view
-  if (items.length === 0 && !showSuccess) {
+  if (items.length === 0) {
     return (
       <>
         <SEO 
@@ -1749,86 +1753,6 @@ const Checkout = () => {
         <Footer />
       </div>
 
-      {/* Success Dialog */}
-      <Dialog open={showSuccess} onOpenChange={(open) => {
-        if (!open && !user) {
-          // Guest: redirect to registration page
-          navigate('/kunde/registrieren', { 
-            state: { email: formData.email, name: formData.name, orderNumber } 
-          });
-        } else if (!open) {
-          // Logged-in user: go home
-          navigate('/');
-        }
-        setShowSuccess(open);
-      }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="flex justify-center mb-4">
-              <CheckCircle className="h-16 w-16 text-green-500" />
-            </div>
-            <DialogTitle className="text-center text-xl">
-              {language === 'de' ? 'Anfrage erhalten!' : 'Request Received!'}
-            </DialogTitle>
-            <DialogDescription className="text-center space-y-2">
-              <p>
-                {language === 'de' 
-                  ? `Vielen Dank für Ihre Anfrage.`
-                  : `Thank you for your request.`}
-              </p>
-              <p className="font-mono text-lg text-foreground">{orderNumber}</p>
-              <p>
-                {language === 'de'
-                  ? 'Wir haben Ihnen eine Bestätigung per E-Mail gesendet und melden uns in Kürze bei Ihnen.'
-                  : 'We have sent you a confirmation email and will get back to you shortly.'}
-              </p>
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Account Creation Prompt - nur für Gäste */}
-          {!user && (
-            <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border/50">
-              <p className="text-sm text-center text-muted-foreground mb-3">
-                {language === 'de' 
-                  ? 'Möchten Sie ein Konto erstellen? So können Sie Ihre Bestellungen einsehen und schneller bestellen.' 
-                  : 'Would you like to create an account? View your orders and checkout faster.'}
-              </p>
-              <Button 
-                onClick={() => {
-                  setShowSuccess(false);
-                  navigate('/kunde/registrieren', { 
-                    state: { email: formData.email, name: formData.name, orderNumber } 
-                  });
-                }}
-                variant="outline"
-                className="w-full"
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                {language === 'de' ? 'Konto erstellen' : 'Create Account'}
-              </Button>
-            </div>
-          )}
-
-          <div className="flex justify-center mt-4">
-            <Button 
-              onClick={() => {
-                if (!user) {
-                  navigate('/kunde/registrieren', { 
-                    state: { email: formData.email, name: formData.name, orderNumber } 
-                  });
-                } else {
-                  navigate('/');
-                }
-              }} 
-              variant="outline"
-            >
-              {!user 
-                ? (language === 'de' ? 'Weiter' : 'Continue')
-                : (language === 'de' ? 'Zur Startseite' : 'Back to Home')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };
