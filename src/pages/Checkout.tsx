@@ -20,7 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import ProgressSteps from '@/components/checkout/ProgressSteps';
-import TimeSlotPicker from '@/components/checkout/TimeSlotPicker';
+// TimeSlotPicker removed - using native time input
 import StickyMobileCTA from '@/components/checkout/StickyMobileCTA';
 import TrustBadges from '@/components/checkout/TrustBadges';
 import PaymentLogos from '@/components/checkout/PaymentLogos';
@@ -907,7 +907,7 @@ const Checkout = () => {
 
             <form onSubmit={handleSubmit}>
               {/* Two-Column Layout: Form left, Sticky Cart right on desktop */}
-              <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-8 lg:items-start">
+              <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-8 items-start">
                 
                 {/* Left Column: Form Sections */}
                 <div className="space-y-6">
@@ -1369,12 +1369,15 @@ const Checkout = () => {
                             <Clock className="h-3.5 w-3.5" />
                             {language === 'de' ? 'Uhrzeit *' : 'Time *'}
                           </Label>
-                          <TimeSlotPicker
+                          <Input
+                            id="time"
+                            name="time"
+                            type="time"
                             value={formData.time}
-                            onChange={(time) => setFormData(prev => ({ ...prev, time }))}
+                            onChange={handleInputChange}
+                            className="mt-1"
+                            required
                           />
-                          {/* Hidden input for form validation */}
-                          <input type="hidden" name="time" value={formData.time} required />
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
@@ -1634,7 +1637,8 @@ const Checkout = () => {
                 </div>
 
                 {/* Right Column: Sticky Cart (Desktop only) */}
-                <div className="hidden lg:block lg:sticky lg:top-24 self-start">
+                {/* Right Column: Sticky Cart (Desktop only) - mt-0 ensures alignment with first form section */}
+                <div className="hidden lg:block lg:sticky lg:top-24 mt-0">
                   <CartSummary showItems={true} />
                 </div>
               </div>
