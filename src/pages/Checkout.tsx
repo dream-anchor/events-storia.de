@@ -418,12 +418,11 @@ const Checkout = () => {
 
   const generateOrderNumber = () => {
     const date = new Date();
-    const prefix = 'STO';
-    const timestamp = date.getFullYear().toString().slice(-2) + 
-                     (date.getMonth() + 1).toString().padStart(2, '0') +
-                     date.getDate().toString().padStart(2, '0');
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${prefix}-${timestamp}-${random}`;
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    const sequence = Math.floor(Date.now() / 1000) % 1000 + 100;
+    return `EVENTS-ANGEBOT-${day}-${month}-${year}-${sequence}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
