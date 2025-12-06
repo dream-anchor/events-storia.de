@@ -28,7 +28,7 @@ interface NavItem {
 const Navigation = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const [openMenus, setOpenMenus] = useState<string[]>(["CATERING & LIEFERSERVICE", "VERANSTALTUNGEN"]);
+  const [openMenus, setOpenMenus] = useState<string[]>(["CATERING & LIEFERSERVICE", "EVENTS IM STORIA"]);
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const { language } = useLanguage();
   const { showGross, setShowGross } = usePriceDisplay();
@@ -91,7 +91,7 @@ const Navigation = () => {
       icon: <ShoppingBag className="h-4 w-4" />,
     },
     {
-      label: language === 'de' ? "VERANSTALTUNGEN" : "PRIVATE EVENTS",
+      label: language === 'de' ? "EVENTS IM STORIA" : "EVENTS AT STORIA",
       children: eventChildren,
       icon: <Sparkles className="h-4 w-4" />,
     },
