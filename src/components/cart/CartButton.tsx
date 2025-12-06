@@ -5,7 +5,7 @@ import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
 import { cn } from '@/lib/utils';
 
 const CartButton = () => {
-  const { totalItems, totalPrice, setIsOpen, isOpen } = useCart();
+  const { totalItems, totalPrice, setIsOpen, isOpen, lastAddedItem } = useCart();
   const { formatPrice } = usePriceDisplay();
   const location = useLocation();
 
@@ -29,12 +29,27 @@ const CartButton = () => {
         // Hover effects
         "hover:shadow-xl hover:scale-[1.02] hover:bg-background/90",
         "transition-all duration-300 ease-out",
-        // Animation
-        "animate-in slide-in-from-right-4"
+        // Animation when item added
+        lastAddedItem && "ring-2 ring-primary ring-offset-2 ring-offset-background"
       )}
       aria-label={`Warenkorb (${totalItems} Artikel)`}
     >
-      <ShoppingCart className="h-5 w-5 text-primary" />
+      {/* Added item notification bubble */}
+      {lastAddedItem && (
+        <span className={cn(
+          "absolute -top-2 -left-2",
+          "bg-primary text-primary-foreground",
+          "text-xs font-semibold px-2 py-0.5 rounded-full",
+          "animate-in fade-in zoom-in-50 slide-in-from-bottom-2 duration-300"
+        )}>
+          +{lastAddedItem.quantity}
+        </span>
+      )}
+      
+      <ShoppingCart className={cn(
+        "h-5 w-5 text-primary",
+        lastAddedItem && "animate-bounce"
+      )} />
       
       <span className={cn(
         "flex items-center justify-center",

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { toast } from 'sonner';
 import { useLanguage } from './LanguageContext';
 
 export interface CartItem {
@@ -14,6 +13,11 @@ export interface CartItem {
   category?: 'pizza' | 'buffet' | 'platter' | 'equipment';
 }
 
+export interface LastAddedItem {
+  name: string;
+  quantity: number;
+}
+
 interface CartContextType {
   items: CartItem[];
   addToCart: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
@@ -24,6 +28,7 @@ interface CartContextType {
   totalPrice: number;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  lastAddedItem: LastAddedItem | null;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -40,6 +45,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     return [];
   });
   const [isOpen, setIsOpen] = useState(false);
+  const [lastAddedItem, setLastAddedItem] = useState<LastAddedItem | null>(null);
 
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
@@ -58,18 +64,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       return [...prev, { ...item, quantity }];
     });
     
+    // Set last added item for animation (no toast)
     const itemName = language === 'en' && item.name_en ? item.name_en : item.name;
-    toast.success(
-      language === 'de' 
-        ? `${quantity}x ${itemName} hinzugefügt`
-        : `${quantity}x ${itemName} added`,
-      {
-        action: {
-          label: language === 'de' ? 'Warenkorb' : 'Cart',
-          onClick: () => setIsOpen(true)
-        }
-      }
-    );
+    setLastAddedItem({ name: itemName, quantity });
+    
+    // Reset after 2.5 seconds
+    setTimeout(() => setLastAddedItem(null), 2500);
   };
 
   const removeFromCart = (id: string) => {
@@ -104,7 +104,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       totalItems,
       totalPrice,
       isOpen,
-      setIsOpen
+      setIsOpen,
+      lastAddedItem
     }}>
       {children}
     </CartContext.Provider>
