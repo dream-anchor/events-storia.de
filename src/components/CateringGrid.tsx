@@ -112,10 +112,10 @@ const CateringCard = ({ item, language }: { item: CateringItem; language: string
       {/* Text-Container mit Glassmorphism */}
       <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
         <div className="backdrop-blur-sm bg-black/20 rounded-lg p-3">
-          <h3 className="text-base md:text-lg font-serif font-semibold mb-1 text-white drop-shadow-lg">
+          <h3 className="text-lg md:text-xl font-serif font-semibold mb-1 text-white drop-shadow-lg">
             {title}
           </h3>
-          <p className="text-sm text-white/90 leading-relaxed drop-shadow-md line-clamp-2">
+          <p className="text-base text-white/90 leading-relaxed drop-shadow-md line-clamp-2">
             {description}
           </p>
         </div>
@@ -131,7 +131,7 @@ const CateringGrid = () => {
     <section className="bg-background py-6 md:py-10">
       <div className="container mx-auto px-4">
         {/* Grid direkt ohne Header für "above the fold" */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {cateringItems.map((item) => (
             <CateringCard key={item.id} item={item} language={language} />
           ))}
