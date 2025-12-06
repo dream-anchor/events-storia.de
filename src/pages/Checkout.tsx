@@ -238,21 +238,32 @@ const Checkout = () => {
       // Create LexOffice invoice for the paid order
       const createInvoiceForPaidOrder = async () => {
         try {
-          // Fetch the order details from database
-          const { data: orderData, error: fetchError } = await supabase
-            .from('catering_orders')
-            .select('*')
-            .eq('order_number', orderNum)
-            .single();
+          // Try to read from localStorage first (for anonymous users who can't SELECT due to RLS)
+          const cachedOrderKey = `stripe_order_${orderNum}`;
+          const cachedOrder = localStorage.getItem(cachedOrderKey);
           
-          if (fetchError || !orderData) {
-            console.error('Failed to fetch order for invoice:', fetchError);
-            return;
-          }
+          let orderPayload;
+          
+          if (cachedOrder) {
+            // Use cached data from localStorage
+            orderPayload = JSON.parse(cachedOrder);
+            // Clean up localStorage after use
+            localStorage.removeItem(cachedOrderKey);
+            console.log('Using cached order data for LexOffice invoice');
+          } else {
+            // Fallback: Try to fetch from database (works for logged-in users)
+            const { data: orderData, error: fetchError } = await supabase
+              .from('catering_orders')
+              .select('*')
+              .eq('order_number', orderNum)
+              .single();
+            
+            if (fetchError || !orderData) {
+              console.error('Failed to fetch order for invoice:', fetchError);
+              return;
+            }
 
-          // Create LexOffice invoice (Rechnung) since payment was successful
-          const invoiceResponse = await supabase.functions.invoke('create-lexoffice-invoice', {
-            body: {
+            orderPayload = {
               orderId: orderData.id,
               orderNumber: orderNum,
               customerName: orderData.customer_name,
@@ -272,7 +283,14 @@ const Checkout = () => {
               minimumOrderSurcharge: orderData.minimum_order_surcharge || 0,
               distanceKm: orderData.calculated_distance_km || undefined,
               grandTotal: orderData.total_amount,
-              isPickup: orderData.is_pickup || false,
+              isPickup: orderData.is_pickup || false
+            };
+          }
+
+          // Create LexOffice invoice (Rechnung) since payment was successful
+          const invoiceResponse = await supabase.functions.invoke('create-lexoffice-invoice', {
+            body: {
+              ...orderPayload,
               documentType: 'invoice', // Rechnung weil bezahlt
               isPaid: true
             }
@@ -558,6 +576,34 @@ const Checkout = () => {
       // If Stripe payment selected, redirect to payment
       if (paymentMethod === 'stripe') {
         setIsProcessingPayment(true);
+        
+        // Cache order data in localStorage for LexOffice invoice after payment
+        // (needed because anonymous users can't SELECT from catering_orders due to RLS)
+        const cachedOrderKey = `stripe_order_${newOrderNumber}`;
+        const orderDataForCache = {
+          orderId: orderId,
+          orderNumber: newOrderNumber,
+          customerName: formData.name,
+          customerEmail: formData.email,
+          customerPhone: formData.phone,
+          companyName: formData.company || undefined,
+          billingAddress: billingAddress,
+          items: items.map(item => ({
+            id: item.id,
+            name: item.name,
+            name_en: item.name_en,
+            quantity: item.quantity,
+            price: item.price
+          })),
+          subtotal: totalPrice,
+          deliveryCost: deliveryCalc?.deliveryCostGross || 0,
+          minimumOrderSurcharge: minimumOrderSurcharge,
+          distanceKm: deliveryCalc?.distanceKm || undefined,
+          grandTotal: grandTotal,
+          isPickup: formData.deliveryType === 'pickup'
+        };
+        localStorage.setItem(cachedOrderKey, JSON.stringify(orderDataForCache));
+        
         try {
           const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
             'create-catering-payment',
@@ -576,6 +622,7 @@ const Checkout = () => {
             console.error('Payment error:', paymentError);
             toast.error(language === 'de' ? 'Fehler bei der Zahlungsweiterleitung' : 'Payment redirect error');
             setIsProcessingPayment(false);
+            localStorage.removeItem(cachedOrderKey); // Clean up on error
             // Still show success since order was created
             setShowSuccess(true);
             clearCart();
@@ -597,6 +644,7 @@ const Checkout = () => {
           console.error('Payment error:', payErr);
           toast.error(language === 'de' ? 'Fehler bei der Zahlung' : 'Payment error');
           setIsProcessingPayment(false);
+          localStorage.removeItem(cachedOrderKey); // Clean up on error
           // Still show success since order was created
           setShowSuccess(true);
           clearCart();

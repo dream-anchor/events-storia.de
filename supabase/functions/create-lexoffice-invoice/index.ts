@@ -207,6 +207,10 @@ serve(async (req) => {
     // LexOffice requires full ISO 8601 datetime format
     const today = new Date().toISOString();
     
+    // Calculate expiration date for quotations (14 days from now)
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() + 14);
+    
     // Configure document-specific settings
     const documentConfig = isInvoice 
       ? {
@@ -230,6 +234,10 @@ serve(async (req) => {
 
     const documentPayload: Record<string, unknown> = {
       voucherDate: today,
+      // Quotations require expirationDate
+      ...(documentType === 'quotation' && { 
+        expirationDate: expirationDate.toISOString().split('T')[0] // YYYY-MM-DD format
+      }),
       lineItems,
       totalPrice: { currency: 'EUR' },
       taxConditions: { taxType: 'net' },
