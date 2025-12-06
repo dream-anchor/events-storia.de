@@ -335,30 +335,71 @@ const Checkout = () => {
     }
   }, [language]);
 
-  // Validate 24-hour advance booking
+  // Pizza time validation helper
+  const isPizzaTimeValid = (time: string): boolean => {
+    if (!time) return false;
+    const [hours, minutes] = time.split(':').map(Number);
+    const timeValue = hours * 60 + minutes;
+    
+    const lunch = { start: 12 * 60, end: 14 * 60 + 30 }; // 12:00-14:30
+    const dinner = { start: 18 * 60, end: 22 * 60 + 30 }; // 18:00-22:30
+    
+    return (timeValue >= lunch.start && timeValue <= lunch.end) ||
+           (timeValue >= dinner.start && timeValue <= dinner.end);
+  };
+
+  // Validate date/time: Pizza (same-day OK, but must be in time slots) vs Catering (24h advance)
   useEffect(() => {
     if (!formData.date || !formData.time) {
       setDateTimeWarning(null);
       return;
     }
     
-    const selectedDateTime = new Date(`${formData.date}T${formData.time}`);
-    const minDateTime = new Date();
-    minDateTime.setHours(minDateTime.getHours() + 24);
+    const phoneText = isMobile 
+      ? '<a href="tel:01636033912" class="underline font-medium hover:text-amber-800 dark:hover:text-amber-200">0163 6033912</a>'
+      : '0163 6033912';
     
-    if (selectedDateTime < minDateTime) {
-      const phoneText = isMobile 
-        ? '<a href="tel:01636033912" class="underline font-medium hover:text-amber-800 dark:hover:text-amber-200">0163 6033912</a>'
-        : '0163 6033912';
-      setDateTimeWarning(
-        language === 'de'
-          ? `Der gewählte Termin liegt weniger als 24 Stunden in der Zukunft. Bitte wählen Sie einen späteren Zeitpunkt. In dringenden Fällen rufen Sie uns an unter ${phoneText}.`
-          : `The selected date is less than 24 hours away. Please choose a later time. For urgent cases, call us at ${phoneText}.`
-      );
+    if (isPizzaOnly) {
+      // Pizza: No 24h advance required, but must be within delivery time slots
+      if (!isPizzaTimeValid(formData.time)) {
+        setDateTimeWarning(
+          language === 'de'
+            ? 'Pizza-Lieferung ist nur zwischen 12:00-14:30 Uhr und 18:00-22:30 Uhr möglich (Mo-So).'
+            : 'Pizza delivery is only available between 12:00-14:30 and 18:00-22:30 (Mon-Sun).'
+        );
+      } else {
+        // Check if the selected time is in the past
+        const now = new Date();
+        const selectedDateTime = new Date(`${formData.date}T${formData.time}`);
+        const minPizzaTime = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour lead time
+        
+        if (selectedDateTime < minPizzaTime) {
+          setDateTimeWarning(
+            language === 'de'
+              ? `Die gewählte Zeit ist zu kurzfristig. Bitte mindestens 1 Stunde im Voraus bestellen. Bei Fragen: ${phoneText}`
+              : `The selected time is too soon. Please order at least 1 hour in advance. Questions? ${phoneText}`
+          );
+        } else {
+          setDateTimeWarning(null);
+        }
+      }
     } else {
-      setDateTimeWarning(null);
+      // Catering: 24h advance required, any time allowed
+      const selectedDateTime = new Date(`${formData.date}T${formData.time}`);
+      const minDateTime = new Date();
+      minDateTime.setHours(minDateTime.getHours() + 24);
+      
+      if (selectedDateTime < minDateTime) {
+        setDateTimeWarning(
+          language === 'de'
+            ? `Catering-Bestellungen benötigen mindestens 24 Stunden Vorlauf. In dringenden Fällen: ${phoneText}`
+            : `Catering orders require at least 24 hours advance notice. For urgent cases: ${phoneText}`
+        );
+      } else {
+        setDateTimeWarning(null);
+      }
     }
-  }, [formData.date, formData.time, language, isMobile]);
+  }, [formData.date, formData.time, language, isMobile, isPizzaOnly]);
 
   // Calculate minimum order surcharge if needed
   const minimumOrderSurcharge = deliveryCalc && totalPrice < deliveryCalc.minimumOrder 
@@ -982,12 +1023,24 @@ const Checkout = () => {
                           {language === 'de' 
                             ? 'Haben Sie ein Konto? ' 
                             : 'Have an account? '}
-                          <Link to="/login" className="text-primary hover:underline font-medium">
+                          <Link to="/konto/login?redirect=/checkout" className="text-primary hover:underline font-medium">
                             {language === 'de' ? 'Anmelden' : 'Log in'}
                           </Link>
                           {language === 'de' 
                             ? ' für schnelleres Bestellen.' 
                             : ' for faster checkout.'}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Logged in indicator */}
+                    {user && (
+                      <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                        <p className="text-sm text-green-700 dark:text-green-300 flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4" />
+                          {language === 'de' 
+                            ? `Angemeldet als ${profile?.name || user.email}` 
+                            : `Logged in as ${profile?.name || user.email}`}
                         </p>
                       </div>
                     )}
@@ -1358,9 +1411,15 @@ const Checkout = () => {
                             className="mt-1"
                             required
                             min={(() => {
-                              const tomorrow = new Date();
-                              tomorrow.setDate(tomorrow.getDate() + 1);
-                              return tomorrow.toISOString().split('T')[0];
+                              if (isPizzaOnly) {
+                                // Pizza: Today is OK
+                                return new Date().toISOString().split('T')[0];
+                              } else {
+                                // Catering: Minimum tomorrow
+                                const tomorrow = new Date();
+                                tomorrow.setDate(tomorrow.getDate() + 1);
+                                return tomorrow.toISOString().split('T')[0];
+                              }
                             })()}
                           />
                         </div>
@@ -1381,9 +1440,13 @@ const Checkout = () => {
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
-                        {language === 'de' 
-                          ? 'Bitte wählen Sie einen Termin mindestens 24 Stunden im Voraus.'
-                          : 'Please select a date at least 24 hours in advance.'}
+                        {isPizzaOnly 
+                          ? (language === 'de' 
+                              ? '🍕 Pizza-Lieferung täglich 12:00-14:30 & 18:00-22:30 Uhr möglich.'
+                              : '🍕 Pizza delivery available daily 12:00-14:30 & 18:00-22:30.')
+                          : (language === 'de' 
+                              ? 'Catering benötigt mindestens 24 Stunden Vorlauf.'
+                              : 'Catering requires at least 24 hours advance notice.')}
                       </p>
                       {dateTimeWarning && (
                         <div className="flex items-start gap-2 mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
