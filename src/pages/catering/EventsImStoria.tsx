@@ -31,6 +31,7 @@ const eventPackages = [
     description_en: "Classic & elegant",
     features: [
       "3 Gänge nach Wahl",
+      "Aperitif mit Häppchen inklusive",
       "Individuelle Menükreation",
       "Persönliche Beratung",
       "Service-Personal inklusive",
@@ -39,6 +40,7 @@ const eventPackages = [
     ],
     features_en: [
       "3 courses of your choice",
+      "Aperitif with canapés included",
       "Individual menu creation",
       "Personal consultation",
       "Service staff included",
@@ -84,7 +86,9 @@ const eventPackages = [
     description: "Individuelle Planung",
     description_en: "Custom Planning",
     features: [
-      "Bis zu 9 Gänge fließend serviert",
+      "Bis zu 18 Gänge fließend serviert",
+      "Bis zu 150 Personen innen",
+      "+ 150 Personen auf unserer überdachten Terrasse (bei warmen Temperaturen)",
       "Cocktail-Empfang inklusive",
       "Individuelle Menükreation",
       "Persönliche Beratung",
@@ -92,7 +96,9 @@ const eventPackages = [
       "Tischdekoration auf Wunsch",
     ],
     features_en: [
-      "Up to 9 courses served flowing",
+      "Up to 18 courses served flowing",
+      "Up to 150 guests indoors",
+      "+ 150 guests on our covered terrace (in warm weather)",
       "Cocktail reception included",
       "Individual menu creation",
       "Personal consultation",
