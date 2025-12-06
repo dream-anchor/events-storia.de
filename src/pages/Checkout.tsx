@@ -605,7 +605,13 @@ const Checkout = () => {
               grandTotal: grandTotal,
               isPickup: formData.deliveryType === 'pickup',
               documentType: 'quotation', // Angebot für unbezahlte Bestellungen
-              isPaid: false
+              isPaid: false,
+              // NEW: Additional order details
+              desiredDate: formData.date || undefined,
+              desiredTime: formData.time || undefined,
+              deliveryAddress: formData.deliveryType === 'delivery' ? formData.address : undefined,
+              notes: fullNotes || undefined,
+              paymentMethod: paymentMethod
             }
           });
           
@@ -651,7 +657,13 @@ const Checkout = () => {
           minimumOrderSurcharge: minimumOrderSurcharge,
           distanceKm: deliveryCalc?.distanceKm || undefined,
           grandTotal: grandTotal,
-          isPickup: formData.deliveryType === 'pickup'
+          isPickup: formData.deliveryType === 'pickup',
+          // NEW: Additional order details for LexOffice invoice after payment
+          desiredDate: formData.date || undefined,
+          desiredTime: formData.time || undefined,
+          deliveryAddress: formData.deliveryType === 'delivery' ? formData.address : undefined,
+          notes: fullNotes || undefined,
+          paymentMethod: 'stripe' as const
         };
         localStorage.setItem(cachedOrderKey, JSON.stringify(orderDataForCache));
         
