@@ -47,10 +47,10 @@ const EventTestimonials = () => {
           <h2 className="text-2xl md:text-3xl font-serif font-medium mb-4">
             {language === 'de' ? 'Das sagen unsere Kunden' : 'What Our Clients Say'}
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+        <p className="text-muted-foreground max-w-2xl mx-auto">
             {language === 'de' 
-              ? 'Über 500 erfolgreiche Events in den letzten Jahren' 
-              : 'Over 500 successful events in recent years'}
+              ? 'Über 100 erfolgreiche Events für unsere Kunden durchgeführt' 
+              : 'Over 100 successful events hosted for our clients'}
           </p>
         </div>
         

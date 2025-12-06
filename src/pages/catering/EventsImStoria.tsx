@@ -392,7 +392,7 @@ const EventsImStoria = () => {
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
               <h2 className="text-2xl md:text-3xl font-serif font-medium mb-4">
-                {language === 'de' ? "Bei uns inklusive" : "Included With Us"}
+                {language === 'de' ? "Willkommen im Storia" : "Welcome to Storia"}
               </h2>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 max-w-4xl mx-auto">
