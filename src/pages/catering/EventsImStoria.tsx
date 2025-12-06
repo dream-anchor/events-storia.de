@@ -1,5 +1,6 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import Header from "@/components/Header";
+import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
@@ -22,12 +23,12 @@ import terrasseImg from "@/assets/terrasse-blumen.webp";
 const eventPackages = [
   {
     id: "classic",
-    name: "Classic",
-    name_en: "Classic",
+    name: "3-Gang Menü",
+    name_en: "3-Course Menu",
     price: "ab 42 € p.P.",
     price_en: "from €42 p.p.",
-    description: "3-Gänge-Menü",
-    description_en: "3-Course Menu",
+    description: "Klassisch & elegant",
+    description_en: "Classic & elegant",
     features: [
       "3 Gänge nach Wahl",
       "Individuelle Menükreation",
@@ -44,16 +45,16 @@ const eventPackages = [
       "Wine pairing available",
       "Table decoration on request",
     ],
-    minGuests: 15,
+    minGuests: 6,
   },
   {
     id: "premium",
-    name: "Premium",
-    name_en: "Premium",
+    name: "4-Gang Menü",
+    name_en: "4-Course Menu",
     price: "ab 55 € p.P.",
     price_en: "from €55 p.p.",
-    description: "4-Gänge-Menü mit Aperitif",
-    description_en: "4-Course Menu with Aperitif",
+    description: "Mit Aperitif",
+    description_en: "With Aperitif",
     features: [
       "4 Gänge nach Wahl",
       "Aperitif mit Häppchen inklusive",
@@ -72,7 +73,7 @@ const eventPackages = [
       "Wine pairing available",
       "Table decoration on request",
     ],
-    minGuests: 15,
+    minGuests: 6,
   },
   {
     id: "exklusiv",
@@ -98,7 +99,7 @@ const eventPackages = [
       "Service staff included",
       "Table decoration on request",
     ],
-    minGuests: 15,
+    minGuests: 6,
   },
 ];
 
@@ -202,6 +203,7 @@ const EventsImStoria = () => {
       <StructuredData type="event" />
 
       <Header />
+      <Navigation />
 
       <main className="min-h-screen bg-background">
         {/* Hero Section */}
@@ -311,10 +313,15 @@ const EventsImStoria = () => {
               <h2 className="text-2xl md:text-3xl font-serif font-medium mb-4">
                 {language === 'de' ? "Unsere Event-Menüs" : "Our Event Menus"}
               </h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-muted-foreground max-w-2xl mx-auto">
                 {language === 'de'
                   ? "Wählen Sie das passende Menü für Ihren Anlass – oder lassen Sie sich individuell beraten."
                   : "Choose the right menu for your occasion – or get individual consultation."}
+              </p>
+              <p className="text-sm text-primary font-medium mt-3">
+                {language === 'de' 
+                  ? 'Alle Menüs ab 6 Personen buchbar'
+                  : 'All menus available from 6 guests'}
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto items-start">
