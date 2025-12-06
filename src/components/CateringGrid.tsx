@@ -103,8 +103,8 @@ const CateringCard = ({ item, language }: { item: CateringItem; language: string
         loading="lazy"
       />
       
-      {/* Verstärkter Gradient für bessere Lesbarkeit */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/10" />
+      {/* Minimaler Gradient nur am unteren Textbereich */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
       
       {/* Hover-Overlay */}
       <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors duration-300" />
