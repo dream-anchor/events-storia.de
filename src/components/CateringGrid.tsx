@@ -93,7 +93,7 @@ const CateringCard = ({ item, language }: { item: CateringItem; language: string
   return (
     <Link 
       to={item.path}
-      className="group relative overflow-hidden aspect-[4:3] block shadow-lg hover:shadow-xl transition-all duration-300"
+      className="group relative overflow-hidden aspect-[3/2] block shadow-lg hover:shadow-xl transition-all duration-300"
     >
       {/* Bild mit Zoom-Effekt */}
       <img
@@ -131,7 +131,7 @@ const CateringGrid = () => {
     <section className="bg-background py-6 md:py-10">
       <div className="container mx-auto px-4">
         {/* Grid direkt ohne Header für "above the fold" */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cateringItems.map((item) => (
             <CateringCard key={item.id} item={item} language={language} />
           ))}
