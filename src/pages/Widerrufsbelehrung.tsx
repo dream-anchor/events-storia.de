@@ -54,6 +54,12 @@ const Widerrufsbelehrung = () => {
               </p>
               <ul className="list-disc pl-6 space-y-2">
                 <li>
+                  <strong>Lebensmittel und Catering:</strong> Bei der Lieferung von Lebensmitteln, 
+                  die schnell verderben können oder deren Verfallsdatum schnell überschritten 
+                  würde, besteht gemäß § 312g Abs. 2 Nr. 2 BGB kein Widerrufsrecht. 
+                  Dies gilt für alle Catering-Bestellungen und Speiselieferungen.
+                </li>
+                <li>
                   Gutscheine, die bereits ganz oder teilweise eingelöst wurden
                 </li>
                 <li>

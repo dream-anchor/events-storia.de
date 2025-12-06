@@ -17,6 +17,7 @@ import Datenschutz from "./pages/Datenschutz";
 import CookieRichtlinie from "./pages/CookieRichtlinie";
 import AGBRestaurant from "./pages/AGBRestaurant";
 import AGBGutscheine from "./pages/AGBGutscheine";
+import AGBCatering from "./pages/AGBCatering";
 import Widerrufsbelehrung from "./pages/Widerrufsbelehrung";
 import Zahlungsinformationen from "./pages/Zahlungsinformationen";
 import Lebensmittelhinweise from "./pages/Lebensmittelhinweise";
@@ -95,6 +96,7 @@ const App = () => {
                 <Route path="/cookie-richtlinie" element={<CookieRichtlinie />} />
                 <Route path="/agb-restaurant" element={<AGBRestaurant />} />
                 <Route path="/agb-gutscheine" element={<AGBGutscheine />} />
+                <Route path="/agb-catering" element={<AGBCatering />} />
                 <Route path="/widerrufsbelehrung" element={<Widerrufsbelehrung />} />
                 <Route path="/zahlungsinformationen" element={<Zahlungsinformationen />} />
                 <Route path="/lebensmittelhinweise" element={<Lebensmittelhinweise />} />

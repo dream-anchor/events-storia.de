@@ -120,7 +120,9 @@ const Checkout = () => {
     billingStreet: '',
     billingZip: '',
     billingCity: '',
-    billingCountry: 'Deutschland'
+    billingCountry: 'Deutschland',
+    // Legal acceptance
+    acceptTerms: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   // showSuccess state removed - using direct navigation
@@ -471,6 +473,16 @@ const Checkout = () => {
         language === 'de' 
           ? 'Bitte wählen Sie Datum und Uhrzeit für die Lieferung/Abholung' 
           : 'Please select a date and time for delivery/pickup'
+      );
+      return;
+    }
+
+    // Validate AGB acceptance (§ 312j BGB)
+    if (!formData.acceptTerms) {
+      toast.error(
+        language === 'de' 
+          ? 'Bitte akzeptieren Sie die AGB und Widerrufsbelehrung' 
+          : 'Please accept the terms and cancellation policy'
       );
       return;
     }
@@ -996,13 +1008,9 @@ const Checkout = () => {
       >
         {(isSubmitting || isProcessingPayment)
           ? (language === 'de' ? 'Wird verarbeitet...' : 'Processing...')
-          : paymentMethod === 'stripe'
-            ? (language === 'de' 
-                ? `Jetzt bezahlen · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`
-                : `Pay Now · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`)
-            : (language === 'de' 
-                ? `Jetzt bestellen · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`
-                : `Order Now · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`)}
+          : (language === 'de' 
+              ? `Zahlungspflichtig bestellen · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`
+              : `Order with payment obligation · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`)}
       </Button>
 
       {/* Trust Elements */}
@@ -1889,6 +1897,50 @@ const Checkout = () => {
                       </CollapsibleContent>
                     </section>
                   </Collapsible>
+
+                  {/* AGB & Widerrufsbelehrung Checkbox (§ 312j BGB) */}
+                  <section className="bg-card border border-border rounded-xl p-4 md:p-6">
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="acceptTerms"
+                        checked={formData.acceptTerms}
+                        onCheckedChange={(checked) => 
+                          setFormData(prev => ({ ...prev, acceptTerms: checked === true }))
+                        }
+                        className="mt-0.5"
+                      />
+                      <Label htmlFor="acceptTerms" className="text-sm leading-relaxed cursor-pointer">
+                        {language === 'de' 
+                          ? <>
+                              Ich habe die{' '}
+                              <Link to="/agb-catering" target="_blank" className="text-primary underline hover:text-primary/80">
+                                AGB für Catering
+                              </Link>{' '}
+                              und die{' '}
+                              <Link to="/widerrufsbelehrung" target="_blank" className="text-primary underline hover:text-primary/80">
+                                Widerrufsbelehrung
+                              </Link>{' '}
+                              zur Kenntnis genommen und akzeptiere diese. *
+                            </>
+                          : <>
+                              I have read and accept the{' '}
+                              <Link to="/agb-catering" target="_blank" className="text-primary underline hover:text-primary/80">
+                                Terms and Conditions for Catering
+                              </Link>{' '}
+                              and the{' '}
+                              <Link to="/widerrufsbelehrung" target="_blank" className="text-primary underline hover:text-primary/80">
+                                Cancellation Policy
+                              </Link>. *
+                            </>
+                        }
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3 ml-7">
+                      {language === 'de' 
+                        ? 'Hinweis: Da es sich bei Catering um verderbliche Waren handelt, besteht kein Widerrufsrecht gemäß § 312g Abs. 2 Nr. 2 BGB.'
+                        : 'Note: As catering involves perishable goods, there is no right of withdrawal pursuant to § 312g para. 2 no. 2 BGB.'}
+                    </p>
+                  </section>
 
                   {/* Trust Badges (Desktop) */}
                   <div className="hidden lg:block">

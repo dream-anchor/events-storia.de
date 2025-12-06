@@ -27,9 +27,9 @@ const StickyMobileCTA = ({
     }).format(price);
   };
 
-  const buttonText = paymentMethod === 'stripe'
-    ? (language === 'de' ? 'Jetzt bezahlen' : 'Pay Now')
-    : (language === 'de' ? 'Bestellung absenden' : 'Submit Order');
+  const buttonText = language === 'de' 
+    ? 'Zahlungspflichtig bestellen' 
+    : 'Order with payment obligation';
 
   return (
     <div className={cn(

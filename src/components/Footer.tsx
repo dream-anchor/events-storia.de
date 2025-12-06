@@ -123,7 +123,9 @@ const Footer = () => {
             <span className="opacity-50">·</span>
             <Link to="/cookie-richtlinie" className="hover:text-primary-foreground/60 transition-colors">{t.legal.cookies}</Link>
             <span className="opacity-50">·</span>
-            <Link to="/agb-restaurant" className="hover:text-primary-foreground/60 transition-colors">{t.legal.agb}</Link>
+            <Link to="/agb-catering" className="hover:text-primary-foreground/60 transition-colors">{language === 'de' ? 'AGB Catering' : 'Catering Terms'}</Link>
+            <span className="opacity-50">·</span>
+            <Link to="/widerrufsbelehrung" className="hover:text-primary-foreground/60 transition-colors">{language === 'de' ? 'Widerrufsbelehrung' : 'Cancellation Policy'}</Link>
             <span className="opacity-50">·</span>
             <Link to="/lebensmittelhinweise" className="hover:text-primary-foreground/60 transition-colors">{t.legal.foodInfo}</Link>
           </div>
