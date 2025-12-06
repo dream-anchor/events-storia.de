@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Plus, Minus, ShoppingCart } from "lucide-react";
+import { Plus, Minus } from "lucide-react";
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
@@ -8,7 +7,6 @@ import SEO from "@/components/SEO";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useCart } from "@/contexts/CartContext";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ServicesGrid, AllergenInfo } from "@/components/catering/ServiceInfoCard";
 import heroImage from "@/assets/catering/pizze/hero-pizza.webp";
@@ -72,23 +70,28 @@ const allergenKey = {
 };
 
 const PizzaListItem = ({ pizza, language }: { pizza: Pizza; language: string }) => {
-  const [quantity, setQuantity] = useState(1);
-  const { addToCart, items } = useCart();
+  const { addToCart, updateQuantity, items } = useCart();
   const { formatPrice } = usePriceDisplay();
   
   const cartItem = items.find(item => item.id === pizza.id);
+  const currentQuantity = cartItem?.quantity || 0;
   const displayName = language === 'en' ? pizza.name_en : pizza.name;
   const displayDesc = language === 'en' ? pizza.description_en : pizza.description;
 
-  const handleAddToCart = () => {
+  const handleIncrease = () => {
     addToCart({
       id: pizza.id,
       name: pizza.name,
       name_en: pizza.name_en,
       price: pizza.price,
       category: 'pizza',
-    }, quantity);
-    setQuantity(1);
+    }, 1);
+  };
+
+  const handleDecrease = () => {
+    if (currentQuantity > 0) {
+      updateQuantity(pizza.id, currentQuantity - 1);
+    }
   };
 
   return (
@@ -108,11 +111,6 @@ const PizzaListItem = ({ pizza, language }: { pizza: Pizza; language: string }) 
           <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
             {displayDesc}
           </p>
-          {cartItem && (
-            <span className="inline-block text-xs text-primary mt-1">
-              {language === 'de' ? `${cartItem.quantity}x im Warenkorb` : `${cartItem.quantity}x in cart`}
-            </span>
-          )}
         </div>
         
         <div className="flex items-center gap-3 sm:gap-4">
@@ -120,55 +118,58 @@ const PizzaListItem = ({ pizza, language }: { pizza: Pizza; language: string }) 
             {formatPrice(pizza.price)}
           </span>
           
-          <div className="flex items-center gap-1 bg-muted/50 rounded-full p-1">
+          <div className={cn(
+            "flex items-center gap-1 rounded-full p-1 transition-colors",
+            currentQuantity > 0 ? "bg-primary/10" : "bg-muted/50"
+          )}>
             <button
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-background transition-colors"
+              onClick={handleDecrease}
+              disabled={currentQuantity === 0}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-background transition-colors disabled:opacity-30"
               aria-label="Decrease quantity"
             >
               <Minus className="h-3 w-3" />
             </button>
-            <span className="w-6 text-center text-sm font-medium">{quantity}</span>
+            <span className={cn(
+              "w-6 text-center text-sm font-medium",
+              currentQuantity > 0 && "text-primary"
+            )}>{currentQuantity}</span>
             <button
-              onClick={() => setQuantity(quantity + 1)}
+              onClick={handleIncrease}
               className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-background transition-colors"
               aria-label="Increase quantity"
             >
               <Plus className="h-3 w-3" />
             </button>
           </div>
-          
-          <Button
-            onClick={handleAddToCart}
-            size="sm"
-            className="rounded-full px-3"
-          >
-            <ShoppingCart className="h-4 w-4" />
-          </Button>
         </div>
       </div>
     </div>
   );
 };
-
 const PizzaPaneCard = ({ language }: { language: string }) => {
-  const [quantity, setQuantity] = useState(1);
-  const { addToCart, items } = useCart();
+  const { addToCart, updateQuantity, items } = useCart();
   const { formatPrice } = usePriceDisplay();
   
   const cartItem = items.find(item => item.id === pizzaPane.id);
+  const currentQuantity = cartItem?.quantity || 0;
   const displayName = language === 'en' ? pizzaPane.name_en : pizzaPane.name;
   const displayDesc = language === 'en' ? pizzaPane.description_en : pizzaPane.description;
 
-  const handleAddToCart = () => {
+  const handleIncrease = () => {
     addToCart({
       id: pizzaPane.id,
       name: pizzaPane.name,
       name_en: pizzaPane.name_en,
       price: pizzaPane.price,
       category: 'pizza',
-    }, quantity);
-    setQuantity(1);
+    }, 1);
+  };
+
+  const handleDecrease = () => {
+    if (currentQuantity > 0) {
+      updateQuantity(pizzaPane.id, currentQuantity - 1);
+    }
   };
 
   return (
@@ -185,37 +186,32 @@ const PizzaPaneCard = ({ language }: { language: string }) => {
           {formatPrice(pizzaPane.price)}
         </span>
         
-        <div className="flex items-center gap-2 bg-background rounded-full p-1 border border-border/50">
+        <div className={cn(
+          "flex items-center gap-2 rounded-full p-1 border transition-colors",
+          currentQuantity > 0 ? "bg-primary/10 border-primary/30" : "bg-background border-border/50"
+        )}>
           <button
-            onClick={() => setQuantity(Math.max(1, quantity - 1))}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
+            onClick={handleDecrease}
+            disabled={currentQuantity === 0}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors disabled:opacity-30"
           >
             <Minus className="h-4 w-4" />
           </button>
-          <span className="w-8 text-center font-medium">{quantity}</span>
+          <span className={cn(
+            "w-8 text-center font-medium",
+            currentQuantity > 0 && "text-primary"
+          )}>{currentQuantity}</span>
           <button
-            onClick={() => setQuantity(quantity + 1)}
+            onClick={handleIncrease}
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
           >
             <Plus className="h-4 w-4" />
           </button>
         </div>
-        
-        <Button onClick={handleAddToCart} className="rounded-full px-6">
-          <ShoppingCart className="h-4 w-4 mr-2" />
-          {language === 'de' ? 'In den Warenkorb' : 'Add to Cart'}
-        </Button>
       </div>
-      
-      {cartItem && (
-        <p className="text-center text-sm text-primary mt-3">
-          {language === 'de' ? `${cartItem.quantity}x im Warenkorb` : `${cartItem.quantity}x in cart`}
-        </p>
-      )}
     </div>
   );
 };
-
 const PizzeNapoletane = () => {
   const { language } = useLanguage();
 
