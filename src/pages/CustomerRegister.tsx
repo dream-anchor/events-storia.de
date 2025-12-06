@@ -41,9 +41,10 @@ const CustomerRegister = () => {
     }
   }, [user, loading, navigate]);
 
-  // Redirect if no order data (direct access)
+  // Redirect only if accessed directly without order data
   useEffect(() => {
-    if (!state?.orderNumber) {
+    // Allow access if coming from checkout (with email) or with orderNumber
+    if (!state?.email && !state?.orderNumber) {
       navigate('/');
     }
   }, [state, navigate]);
