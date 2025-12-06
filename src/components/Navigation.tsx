@@ -75,14 +75,8 @@ const Navigation = () => {
     { label: "DESSERTS", path: "/catering/desserts", description: "Sweet Temptations" },
   ];
 
-  // Events-Kategorie: Full-Service Angebote
-  const eventChildren: NavChild[] = language === 'de' ? [
-    { label: "FLYING BUFFET", path: "/catering/flying-buffet", description: "Service mit Stil" },
-    { label: "FESTMENÜS", path: "/catering/festmenus", description: "Mehrgängige Menüs" },
-  ] : [
-    { label: "FLYING BUFFET", path: "/catering/flying-buffet", description: "Service with Style" },
-    { label: "SET MENUS", path: "/catering/festmenus", description: "Multi-Course Menus" },
-  ];
+  // Events-Kategorie: Direkter Link zur Events-Seite
+  const eventsPath = "/events";
 
   const navItems: NavItem[] = [
     {
@@ -92,7 +86,7 @@ const Navigation = () => {
     },
     {
       label: language === 'de' ? "EVENTS IM STORIA" : "EVENTS AT STORIA",
-      children: eventChildren,
+      path: eventsPath,
       icon: <Sparkles className="h-4 w-4" />,
     },
     { label: language === 'de' ? "KONTAKT" : "CONTACT", path: "/kontakt" },
