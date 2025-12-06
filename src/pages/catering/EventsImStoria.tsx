@@ -248,19 +248,19 @@ const EventsImStoria = () => {
             <div className="flex flex-wrap justify-center items-center gap-6 md:gap-12 text-center">
               <div>
                 <span className="text-2xl md:text-3xl font-bold">100+</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Events' : 'Events'}</p>
+                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Erfolgreiche Events' : 'Successful Events'}</p>
               </div>
               <div>
                 <span className="text-2xl md:text-3xl font-bold">30+</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Jahre Erfahrung' : 'Years Experience'}</p>
+                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Jahre Familientradition' : 'Years Family Tradition'}</p>
               </div>
               <div>
                 <span className="text-2xl md:text-3xl font-bold">100</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Gäste Innen' : 'Indoor Guests'}</p>
+                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Gäste im Restaurant' : 'Guests Indoors'}</p>
               </div>
               <div>
                 <span className="text-2xl md:text-3xl font-bold">100</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Überdachte Terrasse' : 'Covered Terrace'}</p>
+                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Gäste auf Terrasse' : 'Guests on Terrace'}</p>
               </div>
             </div>
           </div>

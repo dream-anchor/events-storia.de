@@ -8,7 +8,6 @@ import auflaufImg from "@/assets/catering/auflauf/lasagna.webp";
 import pizzaImg from "@/assets/catering/pizze/hero-pizza.webp";
 import dessertsImg from "@/assets/catering/fingerfood/tiramisu.webp";
 import flyingBuffetImg from "@/assets/menschen-aussen.jpeg";
-import festmenusImg from "@/assets/weinservice.webp";
 
 interface CateringItem {
   id: string;
@@ -67,22 +66,13 @@ const cateringItems: CateringItem[] = [
     image: dessertsImg,
   },
   {
-    id: "flying-buffet",
-    titleDe: "Flying Buffet & Events",
-    titleEn: "Flying Buffet & Events",
-    descriptionDe: "Veranstaltungen im Restaurant – individuelle Menüs für Ihr Event.",
-    descriptionEn: "Events at the restaurant – custom menus for your celebration.",
-    path: "/catering/flying-buffet",
+    id: "events",
+    titleDe: "Events im Storia",
+    titleEn: "Events at Storia",
+    descriptionDe: "Private Feiern & Firmenevents – individuelle Menüs im Restaurant.",
+    descriptionEn: "Private parties & corporate events – custom menus at the restaurant.",
+    path: "/events",
     image: flyingBuffetImg,
-  },
-  {
-    id: "festmenus",
-    titleDe: "3- & 4-Gänge Festmenüs",
-    titleEn: "3 & 4 Course Set Menus",
-    descriptionDe: "Exklusive Menüs für besondere Anlässe – direkt im Restaurant.",
-    descriptionEn: "Exclusive menus for special occasions – at the restaurant.",
-    path: "/catering/festmenus",
-    image: festmenusImg,
   },
 ];
 
