@@ -1,4 +1,4 @@
-import { Check, Star } from "lucide-react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -31,20 +31,8 @@ const EventPackageCard = ({ pkg, onSelect }: EventPackageCardProps) => {
 
   return (
     <div 
-      className={`relative bg-card border rounded-xl p-6 md:p-8 transition-all duration-300 hover:shadow-lg ${
-        pkg.isRecommended 
-          ? 'border-primary ring-2 ring-primary/20 scale-[1.02]' 
-          : 'border-border/50 hover:border-primary/30'
-      }`}
+      className="relative bg-card border border-border/50 rounded-xl p-6 md:p-8 transition-all duration-300 hover:shadow-lg hover:border-primary/30 flex flex-col h-full"
     >
-      {pkg.isRecommended && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full flex items-center gap-1.5 shadow-md">
-            <Star className="h-3 w-3 fill-current" />
-            {language === 'de' ? 'Empfohlen' : 'Recommended'}
-          </span>
-        </div>
-      )}
       
       <div className="text-center mb-6">
         <h3 className="font-serif text-xl md:text-2xl font-medium mb-2">{name}</h3>
@@ -57,7 +45,7 @@ const EventPackageCard = ({ pkg, onSelect }: EventPackageCardProps) => {
         )}
       </div>
       
-      <ul className="space-y-3 mb-8">
+      <ul className="space-y-3 mb-8 flex-grow">
         {features.map((feature, index) => (
           <li key={index} className="flex items-start gap-3 text-sm">
             <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
@@ -66,13 +54,15 @@ const EventPackageCard = ({ pkg, onSelect }: EventPackageCardProps) => {
         ))}
       </ul>
       
-      <Button 
-        onClick={() => onSelect(pkg.id)}
-        variant={pkg.isRecommended ? "default" : "outline"}
-        className="w-full"
-      >
-        {language === 'de' ? 'Anfrage starten' : 'Start Inquiry'}
-      </Button>
+      <div className="mt-auto">
+        <Button 
+          onClick={() => onSelect(pkg.id)}
+          variant="outline"
+          className="w-full"
+        >
+          {language === 'de' ? 'Anfrage starten' : 'Start Inquiry'}
+        </Button>
+      </div>
     </div>
   );
 };

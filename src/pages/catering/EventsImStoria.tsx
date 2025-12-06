@@ -17,7 +17,7 @@ import { useState, useRef } from "react";
 import heroImg from "@/assets/menschen-aussen.jpeg";
 import wineImg from "@/assets/weinservice.webp";
 
-// Event Packages with Decoy Effect (Premium in middle)
+// Event Menus - Alle mit gleichen Leistungen, nur Gänge unterschiedlich
 const eventPackages = [
   {
     id: "classic",
@@ -29,15 +29,17 @@ const eventPackages = [
     description_en: "3-Course Menu",
     features: [
       "3 Gänge nach Wahl",
-      "Aperitif auf Anfrage",
-      "Bis zu 60 Gäste",
       "Persönliche Beratung",
+      "Service-Personal inklusive",
+      "Getränkeservice",
+      "Tischdekoration auf Wunsch",
     ],
     features_en: [
       "3 courses of your choice",
-      "Aperitif on request",
-      "Up to 60 guests",
       "Personal consultation",
+      "Service staff included",
+      "Beverage service",
+      "Table decoration on request",
     ],
     minGuests: 15,
   },
@@ -52,19 +54,20 @@ const eventPackages = [
     features: [
       "4 Gänge nach Wahl",
       "Aperitif mit Häppchen inklusive",
-      "Bis zu 90 Gäste",
-      "Weinempfehlung vom Sommelier",
-      "Persönlicher Event-Manager",
+      "Persönliche Beratung",
+      "Service-Personal inklusive",
+      "Getränkeservice",
+      "Tischdekoration auf Wunsch",
     ],
     features_en: [
       "4 courses of your choice",
       "Aperitif with canapés included",
-      "Up to 90 guests",
-      "Wine recommendation from sommelier",
-      "Personal event manager",
+      "Personal consultation",
+      "Service staff included",
+      "Beverage service",
+      "Table decoration on request",
     ],
-    isRecommended: true,
-    minGuests: 20,
+    minGuests: 15,
   },
   {
     id: "exklusiv",
@@ -77,20 +80,20 @@ const eventPackages = [
     features: [
       "Bis zu 9 Gänge fließend serviert",
       "Cocktail-Empfang inklusive",
-      "Bis zu 120 Gäste",
+      "Persönliche Beratung",
+      "Service-Personal inklusive",
       "Individuelle Menükreation",
       "Full-Service mit Dekoration",
-      "Exklusivnutzung möglich",
     ],
     features_en: [
       "Up to 9 courses served flowing",
       "Cocktail reception included",
-      "Up to 120 guests",
+      "Personal consultation",
+      "Service staff included",
       "Individual menu creation",
       "Full service with decoration",
-      "Exclusive use available",
     ],
-    minGuests: 30,
+    minGuests: 15,
   },
 ];
 
@@ -128,10 +131,10 @@ const eventTypes = [
 
 // Included Services
 const includedServices = [
-  { icon: Building2, titleDe: "Location", titleEn: "Venue", descDe: "Bis zu 120 Gäste", descEn: "Up to 120 guests" },
+  { icon: Building2, titleDe: "Location", titleEn: "Venue", descDe: "Bis zu 200 Gäste", descEn: "Up to 200 guests" },
   { icon: Users, titleDe: "Service-Personal", titleEn: "Service Staff", descDe: "Professionell & aufmerksam", descEn: "Professional & attentive" },
   { icon: Wine, titleDe: "Getränkeservice", titleEn: "Beverage Service", descDe: "Weinpairing möglich", descEn: "Wine pairing available" },
-  { icon: MapPin, titleDe: "Zentrale Lage", titleEn: "Central Location", descDe: "5 Min vom Hauptbahnhof", descEn: "5 min from main station" },
+  { icon: MapPin, titleDe: "Zentrale Lage", titleEn: "Central Location", descDe: "Am Königsplatz & Pinakothek", descEn: "At Königsplatz & Pinakothek" },
   { icon: ChefHat, titleDe: "Frische Küche", titleEn: "Fresh Cuisine", descDe: "Alles hausgemacht", descEn: "Everything homemade" },
   { icon: Sparkles, titleDe: "Individuelle Dekoration", titleEn: "Custom Decoration", descDe: "Auf Wunsch arrangiert", descEn: "Arranged on request" },
 ];
@@ -164,8 +167,8 @@ const exampleMenus = {
 
 // USPs
 const usps = [
-  { titleDe: "Zentrale Lage", titleEn: "Central Location", descDe: "Maxvorstadt, 5 Min vom Hauptbahnhof", descEn: "Maxvorstadt, 5 min from main station" },
-  { titleDe: "Flexible Räumlichkeiten", titleEn: "Flexible Spaces", descDe: "15 bis 120 Gäste", descEn: "15 to 120 guests" },
+  { titleDe: "Zentrale Lage", titleEn: "Central Location", descDe: "Am Königsplatz, nahe Pinakothek", descEn: "At Königsplatz, near Pinakothek" },
+  { titleDe: "Flexible Räumlichkeiten", titleEn: "Flexible Spaces", descDe: "15 bis 200 Gäste", descEn: "15 to 200 guests" },
   { titleDe: "Persönliche Betreuung", titleEn: "Personal Care", descDe: "Ein Ansprechpartner für alles", descEn: "One contact for everything" },
   { titleDe: "Authentische Küche", titleEn: "Authentic Cuisine", descDe: "Echte italienische Tradition", descEn: "Real Italian tradition" },
 ];
@@ -201,21 +204,21 @@ const EventsImStoria = () => {
             alt={language === 'de' ? "Events im STORIA Restaurant" : "Events at STORIA Restaurant"}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/30" />
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center text-white px-4 max-w-4xl">
-              <p className="text-sm md:text-base tracking-[0.3em] uppercase text-white/80 mb-4">
+              <p className="text-sm md:text-base tracking-[0.3em] uppercase text-white/80 mb-4 drop-shadow-md">
                 {language === 'de' ? 'Events im Restaurant' : 'Events at Restaurant'}
               </p>
-              <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-medium mb-6">
+              <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-medium mb-6 drop-shadow-lg [text-shadow:_0_4px_12px_rgb(0_0_0_/_50%)]">
                 {language === 'de' 
                   ? "Unvergessliche Firmenevents im Herzen Münchens"
                   : "Unforgettable Corporate Events in the Heart of Munich"}
               </h1>
-              <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto mb-8">
+              <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto mb-8 drop-shadow-md">
                 {language === 'de'
-                  ? "Authentische italienische Küche · Bis zu 120 Gäste · Nur 5 Min vom Hauptbahnhof"
-                  : "Authentic Italian Cuisine · Up to 120 Guests · Just 5 min from Main Station"}
+                  ? "Authentische italienische Küche · Bis zu 200 Gäste · Am Königsplatz & nahe der Pinakothek"
+                  : "Authentic Italian Cuisine · Up to 200 Guests · At Königsplatz & near Pinakothek"}
               </p>
               <Button 
                 size="lg" 
@@ -232,18 +235,22 @@ const EventsImStoria = () => {
         {/* Trust Bar */}
         <section className="py-6 bg-primary text-primary-foreground">
           <div className="container mx-auto px-4">
-            <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 text-center">
+            <div className="flex flex-wrap justify-center items-center gap-6 md:gap-12 text-center">
               <div>
-                <span className="text-2xl md:text-3xl font-bold">500+</span>
+                <span className="text-2xl md:text-3xl font-bold">100+</span>
                 <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Events' : 'Events'}</p>
               </div>
               <div>
-                <span className="text-2xl md:text-3xl font-bold">15+</span>
+                <span className="text-2xl md:text-3xl font-bold">30+</span>
                 <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Jahre Erfahrung' : 'Years Experience'}</p>
               </div>
               <div>
-                <span className="text-2xl md:text-3xl font-bold">120</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Gäste Kapazität' : 'Guest Capacity'}</p>
+                <span className="text-2xl md:text-3xl font-bold">100</span>
+                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Gäste Innen' : 'Indoor Guests'}</p>
+              </div>
+              <div>
+                <span className="text-2xl md:text-3xl font-bold">100</span>
+                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Gäste Terrasse' : 'Terrace Guests'}</p>
               </div>
             </div>
           </div>
@@ -286,17 +293,17 @@ const EventsImStoria = () => {
           </div>
         </section>
 
-        {/* Event Packages - Decoy Effect */}
+        {/* Event Menus */}
         <section className="py-16 md:py-20 bg-muted/30">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
               <h2 className="text-2xl md:text-3xl font-serif font-medium mb-4">
-                {language === 'de' ? "Unsere Event-Pakete" : "Our Event Packages"}
+                {language === 'de' ? "Unsere Event-Menüs" : "Our Event Menus"}
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
                 {language === 'de'
-                  ? "Wählen Sie das passende Paket für Ihren Anlass – oder lassen Sie sich individuell beraten."
-                  : "Choose the right package for your occasion – or get individual consultation."}
+                  ? "Wählen Sie das passende Menü für Ihren Anlass – oder lassen Sie sich individuell beraten."
+                  : "Choose the right menu for your occasion – or get individual consultation."}
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto items-start">
@@ -404,26 +411,29 @@ const EventsImStoria = () => {
         <EventTestimonials />
 
         {/* USPs */}
-        <section className="py-16 md:py-20">
+        <section className="py-16 md:py-20 bg-gradient-to-b from-primary/5 to-background">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
-              <h2 className="text-2xl md:text-3xl font-serif font-medium mb-4">
+              <span className="text-primary text-sm font-medium tracking-widest uppercase mb-2 block">
+                {language === 'de' ? 'Ihre Vorteile' : 'Your Benefits'}
+              </span>
+              <h2 className="text-3xl md:text-4xl font-serif font-medium">
                 {language === 'de' ? "Warum STORIA?" : "Why STORIA?"}
               </h2>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
               {usps.map((usp, index) => (
                 <div 
                   key={index}
-                  className="text-center p-4"
+                  className="text-center p-6 bg-card border border-border/50 rounded-xl shadow-sm hover:shadow-md transition-shadow"
                 >
-                  <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Check className="h-5 w-5 text-primary" />
+                  <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary flex items-center justify-center">
+                    <Check className="h-6 w-6 text-primary-foreground" />
                   </div>
-                  <h3 className="font-medium text-sm mb-1">
+                  <h3 className="font-medium text-base mb-2">
                     {language === 'de' ? usp.titleDe : usp.titleEn}
                   </h3>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     {language === 'de' ? usp.descDe : usp.descEn}
                   </p>
                 </div>

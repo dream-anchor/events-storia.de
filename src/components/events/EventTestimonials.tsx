@@ -13,24 +13,24 @@ interface Testimonial {
 const testimonials: Testimonial[] = [
   {
     id: "1",
-    name: "Dr. Michael Weber",
-    company: "Siemens AG",
+    name: "M. W.",
+    company: "Technologieunternehmen",
     text: "Unsere Weihnachtsfeier im STORIA war ein voller Erfolg. Das Flying Buffet war exquisit und der Service erstklassig. Unsere 80 Mitarbeiter waren begeistert!",
     text_en: "Our Christmas party at STORIA was a complete success. The flying buffet was exquisite and the service was first-class. Our 80 employees were thrilled!",
     rating: 5
   },
   {
     id: "2",
-    name: "Sandra Hoffmann",
-    company: "BMW Group",
+    name: "S. H.",
+    company: "Automobilkonzern",
     text: "Zum dritten Mal haben wir unser Team-Event hier gefeiert. Die individuelle Menügestaltung und die herzliche Betreuung machen den Unterschied. Absolute Empfehlung!",
     text_en: "For the third time, we celebrated our team event here. The individual menu design and warm care make the difference. Absolute recommendation!",
     rating: 5
   },
   {
     id: "3",
-    name: "Thomas Berger",
-    company: "Allianz SE",
+    name: "T. B.",
+    company: "Versicherungsunternehmen",
     text: "Perfekte Location für unser Kundenevent. Die zentrale Lage, authentische italienische Küche und professioneller Service – alles top!",
     text_en: "Perfect location for our client event. The central location, authentic Italian cuisine and professional service – everything top!",
     rating: 5
