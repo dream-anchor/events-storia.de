@@ -16,6 +16,7 @@ import { useState, useRef } from "react";
 
 import heroImg from "@/assets/menschen-aussen.jpeg";
 import wineImg from "@/assets/weinservice.webp";
+import terrasseImg from "@/assets/terrasse-blumen.webp";
 
 // Event Menus - Alle mit gleichen Leistungen, nur Gänge unterschiedlich
 const eventPackages = [
@@ -390,11 +391,23 @@ const EventsImStoria = () => {
         {/* Included Services */}
         <section className="py-16 md:py-20 bg-muted/30">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
+            <div className="text-center mb-8">
               <h2 className="text-2xl md:text-3xl font-serif font-medium mb-4">
                 {language === 'de' ? "Willkommen im Storia" : "Welcome to Storia"}
               </h2>
             </div>
+            
+            {/* Terrassen-Bild */}
+            <div className="max-w-4xl mx-auto mb-12">
+              <img 
+                src={terrasseImg} 
+                alt={language === 'de' 
+                  ? "Überdachte Terrasse mit Blumendekoration" 
+                  : "Covered terrace with flower decoration"}
+                className="w-full h-64 md:h-80 object-cover rounded-xl shadow-lg"
+              />
+            </div>
+            
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 max-w-4xl mx-auto">
               {includedServices.map((service, index) => {
                 const Icon = service.icon;
