@@ -125,7 +125,7 @@ const Checkout = () => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [addressDebounce, setAddressDebounce] = useState<NodeJS.Timeout | null>(null);
   const [dateTimeWarning, setDateTimeWarning] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'invoice' | 'stripe'>('invoice');
+  const [paymentMethod, setPaymentMethod] = useState<'invoice' | 'stripe'>('stripe');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [newsletterSignup, setNewsletterSignup] = useState(true);
@@ -658,7 +658,7 @@ const Checkout = () => {
             return (
               <div key={item.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
                 {item.image && (
-                  <img src={item.image} alt={name} className="w-10 h-10 rounded object-cover" />
+                  <img src={item.image} alt={name} className="w-14 h-14 rounded-lg object-cover" />
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{name}</p>
@@ -781,8 +781,8 @@ const Checkout = () => {
                 ? `Jetzt bezahlen · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`
                 : `Pay Now · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`)
             : (language === 'de' 
-                ? `Anfragen · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`
-                : `Submit · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`)}
+                ? `Jetzt bestellen · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`
+                : `Order Now · ${showGross ? formatPrice(grandTotal) : formatPrice(totalNet, 0)}`)}
       </Button>
 
       {/* Trust Elements */}
@@ -797,9 +797,20 @@ const Checkout = () => {
                 ? 'Weiterleitung zu Stripe für sichere Zahlung'
                 : 'Redirect to Stripe for secure payment')
             : (language === 'de' 
-                ? 'Unverbindliche Anfrage – Zahlung per Rechnung'
-                : 'Non-binding request – payment by invoice')}
+                ? 'Verbindliche Bestellung – Zahlung per Rechnung'
+                : 'Binding order – payment by invoice')}
         </p>
+        
+        {/* Trust Bar with Payment Logos */}
+        <div className="flex items-center justify-center gap-3 pt-3 border-t border-border">
+          <div className="flex items-center gap-1.5 text-muted-foreground/70">
+            <svg viewBox="0 0 24 24" className="h-6 w-auto" fill="currentColor"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm0 2v2h16V6H4zm0 6v6h16v-6H4zm2 2h4v2H6v-2zm6 0h2v2h-2v-2z"/></svg>
+            <svg viewBox="0 0 24 24" className="h-5 w-auto" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          </div>
+          <span className="text-[10px] text-muted-foreground/70 tracking-wide uppercase">
+            {language === 'de' ? '100+ erfolgreiche Caterings' : '100+ successful caterings'}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -844,7 +855,7 @@ const Checkout = () => {
                             return (
                               <div key={item.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
                                 {item.image && (
-                                  <img src={item.image} alt={name} className="w-10 h-10 rounded object-cover" />
+                                  <img src={item.image} alt={name} className="w-14 h-14 rounded-lg object-cover" />
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm truncate">{name}</p>
@@ -1540,8 +1551,8 @@ const Checkout = () => {
                               ? `Jetzt bezahlen · ${grandTotal.toFixed(2).replace('.', ',')} €`
                               : `Pay Now · €${grandTotal.toFixed(2)}`)
                           : (language === 'de' 
-                              ? `Anfragen · ${grandTotal.toFixed(2).replace('.', ',')} €`
-                              : `Submit · €${grandTotal.toFixed(2)}`)}
+                              ? `Jetzt bestellen · ${grandTotal.toFixed(2).replace('.', ',')} €`
+                              : `Order Now · €${grandTotal.toFixed(2)}`)}
                     </Button>
                     <div className="text-center space-y-1">
                       <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
@@ -1554,9 +1565,15 @@ const Checkout = () => {
                               ? 'Weiterleitung zu Stripe für sichere Zahlung'
                               : 'Redirect to Stripe for secure payment')
                           : (language === 'de' 
-                              ? 'Unverbindliche Anfrage – Zahlung per Rechnung'
-                              : 'Non-binding request – payment by invoice')}
+                              ? 'Verbindliche Bestellung – Zahlung per Rechnung'
+                              : 'Binding order – payment by invoice')}
                       </p>
+                      {/* Trust Bar */}
+                      <div className="flex items-center justify-center gap-2 pt-2">
+                        <span className="text-[10px] text-muted-foreground/70 tracking-wide uppercase">
+                          {language === 'de' ? '100+ erfolgreiche Caterings' : '100+ successful caterings'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
