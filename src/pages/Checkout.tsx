@@ -646,7 +646,7 @@ const Checkout = () => {
 
   // Cart Summary Component (used in sticky sidebar on desktop)
   const CartSummary = ({ showItems = false }: { showItems?: boolean }) => (
-    <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+    <div className="bg-card border border-border rounded-xl p-5 space-y-4 lg:min-h-[380px]">
       <h2 className="font-serif text-lg flex items-center gap-2">
         {language === 'de' ? 'Ihre Bestellung' : 'Your Order'}
       </h2>
