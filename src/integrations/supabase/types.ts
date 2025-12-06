@@ -28,9 +28,14 @@ export type Database = {
           customer_name: string
           customer_phone: string
           delivery_address: string | null
+          delivery_city: string | null
           delivery_cost: number | null
+          delivery_floor: string | null
+          delivery_street: string | null
+          delivery_zip: string | null
           desired_date: string | null
           desired_time: string | null
+          has_elevator: boolean | null
           id: string
           is_pickup: boolean | null
           items: Json
@@ -59,9 +64,14 @@ export type Database = {
           customer_name: string
           customer_phone: string
           delivery_address?: string | null
+          delivery_city?: string | null
           delivery_cost?: number | null
+          delivery_floor?: string | null
+          delivery_street?: string | null
+          delivery_zip?: string | null
           desired_date?: string | null
           desired_time?: string | null
+          has_elevator?: boolean | null
           id?: string
           is_pickup?: boolean | null
           items: Json
@@ -90,9 +100,14 @@ export type Database = {
           customer_name?: string
           customer_phone?: string
           delivery_address?: string | null
+          delivery_city?: string | null
           delivery_cost?: number | null
+          delivery_floor?: string | null
+          delivery_street?: string | null
+          delivery_zip?: string | null
           desired_date?: string | null
           desired_time?: string | null
+          has_elevator?: boolean | null
           id?: string
           is_pickup?: boolean | null
           items?: Json
@@ -121,9 +136,11 @@ export type Database = {
           created_at: string | null
           delivery_city: string | null
           delivery_country: string | null
+          delivery_floor: string | null
           delivery_street: string | null
           delivery_zip: string | null
           email: string | null
+          has_elevator: boolean | null
           id: string
           name: string | null
           phone: string | null
@@ -140,9 +157,11 @@ export type Database = {
           created_at?: string | null
           delivery_city?: string | null
           delivery_country?: string | null
+          delivery_floor?: string | null
           delivery_street?: string | null
           delivery_zip?: string | null
           email?: string | null
+          has_elevator?: boolean | null
           id?: string
           name?: string | null
           phone?: string | null
@@ -159,9 +178,11 @@ export type Database = {
           created_at?: string | null
           delivery_city?: string | null
           delivery_country?: string | null
+          delivery_floor?: string | null
           delivery_street?: string | null
           delivery_zip?: string | null
           email?: string | null
+          has_elevator?: boolean | null
           id?: string
           name?: string | null
           phone?: string | null
