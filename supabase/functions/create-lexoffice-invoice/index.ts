@@ -234,9 +234,9 @@ serve(async (req) => {
 
     const documentPayload: Record<string, unknown> = {
       voucherDate: today,
-      // Quotations require expirationDate
+      // Quotations require expirationDate - LexOffice needs full ISO 8601 format
       ...(documentType === 'quotation' && { 
-        expirationDate: expirationDate.toISOString().split('T')[0] // YYYY-MM-DD format
+        expirationDate: expirationDate.toISOString()
       }),
       lineItems,
       totalPrice: { currency: 'EUR' },
