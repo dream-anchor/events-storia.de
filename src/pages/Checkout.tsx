@@ -11,7 +11,7 @@ import { useCustomerAuth } from '@/hooks/useCustomerAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/textarea'; // Keep for notes field
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -103,7 +103,12 @@ const Checkout = () => {
     phone: '',
     company: '',
     deliveryType: 'delivery',
-    address: '',
+    // Structured delivery address
+    deliveryStreet: '',
+    deliveryZip: '',
+    deliveryCity: '',
+    deliveryFloor: '',
+    hasElevator: false,
     date: '',
     time: '',
     notes: '',
@@ -149,9 +154,11 @@ const Checkout = () => {
         email: prev.email || profile.email || '',
         phone: prev.phone || profile.phone || '',
         company: prev.company || profile.company || '',
-        address: prev.address || (profile.delivery_street 
-          ? `${profile.delivery_street}\n${profile.delivery_zip} ${profile.delivery_city}`
-          : ''),
+        deliveryStreet: prev.deliveryStreet || profile.delivery_street || '',
+        deliveryZip: prev.deliveryZip || profile.delivery_zip || '',
+        deliveryCity: prev.deliveryCity || profile.delivery_city || '',
+        deliveryFloor: prev.deliveryFloor || profile.delivery_floor || '',
+        hasElevator: prev.hasElevator || profile.has_elevator || false,
         billingName: prev.billingName || profile.billing_name || '',
         billingStreet: prev.billingStreet || profile.billing_street || '',
         billingZip: prev.billingZip || profile.billing_zip || '',
@@ -197,10 +204,15 @@ const Checkout = () => {
     }
   }, []);
 
-  // Debounced address change handler
-  const handleAddressChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newAddress = e.target.value;
-    setFormData(prev => ({ ...prev, address: newAddress }));
+  // Compose full address from structured fields
+  const fullDeliveryAddress = `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}`.trim();
+
+  // Debounced address calculation when fields change
+  useEffect(() => {
+    if (formData.deliveryType !== 'delivery') return;
+    
+    const address = `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}`;
+    if (address.trim().length < 10) return;
 
     // Clear previous timeout
     if (addressDebounce) {
@@ -209,22 +221,22 @@ const Checkout = () => {
 
     // Set new debounced calculation
     const timeout = setTimeout(() => {
-      if (formData.deliveryType === 'delivery') {
-        calculateDelivery(newAddress, isPizzaOnly);
-      }
+      calculateDelivery(address, isPizzaOnly);
     }, 1000);
 
     setAddressDebounce(timeout);
-  };
+    
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [formData.deliveryStreet, formData.deliveryZip, formData.deliveryCity, formData.deliveryType, isPizzaOnly]);
 
-  // Recalculate when switching to delivery or when cart changes (pizza vs non-pizza)
+  // Reset delivery calc when switching to pickup
   useEffect(() => {
-    if (formData.deliveryType === 'delivery' && formData.address.length >= 10) {
-      calculateDelivery(formData.address, isPizzaOnly);
-    } else {
+    if (formData.deliveryType === 'pickup') {
       setDeliveryCalc(null);
     }
-  }, [formData.deliveryType, isPizzaOnly]);
+  }, [formData.deliveryType]);
 
   // Handle Stripe payment redirect feedback and create LexOffice invoice for paid orders
   useEffect(() => {
@@ -472,9 +484,9 @@ const Checkout = () => {
     const billingAddress = !needsBillingAddress && formData.deliveryType === 'delivery'
       ? {
           name: formData.company || formData.name,
-          street: formData.address.split('\n')[0] || formData.address,
-          zip: '',
-          city: '',
+          street: formData.deliveryStreet,
+          zip: formData.deliveryZip,
+          city: formData.deliveryCity,
           country: 'Deutschland'
         }
       : {
@@ -499,7 +511,14 @@ const Checkout = () => {
           customer_email: formData.email,
           customer_phone: formData.phone,
           company_name: formData.company || null,
-          delivery_address: formData.deliveryType === 'delivery' ? formData.address : null,
+          // Structured delivery address
+          delivery_street: formData.deliveryType === 'delivery' ? formData.deliveryStreet : null,
+          delivery_zip: formData.deliveryType === 'delivery' ? formData.deliveryZip : null,
+          delivery_city: formData.deliveryType === 'delivery' ? formData.deliveryCity : null,
+          delivery_floor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : null,
+          has_elevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
+          // Composite address for backward compatibility
+          delivery_address: formData.deliveryType === 'delivery' ? fullDeliveryAddress : null,
           is_pickup: formData.deliveryType === 'pickup',
           desired_date: formData.date || null,
           desired_time: formData.time || null,
@@ -538,7 +557,7 @@ const Checkout = () => {
             customerEmail: formData.email,
             customerPhone: formData.phone,
             companyName: formData.company || undefined,
-            deliveryAddress: formData.deliveryType === 'delivery' ? formData.address : undefined,
+            deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
             isPickup: formData.deliveryType === 'pickup',
             desiredDate: formData.date || undefined,
             desiredTime: formData.time || undefined,
@@ -602,7 +621,7 @@ const Checkout = () => {
               // NEW: Additional order details
               desiredDate: formData.date || undefined,
               desiredTime: formData.time || undefined,
-              deliveryAddress: formData.deliveryType === 'delivery' ? formData.address : undefined,
+              deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
               notes: fullNotes || undefined,
               paymentMethod: paymentMethod
             }
@@ -658,7 +677,7 @@ const Checkout = () => {
           // NEW: Additional order details for LexOffice invoice after payment
           desiredDate: formData.date || undefined,
           desiredTime: formData.time || undefined,
-          deliveryAddress: formData.deliveryType === 'delivery' ? formData.address : undefined,
+          deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
           notes: fullNotes || undefined,
           paymentMethod: 'stripe' as const
         };
@@ -700,7 +719,7 @@ const Checkout = () => {
                   })),
                   deliveryType: formData.deliveryType,
                   deliveryAddress: formData.deliveryType === 'delivery' 
-                    ? formData.address 
+                    ? `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}${formData.deliveryFloor ? ` (${formData.deliveryFloor}${formData.hasElevator ? ', Aufzug' : ''})` : ''}`
                     : null,
                   date: formData.date,
                   time: formData.time,
@@ -749,7 +768,7 @@ const Checkout = () => {
                 })),
                 deliveryType: formData.deliveryType,
                 deliveryAddress: formData.deliveryType === 'delivery' 
-                  ? formData.address 
+                  ? `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}${formData.deliveryFloor ? ` (${formData.deliveryFloor}${formData.hasElevator ? ', Aufzug' : ''})` : ''}`
                   : null,
                 date: formData.date,
                 time: formData.time,
@@ -783,7 +802,7 @@ const Checkout = () => {
             })),
             deliveryType: formData.deliveryType,
             deliveryAddress: formData.deliveryType === 'delivery' 
-              ? formData.address 
+              ? `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}${formData.deliveryFloor ? ` (${formData.deliveryFloor}${formData.hasElevator ? ', Aufzug' : ''})` : ''}`
               : null,
             date: formData.date,
             time: formData.time,
@@ -1326,21 +1345,90 @@ const Checkout = () => {
                     {/* Delivery Address */}
                     {formData.deliveryType === 'delivery' && (
                       <>
-                        <div className="mb-4">
-                          <Label htmlFor="address" className="flex items-center gap-1">
+                        <div className="space-y-4 mb-4">
+                          <Label className="flex items-center gap-1 mb-2">
                             <MapPin className="h-4 w-4" />
-                            {language === 'de' ? 'Lieferadresse' : 'Delivery Address'} *
+                            {language === 'de' ? 'Lieferadresse' : 'Delivery Address'}
                           </Label>
-                          <Textarea
-                            id="address"
-                            name="address"
-                            value={formData.address}
-                            onChange={handleAddressChange}
-                            required={formData.deliveryType === 'delivery'}
-                            className="mt-1"
-                            rows={2}
-                            placeholder={language === 'de' ? 'Straße, Hausnummer, PLZ, Stadt' : 'Street, house number, postal code, city'}
-                          />
+                          
+                          {/* Street + Number */}
+                          <div>
+                            <Label htmlFor="deliveryStreet" className="text-sm">
+                              {language === 'de' ? 'Straße + Hausnummer' : 'Street + Number'} *
+                            </Label>
+                            <Input
+                              id="deliveryStreet"
+                              name="deliveryStreet"
+                              value={formData.deliveryStreet}
+                              onChange={handleInputChange}
+                              required={formData.deliveryType === 'delivery'}
+                              placeholder={language === 'de' ? 'z.B. Karlstraße 47a' : 'e.g. Karlstrasse 47a'}
+                              className="mt-1"
+                            />
+                          </div>
+                          
+                          {/* ZIP + City */}
+                          <div className="grid grid-cols-[100px_1fr] gap-3">
+                            <div>
+                              <Label htmlFor="deliveryZip" className="text-sm">
+                                {language === 'de' ? 'PLZ' : 'ZIP'} *
+                              </Label>
+                              <Input
+                                id="deliveryZip"
+                                name="deliveryZip"
+                                value={formData.deliveryZip}
+                                onChange={handleInputChange}
+                                required={formData.deliveryType === 'delivery'}
+                                placeholder="80333"
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="deliveryCity" className="text-sm">
+                                {language === 'de' ? 'Ort' : 'City'} *
+                              </Label>
+                              <Input
+                                id="deliveryCity"
+                                name="deliveryCity"
+                                value={formData.deliveryCity}
+                                onChange={handleInputChange}
+                                required={formData.deliveryType === 'delivery'}
+                                placeholder="München"
+                                className="mt-1"
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Floor + Elevator */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="deliveryFloor" className="text-sm">
+                                {language === 'de' ? 'Stockwerk' : 'Floor'} <span className="text-muted-foreground text-xs">({language === 'de' ? 'optional' : 'optional'})</span>
+                              </Label>
+                              <Input
+                                id="deliveryFloor"
+                                name="deliveryFloor"
+                                value={formData.deliveryFloor}
+                                onChange={handleInputChange}
+                                placeholder={language === 'de' ? 'z.B. 3. OG' : 'e.g. 3rd floor'}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div className="flex items-end pb-2">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  id="hasElevator"
+                                  checked={formData.hasElevator}
+                                  onCheckedChange={(checked) => 
+                                    setFormData(prev => ({ ...prev, hasElevator: checked as boolean }))
+                                  }
+                                />
+                                <Label htmlFor="hasElevator" className="cursor-pointer text-sm">
+                                  {language === 'de' ? 'Aufzug vorhanden' : 'Elevator available'}
+                                </Label>
+                              </div>
+                            </div>
+                          </div>
                         </div>
 
                         {/* Delivery Calculation Result */}
@@ -1438,7 +1526,7 @@ const Checkout = () => {
                           </div>
                         )}
 
-                        {!deliveryCalc && !isCalculating && formData.address.length < 10 && (
+                        {!deliveryCalc && !isCalculating && fullDeliveryAddress.length < 10 && (
                           <div className="bg-muted/50 rounded-lg p-4 mb-4">
                             <div className="flex items-start gap-3">
                               <Info className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />

@@ -13,6 +13,8 @@ export interface CustomerProfile {
   delivery_city: string | null;
   delivery_zip: string | null;
   delivery_country: string | null;
+  delivery_floor: string | null;
+  has_elevator: boolean | null;
   billing_name: string | null;
   billing_street: string | null;
   billing_city: string | null;
