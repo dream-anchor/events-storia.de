@@ -621,6 +621,10 @@ const Checkout = () => {
             console.log('Lexoffice quotation skipped:', invoiceResponse.data.reason);
           } else {
             console.log('Lexoffice quotation created:', invoiceResponse.data?.documentId);
+            // Use the new order number from LexOffice response
+            if (invoiceResponse.data?.orderNumber) {
+              setOrderNumber(invoiceResponse.data.orderNumber);
+            }
           }
         } catch (invoiceError) {
           console.warn('Lexoffice quotation error:', invoiceError);

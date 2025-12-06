@@ -336,6 +336,33 @@ export type Database = {
         }
         Relationships: []
       }
+      order_number_sequences: {
+        Row: {
+          created_at: string | null
+          current_number: number
+          id: string
+          prefix: string
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          current_number?: number
+          id?: string
+          prefix: string
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          current_number?: number
+          id?: string
+          prefix?: string
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -362,6 +389,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_next_order_number: {
+        Args: { p_prefix: string; p_year: number }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

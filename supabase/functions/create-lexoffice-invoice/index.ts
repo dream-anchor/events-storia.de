@@ -41,7 +41,7 @@ interface InvoiceRequest {
   // Document type - 'quotation' for unpaid, 'invoice' for paid orders
   documentType?: 'quotation' | 'invoice';
   isPaid?: boolean;
-  // NEW: Additional order details for document
+  // Additional order details for document
   desiredDate?: string;
   desiredTime?: string;
   deliveryAddress?: string;
@@ -62,6 +62,41 @@ const formatDateDE = (dateStr: string): string => {
   if (!dateStr) return '';
   const [year, month, day] = dateStr.split('-');
   return `${day}.${month}.${year}`;
+};
+
+// Generate order number using database sequence
+// Format: EVENTS-ANGEBOT-DD-MM-YYYY-XXX or EVENTS-RECHNUNG-DD-MM-YYYY-XXX
+const generateOrderNumber = async (
+  supabase: any, 
+  isInvoice: boolean,
+  date: Date
+): Promise<string> => {
+  const prefix = isInvoice ? 'RECHNUNG' : 'ANGEBOT';
+  const year = date.getFullYear();
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  
+  try {
+    // Get next number from sequence using raw query (RPC typing issue)
+    const { data, error } = await supabase.rpc('get_next_order_number', {
+      p_prefix: prefix,
+      p_year: year
+    } as any);
+    
+    if (error) {
+      logStep('Error getting next order number, using fallback', { error: error.message });
+      // Fallback: use timestamp-based number
+      const fallbackNum = Math.floor(Date.now() / 1000) % 1000 + 100;
+      return `EVENTS-${prefix}-${day}-${month}-${year}-${fallbackNum}`;
+    }
+    
+    const sequenceNum = data || 100;
+    return `EVENTS-${prefix}-${day}-${month}-${year}-${sequenceNum}`;
+  } catch (err) {
+    logStep('Exception getting next order number', { error: String(err) });
+    const fallbackNum = Math.floor(Date.now() / 1000) % 1000 + 100;
+    return `EVENTS-${prefix}-${day}-${month}-${year}-${fallbackNum}`;
+  }
 };
 
 serve(async (req) => {
@@ -88,23 +123,45 @@ serve(async (req) => {
   try {
     const body: InvoiceRequest = await req.json();
     
+    // Initialize Supabase client for updating order and generating order number
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
     // Determine document type: default to 'quotation' for unpaid orders
     const documentType = body.documentType || 'quotation';
     const isInvoice = documentType === 'invoice';
     
+    // Generate new-format order number if the old format is used
+    let orderNumber = body.orderNumber;
+    const isOldFormat = orderNumber.startsWith('STO-');
+    
+    if (isOldFormat) {
+      // Generate new order number with format EVENTS-ANGEBOT/RECHNUNG-DD-MM-YYYY-XXX
+      orderNumber = await generateOrderNumber(supabase, isInvoice, new Date());
+      logStep('Generated new order number', { oldNumber: body.orderNumber, newNumber: orderNumber });
+      
+      // Update the order in database with new order number
+      if (body.orderId) {
+        const { error: updateNumError } = await supabase
+          .from('catering_orders')
+          .update({ order_number: orderNumber })
+          .eq('id', body.orderId);
+        
+        if (updateNumError) {
+          logStep('Failed to update order number in database', { error: updateNumError });
+        }
+      }
+    }
+    
     logStep('Creating Lexoffice document', { 
-      orderNumber: body.orderNumber, 
+      orderNumber, 
       documentType,
       isPaid: body.isPaid,
       desiredDate: body.desiredDate,
       desiredTime: body.desiredTime,
       paymentMethod: body.paymentMethod
     });
-
-    // Initialize Supabase client for updating order
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Step 1: Create or find contact in Lexoffice
     const contactPayload = {
@@ -263,8 +320,8 @@ serve(async (req) => {
     const buildRemark = (): string => {
       const lines: string[] = [];
       
-      // Order number
-      lines.push(`Bestellnummer: ${body.orderNumber}`);
+      // Order number (use the new generated number)
+      lines.push(`Bestellnummer: ${orderNumber}`);
       lines.push('');
       
       // Payment method
@@ -438,6 +495,7 @@ serve(async (req) => {
         documentId,
         documentType,
         contactId,
+        orderNumber, // Return the (potentially new) order number
         message: `Lexoffice ${documentType} created and email sent to customer`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
