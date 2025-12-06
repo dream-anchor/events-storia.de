@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { 
   Building2, Users, Wine, MapPin, ChefHat, Sparkles,
   PartyPopper, Briefcase, Heart, Calendar, Phone, ArrowDown,
-  Check, Leaf
+  Check, Leaf, Music
 } from "lucide-react";
 import { useState, useRef } from "react";
 
@@ -29,6 +29,7 @@ const eventPackages = [
     description_en: "3-Course Menu",
     features: [
       "3 Gänge nach Wahl",
+      "Individuelle Menükreation",
       "Persönliche Beratung",
       "Service-Personal inklusive",
       "Getränkeservice",
@@ -36,6 +37,7 @@ const eventPackages = [
     ],
     features_en: [
       "3 courses of your choice",
+      "Individual menu creation",
       "Personal consultation",
       "Service staff included",
       "Beverage service",
@@ -54,6 +56,7 @@ const eventPackages = [
     features: [
       "4 Gänge nach Wahl",
       "Aperitif mit Häppchen inklusive",
+      "Individuelle Menükreation",
       "Persönliche Beratung",
       "Service-Personal inklusive",
       "Getränkeservice",
@@ -62,6 +65,7 @@ const eventPackages = [
     features_en: [
       "4 courses of your choice",
       "Aperitif with canapés included",
+      "Individual menu creation",
       "Personal consultation",
       "Service staff included",
       "Beverage service",
@@ -80,18 +84,18 @@ const eventPackages = [
     features: [
       "Bis zu 9 Gänge fließend serviert",
       "Cocktail-Empfang inklusive",
+      "Individuelle Menükreation",
       "Persönliche Beratung",
       "Service-Personal inklusive",
-      "Individuelle Menükreation",
-      "Full-Service mit Dekoration",
+      "Tischdekoration auf Wunsch",
     ],
     features_en: [
       "Up to 9 courses served flowing",
       "Cocktail reception included",
+      "Individual menu creation",
       "Personal consultation",
       "Service staff included",
-      "Individual menu creation",
-      "Full service with decoration",
+      "Table decoration on request",
     ],
     minGuests: 15,
   },
@@ -134,9 +138,10 @@ const includedServices = [
   { icon: Building2, titleDe: "Location", titleEn: "Venue", descDe: "Bis zu 200 Gäste", descEn: "Up to 200 guests" },
   { icon: Users, titleDe: "Service-Personal", titleEn: "Service Staff", descDe: "Professionell & aufmerksam", descEn: "Professional & attentive" },
   { icon: Wine, titleDe: "Getränkeservice", titleEn: "Beverage Service", descDe: "Weinpairing möglich", descEn: "Wine pairing available" },
-  { icon: MapPin, titleDe: "Zentrale Lage", titleEn: "Central Location", descDe: "Am Königsplatz & Pinakothek", descEn: "At Königsplatz & Pinakothek" },
+  { icon: MapPin, titleDe: "Zentrale Lage", titleEn: "Central Location", descDe: "Nähe Königsplatz & Pinakothek", descEn: "Near Königsplatz & Pinakothek" },
   { icon: ChefHat, titleDe: "Frische Küche", titleEn: "Fresh Cuisine", descDe: "Alles hausgemacht", descEn: "Everything homemade" },
-  { icon: Sparkles, titleDe: "Individuelle Dekoration", titleEn: "Custom Decoration", descDe: "Auf Wunsch arrangiert", descEn: "Arranged on request" },
+  { icon: Sparkles, titleDe: "Tischdekoration", titleEn: "Table Decoration", descDe: "Auf Wunsch arrangiert", descEn: "Arranged on request" },
+  { icon: Music, titleDe: "DJ-Pult", titleEn: "DJ Booth", descDe: "Auf Wunsch verfügbar", descEn: "Available on request" },
 ];
 
 // Example Menus (from Festmenus)
@@ -167,8 +172,8 @@ const exampleMenus = {
 
 // USPs
 const usps = [
-  { titleDe: "Zentrale Lage", titleEn: "Central Location", descDe: "Am Königsplatz, nahe Pinakothek", descEn: "At Königsplatz, near Pinakothek" },
-  { titleDe: "Flexible Räumlichkeiten", titleEn: "Flexible Spaces", descDe: "15 bis 200 Gäste", descEn: "15 to 200 guests" },
+  { titleDe: "Zentrale Lage", titleEn: "Central Location", descDe: "Nähe Königsplatz & Pinakothek", descEn: "Near Königsplatz & Pinakothek" },
+  { titleDe: "Flexible Räumlichkeiten", titleEn: "Flexible Spaces", descDe: "Innen & überdachte Terrasse", descEn: "Indoor & covered terrace" },
   { titleDe: "Persönliche Betreuung", titleEn: "Personal Care", descDe: "Ein Ansprechpartner für alles", descEn: "One contact for everything" },
   { titleDe: "Authentische Küche", titleEn: "Authentic Cuisine", descDe: "Echte italienische Tradition", descEn: "Real Italian tradition" },
 ];
@@ -254,7 +259,7 @@ const EventsImStoria = () => {
               </div>
               <div>
                 <span className="text-2xl md:text-3xl font-bold">100</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Gäste Terrasse' : 'Terrace Guests'}</p>
+                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Überdachte Terrasse' : 'Covered Terrace'}</p>
               </div>
             </div>
           </div>
@@ -451,17 +456,12 @@ const EventsImStoria = () => {
           <EventContactForm preselectedPackage={selectedPackage} />
         </div>
 
-        {/* Urgency Footer CTA */}
+        {/* Footer CTA */}
         <section className="py-12 bg-primary text-primary-foreground">
           <div className="container mx-auto px-4 text-center">
-            <p className="text-lg md:text-xl font-medium mb-4">
+            <p className="text-lg md:text-xl font-medium mb-6">
               {language === 'de' 
-                ? "Beliebte Termine für 2025 buchen schnell aus!" 
-                : "Popular dates for 2025 book up quickly!"}
-            </p>
-            <p className="text-primary-foreground/80 mb-6">
-              {language === 'de'
-                ? "Sichern Sie sich jetzt Ihren Wunschtermin"
+                ? "Sichern Sie sich jetzt Ihren Wunschtermin" 
                 : "Secure your preferred date now"}
             </p>
             <Button 
