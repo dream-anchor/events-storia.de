@@ -204,21 +204,25 @@ const EventsImStoria = () => {
             alt={language === 'de' ? "Events im STORIA Restaurant" : "Events at STORIA Restaurant"}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/30" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center text-white px-4 max-w-4xl">
-              <p className="text-sm md:text-base tracking-[0.3em] uppercase text-white/80 mb-4 drop-shadow-md">
+          {/* Multi-Layer Gradient for depth */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/40" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_rgba(0,0,0,0.4)_100%)]" />
+          
+          {/* Glassmorphism Text Container */}
+          <div className="absolute inset-0 flex items-center justify-center px-4">
+            <div className="text-center max-w-4xl backdrop-blur-md bg-black/30 rounded-2xl border border-white/10 px-8 py-10 md:px-12 md:py-14">
+              <p className="text-sm md:text-base tracking-[0.3em] uppercase text-white/90 mb-4">
                 {language === 'de' ? 'Events im Restaurant' : 'Events at Restaurant'}
               </p>
-              <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-medium mb-6 drop-shadow-lg [text-shadow:_0_4px_12px_rgb(0_0_0_/_50%)]">
+              <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-medium mb-6 text-white">
                 {language === 'de' 
                   ? "Unvergessliche Firmenevents im Herzen Münchens"
                   : "Unforgettable Corporate Events in the Heart of Munich"}
               </h1>
-              <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto mb-8 drop-shadow-md">
+              <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto mb-8">
                 {language === 'de'
-                  ? "Authentische italienische Küche · Bis zu 200 Gäste · Am Königsplatz & nahe der Pinakothek"
-                  : "Authentic Italian Cuisine · Up to 200 Guests · At Königsplatz & near Pinakothek"}
+                  ? "Authentische italienische Küche · Bis zu 200 Gäste · Nähe Königsplatz & Pinakothek"
+                  : "Authentic Italian Cuisine · Up to 200 Guests · Near Königsplatz & Pinakothek"}
               </p>
               <Button 
                 size="lg" 
