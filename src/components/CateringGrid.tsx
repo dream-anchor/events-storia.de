@@ -93,7 +93,7 @@ const CateringCard = ({ item, language }: { item: CateringItem; language: string
   return (
     <Link 
       to={item.path}
-      className="group relative overflow-hidden rounded-xl aspect-[4/3] block shadow-lg hover:shadow-xl transition-all duration-300"
+      className="group relative overflow-hidden aspect-[4:3] block shadow-lg hover:shadow-xl transition-all duration-300"
     >
       {/* Bild mit Zoom-Effekt */}
       <img
