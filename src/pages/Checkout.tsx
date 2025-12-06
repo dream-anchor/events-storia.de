@@ -135,12 +135,7 @@ const Checkout = () => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [newsletterSignup, setNewsletterSignup] = useState(true);
   
-  // Account creation after order
-  // Account creation after order
-  const [showAccountPrompt, setShowAccountPrompt] = useState(false);
-  const [accountPassword, setAccountPassword] = useState('');
-  const [accountPasswordConfirm, setAccountPasswordConfirm] = useState('');
-  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  // Account creation moved to separate page /kunde/registrieren
 
   // Calculate current checkout step for progress indicator
   const currentStep = useMemo(() => {
@@ -1762,7 +1757,7 @@ const Checkout = () => {
           </DialogHeader>
 
           {/* Account Creation Prompt - nur für Gäste */}
-          {!user && !showAccountPrompt && (
+          {!user && (
             <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border/50">
               <p className="text-sm text-center text-muted-foreground mb-3">
                 {language === 'de' 
@@ -1770,104 +1765,18 @@ const Checkout = () => {
                   : 'Would you like to create an account? View your orders and checkout faster.'}
               </p>
               <Button 
-                onClick={() => setShowAccountPrompt(true)}
+                onClick={() => {
+                  setShowSuccess(false);
+                  navigate('/kunde/registrieren', { 
+                    state: { email: formData.email, name: formData.name, orderNumber } 
+                  });
+                }}
                 variant="outline"
                 className="w-full"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
                 {language === 'de' ? 'Konto erstellen' : 'Create Account'}
               </Button>
-            </div>
-          )}
-
-          {/* Account Creation Form */}
-          {!user && showAccountPrompt && (
-            <div className="mt-4 space-y-4">
-              <div className="p-3 bg-muted/30 rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  {language === 'de' ? 'E-Mail:' : 'Email:'}{' '}
-                  <span className="font-medium text-foreground">{formData.email}</span>
-                </p>
-              </div>
-              
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="account-password" className="text-sm flex items-center gap-1">
-                    <Lock className="h-3.5 w-3.5" />
-                    {language === 'de' ? 'Passwort wählen' : 'Choose Password'}
-                  </Label>
-                  <Input
-                    id="account-password"
-                    type="password"
-                    value={accountPassword}
-                    onChange={(e) => setAccountPassword(e.target.value)}
-                    placeholder={language === 'de' ? 'Mind. 6 Zeichen' : 'Min. 6 characters'}
-                    className="mt-1"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="account-password-confirm" className="text-sm flex items-center gap-1">
-                    <Lock className="h-3.5 w-3.5" />
-                    {language === 'de' ? 'Passwort bestätigen' : 'Confirm Password'}
-                  </Label>
-                  <Input
-                    id="account-password-confirm"
-                    type="password"
-                    value={accountPasswordConfirm}
-                    onChange={(e) => setAccountPasswordConfirm(e.target.value)}
-                    placeholder={language === 'de' ? 'Passwort wiederholen' : 'Repeat password'}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-              
-              <div className="flex gap-2">
-                <Button 
-                  onClick={async () => {
-                    // Validierung
-                    if (!accountPassword || accountPassword.length < 6) {
-                      toast.error(language === 'de' ? 'Passwort muss mindestens 6 Zeichen haben' : 'Password must be at least 6 characters');
-                      return;
-                    }
-                    if (accountPassword !== accountPasswordConfirm) {
-                      toast.error(language === 'de' ? 'Passwörter stimmen nicht überein' : 'Passwords do not match');
-                      return;
-                    }
-                    
-                    setIsCreatingAccount(true);
-                    try {
-                      const { error } = await signup(formData.email, accountPassword, formData.name);
-                      if (error) {
-                        if (error.message.includes('already registered')) {
-                          toast.error(language === 'de' ? 'Diese E-Mail ist bereits registriert' : 'This email is already registered');
-                        } else {
-                          toast.error(language === 'de' ? 'Fehler bei der Kontoerstellung' : 'Account creation failed');
-                        }
-                        return;
-                      }
-                      toast.success(language === 'de' ? 'Konto erstellt! Bitte bestätigen Sie Ihre E-Mail.' : 'Account created! Please confirm your email.');
-                      setShowAccountPrompt(false);
-                    } catch (err) {
-                      toast.error(language === 'de' ? 'Ein Fehler ist aufgetreten' : 'An error occurred');
-                    } finally {
-                      setIsCreatingAccount(false);
-                    }
-                  }}
-                  disabled={isCreatingAccount}
-                  className="flex-1"
-                >
-                  {isCreatingAccount 
-                    ? (language === 'de' ? 'Wird erstellt...' : 'Creating...') 
-                    : (language === 'de' ? 'Konto erstellen' : 'Create Account')}
-                </Button>
-                <Button 
-                  variant="ghost"
-                  onClick={() => setShowAccountPrompt(false)}
-                >
-                  {language === 'de' ? 'Nein danke' : 'No thanks'}
-                </Button>
-              </div>
             </div>
           )}
 
