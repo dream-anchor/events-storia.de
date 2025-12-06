@@ -1,4 +1,4 @@
-import { ShieldCheck, Clock, Truck, Award } from "lucide-react";
+import { ShieldCheck, Award } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 
@@ -16,12 +16,6 @@ const TrustBadges = ({ className, variant = 'horizontal' }: TrustBadgesProps) =>
       labelDe: 'Sichere Zahlung',
       labelEn: 'Secure Payment',
       color: 'text-green-600'
-    },
-    {
-      icon: Clock,
-      labelDe: 'Kostenlose Stornierung bis 24h',
-      labelEn: 'Free cancellation up to 24h',
-      color: 'text-blue-600'
     },
     {
       icon: Award,
