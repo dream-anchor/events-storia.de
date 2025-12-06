@@ -687,7 +687,31 @@ const Checkout = () => {
             // Still navigate to success since order was created
             clearCart();
             navigate('/kunde/registrieren', { 
-              state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
+              state: { 
+                email: formData.email, 
+                name: formData.name, 
+                orderNumber: newOrderNumber,
+                orderDetails: {
+                  items: items.map(item => ({
+                    name: item.name,
+                    name_en: item.name_en,
+                    quantity: item.quantity,
+                    price: item.price,
+                    total: item.price * item.quantity
+                  })),
+                  deliveryType: formData.deliveryType,
+                  deliveryAddress: formData.deliveryType === 'delivery' 
+                    ? formData.address 
+                    : null,
+                  date: formData.date,
+                  time: formData.time,
+                  subtotal: totalPrice,
+                  deliveryCost: deliveryCalc?.deliveryCostGross || 0,
+                  grandTotal: grandTotal,
+                  paymentMethod: paymentMethod,
+                  company: formData.company
+                }
+              },
               replace: true
             });
             return;
@@ -712,7 +736,31 @@ const Checkout = () => {
           // Still navigate to success since order was created
           clearCart();
           navigate('/kunde/registrieren', { 
-            state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
+            state: { 
+              email: formData.email, 
+              name: formData.name, 
+              orderNumber: newOrderNumber,
+              orderDetails: {
+                items: items.map(item => ({
+                  name: item.name,
+                  name_en: item.name_en,
+                  quantity: item.quantity,
+                  price: item.price,
+                  total: item.price * item.quantity
+                })),
+                deliveryType: formData.deliveryType,
+                deliveryAddress: formData.deliveryType === 'delivery' 
+                  ? formData.address 
+                  : null,
+                date: formData.date,
+                time: formData.time,
+                subtotal: totalPrice,
+                deliveryCost: deliveryCalc?.deliveryCostGross || 0,
+                grandTotal: grandTotal,
+                paymentMethod: paymentMethod,
+                company: formData.company
+              }
+            },
             replace: true
           });
           return;
@@ -722,7 +770,31 @@ const Checkout = () => {
       // Navigate directly to success page
       clearCart();
       navigate('/kunde/registrieren', { 
-        state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
+        state: { 
+          email: formData.email, 
+          name: formData.name, 
+          orderNumber: newOrderNumber,
+          orderDetails: {
+            items: items.map(item => ({
+              name: item.name,
+              name_en: item.name_en,
+              quantity: item.quantity,
+              price: item.price,
+              total: item.price * item.quantity
+            })),
+            deliveryType: formData.deliveryType,
+            deliveryAddress: formData.deliveryType === 'delivery' 
+              ? formData.address 
+              : null,
+            date: formData.date,
+            time: formData.time,
+            subtotal: totalPrice,
+            deliveryCost: deliveryCalc?.deliveryCostGross || 0,
+            grandTotal: grandTotal,
+            paymentMethod: paymentMethod,
+            company: formData.company
+          }
+        },
         replace: true
       });
     } catch (error) {
