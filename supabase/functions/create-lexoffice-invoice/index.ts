@@ -38,9 +38,15 @@ interface InvoiceRequest {
   distanceKm?: number;
   grandTotal: number;
   isPickup: boolean;
-  // NEW: Document type - 'quotation' for unpaid, 'invoice' for paid orders
+  // Document type - 'quotation' for unpaid, 'invoice' for paid orders
   documentType?: 'quotation' | 'invoice';
   isPaid?: boolean;
+  // NEW: Additional order details for document
+  desiredDate?: string;
+  desiredTime?: string;
+  deliveryAddress?: string;
+  notes?: string;
+  paymentMethod?: 'invoice' | 'stripe';
 }
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
@@ -50,6 +56,13 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
 
 // Round to 2 decimal places for currency values (LexOffice requires max 4 decimals)
 const roundCurrency = (value: number): number => Math.round(value * 100) / 100;
+
+// Format date for German display (DD.MM.YYYY)
+const formatDateDE = (dateStr: string): string => {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}.${month}.${year}`;
+};
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -82,7 +95,10 @@ serve(async (req) => {
     logStep('Creating Lexoffice document', { 
       orderNumber: body.orderNumber, 
       documentType,
-      isPaid: body.isPaid 
+      isPaid: body.isPaid,
+      desiredDate: body.desiredDate,
+      desiredTime: body.desiredTime,
+      paymentMethod: body.paymentMethod
     });
 
     // Initialize Supabase client for updating order
@@ -203,7 +219,107 @@ serve(async (req) => {
       });
     }
 
-    // Step 3: Create document (quotation or invoice)
+    // Step 3: Build introduction and remark with all order details
+    const buildIntroduction = (): string => {
+      const lines: string[] = [];
+      
+      if (isInvoice) {
+        lines.push('Vielen Dank für Ihre Bestellung und Zahlung bei STORIA Events!');
+      } else {
+        lines.push('Vielen Dank für Ihre Bestellung bei STORIA Events!');
+      }
+      
+      lines.push('');
+      
+      // Delivery/Pickup date and time
+      if (body.desiredDate || body.desiredTime) {
+        const dateStr = body.desiredDate ? formatDateDE(body.desiredDate) : '';
+        const timeStr = body.desiredTime || '';
+        if (dateStr && timeStr) {
+          lines.push(`📅 Termin: ${dateStr} um ${timeStr} Uhr`);
+        } else if (dateStr) {
+          lines.push(`📅 Datum: ${dateStr}`);
+        } else if (timeStr) {
+          lines.push(`🕐 Uhrzeit: ${timeStr} Uhr`);
+        }
+      }
+      
+      // Delivery address or pickup
+      if (body.isPickup) {
+        lines.push('📍 Abholung im Restaurant');
+        lines.push('   STORIA, Karlstr. 47a, 80333 München');
+      } else if (body.deliveryAddress) {
+        lines.push('📍 Lieferadresse:');
+        // Handle multi-line address
+        const addressLines = body.deliveryAddress.split('\n').filter(l => l.trim());
+        addressLines.forEach(line => {
+          lines.push(`   ${line.trim()}`);
+        });
+      }
+      
+      return lines.join('\n');
+    };
+    
+    const buildRemark = (): string => {
+      const lines: string[] = [];
+      
+      // Order number
+      lines.push(`Bestellnummer: ${body.orderNumber}`);
+      lines.push('');
+      
+      // Payment method
+      if (body.paymentMethod) {
+        const paymentLabel = body.paymentMethod === 'stripe' 
+          ? 'Per Kreditkarte/Online bezahlt' 
+          : 'Auf Rechnung (Zahlungsziel: 14 Tage)';
+        lines.push(`💳 Zahlungsart: ${paymentLabel}`);
+        if (isInvoice && body.isPaid) {
+          lines.push('✅ Status: Bereits bezahlt');
+        }
+        lines.push('');
+      }
+      
+      // Customer notes (includes setup service info)
+      if (body.notes && body.notes.trim()) {
+        lines.push('📝 Anmerkungen des Kunden:');
+        const noteLines = body.notes.split('\n').filter(l => l.trim());
+        noteLines.forEach(line => {
+          lines.push(`   ${line.trim()}`);
+        });
+        lines.push('');
+      }
+      
+      // Billing address (if different from delivery)
+      if (body.billingAddress && body.billingAddress.street) {
+        const hasBillingInfo = body.billingAddress.name || body.billingAddress.street;
+        if (hasBillingInfo) {
+          lines.push('🧾 Rechnungsadresse:');
+          if (body.billingAddress.name) {
+            lines.push(`   ${body.billingAddress.name}`);
+          }
+          if (body.billingAddress.street) {
+            lines.push(`   ${body.billingAddress.street}`);
+          }
+          if (body.billingAddress.zip || body.billingAddress.city) {
+            lines.push(`   ${body.billingAddress.zip} ${body.billingAddress.city}`.trim());
+          }
+          lines.push('');
+        }
+      }
+      
+      // Document validity note
+      if (!isInvoice) {
+        lines.push('Dieses Angebot ist 14 Tage gültig.');
+      }
+      
+      // Services included
+      lines.push('');
+      lines.push('ℹ️ Hinweis: Reinigung des Geschirrs ist im Preis inbegriffen.');
+      
+      return lines.join('\n');
+    };
+
+    // Step 4: Create document (quotation or invoice)
     // LexOffice requires full ISO 8601 datetime format
     const today = new Date().toISOString();
     
@@ -212,24 +328,17 @@ serve(async (req) => {
     expirationDate.setDate(expirationDate.getDate() + 14);
     
     // Configure document-specific settings
-    const documentConfig = isInvoice 
+    const introduction = buildIntroduction();
+    const remark = buildRemark();
+    
+    const paymentConditions = isInvoice 
       ? {
-          title: 'Catering-Rechnung',
-          introduction: 'Vielen Dank für Ihre Bestellung und Zahlung bei STORIA Events!',
-          remark: `Bestellnummer: ${body.orderNumber}\n\nDiese Rechnung wurde bereits bezahlt.`,
-          paymentConditions: {
-            paymentTermLabel: 'Bereits bezahlt - Vielen Dank!',
-            paymentTermDuration: 0
-          }
+          paymentTermLabel: 'Bereits bezahlt - Vielen Dank!',
+          paymentTermDuration: 0
         }
       : {
-          title: 'Catering-Angebot',
-          introduction: 'Vielen Dank für Ihre Anfrage bei STORIA Events! Nachfolgend finden Sie unser Angebot.',
-          remark: `Bestellnummer: ${body.orderNumber}\n\nDieses Angebot ist 14 Tage gültig.`,
-          paymentConditions: {
-            paymentTermLabel: 'Zahlbar innerhalb von 14 Tagen nach Rechnungseingang',
-            paymentTermDuration: 14
-          }
+          paymentTermLabel: 'Zahlbar innerhalb von 14 Tagen nach Rechnungseingang',
+          paymentTermDuration: 14
         };
 
     const documentPayload: Record<string, unknown> = {
@@ -241,10 +350,10 @@ serve(async (req) => {
       lineItems,
       totalPrice: { currency: 'EUR' },
       taxConditions: { taxType: 'net' },
-      title: documentConfig.title,
-      introduction: documentConfig.introduction,
-      remark: documentConfig.remark,
-      paymentConditions: documentConfig.paymentConditions
+      title: isInvoice ? 'Catering-Rechnung' : 'Catering-Angebot',
+      introduction,
+      remark,
+      paymentConditions
     };
 
     // Use contact ID if available, otherwise use address directly
@@ -298,7 +407,7 @@ serve(async (req) => {
     const documentId = documentData.id;
     logStep('Document created', { documentId, documentType });
 
-    // Step 4: Update order with Lexoffice IDs and document type
+    // Step 5: Update order with Lexoffice IDs and document type
     if (body.orderId) {
       const updateData: Record<string, unknown> = {
         lexoffice_invoice_id: documentId,
