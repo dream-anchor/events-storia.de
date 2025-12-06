@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { 
   Building2, Users, Wine, MapPin, ChefHat, Sparkles,
   PartyPopper, Briefcase, Heart, Calendar, Phone, ArrowDown,
-  Check, Leaf, Music
+  Check, Leaf, Music, Umbrella
 } from "lucide-react";
 import { useState, useRef } from "react";
 
@@ -32,7 +32,7 @@ const eventPackages = [
       "Individuelle Menükreation",
       "Persönliche Beratung",
       "Service-Personal inklusive",
-      "Getränkeservice",
+      "Weinpairing möglich",
       "Tischdekoration auf Wunsch",
     ],
     features_en: [
@@ -40,7 +40,7 @@ const eventPackages = [
       "Individual menu creation",
       "Personal consultation",
       "Service staff included",
-      "Beverage service",
+      "Wine pairing available",
       "Table decoration on request",
     ],
     minGuests: 15,
@@ -59,7 +59,7 @@ const eventPackages = [
       "Individuelle Menükreation",
       "Persönliche Beratung",
       "Service-Personal inklusive",
-      "Getränkeservice",
+      "Weinpairing möglich",
       "Tischdekoration auf Wunsch",
     ],
     features_en: [
@@ -68,7 +68,7 @@ const eventPackages = [
       "Individual menu creation",
       "Personal consultation",
       "Service staff included",
-      "Beverage service",
+      "Wine pairing available",
       "Table decoration on request",
     ],
     minGuests: 15,
@@ -135,11 +135,12 @@ const eventTypes = [
 
 // Included Services
 const includedServices = [
-  { icon: Building2, titleDe: "Location", titleEn: "Venue", descDe: "Bis zu 200 Gäste", descEn: "Up to 200 guests" },
+  { icon: Building2, titleDe: "Location", titleEn: "Venue", descDe: "Bis zu 100 Gäste innen", descEn: "Up to 100 guests indoors" },
+  { icon: Umbrella, titleDe: "Überdachte Terrasse", titleEn: "Covered Terrace", descDe: "Bis zu 100 Gäste", descEn: "Up to 100 guests" },
   { icon: Users, titleDe: "Service-Personal", titleEn: "Service Staff", descDe: "Professionell & aufmerksam", descEn: "Professional & attentive" },
-  { icon: Wine, titleDe: "Getränkeservice", titleEn: "Beverage Service", descDe: "Weinpairing möglich", descEn: "Wine pairing available" },
+  { icon: Wine, titleDe: "Weinpairing", titleEn: "Wine Pairing", descDe: "Passend zu jedem Gang", descEn: "Paired with every course" },
   { icon: MapPin, titleDe: "Zentrale Lage", titleEn: "Central Location", descDe: "Nähe Königsplatz & Pinakothek", descEn: "Near Königsplatz & Pinakothek" },
-  { icon: ChefHat, titleDe: "Frische Küche", titleEn: "Fresh Cuisine", descDe: "Alles hausgemacht", descEn: "Everything homemade" },
+  { icon: ChefHat, titleDe: "Cilento-Küche", titleEn: "Cilento Cuisine", descDe: "Aus dem UNESCO-Naturschutzgebiet", descEn: "From the UNESCO nature reserve" },
   { icon: Sparkles, titleDe: "Tischdekoration", titleEn: "Table Decoration", descDe: "Auf Wunsch arrangiert", descEn: "Arranged on request" },
   { icon: Music, titleDe: "DJ-Pult", titleEn: "DJ Booth", descDe: "Auf Wunsch verfügbar", descEn: "Available on request" },
 ];
