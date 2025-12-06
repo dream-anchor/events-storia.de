@@ -204,8 +204,19 @@ const Checkout = () => {
     }
   }, []);
 
-  // Compose full address from structured fields
-  const fullDeliveryAddress = `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}`.trim();
+  // Compose full address from structured fields (including floor and elevator for LexOffice)
+  const fullDeliveryAddress = (() => {
+    let address = `${formData.deliveryStreet}\n${formData.deliveryZip} ${formData.deliveryCity}`;
+    if (formData.deliveryFloor) {
+      address += `\nStockwerk: ${formData.deliveryFloor}`;
+    }
+    if (formData.hasElevator) {
+      address += `\n(Aufzug vorhanden)`;
+    } else if (formData.deliveryFloor) {
+      address += `\n(Kein Aufzug)`;
+    }
+    return address.trim();
+  })();
 
   // Debounced address calculation when fields change
   useEffect(() => {
