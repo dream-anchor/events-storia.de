@@ -1165,6 +1165,19 @@ const Checkout = () => {
                           {language === 'de' ? 'Beliebt' : 'Popular'}
                         </span>
                       </label>
+                      
+                      {/* Stripe Trust Notice */}
+                      {paymentMethod === 'stripe' && (
+                        <div className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                          <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                          <p className="text-sm text-green-700 dark:text-green-300">
+                            {language === 'de' 
+                              ? 'Sichere Zahlung per Stripe – Ihre Daten bleiben geschützt. Wir speichern keine Zahlungsinformationen.'
+                              : 'Secure payment via Stripe – Your data stays protected. We do not store payment information.'}
+                          </p>
+                        </div>
+                      )}
+                      
                       {/* Invoice Option */}
                       <label className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
                         <input
