@@ -83,12 +83,6 @@ const DessertCard = ({ item, language }: { item: DessertItem; language: string }
     
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 2000);
-    
-    toast.success(
-      language === 'de' 
-        ? `${quantity}x ${name} zum Warenkorb hinzugefügt`
-        : `${quantity}x ${name} added to cart`
-    );
   };
 
   return (
