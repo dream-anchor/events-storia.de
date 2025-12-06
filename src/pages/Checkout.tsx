@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
@@ -15,10 +15,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText, LogIn, Lock } from 'lucide-react';
+import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText, LogIn, Lock, PartyPopper } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import ProgressSteps from '@/components/checkout/ProgressSteps';
+import TimeSlotPicker from '@/components/checkout/TimeSlotPicker';
+import StickyMobileCTA from '@/components/checkout/StickyMobileCTA';
+import TrustBadges from '@/components/checkout/TrustBadges';
+import PaymentLogos from '@/components/checkout/PaymentLogos';
 
 interface DeliveryCalculation {
   distanceKm: number;
@@ -131,10 +136,20 @@ const Checkout = () => {
   const [newsletterSignup, setNewsletterSignup] = useState(true);
   
   // Account creation after order
+  // Account creation after order
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [accountPassword, setAccountPassword] = useState('');
   const [accountPasswordConfirm, setAccountPasswordConfirm] = useState('');
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+
+  // Calculate current checkout step for progress indicator
+  const currentStep = useMemo(() => {
+    const hasContact = formData.name && formData.email && formData.phone;
+    const hasPayment = paymentMethod;
+    if (!hasContact) return 1;
+    if (!hasPayment) return 2;
+    return 2; // Still on payment/form step until submit
+  }, [formData.name, formData.email, formData.phone, paymentMethod]);
 
   // Pre-fill form with customer profile data
   useEffect(() => {
@@ -873,11 +888,22 @@ const Checkout = () => {
         <Header />
         <Navigation />
         
-        <main className="flex-1 container mx-auto px-4 py-6 md:py-10">
+        <main className="flex-1 container mx-auto px-4 py-6 md:py-10 pb-32 lg:pb-10">
           <div className="max-w-6xl mx-auto">
+            {/* Progress Steps */}
+            <ProgressSteps currentStep={currentStep} className="mb-6 max-w-md mx-auto" />
+            
             <h1 className="text-2xl md:text-3xl font-serif font-medium mb-4 text-center lg:col-span-full">
               {language === 'de' ? 'Bestellung aufgeben' : 'Place Your Order'}
             </h1>
+            
+            {/* Motivational Text */}
+            <p className="text-center text-muted-foreground mb-6">
+              <PartyPopper className="inline h-4 w-4 mr-1" />
+              {language === 'de' 
+                ? 'Fast geschafft – nur noch wenige Angaben!' 
+                : 'Almost done – just a few more details!'}
+            </p>
 
             <form onSubmit={handleSubmit}>
               {/* Two-Column Layout: Form left, Sticky Cart right on desktop */}
@@ -972,6 +998,7 @@ const Checkout = () => {
                         <Input
                           id="name"
                           name="name"
+                          autoComplete="name"
                           value={formData.name}
                           onChange={handleInputChange}
                           required
@@ -984,6 +1011,7 @@ const Checkout = () => {
                           id="email"
                           name="email"
                           type="email"
+                          autoComplete="email"
                           value={formData.email}
                           onChange={handleInputChange}
                           onBlur={(e) => {
@@ -1021,6 +1049,7 @@ const Checkout = () => {
                           id="phone"
                           name="phone"
                           type="tel"
+                          autoComplete="tel"
                           value={formData.phone}
                           onChange={handleInputChange}
                           required
@@ -1032,6 +1061,7 @@ const Checkout = () => {
                         <Input
                           id="company"
                           name="company"
+                          autoComplete="organization"
                           value={formData.company}
                           onChange={handleInputChange}
                           className="mt-1"
@@ -1041,7 +1071,62 @@ const Checkout = () => {
                     
                   </section>
 
-                  {/* Section 2: Delivery/Pickup + Date/Time (Combined) */}
+                  {/* Section 2: Payment Method (MOVED UP) */}
+                  <section className="bg-card border border-border rounded-xl p-4 md:p-6 ring-2 ring-primary/20">
+                    <h2 className="font-serif text-lg mb-4 flex items-center gap-2">
+                      <CreditCard className="h-5 w-5 text-primary" />
+                      {language === 'de' ? 'Zahlungsart' : 'Payment Method'}
+                    </h2>
+                    <div className="space-y-3">
+                      {/* Stripe - Primary Option */}
+                      <label className="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-accent/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5 relative">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="stripe"
+                          checked={paymentMethod === 'stripe'}
+                          onChange={() => setPaymentMethod('stripe')}
+                          className="h-4 w-4 text-primary"
+                        />
+                        <CreditCard className="h-5 w-5 text-muted-foreground" />
+                        <div className="flex-1">
+                          <p className="font-medium">{language === 'de' ? 'Sofort bezahlen' : 'Pay Now'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'de' 
+                              ? 'Kreditkarte, Apple Pay, Google Pay' 
+                              : 'Credit card, Apple Pay, Google Pay'}
+                          </p>
+                        </div>
+                        <span className="absolute top-2 right-2 text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-medium">
+                          {language === 'de' ? 'Beliebt' : 'Popular'}
+                        </span>
+                      </label>
+                      {/* Invoice Option */}
+                      <label className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="invoice"
+                          checked={paymentMethod === 'invoice'}
+                          onChange={() => setPaymentMethod('invoice')}
+                          className="h-4 w-4 text-primary"
+                        />
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{language === 'de' ? 'Rechnung' : 'Invoice'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'de' 
+                              ? 'Zahlung nach Erhalt der Rechnung' 
+                              : 'Payment after receiving invoice'}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                    {/* Payment Logos */}
+                    <PaymentLogos className="mt-4 pt-4 border-t border-border" />
+                  </section>
+
+                  {/* Section 3: Delivery/Pickup + Date/Time (Combined) */}
                   <section className="bg-card border border-border rounded-xl p-4 md:p-6">
                     <h2 className="font-serif text-lg mb-4 flex items-center gap-2">
                       <Truck className="h-5 w-5 text-primary" />
@@ -1280,19 +1365,16 @@ const Checkout = () => {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="time" className="flex items-center gap-1 text-sm">
+                          <Label htmlFor="time" className="flex items-center gap-1 text-sm mb-2">
                             <Clock className="h-3.5 w-3.5" />
                             {language === 'de' ? 'Uhrzeit *' : 'Time *'}
                           </Label>
-                          <Input
-                            id="time"
-                            name="time"
-                            type="time"
+                          <TimeSlotPicker
                             value={formData.time}
-                            onChange={handleInputChange}
-                            className="mt-1"
-                            required
+                            onChange={(time) => setFormData(prev => ({ ...prev, time }))}
                           />
+                          {/* Hidden input for form validation */}
+                          <input type="hidden" name="time" value={formData.time} required />
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
@@ -1521,109 +1603,34 @@ const Checkout = () => {
                     )}
                   </section>
 
-                  {/* Section 4: Payment Method */}
-                  <section className="bg-card border border-border rounded-xl p-4 md:p-6">
-                    <h2 className="font-serif text-lg mb-4">
-                      {language === 'de' ? 'Zahlungsart' : 'Payment Method'}
-                    </h2>
-                    <div className="space-y-3">
-                      <label className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value="invoice"
-                          checked={paymentMethod === 'invoice'}
-                          onChange={() => setPaymentMethod('invoice')}
-                          className="h-4 w-4 text-primary"
+                  {/* Notes Section (Collapsible) */}
+                  <Collapsible defaultOpen={false}>
+                    <section className="bg-card border border-border rounded-xl p-4 md:p-6">
+                      <CollapsibleTrigger className="flex items-center justify-between w-full">
+                        <h2 className="font-serif text-lg">
+                          {language === 'de' ? 'Anmerkungen (optional)' : 'Notes (optional)'}
+                        </h2>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-4">
+                        <Textarea
+                          name="notes"
+                          value={formData.notes}
+                          onChange={handleInputChange}
+                          placeholder={language === 'de' 
+                            ? 'Besondere Wünsche, Allergien, etc.'
+                            : 'Special requests, allergies, etc.'}
+                          rows={3}
                         />
-                        <FileText className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium">{language === 'de' ? 'Rechnung' : 'Invoice'}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {language === 'de' 
-                              ? 'Zahlung nach Erhalt der Rechnung' 
-                              : 'Payment after receiving invoice'}
-                          </p>
-                        </div>
-                      </label>
-                      <label className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value="stripe"
-                          checked={paymentMethod === 'stripe'}
-                          onChange={() => setPaymentMethod('stripe')}
-                          className="h-4 w-4 text-primary"
-                        />
-                        <CreditCard className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium">{language === 'de' ? 'Sofort bezahlen' : 'Pay Now'}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {language === 'de' 
-                              ? 'Kreditkarte, Apple Pay, Google Pay' 
-                              : 'Credit card, Apple Pay, Google Pay'}
-                          </p>
-                        </div>
-                      </label>
-                    </div>
-                  </section>
+                      </CollapsibleContent>
+                    </section>
+                  </Collapsible>
 
-                  {/* Section 5: Notes */}
-                  <section className="bg-card border border-border rounded-xl p-4 md:p-6">
-                    <h2 className="font-serif text-lg mb-4">
-                      {language === 'de' ? 'Anmerkungen (optional)' : 'Notes (optional)'}
-                    </h2>
-                    <Textarea
-                      name="notes"
-                      value={formData.notes}
-                      onChange={handleInputChange}
-                      placeholder={language === 'de' 
-                        ? 'Besondere Wünsche, Allergien, etc.'
-                        : 'Special requests, allergies, etc.'}
-                      rows={3}
-                    />
-                  </section>
-
-                  {/* Mobile Submit (hidden on desktop) */}
-                  <div className="lg:hidden space-y-4 pt-2">
-                    <Button 
-                      type="submit" 
-                      size="lg" 
-                      className="w-full text-base py-6 font-semibold shadow-lg"
-                      disabled={isSubmitting || isProcessingPayment}
-                    >
-                      {(isSubmitting || isProcessingPayment)
-                        ? (language === 'de' ? 'Wird verarbeitet...' : 'Processing...')
-                        : paymentMethod === 'stripe'
-                          ? (language === 'de' 
-                              ? `Jetzt bezahlen · ${grandTotal.toFixed(2).replace('.', ',')} €`
-                              : `Pay Now · €${grandTotal.toFixed(2)}`)
-                          : (language === 'de' 
-                              ? `Jetzt bestellen · ${grandTotal.toFixed(2).replace('.', ',')} €`
-                              : `Order Now · €${grandTotal.toFixed(2)}`)}
-                    </Button>
-                    <div className="text-center space-y-1">
-                      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        <span>{language === 'de' ? 'Sichere Übertragung' : 'Secure transmission'}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {paymentMethod === 'stripe'
-                          ? (language === 'de' 
-                              ? 'Weiterleitung zu Stripe für sichere Zahlung'
-                              : 'Redirect to Stripe for secure payment')
-                          : (language === 'de' 
-                              ? 'Verbindliche Bestellung – Zahlung per Rechnung'
-                              : 'Binding order – payment by invoice')}
-                      </p>
-                      {/* Trust Bar */}
-                      <div className="flex items-center justify-center gap-2 pt-2">
-                        <span className="text-[10px] text-muted-foreground/70 tracking-wide uppercase">
-                          {language === 'de' ? '100+ erfolgreiche Caterings' : '100+ successful caterings'}
-                        </span>
-                      </div>
-                    </div>
+                  {/* Trust Badges (Desktop) */}
+                  <div className="hidden lg:block">
+                    <TrustBadges variant="horizontal" />
                   </div>
+
                 </div>
 
                 {/* Right Column: Sticky Cart (Desktop only) */}
@@ -1632,6 +1639,19 @@ const Checkout = () => {
                 </div>
               </div>
             </form>
+
+            {/* Mobile Sticky CTA */}
+            <StickyMobileCTA
+              totalAmount={grandTotal}
+              isSubmitting={isSubmitting || isProcessingPayment}
+              paymentMethod={paymentMethod}
+              onSubmit={() => {
+                const form = document.querySelector('form');
+                if (form) {
+                  form.requestSubmit();
+                }
+              }}
+            />
           </div>
         </main>
         
