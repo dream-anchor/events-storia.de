@@ -1591,7 +1591,18 @@ const Checkout = () => {
       </div>
 
       {/* Success Dialog */}
-      <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
+      <Dialog open={showSuccess} onOpenChange={(open) => {
+        if (!open && !user) {
+          // Guest: redirect to registration page
+          navigate('/kunde/registrieren', { 
+            state: { email: formData.email, name: formData.name, orderNumber } 
+          });
+        } else if (!open) {
+          // Logged-in user: go home
+          navigate('/');
+        }
+        setShowSuccess(open);
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex justify-center mb-4">
@@ -1726,8 +1737,21 @@ const Checkout = () => {
           )}
 
           <div className="flex justify-center mt-4">
-            <Button onClick={() => navigate('/')} variant="outline">
-              {language === 'de' ? 'Zur Startseite' : 'Back to Home'}
+            <Button 
+              onClick={() => {
+                if (!user) {
+                  navigate('/kunde/registrieren', { 
+                    state: { email: formData.email, name: formData.name, orderNumber } 
+                  });
+                } else {
+                  navigate('/');
+                }
+              }} 
+              variant="outline"
+            >
+              {!user 
+                ? (language === 'de' ? 'Weiter' : 'Continue')
+                : (language === 'de' ? 'Zur Startseite' : 'Back to Home')}
             </Button>
           </div>
         </DialogContent>
