@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useState, useRef } from "react";
 
-import heroImg from "@/assets/menschen-aussen.jpeg";
+import heroImg from "@/assets/events/firmenfeier-2.webp";
 import wineImg from "@/assets/weinservice.webp";
 import terrasseImg from "@/assets/terrasse-blumen.webp";
 
@@ -287,11 +287,11 @@ const EventsImStoria = () => {
               </div>
               <div>
                 <span className="text-2xl md:text-3xl font-bold">100</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Gäste im Restaurant' : 'Guests Indoors'}</p>
+                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Innensitzplätze' : 'Indoor Seats'}</p>
               </div>
               <div>
                 <span className="text-2xl md:text-3xl font-bold">100</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Gäste auf Terrasse' : 'Guests on Terrace'}</p>
+                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'überdachte Außensitzplätze' : 'Covered Outdoor Seats'}</p>
               </div>
             </div>
           </div>
