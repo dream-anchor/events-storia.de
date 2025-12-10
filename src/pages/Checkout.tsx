@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { z } from 'zod';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
@@ -24,6 +25,23 @@ import ProgressSteps from '@/components/checkout/ProgressSteps';
 import StickyMobileCTA from '@/components/checkout/StickyMobileCTA';
 import TrustBadges from '@/components/checkout/TrustBadges';
 import PaymentLogos from '@/components/checkout/PaymentLogos';
+
+// Zod schema for checkout form validation with length limits (security)
+const checkoutSchema = z.object({
+  name: z.string().min(2, 'Name zu kurz').max(100, 'Name zu lang'),
+  email: z.string().email('Ungültige E-Mail').max(255, 'E-Mail zu lang'),
+  phone: z.string().min(5, 'Telefonnummer zu kurz').max(30, 'Telefonnummer zu lang'),
+  company: z.string().max(100, 'Firmenname zu lang').optional().or(z.literal('')),
+  deliveryStreet: z.string().max(200, 'Straße zu lang').optional().or(z.literal('')),
+  deliveryZip: z.string().max(10, 'PLZ zu lang').optional().or(z.literal('')),
+  deliveryCity: z.string().max(100, 'Stadt zu lang').optional().or(z.literal('')),
+  deliveryFloor: z.string().max(50, 'Stockwerk zu lang').optional().or(z.literal('')),
+  notes: z.string().max(2000, 'Nachricht zu lang').optional().or(z.literal('')),
+  billingName: z.string().max(100, 'Name zu lang').optional().or(z.literal('')),
+  billingStreet: z.string().max(200, 'Straße zu lang').optional().or(z.literal('')),
+  billingZip: z.string().max(10, 'PLZ zu lang').optional().or(z.literal('')),
+  billingCity: z.string().max(100, 'Stadt zu lang').optional().or(z.literal('')),
+});
 
 interface DeliveryCalculation {
   distanceKm: number;
@@ -125,6 +143,8 @@ const Checkout = () => {
     acceptTerms: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Honeypot field for bot detection (security)
+  const [honeypot, setHoneypot] = useState('');
   // showSuccess state removed - using direct navigation
   const [orderNumber, setOrderNumber] = useState('');
   const [deliveryCalc, setDeliveryCalc] = useState<DeliveryCalculation | null>(null);
@@ -508,8 +528,42 @@ const Checkout = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // SECURITY: Honeypot check for bot detection
+    if (honeypot) {
+      console.log("Bot detected via honeypot field");
+      // Fake success response to confuse bots
+      toast.success(language === 'de' ? 'Bestellung aufgegeben' : 'Order placed');
+      return;
+    }
+    
     if (items.length === 0) {
       toast.error(language === 'de' ? 'Warenkorb ist leer' : 'Cart is empty');
+      return;
+    }
+
+    // SECURITY: Zod schema validation with length limits
+    const zodValidation = checkoutSchema.safeParse({
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      company: formData.company,
+      deliveryStreet: formData.deliveryStreet,
+      deliveryZip: formData.deliveryZip,
+      deliveryCity: formData.deliveryCity,
+      deliveryFloor: formData.deliveryFloor,
+      notes: formData.notes,
+      billingName: formData.billingName,
+      billingStreet: formData.billingStreet,
+      billingZip: formData.billingZip,
+      billingCity: formData.billingCity,
+    });
+    
+    if (!zodValidation.success) {
+      const firstError = zodValidation.error.errors[0];
+      const errorMessage = language === 'de' 
+        ? firstError.message 
+        : firstError.message.replace('zu kurz', 'too short').replace('zu lang', 'too long').replace('Ungültige', 'Invalid');
+      toast.error(errorMessage);
       return;
     }
 
@@ -1281,6 +1335,18 @@ const Checkout = () => {
                         </p>
                       </div>
                     )}
+                    
+                    {/* Honeypot field - invisible to users, catches bots */}
+                    <input
+                      type="text"
+                      name="website"
+                      value={honeypot}
+                      onChange={(e) => setHoneypot(e.target.value)}
+                      className="absolute -left-[9999px] h-0 w-0 opacity-0"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      aria-hidden="true"
+                    />
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
