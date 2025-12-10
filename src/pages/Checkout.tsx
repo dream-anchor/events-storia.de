@@ -890,7 +890,9 @@ const Checkout = () => {
             deliveryCost: deliveryCalc?.deliveryCostGross || 0,
             grandTotal: grandTotal,
             paymentMethod: 'stripe',
-            company: formData.company
+            company: formData.company,
+            foodVat7: totalVat7,
+            deliveryVat19: totalVat19
           }
         };
         localStorage.setItem(successDataKey, JSON.stringify(successData));
@@ -939,7 +941,9 @@ const Checkout = () => {
                   deliveryCost: deliveryCalc?.deliveryCostGross || 0,
                   grandTotal: grandTotal,
                   paymentMethod: paymentMethod,
-                  company: formData.company
+                  company: formData.company,
+                  foodVat7: totalVat7,
+                  deliveryVat19: totalVat19
                 }
               },
               replace: true
@@ -988,7 +992,9 @@ const Checkout = () => {
                 deliveryCost: deliveryCalc?.deliveryCostGross || 0,
                 grandTotal: grandTotal,
                 paymentMethod: paymentMethod,
-                company: formData.company
+                company: formData.company,
+                foodVat7: totalVat7,
+                deliveryVat19: totalVat19
               }
             },
             replace: true
@@ -1022,7 +1028,9 @@ const Checkout = () => {
             deliveryCost: deliveryCalc?.deliveryCostGross || 0,
             grandTotal: grandTotal,
             paymentMethod: paymentMethod,
-            company: formData.company
+            company: formData.company,
+            foodVat7: totalVat7,
+            deliveryVat19: totalVat19
           }
         },
         replace: true
