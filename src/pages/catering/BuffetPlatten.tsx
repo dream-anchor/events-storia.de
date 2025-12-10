@@ -207,7 +207,7 @@ const PlatterCard = ({ platter, language }: PlatterCardProps) => {
   };
 
   return (
-    <div className="bg-card rounded-lg overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group">
+    <div className="bg-card rounded-lg overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group flex flex-col">
       {platter.image ? (
         <div className="aspect-square overflow-hidden relative">
           <img
@@ -237,7 +237,7 @@ const PlatterCard = ({ platter, language }: PlatterCardProps) => {
           )}
         </div>
       )}
-      <div className="p-4">
+      <div className="p-4 flex flex-col flex-1">
         <h3 className="font-serif font-medium text-lg mb-1">{name}</h3>
         <p className="text-xs text-primary/80 mb-2">{servingInfo}</p>
         <p className="text-sm text-muted-foreground mb-3 whitespace-pre-line line-clamp-4">{description}</p>
@@ -249,7 +249,7 @@ const PlatterCard = ({ platter, language }: PlatterCardProps) => {
         </div>
 
         {/* Add to Cart Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mt-auto">
           <div className="flex items-center border border-border rounded-md">
             <button
               onClick={() => setQuantity(q => Math.max(1, q - 1))}
