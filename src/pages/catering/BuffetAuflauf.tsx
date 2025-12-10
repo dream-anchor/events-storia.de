@@ -231,11 +231,11 @@ const ChafingDishOption = ({ language }: { language: string }) => {
   };
 
   return (
-    <div className="bg-accent/30 border-2 border-accent rounded-xl p-6 mb-12">
+    <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 rounded-xl p-6 mb-12">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-start gap-4">
-          <div className="bg-primary/10 p-3 rounded-full">
-            <Flame className="h-6 w-6 text-primary" />
+          <div className="bg-amber-100 dark:bg-amber-900/30 p-3 rounded-full">
+            <Flame className="h-6 w-6 text-amber-600 dark:text-amber-400" />
           </div>
           <div>
             <p className="text-lg font-serif font-medium flex items-center gap-2">
