@@ -153,13 +153,13 @@ ${nextSteps}
 Bei Fragen erreichen Sie uns unter:
 
 Tel: +49 89 51519696
-E-Mail: info@ristorantestoria.de
+E-Mail: info@events-storia.de
 
 STORIA · Ristorante
 Karlstraße 47a
 80333 München
 
-ristorantestoria.de
+events-storia.de
 ════════════════════════════════════════════
 `;
 };
@@ -356,7 +356,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Send restaurant notification
     const restaurantEmailText = generateRestaurantEmailText(data);
     await sendEmail(
-      ["info@ristorantestoria.de"],
+      ["info@events-storia.de"],
       restaurantSubject,
       restaurantEmailText,
       "STORIA Bestellsystem"
