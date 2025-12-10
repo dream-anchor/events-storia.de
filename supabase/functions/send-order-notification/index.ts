@@ -284,25 +284,23 @@ Admin-Bereich: https://storia-catering.lovable.app/admin
 
 async function sendEmail(to: string[], subject: string, text: string, fromName: string) {
   const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.ionos.de";
-  const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "587");
+  const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
   const smtpUser = Deno.env.get("SMTP_USER")?.trim();
   const smtpPassword = Deno.env.get("SMTP_PASSWORD");
 
-  // Debug logging for SMTP_USER
-  console.log(`SMTP_USER value: "${smtpUser}" (length: ${smtpUser?.length})`);
   console.log(`SMTP_HOST: ${smtpHost}, SMTP_PORT: ${smtpPort}`);
 
   if (!smtpUser || !smtpPassword) {
     throw new Error("SMTP credentials not configured (SMTP_USER, SMTP_PASSWORD)");
   }
 
-  console.log(`Sending email via IONOS SMTP to: ${to.join(', ')}, subject: ${subject}`);
+  console.log(`Sending email via IONOS SMTP (SSL) to: ${to.join(', ')}, subject: ${subject}`);
 
   const client = new SMTPClient({
     connection: {
       hostname: smtpHost,
       port: smtpPort,
-      tls: false,
+      tls: true,  // Implicit SSL/TLS für Port 465
       auth: {
         username: smtpUser,
         password: smtpPassword,
