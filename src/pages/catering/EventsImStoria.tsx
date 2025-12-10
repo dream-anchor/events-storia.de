@@ -243,8 +243,8 @@ const EventsImStoria = () => {
               </h1>
               <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto mb-8">
                 {language === 'de'
-                  ? <>Authentische italienische Küche · Bis zu 300 Gäste Innen & Außen<br />Nähe Königsplatz & Pinakothek</>
-                  : <>Authentic Italian Cuisine · Up to 300 Guests Indoors & Outdoors<br />Near Königsplatz & Pinakothek</>}
+                  ? <>Authentische italienische Küche · Bis zu 300 Gäste Innen & Außen<br />Nähe Hauptbahnhof, Königsplatz & Pinakothek</>
+                  : <>Authentic Italian Cuisine · Up to 300 Guests Indoors & Outdoors<br />Near Central Station, Königsplatz & Pinakothek</>}
               </p>
               <Button 
                 size="lg" 
