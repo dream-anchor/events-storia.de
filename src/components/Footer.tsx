@@ -158,29 +158,29 @@ const Footer = () => {
             © {new Date().getFullYear()} {t.footer.copyright}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-6 text-sm font-sans text-primary-foreground/40">
-            <Link to="/impressum" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.imprint}</Link>
+            <Link to="/impressum" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.imprint}</Link>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <Link to="/datenschutz" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.privacy}</Link>
+            <Link to="/datenschutz" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.privacy}</Link>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <Link to="/cookie-richtlinie" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.legal.cookies}</Link>
+            <Link to="/cookie-richtlinie" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.legal.cookies}</Link>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <Link to="/agb-catering" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'AGB Catering' : 'Catering Terms'}</Link>
+            <Link to="/agb-catering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'AGB Catering' : 'Catering Terms'}</Link>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <Link to="/widerrufsbelehrung" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'Widerrufsbelehrung' : 'Cancellation Policy'}</Link>
+            <Link to="/widerrufsbelehrung" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'Widerrufsbelehrung' : 'Cancellation Policy'}</Link>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <Link to="/lebensmittelhinweise" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.legal.foodInfo}</Link>
+            <Link to="/lebensmittelhinweise" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.legal.foodInfo}</Link>
           </div>
           <div className="flex items-center justify-center gap-6 mt-4 text-sm font-sans text-primary-foreground/30">
             <a 
               href="https://www.instagram.com/ristorante_storia/" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:text-primary-foreground/50 transition-colors touch-manipulation"
+              className="min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0 flex items-center justify-center hover:text-primary-foreground/50 transition-colors touch-manipulation"
               aria-label="Instagram"
             >
               <Instagram className="h-5 w-5" />
             </a>
-            <Link to="/admin" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/50 transition-colors touch-manipulation">Admin</Link>
+            <Link to="/admin" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/50 transition-colors touch-manipulation">Admin</Link>
           </div>
         </div>
       </div>
