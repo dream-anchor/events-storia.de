@@ -7,13 +7,13 @@ const Hero = () => {
 
   return (
     <section className="bg-background" aria-labelledby="hero-heading">
-      <div className="container mx-auto px-4 py-6 md:py-10 text-center animate-fade-in">
+      <div className="container mx-auto px-4 pt-10 md:pt-16 pb-4 md:pb-6 text-center animate-fade-in">
         <Link to="/" aria-label={language === 'de' ? 'Zur Startseite' : 'Go to homepage'}>
           <img 
             src={storiaLogo} 
             alt={language === 'de' ? 'STORIA Catering München Logo' : 'STORIA Catering Munich Logo'} 
-            className="h-28 md:h-36 w-auto mx-auto mb-4 hover:opacity-80 transition-opacity cursor-pointer"
-            height="128"
+            className="h-32 md:h-40 w-auto mx-auto mb-6 md:mb-8 drop-shadow-sm hover:drop-shadow-md transition-all duration-300 cursor-pointer"
+            height="160"
             fetchPriority="high"
             decoding="async"
           />
