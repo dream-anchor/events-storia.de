@@ -124,9 +124,8 @@ const Footer = () => {
               <img 
                 src={storiaLogo}
                 alt="STORIA Catering München Logo"
-                className="h-20 md:h-24 brightness-0 invert opacity-20"
-                width="160"
-                height="80"
+                className="h-20 md:h-24 w-auto brightness-0 invert opacity-20"
+                height="96"
                 loading="lazy"
                 decoding="async"
               />
