@@ -75,8 +75,8 @@ const Index = () => {
               </h2>
               <p className="text-muted-foreground max-w-xl mx-auto">
                 {language === 'de'
-                  ? 'Echte Bewertungen von zufriedenen Gästen und Catering-Kunden'
-                  : 'Real reviews from satisfied guests and catering customers'}
+                  ? 'Bewertungen von zufriedenen Gästen'
+                  : 'Reviews from satisfied guests'}
               </p>
             </div>
             <ConsentElfsightReviews />
