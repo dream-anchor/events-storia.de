@@ -298,7 +298,7 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
     connection: {
       hostname: smtpHost,
       port: smtpPort,
-      tls: true,
+      tls: false,
       auth: {
         username: smtpUser,
         password: smtpPassword,
@@ -319,7 +319,11 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
 
     console.log("Email sent successfully via IONOS SMTP");
   } finally {
-    await client.close();
+    try {
+      await client.close();
+    } catch (closeError) {
+      console.log("Client close warning:", closeError);
+    }
   }
 }
 
