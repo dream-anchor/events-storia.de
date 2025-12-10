@@ -18,10 +18,12 @@ export const PriceDisplayProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('priceDisplay', showGross ? 'gross' : 'net');
   }, [showGross]);
 
-  // Format price based on display preference
+  // Format price based on display preference (truncate, not round)
   const formatPrice = (grossPrice: number, vatRate: number = 0.07): string => {
     const displayPrice = showGross ? grossPrice : grossPrice / (1 + vatRate);
-    return displayPrice.toFixed(2).replace('.', ',') + ' €';
+    // Truncate to 2 decimal places without rounding
+    const truncated = Math.trunc(displayPrice * 100) / 100;
+    return truncated.toFixed(2).replace('.', ',') + ' €';
   };
 
   return (
