@@ -523,7 +523,7 @@ const EventsImStoria = () => {
         </section>
 
         {/* Contact Form */}
-        <div ref={formRef}>
+        <div id="contact" ref={formRef}>
           <EventContactForm preselectedPackage={selectedPackage} />
         </div>
 
