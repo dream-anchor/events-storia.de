@@ -88,7 +88,14 @@ const BesondererAnlass = () => {
         <div className="bg-background border-b border-border">
           <div className="container mx-auto px-4 py-8 text-center">
             <Link to="/">
-              <img src={storiaLogo} alt="STORIA – Italienisches Restaurant München" className="h-24 md:h-32 mx-auto mb-4 hover:opacity-80 transition-opacity cursor-pointer" />
+              <img 
+                src={storiaLogo} 
+                alt={language === 'de' ? 'STORIA – Italienisches Restaurant München' : 'STORIA – Italian Restaurant Munich'}
+                className="h-24 md:h-32 mx-auto mb-4 hover:opacity-80 transition-opacity cursor-pointer"
+                width="192"
+                height="128"
+                loading="lazy"
+              />
             </Link>
             <p className="text-lg text-muted-foreground tracking-wide">
               {t.hero.subtitle}

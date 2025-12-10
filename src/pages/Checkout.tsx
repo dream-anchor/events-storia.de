@@ -948,7 +948,14 @@ const Checkout = () => {
             return (
               <div key={item.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
                 {item.image && (
-                  <img src={item.image} alt={name} className="w-14 h-14 rounded-lg object-cover" />
+                  <img 
+                    src={item.image} 
+                    alt={`${name} – Warenkorb`} 
+                    className="w-14 h-14 rounded-lg object-cover"
+                    width="56"
+                    height="56"
+                    loading="lazy"
+                  />
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{name}</p>
@@ -1153,7 +1160,14 @@ const Checkout = () => {
                             return (
                               <div key={item.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
                                 {item.image && (
-                                  <img src={item.image} alt={name} className="w-14 h-14 rounded-lg object-cover" />
+                                  <img 
+                                    src={item.image} 
+                                    alt={`${name} – Warenkorb`} 
+                                    className="w-14 h-14 rounded-lg object-cover"
+                                    width="56"
+                                    height="56"
+                                    loading="lazy"
+                                  />
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm truncate">{name}</p>

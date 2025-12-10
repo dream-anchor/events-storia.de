@@ -23,8 +23,11 @@ const NotFound = () => {
         <Link to="/">
           <img 
             src={storiaLogo} 
-            alt="STORIA Logo" 
+            alt="STORIA Logo – Zur Startseite" 
             className="h-24 md:h-32 mb-8 hover:opacity-80 transition-opacity"
+            width="192"
+            height="128"
+            loading="lazy"
           />
         </Link>
         

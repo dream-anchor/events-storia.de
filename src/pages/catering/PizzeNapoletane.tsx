@@ -233,8 +233,10 @@ const PizzeNapoletane = () => {
           <section className="relative h-[40vh] min-h-[300px] overflow-hidden">
             <img 
               src={heroImage} 
-              alt="Neapolitan pizza from wood-fired oven" 
+              alt={language === 'de' ? 'Neapolitanische Pizza aus dem Steinofen – STORIA München' : 'Neapolitan pizza from wood-fired oven – STORIA Munich'}
               className="absolute inset-0 w-full h-full object-cover"
+              width="1920"
+              height="768"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
             <div className="absolute inset-0 flex items-end justify-center pb-8">

@@ -11,8 +11,10 @@ const Hero = () => {
         <Link to="/" aria-label={language === 'de' ? 'Zur Startseite' : 'Go to homepage'}>
           <img 
             src={storiaLogo} 
-            alt="STORIA Catering München Logo" 
+            alt={language === 'de' ? 'STORIA Catering München Logo' : 'STORIA Catering Munich Logo'} 
             className="h-20 md:h-28 mx-auto mb-4 hover:opacity-80 transition-opacity cursor-pointer"
+            width="224"
+            height="112"
           />
         </Link>
         
