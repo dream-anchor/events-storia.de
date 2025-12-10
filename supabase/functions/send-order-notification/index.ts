@@ -65,6 +65,7 @@ interface OrderNotificationRequest {
   grandTotal: number;
   billingAddress?: BillingAddress;
   totalAmount?: number;
+  paymentMethod?: 'invoice' | 'stripe';
 }
 
 const formatPrice = (price: number) => price.toFixed(2).replace('.', ',') + ' €';
@@ -153,9 +154,9 @@ const generateCustomerEmailHtml = (data: OrderNotificationRequest) => {
           <!-- Main Content -->
           <tr>
             <td style="background: #ffffff; padding: 40px 35px;">
-              <h2 style="color: #1a1a1a; margin: 0 0 20px; font-family: Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 600;">Vielen Dank für Ihre Anfrage!</h2>
+              <h2 style="color: #1a1a1a; margin: 0 0 20px; font-family: Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 600;">${data.paymentMethod === 'stripe' ? 'Vielen Dank für Ihre Bestellung!' : 'Vielen Dank für Ihre Anfrage!'}</h2>
               <p style="color: #555; font-size: 16px; line-height: 1.7; margin: 0 0 24px;">Liebe/r ${data.customerName},</p>
-              <p style="color: #555; font-size: 16px; line-height: 1.7; margin: 0 0 30px;">wir haben Ihre Catering-Anfrage erhalten und werden uns innerhalb von 24 Stunden bei Ihnen melden.</p>
+              <p style="color: #555; font-size: 16px; line-height: 1.7; margin: 0 0 30px;">${data.paymentMethod === 'stripe' ? 'wir haben Ihre Catering-Bestellung erhalten. Die Zahlung wurde erfolgreich verarbeitet.' : 'wir haben Ihre Catering-Anfrage erhalten und werden uns innerhalb von 24 Stunden bei Ihnen melden.'}</p>
               
               <!-- Order Number Box -->
               <div style="background: linear-gradient(135deg, #faf8f5 0%, #f5f2ed 100%); padding: 20px 24px; text-align: center; border-radius: 12px; margin: 0 0 32px; border: 1px solid #e8e4dc;">
@@ -349,6 +350,23 @@ const generateRestaurantEmailHtml = (data: OrderNotificationRequest) => {
             </td>
           </tr>
           
+          <!-- Payment Status Banner -->
+          ${data.paymentMethod === 'stripe' ? `
+          <tr>
+            <td style="background: #d4edda; padding: 16px 24px; border-left: 4px solid #28a745;">
+              <p style="margin: 0; color: #155724; font-weight: 700; font-size: 15px;">✅ BEREITS BEZAHLT via Stripe/Kreditkarte</p>
+              <p style="margin: 4px 0 0; color: #155724; font-size: 13px;">Diese Bestellung wurde sofort online bezahlt. Keine weitere Rechnung erforderlich.</p>
+            </td>
+          </tr>
+          ` : `
+          <tr>
+            <td style="background: #fff3cd; padding: 16px 24px; border-left: 4px solid #ffc107;">
+              <p style="margin: 0; color: #856404; font-weight: 700; font-size: 15px;">📄 Zahlung per Rechnung</p>
+              <p style="margin: 4px 0 0; color: #856404; font-size: 13px;">Angebot wird automatisch via LexOffice an Kunden versendet.</p>
+            </td>
+          </tr>
+          `}
+          
           <!-- Main Content -->
           <tr>
             <td style="background: #ffffff; padding: 28px;">
@@ -455,11 +473,20 @@ const handler = async (req: Request): Promise<Response> => {
     const data: OrderNotificationRequest = await req.json();
     console.log("Order data received:", JSON.stringify(data, null, 2));
 
+    // Determine email subjects based on payment method
+    const isStripePayment = data.paymentMethod === 'stripe';
+    const customerSubject = isStripePayment
+      ? `Ihre Catering-Bestellung bei STORIA (${data.orderNumber})`
+      : `Ihre Catering-Anfrage bei STORIA (${data.orderNumber})`;
+    const restaurantSubject = isStripePayment
+      ? `Neue Catering-Bestellung (BEZAHLT): ${data.orderNumber}`
+      : `Neue Catering-Anfrage: ${data.orderNumber}`;
+
     // Send customer confirmation email via Resend
     console.log("Sending customer email to:", data.customerEmail);
     const customerEmailResult = await sendEmail(
       [data.customerEmail],
-      `Ihre Catering-Anfrage bei STORIA (${data.orderNumber})`,
+      customerSubject,
       generateCustomerEmailHtml(data),
       "STORIA Catering <noreply@ristorantestoria.de>"
     );
@@ -469,7 +496,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Sending restaurant notification email");
     const restaurantEmailResult = await sendEmail(
       ["info@ristorantestoria.de"],
-      `Neue Catering-Anfrage: ${data.orderNumber}`,
+      restaurantSubject,
       generateRestaurantEmailHtml(data),
       "STORIA Website <noreply@ristorantestoria.de>"
     );
