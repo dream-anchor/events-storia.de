@@ -139,15 +139,17 @@ const Footer = () => {
 
             {/* Lieferzeiten */}
             <div className="text-center md:text-right">
-              <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-4 text-primary-foreground/90">{t.footer.openingHours}</h3>
+              <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-4 text-primary-foreground/90">
+                {language === 'de' ? 'Lieferzeiten' : 'Delivery Hours'}
+              </h3>
               <div className="space-y-1 text-sm font-sans text-primary-foreground/60">
                 <div className="flex items-center justify-center md:justify-end gap-2.5 min-h-[44px] md:min-h-0 py-2">
                   <Clock className="h-4 w-4" />
-                  <span>{t.footer.monFri}: 09:00 – 20:00</span>
+                  <span>{language === 'de' ? 'Mo - Fr' : 'Mon - Fri'}: 09:00 – 01:00</span>
                 </div>
                 <div className="flex items-center justify-center md:justify-end gap-2.5 min-h-[44px] md:min-h-0 py-2">
                   <Clock className="h-4 w-4 opacity-0" />
-                  <span>{t.footer.satSun}: {language === 'de' ? 'auf Anfrage' : 'on request'}</span>
+                  <span>{language === 'de' ? 'Sa - So' : 'Sat - Sun'}: 12:00 – 01:00</span>
                 </div>
                 <div className="flex items-center justify-center md:justify-end gap-2.5 min-h-[44px] md:min-h-0 py-2">
                   <span className="h-4 w-4" />

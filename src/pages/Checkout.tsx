@@ -532,6 +532,16 @@ const Checkout = () => {
       return;
     }
 
+    // Validate floor for delivery orders (required field)
+    if (formData.deliveryType === 'delivery' && !formData.deliveryFloor.trim()) {
+      toast.error(
+        language === 'de' 
+          ? 'Bitte geben Sie das Stockwerk an' 
+          : 'Please specify the floor'
+      );
+      return;
+    }
+
     // Validate AGB acceptance (§ 312j BGB)
     if (!formData.acceptTerms) {
       toast.error(
@@ -1521,18 +1531,19 @@ const Checkout = () => {
                             </div>
                           </div>
                           
-                          {/* Floor + Elevator */}
+                          {/* Floor + Elevator (Required) */}
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <Label htmlFor="deliveryFloor" className="text-sm">
-                                {language === 'de' ? 'Stockwerk' : 'Floor'} <span className="text-muted-foreground text-xs">({language === 'de' ? 'optional' : 'optional'})</span>
+                                {language === 'de' ? 'Stockwerk' : 'Floor'} *
                               </Label>
                               <Input
                                 id="deliveryFloor"
                                 name="deliveryFloor"
                                 value={formData.deliveryFloor}
                                 onChange={handleInputChange}
-                                placeholder={language === 'de' ? 'z.B. 3. OG' : 'e.g. 3rd floor'}
+                                required
+                                placeholder={language === 'de' ? 'z.B. EG, 1. OG' : 'e.g. ground, 1st floor'}
                                 className="mt-1"
                               />
                             </div>
@@ -1544,9 +1555,10 @@ const Checkout = () => {
                                   onCheckedChange={(checked) => 
                                     setFormData(prev => ({ ...prev, hasElevator: checked as boolean }))
                                   }
+                                  required
                                 />
                                 <Label htmlFor="hasElevator" className="cursor-pointer text-sm">
-                                  {language === 'de' ? 'Aufzug vorhanden' : 'Elevator available'}
+                                  {language === 'de' ? 'Aufzug vorhanden' : 'Elevator available'} *
                                 </Label>
                               </div>
                             </div>
@@ -2049,7 +2061,12 @@ const Checkout = () => {
                     </section>
                   </Collapsible>
 
-                  {/* AGB & Widerrufsbelehrung Checkbox (§ 312j BGB) */}
+                  {/* Trust Badges (Desktop) */}
+                  <div className="hidden lg:block">
+                    <TrustBadges variant="horizontal" />
+                  </div>
+
+                  {/* AGB & Widerrufsbelehrung Info (below order button, § 312j BGB) */}
                   <section className="bg-card border border-border rounded-xl p-4 md:p-6">
                     <div className="flex items-start space-x-3">
                       <Checkbox
@@ -2092,11 +2109,6 @@ const Checkout = () => {
                         : 'Note: As catering involves perishable goods, there is no right of withdrawal pursuant to § 312g para. 2 no. 2 BGB.'}
                     </p>
                   </section>
-
-                  {/* Trust Badges (Desktop) */}
-                  <div className="hidden lg:block">
-                    <TrustBadges variant="horizontal" />
-                  </div>
 
                 </div>
 
