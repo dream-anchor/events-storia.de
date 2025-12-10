@@ -87,7 +87,7 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
   };
 
   return (
-    <div className="bg-card rounded-lg overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group">
+    <div className="bg-card rounded-lg overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group flex flex-col">
       {image && (
         <div className="aspect-square overflow-hidden relative">
           <img
@@ -107,13 +107,13 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
           )}
         </div>
       )}
-      <div className="p-4">
+      <div className="p-4 flex flex-col flex-1">
         <h3 className="font-serif font-medium text-lg mb-1">{name}</h3>
         {servingInfo && (
           <p className="text-xs text-primary/80 mb-2">{servingInfo}</p>
         )}
         {description && (
-          <p className="text-sm text-muted-foreground mb-3">{description}</p>
+          <p className="text-sm text-muted-foreground mb-3 line-clamp-4">{description}</p>
         )}
         
         <div className="flex justify-between items-end mb-3">
@@ -124,18 +124,18 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
           </div>
           <div className="text-right">
             {item.price ? (
-              <span className="font-semibold text-primary">
+              <span className="font-semibold text-primary text-lg">
                 {formatPrice(item.price)}
               </span>
             ) : item.price_display ? (
-              <span className="font-semibold text-primary">{item.price_display}</span>
+              <span className="font-semibold text-primary text-lg">{item.price_display}</span>
             ) : null}
           </div>
         </div>
 
         {/* Add to Cart Controls */}
         {item.price && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-auto">
             <div className="flex items-center border border-border rounded-md">
               <button
                 onClick={() => setQuantity(q => Math.max(4, q - 1))}

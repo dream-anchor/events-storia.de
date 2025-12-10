@@ -8,7 +8,7 @@ import { ServicesGrid } from '@/components/catering/ServiceInfoCard';
 import SEO from '@/components/SEO';
 import StructuredData from '@/components/StructuredData';
 import { Button } from '@/components/ui/button';
-import { Plus, Minus, ShoppingBag, Check } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, Check } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -87,83 +87,70 @@ const DessertCard = ({ item, language }: { item: DessertItem; language: string }
   };
 
   return (
-    <div className="group relative bg-card/50 backdrop-blur-sm rounded-2xl overflow-hidden border border-border/50 shadow-lg hover:shadow-xl transition-all duration-500 hover:-translate-y-1">
-      {/* Image */}
-      <div className="relative aspect-[4/3] overflow-hidden">
+    <div className="bg-card rounded-lg overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group flex flex-col">
+      <div className="aspect-square overflow-hidden relative">
         <img
           src={item.image}
           alt={`${name} – STORIA Catering München`}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           width="400"
-          height="300"
+          height="400"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-        
-        {/* In Cart Badge */}
         {isInCart && (
-          <div className="absolute top-3 right-3 px-3 py-1.5 rounded-full bg-primary/90 backdrop-blur-sm text-primary-foreground text-xs font-medium flex items-center gap-1.5 shadow-lg">
+          <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
             <Check className="h-3 w-3" />
-            {cartItem.quantity}x {language === 'de' ? 'im Warenkorb' : 'in cart'}
+            {cartItem.quantity}x
           </div>
         )}
-        
-        {/* Price Badge */}
-        <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-background/90 backdrop-blur-sm text-foreground font-semibold shadow-lg">
-          {formatPrice(item.price)}
-        </div>
       </div>
-
-      {/* Content */}
-      <div className="p-5 space-y-4">
-        <div>
-          <h3 className="font-serif text-xl font-semibold text-foreground mb-1">{name}</h3>
-          <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+      <div className="p-4 flex flex-col flex-1">
+        <h3 className="font-serif font-medium text-lg mb-1">{name}</h3>
+        <p className="text-xs text-primary/80 mb-2">{servingInfo}</p>
+        <p className="text-sm text-muted-foreground mb-3 line-clamp-4">{description}</p>
+        
+        <div className="flex justify-between items-end mb-3">
+          <p className="text-xs text-muted-foreground">{minOrder}</p>
+          <span className="font-semibold text-primary text-lg">
+            {formatPrice(item.price)}
+          </span>
         </div>
 
-        <div className="space-y-1 text-xs text-muted-foreground">
-          <p className="italic">{servingInfo}</p>
-          <p className="font-medium text-primary">{minOrder}</p>
-        </div>
-
-        {/* Quantity & Add to Cart */}
-        <div className="flex items-center gap-3 pt-2">
-          <div className="flex items-center gap-1 bg-muted/50 rounded-full p-1">
+        {/* Add to Cart Controls */}
+        <div className="flex items-center gap-2 mt-auto">
+          <div className="flex items-center border border-border rounded-md">
             <button
               onClick={() => setQuantity(Math.max(4, quantity - 1))}
-              className="w-8 h-8 rounded-full bg-background flex items-center justify-center hover:bg-primary/10 transition-colors"
+              className="px-2 py-1.5 hover:bg-muted transition-colors"
               aria-label="Menge reduzieren"
             >
-              <Minus className="h-3.5 w-3.5" />
+              <Minus className="h-4 w-4" />
             </button>
-            <span className="w-10 text-center font-medium tabular-nums">{quantity}</span>
+            <span className="px-3 py-1.5 text-sm font-medium min-w-[40px] text-center">
+              {quantity}
+            </span>
             <button
               onClick={() => setQuantity(quantity + 1)}
-              className="w-8 h-8 rounded-full bg-background flex items-center justify-center hover:bg-primary/10 transition-colors"
+              className="px-2 py-1.5 hover:bg-muted transition-colors"
               aria-label="Menge erhöhen"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-4 w-4" />
             </button>
           </div>
-
-          <Button
+          <Button 
             onClick={handleAddToCart}
-            className={`flex-1 rounded-full transition-all duration-300 ${
-              justAdded 
-                ? 'bg-green-600 hover:bg-green-700' 
-                : ''
-            }`}
             size="sm"
+            className={`flex-1 transition-all ${justAdded ? 'bg-green-600 hover:bg-green-600' : ''}`}
           >
             {justAdded ? (
               <>
-                <Check className="h-4 w-4 mr-2" />
+                <Check className="h-4 w-4 mr-1" />
                 {language === 'de' ? 'Hinzugefügt' : 'Added'}
               </>
             ) : (
               <>
-                <ShoppingBag className="h-4 w-4 mr-2" />
-                {language === 'de' ? 'Hinzufügen' : 'Add to Cart'}
+                <ShoppingCart className="h-4 w-4 mr-1" />
+                {language === 'de' ? 'In den Warenkorb' : 'Add to Cart'}
               </>
             )}
           </Button>
@@ -201,41 +188,33 @@ const Desserts = () => {
       <Navigation />
       
       <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative py-16 md:py-24 bg-gradient-to-b from-primary/5 to-background">
-          <div className="container mx-auto px-4 text-center">
-            <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4">
+        <section className="container mx-auto px-4 py-16 md:py-24">
+          <div className="max-w-4xl mx-auto text-center mb-12">
+            <h1 className="text-3xl md:text-4xl font-serif font-medium mb-6">
               {language === 'de' ? 'Desserts' : 'Desserts'}
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-lg text-muted-foreground">
               {language === 'de' 
                 ? 'Süße Verführungen im Glas – perfekt für Ihr Catering-Event'
                 : 'Sweet temptations in a glass – perfect for your catering event'}
             </p>
           </div>
-        </section>
 
-        {/* Products Grid */}
-        <section className="py-12 md:py-16">
-          <div className="container mx-auto px-4">
-            <h2 className="sr-only">
-              {language === 'de' ? 'Unsere Desserts' : 'Our Desserts'}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto">
-              {dessertItems.map((item) => (
-                <DessertCard key={item.id} item={item} language={language} />
-              ))}
-            </div>
+          {/* Products Grid */}
+          <h2 className="sr-only">
+            {language === 'de' ? 'Unsere Desserts' : 'Our Desserts'}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            {dessertItems.map((item) => (
+              <DessertCard key={item.id} item={item} language={language} />
+            ))}
           </div>
-        </section>
 
-        {/* Service Info */}
-        <section className="py-12 md:py-16 bg-muted/30">
-          <div className="container mx-auto px-4 max-w-4xl">
-            <ServicesGrid 
-              title={language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
-            />
-          </div>
+          {/* Additional Services */}
+          <ServicesGrid 
+            title={language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
+            className="mt-16"
+          />
         </section>
       </main>
 

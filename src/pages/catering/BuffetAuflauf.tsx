@@ -9,7 +9,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Minus, ShoppingCart, Check, Flame, Wheat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HighlightCard, ServicesGrid } from "@/components/catering/ServiceInfoCard";
@@ -125,7 +124,7 @@ interface DishCardProps {
 }
 
 const DishCard = ({ dish, language }: DishCardProps) => {
-  const { addToCart } = useCart();
+  const { addToCart, items } = useCart();
   const { formatPrice } = usePriceDisplay();
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
@@ -144,71 +143,84 @@ const DishCard = ({ dish, language }: DishCardProps) => {
     setTimeout(() => setAdded(false), 2000);
   };
 
+  const name = language === 'de' ? dish.name : dish.name_en;
+  const description = language === 'de' ? dish.description : dish.description_en;
+  const servingInfo = language === 'de' ? dish.serving_info : dish.serving_info_en;
+  
+  const cartItem = items.find(i => i.id === dish.id);
+  const isInCart = !!cartItem;
+
   return (
-    <Card className="overflow-hidden group hover:shadow-lg transition-shadow duration-300">
-      <div className="aspect-[4/3] overflow-hidden relative">
+    <div className="bg-card rounded-lg overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group flex flex-col">
+      <div className="aspect-square overflow-hidden relative">
         <img
           src={dish.image}
-          alt={`${language === 'de' ? dish.name : dish.name_en} – STORIA Catering München`}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          alt={`${name} – STORIA Catering München`}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           style={{ objectPosition: dish.objectPosition || 'center center' }}
           width="400"
-          height="300"
+          height="400"
           loading="lazy"
         />
-        <div className="absolute top-3 right-3 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
-          {formatPrice(dish.price)}
-        </div>
+        {isInCart && (
+          <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+            <Check className="h-3 w-3" />
+            {cartItem.quantity}x
+          </div>
+        )}
       </div>
-      <CardContent className="p-5">
-        <h3 className="text-lg font-serif font-medium mb-1">{language === 'de' ? dish.name : dish.name_en}</h3>
-        <p className="text-xs text-primary font-medium mb-2">{language === 'de' ? dish.serving_info : dish.serving_info_en}</p>
-        <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
-          {language === 'de' ? dish.description : dish.description_en}
-        </p>
+      <div className="p-4 flex flex-col flex-1">
+        <h3 className="font-serif font-medium text-lg mb-1">{name}</h3>
+        <p className="text-xs text-primary/80 mb-2">{servingInfo}</p>
+        <p className="text-sm text-muted-foreground mb-3 line-clamp-4">{description}</p>
         
-        <div className="flex items-center gap-3">
-          <div className="flex items-center border rounded-md">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
+        <div className="flex justify-end mb-3">
+          <span className="font-semibold text-primary text-lg">
+            {formatPrice(dish.price)}
+          </span>
+        </div>
+
+        {/* Add to Cart Controls */}
+        <div className="flex items-center gap-2 mt-auto">
+          <div className="flex items-center border border-border rounded-md">
+            <button
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              className="px-2 py-1.5 hover:bg-muted transition-colors"
+              aria-label="Menge reduzieren"
             >
               <Minus className="h-4 w-4" />
-            </Button>
-            <span className="w-8 text-center font-medium">{quantity}</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
+            </button>
+            <span className="px-3 py-1.5 text-sm font-medium min-w-[40px] text-center">
+              {quantity}
+            </span>
+            <button
               onClick={() => setQuantity(quantity + 1)}
+              className="px-2 py-1.5 hover:bg-muted transition-colors"
+              aria-label="Menge erhöhen"
             >
               <Plus className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
           <Button
             onClick={handleAddToCart}
-            className={cn(
-              "flex-1 transition-all duration-300",
-              added && "bg-green-600 hover:bg-green-600"
-            )}
+            size="sm"
+            className={`flex-1 transition-all ${added ? 'bg-green-600 hover:bg-green-600' : ''}`}
           >
             {added ? (
               <>
-                <Check className="h-4 w-4 mr-2" />
+                <Check className="h-4 w-4 mr-1" />
                 {language === 'de' ? 'Hinzugefügt' : 'Added'}
               </>
             ) : (
               <>
-                <ShoppingCart className="h-4 w-4 mr-2" />
+                <ShoppingCart className="h-4 w-4 mr-1" />
                 {language === 'de' ? 'In den Warenkorb' : 'Add to Cart'}
               </>
             )}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
