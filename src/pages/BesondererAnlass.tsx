@@ -92,7 +92,7 @@ const BesondererAnlass = () => {
                 src={storiaLogo} 
                 alt={language === 'de' ? 'STORIA – Italienisches Restaurant München' : 'STORIA – Italian Restaurant Munich'}
                 className="h-24 md:h-32 mx-auto mb-4 hover:opacity-80 transition-opacity cursor-pointer"
-                width="192"
+                width="auto"
                 height="128"
                 loading="lazy"
               />
