@@ -258,14 +258,8 @@ const Checkout = () => {
     const orderNum = urlParams.get('order');
     
     if (paymentStatus === 'success' && orderNum) {
-      toast.success(
-        language === 'de' 
-          ? `Zahlung erfolgreich! Bestellung #${orderNum} wurde bezahlt.`
-          : `Payment successful! Order #${orderNum} has been paid.`
-      );
-      
-      // Create LexOffice invoice for the paid order
-      const createInvoiceForPaidOrder = async () => {
+      // Create LexOffice invoice for the paid order and redirect to success page
+      const handlePaymentSuccess = async () => {
         try {
           // Try to read from localStorage first (for anonymous users who can't SELECT due to RLS)
           const cachedOrderKey = `stripe_order_${orderNum}`;
@@ -289,56 +283,90 @@ const Checkout = () => {
             
             if (fetchError || !orderData) {
               console.error('Failed to fetch order for invoice:', fetchError);
-              return;
+              // Still redirect to success page even if invoice fails
+            } else {
+              orderPayload = {
+                orderId: orderData.id,
+                orderNumber: orderNum,
+                customerName: orderData.customer_name,
+                customerEmail: orderData.customer_email,
+                customerPhone: orderData.customer_phone,
+                companyName: orderData.company_name || undefined,
+                billingAddress: {
+                  name: orderData.billing_name || orderData.customer_name,
+                  street: orderData.billing_street || '',
+                  zip: orderData.billing_zip || '',
+                  city: orderData.billing_city || '',
+                  country: orderData.billing_country || 'Deutschland'
+                },
+                items: orderData.items as { id: string; name: string; name_en?: string; quantity: number; price: number }[],
+                subtotal: orderData.total_amount - (orderData.delivery_cost || 0) - (orderData.minimum_order_surcharge || 0),
+                deliveryCost: orderData.delivery_cost || 0,
+                minimumOrderSurcharge: orderData.minimum_order_surcharge || 0,
+                distanceKm: orderData.calculated_distance_km || undefined,
+                grandTotal: orderData.total_amount,
+                isPickup: orderData.is_pickup || false
+              };
             }
-
-            orderPayload = {
-              orderId: orderData.id,
-              orderNumber: orderNum,
-              customerName: orderData.customer_name,
-              customerEmail: orderData.customer_email,
-              customerPhone: orderData.customer_phone,
-              companyName: orderData.company_name || undefined,
-              billingAddress: {
-                name: orderData.billing_name || orderData.customer_name,
-                street: orderData.billing_street || '',
-                zip: orderData.billing_zip || '',
-                city: orderData.billing_city || '',
-                country: orderData.billing_country || 'Deutschland'
-              },
-              items: orderData.items as { id: string; name: string; name_en?: string; quantity: number; price: number }[],
-              subtotal: orderData.total_amount - (orderData.delivery_cost || 0) - (orderData.minimum_order_surcharge || 0),
-              deliveryCost: orderData.delivery_cost || 0,
-              minimumOrderSurcharge: orderData.minimum_order_surcharge || 0,
-              distanceKm: orderData.calculated_distance_km || undefined,
-              grandTotal: orderData.total_amount,
-              isPickup: orderData.is_pickup || false
-            };
           }
 
           // Create LexOffice invoice (Rechnung) since payment was successful
-          const invoiceResponse = await supabase.functions.invoke('create-lexoffice-invoice', {
-            body: {
-              ...orderPayload,
-              documentType: 'invoice', // Rechnung weil bezahlt
-              isPaid: true
+          if (orderPayload) {
+            const invoiceResponse = await supabase.functions.invoke('create-lexoffice-invoice', {
+              body: {
+                ...orderPayload,
+                documentType: 'invoice', // Rechnung weil bezahlt
+                isPaid: true
+              }
+            });
+            
+            if (invoiceResponse.error) {
+              console.warn('Lexoffice invoice creation failed:', invoiceResponse.error);
+            } else {
+              console.log('Lexoffice invoice created for paid order:', invoiceResponse.data?.documentId);
             }
-          });
-          
-          if (invoiceResponse.error) {
-            console.warn('Lexoffice invoice creation failed:', invoiceResponse.error);
-          } else {
-            console.log('Lexoffice invoice created for paid order:', invoiceResponse.data?.documentId);
           }
         } catch (err) {
           console.error('Error creating invoice for paid order:', err);
         }
+        
+        // Redirect to success page with order data from localStorage
+        const successDataKey = `stripe_success_${orderNum}`;
+        const successDataStr = localStorage.getItem(successDataKey);
+        
+        if (successDataStr) {
+          try {
+            const successData = JSON.parse(successDataStr);
+            localStorage.removeItem(successDataKey);
+            
+            // Navigate to success page with order details
+            navigate('/kunde/registrieren', {
+              state: {
+                email: successData.email,
+                name: successData.name,
+                orderNumber: successData.orderNumber,
+                orderDetails: successData.orderDetails
+              },
+              replace: true
+            });
+          } catch (parseErr) {
+            console.error('Error parsing success data:', parseErr);
+            // Fallback: navigate without details
+            navigate('/kunde/registrieren', {
+              state: { orderNumber: orderNum },
+              replace: true
+            });
+          }
+        } else {
+          // No cached data, navigate with minimal info
+          navigate('/kunde/registrieren', {
+            state: { orderNumber: orderNum },
+            replace: true
+          });
+        }
       };
 
-      createInvoiceForPaidOrder();
-      
-      // Clear URL params
-      window.history.replaceState({}, '', '/checkout');
+      handlePaymentSuccess();
     } else if (paymentStatus === 'cancelled') {
       toast.error(
         language === 'de'
@@ -347,7 +375,7 @@ const Checkout = () => {
       );
       window.history.replaceState({}, '', '/checkout');
     }
-  }, [language]);
+  }, [language, navigate]);
 
   // Pizza time validation helper
   const isPizzaTimeValid = (time: string): boolean => {
@@ -697,7 +725,7 @@ const Checkout = () => {
           distanceKm: deliveryCalc?.distanceKm || undefined,
           grandTotal: grandTotal,
           isPickup: formData.deliveryType === 'pickup',
-          // NEW: Additional order details for LexOffice invoice after payment
+          // Additional order details for LexOffice invoice after payment
           desiredDate: formData.date || undefined,
           desiredTime: formData.time || undefined,
           deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
@@ -705,6 +733,35 @@ const Checkout = () => {
           paymentMethod: 'stripe' as const
         };
         localStorage.setItem(cachedOrderKey, JSON.stringify(orderDataForCache));
+        
+        // Cache order details for success page redirect after Stripe payment
+        const successDataKey = `stripe_success_${newOrderNumber}`;
+        const successData = {
+          email: formData.email,
+          name: formData.name,
+          orderNumber: newOrderNumber,
+          orderDetails: {
+            items: items.map(item => ({
+              name: item.name,
+              name_en: item.name_en,
+              quantity: item.quantity,
+              price: item.price,
+              total: item.price * item.quantity
+            })),
+            deliveryType: formData.deliveryType,
+            deliveryAddress: formData.deliveryType === 'delivery' 
+              ? `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}${formData.deliveryFloor ? ` (${formData.deliveryFloor}${formData.hasElevator ? ', Aufzug' : ''})` : ''}`
+              : null,
+            date: formData.date,
+            time: formData.time,
+            subtotal: totalPrice,
+            deliveryCost: deliveryCalc?.deliveryCostGross || 0,
+            grandTotal: grandTotal,
+            paymentMethod: 'stripe',
+            company: formData.company
+          }
+        };
+        localStorage.setItem(successDataKey, JSON.stringify(successData));
         
         try {
           const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
