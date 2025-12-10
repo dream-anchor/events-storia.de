@@ -7,7 +7,7 @@ import plattenImg from "@/assets/catering/platten/vitello-tonnato.webp";
 import auflaufImg from "@/assets/catering/auflauf/lasagna.webp";
 import pizzaImg from "@/assets/catering/pizze/hero-pizza.webp";
 import dessertsImg from "@/assets/catering/fingerfood/tiramisu.webp";
-import flyingBuffetImg from "@/assets/menschen-aussen.jpeg";
+import eventsImg from "@/assets/events/firmenfeier-3.webp";
 
 interface CateringItem {
   id: string;
@@ -72,7 +72,7 @@ const cateringItems: CateringItem[] = [
     descriptionDe: "Private Feiern & Firmenevents – individuelle Menüs im Restaurant.",
     descriptionEn: "Private parties & corporate events – custom menus at the restaurant.",
     path: "/events",
-    image: flyingBuffetImg,
+    image: eventsImg,
   },
 ];
 

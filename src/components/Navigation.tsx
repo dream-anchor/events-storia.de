@@ -28,7 +28,7 @@ interface NavItem {
 const Navigation = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const [openMenus, setOpenMenus] = useState<string[]>(["CATERING & LIEFERSERVICE", "EVENTS IM STORIA"]);
+  const [openMenus, setOpenMenus] = useState<string[]>([]);
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const { language } = useLanguage();
   const { showGross, setShowGross } = usePriceDisplay();
@@ -79,6 +79,10 @@ const Navigation = () => {
   const eventsPath = "/events";
 
   const navItems: NavItem[] = [
+    { 
+      label: language === 'de' ? "STARTSEITE" : "HOME", 
+      path: "/" 
+    },
     {
       label: language === 'de' ? "CATERING & LIEFERSERVICE" : "CATERING & DELIVERY",
       children: shopChildren,
