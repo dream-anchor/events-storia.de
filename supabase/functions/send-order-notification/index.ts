@@ -313,7 +313,7 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
       from: smtpUser,
       to: to,
       subject: subject,
-      content: text,
+      html: `<html><body><pre style="font-family: monospace; white-space: pre-wrap;">${text}</pre></body></html>`,
       headers: {
         "From": `${fromName} <${smtpUser}>`,
       },
