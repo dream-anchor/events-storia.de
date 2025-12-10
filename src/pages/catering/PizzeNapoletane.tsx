@@ -4,6 +4,7 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
+import StructuredData from "@/components/StructuredData";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useCart } from "@/contexts/CartContext";
@@ -223,6 +224,17 @@ const PizzeNapoletane = () => {
           ? "Original neapolitanische Pizza aus dem Steinofen – 25 Sorten für Lieferung & Abholung in München. STORIA Catering – Jetzt bestellen!" 
           : "Authentic Neapolitan stone-oven pizza – 25 varieties for delivery & pickup in Munich. STORIA Catering – Order now!"}
         canonical="/catering/pizze-napoletane"
+      />
+      <StructuredData 
+        type="product" 
+        products={[pizzaPane, ...pizzeClassiche].map(p => ({
+          name: p.name,
+          name_en: p.name_en,
+          description: p.description,
+          description_en: p.description_en,
+          price: p.price,
+          sku: p.id,
+        }))} 
       />
       <div className="min-h-screen bg-background flex flex-col">
         <Header />

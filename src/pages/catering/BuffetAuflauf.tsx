@@ -4,6 +4,7 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
+import StructuredData from "@/components/StructuredData";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useCart } from "@/contexts/CartContext";
@@ -302,6 +303,19 @@ const BuffetAuflauf = () => {
         title={language === 'de' ? "Buffet & Warme Gerichte | STORIA Catering München" : "Buffet & Hot Dishes | STORIA Catering Munich"}
         description={language === 'de' ? "Warme italienische Gerichte für Ihr Event: Lasagne, Parmigiana, Ossobuco & mehr. Mit Chafing Dish Option. STORIA Catering München." : "Hot Italian dishes for your event: lasagna, parmigiana, ossobuco & more. Chafing dish available. STORIA Catering Munich."}
         canonical="/catering/buffet-auflauf"
+      />
+      <StructuredData 
+        type="product" 
+        products={dishes.map(d => ({
+          name: d.name,
+          name_en: d.name_en,
+          description: d.description,
+          description_en: d.description_en,
+          price: d.price,
+          image: d.image,
+          sku: d.id,
+          servingInfo: d.serving_info,
+        }))} 
       />
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
