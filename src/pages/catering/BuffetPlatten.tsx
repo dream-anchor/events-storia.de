@@ -326,6 +326,9 @@ const BuffetPlatten = () => {
             />
 
             {/* Menu Grid */}
+            <h2 className="sr-only">
+              {language === 'de' ? 'Unsere Platten' : 'Our Platters'}
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
               {platters.map((platter) => (
                 <PlatterCard key={platter.id} platter={platter} language={language} />

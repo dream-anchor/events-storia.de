@@ -59,9 +59,9 @@ export const HighlightCard = ({
     )}>
       <div className="flex flex-col items-center text-center max-w-xl mx-auto">
         <Icon className="h-6 w-6 text-primary/70 mb-3" strokeWidth={1.5} />
-        <h3 className="font-serif text-lg font-medium text-foreground mb-1">
+        <p className="font-serif text-lg font-medium text-foreground mb-1">
           {language === 'en' ? title_en : title}
-        </h3>
+        </p>
         {(description || description_en) && (
           <p className="text-sm text-muted-foreground">
             {language === 'en' ? description_en : description}
