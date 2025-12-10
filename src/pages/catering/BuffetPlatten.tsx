@@ -242,7 +242,8 @@ const PlatterCard = ({ platter, language }: PlatterCardProps) => {
         <p className="text-xs text-primary/80 mb-2">{servingInfo}</p>
         <p className="text-sm text-muted-foreground mb-3 whitespace-pre-line line-clamp-4">{description}</p>
         
-        <div className="flex justify-end mb-3">
+        <div className="flex justify-between items-end mb-3">
+          <div />
           <span className="font-semibold text-primary text-lg">
             {formatPrice(platter.price)}
           </span>
