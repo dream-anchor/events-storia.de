@@ -1,75 +1,141 @@
-# STORIA Ristorante - robots.txt
+# =====================================================
+# STORIA Catering & Events München - robots.txt
 # https://ristorantestoria.de
+# Italienisches Catering, Events & Lieferservice
+# =====================================================
 
 # Sitemap
 Sitemap: https://ristorantestoria.de/sitemap.xml
 
-# Standard Crawlers
+# =====================================================
+# SEARCH ENGINES - Vollständig erlaubt
+# =====================================================
+
 User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Mobile
+Allow: /
+
+User-agent: Googlebot-Image
 Allow: /
 
 User-agent: Bingbot
 Allow: /
 
-User-agent: Twitterbot
+User-agent: DuckDuckBot
 Allow: /
+
+# =====================================================
+# MAPS & LOCAL DISCOVERY
+# =====================================================
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Image
+Allow: /
+
+# =====================================================
+# SOCIAL MEDIA PREVIEWS
+# =====================================================
 
 User-agent: facebookexternalhit
 Allow: /
 
-# AI Crawlers (GEO Optimization)
+User-agent: Twitterbot
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+# =====================================================
+# RESTAURANT & HOSPITALITY PLATFORMS
+# =====================================================
+
+User-agent: YelpBot
+Allow: /
+
+User-agent: TripAdvisorBot
+Allow: /
+
+User-agent: OpenTableBot
+Allow: /
+
+# =====================================================
+# AI ASSISTANTS (Empfehlungen & Suche)
+# =====================================================
+
 User-agent: GPTBot
 Allow: /
 
 User-agent: ChatGPT-User
 Allow: /
 
-User-agent: Google-Extended
-Allow: /
-
-User-agent: Anthropic-AI
+User-agent: Claude-Web
 Allow: /
 
 User-agent: ClaudeBot
 Allow: /
 
-User-agent: CCBot
-Allow: /
-
 User-agent: PerplexityBot
-Allow: /
-
-User-agent: Amazonbot
 Allow: /
 
 User-agent: YouBot
 Allow: /
 
-User-agent: Applebot
-Allow: /
+# =====================================================
+# AI TRAINING BOTS - BLOCKIERT
+# Kein direkter Marketing-Nutzen, nur Datensammlung
+# =====================================================
 
-User-agent: Applebot-Extended
-Allow: /
+User-agent: Google-Extended
+Disallow: /
 
-User-agent: Meta-ExternalAgent
-Allow: /
+User-agent: CCBot
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
 
 User-agent: Bytespider
-Allow: /
+Disallow: /
 
 User-agent: cohere-ai
-Allow: /
+Disallow: /
 
-# General
+User-agent: Ai2Bot
+Disallow: /
+
+User-agent: Anthropic-AI
+Disallow: /
+
+# =====================================================
+# SEO TOOL CRAWLERS - BLOCKIERT
+# Scrapen nur für Drittanbieter-Tools
+# =====================================================
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DataForSeoBot
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+# =====================================================
+# ALLGEMEINE REGELN
+# =====================================================
+
 User-agent: *
 Allow: /
 
-# Disallow Admin Area
+# Private Bereiche für alle blockieren
 User-agent: *
 Disallow: /admin
 Disallow: /admin-login
-
-# Disallow Asset Files
-User-agent: *
-Disallow: /*.js$
-Disallow: /*.css$
+Disallow: /konto
