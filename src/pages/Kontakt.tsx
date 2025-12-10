@@ -127,7 +127,7 @@ const Kontakt = () => {
           </div>
 
           {/* Google Maps */}
-          <div id="map" className="max-w-4xl mx-auto mt-8">
+          <section id="map" className="max-w-4xl mx-auto mt-8" aria-label={language === 'de' ? 'Standort' : 'Location'}>
             <div className="bg-card rounded-lg border border-border overflow-hidden">
               <ConsentGoogleMaps
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2662.063!2d11.5628!3d48.1447!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x479e75f0a0c3c6e7%3A0x8c0b2b0b0b0b0b0b!2sKarlstra%C3%9Fe%2047a%2C%2080333%20M%C3%BCnchen!5e0!3m2!1sde!2sde!4v1700000000000!5m2!1sde!2sde"
@@ -136,7 +136,7 @@ const Kontakt = () => {
                 className="w-full"
               />
             </div>
-          </div>
+          </section>
 
           <ReservationCTA />
         </main>

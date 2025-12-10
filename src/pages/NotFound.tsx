@@ -19,7 +19,7 @@ const NotFound = () => {
         description="Die angeforderte Seite konnte nicht gefunden werden. Besuchen Sie unsere Startseite oder kontaktieren Sie uns."
         noIndex={true}
       />
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
         <Link to="/">
           <img 
             src={storiaLogo} 
@@ -73,7 +73,7 @@ const NotFound = () => {
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </>
   );
 };

@@ -62,28 +62,30 @@ const Index = () => {
       <StructuredData type="restaurant" faqItems={faqItems} />
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <Hero />
         <Navigation />
-        <CateringGrid />
-        
-        {/* Customer Reviews Section */}
-        <section className="py-16 md:py-20 bg-muted/30">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <h2 className="text-2xl md:text-3xl font-serif font-medium mb-3">
-                {language === 'de' ? 'Was unsere Kunden sagen' : 'What Our Customers Say'}
-              </h2>
-              <p className="text-muted-foreground max-w-xl mx-auto">
-                {language === 'de'
-                  ? 'Bewertungen von zufriedenen Gästen'
-                  : 'Reviews from satisfied guests'}
-              </p>
+        <main className="flex-1">
+          <Hero />
+          <CateringGrid />
+          
+          {/* Customer Reviews Section */}
+          <section className="py-16 md:py-20 bg-muted/30">
+            <div className="container mx-auto px-4">
+              <div className="text-center mb-10">
+                <h2 className="text-2xl md:text-3xl font-serif font-medium mb-3">
+                  {language === 'de' ? 'Was unsere Kunden sagen' : 'What Our Customers Say'}
+                </h2>
+                <p className="text-muted-foreground max-w-xl mx-auto">
+                  {language === 'de'
+                    ? 'Bewertungen von zufriedenen Gästen'
+                    : 'Reviews from satisfied guests'}
+                </p>
+              </div>
+              <ConsentElfsightReviews />
             </div>
-            <ConsentElfsightReviews />
-          </div>
-        </section>
-        
-        <CateringCTA />
+          </section>
+          
+          <CateringCTA />
+        </main>
         <Footer />
       </div>
     </>
