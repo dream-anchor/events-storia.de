@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -283,32 +282,45 @@ Admin-Bereich: https://storia-catering.lovable.app/admin
 `;
 };
 
-async function sendEmail(to: string[], subject: string, text: string, from: string) {
-  console.log(`Sending email to: ${to.join(', ')}, subject: ${subject}`);
+async function sendEmail(to: string[], subject: string, text: string, fromName: string) {
+  const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.ionos.de";
+  const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "587");
+  const smtpUser = Deno.env.get("SMTP_USER");
+  const smtpPassword = Deno.env.get("SMTP_PASSWORD");
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to,
-      subject,
-      text,
-    }),
-  });
-
-  const responseData = await res.json();
-
-  if (!res.ok) {
-    console.error("Resend API error:", responseData);
-    throw new Error(`Failed to send email: ${JSON.stringify(responseData)}`);
+  if (!smtpUser || !smtpPassword) {
+    throw new Error("SMTP credentials not configured (SMTP_USER, SMTP_PASSWORD)");
   }
 
-  console.log("Email sent successfully:", responseData);
-  return responseData;
+  console.log(`Sending email via IONOS SMTP to: ${to.join(', ')}, subject: ${subject}`);
+
+  const client = new SMTPClient({
+    connection: {
+      hostname: smtpHost,
+      port: smtpPort,
+      tls: true,
+      auth: {
+        username: smtpUser,
+        password: smtpPassword,
+      },
+    },
+  });
+
+  try {
+    await client.send({
+      from: smtpUser,
+      to: to,
+      subject: subject,
+      content: text,
+      headers: {
+        "From": `${fromName} <${smtpUser}>`,
+      },
+    });
+
+    console.log("Email sent successfully via IONOS SMTP");
+  } finally {
+    await client.close();
+  }
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -338,7 +350,7 @@ const handler = async (req: Request): Promise<Response> => {
       [data.customerEmail],
       customerSubject,
       customerEmailText,
-      "STORIA Catering <info@ristorantestoria.de>"
+      "STORIA Catering"
     );
 
     // Send restaurant notification
@@ -347,11 +359,11 @@ const handler = async (req: Request): Promise<Response> => {
       ["info@ristorantestoria.de"],
       restaurantSubject,
       restaurantEmailText,
-      "STORIA Bestellsystem <info@ristorantestoria.de>"
+      "STORIA Bestellsystem"
     );
 
     return new Response(
-      JSON.stringify({ success: true, message: "Emails sent successfully" }),
+      JSON.stringify({ success: true, message: "Emails sent successfully via IONOS SMTP" }),
       {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
