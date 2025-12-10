@@ -310,13 +310,10 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
 
   try {
     await client.send({
-      from: smtpUser,
+      from: `${fromName} <${smtpUser}>`,
       to: to,
       subject: subject,
       html: `<html><body><pre style="font-family: monospace; white-space: pre-wrap;">${text}</pre></body></html>`,
-      headers: {
-        "From": `${fromName} <${smtpUser}>`,
-      },
     });
 
     console.log("Email sent successfully via IONOS SMTP");
