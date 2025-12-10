@@ -12,8 +12,7 @@ const Hero = () => {
           <img 
             src={storiaLogo} 
             alt={language === 'de' ? 'STORIA Catering München Logo' : 'STORIA Catering Munich Logo'} 
-            className="h-24 md:h-32 mx-auto mb-4 hover:opacity-80 transition-opacity cursor-pointer"
-            width="256"
+            className="h-24 md:h-32 w-auto mx-auto mb-4 hover:opacity-80 transition-opacity cursor-pointer"
             height="128"
             fetchPriority="high"
             decoding="async"
