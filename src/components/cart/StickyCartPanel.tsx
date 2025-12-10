@@ -26,10 +26,9 @@ const StickyCartPanel = () => {
 
   return (
     <div className={cn(
-      "fixed bottom-0 left-0 right-0 z-50 lg:hidden",
-      "bg-background border-t border-border",
-      "shadow-[0_-4px_20px_rgba(0,0,0,0.1)]",
-      "pb-[env(safe-area-inset-bottom)]"
+      "fixed top-[120px] right-4 z-40 w-80 md:w-96",
+      "bg-background/95 backdrop-blur-lg border border-border rounded-xl",
+      "shadow-lg"
     )}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border">
