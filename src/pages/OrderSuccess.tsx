@@ -33,6 +33,8 @@ interface OrderDetails {
   grandTotal: number;
   paymentMethod: 'invoice' | 'stripe';
   company?: string;
+  foodVat7?: number;
+  deliveryVat19?: number;
 }
 
 interface LocationState {
@@ -183,6 +185,24 @@ const OrderSuccess = () => {
                       <span>{language === 'de' ? 'Gesamt' : 'Total'}</span>
                       <span>{formatPrice(orderDetails.grandTotal)}</span>
                     </div>
+                    
+                    {/* VAT Breakdown */}
+                    {(orderDetails.foodVat7 !== undefined || orderDetails.deliveryVat19 !== undefined) && (
+                      <div className="pt-2 space-y-1 text-xs text-muted-foreground">
+                        {orderDetails.foodVat7 !== undefined && orderDetails.foodVat7 > 0 && (
+                          <div className="flex justify-between">
+                            <span>{language === 'de' ? 'inkl. 7% MwSt. (Speisen)' : 'incl. 7% VAT (food)'}</span>
+                            <span>{formatPrice(orderDetails.foodVat7)}</span>
+                          </div>
+                        )}
+                        {orderDetails.deliveryVat19 !== undefined && orderDetails.deliveryVat19 > 0 && (
+                          <div className="flex justify-between">
+                            <span>{language === 'de' ? 'inkl. 19% MwSt. (Lieferung)' : 'incl. 19% VAT (delivery)'}</span>
+                            <span>{formatPrice(orderDetails.deliveryVat19)}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   {/* Delivery/Pickup Info */}
