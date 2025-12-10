@@ -1,7 +1,18 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+// IONOS SMTP client
+const smtpClient = new SMTPClient({
+  connection: {
+    hostname: "smtp.ionos.de",
+    port: 587,
+    tls: true,
+    auth: {
+      username: Deno.env.get("SMTP_USER") || "",
+      password: Deno.env.get("SMTP_PASSWORD") || "",
+    },
+  },
+});
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -182,7 +193,7 @@ const generateCustomerEmailHtml = (data: OrderNotificationRequest) => {
           <p style="margin-top: 30px;">Bei Fragen erreichen Sie uns unter:</p>
           <p>
             📞 089 18913323<br>
-            ✉️ info@storia-restaurant.de
+            ✉️ info@ristorantestoria.de
           </p>
         </div>
         <div class="footer">
@@ -375,31 +386,35 @@ const handler = async (req: Request): Promise<Response> => {
     const data: OrderNotificationRequest = await req.json();
     console.log("Order data received:", JSON.stringify(data, null, 2));
 
-    // Send customer confirmation email
+    // Send customer confirmation email via IONOS SMTP
     console.log("Sending customer email to:", data.customerEmail);
-    const customerEmailResult = await resend.emails.send({
-      from: "STORIA Catering <noreply@storia-restaurant.de>",
-      to: [data.customerEmail],
+    await smtpClient.send({
+      from: "STORIA Catering <info@ristorantestoria.de>",
+      to: data.customerEmail,
       subject: `Ihre Catering-Anfrage bei STORIA (${data.orderNumber})`,
+      content: "auto",
       html: generateCustomerEmailHtml(data),
     });
-    console.log("Customer email result:", customerEmailResult);
+    console.log("Customer email sent successfully");
 
-    // Send restaurant notification email
+    // Send restaurant notification email via IONOS SMTP
     console.log("Sending restaurant notification email");
-    const restaurantEmailResult = await resend.emails.send({
-      from: "STORIA Website <noreply@storia-restaurant.de>",
-      to: ["info@storia-restaurant.de"],
+    await smtpClient.send({
+      from: "STORIA Website <info@ristorantestoria.de>",
+      to: "info@ristorantestoria.de",
       subject: `🍽️ Neue Catering-Anfrage: ${data.orderNumber}`,
+      content: "auto",
       html: generateRestaurantEmailHtml(data),
     });
-    console.log("Restaurant email result:", restaurantEmailResult);
+    console.log("Restaurant email sent successfully");
+
+    // Close SMTP connection
+    await smtpClient.close();
 
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        customerEmail: customerEmailResult,
-        restaurantEmail: restaurantEmailResult 
+        success: true,
+        message: "Emails sent successfully"
       }),
       {
         status: 200,
