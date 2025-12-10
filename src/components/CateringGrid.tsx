@@ -128,10 +128,15 @@ const CateringGrid = () => {
         {/* SEO-freundliche Überschrift - dezent aber sichtbar */}
         <h2 
           id="catering-categories-heading" 
-          className="text-center text-sm md:text-base font-light text-muted-foreground tracking-[0.2em] uppercase mb-6"
+          className="text-center text-sm md:text-base font-light text-muted-foreground tracking-[0.2em] uppercase mb-2"
         >
           {language === 'de' ? 'Unsere Catering-Kategorien' : 'Our Catering Categories'}
         </h2>
+        <p className="text-center text-sm text-muted-foreground max-w-xl mx-auto mb-6">
+          {language === 'de'
+            ? 'Fingerfood, Pizza, Pasta & mehr – frisch zubereitet und flexibel geliefert.'
+            : 'Finger food, pizza, pasta & more – freshly prepared and flexibly delivered.'}
+        </p>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cateringItems.map((item, index) => (
