@@ -24,6 +24,8 @@ const ImageCard = ({ image, alt, title, subtitle, className = "", imageClassName
         src={image} 
         alt={alt} 
         className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${imageClassName}`}
+        width="400"
+        height="400"
         loading="lazy"
       />
       {(title || subtitle) && (

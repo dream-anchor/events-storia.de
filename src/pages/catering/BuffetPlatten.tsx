@@ -211,9 +211,12 @@ const PlatterCard = ({ platter, language }: PlatterCardProps) => {
         <div className="aspect-square overflow-hidden relative">
           <img
             src={platter.image}
-            alt={name}
+            alt={`${name} – STORIA Catering München`}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             style={{ objectPosition: platter.objectPosition || "center center" }}
+            width="400"
+            height="400"
+            loading="lazy"
           />
           {isInCart && (
             <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">

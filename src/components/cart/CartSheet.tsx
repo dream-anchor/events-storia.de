@@ -69,8 +69,11 @@ const CartSheet = () => {
                         <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
                           <img 
                             src={item.image} 
-                            alt={name}
+                            alt={`${name} – Warenkorb`}
                             className="w-full h-full object-cover"
+                            width="80"
+                            height="80"
+                            loading="lazy"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                         </div>

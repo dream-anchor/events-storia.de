@@ -223,8 +223,10 @@ const EventsImStoria = () => {
         <section className="relative h-[70vh] md:h-[80vh] overflow-hidden">
           <img
             src={heroImg}
-            alt={language === 'de' ? "Events im STORIA Restaurant" : "Events at STORIA Restaurant"}
+            alt={language === 'de' ? "Events im STORIA Restaurant München" : "Events at STORIA Restaurant Munich"}
             className="w-full h-full object-cover"
+            width="1920"
+            height="1080"
           />
           {/* Multi-Layer Gradient for depth */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20" />
@@ -437,23 +439,35 @@ const EventsImStoria = () => {
             <div className="grid grid-cols-2 gap-3 md:gap-4 max-w-4xl mx-auto mb-12">
               <img 
                 src={firmenfeierImg} 
-                alt={language === 'de' ? "Firmenfeier im STORIA" : "Corporate event at STORIA"}
+                alt={language === 'de' ? "Firmenfeier im STORIA München" : "Corporate event at STORIA Munich"}
                 className="w-full h-40 md:h-56 object-cover rounded-xl shadow-lg"
+                width="400"
+                height="224"
+                loading="lazy"
               />
               <img 
                 src={geburtstagsfeierImg} 
-                alt={language === 'de' ? "Geburtstagsfeier im STORIA" : "Birthday celebration at STORIA"}
+                alt={language === 'de' ? "Geburtstagsfeier im STORIA München" : "Birthday celebration at STORIA Munich"}
                 className="w-full h-40 md:h-56 object-cover rounded-xl shadow-lg"
+                width="400"
+                height="224"
+                loading="lazy"
               />
               <img 
                 src={sommerfestImg} 
-                alt={language === 'de' ? "Sommerfest im STORIA" : "Summer party at STORIA"}
+                alt={language === 'de' ? "Sommerfest im STORIA München" : "Summer party at STORIA Munich"}
                 className="w-full h-40 md:h-56 object-cover rounded-xl shadow-lg"
+                width="400"
+                height="224"
+                loading="lazy"
               />
               <img 
                 src={weihnachtsfeierImg} 
-                alt={language === 'de' ? "Weihnachtsfeier im STORIA" : "Christmas party at STORIA"}
+                alt={language === 'de' ? "Weihnachtsfeier im STORIA München" : "Christmas party at STORIA Munich"}
                 className="w-full h-40 md:h-56 object-cover rounded-xl shadow-lg"
+                width="400"
+                height="224"
+                loading="lazy"
               />
             </div>
             

@@ -148,9 +148,12 @@ const DishCard = ({ dish, language }: DishCardProps) => {
       <div className="aspect-[4/3] overflow-hidden relative">
         <img
           src={dish.image}
-          alt={language === 'de' ? dish.name : dish.name_en}
+          alt={`${language === 'de' ? dish.name : dish.name_en} – STORIA Catering München`}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           style={{ objectPosition: dish.objectPosition || 'center center' }}
+          width="400"
+          height="300"
+          loading="lazy"
         />
         <div className="absolute top-3 right-3 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
           {formatPrice(dish.price)}

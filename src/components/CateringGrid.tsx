@@ -88,8 +88,10 @@ const CateringCard = ({ item, language }: { item: CateringItem; language: string
       {/* Bild mit Zoom-Effekt */}
       <img
         src={item.image}
-        alt={title}
+        alt={`${title} – STORIA Catering München`}
         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+        width="400"
+        height="267"
         loading="lazy"
       />
       

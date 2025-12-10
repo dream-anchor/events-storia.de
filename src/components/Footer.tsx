@@ -20,10 +20,13 @@ const Footer = () => {
             {/* Domenico */}
             <div className="text-center group">
               <div className="w-36 h-36 md:w-44 md:h-44 mx-auto mb-5 rounded-full overflow-hidden ring-1 ring-primary-foreground/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
-                <img 
+              <img 
                   src={domenicoImage} 
-                  alt="Domenico Speranza" 
+                  alt="Domenico Speranza – STORIA München" 
                   className="w-full h-full object-cover"
+                  width="176"
+                  height="176"
+                  loading="lazy"
                 />
               </div>
               <p className="text-lg font-serif italic tracking-wider text-primary-foreground/90">Domenico</p>
@@ -47,10 +50,13 @@ const Footer = () => {
             {/* Nicola */}
             <div className="text-center group">
               <div className="w-36 h-36 md:w-44 md:h-44 mx-auto mb-5 rounded-full overflow-hidden ring-1 ring-primary-foreground/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
-                <img 
+              <img 
                   src={nicolaImage} 
-                  alt="Nicola Speranza" 
+                  alt="Nicola Speranza – STORIA München" 
                   className="w-full h-full object-cover"
+                  width="176"
+                  height="176"
+                  loading="lazy"
                 />
               </div>
               <p className="text-lg font-serif italic tracking-wider text-primary-foreground/90">Nicola</p>
@@ -91,8 +97,11 @@ const Footer = () => {
             <div className="flex flex-col items-center justify-center order-first md:order-none py-6 md:py-0">
               <img 
                 src={storiaLogo}
-                alt="STORIA Catering"
+                alt="STORIA Catering München Logo"
                 className="h-16 md:h-20 brightness-0 invert opacity-20"
+                width="160"
+                height="80"
+                loading="lazy"
               />
             </div>
 
