@@ -1668,10 +1668,9 @@ const Checkout = () => {
                                   onCheckedChange={(checked) => 
                                     setFormData(prev => ({ ...prev, hasElevator: checked as boolean }))
                                   }
-                                  required
                                 />
                                 <Label htmlFor="hasElevator" className="cursor-pointer text-sm">
-                                  {language === 'de' ? 'Aufzug vorhanden' : 'Elevator available'} *
+                                  {language === 'de' ? 'Aufzug vorhanden' : 'Elevator available'}
                                 </Label>
                               </div>
                             </div>

@@ -1,11 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-// IONOS SMTP client
+// IONOS SMTP client - Port 465 for native SSL/TLS
 const smtpClient = new SMTPClient({
   connection: {
     hostname: "smtp.ionos.de",
-    port: 587,
+    port: 465,
     tls: true,
     auth: {
       username: Deno.env.get("SMTP_USER") || "",
