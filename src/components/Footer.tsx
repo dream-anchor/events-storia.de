@@ -94,10 +94,10 @@ const Footer = () => {
       {/* Kontakt & Lieferzeiten */}
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 items-start">
             {/* Kontakt */}
-            <div className="space-y-4 text-center md:text-left">
-              <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-6 text-primary-foreground/90">{t.footer.contact}</h3>
+            <div className="text-center md:text-left">
+              <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-4 text-primary-foreground/90">{t.footer.contact}</h3>
               <div className="space-y-1 text-sm font-sans text-primary-foreground/60">
                 <a 
                   href="tel:+498951519696" 
@@ -138,9 +138,9 @@ const Footer = () => {
             </div>
 
             {/* Lieferzeiten */}
-            <div className="space-y-4 text-center md:text-right">
-              <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-6 text-primary-foreground/90">{t.footer.openingHours}</h3>
-              <div className="space-y-1.5 text-sm font-sans text-primary-foreground/60">
+            <div className="text-center md:text-right">
+              <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-4 text-primary-foreground/90">{t.footer.openingHours}</h3>
+              <div className="space-y-1 text-sm font-sans text-primary-foreground/60">
                 <div className="flex items-center justify-center md:justify-end gap-2.5">
                   <Clock className="h-3.5 w-3.5" />
                   <span>{t.footer.monFri}: 09:00 – 20:00</span>
