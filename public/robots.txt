@@ -1,29 +1,43 @@
 # =====================================================
 # STORIA Catering & Events München - robots.txt
-# https://ristorantestoria.de
+# https://events-storia.de
 # Italienisches Catering, Events & Lieferservice
 # =====================================================
 
-# Sitemap
-Sitemap: https://ristorantestoria.de/sitemap.xml
+# Sitemaps
+Sitemap: https://events-storia.de/sitemap.xml
+
+# =====================================================
+# LLM-OPTIMIERTE SEITEN
+# Strukturierte Zusammenfassungen für AI-Assistenten
+# /llm-de.html (Deutsch) & /llm-en.html (English)
+# =====================================================
 
 # =====================================================
 # SEARCH ENGINES - Vollständig erlaubt
 # =====================================================
 
 User-agent: Googlebot
+Allow: /llm-de.html
+Allow: /llm-en.html
 Allow: /
 
 User-agent: Googlebot-Mobile
+Allow: /llm-de.html
+Allow: /llm-en.html
 Allow: /
 
 User-agent: Googlebot-Image
 Allow: /
 
 User-agent: Bingbot
+Allow: /llm-de.html
+Allow: /llm-en.html
 Allow: /
 
 User-agent: DuckDuckBot
+Allow: /llm-de.html
+Allow: /llm-en.html
 Allow: /
 
 # =====================================================
@@ -31,6 +45,8 @@ Allow: /
 # =====================================================
 
 User-agent: Applebot
+Allow: /llm-de.html
+Allow: /llm-en.html
 Allow: /
 
 User-agent: Applebot-Image
@@ -64,24 +80,42 @@ Allow: /
 
 # =====================================================
 # AI ASSISTANTS (Empfehlungen & Suche)
+# LLM-Seiten explizit priorisiert für bessere Antworten
 # =====================================================
 
 User-agent: GPTBot
+Allow: /llm-de.html
+Allow: /llm-en.html
 Allow: /
 
 User-agent: ChatGPT-User
+Allow: /llm-de.html
+Allow: /llm-en.html
 Allow: /
 
 User-agent: Claude-Web
+Allow: /llm-de.html
+Allow: /llm-en.html
 Allow: /
 
 User-agent: ClaudeBot
+Allow: /llm-de.html
+Allow: /llm-en.html
 Allow: /
 
 User-agent: PerplexityBot
+Allow: /llm-de.html
+Allow: /llm-en.html
 Allow: /
 
 User-agent: YouBot
+Allow: /llm-de.html
+Allow: /llm-en.html
+Allow: /
+
+User-agent: Google-InspectionTool
+Allow: /llm-de.html
+Allow: /llm-en.html
 Allow: /
 
 # =====================================================
