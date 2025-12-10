@@ -563,13 +563,15 @@ const Checkout = () => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const generateOrderNumber = () => {
+  const generateOrderNumber = (isStripePaid: boolean = false) => {
     const date = new Date();
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
     const sequence = Math.floor(Date.now() / 1000) % 1000 + 100;
-    return `EVENTS-ANGEBOT-${day}-${month}-${year}-${sequence}`;
+    // BESTELLUNG wenn via Stripe bezahlt, sonst ANGEBOT
+    const prefix = isStripePaid ? 'EVENTS-BESTELLUNG' : 'EVENTS-ANGEBOT';
+    return `${prefix}-${day}-${month}-${year}-${sequence}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -654,7 +656,7 @@ const Checkout = () => {
     }
 
     setIsSubmitting(true);
-    const newOrderNumber = generateOrderNumber();
+    const newOrderNumber = generateOrderNumber(paymentMethod === 'stripe');
 
     // User ID for linking (existing user only, no account creation during checkout)
     const existingUserId = user?.id || null;
@@ -771,7 +773,8 @@ const Checkout = () => {
             minimumOrderSurcharge: minimumOrderSurcharge,
             distanceKm: deliveryCalc?.distanceKm || undefined,
             grandTotal: grandTotal,
-            billingAddress: needsBillingAddress ? billingAddress : undefined
+            billingAddress: needsBillingAddress ? billingAddress : undefined,
+            paymentMethod: paymentMethod
           }
         });
         
