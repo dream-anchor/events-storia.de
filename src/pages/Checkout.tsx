@@ -136,7 +136,7 @@ const Checkout = () => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [newsletterSignup, setNewsletterSignup] = useState(true);
   
-  // Account creation moved to separate page /kunde/registrieren
+  // Account creation moved to separate page /konto/bestellung-erfolgreich
 
   // Calculate current checkout step for progress indicator
   const currentStep = useMemo(() => {
@@ -340,7 +340,7 @@ const Checkout = () => {
             localStorage.removeItem(successDataKey);
             
             // Navigate to success page with order details
-            navigate('/kunde/registrieren', {
+            navigate('/konto/bestellung-erfolgreich', {
               state: {
                 email: successData.email,
                 name: successData.name,
@@ -352,14 +352,14 @@ const Checkout = () => {
           } catch (parseErr) {
             console.error('Error parsing success data:', parseErr);
             // Fallback: navigate without details
-            navigate('/kunde/registrieren', {
+            navigate('/konto/bestellung-erfolgreich', {
               state: { orderNumber: orderNum },
               replace: true
             });
           }
         } else {
           // No cached data, navigate with minimal info
-          navigate('/kunde/registrieren', {
+          navigate('/konto/bestellung-erfolgreich', {
             state: { orderNumber: orderNum },
             replace: true
           });
@@ -784,7 +784,7 @@ const Checkout = () => {
             localStorage.removeItem(cachedOrderKey); // Clean up on error
             // Still navigate to success since order was created
             clearCart();
-            navigate('/kunde/registrieren', { 
+            navigate('/konto/bestellung-erfolgreich', { 
               state: { 
                 email: formData.email, 
                 name: formData.name, 
@@ -833,7 +833,7 @@ const Checkout = () => {
           localStorage.removeItem(cachedOrderKey); // Clean up on error
           // Still navigate to success since order was created
           clearCart();
-          navigate('/kunde/registrieren', { 
+          navigate('/konto/bestellung-erfolgreich', { 
             state: { 
               email: formData.email, 
               name: formData.name, 
@@ -867,7 +867,7 @@ const Checkout = () => {
       
       // Navigate directly to success page
       clearCart();
-      navigate('/kunde/registrieren', { 
+      navigate('/konto/bestellung-erfolgreich', { 
         state: { 
           email: formData.email, 
           name: formData.name, 
@@ -1204,7 +1204,7 @@ const Checkout = () => {
                           {language === 'de' 
                             ? 'Haben Sie ein Konto? ' 
                             : 'Have an account? '}
-                          <Link to="/konto/login?redirect=/checkout" className="text-primary hover:underline font-medium">
+                          <Link to="/login" state={{ redirect: '/checkout' }} className="text-primary hover:underline font-medium">
                             {language === 'de' ? 'Anmelden' : 'Log in'}
                           </Link>
                           {language === 'de' 

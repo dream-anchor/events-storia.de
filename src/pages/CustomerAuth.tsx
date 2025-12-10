@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
@@ -25,7 +25,11 @@ import { Loader2, Mail, Lock, User, ArrowLeft } from 'lucide-react';
 const CustomerAuth = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, login, signup, loading: authLoading } = useCustomerAuth();
+  
+  // Get redirect path from state if passed (e.g., from checkout)
+  const redirectPath = (location.state as { redirect?: string })?.redirect || '/konto';
   
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,9 +52,9 @@ const CustomerAuth = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (user && !authLoading) {
-      navigate('/konto');
+      navigate(redirectPath);
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, redirectPath]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +74,7 @@ const CustomerAuth = () => {
       }
     } else {
       toast.success(language === 'de' ? 'Erfolgreich eingeloggt!' : 'Successfully logged in!');
-      navigate('/konto');
+      navigate(redirectPath);
     }
     setIsSubmitting(false);
   };
