@@ -201,6 +201,9 @@ const Desserts = () => {
         {/* Products Grid */}
         <section className="py-12 md:py-16">
           <div className="container mx-auto px-4">
+            <h2 className="sr-only">
+              {language === 'de' ? 'Unsere Desserts' : 'Our Desserts'}
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto">
               {dessertItems.map((item) => (
                 <DessertCard key={item.id} item={item} language={language} />

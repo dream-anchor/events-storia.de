@@ -234,10 +234,10 @@ const ChafingDishOption = ({ language }: { language: string }) => {
             <Flame className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h3 className="text-lg font-serif font-medium flex items-center gap-2">
+            <p className="text-lg font-serif font-medium flex items-center gap-2">
               {language === 'de' ? 'Optional: Chafing Dish' : 'Optional: Chafing Dish'}
               <span className="text-primary font-bold">+{formatPrice(chafingDish.price)}</span>
-            </h3>
+            </p>
             <p className="text-sm text-muted-foreground mt-1">
               {language === 'de' ? chafingDish.description : chafingDish.description_en}
             </p>
@@ -334,6 +334,9 @@ const BuffetAuflauf = () => {
 
             {/* Dishes Grid */}
             <div className="max-w-5xl mx-auto">
+              <h2 className="sr-only">
+                {language === 'de' ? 'Unsere Gerichte' : 'Our Dishes'}
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {dishes.map((dish) => (
                   <DishCard key={dish.id} dish={dish} language={language} />

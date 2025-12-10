@@ -219,6 +219,9 @@ const BuffetFingerfood = () => {
             </div>
 
             {/* Menu Grid */}
+            <h2 className="sr-only">
+              {language === 'de' ? 'Unsere Gerichte' : 'Our Dishes'}
+            </h2>
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
                 {[...Array(6)].map((_, i) => (
