@@ -483,25 +483,33 @@ const EventsImStoria = () => {
           <EventContactForm preselectedPackage={selectedPackage} />
         </div>
 
-        {/* Footer CTA */}
-        <section className="py-12 bg-primary text-primary-foreground">
+        {/* Alternative CTA */}
+        <section className="py-10 bg-background">
           <div className="container mx-auto px-4 text-center">
-            <p className="text-lg md:text-xl font-medium mb-6">
+            {/* Divider with "oder" */}
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <div className="h-px w-16 bg-border"></div>
+              <span className="text-muted-foreground text-sm uppercase tracking-wider">
+                {language === 'de' ? 'oder' : 'or'}
+              </span>
+              <div className="h-px w-16 bg-border"></div>
+            </div>
+            
+            {/* Inviting text */}
+            <p className="text-lg text-muted-foreground mb-4">
               {language === 'de' 
-                ? "Sichern Sie sich jetzt Ihren Wunschtermin" 
-                : "Secure your preferred date now"}
+                ? "Lieber persönlich? Rufen Sie uns gerne an" 
+                : "Prefer a personal touch? Give us a call"}
             </p>
-            <Button 
-              asChild 
-              variant="secondary" 
-              size="lg"
-              className="gap-2"
+            
+            {/* Phone number as elegant link */}
+            <a 
+              href="tel:+498951519696"
+              className="inline-flex items-center gap-2 text-2xl md:text-3xl font-serif text-foreground hover:text-primary transition-colors"
             >
-              <a href="tel:+498951519696">
-                <Phone className="h-4 w-4" />
-                +49 89 51519696
-              </a>
-            </Button>
+              <Phone className="h-5 w-5" />
+              +49 89 51519696
+            </a>
           </div>
         </section>
       </main>
