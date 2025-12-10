@@ -227,7 +227,7 @@ const EventsImStoria = () => {
             className="w-full h-full object-cover"
           />
           {/* Multi-Layer Gradient for depth */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/40" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_rgba(0,0,0,0.4)_100%)]" />
           
           {/* Glassmorphism Text Container */}
@@ -381,7 +381,7 @@ const EventsImStoria = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
               {/* 3-Course Menu */}
-              <div className="bg-card border border-border/50 rounded-xl p-6 md:p-8">
+              <div className="bg-card border border-primary/30 rounded-xl p-6 md:p-8 ring-2 ring-primary/10">
                 <h3 className="font-serif text-xl font-medium text-center mb-6">
                   {language === 'de' ? '3-Gänge-Menü' : '3-Course Menu'}
                   <span className="block text-primary text-lg mt-1">ab 42 €</span>
@@ -457,7 +457,7 @@ const EventsImStoria = () => {
               />
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 max-w-4xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-5xl mx-auto">
               {includedServices.map((service, index) => {
                 const Icon = service.icon;
                 return (
@@ -482,22 +482,6 @@ const EventsImStoria = () => {
         {/* Testimonials */}
         <EventTestimonials />
 
-        {/* Customer Reviews Widget */}
-        <section className="py-16 md:py-20">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <h2 className="text-2xl md:text-3xl font-serif font-medium mb-3">
-                {language === 'de' ? 'Weitere Bewertungen' : 'More Reviews'}
-              </h2>
-              <p className="text-muted-foreground max-w-xl mx-auto">
-                {language === 'de'
-                  ? 'Echte Bewertungen von unseren Gästen'
-                  : 'Real reviews from our guests'}
-              </p>
-            </div>
-            <ConsentElfsightReviews />
-          </div>
-        </section>
 
         {/* USPs */}
         <section className="py-16 md:py-20 bg-gradient-to-b from-primary/5 to-background">
@@ -559,11 +543,11 @@ const EventsImStoria = () => {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
               {/* Phone */}
               <a 
-                href="tel:+491636033912"
+                href="tel:+498951519696"
                 className="inline-flex items-center gap-2 text-xl md:text-2xl font-serif text-foreground hover:text-primary transition-colors"
               >
                 <Phone className="h-5 w-5" />
-                +49 163 6033912
+                +49 89 51519696
               </a>
               
               {/* WhatsApp */}

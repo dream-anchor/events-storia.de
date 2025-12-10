@@ -1,5 +1,6 @@
 import { Star } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import ConsentElfsightReviews from "@/components/ConsentElfsightReviews";
 
 interface Testimonial {
   id: string;
@@ -79,6 +80,11 @@ const EventTestimonials = () => {
               </div>
             </div>
           ))}
+        </div>
+        
+        {/* Elfsight Reviews Widget */}
+        <div className="mt-12 max-w-4xl mx-auto">
+          <ConsentElfsightReviews />
         </div>
       </div>
     </section>
