@@ -28,6 +28,7 @@ import CookieSettingsButton from "./components/CookieSettingsButton";
 import ScrollToTop from "./components/ScrollToTop";
 import CartButton from "./components/cart/CartButton";
 import CartSheet from "./components/cart/CartSheet";
+import StickyCartPanel from "./components/cart/StickyCartPanel";
 import Checkout from "./pages/Checkout";
 import CustomerAuth from "./pages/CustomerAuth";
 import CustomerProfile from "./pages/CustomerProfile";
@@ -59,6 +60,7 @@ const App = () => {
               <ScrollToTop />
               <FloatingActions />
               <CartButton />
+              <StickyCartPanel />
               <CartSheet />
               <CookieBanner />
               <CookieSettingsButton />
