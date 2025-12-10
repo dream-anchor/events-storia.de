@@ -548,13 +548,28 @@ const Checkout = () => {
     // User ID for linking (existing user only, no account creation during checkout)
     const existingUserId = user?.id || null;
 
+    // Build items array with Chafing Dish as a proper line item (for LexOffice, order storage, etc.)
+    const orderItems = [
+      ...items.map(item => ({
+        id: item.id,
+        name: item.name,
+        name_en: item.name_en,
+        quantity: item.quantity,
+        price: item.price
+      })),
+      ...(chafingDishQuantity > 0 ? [{
+        id: CHAFING_DISH.id,
+        name: `${CHAFING_DISH.name} (Leihgerät)`,
+        name_en: `${CHAFING_DISH.name_en} (rental)`,
+        quantity: chafingDishQuantity,
+        price: CHAFING_DISH.price
+      }] : [])
+    ];
+
     // Build notes with service options
     let fullNotes = formData.notes || '';
     if (formData.wantsSetupService) {
       fullNotes += (fullNotes ? '\n\n' : '') + '📦 Aufbau & Service gewünscht';
-    }
-    if (chafingDishQuantity > 0) {
-      fullNotes += (fullNotes ? '\n\n' : '') + `🔥 Chafing Dish: ${chafingDishQuantity}× (${formatPrice(chafingDishGross)})`;
     }
 
     // Determine billing address
@@ -604,13 +619,7 @@ const Checkout = () => {
           desired_date: formData.date || null,
           desired_time: formData.time || null,
           notes: fullNotes || null,
-          items: items.map(item => ({
-            id: item.id,
-            name: item.name,
-            name_en: item.name_en,
-            quantity: item.quantity,
-            price: item.price
-          })),
+          items: orderItems,
           total_amount: grandTotal,
           billing_name: billingAddress.name || null,
           billing_street: billingAddress.street || null,
@@ -643,13 +652,7 @@ const Checkout = () => {
             desiredDate: formData.date || undefined,
             desiredTime: formData.time || undefined,
             notes: fullNotes || undefined,
-            items: items.map(item => ({
-              id: item.id,
-              name: item.name,
-              name_en: item.name_en,
-              quantity: item.quantity,
-              price: item.price
-            })),
+            items: orderItems,
             subtotal: totalPrice,
             deliveryCost: deliveryCalc?.deliveryCostGross || 0,
             deliveryCostNet: deliveryCalc?.deliveryCostNet || 0,
@@ -682,13 +685,7 @@ const Checkout = () => {
               customerPhone: formData.phone,
               companyName: formData.company || undefined,
               billingAddress: billingAddress,
-              items: items.map(item => ({
-                id: item.id,
-                name: item.name,
-                name_en: item.name_en,
-                quantity: item.quantity,
-                price: item.price
-              })),
+              items: orderItems,
               subtotal: totalPrice,
               deliveryCost: deliveryCalc?.deliveryCostGross || 0,
               deliveryCostNet: deliveryCalc?.deliveryCostNet || 0,
@@ -742,13 +739,7 @@ const Checkout = () => {
           customerPhone: formData.phone,
           companyName: formData.company || undefined,
           billingAddress: billingAddress,
-          items: items.map(item => ({
-            id: item.id,
-            name: item.name,
-            name_en: item.name_en,
-            quantity: item.quantity,
-            price: item.price
-          })),
+          items: orderItems,
           subtotal: totalPrice,
           deliveryCost: deliveryCalc?.deliveryCostGross || 0,
           minimumOrderSurcharge: minimumOrderSurcharge,
@@ -771,7 +762,7 @@ const Checkout = () => {
           name: formData.name,
           orderNumber: newOrderNumber,
           orderDetails: {
-            items: items.map(item => ({
+            items: orderItems.map(item => ({
               name: item.name,
               name_en: item.name_en,
               quantity: item.quantity,
@@ -802,7 +793,7 @@ const Checkout = () => {
                 customerEmail: formData.email,
                 customerName: formData.name,
                 orderNumber: newOrderNumber,
-                items: items.map(i => ({ name: i.name, quantity: i.quantity })),
+                items: orderItems.map(i => ({ name: i.name, quantity: i.quantity })),
               },
             }
           );
