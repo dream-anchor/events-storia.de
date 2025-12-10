@@ -107,6 +107,12 @@ const validateEmail = (email: string): { valid: boolean; suggestion?: string; er
   return { valid: true };
 };
 
+// Truncate to 2 decimal places without rounding (e.g. 12.345 → "12,34")
+const formatCurrency = (value: number): string => {
+  const truncated = Math.trunc(value * 100) / 100;
+  return truncated.toFixed(2).replace('.', ',');
+};
+
 const Checkout = () => {
   const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
   const { language } = useLanguage();
@@ -1171,16 +1177,16 @@ const Checkout = () => {
         <div className="pt-2 mt-2 border-t border-dashed border-border space-y-1">
           <div className="flex justify-between items-center text-xs text-muted-foreground">
             <span>{language === 'de' ? 'Nettobetrag' : 'Net amount'}</span>
-            <span>{totalNet.toFixed(2).replace('.', ',')} €</span>
+            <span>{formatCurrency(totalNet)} €</span>
           </div>
           <div className="flex justify-between items-center text-xs text-muted-foreground">
             <span>{language === 'de' ? '+ 7% MwSt. (Speisen)' : '+ 7% VAT (food)'}</span>
-            <span>{totalVat7.toFixed(2).replace('.', ',')} €</span>
+            <span>{formatCurrency(totalVat7)} €</span>
           </div>
           {totalVat19 > 0 && (
             <div className="flex justify-between items-center text-xs text-muted-foreground">
               <span>{language === 'de' ? '+ 19% MwSt. (Lieferung)' : '+ 19% VAT (delivery)'}</span>
-              <span>{totalVat19.toFixed(2).replace('.', ',')} €</span>
+              <span>{formatCurrency(totalVat19)} €</span>
             </div>
           )}
         </div>
@@ -1712,12 +1718,12 @@ const Checkout = () => {
                                     ) : (
                                       <div className="text-right">
                                         <span className="text-lg font-bold text-foreground">
-                                          {deliveryCalc.deliveryCostGross.toFixed(2).replace('.', ',')} €
+                                          {formatCurrency(deliveryCalc.deliveryCostGross)} €
                                         </span>
                                         <span className="block text-xs text-muted-foreground">
                                           {language === 'de' 
-                                            ? `(${deliveryCalc.deliveryCostNet.toFixed(2).replace('.', ',')} € netto)`
-                                            : `(€${deliveryCalc.deliveryCostNet.toFixed(2)} net)`}
+                                            ? `(${formatCurrency(deliveryCalc.deliveryCostNet)} € netto)`
+                                            : `(€${formatCurrency(deliveryCalc.deliveryCostNet)} net)`}
                                         </span>
                                       </div>
                                     )}
@@ -1745,8 +1751,8 @@ const Checkout = () => {
                                 {minimumOrderSurcharge > 0 && (
                                   <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
                                     {language === 'de' 
-                                      ? `Aufschlag von ${minimumOrderSurcharge.toFixed(2).replace('.', ',')} € wird hinzugefügt, um Mindestbestellwert von ${deliveryCalc.minimumOrder} € zu erreichen.`
-                                      : `A surcharge of €${minimumOrderSurcharge.toFixed(2)} will be added to meet the minimum order of €${deliveryCalc.minimumOrder}.`}
+                                      ? `Aufschlag von ${formatCurrency(minimumOrderSurcharge)} € wird hinzugefügt, um Mindestbestellwert von ${deliveryCalc.minimumOrder} € zu erreichen.`
+                                      : `A surcharge of €${formatCurrency(minimumOrderSurcharge)} will be added to meet the minimum order of €${deliveryCalc.minimumOrder}.`}
                                   </p>
                                 )}
                                 
