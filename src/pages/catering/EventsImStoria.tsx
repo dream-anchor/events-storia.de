@@ -217,8 +217,8 @@ const EventsImStoria = () => {
 
       <Header />
       <Navigation />
-
-      <main className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
+      <main className="flex-1">
         {/* Hero Section */}
         <section className="relative h-[70vh] md:h-[80vh] overflow-hidden">
           <img
@@ -589,6 +589,7 @@ const EventsImStoria = () => {
       </main>
 
       <Footer />
+      </div>
     </>
   );
 };

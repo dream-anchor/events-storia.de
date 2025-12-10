@@ -165,7 +165,7 @@ const Desserts = () => {
   const { language } = useLanguage();
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <>
       <SEO
         title={language === 'de' ? 'Desserts | STORIA Catering München' : 'Desserts | STORIA Catering Munich'}
         description={language === 'de' 
@@ -187,6 +187,7 @@ const Desserts = () => {
       />
       <Header />
       <Navigation />
+      <div className="min-h-screen flex flex-col bg-background">
       
       <main className="flex-1">
         <section className="container mx-auto px-4 py-16 md:py-24">
@@ -222,7 +223,8 @@ const Desserts = () => {
       </main>
 
       <Footer />
-    </div>
+      </div>
+    </>
   );
 };
 
