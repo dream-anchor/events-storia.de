@@ -11,7 +11,7 @@ const Header = () => {
     <header className="border-b border-border bg-background">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
-          <Link to="/" className="font-serif text-2xl md:text-3xl font-bold hover:opacity-80 transition-opacity">
+          <Link to="/" className="font-serif text-[1.55rem] md:text-[1.95rem] font-bold hover:opacity-80 transition-opacity">
             STORIA
           </Link>
           <div className="flex items-center gap-2 md:gap-6 text-base text-foreground/80 font-medium">
