@@ -42,7 +42,7 @@ interface LocationState {
   orderDetails?: OrderDetails;
 }
 
-const CustomerRegister = () => {
+const OrderSuccess = () => {
   const { language } = useLanguage();
   const { formatPrice } = usePriceDisplay();
   const navigate = useNavigate();
@@ -341,4 +341,4 @@ const CustomerRegister = () => {
   );
 };
 
-export default CustomerRegister;
+export default OrderSuccess;

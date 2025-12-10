@@ -31,7 +31,7 @@ import CartSheet from "./components/cart/CartSheet";
 import Checkout from "./pages/Checkout";
 import CustomerAuth from "./pages/CustomerAuth";
 import CustomerProfile from "./pages/CustomerProfile";
-import CustomerRegister from "./pages/CustomerRegister";
+import OrderSuccess from "./pages/OrderSuccess";
 import PasswordReset from "./pages/PasswordReset";
 
 // Catering Pages
@@ -84,7 +84,7 @@ const App = () => {
                 <Route path="/login" element={<CustomerAuth />} />
                 <Route path="/konto" element={<CustomerProfile />} />
                 <Route path="/konto/passwort-reset" element={<PasswordReset />} />
-                <Route path="/kunde/registrieren" element={<CustomerRegister />} />
+                <Route path="/konto/bestellung-erfolgreich" element={<OrderSuccess />} />
                 
                 {/* Admin */}
                 <Route path="/admin" element={<Admin />} />
