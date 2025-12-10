@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,6 +34,67 @@ serve(async (req) => {
     }
     
     logStep("Input validated", { amount, customerEmail, orderNumber, itemCount: items?.length });
+
+    // SECURITY: Verify order exists and amount matches database record
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const { data: order, error: orderError } = await supabase
+      .from('catering_orders')
+      .select('id, order_number, total_amount, customer_email, payment_status')
+      .eq('order_number', orderNumber)
+      .single();
+
+    if (orderError || !order) {
+      logStep("ERROR: Order not found", { orderNumber, error: orderError?.message });
+      return new Response(
+        JSON.stringify({ error: "Order not found" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+      );
+    }
+
+    // Verify email matches order
+    if (order.customer_email !== customerEmail) {
+      logStep("ERROR: Email mismatch", { 
+        orderEmail: order.customer_email, 
+        requestEmail: customerEmail 
+      });
+      return new Response(
+        JSON.stringify({ error: "Email mismatch" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+
+    // Verify amount matches (allow small rounding differences)
+    const amountDifference = Math.abs(order.total_amount - amount);
+    if (amountDifference > 0.02) {
+      logStep("ERROR: Amount mismatch", { 
+        orderAmount: order.total_amount, 
+        requestAmount: amount,
+        difference: amountDifference
+      });
+      return new Response(
+        JSON.stringify({ error: "Amount mismatch - order may have been modified" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+
+    // Check if already paid
+    if (order.payment_status === 'paid') {
+      logStep("ERROR: Order already paid", { orderNumber });
+      return new Response(
+        JSON.stringify({ error: "Order already paid" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+
+    logStep("Order validated successfully", { 
+      orderId: order.id, 
+      dbAmount: order.total_amount, 
+      requestAmount: amount 
+    });
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) {
