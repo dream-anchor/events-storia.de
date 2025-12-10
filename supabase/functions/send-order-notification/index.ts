@@ -1,18 +1,29 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-// IONOS SMTP client - Port 465 for native SSL/TLS
-const smtpClient = new SMTPClient({
-  connection: {
-    hostname: "smtp.ionos.de",
-    port: 465,
-    tls: true,
-    auth: {
-      username: Deno.env.get("SMTP_USER") || "",
-      password: Deno.env.get("SMTP_PASSWORD") || "",
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+
+async function sendEmail(to: string[], subject: string, html: string, from: string) {
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
     },
-  },
-});
+    body: JSON.stringify({
+      from,
+      to,
+      subject,
+      html,
+    }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Resend API error: ${error}`);
+  }
+  
+  return response.json();
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,7 +74,7 @@ const formatDate = (dateStr: string) => {
   return date.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 };
 
-const LOGO_URL = "https://www.storia-restaurant.de/storia-logo.webp";
+const LOGO_URL = "https://ristorantestoria.de/storia-logo.webp";
 
 const generateCustomerEmailHtml = (data: OrderNotificationRequest) => {
   const subtotal = data.subtotal || data.totalAmount || 0;
@@ -228,8 +239,9 @@ const generateCustomerEmailHtml = (data: OrderNotificationRequest) => {
           <tr>
             <td style="background: #1a1a1a; padding: 30px; text-align: center; border-radius: 0 0 16px 16px;">
               <p style="margin: 0 0 8px; color: #c9a227; font-family: Georgia, 'Times New Roman', serif; font-size: 16px; letter-spacing: 2px;">STORIA</p>
-              <p style="margin: 0 0 12px; color: #888; font-size: 13px;">Prinzregentenstrasse 85 · 81675 München</p>
-              <a href="https://www.storia-restaurant.de" style="color: #c9a227; font-size: 13px; text-decoration: none;">www.storia-restaurant.de</a>
+              <p style="margin: 0 0 4px; color: #888; font-size: 13px;">Ristorante Storia</p>
+              <p style="margin: 0 0 12px; color: #888; font-size: 13px;">Karlstr. 47a · 80333 München</p>
+              <a href="https://ristorantestoria.de" style="color: #c9a227; font-size: 13px; text-decoration: none;">ristorantestoria.de</a>
             </td>
           </tr>
           
@@ -411,7 +423,7 @@ const generateRestaurantEmailHtml = (data: OrderNotificationRequest) => {
               
               <!-- CTA Button -->
               <div style="text-align: center; margin-top: 28px;">
-                <a href="https://storia-restaurant.de/admin" style="display: inline-block; background: linear-gradient(135deg, #c9a227 0%, #a68520 100%); color: #fff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Zur Admin-Übersicht</a>
+                <a href="https://ristorantestoria.de/admin" style="display: inline-block; background: linear-gradient(135deg, #c9a227 0%, #a68520 100%); color: #fff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Zur Admin-Übersicht</a>
               </div>
               
             </td>
@@ -420,7 +432,7 @@ const generateRestaurantEmailHtml = (data: OrderNotificationRequest) => {
           <!-- Footer -->
           <tr>
             <td style="background: #333; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
-              <p style="margin: 0; color: #888; font-size: 12px;">STORIA Catering · Prinzregentenstrasse 85 · 81675 München</p>
+              <p style="margin: 0; color: #888; font-size: 12px;">STORIA Catering · Karlstr. 47a · 80333 München</p>
             </td>
           </tr>
           
@@ -443,35 +455,32 @@ const handler = async (req: Request): Promise<Response> => {
     const data: OrderNotificationRequest = await req.json();
     console.log("Order data received:", JSON.stringify(data, null, 2));
 
-    // Send customer confirmation email via IONOS SMTP
+    // Send customer confirmation email via Resend
     console.log("Sending customer email to:", data.customerEmail);
-    await smtpClient.send({
-      from: "STORIA Catering <info@ristorantestoria.de>",
-      to: data.customerEmail,
-      subject: `Ihre Catering-Anfrage bei STORIA (${data.orderNumber})`,
-      content: "html",
-      html: generateCustomerEmailHtml(data),
-    });
-    console.log("Customer email sent successfully");
+    const customerEmailResult = await sendEmail(
+      [data.customerEmail],
+      `Ihre Catering-Anfrage bei STORIA (${data.orderNumber})`,
+      generateCustomerEmailHtml(data),
+      "STORIA Catering <noreply@ristorantestoria.de>"
+    );
+    console.log("Customer email sent successfully:", customerEmailResult);
 
-    // Send restaurant notification email via IONOS SMTP
+    // Send restaurant notification email via Resend
     console.log("Sending restaurant notification email");
-    await smtpClient.send({
-      from: "STORIA Website <info@ristorantestoria.de>",
-      to: "info@ristorantestoria.de",
-      subject: `Neue Catering-Anfrage: ${data.orderNumber}`,
-      content: "html",
-      html: generateRestaurantEmailHtml(data),
-    });
-    console.log("Restaurant email sent successfully");
-
-    // Close SMTP connection
-    await smtpClient.close();
+    const restaurantEmailResult = await sendEmail(
+      ["info@ristorantestoria.de"],
+      `Neue Catering-Anfrage: ${data.orderNumber}`,
+      generateRestaurantEmailHtml(data),
+      "STORIA Website <noreply@ristorantestoria.de>"
+    );
+    console.log("Restaurant email sent successfully:", restaurantEmailResult);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: "Emails sent successfully"
+        message: "Emails sent successfully",
+        customerEmail: customerEmailResult,
+        restaurantEmail: restaurantEmailResult
       }),
       {
         status: 200,
