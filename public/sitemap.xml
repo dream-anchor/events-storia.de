@@ -6,104 +6,65 @@
     <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://ristorantestoria.de/"/>
-    <lastmod>2025-12-03</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   
-  <!-- Reservierung -->
+  <!-- Catering Shop Pages -->
   <url>
-    <loc>https://ristorantestoria.de/reservierung</loc>
-    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/reservierung"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/reservierung"/>
-    <lastmod>2025-12-03</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  
-  <!-- Speisekarte -->
-  <url>
-    <loc>https://ristorantestoria.de/speisekarte</loc>
-    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/speisekarte"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/speisekarte"/>
-    <lastmod>2025-12-03</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  
-  <!-- Mittagsmenü -->
-  <url>
-    <loc>https://ristorantestoria.de/mittagsmenu</loc>
-    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/mittagsmenu"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/mittagsmenu"/>
-    <lastmod>2025-12-03</lastmod>
+    <loc>https://ristorantestoria.de/catering/buffet-fingerfood</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/catering/buffet-fingerfood"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/catering/buffet-fingerfood"/>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   
-  <!-- Getränke -->
   <url>
-    <loc>https://ristorantestoria.de/getraenke</loc>
-    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/getraenke"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/getraenke"/>
-    <lastmod>2025-12-03</lastmod>
-    <changefreq>monthly</changefreq>
+    <loc>https://ristorantestoria.de/catering/buffet-platten</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/catering/buffet-platten"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/catering/buffet-platten"/>
+    <lastmod>2025-12-10</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   
-  <!-- Über uns -->
   <url>
-    <loc>https://ristorantestoria.de/ueber-uns</loc>
-    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/ueber-uns"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/ueber-uns"/>
-    <lastmod>2025-12-03</lastmod>
+    <loc>https://ristorantestoria.de/catering/buffet-auflauf</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/catering/buffet-auflauf"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/catering/buffet-auflauf"/>
+    <lastmod>2025-12-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
+  <url>
+    <loc>https://ristorantestoria.de/catering/pizze-napoletane</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/catering/pizze-napoletane"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/catering/pizze-napoletane"/>
+    <lastmod>2025-12-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
+  <url>
+    <loc>https://ristorantestoria.de/catering/desserts</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/catering/desserts"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/catering/desserts"/>
+    <lastmod>2025-12-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
+  <!-- Events -->
+  <url>
+    <loc>https://ristorantestoria.de/events</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/events"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/events"/>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <!-- Besondere Anlässe (Übersicht) -->
-  <url>
-    <loc>https://ristorantestoria.de/besondere-anlaesse</loc>
-    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/besondere-anlaesse"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/besondere-anlaesse"/>
-    <lastmod>2025-12-03</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  
-  <!-- Weihnachtsmenüs -->
-  <url>
-    <loc>https://ristorantestoria.de/besondere-anlaesse/weihnachtsmenues</loc>
-    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/besondere-anlaesse/weihnachtsmenues"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/besondere-anlaesse/weihnachtsmenues"/>
-    <lastmod>2025-12-03</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  
-  <!-- Silvesterparty -->
-  <url>
-    <loc>https://ristorantestoria.de/besondere-anlaesse/silvesterparty</loc>
-    <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/besondere-anlaesse/silvesterparty"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/besondere-anlaesse/silvesterparty"/>
-    <lastmod>2025-12-05</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  
-  <!-- SEO-freundliche Redirect-URLs (canonical auf Hauptseiten) -->
-  <url>
-    <loc>https://ristorantestoria.de/weihnachtsmenues</loc>
-    <lastmod>2025-12-05</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  
-  <url>
-    <loc>https://ristorantestoria.de/silvesterparty</loc>
-    <lastmod>2025-12-05</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.8</priority>
   </url>
   
   <!-- Kontakt -->
@@ -111,130 +72,79 @@
     <loc>https://ristorantestoria.de/kontakt</loc>
     <xhtml:link rel="alternate" hreflang="de" href="https://ristorantestoria.de/kontakt"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://ristorantestoria.de/kontakt"/>
-    <lastmod>2025-12-03</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   
-  <!-- Impressum -->
+  <!-- Legal Pages -->
   <url>
     <loc>https://ristorantestoria.de/impressum</loc>
-    <lastmod>2025-12-03</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   
-  <!-- Datenschutz -->
   <url>
     <loc>https://ristorantestoria.de/datenschutz</loc>
-    <lastmod>2025-12-03</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   
-  <!-- Cookie-Richtlinie -->
   <url>
     <loc>https://ristorantestoria.de/cookie-richtlinie</loc>
-    <lastmod>2025-12-03</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
   
-  <!-- AGB Restaurant -->
   <url>
     <loc>https://ristorantestoria.de/agb-restaurant</loc>
-    <lastmod>2025-12-03</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
   
-  <!-- AGB Gutscheine -->
   <url>
     <loc>https://ristorantestoria.de/agb-gutscheine</loc>
-    <lastmod>2025-12-03</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
   
-  <!-- Widerrufsbelehrung -->
+  <url>
+    <loc>https://ristorantestoria.de/agb-catering</loc>
+    <lastmod>2025-12-10</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
   <url>
     <loc>https://ristorantestoria.de/widerrufsbelehrung</loc>
-    <lastmod>2025-12-03</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
   
-  <!-- Zahlungsinformationen -->
   <url>
     <loc>https://ristorantestoria.de/zahlungsinformationen</loc>
-    <lastmod>2025-12-03</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
   
-  <!-- Lebensmittelhinweise -->
   <url>
     <loc>https://ristorantestoria.de/lebensmittelhinweise</loc>
-    <lastmod>2025-12-03</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
   
-  <!-- Haftungsausschluss -->
   <url>
     <loc>https://ristorantestoria.de/haftungsausschluss</loc>
-    <lastmod>2025-12-03</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
-  </url>
-  
-  <!-- SEO Landingpages -->
-  <url>
-    <loc>https://ristorantestoria.de/lunch-muenchen-maxvorstadt</loc>
-    <lastmod>2025-12-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  
-  <url>
-    <loc>https://ristorantestoria.de/aperitivo-muenchen</loc>
-    <lastmod>2025-12-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  
-  <url>
-    <loc>https://ristorantestoria.de/romantisches-dinner-muenchen</loc>
-    <lastmod>2025-12-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  
-  <url>
-    <loc>https://ristorantestoria.de/eventlocation-muenchen-maxvorstadt</loc>
-    <lastmod>2025-12-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  
-  <url>
-    <loc>https://ristorantestoria.de/firmenfeier-muenchen</loc>
-    <lastmod>2025-12-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  
-  <url>
-    <loc>https://ristorantestoria.de/geburtstagsfeier-muenchen</loc>
-    <lastmod>2025-12-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  
-  <url>
-    <loc>https://ristorantestoria.de/neapolitanische-pizza-muenchen</loc>
-    <lastmod>2025-12-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
   </url>
 </urlset>
