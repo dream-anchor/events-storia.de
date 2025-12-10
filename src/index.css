@@ -168,17 +168,17 @@ All colors MUST be HSL.
 
 /* Prevent horizontal scroll on mobile */
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
 }
 
 @media (max-width: 768px) {
   html {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
   
   body {
-    overflow-x: hidden;
+    overflow-x: clip;
     position: relative;
     width: 100%;
   }
