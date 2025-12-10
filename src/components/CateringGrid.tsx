@@ -107,9 +107,9 @@ const CateringCard = ({ item, language, index }: { item: CateringItem; language:
       {/* Text-Container mit Glassmorphism */}
       <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
         <div className="backdrop-blur-sm bg-black/20 rounded-lg p-3">
-          <p className="text-lg md:text-xl font-serif font-semibold mb-1 text-white drop-shadow-lg">
+          <h3 className="text-lg md:text-xl font-serif font-semibold mb-1 text-white drop-shadow-lg">
             {title}
-          </p>
+          </h3>
           <p className="text-base text-white/90 leading-relaxed drop-shadow-md line-clamp-2">
             {description}
           </p>
@@ -123,9 +123,16 @@ const CateringGrid = () => {
   const { language } = useLanguage();
 
   return (
-    <section className="bg-background py-6 md:py-10">
+    <section className="bg-background py-6 md:py-10" aria-labelledby="catering-categories-heading">
       <div className="container mx-auto px-4">
-        {/* Grid direkt ohne Header für "above the fold" */}
+        {/* SEO-freundliche Überschrift - dezent aber sichtbar */}
+        <h2 
+          id="catering-categories-heading" 
+          className="text-center text-sm md:text-base font-light text-muted-foreground tracking-[0.2em] uppercase mb-6"
+        >
+          {language === 'de' ? 'Unsere Catering-Kategorien' : 'Our Catering Categories'}
+        </h2>
+        
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cateringItems.map((item, index) => (
             <CateringCard key={item.id} item={item} language={language} index={index} />

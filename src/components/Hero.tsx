@@ -24,17 +24,17 @@ const Hero = () => {
           Catering · Events · Lieferservice
         </p>
         
-        <h1 id="hero-heading" className="text-lg md:text-xl font-light text-foreground/80 tracking-wide">
+        <h1 id="hero-heading" className="text-lg md:text-xl font-light text-foreground/80 tracking-wide mb-3">
           {language === 'de' 
             ? 'Italienische Küche für München' 
             : 'Italian Cuisine for Munich'}
         </h1>
         
-        {/* SEO-Text versteckt */}
-        <p className="sr-only">
+        {/* Sichtbare Business-Beschreibung für SEO */}
+        <p className="text-sm text-muted-foreground max-w-xl mx-auto">
           {language === 'de'
-            ? 'STORIA Catering München – Italienisches Catering für Events, Büro und Zuhause. Fingerfood, Pizza, Pasta, Antipasti und mehr. Frisch zubereitet und flexibel geliefert in München und Umgebung.'
-            : 'STORIA Catering Munich – Italian catering for events, office and home. Finger food, pizza, pasta, antipasti and more. Freshly prepared and flexibly delivered in Munich and surrounding areas.'}
+            ? 'Fingerfood, Pizza, Pasta & mehr – frisch zubereitet und flexibel geliefert.'
+            : 'Finger food, pizza, pasta & more – freshly prepared and flexibly delivered.'}
         </p>
       </div>
     </section>
