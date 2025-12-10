@@ -147,6 +147,31 @@ const Datenschutz = () => {
                   https://policies.google.com/privacy
                 </a>
               </p>
+
+              <h3 className="text-lg font-semibold mt-4 mb-2">Elfsight Reviews Widget</h3>
+              <p>
+                Wir nutzen das Elfsight-Widget zur Anzeige von Kundenbewertungen von Google, 
+                TripAdvisor und Facebook. Das Widget wird nur geladen, wenn Sie der Nutzung 
+                externer Dienste zugestimmt haben (Cookie-Kategorie "Externe Inhalte").
+              </p>
+              <p className="mt-2">
+                <strong>Anbieter:</strong> Elfsight LLC, 1013 Centre Road, Suite 403-B, Wilmington, DE 19805, USA
+              </p>
+              <p className="mt-2">
+                Beim Laden des Widgets werden Daten an elfsightcdn.com übertragen. 
+                Die Datenschutzerklärung von Elfsight finden Sie unter:{" "}
+                <a 
+                  href="https://elfsight.com/privacy-policy/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  https://elfsight.com/privacy-policy/
+                </a>
+              </p>
+              <p className="mt-2">
+                <strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)
+              </p>
             </section>
 
             {/* 8. Speicherdauer */}
