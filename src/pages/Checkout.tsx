@@ -433,6 +433,31 @@ const Checkout = () => {
            (timeValue >= dinner.start && timeValue <= dinner.end);
   };
 
+  // Check if weekend delivery order is past Thursday 23:59 deadline
+  const isWeekendDeliveryTooLate = (selectedDate: string, isPickup: boolean): boolean => {
+    if (isPickup) return false; // Selbstabholung immer möglich
+    
+    const orderDate = new Date(selectedDate);
+    const dayOfWeek = orderDate.getDay(); // 0 = Sonntag, 6 = Samstag
+    
+    // Nur Samstag (6) und Sonntag (0) prüfen
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) return false;
+    
+    // Donnerstag 23:59 Uhr der gleichen Woche berechnen
+    const now = new Date();
+    
+    // Finde den Donnerstag vor dem Wochenende
+    // Für Samstag: 2 Tage zurück = Donnerstag
+    // Für Sonntag: 3 Tage zurück = Donnerstag
+    const daysBeforeDeadline = dayOfWeek === 6 ? 2 : 3;
+    const thursdayDeadline = new Date(orderDate);
+    thursdayDeadline.setDate(orderDate.getDate() - daysBeforeDeadline);
+    thursdayDeadline.setHours(23, 59, 59, 999);
+    
+    // Ist jetzt nach Donnerstag 23:59?
+    return now > thursdayDeadline;
+  };
+
   // Validate date/time: Pizza (same-day OK, but must be in time slots) vs Catering (24h advance)
   useEffect(() => {
     if (!formData.date || !formData.time) {
@@ -443,6 +468,22 @@ const Checkout = () => {
     const phoneText = isMobile 
       ? '<a href="tel:01636033912" class="underline font-medium hover:text-amber-800 dark:hover:text-amber-200">0163 6033912</a>'
       : '0163 6033912';
+    
+    const isPickup = formData.deliveryType === 'pickup';
+    
+    // Wochenend-Bestellfrist prüfen (nur für Lieferung, nicht für Selbstabholung)
+    if (isWeekendDeliveryTooLate(formData.date, isPickup)) {
+      const selectedDate = new Date(formData.date);
+      const dayName = selectedDate.getDay() === 6 ? 'Samstag' : 'Sonntag';
+      const dayNameEn = selectedDate.getDay() === 6 ? 'Saturday' : 'Sunday';
+      
+      setDateTimeWarning(
+        language === 'de'
+          ? `Lieferungen für ${dayName} müssen bis Donnerstag 23:59 Uhr bestellt werden. Für kurzfristige Anfragen: ${phoneText}`
+          : `Deliveries for ${dayNameEn} must be ordered by Thursday 11:59 PM. For short-notice requests: ${phoneText}`
+      );
+      return;
+    }
     
     if (isPizzaOnly) {
       // Pizza: No 24h advance required, but must be within delivery time slots
@@ -484,7 +525,7 @@ const Checkout = () => {
         setDateTimeWarning(null);
       }
     }
-  }, [formData.date, formData.time, language, isMobile, isPizzaOnly]);
+  }, [formData.date, formData.time, formData.deliveryType, language, isMobile, isPizzaOnly]);
 
   // Calculate minimum order surcharge if needed
   const minimumOrderSurcharge = deliveryCalc && totalPrice < deliveryCalc.minimumOrder 
