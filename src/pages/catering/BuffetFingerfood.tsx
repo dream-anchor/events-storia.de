@@ -190,7 +190,7 @@ const BuffetFingerfood = () => {
     <>
       <SEO 
         title={language === 'de' ? "Fingerfood & Mini-Gerichte | STORIA Catering München" : "Finger Food & Mini Dishes | STORIA Catering Munich"}
-        description={language === 'de' ? "Elegante italienische Häppchen für Empfänge, Meetings & gesellige Runden. STORIA Catering München." : "Elegant Italian bites for receptions, meetings & social gatherings. STORIA Catering Munich."}
+        description={language === 'de' ? "Italienisches Fingerfood für Events in München bestellen: Bruschette, Oktopus, Burrata & mehr. Lieferung & Abholung. Jetzt online buchen!" : "Order Italian finger food for events in Munich: bruschetta, octopus, burrata & more. Delivery & pickup available. Book online now!"}
         canonical="/catering/buffet-fingerfood"
       />
       <div className="min-h-screen bg-background flex flex-col">

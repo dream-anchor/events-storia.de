@@ -1,11 +1,18 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
+import SEO from "@/components/SEO";
 
 const Widerrufsbelehrung = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <>
+      <SEO 
+        title="Widerrufsbelehrung"
+        description="Widerrufsbelehrung für Online-Bestellungen bei STORIA Catering München: Ihr 14-tägiges Widerrufsrecht nach BGB."
+        noIndex={true}
+      />
+      <div className="min-h-screen bg-background">
+        <Header />
       
       <main className="pt-32 pb-20 px-4">
         <div className="max-w-3xl mx-auto">
@@ -132,9 +139,10 @@ const Widerrufsbelehrung = () => {
         </div>
       </main>
 
-      <Footer />
-      <FloatingActions />
-    </div>
+        <Footer />
+        <FloatingActions />
+      </div>
+    </>
   );
 };
 

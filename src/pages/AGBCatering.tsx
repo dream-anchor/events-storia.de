@@ -1,10 +1,17 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
+import SEO from "@/components/SEO";
 import { Link } from "react-router-dom";
 
 const AGBCatering = () => {
   return (
+    <>
+      <SEO 
+        title="AGB Catering & Lieferservice"
+        description="AGB für Catering & Lieferservice der Speranza GmbH München: Bestellungen, Lieferung, Stornierung und Zahlungsbedingungen."
+        noIndex={true}
+      />
     <div className="min-h-screen bg-background">
       <Header />
       
@@ -303,6 +310,7 @@ const AGBCatering = () => {
       <Footer />
       <FloatingActions />
     </div>
+    </>
   );
 };
 

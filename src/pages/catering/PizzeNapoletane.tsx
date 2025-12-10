@@ -220,8 +220,8 @@ const PizzeNapoletane = () => {
       <SEO 
         title={language === 'de' ? "Pizze Napoletane | STORIA Catering München" : "Pizze Napoletane | STORIA Catering Munich"}
         description={language === 'de' 
-          ? "Authentische neapolitanische Pizza für Ihr Event – frisch aus dem Steinofen. 25 klassische Pizzen für Catering in München." 
-          : "Authentic Neapolitan pizza for your event – fresh from the stone oven. 25 classic pizzas for catering in Munich."}
+          ? "Original neapolitanische Pizza aus dem Steinofen – 25 Sorten für Lieferung & Abholung in München. STORIA Catering – Jetzt bestellen!" 
+          : "Authentic Neapolitan stone-oven pizza – 25 varieties for delivery & pickup in Munich. STORIA Catering – Order now!"}
         canonical="/catering/pizze-napoletane"
       />
       <div className="min-h-screen bg-background flex flex-col">

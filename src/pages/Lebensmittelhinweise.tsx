@@ -1,11 +1,18 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
+import SEO from "@/components/SEO";
 
 const Lebensmittelhinweise = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <>
+      <SEO 
+        title="Lebensmittelinformationen & Allergene"
+        description="Allergen- und Lebensmittelinformationen von STORIA München gemäß EU-LMIV: Alle 14 Hauptallergene auf einen Blick."
+        noIndex={true}
+      />
+      <div className="min-h-screen bg-background">
+        <Header />
       
       <main className="pt-32 pb-20 px-4">
         <div className="max-w-3xl mx-auto">
@@ -194,9 +201,10 @@ const Lebensmittelhinweise = () => {
         </div>
       </main>
 
-      <Footer />
-      <FloatingActions />
-    </div>
+        <Footer />
+        <FloatingActions />
+      </div>
+    </>
   );
 };
 

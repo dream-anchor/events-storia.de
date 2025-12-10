@@ -914,6 +914,7 @@ const Checkout = () => {
         <SEO 
           title={language === 'de' ? 'Checkout | STORIA' : 'Checkout | STORIA'}
           description=""
+          noIndex={true}
         />
         <div className="min-h-screen bg-background flex flex-col">
           <Header />
@@ -1105,6 +1106,7 @@ const Checkout = () => {
       <SEO 
         title={language === 'de' ? 'Bestellung aufgeben | STORIA' : 'Place Order | STORIA'}
         description=""
+        noIndex={true}
       />
       <div className="min-h-screen bg-background flex flex-col">
         <Header />

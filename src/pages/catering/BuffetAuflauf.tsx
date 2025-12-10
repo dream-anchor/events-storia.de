@@ -297,7 +297,7 @@ const BuffetAuflauf = () => {
     <>
       <SEO 
         title={language === 'de' ? "Buffet & Warme Gerichte | STORIA Catering München" : "Buffet & Hot Dishes | STORIA Catering Munich"}
-        description={language === 'de' ? "Perfekt zum Teilen in geselliger Runde – servierfertig, frisch und ofenheiß. STORIA Catering München." : "Perfect for sharing in good company – ready to serve, fresh and oven-hot. STORIA Catering Munich."}
+        description={language === 'de' ? "Warme italienische Gerichte für Ihr Event: Lasagne, Parmigiana, Ossobuco & mehr. Mit Chafing Dish Option. STORIA Catering München." : "Hot Italian dishes for your event: lasagna, parmigiana, ossobuco & more. Chafing dish available. STORIA Catering Munich."}
         canonical="/catering/buffet-auflauf"
       />
       <div className="min-h-screen bg-background flex flex-col">
