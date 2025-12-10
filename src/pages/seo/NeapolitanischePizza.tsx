@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
 import ReservationCTA from "@/components/ReservationCTA";
+import ConsentElfsightReviews from "@/components/ConsentElfsightReviews";
 import { Button } from "@/components/ui/button";
 import storiaLogo from "@/assets/storia-logo.webp";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -114,6 +115,14 @@ const NeapolitanischePizza = () => {
                 </div>
               </div>
             </div>
+
+            {/* Customer Reviews */}
+            <section className="mb-12">
+              <h2 className="text-2xl font-serif font-semibold mb-6 text-center">
+                {language === 'de' ? 'Kundenbewertungen' : 'Customer Reviews'}
+              </h2>
+              <ConsentElfsightReviews />
+            </section>
 
             <ReservationCTA />
           </article>

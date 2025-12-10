@@ -7,6 +7,7 @@ import StructuredData from "@/components/StructuredData";
 import EventPackageCard from "@/components/events/EventPackageCard";
 import EventTestimonials from "@/components/events/EventTestimonials";
 import EventContactForm from "@/components/events/EventContactForm";
+import ConsentElfsightReviews from "@/components/ConsentElfsightReviews";
 import { Button } from "@/components/ui/button";
 import { 
   Building2, Users, Wine, MapPin, ChefHat, Sparkles,
@@ -480,6 +481,23 @@ const EventsImStoria = () => {
 
         {/* Testimonials */}
         <EventTestimonials />
+
+        {/* Customer Reviews Widget */}
+        <section className="py-16 md:py-20">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl md:text-3xl font-serif font-medium mb-3">
+                {language === 'de' ? 'Weitere Bewertungen' : 'More Reviews'}
+              </h2>
+              <p className="text-muted-foreground max-w-xl mx-auto">
+                {language === 'de'
+                  ? 'Echte Bewertungen von unseren Gästen'
+                  : 'Real reviews from our guests'}
+              </p>
+            </div>
+            <ConsentElfsightReviews />
+          </div>
+        </section>
 
         {/* USPs */}
         <section className="py-16 md:py-20 bg-gradient-to-b from-primary/5 to-background">
