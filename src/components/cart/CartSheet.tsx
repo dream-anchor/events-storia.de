@@ -93,29 +93,29 @@ const CartSheet = () => {
                     
                     {/* Bottom Controls Bar */}
                     <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-t border-border/30">
-                      <div className="flex items-center gap-0.5 bg-background rounded-full p-0.5 shadow-inner">
+                      <div className="flex items-center gap-1 bg-background rounded-full p-1 shadow-inner">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-muted transition-colors"
+                          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-muted transition-colors touch-manipulation"
                           aria-label="Menge reduzieren"
                         >
-                          <Minus className="h-3.5 w-3.5" />
+                          <Minus className="h-4 w-4" />
                         </button>
-                        <span className="w-8 text-center font-medium text-sm tabular-nums">{item.quantity}</span>
+                        <span className="w-10 text-center font-medium text-base tabular-nums">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-muted transition-colors"
+                          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-muted transition-colors touch-manipulation"
                           aria-label="Menge erhöhen"
                         >
-                          <Plus className="h-3.5 w-3.5" />
+                          <Plus className="h-4 w-4" />
                         </button>
                       </div>
                       <button
                         onClick={() => removeFromCart(item.id)}
-                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-all duration-200"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-all duration-200 touch-manipulation"
                         aria-label="Artikel entfernen"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-5 w-5" />
                       </button>
                     </div>
                   </div>

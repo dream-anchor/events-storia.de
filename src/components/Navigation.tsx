@@ -35,10 +35,10 @@ const Navigation = () => {
 
   // Brutto/Netto Toggle Component
   const PriceToggle = () => (
-    <div className="flex items-center gap-1 text-xs">
+    <div className="flex items-center gap-2 text-sm">
       <button
         onClick={() => setShowGross(true)}
-        className={`px-2 py-1 rounded transition-colors ${
+        className={`min-h-[40px] px-3 py-2 rounded-lg transition-colors touch-manipulation ${
           showGross 
             ? 'bg-primary-foreground/20 font-medium' 
             : 'hover:bg-primary-foreground/10'
@@ -49,7 +49,7 @@ const Navigation = () => {
       <span className="text-primary-foreground/40">|</span>
       <button
         onClick={() => setShowGross(false)}
-        className={`px-2 py-1 rounded transition-colors ${
+        className={`min-h-[40px] px-3 py-2 rounded-lg transition-colors touch-manipulation ${
           !showGross 
             ? 'bg-primary-foreground/20 font-medium' 
             : 'hover:bg-primary-foreground/10'

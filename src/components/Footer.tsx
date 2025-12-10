@@ -98,20 +98,26 @@ const Footer = () => {
             {/* Kontakt */}
             <div className="space-y-4 text-center md:text-left">
               <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-6 text-primary-foreground/90">{t.footer.contact}</h3>
-              <div className="space-y-2.5 text-sm font-sans text-primary-foreground/60">
-              <a href="tel:+498951519696" className="flex items-center justify-center md:justify-start gap-2.5 hover:text-primary-foreground transition-colors">
-                  <Phone className="h-3.5 w-3.5" />
+              <div className="space-y-1 text-sm font-sans text-primary-foreground/60">
+                <a 
+                  href="tel:+498951519696" 
+                  className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] py-2 hover:text-primary-foreground transition-colors touch-manipulation"
+                >
+                  <Phone className="h-4 w-4" />
                   +49 89 51519696
                 </a>
-                <a href="mailto:info@ristorantestoria.de" className="flex items-center justify-center md:justify-start gap-2.5 hover:text-primary-foreground transition-colors">
-                  <Mail className="h-3.5 w-3.5" />
+                <a 
+                  href="mailto:info@ristorantestoria.de" 
+                  className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] py-2 hover:text-primary-foreground transition-colors touch-manipulation"
+                >
+                  <Mail className="h-4 w-4" />
                   info@ristorantestoria.de
                 </a>
-              <Link 
+                <Link 
                   to="/kontakt#map" 
-                  className="flex items-center justify-center md:justify-start gap-2.5 hover:text-primary-foreground transition-colors"
+                  className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] py-2 hover:text-primary-foreground transition-colors touch-manipulation"
                 >
-                  <MapPin className="h-3.5 w-3.5" />
+                  <MapPin className="h-4 w-4" />
                   <span>
                     {language === 'de' ? 'Liefergebiet: München & Umgebung' : 'Delivery area: Munich & surroundings'}
                   </span>
@@ -151,30 +157,30 @@ const Footer = () => {
           <p className="text-sm font-sans text-primary-foreground/40">
             © {new Date().getFullYear()} {t.footer.copyright}
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-4 text-xs font-sans text-primary-foreground/30">
-            <Link to="/impressum" className="hover:text-primary-foreground/60 transition-colors">{t.footer.imprint}</Link>
-            <span className="opacity-50">·</span>
-            <Link to="/datenschutz" className="hover:text-primary-foreground/60 transition-colors">{t.footer.privacy}</Link>
-            <span className="opacity-50">·</span>
-            <Link to="/cookie-richtlinie" className="hover:text-primary-foreground/60 transition-colors">{t.legal.cookies}</Link>
-            <span className="opacity-50">·</span>
-            <Link to="/agb-catering" className="hover:text-primary-foreground/60 transition-colors">{language === 'de' ? 'AGB Catering' : 'Catering Terms'}</Link>
-            <span className="opacity-50">·</span>
-            <Link to="/widerrufsbelehrung" className="hover:text-primary-foreground/60 transition-colors">{language === 'de' ? 'Widerrufsbelehrung' : 'Cancellation Policy'}</Link>
-            <span className="opacity-50">·</span>
-            <Link to="/lebensmittelhinweise" className="hover:text-primary-foreground/60 transition-colors">{t.legal.foodInfo}</Link>
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-6 text-sm font-sans text-primary-foreground/40">
+            <Link to="/impressum" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.imprint}</Link>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <Link to="/datenschutz" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.privacy}</Link>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <Link to="/cookie-richtlinie" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.legal.cookies}</Link>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <Link to="/agb-catering" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'AGB Catering' : 'Catering Terms'}</Link>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <Link to="/widerrufsbelehrung" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'Widerrufsbelehrung' : 'Cancellation Policy'}</Link>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <Link to="/lebensmittelhinweise" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.legal.foodInfo}</Link>
           </div>
-          <div className="flex items-center justify-center gap-4 mt-3 text-xs font-sans text-primary-foreground/20">
+          <div className="flex items-center justify-center gap-6 mt-4 text-sm font-sans text-primary-foreground/30">
             <a 
               href="https://www.instagram.com/ristorante_storia/" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="hover:text-primary-foreground/40 transition-colors"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:text-primary-foreground/50 transition-colors touch-manipulation"
               aria-label="Instagram"
             >
-              <Instagram className="h-3.5 w-3.5" />
+              <Instagram className="h-5 w-5" />
             </a>
-            <Link to="/admin" className="hover:text-primary-foreground/40 transition-colors">Admin</Link>
+            <Link to="/admin" className="py-2 min-h-[44px] inline-flex items-center hover:text-primary-foreground/50 transition-colors touch-manipulation">Admin</Link>
           </div>
         </div>
       </div>
