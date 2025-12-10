@@ -30,19 +30,19 @@ const Kontakt = () => {
           { name: language === 'de' ? 'Kontakt' : 'Contact', url: '/kontakt' }
         ]} 
       />
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <div className="bg-background border-b border-border">
-          <div className="container mx-auto px-4 py-8 text-center">
-            <Link to="/">
-              <img src={storiaLogo} alt="STORIA – Italienisches Restaurant München" className="h-24 md:h-32 mx-auto mb-4 hover:opacity-80 transition-opacity cursor-pointer" />
-            </Link>
-            <p className="text-lg text-muted-foreground tracking-wide">
-              {t.hero.subtitle}
-            </p>
-          </div>
+      <Header />
+      <div className="bg-background border-b border-border">
+        <div className="container mx-auto px-4 py-8 text-center">
+          <Link to="/">
+            <img src={storiaLogo} alt="STORIA – Italienisches Restaurant München" className="h-24 md:h-32 mx-auto mb-4 hover:opacity-80 transition-opacity cursor-pointer" />
+          </Link>
+          <p className="text-lg text-muted-foreground tracking-wide">
+            {t.hero.subtitle}
+          </p>
         </div>
-        <Navigation />
+      </div>
+      <Navigation />
+      <div className="min-h-screen bg-background flex flex-col">
         
         <main className="container mx-auto px-4 py-12 flex-grow">
           <h1 className="text-4xl font-bold mb-4 text-center">

@@ -236,9 +236,9 @@ const PizzeNapoletane = () => {
           sku: p.id,
         }))} 
       />
+      <Header />
+      <Navigation />
       <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <Navigation />
         
         <main className="flex-1">
           {/* Hero Section */}

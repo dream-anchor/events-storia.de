@@ -212,9 +212,9 @@ const BuffetFingerfood = () => {
           }))} 
         />
       )}
+      <Header />
+      <Navigation />
       <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <Navigation />
         
         <main className="flex-1">
           <section className="container mx-auto px-4 py-16 md:py-24">
