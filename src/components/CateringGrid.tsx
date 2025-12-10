@@ -76,9 +76,10 @@ const cateringItems: CateringItem[] = [
   },
 ];
 
-const CateringCard = ({ item, language }: { item: CateringItem; language: string }) => {
+const CateringCard = ({ item, language, index }: { item: CateringItem; language: string; index: number }) => {
   const title = language === 'de' ? item.titleDe : item.titleEn;
   const description = language === 'de' ? item.descriptionDe : item.descriptionEn;
+  const isAboveFold = index < 3;
 
   return (
     <Link 
@@ -90,9 +91,11 @@ const CateringCard = ({ item, language }: { item: CateringItem; language: string
         src={item.image}
         alt={`${title} – STORIA Catering München`}
         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-        width="400"
-        height="267"
-        loading="lazy"
+        width="600"
+        height="400"
+        loading={isAboveFold ? "eager" : "lazy"}
+        fetchPriority={isAboveFold ? "high" : undefined}
+        decoding="async"
       />
       
       {/* Minimaler Gradient nur am unteren Textbereich */}
@@ -124,8 +127,8 @@ const CateringGrid = () => {
       <div className="container mx-auto px-4">
         {/* Grid direkt ohne Header für "above the fold" */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {cateringItems.map((item) => (
-            <CateringCard key={item.id} item={item} language={language} />
+          {cateringItems.map((item, index) => (
+            <CateringCard key={item.id} item={item} language={language} index={index} />
           ))}
         </div>
       </div>

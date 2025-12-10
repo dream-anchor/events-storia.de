@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Phone, Mail, MapPin, Clock, Instagram } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import domenicoImage from "@/assets/domenico-speranza.webp";
 import storiaLogo from "@/assets/storia-logo.webp";
 import nicolaImage from "@/assets/nicola-speranza.webp";
@@ -8,6 +9,27 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const Footer = () => {
   const { t, language } = useLanguage();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isVideoVisible, setIsVideoVisible] = useState(false);
+
+  // Lazy load video when visible
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVideoVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '100px' }
+    );
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <footer className="bg-primary text-primary-foreground">
@@ -27,6 +49,7 @@ const Footer = () => {
                   width="176"
                   height="176"
                   loading="lazy"
+                  decoding="async"
                 />
               </div>
               <p className="text-lg font-serif italic tracking-wider text-primary-foreground/90">Domenico</p>
@@ -36,11 +59,13 @@ const Footer = () => {
             <div className="text-center group">
               <div className="w-36 h-36 md:w-44 md:h-44 mx-auto mb-5 rounded-full overflow-hidden ring-1 ring-primary-foreground/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
                 <video 
-                  src={mammaVideo}
-                  autoPlay 
+                  ref={videoRef}
+                  src={isVideoVisible ? mammaVideo : undefined}
+                  autoPlay={isVideoVisible}
                   muted 
                   loop 
                   playsInline
+                  preload="none"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -57,6 +82,7 @@ const Footer = () => {
                   width="176"
                   height="176"
                   loading="lazy"
+                  decoding="async"
                 />
               </div>
               <p className="text-lg font-serif italic tracking-wider text-primary-foreground/90">Nicola</p>
@@ -99,9 +125,10 @@ const Footer = () => {
                 src={storiaLogo}
                 alt="STORIA Catering München Logo"
                 className="h-20 md:h-24 brightness-0 invert opacity-20"
-              width="auto"
-              height="80"
+                width="160"
+                height="80"
                 loading="lazy"
+                decoding="async"
               />
             </div>
 
