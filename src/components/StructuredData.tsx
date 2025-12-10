@@ -111,15 +111,47 @@ const StructuredData = ({ type = 'restaurant', breadcrumbs, faqItems, eventData,
     '@type': 'Organization',
     '@id': 'https://ristorantestoria.de/#organization',
     name: 'Speranza GmbH',
+    alternateName: ['STORIA Catering München', 'STORIA Events', 'Ristorante STORIA'],
+    description: language === 'de'
+      ? 'Authentisches italienisches Restaurant und Catering-Service in München. Seit über 15 Jahren servieren wir frische Pasta, Pizza aus dem Holzofen und erlesene Weine.'
+      : 'Authentic Italian restaurant and catering service in Munich. For over 15 years, we have been serving fresh pasta, wood-fired pizza, and fine wines.',
     url: 'https://ristorantestoria.de',
-    logo: 'https://ristorantestoria.de/storia-logo.webp',
-    contactPoint: {
-      '@type': 'ContactPoint',
-      telephone: '+49-89-515196',
-      contactType: 'reservations',
-      availableLanguage: ['German', 'English', 'Italian'],
+    logo: {
+      '@type': 'ImageObject',
+      url: 'https://ristorantestoria.de/storia-logo.webp',
+      width: 512,
+      height: 256,
     },
+    image: 'https://ristorantestoria.de/og-image.jpg',
+    foundingDate: '2008',
+    founders: [
+      { '@type': 'Person', name: 'Domenico Speranza', alternateName: 'Mimmo' },
+      { '@type': 'Person', name: 'Nicola Speranza' },
+    ],
+    sameAs: [
+      'https://www.instagram.com/ristorante_storia/',
+      'https://www.opentable.de/r/storia-ristorante-pizzeria-bar-munchen',
+    ],
+    contactPoint: [
+      {
+        '@type': 'ContactPoint',
+        telephone: '+49-89-515196',
+        contactType: 'reservations',
+        availableLanguage: ['German', 'English', 'Italian'],
+      },
+      {
+        '@type': 'ContactPoint',
+        telephone: '+49-89-51519696',
+        contactType: 'customer service',
+        availableLanguage: ['German', 'English', 'Italian'],
+      },
+    ],
     address: baseBusinessInfo.address,
+    areaServed: {
+      '@type': 'City',
+      name: 'München',
+    },
+    knowsAbout: ['Italian cuisine', 'Catering', 'Pizza Napoletana', 'Corporate events', 'Private celebrations'],
   };
 
   const localBusinessSchema = {
