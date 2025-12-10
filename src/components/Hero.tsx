@@ -30,12 +30,6 @@ const Hero = () => {
             : 'Italian Cuisine for Munich'}
         </h1>
         
-        {/* Sichtbare Business-Beschreibung für SEO */}
-        <p className="text-sm text-muted-foreground max-w-xl mx-auto">
-          {language === 'de'
-            ? 'Fingerfood, Pizza, Pasta & mehr – frisch zubereitet und flexibel geliefert.'
-            : 'Finger food, pizza, pasta & more – freshly prepared and flexibly delivered.'}
-        </p>
       </div>
     </section>
   );

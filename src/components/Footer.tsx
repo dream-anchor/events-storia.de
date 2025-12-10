@@ -101,21 +101,21 @@ const Footer = () => {
               <div className="space-y-1 text-sm font-sans text-primary-foreground/60">
                 <a 
                   href="tel:+498951519696" 
-                  className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] py-2 hover:text-primary-foreground transition-colors touch-manipulation"
+                  className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] md:min-h-0 py-2 hover:text-primary-foreground transition-colors touch-manipulation"
                 >
                   <Phone className="h-4 w-4" />
                   +49 89 51519696
                 </a>
                 <a 
                   href="mailto:info@ristorantestoria.de" 
-                  className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] py-2 hover:text-primary-foreground transition-colors touch-manipulation"
+                  className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] md:min-h-0 py-2 hover:text-primary-foreground transition-colors touch-manipulation"
                 >
                   <Mail className="h-4 w-4" />
                   info@ristorantestoria.de
                 </a>
                 <Link 
                   to="/kontakt#map" 
-                  className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] py-2 hover:text-primary-foreground transition-colors touch-manipulation"
+                  className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] md:min-h-0 py-2 hover:text-primary-foreground transition-colors touch-manipulation"
                 >
                   <MapPin className="h-4 w-4" />
                   <span>
