@@ -6,6 +6,7 @@ import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import { ServicesGrid } from '@/components/catering/ServiceInfoCard';
 import SEO from '@/components/SEO';
+import StructuredData from '@/components/StructuredData';
 import { Button } from '@/components/ui/button';
 import { Plus, Minus, ShoppingBag, Check } from 'lucide-react';
 import { useState } from 'react';
@@ -182,6 +183,19 @@ const Desserts = () => {
         description={language === 'de' 
           ? 'Italienische Desserts für Ihr Catering: Hausgemachtes Tiramisù & Pistazien-Törtchen. Ab 4 Personen bestellbar. STORIA München.'
           : 'Italian desserts for your catering: homemade tiramisù & pistachio tartlets. Minimum order 4 people. STORIA Munich.'}
+      />
+      <StructuredData 
+        type="product" 
+        products={dessertItems.map(d => ({
+          name: d.name,
+          name_en: d.name_en,
+          description: d.description,
+          description_en: d.description_en,
+          price: d.price,
+          image: d.image,
+          sku: d.id,
+          servingInfo: d.serving_info,
+        }))} 
       />
       <Header />
       <Navigation />

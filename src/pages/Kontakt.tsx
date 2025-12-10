@@ -22,6 +22,7 @@ const Kontakt = () => {
           : 'STORIA Munich contact: Karlstraße 47a, Maxvorstadt. Near main station, Königsplatz & TU Munich. Open Mon-Fri 9am-1am. Call now: +49 89 51519696!'}
         canonical="/kontakt"
       />
+      <StructuredData type="localbusiness" />
       <StructuredData 
         type="breadcrumb" 
         breadcrumbs={[

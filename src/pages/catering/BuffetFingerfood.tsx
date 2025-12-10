@@ -4,6 +4,7 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
+import StructuredData from "@/components/StructuredData";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useCateringMenuBySlug, CateringMenuItem } from "@/hooks/useCateringMenus";
@@ -196,6 +197,21 @@ const BuffetFingerfood = () => {
         description={language === 'de' ? "Italienisches Fingerfood für Events in München bestellen: Bruschette, Oktopus, Burrata & mehr. Lieferung & Abholung. Jetzt online buchen!" : "Order Italian finger food for events in Munich: bruschetta, octopus, burrata & more. Delivery & pickup available. Book online now!"}
         canonical="/catering/buffet-fingerfood"
       />
+      {allItems.length > 0 && (
+        <StructuredData 
+          type="product" 
+          products={allItems.map(item => ({
+            name: item.name,
+            name_en: item.name_en || undefined,
+            description: item.description || '',
+            description_en: item.description_en || undefined,
+            price: item.price || 0,
+            image: imageMap[item.name] || item.image_url,
+            sku: item.id,
+            servingInfo: item.serving_info || undefined,
+          }))} 
+        />
+      )}
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
         <Navigation />

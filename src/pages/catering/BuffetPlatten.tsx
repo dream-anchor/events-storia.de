@@ -4,6 +4,7 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
+import StructuredData from "@/components/StructuredData";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useCart } from "@/contexts/CartContext";
@@ -300,6 +301,19 @@ const BuffetPlatten = () => {
         title={language === 'de' ? "Platten & Sharing | STORIA Catering München" : "Platters & Sharing | STORIA Catering Munich"}
         description={language === 'de' ? "Italienische Antipasti-Platten für Meetings & Feiern: Vitello Tonnato, Bruschette, Käse & mehr. STORIA Catering München – Jetzt bestellen!" : "Italian antipasti platters for meetings & celebrations: Vitello Tonnato, bruschetta, cheese & more. STORIA Catering Munich – Order now!"}
         canonical="/catering/buffet-platten"
+      />
+      <StructuredData 
+        type="product" 
+        products={platters.map(p => ({
+          name: p.name,
+          name_en: p.name_en,
+          description: p.description,
+          description_en: p.description_en,
+          price: p.price,
+          image: p.image || undefined,
+          sku: p.id,
+          servingInfo: p.serving_info,
+        }))} 
       />
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
