@@ -515,6 +515,13 @@ const EventsImStoria = () => {
           </div>
         </section>
 
+        {/* External Reviews - Social Proof before Form */}
+        <section className="py-12 md:py-16">
+          <div className="container mx-auto px-4 max-w-4xl">
+            <ConsentElfsightReviews />
+          </div>
+        </section>
+
         {/* Contact Form */}
         <div ref={formRef}>
           <EventContactForm preselectedPackage={selectedPackage} />
