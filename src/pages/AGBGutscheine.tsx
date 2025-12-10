@@ -1,10 +1,17 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
+import SEO from "@/components/SEO";
 import { Link } from "react-router-dom";
 
 const AGBGutscheine = () => {
   return (
+    <>
+      <SEO 
+        title="AGB für Gutscheine"
+        description="AGB für Gutscheine von STORIA München: Gültigkeit, Einlösung und Erstattungsbedingungen für Geschenkgutscheine."
+        noIndex={true}
+      />
     <div className="min-h-screen bg-background">
       <Header />
       
@@ -149,6 +156,7 @@ const AGBGutscheine = () => {
       <Footer />
       <FloatingActions />
     </div>
+    </>
   );
 };
 

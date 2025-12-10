@@ -1,9 +1,16 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
+import SEO from "@/components/SEO";
 
 const Datenschutz = () => {
   return (
+    <>
+      <SEO 
+        title="Datenschutzerklärung"
+        description="Datenschutzerklärung der Speranza GmbH (STORIA München): Informationen zur Verarbeitung Ihrer Daten gemäß DSGVO."
+        noIndex={true}
+      />
     <div className="min-h-screen bg-background">
       <Header />
       
@@ -229,6 +236,7 @@ const Datenschutz = () => {
       <Footer />
       <FloatingActions />
     </div>
+    </>
   );
 };
 

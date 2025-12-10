@@ -1,11 +1,18 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
+import SEO from "@/components/SEO";
 
 const Haftungsausschluss = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <>
+      <SEO 
+        title="Haftungsausschluss (Disclaimer)"
+        description="Haftungsausschluss (Disclaimer) für die Website ristorantestoria.de – Rechtliche Hinweise zu Inhalten und Links."
+        noIndex={true}
+      />
+      <div className="min-h-screen bg-background">
+        <Header />
       
       <main className="pt-32 pb-20 px-4">
         <div className="max-w-3xl mx-auto">
@@ -138,9 +145,10 @@ const Haftungsausschluss = () => {
         </div>
       </main>
 
-      <Footer />
-      <FloatingActions />
-    </div>
+        <Footer />
+        <FloatingActions />
+      </div>
+    </>
   );
 };
 

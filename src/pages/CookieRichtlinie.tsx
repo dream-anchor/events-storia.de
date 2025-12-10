@@ -1,11 +1,18 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
+import SEO from "@/components/SEO";
 
 const CookieRichtlinie = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <>
+      <SEO 
+        title="Cookie-Richtlinie"
+        description="Cookie-Richtlinie von STORIA München: Welche Cookies wir verwenden und wie Sie Ihre Einstellungen anpassen können."
+        noIndex={true}
+      />
+      <div className="min-h-screen bg-background">
+        <Header />
       
       <main className="pt-32 pb-20 px-4">
         <div className="max-w-3xl mx-auto">
@@ -154,9 +161,10 @@ const CookieRichtlinie = () => {
         </div>
       </main>
 
-      <Footer />
-      <FloatingActions />
-    </div>
+        <Footer />
+        <FloatingActions />
+      </div>
+    </>
   );
 };
 

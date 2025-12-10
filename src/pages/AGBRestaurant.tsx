@@ -1,11 +1,18 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
+import SEO from "@/components/SEO";
 
 const AGBRestaurant = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <>
+      <SEO 
+        title="AGB Restaurant & Reservierungen"
+        description="AGB für Restaurantbesuche & Reservierungen bei STORIA München: Buchungsbedingungen, Stornierung und Hausregeln."
+        noIndex={true}
+      />
+      <div className="min-h-screen bg-background">
+        <Header />
       
       <main className="pt-32 pb-20 px-4">
         <div className="max-w-3xl mx-auto">
@@ -146,9 +153,10 @@ const AGBRestaurant = () => {
         </div>
       </main>
 
-      <Footer />
-      <FloatingActions />
-    </div>
+        <Footer />
+        <FloatingActions />
+      </div>
+    </>
   );
 };
 

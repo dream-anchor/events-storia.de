@@ -1,12 +1,19 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
+import SEO from "@/components/SEO";
 import { CreditCard, Banknote, Smartphone, Gift } from "lucide-react";
 
 const Zahlungsinformationen = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <>
+      <SEO 
+        title="Zahlungsinformationen"
+        description="Zahlungsmöglichkeiten bei STORIA München: Kreditkarte, EC-Karte, Apple Pay, Google Pay, Barzahlung und Gutscheine."
+        noIndex={true}
+      />
+      <div className="min-h-screen bg-background">
+        <Header />
       
       <main className="pt-32 pb-20 px-4">
         <div className="max-w-3xl mx-auto">
@@ -128,9 +135,10 @@ const Zahlungsinformationen = () => {
         </div>
       </main>
 
-      <Footer />
-      <FloatingActions />
-    </div>
+        <Footer />
+        <FloatingActions />
+      </div>
+    </>
   );
 };
 

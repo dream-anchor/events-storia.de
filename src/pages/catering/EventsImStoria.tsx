@@ -209,8 +209,8 @@ const EventsImStoria = () => {
       <SEO
         title={language === 'de' ? "Events & Firmenfeiern im STORIA Restaurant München" : "Events & Corporate Celebrations at STORIA Restaurant Munich"}
         description={language === 'de' 
-          ? "Unvergessliche Firmenevents in München – Flying Buffet, Festmenüs, Weihnachtsfeiern. Bis zu 120 Gäste. Zentrale Lage. Jetzt anfragen!"
-          : "Unforgettable corporate events in Munich – Flying Buffet, Set Menus, Christmas Parties. Up to 120 guests. Central location. Inquire now!"}
+          ? "Firmenfeiern, Weihnachtsfeiern & private Events im STORIA München: 3-4 Gang Menüs, Flying Buffet, bis 300 Gäste. Jetzt anfragen!"
+          : "Corporate events, Christmas parties & private events at STORIA Munich: 3-4 course menus, flying buffet, up to 300 guests. Inquire now!"}
         canonical="/events"
       />
       <StructuredData type="event" />

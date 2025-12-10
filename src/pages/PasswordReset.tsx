@@ -131,6 +131,7 @@ const PasswordReset = () => {
         <SEO 
           title={language === 'de' ? 'Passwort zurücksetzen | STORIA' : 'Reset Password | STORIA'}
           description=""
+          noIndex={true}
         />
         <Header />
         <Navigation />
@@ -156,6 +157,7 @@ const PasswordReset = () => {
         <SEO 
           title={language === 'de' ? 'Link ungültig | STORIA' : 'Invalid Link | STORIA'}
           description=""
+          noIndex={true}
         />
         <Header />
         <Navigation />
@@ -187,6 +189,7 @@ const PasswordReset = () => {
         <SEO 
           title={language === 'de' ? 'Passwort geändert | STORIA' : 'Password Changed | STORIA'}
           description=""
+          noIndex={true}
         />
         <Header />
         <Navigation />
@@ -218,6 +221,7 @@ const PasswordReset = () => {
       <SEO 
         title={language === 'de' ? 'Neues Passwort festlegen | STORIA' : 'Set New Password | STORIA'}
         description=""
+        noIndex={true}
       />
       <Header />
       <Navigation />

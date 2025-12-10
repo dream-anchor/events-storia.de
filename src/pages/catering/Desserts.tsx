@@ -175,10 +175,10 @@ const Desserts = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <SEO
-        title={language === 'de' ? 'Desserts | STORIA Catering' : 'Desserts | STORIA Catering'}
+        title={language === 'de' ? 'Desserts | STORIA Catering München' : 'Desserts | STORIA Catering Munich'}
         description={language === 'de' 
-          ? 'Süße Verführungen von STORIA – Hausgemachtes Tiramisù und Pistazien-Törtchen für Ihr Catering-Event.'
-          : 'Sweet temptations from STORIA – Homemade tiramisù and pistachio tartlets for your catering event.'}
+          ? 'Italienische Desserts für Ihr Catering: Hausgemachtes Tiramisù & Pistazien-Törtchen. Ab 4 Personen bestellbar. STORIA München.'
+          : 'Italian desserts for your catering: homemade tiramisù & pistachio tartlets. Minimum order 4 people. STORIA Munich.'}
       />
       <Header />
       <Navigation />

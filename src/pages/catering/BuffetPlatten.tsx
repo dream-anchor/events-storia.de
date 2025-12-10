@@ -295,7 +295,7 @@ const BuffetPlatten = () => {
     <>
       <SEO 
         title={language === 'de' ? "Platten & Sharing | STORIA Catering München" : "Platters & Sharing | STORIA Catering Munich"}
-        description={language === 'de' ? "Ideal für Teams, Familien & private Dinner – servierfertig geliefert. STORIA Catering München." : "Ideal for teams, families & private dinners – delivered ready to serve. STORIA Catering Munich."}
+        description={language === 'de' ? "Italienische Antipasti-Platten für Meetings & Feiern: Vitello Tonnato, Bruschette, Käse & mehr. STORIA Catering München – Jetzt bestellen!" : "Italian antipasti platters for meetings & celebrations: Vitello Tonnato, bruschetta, cheese & more. STORIA Catering Munich – Order now!"}
         canonical="/catering/buffet-platten"
       />
       <div className="min-h-screen bg-background flex flex-col">
