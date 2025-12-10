@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea'; // Keep for notes field
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText, LogIn, Lock, PartyPopper } from 'lucide-react';
+import { Minus, Plus, Trash2, CheckCircle, ArrowLeft, Truck, MapPin, Info, Sparkles, Loader2, CalendarDays, Clock, User, ChevronDown, ShieldCheck, CreditCard, FileText, LogIn, Lock, PartyPopper, Flame } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -135,6 +135,17 @@ const Checkout = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [newsletterSignup, setNewsletterSignup] = useState(true);
+  const [chafingDishQuantity, setChafingDishQuantity] = useState(0);
+  
+  // Chafing Dish add-on for warm dishes
+  const CHAFING_DISH = {
+    id: 'chafing-dish',
+    name: 'Chafing Dish',
+    name_en: 'Chafing Dish',
+    price: 25.00, // Gross price
+    description: 'Warmhaltegerät zum Ausleihen',
+    description_en: 'Warming device for rent'
+  };
   
   // Account creation moved to separate page /konto/bestellung-erfolgreich
 
@@ -171,6 +182,18 @@ const Checkout = () => {
 
   // Check if order contains only pizza (no equipment pickup needed)
   const isPizzaOnly = items.length > 0 && items.every(item => item.category === 'pizza');
+  
+  // Check if order contains warm dishes (for Chafing Dish option)
+  const hasWarmDishes = items.some(item => 
+    item.category === 'buffet' || 
+    item.name?.toLowerCase().includes('auflauf') ||
+    item.name?.toLowerCase().includes('lasagna') ||
+    item.name?.toLowerCase().includes('spezzatino') ||
+    item.name?.toLowerCase().includes('arrosto') ||
+    item.name?.toLowerCase().includes('pollo') ||
+    item.name?.toLowerCase().includes('kabeljau') ||
+    item.name?.toLowerCase().includes('parmigiana')
+  );
 
   // Calculate delivery cost when address changes
   const calculateDelivery = useCallback(async (address: string, pizzaOnlyOrder: boolean) => {
@@ -450,8 +473,12 @@ const Checkout = () => {
   
   // VAT calculations
   // Food items: 7% VAT (prices in DB are gross/brutto)
-  const foodGross = totalPrice + minimumOrderSurcharge;
-  const foodNet = foodGross / 1.07;
+  const chafingDishGross = chafingDishQuantity * CHAFING_DISH.price;
+  const chafingDishNet = chafingDishGross / 1.07;
+  const chafingDishVat = chafingDishGross - chafingDishNet;
+  
+  const foodGross = totalPrice + minimumOrderSurcharge + chafingDishGross;
+  const foodNet = (totalPrice + minimumOrderSurcharge) / 1.07 + chafingDishNet;
   const foodVat = foodGross - foodNet;
   
   // Delivery: 19% VAT (from edge function)
@@ -525,6 +552,9 @@ const Checkout = () => {
     let fullNotes = formData.notes || '';
     if (formData.wantsSetupService) {
       fullNotes += (fullNotes ? '\n\n' : '') + '📦 Aufbau & Service gewünscht';
+    }
+    if (chafingDishQuantity > 0) {
+      fullNotes += (fullNotes ? '\n\n' : '') + `🔥 Chafing Dish: ${chafingDishQuantity}× (${formatPrice(chafingDishGross)})`;
     }
 
     // Determine billing address
@@ -1004,6 +1034,15 @@ const Checkout = () => {
               {language === 'de' ? 'Mindestbest.-Aufschlag' : 'Min. order surcharge'}
             </span>
             <span>+{formatPrice(minimumOrderSurcharge)}</span>
+          </div>
+        )}
+        {chafingDishQuantity > 0 && (
+          <div className="flex justify-between items-center text-sm text-amber-600 dark:text-amber-400">
+            <span className="flex items-center gap-1">
+              <Flame className="h-3 w-3" />
+              {chafingDishQuantity}× Chafing Dish
+            </span>
+            <span>+{formatPrice(chafingDishGross)}</span>
           </div>
         )}
         {formData.deliveryType === 'delivery' && deliveryCalc && (
@@ -1760,6 +1799,54 @@ const Checkout = () => {
                         </div>
                       </div>
                     </div>
+
+                    {/* Chafing Dish Add-On (only for warm dishes) */}
+                    {hasWarmDishes && (
+                      <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 rounded-xl p-4 mt-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                          <div className="flex items-start gap-3">
+                            <div className="bg-amber-100 dark:bg-amber-900/30 p-2.5 rounded-full shrink-0">
+                              <Flame className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-sm">
+                                {language === 'de' ? 'Chafing Dish hinzufügen?' : 'Add Chafing Dish?'}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {language === 'de' 
+                                  ? 'Warmhaltegerät zum Ausleihen – 25,00 € pro Stück'
+                                  : 'Warming device for rent – €25.00 per unit'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 ml-11 sm:ml-0">
+                            <button
+                              type="button"
+                              onClick={() => setChafingDishQuantity(Math.max(0, chafingDishQuantity - 1))}
+                              disabled={chafingDishQuantity === 0}
+                              className="w-9 h-9 rounded-full border border-amber-300 dark:border-amber-700 flex items-center justify-center hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <Minus className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                            </button>
+                            <span className="w-6 text-center font-medium text-amber-700 dark:text-amber-300">
+                              {chafingDishQuantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setChafingDishQuantity(chafingDishQuantity + 1)}
+                              className="w-9 h-9 rounded-full border border-amber-300 dark:border-amber-700 flex items-center justify-center hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                            >
+                              <Plus className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                            </button>
+                            {chafingDishQuantity > 0 && (
+                              <span className="text-sm font-medium text-amber-700 dark:text-amber-300 ml-2">
+                                = {formatPrice(chafingDishQuantity * CHAFING_DISH.price)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Cleaning Info */}
                     <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
