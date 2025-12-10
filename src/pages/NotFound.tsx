@@ -25,7 +25,7 @@ const NotFound = () => {
             src={storiaLogo} 
             alt="STORIA Logo – Zur Startseite" 
             className="h-24 md:h-32 mb-8 hover:opacity-80 transition-opacity"
-            width="192"
+            width="auto"
             height="128"
             loading="lazy"
           />
