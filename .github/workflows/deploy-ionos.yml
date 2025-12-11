@@ -1,4 +1,4 @@
-name: Deploy to IONOS (SFTP - ristorantestoria.de)
+name: Deploy to IONOS (SFTP - events-storia.de)
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
           port: 22
           sftp_only: true
           local_path: "./dist/*"
-          remote_path: "/ristorantestoria-de"
+          remote_path: "/events-storia-de"
           delete_remote_files: true
 
       - name: Upload .htaccess explicitly
@@ -45,5 +45,5 @@ jobs:
           port: 22
           sftp_only: true
           local_path: "./public/.htaccess"
-          remote_path: "/ristorantestoria-de/.htaccess"
+          remote_path: "/events-storia-de/.htaccess"
           delete_remote_files: false
