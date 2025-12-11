@@ -412,6 +412,14 @@ serve(async (req) => {
       remark,
       paymentConditions
     };
+    
+    // Invoices require shippingConditions - add for paid orders
+    if (isInvoice) {
+      documentPayload.shippingConditions = {
+        shippingType: body.isPickup ? 'pickup' : 'delivery',
+        shippingDate: body.desiredDate ? new Date(body.desiredDate).toISOString().split('T')[0] : today.split('T')[0]
+      };
+    }
 
     // Use contact ID if available, otherwise use address directly
     if (contactId) {
