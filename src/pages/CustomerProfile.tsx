@@ -33,6 +33,8 @@ interface Order {
   items: unknown;
   lexoffice_invoice_id: string | null;
   lexoffice_document_type: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
 }
 
 const CustomerProfile = () => {
@@ -442,7 +444,14 @@ const CustomerProfile = () => {
                   ) : (
                     <div className="space-y-4">
                       {orders.map((order) => (
-                        <div key={order.id} className="border border-border rounded-lg p-4">
+                        <div 
+                          key={order.id} 
+                          className={`border rounded-lg p-4 ${
+                            order.status === 'cancelled' 
+                              ? 'border-destructive/30 bg-destructive/5' 
+                              : 'border-border'
+                          }`}
+                        >
                           <div className="flex items-start justify-between mb-3">
                             <div>
                               <p className="font-medium">#{order.order_number}</p>
@@ -452,6 +461,24 @@ const CustomerProfile = () => {
                             </div>
                             {getStatusBadge(order.status || 'pending')}
                           </div>
+
+                          {/* Cancellation info */}
+                          {order.status === 'cancelled' && order.cancelled_at && (
+                            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-3">
+                              <p className="text-destructive font-medium text-sm">
+                                {language === 'de' ? 'Diese Bestellung wurde storniert' : 'This order was cancelled'}
+                              </p>
+                              <p className="text-destructive/80 text-sm">
+                                {language === 'de' ? 'Storniert am' : 'Cancelled on'}: {new Date(order.cancelled_at).toLocaleDateString('de-DE')} 
+                                {' '}{language === 'de' ? 'um' : 'at'} {new Date(order.cancelled_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                              {order.cancellation_reason && (
+                                <p className="text-destructive/80 text-sm mt-1">
+                                  {language === 'de' ? 'Grund' : 'Reason'}: {order.cancellation_reason}
+                                </p>
+                              )}
+                            </div>
+                          )}
                           
                           {order.desired_date && (
                             <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
