@@ -32,7 +32,7 @@ const AGBGutscheine = () => {
                 Karlstraße 47a<br />
                 80333 München<br />
                 Telefon: +49 89 51519696<br />
-                E-Mail: info@ristorantestoria.de
+                E-Mail: info@events-storia.de
               </p>
             </section>
 

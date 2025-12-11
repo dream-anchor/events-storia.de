@@ -98,7 +98,7 @@ const Catering = () => {
                   <a href="tel:+498951519696">+49 89 51519696</a>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
-                  <a href="mailto:info@ristorantestoria.de">{t.catering.sendEmail}</a>
+                  <a href="mailto:info@events-storia.de">{t.catering.sendEmail}</a>
                 </Button>
               </div>
             </div>

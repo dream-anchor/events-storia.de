@@ -152,8 +152,8 @@ const CookieRichtlinie = () => {
                 Karlstraße 47a<br />
                 80333 München<br />
                 E-Mail:{" "}
-                <a href="mailto:info@ristorantestoria.de" className="text-primary hover:underline">
-                  info@ristorantestoria.de
+                <a href="mailto:info@events-storia.de" className="text-primary hover:underline">
+                  info@events-storia.de
                 </a>
               </p>
             </section>

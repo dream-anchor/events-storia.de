@@ -23,11 +23,11 @@ const Header = () => {
               <span className="hidden sm:inline">+49 89 51519696</span>
             </a>
             <a 
-              href="mailto:info@ristorantestoria.de" 
+              href="mailto:info@events-storia.de" 
               className="flex items-center justify-center min-h-[44px] min-w-[44px] gap-2 hover:text-foreground transition-colors touch-manipulation"
             >
               <Mail className="h-5 w-5" />
-              <span className="hidden sm:inline">info@ristorantestoria.de</span>
+              <span className="hidden sm:inline">info@events-storia.de</span>
             </a>
             <a 
               href="https://www.instagram.com/ristorante_storia/" 

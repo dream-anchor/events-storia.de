@@ -73,8 +73,8 @@ const Kontakt = () => {
                   <Mail className="h-5 w-5 text-primary mt-1" />
                   <div>
                     <p className="font-medium">{t.contact.email}</p>
-                    <a href="mailto:info@ristorantestoria.de" className="text-muted-foreground hover:text-primary">
-                      info@ristorantestoria.de
+                    <a href="mailto:info@events-storia.de" className="text-muted-foreground hover:text-primary">
+                      info@events-storia.de
                     </a>
                   </div>
                 </div>

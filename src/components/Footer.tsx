@@ -107,11 +107,11 @@ const Footer = () => {
                   +49 89 51519696
                 </a>
                 <a 
-                  href="mailto:info@ristorantestoria.de" 
+                  href="mailto:info@events-storia.de" 
                   className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] md:min-h-0 py-2 hover:text-primary-foreground transition-colors touch-manipulation"
                 >
                   <Mail className="h-4 w-4" />
-                  info@ristorantestoria.de
+                  info@events-storia.de
                 </a>
                 <Link 
                   to="/kontakt#map" 

@@ -296,7 +296,7 @@ const AGBCatering = () => {
                 Speranza GmbH<br />
                 Karlstraße 47a<br />
                 80333 München<br />
-                E-Mail: info@ristorantestoria.de<br />
+                E-Mail: info@events-storia.de<br />
                 Telefon: +49 89 51519696
               </p>
               <p className="text-sm text-muted-foreground mt-6">
