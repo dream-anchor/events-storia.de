@@ -7,6 +7,14 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { z } from "zod";
 import storiaLogo from "@/assets/storia-logo.webp";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const loginSchema = z.object({
   email: z.string().email("Ungültige E-Mail-Adresse"),
@@ -20,6 +28,9 @@ const AdminLogin = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     if (!loading && user && isAdmin) {
@@ -70,6 +81,36 @@ const AdminLogin = () => {
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!resetEmail) {
+      toast.error("Bitte geben Sie Ihre E-Mail-Adresse ein");
+      return;
+    }
+    
+    setIsResetting(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/konto/passwort-reset`,
+      });
+      
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Reset-Link wurde gesendet. Bitte prüfen Sie Ihr E-Mail-Postfach.");
+        setShowResetDialog(false);
+      }
+    } catch (err) {
+      toast.error("Ein Fehler ist aufgetreten");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const openResetDialog = () => {
+    setResetEmail(email);
+    setShowResetDialog(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -82,7 +123,7 @@ const AdminLogin = () => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-        <img 
+          <img 
             src={storiaLogo} 
             alt="STORIA Admin-Bereich Logo" 
             className="h-16 mx-auto mb-4"
@@ -125,6 +166,18 @@ const AdminLogin = () => {
               ? (isSignUpMode ? "Registrieren..." : "Anmelden...") 
               : (isSignUpMode ? "Registrieren" : "Anmelden")}
           </Button>
+
+          {!isSignUpMode && (
+            <p className="text-center text-sm">
+              <button 
+                type="button"
+                onClick={openResetDialog}
+                className="text-muted-foreground hover:underline"
+              >
+                Passwort vergessen?
+              </button>
+            </p>
+          )}
         </form>
 
         <p className="text-center text-sm text-muted-foreground mt-4">
@@ -143,6 +196,36 @@ const AdminLogin = () => {
           </a>
         </p>
       </div>
+
+      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Passwort zurücksetzen</DialogTitle>
+            <DialogDescription>
+              Geben Sie Ihre E-Mail-Adresse ein. Wir senden Ihnen einen Link zum Zurücksetzen Ihres Passworts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="reset-email">E-Mail</Label>
+              <Input
+                id="reset-email"
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="ihre@email.de"
+              />
+            </div>
+            <Button 
+              onClick={handlePasswordReset} 
+              className="w-full"
+              disabled={isResetting}
+            >
+              {isResetting ? "Wird gesendet..." : "Reset-Link senden"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
