@@ -82,11 +82,11 @@ const AdminLogin = () => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img 
+        <img 
             src={storiaLogo} 
             alt="STORIA Admin-Bereich Logo" 
             className="h-16 mx-auto mb-4"
-            width="128"
+            width="auto"
             height="64"
             loading="lazy"
           />
