@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.get-lexoffice-document]
 verify_jwt = true
+
+[functions.cancel-catering-order]
+verify_jwt = true
