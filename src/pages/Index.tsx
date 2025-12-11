@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Hero from "@/components/Hero";
 import CateringGrid from "@/components/CateringGrid";
+import lieferungMuenchen from "@/assets/lieferung-muenchen.webp";
 import CateringCTA from "@/components/CateringCTA";
 import Footer from "@/components/Footer";
 import SEO from "@/components/SEO";
@@ -66,6 +67,21 @@ const Index = () => {
         <main className="flex-1">
           <Hero />
           <CateringGrid />
+          
+          {/* Delivery Image Section */}
+          <section className="py-12 md:py-16">
+            <div className="container mx-auto px-4">
+              <img
+                src={lieferungMuenchen}
+                alt={language === 'de' 
+                  ? 'STORIA Lieferservice München – Catering-Lieferung mit LKW und Vespa' 
+                  : 'STORIA Delivery Service Munich – Catering delivery with truck and Vespa'}
+                className="w-full rounded-xl shadow-lg"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          </section>
           
           {/* Customer Reviews Section */}
           <section className="py-16 md:py-20 bg-muted/30">
