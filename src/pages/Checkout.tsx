@@ -354,7 +354,16 @@ const Checkout = () => {
                 minimumOrderSurcharge: orderData.minimum_order_surcharge || 0,
                 distanceKm: orderData.calculated_distance_km || undefined,
                 grandTotal: orderData.total_amount,
-                isPickup: orderData.is_pickup || false
+                isPickup: orderData.is_pickup || false,
+                paymentMethod: orderData.payment_method || 'stripe',
+                desiredDate: orderData.desired_date || undefined,
+                desiredTime: orderData.desired_time || undefined,
+                deliveryAddress: !orderData.is_pickup 
+                  ? `${orderData.delivery_street || ''}, ${orderData.delivery_zip || ''} ${orderData.delivery_city || ''}`.trim() 
+                  : undefined,
+                deliveryFloor: orderData.delivery_floor || undefined,
+                hasElevator: orderData.has_elevator || false,
+                notes: orderData.notes || undefined
               };
             }
           }
