@@ -12,8 +12,9 @@ const CartButton = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Hide on checkout page or when cart is empty
+  // Hide on checkout page, admin pages, or when cart is empty
   if (location.pathname === '/checkout') return null;
+  if (location.pathname.startsWith('/admin')) return null;
   if (totalItems === 0) return null;
 
   return (

@@ -9,6 +9,11 @@ export interface CateringOrder {
   customer_phone: string;
   company_name: string | null;
   delivery_address: string | null;
+  delivery_street: string | null;
+  delivery_zip: string | null;
+  delivery_city: string | null;
+  delivery_floor: string | null;
+  has_elevator: boolean | null;
   is_pickup: boolean | null;
   desired_date: string | null;
   desired_time: string | null;

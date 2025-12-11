@@ -1,11 +1,16 @@
 import { Cookie } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { useCookieConsent } from "@/contexts/CookieConsentContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const CookieSettingsButton = () => {
   const { consent, openSettings } = useCookieConsent();
   const { t } = useLanguage();
+  const location = useLocation();
 
+  // Hide on admin pages
+  if (location.pathname.startsWith('/admin')) return null;
+  
   // Only show if consent has been given (banner was dismissed)
   if (!consent) return null;
 
