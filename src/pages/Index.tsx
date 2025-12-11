@@ -69,14 +69,14 @@ const Index = () => {
           <CateringGrid />
           
           {/* Delivery Image Section */}
-          <section className="py-12 md:py-16">
+          <section className="py-8 md:py-12">
             <div className="container mx-auto px-4">
               <img
                 src={lieferungMuenchen}
                 alt={language === 'de' 
-                  ? 'STORIA Lieferservice München – Catering-Lieferung mit LKW und Vespa' 
-                  : 'STORIA Delivery Service Munich – Catering delivery with truck and Vespa'}
-                className="w-full rounded-xl shadow-lg"
+                  ? 'STORIA Catering Lieferservice München – Lieferwagen und Vespa am Marienplatz' 
+                  : 'STORIA Catering Delivery Service Munich – Delivery truck and Vespa at Marienplatz'}
+                className="w-full max-w-4xl mx-auto rounded-xl shadow-lg"
                 loading="lazy"
                 decoding="async"
               />
