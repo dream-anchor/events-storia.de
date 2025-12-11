@@ -1,11 +1,12 @@
 import { useState, useMemo, useRef } from "react";
 import { format, isBefore, addDays, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Search, RefreshCw, ChevronDown, ChevronUp, Truck, MapPin, Phone, Mail, Building2, FileText, CreditCard, StickyNote, Package, Printer, XCircle, Download, Loader2 } from "lucide-react";
+import { Search, RefreshCw, ChevronDown, ChevronUp, Truck, MapPin, Phone, Mail, Building2, FileText, CreditCard, StickyNote, Package, Printer, XCircle, Download, Loader2, CheckSquare, Square, Receipt } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useCateringOrders, useUpdateOrderStatus, useUpdateOrderNotes, OrderStatus, CateringOrder } from "@/hooks/useCateringOrders";
@@ -30,11 +31,81 @@ const CateringOrdersManager = () => {
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
   
   const { data: orders, isLoading, refetch } = useCateringOrders(statusFilter);
   const updateStatus = useUpdateOrderStatus();
   const updateNotes = useUpdateOrderNotes();
+
+  // Bulk actions
+  const handleSelectOrder = (orderId: string, checked: boolean) => {
+    const newSelected = new Set(selectedOrderIds);
+    if (checked) {
+      newSelected.add(orderId);
+    } else {
+      newSelected.delete(orderId);
+    }
+    setSelectedOrderIds(newSelected);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked && filteredOrders) {
+      setSelectedOrderIds(new Set(filteredOrders.map(o => o.id)));
+    } else {
+      setSelectedOrderIds(new Set());
+    }
+  };
+
+  const handleBulkStatusChange = async (newStatus: OrderStatus) => {
+    if (selectedOrderIds.size === 0) return;
+    
+    setIsBulkUpdating(true);
+    try {
+      for (const orderId of selectedOrderIds) {
+        await updateStatus.mutateAsync({ orderId, status: newStatus });
+      }
+      toast({
+        title: "Status aktualisiert",
+        description: `${selectedOrderIds.size} Bestellung(en) auf "${statusConfig[newStatus].label}" gesetzt.`
+      });
+      setSelectedOrderIds(new Set());
+      refetch();
+    } catch (err) {
+      toast({
+        title: "Fehler",
+        description: "Einige Bestellungen konnten nicht aktualisiert werden.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  // Helper to get document type display
+  const getDocumentTypeBadge = (order: CateringOrder) => {
+    const isPaid = order.payment_method === 'stripe' && order.payment_status === 'paid';
+    if (isPaid) {
+      return (
+        <Badge className="bg-green-100 text-green-700 text-xs font-medium">
+          <CreditCard className="h-3 w-3 mr-1" />
+          BEZAHLT
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="text-xs font-medium text-muted-foreground">
+        <Receipt className="h-3 w-3 mr-1" />
+        ANGEBOT
+      </Badge>
+    );
+  };
+
+  const formatOrderDate = (dateStr: string | null) => {
+    if (!dateStr) return "-";
+    return format(parseISO(dateStr), "dd.MM.yy HH:mm", { locale: de });
+  };
 
   const handleCancelOrder = async (orderId: string) => {
     setIsCancelling(true);
@@ -326,6 +397,46 @@ const CateringOrdersManager = () => {
         ))}
       </div>
 
+      {/* Bulk Action Bar */}
+      {selectedOrderIds.size > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+          <Checkbox
+            checked={filteredOrders.length > 0 && selectedOrderIds.size === filteredOrders.length}
+            onCheckedChange={(checked) => handleSelectAll(!!checked)}
+          />
+          <span className="text-sm font-medium">
+            {selectedOrderIds.size} Bestellung(en) ausgewählt
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            <Select onValueChange={(value) => handleBulkStatusChange(value as OrderStatus)} disabled={isBulkUpdating}>
+              <SelectTrigger className="w-[160px] h-9">
+                <SelectValue placeholder="Status ändern" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Neu</SelectItem>
+                <SelectItem value="confirmed">Bestätigt</SelectItem>
+                <SelectItem value="completed">Erledigt</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleBulkStatusChange('completed')}
+              disabled={isBulkUpdating}
+            >
+              {isBulkUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Als erledigt markieren"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedOrderIds(new Set())}
+            >
+              Abwählen
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Orders List */}
       <div className="space-y-2">
         {filteredOrders.length === 0 ? (
@@ -351,73 +462,90 @@ const CateringOrdersManager = () => {
                 )}
               >
                 {/* Order Row - Clickable */}
-                <button
-                  onClick={() => handleExpandOrder(order.id, order.internal_notes)}
-                  className="w-full p-4 text-left hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-4 flex-wrap">
-                    {/* Status Badge */}
-                    <Badge className={cn("font-medium", status.bg, status.color)}>
-                      {status.label}
-                    </Badge>
-                    
-                    {/* Date & Time */}
-                    <div className="min-w-[120px]">
-                      <div className="font-medium text-sm">
-                        {formatDate(order.desired_date)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {order.desired_time || "-"}
-                      </div>
-                    </div>
-                    
-                    {/* Customer */}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">
-                        {order.customer_name}
-                      </div>
-                      {order.company_name && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {order.company_name}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Delivery Type */}
-                    <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
-                      {order.is_pickup ? (
-                        <>
-                          <MapPin className="h-4 w-4" />
-                          <span>Abholung</span>
-                        </>
-                      ) : (
-                        <>
-                          <Truck className="h-4 w-4" />
-                          <span>Lieferung</span>
-                        </>
-                      )}
-                    </div>
-                    
-                    {/* Amount */}
-                    <div className="text-right min-w-[80px]">
-                      <div className="font-semibold">
-                        {order.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-                      </div>
-                    </div>
-                    
-                    {/* Expand Icon */}
-                    <div className="text-muted-foreground">
-                      {isExpanded ? (
-                        <ChevronUp className="h-5 w-5" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5" />
-                      )}
-                    </div>
+                <div className="flex">
+                  {/* Checkbox */}
+                  <div 
+                    className="flex items-center justify-center px-3 border-r border-border"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={selectedOrderIds.has(order.id)}
+                      onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
+                    />
                   </div>
                   
-                  {/* Urgent/Overdue Badges */}
-                  {(urgent || overdue || order.internal_notes) && (
-                    <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => handleExpandOrder(order.id, order.internal_notes)}
+                    className="flex-1 p-4 text-left hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {/* Status Badge */}
+                      <Badge className={cn("font-medium", status.bg, status.color)}>
+                        {status.label}
+                      </Badge>
+                      
+                      {/* Delivery Date & Time */}
+                      <div className="min-w-[120px]">
+                        <div className="font-medium text-sm">
+                          {formatDate(order.desired_date)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {order.desired_time || "-"}
+                        </div>
+                      </div>
+                      
+                      {/* Customer */}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">
+                          {order.customer_name}
+                        </div>
+                        {order.company_name && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {order.company_name}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Delivery Type */}
+                      <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
+                        {order.is_pickup ? (
+                          <>
+                            <MapPin className="h-4 w-4" />
+                            <span>Abholung</span>
+                          </>
+                        ) : (
+                          <>
+                            <Truck className="h-4 w-4" />
+                            <span>Lieferung</span>
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* Amount */}
+                      <div className="text-right min-w-[80px]">
+                        <div className="font-semibold">
+                          {order.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                        </div>
+                      </div>
+                      
+                      {/* Expand Icon */}
+                      <div className="text-muted-foreground">
+                        {isExpanded ? (
+                          <ChevronUp className="h-5 w-5" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5" />
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Document Type + Order Date Row */}
+                    <div className="mt-2 flex items-center gap-3 flex-wrap">
+                      {getDocumentTypeBadge(order)}
+                      <span className="text-xs text-muted-foreground">
+                        Bestellt: {formatOrderDate(order.created_at)}
+                      </span>
+                      
+                      {/* Urgent/Overdue Badges */}
                       {overdue && (
                         <Badge variant="destructive" className="text-xs">
                           Überfällig
@@ -435,8 +563,8 @@ const CateringOrdersManager = () => {
                         </Badge>
                       )}
                     </div>
-                  )}
-                </button>
+                  </button>
+                </div>
                 
                 {/* Expanded Details */}
                 {isExpanded && (
