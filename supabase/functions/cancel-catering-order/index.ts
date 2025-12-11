@@ -202,10 +202,11 @@ serve(async (req) => {
     }
 
     // Step 3: Update database
+    const cancelledAt = new Date().toISOString();
     const updateData: Record<string, unknown> = {
       status: "cancelled",
       cancellation_reason: reason || null,
-      cancelled_at: new Date().toISOString()
+      cancelled_at: cancelledAt
     };
 
     if (stripeRefundId) {
@@ -225,6 +226,50 @@ serve(async (req) => {
       throw new Error(`Database update failed: ${updateError.message}`);
     }
     logStep("Order updated in database");
+
+    // Step 4: Send cancellation emails (non-blocking)
+    try {
+      logStep("Sending cancellation emails");
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+      const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+      
+      const emailPayload = {
+        orderNumber: order.order_number,
+        customerName: order.customer_name,
+        customerEmail: order.customer_email,
+        customerPhone: order.customer_phone,
+        companyName: order.company_name,
+        cancellationReason: reason,
+        cancelledAt: cancelledAt,
+        totalAmount: order.total_amount || 0,
+        items: order.items || [],
+        paymentMethod: order.payment_method,
+        stripeRefunded: !!stripeRefundId,
+        lexofficeCreditNote: !!lexofficeCreditNoteId,
+        desiredDate: order.desired_date,
+        desiredTime: order.desired_time,
+        isPickup: order.is_pickup
+      };
+
+      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-cancellation-notification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseAnonKey}`
+        },
+        body: JSON.stringify(emailPayload)
+      });
+
+      if (emailResponse.ok) {
+        logStep("Cancellation emails sent successfully");
+      } else {
+        const emailError = await emailResponse.text();
+        logStep("WARNING: Email sending failed", { error: emailError });
+      }
+    } catch (emailError) {
+      // Don't fail the cancellation if email fails
+      logStep("WARNING: Email sending failed", { error: String(emailError) });
+    }
 
     return new Response(
       JSON.stringify({

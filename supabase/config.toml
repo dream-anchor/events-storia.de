@@ -20,3 +20,6 @@ verify_jwt = true
 
 [functions.cancel-catering-order]
 verify_jwt = true
+
+[functions.send-cancellation-notification]
+verify_jwt = false

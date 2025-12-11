@@ -35,6 +35,8 @@ interface Order {
   lexoffice_document_type: string | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
+  payment_method: string | null;
+  payment_status: string | null;
 }
 
 const CustomerProfile = () => {
@@ -443,7 +445,10 @@ const CustomerProfile = () => {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {orders.map((order) => (
+                      {orders.map((order) => {
+                        const isPaid = order.payment_method === 'stripe' && order.payment_status === 'paid';
+                        
+                        return (
                         <div 
                           key={order.id} 
                           className={`border rounded-lg p-4 ${
@@ -455,9 +460,21 @@ const CustomerProfile = () => {
                           <div className="flex items-start justify-between mb-3">
                             <div>
                               <p className="font-medium">#{order.order_number}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {new Date(order.created_at).toLocaleDateString('de-DE')}
-                              </p>
+                              {/* Document type and order date */}
+                              <div className="flex items-center gap-2 mt-1">
+                                {isPaid ? (
+                                  <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded">
+                                    {language === 'de' ? 'Bezahlt' : 'Paid'}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                                    {language === 'de' ? 'Angebot' : 'Quote'}
+                                  </span>
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                  {language === 'de' ? 'vom' : 'from'} {order.created_at && new Date(order.created_at).toLocaleDateString('de-DE')}
+                                </span>
+                              </div>
                             </div>
                             {getStatusBadge(order.status || 'pending')}
                           </div>
@@ -480,11 +497,12 @@ const CustomerProfile = () => {
                             </div>
                           )}
                           
+                          {/* Delivery date */}
                           {order.desired_date && (
                             <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-4 w-4" />
-                                {new Date(order.desired_date).toLocaleDateString('de-DE')}
+                                {language === 'de' ? 'Lieferung' : 'Delivery'}: {new Date(order.desired_date).toLocaleDateString('de-DE')}
                               </span>
                               {order.desired_time && (
                                 <span className="flex items-center gap-1">
@@ -537,7 +555,8 @@ const CustomerProfile = () => {
                             </div>
                           )}
                         </div>
-                      ))}
+                      );
+                      })}
                     </div>
                   )}
                 </CardContent>
