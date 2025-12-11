@@ -9,7 +9,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 interface NavChild {
@@ -31,34 +30,6 @@ const Navigation = () => {
   const [openMenus, setOpenMenus] = useState<string[]>(["CATERING & LIEFERSERVICE", "EVENTS IM STORIA"]);
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const { language } = useLanguage();
-  const { showGross, setShowGross } = usePriceDisplay();
-
-  // Brutto/Netto Toggle Component
-  const PriceToggle = () => (
-    <div className="flex items-center gap-2 text-sm">
-      <button
-        onClick={() => setShowGross(true)}
-        className={`min-h-[40px] px-3 py-2 rounded-lg transition-colors touch-manipulation ${
-          showGross 
-            ? 'bg-primary-foreground/20 font-medium' 
-            : 'hover:bg-primary-foreground/10'
-        }`}
-      >
-        Brutto
-      </button>
-      <span className="text-primary-foreground/40">|</span>
-      <button
-        onClick={() => setShowGross(false)}
-        className={`min-h-[40px] px-3 py-2 rounded-lg transition-colors touch-manipulation ${
-          !showGross 
-            ? 'bg-primary-foreground/20 font-medium' 
-            : 'hover:bg-primary-foreground/10'
-        }`}
-      >
-        Netto
-      </button>
-    </div>
-  );
 
   // Shop-Kategorie: Bestellbare Produkte
   const shopChildren: NavChild[] = language === 'de' ? [
@@ -191,22 +162,15 @@ const Navigation = () => {
                     </Link>
                   )
                 )}
-                {/* Price Toggle & Language Switcher im Mobile Menu */}
-                <div className="mt-6 px-4 pt-4 border-t border-primary-foreground/10 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-primary-foreground/70">{language === 'de' ? 'Preisanzeige' : 'Price display'}</span>
-                    <PriceToggle />
-                  </div>
+                {/* Language Switcher im Mobile Menu */}
+                <div className="mt-6 px-4 pt-4 border-t border-primary-foreground/10">
                   <LanguageSwitcher />
                 </div>
               </div>
             </SheetContent>
           </Sheet>
           {/* Language Switcher Mobile (außerhalb Sheet) */}
-          <div className="flex items-center gap-2">
-            <PriceToggle />
-            <LanguageSwitcher />
-          </div>
+          <LanguageSwitcher />
         </div>
 
         {/* Desktop Navigation */}
@@ -295,11 +259,8 @@ const Navigation = () => {
               )
             )}
           </div>
-          {/* Price Toggle & Language Switcher Desktop - rechts */}
-          <div className="flex items-center gap-3">
-            <PriceToggle />
-            <LanguageSwitcher />
-          </div>
+          {/* Language Switcher Desktop - rechts */}
+          <LanguageSwitcher />
         </div>
       </div>
     </nav>

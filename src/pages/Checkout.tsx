@@ -116,7 +116,7 @@ const formatCurrency = (value: number): string => {
 const Checkout = () => {
   const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
   const { language } = useLanguage();
-  const { formatPrice, showGross } = usePriceDisplay();
+  const { formatPrice, showGross, setShowGross } = usePriceDisplay();
   const navigate = useNavigate();
   const { user, profile, signup } = useCustomerAuth();
   const isMobile = useIsMobile();
@@ -1164,6 +1164,35 @@ const Checkout = () => {
           })}
         </div>
       )}
+      
+      {/* Brutto/Netto Toggle */}
+      <div className="flex items-center justify-between py-2 border-t border-border">
+        <span className="text-sm text-muted-foreground">{language === 'de' ? 'Preisanzeige' : 'Price display'}</span>
+        <div className="flex gap-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setShowGross(true)}
+            className={`px-2.5 py-1.5 rounded-md transition-colors ${
+              showGross 
+                ? 'bg-primary text-primary-foreground font-medium' 
+                : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            Brutto
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowGross(false)}
+            className={`px-2.5 py-1.5 rounded-md transition-colors ${
+              !showGross 
+                ? 'bg-primary text-primary-foreground font-medium' 
+                : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            Netto
+          </button>
+        </div>
+      </div>
       
       {/* Pricing Summary with VAT breakdown */}
       <div className="space-y-2 pt-2 border-t border-border">
