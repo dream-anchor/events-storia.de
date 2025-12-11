@@ -374,6 +374,24 @@ const Checkout = () => {
             } else {
               console.log('Lexoffice invoice created for paid order:', invoiceResponse.data?.documentId);
             }
+            
+            // Send email notification AFTER successful Stripe payment
+            try {
+              const emailResponse = await supabase.functions.invoke('send-order-notification', {
+                body: {
+                  ...orderPayload,
+                  isPaid: true // Mark as already paid for email text
+                }
+              });
+              
+              if (emailResponse.error) {
+                console.error('Email notification error after Stripe payment:', emailResponse.error);
+              } else {
+                console.log('Email notification sent after successful Stripe payment');
+              }
+            } catch (emailError) {
+              console.error('Email notification error:', emailError);
+            }
           }
         } catch (err) {
           console.error('Error creating invoice for paid order:', err);
@@ -752,37 +770,41 @@ const Checkout = () => {
       if (error) throw error;
 
       // Send email notifications
-      try {
-        const emailResponse = await supabase.functions.invoke('send-order-notification', {
-          body: {
-            orderNumber: newOrderNumber,
-            customerName: formData.name,
-            customerEmail: formData.email,
-            customerPhone: formData.phone,
-            companyName: formData.company || undefined,
-            deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
-            isPickup: formData.deliveryType === 'pickup',
-            desiredDate: formData.date || undefined,
-            desiredTime: formData.time || undefined,
-            notes: fullNotes || undefined,
-            items: orderItems,
-            subtotal: totalPrice,
-            deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-            deliveryCostNet: deliveryCalc?.deliveryCostNet || 0,
-            deliveryVat: deliveryCalc?.deliveryVat || 0,
-            minimumOrderSurcharge: minimumOrderSurcharge,
-            distanceKm: deliveryCalc?.distanceKm || undefined,
-            grandTotal: grandTotal,
-            billingAddress: needsBillingAddress ? billingAddress : undefined,
-            paymentMethod: paymentMethod
+      // For Stripe payments: email is sent AFTER successful payment (see handlePaymentSuccess)
+      // For invoice payments: email is sent immediately
+      if (paymentMethod === 'invoice') {
+        try {
+          const emailResponse = await supabase.functions.invoke('send-order-notification', {
+            body: {
+              orderNumber: newOrderNumber,
+              customerName: formData.name,
+              customerEmail: formData.email,
+              customerPhone: formData.phone,
+              companyName: formData.company || undefined,
+              deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
+              isPickup: formData.deliveryType === 'pickup',
+              desiredDate: formData.date || undefined,
+              desiredTime: formData.time || undefined,
+              notes: fullNotes || undefined,
+              items: orderItems,
+              subtotal: totalPrice,
+              deliveryCost: deliveryCalc?.deliveryCostGross || 0,
+              deliveryCostNet: deliveryCalc?.deliveryCostNet || 0,
+              deliveryVat: deliveryCalc?.deliveryVat || 0,
+              minimumOrderSurcharge: minimumOrderSurcharge,
+              distanceKm: deliveryCalc?.distanceKm || undefined,
+              grandTotal: grandTotal,
+              billingAddress: needsBillingAddress ? billingAddress : undefined,
+              paymentMethod: paymentMethod
+            }
+          });
+          
+          if (emailResponse.error) {
+            console.error('Email notification error:', emailResponse.error);
           }
-        });
-        
-        if (emailResponse.error) {
-          console.error('Email notification error:', emailResponse.error);
+        } catch (emailError) {
+          console.error('Email notification error:', emailError);
         }
-      } catch (emailError) {
-        console.error('Email notification error:', emailError);
       }
 
       // Create Lexoffice document:
