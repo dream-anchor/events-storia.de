@@ -1,14 +1,17 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { format, isBefore, addDays, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Search, RefreshCw, ChevronDown, ChevronUp, Truck, MapPin, Phone, Mail, Building2, FileText, CreditCard, StickyNote, Package } from "lucide-react";
+import { Search, RefreshCw, ChevronDown, ChevronUp, Truck, MapPin, Phone, Mail, Building2, FileText, CreditCard, StickyNote, Package, Printer, XCircle, Download, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCateringOrders, useUpdateOrderStatus, useUpdateOrderNotes, OrderStatus } from "@/hooks/useCateringOrders";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useCateringOrders, useUpdateOrderStatus, useUpdateOrderNotes, OrderStatus, CateringOrder } from "@/hooks/useCateringOrders";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const statusConfig: Record<OrderStatus, { label: string; color: string; bg: string }> = {
   pending: { label: "Neu", color: "text-amber-700", bg: "bg-amber-100" },
@@ -22,10 +25,191 @@ const CateringOrdersManager = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [editingNotes, setEditingNotes] = useState<string>("");
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
   
   const { data: orders, isLoading, refetch } = useCateringOrders(statusFilter);
   const updateStatus = useUpdateOrderStatus();
   const updateNotes = useUpdateOrderNotes();
+
+  const handleCancelOrder = async (orderId: string) => {
+    setIsCancelling(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Nicht angemeldet");
+      }
+
+      const { data, error } = await supabase.functions.invoke('cancel-catering-order', {
+        body: { orderId, reason: cancelReason }
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: "Bestellung storniert",
+        description: `${data.stripeRefunded ? "Stripe-Rückerstattung erstellt. " : ""}${data.lexofficeCreditNote ? "LexOffice-Gutschrift erstellt." : ""}`,
+      });
+
+      setCancelDialogOpen(false);
+      setCancelReason("");
+      setCancellingOrderId(null);
+      refetch();
+    } catch (err) {
+      toast({
+        title: "Fehler",
+        description: err instanceof Error ? err.message : "Stornierung fehlgeschlagen",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleDownloadDocument = async (order: CateringOrder) => {
+    if (!order.lexoffice_invoice_id) {
+      toast({ title: "Kein Dokument vorhanden", variant: "destructive" });
+      return;
+    }
+    
+    setDownloadingDocId(order.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Nicht angemeldet");
+
+      const { data, error } = await supabase.functions.invoke('get-lexoffice-document', {
+        body: { orderId: order.id }
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Download base64 PDF
+      const link = document.createElement('a');
+      link.href = `data:application/pdf;base64,${data.pdfBase64}`;
+      link.download = data.filename || `${order.order_number}.pdf`;
+      link.click();
+    } catch (err) {
+      toast({
+        title: "Download fehlgeschlagen",
+        description: err instanceof Error ? err.message : "Fehler beim Laden des Dokuments",
+        variant: "destructive"
+      });
+    } finally {
+      setDownloadingDocId(null);
+    }
+  };
+
+  const handlePrint = (order: CateringOrder) => {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const printContent = `
+      <html>
+        <head>
+          <title>Bestellung ${order.order_number}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+            h1 { font-size: 24px; margin-bottom: 8px; }
+            h2 { font-size: 16px; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+            .meta { color: #666; font-size: 14px; margin-bottom: 16px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+            .section { margin-bottom: 16px; }
+            .label { font-weight: 600; font-size: 12px; color: #666; }
+            .value { font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+            th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; }
+            th { font-weight: 600; }
+            .total { font-weight: 700; font-size: 16px; }
+            .notes { background: #f5f5f5; padding: 12px; border-radius: 4px; font-size: 14px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <h1>Bestellung ${order.order_number}</h1>
+          <div class="meta">
+            Erstellt: ${order.created_at ? format(parseISO(order.created_at), "dd.MM.yyyy HH:mm", { locale: de }) : "-"}
+          </div>
+          
+          <div class="grid">
+            <div class="section">
+              <h2>Liefertermin</h2>
+              <div class="label">Datum</div>
+              <div class="value">${order.desired_date ? format(parseISO(order.desired_date), "EEEE, dd. MMMM yyyy", { locale: de }) : "-"}</div>
+              <div class="label" style="margin-top:8px">Uhrzeit</div>
+              <div class="value">${order.desired_time || "-"}</div>
+              <div class="label" style="margin-top:8px">Art</div>
+              <div class="value">${order.is_pickup ? "Abholung im Restaurant" : "Lieferung"}</div>
+            </div>
+            
+            <div class="section">
+              <h2>Kunde</h2>
+              <div class="value">${order.customer_name}</div>
+              ${order.company_name ? `<div class="value">${order.company_name}</div>` : ""}
+              <div class="value">${order.customer_email}</div>
+              <div class="value">${order.customer_phone}</div>
+            </div>
+          </div>
+          
+          ${!order.is_pickup && order.delivery_street ? `
+            <h2>Lieferadresse</h2>
+            <div class="value">${order.delivery_street}</div>
+            <div class="value">${order.delivery_zip} ${order.delivery_city}</div>
+            ${order.delivery_floor ? `<div class="value">Etage: ${order.delivery_floor}</div>` : ""}
+            ${order.has_elevator !== null ? `<div class="value">Aufzug: ${order.has_elevator ? "Ja" : "Nein"}</div>` : ""}
+          ` : ""}
+          
+          <h2>Bestellpositionen</h2>
+          <table>
+            <thead>
+              <tr><th>Artikel</th><th>Menge</th><th style="text-align:right">Preis</th></tr>
+            </thead>
+            <tbody>
+              ${items.map((item: any) => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.quantity}</td>
+                  <td style="text-align:right">${(item.price * item.quantity).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</td>
+                </tr>
+              `).join('')}
+              ${order.delivery_cost && order.delivery_cost > 0 ? `
+                <tr>
+                  <td>Lieferung</td>
+                  <td></td>
+                  <td style="text-align:right">${order.delivery_cost.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</td>
+                </tr>
+              ` : ""}
+              <tr>
+                <td colspan="2" class="total">Gesamt</td>
+                <td style="text-align:right" class="total">${order.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          ${order.notes ? `
+            <h2>Kundenanmerkung</h2>
+            <div class="notes">${order.notes}</div>
+          ` : ""}
+          
+          ${order.internal_notes ? `
+            <h2>Interne Notizen</h2>
+            <div class="notes">${order.internal_notes}</div>
+          ` : ""}
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+    }
+  };
 
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
@@ -375,7 +559,7 @@ const CateringOrdersManager = () => {
                     </div>
                     
                     {/* Status Change */}
-                    <div className="pt-3 border-t flex items-center gap-3">
+                    <div className="pt-3 border-t flex flex-wrap items-center gap-3">
                       <span className="text-sm font-medium">Status ändern:</span>
                       <Select
                         value={order.status || 'pending'}
@@ -391,6 +575,107 @@ const CateringOrdersManager = () => {
                           <SelectItem value="cancelled">Storniert</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div className="pt-3 border-t flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePrint(order)}
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Drucken
+                      </Button>
+                      
+                      {order.lexoffice_invoice_id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadDocument(order)}
+                          disabled={downloadingDocId === order.id}
+                        >
+                          {downloadingDocId === order.id ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4 mr-2" />
+                          )}
+                          {order.lexoffice_document_type === 'invoice' ? 'Rechnung' : 'Angebot'} PDF
+                        </Button>
+                      )}
+                      
+                      {order.status !== 'cancelled' && (
+                        <AlertDialog open={cancelDialogOpen && cancellingOrderId === order.id} onOpenChange={(open) => {
+                          setCancelDialogOpen(open);
+                          if (!open) {
+                            setCancellingOrderId(null);
+                            setCancelReason("");
+                          }
+                        }}>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setCancellingOrderId(order.id)}
+                            >
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Stornieren
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Bestellung stornieren?</AlertDialogTitle>
+                              <AlertDialogDescription className="space-y-2">
+                                <p>
+                                  Bestellung <strong>{order.order_number}</strong> wirklich stornieren?
+                                </p>
+                                {order.payment_method === 'stripe' && order.payment_status === 'paid' && (
+                                  <p className="text-amber-600 font-medium">
+                                    ⚠️ Der Stripe-Betrag von {order.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} wird automatisch zurückerstattet.
+                                  </p>
+                                )}
+                                {order.lexoffice_invoice_id && order.lexoffice_document_type === 'invoice' && (
+                                  <p className="text-amber-600 font-medium">
+                                    ⚠️ Eine LexOffice-Gutschrift wird automatisch erstellt.
+                                  </p>
+                                )}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <div className="py-2">
+                              <label className="text-sm font-medium">Stornierungsgrund (optional)</label>
+                              <Textarea
+                                value={cancelReason}
+                                onChange={(e) => setCancelReason(e.target.value)}
+                                placeholder="z.B. Kunde hat abgesagt..."
+                                className="mt-1"
+                              />
+                            </div>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleCancelOrder(order.id)}
+                                disabled={isCancelling}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                {isCancelling ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Wird storniert...
+                                  </>
+                                ) : (
+                                  "Bestellung stornieren"
+                                )}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                      
+                      {order.status === 'cancelled' && order.cancellation_reason && (
+                        <div className="text-sm text-muted-foreground ml-auto">
+                          Stornierungsgrund: {order.cancellation_reason}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

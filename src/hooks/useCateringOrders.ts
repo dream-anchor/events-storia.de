@@ -38,6 +38,11 @@ export interface CateringOrder {
   payment_status: string | null;
   lexoffice_document_type: string | null;
   lexoffice_invoice_id: string | null;
+  // Cancellation fields
+  cancellation_reason: string | null;
+  cancelled_at: string | null;
+  lexoffice_credit_note_id: string | null;
+  stripe_payment_intent_id: string | null;
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';

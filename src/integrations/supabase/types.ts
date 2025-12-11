@@ -22,6 +22,8 @@ export type Database = {
           billing_street: string | null
           billing_zip: string | null
           calculated_distance_km: number | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
           company_name: string | null
           created_at: string | null
           customer_email: string
@@ -41,6 +43,7 @@ export type Database = {
           is_pickup: boolean | null
           items: Json
           lexoffice_contact_id: string | null
+          lexoffice_credit_note_id: string | null
           lexoffice_document_type: string | null
           lexoffice_invoice_id: string | null
           minimum_order_surcharge: number | null
@@ -49,6 +52,7 @@ export type Database = {
           payment_method: string | null
           payment_status: string | null
           status: string | null
+          stripe_payment_intent_id: string | null
           total_amount: number | null
           user_id: string | null
         }
@@ -59,6 +63,8 @@ export type Database = {
           billing_street?: string | null
           billing_zip?: string | null
           calculated_distance_km?: number | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           company_name?: string | null
           created_at?: string | null
           customer_email: string
@@ -78,6 +84,7 @@ export type Database = {
           is_pickup?: boolean | null
           items: Json
           lexoffice_contact_id?: string | null
+          lexoffice_credit_note_id?: string | null
           lexoffice_document_type?: string | null
           lexoffice_invoice_id?: string | null
           minimum_order_surcharge?: number | null
@@ -86,6 +93,7 @@ export type Database = {
           payment_method?: string | null
           payment_status?: string | null
           status?: string | null
+          stripe_payment_intent_id?: string | null
           total_amount?: number | null
           user_id?: string | null
         }
@@ -96,6 +104,8 @@ export type Database = {
           billing_street?: string | null
           billing_zip?: string | null
           calculated_distance_km?: number | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           company_name?: string | null
           created_at?: string | null
           customer_email?: string
@@ -115,6 +125,7 @@ export type Database = {
           is_pickup?: boolean | null
           items?: Json
           lexoffice_contact_id?: string | null
+          lexoffice_credit_note_id?: string | null
           lexoffice_document_type?: string | null
           lexoffice_invoice_id?: string | null
           minimum_order_surcharge?: number | null
@@ -123,6 +134,7 @@ export type Database = {
           payment_method?: string | null
           payment_status?: string | null
           status?: string | null
+          stripe_payment_intent_id?: string | null
           total_amount?: number | null
           user_id?: string | null
         }
