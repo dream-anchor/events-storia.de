@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Menu, ChevronDown, ShoppingBag, Sparkles } from "lucide-react";
+import { Menu, ChevronDown, ShoppingBag, Sparkles, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -22,6 +22,7 @@ interface NavItem {
   path?: string;
   children?: NavChild[];
   icon?: React.ReactNode;
+  external?: boolean;
 }
 
 const Navigation = () => {
@@ -51,7 +52,7 @@ const Navigation = () => {
 
   const navItems: NavItem[] = [
     { 
-      label: language === 'de' ? "STARTSEITE" : "HOME", 
+      label: "HOME", 
       path: "/" 
     },
     {
@@ -65,6 +66,11 @@ const Navigation = () => {
       icon: <Sparkles className="h-4 w-4" />,
     },
     { label: language === 'de' ? "KONTAKT" : "CONTACT", path: "/kontakt" },
+    { 
+      label: "RISTORANTE STORIA", 
+      path: "https://www.ristorantestoria.de/",
+      external: true 
+    },
   ];
 
   const toggleMobileMenu = (label: string) => {
@@ -147,6 +153,21 @@ const Navigation = () => {
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
+                  ) : item.external ? (
+                    <>
+                      <div className="border-t border-primary-foreground/20 my-2 mx-4" />
+                      <a
+                        key={item.path}
+                        href={item.path!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center justify-between px-4 py-3 text-sm font-medium tracking-wider rounded-lg transition-all duration-300 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                      >
+                        {item.label}
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </>
                   ) : (
                     <Link
                       key={item.path}
@@ -243,6 +264,20 @@ const Navigation = () => {
                     </div>
                   </div>
                 </div>
+              ) : item.external ? (
+                <>
+                  <span className="text-primary-foreground/30 mx-2">|</span>
+                  <a
+                    key={item.path}
+                    href={item.path!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 whitespace-nowrap px-4 py-4 text-sm font-medium tracking-wider transition-all duration-300 text-primary-foreground/70 hover:text-primary-foreground"
+                  >
+                    {item.label}
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </>
               ) : (
                 <Link
                   key={item.path}
