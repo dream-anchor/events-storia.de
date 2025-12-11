@@ -1,4 +1,5 @@
-import { CateringOrder, OrderStatus, useUpdateOrderStatus } from '@/hooks/useCateringOrders';
+import { useState, useEffect } from 'react';
+import { CateringOrder, OrderStatus, useUpdateOrderStatus, useUpdateOrderNotes } from '@/hooks/useCateringOrders';
 import {
   Sheet,
   SheetContent,
@@ -13,8 +14,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Phone, Mail, Building2, MapPin, Calendar, Clock, FileText, Ruler, Receipt, User, CreditCard, BadgeCheck } from 'lucide-react';
+import { Phone, Mail, Building2, MapPin, Calendar, Clock, FileText, Ruler, Receipt, User, CreditCard, BadgeCheck, StickyNote, Save, Loader2 } from 'lucide-react';
 
 interface CateringOrderDetailProps {
   order: CateringOrder | null;
@@ -47,6 +50,17 @@ const formatDateTime = (dateStr: string) => {
 
 const CateringOrderDetail = ({ order, open, onOpenChange }: CateringOrderDetailProps) => {
   const updateStatusMutation = useUpdateOrderStatus();
+  const updateNotesMutation = useUpdateOrderNotes();
+  const [internalNotes, setInternalNotes] = useState('');
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Sync internal notes when order changes
+  useEffect(() => {
+    if (order) {
+      setInternalNotes(order.internal_notes || '');
+      setHasChanges(false);
+    }
+  }, [order?.id, order?.internal_notes]);
 
   if (!order) return null;
 
@@ -57,6 +71,21 @@ const CateringOrderDetail = ({ order, open, onOpenChange }: CateringOrderDetailP
     } catch (error) {
       toast.error('Fehler beim Aktualisieren');
     }
+  };
+
+  const handleSaveNotes = async () => {
+    try {
+      await updateNotesMutation.mutateAsync({ orderId: order.id, internalNotes });
+      setHasChanges(false);
+      toast.success('Notizen gespeichert');
+    } catch (error) {
+      toast.error('Fehler beim Speichern');
+    }
+  };
+
+  const handleNotesChange = (value: string) => {
+    setInternalNotes(value);
+    setHasChanges(value !== (order.internal_notes || ''));
   };
 
   const items = Array.isArray(order.items) ? order.items : [];
@@ -112,6 +141,40 @@ const CateringOrderDetail = ({ order, open, onOpenChange }: CateringOrderDetailP
                 <SelectItem value="cancelled">Storniert</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Interne Notizen */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <StickyNote className="h-4 w-4 text-amber-500" />
+                Interne Notizen
+              </label>
+              {hasChanges && (
+                <Button
+                  size="sm"
+                  onClick={handleSaveNotes}
+                  disabled={updateNotesMutation.isPending}
+                  className="h-7"
+                >
+                  {updateNotesMutation.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <Save className="h-3 w-3 mr-1" />
+                  )}
+                  Speichern
+                </Button>
+              )}
+            </div>
+            <Textarea
+              placeholder="Notizen für das Team (z.B. Besonderheiten, Rücksprache nötig...)"
+              value={internalNotes}
+              onChange={(e) => handleNotesChange(e.target.value)}
+              className={`min-h-[80px] ${internalNotes ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800' : ''}`}
+            />
+            <p className="text-xs text-muted-foreground">
+              Diese Notizen sind nur für Mitarbeiter sichtbar.
+            </p>
           </div>
 
           {/* Bestellinfo (Customer type & Payment) */}
@@ -326,15 +389,15 @@ const CateringOrderDetail = ({ order, open, onOpenChange }: CateringOrderDetailP
             </div>
           </div>
 
-          {/* Anmerkungen */}
+          {/* Kundenanmerkungen */}
           {order.notes && (
             <div className="space-y-3">
               <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">
-                Anmerkungen
+                Kundenanmerkungen
               </h3>
-              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+              <div className="bg-muted/50 border border-border rounded-lg p-4">
                 <p className="flex items-start gap-2 text-sm">
-                  <FileText className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" />
+                  <FileText className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
                   {order.notes}
                 </p>
               </div>

@@ -37,6 +37,7 @@ export type Database = {
           desired_time: string | null
           has_elevator: boolean | null
           id: string
+          internal_notes: string | null
           is_pickup: boolean | null
           items: Json
           lexoffice_contact_id: string | null
@@ -73,6 +74,7 @@ export type Database = {
           desired_time?: string | null
           has_elevator?: boolean | null
           id?: string
+          internal_notes?: string | null
           is_pickup?: boolean | null
           items: Json
           lexoffice_contact_id?: string | null
@@ -109,6 +111,7 @@ export type Database = {
           desired_time?: string | null
           has_elevator?: boolean | null
           id?: string
+          internal_notes?: string | null
           is_pickup?: boolean | null
           items?: Json
           lexoffice_contact_id?: string | null

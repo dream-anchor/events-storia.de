@@ -13,6 +13,7 @@ export interface CateringOrder {
   desired_date: string | null;
   desired_time: string | null;
   notes: string | null;
+  internal_notes: string | null;
   items: any[];
   total_amount: number | null;
   status: string | null;
@@ -86,6 +87,24 @@ export const usePendingOrdersCount = () => {
 
       if (error) throw error;
       return count || 0;
+    },
+  });
+};
+
+export const useUpdateOrderNotes = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ orderId, internalNotes }: { orderId: string; internalNotes: string }) => {
+      const { error } = await supabase
+        .from('catering_orders')
+        .update({ internal_notes: internalNotes })
+        .eq('id', orderId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['catering-orders'] });
     },
   });
 };
