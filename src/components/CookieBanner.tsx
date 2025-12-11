@@ -4,11 +4,12 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { X, Cookie, ChevronDown, ChevronUp } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 const CookieBanner = () => {
   const { showBanner, showSettings, acceptAll, rejectAll, savePreferences, closeSettings, openSettings } = useCookieConsent();
   const { t } = useLanguage();
+  const location = useLocation();
   const [preferences, setPreferences] = useState({
     statistics: false,
     marketing: false,
@@ -16,6 +17,9 @@ const CookieBanner = () => {
   });
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
 
+  // Hide on admin pages
+  if (location.pathname.startsWith('/admin')) return null;
+  
   if (!showBanner && !showSettings) return null;
 
   const toggleCategory = (category: string) => {

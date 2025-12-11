@@ -1,378 +1,404 @@
-import { useState, useMemo } from 'react';
-import { useCateringOrders, CateringOrder, OrderStatus } from '@/hooks/useCateringOrders';
-import CateringOrderDetail from './CateringOrderDetail';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Search, RefreshCw, Eye, LayoutGrid, LayoutList, StickyNote, AlertCircle, Clock } from 'lucide-react';
+import { useState, useMemo } from "react";
+import { format, isBefore, addDays, parseISO } from "date-fns";
+import { de } from "date-fns/locale";
+import { Search, RefreshCw, ChevronDown, ChevronUp, Truck, MapPin, Phone, Mail, Building2, FileText, CreditCard, StickyNote, Package } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCateringOrders, useUpdateOrderStatus, useUpdateOrderNotes, OrderStatus } from "@/hooks/useCateringOrders";
+import { cn } from "@/lib/utils";
 
-const statusConfig: Record<OrderStatus, { label: string; color: string; bgColor: string }> = {
-  pending: { label: 'Neu', color: 'text-amber-700 dark:text-amber-400', bgColor: 'bg-amber-100 dark:bg-amber-900/30' },
-  confirmed: { label: 'Bestätigt', color: 'text-blue-700 dark:text-blue-400', bgColor: 'bg-blue-100 dark:bg-blue-900/30' },
-  completed: { label: 'Erledigt', color: 'text-green-700 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900/30' },
-  cancelled: { label: 'Storniert', color: 'text-gray-500 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-800' },
+const statusConfig: Record<OrderStatus, { label: string; color: string; bg: string }> = {
+  pending: { label: "Neu", color: "text-amber-700", bg: "bg-amber-100" },
+  confirmed: { label: "Bestätigt", color: "text-blue-700", bg: "bg-blue-100" },
+  completed: { label: "Erledigt", color: "text-green-700", bg: "bg-green-100" },
+  cancelled: { label: "Storniert", color: "text-red-700", bg: "bg-red-100" },
 };
-
-const filterOptions: { value: OrderStatus | 'all'; label: string }[] = [
-  { value: 'all', label: 'Alle' },
-  { value: 'pending', label: 'Neu' },
-  { value: 'confirmed', label: 'Bestätigt' },
-  { value: 'completed', label: 'Erledigt' },
-  { value: 'cancelled', label: 'Storniert' },
-];
-
-type SortField = 'desired_date' | 'created_at' | 'total_amount';
 
 const CateringOrdersManager = () => {
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<CateringOrder | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
-  const [sortField, setSortField] = useState<SortField>('desired_date');
-
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [editingNotes, setEditingNotes] = useState<string>("");
+  
   const { data: orders, isLoading, refetch } = useCateringOrders(statusFilter);
+  const updateStatus = useUpdateOrderStatus();
+  const updateNotes = useUpdateOrderNotes();
 
-  // Filter and sort orders
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
     
-    let result = orders.filter(order => {
-      if (!searchQuery) return true;
+    let filtered = orders;
+    
+    if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      return (
+      filtered = filtered.filter(order =>
         order.order_number.toLowerCase().includes(query) ||
         order.customer_name.toLowerCase().includes(query) ||
         order.customer_email.toLowerCase().includes(query) ||
-        (order.company_name && order.company_name.toLowerCase().includes(query))
+        order.company_name?.toLowerCase().includes(query)
       );
-    });
-
-    // Sort by selected field
-    result.sort((a, b) => {
-      if (sortField === 'desired_date') {
-        const dateA = a.desired_date ? new Date(a.desired_date).getTime() : Infinity;
-        const dateB = b.desired_date ? new Date(b.desired_date).getTime() : Infinity;
-        return dateA - dateB; // Nearest first
-      } else if (sortField === 'created_at') {
-        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return dateB - dateA; // Newest first
-      } else if (sortField === 'total_amount') {
-        return (b.total_amount || 0) - (a.total_amount || 0); // Highest first
-      }
-      return 0;
-    });
-
-    return result;
-  }, [orders, searchQuery, sortField]);
-
-  const formatDesiredDate = (dateStr: string | null) => {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const orderDate = new Date(dateStr);
-    orderDate.setHours(0, 0, 0, 0);
+    }
     
-    const diffDays = Math.ceil((orderDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    
-    const weekday = date.toLocaleDateString('de-DE', { weekday: 'short' });
-    const dateFormatted = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-    
-    return { weekday, dateFormatted, diffDays };
-  };
-
-  const formatCreatedAt = (dateStr: string | null) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
+    // Sort by desired date (closest first)
+    return [...filtered].sort((a, b) => {
+      const dateA = a.desired_date ? new Date(a.desired_date).getTime() : Infinity;
+      const dateB = b.desired_date ? new Date(b.desired_date).getTime() : Infinity;
+      return dateA - dateB;
     });
+  }, [orders, searchQuery]);
+
+  const isUrgent = (order: typeof orders[0]) => {
+    if (!order.desired_date || order.status !== 'pending') return false;
+    const desiredDate = parseISO(order.desired_date);
+    return isBefore(desiredDate, addDays(new Date(), 1));
   };
 
-  const handleOrderClick = (order: CateringOrder) => {
-    setSelectedOrder(order);
-    setDetailOpen(true);
+  const isOverdue = (order: typeof orders[0]) => {
+    if (!order.desired_date || order.status === 'completed' || order.status === 'cancelled') return false;
+    return isBefore(parseISO(order.desired_date), new Date());
   };
 
-  const isUrgent = (order: CateringOrder) => {
-    if (!order.desired_date) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const orderDate = new Date(order.desired_date);
-    orderDate.setHours(0, 0, 0, 0);
-    const diffDays = Math.ceil((orderDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return diffDays <= 1 && order.status === 'pending';
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "-";
+    return format(parseISO(dateStr), "EEE, dd.MM.yy", { locale: de });
   };
 
-  const isOverdue = (order: CateringOrder) => {
-    if (!order.desired_date) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const orderDate = new Date(order.desired_date);
-    orderDate.setHours(0, 0, 0, 0);
-    return orderDate < today && order.status !== 'completed' && order.status !== 'cancelled';
+  const handleExpandOrder = (orderId: string, notes: string | null) => {
+    if (expandedOrderId === orderId) {
+      setExpandedOrderId(null);
+    } else {
+      setExpandedOrderId(orderId);
+      setEditingNotes(notes || "");
+    }
   };
+
+  const handleSaveNotes = (orderId: string) => {
+    updateNotes.mutate({ orderId, internalNotes: editingNotes });
+  };
+
+  const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
+    updateStatus.mutate({ orderId, status: newStatus });
+  };
+
+  const statusTabs: { value: OrderStatus | 'all'; label: string; count: number }[] = [
+    { value: 'all', label: 'Alle', count: orders?.length || 0 },
+    { value: 'pending', label: 'Neu', count: orders?.filter(o => o.status === 'pending').length || 0 },
+    { value: 'confirmed', label: 'Bestätigt', count: orders?.filter(o => o.status === 'confirmed').length || 0 },
+    { value: 'completed', label: 'Erledigt', count: orders?.filter(o => o.status === 'completed').length || 0 },
+    { value: 'cancelled', label: 'Storniert', count: orders?.filter(o => o.status === 'cancelled').length || 0 },
+  ];
+
+  if (isLoading) {
+    return <div className="p-8 text-center text-muted-foreground">Lade Bestellungen...</div>;
+  }
 
   return (
     <div className="space-y-4">
-      {/* Filterleiste */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Search & Refresh */}
+      <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Suche nach Bestellnr., Name, E-Mail..."
+            placeholder="Suche nach Name, E-Mail, Firma..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-10"
           />
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={viewMode === 'table' ? 'default' : 'outline'}
-            size="icon"
-            onClick={() => setViewMode('table')}
-            title="Tabellenansicht"
-          >
-            <LayoutList className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'cards' ? 'default' : 'outline'}
-            size="icon"
-            onClick={() => setViewMode('cards')}
-            title="Kartenansicht"
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button variant="outline" size="icon" onClick={() => refetch()}>
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </div>
 
-      {/* Status-Filter & Sortierung */}
-      <div className="flex flex-wrap gap-2 items-center justify-between">
-        <div className="flex gap-2 flex-wrap">
-          {filterOptions.map((option) => (
-            <Button
-              key={option.value}
-              variant={statusFilter === option.value ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setStatusFilter(option.value)}
-            >
-              {option.label}
-            </Button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Sortieren:</span>
-          <Button
-            variant={sortField === 'desired_date' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => setSortField('desired_date')}
+      {/* Status Tabs */}
+      <div className="flex gap-1 border-b border-border overflow-x-auto">
+        {statusTabs.map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setStatusFilter(tab.value)}
+            className={cn(
+              "px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap",
+              statusFilter === tab.value
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
-            Wunschtermin
-          </Button>
-          <Button
-            variant={sortField === 'created_at' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => setSortField('created_at')}
-          >
-            Bestelldatum
-          </Button>
-          <Button
-            variant={sortField === 'total_amount' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => setSortField('total_amount')}
-          >
-            Betrag
-          </Button>
-        </div>
+            {tab.label}
+            {tab.count > 0 && (
+              <span className={cn(
+                "ml-1.5 text-xs",
+                statusFilter === tab.value ? "text-primary" : "text-muted-foreground"
+              )}>
+                ({tab.count})
+              </span>
+            )}
+            {statusFilter === tab.value && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Bestellungsliste */}
-      {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Laden...</div>
-      ) : filteredOrders.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          Keine Bestellungen gefunden
-        </div>
-      ) : viewMode === 'table' ? (
-        // Tabellenansicht
-        <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-[100px]">Status</TableHead>
-                <TableHead>Bestellnr.</TableHead>
-                <TableHead>Wunschtermin</TableHead>
-                <TableHead>Kunde</TableHead>
-                <TableHead className="text-right">Betrag</TableHead>
-                <TableHead className="w-[100px]">Lieferart</TableHead>
-                <TableHead className="w-[60px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => {
-                const status = order.status as OrderStatus || 'pending';
-                const dateInfo = formatDesiredDate(order.desired_date);
-                const urgent = isUrgent(order);
-                const overdue = isOverdue(order);
-
-                return (
-                  <TableRow 
-                    key={order.id}
-                    className={`cursor-pointer hover:bg-muted/50 ${overdue ? 'bg-red-50 dark:bg-red-950/20' : urgent ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}
-                    onClick={() => handleOrderClick(order)}
-                  >
-                    <TableCell>
-                      <Badge className={`${statusConfig[status]?.bgColor} ${statusConfig[status]?.color} border-0`}>
-                        {statusConfig[status]?.label || status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm">{order.order_number.slice(-12)}</span>
-                        {order.internal_notes && (
-                          <span title="Hat interne Notizen">
-                            <StickyNote className="h-3 w-3 text-amber-500" />
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {typeof dateInfo === 'object' ? (
-                        <div className="flex items-center gap-2">
-                          {overdue && <AlertCircle className="h-4 w-4 text-destructive" />}
-                          {urgent && !overdue && <Clock className="h-4 w-4 text-amber-500" />}
-                          <div>
-                            <span className="font-medium">{dateInfo.weekday}</span>
-                            <span className="text-muted-foreground ml-1">{dateInfo.dateFormatted}</span>
-                            {order.desired_time && (
-                              <span className="text-muted-foreground ml-1">{order.desired_time}</span>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">{dateInfo}</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium truncate max-w-[200px]">{order.customer_name}</p>
-                        {order.company_name && (
-                          <p className="text-xs text-muted-foreground truncate max-w-[200px]">{order.company_name}</p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {(order.total_amount || 0).toFixed(2).replace('.', ',')} €
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {order.is_pickup ? '🚗 Abholung' : '🚚 Lieferung'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        // Kartenansicht (existierende Ansicht)
-        <div className="space-y-3">
-          {filteredOrders.map((order) => {
-            const items = Array.isArray(order.items) ? order.items : [];
-            const itemCount = items.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
-            const status = order.status as OrderStatus || 'pending';
-            const dateInfo = formatDesiredDate(order.desired_date);
+      {/* Orders List */}
+      <div className="space-y-2">
+        {filteredOrders.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            Keine Bestellungen gefunden
+          </div>
+        ) : (
+          filteredOrders.map((order) => {
+            const status = statusConfig[order.status as OrderStatus] || statusConfig.pending;
             const urgent = isUrgent(order);
             const overdue = isOverdue(order);
-
+            const isExpanded = expandedOrderId === order.id;
+            const items = Array.isArray(order.items) ? order.items : [];
+            
             return (
-              <button
+              <div
                 key={order.id}
-                onClick={() => handleOrderClick(order)}
-                className={`w-full text-left bg-card border rounded-lg p-4 hover:border-primary/50 hover:shadow-sm transition-all group ${
-                  overdue ? 'border-destructive/50 bg-red-50 dark:bg-red-950/20' : 
-                  urgent ? 'border-amber-500/50 bg-amber-50 dark:bg-amber-950/20' : 
-                  'border-border'
-                }`}
+                className={cn(
+                  "border rounded-lg overflow-hidden transition-all",
+                  overdue && "border-destructive/50 bg-destructive/5",
+                  urgent && !overdue && "border-amber-500/50 bg-amber-50/50",
+                  !urgent && !overdue && "border-border bg-card"
+                )}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-medium text-sm">{order.order_number.slice(-12)}</span>
-                      <Badge className={`${statusConfig[status]?.bgColor} ${statusConfig[status]?.color} border-0`}>
-                        {statusConfig[status]?.label || status}
-                      </Badge>
-                      {order.internal_notes && (
-                        <span title="Hat interne Notizen">
-                          <StickyNote className="h-4 w-4 text-amber-500" />
-                        </span>
+                {/* Order Row - Clickable */}
+                <button
+                  onClick={() => handleExpandOrder(order.id, order.internal_notes)}
+                  className="w-full p-4 text-left hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {/* Status Badge */}
+                    <Badge className={cn("font-medium", status.bg, status.color)}>
+                      {status.label}
+                    </Badge>
+                    
+                    {/* Date & Time */}
+                    <div className="min-w-[120px]">
+                      <div className="font-medium text-sm">
+                        {formatDate(order.desired_date)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {order.desired_time || "-"}
+                      </div>
+                    </div>
+                    
+                    {/* Customer */}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">
+                        {order.customer_name}
+                      </div>
+                      {order.company_name && (
+                        <div className="text-xs text-muted-foreground truncate">
+                          {order.company_name}
+                        </div>
                       )}
+                    </div>
+                    
+                    {/* Delivery Type */}
+                    <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
+                      {order.is_pickup ? (
+                        <>
+                          <MapPin className="h-4 w-4" />
+                          <span>Abholung</span>
+                        </>
+                      ) : (
+                        <>
+                          <Truck className="h-4 w-4" />
+                          <span>Lieferung</span>
+                        </>
+                      )}
+                    </div>
+                    
+                    {/* Amount */}
+                    <div className="text-right min-w-[80px]">
+                      <div className="font-semibold">
+                        {order.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                      </div>
+                    </div>
+                    
+                    {/* Expand Icon */}
+                    <div className="text-muted-foreground">
+                      {isExpanded ? (
+                        <ChevronUp className="h-5 w-5" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5" />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Urgent/Overdue Badges */}
+                  {(urgent || overdue || order.internal_notes) && (
+                    <div className="mt-2 flex gap-2">
                       {overdue && (
-                        <Badge variant="destructive" className="text-xs">Überfällig</Badge>
+                        <Badge variant="destructive" className="text-xs">
+                          Überfällig
+                        </Badge>
                       )}
                       {urgent && !overdue && (
-                        <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 text-xs">
+                        <Badge className="text-xs bg-amber-500 text-white">
                           Dringend
                         </Badge>
                       )}
+                      {order.internal_notes && (
+                        <Badge variant="outline" className="text-xs">
+                          <StickyNote className="h-3 w-3 mr-1" />
+                          Notiz
+                        </Badge>
+                      )}
                     </div>
-                    <p className="font-medium truncate">{order.customer_name}</p>
-                    {order.company_name && (
-                      <p className="text-sm text-muted-foreground truncate">{order.company_name}</p>
-                    )}
-                  </div>
-                  <div className="text-right space-y-1 flex-shrink-0">
-                    <p className="font-bold text-primary">
-                      {(order.total_amount || 0).toFixed(2).replace('.', ',')} €
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {itemCount} Artikel
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border text-xs text-muted-foreground flex-wrap">
-                  {typeof dateInfo === 'object' && (
-                    <span className="font-medium text-foreground">
-                      📅 {dateInfo.weekday} {dateInfo.dateFormatted}
-                      {order.desired_time && ` ${order.desired_time}`}
-                    </span>
                   )}
-                  <span>{order.is_pickup ? '🚗 Abholung' : '🚚 Lieferung'}</span>
-                  <span>Bestellt: {formatCreatedAt(order.created_at)}</span>
-                </div>
-              </button>
+                </button>
+                
+                {/* Expanded Details */}
+                {isExpanded && (
+                  <div className="border-t border-border bg-muted/30 p-4 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Left Column - Contact & Delivery */}
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm flex items-center gap-2">
+                          <Phone className="h-4 w-4" /> Kontakt
+                        </h4>
+                        <div className="text-sm space-y-1 pl-6">
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                            <a href={`mailto:${order.customer_email}`} className="hover:underline">
+                              {order.customer_email}
+                            </a>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                            <a href={`tel:${order.customer_phone}`} className="hover:underline">
+                              {order.customer_phone}
+                            </a>
+                          </div>
+                          {order.company_name && (
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                              {order.company_name}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {!order.is_pickup && order.delivery_street && (
+                          <>
+                            <h4 className="font-medium text-sm flex items-center gap-2 mt-4">
+                              <Truck className="h-4 w-4" /> Lieferadresse
+                            </h4>
+                            <div className="text-sm pl-6 text-muted-foreground">
+                              {order.delivery_street}<br />
+                              {order.delivery_zip} {order.delivery_city}
+                              {order.delivery_floor && <><br />Etage: {order.delivery_floor}</>}
+                              {order.has_elevator !== null && (
+                                <><br />Aufzug: {order.has_elevator ? 'Ja' : 'Nein'}</>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* Right Column - Order Details */}
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm flex items-center gap-2">
+                          <Package className="h-4 w-4" /> Bestellung
+                        </h4>
+                        <div className="text-sm pl-6 space-y-1">
+                          <div className="text-xs text-muted-foreground mb-2">
+                            {order.order_number}
+                          </div>
+                          {items.map((item: any, idx: number) => (
+                            <div key={idx} className="flex justify-between">
+                              <span>{item.quantity}× {item.name}</span>
+                              <span className="text-muted-foreground">
+                                {(item.price * item.quantity).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                              </span>
+                            </div>
+                          ))}
+                          {order.delivery_cost && order.delivery_cost > 0 && (
+                            <div className="flex justify-between pt-1 border-t">
+                              <span>Lieferung</span>
+                              <span className="text-muted-foreground">
+                                {order.delivery_cost.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Payment Info */}
+                        <div className="flex items-center gap-2 pl-6 text-sm">
+                          <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>
+                            {order.payment_method === 'stripe' ? 'Stripe' : 'Rechnung'}
+                            {order.payment_status === 'paid' && (
+                              <Badge className="ml-2 bg-green-100 text-green-700 text-xs">Bezahlt</Badge>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Customer Notes */}
+                    {order.notes && (
+                      <div className="pt-3 border-t">
+                        <h4 className="font-medium text-sm flex items-center gap-2 mb-2">
+                          <FileText className="h-4 w-4" /> Kundenanmerkung
+                        </h4>
+                        <p className="text-sm text-muted-foreground bg-background p-3 rounded">
+                          {order.notes}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Internal Notes */}
+                    <div className="pt-3 border-t">
+                      <h4 className="font-medium text-sm flex items-center gap-2 mb-2">
+                        <StickyNote className="h-4 w-4" /> Interne Notizen
+                      </h4>
+                      <Textarea
+                        value={editingNotes}
+                        onChange={(e) => setEditingNotes(e.target.value)}
+                        placeholder="Notizen für das Team..."
+                        className="min-h-[80px] bg-background"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleSaveNotes(order.id)}
+                        disabled={updateNotes.isPending}
+                        className="mt-2"
+                      >
+                        {updateNotes.isPending ? "Speichern..." : "Notiz speichern"}
+                      </Button>
+                    </div>
+                    
+                    {/* Status Change */}
+                    <div className="pt-3 border-t flex items-center gap-3">
+                      <span className="text-sm font-medium">Status ändern:</span>
+                      <Select
+                        value={order.status || 'pending'}
+                        onValueChange={(value) => handleStatusChange(order.id, value as OrderStatus)}
+                      >
+                        <SelectTrigger className="w-[160px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Neu</SelectItem>
+                          <SelectItem value="confirmed">Bestätigt</SelectItem>
+                          <SelectItem value="completed">Erledigt</SelectItem>
+                          <SelectItem value="cancelled">Storniert</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </div>
             );
-          })}
-        </div>
-      )}
-
-      {/* Detail Sheet */}
-      <CateringOrderDetail
-        order={selectedOrder}
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-      />
+          })
+        )}
+      </div>
     </div>
   );
 };
