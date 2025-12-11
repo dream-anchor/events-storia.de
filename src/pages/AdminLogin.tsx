@@ -23,11 +23,10 @@ const loginSchema = z.object({
 
 const AdminLogin = () => {
   const navigate = useNavigate();
-  const { user, isAdmin, loading, signIn, signUp } = useAdminAuth();
+  const { user, isAdmin, loading, signIn } = useAdminAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [isResetting, setIsResetting] = useState(false);
@@ -50,29 +49,15 @@ const AdminLogin = () => {
         return;
       }
 
-      if (isSignUpMode) {
-        const { error } = await signUp(email, password);
-        if (error) {
-          if (error.message.includes("already registered")) {
-            toast.error("Diese E-Mail ist bereits registriert");
-          } else {
-            toast.error(error.message);
-          }
+      const { error } = await signIn(email, password);
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          toast.error("Ungültige Anmeldedaten");
         } else {
-          toast.success("Registrierung erfolgreich! Bitte warten Sie auf Admin-Freigabe.");
-          setIsSignUpMode(false);
+          toast.error(error.message);
         }
       } else {
-        const { error } = await signIn(email, password);
-        if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            toast.error("Ungültige Anmeldedaten");
-          } else {
-            toast.error(error.message);
-          }
-        } else {
-          toast.success("Erfolgreich angemeldet");
-        }
+        toast.success("Erfolgreich angemeldet");
       }
     } catch (err) {
       toast.error("Ein Fehler ist aufgetreten");
@@ -162,33 +147,19 @@ const AdminLogin = () => {
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading 
-              ? (isSignUpMode ? "Registrieren..." : "Anmelden...") 
-              : (isSignUpMode ? "Registrieren" : "Anmelden")}
+            {isLoading ? "Anmelden..." : "Anmelden"}
           </Button>
 
-          {!isSignUpMode && (
-            <p className="text-center text-sm">
-              <button 
-                type="button"
-                onClick={openResetDialog}
-                className="text-muted-foreground hover:underline"
-              >
-                Passwort vergessen?
-              </button>
-            </p>
-          )}
+          <p className="text-center text-sm">
+            <button 
+              type="button"
+              onClick={openResetDialog}
+              className="text-muted-foreground hover:underline"
+            >
+              Passwort vergessen?
+            </button>
+          </p>
         </form>
-
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          <button 
-            type="button"
-            onClick={() => setIsSignUpMode(!isSignUpMode)} 
-            className="hover:underline"
-          >
-            {isSignUpMode ? "Bereits registriert? Anmelden" : "Noch kein Konto? Registrieren"}
-          </button>
-        </p>
 
         <p className="text-center text-sm text-muted-foreground mt-2">
           <a href="/" className="hover:underline">
