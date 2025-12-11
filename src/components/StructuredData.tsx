@@ -31,7 +31,7 @@ const StructuredData = ({ type = 'restaurant', breadcrumbs, faqItems, eventData,
   const baseBusinessInfo = {
     name: 'STORIA - Ristorante • Pizzeria • Bar',
     telephone: '+49-89-515196',
-    email: 'info@ristorantestoria.de',
+    email: 'info@events-storia.de',
     url: 'https://ristorantestoria.de',
     logo: 'https://ristorantestoria.de/storia-logo.webp',
     image: 'https://iieethejhwfsyzhbweps.supabase.co/storage/v1/object/public/menu-pdfs/og-image.jpg',

@@ -121,7 +121,7 @@ const BesondererAnlass = () => {
                   <a href="tel:+498951519696">+49 89 51519696</a>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
-                  <a href="mailto:info@ristorantestoria.de">{t.specialOccasions.sendEmail}</a>
+                  <a href="mailto:info@events-storia.de">{t.specialOccasions.sendEmail}</a>
                 </Button>
               </div>
             </div>

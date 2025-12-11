@@ -42,8 +42,8 @@ const Impressum = () => {
               </p>
               <p>
                 <strong>E-Mail:</strong>{" "}
-                <a href="mailto:info@ristorantestoria.de" className="text-primary hover:underline">
-                  info@ristorantestoria.de
+                <a href="mailto:info@events-storia.de" className="text-primary hover:underline">
+                  info@events-storia.de
                 </a>
               </p>
             </section>

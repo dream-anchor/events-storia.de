@@ -39,7 +39,7 @@ const Widerrufsbelehrung = () => {
                 Karlstraße 47a<br />
                 80333 München<br />
                 Telefon: +49 89 51519696<br />
-                E-Mail: info@ristorantestoria.de
+                E-Mail: info@events-storia.de
               </p>
               <p>
                 mittels einer eindeutigen Erklärung (z.B. ein mit der Post versandter Brief oder E-Mail) 
@@ -113,7 +113,7 @@ const Widerrufsbelehrung = () => {
                   Speranza GmbH<br />
                   Karlstraße 47a<br />
                   80333 München<br />
-                  E-Mail: info@ristorantestoria.de
+                  E-Mail: info@events-storia.de
                 </p>
                 <p className="mt-4">
                   Hiermit widerrufe(n) ich/wir (*) den von mir/uns (*) abgeschlossenen Vertrag 

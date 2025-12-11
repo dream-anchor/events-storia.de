@@ -36,8 +36,8 @@ const Datenschutz = () => {
                   +49 89 51519696
                 </a><br />
                 E-Mail:{" "}
-                <a href="mailto:info@ristorantestoria.de" className="text-primary hover:underline">
-                  info@ristorantestoria.de
+                <a href="mailto:info@events-storia.de" className="text-primary hover:underline">
+                  info@events-storia.de
                 </a>
               </p>
               <p className="mt-2">

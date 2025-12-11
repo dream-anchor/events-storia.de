@@ -63,11 +63,11 @@ const NotFound = () => {
                 +49 89 51519696
               </a>
               <a 
-                href="mailto:info@ristorantestoria.de" 
+                href="mailto:info@events-storia.de" 
                 className="flex items-center gap-2 text-foreground hover:text-primary transition-colors"
               >
                 <Mail className="h-4 w-4" />
-                info@ristorantestoria.de
+                info@events-storia.de
               </a>
             </div>
             <div className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground">
