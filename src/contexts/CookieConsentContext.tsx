@@ -80,12 +80,23 @@ export const CookieConsentProvider = ({ children }: { children: ReactNode }) => 
   }, []);
 
   const saveConsent = (newConsent: CookieConsent) => {
+    // Prüfen ob external oder statistics von granted zu denied wechselt
+    const wasExternalGranted = consent?.external === true;
+    const wasStatisticsGranted = consent?.statistics === true;
+    const isExternalNowDenied = newConsent.external === false;
+    const isStatisticsNowDenied = newConsent.statistics === false;
+    
     localStorage.setItem(CONSENT_KEY, JSON.stringify(newConsent));
     setConsent(newConsent);
     setShowBanner(false);
     setShowSettings(false);
     // Google Consent Mode v2 aktualisieren
     updateGoogleConsent(newConsent);
+    
+    // Page Reload wenn Cookies widerrufen wurden (externe Scripts komplett entladen)
+    if ((wasExternalGranted && isExternalNowDenied) || (wasStatisticsGranted && isStatisticsNowDenied)) {
+      window.location.reload();
+    }
   };
 
   const acceptAll = () => {
