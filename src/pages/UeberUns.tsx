@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import SEO from "@/components/SEO";
-import ReservationCTA from "@/components/ReservationCTA";
+
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const UeberUns = () => {
@@ -48,7 +48,7 @@ const UeberUns = () => {
               </div>
             </div>
             
-            <ReservationCTA />
+            
           </div>
         </main>
         <Footer />

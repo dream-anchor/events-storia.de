@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import MenuDisplay from "@/components/MenuDisplay";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
-import ReservationCTA from "@/components/ReservationCTA";
+
 import storiaLogo from "@/assets/storia-logo.webp";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -54,7 +54,7 @@ const Getraenke = () => {
 
           <MenuDisplay menuType="drinks" />
           
-          <ReservationCTA />
+          
         </main>
 
         <Footer />
