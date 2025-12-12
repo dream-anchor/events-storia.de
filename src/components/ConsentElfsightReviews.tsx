@@ -43,8 +43,8 @@ const ConsentElfsightReviews = () => {
         </h3>
         <p className="text-muted-foreground max-w-md mx-auto mb-6">
           {language === 'de'
-            ? 'Zur Anzeige externer Bewertungen von Google, TripAdvisor und Facebook benötigen wir Ihre Zustimmung.'
-            : 'To display external reviews from Google, TripAdvisor and Facebook, we need your consent.'}
+            ? 'Zur Anzeige externer Bewertungen von z.B. Google und TheFork benötigen wir Ihre Zustimmung.'
+            : 'To display external reviews from e.g. Google and TheFork, we need your consent.'}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button onClick={handleEnableExternal} className="gap-2">
