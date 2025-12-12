@@ -71,15 +71,22 @@ const Index = () => {
           {/* Delivery Image Section */}
           <section className="py-8 md:py-12">
             <div className="container mx-auto px-4">
-              <img
-                src={lieferungMuenchen}
-                alt={language === 'de' 
-                  ? 'STORIA Catering Lieferservice München – Lieferwagen und Vespa am Marienplatz' 
-                  : 'STORIA Catering Delivery Service Munich – Delivery truck and Vespa at Marienplatz'}
-                className="w-full max-w-4xl mx-auto rounded-xl shadow-lg"
-                loading="lazy"
-                decoding="async"
-              />
+              <figure className="max-w-4xl mx-auto">
+                <img
+                  src={lieferungMuenchen}
+                  alt={language === 'de' 
+                    ? 'STORIA Catering Lieferservice München – Lieferwagen und Vespa am Marienplatz' 
+                    : 'STORIA Catering Delivery Service Munich – Delivery truck and Vespa at Marienplatz'}
+                  className="w-full rounded-xl shadow-lg"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption className="mt-2 text-xs text-center text-muted-foreground/75 leading-snug">
+                  {language === 'de' 
+                    ? 'Lieferung mit eigenen und bei Bedarf gemieteten Fahrzeugen. Abbildung dient der symbolischen Darstellung.' 
+                    : 'Delivery with own and, if required, rented vehicles. Image is for illustrative purposes.'}
+                </figcaption>
+              </figure>
             </div>
           </section>
           
