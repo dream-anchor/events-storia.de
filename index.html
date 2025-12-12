@@ -3,11 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-P7H48RC2W1"></script>
+    <!-- Google Consent Mode v2 - MUSS VOR gtag kommen! -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
+      
+      // Standard: Alles auf 'denied' bis Nutzer zustimmt (DSGVO-konform)
+      gtag('consent', 'default', {
+        'ad_storage': 'denied',
+        'ad_user_data': 'denied',
+        'ad_personalization': 'denied',
+        'analytics_storage': 'denied',
+        'wait_for_update': 500
+      });
+    </script>
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-P7H48RC2W1"></script>
+    <script>
       gtag('js', new Date());
       gtag('config', 'G-P7H48RC2W1');
     </script>
