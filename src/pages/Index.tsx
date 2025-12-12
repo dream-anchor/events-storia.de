@@ -105,9 +105,11 @@ const Index = () => {
               </div>
               <ConsentElfsightReviews />
               <p className="text-center text-muted-foreground mt-8 max-w-2xl mx-auto">
-                {language === 'de'
-                  ? 'Auf Wunsch liefern wir Ihnen diese Küche auch nach Hause, ins Büro oder zum Event.'
-                  : 'On request, we also deliver this cuisine to your home, office or event.'}
+                {language === 'de' ? (
+                  <>Auf Wunsch liefern wir Ihnen diese Küche auch<br />nach Hause, ins Büro oder zum Event.</>
+                ) : (
+                  <>On request, we also deliver this cuisine<br />to your home, office or event.</>
+                )}
               </p>
             </div>
           </section>
