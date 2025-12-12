@@ -95,12 +95,12 @@ const Index = () => {
             <div className="container mx-auto px-4">
               <div className="text-center mb-10">
                 <h2 className="text-2xl md:text-3xl font-serif font-medium mb-3">
-                  {language === 'de' ? 'Was unsere Ristorante STORIA Gäste sagen' : 'What Our Ristorante STORIA Guests Say'}
+                  {language === 'de' ? 'Bewertungen für das Ristorante STORIA' : 'Reviews for Ristorante STORIA'}
                 </h2>
                 <p className="text-muted-foreground max-w-xl mx-auto">
                   {language === 'de'
-                    ? 'Bewertungen aus unserem Restaurant in München'
-                    : 'Reviews from our restaurant in Munich'}
+                    ? 'Erfahrungen aus unserem Restaurant in München'
+                    : 'Experiences from our restaurant in Munich'}
                 </p>
               </div>
               <ConsentElfsightReviews />
