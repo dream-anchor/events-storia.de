@@ -1,93 +1,58 @@
 import { Link } from "react-router-dom";
-import { Phone, Mail, MapPin, Clock, Instagram } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
-import domenicoImage from "@/assets/domenico-speranza.webp";
+import { Phone, Mail, MapPin, Clock, Instagram, UtensilsCrossed, Truck, Home, ArrowRight } from "lucide-react";
 import storiaLogo from "@/assets/storia-logo.webp";
-import nicolaImage from "@/assets/nicola-speranza.webp";
-import mammaVideo from "@/assets/lamamma.mp4";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const Footer = () => {
   const { t, language } = useLanguage();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isVideoVisible, setIsVideoVisible] = useState(false);
-
-  // Lazy load video when visible
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVideoVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '100px' }
-    );
-
-    observer.observe(video);
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <footer className="bg-primary text-primary-foreground">
-      {/* La Famiglia Speranza */}
-      <div id="la-famiglia" className="border-b border-primary-foreground/5">
-        <div className="container mx-auto px-4 py-20 text-center">
-          <h2 className="text-xl md:text-2xl font-serif font-medium tracking-[0.3em] uppercase mb-14 text-primary-foreground/90">{t.footer.theFamily}</h2>
+      {/* Service-Footer */}
+      <div id="service-footer" className="border-b border-primary-foreground/5">
+        <div className="container mx-auto px-4 py-16 md:py-20 text-center">
+          {/* Überschrift */}
+          <h2 className="text-xl md:text-2xl font-serif font-medium tracking-[0.2em] uppercase mb-3 text-primary-foreground/90">
+            {t.footer.serviceTitle}
+          </h2>
           
-          <div className="flex flex-col md:flex-row items-center justify-center gap-14 md:gap-20">
-            {/* Domenico */}
-            <div className="text-center group">
-              <div className="w-36 h-36 md:w-44 md:h-44 mx-auto mb-5 rounded-full overflow-hidden ring-1 ring-primary-foreground/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
-              <img 
-                  src={domenicoImage} 
-                  alt="Domenico Speranza – STORIA München" 
-                  className="w-full h-full object-cover"
-                  width="176"
-                  height="176"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-              <p className="text-lg font-serif italic tracking-wider text-primary-foreground/90">Domenico</p>
+          {/* Subline */}
+          <p className="text-sm md:text-base text-primary-foreground/70 mb-12 max-w-xl mx-auto">
+            {t.footer.serviceSubline}
+          </p>
+          
+          {/* 3 Leistungsanker */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 max-w-4xl mx-auto mb-12">
+            {/* Anker 1: Catering */}
+            <div className="text-center">
+              <UtensilsCrossed className="h-8 w-8 mx-auto mb-4 text-primary-foreground/80" />
+              <h3 className="font-serif font-medium text-base mb-2">{t.footer.serviceCateringTitle}</h3>
+              <p className="text-sm text-primary-foreground/60">{t.footer.serviceCateringDesc}</p>
             </div>
-
-            {/* Mamma */}
-            <div className="text-center group">
-              <div className="w-36 h-36 md:w-44 md:h-44 mx-auto mb-5 rounded-full overflow-hidden ring-1 ring-primary-foreground/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
-                <video 
-                  ref={videoRef}
-                  src={isVideoVisible ? mammaVideo : undefined}
-                  autoPlay={isVideoVisible}
-                  muted 
-                  loop 
-                  playsInline
-                  preload="none"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <p className="text-lg font-serif italic tracking-wider text-primary-foreground/90">Mamma</p>
+            
+            {/* Anker 2: Lieferung */}
+            <div className="text-center">
+              <Truck className="h-8 w-8 mx-auto mb-4 text-primary-foreground/80" />
+              <h3 className="font-serif font-medium text-base mb-2">{t.footer.serviceDeliveryTitle}</h3>
+              <p className="text-sm text-primary-foreground/60">{t.footer.serviceDeliveryDesc}</p>
             </div>
-
-            {/* Nicola */}
-            <div className="text-center group">
-              <div className="w-36 h-36 md:w-44 md:h-44 mx-auto mb-5 rounded-full overflow-hidden ring-1 ring-primary-foreground/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
-              <img 
-                  src={nicolaImage} 
-                  alt="Nicola Speranza – STORIA München" 
-                  className="w-full h-full object-cover"
-                  width="176"
-                  height="176"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-              <p className="text-lg font-serif italic tracking-wider text-primary-foreground/90">Nicola</p>
+            
+            {/* Anker 3: Anlässe */}
+            <div className="text-center">
+              <Home className="h-8 w-8 mx-auto mb-4 text-primary-foreground/80" />
+              <h3 className="font-serif font-medium text-base mb-2">{t.footer.serviceEventsTitle}</h3>
+              <p className="text-sm text-primary-foreground/60">{t.footer.serviceEventsDesc}</p>
             </div>
           </div>
+          
+          {/* CTA Button */}
+          <Link 
+            to="/events" 
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary-foreground/10 hover:bg-primary-foreground/20 rounded-lg transition-colors text-primary-foreground/90 hover:text-primary-foreground"
+          >
+            {t.footer.serviceCta}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
 
