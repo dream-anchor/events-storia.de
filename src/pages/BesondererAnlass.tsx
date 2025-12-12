@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
-import ReservationCTA from "@/components/ReservationCTA";
+
 import storiaLogo from "@/assets/storia-logo.webp";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSpecialMenuBySlug } from "@/hooks/useSpecialMenus";
@@ -126,7 +126,7 @@ const BesondererAnlass = () => {
               </div>
             </div>
 
-            <ReservationCTA />
+            
           </div>
         </main>
 

@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import ConsentGoogleMaps from "@/components/ConsentGoogleMaps";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
-import ReservationCTA from "@/components/ReservationCTA";
+
 import { Phone, Mail, MapPin, Clock } from "lucide-react";
 import storiaLogo from "@/assets/storia-logo.webp";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -139,7 +139,7 @@ const Kontakt = () => {
             </div>
           </section>
 
-          <ReservationCTA />
+          
         </main>
 
         <Footer />

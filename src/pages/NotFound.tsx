@@ -46,8 +46,8 @@ const NotFound = () => {
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="gap-2">
-              <Link to="/reservierung">
-                Tisch reservieren
+              <Link to="/kontakt">
+                Kontakt
               </Link>
             </Button>
           </div>

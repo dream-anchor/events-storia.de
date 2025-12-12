@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
-import ReservationCTA from "@/components/ReservationCTA";
+
 import storiaLogo from "@/assets/storia-logo.webp";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -103,7 +103,7 @@ const Catering = () => {
               </div>
             </div>
 
-            <ReservationCTA />
+            
           </div>
         </main>
 
