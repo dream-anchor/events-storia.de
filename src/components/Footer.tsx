@@ -47,7 +47,7 @@ const Footer = () => {
           
           {/* CTA Button */}
           <Link 
-            to="/events" 
+            to="/events#kontaktformular" 
             className="inline-flex items-center gap-2.5 px-8 py-4 bg-primary-foreground/15 hover:bg-primary-foreground/25 rounded-lg transition-colors text-primary-foreground font-medium text-base"
           >
             {t.footer.serviceCta}
