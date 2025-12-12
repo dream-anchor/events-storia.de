@@ -9,49 +9,49 @@ const Footer = () => {
   return (
     <footer className="bg-primary text-primary-foreground">
       {/* Service-Footer */}
-      <div id="service-footer" className="border-b border-primary-foreground/5">
+      <div id="service-footer" className="border-b border-primary-foreground/10">
         <div className="container mx-auto px-4 py-16 md:py-20 text-center">
           {/* Überschrift */}
-          <h2 className="text-xl md:text-2xl font-serif font-medium tracking-[0.2em] uppercase mb-3 text-primary-foreground/90">
+          <h2 className="text-2xl md:text-3xl font-serif font-semibold tracking-[0.15em] uppercase mb-4 text-primary-foreground">
             {t.footer.serviceTitle}
           </h2>
           
           {/* Subline */}
-          <p className="text-sm md:text-base text-primary-foreground/70 mb-12 max-w-xl mx-auto">
+          <p className="text-base md:text-lg text-primary-foreground/80 mb-14 max-w-2xl mx-auto leading-relaxed">
             {t.footer.serviceSubline}
           </p>
           
           {/* 3 Leistungsanker */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 max-w-4xl mx-auto mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-14 max-w-4xl mx-auto mb-14">
             {/* Anker 1: Catering */}
             <div className="text-center">
-              <UtensilsCrossed className="h-8 w-8 mx-auto mb-4 text-primary-foreground/80" />
-              <h3 className="font-serif font-medium text-base mb-2">{t.footer.serviceCateringTitle}</h3>
-              <p className="text-sm text-primary-foreground/60">{t.footer.serviceCateringDesc}</p>
+              <UtensilsCrossed className="h-10 w-10 mx-auto mb-5 text-primary-foreground" strokeWidth={1.5} />
+              <h3 className="font-serif font-semibold text-lg mb-2 text-primary-foreground">{t.footer.serviceCateringTitle}</h3>
+              <p className="text-base text-primary-foreground/70 leading-relaxed">{t.footer.serviceCateringDesc}</p>
             </div>
             
             {/* Anker 2: Lieferung */}
             <div className="text-center">
-              <Truck className="h-8 w-8 mx-auto mb-4 text-primary-foreground/80" />
-              <h3 className="font-serif font-medium text-base mb-2">{t.footer.serviceDeliveryTitle}</h3>
-              <p className="text-sm text-primary-foreground/60">{t.footer.serviceDeliveryDesc}</p>
+              <Truck className="h-10 w-10 mx-auto mb-5 text-primary-foreground" strokeWidth={1.5} />
+              <h3 className="font-serif font-semibold text-lg mb-2 text-primary-foreground">{t.footer.serviceDeliveryTitle}</h3>
+              <p className="text-base text-primary-foreground/70 leading-relaxed">{t.footer.serviceDeliveryDesc}</p>
             </div>
             
             {/* Anker 3: Anlässe */}
             <div className="text-center">
-              <Home className="h-8 w-8 mx-auto mb-4 text-primary-foreground/80" />
-              <h3 className="font-serif font-medium text-base mb-2">{t.footer.serviceEventsTitle}</h3>
-              <p className="text-sm text-primary-foreground/60">{t.footer.serviceEventsDesc}</p>
+              <Home className="h-10 w-10 mx-auto mb-5 text-primary-foreground" strokeWidth={1.5} />
+              <h3 className="font-serif font-semibold text-lg mb-2 text-primary-foreground">{t.footer.serviceEventsTitle}</h3>
+              <p className="text-base text-primary-foreground/70 leading-relaxed">{t.footer.serviceEventsDesc}</p>
             </div>
           </div>
           
           {/* CTA Button */}
           <Link 
             to="/events" 
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary-foreground/10 hover:bg-primary-foreground/20 rounded-lg transition-colors text-primary-foreground/90 hover:text-primary-foreground"
+            className="inline-flex items-center gap-2.5 px-8 py-4 bg-primary-foreground/15 hover:bg-primary-foreground/25 rounded-lg transition-colors text-primary-foreground font-medium text-base"
           >
             {t.footer.serviceCta}
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-5 w-5" />
           </Link>
         </div>
       </div>
