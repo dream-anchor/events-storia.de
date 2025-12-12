@@ -1,5 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
+// TypeScript-Deklaration für gtag
+declare global {
+  interface Window {
+    gtag: (...args: any[]) => void;
+  }
+}
+
 interface CookieConsent {
   necessary: boolean;
   statistics: boolean;
@@ -26,6 +33,18 @@ const CONSENT_VERSION = "1.0";
 const CONSENT_KEY = "storia_cookie_consent";
 const CONSENT_DURATION_DAYS = 365;
 
+// Google Consent Mode v2 Update-Funktion
+const updateGoogleConsent = (consentData: CookieConsent) => {
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    window.gtag('consent', 'update', {
+      'analytics_storage': consentData.statistics ? 'granted' : 'denied',
+      'ad_storage': consentData.marketing ? 'granted' : 'denied',
+      'ad_user_data': consentData.marketing ? 'granted' : 'denied',
+      'ad_personalization': consentData.marketing ? 'granted' : 'denied',
+    });
+  }
+};
+
 const CookieConsentContext = createContext<CookieConsentContextType | undefined>(undefined);
 
 export const CookieConsentProvider = ({ children }: { children: ReactNode }) => {
@@ -45,6 +64,8 @@ export const CookieConsentProvider = ({ children }: { children: ReactNode }) => 
         if (daysDiff < CONSENT_DURATION_DAYS && parsed.version === CONSENT_VERSION) {
           setConsent(parsed);
           setShowBanner(false);
+          // Gespeicherte Einwilligung an Google senden
+          updateGoogleConsent(parsed);
         } else {
           localStorage.removeItem(CONSENT_KEY);
           setShowBanner(true);
@@ -63,6 +84,8 @@ export const CookieConsentProvider = ({ children }: { children: ReactNode }) => 
     setConsent(newConsent);
     setShowBanner(false);
     setShowSettings(false);
+    // Google Consent Mode v2 aktualisieren
+    updateGoogleConsent(newConsent);
   };
 
   const acceptAll = () => {
