@@ -67,6 +67,7 @@ const Index = () => {
         <main className="flex-1">
           <Hero />
           <CateringGrid />
+          <CateringCTA />
           
           {/* Delivery Image Section */}
           <section className="py-8 md:py-12">
@@ -113,8 +114,6 @@ const Index = () => {
               </p>
             </div>
           </section>
-          
-          <CateringCTA />
         </main>
         <Footer />
       </div>
