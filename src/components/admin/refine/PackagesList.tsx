@@ -15,11 +15,7 @@ import {
   Package,
   Percent,
   MapPin,
-  Check,
-  Leaf,
-  Fish,
-  Beef,
-  Wine
+  Check
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -35,42 +31,44 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-// Dietary icons for food items
-const DietaryIcons = ({ item }: { item: string }) => {
+// Determine dietary info for a single include item
+const getDietaryInfo = (item: string): { hasMultiple: boolean; options: string[]; label: string | null } => {
   const lower = item.toLowerCase();
   
-  // Food items that have dietary options (Vegan, Vegetarisch, Fisch, Fleisch)
-  const hasFoodOptions = ['vorspeisenplatte', 'hauptgang', 'fingerfood', 'pasta-station'].some(f => lower.includes(f));
+  // Food items that have all dietary options
+  const hasAllOptions = ['vorspeisenplatte', 'hauptgang', 'fingerfood', 'pasta-station'].some(f => lower.includes(f));
   // Dessert only has Vegan and Vegetarisch
   const isDessert = lower.includes('dessert');
-  // Drinks/other items - no dietary icons
+  // Drinks - no dietary options
   const isDrink = ['wein', 'cocktail', 'aperitivo', 'kaffee', 'wasser'].some(d => lower.includes(d));
   
-  if (isDrink) {
-    return <Wine className="h-4 w-4 text-purple-500 shrink-0" />;
-  }
-  
-  if (hasFoodOptions) {
-    return (
-      <div className="flex items-center gap-1 shrink-0" title="Vegan, Vegetarisch, Fisch, Fleisch">
-        <Leaf className="h-3.5 w-3.5 text-green-600" />
-        <Leaf className="h-3.5 w-3.5 text-green-500" />
-        <Fish className="h-3.5 w-3.5 text-blue-500" />
-        <Beef className="h-3.5 w-3.5 text-red-500" />
-      </div>
-    );
+  if (hasAllOptions) {
+    return { hasMultiple: true, options: ['Vegan', 'Vegetarisch', 'Fisch', 'Fleisch'], label: 'Vegan bis Fleisch' };
   }
   
   if (isDessert) {
-    return (
-      <div className="flex items-center gap-1 shrink-0" title="Vegan, Vegetarisch">
-        <Leaf className="h-3.5 w-3.5 text-green-600" />
-        <Leaf className="h-3.5 w-3.5 text-green-500" />
-      </div>
-    );
+    return { hasMultiple: true, options: ['Vegan', 'Vegetarisch'], label: 'Vegan & Vegetarisch' };
   }
   
-  return <Check className="h-4 w-4 text-primary shrink-0" />;
+  if (isDrink) {
+    return { hasMultiple: false, options: [], label: null };
+  }
+  
+  return { hasMultiple: false, options: [], label: null };
+};
+
+// Get all unique dietary options for the entire package
+const getPackageDietaryOptions = (includes: string[]): string[] => {
+  const allOptions = new Set<string>();
+  
+  includes.forEach(item => {
+    const info = getDietaryInfo(item);
+    info.options.forEach(opt => allOptions.add(opt));
+  });
+  
+  // Return in specific order
+  const order = ['Vegan', 'Vegetarisch', 'Fisch', 'Fleisch'];
+  return order.filter(opt => allOptions.has(opt));
 };
 
 interface PackageData {
@@ -307,12 +305,22 @@ export const PackagesList = () => {
                         {/* Includes */}
                         {pkg.includes && Array.isArray(pkg.includes) && pkg.includes.length > 0 && (
                           <ul className="space-y-2">
-                            {pkg.includes.map((item, i) => (
-                              <li key={i} className="flex items-center justify-between gap-3 text-base">
-                                <span>{item}</span>
-                                <DietaryIcons item={item} />
-                              </li>
-                            ))}
+                            {pkg.includes.map((item, i) => {
+                              const dietaryInfo = getDietaryInfo(item);
+                              return (
+                                <li key={i} className="flex items-start gap-2 text-base">
+                                  <Check className="h-4 w-4 text-primary mt-1 shrink-0" />
+                                  <span>
+                                    {item}
+                                    {dietaryInfo.label && (
+                                      <span className="text-muted-foreground italic text-sm ml-1">
+                                        ({dietaryInfo.label})
+                                      </span>
+                                    )}
+                                  </span>
+                                </li>
+                              );
+                            })}
                           </ul>
                         )}
 
@@ -337,12 +345,30 @@ export const PackagesList = () => {
                             </Badge>
                           )}
                           {pkg.requires_prepayment && (
-                            <Badge variant="secondary" className="text-sm px-3 py-1.5 bg-amber-100 text-amber-800 border-amber-200">
+                            <Badge variant="outline" className="text-sm px-3 py-1.5 border-primary/30 text-primary">
                               <Percent className="h-4 w-4 mr-2" />
                               {pkg.prepayment_percentage || 100}% Vorauszahlung
                             </Badge>
                           )}
                         </div>
+
+                        {/* Available Dietary Options for entire package */}
+                        {pkg.includes && Array.isArray(pkg.includes) && getPackageDietaryOptions(pkg.includes).length > 0 && (
+                          <div className="pt-3 border-t border-border/50">
+                            <p className="text-xs text-muted-foreground mb-2">Verfügbare Optionen:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {getPackageDietaryOptions(pkg.includes).map((option, i) => (
+                                <Badge 
+                                  key={i} 
+                                  variant="outline" 
+                                  className="text-xs px-2 py-0.5 border-muted-foreground/30 text-muted-foreground font-normal"
+                                >
+                                  {option}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       
                       {/* Actions - always at bottom */}
