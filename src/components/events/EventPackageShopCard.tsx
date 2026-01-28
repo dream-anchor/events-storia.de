@@ -146,7 +146,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
         {/* Includes List */}
         <ul className="space-y-3">
           {includes.map((item, idx) => (
-            <li key={idx} className="flex items-start gap-2.5 text-base">
+            <li key={idx} className="flex items-start gap-2.5 text-lg">
               <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
               <span className="text-foreground/80">{item}</span>
             </li>
@@ -155,7 +155,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
 
         {/* Dietary Options Badge */}
         <div className="mt-4 pt-4 border-t border-border/50">
-          <p className="text-sm text-muted-foreground mb-2">
+          <p className="text-base text-muted-foreground mb-2">
             {language === 'de' ? 'Verfügbare Optionen:' : 'Available options:'}
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -171,7 +171,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
       <CardFooter className="flex flex-col gap-4 pt-4 border-t">
         {/* Guest Count Selector */}
         <div className="w-full">
-          <label className="text-sm text-muted-foreground block mb-2 text-center">
+          <label className="text-base text-muted-foreground block mb-2 text-center">
             {language === 'de' ? 'Anzahl Gäste' : 'Number of Guests'}
           </label>
           <div className="flex items-center justify-center gap-3">
