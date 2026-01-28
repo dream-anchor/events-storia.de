@@ -21,6 +21,15 @@ interface CateringItem {
 
 const cateringItems: CateringItem[] = [
   {
+    id: "events",
+    titleDe: "Events im Storia",
+    titleEn: "Events at Storia",
+    descriptionDe: "Private Feiern & Firmenevents – individuelle Menüs im Restaurant.",
+    descriptionEn: "Private parties & corporate events – custom menus at the restaurant.",
+    path: "/events",
+    image: eventsImg,
+  },
+  {
     id: "fingerfood",
     titleDe: "Fingerfood & Mini-Gerichte",
     titleEn: "Finger Food & Mini Dishes",
@@ -64,15 +73,6 @@ const cateringItems: CateringItem[] = [
     descriptionEn: "Sweet temptations in a glass – Tiramisù & Pistachio Tartlets.",
     path: "/catering/desserts",
     image: dessertsImg,
-  },
-  {
-    id: "events",
-    titleDe: "Events im Storia",
-    titleEn: "Events at Storia",
-    descriptionDe: "Private Feiern & Firmenevents – individuelle Menüs im Restaurant.",
-    descriptionEn: "Private parties & corporate events – custom menus at the restaurant.",
-    path: "/events",
-    image: eventsImg,
   },
 ];
 
