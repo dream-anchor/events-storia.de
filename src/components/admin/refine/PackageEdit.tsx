@@ -72,7 +72,7 @@ export const PackageEdit = () => {
   const [newIncludeItem, setNewIncludeItem] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const { query, result } = useOne({
+  const { query: packageQuery, result: packageData } = useOne({
     resource: "packages",
     id: id!,
     queryOptions: { enabled: !isCreate },
@@ -84,9 +84,7 @@ export const PackageEdit = () => {
     sorters: [{ field: "sort_order", order: "asc" }],
   });
   const locations = locationsResult?.data || [];
-
-  const isLoading = query.isLoading;
-  const data = result;
+  const isLoading = packageQuery?.isLoading ?? false;
 
   const { mutate: update } = useUpdate();
   const { mutate: create } = useCreate();
@@ -113,8 +111,8 @@ export const PackageEdit = () => {
   }, [id, isCreate]);
 
   useEffect(() => {
-    if (data?.data && !isCreate) {
-      const pkg = data.data as any;
+    if (packageData && !isCreate) {
+      const pkg = packageData as any;
       setFormData(prev => ({
         ...prev,
         name: pkg.name || "",
@@ -133,7 +131,7 @@ export const PackageEdit = () => {
         includes: Array.isArray(pkg.includes) ? pkg.includes : [],
       }));
     }
-  }, [data, isCreate]);
+  }, [packageData, isCreate]);
 
   const handleChange = (field: keyof PackageFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

@@ -51,21 +51,19 @@ export const LocationEdit = () => {
   const [newFeature, setNewFeature] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const { query, result } = useOne({
+  const { query: locationQuery, result: locationData } = useOne({
     resource: "locations",
     id: id!,
     queryOptions: { enabled: !isCreate },
   });
-
-  const isLoading = query.isLoading;
-  const data = result;
+  const isLoading = locationQuery?.isLoading ?? false;
 
   const { mutate: update } = useUpdate();
   const { mutate: create } = useCreate();
 
   useEffect(() => {
-    if (data && !isCreate) {
-      const loc = data as any;
+    if (locationData && !isCreate) {
+      const loc = locationData as any;
       setFormData({
         name: loc.name || "",
         name_en: loc.name_en || "",
@@ -78,7 +76,7 @@ export const LocationEdit = () => {
         sort_order: loc.sort_order || 0,
       });
     }
-  }, [data, isCreate]);
+  }, [locationData, isCreate]);
 
   const handleChange = (field: keyof LocationFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
