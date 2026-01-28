@@ -206,6 +206,60 @@ export type Database = {
         }
         Relationships: []
       }
+      event_inquiries: {
+        Row: {
+          company_name: string | null
+          contact_name: string
+          created_at: string
+          email: string
+          event_type: string | null
+          guest_count: string | null
+          id: string
+          internal_notes: string | null
+          message: string | null
+          notification_sent: boolean | null
+          phone: string | null
+          preferred_date: string | null
+          source: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_name?: string | null
+          contact_name: string
+          created_at?: string
+          email: string
+          event_type?: string | null
+          guest_count?: string | null
+          id?: string
+          internal_notes?: string | null
+          message?: string | null
+          notification_sent?: boolean | null
+          phone?: string | null
+          preferred_date?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_name?: string | null
+          contact_name?: string
+          created_at?: string
+          email?: string
+          event_type?: string | null
+          guest_count?: string | null
+          id?: string
+          internal_notes?: string | null
+          message?: string | null
+          notification_sent?: boolean | null
+          phone?: string | null
+          preferred_date?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       menu_categories: {
         Row: {
           created_at: string | null
