@@ -1,10 +1,28 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+interface CourseSelection {
+  courseType: string;
+  courseLabel: string;
+  itemName: string;
+  itemDescription: string | null;
+}
+
+interface DrinkSelection {
+  drinkGroup: string;
+  drinkLabel: string;
+  selectedChoice: string | null;
+  quantityLabel: string | null;
+}
+
+interface MenuSelection {
+  courses: CourseSelection[];
+  drinks: DrinkSelection[];
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,12 +30,53 @@ serve(async (req) => {
   }
 
   try {
-    const { eventId, event, items, notes } = await req.json();
+    const { eventId, event, items, notes, menuSelection } = await req.json();
     
     const lexofficeApiKey = Deno.env.get('LEXOFFICE_API_KEY');
     if (!lexofficeApiKey) {
       throw new Error('LEXOFFICE_API_KEY not configured');
     }
+
+    // Build menu description for introduction
+    let menuDescription = '';
+    if (menuSelection) {
+      const typedMenu = menuSelection as MenuSelection;
+      
+      if (typedMenu.courses && typedMenu.courses.length > 0) {
+        menuDescription += '\n\nIhr Menü:\n';
+        typedMenu.courses.forEach((course, index) => {
+          const label = course.courseLabel || course.courseType;
+          menuDescription += `${index + 1}. ${label}: ${course.itemName}`;
+          if (course.itemDescription) {
+            menuDescription += ` – ${course.itemDescription}`;
+          }
+          menuDescription += '\n';
+        });
+      }
+      
+      if (typedMenu.drinks && typedMenu.drinks.length > 0) {
+        menuDescription += '\nGetränke-Pauschale (pro Person):\n';
+        typedMenu.drinks.forEach(drink => {
+          let drinkText = `• ${drink.drinkLabel || drink.drinkGroup}`;
+          if (drink.selectedChoice) {
+            drinkText += `: ${drink.selectedChoice}`;
+          }
+          if (drink.quantityLabel) {
+            drinkText += ` (${drink.quantityLabel})`;
+          }
+          menuDescription += drinkText + '\n';
+        });
+      }
+    }
+
+    // Build full introduction text
+    const introductionParts = [
+      `Event-Angebot für ${event.preferred_date || 'nach Vereinbarung'}`,
+      `Gäste: ${event.guest_count || '-'}`,
+      `Art: ${event.event_type || '-'}`,
+    ];
+    
+    const introduction = introductionParts.join('\n') + menuDescription;
 
     // Build LexOffice quotation payload
     const quotationPayload = {
@@ -36,7 +95,7 @@ serve(async (req) => {
         name: item.name,
         description: item.description || '',
         quantity: item.quantity,
-        unitName: 'Stück',
+        unitName: item.unitName || 'Stück',
         unitPrice: {
           currency: 'EUR',
           netAmount: Math.round(item.unitPrice.netAmount * 100) / 100,
@@ -49,11 +108,11 @@ serve(async (req) => {
       taxConditions: {
         taxType: 'net',
       },
-      introduction: `Event-Angebot für ${event.preferred_date || 'nach Vereinbarung'}\nGäste: ${event.guest_count || '-'}\nArt: ${event.event_type || '-'}`,
-      remark: notes || '',
+      introduction: introduction,
+      remark: notes || 'Dieses Angebot ist 14 Tage gültig. Für alle Pakete ist eine Vorauszahlung von 100% erforderlich.',
     };
 
-    console.log('Creating LexOffice quotation:', JSON.stringify(quotationPayload, null, 2));
+    console.log('Creating LexOffice quotation with menu:', JSON.stringify(quotationPayload, null, 2));
 
     // Create quotation in LexOffice
     const response = await fetch('https://api.lexoffice.io/v1/quotations?finalize=true', {
