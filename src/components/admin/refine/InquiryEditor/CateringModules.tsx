@@ -1,29 +1,22 @@
-import { useMemo, useState, useCallback } from "react";
-import { Calendar, Truck, MapPin, Clock, Search, Plus, Minus, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Calendar, Truck, MapPin, Search, Plus, Minus, Trash2, Utensils, Wine, ChefHat } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExtendedInquiry, QuoteItem } from "./types";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number | null;
-  serving_info: string | null;
-  image_url: string | null;
-}
+import { useCombinedMenuItems, CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
+import { Loader2 } from "lucide-react";
 
 interface CateringModulesProps {
   inquiry: ExtendedInquiry;
-  menuItems: MenuItem[];
   selectedItems: QuoteItem[];
-  onItemAdd: (item: MenuItem) => void;
+  onItemAdd: (item: { id: string; name: string; description: string | null; price: number | null }) => void;
   onItemQuantityChange: (itemId: string, quantity: number) => void;
   onItemRemove: (itemId: string) => void;
   onDeliveryChange: (field: 'delivery_street' | 'delivery_zip' | 'delivery_city' | 'delivery_time_slot', value: string) => void;
@@ -41,7 +34,6 @@ const DELIVERY_TIME_SLOTS = [
 
 export const CateringModules = ({
   inquiry,
-  menuItems,
   selectedItems,
   onItemAdd,
   onItemQuantityChange,
@@ -49,30 +41,59 @@ export const CateringModules = ({
   onDeliveryChange,
 }: CateringModulesProps) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeSource, setActiveSource] = useState<'all' | 'catering' | 'food' | 'drinks'>('all');
 
-  // Filter menu items
+  // Fetch combined menu items from both sources
+  const { items: allItems, groupedItems, isLoading, cateringCount, ristoranteCount } = useCombinedMenuItems();
+
+  // Filter menu items based on search and active source
   const filteredItems = useMemo(() => {
-    if (!searchQuery) return menuItems.slice(0, 20);
+    let sourceItems: CombinedMenuItem[] = [];
+    
+    switch (activeSource) {
+      case 'catering':
+        sourceItems = groupedItems.catering;
+        break;
+      case 'food':
+        sourceItems = groupedItems.ristoranteFood;
+        break;
+      case 'drinks':
+        sourceItems = groupedItems.ristoranteDrinks;
+        break;
+      default:
+        sourceItems = allItems;
+    }
+
+    if (!searchQuery) return sourceItems.slice(0, 30);
+    
     const query = searchQuery.toLowerCase();
-    return menuItems.filter(
+    return sourceItems.filter(
       item => item.name.toLowerCase().includes(query) || 
-              item.description?.toLowerCase().includes(query)
-    ).slice(0, 20);
-  }, [menuItems, searchQuery]);
+              item.description?.toLowerCase().includes(query) ||
+              item.category_name.toLowerCase().includes(query)
+    ).slice(0, 30);
+  }, [allItems, groupedItems, searchQuery, activeSource]);
 
   const getItemQuantity = (itemId: string) => {
     const item = selectedItems.find(i => i.id === itemId);
     return item?.quantity || 0;
   };
 
+  const getSourceBadge = (source: 'catering' | 'ristorante') => {
+    if (source === 'catering') {
+      return <Badge variant="secondary" className="text-xs"><ChefHat className="h-3 w-3 mr-1" />Catering</Badge>;
+    }
+    return <Badge variant="outline" className="text-xs"><Utensils className="h-3 w-3 mr-1" />Restaurant</Badge>;
+  };
+
   return (
     <div className="space-y-6">
       {/* Catering Info Header */}
-      <Card className="bg-orange-50 border-orange-200">
+      <Card className="bg-accent/50 border-accent">
         <CardContent className="pt-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-orange-600" />
+              <Calendar className="h-4 w-4 text-primary" />
               <span>
                 {inquiry.preferred_date 
                   ? format(parseISO(inquiry.preferred_date), "dd.MM.yyyy", { locale: de })
@@ -80,15 +101,15 @@ export const CateringModules = ({
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Truck className="h-4 w-4 text-orange-600" />
+              <Truck className="h-4 w-4 text-primary" />
               <span>Lieferung</span>
             </div>
             <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-orange-600" />
+              <MapPin className="h-4 w-4 text-primary" />
               <span>{inquiry.delivery_city || 'München'}</span>
             </div>
             <div>
-              <Badge variant="outline" className="border-orange-300 text-orange-700">
+              <Badge variant="outline">
                 {inquiry.status}
               </Badge>
             </div>
@@ -204,8 +225,30 @@ export const CateringModules = ({
             </div>
           )}
 
-          {/* Search & Add Items */}
+          {/* Source Tabs & Search */}
           <div className="space-y-3">
+            {/* Source Filter Tabs */}
+            <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as typeof activeSource)}>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="all" className="text-xs">
+                  Alle ({cateringCount + ristoranteCount})
+                </TabsTrigger>
+                <TabsTrigger value="catering" className="text-xs">
+                  <ChefHat className="h-3 w-3 mr-1" />
+                  Catering ({cateringCount})
+                </TabsTrigger>
+                <TabsTrigger value="food" className="text-xs">
+                  <Utensils className="h-3 w-3 mr-1" />
+                  Speisen
+                </TabsTrigger>
+                <TabsTrigger value="drinks" className="text-xs">
+                  <Wine className="h-3 w-3 mr-1" />
+                  Getränke
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {/* Search Input */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -216,8 +259,13 @@ export const CateringModules = ({
               />
             </div>
             
-            {searchQuery && (
-              <div className="border rounded-lg max-h-60 overflow-auto">
+            {/* Items List */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="border rounded-lg max-h-80 overflow-auto">
                 {filteredItems.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4">
                     Keine Artikel gefunden
@@ -229,7 +277,6 @@ export const CateringModules = ({
                       className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
                       onClick={() => {
                         onItemAdd(item);
-                        setSearchQuery("");
                       }}
                     >
                       {item.image_url && (
@@ -239,14 +286,18 @@ export const CateringModules = ({
                           className="w-10 h-10 rounded object-cover"
                         />
                       )}
-                      <div className="flex-1">
-                        <p className="font-medium">{item.name}</p>
-                        {item.serving_info && (
-                          <p className="text-xs text-muted-foreground">{item.serving_info}</p>
-                        )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{item.name}</p>
+                          {getSourceBadge(item.source)}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {item.category_name}
+                          {item.serving_info && ` • ${item.serving_info}`}
+                        </p>
                       </div>
-                      <p className="font-semibold">{item.price?.toFixed(2)} €</p>
-                      <Plus className="h-4 w-4 text-muted-foreground" />
+                      <p className="font-semibold whitespace-nowrap">{item.price?.toFixed(2)} €</p>
+                      <Plus className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     </div>
                   ))
                 )}
