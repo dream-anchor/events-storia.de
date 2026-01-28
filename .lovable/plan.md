@@ -1,357 +1,379 @@
 
-
-# Menü-Kompositions-System für Event-Pakete
+# Erweiterung Menü-Kompositions-System: Globale Suche, Workflow & Navigation 2026
 
 ## Zusammenfassung
 
-Ein intelligentes, paketbasiertes Menü-Zusammenstellungssystem, das Mitarbeitern ermöglicht, schnell und fehlerfrei Event-Menüs zu konfigurieren. Das System leitet durch die Gangauswahl basierend auf dem gewählten Paket und generiert automatisch professionelle Angebote.
+Dieses Update transformiert das Menü-Kompositions-System in ein flexibles, nicht-lineares Werkzeug mit globaler Suchfunktion und nahtlosem Übergang zur Angebotserstellung. Die Navigation erhält ein modernes "2026"-Design mit Pill-Navigation, Command-Palette und kontextabhängigen Aktionen.
 
 ---
 
-## Geschäftslogik der Pakete
+## Teil 1: Globale Suchfunktion für alle Gänge
 
-### Network-Aperitivo (69€ p.P.)
+### Problemstellung
+Aktuell filtert der `CourseSelector` strikt nach `allowed_sources` und `allowed_categories` aus der Paket-Konfiguration. Mitarbeiter können keine Gerichte außerhalb dieser Logik hinzufügen.
+
+### Lösung: Dual-Mode Suche
+
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ ESSEN                                                       │
-│ ├── Fingerfood (Catering-Katalog)                          │
-│ └── Pasta-Auswahl (Ristorante: Kategorie "Paste")          │
-├─────────────────────────────────────────────────────────────┤
-│ GETRÄNKE (pro Person)                                       │
-│ ├── 1× Aperitif (Spritz ODER Cocktail)                     │
-│ ├── 0,7l Flaschenwein ODER 5× Bier                         │
-│ ├── 1× Wasser (mit/ohne)                                   │
-│ └── 1× Kaffee-Spezialität                                  │
+│ 🍽️ HAUPTGANG (FLEISCH/FISCH)                               │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ 🔍 Gericht suchen...                          [⌘K]     │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                             │
+│ [Empfohlen] [Alle Speisen durchsuchen]  ← Toggle           │
+│                                                             │
+│ ┌──────────────────┐ ┌──────────────────┐                  │
+│ │ Secondi di pesce │ │ Secondi di carne │   ← Kategorien   │
+│ │ Branzino         │ │ Tagliata         │                  │
+│ │ Salmone          │ │ Ossobuco         │                  │
+│ └──────────────────┘ └──────────────────┘                  │
+│                                                             │
+│ [+ Freie Position hinzufügen]  ← Custom Entry              │
+│                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Business Dinner – Exclusive (99€ p.P.)
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ ESSEN (3 Gänge)                                             │
-│ ├── Gang 1: Vorspeisenplatte (Custom-Position)             │
-│ ├── Gang 2: Hauptgericht (Fleisch ODER Fisch)              │
-│ └── Gang 3: Dessert                                        │
-├─────────────────────────────────────────────────────────────┤
-│ GETRÄNKE (pro Person)                                       │
-│ ├── 4× Spritz ODER 0,7l offener Wein                       │
-│ ├── Wasser (mit/ohne, unbegrenzt)                          │
-│ └── Kaffee-Spezialitäten                                   │
-└─────────────────────────────────────────────────────────────┘
+### Technische Umsetzung
+
+**1. Erweiterung CourseSelector.tsx**
+
+- Neuer State: `searchMode: 'recommended' | 'global'`
+- Bei `global`: Alle Items aus `useCombinedMenuItems()` werden durchsucht
+- Keyboard-Shortcut `⌘K` / `Ctrl+K` öffnet Command-Dialog
+
+**2. Neue Komponente: GlobalItemSearch.tsx**
+
+```typescript
+// Nutzt die vorhandene Command-Palette (cmdk)
+<CommandDialog open={isOpen} onOpenChange={setIsOpen}>
+  <CommandInput placeholder="Alle Speisen & Getränke durchsuchen..." />
+  <CommandList>
+    <CommandGroup heading="Ristorante">
+      {ristoranteItems.map(item => (
+        <CommandItem onSelect={() => onSelect(item)}>
+          {item.name}
+        </CommandItem>
+      ))}
+    </CommandGroup>
+    <CommandGroup heading="Catering-Katalog">
+      {cateringItems.map(item => (...))}
+    </CommandGroup>
+  </CommandList>
+</CommandDialog>
 ```
 
-### Gesamte Location (8.500€ pauschal)
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ ESSEN (4 Gänge)                                             │
-│ ├── Gang 1: Vorspeisenplatte (Custom-Position)             │
-│ ├── Gang 2: Fischgericht                                   │
-│ ├── Gang 3: Fleischgericht                                 │
-│ └── Gang 4: Dessert                                        │
-├─────────────────────────────────────────────────────────────┤
-│ GETRÄNKE (pro Person)                                       │
-│ ├── 4× Spritz ODER 0,7l offener Wein                       │
-│ ├── Wasser (mit/ohne, unbegrenzt)                          │
-│ └── Kaffee-Spezialitäten                                   │
-└─────────────────────────────────────────────────────────────┘
-```
+**3. Freie Positionen**
+
+- Button "+ Freie Position" ermöglicht manuelle Eingabe
+- Felder: Name, Beschreibung (optional)
+- Wird als `isCustom: true, itemSource: 'manual'` gespeichert
+
+### Anpassungen für Getränke
+
+Der `DrinkPackageSelector` erhält dieselbe Logik:
+- Standard: Vorkonfigurierte Optionen (Spritz/Wein etc.)
+- Erweitert: "Anderes Getränk wählen" → Globale Getränke-Suche
 
 ---
 
-## Lösungsarchitektur
+## Teil 2: Workflow-Optimierung → PDF nach Getränken
 
-### Neue Komponente: `MenuComposer`
-
-Eine geführte Gang-für-Gang Auswahl, die:
-- Automatisch die richtigen Kategorien filtert
-- Bereits ausgewählte Gänge markiert
-- Nur noch fehlende Gänge zur Auswahl anzeigt
-- Getränke-Kontingente verwaltet
+### Neues 3-Stufen-Modell
 
 ```text
-┌──────────────────────────────────────────────────────────────┐
-│ MENÜ-ZUSAMMENSTELLUNG                                        │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
-│                                                              │
-│ Business Dinner – Exclusive │ 35 Gäste                       │
-│                                                              │
-│ ┌──────────────────────────────────────────────────────────┐ │
-│ │ 🍽️ GANG 1: VORSPEISE                            ✓ Gewählt │ │
-│ │    Vorspeisenplatte (hausgemacht)                        │ │
-│ └──────────────────────────────────────────────────────────┘ │
-│                                                              │
-│ ┌──────────────────────────────────────────────────────────┐ │
-│ │ 🥩 GANG 2: HAUPTGERICHT                    ⚠ Auswählen   │ │
-│ │                                                          │ │
-│ │  ┌─────────────────┐  ┌─────────────────┐               │ │
-│ │  │ 🐟 FISCH        │  │ 🥩 FLEISCH      │               │ │
-│ │  │                 │  │                 │               │ │
-│ │  │ Branzino       │  │ Tagliata        │               │ │
-│ │  │ Kabeljau       │  │ Ossobuco        │               │ │
-│ │  │ Salmone        │  │ Filetto         │               │ │
-│ │  └─────────────────┘  └─────────────────┘               │ │
-│ └──────────────────────────────────────────────────────────┘ │
-│                                                              │
-│ ┌──────────────────────────────────────────────────────────┐ │
-│ │ 🍰 GANG 3: DESSERT                         ○ Noch offen  │ │
-│ │    (Nach Hauptgang-Auswahl)                              │ │
-│ └──────────────────────────────────────────────────────────┘ │
-│                                                              │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
-│                                                              │
-│ 🍷 GETRÄNKE-PAUSCHALE                                        │
-│                                                              │
-│  ○ Spritz-Paket (4 Spritz p.P.)                             │
-│  ● Wein-Paket (0,7l offener Wein p.P.)      ← Ausgewählt    │
-│                                                              │
-│  ✓ Wasser (inkl.)                                           │
-│  ✓ Kaffee-Spezialitäten (inkl.)                             │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│  ┌────────────┐    ┌────────────┐    ┌────────────┐        │
+│  │   Gänge    │ ─→ │  Getränke  │ ─→ │  Angebot   │        │
+│  │            │    │            │    │            │        │
+│  │     ✓      │    │     ✓      │    │     →      │        │
+│  └────────────┘    └────────────┘    └────────────┘        │
+│                                                             │
+│  Frei navigierbar mit Tab-Leiste                           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+### Neue Komponente: MenuWorkflow.tsx
+
+Ersetzt den bisherigen linearen Flow im `MenuComposer`:
+
+```typescript
+type WorkflowStep = 'courses' | 'drinks' | 'finalize';
+
+const MenuWorkflow = ({ ... }) => {
+  const [activeStep, setActiveStep] = useState<WorkflowStep>('courses');
+  
+  return (
+    <div>
+      {/* Pill-Navigation */}
+      <div className="flex gap-2 p-1 bg-muted rounded-full">
+        <PillTab active={activeStep === 'courses'} onClick={() => setActiveStep('courses')}>
+          🍽️ Gänge {coursesComplete && '✓'}
+        </PillTab>
+        <PillTab active={activeStep === 'drinks'} onClick={() => setActiveStep('drinks')}>
+          🍷 Getränke {drinksComplete && '✓'}
+        </PillTab>
+        <PillTab active={activeStep === 'finalize'} onClick={() => setActiveStep('finalize')}>
+          📄 Angebot
+        </PillTab>
+      </div>
+      
+      {/* Step Content */}
+      {activeStep === 'courses' && <CoursesPanel />}
+      {activeStep === 'drinks' && <DrinksPanel />}
+      {activeStep === 'finalize' && <FinalizePanel />}
+    </div>
+  );
+};
+```
+
+### Finalize-Panel (Neuer Schritt 3)
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ 📄 ANGEBOT ERSTELLEN                                        │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ MENÜ-ZUSAMMENFASSUNG                                    │ │
+│ │                                                         │ │
+│ │ 🍽️ Vorspeise: Vorspeisenplatte                         │ │
+│ │ 🥩 Hauptgang: Tagliata di Manzo (Ristorante)           │ │
+│ │ 🍰 Dessert: Tiramisù (Ristorante)                       │ │
+│ │                                                         │ │
+│ │ 🍷 Getränke: Wein-Paket (0,7l p.P.)                    │ │
+│ │    inkl. Wasser, Kaffee                                │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ 💬 Persönliches Anschreiben                             │ │
+│ │                                                         │ │
+│ │ [AI generieren]  [Vorlage wählen]                       │ │
+│ │                                                         │ │
+│ │ ┌─────────────────────────────────────────────────────┐ │ │
+│ │ │ Sehr geehrte/r Herr/Frau Müller,                    │ │ │
+│ │ │                                                     │ │ │
+│ │ │ vielen Dank für Ihre Anfrage...                     │ │ │
+│ │ │ [Editierbar]                                        │ │ │
+│ │ └─────────────────────────────────────────────────────┘ │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                             │
+│ ┌────────────────────────────────────────────────────────┐  │
+│ │ [PDF Vorschau]     [✉️ Per E-Mail senden]             │  │
+│ └────────────────────────────────────────────────────────┘  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Integration in SmartInquiryEditor
+
+Der bisherige 2-Tab-Ansatz (Kalkulation / Kommunikation) wird angepasst:
+
+- **Kalkulation-Tab**: Paket-Auswahl + MenuWorkflow (Gänge → Getränke → Angebot)
+- **Kommunikation-Tab**: Nur noch für Follow-ups und Status-Updates
+
+Der `AIComposer` und PDF-Generierung werden in das neue Finalize-Panel integriert.
 
 ---
 
-## Datenbank-Erweiterungen
+## Teil 3: Navigation 2026 - State of the Art
 
-### 1. Neue Tabelle: `package_course_config`
+### Konzept: Pill-Based Contextual Navigation
 
-Definiert die Gang-Struktur pro Paket:
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ [STORIA Logo]                                               │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ 📊 Dashboard │ 📅 Events (3) │ 📦 Bestellungen │ ...    │ │
+│ │              │               │                 │        │ │
+│ │   Floating Pill-Bar mit Glasmorphism                    │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                             │
+│ Im Editor-Kontext:                                          │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ ← Zurück │ Mueller GmbH │ 📅 12.03.2026 │ 35 Gäste     │ │
+│ │                                                         │ │
+│ │ Kontextuelle Info-Bar                                   │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                             │
+│ ⌘K → Spotlight-Suche für schnelle Aktionen                 │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
 
-| Feld | Typ | Beschreibung |
-|------|-----|--------------|
-| `package_id` | UUID | Referenz zum Paket |
-| `course_type` | TEXT | 'starter', 'pasta', 'main_fish', 'main_meat', 'dessert', 'fingerfood' |
-| `course_label` | TEXT | "Vorspeise", "Hauptgang (Fleisch/Fisch)" |
-| `is_required` | BOOLEAN | Pflichtgang? |
-| `allowed_sources` | TEXT[] | ['catering', 'ristorante'] |
-| `allowed_categories` | TEXT[] | ['Secondi di pesce', 'Secondi di carne'] |
-| `is_custom_item` | BOOLEAN | Für "Vorspeisenplatte" (nicht im Katalog) |
-| `custom_item_name` | TEXT | "Vorspeisenplatte" |
-| `sort_order` | INT | Reihenfolge |
+### Features
 
-### 2. Neue Tabelle: `package_drink_config`
+**1. Floating Pill-Bar**
 
-Definiert die Getränke-Optionen pro Paket:
+```css
+/* Glasmorphism + Floating Design */
+.nav-pill-bar {
+  backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 9999px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  padding: 4px;
+}
 
-| Feld | Typ | Beschreibung |
-|------|-----|--------------|
-| `package_id` | UUID | Referenz zum Paket |
-| `drink_group` | TEXT | 'aperitif', 'wine', 'water', 'coffee' |
-| `options` | JSONB | Kategorien/Mengen pro Option |
-| `quantity_per_person` | TEXT | "1", "0.7l", "unlimited" |
-| `is_choice` | BOOLEAN | Entweder/oder Auswahl? |
+.nav-pill {
+  border-radius: 9999px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-### 3. Erweiterung: `event_inquiries`
-
-Neues JSON-Feld für die Menü-Konfiguration:
-
-```json
-{
-  "menu_selection": {
-    "courses": [
-      { "course_type": "starter", "item_id": null, "custom_name": "Vorspeisenplatte" },
-      { "course_type": "main_fish", "item_id": "ristorante_xxx", "name": "Branzino" },
-      { "course_type": "dessert", "item_id": "ristorante_yyy", "name": "Tiramisù" }
-    ],
-    "drinks": {
-      "aperitif_choice": "wine",
-      "selected_wine": "Montepulciano d'Abruzzo"
-    }
-  }
+.nav-pill[data-active="true"] {
+  background: var(--primary);
+  color: white;
 }
 ```
 
+**2. Command Palette (⌘K)**
+
+Global verfügbar im Admin-Bereich:
+
+- Schnell-Navigation zu jeder Seite
+- Suche nach Events/Bestellungen
+- Aktionen: "Neue Anfrage erstellen", "PDF exportieren"
+
+**3. Contextual Breadcrumb-Bar**
+
+Im Editor zeigt eine zweite Leiste:
+- Zurück-Button
+- Kundenname + Event-Details
+- Status-Badge
+- Quick-Actions
+
+### Technische Umsetzung
+
+**AdminLayout.tsx Refactoring**
+
+```typescript
+// Neue Struktur
+<AdminLayout>
+  {/* Floating Nav */}
+  <FloatingPillNav activeKey={activeTab} items={navigation} />
+  
+  {/* Command Palette - Global */}
+  <CommandPaletteProvider>
+    <CommandPalette />
+  </CommandPaletteProvider>
+  
+  {/* Context Bar (optional) */}
+  {contextInfo && <ContextBar {...contextInfo} />}
+  
+  {/* Main Content */}
+  <main>{children}</main>
+</AdminLayout>
+```
+
 ---
 
-## Komponenten-Architektur
+## Dateiänderungen
 
 ### Neue Dateien
 
-```text
-src/components/admin/refine/InquiryEditor/
-├── MenuComposer/
-│   ├── index.tsx              # Hauptkomponente
-│   ├── CourseSelector.tsx     # Gang-Auswahl mit Kategorien
-│   ├── DrinkPackageSelector.tsx  # Getränke-Pauschale
-│   ├── CourseProgress.tsx     # Fortschrittsanzeige
-│   ├── CustomItemInput.tsx    # Für Vorspeisenplatte etc.
-│   └── types.ts               # MenuSelection, CourseConfig
-│
-├── hooks/
-│   └── usePackageMenuConfig.ts  # Lädt Gang-Konfiguration
-```
+| Datei | Beschreibung |
+|-------|--------------|
+| `MenuComposer/GlobalItemSearch.tsx` | Command-Palette für globale Suche |
+| `MenuComposer/MenuWorkflow.tsx` | 3-Stufen Wizard (Gänge → Getränke → Angebot) |
+| `MenuComposer/FinalizePanel.tsx` | Zusammenfassung + AI-Text + PDF-Vorschau |
+| `MenuComposer/CustomItemInput.tsx` | Freie Positionseingabe |
+| `admin/refine/FloatingPillNav.tsx` | Moderne Pill-Navigation |
+| `admin/refine/CommandPalette.tsx` | ⌘K Spotlight-Suche |
+| `admin/refine/ContextBar.tsx` | Kontextuelle Infoleiste |
 
-### Komponenten-Hierarchie
+### Zu modifizierende Dateien
 
-```text
-SmartInquiryEditor
-└── EventModules
-    ├── PackageSelector (existiert)
-    └── MenuComposer (NEU)
-        ├── CourseProgress
-        ├── CourseSelector (pro Gang)
-        │   ├── CategoryFilter
-        │   └── ItemGrid
-        └── DrinkPackageSelector
-            ├── ChoiceToggle (Spritz/Wein)
-            └── IncludedItems (Wasser, Kaffee)
-```
+| Datei | Änderungen |
+|-------|------------|
+| `CourseSelector.tsx` | Toggle für "Empfohlen" vs "Alle Speisen" |
+| `DrinkPackageSelector.tsx` | Option "Anderes Getränk wählen" |
+| `MenuComposer/index.tsx` | Integration MenuWorkflow |
+| `SmartInquiryEditor.tsx` | Anpassung Tab-Struktur |
+| `AdminLayout.tsx` | Neue Navigation + Command Palette |
+| `types.ts` | Erweiterung für manuelle Einträge |
 
 ---
 
-## Workflow Integration
+## Implementierungsreihenfolge
 
-### Mitarbeiter-Workflow
+### Phase 1: Globale Suche (Priorität: Hoch)
+1. `GlobalItemSearch.tsx` erstellen
+2. `CourseSelector.tsx` erweitern um Dual-Mode
+3. `DrinkPackageSelector.tsx` erweitern
+4. `CustomItemInput.tsx` für freie Positionen
+5. Types erweitern für `itemSource: 'manual'`
 
-```text
-1. ANFRAGE ÖFFNEN
-   └─→ Paket auswählen (z.B. "Business Dinner")
-       └─→ MenuComposer wird aktiviert
+### Phase 2: Workflow-Optimierung (Priorität: Hoch)
+1. `MenuWorkflow.tsx` erstellen
+2. `FinalizePanel.tsx` mit AI-Composer Integration
+3. `MenuComposer/index.tsx` refactoren
+4. `SmartInquiryEditor.tsx` anpassen
 
-2. MENÜ ZUSAMMENSTELLEN
-   ├─→ Gang 1: "Vorspeisenplatte" (automatisch vorausgefüllt)
-   ├─→ Gang 2: Fleisch ODER Fisch wählen
-   │           └─→ Filtert automatisch Restaurant-Karte
-   └─→ Gang 3: Dessert wählen
-
-3. GETRÄNKE KONFIGURIEREN
-   └─→ Spritz-Paket ODER Wein-Paket wählen
-
-4. ANGEBOT GENERIEREN
-   ├─→ AI-Composer erstellt personalisierte E-Mail
-   └─→ PDF zeigt komplettes Menü + Getränke
-
-5. VERSAND
-   └─→ LexOffice Angebot + E-Mail mit einem Klick
-```
+### Phase 3: Navigation 2026 (Priorität: Mittel)
+1. `FloatingPillNav.tsx` erstellen
+2. `CommandPalette.tsx` mit Keyboard-Shortcuts
+3. `ContextBar.tsx` für Editor-Kontext
+4. `AdminLayout.tsx` komplett refactoren
 
 ---
 
-## PDF-Erweiterung
-
-Das Angebot-PDF zeigt das komplette Menü strukturiert:
+## UI-Vorschau: Finaler Workflow
 
 ```text
-┌──────────────────────────────────────────────────────────────┐
-│                         ANGEBOT                              │
-│                                                              │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
-│                                                              │
-│ MENÜ FÜR 35 PERSONEN                                         │
-│                                                              │
-│ ┌────────────────────────────────────────────────────────┐   │
-│ │ VORSPEISE                                              │   │
-│ │ Vorspeisenplatte                                       │   │
-│ │ (Auswahl italienischer Antipasti)                      │   │
-│ ├────────────────────────────────────────────────────────┤   │
-│ │ HAUPTGANG                                              │   │
-│ │ Tagliata di Manzo                                      │   │
-│ │ (Geschnittenes Rinderfilet mit Rucola und Parmesan)   │   │
-│ ├────────────────────────────────────────────────────────┤   │
-│ │ DESSERT                                                │   │
-│ │ Tiramisù                                               │   │
-│ │ (Hausgemacht nach Original-Rezept)                     │   │
-│ └────────────────────────────────────────────────────────┘   │
-│                                                              │
-│ GETRÄNKE-PAUSCHALE (pro Person)                              │
-│ • 0,7l offener Wein (Rot/Weiß/Rosé)                         │
-│ • Wasser mit und ohne Kohlensäure                           │
-│ • Kaffee-Spezialitäten                                       │
-│                                                              │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
-│                                                              │
-│ Business Dinner – Exclusive         35 × 99,00 €  3.465,00 € │
-│                                                              │
-│ Zwischensumme (netto)                             3.465,00 € │
-│ MwSt. 7%                                            242,55 € │
-│ ─────────────────────────────────────────────────────────── │
-│ GESAMTBETRAG                                      3.707,55 € │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│ [STORIA]  ┌──────────────────────────────────┐  [Max M.]  [⚙] │
+│           │ 📊 │ 📅 Events (3) │ 📦 │ 🍽️ │ │                  │
+│           └──────────────────────────────────┘                 │
+├────────────────────────────────────────────────────────────────┤
+│ ← │ Mueller GmbH │ Business Dinner │ 12.03.26 │ 35 Gäste      │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│ ┌───────────────────────────────────────────────────────────┐  │
+│ │  🍽️ Gänge ✓  │  🍷 Getränke ✓  │  📄 Angebot →           │  │
+│ └───────────────────────────────────────────────────────────┘  │
+│                                                                │
+│ ┌─────────────────────────────────────────────────────────┐    │
+│ │ MENÜ-ZUSAMMENFASSUNG                                    │    │
+│ │                                                         │    │
+│ │ Vorspeise    Vorspeisenplatte (im Paket)               │    │
+│ │ Hauptgang    Tagliata di Manzo                         │    │
+│ │ Dessert      Tiramisù                                  │    │
+│ │                                                         │    │
+│ │ Getränke     Wein-Paket + Wasser + Kaffee              │    │
+│ └─────────────────────────────────────────────────────────┘    │
+│                                                                │
+│ ┌─────────────────────────────────────────────────────────┐    │
+│ │ 💬 ANSCHREIBEN                    [🤖 AI generieren]   │    │
+│ │                                                         │    │
+│ │ Sehr geehrte Frau Müller,                              │    │
+│ │                                                         │    │
+│ │ vielen Dank für Ihre Anfrage zu Ihrem Business         │    │
+│ │ Dinner am 12. März 2026. Gerne unterbreiten wir        │    │
+│ │ Ihnen folgendes Angebot:                               │    │
+│ │                                                         │    │
+│ │ [Vollständig editierbarer Text...]                     │    │
+│ │                                                         │    │
+│ └─────────────────────────────────────────────────────────┘    │
+│                                                                │
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │              [PDF Vorschau]    [✉️ Angebot senden]        │ │
+│ └────────────────────────────────────────────────────────────┘ │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Implementierungsplan
+## Vorteile
 
-### Phase 1: Datenbank & Konfiguration
-1. Migration für `package_course_config` und `package_drink_config`
-2. Seed-Daten für die drei Pakete
-3. Erweiterung `event_inquiries.menu_selection` (JSONB)
-
-### Phase 2: Kernkomponenten
-1. `usePackageMenuConfig` Hook
-2. `MenuComposer` Hauptkomponente
-3. `CourseSelector` mit Kategorie-Filterung
-4. `DrinkPackageSelector` für Getränke-Auswahl
-
-### Phase 3: Integration
-1. Einbindung in `EventModules`
-2. State-Management im `SmartInquiryEditor`
-3. Speichern der Menü-Auswahl in der Datenbank
-
-### Phase 4: Ausgabe
-1. AI-Composer erhält Menü-Daten
-2. PDF-Template für Menü-Darstellung
-3. LexOffice-Integration mit Menü-Details
-
----
-
-## Technische Details
-
-### Kategorie-Mapping für Restaurant
-
-| Gang-Typ | Restaurant-Kategorien |
-|----------|----------------------|
-| `pasta` | "Paste" |
-| `main_fish` | "Secondi di pesce" |
-| `main_meat` | "Secondi di carne" |
-| `dessert` | "I nostri Dolci" |
-| `starter` | "Antipasti", "Insalate" |
-| `aperitif` | "Cocktai list", "Glamour im Glas" |
-| `wine` | "Weißweine", "ROSÉWEINE", "Rotweine" |
-
-### Catering-Katalog Kategorien
-
-| Gang-Typ | Catering-Kategorien |
-|----------|---------------------|
-| `fingerfood` | Fingerfood, Häppchen |
-| `platten` | Platten & Sharing |
-| `dessert` | Desserts |
-
-### State-Struktur
-
-```typescript
-interface MenuSelection {
-  courses: CourseSelection[];
-  drinks: DrinkSelection;
-}
-
-interface CourseSelection {
-  courseType: 'starter' | 'pasta' | 'main_fish' | 'main_meat' | 'dessert' | 'fingerfood';
-  itemId: string | null;
-  itemName: string;
-  itemSource: 'catering' | 'ristorante' | 'custom';
-  isCustom: boolean;
-}
-
-interface DrinkSelection {
-  aperitifChoice: 'spritz' | 'cocktail' | 'wine' | 'beer';
-  selectedItems: { id: string; name: string; quantity: number }[];
-}
-```
-
----
-
-## Vorteile der Lösung
-
-| Aspekt | Vorteil |
-|--------|---------|
-| **Geschwindigkeit** | Menü in < 2 Minuten zusammengestellt |
-| **Fehlerfreiheit** | Nur gültige Kombinationen möglich |
-| **Konsistenz** | Gleiche Struktur für alle Mitarbeiter |
-| **Flexibilität** | Gang-Konfiguration in DB, nicht im Code |
-| **Professionalität** | Vollständiges Menü im Angebot |
-| **Skalierbarkeit** | Neue Pakete ohne Code-Änderungen |
-
+| Aspekt | Vorher | Nachher |
+|--------|--------|---------|
+| Flexibilität | Nur vordefinierte Kategorien | Globale Suche + freie Positionen |
+| Workflow | 2 separate Tabs | Durchgehender 3-Stufen-Prozess |
+| Navigation | Standard-Links | Moderne Pill-Bar + ⌘K |
+| Geschwindigkeit | Mehrere Klicks zum PDF | Direkter Übergang nach Getränken |
+| UX | 2020-Standard | 2026 State of the Art |
