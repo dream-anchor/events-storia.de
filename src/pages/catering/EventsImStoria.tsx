@@ -195,19 +195,19 @@ const EventsImStoria = () => {
             <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 text-center">
               <div>
                 <span className="text-3xl md:text-4xl font-bold">100+</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Events pro Jahr' : 'Events per Year'}</p>
+                <p className="text-base text-primary-foreground/80">{language === 'de' ? 'Events pro Jahr' : 'Events per Year'}</p>
               </div>
               <div>
                 <span className="text-3xl md:text-4xl font-bold">30+</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Jahre Erfahrung' : 'Years Experience'}</p>
+                <p className="text-base text-primary-foreground/80">{language === 'de' ? 'Jahre Erfahrung' : 'Years Experience'}</p>
               </div>
               <div>
                 <span className="text-3xl md:text-4xl font-bold">180</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Max. Gäste' : 'Max. Guests'}</p>
+                <p className="text-base text-primary-foreground/80">{language === 'de' ? 'Max. Gäste' : 'Max. Guests'}</p>
               </div>
               <div>
                 <span className="text-3xl md:text-4xl font-bold">100%</span>
-                <p className="text-sm text-primary-foreground/80">{language === 'de' ? 'Zufriedenheit' : 'Satisfaction'}</p>
+                <p className="text-base text-primary-foreground/80">{language === 'de' ? 'Zufriedenheit' : 'Satisfaction'}</p>
               </div>
             </div>
           </div>
@@ -217,10 +217,10 @@ const EventsImStoria = () => {
         <section className="py-12 md:py-16 bg-muted/30">
           <div className="container mx-auto px-4">
             <div className="text-center mb-10">
-              <h2 className="text-2xl md:text-3xl font-serif font-medium mb-2">
+              <h2 className="text-3xl md:text-4xl font-serif font-medium mb-2">
                 {language === 'de' ? "So einfach geht's" : "How It Works"}
               </h2>
-              <p className="text-muted-foreground">
+              <p className="text-lg text-muted-foreground">
                 {language === 'de' ? "In 4 Schritten zu Ihrem Event" : "4 steps to your event"}
               </p>
             </div>
@@ -237,10 +237,10 @@ const EventsImStoria = () => {
                         {index + 1}
                       </span>
                     </div>
-                    <h3 className="font-medium text-sm mb-1">
+                    <h3 className="font-medium text-base mb-1">
                       {language === 'de' ? step.titleDe : step.titleEn}
                     </h3>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       {language === 'de' ? step.descDe : step.descEn}
                     </p>
                   </div>
@@ -254,10 +254,10 @@ const EventsImStoria = () => {
         <section className="py-16 md:py-20">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
-              <h2 className="text-2xl md:text-3xl font-serif font-medium mb-4">
+              <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">
                 {language === 'de' ? "Ihr Event – Ihre Vision" : "Your Event – Your Vision"}
               </h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                 {language === 'de'
                   ? "Ob Firmenfeier, Team-Event oder privater Anlass – wir machen Ihren Event unvergesslich."
                   : "Whether corporate celebration, team event or private occasion – we make your event unforgettable."}
@@ -275,10 +275,10 @@ const EventsImStoria = () => {
                     <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
                       <Icon className="w-6 h-6 text-primary" />
                     </div>
-                    <h3 className="font-medium text-sm md:text-base mb-1">
+                    <h3 className="font-medium text-base md:text-lg mb-1">
                       {language === 'de' ? type.titleDe : type.titleEn}
                     </h3>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       {language === 'de' ? type.descDe : type.descEn}
                     </p>
                   </div>
@@ -292,13 +292,13 @@ const EventsImStoria = () => {
         <section id="packages" className="py-16 md:py-24 bg-gradient-to-b from-muted/50 to-background">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
-              <Badge variant="outline" className="mb-4 px-4 py-1.5">
+              <Badge variant="outline" className="mb-4 px-4 py-1.5 text-sm">
                 {language === 'de' ? 'Jetzt online buchen' : 'Book Online Now'}
               </Badge>
               <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">
                 {language === 'de' ? "Unsere Event-Pakete" : "Our Event Packages"}
               </h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                 {language === 'de'
                   ? "Wählen Sie das passende Paket für Ihren Anlass und buchen Sie direkt online."
                   : "Choose the right package for your occasion and book directly online."}
@@ -307,12 +307,12 @@ const EventsImStoria = () => {
 
             <Tabs defaultValue="packages" className="max-w-6xl mx-auto">
               <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-10">
-                <TabsTrigger value="packages" className="gap-2">
-                  <Sparkles className="h-4 w-4" />
+                <TabsTrigger value="packages" className="gap-2 text-base">
+                  <Sparkles className="h-5 w-5" />
                   {language === 'de' ? 'Pakete' : 'Packages'}
                 </TabsTrigger>
-                <TabsTrigger value="locations" className="gap-2">
-                  <MapPin className="h-4 w-4" />
+                <TabsTrigger value="locations" className="gap-2 text-base">
+                  <MapPin className="h-5 w-5" />
                   {language === 'de' ? 'Locations' : 'Venues'}
                 </TabsTrigger>
               </TabsList>
@@ -322,7 +322,7 @@ const EventsImStoria = () => {
                 <div className="flex items-center justify-center gap-3 mb-8">
                   <Label 
                     htmlFor="price-toggle-events" 
-                    className={`text-sm cursor-pointer transition-colors ${!showGross ? "text-primary font-medium" : "text-muted-foreground"}`}
+                    className={`text-base cursor-pointer transition-colors ${!showGross ? "text-primary font-medium" : "text-muted-foreground"}`}
                   >
                     {language === 'de' ? 'Netto' : 'Net'}
                   </Label>
@@ -333,11 +333,11 @@ const EventsImStoria = () => {
                   />
                   <Label 
                     htmlFor="price-toggle-events" 
-                    className={`text-sm cursor-pointer transition-colors ${showGross ? "text-primary font-medium" : "text-muted-foreground"}`}
+                    className={`text-base cursor-pointer transition-colors ${showGross ? "text-primary font-medium" : "text-muted-foreground"}`}
                   >
                     {language === 'de' ? 'Brutto' : 'Gross'}
                   </Label>
-                  <span className="text-xs text-muted-foreground ml-2">
+                  <span className="text-sm text-muted-foreground ml-2">
                     ({language === 'de' ? '70% Speisen 7% · 30% Getränke 19%' : '70% food 7% · 30% drinks 19%'})
                   </span>
                 </div>

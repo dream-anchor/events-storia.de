@@ -108,21 +108,21 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
       </div>
 
       <CardHeader className="text-center pt-6 pb-2">
-        <h3 className="font-serif text-xl md:text-2xl font-medium">{name}</h3>
+        <h3 className="font-serif text-2xl md:text-3xl font-medium">{name}</h3>
         
         {/* Drinks included badge */}
-        <Badge variant="secondary" className="mt-2 mx-auto">
+        <Badge variant="secondary" className="mt-2 mx-auto text-sm">
           {language === 'de' ? 'Inkl. Getränke-Paket' : 'Drinks Package Included'}
         </Badge>
         
         {/* Price Display */}
         <div className="mt-3">
-          <span className="text-3xl font-bold text-primary">{formatPrice(pkg.price)}</span>
-          <span className="text-sm text-muted-foreground ml-1">{priceUnit}</span>
+          <span className="text-4xl font-bold text-primary">{formatPrice(pkg.price)}</span>
+          <span className="text-base text-muted-foreground ml-1">{priceUnit}</span>
         </div>
         
         {/* Min/Max guests info */}
-        <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+        <div className="text-sm text-muted-foreground mt-1 space-y-0.5">
           {pkg.min_guests && (
             <p>{language === 'de' ? `ab ${pkg.min_guests} Personen` : `from ${pkg.min_guests} guests`}</p>
           )}
@@ -141,7 +141,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
         {(pkg.name.toLowerCase().includes('network') || pkg.name.toLowerCase().includes('aperitivo')) && (
           <Badge 
             variant={guestCount >= 25 ? "default" : "outline"} 
-            className="mt-2 mx-auto text-[10px]"
+            className="mt-2 mx-auto text-xs"
           >
             {guestCount >= 25 
               ? (language === 'de' ? '✓ Exklusiver Bereich' : '✓ Exclusive Area')
@@ -151,16 +151,16 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
         )}
 
         {description && (
-          <p className="text-sm text-muted-foreground mt-2">{description}</p>
+          <p className="text-base text-muted-foreground mt-2">{description}</p>
         )}
       </CardHeader>
 
       <CardContent className="flex-1 pt-4">
         {/* Includes List */}
-        <ul className="space-y-2.5">
+        <ul className="space-y-3">
           {includes.map((item, idx) => (
-            <li key={idx} className="flex items-start gap-2.5 text-sm">
-              <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <li key={idx} className="flex items-start gap-2.5 text-base">
+              <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
               <span className="text-foreground/80">{item}</span>
             </li>
           ))}
@@ -168,12 +168,12 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
 
         {/* Dietary Options Badge */}
         <div className="mt-4 pt-4 border-t border-border/50">
-          <p className="text-xs text-muted-foreground mb-2">
+          <p className="text-sm text-muted-foreground mb-2">
             {language === 'de' ? 'Verfügbare Optionen:' : 'Available options:'}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {['Vegan', 'Vegetarisch', 'Fisch', 'Fleisch'].map(opt => (
-              <Badge key={opt} variant="outline" className="text-[10px] px-2 py-0.5 font-normal">
+              <Badge key={opt} variant="outline" className="text-xs px-2 py-0.5 font-normal">
                 {opt}
               </Badge>
             ))}
@@ -184,28 +184,28 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
       <CardFooter className="flex flex-col gap-4 pt-4 border-t">
         {/* Guest Count Selector */}
         <div className="w-full">
-          <label className="text-xs text-muted-foreground block mb-2 text-center">
+          <label className="text-sm text-muted-foreground block mb-2 text-center">
             {language === 'de' ? 'Anzahl Gäste' : 'Number of Guests'}
           </label>
           <div className="flex items-center justify-center gap-3">
             <Button 
               variant="outline" 
               size="icon" 
-              className="h-9 w-9"
+              className="h-10 w-10"
               onClick={handleDecrement}
               disabled={guestCount <= minGuests}
             >
-              <Minus className="h-4 w-4" />
+              <Minus className="h-5 w-5" />
             </Button>
-            <span className="text-xl font-semibold w-16 text-center">{guestCount}</span>
+            <span className="text-2xl font-semibold w-16 text-center">{guestCount}</span>
             <Button 
               variant="outline" 
               size="icon" 
-              className="h-9 w-9"
+              className="h-10 w-10"
               onClick={handleIncrement}
               disabled={guestCount >= maxGuests}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-5 w-5" />
             </Button>
           </div>
         </div>
@@ -213,10 +213,10 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
         {/* Total Price */}
         {pkg.price_per_person && (
           <div className="text-center">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-base text-muted-foreground">
               {language === 'de' ? 'Gesamt:' : 'Total:'} 
             </span>
-            <span className="text-lg font-bold text-primary ml-2">
+            <span className="text-xl font-bold text-primary ml-2">
               {formatPrice(totalPrice)}
             </span>
           </div>
