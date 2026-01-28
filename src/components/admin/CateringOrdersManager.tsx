@@ -86,6 +86,34 @@ const CateringOrdersManager = () => {
     }
   };
 
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+
+  const handleBulkDelete = async () => {
+    if (selectedOrderIds.size === 0) return;
+    
+    setIsBulkUpdating(true);
+    try {
+      for (const orderId of selectedOrderIds) {
+        await deleteOrder.mutateAsync(orderId);
+      }
+      toast({
+        title: "Bestellungen gelöscht",
+        description: `${selectedOrderIds.size} Bestellung(en) wurden gelöscht.`
+      });
+      setSelectedOrderIds(new Set());
+      setBulkDeleteDialogOpen(false);
+      refetch();
+    } catch (err) {
+      toast({
+        title: "Fehler",
+        description: "Einige Bestellungen konnten nicht gelöscht werden.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
   // Helper to get document type display
   const getDocumentTypeBadge = (order: CateringOrder) => {
     const isPaid = order.payment_method === 'stripe' && order.payment_status === 'paid';
@@ -411,7 +439,16 @@ const CateringOrdersManager = () => {
             {selectedOrderIds.size} Bestellung(en) ausgewählt
           </span>
           <div className="flex items-center gap-2 ml-auto">
-            <Select onValueChange={(value) => handleBulkStatusChange(value as OrderStatus)} disabled={isBulkUpdating}>
+            <Select 
+              onValueChange={(value) => {
+                if (value === 'delete') {
+                  setBulkDeleteDialogOpen(true);
+                } else {
+                  handleBulkStatusChange(value as OrderStatus);
+                }
+              }} 
+              disabled={isBulkUpdating}
+            >
               <SelectTrigger className="w-[160px] h-9">
                 <SelectValue placeholder="Status ändern" />
               </SelectTrigger>
@@ -419,6 +456,12 @@ const CateringOrdersManager = () => {
                 <SelectItem value="pending">Neu</SelectItem>
                 <SelectItem value="confirmed">Bestätigt</SelectItem>
                 <SelectItem value="completed">Erledigt</SelectItem>
+                <SelectItem value="delete" className="text-destructive focus:text-destructive">
+                  <span className="flex items-center gap-2">
+                    <Trash2 className="h-3 w-3" />
+                    Löschen
+                  </span>
+                </SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -440,6 +483,28 @@ const CateringOrdersManager = () => {
         </div>
       )}
 
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bestellungen endgültig löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedOrderIds.size} Bestellung(en) werden unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkUpdating}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkDelete}
+              disabled={isBulkUpdating}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* Orders List */}
       <div className="space-y-2">
         {filteredOrders.length === 0 ? (
