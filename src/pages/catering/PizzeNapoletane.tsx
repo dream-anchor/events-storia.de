@@ -66,7 +66,7 @@ const PizzaListItem = ({ item, language }: PizzaListItemProps) => {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div className="flex-1">
           <div className="flex items-baseline gap-2 flex-wrap">
-            <h3 className="font-serif text-lg font-medium text-foreground">
+            <h3 className="font-serif text-xl font-medium text-foreground">
               {displayName}
             </h3>
             {allergens && (
@@ -76,7 +76,7 @@ const PizzaListItem = ({ item, language }: PizzaListItemProps) => {
             )}
           </div>
           {displayDesc && (
-            <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+            <p className="text-base text-muted-foreground mt-1 leading-relaxed">
               {displayDesc}
             </p>
           )}
@@ -149,18 +149,18 @@ const PizzaPaneCard = ({ item, language }: { item: CateringMenuItem; language: s
 
   return (
     <div className="bg-muted/30 border border-border/50 rounded-2xl p-6 mb-12">
-      <h2 className="text-xl font-serif font-medium mb-4 text-center">
+      <h2 className="text-2xl font-serif font-medium mb-4 text-center">
         {displayName}
       </h2>
       {displayDesc && (
-        <p className="text-muted-foreground text-center mb-6 max-w-xl mx-auto">
+        <p className="text-lg text-muted-foreground text-center mb-6 max-w-xl mx-auto">
           {displayDesc}
         </p>
       )}
       
       {item.price && (
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <span className="text-xl font-semibold">
+          <span className="text-2xl font-semibold">
             {formatPrice(item.price)}
           </span>
           
@@ -255,12 +255,12 @@ const PizzeNapoletane = () => {
           {/* Intro Text */}
           <section className="container mx-auto px-4 py-12">
             <div className="max-w-3xl mx-auto text-center">
-              <p className="text-xl text-muted-foreground font-light mb-4">
+              <p className="text-2xl text-muted-foreground font-light mb-4">
                 {language === 'de' 
                   ? 'Flexibel, Authentisch und Genussvoll'
                   : 'Flexible, Authentic and Delicious'}
               </p>
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="text-lg text-muted-foreground leading-relaxed">
                 {language === 'de'
                   ? 'Genießen Sie die traditionelle italienische Küche mit unseren frisch zubereiteten Pizze Napoletane. Bei STORIA Events in München bieten wir Ihnen die Möglichkeit, diese köstlichen Pizzen ganz nach Ihren Vorstellungen zu gestalten. Ob für private Feierlichkeiten oder geschäftliche Events – unsere Pizzen sind flexibel anpassbar und garantieren ein unvergessliches Geschmackserlebnis.'
                   : 'Enjoy traditional Italian cuisine with our freshly prepared Neapolitan pizzas. At STORIA Events in Munich, we offer you the opportunity to customize these delicious pizzas according to your preferences. Whether for private celebrations or business events – our pizzas are flexibly adaptable and guarantee an unforgettable taste experience.'}
@@ -302,7 +302,7 @@ const PizzeNapoletane = () => {
                   {/* Pizze Classiche */}
                   {otherCategories.map((category) => (
                     <div key={category.id} className="mb-8">
-                      <h2 className="text-2xl font-serif font-medium mb-6 text-center border-b border-border pb-4">
+                      <h2 className="text-3xl font-serif font-medium mb-6 text-center border-b border-border pb-4">
                         {language === 'en' && category.name_en ? category.name_en : category.name}
                       </h2>
                       

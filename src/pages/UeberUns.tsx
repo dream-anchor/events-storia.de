@@ -27,7 +27,7 @@ const UeberUns = () => {
               {t.about.title}
             </h1>
             
-            <div className="space-y-6 text-muted-foreground font-sans text-base leading-relaxed">
+            <div className="space-y-6 text-muted-foreground font-sans text-lg leading-relaxed">
               <p>{t.about.p1}</p>
               <p>{t.about.p2}</p>
               <p>{t.about.p3}</p>

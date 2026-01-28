@@ -21,7 +21,7 @@ const Impressum = () => {
             Impressum
           </h1>
           
-          <div className="prose prose-lg max-w-none space-y-8 text-foreground/90">
+          <div className="prose prose-xl max-w-none space-y-8 text-foreground/90">
             {/* Firmenadresse */}
             <section>
               <p className="font-semibold text-lg">Speranza GmbH</p>
@@ -58,7 +58,7 @@ const Impressum = () => {
 
             {/* Handelsregister */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 Registereintrag
               </h2>
               <p>
@@ -69,12 +69,12 @@ const Impressum = () => {
 
             {/* Steuern */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 Umsatzsteuer-ID
               </h2>
               <p>DE 296024880</p>
               
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 Steuernummer
               </h2>
               <p>143/182/00980</p>
@@ -82,7 +82,7 @@ const Impressum = () => {
 
             {/* Inhaltlich Verantwortlicher */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 Inhaltlich Verantwortliche gemäß § 18 Abs. 2 MStV
               </h2>
               <p>
@@ -94,7 +94,7 @@ const Impressum = () => {
 
             {/* Berufsbezogene Angaben */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 Berufsbezogene Angaben
               </h2>
               <p>Gewerbebetrieb Gastronomie (nach § 14 GewO angemeldet)</p>
@@ -102,7 +102,7 @@ const Impressum = () => {
 
             {/* EU-Streitschlichtung */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 EU-Streitschlichtung
               </h2>
               <p>

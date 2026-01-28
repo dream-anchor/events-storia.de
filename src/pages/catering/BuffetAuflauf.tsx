@@ -84,14 +84,14 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
         </div>
       )}
       <div className="p-4 flex flex-col flex-1">
-        <h3 className="font-serif font-medium text-lg mb-1">{name}</h3>
-        {servingInfo && <p className="text-xs text-primary/80 mb-2">{servingInfo}</p>}
-        {description && <p className="text-sm text-muted-foreground mb-3 line-clamp-4">{description}</p>}
+        <h3 className="font-serif font-medium text-xl mb-1">{name}</h3>
+        {servingInfo && <p className="text-sm text-primary/80 mb-2">{servingInfo}</p>}
+        {description && <p className="text-base text-muted-foreground mb-3 line-clamp-4">{description}</p>}
         
         <div className="flex justify-between items-end mb-3">
           <div />
           {item.price && (
-            <span className="font-semibold text-primary text-lg">
+            <span className="font-semibold text-primary text-xl">
               {formatPrice(item.price)}
             </span>
           )}
@@ -264,7 +264,7 @@ const BuffetAuflauf = () => {
         <main className="flex-1">
           <section className="container mx-auto px-4 py-16 md:py-24">
             <div className="max-w-4xl mx-auto text-center mb-8">
-              <h1 className="text-3xl md:text-4xl font-serif font-medium mb-6">
+              <h1 className="text-4xl md:text-5xl font-serif font-medium mb-6">
                 {isLoading ? (
                   <Skeleton className="h-10 w-64 mx-auto" />
                 ) : (
@@ -274,7 +274,7 @@ const BuffetAuflauf = () => {
               {isLoading ? (
                 <Skeleton className="h-20 w-full max-w-2xl mx-auto" />
               ) : (
-                <p className="text-lg text-muted-foreground">
+                <p className="text-xl text-muted-foreground">
                   {subtitle || (language === 'de' 
                     ? 'Perfekt zum Teilen in geselliger Runde – servierfertig, frisch und ofenheiß.'
                     : 'Perfect for sharing in good company – ready to serve, fresh and oven-hot.')}

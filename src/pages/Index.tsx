@@ -96,7 +96,7 @@ const Index = () => {
                   loading="lazy"
                   decoding="async"
                 />
-                <figcaption className="mt-2 text-xs text-center text-muted-foreground/75 leading-snug">
+                <figcaption className="mt-2 text-sm text-center text-muted-foreground/75 leading-snug">
                   {language === "de"
                     ? "Lieferung mit eigenen und bei Bedarf gemieteten Fahrzeugen. Abbildung dient der symbolischen Darstellung."
                     : "Delivery with own and, if required, rented vehicles. Image is for illustrative purposes."}
@@ -109,17 +109,17 @@ const Index = () => {
           <section className="py-16 md:py-20 bg-muted/30">
             <div className="container mx-auto px-4">
               <div className="text-center mb-10">
-                <h2 className="text-2xl md:text-3xl font-serif font-medium mb-3">
+                <h2 className="text-3xl md:text-4xl font-serif font-medium mb-3">
                   {language === "de" ? "Bewertungen für das Ristorante STORIA" : "Reviews for Ristorante STORIA"}
                 </h2>
-                <p className="text-muted-foreground max-w-xl mx-auto">
+                <p className="text-lg text-muted-foreground max-w-xl mx-auto">
                   {language === "de"
                     ? "Erfahrungen aus unserem Restaurant in München"
                     : "Experiences from our restaurant in Munich"}
                 </p>
               </div>
               <ConsentElfsightReviews />
-              <p className="text-center text-muted-foreground mt-8 max-w-2xl mx-auto">
+              <p className="text-center text-lg text-muted-foreground mt-8 max-w-2xl mx-auto">
                 {language === "de" ? (
                   <>
                     Auf Wunsch liefern wir Ihnen diese Küche auch

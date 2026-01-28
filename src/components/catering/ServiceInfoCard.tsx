@@ -59,11 +59,11 @@ export const HighlightCard = ({
     )}>
       <div className="flex flex-col items-center text-center max-w-xl mx-auto">
         <Icon className="h-6 w-6 text-primary/70 mb-3" strokeWidth={1.5} />
-        <p className="font-serif text-lg font-medium text-foreground mb-1">
+        <p className="font-serif text-xl font-medium text-foreground mb-1">
           {language === 'en' ? title_en : title}
         </p>
         {(description || description_en) && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             {language === 'en' ? description_en : description}
           </p>
         )}
@@ -102,10 +102,10 @@ export const ServicesGrid = ({
               <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center mb-3">
                 <Icon className="h-5 w-5 text-primary/70" strokeWidth={1.5} />
               </div>
-              <p className="font-medium text-sm text-foreground">
+              <p className="font-medium text-base text-foreground">
                 {language === 'en' ? service.title_en : service.title}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 {language === 'en' ? service.subtitle_en : service.subtitle}
               </p>
             </div>

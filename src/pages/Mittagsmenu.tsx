@@ -43,12 +43,12 @@ const Mittagsmenu = () => {
         <Navigation />
 
         <main className="container mx-auto px-4 py-12 flex-grow">
-          <h1 className="text-4xl font-serif font-bold mb-6 text-center">
+          <h1 className="text-4xl md:text-5xl font-serif font-bold mb-6 text-center">
             {language === 'de' ? 'Mittagsmenü – Lunch München Maxvorstadt' : 'Lunch Menu – Italian Lunch Munich Maxvorstadt'}
           </h1>
           <div className="text-center mb-12 max-w-2xl mx-auto">
-            <p className="text-xl font-serif italic text-primary mb-4">{t.lunchMenu.greeting}</p>
-            <p className="text-muted-foreground whitespace-pre-line leading-relaxed">
+            <p className="text-2xl font-serif italic text-primary mb-4">{t.lunchMenu.greeting}</p>
+            <p className="text-lg text-muted-foreground whitespace-pre-line leading-relaxed">
               {t.lunchMenu.description}
             </p>
           </div>

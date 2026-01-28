@@ -45,10 +45,10 @@ const Kontakt = () => {
       <div className="min-h-screen bg-background flex flex-col">
         
         <main className="container mx-auto px-4 py-12 flex-grow">
-          <h1 className="text-4xl font-bold mb-4 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-center">
             {language === 'de' ? 'Kontakt & Anfahrt – Italiener nahe Königsplatz München' : 'Contact & Directions – Italian Restaurant near Königsplatz Munich'}
           </h1>
-          <p className="text-center text-muted-foreground mb-8 max-w-2xl mx-auto">
+          <p className="text-center text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
             {language === 'de'
               ? 'Besuchen Sie uns in der Karlstraße 47a – zentral in der Maxvorstadt, nur wenige Gehminuten vom Hauptbahnhof, Königsplatz und der TU München entfernt.'
               : 'Visit us at Karlstraße 47a – centrally located in Maxvorstadt, just a few minutes walk from the main station, Königsplatz and TU Munich.'}
