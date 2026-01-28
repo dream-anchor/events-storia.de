@@ -14,6 +14,11 @@ interface PricingPackage {
   image: string;
   name: string;
   nameEn: string;
+  price: string;
+  priceEn: string;
+  priceUnit: string;
+  priceUnitEn: string;
+  minGuests?: number;
   description: string;
   descriptionEn: string;
   features: string[];
@@ -23,64 +28,78 @@ interface PricingPackage {
 
 const pricingPackages: PricingPackage[] = [
   {
-    id: "essenz",
-    image: packageEssenz,
-    name: "Storia Essenz",
-    nameEn: "Storia Essence",
-    description: "Das Grundpaket für stilvolle Anlässe",
-    descriptionEn: "The basic package for stylish occasions",
+    id: "network-aperitivo",
+    image: packagePremium,
+    name: "Network-Aperitivo",
+    nameEn: "Network Aperitivo",
+    price: "69",
+    priceEn: "69",
+    priceUnit: "p.P.",
+    priceUnitEn: "p.p.",
+    minGuests: 20,
+    description: "Italienisches Networking-Erlebnis",
+    descriptionEn: "Italian networking experience",
     features: [
-      "3-Gänge-Menü aus unserer Küche",
-      "Getränkepaket mit Wein & Wasser",
-      "Persönlicher Ansprechpartner",
-      "Flexible Raumgestaltung",
+      "Italienisches Fingerfood-Buffet",
+      "Live-Pasta-Station",
+      "Ausgewählte Weine & Cocktails",
+      "Ab 20 Personen buchbar",
     ],
     featuresEn: [
-      "3-course menu from our kitchen",
-      "Drink package with wine & water",
-      "Personal point of contact",
-      "Flexible room arrangement",
+      "Italian finger food buffet",
+      "Live pasta station",
+      "Selected wines & cocktails",
+      "Bookable from 20 guests",
     ],
   },
   {
-    id: "premium",
-    image: packagePremium,
-    name: "Storia Premium",
-    nameEn: "Storia Premium",
-    description: "Unser meistgebuchtes Paket",
-    descriptionEn: "Our most booked package",
+    id: "business-dinner",
+    image: packageEssenz,
+    name: "Business Dinner – Exclusive",
+    nameEn: "Business Dinner – Exclusive",
+    price: "99",
+    priceEn: "99",
+    priceUnit: "p.P.",
+    priceUnitEn: "p.p.",
+    minGuests: 30,
+    description: "Exklusives Dinner für Geschäftskunden",
+    descriptionEn: "Exclusive dinner for business clients",
     features: [
-      "4-Gänge-Menü mit Premium-Zutaten",
-      "Signature Cocktails & Aperitivo",
-      "Exklusive Weinauswahl",
-      "DJ-Pult & Musikanlage inklusive",
+      "Italienische Vorspeisenplatte",
+      "Hochwertiger Hauptgang nach Wahl",
+      "Hausgemachtes Dessert",
+      "Ab 30 Personen buchbar",
     ],
     featuresEn: [
-      "4-course menu with premium ingredients",
-      "Signature cocktails & aperitivo",
-      "Exclusive wine selection",
-      "DJ booth & sound system included",
+      "Italian starter platter",
+      "Premium main course of choice",
+      "Homemade dessert",
+      "Bookable from 30 guests",
     ],
     featured: true,
   },
   {
-    id: "exklusiv",
+    id: "gesamte-location",
     image: packageExklusiv,
-    name: "Storia Exklusiv",
-    nameEn: "Storia Exclusive",
-    description: "Das Rundum-sorglos-Paket",
-    descriptionEn: "The all-inclusive package",
+    name: "Gesamte Location",
+    nameEn: "Full Venue Buyout",
+    price: "8.500",
+    priceEn: "8,500",
+    priceUnit: "pauschal",
+    priceUnitEn: "flat rate",
+    description: "Das komplette STORIA exklusiv für Sie",
+    descriptionEn: "The entire STORIA exclusively for you",
     features: [
-      "5-Gänge-Gala-Dinner",
-      "Full Open Bar die ganze Nacht",
-      "Komplette Location exklusiv",
-      "Floristik & Dekoration inklusive",
+      "Bis zu 100 Gäste sitzend",
+      "Bis zu 180 Gäste stehend",
+      "Komplette Exklusivität",
+      "Catering nach Absprache",
     ],
     featuresEn: [
-      "5-course gala dinner",
-      "Full open bar all night",
-      "Entire location exclusively yours",
-      "Floristry & decoration included",
+      "Up to 100 guests seated",
+      "Up to 180 guests standing",
+      "Complete exclusivity",
+      "Catering by arrangement",
     ],
   },
 ];
@@ -111,6 +130,8 @@ const EventPricingCards = ({ onInquiry }: EventPricingCardsProps) => {
             const name = language === 'de' ? pkg.name : pkg.nameEn;
             const description = language === 'de' ? pkg.description : pkg.descriptionEn;
             const features = language === 'de' ? pkg.features : pkg.featuresEn;
+            const price = language === 'de' ? pkg.price : pkg.priceEn;
+            const priceUnit = language === 'de' ? pkg.priceUnit : pkg.priceUnitEn;
 
             return (
               <Card 
@@ -141,8 +162,15 @@ const EventPricingCards = ({ onInquiry }: EventPricingCardsProps) => {
                 </div>
 
                 <CardHeader className="text-center pt-6 pb-2">
-                  <h3 className="text-2xl font-serif font-medium">{name}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">{description}</p>
+                  <h3 className="text-xl md:text-2xl font-serif font-medium">{name}</h3>
+                  
+                  {/* Price Display */}
+                  <div className="mt-3">
+                    <span className="text-3xl font-bold text-primary">€{price}</span>
+                    <span className="text-sm text-muted-foreground ml-1">{priceUnit}</span>
+                  </div>
+                  
+                  <p className="text-sm text-muted-foreground mt-2">{description}</p>
                 </CardHeader>
 
                 <CardContent className="flex-1 pt-4">
