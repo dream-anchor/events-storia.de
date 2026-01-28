@@ -10,7 +10,10 @@ import EventTestimonials from "@/components/events/EventTestimonials";
 import EventContactForm from "@/components/events/EventContactForm";
 import ConsentElfsightReviews from "@/components/ConsentElfsightReviews";
 import { useEventPackages, useEventLocations } from "@/hooks/useEventPackages";
+import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -96,6 +99,7 @@ const EventsImStoria = () => {
 
   const { data: packages, isLoading: packagesLoading } = useEventPackages();
   const { data: locations, isLoading: locationsLoading } = useEventLocations();
+  const { showGross, setShowGross } = usePriceDisplay();
 
   const scrollToForm = (packageId?: string) => {
     if (packageId) setSelectedPackage(packageId);
@@ -312,6 +316,30 @@ const EventsImStoria = () => {
               </TabsList>
 
               <TabsContent value="packages">
+                {/* Brutto/Netto Toggle */}
+                <div className="flex items-center justify-center gap-3 mb-8">
+                  <Label 
+                    htmlFor="price-toggle-events" 
+                    className={`text-sm cursor-pointer transition-colors ${!showGross ? "text-primary font-medium" : "text-muted-foreground"}`}
+                  >
+                    {language === 'de' ? 'Netto' : 'Net'}
+                  </Label>
+                  <Switch
+                    id="price-toggle-events"
+                    checked={showGross}
+                    onCheckedChange={setShowGross}
+                  />
+                  <Label 
+                    htmlFor="price-toggle-events" 
+                    className={`text-sm cursor-pointer transition-colors ${showGross ? "text-primary font-medium" : "text-muted-foreground"}`}
+                  >
+                    {language === 'de' ? 'Brutto' : 'Gross'}
+                  </Label>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    ({language === 'de' ? '70% Speisen 7% · 30% Getränke 19%' : '70% food 7% · 30% drinks 19%'})
+                  </span>
+                </div>
+
                 {packagesLoading ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                     {[1, 2, 3].map(i => (
