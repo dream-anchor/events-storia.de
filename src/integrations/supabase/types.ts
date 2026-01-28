@@ -256,6 +256,7 @@ export type Database = {
           inquiry_type: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes: string | null
           lexoffice_quotation_id: string | null
+          menu_selection: Json | null
           message: string | null
           notification_sent: boolean | null
           phone: string | null
@@ -286,6 +287,7 @@ export type Database = {
           inquiry_type?: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes?: string | null
           lexoffice_quotation_id?: string | null
+          menu_selection?: Json | null
           message?: string | null
           notification_sent?: boolean | null
           phone?: string | null
@@ -316,6 +318,7 @@ export type Database = {
           inquiry_type?: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes?: string | null
           lexoffice_quotation_id?: string | null
+          menu_selection?: Json | null
           message?: string | null
           notification_sent?: boolean | null
           phone?: string | null
@@ -569,6 +572,121 @@ export type Database = {
           year?: number
         }
         Relationships: []
+      }
+      package_course_config: {
+        Row: {
+          allowed_categories: string[] | null
+          allowed_sources: string[] | null
+          course_label: string
+          course_label_en: string | null
+          course_type: string
+          created_at: string | null
+          custom_item_description: string | null
+          custom_item_name: string | null
+          custom_item_name_en: string | null
+          id: string
+          is_custom_item: boolean | null
+          is_required: boolean | null
+          package_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          allowed_categories?: string[] | null
+          allowed_sources?: string[] | null
+          course_label: string
+          course_label_en?: string | null
+          course_type: string
+          created_at?: string | null
+          custom_item_description?: string | null
+          custom_item_name?: string | null
+          custom_item_name_en?: string | null
+          id?: string
+          is_custom_item?: boolean | null
+          is_required?: boolean | null
+          package_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          allowed_categories?: string[] | null
+          allowed_sources?: string[] | null
+          course_label?: string
+          course_label_en?: string | null
+          course_type?: string
+          created_at?: string | null
+          custom_item_description?: string | null
+          custom_item_name?: string | null
+          custom_item_name_en?: string | null
+          id?: string
+          is_custom_item?: boolean | null
+          is_required?: boolean | null
+          package_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_course_config_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      package_drink_config: {
+        Row: {
+          created_at: string | null
+          drink_group: string
+          drink_label: string
+          drink_label_en: string | null
+          id: string
+          is_choice: boolean | null
+          is_included: boolean | null
+          options: Json | null
+          package_id: string
+          quantity_label: string | null
+          quantity_label_en: string | null
+          quantity_per_person: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          drink_group: string
+          drink_label: string
+          drink_label_en?: string | null
+          id?: string
+          is_choice?: boolean | null
+          is_included?: boolean | null
+          options?: Json | null
+          package_id: string
+          quantity_label?: string | null
+          quantity_label_en?: string | null
+          quantity_per_person?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          drink_group?: string
+          drink_label?: string
+          drink_label_en?: string | null
+          id?: string
+          is_choice?: boolean | null
+          is_included?: boolean | null
+          options?: Json | null
+          package_id?: string
+          quantity_label?: string | null
+          quantity_label_en?: string | null
+          quantity_per_person?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_drink_config_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       package_locations: {
         Row: {

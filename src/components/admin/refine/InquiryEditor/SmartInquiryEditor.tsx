@@ -11,6 +11,7 @@ import { CateringModules } from "./CateringModules";
 import { AIComposer } from "./AIComposer";
 import { CalculationSummary } from "./CalculationSummary";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
+import { MenuSelection } from "./MenuComposer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -27,6 +28,7 @@ export const SmartInquiryEditor = () => {
   const [quoteNotes, setQuoteNotes] = useState("");
   const [emailDraft, setEmailDraft] = useState("");
   const [localInquiry, setLocalInquiry] = useState<Partial<ExtendedInquiry>>({});
+  const [menuSelection, setMenuSelection] = useState<MenuSelection>({ courses: [], drinks: [] });
 
   // Fetch inquiry data
   const inquiryQuery = useOne<ExtendedInquiry>({
@@ -75,6 +77,14 @@ export const SmartInquiryEditor = () => {
         if (inquiry.quote_items && Array.isArray(inquiry.quote_items)) {
           setQuoteItems(inquiry.quote_items);
         }
+        // Parse menu_selection if available
+        const storedMenuSelection = (inquiry as any).menu_selection;
+        if (storedMenuSelection && typeof storedMenuSelection === 'object') {
+          setMenuSelection({
+            courses: storedMenuSelection.courses || [],
+            drinks: storedMenuSelection.drinks || [],
+          });
+        }
       } catch {
         console.log("Could not parse inquiry JSON fields");
       }
@@ -89,7 +99,8 @@ export const SmartInquiryEditor = () => {
     quote_items: quoteItems,
     quote_notes: quoteNotes,
     email_draft: emailDraft,
-  } as ExtendedInquiry), [inquiry, localInquiry, selectedPackages, quoteItems, quoteNotes, emailDraft]);
+    menu_selection: menuSelection,
+  } as ExtendedInquiry), [inquiry, localInquiry, selectedPackages, quoteItems, quoteNotes, emailDraft, menuSelection]);
 
   // Guest count as number
   const guestCount = parseInt(mergedInquiry?.guest_count || '1') || 1;
@@ -161,6 +172,7 @@ export const SmartInquiryEditor = () => {
           quote_items: quoteItems,
           quote_notes: quoteNotes,
           email_draft: emailDraft,
+          menu_selection: menuSelection,
         },
       }, {
         onSuccess: () => {
@@ -174,7 +186,7 @@ export const SmartInquiryEditor = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [id, updateInquiry, localInquiry, selectedPackages, quoteItems, quoteNotes, emailDraft]);
+  }, [id, updateInquiry, localInquiry, selectedPackages, quoteItems, quoteNotes, emailDraft, menuSelection]);
 
   // Send to LexOffice with email
   const handleSendOffer = useCallback(async () => {
@@ -338,6 +350,7 @@ export const SmartInquiryEditor = () => {
                     packages={packages}
                     selectedPackages={selectedPackages}
                     quoteItems={quoteItems}
+                    menuSelection={menuSelection}
                     onPackageToggle={handlePackageToggle}
                     onRoomChange={(v) => handleLocalFieldChange('room_selection', v)}
                     onTimeSlotChange={(v) => handleLocalFieldChange('time_slot', v)}
@@ -345,6 +358,7 @@ export const SmartInquiryEditor = () => {
                     onItemAdd={handleItemAdd}
                     onItemQuantityChange={handleItemQuantityChange}
                     onItemRemove={handleItemRemove}
+                    onMenuSelectionChange={setMenuSelection}
                   />
                 ) : (
                   <CateringModules
