@@ -332,6 +332,51 @@ export type Database = {
         }
         Relationships: []
       }
+      locations: {
+        Row: {
+          capacity_seated: number | null
+          capacity_standing: number | null
+          created_at: string | null
+          description: string | null
+          description_en: string | null
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          name: string
+          name_en: string | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          capacity_seated?: number | null
+          capacity_standing?: number | null
+          created_at?: string | null
+          description?: string | null
+          description_en?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          name_en?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          capacity_seated?: number | null
+          capacity_standing?: number | null
+          created_at?: string | null
+          description?: string | null
+          description_en?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          name_en?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       menu_categories: {
         Row: {
           created_at: string | null

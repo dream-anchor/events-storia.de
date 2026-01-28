@@ -5,6 +5,7 @@ export { OrdersList } from './OrdersList';
 export { MenuItemsList } from './MenuItemsList';
 export { PackagesList } from './PackagesList';
 export { PackageEdit } from './PackageEdit';
+export { LocationEdit } from './LocationEdit';
 export { AdminLayout } from './AdminLayout';
 export { DataTable } from './DataTable';
 export { QuoteBuilder } from './QuoteBuilder';
