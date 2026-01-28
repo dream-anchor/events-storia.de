@@ -6,7 +6,6 @@ import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
 import EventPackageShopCard from "@/components/events/EventPackageShopCard";
 import EventLocationCard from "@/components/events/EventLocationCard";
-import EventPricingCards from "@/components/events/EventPricingCards";
 import EventTestimonials from "@/components/events/EventTestimonials";
 import EventContactForm from "@/components/events/EventContactForm";
 import ConsentElfsightReviews from "@/components/ConsentElfsightReviews";
@@ -182,8 +181,7 @@ const EventsImStoria = () => {
           </div>
         </section>
 
-        {/* Event Pricing Cards - NEW SECTION */}
-        <EventPricingCards onInquiry={(pkgId) => scrollToForm(pkgId)} />
+        {/* Event Pricing Cards removed - using shop cards with images instead */}
 
         {/* Trust Bar - Stats */}
         <section className="py-8 bg-primary text-primary-foreground">

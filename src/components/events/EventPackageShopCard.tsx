@@ -5,9 +5,31 @@ import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Check, Users, Minus, Plus, ShoppingCart, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EventPackage } from "@/hooks/useEventPackages";
+
+// Package images mapped by name patterns
+import packageEssenz from "@/assets/events/package-essenz.webp";
+import packagePremium from "@/assets/events/package-premium.webp";
+import packageExklusiv from "@/assets/events/package-exklusiv.webp";
+
+// Get image for package by matching name patterns
+const getPackageImage = (name: string): string => {
+  const nameLower = name.toLowerCase();
+  if (nameLower.includes("business") || nameLower.includes("dinner")) {
+    return packagePremium; // Cocktail/dinner atmosphere
+  }
+  if (nameLower.includes("network") || nameLower.includes("aperitivo")) {
+    return packageEssenz; // Elegant table setting
+  }
+  if (nameLower.includes("location") || nameLower.includes("gesamte")) {
+    return packageExklusiv; // Opulent banquet
+  }
+  return packageEssenz; // Default fallback
+};
 
 interface EventPackageShopCardProps {
   pkg: EventPackage;
@@ -24,6 +46,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const name = language === 'de' ? pkg.name : (pkg.name_en || pkg.name);
   const description = language === 'de' ? pkg.description : (pkg.description_en || pkg.description);
   const includes = pkg.includes || [];
+  const image = getPackageImage(pkg.name);
 
   const minGuests = pkg.min_guests || 1;
   const maxGuests = pkg.max_guests || 200;
@@ -44,7 +67,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
       name: pkg.name,
       name_en: pkg.name_en,
       price: pkg.price,
-      category: 'equipment', // Using equipment category for events
+      category: 'equipment',
       serving_info: pkg.price_per_person 
         ? (language === 'de' ? 'Pro Person' : 'Per Person')
         : (language === 'de' ? 'Pauschalpreis' : 'Flat Rate'),
@@ -54,54 +77,64 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
     setTimeout(() => setIsAdded(false), 2500);
   };
 
+  // Price unit text
+  const priceUnit = pkg.price_per_person 
+    ? (language === 'de' ? 'p.P.' : 'p.p.')
+    : (language === 'de' ? 'pauschal' : 'flat rate');
+
   return (
     <Card className={cn(
-      "relative flex flex-col h-full transition-all duration-300 hover:shadow-xl",
-      featured && "ring-2 ring-primary shadow-lg scale-[1.02]"
+      "relative flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl",
+      featured && "ring-2 ring-primary shadow-lg md:scale-[1.02] z-10"
     )}>
+      {/* Featured Badge */}
       {featured && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-          <Badge className="gap-1 px-4 py-1 text-xs font-semibold uppercase tracking-wider">
+        <div className="absolute top-4 right-4 z-20">
+          <Badge className="gap-1.5 px-3 py-1 text-xs font-medium shadow-lg">
             <Sparkles className="h-3 w-3" />
-            {language === 'de' ? 'Beliebt' : 'Popular'}
+            {language === 'de' ? 'Beliebteste Wahl' : 'Most Popular'}
           </Badge>
         </div>
       )}
 
-      <CardHeader className="text-center pb-2">
+      {/* Header Image */}
+      <div className="relative h-44 overflow-hidden">
+        <img
+          src={image}
+          alt={name}
+          className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+      </div>
+
+      <CardHeader className="text-center pt-6 pb-2">
         <h3 className="font-serif text-xl md:text-2xl font-medium">{name}</h3>
+        
+        {/* Price Display */}
         <div className="mt-3">
-          <span className="text-3xl md:text-4xl font-bold text-primary">
-            {formatPrice(pkg.price)}
-          </span>
-          {pkg.price_per_person && (
-            <span className="text-muted-foreground text-sm ml-1">
-              {language === 'de' ? '/ Person' : '/ guest'}
-            </span>
-          )}
+          <span className="text-3xl font-bold text-primary">{formatPrice(pkg.price)}</span>
+          <span className="text-sm text-muted-foreground ml-1">{priceUnit}</span>
         </div>
+        
+        {/* Min guests info */}
+        {pkg.min_guests && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {language === 'de' ? `ab ${pkg.min_guests} Personen` : `from ${pkg.min_guests} guests`}
+          </p>
+        )}
+
         {description && (
           <p className="text-sm text-muted-foreground mt-2">{description}</p>
         )}
       </CardHeader>
 
       <CardContent className="flex-1 pt-4">
-        {/* Guest Count Info */}
-        <div className="flex items-center justify-center gap-2 mb-4 text-sm text-muted-foreground">
-          <Users className="h-4 w-4" />
-          <span>
-            {language === 'de' 
-              ? `${minGuests} – ${maxGuests} Personen`
-              : `${minGuests} – ${maxGuests} guests`}
-          </span>
-        </div>
-
         {/* Includes List */}
         <ul className="space-y-2.5">
           {includes.map((item, idx) => (
             <li key={idx} className="flex items-start gap-2.5 text-sm">
               <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-              <span className="text-muted-foreground">{item}</span>
+              <span className="text-foreground/80">{item}</span>
             </li>
           ))}
         </ul>
