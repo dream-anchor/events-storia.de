@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Calendar, Users, MapPin, AlertTriangle, CreditCard } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,15 @@ import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+
+interface LocationData {
+  id: string;
+  name: string;
+  capacity_seated?: number | null;
+  capacity_standing?: number | null;
+  description?: string | null;
+}
 
 interface EventModulesProps {
   inquiry: ExtendedInquiry;
@@ -21,13 +30,6 @@ interface EventModulesProps {
   onTimeSlotChange: (slot: string) => void;
   onGuestCountChange: (count: string) => void;
 }
-
-const ROOMS = [
-  { id: 'terrazza', name: 'Terrazza', capacity: '20-40 Gäste', description: 'Sonnige Terrasse mit Blick auf den Garten' },
-  { id: 'sala-grande', name: 'Sala Grande', capacity: '40-80 Gäste', description: 'Großer Saal für Feiern' },
-  { id: 'privato', name: 'Separée Privato', capacity: '10-20 Gäste', description: 'Intimer Raum für kleine Gruppen' },
-  { id: 'ristorante', name: 'Gesamtes Restaurant', capacity: '80-120 Gäste', description: 'Exklusiv-Buchung' },
-];
 
 const TIME_SLOTS = [
   { id: 'lunch', label: 'Mittag (11:30-14:30)' },
@@ -46,6 +48,52 @@ export const EventModules = ({
   onGuestCountChange,
 }: EventModulesProps) => {
   const guestCount = parseInt(inquiry.guest_count || '0') || 0;
+  const [allLocations, setAllLocations] = useState<LocationData[]>([]);
+  const [packageLocationMap, setPackageLocationMap] = useState<Record<string, string[]>>({});
+
+  // Fetch locations and package-location mappings
+  useEffect(() => {
+    const fetchData = async () => {
+      const [locationsRes, mappingsRes] = await Promise.all([
+        supabase.from('locations').select('*').eq('is_active', true).order('sort_order'),
+        supabase.from('package_locations').select('package_id, location_id'),
+      ]);
+      
+      if (locationsRes.data) setAllLocations(locationsRes.data);
+      
+      if (mappingsRes.data) {
+        const map: Record<string, string[]> = {};
+        mappingsRes.data.forEach(m => {
+          if (!map[m.package_id]) map[m.package_id] = [];
+          map[m.package_id].push(m.location_id);
+        });
+        setPackageLocationMap(map);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Calculate available locations based on selected packages
+  const availableLocations = useMemo(() => {
+    if (selectedPackages.length === 0) {
+      return allLocations; // Show all if no package selected
+    }
+    
+    // Get intersection of allowed locations for all selected packages
+    const allowedLocationSets = selectedPackages.map(sp => 
+      new Set(packageLocationMap[sp.id] || [])
+    );
+    
+    if (allowedLocationSets.length === 0) return allLocations;
+    
+    // Find intersection
+    let intersection = allowedLocationSets[0];
+    for (let i = 1; i < allowedLocationSets.length; i++) {
+      intersection = new Set([...intersection].filter(x => allowedLocationSets[i].has(x)));
+    }
+    
+    return allLocations.filter(loc => intersection.has(loc.id));
+  }, [selectedPackages, allLocations, packageLocationMap]);
 
   // Group packages by type
   const packagesByType = useMemo(() => {
@@ -64,6 +112,7 @@ export const EventModules = ({
     firmenfeier: 'Firmenfeier & Events',
     geburtstag: 'Geburtstagspakete',
     getraenke: 'Getränkepauschalen',
+    event: 'Event-Pakete',
     general: 'Weitere Pakete',
   };
 
@@ -128,16 +177,30 @@ export const EventModules = ({
               <SelectValue placeholder="Raum wählen..." />
             </SelectTrigger>
             <SelectContent>
-              {ROOMS.map(room => (
-                <SelectItem key={room.id} value={room.id}>
+              {availableLocations.map(loc => (
+                <SelectItem key={loc.id} value={loc.id}>
                   <div className="flex flex-col">
-                    <span className="font-medium">{room.name}</span>
-                    <span className="text-xs text-muted-foreground">{room.capacity}</span>
+                    <span className="font-medium">{loc.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {loc.capacity_seated && `${loc.capacity_seated} sitzend`}
+                      {loc.capacity_seated && loc.capacity_standing && ' / '}
+                      {loc.capacity_standing && `${loc.capacity_standing} stehend`}
+                    </span>
                   </div>
                 </SelectItem>
               ))}
+              {availableLocations.length === 0 && (
+                <div className="p-2 text-sm text-muted-foreground text-center">
+                  Keine Locations für die gewählten Pakete verfügbar
+                </div>
+              )}
             </SelectContent>
           </Select>
+          {selectedPackages.length > 0 && availableLocations.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {availableLocations.length} Location{availableLocations.length !== 1 ? 's' : ''} für gewählte Pakete verfügbar
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">

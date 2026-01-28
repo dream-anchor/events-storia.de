@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useOne, useUpdate, useCreate } from "@refinedev/core";
+import { useOne, useUpdate, useCreate, useList } from "@refinedev/core";
 import { AdminLayout } from "./AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Select,
   SelectContent,
@@ -15,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Plus, X, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PackageFormData {
   name: string;
@@ -33,6 +35,14 @@ interface PackageFormData {
   is_active: boolean;
   sort_order: number;
   includes: string[];
+  location_ids: string[];
+}
+
+interface LocationData {
+  id: string;
+  name: string;
+  capacity_seated?: number;
+  capacity_standing?: number;
 }
 
 const defaultFormData: PackageFormData = {
@@ -50,6 +60,7 @@ const defaultFormData: PackageFormData = {
   is_active: true,
   sort_order: 0,
   includes: [],
+  location_ids: [],
 };
 
 export const PackageEdit = () => {
@@ -67,16 +78,45 @@ export const PackageEdit = () => {
     queryOptions: { enabled: !isCreate },
   });
 
+  // Fetch all locations
+  const { result: locationsResult } = useList<LocationData>({
+    resource: "locations",
+    sorters: [{ field: "sort_order", order: "asc" }],
+  });
+  const locations = locationsResult?.data || [];
+
   const isLoading = query.isLoading;
   const data = result;
 
   const { mutate: update } = useUpdate();
   const { mutate: create } = useCreate();
 
+  // Fetch assigned location IDs for this package
+  useEffect(() => {
+    const fetchPackageLocations = async () => {
+      if (!id || isCreate) return;
+      
+      const { data: packageLocations } = await supabase
+        .from('package_locations')
+        .select('location_id')
+        .eq('package_id', id);
+      
+      if (packageLocations) {
+        setFormData(prev => ({
+          ...prev,
+          location_ids: packageLocations.map(pl => pl.location_id),
+        }));
+      }
+    };
+    
+    fetchPackageLocations();
+  }, [id, isCreate]);
+
   useEffect(() => {
     if (data?.data && !isCreate) {
       const pkg = data.data as any;
-      setFormData({
+      setFormData(prev => ({
+        ...prev,
         name: pkg.name || "",
         name_en: pkg.name_en || "",
         description: pkg.description || "",
@@ -91,12 +131,21 @@ export const PackageEdit = () => {
         is_active: pkg.is_active ?? true,
         sort_order: pkg.sort_order || 0,
         includes: Array.isArray(pkg.includes) ? pkg.includes : [],
-      });
+      }));
     }
   }, [data, isCreate]);
 
   const handleChange = (field: keyof PackageFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const toggleLocation = (locationId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      location_ids: prev.location_ids.includes(locationId)
+        ? prev.location_ids.filter(id => id !== locationId)
+        : [...prev.location_ids, locationId],
+    }));
   };
 
   const addIncludeItem = () => {
@@ -116,7 +165,27 @@ export const PackageEdit = () => {
     }));
   };
 
-  const handleSave = () => {
+  const savePackageLocations = async (packageId: string) => {
+    // Delete existing relations
+    await supabase
+      .from('package_locations')
+      .delete()
+      .eq('package_id', packageId);
+    
+    // Insert new relations
+    if (formData.location_ids.length > 0) {
+      await supabase
+        .from('package_locations')
+        .insert(
+          formData.location_ids.map(locationId => ({
+            package_id: packageId,
+            location_id: locationId,
+          }))
+        );
+    }
+  };
+
+  const handleSave = async () => {
     if (!formData.name.trim()) {
       toast.error("Bitte geben Sie einen Namen ein");
       return;
@@ -128,16 +197,17 @@ export const PackageEdit = () => {
 
     setIsSaving(true);
     
-    const payload = {
-      ...formData,
-      includes: formData.includes,
-    };
+    const { location_ids, ...payload } = formData;
 
     if (isCreate) {
       create(
         { resource: "packages", values: payload },
         {
-          onSuccess: () => {
+          onSuccess: async (response) => {
+            const newId = (response as any).data?.id;
+            if (newId) {
+              await savePackageLocations(newId);
+            }
             toast.success("Paket erstellt");
             navigate("/admin/packages");
           },
@@ -151,7 +221,8 @@ export const PackageEdit = () => {
       update(
         { resource: "packages", id: id!, values: payload },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            await savePackageLocations(id!);
             toast.success("Paket gespeichert");
             navigate("/admin/packages");
           },
@@ -378,6 +449,50 @@ export const PackageEdit = () => {
                     <SelectItem value="100">100%</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Locations */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Verfügbare Locations
+            </CardTitle>
+            <CardDescription>
+              Wählen Sie die Räumlichkeiten, in denen dieses Paket stattfinden kann
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {locations.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Keine Locations verfügbar</p>
+            ) : (
+              <div className="space-y-3">
+                {locations.map((loc) => (
+                  <div
+                    key={loc.id}
+                    className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      formData.location_ids.includes(loc.id)
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => toggleLocation(loc.id)}
+                  >
+                    <Checkbox
+                      checked={formData.location_ids.includes(loc.id)}
+                      onCheckedChange={() => toggleLocation(loc.id)}
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-base">{loc.name}</p>
+                      <div className="flex gap-4 text-sm text-muted-foreground">
+                        {loc.capacity_seated && <span>{loc.capacity_seated} sitzend</span>}
+                        {loc.capacity_standing && <span>{loc.capacity_standing} stehend</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>

@@ -2,7 +2,7 @@
 import { DataProvider } from "@refinedev/core";
 import { supabase } from "@/integrations/supabase/client";
 
-type SupabaseTable = 'menu_items' | 'menus' | 'menu_categories' | 'event_inquiries' | 'catering_orders' | 'customer_profiles' | 'packages' | 'email_templates';
+type SupabaseTable = 'menu_items' | 'menus' | 'menu_categories' | 'event_inquiries' | 'catering_orders' | 'customer_profiles' | 'packages' | 'email_templates' | 'locations' | 'package_locations';
 
 const mapResource = (resource: string): SupabaseTable => {
   const mapping: Record<string, SupabaseTable> = {
@@ -17,6 +17,8 @@ const mapResource = (resource: string): SupabaseTable => {
     'customer_profiles': 'customer_profiles',
     'packages': 'packages',
     'email_templates': 'email_templates',
+    'locations': 'locations',
+    'package_locations': 'package_locations',
   };
   return mapping[resource] || resource as SupabaseTable;
 };
