@@ -46,13 +46,7 @@ export const SmartInquiryEditor = () => {
   });
   const packages = packagesQuery.result?.data || [];
 
-  // Fetch menu items for catering
-  const menuItemsQuery = useList({
-    resource: "menu_items",
-    pagination: { pageSize: 200 },
-    sorters: [{ field: "sort_order", order: "asc" }],
-  });
-  const menuItems = menuItemsQuery.result?.data || [];
+  // Note: Menu items are now fetched internally by CateringModules via useCombinedMenuItems
 
   // Fetch email templates
   const templatesQuery = useList<EmailTemplate>({
@@ -351,7 +345,6 @@ export const SmartInquiryEditor = () => {
                 ) : (
                   <CateringModules
                     inquiry={mergedInquiry}
-                    menuItems={menuItems as never[]}
                     selectedItems={quoteItems}
                     onItemAdd={handleItemAdd}
                     onItemQuantityChange={handleItemQuantityChange}
