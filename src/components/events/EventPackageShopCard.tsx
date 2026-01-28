@@ -121,12 +121,15 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
           <span className="text-sm text-muted-foreground ml-1">{priceUnit}</span>
         </div>
         
-        {/* Min guests info */}
-        {pkg.min_guests && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {language === 'de' ? `ab ${pkg.min_guests} Personen` : `from ${pkg.min_guests} guests`}
-          </p>
-        )}
+        {/* Min/Max guests info */}
+        <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+          {pkg.min_guests && (
+            <p>{language === 'de' ? `ab ${pkg.min_guests} Personen` : `from ${pkg.min_guests} guests`}</p>
+          )}
+          {pkg.max_guests && (
+            <p>{language === 'de' ? `max. ${pkg.max_guests} Personen` : `max. ${pkg.max_guests} guests`}</p>
+          )}
+        </div>
 
         {description && (
           <p className="text-sm text-muted-foreground mt-2">{description}</p>
