@@ -337,10 +337,14 @@ export const SmartInquiryEditor = () => {
                     inquiry={mergedInquiry}
                     packages={packages}
                     selectedPackages={selectedPackages}
+                    quoteItems={quoteItems}
                     onPackageToggle={handlePackageToggle}
                     onRoomChange={(v) => handleLocalFieldChange('room_selection', v)}
                     onTimeSlotChange={(v) => handleLocalFieldChange('time_slot', v)}
                     onGuestCountChange={(v) => handleLocalFieldChange('guest_count', v)}
+                    onItemAdd={handleItemAdd}
+                    onItemQuantityChange={handleItemQuantityChange}
+                    onItemRemove={handleItemRemove}
                   />
                 ) : (
                   <CateringModules
