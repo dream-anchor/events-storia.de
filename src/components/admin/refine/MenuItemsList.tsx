@@ -119,7 +119,7 @@ export const MenuItemsList = () => {
     <AdminLayout activeTab="menu">
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-serif font-semibold">Speisekarte</h1>
+          <h1 className="text-2xl font-serif font-semibold">Catering-Katalog</h1>
           <p className="text-muted-foreground">
             Verwalten Sie die Catering-Gerichte und Preise.
           </p>
