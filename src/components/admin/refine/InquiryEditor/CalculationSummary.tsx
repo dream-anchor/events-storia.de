@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CreditCard, AlertTriangle } from "lucide-react";
 import { QuoteItem, SelectedPackage } from "./types";
 
 interface CalculationSummaryProps {
@@ -38,12 +40,41 @@ export const CalculationSummary = ({
   const vat = subtotal * 0.07; // 7% food VAT
   const total = subtotal + vat;
 
+  // Check if prepayment required
+  const requiresPrepayment = useMemo(() => 
+    selectedPackages.some(pkg => pkg.requiresPrepayment),
+    [selectedPackages]
+  );
+
+  // Check for min guests warnings
+  const minGuestsWarnings = useMemo(() => 
+    selectedPackages.filter(pkg => 
+      pkg.minGuests && pkg.minGuests > 0 && guestCount < pkg.minGuests
+    ),
+    [selectedPackages, guestCount]
+  );
+
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Kalkulation</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Min Guests Warnings */}
+        {minGuestsWarnings.length > 0 && (
+          <Alert variant="destructive" className="border-amber-500 bg-amber-50 text-amber-800">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription>
+              <strong>Achtung:</strong>
+              {minGuestsWarnings.map(pkg => (
+                <div key={pkg.id} className="text-sm mt-1">
+                  "{pkg.name}" erfordert mind. {pkg.minGuests} Gäste (aktuell: {guestCount})
+                </div>
+              ))}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Items */}
         {quoteItems.length > 0 && (
           <div>
@@ -113,6 +144,18 @@ export const CalculationSummary = ({
             </div>
           </div>
         </div>
+
+        {/* Prepayment Notice */}
+        {requiresPrepayment && (
+          <div className="pt-2">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+              <CreditCard className="h-4 w-4 text-primary shrink-0" />
+              <p className="text-sm">
+                <strong>100% Vorauszahlung</strong> für gewählte Pakete erforderlich
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Notes */}
         <div className="pt-4">

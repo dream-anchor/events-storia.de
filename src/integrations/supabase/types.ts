@@ -538,8 +538,10 @@ export type Database = {
           name: string
           name_en: string | null
           package_type: string
+          prepayment_percentage: number | null
           price: number
           price_per_person: boolean | null
+          requires_prepayment: boolean | null
           sort_order: number | null
           updated_at: string | null
         }
@@ -555,8 +557,10 @@ export type Database = {
           name: string
           name_en?: string | null
           package_type?: string
+          prepayment_percentage?: number | null
           price?: number
           price_per_person?: boolean | null
+          requires_prepayment?: boolean | null
           sort_order?: number | null
           updated_at?: string | null
         }
@@ -572,8 +576,10 @@ export type Database = {
           name?: string
           name_en?: string | null
           package_type?: string
+          prepayment_percentage?: number | null
           price?: number
           price_per_person?: boolean | null
+          requires_prepayment?: boolean | null
           sort_order?: number | null
           updated_at?: string | null
         }
