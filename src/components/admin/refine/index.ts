@@ -3,6 +3,8 @@ export { EventsList } from './EventsList';
 export { EventEdit } from './EventEdit';
 export { OrdersList } from './OrdersList';
 export { MenuItemsList } from './MenuItemsList';
+export { PackagesList } from './PackagesList';
+export { PackageEdit } from './PackageEdit';
 export { AdminLayout } from './AdminLayout';
 export { DataTable } from './DataTable';
 export { QuoteBuilder } from './QuoteBuilder';

@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLogout, useGetIdentity } from "@refinedev/core";
-import { LogOut, ExternalLink, LayoutDashboard, CalendarDays, UtensilsCrossed, FileText } from "lucide-react";
+import { LogOut, ExternalLink, LayoutDashboard, CalendarDays, UtensilsCrossed, FileText, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
   { name: 'Events', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
   { name: 'Bestellungen', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
+  { name: 'Pakete', href: '/admin/packages', icon: Package, key: 'packages' },
   { name: 'Catering-Katalog', href: '/admin/menu', icon: UtensilsCrossed, key: 'menu' },
 ];
 
