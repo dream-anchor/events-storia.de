@@ -107,10 +107,10 @@ const CateringCard = ({ item, language, index }: { item: CateringItem; language:
       {/* Text-Container mit Glassmorphism */}
       <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
         <div className="backdrop-blur-sm bg-black/20 rounded-lg p-3">
-          <h3 className="text-xl md:text-2xl font-serif font-semibold mb-1 text-white drop-shadow-lg">
+          <h3 className="text-2xl md:text-3xl font-serif font-semibold mb-1 text-white drop-shadow-lg">
             {title}
           </h3>
-          <p className="text-base md:text-lg text-white/90 leading-relaxed drop-shadow-md line-clamp-2">
+          <p className="text-lg md:text-xl text-white/90 leading-relaxed drop-shadow-md line-clamp-2">
             {description}
           </p>
         </div>
@@ -128,11 +128,11 @@ const CateringGrid = () => {
         {/* SEO-freundliche Überschrift - dezent aber sichtbar */}
         <h2 
           id="catering-categories-heading" 
-          className="text-center text-sm md:text-base font-light text-muted-foreground tracking-[0.2em] uppercase mb-2"
+          className="text-center text-base md:text-lg font-light text-muted-foreground tracking-[0.2em] uppercase mb-2"
         >
           {language === 'de' ? 'Unsere Catering-Kategorien' : 'Our Catering Categories'}
         </h2>
-        <p className="text-center text-sm text-muted-foreground max-w-xl mx-auto mb-6">
+        <p className="text-center text-base md:text-lg text-muted-foreground max-w-xl mx-auto mb-6">
           {language === 'de'
             ? 'Fingerfood, Pizza, Pasta & mehr – frisch zubereitet und flexibel geliefert.'
             : 'Finger food, pizza, pasta & more – freshly prepared and flexibly delivered.'}

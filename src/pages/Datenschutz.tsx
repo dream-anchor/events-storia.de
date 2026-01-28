@@ -20,11 +20,11 @@ const Datenschutz = () => {
             Datenschutzerklärung
           </h1>
           
-          <div className="prose prose-lg max-w-none space-y-8 text-foreground/90">
+          <div className="prose prose-xl max-w-none space-y-8 text-foreground/90">
             
             {/* 1. Verantwortlicher */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mb-3">
                 1. Verantwortlicher
               </h2>
               <p>
@@ -47,7 +47,7 @@ const Datenschutz = () => {
 
             {/* 2. Erhebung und Speicherung */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 2. Erhebung und Speicherung personenbezogener Daten
               </h2>
               <p>
@@ -70,7 +70,7 @@ const Datenschutz = () => {
 
             {/* 3. Kontaktformular & Reservierungen */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 3. Kontaktformular & Reservierungen
               </h2>
               <p>
@@ -84,7 +84,7 @@ const Datenschutz = () => {
 
             {/* 4. Cookies */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 4. Cookies
               </h2>
               <p>
@@ -95,7 +95,7 @@ const Datenschutz = () => {
 
             {/* 5. Server-Logfiles */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 5. Server-Logfiles
               </h2>
               <p>
@@ -109,7 +109,7 @@ const Datenschutz = () => {
 
             {/* 6. Weitergabe an Dritte */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 6. Weitergabe an Dritte
               </h2>
               <p>Eine Weitergabe erfolgt nur, wenn:</p>
@@ -122,7 +122,7 @@ const Datenschutz = () => {
 
             {/* 7. Externe Dienste */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 7. Einsatz externer Dienste
               </h2>
               
@@ -183,7 +183,7 @@ const Datenschutz = () => {
 
             {/* 8. Speicherdauer */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 8. Dauer der Speicherung
               </h2>
               <p>
@@ -194,7 +194,7 @@ const Datenschutz = () => {
 
             {/* 9. Betroffenenrechte */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 9. Betroffenenrechte (DSGVO)
               </h2>
               <p>Nutzer haben das Recht auf:</p>
@@ -211,7 +211,7 @@ const Datenschutz = () => {
 
             {/* 10. Sicherheit */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 10. Sicherheit
               </h2>
               <p>
@@ -221,7 +221,7 @@ const Datenschutz = () => {
 
             {/* 11. Aktualität */}
             <section>
-              <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
                 11. Aktualität
               </h2>
               <p>

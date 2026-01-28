@@ -12,12 +12,12 @@ const Footer = () => {
       <div id="service-footer" className="border-b border-primary-foreground/10">
         <div className="container mx-auto px-4 py-16 md:py-20 text-center">
           {/* Überschrift */}
-          <h2 className="text-2xl md:text-3xl font-serif font-semibold tracking-[0.15em] uppercase mb-4 text-primary-foreground">
+          <h2 className="text-3xl md:text-4xl font-serif font-semibold tracking-[0.15em] uppercase mb-4 text-primary-foreground">
             {t.footer.serviceTitle}
           </h2>
           
           {/* Subline */}
-          <p className="text-base md:text-lg text-primary-foreground/80 mb-14 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-primary-foreground/80 mb-14 max-w-2xl mx-auto leading-relaxed">
             {t.footer.serviceSubline}
           </p>
           
@@ -26,22 +26,22 @@ const Footer = () => {
             {/* Anker 1: Catering */}
             <div className="text-center">
               <UtensilsCrossed className="h-10 w-10 mx-auto mb-5 text-primary-foreground" strokeWidth={1.5} />
-              <h3 className="font-serif font-semibold text-lg mb-2 text-primary-foreground">{t.footer.serviceCateringTitle}</h3>
-              <p className="text-base text-primary-foreground/70 leading-relaxed">{t.footer.serviceCateringDesc}</p>
+              <h3 className="font-serif font-semibold text-xl mb-2 text-primary-foreground">{t.footer.serviceCateringTitle}</h3>
+              <p className="text-lg text-primary-foreground/70 leading-relaxed">{t.footer.serviceCateringDesc}</p>
             </div>
             
             {/* Anker 2: Lieferung */}
             <div className="text-center">
               <Truck className="h-10 w-10 mx-auto mb-5 text-primary-foreground" strokeWidth={1.5} />
-              <h3 className="font-serif font-semibold text-lg mb-2 text-primary-foreground">{t.footer.serviceDeliveryTitle}</h3>
-              <p className="text-base text-primary-foreground/70 leading-relaxed">{t.footer.serviceDeliveryDesc}</p>
+              <h3 className="font-serif font-semibold text-xl mb-2 text-primary-foreground">{t.footer.serviceDeliveryTitle}</h3>
+              <p className="text-lg text-primary-foreground/70 leading-relaxed">{t.footer.serviceDeliveryDesc}</p>
             </div>
             
             {/* Anker 3: Anlässe */}
             <div className="text-center">
               <Home className="h-10 w-10 mx-auto mb-5 text-primary-foreground" strokeWidth={1.5} />
-              <h3 className="font-serif font-semibold text-lg mb-2 text-primary-foreground">{t.footer.serviceEventsTitle}</h3>
-              <p className="text-base text-primary-foreground/70 leading-relaxed">{t.footer.serviceEventsDesc}</p>
+              <h3 className="font-serif font-semibold text-xl mb-2 text-primary-foreground">{t.footer.serviceEventsTitle}</h3>
+              <p className="text-lg text-primary-foreground/70 leading-relaxed">{t.footer.serviceEventsDesc}</p>
             </div>
           </div>
           
@@ -63,7 +63,7 @@ const Footer = () => {
             {/* Kontakt */}
             <div className="text-center md:text-left">
               <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-4 text-primary-foreground/90">{t.footer.contact}</h3>
-              <div className="space-y-1 text-sm font-sans text-primary-foreground/60">
+              <div className="space-y-1 text-base font-sans text-primary-foreground/60">
                 <a 
                   href="tel:+498951519696" 
                   className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] md:min-h-0 py-2 hover:text-primary-foreground transition-colors touch-manipulation"
@@ -107,7 +107,7 @@ const Footer = () => {
               <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-4 text-primary-foreground/90">
                 {language === 'de' ? 'Lieferzeiten' : 'Delivery Hours'}
               </h3>
-              <div className="space-y-1 text-sm font-sans text-primary-foreground/60">
+              <div className="space-y-1 text-base font-sans text-primary-foreground/60">
                 <div className="flex items-center justify-center md:justify-end gap-2.5 min-h-[44px] md:min-h-0 py-2">
                   <Clock className="h-4 w-4" />
                   <span>{language === 'de' ? 'Mo - Fr' : 'Mon - Fri'}: 09:00 – 01:00</span>

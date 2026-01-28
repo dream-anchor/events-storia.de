@@ -104,6 +104,8 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground font-serif antialiased;
     font-feature-settings: "liga" 1, "kern" 1;
+    font-size: 18px;
+    line-height: 1.6;
   }
 
   h1, h2, h3, h4, h5, h6 {

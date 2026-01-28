@@ -60,13 +60,13 @@ const MenuDisplay = ({ menuType, menuId }: MenuDisplayProps) => {
       {/* Menu Header */}
       {(menu.title || menu.subtitle) && (
         <div className="text-center mb-12">
-          {menu.title && (
-            <h2 className="text-3xl md:text-4xl font-serif font-semibold tracking-wide mb-2">
+        {menu.title && (
+            <h2 className="text-4xl md:text-5xl font-serif font-semibold tracking-wide mb-2">
               {menu.title}
             </h2>
           )}
           {menu.subtitle && (
-            <p className="text-lg text-muted-foreground italic">{menu.subtitle}</p>
+            <p className="text-xl text-muted-foreground italic">{menu.subtitle}</p>
           )}
           <div className="w-24 h-px bg-primary/30 mx-auto mt-6" />
         </div>
@@ -82,11 +82,11 @@ const MenuDisplay = ({ menuType, menuId }: MenuDisplayProps) => {
             <div key={category.id} className="space-y-6">
               {/* Category Header */}
               <div className="text-center">
-                <h3 className="text-2xl font-serif font-medium tracking-[0.15em] uppercase text-primary">
+                <h3 className="text-3xl font-serif font-medium tracking-[0.15em] uppercase text-primary">
                   ~ {categoryName} ~
                 </h3>
                 {categoryDescription && (
-                  <p className="text-base text-muted-foreground mt-2 italic">
+                  <p className="text-lg text-muted-foreground mt-2 italic">
                     {categoryDescription}
                   </p>
                 )}
@@ -102,18 +102,18 @@ const MenuDisplay = ({ menuType, menuId }: MenuDisplayProps) => {
                   return (
                     <div key={item.id} className="group">
                       <div className="flex justify-between items-baseline gap-4">
-                        <span className="font-serif font-medium text-lg text-foreground">
+                        <span className="font-serif font-medium text-xl text-foreground">
                           {itemName}
                         </span>
                         <span className="flex-shrink-0 border-b border-dotted border-border flex-grow mx-2" />
                         {priceDisplay && (
-                          <span className="font-medium text-lg text-foreground whitespace-nowrap">
+                          <span className="font-medium text-xl text-foreground whitespace-nowrap">
                             {priceDisplay}
                           </span>
                         )}
                       </div>
                       {itemDescription && (
-                        <p className="text-base text-muted-foreground mt-1 leading-relaxed">
+                        <p className="text-lg text-muted-foreground mt-1 leading-relaxed">
                           {itemDescription}
                         </p>
                       )}

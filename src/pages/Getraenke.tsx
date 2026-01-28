@@ -43,10 +43,10 @@ const Getraenke = () => {
         <Navigation />
 
         <main className="container mx-auto px-4 py-12 flex-grow">
-          <h1 className="text-4xl font-serif font-bold mb-4 text-center">
+          <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4 text-center">
             {language === 'de' ? 'Getränkekarte – Aperitivo & Weine in München' : 'Drinks Menu – Aperitivo & Wines in Munich'}
           </h1>
-          <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
+          <p className="text-center text-lg text-muted-foreground mb-12 max-w-2xl mx-auto">
             {language === 'de'
               ? 'Erlesene italienische Weine, klassische Cocktails und Late Night Aperitivo in stilvollem Ambiente.'
               : 'Exquisite Italian wines, classic cocktails and Late Night Aperitivo in a stylish atmosphere.'}
