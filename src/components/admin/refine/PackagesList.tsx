@@ -280,7 +280,7 @@ export const PackagesList = () => {
                 {filteredPackages.map((pkg) => (
                   <Card 
                     key={pkg.id} 
-                    className={`group relative overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 ${!pkg.is_active ? 'opacity-60' : ''}`}
+                    className={`group relative overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 flex flex-col ${!pkg.is_active ? 'opacity-60' : ''}`}
                   >
                     {/* Price Badge */}
                     <div className="absolute top-4 right-4 z-10">
@@ -302,49 +302,51 @@ export const PackagesList = () => {
                       </div>
                     </CardHeader>
                     
-                    <CardContent className="space-y-5">
-                      {/* Includes */}
-                      {pkg.includes && Array.isArray(pkg.includes) && pkg.includes.length > 0 && (
-                        <ul className="space-y-2">
-                          {pkg.includes.map((item, i) => (
-                            <li key={i} className="flex items-center gap-3 text-base">
-                              <DietaryIcons item={item} />
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                    <CardContent className="flex-1 flex flex-col">
+                      <div className="space-y-5 flex-1">
+                        {/* Includes */}
+                        {pkg.includes && Array.isArray(pkg.includes) && pkg.includes.length > 0 && (
+                          <ul className="space-y-2">
+                            {pkg.includes.map((item, i) => (
+                              <li key={i} className="flex items-center justify-between gap-3 text-base">
+                                <span>{item}</span>
+                                <DietaryIcons item={item} />
+                              </li>
+                            ))}
+                          </ul>
+                        )}
 
-                      {/* Locations */}
-                      {getLocationNames(pkg.id).length > 0 && (
+                        {/* Locations */}
+                        {getLocationNames(pkg.id).length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {getLocationNames(pkg.id).map((locName, i) => (
+                              <Badge key={i} variant="outline" className="text-sm px-3 py-1.5">
+                                <MapPin className="h-3.5 w-3.5 mr-1.5" />
+                                {locName}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Meta Badges */}
                         <div className="flex flex-wrap gap-2">
-                          {getLocationNames(pkg.id).map((locName, i) => (
-                            <Badge key={i} variant="outline" className="text-sm px-3 py-1.5">
-                              <MapPin className="h-3.5 w-3.5 mr-1.5" />
-                              {locName}
+                          {pkg.min_guests && pkg.min_guests > 0 && (
+                            <Badge variant="secondary" className="text-sm px-3 py-1.5">
+                              <Users className="h-4 w-4 mr-2" />
+                              Min. {pkg.min_guests} Personen
                             </Badge>
-                          ))}
+                          )}
+                          {pkg.requires_prepayment && (
+                            <Badge variant="secondary" className="text-sm px-3 py-1.5 bg-amber-100 text-amber-800 border-amber-200">
+                              <Percent className="h-4 w-4 mr-2" />
+                              {pkg.prepayment_percentage || 100}% Vorauszahlung
+                            </Badge>
+                          )}
                         </div>
-                      )}
-
-                      {/* Meta Badges */}
-                      <div className="flex flex-wrap gap-2">
-                        {pkg.min_guests && pkg.min_guests > 0 && (
-                          <Badge variant="secondary" className="text-sm px-3 py-1.5">
-                            <Users className="h-4 w-4 mr-2" />
-                            Min. {pkg.min_guests} Personen
-                          </Badge>
-                        )}
-                        {pkg.requires_prepayment && (
-                          <Badge variant="secondary" className="text-sm px-3 py-1.5 bg-amber-100 text-amber-800 border-amber-200">
-                            <Percent className="h-4 w-4 mr-2" />
-                            {pkg.prepayment_percentage || 100}% Vorauszahlung
-                          </Badge>
-                        )}
                       </div>
                       
-                      {/* Actions */}
-                      <div className="flex gap-3 pt-4 border-t">
+                      {/* Actions - always at bottom */}
+                      <div className="flex gap-3 pt-5 mt-5 border-t">
                         <Button 
                           variant="default" 
                           size="lg"
