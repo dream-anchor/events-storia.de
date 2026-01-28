@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // IMPORTANT: Refine v5 routerProvider uses `react-router`.
+      // Ensure the app does not load a second router context via `react-router-dom` imports.
+      "react-router-dom": "react-router",
     },
   },
 }));
