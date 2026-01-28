@@ -198,7 +198,26 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
                     <FormItem>
                       <FormLabel>E-Mail *</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="ihre@email.de" {...field} />
+                        <Input 
+                          type="email" 
+                          placeholder="ihre@email.de" 
+                          {...field}
+                          onInput={(e) => {
+                            // Handle autofill/paste - sync value immediately
+                            const target = e.target as HTMLInputElement;
+                            if (target.value !== field.value) {
+                              field.onChange(target.value);
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // Final sync on blur for any missed autofill
+                            const currentValue = e.target.value;
+                            if (currentValue !== field.value) {
+                              field.onChange(currentValue);
+                            }
+                            field.onBlur();
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

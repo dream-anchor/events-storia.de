@@ -7,12 +7,14 @@ import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
+import { useCateringMenuBySlug, CateringMenuItem } from "@/hooks/useCateringMenus";
 import { useCart } from "@/contexts/CartContext";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Plus, Minus, ShoppingCart, Check, Wheat } from "lucide-react";
 import { HighlightCard, ServicesGrid } from "@/components/catering/ServiceInfoCard";
 
-// Import images
+// Import images for mapping
 import spiediniImg from "@/assets/catering/platten/spiedini.webp";
 import bruschetteImg from "@/assets/catering/platten/bruschette.webp";
 import focacceImg from "@/assets/catering/platten/focacce.webp";
@@ -25,180 +27,66 @@ import lachsImg from "@/assets/catering/platten/lachs.webp";
 import aufschnittImg from "@/assets/catering/platten/aufschnitt.webp";
 import insalateImg from "@/assets/catering/platten/insalate-stagione.webp";
 
-interface Platter {
-  id: string;
-  name: string;
-  name_en: string;
-  description: string;
-  description_en: string;
-  price: number;
-  serving_info: string;
-  serving_info_en: string;
-  image: string | null;
-  objectPosition?: string;
-}
+// Map item names to images
+const imageMap: Record<string, string> = {
+  "Insalate di stagione": insalateImg,
+  "Spiedini di Mozzarelline – Platte": spiediniImg,
+  "Bruschette – Platte": bruschetteImg,
+  "Focacce": focacceImg,
+  'Mediterrane Gemüse-Platte "Verdure alla Griglia"': grillgemueseImg,
+  "Graved Lachs-Platte": lachsImg,
+  "Vitello Tonnato-Platte": vitelloImg,
+  "Entenbrust-Carpaccio mit Orangensauce": entenbrustImg,
+  "Roastbeef mit Parmesanhobel": roastbeefImg,
+  "Italienische Aufschnittplatte": aufschnittImg,
+  "Gemischte Käseplatte": kaeseplatteImg,
+};
 
-const platters: Platter[] = [
-  {
-    id: "insalate-stagione",
-    name: "Insalate di stagione",
-    name_en: "Seasonal Salads",
-    description: "4 verschiedene Salate der Saison:\n• Bunter Salat Primavera – Rote Bete Carpaccio, Mango, Mesclunsalat und Avocado mit Zitronenvinaigrette\n• Insalata Caprina – gegrillter Ziegenkäse, Babyspinat, Waldhonig, Kernmix, Honig-Senf-Dressing\n• Insalata al Salmone – gegrilltes Lachsfilet, Avocadocreme, Kernmix, Walnuss-Kräutercreme\n• Caesar Salat – Romanasalat, Croutons, Parmigiano, Caesar-Dressing",
-    description_en: "4 different seasonal salads:\n• Colorful Primavera Salad – Beetroot carpaccio, mango, mesclun salad and avocado with lemon vinaigrette\n• Insalata Caprina – grilled goat cheese, baby spinach, forest honey, seed mix, honey-mustard dressing\n• Insalata al Salmone – grilled salmon fillet, avocado cream, seed mix, walnut-herb cream\n• Caesar Salad – romaine lettuce, croutons, Parmigiano, Caesar dressing",
-    price: 45.00,
-    serving_info: "Ideal für 4 Personen",
-    serving_info_en: "Ideal for 4 people",
-    image: insalateImg,
-    objectPosition: "center center"
-  },
-  {
-    id: "spiedini-mozzarelline",
-    name: "Spiedini di Mozzarelline – Platte",
-    name_en: "Mini Mozzarella Skewers Platter",
-    description: "Spieße aus mini-Büffelmozzarella, Kirschtomaten und frisches Basilikum – klassisch, leicht und voller Geschmack.",
-    description_en: "Skewers of mini buffalo mozzarella, cherry tomatoes and fresh basil – classic, light and full of flavor.",
-    price: 28.90,
-    serving_info: "Platte aus 12 Spießen",
-    serving_info_en: "Platter of 12 skewers",
-    image: spiediniImg,
-    objectPosition: "center center"
-  },
-  {
-    id: "bruschette-platte",
-    name: "Bruschette – Platte",
-    name_en: "Bruschetta Platter",
-    description: "Auswahl an 16 hausgemachten Bruschette:\n• Bruschette mit Tomaten\n• Bruschette mit Vitello Tonnato\n• Bruschette mit Kräuter-Mousse und Graved Lachs",
-    description_en: "Selection of 16 homemade bruschetta:\n• Bruschetta with tomatoes\n• Bruschetta with Vitello Tonnato\n• Bruschetta with herb mousse and gravlax",
-    price: 36.00,
-    serving_info: "Auswahl an 16 Bruschette",
-    serving_info_en: "Selection of 16 bruschetta",
-    image: bruschetteImg,
-    objectPosition: "center 70%"
-  },
-  {
-    id: "focacce",
-    name: "Focacce",
-    name_en: "Focaccia",
-    description: "4 verschiedene hausgemachte Focacce:\n• Caponata (sizilianisches Gemüsegericht mit Auberginen, Tomaten & Oliven)\n• Frischkäse, Parma, Rucola, Kirschtomaten und Parmesan\n• Caprese mit frischen Tomaten & Büffelmozzarella\n• Frischkäse, Graved Lachs, Rucola und Kirschtomaten",
-    description_en: "4 different homemade focacce:\n• Caponata (Sicilian vegetable dish with eggplant, tomatoes & olives)\n• Cream cheese, Parma ham, arugula, cherry tomatoes and Parmesan\n• Caprese with fresh tomatoes & buffalo mozzarella\n• Cream cheese, gravlax, arugula and cherry tomatoes",
-    price: 32.50,
-    serving_info: "Ofenfrisches, gefülltes italienisches Brot",
-    serving_info_en: "Oven-fresh, filled Italian bread",
-    image: focacceImg,
-    objectPosition: "center center"
-  },
-  {
-    id: "verdure-griglia",
-    name: 'Mediterrane Gemüse-Platte "Verdure alla Griglia"',
-    name_en: 'Mediterranean Vegetable Platter "Verdure alla Griglia"',
-    description: "Feine Auswahl an gegrilltem, mediterranem Gemüse – Zucchini, Paprika, Auberginen, Champignons mit Kräutern, Meersalz und nativem Olivenöl verfeinert. Leicht, aromatisch und perfekt als Beilage oder vegetarisches Hauptgericht.",
-    description_en: "Fine selection of grilled Mediterranean vegetables – zucchini, peppers, eggplant, mushrooms refined with herbs, sea salt and extra virgin olive oil. Light, aromatic and perfect as a side dish or vegetarian main course.",
-    price: 32.00,
-    serving_info: "Ideal für 4 Personen",
-    serving_info_en: "Ideal for 4 people",
-    image: grillgemueseImg,
-    objectPosition: "center 60%"
-  },
-  {
-    id: "graved-lachs",
-    name: "Graved Lachs-Platte",
-    name_en: "Gravlax Salmon Platter",
-    description: "Graved Lachs auf Rucola mit Kirschtomaten & Kräutervinaigrette.",
-    description_en: "Gravlax salmon on arugula with cherry tomatoes & herb vinaigrette.",
-    price: 44.00,
-    serving_info: "Ideal für 4 Personen",
-    serving_info_en: "Ideal for 4 people",
-    image: lachsImg,
-    objectPosition: "center 65%"
-  },
-  {
-    id: "vitello-tonnato",
-    name: "Vitello Tonnato-Platte",
-    name_en: "Vitello Tonnato Platter",
-    description: "Zartes Kalbfleisch mit hausgemachter Thunfisch-Kapern-Sauce.",
-    description_en: "Tender veal with homemade tuna-caper sauce.",
-    price: 41.00,
-    serving_info: "Ideal für 4 Personen",
-    serving_info_en: "Ideal for 4 people",
-    image: vitelloImg,
-    objectPosition: "center 70%"
-  },
-  {
-    id: "entenbrust-carpaccio",
-    name: "Entenbrust-Carpaccio mit Orangensauce",
-    name_en: "Duck Breast Carpaccio with Orange Sauce",
-    description: "Entenbrust-Carpaccio mit Orangecreme",
-    description_en: "Duck breast carpaccio with orange cream",
-    price: 48.00,
-    serving_info: "Ideal für 4 Personen",
-    serving_info_en: "Ideal for 4 people",
-    image: entenbrustImg,
-    objectPosition: "center center"
-  },
-  {
-    id: "roastbeef",
-    name: "Roastbeef mit Parmesanhobel",
-    name_en: "Roast Beef with Parmesan Shavings",
-    description: "Zart rosa gebratenes Roastbeef vom bayerischen Rind mit Parmesanhobel und grüner Kräutersauce.",
-    description_en: "Tender pink roast beef from Bavarian cattle with Parmesan shavings and green herb sauce.",
-    price: 44.00,
-    serving_info: "Ideal für 4 Personen",
-    serving_info_en: "Ideal for 4 people",
-    image: roastbeefImg,
-    objectPosition: "center 60%"
-  },
-  {
-    id: "aufschnittplatte",
-    name: "Italienische Aufschnittplatte",
-    name_en: "Italian Charcuterie Platter",
-    description: "Edle Auswahl an italienischen Aufschnittspezialitäten: Parmaschinken, Spianata Romana, Coppa und Südtiroler Speck",
-    description_en: "Fine selection of Italian charcuterie specialties: Parma ham, Spianata Romana, Coppa and South Tyrolean bacon",
-    price: 40.00,
-    serving_info: "Ideal für 4 Personen",
-    serving_info_en: "Ideal for 4 people",
-    image: aufschnittImg,
-    objectPosition: "center center"
-  },
-  {
-    id: "kaeseplatte",
-    name: "Gemischte Käseplatte",
-    name_en: "Mixed Cheese Platter",
-    description: "Auswahl italienischer Käsesorten mit Nüssen, Obst & Feigensenf.",
-    description_en: "Selection of Italian cheeses with nuts, fruit & fig mustard.",
-    price: 44.00,
-    serving_info: "Ideal für 4 Personen",
-    serving_info_en: "Ideal for 4 people",
-    image: kaeseplatteImg,
-    objectPosition: "center 55%"
-  }
-];
+// Image position map
+const imagePositionMap: Record<string, string> = {
+  "Insalate di stagione": "center center",
+  "Spiedini di Mozzarelline – Platte": "center center",
+  "Bruschette – Platte": "center 70%",
+  "Focacce": "center center",
+  'Mediterrane Gemüse-Platte "Verdure alla Griglia"': "center 60%",
+  "Graved Lachs-Platte": "center 65%",
+  "Vitello Tonnato-Platte": "center 70%",
+  "Entenbrust-Carpaccio mit Orangensauce": "center center",
+  "Roastbeef mit Parmesanhobel": "center 60%",
+  "Italienische Aufschnittplatte": "center center",
+  "Gemischte Käseplatte": "center 55%",
+};
 
-interface PlatterCardProps {
-  platter: Platter;
+interface MenuItemCardProps {
+  item: CateringMenuItem;
   language: string;
 }
 
-const PlatterCard = ({ platter, language }: PlatterCardProps) => {
+const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
   const { addToCart, items } = useCart();
   const { formatPrice } = usePriceDisplay();
   const [quantity, setQuantity] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
   
-  const name = language === 'en' ? platter.name_en : platter.name;
-  const description = language === 'en' ? platter.description_en : platter.description;
-  const servingInfo = language === 'en' ? platter.serving_info_en : platter.serving_info;
+  const name = language === 'en' && item.name_en ? item.name_en : item.name;
+  const description = language === 'en' && item.description_en ? item.description_en : item.description;
+  const servingInfo = language === 'en' && item.serving_info_en ? item.serving_info_en : item.serving_info;
+  const image = imageMap[item.name] || item.image_url;
+  const imagePosition = imagePositionMap[item.name] || "center center";
   
-  const cartItem = items.find(i => i.id === platter.id);
+  const cartItem = items.find(i => i.id === item.id);
   const isInCart = !!cartItem;
 
   const handleAddToCart = () => {
+    if (!item.price) return;
+    
     addToCart({
-      id: platter.id,
-      name: platter.name,
-      name_en: platter.name_en,
-      price: platter.price,
-      image: platter.image || undefined,
-      serving_info: platter.serving_info,
+      id: item.id,
+      name: item.name,
+      name_en: item.name_en || null,
+      price: item.price,
+      image: image || undefined,
+      serving_info: servingInfo || undefined,
       category: 'platter',
     }, quantity);
     
@@ -208,13 +96,13 @@ const PlatterCard = ({ platter, language }: PlatterCardProps) => {
 
   return (
     <div className="bg-card rounded-lg overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group flex flex-col">
-      {platter.image ? (
+      {image ? (
         <div className="aspect-square overflow-hidden relative">
           <img
-            src={platter.image}
+            src={image}
             alt={`${name} – STORIA Catering München`}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            style={{ objectPosition: platter.objectPosition || "center center" }}
+            style={{ objectPosition: imagePosition }}
             width="400"
             height="400"
             loading="lazy"
@@ -239,55 +127,63 @@ const PlatterCard = ({ platter, language }: PlatterCardProps) => {
       )}
       <div className="p-4 flex flex-col flex-1">
         <h3 className="font-serif font-medium text-lg mb-1">{name}</h3>
-        <p className="text-xs text-primary/80 mb-2">{servingInfo}</p>
-        <p className="text-sm text-muted-foreground mb-3 whitespace-pre-line line-clamp-4">{description}</p>
+        {servingInfo && (
+          <p className="text-xs text-primary/80 mb-2">{servingInfo}</p>
+        )}
+        {description && (
+          <p className="text-sm text-muted-foreground mb-3 whitespace-pre-line line-clamp-4">{description}</p>
+        )}
         
         <div className="flex justify-between items-end mb-3">
           <div />
-          <span className="font-semibold text-primary text-lg">
-            {formatPrice(platter.price)}
-          </span>
+          {item.price && (
+            <span className="font-semibold text-primary text-lg">
+              {formatPrice(item.price)}
+            </span>
+          )}
         </div>
 
         {/* Add to Cart Controls */}
-        <div className="flex items-center gap-2 mt-auto">
-          <div className="flex items-center border border-border rounded-md">
-            <button
-              onClick={() => setQuantity(q => Math.max(1, q - 1))}
-              className="px-2 py-1.5 hover:bg-muted transition-colors"
-              aria-label="Menge reduzieren"
+        {item.price && (
+          <div className="flex items-center gap-2 mt-auto">
+            <div className="flex items-center border border-border rounded-md">
+              <button
+                onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                className="px-2 py-1.5 hover:bg-muted transition-colors"
+                aria-label="Menge reduzieren"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="px-3 py-1.5 text-sm font-medium min-w-[40px] text-center">
+                {quantity}
+              </span>
+              <button
+                onClick={() => setQuantity(q => q + 1)}
+                className="px-2 py-1.5 hover:bg-muted transition-colors"
+                aria-label="Menge erhöhen"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            <Button 
+              onClick={handleAddToCart}
+              size="sm"
+              className={`flex-1 transition-all ${isAdded ? 'bg-green-600 hover:bg-green-600' : ''}`}
             >
-              <Minus className="h-4 w-4" />
-            </button>
-            <span className="px-3 py-1.5 text-sm font-medium min-w-[40px] text-center">
-              {quantity}
-            </span>
-            <button
-              onClick={() => setQuantity(q => q + 1)}
-              className="px-2 py-1.5 hover:bg-muted transition-colors"
-              aria-label="Menge erhöhen"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+              {isAdded ? (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  {language === 'de' ? 'Hinzugefügt' : 'Added'}
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="h-4 w-4 mr-1" />
+                  {language === 'de' ? 'In den Warenkorb' : 'Add to Cart'}
+                </>
+              )}
+            </Button>
           </div>
-          <Button 
-            onClick={handleAddToCart}
-            size="sm"
-            className={`flex-1 transition-all ${isAdded ? 'bg-green-600 hover:bg-green-600' : ''}`}
-          >
-            {isAdded ? (
-              <>
-                <Check className="h-4 w-4 mr-1" />
-                {language === 'de' ? 'Hinzugefügt' : 'Added'}
-              </>
-            ) : (
-              <>
-                <ShoppingCart className="h-4 w-4 mr-1" />
-                {language === 'de' ? 'In den Warenkorb' : 'Add to Cart'}
-              </>
-            )}
-          </Button>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -295,6 +191,13 @@ const PlatterCard = ({ platter, language }: PlatterCardProps) => {
 
 const BuffetPlatten = () => {
   const { language } = useLanguage();
+  const { data: menu, isLoading, error } = useCateringMenuBySlug("buffet-platten");
+
+  const title = language === 'en' && menu?.title_en ? menu.title_en : menu?.title;
+  const subtitle = language === 'en' && menu?.subtitle_en ? menu.subtitle_en : menu?.subtitle;
+
+  // Flatten all items from all categories
+  const allItems = menu?.categories.flatMap(cat => cat.items) || [];
 
   return (
     <>
@@ -303,19 +206,21 @@ const BuffetPlatten = () => {
         description={language === 'de' ? "Italienische Antipasti-Platten für Meetings & Feiern: Vitello Tonnato, Bruschette, Käse & mehr. STORIA Catering München – Jetzt bestellen!" : "Italian antipasti platters for meetings & celebrations: Vitello Tonnato, bruschetta, cheese & more. STORIA Catering Munich – Order now!"}
         canonical="/catering/buffet-platten"
       />
-      <StructuredData 
-        type="product" 
-        products={platters.map(p => ({
-          name: p.name,
-          name_en: p.name_en,
-          description: p.description,
-          description_en: p.description_en,
-          price: p.price,
-          image: p.image || undefined,
-          sku: p.id,
-          servingInfo: p.serving_info,
-        }))} 
-      />
+      {allItems.length > 0 && (
+        <StructuredData 
+          type="product" 
+          products={allItems.map(item => ({
+            name: item.name,
+            name_en: item.name_en || undefined,
+            description: item.description || '',
+            description_en: item.description_en || undefined,
+            price: item.price || 0,
+            image: imageMap[item.name] || item.image_url || undefined,
+            sku: item.id,
+            servingInfo: item.serving_info || undefined,
+          }))} 
+        />
+      )}
       <Header />
       <Navigation />
       <div className="min-h-screen bg-background flex flex-col">
@@ -324,13 +229,21 @@ const BuffetPlatten = () => {
           <section className="container mx-auto px-4 py-16 md:py-24">
             <div className="max-w-4xl mx-auto text-center mb-8">
               <h1 className="text-3xl md:text-4xl font-serif font-medium mb-6">
-                {language === 'de' ? 'Platten & Sharing-Gerichte' : 'Platters & Sharing Dishes'}
+                {isLoading ? (
+                  <Skeleton className="h-10 w-64 mx-auto" />
+                ) : (
+                  title || (language === 'de' ? 'Platten & Sharing-Gerichte' : 'Platters & Sharing Dishes')
+                )}
               </h1>
-              <p className="text-lg text-muted-foreground">
-                {language === 'de' 
-                  ? 'Perfekt zum Teilen in geselliger Runde – servierfertig, stilvoll und frisch.'
-                  : 'Perfect for sharing in good company – ready to serve, stylish and fresh.'}
-              </p>
+              {isLoading ? (
+                <Skeleton className="h-20 w-full max-w-2xl mx-auto" />
+              ) : (
+                <p className="text-lg text-muted-foreground">
+                  {subtitle || (language === 'de' 
+                    ? 'Perfekt zum Teilen in geselliger Runde – servierfertig, stilvoll und frisch.'
+                    : 'Perfect for sharing in good company – ready to serve, stylish and fresh.')}
+                </p>
+              )}
             </div>
 
             {/* Steinhofenbrot Info */}
@@ -347,11 +260,36 @@ const BuffetPlatten = () => {
             <h2 className="sr-only">
               {language === 'de' ? 'Unsere Platten' : 'Our Platters'}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {platters.map((platter) => (
-                <PlatterCard key={platter.id} platter={platter} language={language} />
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="space-y-3">
+                    <Skeleton className="aspect-square w-full" />
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="text-center py-12 text-muted-foreground">
+                {language === 'de' 
+                  ? 'Menü konnte nicht geladen werden. Bitte versuchen Sie es später erneut.'
+                  : 'Menu could not be loaded. Please try again later.'}
+              </div>
+            ) : allItems.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                {language === 'de' 
+                  ? 'Das Menü wird derzeit aktualisiert. Bitte schauen Sie später wieder vorbei.'
+                  : 'The menu is currently being updated. Please check back later.'}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                {allItems.map((item) => (
+                  <MenuItemCard key={item.id} item={item} language={language} />
+                ))}
+              </div>
+            )}
 
             <p className="text-center text-muted-foreground mt-8 italic">
               {language === 'de' 

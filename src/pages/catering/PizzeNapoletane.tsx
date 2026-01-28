@@ -7,56 +7,12 @@ import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
+import { useCateringMenuBySlug, CateringMenuItem } from "@/hooks/useCateringMenus";
 import { useCart } from "@/contexts/CartContext";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ServicesGrid, AllergenInfo } from "@/components/catering/ServiceInfoCard";
 import heroImage from "@/assets/catering/pizze/hero-pizza.webp";
-
-interface Pizza {
-  id: string;
-  name: string;
-  name_en: string;
-  description: string;
-  description_en: string;
-  price: number;
-  allergens?: string;
-}
-
-const pizzaPane: Pizza = {
-  id: "pizza-pane",
-  name: "Pizza Pane",
-  name_en: "Pizza Bread",
-  description: "Zur Auswahl: Pizza-Bällchen mit Rosmarin & Nativem Olivenöl Extra ODER Pizza Aglio e Olio mit Knoblauch, Oregano & Nativem Olivenöl Extra",
-  description_en: "Choose: Pizza balls with rosemary & extra virgin olive oil OR Pizza Aglio e Olio with garlic, oregano & extra virgin olive oil",
-  price: 7.90,
-};
-
-const pizzeClassiche: Pizza[] = [
-  { id: "marinara", name: "Pizza Marinara", name_en: "Pizza Marinara", description: "Crovarese Tomaten, Knoblauch, Oregano, Natives Olivenöl Extra", description_en: "Crovarese tomatoes, garlic, oregano, extra virgin olive oil", price: 9.90 },
-  { id: "cilentana", name: "Pizza Cilentana", name_en: "Pizza Cilentana", description: "Kirschtomaten, Ziegenkäse, Basilikum", description_en: "Cherry tomatoes, goat cheese, basil", price: 9.90 },
-  { id: "margherita", name: "Pizza Margherita", name_en: "Pizza Margherita", description: "San Marzano Tomaten, Fior di Latte Mozzarella, Basilikum", description_en: "San Marzano tomatoes, Fior di Latte mozzarella, basil", price: 12.50, allergens: "a,g" },
-  { id: "provola-pepe", name: "Pizza Provola e Pepe", name_en: "Pizza Provola e Pepe", description: "San Marzano Tomaten, Fior di Latte Mozzarella, Provola, Kirschtomaten & Pfeffer", description_en: "San Marzano tomatoes, Fior di Latte mozzarella, provola, cherry tomatoes & pepper", price: 13.90 },
-  { id: "vegetale", name: "Pizza Vegetale", name_en: "Pizza Vegetale", description: "San Marzano Tomaten, Fior di Latte Mozzarella, Saisongemüse", description_en: "San Marzano tomatoes, Fior di Latte mozzarella, seasonal vegetables", price: 16.50 },
-  { id: "salame-piccante", name: "Pizza Salame Piccante", name_en: "Pizza Spicy Salami", description: "San Marzano Tomaten, Fior di Latte Mozzarella, Scharfe Salami", description_en: "San Marzano tomatoes, Fior di Latte mozzarella, spicy salami", price: 15.90, allergens: "a,g,3" },
-  { id: "regina", name: "Pizza Regina", name_en: "Pizza Regina", description: "San Marzano Tomaten, Fior di Latte Mozzarella, Champignons, Hinterschinken", description_en: "San Marzano tomatoes, Fior di Latte mozzarella, mushrooms, ham", price: 15.90, allergens: "a,g" },
-  { id: "4-stagioni", name: "Pizza 4 Stagioni", name_en: "Pizza 4 Seasons", description: "San Marzano Tomaten, Fior di Latte Mozzarella, Schinken, Pilze, Oliven, Kirschtomaten", description_en: "San Marzano tomatoes, Fior di Latte mozzarella, ham, mushrooms, olives, cherry tomatoes", price: 16.90 },
-  { id: "capricciosa", name: "Pizza Capricciosa", name_en: "Pizza Capricciosa", description: "San Marzano Tomaten, Fior di Latte Mozzarella, Champignons, schwarze Oliven, Hinterschinken, Artischocken", description_en: "San Marzano tomatoes, Fior di Latte mozzarella, mushrooms, black olives, ham, artichokes", price: 16.90, allergens: "a,g,3,6" },
-  { id: "napoletana", name: "Pizza Napoletana", name_en: "Pizza Napoletana", description: "San Marzano Tomaten, Fior di Latte Mozzarella, Sardellen, Olivenöl, Oregano", description_en: "San Marzano tomatoes, Fior di Latte mozzarella, anchovies, olive oil, oregano", price: 16.90, allergens: "a,g" },
-  { id: "calzone", name: "Pizza Calzone", name_en: "Pizza Calzone", description: "Gefüllte Pizza mit San Marzano Tomaten, Fior di Latte Mozzarella, Champignons, Schinken, scharfer Salami", description_en: "Folded pizza with San Marzano tomatoes, Fior di Latte mozzarella, mushrooms, ham, spicy salami", price: 16.90, allergens: "a,g,3" },
-  { id: "4-formaggi", name: "Pizza Bianca 4 Formaggi", name_en: "White Pizza 4 Cheeses", description: "Fior di Latte Mozzarella, Caciocavallo, Pecorino, Gorgonzola, Parmesan", description_en: "Fior di Latte mozzarella, caciocavallo, pecorino, gorgonzola, parmesan", price: 16.90, allergens: "a,g,h" },
-  { id: "carrettiera", name: "Pizza Bianca Carrettiera", name_en: "White Pizza Carrettiera", description: "Fior di Latte Mozzarella, Salsiccia & Rapsblüten", description_en: "Fior di Latte mozzarella, sausage & rapeseed flowers", price: 17.50 },
-  { id: "bianca-prosciutto", name: "Pizza Bianca Prosciutto", name_en: "White Pizza Ham", description: "Fior di Latte Mozzarella, Hinterschinken", description_en: "Fior di Latte mozzarella, ham", price: 15.90, allergens: "a,g" },
-  { id: "bufalina", name: "Pizza Bufalina", name_en: "Pizza Bufalina", description: "San Marzano Tomaten, Büffelmozzarella & Bocconcini D.O.P.", description_en: "San Marzano tomatoes, buffalo mozzarella & bocconcini D.O.P.", price: 16.50, allergens: "a,g" },
-  { id: "caprese-bufala", name: "Pizza Caprese con Bufala", name_en: "Pizza Caprese with Buffalo", description: "San Marzano Tomaten, Tomatenscheiben, Basilikum, Büffelmozzarella", description_en: "San Marzano tomatoes, tomato slices, basil, buffalo mozzarella", price: 16.50 },
-  { id: "tartufo", name: "Pizza Tartufo", name_en: "Pizza Truffle", description: "San Marzano Tomaten, Fior di Latte Mozzarella, Trüffel", description_en: "San Marzano tomatoes, Fior di Latte mozzarella, truffle", price: 24.90, allergens: "a,g" },
-  { id: "parma-rucola", name: "Pizza Parma Rucola", name_en: "Pizza Parma Arugula", description: "San Marzano Tomaten, Fior di Latte Mozzarella, Rucola, Parmaschinken, Parmesan", description_en: "San Marzano tomatoes, Fior di Latte mozzarella, arugula, Parma ham, parmesan", price: 17.90, allergens: "a,g,3" },
-  { id: "stracciatella-bresaola", name: "Pizza Stracciatella e Bresaola", name_en: "Pizza Stracciatella & Bresaola", description: "San Marzano Tomaten, Burrata-Stracciatella, Rucola, Bresaola", description_en: "San Marzano tomatoes, burrata stracciatella, arugula, bresaola", price: 18.90, allergens: "a,g" },
-  { id: "mortadella-pistacchi", name: "Pizza Bianca Mortadella e Pistacchi", name_en: "White Pizza Mortadella & Pistachio", description: "Fior di Latte Mozzarella, Mortadella & Pistaziencreme", description_en: "Fior di Latte mozzarella, mortadella & pistachio cream", price: 19.90 },
-  { id: "carbonara", name: "Pizza Bianca alla Carbonara", name_en: "White Pizza Carbonara", description: "Eigelb, Guanciale, Pecorino", description_en: "Egg yolk, guanciale, pecorino", price: 16.90 },
-  { id: "salmone", name: "Pizza Bianca al Salmone", name_en: "White Pizza Salmon", description: "Fior di Latte Mozzarella, Rucola, Lachs", description_en: "Fior di Latte mozzarella, arugula, salmon", price: 18.90, allergens: "a,d,g" },
-  { id: "rossa-mare", name: "Pizza Rossa Mare", name_en: "Red Pizza Seafood", description: "Crovarese Tomaten, Knoblauch, Oregano, Natives Olivenöl Extra, Oktopus, Gamberoni, Muscheln", description_en: "Crovarese tomatoes, garlic, oregano, extra virgin olive oil, octopus, prawns, mussels", price: 22.90, allergens: "a,b,d,n" },
-  { id: "tonno-sashimi", name: "Pizza Rossa Tonno Sashimi", name_en: "Red Pizza Tuna Sashimi", description: "Crovarese Tomaten, Rucola, Sashimi-Thunfisch mariniert mit Sojasauce", description_en: "Crovarese tomatoes, arugula, sashimi tuna marinated with soy sauce", price: 19.90, allergens: "a,d,f" },
-];
 
 const allergenKey = {
   a: { de: "Gluten", en: "Gluten" },
@@ -70,30 +26,40 @@ const allergenKey = {
   "6": { de: "Geschwärzt", en: "Blackened" },
 };
 
-const PizzaListItem = ({ pizza, language }: { pizza: Pizza; language: string }) => {
+interface PizzaListItemProps {
+  item: CateringMenuItem;
+  language: string;
+}
+
+const PizzaListItem = ({ item, language }: PizzaListItemProps) => {
   const { addToCart, updateQuantity, items } = useCart();
   const { formatPrice } = usePriceDisplay();
   
-  const cartItem = items.find(item => item.id === pizza.id);
+  const cartItem = items.find(i => i.id === item.id);
   const currentQuantity = cartItem?.quantity || 0;
-  const displayName = language === 'en' ? pizza.name_en : pizza.name;
-  const displayDesc = language === 'en' ? pizza.description_en : pizza.description;
+  const displayName = language === 'en' && item.name_en ? item.name_en : item.name;
+  const displayDesc = language === 'en' && item.description_en ? item.description_en : item.description;
 
   const handleIncrease = () => {
+    if (!item.price) return;
     addToCart({
-      id: pizza.id,
-      name: pizza.name,
-      name_en: pizza.name_en,
-      price: pizza.price,
+      id: item.id,
+      name: item.name,
+      name_en: item.name_en || null,
+      price: item.price,
       category: 'pizza',
     }, 1);
   };
 
   const handleDecrease = () => {
     if (currentQuantity > 0) {
-      updateQuantity(pizza.id, currentQuantity - 1);
+      updateQuantity(item.id, currentQuantity - 1);
     }
   };
+
+  // Extract allergens from description or a dedicated field
+  // For now we'll check if there's allergen info in the price_display field
+  const allergens = item.price_display;
 
   return (
     <div className="group py-4 border-b border-border/50 last:border-b-0 hover:bg-muted/30 transition-colors -mx-4 px-4 rounded-lg">
@@ -103,73 +69,81 @@ const PizzaListItem = ({ pizza, language }: { pizza: Pizza; language: string }) 
             <h3 className="font-serif text-lg font-medium text-foreground">
               {displayName}
             </h3>
-            {pizza.allergens && (
+            {allergens && (
               <span className="text-xs text-muted-foreground font-mono">
-                [{pizza.allergens}]
+                [{allergens}]
               </span>
             )}
           </div>
-          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-            {displayDesc}
-          </p>
+          {displayDesc && (
+            <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+              {displayDesc}
+            </p>
+          )}
         </div>
         
         <div className="flex items-center gap-3 sm:gap-4">
-          <span className="font-semibold text-foreground whitespace-nowrap">
-            {formatPrice(pizza.price)}
-          </span>
+          {item.price && (
+            <span className="font-semibold text-foreground whitespace-nowrap">
+              {formatPrice(item.price)}
+            </span>
+          )}
           
-          <div className={cn(
-            "flex items-center gap-1 rounded-full p-1 transition-colors",
-            currentQuantity > 0 ? "bg-primary/10" : "bg-muted/50"
-          )}>
-            <button
-              onClick={handleDecrease}
-              disabled={currentQuantity === 0}
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-background transition-colors disabled:opacity-30"
-              aria-label="Decrease quantity"
-            >
-              <Minus className="h-3 w-3" />
-            </button>
-            <span className={cn(
-              "w-6 text-center text-sm font-medium",
-              currentQuantity > 0 && "text-primary"
-            )}>{currentQuantity}</span>
-            <button
-              onClick={handleIncrease}
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-background transition-colors"
-              aria-label="Increase quantity"
-            >
-              <Plus className="h-3 w-3" />
-            </button>
-          </div>
+          {item.price && (
+            <div className={cn(
+              "flex items-center gap-1 rounded-full p-1 transition-colors",
+              currentQuantity > 0 ? "bg-primary/10" : "bg-muted/50"
+            )}>
+              <button
+                onClick={handleDecrease}
+                disabled={currentQuantity === 0}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-background transition-colors disabled:opacity-30"
+                aria-label="Decrease quantity"
+              >
+                <Minus className="h-3 w-3" />
+              </button>
+              <span className={cn(
+                "w-6 text-center text-sm font-medium",
+                currentQuantity > 0 && "text-primary"
+              )}>{currentQuantity}</span>
+              <button
+                onClick={handleIncrease}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-background transition-colors"
+                aria-label="Increase quantity"
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
-const PizzaPaneCard = ({ language }: { language: string }) => {
+
+const PizzaPaneCard = ({ item, language }: { item: CateringMenuItem; language: string }) => {
   const { addToCart, updateQuantity, items } = useCart();
   const { formatPrice } = usePriceDisplay();
   
-  const cartItem = items.find(item => item.id === pizzaPane.id);
+  const cartItem = items.find(i => i.id === item.id);
   const currentQuantity = cartItem?.quantity || 0;
-  const displayName = language === 'en' ? pizzaPane.name_en : pizzaPane.name;
-  const displayDesc = language === 'en' ? pizzaPane.description_en : pizzaPane.description;
+  const displayName = language === 'en' && item.name_en ? item.name_en : item.name;
+  const displayDesc = language === 'en' && item.description_en ? item.description_en : item.description;
 
   const handleIncrease = () => {
+    if (!item.price) return;
     addToCart({
-      id: pizzaPane.id,
-      name: pizzaPane.name,
-      name_en: pizzaPane.name_en,
-      price: pizzaPane.price,
+      id: item.id,
+      name: item.name,
+      name_en: item.name_en || null,
+      price: item.price,
       category: 'pizza',
     }, 1);
   };
 
   const handleDecrease = () => {
     if (currentQuantity > 0) {
-      updateQuantity(pizzaPane.id, currentQuantity - 1);
+      updateQuantity(item.id, currentQuantity - 1);
     }
   };
 
@@ -178,43 +152,61 @@ const PizzaPaneCard = ({ language }: { language: string }) => {
       <h2 className="text-xl font-serif font-medium mb-4 text-center">
         {displayName}
       </h2>
-      <p className="text-muted-foreground text-center mb-6 max-w-xl mx-auto">
-        {displayDesc}
-      </p>
+      {displayDesc && (
+        <p className="text-muted-foreground text-center mb-6 max-w-xl mx-auto">
+          {displayDesc}
+        </p>
+      )}
       
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-        <span className="text-xl font-semibold">
-          {formatPrice(pizzaPane.price)}
-        </span>
-        
-        <div className={cn(
-          "flex items-center gap-2 rounded-full p-1 border transition-colors",
-          currentQuantity > 0 ? "bg-primary/10 border-primary/30" : "bg-background border-border/50"
-        )}>
-          <button
-            onClick={handleDecrease}
-            disabled={currentQuantity === 0}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors disabled:opacity-30"
-          >
-            <Minus className="h-4 w-4" />
-          </button>
-          <span className={cn(
-            "w-8 text-center font-medium",
-            currentQuantity > 0 && "text-primary"
-          )}>{currentQuantity}</span>
-          <button
-            onClick={handleIncrease}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+      {item.price && (
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <span className="text-xl font-semibold">
+            {formatPrice(item.price)}
+          </span>
+          
+          <div className={cn(
+            "flex items-center gap-2 rounded-full p-1 border transition-colors",
+            currentQuantity > 0 ? "bg-primary/10 border-primary/30" : "bg-background border-border/50"
+          )}>
+            <button
+              onClick={handleDecrease}
+              disabled={currentQuantity === 0}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors disabled:opacity-30"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <span className={cn(
+              "w-8 text-center font-medium",
+              currentQuantity > 0 && "text-primary"
+            )}>{currentQuantity}</span>
+            <button
+              onClick={handleIncrease}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
+
 const PizzeNapoletane = () => {
   const { language } = useLanguage();
+  const { data: menu, isLoading, error } = useCateringMenuBySlug("pizze-napoletane");
+
+  // Separate Pizza Pane from other pizzas (first category is usually Pizza Pane)
+  const categories = menu?.categories || [];
+  const pizzaPaneCategory = categories.find(cat => cat.name.toLowerCase().includes('pane'));
+  const pizzaPaneItem = pizzaPaneCategory?.items[0];
+  
+  // Get all other pizza items
+  const otherCategories = categories.filter(cat => !cat.name.toLowerCase().includes('pane'));
+  const allPizzas = otherCategories.flatMap(cat => cat.items);
+
+  // For structured data
+  const allItems = menu?.categories.flatMap(cat => cat.items) || [];
 
   return (
     <>
@@ -225,17 +217,19 @@ const PizzeNapoletane = () => {
           : "Authentic Neapolitan stone-oven pizza – 25 varieties for delivery & pickup in Munich. STORIA Catering – Order now!"}
         canonical="/catering/pizze-napoletane"
       />
-      <StructuredData 
-        type="product" 
-        products={[pizzaPane, ...pizzeClassiche].map(p => ({
-          name: p.name,
-          name_en: p.name_en,
-          description: p.description,
-          description_en: p.description_en,
-          price: p.price,
-          sku: p.id,
-        }))} 
-      />
+      {allItems.length > 0 && (
+        <StructuredData 
+          type="product" 
+          products={allItems.map(item => ({
+            name: item.name,
+            name_en: item.name_en || undefined,
+            description: item.description || '',
+            description_en: item.description_en || undefined,
+            price: item.price || 0,
+            sku: item.id,
+          }))} 
+        />
+      )}
       <Header />
       <Navigation />
       <div className="min-h-screen bg-background flex flex-col">
@@ -278,30 +272,58 @@ const PizzeNapoletane = () => {
           <section className="container mx-auto px-4 pb-16">
             <div className="max-w-3xl mx-auto">
               
-              {/* Pizza Pane */}
-              <PizzaPaneCard language={language} />
-              
-              {/* Pizze Classiche */}
-              <div className="mb-8">
-                <h2 className="text-2xl font-serif font-medium mb-6 text-center border-b border-border pb-4">
-                  Pizze Classiche
-                </h2>
-                
-                <div className="space-y-1">
-                  {pizzeClassiche.map((pizza) => (
-                    <PizzaListItem key={pizza.id} pizza={pizza} language={language} />
+              {isLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-32 w-full rounded-2xl" />
+                  <Skeleton className="h-8 w-48 mx-auto" />
+                  {[...Array(10)].map((_, i) => (
+                    <Skeleton key={i} className="h-20 w-full" />
                   ))}
                 </div>
-              </div>
+              ) : error ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  {language === 'de' 
+                    ? 'Menü konnte nicht geladen werden. Bitte versuchen Sie es später erneut.'
+                    : 'Menu could not be loaded. Please try again later.'}
+                </div>
+              ) : allItems.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  {language === 'de' 
+                    ? 'Das Menü wird derzeit aktualisiert. Bitte schauen Sie später wieder vorbei.'
+                    : 'The menu is currently being updated. Please check back later.'}
+                </div>
+              ) : (
+                <>
+                  {/* Pizza Pane */}
+                  {pizzaPaneItem && (
+                    <PizzaPaneCard item={pizzaPaneItem} language={language} />
+                  )}
+                  
+                  {/* Pizze Classiche */}
+                  {otherCategories.map((category) => (
+                    <div key={category.id} className="mb-8">
+                      <h2 className="text-2xl font-serif font-medium mb-6 text-center border-b border-border pb-4">
+                        {language === 'en' && category.name_en ? category.name_en : category.name}
+                      </h2>
+                      
+                      <div className="space-y-1">
+                        {category.items.map((item) => (
+                          <PizzaListItem key={item.id} item={item} language={language} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
 
-              {/* Allergen Key */}
-              <AllergenInfo allergens={allergenKey} className="mt-12" />
+                  {/* Allergen Key */}
+                  <AllergenInfo allergens={allergenKey} className="mt-12" />
 
-              {/* Additional Services */}
-              <ServicesGrid 
-                title={language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
-                className="mt-12"
-              />
+                  {/* Additional Services */}
+                  <ServicesGrid 
+                    title={language === 'de' ? 'Zusatzleistungen' : 'Additional Services'}
+                    className="mt-12"
+                  />
+                </>
+              )}
             </div>
           </section>
           
