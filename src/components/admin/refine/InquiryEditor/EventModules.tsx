@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ExtendedInquiry, Package, SelectedPackage, QuoteItem } from "./types";
 import { MenuItemSelector } from "./MenuItemSelector";
+import { MenuComposer, MenuSelection } from "./MenuComposer";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { toast } from "sonner";
@@ -27,6 +28,7 @@ interface EventModulesProps {
   packages: Package[];
   selectedPackages: SelectedPackage[];
   quoteItems: QuoteItem[];
+  menuSelection: MenuSelection;
   onPackageToggle: (pkg: Package) => void;
   onRoomChange: (room: string) => void;
   onTimeSlotChange: (slot: string) => void;
@@ -34,6 +36,7 @@ interface EventModulesProps {
   onItemAdd: (item: { id: string; name: string; description: string | null; price: number | null }) => void;
   onItemQuantityChange: (itemId: string, quantity: number) => void;
   onItemRemove: (itemId: string) => void;
+  onMenuSelectionChange: (selection: MenuSelection) => void;
 }
 
 const TIME_SLOTS = [
@@ -48,6 +51,7 @@ export const EventModules = ({
   packages,
   selectedPackages,
   quoteItems,
+  menuSelection,
   onPackageToggle,
   onRoomChange,
   onTimeSlotChange,
@@ -55,6 +59,7 @@ export const EventModules = ({
   onItemAdd,
   onItemQuantityChange,
   onItemRemove,
+  onMenuSelectionChange,
 }: EventModulesProps) => {
   const guestCount = parseInt(inquiry.guest_count || '0') || 0;
   const [allLocations, setAllLocations] = useState<LocationData[]>([]);
@@ -360,7 +365,18 @@ export const EventModules = ({
         </CardContent>
       </Card>
 
-      {/* Menu Items Selector */}
+      {/* Menu Composer - shows when a package is selected */}
+      {selectedPackages.length > 0 && (
+        <MenuComposer
+          packageId={selectedPackages[0]?.id || null}
+          packageName={selectedPackages[0]?.name || null}
+          guestCount={guestCount}
+          menuSelection={menuSelection}
+          onMenuSelectionChange={onMenuSelectionChange}
+        />
+      )}
+
+      {/* Menu Items Selector - for additional custom items */}
       <MenuItemSelector
         selectedItems={quoteItems}
         onItemAdd={onItemAdd}
