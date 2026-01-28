@@ -11,22 +11,24 @@ import { Check, Users, Minus, Plus, ShoppingCart, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils";
 import type { EventPackage } from "@/hooks/useEventPackages";
 
-// Package images - use public folder images from database
-import packageExklusiv from "@/assets/events/package-exklusiv.webp";
+// Package images from STORIA website
+import cocktailsAperitivo from "@/assets/events/cocktails-aperitivo.webp";
+import ravioliDinner from "@/assets/events/ravioli-dinner.webp";
+import locationAussen from "@/assets/events/location-aussen.webp";
 
 // Get image for package by matching name patterns
 const getPackageImage = (name: string): string => {
   const nameLower = name.toLowerCase();
   if (nameLower.includes("business") || nameLower.includes("dinner")) {
-    return "/catering/festmenus/hero.webp"; // Festive dinner atmosphere
+    return ravioliDinner; // High-quality pasta for dinner
   }
   if (nameLower.includes("network") || nameLower.includes("aperitivo")) {
-    return "/catering/flying-buffet/hero.webp"; // Fingerfood/aperitivo atmosphere
+    return cocktailsAperitivo; // Cocktails for aperitivo
   }
   if (nameLower.includes("location") || nameLower.includes("gesamte")) {
-    return packageExklusiv; // Opulent banquet
+    return locationAussen; // Restaurant exterior/terrace
   }
-  return "/catering/festmenus/hero.webp"; // Default fallback
+  return ravioliDinner; // Default fallback
 };
 
 interface EventPackageShopCardProps {
