@@ -49,6 +49,9 @@ export interface SelectedPackage {
   price: number;
   pricePerPerson: boolean;
   quantity: number;
+  minGuests?: number;
+  requiresPrepayment?: boolean;
+  prepaymentPercentage?: number;
 }
 
 export interface Package {
@@ -65,6 +68,8 @@ export interface Package {
   includes: string[];
   is_active: boolean;
   sort_order: number;
+  requires_prepayment: boolean;
+  prepayment_percentage: number;
 }
 
 export interface EmailTemplate {

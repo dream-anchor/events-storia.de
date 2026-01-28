@@ -117,6 +117,9 @@ export const SmartInquiryEditor = () => {
         price: pkg.price,
         pricePerPerson: pkg.price_per_person,
         quantity: 1,
+        minGuests: pkg.min_guests ?? undefined,
+        requiresPrepayment: pkg.requires_prepayment,
+        prepaymentPercentage: pkg.prepayment_percentage,
       }];
     });
   }, []);
