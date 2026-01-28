@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { format, isBefore, addDays, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Search, RefreshCw, ChevronDown, ChevronUp, Truck, MapPin, Phone, Mail, Building2, FileText, CreditCard, StickyNote, Package, Printer, XCircle, Download, Loader2, CheckSquare, Square, Receipt } from "lucide-react";
+import { Search, RefreshCw, ChevronDown, ChevronUp, Truck, MapPin, Phone, Mail, Building2, FileText, CreditCard, StickyNote, Package, Printer, XCircle, Download, Loader2, CheckSquare, Square, Receipt, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useCateringOrders, useUpdateOrderStatus, useUpdateOrderNotes, OrderStatus, CateringOrder } from "@/hooks/useCateringOrders";
+import { useCateringOrders, useUpdateOrderStatus, useUpdateOrderNotes, useDeleteOrder, OrderStatus, CateringOrder } from "@/hooks/useCateringOrders";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -38,6 +38,9 @@ const CateringOrdersManager = () => {
   const { data: orders, isLoading, refetch } = useCateringOrders(statusFilter);
   const updateStatus = useUpdateOrderStatus();
   const updateNotes = useUpdateOrderNotes();
+  const deleteOrder = useDeleteOrder();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
 
   // Bulk actions
   const handleSelectOrder = (orderId: string, checked: boolean) => {
@@ -800,10 +803,73 @@ const CateringOrdersManager = () => {
                       )}
                       
                       {order.status === 'cancelled' && order.cancellation_reason && (
-                        <div className="text-sm text-muted-foreground ml-auto">
+                        <div className="text-sm text-muted-foreground">
                           Stornierungsgrund: {order.cancellation_reason}
                         </div>
                       )}
+                      
+                      {/* Delete Button - only for admins */}
+                      <AlertDialog open={deleteDialogOpen && deletingOrderId === order.id} onOpenChange={(open) => {
+                        setDeleteDialogOpen(open);
+                        if (!open) setDeletingOrderId(null);
+                      }}>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-auto"
+                            onClick={() => setDeletingOrderId(order.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Löschen
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Bestellung endgültig löschen?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Bestellung <strong>{order.order_number}</strong> wird unwiderruflich gelöscht. 
+                              Diese Aktion kann nicht rückgängig gemacht werden.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => {
+                                deleteOrder.mutate(order.id, {
+                                  onSuccess: () => {
+                                    toast({
+                                      title: "Bestellung gelöscht",
+                                      description: `${order.order_number} wurde entfernt.`
+                                    });
+                                    setDeleteDialogOpen(false);
+                                    setDeletingOrderId(null);
+                                    refetch();
+                                  },
+                                  onError: (err) => {
+                                    toast({
+                                      title: "Fehler",
+                                      description: err instanceof Error ? err.message : "Löschen fehlgeschlagen",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                });
+                              }}
+                              disabled={deleteOrder.isPending}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              {deleteOrder.isPending ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Wird gelöscht...
+                                </>
+                              ) : (
+                                "Endgültig löschen"
+                              )}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 )}
