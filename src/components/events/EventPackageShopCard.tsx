@@ -129,6 +129,12 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
           {pkg.max_guests && (
             <p>{language === 'de' ? `max. ${pkg.max_guests} Personen` : `max. ${pkg.max_guests} guests`}</p>
           )}
+          {/* Exclusivity info for Business Dinner */}
+          {(pkg.name.toLowerCase().includes('business') || pkg.name.toLowerCase().includes('dinner')) && (
+            <p className="text-primary font-medium">
+              {language === 'de' ? 'Exklusiver Raum ab 40 Personen' : 'Exclusive room from 40 guests'}
+            </p>
+          )}
         </div>
 
         {description && (
