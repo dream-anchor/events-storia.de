@@ -19,6 +19,7 @@ import {
 import { ArrowLeft, Save, Plus, X, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { PackageMenuItemsEditor } from "./PackageMenuItemsEditor";
 
 interface PackageFormData {
   name: string;
@@ -496,11 +497,16 @@ export const PackageEdit = () => {
           </CardContent>
         </Card>
 
+        {/* Menu Items - Only show for existing packages */}
+        {!isCreate && id && (
+          <PackageMenuItemsEditor packageId={id} />
+        )}
+
         {/* Includes */}
         <Card>
           <CardHeader>
             <CardTitle>Inklusivleistungen</CardTitle>
-            <CardDescription>Was ist in diesem Paket enthalten?</CardDescription>
+            <CardDescription>Was ist in diesem Paket enthalten? (Freitext-Liste)</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
