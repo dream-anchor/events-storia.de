@@ -1,4 +1,4 @@
-import { Check, Leaf, Fish, Beef, Wine, Coffee, CakeSlice, UtensilsCrossed } from "lucide-react";
+import { Check, Leaf, Fish, Beef, Wine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -21,17 +21,41 @@ interface EventPackageCardProps {
   onSelect: (id: string) => void;
 }
 
-// Helper to get icon for feature item
-const getFeatureIcon = (item: string) => {
+// Dietary icons for food items
+const DietaryIcons = ({ item }: { item: string }) => {
   const lower = item.toLowerCase();
-  if (lower.includes('vegan')) return <Leaf className="h-4 w-4 text-green-600 shrink-0" />;
-  if (lower.includes('vegetarisch') || lower.includes('gemüse')) return <Leaf className="h-4 w-4 text-green-500 shrink-0" />;
-  if (lower.includes('fisch') || lower.includes('fish') || lower.includes('dorade') || lower.includes('lachs')) return <Fish className="h-4 w-4 text-blue-500 shrink-0" />;
-  if (lower.includes('fleisch') || lower.includes('meat') || lower.includes('rind') || lower.includes('beef') || lower.includes('enten')) return <Beef className="h-4 w-4 text-red-500 shrink-0" />;
-  if (lower.includes('wein') || lower.includes('wine') || lower.includes('cocktail') || lower.includes('aperitif')) return <Wine className="h-4 w-4 text-purple-500 shrink-0" />;
-  if (lower.includes('kaffee') || lower.includes('coffee')) return <Coffee className="h-4 w-4 text-amber-700 shrink-0" />;
-  if (lower.includes('dessert') || lower.includes('mousse') || lower.includes('panna') || lower.includes('tiramisu') || lower.includes('schokolade')) return <CakeSlice className="h-4 w-4 text-pink-500 shrink-0" />;
-  if (lower.includes('gang') || lower.includes('course') || lower.includes('menü') || lower.includes('menu')) return <UtensilsCrossed className="h-4 w-4 text-orange-500 shrink-0" />;
+  
+  // Food items that have dietary options (Vegan, Vegetarisch, Fisch, Fleisch)
+  const hasFoodOptions = ['vorspeisenplatte', 'hauptgang', 'fingerfood', 'pasta-station', 'course'].some(f => lower.includes(f));
+  // Dessert only has Vegan and Vegetarisch
+  const isDessert = lower.includes('dessert') || lower.includes('mousse') || lower.includes('panna');
+  // Drinks/other items - no dietary icons
+  const isDrink = ['wein', 'wine', 'cocktail', 'aperitif', 'kaffee', 'coffee'].some(d => lower.includes(d));
+  
+  if (isDrink) {
+    return <Wine className="h-4 w-4 text-purple-500 shrink-0" />;
+  }
+  
+  if (hasFoodOptions) {
+    return (
+      <div className="flex items-center gap-1 shrink-0" title="Vegan, Vegetarisch, Fisch, Fleisch">
+        <Leaf className="h-3.5 w-3.5 text-green-600" />
+        <Leaf className="h-3.5 w-3.5 text-green-500" />
+        <Fish className="h-3.5 w-3.5 text-blue-500" />
+        <Beef className="h-3.5 w-3.5 text-red-500" />
+      </div>
+    );
+  }
+  
+  if (isDessert) {
+    return (
+      <div className="flex items-center gap-1 shrink-0" title="Vegan, Vegetarisch">
+        <Leaf className="h-3.5 w-3.5 text-green-600" />
+        <Leaf className="h-3.5 w-3.5 text-green-500" />
+      </div>
+    );
+  }
+  
   return <Check className="h-4 w-4 text-primary shrink-0" />;
 };
 
@@ -62,7 +86,7 @@ const EventPackageCard = ({ pkg, onSelect }: EventPackageCardProps) => {
       <ul className="space-y-3 mb-8 flex-grow">
         {features.map((feature, index) => (
           <li key={index} className="flex items-start gap-3 text-sm">
-            {getFeatureIcon(feature)}
+            <DietaryIcons item={feature} />
             <span className="text-muted-foreground">{feature}</span>
           </li>
         ))}
