@@ -360,6 +360,11 @@ export const SmartInquiryEditor = () => {
                     onItemQuantityChange={handleItemQuantityChange}
                     onItemRemove={handleItemRemove}
                     onMenuSelectionChange={setMenuSelection}
+                    emailDraft={emailDraft}
+                    onEmailDraftChange={setEmailDraft}
+                    onSendOffer={handleSendOffer}
+                    isSending={isSending}
+                    templates={templates}
                   />
                 ) : (
                   <CateringModules

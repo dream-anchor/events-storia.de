@@ -2,13 +2,10 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Loader2, ChefHat, CheckCircle2, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePackageMenuConfig } from "./usePackageMenuConfig";
-import { CourseProgress } from "./CourseProgress";
-import { CourseSelector } from "./CourseSelector";
-import { DrinkPackageSelector } from "./DrinkPackageSelector";
+import { MenuWorkflow } from "./MenuWorkflow";
 import { 
   MenuSelection, 
   CourseSelection, 
@@ -24,6 +21,13 @@ interface MenuComposerProps {
   guestCount: number;
   menuSelection: MenuSelection;
   onMenuSelectionChange: (selection: MenuSelection) => void;
+  // New props for integrated workflow
+  inquiry?: any;
+  emailDraft?: string;
+  onEmailDraftChange?: (draft: string) => void;
+  onSendOffer?: () => void;
+  isSending?: boolean;
+  templates?: any[];
 }
 
 export const MenuComposer = ({
@@ -32,10 +36,15 @@ export const MenuComposer = ({
   guestCount,
   menuSelection,
   onMenuSelectionChange,
+  inquiry,
+  emailDraft = "",
+  onEmailDraftChange,
+  onSendOffer,
+  isSending = false,
+  templates = [],
 }: MenuComposerProps) => {
   const { courseConfigs, drinkConfigs, isLoading, error } = usePackageMenuConfig(packageId);
   const { items: allMenuItems, isLoading: itemsLoading } = useCombinedMenuItems();
-  const [activeCourseIndex, setActiveCourseIndex] = useState(0);
 
   // Transform menu items to our format
   const menuItems: MenuItem[] = useMemo(() => {
@@ -49,86 +58,49 @@ export const MenuComposer = ({
     }));
   }, [allMenuItems]);
 
-  // Get course selection for a course type
-  const getCourseSelection = useCallback((courseType: CourseType): CourseSelection | null => {
-    return menuSelection.courses.find(c => c.courseType === courseType) || null;
-  }, [menuSelection.courses]);
-
-  // Handle course selection
-  const handleCourseSelect = useCallback((selection: CourseSelection) => {
-    const newCourses = [...menuSelection.courses];
-    const existingIndex = newCourses.findIndex(c => c.courseType === selection.courseType);
-    
-    if (existingIndex >= 0) {
-      newCourses[existingIndex] = selection;
-    } else {
-      newCourses.push(selection);
-    }
-
-    onMenuSelectionChange({
-      ...menuSelection,
-      courses: newCourses,
-    });
-  }, [menuSelection, onMenuSelectionChange]);
-
-  // Handle drink selection
-  const handleDrinkSelect = useCallback((selection: DrinkSelection) => {
-    const newDrinks = [...menuSelection.drinks];
-    const existingIndex = newDrinks.findIndex(d => d.drinkGroup === selection.drinkGroup);
-    
-    if (existingIndex >= 0) {
-      newDrinks[existingIndex] = selection;
-    } else {
-      newDrinks.push(selection);
-    }
-
-    onMenuSelectionChange({
-      ...menuSelection,
-      drinks: newDrinks,
-    });
-  }, [menuSelection, onMenuSelectionChange]);
-
-  // Navigate to next course
-  const handleNextCourse = useCallback(() => {
-    if (activeCourseIndex < courseConfigs.length - 1) {
-      setActiveCourseIndex(activeCourseIndex + 1);
-    }
-  }, [activeCourseIndex, courseConfigs.length]);
-
   // Calculate progress
   const progress = useMemo(() => {
     if (courseConfigs.length === 0) return 0;
     
     const requiredCourses = courseConfigs.filter(c => c.is_required);
     const completedCourses = requiredCourses.filter(config => {
-      const selection = getCourseSelection(config.course_type);
+      const selection = menuSelection.courses.find(c => c.courseType === config.course_type);
       return selection && (selection.itemId || selection.isCustom);
     });
     
-    return Math.round((completedCourses.length / requiredCourses.length) * 100);
-  }, [courseConfigs, getCourseSelection]);
+    const courseProgress = requiredCourses.length > 0 
+      ? (completedCourses.length / requiredCourses.length) * 50 
+      : 50;
+
+    const requiredDrinkChoices = drinkConfigs.filter(c => c.is_choice);
+    const completedDrinks = requiredDrinkChoices.filter(config => {
+      const selection = menuSelection.drinks.find(d => d.drinkGroup === config.drink_group);
+      return selection?.selectedChoice || selection?.customDrink;
+    });
+    
+    const drinkProgress = requiredDrinkChoices.length > 0 
+      ? (completedDrinks.length / requiredDrinkChoices.length) * 50 
+      : 50;
+
+    return Math.round(courseProgress + drinkProgress);
+  }, [courseConfigs, drinkConfigs, menuSelection]);
 
   // Check if all required selections are made
   const isComplete = useMemo(() => {
     const requiredCourses = courseConfigs.filter(c => c.is_required);
     const allCoursesSelected = requiredCourses.every(config => {
-      const selection = getCourseSelection(config.course_type);
+      const selection = menuSelection.courses.find(c => c.courseType === config.course_type);
       return selection && (selection.itemId || selection.isCustom);
     });
 
     const requiredDrinkChoices = drinkConfigs.filter(c => c.is_choice);
     const allDrinksSelected = requiredDrinkChoices.every(config => {
       const selection = menuSelection.drinks.find(d => d.drinkGroup === config.drink_group);
-      return selection?.selectedChoice;
+      return selection?.selectedChoice || selection?.customDrink;
     });
 
     return allCoursesSelected && allDrinksSelected;
-  }, [courseConfigs, drinkConfigs, getCourseSelection, menuSelection.drinks]);
-
-  // Reset when package changes
-  useEffect(() => {
-    setActiveCourseIndex(0);
-  }, [packageId]);
+  }, [courseConfigs, drinkConfigs, menuSelection]);
 
   if (!packageId) {
     return (
@@ -178,8 +150,6 @@ export const MenuComposer = ({
     );
   }
 
-  const currentCourseConfig = courseConfigs[activeCourseIndex];
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -212,53 +182,23 @@ export const MenuComposer = ({
         </CardContent>
       </Card>
 
-      {/* Course Progress Navigation */}
-      {courseConfigs.length > 0 && (
-        <CourseProgress
-          courseConfigs={courseConfigs}
-          courseSelections={menuSelection.courses}
-          activeCourseIndex={activeCourseIndex}
-          onCourseClick={setActiveCourseIndex}
-        />
-      )}
-
-      {/* Active Course Selector */}
-      {currentCourseConfig && (
-        <CourseSelector
-          courseConfig={currentCourseConfig}
-          currentSelection={getCourseSelection(currentCourseConfig.course_type)}
-          menuItems={menuItems}
-          onSelect={handleCourseSelect}
-          onNext={handleNextCourse}
-        />
-      )}
-
-      {/* Drink Package Selector */}
-      {drinkConfigs.length > 0 && (
-        <DrinkPackageSelector
-          drinkConfigs={drinkConfigs}
-          drinkSelections={menuSelection.drinks}
-          onSelect={handleDrinkSelect}
-        />
-      )}
-
-      {/* Summary when complete */}
-      {isComplete && (
-        <Card className="border-green-200 bg-green-50/50">
-          <CardContent className="py-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
-              <div>
-                <p className="font-medium text-green-800">Menü vollständig konfiguriert</p>
-                <p className="text-sm text-green-600">
-                  Alle Gänge und Getränke wurden ausgewählt. 
-                  Sie können jetzt mit der Kommunikation fortfahren.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Menu Workflow - 3-Step Process */}
+      <MenuWorkflow
+        packageId={packageId}
+        packageName={packageName}
+        guestCount={guestCount}
+        courseConfigs={courseConfigs}
+        drinkConfigs={drinkConfigs}
+        menuItems={menuItems}
+        menuSelection={menuSelection}
+        onMenuSelectionChange={onMenuSelectionChange}
+        inquiry={inquiry}
+        emailDraft={emailDraft}
+        onEmailDraftChange={onEmailDraftChange}
+        onSendOffer={onSendOffer}
+        isSending={isSending}
+        templates={templates}
+      />
     </div>
   );
 };
