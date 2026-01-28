@@ -586,8 +586,10 @@ const Checkout = () => {
   const totalVat19 = deliveryVat;
   const grandTotal = foodGross + deliveryGross;
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  // Handle input change - also triggered by onInput for autofill/paste support
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const target = e.target as HTMLInputElement | HTMLTextAreaElement;
+    setFormData(prev => ({ ...prev, [target.name]: target.value }));
   };
 
   const generateOrderNumber = (isStripePaid: boolean = false) => {
@@ -1488,8 +1490,14 @@ const Checkout = () => {
                           autoComplete="email"
                           value={formData.email}
                           onChange={handleInputChange}
+                          onInput={handleInputChange}
                           onBlur={(e) => {
-                            const result = validateEmail(e.target.value);
+                            // Also sync value on blur in case autofill didn't trigger change
+                            const currentValue = e.target.value;
+                            if (currentValue !== formData.email) {
+                              setFormData(prev => ({ ...prev, email: currentValue }));
+                            }
+                            const result = validateEmail(currentValue);
                             if (!result.valid && result.error) {
                               const errorMsg = result.error.split('|').find(s => s.startsWith(language === 'de' ? 'de:' : 'en:'));
                               setEmailError(errorMsg ? errorMsg.slice(3) : result.error);
