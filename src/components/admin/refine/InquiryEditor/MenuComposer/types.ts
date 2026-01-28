@@ -15,6 +15,9 @@ export type DrinkGroupType =
   | 'water' 
   | 'coffee';
 
+// Extended item source type to include manual entries
+export type ItemSource = 'catering' | 'ristorante' | 'custom' | 'manual';
+
 export interface CourseConfig {
   id: string;
   package_id: string;
@@ -58,7 +61,7 @@ export interface CourseSelection {
   itemId: string | null;
   itemName: string;
   itemDescription: string | null;
-  itemSource: 'catering' | 'ristorante' | 'custom';
+  itemSource: ItemSource;
   isCustom: boolean;
 }
 
@@ -67,6 +70,7 @@ export interface DrinkSelection {
   drinkLabel: string;
   selectedChoice: string | null; // For is_choice = true groups
   quantityLabel: string | null;
+  customDrink?: string | null; // For manual drink entries
 }
 
 export interface MenuSelection {

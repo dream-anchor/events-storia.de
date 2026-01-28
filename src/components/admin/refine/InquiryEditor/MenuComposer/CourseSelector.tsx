@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Search, Check, ChefHat, Utensils } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Search, Check, ChefHat, Utensils, Globe, Sparkles, Plus, Command } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,11 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { CourseConfig, CourseSelection, MenuItem, COURSE_ICONS } from "./types";
+import { GlobalItemSearch } from "./GlobalItemSearch";
+import { CustomItemInput } from "./CustomItemInput";
+import { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 
 interface CourseSelectorProps {
   courseConfig: CourseConfig;
   currentSelection: CourseSelection | null;
   menuItems: MenuItem[];
+  allMenuItems?: MenuItem[]; // For global search
   onSelect: (selection: CourseSelection) => void;
   onNext: () => void;
 }
@@ -20,33 +24,53 @@ export const CourseSelector = ({
   courseConfig,
   currentSelection,
   menuItems,
+  allMenuItems = [],
   onSelect,
   onNext,
 }: CourseSelectorProps) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchMode, setSearchMode] = useState<'recommended' | 'global'>('recommended');
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const [activeSource, setActiveSource] = useState<'all' | 'catering' | 'ristorante'>(
     courseConfig.allowed_sources.length === 1 
       ? courseConfig.allowed_sources[0] 
       : 'all'
   );
 
-  // Filter menu items based on config
-  const filteredItems = useMemo(() => {
-    let items = menuItems;
+  // Keyboard shortcut for global search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowGlobalSearch(true);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
-    // Filter by allowed sources
-    if (courseConfig.allowed_sources.length > 0) {
-      items = items.filter(item => courseConfig.allowed_sources.includes(item.source));
-    }
+  // Items to display based on mode
+  const displayItems = useMemo(() => {
+    const baseItems = searchMode === 'global' ? allMenuItems : menuItems;
+    let items = [...baseItems];
 
-    // Filter by allowed categories
-    if (courseConfig.allowed_categories.length > 0) {
-      items = items.filter(item => 
-        courseConfig.allowed_categories.some(cat => 
-          item.category_name.toLowerCase().includes(cat.toLowerCase()) ||
-          cat.toLowerCase().includes(item.category_name.toLowerCase())
-        )
-      );
+    // In recommended mode, apply category/source filters
+    if (searchMode === 'recommended') {
+      // Filter by allowed sources
+      if (courseConfig.allowed_sources.length > 0) {
+        items = items.filter(item => courseConfig.allowed_sources.includes(item.source));
+      }
+
+      // Filter by allowed categories
+      if (courseConfig.allowed_categories.length > 0) {
+        items = items.filter(item => 
+          courseConfig.allowed_categories.some(cat => 
+            item.category_name.toLowerCase().includes(cat.toLowerCase()) ||
+            cat.toLowerCase().includes(item.category_name.toLowerCase())
+          )
+        );
+      }
     }
 
     // Filter by search query
@@ -54,7 +78,8 @@ export const CourseSelector = ({
       const query = searchQuery.toLowerCase();
       items = items.filter(item =>
         item.name.toLowerCase().includes(query) ||
-        (item.description && item.description.toLowerCase().includes(query))
+        (item.description && item.description.toLowerCase().includes(query)) ||
+        item.category_name.toLowerCase().includes(query)
       );
     }
 
@@ -64,19 +89,19 @@ export const CourseSelector = ({
     }
 
     return items;
-  }, [menuItems, courseConfig, searchQuery, activeSource]);
+  }, [menuItems, allMenuItems, courseConfig, searchQuery, activeSource, searchMode]);
 
   // Group by category
   const itemsByCategory = useMemo(() => {
     const grouped: Record<string, MenuItem[]> = {};
-    filteredItems.forEach(item => {
+    displayItems.forEach(item => {
       if (!grouped[item.category_name]) {
         grouped[item.category_name] = [];
       }
       grouped[item.category_name].push(item);
     });
     return grouped;
-  }, [filteredItems]);
+  }, [displayItems]);
 
   const handleItemSelect = (item: MenuItem) => {
     onSelect({
@@ -87,6 +112,30 @@ export const CourseSelector = ({
       itemDescription: item.description,
       itemSource: item.source,
       isCustom: false,
+    });
+  };
+
+  const handleGlobalSelect = (item: CombinedMenuItem) => {
+    onSelect({
+      courseType: courseConfig.course_type,
+      courseLabel: courseConfig.course_label,
+      itemId: item.id,
+      itemName: item.name,
+      itemDescription: item.description,
+      itemSource: item.source,
+      isCustom: false,
+    });
+  };
+
+  const handleCustomItem = (item: { name: string; description: string | null }) => {
+    onSelect({
+      courseType: courseConfig.course_type,
+      courseLabel: courseConfig.course_label,
+      itemId: null,
+      itemName: item.name,
+      itemDescription: item.description,
+      itemSource: 'manual',
+      isCustom: true,
     });
   };
 
@@ -144,12 +193,36 @@ export const CourseSelector = ({
             </Badge>
           </div>
 
+          {/* Option to add different item */}
+          <Button 
+            variant="outline" 
+            className="w-full mt-3"
+            onClick={() => setShowGlobalSearch(true)}
+          >
+            <Globe className="h-4 w-4 mr-2" />
+            Anderes Gericht wählen
+          </Button>
+
           {isAlreadySelected && (
-            <Button onClick={onNext} className="w-full mt-4">
+            <Button onClick={onNext} className="w-full mt-3">
               Weiter zum nächsten Gang
             </Button>
           )}
         </CardContent>
+
+        <GlobalItemSearch
+          open={showGlobalSearch}
+          onOpenChange={setShowGlobalSearch}
+          onSelect={handleGlobalSelect}
+          onCustomItem={() => setShowCustomInput(true)}
+          filterType="food"
+        />
+
+        <CustomItemInput
+          open={showCustomInput}
+          onOpenChange={setShowCustomInput}
+          onSubmit={handleCustomItem}
+        />
       </Card>
     );
   }
@@ -166,6 +239,34 @@ export const CourseSelector = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Search Mode Toggle */}
+        <div className="flex gap-2 p-1 bg-muted rounded-full">
+          <button
+            onClick={() => setSearchMode('recommended')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
+              searchMode === 'recommended'
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Sparkles className="h-4 w-4" />
+            Empfohlen
+          </button>
+          <button
+            onClick={() => setSearchMode('global')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
+              searchMode === 'global'
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Globe className="h-4 w-4" />
+            Alle Speisen
+          </button>
+        </div>
+
         {/* Search & Filter */}
         <div className="flex gap-2">
           <div className="relative flex-1">
@@ -178,25 +279,36 @@ export const CourseSelector = ({
             />
           </div>
           
-          {courseConfig.allowed_sources.length > 1 && (
-            <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as typeof activeSource)}>
-              <TabsList className="h-10">
-                <TabsTrigger value="all" className="text-xs">Alle</TabsTrigger>
-                <TabsTrigger value="catering" className="text-xs">
-                  <ChefHat className="h-3 w-3 mr-1" />
-                  Catering
-                </TabsTrigger>
-                <TabsTrigger value="ristorante" className="text-xs">
-                  <Utensils className="h-3 w-3 mr-1" />
-                  Restaurant
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={() => setShowGlobalSearch(true)}
+            className="shrink-0"
+            title="Schnellsuche (⌘K)"
+          >
+            <Command className="h-4 w-4" />
+          </Button>
         </div>
 
-        {/* Category Info */}
-        {courseConfig.allowed_categories.length > 0 && (
+        {/* Source Filter - only in global mode */}
+        {searchMode === 'global' && (
+          <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as typeof activeSource)}>
+            <TabsList className="h-10 w-full">
+              <TabsTrigger value="all" className="text-xs flex-1">Alle</TabsTrigger>
+              <TabsTrigger value="catering" className="text-xs flex-1">
+                <ChefHat className="h-3 w-3 mr-1" />
+                Catering
+              </TabsTrigger>
+              <TabsTrigger value="ristorante" className="text-xs flex-1">
+                <Utensils className="h-3 w-3 mr-1" />
+                Restaurant
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+
+        {/* Category Info - only in recommended mode */}
+        {searchMode === 'recommended' && courseConfig.allowed_categories.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {courseConfig.allowed_categories.map(cat => (
               <Badge key={cat} variant="outline" className="text-xs">
@@ -259,7 +371,7 @@ export const CourseSelector = ({
             </div>
           ))}
 
-          {filteredItems.length === 0 && (
+          {displayItems.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <p className="text-sm">Keine Gerichte gefunden</p>
               {searchQuery && (
@@ -275,13 +387,39 @@ export const CourseSelector = ({
           )}
         </div>
 
+        {/* Add Custom Item Button */}
+        <Button 
+          variant="outline" 
+          className="w-full"
+          onClick={() => setShowCustomInput(true)}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Freie Position hinzufügen
+        </Button>
+
         {/* Continue Button */}
-        {currentSelection?.itemId && (
+        {currentSelection && (currentSelection.itemId || currentSelection.isCustom) && (
           <Button onClick={onNext} className="w-full">
             Weiter zum nächsten Gang
           </Button>
         )}
       </CardContent>
+
+      {/* Global Search Dialog */}
+      <GlobalItemSearch
+        open={showGlobalSearch}
+        onOpenChange={setShowGlobalSearch}
+        onSelect={handleGlobalSelect}
+        onCustomItem={() => setShowCustomInput(true)}
+        filterType="food"
+      />
+
+      {/* Custom Item Dialog */}
+      <CustomItemInput
+        open={showCustomInput}
+        onOpenChange={setShowCustomInput}
+        onSubmit={handleCustomItem}
+      />
     </Card>
   );
 };

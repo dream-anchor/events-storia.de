@@ -1,13 +1,15 @@
 import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLogout, useGetIdentity } from "@refinedev/core";
-import { LogOut, ExternalLink, LayoutDashboard, CalendarDays, UtensilsCrossed, FileText, Package } from "lucide-react";
+import { LogOut, ExternalLink, LayoutDashboard, CalendarDays, UtensilsCrossed, FileText, Package, Command } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import storiaLogo from "@/assets/storia-logo.webp";
 import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
+import { FloatingPillNav, MobilePillNav } from "./FloatingPillNav";
+import { CommandPalette, useCommandPalette } from "./CommandPalette";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -19,7 +21,7 @@ const navigation = [
   { name: 'Events', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
   { name: 'Bestellungen', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
   { name: 'Pakete', href: '/admin/packages', icon: Package, key: 'packages' },
-  { name: 'Speisen & Getränke', href: '/admin/menu', icon: UtensilsCrossed, key: 'menu' },
+  { name: 'Speisen', href: '/admin/menu', icon: UtensilsCrossed, key: 'menu' },
 ];
 
 export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
@@ -28,6 +30,7 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
   const { data: identity } = useGetIdentity<{ email: string }>();
   const { data: newInquiriesCount } = useNewInquiriesCount();
   const { data: pendingOrdersCount } = usePendingOrdersCount();
+  const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
 
   const getBadgeCount = (key?: string) => {
     if (key === 'events') return newInquiriesCount || 0;
@@ -38,50 +41,39 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <Link to="/" className="flex items-center gap-3">
-                <img 
-                  src={storiaLogo} 
-                  alt="STORIA" 
-                  className="h-8 hover:opacity-80 transition-opacity" 
-                />
-              </Link>
-              
-              {/* Desktop Navigation */}
-              <nav className="hidden md:flex items-center gap-1">
-                {navigation.map((item) => {
-                  const Icon = item.icon;
-                  const badgeCount = getBadgeCount(item.badge);
-                  
-                  return (
-                    <Link
-                      key={item.key}
-                      to={item.href}
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                        activeTab === item.key
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {item.name}
-                      {badgeCount > 0 && (
-                        <Badge variant="secondary" className="ml-1 bg-amber-500 text-white text-xs px-1.5 py-0">
-                          {badgeCount}
-                        </Badge>
-                      )}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
+          <div className="flex items-center justify-between gap-4">
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-3 shrink-0">
+              <img 
+                src={storiaLogo} 
+                alt="STORIA" 
+                className="h-7 hover:opacity-80 transition-opacity" 
+              />
+            </Link>
             
+            {/* Floating Pill Navigation (Desktop) */}
+            <FloatingPillNav 
+              items={navigation} 
+              activeKey={activeTab}
+              getBadgeCount={getBadgeCount}
+            />
+            
+            {/* Right Actions */}
             <div className="flex items-center gap-2">
-              <span className="hidden sm:block text-sm text-muted-foreground">
+              {/* Command Palette Trigger */}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setCommandOpen(true)}
+                className="hidden sm:flex items-center gap-2 text-muted-foreground"
+              >
+                <Command className="h-3.5 w-3.5" />
+                <span className="text-xs">⌘K</span>
+              </Button>
+
+              <span className="hidden lg:block text-sm text-muted-foreground max-w-[150px] truncate">
                 {identity?.email}
               </span>
               <Button variant="outline" size="sm" asChild className="hidden sm:flex">
@@ -102,35 +94,18 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
           </div>
           
           {/* Mobile Navigation */}
-          <nav className="flex md:hidden items-center gap-1 mt-3 -mx-1 overflow-x-auto pb-1">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const badgeCount = getBadgeCount(item.badge);
-              
-              return (
-                <Link
-                  key={item.key}
-                  to={item.href}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
-                    activeTab === item.key
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground bg-muted"
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {item.name}
-                  {badgeCount > 0 && (
-                    <span className="bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                      {badgeCount}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
+          <div className="mt-3 md:hidden">
+            <MobilePillNav 
+              items={navigation} 
+              activeKey={activeTab}
+              getBadgeCount={getBadgeCount}
+            />
+          </div>
         </div>
       </header>
+
+      {/* Command Palette */}
+      <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">

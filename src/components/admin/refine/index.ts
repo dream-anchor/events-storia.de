@@ -11,3 +11,6 @@ export { DataTable } from './DataTable';
 export { QuoteBuilder } from './QuoteBuilder';
 export { QuotePDFDocument } from './QuotePDF';
 export { SmartInquiryEditor } from './InquiryEditor';
+export { FloatingPillNav, MobilePillNav } from './FloatingPillNav';
+export { CommandPalette, useCommandPalette } from './CommandPalette';
+export { ContextBar } from './ContextBar';

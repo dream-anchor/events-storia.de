@@ -37,6 +37,12 @@ interface EventModulesProps {
   onItemQuantityChange: (itemId: string, quantity: number) => void;
   onItemRemove: (itemId: string) => void;
   onMenuSelectionChange: (selection: MenuSelection) => void;
+  // New props for integrated workflow
+  emailDraft?: string;
+  onEmailDraftChange?: (draft: string) => void;
+  onSendOffer?: () => void;
+  isSending?: boolean;
+  templates?: any[];
 }
 
 const TIME_SLOTS = [
@@ -60,6 +66,11 @@ export const EventModules = ({
   onItemQuantityChange,
   onItemRemove,
   onMenuSelectionChange,
+  emailDraft,
+  onEmailDraftChange,
+  onSendOffer,
+  isSending,
+  templates,
 }: EventModulesProps) => {
   const guestCount = parseInt(inquiry.guest_count || '0') || 0;
   const [allLocations, setAllLocations] = useState<LocationData[]>([]);
@@ -373,6 +384,12 @@ export const EventModules = ({
           guestCount={guestCount}
           menuSelection={menuSelection}
           onMenuSelectionChange={onMenuSelectionChange}
+          inquiry={inquiry}
+          emailDraft={emailDraft}
+          onEmailDraftChange={onEmailDraftChange}
+          onSendOffer={onSendOffer}
+          isSending={isSending}
+          templates={templates}
         />
       )}
 
