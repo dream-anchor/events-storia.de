@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ExtendedInquiry, Package, SelectedPackage } from "./types";
+import { ExtendedInquiry, Package, SelectedPackage, QuoteItem } from "./types";
+import { MenuItemSelector } from "./MenuItemSelector";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { toast } from "sonner";
@@ -25,10 +26,14 @@ interface EventModulesProps {
   inquiry: ExtendedInquiry;
   packages: Package[];
   selectedPackages: SelectedPackage[];
+  quoteItems: QuoteItem[];
   onPackageToggle: (pkg: Package) => void;
   onRoomChange: (room: string) => void;
   onTimeSlotChange: (slot: string) => void;
   onGuestCountChange: (count: string) => void;
+  onItemAdd: (item: { id: string; name: string; description: string | null; price: number | null }) => void;
+  onItemQuantityChange: (itemId: string, quantity: number) => void;
+  onItemRemove: (itemId: string) => void;
 }
 
 const TIME_SLOTS = [
@@ -42,10 +47,14 @@ export const EventModules = ({
   inquiry,
   packages,
   selectedPackages,
+  quoteItems,
   onPackageToggle,
   onRoomChange,
   onTimeSlotChange,
   onGuestCountChange,
+  onItemAdd,
+  onItemQuantityChange,
+  onItemRemove,
 }: EventModulesProps) => {
   const guestCount = parseInt(inquiry.guest_count || '0') || 0;
   const [allLocations, setAllLocations] = useState<LocationData[]>([]);
@@ -350,6 +359,14 @@ export const EventModules = ({
           )}
         </CardContent>
       </Card>
+
+      {/* Menu Items Selector */}
+      <MenuItemSelector
+        selectedItems={quoteItems}
+        onItemAdd={onItemAdd}
+        onItemQuantityChange={onItemQuantityChange}
+        onItemRemove={onItemRemove}
+      />
     </div>
   );
 };
