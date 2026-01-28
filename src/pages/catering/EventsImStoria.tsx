@@ -164,7 +164,9 @@ const EventsImStoria = () => {
                   onClick={scrollToPackages}
                   className="gap-2 text-base px-8"
                 >
-                  {language === 'de' ? 'Pakete entdecken' : 'Discover Packages'}
+                  <span className="animate-pulse">
+                    {language === 'de' ? 'Pakete entdecken' : 'Discover Packages'}
+                  </span>
                   <ArrowDown className="h-4 w-4" />
                 </Button>
                 <Button 
