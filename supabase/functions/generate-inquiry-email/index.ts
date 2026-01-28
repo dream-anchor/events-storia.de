@@ -38,6 +38,7 @@ interface InquiryEmailRequest {
   totalAmount?: number;
   notes?: string;
   menuSelection?: MenuSelection;
+  packageName?: string;
 }
 
 serve(async (req) => {
@@ -61,6 +62,7 @@ serve(async (req) => {
       totalAmount,
       notes,
       menuSelection,
+      packageName,
     }: InquiryEmailRequest = await req.json();
 
     console.log('Generating email for inquiry type:', inquiryType);
@@ -125,10 +127,23 @@ ${notes ? `Notizen: ${notes}` : ''}
       `.trim();
     }
 
+    // Determine drink type based on package name for context-aware phrasing
+    const isAperitivo = packageName?.toLowerCase().includes('aperitivo') || packageName?.toLowerCase().includes('network');
+    const isDinner = packageName?.toLowerCase().includes('dinner') || packageName?.toLowerCase().includes('exclusive');
+    const isFullBuyout = packageName?.toLowerCase().includes('location') || packageName?.toLowerCase().includes('buyout');
+    
+    // Package-specific drink terminology
+    let drinkTerminology = 'Getränke-Pauschale';
+    if (isAperitivo) {
+      drinkTerminology = 'Getränke-Pauschale (Aperitif & Wein/Bier)';
+    } else if (isDinner || isFullBuyout) {
+      drinkTerminology = 'Weinbegleitung';
+    }
+
     const systemPrompt = `Du bist ein freundlicher Mitarbeiter des italienischen Business-Event-Restaurants "STORIA" in München. 
 Schreibe professionelle, aber herzliche E-Mails an Kunden. 
 Verwende "Sie" als Anrede.
-Halte die E-Mail kurz und prägnant (maximal 180 Wörter).
+Halte die E-Mail strukturiert und angemessen lang (ca. 200-300 Wörter).
 Unterschreibe mit "Herzliche Grüße, Ihr STORIA-Team".
 Erwähne NICHT den genauen Preis in der E-Mail - das Angebot wird als PDF-Anhang mitgeschickt.
 
@@ -144,12 +159,28 @@ UNSERE PAKETE:
 
 MENÜ-ERWÄHNUNG (WICHTIG):
 ${menuSelection && (menuSelection.courses?.length > 0 || menuSelection.drinks?.length > 0) ? `
-- Das Menü wurde bereits zusammengestellt - erwähne kurz die Highlights (z.B. "Wir haben für Sie ein exklusives Menü zusammengestellt, inklusive...")
-- Erwähne 1-2 ausgewählte Gerichte namentlich, um Vorfreude zu wecken
-- Verweise auf das beigefügte Angebot für die vollständigen Details
+- Das Menü wurde bereits zusammengestellt - beschreibe kurz und appetitanregend die Gänge
+- Erwähne die ausgewählten Gerichte namentlich mit einer kurzen, einladenden Beschreibung
+- Formuliere das Menü so, dass Vorfreude entsteht
 ` : `
 - Kein spezifisches Menü ausgewählt - erwähne, dass Details im Angebot zu finden sind
 `}
+
+WICHTIGE HINWEISE (IMMER AM ENDE DER E-MAIL EINFÜGEN):
+Füge am Ende der E-Mail folgende Hinweise ein und passe sie dem Paket an:
+
+1. Getränke-Flexibilität (angepasst an Paket-Typ):
+   - Für Dinner/Full Buyout: "Der Wert der Weinbegleitung kann auf Wunsch auch flexibel auf andere Getränke angerechnet werden."
+   - Für Aperitivo: "Der Wert der Getränke-Pauschale kann auf Wunsch flexibel angepasst werden."
+
+2. Menü-Individualität:
+   "Die Menüs können innerhalb der Gruppe individuell gewählt werden. Allergien oder besondere Ernährungswünsche berücksichtigen wir selbstverständlich nach vorheriger Abstimmung."
+
+3. Verbindliche Angaben (nur bei Dinner mit Fleisch/Fisch-Auswahl):
+   "Für unsere Planung bitten wir um eine verbindliche Angabe der Anzahl der Fleisch- und Fisch-Menüs spätestens 3 Tage vor dem Termin."
+
+Das gewählte Paket ist: ${packageName || 'nicht spezifiziert'}
+Passe die Formulierungen entsprechend an (z.B. "${drinkTerminology}" statt generisch "Getränke").
 
 SCHLÜSSELREGELN (STRIKT EINHALTEN):
 - Wir arbeiten mit fixen Paketen und transparenten Festpreisen
@@ -182,13 +213,13 @@ ${context}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-5-mini',
+        model: 'google/gemini-3-flash-preview',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.7,
-        max_tokens: 600,
+        max_tokens: 1000,
       }),
     });
 
