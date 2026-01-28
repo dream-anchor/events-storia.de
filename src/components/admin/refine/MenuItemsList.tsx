@@ -1,31 +1,62 @@
-import { useList } from "@refinedev/core";
+import { useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import { Leaf, UtensilsCrossed, Edit, Image as ImageIcon } from "lucide-react";
+import { Leaf, Edit, Image as ImageIcon, Eye, ChefHat, Utensils, Pizza } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable } from "./DataTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MenuItem } from "@/types/refine";
-import { useState } from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useCombinedMenuItems, CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
+
+// Default pizza image for pizza items without an image
+const DEFAULT_PIZZA_IMAGE = "/catering/pizze/hero-pizza.webp";
 
 export const MenuItemsList = () => {
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'catering' | 'ristorante'>('all');
 
-  const menuItemsQuery = useList<MenuItem>({
-    resource: "menu_items",
-    pagination: { pageSize: 100 },
-    sorters: [{ field: "sort_order", order: "asc" }],
-  });
+  const { 
+    items: allItems, 
+    groupedItems, 
+    isLoading, 
+    cateringCount, 
+    ristoranteCount,
+    totalCount 
+  } = useCombinedMenuItems();
 
-  const menuItems = menuItemsQuery.result?.data || [];
-  const isLoading = menuItemsQuery.query.isLoading;
+  // Filter items based on source selection
+  const filteredItems = useMemo(() => {
+    switch (sourceFilter) {
+      case 'catering':
+        return groupedItems.catering;
+      case 'ristorante':
+        return [...groupedItems.ristoranteFood, ...groupedItems.ristoranteDrinks];
+      default:
+        return allItems;
+    }
+  }, [sourceFilter, groupedItems, allItems]);
 
-  const columns: ColumnDef<MenuItem>[] = [
+  // Helper to check if item name suggests it's a pizza
+  const isPizzaItem = (name: string, categoryName: string) => {
+    const lowerName = name.toLowerCase();
+    const lowerCategory = categoryName.toLowerCase();
+    return lowerName.includes('pizza') || 
+           lowerCategory.includes('pizza') || 
+           lowerCategory.includes('pizze');
+  };
+
+  // Get appropriate image URL with pizza fallback
+  const getItemImage = (item: CombinedMenuItem) => {
+    if (item.image_url) return item.image_url;
+    if (isPizzaItem(item.name, item.category_name)) return DEFAULT_PIZZA_IMAGE;
+    return null;
+  };
+
+  const columns: ColumnDef<CombinedMenuItem>[] = [
     {
       accessorKey: "image_url",
       header: "",
       cell: ({ row }) => {
-        const imageUrl = row.original.image_url;
+        const imageUrl = getItemImage(row.original);
         if (!imageUrl) {
           return (
             <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center">
@@ -47,12 +78,29 @@ export const MenuItemsList = () => {
       header: "Name",
       cell: ({ row }) => (
         <div>
-          <p className="font-medium">{row.original.name}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-medium">{row.original.name}</p>
+            {row.original.source === 'catering' ? (
+              <Badge variant="secondary" className="text-xs">
+                <ChefHat className="h-3 w-3 mr-1" />
+                Catering
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-700 bg-amber-50">
+                <Utensils className="h-3 w-3 mr-1" />
+                Ristorante
+              </Badge>
+            )}
+          </div>
           {row.original.description && (
             <p className="text-sm text-muted-foreground line-clamp-1">
               {row.original.description}
             </p>
           )}
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {row.original.category_name}
+            {row.original.serving_info && ` • ${row.original.serving_info}`}
+          </p>
         </div>
       ),
     },
@@ -63,8 +111,6 @@ export const MenuItemsList = () => {
         <div>
           {row.original.price ? (
             <p className="font-semibold">{row.original.price.toFixed(2)} €</p>
-          ) : row.original.price_display ? (
-            <p className="text-sm text-muted-foreground">{row.original.price_display}</p>
           ) : (
             <span className="text-muted-foreground">-</span>
           )}
@@ -92,26 +138,21 @@ export const MenuItemsList = () => {
       ),
     },
     {
-      accessorKey: "allergens",
-      header: "Allergene",
+      id: "actions",
       cell: ({ row }) => {
-        const allergens = row.original.allergens;
-        if (!allergens) return <span className="text-muted-foreground">-</span>;
-        return (
-          <span className="text-sm font-mono text-muted-foreground">
-            {allergens}
-          </span>
+        const isEditable = row.original.source === 'catering';
+        return isEditable ? (
+          <Button size="sm" variant="outline">
+            <Edit className="h-4 w-4 mr-1" />
+            Bearbeiten
+          </Button>
+        ) : (
+          <Button size="sm" variant="ghost" disabled>
+            <Eye className="h-4 w-4 mr-1" />
+            Nur Ansicht
+          </Button>
         );
       },
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <Button size="sm" variant="outline">
-          <Edit className="h-4 w-4 mr-1" />
-          Bearbeiten
-        </Button>
-      ),
     },
   ];
 
@@ -121,25 +162,50 @@ export const MenuItemsList = () => {
         <div>
           <h1 className="text-2xl font-serif font-semibold">Speisen & Getränke</h1>
           <p className="text-muted-foreground">
-            Verwalten Sie alle Speisen und Getränke.
+            Verwalten Sie alle Speisen und Getränke aus beiden Quellen.
           </p>
-          <div className="flex gap-4 mt-3 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-primary"></span>
-              <span className="text-muted-foreground"><strong>Catering-Katalog</strong> – Speisen & Getränke dieser Seite</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-amber-500"></span>
-              <span className="text-muted-foreground"><strong>Ristorante Storia</strong> – Speisen & Getränke aus dem Restaurant</span>
-            </div>
+        </div>
+
+        {/* Source Filter Tabs */}
+        <Tabs value={sourceFilter} onValueChange={(v) => setSourceFilter(v as typeof sourceFilter)}>
+          <TabsList>
+            <TabsTrigger value="all" className="gap-2">
+              Alle
+              <Badge variant="secondary" className="ml-1">{totalCount}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="catering" className="gap-2">
+              <ChefHat className="h-4 w-4" />
+              Catering-Katalog
+              <Badge variant="secondary" className="ml-1">{cateringCount}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="ristorante" className="gap-2">
+              <Utensils className="h-4 w-4" />
+              Ristorante Storia
+              <Badge variant="secondary" className="ml-1">{ristoranteCount}</Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Legend */}
+        <div className="flex gap-6 text-sm">
+          <div className="flex items-center gap-2">
+            <ChefHat className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">
+              <strong>Catering-Katalog</strong> – Bearbeitbar, Speisen dieser Seite
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Utensils className="h-4 w-4 text-amber-600" />
+            <span className="text-muted-foreground">
+              <strong className="text-amber-700">Ristorante Storia</strong> – Nur Ansicht, externe Daten
+            </span>
           </div>
         </div>
 
         <DataTable
           columns={columns}
-          data={menuItems}
+          data={filteredItems}
           searchPlaceholder="Suche nach Gericht..."
-          onRefresh={() => menuItemsQuery.query.refetch()}
           isLoading={isLoading}
           pageSize={20}
         />
