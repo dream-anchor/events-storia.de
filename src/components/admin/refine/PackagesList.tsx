@@ -12,7 +12,6 @@ import {
   Trash2, 
   Search, 
   Users, 
-  Euro,
   Package,
   Percent,
   MapPin,
@@ -20,10 +19,7 @@ import {
   Leaf,
   Fish,
   Beef,
-  Wine,
-  Coffee,
-  CakeSlice,
-  UtensilsCrossed
+  Wine
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -39,18 +35,42 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-// Helper to get icon for include item
-const getIncludeIcon = (item: string) => {
+// Dietary icons for food items
+const DietaryIcons = ({ item }: { item: string }) => {
   const lower = item.toLowerCase();
-  if (lower.includes('vegan')) return <Leaf className="h-4 w-4 text-green-600" />;
-  if (lower.includes('vegetarisch') || lower.includes('gemüse')) return <Leaf className="h-4 w-4 text-green-500" />;
-  if (lower.includes('fisch') || lower.includes('lachs') || lower.includes('kabeljau')) return <Fish className="h-4 w-4 text-blue-500" />;
-  if (lower.includes('fleisch') || lower.includes('rind') || lower.includes('schwein') || lower.includes('hauptgang')) return <Beef className="h-4 w-4 text-red-500" />;
-  if (lower.includes('wein') || lower.includes('cocktail') || lower.includes('aperitivo')) return <Wine className="h-4 w-4 text-purple-500" />;
-  if (lower.includes('kaffee') || lower.includes('wasser')) return <Coffee className="h-4 w-4 text-amber-700" />;
-  if (lower.includes('dessert') || lower.includes('tiramisu') || lower.includes('panna')) return <CakeSlice className="h-4 w-4 text-pink-500" />;
-  if (lower.includes('vorspeise') || lower.includes('fingerfood') || lower.includes('pasta')) return <UtensilsCrossed className="h-4 w-4 text-orange-500" />;
-  return <Check className="h-4 w-4 text-primary" />;
+  
+  // Food items that have dietary options (Vegan, Vegetarisch, Fisch, Fleisch)
+  const hasFoodOptions = ['vorspeisenplatte', 'hauptgang', 'fingerfood', 'pasta-station'].some(f => lower.includes(f));
+  // Dessert only has Vegan and Vegetarisch
+  const isDessert = lower.includes('dessert');
+  // Drinks/other items - no dietary icons
+  const isDrink = ['wein', 'cocktail', 'aperitivo', 'kaffee', 'wasser'].some(d => lower.includes(d));
+  
+  if (isDrink) {
+    return <Wine className="h-4 w-4 text-purple-500 shrink-0" />;
+  }
+  
+  if (hasFoodOptions) {
+    return (
+      <div className="flex items-center gap-1 shrink-0" title="Vegan, Vegetarisch, Fisch, Fleisch">
+        <Leaf className="h-3.5 w-3.5 text-green-600" />
+        <Leaf className="h-3.5 w-3.5 text-green-500" />
+        <Fish className="h-3.5 w-3.5 text-blue-500" />
+        <Beef className="h-3.5 w-3.5 text-red-500" />
+      </div>
+    );
+  }
+  
+  if (isDessert) {
+    return (
+      <div className="flex items-center gap-1 shrink-0" title="Vegan, Vegetarisch">
+        <Leaf className="h-3.5 w-3.5 text-green-600" />
+        <Leaf className="h-3.5 w-3.5 text-green-500" />
+      </div>
+    );
+  }
+  
+  return <Check className="h-4 w-4 text-primary shrink-0" />;
 };
 
 interface PackageData {
@@ -288,7 +308,7 @@ export const PackagesList = () => {
                         <ul className="space-y-2">
                           {pkg.includes.map((item, i) => (
                             <li key={i} className="flex items-center gap-3 text-base">
-                              {getIncludeIcon(item)}
+                              <DietaryIcons item={item} />
                               <span>{item}</span>
                             </li>
                           ))}
