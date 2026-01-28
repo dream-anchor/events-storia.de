@@ -566,25 +566,52 @@ const Checkout = () => {
     : 0;
   
   // VAT calculations
-  // Food items: 7% VAT (prices in DB are gross/brutto)
+  // Chafing dish: 7% VAT (equipment for food)
   const chafingDishGross = chafingDishQuantity * CHAFING_DISH.price;
   const chafingDishNet = chafingDishGross / 1.07;
   const chafingDishVat = chafingDishGross - chafingDishNet;
   
-  const foodGross = totalPrice + minimumOrderSurcharge + chafingDishGross;
-  const foodNet = (totalPrice + minimumOrderSurcharge) / 1.07 + chafingDishNet;
-  const foodVat = foodGross - foodNet;
+  // Separate event packages (70/30 split) from regular food items (7% VAT)
+  const eventPackagesGross = items
+    .filter(item => item.id.startsWith('event-'))
+    .reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  
+  const regularFoodGross = items
+    .filter(item => !item.id.startsWith('event-'))
+    .reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  
+  // Event packages: 70% food (7% VAT), 30% drinks (19% VAT)
+  const pkgFoodGross = eventPackagesGross * 0.70;
+  const pkgDrinksGross = eventPackagesGross * 0.30;
+  const pkgFoodNet = pkgFoodGross / 1.07;
+  const pkgDrinksNet = pkgDrinksGross / 1.19;
+  const pkgFoodVat = pkgFoodGross - pkgFoodNet;
+  const pkgDrinksVat = pkgDrinksGross - pkgDrinksNet;
+  
+  // Regular food items: 7% VAT
+  const regularFoodNet = (regularFoodGross + minimumOrderSurcharge) / 1.07 + chafingDishNet;
+  const regularFoodVat = (regularFoodGross + minimumOrderSurcharge + chafingDishGross) - regularFoodNet;
   
   // Delivery: 19% VAT (from edge function)
   const deliveryNet = deliveryCalc?.deliveryCostNet || 0;
   const deliveryGross = deliveryCalc?.deliveryCostGross || 0;
   const deliveryVat = deliveryCalc?.deliveryVat || 0;
   
+  // Food totals (7% VAT category)
+  const foodGross = regularFoodGross + minimumOrderSurcharge + chafingDishGross + pkgFoodGross;
+  const foodNet = regularFoodNet + pkgFoodNet;
+  const foodVat = regularFoodVat + pkgFoodVat;
+  
+  // Drinks totals (19% VAT category - from packages)
+  const drinksGross = pkgDrinksGross;
+  const drinksNet = pkgDrinksNet;
+  const drinksVat = pkgDrinksVat;
+  
   // Totals
-  const totalNet = foodNet + deliveryNet;
+  const totalNet = foodNet + drinksNet + deliveryNet;
   const totalVat7 = foodVat;
-  const totalVat19 = deliveryVat;
-  const grandTotal = foodGross + deliveryGross;
+  const totalVat19 = drinksVat + deliveryVat;
+  const grandTotal = foodGross + drinksGross + deliveryGross;
 
   // Handle input change - also triggered by onInput for autofill/paste support
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -1246,20 +1273,28 @@ const Checkout = () => {
           </div>
         )}
         
-        {/* VAT Breakdown - separate 7% for food and 19% for delivery */}
+        {/* VAT Breakdown - 7% for food, 19% for drinks (from packages) and delivery */}
         <div className="pt-2 mt-2 border-t border-dashed border-border space-y-1">
           <div className="flex justify-between items-center text-xs text-muted-foreground">
             <span>{language === 'de' ? 'Nettobetrag' : 'Net amount'}</span>
             <span>{formatCurrency(totalNet)} €</span>
           </div>
-          <div className="flex justify-between items-center text-xs text-muted-foreground">
-            <span>{language === 'de' ? '+ 7% MwSt. (Speisen)' : '+ 7% VAT (food)'}</span>
-            <span>{formatCurrency(totalVat7)} €</span>
-          </div>
-          {totalVat19 > 0 && (
+          {totalVat7 > 0 && (
+            <div className="flex justify-between items-center text-xs text-muted-foreground">
+              <span>{language === 'de' ? '+ 7% MwSt. (Speisen)' : '+ 7% VAT (food)'}</span>
+              <span>{formatCurrency(totalVat7)} €</span>
+            </div>
+          )}
+          {drinksVat > 0 && (
+            <div className="flex justify-between items-center text-xs text-muted-foreground">
+              <span>{language === 'de' ? '+ 19% MwSt. (Getränke)' : '+ 19% VAT (drinks)'}</span>
+              <span>{formatCurrency(drinksVat)} €</span>
+            </div>
+          )}
+          {deliveryVat > 0 && (
             <div className="flex justify-between items-center text-xs text-muted-foreground">
               <span>{language === 'de' ? '+ 19% MwSt. (Lieferung)' : '+ 19% VAT (delivery)'}</span>
-              <span>{formatCurrency(totalVat19)} €</span>
+              <span>{formatCurrency(deliveryVat)} €</span>
             </div>
           )}
         </div>
