@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useList, useDelete } from "@refinedev/core";
 import { AdminLayout } from "./AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PackageData {
   id: string;
@@ -60,12 +61,17 @@ interface LocationData {
   is_active: boolean;
 }
 
+interface PackageLocationMapping {
+  [packageId: string]: string[];
+}
+
 export const PackagesList = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteType, setDeleteType] = useState<"package" | "location">("package");
   const [activeTab, setActiveTab] = useState("packages");
+  const [packageLocations, setPackageLocations] = useState<PackageLocationMapping>({});
   
   const { query: packagesQuery, result: packagesResult } = useList<PackageData>({
     resource: "packages",
@@ -81,6 +87,35 @@ export const PackagesList = () => {
 
   const packages = packagesResult?.data || [];
   const locations = locationsResult?.data || [];
+
+  // Fetch package-location mappings
+  useEffect(() => {
+    const fetchPackageLocations = async () => {
+      const { data } = await supabase
+        .from('package_locations')
+        .select('package_id, location_id');
+      
+      if (data) {
+        const mapping: PackageLocationMapping = {};
+        data.forEach(pl => {
+          if (!mapping[pl.package_id]) {
+            mapping[pl.package_id] = [];
+          }
+          mapping[pl.package_id].push(pl.location_id);
+        });
+        setPackageLocations(mapping);
+      }
+    };
+    
+    fetchPackageLocations();
+  }, [packagesResult]);
+
+  const getLocationNames = (packageId: string) => {
+    const locationIds = packageLocations[packageId] || [];
+    return locations
+      .filter(loc => locationIds.includes(loc.id))
+      .map(loc => loc.name);
+  };
   
   const filteredPackages = packages.filter(pkg => 
     pkg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -231,6 +266,18 @@ export const PackagesList = () => {
                         </ul>
                       )}
 
+                      {/* Locations */}
+                      {getLocationNames(pkg.id).length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {getLocationNames(pkg.id).map((locName, i) => (
+                            <Badge key={i} variant="outline" className="text-sm px-3 py-1.5">
+                              <MapPin className="h-3.5 w-3.5 mr-1.5" />
+                              {locName}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Meta Badges */}
                       <div className="flex flex-wrap gap-2">
                         {pkg.min_guests && pkg.min_guests > 0 && (
@@ -240,7 +287,7 @@ export const PackagesList = () => {
                           </Badge>
                         )}
                         {pkg.requires_prepayment && (
-                          <Badge variant="outline" className="text-sm px-3 py-1.5 border-amber-300 text-amber-700 bg-amber-50">
+                          <Badge variant="secondary" className="text-sm px-3 py-1.5 bg-amber-100 text-amber-800 border-amber-200">
                             <Percent className="h-4 w-4 mr-2" />
                             {pkg.prepayment_percentage || 100}% Vorauszahlung
                           </Badge>
