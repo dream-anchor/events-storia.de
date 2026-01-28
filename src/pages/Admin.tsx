@@ -1,111 +1,22 @@
 import { useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import { useAdminMenus } from "@/hooks/useAdminMenus";
-import { useUpdateMenuOrder } from "@/hooks/useUpdateMenuOrder";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import storiaLogo from "@/assets/storia-logo.webp";
-import MenuUploader from "@/components/admin/MenuUploader";
-import MenuStatusCard from "@/components/admin/MenuStatusCard";
-import CollapsibleMenuCard from "@/components/admin/CollapsibleMenuCard";
-import SortableMenuCard from "@/components/admin/SortableMenuCard";
 import { LogOut, ExternalLink } from "lucide-react";
-import SpecialOccasionsManager from "@/components/admin/SpecialOccasionsManager";
 import CateringMenusManager from "@/components/admin/CateringMenusManager";
 import CateringOrdersManager from "@/components/admin/CateringOrdersManager";
 import EventInquiriesManager from "@/components/admin/EventInquiriesManager";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
 import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { Badge } from "@/components/ui/badge";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
 
 const Admin = () => {
   const navigate = useNavigate();
   const { user, isAdmin, loading, signOut } = useAdminAuth();
-  const { data: menus } = useAdminMenus();
-  const updateOrderMutation = useUpdateMenuOrder();
   const { data: pendingOrdersCount } = usePendingOrdersCount();
   const { data: newInquiriesCount } = useNewInquiriesCount();
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 200,
-        tolerance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  // Separate standard and special menus, sorted by sort_order
-  const standardMenus = menus?.filter((m) => 
-    m.menu_type === "lunch" || m.menu_type === "food" || m.menu_type === "drinks"
-  ) || [];
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const oldIndex = standardMenus.findIndex((m) => m.id === active.id);
-      const newIndex = standardMenus.findIndex((m) => m.id === over.id);
-
-      const reorderedMenus = arrayMove(standardMenus, oldIndex, newIndex);
-      
-      const updates = reorderedMenus.map((menu, index) => ({
-        id: menu.id,
-        sort_order: index + 1,
-      }));
-
-      try {
-        await updateOrderMutation.mutateAsync(updates);
-        toast.success("Reihenfolge gespeichert");
-      } catch (error) {
-        toast.error("Fehler beim Speichern der Reihenfolge");
-        console.error(error);
-      }
-    }
-  };
-
-  const getMenuLabel = (menuType: string) => {
-    switch (menuType) {
-      case "lunch": return "Mittagsmenü";
-      case "food": return "Speisekarte";
-      case "drinks": return "Getränkekarte";
-      default: return menuType;
-    }
-  };
-
-  const getMenuViewPath = (menuType: string) => {
-    switch (menuType) {
-      case "lunch": return "/mittagsmenu";
-      case "food": return "/speisekarte";
-      case "drinks": return "/getraenke";
-      default: return "/";
-    }
-  };
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
@@ -126,7 +37,6 @@ const Admin = () => {
     } catch (err) {
       console.error("Unexpected logout error:", err);
       toast.error("Unerwarteter Fehler beim Abmelden");
-      // Force navigation anyway
       navigate("/admin/login");
     }
   };
@@ -188,9 +98,9 @@ const Admin = () => {
         </div>
       </header>
 
-        {/* Main Content */}
+      {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-8">
-        {/* Catering Orders Section - FIRST */}
+        {/* Catering Orders Section */}
         <div className="mb-8 md:mb-12">
           <div className="flex items-center gap-3 mb-2">
             <h2 className="text-xl md:text-2xl font-serif font-semibold">Catering-Bestellungen</h2>
@@ -218,52 +128,8 @@ const Admin = () => {
           <EventInquiriesManager />
         </div>
 
-        <div className="mb-6 md:mb-8">
-          <h2 className="text-xl md:text-2xl font-serif font-semibold mb-2">Menü-Verwaltung</h2>
-          <p className="text-sm md:text-base text-muted-foreground">
-            Laden Sie PDF-Dateien hoch, um die Menükarten zu aktualisieren.
-            <span className="block text-xs mt-1 sm:hidden">Halten und ziehen zum Sortieren.</span>
-          </p>
-        </div>
-
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={standardMenus.map((m) => m.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="grid gap-4">
-              {standardMenus.map((menu) => (
-                <SortableMenuCard key={menu.id} id={menu.id}>
-                  <CollapsibleMenuCard
-                    title={getMenuLabel(menu.menu_type)}
-                    menuId={menu.id}
-                    isPublished={menu.is_published}
-                  >
-                    <MenuStatusCard 
-                      menuType={menu.menu_type} 
-                      menuLabel={getMenuLabel(menu.menu_type)} 
-                      viewPath={getMenuViewPath(menu.menu_type)} 
-                    />
-                    <MenuUploader 
-                      menuType={menu.menu_type} 
-                      menuLabel={getMenuLabel(menu.menu_type)} 
-                    />
-                  </CollapsibleMenuCard>
-                </SortableMenuCard>
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-
-        {/* Besondere Anlässe Section */}
-        <SpecialOccasionsManager />
-
         {/* Catering Menüs Section */}
-        <div className="mt-8 md:mt-12">
+        <div className="mb-8 md:mb-12">
           <h2 className="text-xl md:text-2xl font-serif font-semibold mb-2">Catering-Menüs</h2>
           <p className="text-sm md:text-base text-muted-foreground mb-6">
             Verwalten Sie die Catering-Angebote für Ihre Kunden.
