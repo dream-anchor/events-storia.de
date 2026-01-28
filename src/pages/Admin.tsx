@@ -14,7 +14,9 @@ import { LogOut, ExternalLink } from "lucide-react";
 import SpecialOccasionsManager from "@/components/admin/SpecialOccasionsManager";
 import CateringMenusManager from "@/components/admin/CateringMenusManager";
 import CateringOrdersManager from "@/components/admin/CateringOrdersManager";
+import EventInquiriesManager from "@/components/admin/EventInquiriesManager";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
+import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { Badge } from "@/components/ui/badge";
 import {
   DndContext,
@@ -39,6 +41,7 @@ const Admin = () => {
   const { data: menus } = useAdminMenus();
   const updateOrderMutation = useUpdateMenuOrder();
   const { data: pendingOrdersCount } = usePendingOrdersCount();
+  const { data: newInquiriesCount } = useNewInquiriesCount();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -199,6 +202,20 @@ const Admin = () => {
             Verwalten Sie eingehende Catering-Anfragen und ändern Sie den Status.
           </p>
           <CateringOrdersManager />
+        </div>
+
+        {/* Event Inquiries Section */}
+        <div className="mb-8 md:mb-12">
+          <div className="flex items-center gap-3 mb-2">
+            <h2 className="text-xl md:text-2xl font-serif font-semibold">Event-Anfragen</h2>
+            {newInquiriesCount && newInquiriesCount > 0 && (
+              <Badge className="bg-amber-500 text-white">{newInquiriesCount} neu</Badge>
+            )}
+          </div>
+          <p className="text-sm md:text-base text-muted-foreground mb-6">
+            Verwalten Sie Event-Anfragen für Firmenfeiern, Hochzeiten und mehr.
+          </p>
+          <EventInquiriesManager />
         </div>
 
         <div className="mb-6 md:mb-8">
