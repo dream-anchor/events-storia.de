@@ -352,7 +352,7 @@ const EventsImStoria = () => {
                       <EventPackageShopCard 
                         key={pkg.id} 
                         pkg={pkg} 
-                        featured={idx === 0}
+                        featured={idx === 1}
                       />
                     ))}
                   </div>
