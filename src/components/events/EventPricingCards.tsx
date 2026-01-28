@@ -222,6 +222,15 @@ const EventPricingCards = ({ onInquiry }: EventPricingCardsProps) => {
               : (language === 'de' ? 'Alle Preise zzgl. 7% MwSt.' : 'All prices excl. 7% VAT')}
           </p>
         </div>
+
+        {/* Additional Services Note */}
+        <div className="text-center mt-10 max-w-2xl mx-auto">
+          <p className="text-lg text-muted-foreground leading-relaxed">
+            {language === 'de' 
+              ? 'Gerne können Sie weitere Gänge und Getränke-Pakete dazubuchen. Gerne beraten wir Sie individuell telefonisch oder per E-Mail. Kontaktieren Sie uns einfach. Wir freuen uns auf Sie.'
+              : 'You are welcome to book additional courses and beverage packages. We are happy to advise you individually by phone or email. Simply contact us. We look forward to hearing from you.'}
+          </p>
+        </div>
       </div>
     </section>
   );
