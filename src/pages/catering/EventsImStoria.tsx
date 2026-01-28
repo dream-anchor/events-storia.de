@@ -237,10 +237,10 @@ const EventsImStoria = () => {
                         {index + 1}
                       </span>
                     </div>
-                    <h3 className="font-medium text-base mb-1">
+                    <h3 className="font-medium text-lg mb-1">
                       {language === 'de' ? step.titleDe : step.titleEn}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-base text-muted-foreground">
                       {language === 'de' ? step.descDe : step.descEn}
                     </p>
                   </div>
@@ -275,10 +275,10 @@ const EventsImStoria = () => {
                     <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
                       <Icon className="w-6 h-6 text-primary" />
                     </div>
-                    <h3 className="font-medium text-base md:text-lg mb-1">
+                    <h3 className="font-medium text-lg md:text-xl mb-1">
                       {language === 'de' ? type.titleDe : type.titleEn}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-base text-muted-foreground">
                       {language === 'de' ? type.descDe : type.descEn}
                     </p>
                   </div>
@@ -360,8 +360,17 @@ const EventsImStoria = () => {
                   </div>
                 )}
 
+                {/* Consultation Note */}
+                <div className="text-center mt-10 max-w-2xl mx-auto">
+                  <p className="text-lg text-muted-foreground leading-relaxed">
+                    {language === 'de' 
+                      ? 'Gerne können Sie weitere Gänge und Getränke-Pakete dazubuchen. Gerne beraten wir Sie individuell telefonisch oder per E-Mail. Kontaktieren Sie uns einfach. Wir freuen uns auf Sie.'
+                      : 'You are welcome to book additional courses and beverage packages. We are happy to advise you individually by phone or email. Simply contact us. We look forward to hearing from you.'}
+                  </p>
+                </div>
+
                 {/* Trust Note */}
-                <div className="mt-10 text-center">
+                <div className="mt-8 text-center">
                   <div className="inline-flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-4 py-2 rounded-full">
                     <Clock className="h-4 w-4" />
                     {language === 'de' 
