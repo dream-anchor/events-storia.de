@@ -1,86 +1,50 @@
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useCart } from '@/contexts/CartContext';
-import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
-import Header from '@/components/Header';
-import Navigation from '@/components/Navigation';
-import Footer from '@/components/Footer';
-import CateringCTA from '@/components/CateringCTA';
-import { ServicesGrid } from '@/components/catering/ServiceInfoCard';
-import SEO from '@/components/SEO';
-import StructuredData from '@/components/StructuredData';
-import { Button } from '@/components/ui/button';
-import { Plus, Minus, ShoppingCart, Check } from 'lucide-react';
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { useState } from "react";
+import Header from "@/components/Header";
+import Navigation from "@/components/Navigation";
+import Footer from "@/components/Footer";
+import CateringCTA from "@/components/CateringCTA";
+import SEO from "@/components/SEO";
+import StructuredData from "@/components/StructuredData";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
+import { useCateringMenuBySlug, CateringMenuItem } from "@/hooks/useCateringMenus";
+import { useCart } from "@/contexts/CartContext";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Plus, Minus, ShoppingCart, Check } from "lucide-react";
+import { ServicesGrid } from "@/components/catering/ServiceInfoCard";
 
-import tiramisuImg from '@/assets/catering/fingerfood/tiramisu.webp';
-import pistazienImg from '@/assets/catering/fingerfood/pistazien.webp';
-
-interface DessertItem {
-  id: string;
-  name: string;
-  name_en: string;
-  description: string;
-  description_en: string;
-  price: number;
-  min_order: string;
-  min_order_en: string;
-  serving_info: string;
-  serving_info_en: string;
-  image: string;
+interface DessertCardProps {
+  item: CateringMenuItem;
+  language: string;
 }
 
-const dessertItems: DessertItem[] = [
-  {
-    id: 'tiramisu-storia',
-    name: 'Tiramisù STORIA',
-    name_en: 'Tiramisù STORIA',
-    description: 'Hausgemachtes Tiramisù mit Espresso, Schokoladenboden und Mascarpone.',
-    description_en: 'Homemade tiramisù with espresso, chocolate base and mascarpone.',
-    price: 4.50,
-    min_order: 'Ab 4 Personen bestellbar',
-    min_order_en: 'Minimum order for 4 people',
-    serving_info: 'Ein Fingerfood-Glas pro Person',
-    serving_info_en: 'One fingerfood glass per person',
-    image: tiramisuImg,
-  },
-  {
-    id: 'pistazien-toertchen',
-    name: 'Pistazien-Törtchen',
-    name_en: 'Pistachio Tartlet',
-    description: 'Pistazientörtchen mit Vanillecreme – elegant und aromatisch.',
-    description_en: 'Pistachio tartlet with vanilla cream – elegant and aromatic.',
-    price: 5.80,
-    min_order: 'Ab 4 Personen bestellbar',
-    min_order_en: 'Minimum order for 4 people',
-    serving_info: 'Ein Fingerfood-Glas pro Person',
-    serving_info_en: 'One fingerfood glass per person',
-    image: pistazienImg,
-  },
-];
-
-const DessertCard = ({ item, language }: { item: DessertItem; language: string }) => {
+const DessertCard = ({ item, language }: DessertCardProps) => {
   const { addToCart, items } = useCart();
   const { formatPrice } = usePriceDisplay();
   const [quantity, setQuantity] = useState(4);
   const [justAdded, setJustAdded] = useState(false);
 
-  const name = language === 'en' ? item.name_en : item.name;
-  const description = language === 'en' ? item.description_en : item.description;
-  const minOrder = language === 'en' ? item.min_order_en : item.min_order;
-  const servingInfo = language === 'en' ? item.serving_info_en : item.serving_info;
+  const name = language === 'en' && item.name_en ? item.name_en : item.name;
+  const description = language === 'en' && item.description_en ? item.description_en : item.description;
+  const minOrder = language === 'en' && item.min_order_en ? item.min_order_en : item.min_order;
+  const servingInfo = language === 'en' && item.serving_info_en ? item.serving_info_en : item.serving_info;
 
   const cartItem = items.find(i => i.id === item.id);
   const isInCart = !!cartItem;
 
   const handleAddToCart = () => {
+    if (!item.price) return;
+    
     addToCart({
       id: item.id,
       name: item.name,
-      name_en: item.name_en,
+      name_en: item.name_en || null,
       price: item.price,
-      image: item.image,
-      serving_info: item.serving_info,
+      image: item.image_url || undefined,
+      serving_info: servingInfo || undefined,
+      min_order: 4,
+      category: 'dessert',
     }, quantity);
     
     setJustAdded(true);
@@ -89,32 +53,36 @@ const DessertCard = ({ item, language }: { item: DessertItem; language: string }
 
   return (
     <div className="bg-card rounded-lg overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group flex flex-col">
-      <div className="aspect-square overflow-hidden relative">
-        <img
-          src={item.image}
-          alt={`${name} – STORIA Catering München`}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          width="400"
-          height="400"
-          loading="lazy"
-        />
-        {isInCart && (
-          <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-            <Check className="h-3 w-3" />
-            {cartItem.quantity}x
-          </div>
-        )}
-      </div>
+      {item.image_url && (
+        <div className="aspect-square overflow-hidden relative">
+          <img
+            src={item.image_url}
+            alt={`${name} – STORIA Catering München`}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            width="400"
+            height="400"
+            loading="lazy"
+          />
+          {isInCart && (
+            <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+              <Check className="h-3 w-3" />
+              {cartItem.quantity}x
+            </div>
+          )}
+        </div>
+      )}
       <div className="p-4 flex flex-col flex-1">
         <h3 className="font-serif font-medium text-lg mb-1">{name}</h3>
-        <p className="text-xs text-primary/80 mb-2">{servingInfo}</p>
-        <p className="text-sm text-muted-foreground mb-3 line-clamp-4">{description}</p>
+        {servingInfo && <p className="text-xs text-primary/80 mb-2">{servingInfo}</p>}
+        {description && <p className="text-sm text-muted-foreground mb-3 line-clamp-4">{description}</p>}
         
         <div className="flex justify-between items-end mb-3">
-          <p className="text-xs text-muted-foreground">{minOrder}</p>
-          <span className="font-semibold text-primary text-lg">
-            {formatPrice(item.price)}
-          </span>
+          {minOrder && <p className="text-xs text-muted-foreground">{minOrder}</p>}
+          {item.price && (
+            <span className="font-semibold text-primary text-lg">
+              {formatPrice(item.price)}
+            </span>
+          )}
         </div>
 
         {/* Add to Cart Controls */}
@@ -142,6 +110,7 @@ const DessertCard = ({ item, language }: { item: DessertItem; language: string }
             onClick={handleAddToCart}
             size="sm"
             className={`flex-1 transition-all ${justAdded ? 'bg-green-600 hover:bg-green-600' : ''}`}
+            disabled={!item.price}
           >
             {justAdded ? (
               <>
@@ -163,6 +132,10 @@ const DessertCard = ({ item, language }: { item: DessertItem; language: string }
 
 const Desserts = () => {
   const { language } = useLanguage();
+  const { data: menu, isLoading, error } = useCateringMenuBySlug('desserts');
+
+  // Get all items from all categories
+  const allItems = menu?.categories.flatMap(cat => cat.items) || [];
 
   return (
     <>
@@ -172,19 +145,21 @@ const Desserts = () => {
           ? 'Italienische Desserts für Ihr Catering: Hausgemachtes Tiramisù & Pistazien-Törtchen. Ab 4 Personen bestellbar. STORIA München.'
           : 'Italian desserts for your catering: homemade tiramisù & pistachio tartlets. Minimum order 4 people. STORIA Munich.'}
       />
-      <StructuredData 
-        type="product" 
-        products={dessertItems.map(d => ({
-          name: d.name,
-          name_en: d.name_en,
-          description: d.description,
-          description_en: d.description_en,
-          price: d.price,
-          image: d.image,
-          sku: d.id,
-          servingInfo: d.serving_info,
-        }))} 
-      />
+      {allItems.length > 0 && (
+        <StructuredData 
+          type="product" 
+          products={allItems.map(item => ({
+            name: item.name,
+            name_en: item.name_en || undefined,
+            description: item.description || undefined,
+            description_en: item.description_en || undefined,
+            price: item.price || 0,
+            image: item.image_url || undefined,
+            sku: item.id,
+            servingInfo: item.serving_info || undefined,
+          }))} 
+        />
+      )}
       <Header />
       <Navigation />
       <div className="min-h-screen flex flex-col bg-background">
@@ -202,15 +177,37 @@ const Desserts = () => {
             </p>
           </div>
 
+          {/* Loading State */}
+          {isLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {[1, 2].map(i => (
+                <Skeleton key={i} className="aspect-square rounded-lg" />
+              ))}
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="text-center py-12 text-muted-foreground">
+              {language === 'de' 
+                ? 'Fehler beim Laden der Desserts.' 
+                : 'Error loading desserts.'}
+            </div>
+          )}
+
           {/* Products Grid */}
-          <h2 className="sr-only">
-            {language === 'de' ? 'Unsere Desserts' : 'Our Desserts'}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {dessertItems.map((item) => (
-              <DessertCard key={item.id} item={item} language={language} />
-            ))}
-          </div>
+          {!isLoading && !error && (
+            <>
+              <h2 className="sr-only">
+                {language === 'de' ? 'Unsere Desserts' : 'Our Desserts'}
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                {allItems.map((item) => (
+                  <DessertCard key={item.id} item={item} language={language} />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Additional Services */}
           <ServicesGrid 

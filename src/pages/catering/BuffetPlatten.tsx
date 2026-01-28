@@ -14,48 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Minus, ShoppingCart, Check, Wheat } from "lucide-react";
 import { HighlightCard, ServicesGrid } from "@/components/catering/ServiceInfoCard";
 
-// Import images for mapping
-import spiediniImg from "@/assets/catering/platten/spiedini.webp";
-import bruschetteImg from "@/assets/catering/platten/bruschette.webp";
-import focacceImg from "@/assets/catering/platten/focacce.webp";
-import vitelloImg from "@/assets/catering/platten/vitello-tonnato.webp";
-import entenbrustImg from "@/assets/catering/platten/entenbrust.webp";
-import roastbeefImg from "@/assets/catering/platten/roastbeef.webp";
-import kaeseplatteImg from "@/assets/catering/platten/kaeseplatte.webp";
-import grillgemueseImg from "@/assets/catering/platten/grillgemuese.webp";
-import lachsImg from "@/assets/catering/platten/lachs.webp";
-import aufschnittImg from "@/assets/catering/platten/aufschnitt.webp";
-import insalateImg from "@/assets/catering/platten/insalate-stagione.webp";
-
-// Map item names to images
-const imageMap: Record<string, string> = {
-  "Insalate di stagione": insalateImg,
-  "Spiedini di Mozzarelline – Platte": spiediniImg,
-  "Bruschette – Platte": bruschetteImg,
-  "Focacce": focacceImg,
-  'Mediterrane Gemüse-Platte "Verdure alla Griglia"': grillgemueseImg,
-  "Graved Lachs-Platte": lachsImg,
-  "Vitello Tonnato-Platte": vitelloImg,
-  "Entenbrust-Carpaccio mit Orangensauce": entenbrustImg,
-  "Roastbeef mit Parmesanhobel": roastbeefImg,
-  "Italienische Aufschnittplatte": aufschnittImg,
-  "Gemischte Käseplatte": kaeseplatteImg,
-};
-
-// Image position map
-const imagePositionMap: Record<string, string> = {
-  "Insalate di stagione": "center center",
-  "Spiedini di Mozzarelline – Platte": "center center",
-  "Bruschette – Platte": "center 70%",
-  "Focacce": "center center",
-  'Mediterrane Gemüse-Platte "Verdure alla Griglia"': "center 60%",
-  "Graved Lachs-Platte": "center 65%",
-  "Vitello Tonnato-Platte": "center 70%",
-  "Entenbrust-Carpaccio mit Orangensauce": "center center",
-  "Roastbeef mit Parmesanhobel": "center 60%",
-  "Italienische Aufschnittplatte": "center center",
-  "Gemischte Käseplatte": "center 55%",
-};
+// No static image imports needed - using database URLs
 
 interface MenuItemCardProps {
   item: CateringMenuItem;
@@ -71,8 +30,8 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
   const name = language === 'en' && item.name_en ? item.name_en : item.name;
   const description = language === 'en' && item.description_en ? item.description_en : item.description;
   const servingInfo = language === 'en' && item.serving_info_en ? item.serving_info_en : item.serving_info;
-  const image = imageMap[item.name] || item.image_url;
-  const imagePosition = imagePositionMap[item.name] || "center center";
+  const image = item.image_url;
+  const imagePosition = "center center";
   
   const cartItem = items.find(i => i.id === item.id);
   const isInCart = !!cartItem;
@@ -215,7 +174,7 @@ const BuffetPlatten = () => {
             description: item.description || '',
             description_en: item.description_en || undefined,
             price: item.price || 0,
-            image: imageMap[item.name] || item.image_url || undefined,
+            image: item.image_url || undefined,
             sku: item.id,
             servingInfo: item.serving_info || undefined,
           }))} 

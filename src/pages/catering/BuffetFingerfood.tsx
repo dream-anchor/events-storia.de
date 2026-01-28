@@ -14,38 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Minus, ShoppingCart, Check } from "lucide-react";
 import { ServicesGrid } from "@/components/catering/ServiceInfoCard";
 
-// Import images
-import grillgemueseImg from "@/assets/catering/fingerfood/grillgemuese.webp";
-import auberginenImg from "@/assets/catering/fingerfood/auberginen.webp";
-import frittataImg from "@/assets/catering/fingerfood/frittata.webp";
-import caponataImg from "@/assets/catering/fingerfood/caponata.webp";
-import burratinaImg from "@/assets/catering/fingerfood/burratina.webp";
-import oktopusImg from "@/assets/catering/fingerfood/oktopus.webp";
-import avocadoGarnelenImg from "@/assets/catering/fingerfood/avocado-garnelen.webp";
-import meeresfruchteImg from "@/assets/catering/fingerfood/meeresfruechte.webp";
-// Map item names to images
-const imageMap: Record<string, string> = {
-  "Grillgemüse": grillgemueseImg,
-  "Auberginenbällchen": auberginenImg,
-  "Mini-Frittata mit Zucchini": frittataImg,
-  "Caponata siciliana": caponataImg,
-  "Burratina": burratinaImg,
-  "Oktopus-Kartoffelsalat": oktopusImg,
-  "Avocadocreme mit Garnelen": avocadoGarnelenImg,
-  "Meeresfrüchtesalat": meeresfruchteImg,
-};
-
-// Image position map to focus on the food
-const imagePositionMap: Record<string, string> = {
-  "Grillgemüse": "center center",
-  "Auberginenbällchen": "center 40%",
-  "Mini-Frittata mit Zucchini": "center 35%",
-  "Caponata siciliana": "center center",
-  "Burratina": "center 45%",
-  "Oktopus-Kartoffelsalat": "center 40%",
-  "Avocadocreme mit Garnelen": "center center",
-  "Meeresfrüchtesalat": "center 40%",
-};
+// No static image imports needed - using database URLs
 
 interface MenuItemCardProps {
   item: CateringMenuItem;
@@ -62,8 +31,8 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
   const description = language === 'en' && item.description_en ? item.description_en : item.description;
   const servingInfo = language === 'en' && item.serving_info_en ? item.serving_info_en : item.serving_info;
   const minOrder = language === 'en' && item.min_order_en ? item.min_order_en : item.min_order;
-  const image = imageMap[item.name] || item.image_url;
-  const imagePosition = imagePositionMap[item.name] || "center center";
+  const image = item.image_url;
+  const imagePosition = "center center";
   
   const cartItem = items.find(i => i.id === item.id);
   const isInCart = !!cartItem;
@@ -206,7 +175,7 @@ const BuffetFingerfood = () => {
             description: item.description || '',
             description_en: item.description_en || undefined,
             price: item.price || 0,
-            image: imageMap[item.name] || item.image_url,
+            image: item.image_url || undefined,
             sku: item.id,
             servingInfo: item.serving_info || undefined,
           }))} 
