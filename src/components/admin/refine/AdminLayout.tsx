@@ -18,7 +18,7 @@ const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
   { name: 'Events', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
   { name: 'Bestellungen', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
-  { name: 'Speisekarte', href: '/admin/menu', icon: UtensilsCrossed, key: 'menu' },
+  { name: 'Catering-Katalog', href: '/admin/menu', icon: UtensilsCrossed, key: 'menu' },
 ];
 
 export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
