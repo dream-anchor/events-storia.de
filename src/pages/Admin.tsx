@@ -111,11 +111,19 @@ const Admin = () => {
   }, [user, isAdmin, loading, navigate]);
 
   const handleSignOut = async () => {
-    const { error } = await signOut();
-    if (error) {
-      toast.error("Fehler beim Abmelden");
-    } else {
-      toast.success("Erfolgreich abgemeldet");
+    try {
+      const { error } = await signOut();
+      if (error) {
+        console.error("Logout error:", error);
+        toast.error(`Fehler beim Abmelden: ${error.message}`);
+      } else {
+        toast.success("Erfolgreich abgemeldet");
+        navigate("/admin/login");
+      }
+    } catch (err) {
+      console.error("Unexpected logout error:", err);
+      toast.error("Unerwarteter Fehler beim Abmelden");
+      // Force navigation anyway
       navigate("/admin/login");
     }
   };
