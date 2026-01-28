@@ -14,7 +14,7 @@ import type { EventPackage } from "@/hooks/useEventPackages";
 // Package images from STORIA website
 import cocktailsAperitivo from "@/assets/events/cocktails-aperitivo.webp";
 import ravioliDinner from "@/assets/events/ravioli-dinner.webp";
-import locationAussen from "@/assets/events/location-aussen.webp";
+import firmenfeier from "@/assets/events/firmenfeier.webp";
 
 // Get image for package by matching name patterns
 const getPackageImage = (name: string): string => {
@@ -26,7 +26,7 @@ const getPackageImage = (name: string): string => {
     return cocktailsAperitivo; // Cocktails for aperitivo
   }
   if (nameLower.includes("location") || nameLower.includes("gesamte")) {
-    return locationAussen; // Restaurant exterior/terrace
+    return firmenfeier; // Elegant event atmosphere
   }
   return ravioliDinner; // Default fallback
 };
@@ -109,6 +109,11 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
 
       <CardHeader className="text-center pt-6 pb-2">
         <h3 className="font-serif text-xl md:text-2xl font-medium">{name}</h3>
+        
+        {/* Drinks included badge */}
+        <Badge variant="secondary" className="mt-2 mx-auto">
+          {language === 'de' ? 'Inkl. Getränke-Paket' : 'Drinks Package Included'}
+        </Badge>
         
         {/* Price Display */}
         <div className="mt-3">
