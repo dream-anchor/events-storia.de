@@ -408,6 +408,7 @@ export const SmartInquiryEditor = () => {
                 onSendEmail={handleSendOffer}
                 isSending={isSending}
                 menuSelection={menuSelection}
+                packageName={selectedPackages.length > 0 ? selectedPackages[0].name : undefined}
               />
             </div>
           </TabsContent>

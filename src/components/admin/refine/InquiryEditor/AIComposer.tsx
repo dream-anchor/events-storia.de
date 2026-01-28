@@ -20,6 +20,7 @@ interface AIComposerProps {
   onSendEmail: () => void;
   isSending?: boolean;
   menuSelection?: MenuSelection;
+  packageName?: string;
 }
 
 export const AIComposer = ({
@@ -31,6 +32,7 @@ export const AIComposer = ({
   onSendEmail,
   isSending = false,
   menuSelection,
+  packageName,
 }: AIComposerProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -80,6 +82,7 @@ export const AIComposer = ({
           totalAmount,
           notes: inquiry.quote_notes,
           menuSelection: menuSelection,
+          packageName: packageName,
         },
       });
 
@@ -94,7 +97,7 @@ export const AIComposer = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [inquiry, quoteItems, onEmailDraftChange, menuSelection]);
+  }, [inquiry, quoteItems, onEmailDraftChange, menuSelection, packageName]);
 
   const handleInsertTemplate = useCallback((template: EmailTemplate) => {
     const insertion = `\n\n---\n${template.content}`;
