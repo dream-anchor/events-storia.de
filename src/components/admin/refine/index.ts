@@ -7,3 +7,4 @@ export { AdminLayout } from './AdminLayout';
 export { DataTable } from './DataTable';
 export { QuoteBuilder } from './QuoteBuilder';
 export { QuotePDFDocument } from './QuotePDF';
+export { SmartInquiryEditor } from './InquiryEditor';

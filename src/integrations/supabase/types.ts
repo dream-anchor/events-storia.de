@@ -206,56 +206,128 @@ export type Database = {
         }
         Relationships: []
       }
+      email_templates: {
+        Row: {
+          category: string
+          content: string
+          content_en: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          category?: string
+          content: string
+          content_en?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          content_en?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
       event_inquiries: {
         Row: {
           company_name: string | null
           contact_name: string
           created_at: string
+          delivery_city: string | null
+          delivery_street: string | null
+          delivery_time_slot: string | null
+          delivery_zip: string | null
           email: string
+          email_draft: string | null
           event_type: string | null
           guest_count: string | null
           id: string
+          inquiry_type: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes: string | null
+          lexoffice_quotation_id: string | null
           message: string | null
           notification_sent: boolean | null
           phone: string | null
           preferred_date: string | null
+          quote_items: Json | null
+          quote_notes: string | null
+          room_selection: string | null
+          selected_items: Json | null
+          selected_packages: Json | null
           source: string | null
           status: string | null
+          time_slot: string | null
           updated_at: string | null
         }
         Insert: {
           company_name?: string | null
           contact_name: string
           created_at?: string
+          delivery_city?: string | null
+          delivery_street?: string | null
+          delivery_time_slot?: string | null
+          delivery_zip?: string | null
           email: string
+          email_draft?: string | null
           event_type?: string | null
           guest_count?: string | null
           id?: string
+          inquiry_type?: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes?: string | null
+          lexoffice_quotation_id?: string | null
           message?: string | null
           notification_sent?: boolean | null
           phone?: string | null
           preferred_date?: string | null
+          quote_items?: Json | null
+          quote_notes?: string | null
+          room_selection?: string | null
+          selected_items?: Json | null
+          selected_packages?: Json | null
           source?: string | null
           status?: string | null
+          time_slot?: string | null
           updated_at?: string | null
         }
         Update: {
           company_name?: string | null
           contact_name?: string
           created_at?: string
+          delivery_city?: string | null
+          delivery_street?: string | null
+          delivery_time_slot?: string | null
+          delivery_zip?: string | null
           email?: string
+          email_draft?: string | null
           event_type?: string | null
           guest_count?: string | null
           id?: string
+          inquiry_type?: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes?: string | null
+          lexoffice_quotation_id?: string | null
           message?: string | null
           notification_sent?: boolean | null
           phone?: string | null
           preferred_date?: string | null
+          quote_items?: Json | null
+          quote_notes?: string | null
+          room_selection?: string | null
+          selected_items?: Json | null
+          selected_packages?: Json | null
           source?: string | null
           status?: string | null
+          time_slot?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -453,6 +525,60 @@ export type Database = {
         }
         Relationships: []
       }
+      packages: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          description_en: string | null
+          id: string
+          includes: Json | null
+          is_active: boolean | null
+          max_guests: number | null
+          min_guests: number | null
+          name: string
+          name_en: string | null
+          package_type: string
+          price: number
+          price_per_person: boolean | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          description_en?: string | null
+          id?: string
+          includes?: Json | null
+          is_active?: boolean | null
+          max_guests?: number | null
+          min_guests?: number | null
+          name: string
+          name_en?: string | null
+          package_type?: string
+          price?: number
+          price_per_person?: boolean | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          description_en?: string | null
+          id?: string
+          includes?: Json | null
+          is_active?: boolean | null
+          max_guests?: number | null
+          min_guests?: number | null
+          name?: string
+          name_en?: string | null
+          package_type?: string
+          price?: number
+          price_per_person?: boolean | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -493,6 +619,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "staff"
+      inquiry_type: "event" | "catering"
       menu_type:
         | "lunch"
         | "food"
@@ -629,6 +756,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "staff"],
+      inquiry_type: ["event", "catering"],
       menu_type: [
         "lunch",
         "food",

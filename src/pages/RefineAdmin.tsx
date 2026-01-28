@@ -3,7 +3,8 @@ import routerProvider from "@refinedev/react-router";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { supabaseDataProvider } from "@/providers/refine-data-provider";
 import { supabaseAuthProvider } from "@/providers/refine-auth-provider";
-import { Dashboard, EventsList, EventEdit, OrdersList, MenuItemsList } from "@/components/admin/refine";
+import { Dashboard, EventsList, OrdersList, MenuItemsList } from "@/components/admin/refine";
+import { SmartInquiryEditor } from "@/components/admin/refine/InquiryEditor";
 
 const resources = [
   {
@@ -27,6 +28,12 @@ const resources = [
     create: "/admin/menu/create",
     edit: "/admin/menu/:id/edit",
   },
+  {
+    name: "packages",
+    list: "/admin/packages",
+    create: "/admin/packages/create",
+    edit: "/admin/packages/:id/edit",
+  },
 ];
 
 export const RefineAdminApp = () => {
@@ -45,7 +52,7 @@ export const RefineAdminApp = () => {
         <Route index element={<Dashboard />} />
         <Route path="events">
           <Route index element={<EventsList />} />
-          <Route path=":id/edit" element={<EventEdit />} />
+          <Route path=":id/edit" element={<SmartInquiryEditor />} />
         </Route>
         <Route path="orders">
           <Route index element={<OrdersList />} />
