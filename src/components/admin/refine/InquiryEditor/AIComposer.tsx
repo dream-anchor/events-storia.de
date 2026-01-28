@@ -9,6 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ExtendedInquiry, QuoteItem, EmailTemplate } from "./types";
+import { MenuSelection } from "./MenuComposer/types";
 
 interface AIComposerProps {
   inquiry: ExtendedInquiry;
@@ -18,6 +19,7 @@ interface AIComposerProps {
   onEmailDraftChange: (draft: string) => void;
   onSendEmail: () => void;
   isSending?: boolean;
+  menuSelection?: MenuSelection;
 }
 
 export const AIComposer = ({
@@ -28,6 +30,7 @@ export const AIComposer = ({
   onEmailDraftChange,
   onSendEmail,
   isSending = false,
+  menuSelection,
 }: AIComposerProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -76,6 +79,7 @@ export const AIComposer = ({
           deliveryTime: inquiry.delivery_time_slot,
           totalAmount,
           notes: inquiry.quote_notes,
+          menuSelection: menuSelection,
         },
       });
 
@@ -90,7 +94,7 @@ export const AIComposer = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [inquiry, quoteItems, onEmailDraftChange]);
+  }, [inquiry, quoteItems, onEmailDraftChange, menuSelection]);
 
   const handleInsertTemplate = useCallback((template: EmailTemplate) => {
     const insertion = `\n\n---\n${template.content}`;

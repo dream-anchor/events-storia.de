@@ -1,7 +1,8 @@
-import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import { QuoteItem, EventInquiry } from "@/types/refine";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { MenuSelection, CourseSelection, DrinkSelection } from "./InquiryEditor/MenuComposer/types";
 
 // Register fonts (using system fonts as fallback)
 Font.register({
@@ -37,10 +38,6 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     borderBottom: `2px solid ${colors.gold}`,
     paddingBottom: 20,
-  },
-  logo: {
-    width: 120,
-    height: 40,
   },
   headerInfo: {
     textAlign: 'right',
@@ -156,16 +153,159 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     color: colors.darkBrown,
   },
+  // Menu-specific styles
+  menuSection: {
+    marginBottom: 25,
+    padding: 15,
+    backgroundColor: '#FEFCFA',
+    borderRadius: 6,
+    borderLeft: `4px solid ${colors.gold}`,
+  },
+  menuTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.darkBrown,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  courseRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+    paddingBottom: 10,
+    borderBottom: `1px dotted ${colors.beige}`,
+  },
+  courseLabel: {
+    width: 120,
+    fontSize: 9,
+    color: colors.gold,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  courseContent: {
+    flex: 1,
+  },
+  courseName: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: colors.darkBrown,
+    marginBottom: 2,
+  },
+  courseDescription: {
+    fontSize: 9,
+    color: colors.muted,
+    fontStyle: 'italic',
+  },
+  drinkSection: {
+    marginTop: 15,
+    paddingTop: 15,
+    borderTop: `1px solid ${colors.beige}`,
+  },
+  drinkTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: colors.darkBrown,
+    marginBottom: 8,
+  },
+  drinkItem: {
+    flexDirection: 'row',
+    marginBottom: 4,
+    alignItems: 'center',
+  },
+  drinkBullet: {
+    width: 12,
+    color: colors.gold,
+    fontSize: 10,
+  },
+  drinkText: {
+    flex: 1,
+    fontSize: 10,
+    color: colors.text,
+  },
+  drinkQuantity: {
+    width: 100,
+    fontSize: 9,
+    color: colors.muted,
+    textAlign: 'right',
+  },
 });
+
+// Course type labels in German
+const courseLabels: Record<string, string> = {
+  starter: 'Vorspeise',
+  pasta: 'Pasta',
+  main: 'Hauptgang',
+  main_fish: 'Hauptgang (Fisch)',
+  main_meat: 'Hauptgang (Fleisch)',
+  dessert: 'Dessert',
+  fingerfood: 'Fingerfood',
+};
+
+// Drink group labels in German
+const drinkGroupLabels: Record<string, string> = {
+  aperitif: 'Aperitif',
+  main_drink: 'Hauptgetränk',
+  water: 'Wasser',
+  coffee: 'Kaffee',
+};
 
 interface QuotePDFProps {
   event: EventInquiry;
   items: QuoteItem[];
   notes: string;
   quoteNumber?: string;
+  menuSelection?: MenuSelection | null;
 }
 
-export const QuotePDFDocument = ({ event, items, notes, quoteNumber }: QuotePDFProps) => {
+// Menu Section Component
+const MenuSectionView = ({ menuSelection }: { menuSelection: MenuSelection }) => {
+  const hasCourses = menuSelection.courses && menuSelection.courses.length > 0;
+  const hasDrinks = menuSelection.drinks && menuSelection.drinks.length > 0;
+
+  if (!hasCourses && !hasDrinks) return null;
+
+  return (
+    <View style={styles.menuSection}>
+      <Text style={styles.menuTitle}>Ihr Menü</Text>
+      
+      {/* Courses */}
+      {hasCourses && menuSelection.courses.map((course, index) => (
+        <View key={index} style={styles.courseRow}>
+          <Text style={styles.courseLabel}>
+            {course.courseLabel || courseLabels[course.courseType] || course.courseType}
+          </Text>
+          <View style={styles.courseContent}>
+            <Text style={styles.courseName}>{course.itemName}</Text>
+            {course.itemDescription && (
+              <Text style={styles.courseDescription}>{course.itemDescription}</Text>
+            )}
+          </View>
+        </View>
+      ))}
+      
+      {/* Drinks */}
+      {hasDrinks && (
+        <View style={styles.drinkSection}>
+          <Text style={styles.drinkTitle}>Getränke-Pauschale (pro Person)</Text>
+          {menuSelection.drinks.map((drink, index) => (
+            <View key={index} style={styles.drinkItem}>
+              <Text style={styles.drinkBullet}>•</Text>
+              <Text style={styles.drinkText}>
+                {drink.drinkLabel || drinkGroupLabels[drink.drinkGroup] || drink.drinkGroup}
+                {drink.selectedChoice && `: ${drink.selectedChoice}`}
+              </Text>
+              {drink.quantityLabel && (
+                <Text style={styles.drinkQuantity}>{drink.quantityLabel}</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+export const QuotePDFDocument = ({ event, items, notes, quoteNumber, menuSelection }: QuotePDFProps) => {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const vat = subtotal * 0.07;
   const total = subtotal + vat;
@@ -244,6 +384,11 @@ export const QuotePDFDocument = ({ event, items, notes, quoteNumber }: QuotePDFP
             </View>
           )}
         </View>
+
+        {/* Menu Selection (NEW) */}
+        {menuSelection && (menuSelection.courses?.length > 0 || menuSelection.drinks?.length > 0) && (
+          <MenuSectionView menuSelection={menuSelection} />
+        )}
 
         {/* Items Table */}
         <View style={styles.section}>

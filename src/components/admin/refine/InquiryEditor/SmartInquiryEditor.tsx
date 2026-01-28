@@ -245,6 +245,7 @@ export const SmartInquiryEditor = () => {
           items: lineItems,
           notes: quoteNotes,
           emailBody: emailDraft,
+          menuSelection: menuSelection,
         },
       });
 
@@ -269,7 +270,7 @@ export const SmartInquiryEditor = () => {
     } finally {
       setIsSending(false);
     }
-  }, [inquiry, id, emailDraft, handleSave, selectedPackages, quoteItems, quoteNotes, guestCount, mergedInquiry, updateInquiry]);
+  }, [inquiry, id, emailDraft, handleSave, selectedPackages, quoteItems, quoteNotes, guestCount, mergedInquiry, updateInquiry, menuSelection]);
 
   if (isLoading) {
     return (
@@ -406,6 +407,7 @@ export const SmartInquiryEditor = () => {
                 onEmailDraftChange={setEmailDraft}
                 onSendEmail={handleSendOffer}
                 isSending={isSending}
+                menuSelection={menuSelection}
               />
             </div>
           </TabsContent>
