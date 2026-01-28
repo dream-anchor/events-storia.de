@@ -1,86 +1,357 @@
 
-# Konzept: Hinweistext + Erweiterte Typografie-Optimierung
 
-## Problem 1: Fehlender Hinweistext auf /events
+# Menü-Kompositions-System für Event-Pakete
 
-Der Hinweistext wurde in `EventPricingCards.tsx` hinzugefügt, aber diese Komponente wird **nicht** auf der `/events`-Seite verwendet. Die Events-Seite (`EventsImStoria.tsx`) nutzt stattdessen direkt die `EventPackageShopCard`-Komponenten.
+## Zusammenfassung
 
-### Lösung
-Der Hinweistext muss in `EventsImStoria.tsx` nach dem Packages-Grid eingefügt werden (nach Zeile 361, vor dem Trust Note).
+Ein intelligentes, paketbasiertes Menü-Zusammenstellungssystem, das Mitarbeitern ermöglicht, schnell und fehlerfrei Event-Menüs zu konfigurieren. Das System leitet durch die Gangauswahl basierend auf dem gewählten Paket und generiert automatisch professionelle Angebote.
 
+---
+
+## Geschäftslogik der Pakete
+
+### Network-Aperitivo (69€ p.P.)
 ```text
-+----------------------------------+
-|       [Package Cards Grid]       |
-+----------------------------------+
-|                                  |
-|   "Gerne können Sie weitere      |
-|    Gänge und Getränke-Pakete     |
-|    dazubuchen..."                |
-|                                  |
-+----------------------------------+
-|         [Trust Note Bar]         |
-+----------------------------------+
+┌─────────────────────────────────────────────────────────────┐
+│ ESSEN                                                       │
+│ ├── Fingerfood (Catering-Katalog)                          │
+│ └── Pasta-Auswahl (Ristorante: Kategorie "Paste")          │
+├─────────────────────────────────────────────────────────────┤
+│ GETRÄNKE (pro Person)                                       │
+│ ├── 1× Aperitif (Spritz ODER Cocktail)                     │
+│ ├── 0,7l Flaschenwein ODER 5× Bier                         │
+│ ├── 1× Wasser (mit/ohne)                                   │
+│ └── 1× Kaffee-Spezialität                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Business Dinner – Exclusive (99€ p.P.)
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ESSEN (3 Gänge)                                             │
+│ ├── Gang 1: Vorspeisenplatte (Custom-Position)             │
+│ ├── Gang 2: Hauptgericht (Fleisch ODER Fisch)              │
+│ └── Gang 3: Dessert                                        │
+├─────────────────────────────────────────────────────────────┤
+│ GETRÄNKE (pro Person)                                       │
+│ ├── 4× Spritz ODER 0,7l offener Wein                       │
+│ ├── Wasser (mit/ohne, unbegrenzt)                          │
+│ └── Kaffee-Spezialitäten                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Gesamte Location (8.500€ pauschal)
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ESSEN (4 Gänge)                                             │
+│ ├── Gang 1: Vorspeisenplatte (Custom-Position)             │
+│ ├── Gang 2: Fischgericht                                   │
+│ ├── Gang 3: Fleischgericht                                 │
+│ └── Gang 4: Dessert                                        │
+├─────────────────────────────────────────────────────────────┤
+│ GETRÄNKE (pro Person)                                       │
+│ ├── 4× Spritz ODER 0,7l offener Wein                       │
+│ ├── Wasser (mit/ohne, unbegrenzt)                          │
+│ └── Kaffee-Spezialitäten                                   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Problem 2: Typografie noch nicht überall optimiert
+## Lösungsarchitektur
 
-Trotz der ersten Optimierungsrunde gibt es noch Bereiche mit zu kleiner Schrift:
+### Neue Komponente: `MenuComposer`
 
-### Aktuelle Schriftgrößen (zu klein)
-| Bereich | Aktuell | Problem |
-|---------|---------|---------|
-| Events-Seite: Process Steps | `text-base` / `text-sm` | Zu klein für Desktop |
-| Events-Seite: Event Types | `text-sm` | Beschreibungen schwer lesbar |
-| Events-Seite: Included Services | `text-xs` | Viel zu klein |
-| EventPackageShopCard: Includes | `text-base` | Könnte größer |
-| Catering.tsx | `text-muted-foreground` | Kein expliziter Größen-Faktor |
+Eine geführte Gang-für-Gang Auswahl, die:
+- Automatisch die richtigen Kategorien filtert
+- Bereits ausgewählte Gänge markiert
+- Nur noch fehlende Gänge zur Auswahl anzeigt
+- Getränke-Kontingente verwaltet
 
-### Neue Typografie-Skala für Inhalte
-
-| Element | Aktuell | Neu |
-|---------|---------|-----|
-| **Body-Text (Beschreibungen)** | `text-sm` / `text-base` | `text-lg` |
-| **Überschriften h2** | `text-2xl md:text-3xl` | `text-3xl md:text-4xl` |
-| **Überschriften h3** | `text-base md:text-lg` | `text-lg md:text-xl` |
-| **Sub-Beschreibungen** | `text-xs` / `text-sm` | `text-sm` / `text-base` |
-| **Trust Badges/Notes** | `text-sm` | `text-base` |
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ MENÜ-ZUSAMMENSTELLUNG                                        │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│                                                              │
+│ Business Dinner – Exclusive │ 35 Gäste                       │
+│                                                              │
+│ ┌──────────────────────────────────────────────────────────┐ │
+│ │ 🍽️ GANG 1: VORSPEISE                            ✓ Gewählt │ │
+│ │    Vorspeisenplatte (hausgemacht)                        │ │
+│ └──────────────────────────────────────────────────────────┘ │
+│                                                              │
+│ ┌──────────────────────────────────────────────────────────┐ │
+│ │ 🥩 GANG 2: HAUPTGERICHT                    ⚠ Auswählen   │ │
+│ │                                                          │ │
+│ │  ┌─────────────────┐  ┌─────────────────┐               │ │
+│ │  │ 🐟 FISCH        │  │ 🥩 FLEISCH      │               │ │
+│ │  │                 │  │                 │               │ │
+│ │  │ Branzino       │  │ Tagliata        │               │ │
+│ │  │ Kabeljau       │  │ Ossobuco        │               │ │
+│ │  │ Salmone        │  │ Filetto         │               │ │
+│ │  └─────────────────┘  └─────────────────┘               │ │
+│ └──────────────────────────────────────────────────────────┘ │
+│                                                              │
+│ ┌──────────────────────────────────────────────────────────┐ │
+│ │ 🍰 GANG 3: DESSERT                         ○ Noch offen  │ │
+│ │    (Nach Hauptgang-Auswahl)                              │ │
+│ └──────────────────────────────────────────────────────────┘ │
+│                                                              │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│                                                              │
+│ 🍷 GETRÄNKE-PAUSCHALE                                        │
+│                                                              │
+│  ○ Spritz-Paket (4 Spritz p.P.)                             │
+│  ● Wein-Paket (0,7l offener Wein p.P.)      ← Ausgewählt    │
+│                                                              │
+│  ✓ Wasser (inkl.)                                           │
+│  ✓ Kaffee-Spezialitäten (inkl.)                             │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Technische Umsetzung
+## Datenbank-Erweiterungen
 
-### Datei 1: EventsImStoria.tsx
-- Hinweistext nach Package-Grid einfügen
-- Process Steps: Titel `text-base → text-lg`, Beschreibung `text-sm → text-base`
-- Event Types: Beschreibung `text-sm → text-base`
-- Included Services: Beschreibung `text-xs → text-sm`
-- Gallery Überschrift: `text-2xl → text-3xl` / `text-3xl → text-4xl`
-- Trust Note: `text-sm → text-base`
+### 1. Neue Tabelle: `package_course_config`
 
-### Datei 2: EventPackageShopCard.tsx
-- Includes-Liste: `text-base → text-lg`
-- Dietary options Text: `text-sm → text-base`
-- Guest label: `text-sm → text-base`
+Definiert die Gang-Struktur pro Paket:
 
-### Datei 3: Catering.tsx
-- Hauptbeschreibung: explizit `text-lg` setzen
-- Überschriften: auf neue Skala anpassen
-- Listen-Items: `text-muted-foreground → text-lg text-muted-foreground`
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `package_id` | UUID | Referenz zum Paket |
+| `course_type` | TEXT | 'starter', 'pasta', 'main_fish', 'main_meat', 'dessert', 'fingerfood' |
+| `course_label` | TEXT | "Vorspeise", "Hauptgang (Fleisch/Fisch)" |
+| `is_required` | BOOLEAN | Pflichtgang? |
+| `allowed_sources` | TEXT[] | ['catering', 'ristorante'] |
+| `allowed_categories` | TEXT[] | ['Secondi di pesce', 'Secondi di carne'] |
+| `is_custom_item` | BOOLEAN | Für "Vorspeisenplatte" (nicht im Katalog) |
+| `custom_item_name` | TEXT | "Vorspeisenplatte" |
+| `sort_order` | INT | Reihenfolge |
+
+### 2. Neue Tabelle: `package_drink_config`
+
+Definiert die Getränke-Optionen pro Paket:
+
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `package_id` | UUID | Referenz zum Paket |
+| `drink_group` | TEXT | 'aperitif', 'wine', 'water', 'coffee' |
+| `options` | JSONB | Kategorien/Mengen pro Option |
+| `quantity_per_person` | TEXT | "1", "0.7l", "unlimited" |
+| `is_choice` | BOOLEAN | Entweder/oder Auswahl? |
+
+### 3. Erweiterung: `event_inquiries`
+
+Neues JSON-Feld für die Menü-Konfiguration:
+
+```json
+{
+  "menu_selection": {
+    "courses": [
+      { "course_type": "starter", "item_id": null, "custom_name": "Vorspeisenplatte" },
+      { "course_type": "main_fish", "item_id": "ristorante_xxx", "name": "Branzino" },
+      { "course_type": "dessert", "item_id": "ristorante_yyy", "name": "Tiramisù" }
+    ],
+    "drinks": {
+      "aperitif_choice": "wine",
+      "selected_wine": "Montepulciano d'Abruzzo"
+    }
+  }
+}
+```
 
 ---
 
-## Zusammenfassung der Änderungen
+## Komponenten-Architektur
 
-| Datei | Änderung |
-|-------|----------|
-| `EventsImStoria.tsx` | + Hinweistext, + Schriftgrößen erhöhen |
-| `EventPackageShopCard.tsx` | + Schriftgrößen erhöhen |
-| `Catering.tsx` | + Explizite Schriftgrößen setzen |
+### Neue Dateien
 
-## Ergebnis
-- Hinweistext unter den Paketen sichtbar
-- Mindest-Schriftgröße für Fließtext: 16px
-- Beschreibungstexte: 18px (text-lg)
-- Konsistente, lesbare Typografie auf allen Inhaltsseiten
+```text
+src/components/admin/refine/InquiryEditor/
+├── MenuComposer/
+│   ├── index.tsx              # Hauptkomponente
+│   ├── CourseSelector.tsx     # Gang-Auswahl mit Kategorien
+│   ├── DrinkPackageSelector.tsx  # Getränke-Pauschale
+│   ├── CourseProgress.tsx     # Fortschrittsanzeige
+│   ├── CustomItemInput.tsx    # Für Vorspeisenplatte etc.
+│   └── types.ts               # MenuSelection, CourseConfig
+│
+├── hooks/
+│   └── usePackageMenuConfig.ts  # Lädt Gang-Konfiguration
+```
+
+### Komponenten-Hierarchie
+
+```text
+SmartInquiryEditor
+└── EventModules
+    ├── PackageSelector (existiert)
+    └── MenuComposer (NEU)
+        ├── CourseProgress
+        ├── CourseSelector (pro Gang)
+        │   ├── CategoryFilter
+        │   └── ItemGrid
+        └── DrinkPackageSelector
+            ├── ChoiceToggle (Spritz/Wein)
+            └── IncludedItems (Wasser, Kaffee)
+```
+
+---
+
+## Workflow Integration
+
+### Mitarbeiter-Workflow
+
+```text
+1. ANFRAGE ÖFFNEN
+   └─→ Paket auswählen (z.B. "Business Dinner")
+       └─→ MenuComposer wird aktiviert
+
+2. MENÜ ZUSAMMENSTELLEN
+   ├─→ Gang 1: "Vorspeisenplatte" (automatisch vorausgefüllt)
+   ├─→ Gang 2: Fleisch ODER Fisch wählen
+   │           └─→ Filtert automatisch Restaurant-Karte
+   └─→ Gang 3: Dessert wählen
+
+3. GETRÄNKE KONFIGURIEREN
+   └─→ Spritz-Paket ODER Wein-Paket wählen
+
+4. ANGEBOT GENERIEREN
+   ├─→ AI-Composer erstellt personalisierte E-Mail
+   └─→ PDF zeigt komplettes Menü + Getränke
+
+5. VERSAND
+   └─→ LexOffice Angebot + E-Mail mit einem Klick
+```
+
+---
+
+## PDF-Erweiterung
+
+Das Angebot-PDF zeigt das komplette Menü strukturiert:
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                         ANGEBOT                              │
+│                                                              │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│                                                              │
+│ MENÜ FÜR 35 PERSONEN                                         │
+│                                                              │
+│ ┌────────────────────────────────────────────────────────┐   │
+│ │ VORSPEISE                                              │   │
+│ │ Vorspeisenplatte                                       │   │
+│ │ (Auswahl italienischer Antipasti)                      │   │
+│ ├────────────────────────────────────────────────────────┤   │
+│ │ HAUPTGANG                                              │   │
+│ │ Tagliata di Manzo                                      │   │
+│ │ (Geschnittenes Rinderfilet mit Rucola und Parmesan)   │   │
+│ ├────────────────────────────────────────────────────────┤   │
+│ │ DESSERT                                                │   │
+│ │ Tiramisù                                               │   │
+│ │ (Hausgemacht nach Original-Rezept)                     │   │
+│ └────────────────────────────────────────────────────────┘   │
+│                                                              │
+│ GETRÄNKE-PAUSCHALE (pro Person)                              │
+│ • 0,7l offener Wein (Rot/Weiß/Rosé)                         │
+│ • Wasser mit und ohne Kohlensäure                           │
+│ • Kaffee-Spezialitäten                                       │
+│                                                              │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│                                                              │
+│ Business Dinner – Exclusive         35 × 99,00 €  3.465,00 € │
+│                                                              │
+│ Zwischensumme (netto)                             3.465,00 € │
+│ MwSt. 7%                                            242,55 € │
+│ ─────────────────────────────────────────────────────────── │
+│ GESAMTBETRAG                                      3.707,55 € │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Implementierungsplan
+
+### Phase 1: Datenbank & Konfiguration
+1. Migration für `package_course_config` und `package_drink_config`
+2. Seed-Daten für die drei Pakete
+3. Erweiterung `event_inquiries.menu_selection` (JSONB)
+
+### Phase 2: Kernkomponenten
+1. `usePackageMenuConfig` Hook
+2. `MenuComposer` Hauptkomponente
+3. `CourseSelector` mit Kategorie-Filterung
+4. `DrinkPackageSelector` für Getränke-Auswahl
+
+### Phase 3: Integration
+1. Einbindung in `EventModules`
+2. State-Management im `SmartInquiryEditor`
+3. Speichern der Menü-Auswahl in der Datenbank
+
+### Phase 4: Ausgabe
+1. AI-Composer erhält Menü-Daten
+2. PDF-Template für Menü-Darstellung
+3. LexOffice-Integration mit Menü-Details
+
+---
+
+## Technische Details
+
+### Kategorie-Mapping für Restaurant
+
+| Gang-Typ | Restaurant-Kategorien |
+|----------|----------------------|
+| `pasta` | "Paste" |
+| `main_fish` | "Secondi di pesce" |
+| `main_meat` | "Secondi di carne" |
+| `dessert` | "I nostri Dolci" |
+| `starter` | "Antipasti", "Insalate" |
+| `aperitif` | "Cocktai list", "Glamour im Glas" |
+| `wine` | "Weißweine", "ROSÉWEINE", "Rotweine" |
+
+### Catering-Katalog Kategorien
+
+| Gang-Typ | Catering-Kategorien |
+|----------|---------------------|
+| `fingerfood` | Fingerfood, Häppchen |
+| `platten` | Platten & Sharing |
+| `dessert` | Desserts |
+
+### State-Struktur
+
+```typescript
+interface MenuSelection {
+  courses: CourseSelection[];
+  drinks: DrinkSelection;
+}
+
+interface CourseSelection {
+  courseType: 'starter' | 'pasta' | 'main_fish' | 'main_meat' | 'dessert' | 'fingerfood';
+  itemId: string | null;
+  itemName: string;
+  itemSource: 'catering' | 'ristorante' | 'custom';
+  isCustom: boolean;
+}
+
+interface DrinkSelection {
+  aperitifChoice: 'spritz' | 'cocktail' | 'wine' | 'beer';
+  selectedItems: { id: string; name: string; quantity: number }[];
+}
+```
+
+---
+
+## Vorteile der Lösung
+
+| Aspekt | Vorteil |
+|--------|---------|
+| **Geschwindigkeit** | Menü in < 2 Minuten zusammengestellt |
+| **Fehlerfreiheit** | Nur gültige Kombinationen möglich |
+| **Konsistenz** | Gleiche Struktur für alle Mitarbeiter |
+| **Flexibilität** | Gang-Konfiguration in DB, nicht im Code |
+| **Professionalität** | Vollständiges Menü im Angebot |
+| **Skalierbarkeit** | Neue Pakete ohne Code-Änderungen |
+
