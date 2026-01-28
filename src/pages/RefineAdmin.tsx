@@ -1,5 +1,5 @@
 import { Refine } from "@refinedev/core";
-import routerBindings from "@refinedev/react-router-v6";
+import routerProvider from "@refinedev/react-router";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { supabaseDataProvider } from "@/providers/refine-data-provider";
 import { supabaseAuthProvider } from "@/providers/refine-auth-provider";
@@ -34,7 +34,7 @@ export const RefineAdminApp = () => {
     <Refine
       dataProvider={supabaseDataProvider}
       authProvider={supabaseAuthProvider}
-      routerProvider={routerBindings}
+      routerProvider={routerProvider}
       resources={resources}
       options={{
         syncWithLocation: true,
