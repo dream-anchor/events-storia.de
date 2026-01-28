@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import type { EventPackage } from "@/hooks/useEventPackages";
 
 // Package images from STORIA website
-import cocktailsAperitivo from "@/assets/events/cocktails-aperitivo.webp";
+import sommerfest from "@/assets/events/sommerfest.webp";
 import ravioliDinner from "@/assets/events/ravioli-dinner.webp";
 import firmenfeier from "@/assets/events/firmenfeier.webp";
 
@@ -23,7 +23,7 @@ const getPackageImage = (name: string): string => {
     return ravioliDinner; // High-quality pasta for dinner
   }
   if (nameLower.includes("network") || nameLower.includes("aperitivo")) {
-    return cocktailsAperitivo; // Cocktails for aperitivo
+    return sommerfest; // Elegant aperitivo atmosphere
   }
   if (nameLower.includes("location") || nameLower.includes("gesamte")) {
     return firmenfeier; // Elegant event atmosphere
@@ -52,11 +52,11 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const maxGuests = pkg.max_guests || 200;
 
   const handleDecrement = () => {
-    setGuestCount(prev => Math.max(minGuests, prev - 5));
+    setGuestCount(prev => Math.max(minGuests, prev - 1));
   };
 
   const handleIncrement = () => {
-    setGuestCount(prev => Math.min(maxGuests, prev + 5));
+    setGuestCount(prev => Math.min(maxGuests, prev + 1));
   };
 
   const totalPrice = pkg.price_per_person ? pkg.price * guestCount : pkg.price;
