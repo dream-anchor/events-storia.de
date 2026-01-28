@@ -606,6 +606,56 @@ export type Database = {
           },
         ]
       }
+      package_menu_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_included: boolean | null
+          item_id: string
+          item_name: string
+          item_price: number | null
+          item_source: string
+          package_id: string
+          quantity: number
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_included?: boolean | null
+          item_id: string
+          item_name: string
+          item_price?: number | null
+          item_source: string
+          package_id: string
+          quantity?: number
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_included?: boolean | null
+          item_id?: string
+          item_name?: string
+          item_price?: number | null
+          item_source?: string
+          package_id?: string
+          quantity?: number
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_menu_items_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       packages: {
         Row: {
           created_at: string | null
