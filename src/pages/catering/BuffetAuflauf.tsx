@@ -15,33 +15,7 @@ import { Plus, Minus, ShoppingCart, Check, Flame, Wheat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HighlightCard, ServicesGrid } from "@/components/catering/ServiceInfoCard";
 
-// Images
-import parmigianaImg from "@/assets/catering/auflauf/parmigiana.webp";
-import lasagnaImg from "@/assets/catering/auflauf/lasagna.webp";
-import kabeljauImg from "@/assets/catering/auflauf/kabeljau.webp";
-import polloImg from "@/assets/catering/auflauf/pollo-cacciatora.webp";
-import spezzatinoImg from "@/assets/catering/auflauf/spezzatino.webp";
-import arrostoImg from "@/assets/catering/auflauf/arrosto-vitello.webp";
-
-// Map item names to images
-const imageMap: Record<string, string> = {
-  "Parmigiana di Melanzane": parmigianaImg,
-  "Lasagna alla Bolognese": lasagnaImg,
-  "Kabeljaufilet a la Livornese": kabeljauImg,
-  "Pollo alla Cacciatora": polloImg,
-  "Spezzatino di Vitello": spezzatinoImg,
-  "Arrosto di Vitello con patate": arrostoImg,
-};
-
-// Image position map
-const imagePositionMap: Record<string, string> = {
-  "Parmigiana di Melanzane": "center 60%",
-  "Lasagna alla Bolognese": "center center",
-  "Kabeljaufilet a la Livornese": "center center",
-  "Pollo alla Cacciatora": "center 60%",
-  "Spezzatino di Vitello": "center center",
-  "Arrosto di Vitello con patate": "center 55%",
-};
+// No static image imports needed - using database URLs
 
 const chafingDish = {
   id: "chafing-dish",
@@ -71,7 +45,7 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
       name: item.name,
       name_en: item.name_en || null,
       price: item.price,
-      image: imageMap[item.name] || item.image_url || undefined,
+      image: item.image_url || undefined,
       serving_info: (language === 'de' ? item.serving_info : item.serving_info_en) || undefined,
       category: 'buffet',
     }, quantity);
@@ -82,8 +56,8 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
   const name = language === 'de' ? item.name : (item.name_en || item.name);
   const description = language === 'de' ? item.description : (item.description_en || item.description);
   const servingInfo = language === 'de' ? item.serving_info : (item.serving_info_en || item.serving_info);
-  const image = imageMap[item.name] || item.image_url;
-  const imagePosition = imagePositionMap[item.name] || 'center center';
+  const image = item.image_url;
+  const imagePosition = 'center center';
   
   const cartItem = items.find(i => i.id === item.id);
   const isInCart = !!cartItem;
@@ -277,7 +251,7 @@ const BuffetAuflauf = () => {
             description: item.description || '',
             description_en: item.description_en || undefined,
             price: item.price || 0,
-            image: imageMap[item.name] || item.image_url || undefined,
+            image: item.image_url || undefined,
             sku: item.id,
             servingInfo: item.serving_info || undefined,
           }))} 
