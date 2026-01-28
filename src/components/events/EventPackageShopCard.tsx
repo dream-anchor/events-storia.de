@@ -129,9 +129,15 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
           {pkg.max_guests && (
             <p>{language === 'de' ? `max. ${pkg.max_guests} Personen` : `max. ${pkg.max_guests} guests`}</p>
           )}
+          {/* Exclusivity info for Network-Aperitivo - always visible */}
+          {(pkg.name.toLowerCase().includes('network') || pkg.name.toLowerCase().includes('aperitivo')) && (
+            <p className="text-primary font-medium">
+              {language === 'de' ? 'Exklusiv ab 25 Personen' : 'Exclusive from 25 guests'}
+            </p>
+          )}
         </div>
 
-        {/* Exclusivity indicator for Network-Aperitivo */}
+        {/* Dynamic exclusivity indicator for Network-Aperitivo */}
         {(pkg.name.toLowerCase().includes('network') || pkg.name.toLowerCase().includes('aperitivo')) && (
           <Badge 
             variant={guestCount >= 25 ? "default" : "outline"} 
@@ -139,7 +145,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
           >
             {guestCount >= 25 
               ? (language === 'de' ? '✓ Exklusiver Bereich' : '✓ Exclusive Area')
-              : (language === 'de' ? 'Geteilter Bereich (exklusiv ab 25 Pers.)' : 'Shared Area (exclusive from 25)')
+              : (language === 'de' ? 'Geteilter Bereich' : 'Shared Area')
             }
           </Badge>
         )}
