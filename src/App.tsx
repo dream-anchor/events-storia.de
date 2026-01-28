@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Kontakt from "./pages/Kontakt";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
+import { RefineAdminApp } from "./pages/RefineAdmin";
 import AdminLogin from "./pages/AdminLogin";
 import Impressum from "./pages/Impressum";
 import Datenschutz from "./pages/Datenschutz";
@@ -88,8 +89,8 @@ const App = () => {
                 <Route path="/konto/passwort-reset" element={<PasswordReset />} />
                 <Route path="/konto/bestellung-erfolgreich" element={<OrderSuccess />} />
                 
-                {/* Admin */}
-                <Route path="/admin" element={<Admin />} />
+                {/* Admin - New Refine-based */}
+                <Route path="/admin/*" element={<RefineAdminApp />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
                 
                 {/* Legal Pages */}
