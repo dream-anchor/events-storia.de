@@ -2,107 +2,40 @@ import { Check, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
+import { useEventPackages } from "@/hooks/useEventPackages";
 import { cn } from "@/lib/utils";
 
+// Fallback images for packages without database images
 import packageEssenz from "@/assets/events/package-essenz.webp";
 import packagePremium from "@/assets/events/package-premium.webp";
 import packageExklusiv from "@/assets/events/package-exklusiv.webp";
 
-interface PricingPackage {
-  id: string;
-  image: string;
-  name: string;
-  nameEn: string;
-  price: string;
-  priceEn: string;
-  priceUnit: string;
-  priceUnitEn: string;
-  minGuests?: number;
-  description: string;
-  descriptionEn: string;
-  features: string[];
-  featuresEn: string[];
-  featured?: boolean;
-}
+// Map package names to images
+const packageImages: Record<string, string> = {
+  "business-dinner": packageEssenz,
+  "network-aperitivo": packagePremium,
+  "gesamte-location": packageExklusiv,
+};
 
-const pricingPackages: PricingPackage[] = [
-  {
-    id: "network-aperitivo",
-    image: packagePremium,
-    name: "Network-Aperitivo",
-    nameEn: "Network Aperitivo",
-    price: "69",
-    priceEn: "69",
-    priceUnit: "p.P.",
-    priceUnitEn: "p.p.",
-    minGuests: 20,
-    description: "Italienisches Networking-Erlebnis",
-    descriptionEn: "Italian networking experience",
-    features: [
-      "Italienisches Fingerfood-Buffet",
-      "Live-Pasta-Station",
-      "Ausgewählte Weine & Cocktails",
-      "Ab 20 Personen buchbar",
-    ],
-    featuresEn: [
-      "Italian finger food buffet",
-      "Live pasta station",
-      "Selected wines & cocktails",
-      "Bookable from 20 guests",
-    ],
-  },
-  {
-    id: "business-dinner",
-    image: packageEssenz,
-    name: "Business Dinner – Exclusive",
-    nameEn: "Business Dinner – Exclusive",
-    price: "99",
-    priceEn: "99",
-    priceUnit: "p.P.",
-    priceUnitEn: "p.p.",
-    minGuests: 30,
-    description: "Exklusives Dinner für Geschäftskunden",
-    descriptionEn: "Exclusive dinner for business clients",
-    features: [
-      "Italienische Vorspeisenplatte",
-      "Hochwertiger Hauptgang nach Wahl",
-      "Hausgemachtes Dessert",
-      "Ab 30 Personen buchbar",
-    ],
-    featuresEn: [
-      "Italian starter platter",
-      "Premium main course of choice",
-      "Homemade dessert",
-      "Bookable from 30 guests",
-    ],
-    featured: true,
-  },
-  {
-    id: "gesamte-location",
-    image: packageExklusiv,
-    name: "Gesamte Location",
-    nameEn: "Full Venue Buyout",
-    price: "8.500",
-    priceEn: "8,500",
-    priceUnit: "pauschal",
-    priceUnitEn: "flat rate",
-    description: "Das komplette STORIA exklusiv für Sie",
-    descriptionEn: "The entire STORIA exclusively for you",
-    features: [
-      "Bis zu 100 Gäste sitzend",
-      "Bis zu 180 Gäste stehend",
-      "Komplette Exklusivität",
-      "Catering nach Absprache",
-    ],
-    featuresEn: [
-      "Up to 100 guests seated",
-      "Up to 180 guests standing",
-      "Complete exclusivity",
-      "Catering by arrangement",
-    ],
-  },
-];
+// Get image for package by matching name patterns
+const getPackageImage = (name: string): string => {
+  const nameLower = name.toLowerCase();
+  if (nameLower.includes("business") || nameLower.includes("dinner")) {
+    return packageEssenz;
+  }
+  if (nameLower.includes("network") || nameLower.includes("aperitivo")) {
+    return packagePremium;
+  }
+  if (nameLower.includes("location") || nameLower.includes("gesamte")) {
+    return packageExklusiv;
+  }
+  return packageEssenz; // Default fallback
+};
 
 interface EventPricingCardsProps {
   onInquiry?: (packageId: string) => void;
@@ -110,11 +43,42 @@ interface EventPricingCardsProps {
 
 const EventPricingCards = ({ onInquiry }: EventPricingCardsProps) => {
   const { language } = useLanguage();
+  const { showGross, setShowGross, formatPrice } = usePriceDisplay();
+  const { data: packages, isLoading } = useEventPackages();
+
+  // Featured package is "Business Dinner" (most expensive per-person package)
+  const getFeaturedId = () => {
+    if (!packages) return null;
+    const businessDinner = packages.find(p => 
+      p.name.toLowerCase().includes("business") || p.name.toLowerCase().includes("dinner")
+    );
+    return businessDinner?.id || null;
+  };
+
+  const featuredId = getFeaturedId();
+
+  if (isLoading) {
+    return (
+      <section className="py-20 md:py-28 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-14">
+            <Skeleton className="h-10 w-64 mx-auto mb-4" />
+            <Skeleton className="h-6 w-96 mx-auto" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} className="h-[500px] rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-20 md:py-28 bg-muted/30">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-14">
+        <div className="text-center mb-10">
           <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">
             {language === 'de' ? "Unsere Event-Pakete" : "Our Event Packages"}
           </h2>
@@ -125,24 +89,62 @@ const EventPricingCards = ({ onInquiry }: EventPricingCardsProps) => {
           </p>
         </div>
 
+        {/* Brutto/Netto Toggle */}
+        <div className="flex items-center justify-center gap-3 mb-12">
+          <Label 
+            htmlFor="price-toggle" 
+            className={cn(
+              "text-sm cursor-pointer transition-colors",
+              !showGross ? "text-primary font-medium" : "text-muted-foreground"
+            )}
+          >
+            {language === 'de' ? 'Netto' : 'Net'}
+          </Label>
+          <Switch
+            id="price-toggle"
+            checked={showGross}
+            onCheckedChange={setShowGross}
+          />
+          <Label 
+            htmlFor="price-toggle" 
+            className={cn(
+              "text-sm cursor-pointer transition-colors",
+              showGross ? "text-primary font-medium" : "text-muted-foreground"
+            )}
+          >
+            {language === 'de' ? 'Brutto' : 'Gross'}
+          </Label>
+          <span className="text-xs text-muted-foreground ml-2">
+            ({language === 'de' ? 'inkl. 7% MwSt.' : 'incl. 7% VAT'})
+          </span>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto items-stretch">
-          {pricingPackages.map((pkg) => {
-            const name = language === 'de' ? pkg.name : pkg.nameEn;
-            const description = language === 'de' ? pkg.description : pkg.descriptionEn;
-            const features = language === 'de' ? pkg.features : pkg.featuresEn;
-            const price = language === 'de' ? pkg.price : pkg.priceEn;
-            const priceUnit = language === 'de' ? pkg.priceUnit : pkg.priceUnitEn;
+          {packages?.map((pkg) => {
+            const name = language === 'de' ? pkg.name : (pkg.name_en || pkg.name);
+            const description = language === 'de' ? pkg.description : (pkg.description_en || pkg.description);
+            const includes = pkg.includes || [];
+            const isFeatured = pkg.id === featuredId;
+            const image = getPackageImage(pkg.name);
+
+            // Format price using the price display context
+            const displayPrice = formatPrice(pkg.price);
+            
+            // Price unit text
+            const priceUnit = pkg.price_per_person 
+              ? (language === 'de' ? 'p.P.' : 'p.p.')
+              : (language === 'de' ? 'pauschal' : 'flat rate');
 
             return (
               <Card 
                 key={pkg.id} 
                 className={cn(
                   "relative flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl",
-                  pkg.featured && "ring-2 ring-primary md:scale-105 shadow-xl z-10"
+                  isFeatured && "ring-2 ring-primary md:scale-105 shadow-xl z-10"
                 )}
               >
                 {/* Featured Badge */}
-                {pkg.featured && (
+                {isFeatured && (
                   <div className="absolute top-4 right-4 z-20">
                     <Badge className="gap-1.5 px-3 py-1 text-xs font-medium shadow-lg">
                       <Sparkles className="h-3 w-3" />
@@ -154,7 +156,7 @@ const EventPricingCards = ({ onInquiry }: EventPricingCardsProps) => {
                 {/* Header Image */}
                 <div className="relative h-44 overflow-hidden">
                   <img
-                    src={pkg.image}
+                    src={image}
                     alt={name}
                     className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                   />
@@ -166,19 +168,28 @@ const EventPricingCards = ({ onInquiry }: EventPricingCardsProps) => {
                   
                   {/* Price Display */}
                   <div className="mt-3">
-                    <span className="text-3xl font-bold text-primary">€{price}</span>
+                    <span className="text-3xl font-bold text-primary">{displayPrice}</span>
                     <span className="text-sm text-muted-foreground ml-1">{priceUnit}</span>
                   </div>
                   
-                  <p className="text-sm text-muted-foreground mt-2">{description}</p>
+                  {/* Min guests info */}
+                  {pkg.min_guests && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {language === 'de' ? `ab ${pkg.min_guests} Personen` : `from ${pkg.min_guests} guests`}
+                    </p>
+                  )}
+                  
+                  {description && (
+                    <p className="text-sm text-muted-foreground mt-2">{description}</p>
+                  )}
                 </CardHeader>
 
                 <CardContent className="flex-1 pt-4">
                   <ul className="space-y-3">
-                    {features.map((feature, idx) => (
+                    {includes.map((item, idx) => (
                       <li key={idx} className="flex items-start gap-3 text-sm">
                         <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                        <span className="text-foreground/80">{feature}</span>
+                        <span className="text-foreground/80">{item}</span>
                       </li>
                     ))}
                   </ul>
@@ -189,9 +200,9 @@ const EventPricingCards = ({ onInquiry }: EventPricingCardsProps) => {
                     onClick={() => onInquiry?.(pkg.id)}
                     className={cn(
                       "w-full gap-2",
-                      pkg.featured ? "bg-primary hover:bg-primary/90" : ""
+                      isFeatured ? "bg-primary hover:bg-primary/90" : ""
                     )}
-                    variant={pkg.featured ? "default" : "outline"}
+                    variant={isFeatured ? "default" : "outline"}
                     size="lg"
                   >
                     {language === 'de' ? 'Anfragen' : 'Inquire'}
@@ -201,6 +212,15 @@ const EventPricingCards = ({ onInquiry }: EventPricingCardsProps) => {
               </Card>
             );
           })}
+        </div>
+
+        {/* VAT Note */}
+        <div className="text-center mt-8">
+          <p className="text-xs text-muted-foreground">
+            {showGross 
+              ? (language === 'de' ? 'Alle Preise inkl. 7% MwSt.' : 'All prices incl. 7% VAT')
+              : (language === 'de' ? 'Alle Preise zzgl. 7% MwSt.' : 'All prices excl. 7% VAT')}
+          </p>
         </div>
       </div>
     </section>
