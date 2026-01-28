@@ -23,3 +23,6 @@ verify_jwt = true
 
 [functions.send-cancellation-notification]
 verify_jwt = false
+
+[functions.receive-event-inquiry]
+verify_jwt = false
