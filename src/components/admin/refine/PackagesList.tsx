@@ -16,7 +16,14 @@ import {
   Package,
   Percent,
   MapPin,
-  Check
+  Check,
+  Leaf,
+  Fish,
+  Beef,
+  Wine,
+  Coffee,
+  CakeSlice,
+  UtensilsCrossed
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -31,6 +38,20 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+
+// Helper to get icon for include item
+const getIncludeIcon = (item: string) => {
+  const lower = item.toLowerCase();
+  if (lower.includes('vegan')) return <Leaf className="h-4 w-4 text-green-600" />;
+  if (lower.includes('vegetarisch') || lower.includes('gemüse')) return <Leaf className="h-4 w-4 text-green-500" />;
+  if (lower.includes('fisch') || lower.includes('lachs') || lower.includes('kabeljau')) return <Fish className="h-4 w-4 text-blue-500" />;
+  if (lower.includes('fleisch') || lower.includes('rind') || lower.includes('schwein') || lower.includes('hauptgang')) return <Beef className="h-4 w-4 text-red-500" />;
+  if (lower.includes('wein') || lower.includes('cocktail') || lower.includes('aperitivo')) return <Wine className="h-4 w-4 text-purple-500" />;
+  if (lower.includes('kaffee') || lower.includes('wasser')) return <Coffee className="h-4 w-4 text-amber-700" />;
+  if (lower.includes('dessert') || lower.includes('tiramisu') || lower.includes('panna')) return <CakeSlice className="h-4 w-4 text-pink-500" />;
+  if (lower.includes('vorspeise') || lower.includes('fingerfood') || lower.includes('pasta')) return <UtensilsCrossed className="h-4 w-4 text-orange-500" />;
+  return <Check className="h-4 w-4 text-primary" />;
+};
 
 interface PackageData {
   id: string;
@@ -115,6 +136,14 @@ export const PackagesList = () => {
     return locations
       .filter(loc => locationIds.includes(loc.id))
       .map(loc => loc.name);
+  };
+
+  // Get packages for a location (reverse lookup)
+  const getPackagesForLocation = (locationId: string) => {
+    const pkgIds = Object.entries(packageLocations)
+      .filter(([_, locIds]) => locIds.includes(locationId))
+      .map(([pkgId]) => pkgId);
+    return packages.filter(pkg => pkgIds.includes(pkg.id));
   };
   
   const filteredPackages = packages.filter(pkg => 
@@ -258,8 +287,8 @@ export const PackagesList = () => {
                       {pkg.includes && Array.isArray(pkg.includes) && pkg.includes.length > 0 && (
                         <ul className="space-y-2">
                           {pkg.includes.map((item, i) => (
-                            <li key={i} className="flex items-start gap-3 text-base">
-                              <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                            <li key={i} className="flex items-center gap-3 text-base">
+                              {getIncludeIcon(item)}
                               <span>{item}</span>
                             </li>
                           ))}
@@ -389,6 +418,21 @@ export const PackagesList = () => {
                           </div>
                         )}
                       </div>
+
+                      {/* Available Packages */}
+                      {getPackagesForLocation(loc.id).length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-muted-foreground">Beinhaltet:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {getPackagesForLocation(loc.id).map((pkg) => (
+                              <Badge key={pkg.id} variant="default" className="text-sm px-3 py-1.5">
+                                <Package className="h-3.5 w-3.5 mr-1.5" />
+                                {pkg.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Features */}
                       {loc.features && Array.isArray(loc.features) && loc.features.length > 0 && (
