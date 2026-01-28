@@ -192,7 +192,7 @@ export const PackageMenuItemsEditor = ({ packageId, onItemsChange }: PackageMenu
           Menü-Items zuordnen
         </CardTitle>
         <CardDescription>
-          Weisen Sie Speisen und Getränke aus dem Catering-Katalog oder Restaurant-Menü zu
+          Weisen Sie Speisen und Getränke aus dem <strong>Catering-Katalog</strong> oder <strong>Ristorante Storia</strong> zu
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

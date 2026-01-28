@@ -119,10 +119,20 @@ export const MenuItemsList = () => {
     <AdminLayout activeTab="menu">
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-serif font-semibold">Catering-Katalog</h1>
+          <h1 className="text-2xl font-serif font-semibold">Speisen & Getränke</h1>
           <p className="text-muted-foreground">
-            Verwalten Sie die Catering-Gerichte und Preise.
+            Verwalten Sie alle Speisen und Getränke.
           </p>
+          <div className="flex gap-4 mt-3 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-primary"></span>
+              <span className="text-muted-foreground"><strong>Catering-Katalog</strong> – Speisen & Getränke dieser Seite</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+              <span className="text-muted-foreground"><strong>Ristorante Storia</strong> – Speisen & Getränke aus dem Restaurant</span>
+            </div>
+          </div>
         </div>
 
         <DataTable
