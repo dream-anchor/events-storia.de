@@ -1,152 +1,81 @@
 
-# Plan: Staffelpreis für "Gesamte Location" Paket
+# Plan: Locations-Tab aus dem Frontend entfernen
 
-## Geschäftslogik
+## Übersicht
 
-Das Paket "Gesamte Location" hat ein spezielles Preismodell:
-
-| Gästeanzahl | Preis |
-|-------------|-------|
-| 70 Personen (Basis) | 8.500 € |
-| 71 Personen | 8.621,43 € (+121,43 €) |
-| 80 Personen | 9.714,30 € (+1.214,30 €) |
-| 100 Personen | 12.142,90 € (+3.642,90 €) |
-
-**Formel:** `Preis = 8.500 € + max(0, guestCount - 70) × (8.500 / 70)`
-
-Der Aufpreis pro zusätzliche Person beträgt **121,43 €** (gerundet: 8.500 / 70).
+Der "Locations"-Tab wird aus der öffentlichen Events-Seite (`/events`) entfernt. Die Location-Verwaltung bleibt vollständig im Admin-Bereich (StoriaMaestro) für interne Zuordnungen (z.B. Paket-Location-Mapping, Event-Buchungen) erhalten.
 
 ---
 
-## Technische Umsetzung
+## Änderungen
 
-### Zentrale Preisberechnungsfunktion
+### 1. `src/pages/catering/EventsImStoria.tsx`
 
-Eine neue Utility-Funktion wird erstellt, die an allen relevanten Stellen verwendet wird:
-
-```text
-src/lib/eventPricing.ts (NEU)
-```
-
+**Import entfernen:**
 ```typescript
-// Package ID für "Gesamte Location" 
-const LOCATION_PACKAGE_ID = 'b147ea52-9907-445f-9f39-b7ddecbb0ddf';
+// Zeile 8 entfernen:
+import EventLocationCard from "@/components/events/EventLocationCard";
 
-// Basis-Konfiguration
-const LOCATION_BASE_PRICE = 8500;
-const LOCATION_BASE_GUESTS = 70;
-const PRICE_PER_EXTRA_GUEST = LOCATION_BASE_PRICE / LOCATION_BASE_GUESTS; // 121.43€
-
-export function calculateEventPackagePrice(
-  packageId: string,
-  basePrice: number,
-  guestCount: number,
-  pricePerPerson: boolean
-): number {
-  // Standard per-person Pakete (Network-Aperitivo, Business Dinner)
-  if (pricePerPerson) {
-    return basePrice * guestCount;
-  }
-  
-  // Spezialfall: "Gesamte Location" mit Staffelpreis
-  if (packageId === LOCATION_PACKAGE_ID || 
-      basePrice === LOCATION_BASE_PRICE) {
-    const extraGuests = Math.max(0, guestCount - LOCATION_BASE_GUESTS);
-    return LOCATION_BASE_PRICE + (extraGuests * PRICE_PER_EXTRA_GUEST);
-  }
-  
-  // Andere Pauschalpakete: fester Preis
-  return basePrice;
-}
-
-export function isLocationPackage(packageId: string, price?: number): boolean {
-  return packageId === LOCATION_PACKAGE_ID || price === LOCATION_BASE_PRICE;
-}
+// Zeile 101 – Hook-Aufruf entfernen:
+const { data: locations, isLoading: locationsLoading } = useEventLocations();
 ```
 
----
+**Tabs auf Single-Content umstellen:**
 
-## Dateien die geändert werden
-
-### 1. `src/lib/eventPricing.ts` (NEU)
-Zentrale Preisberechnungs-Utility mit der Staffelpreis-Logik.
-
-### 2. `src/components/events/EventPackageShopCard.tsx`
-- Import der neuen `calculateEventPackagePrice` Funktion
-- Ersetze Zeile 62: `const totalPrice = pkg.price_per_person ? pkg.price * guestCount : pkg.price;`
-- Mit: `const totalPrice = calculateEventPackagePrice(pkg.id, pkg.price, guestCount, !!pkg.price_per_person);`
-- Zeige dynamischen Gesamtpreis auch für das Location-Paket an (nicht nur bei `price_per_person`)
-- Aktualisiere den `handleAddToCart` um den berechneten Einzelpreis zu übergeben
-
-### 3. `src/contexts/CartContext.tsx`
-- Import der neuen Utility
-- Erweitere `CartItem` Interface um optionale Felder für Event-Pakete:
-  - `isEventPackage?: boolean`
-  - `baseGuestCount?: number` (Basis für Staffelpreis)
-- Passe `totalPrice` Berechnung an, um die Staffellogik zu berücksichtigen
-
-### 4. `src/components/cart/CartSheet.tsx`
-- Verwende die neue Preisberechnungsfunktion für die Anzeige
-- Zeige bei Location-Paket einen Hinweis: "8.500 € Basis + X Pers. × 121,43 €"
-
-### 5. `src/pages/Checkout.tsx`
-- Verwende dieselbe Berechnungslogik für die Checkout-Summen
-- Stelle sicher, dass der korrekte Preis an Stripe übergeben wird
-
----
-
-## UI-Anpassungen im EventPackageShopCard
-
-**Vorher (Zeilen 200-210):**
-Zeigt Gesamtpreis nur bei `price_per_person`
-
-**Nachher:**
-Zeigt immer einen dynamischen Gesamtpreis wenn er vom Basispreis abweicht:
-
-```tsx
-{/* Total Price - for per-person OR tiered pricing */}
-{(pkg.price_per_person || (totalPrice !== pkg.price)) && (
-  <div className="text-center">
-    <span className="text-base text-muted-foreground">
-      {language === 'de' ? 'Gesamt:' : 'Total:'} 
-    </span>
-    <span className="text-xl font-bold text-primary ml-2">
-      {formatPrice(totalPrice)}
-    </span>
-    {/* Explanation for tiered pricing */}
-    {!pkg.price_per_person && totalPrice > pkg.price && (
-      <p className="text-xs text-muted-foreground mt-1">
-        {language === 'de' 
-          ? `Basis 8.500 € + ${guestCount - 70} Pers. × 121,43 €`
-          : `Base €8,500 + ${guestCount - 70} guests × €121.43`}
-      </p>
-    )}
-  </div>
-)}
-```
-
----
-
-## Preisanzeige im Warenkorb
-
-Für das Location-Paket wird die Berechnung transparent dargestellt:
+Die gesamte Tab-Struktur wird vereinfacht – statt Tabs nur noch die Pakete-Sektion anzeigen:
 
 ```text
-Gesamte Location
-80 Gäste
-8.500 € + 10 × 121,43 € = 9.714,30 €
+VORHER (Zeilen 308-398):
+├── Tabs (packages | locations)
+│   ├── TabsList mit 2 Tabs
+│   ├── TabsContent "packages" → Pakete-Grid
+│   └── TabsContent "locations" → Locations-Grid
+
+NACHHER:
+└── Nur Pakete-Grid (ohne Tabs-Wrapper)
 ```
+
+**Konkrete Zeilen:**
+
+| Zeile | Aktion |
+|-------|--------|
+| 8 | `EventLocationCard` Import löschen |
+| 18 | `TabsContent, TabsList, TabsTrigger` aus Import entfernen (nur `Tabs` wird nicht mehr benötigt) |
+| 101 | `useEventLocations()` Hook-Aufruf löschen |
+| 308-318 | Tabs-Wrapper + TabsList komplett entfernen |
+| 320 | `TabsContent value="packages"` öffnend → entfernen |
+| 381 | `</TabsContent>` schließend → entfernen |
+| 383-397 | Kompletter `TabsContent value="locations"` Block löschen |
+| 398 | Schließendes `</Tabs>` entfernen |
 
 ---
 
-## Zusammenfassung der Änderungen
+## Was bleibt unverändert
 
-| Datei | Änderung |
-|-------|----------|
-| `src/lib/eventPricing.ts` | NEUE Datei mit Staffelpreis-Logik |
-| `src/components/events/EventPackageShopCard.tsx` | Nutzt neue Berechnungsfunktion |
-| `src/contexts/CartContext.tsx` | Erweiterte Preisberechnung für Staffelpreise |
-| `src/components/cart/CartSheet.tsx` | Transparente Preisdarstellung |
-| `src/pages/Checkout.tsx` | Korrekte Summenberechnung |
+| Komponente | Status |
+|------------|--------|
+| `src/components/events/EventLocationCard.tsx` | Bleibt (könnte später für Admin-Preview genutzt werden) |
+| `src/hooks/useEventPackages.ts` (`useEventLocations`) | Bleibt (wird im Admin verwendet) |
+| `src/components/admin/refine/LocationEdit.tsx` | Unverändert |
+| `src/components/admin/refine/PackagesList.tsx` | Unverändert (Package-Location-Mapping) |
+| `locations` Datenbanktabelle | Unverändert |
 
-Die Änderung ist rückwärtskompatibel – alle anderen Pakete (Network-Aperitivo, Business Dinner) funktionieren weiterhin unverändert.
+---
+
+## Ergebnis
+
+Die Events-Seite zeigt nur noch die buchbaren Pakete ohne Tab-Navigation. Die "Max. Gäste: 180" Zahl im Trust-Bar bleibt als statische Information erhalten – sie stammt nicht aus den Locations-Daten.
+
+```text
+Frontend (/events):
+├── Hero
+├── Trust Bar (statisch: 180 Max. Gäste)
+├── Pakete-Grid (ohne Tabs)
+├── Galerie
+└── Kontaktformular
+
+Admin (StoriaMaestro):
+├── Locations verwalten ✓
+├── Pakete → Locations zuordnen ✓
+└── Event-Buchungen → Location auswählen ✓
+```
