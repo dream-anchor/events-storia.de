@@ -167,8 +167,9 @@ serve(async (req) => {
       ? `STORIA Event Buchung #${orderNumber}`
       : `STORIA Catering #${orderNumber}`;
 
-    // Create checkout session with dynamic price
-    // Using automatic_payment_methods to show all methods enabled in Stripe Dashboard
+     // Create checkout session with dynamic price
+     // NOTE: For Stripe Checkout, the safest way to allow all payment methods enabled in the
+     // dashboard is to NOT set payment_method_types at all.
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : customerEmail,
@@ -186,9 +187,6 @@ serve(async (req) => {
         },
       ],
       mode: "payment",
-      automatic_payment_methods: {
-        enabled: true,
-      },
       success_url: `${req.headers.get("origin")}/checkout?payment=success&order=${orderNumber}`,
       cancel_url: `${req.headers.get("origin")}/checkout?payment=cancelled`,
       metadata: {
