@@ -1,8 +1,9 @@
 import { useList } from "@refinedev/core";
+import { useNavigate } from "react-router-dom";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Users, Package, CreditCard, Truck, MapPin, Receipt, Download } from "lucide-react";
+import { Calendar, Users, Package, CreditCard, Truck, MapPin, Receipt, Download, Eye } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable } from "./DataTable";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ const statusConfig: Record<OrderStatus, { label: string; variant: "default" | "s
 };
 
 export const OrdersList = () => {
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | null>(null);
 
   const ordersQuery = useList<CateringOrder>({
@@ -59,7 +61,7 @@ export const OrdersList = () => {
           <div className="flex flex-col gap-1">
             <Badge variant={config.variant}>{config.label}</Badge>
             {isPaid && (
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
                 <CreditCard className="h-3 w-3 mr-1" />
                 Bezahlt
               </Badge>
@@ -151,11 +153,14 @@ export const OrdersList = () => {
       id: "actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          {row.original.lexoffice_invoice_id && (
-            <Button size="icon" variant="ghost">
-              <Download className="h-4 w-4" />
-            </Button>
-          )}
+          <Button 
+            size="sm" 
+            variant="ghost"
+            onClick={() => navigate(`/admin/orders/${row.original.id}/edit`)}
+          >
+            <Eye className="h-4 w-4 mr-1" />
+            Details
+          </Button>
         </div>
       ),
     },
