@@ -4,6 +4,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { supabaseDataProvider } from "@/providers/refine-data-provider";
 import { supabaseAuthProvider } from "@/providers/refine-auth-provider";
 import { Dashboard, EventsList, OrdersList, MenuItemsList, PackagesList, PackageEdit, LocationEdit, EventBookingsList, EventBookingEditor } from "@/components/admin/refine";
+import { CateringOrderEditor } from "@/components/admin/refine/CateringOrderEditor";
 import { SmartInquiryEditor } from "@/components/admin/refine/InquiryEditor";
 
 const resources = [
@@ -71,6 +72,7 @@ export const RefineAdminApp = () => {
         </Route>
         <Route path="orders">
           <Route index element={<OrdersList />} />
+          <Route path=":id/edit" element={<CateringOrderEditor />} />
         </Route>
         <Route path="menu">
           <Route index element={<MenuItemsList />} />
