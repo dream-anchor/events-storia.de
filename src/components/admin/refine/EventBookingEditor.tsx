@@ -1,16 +1,14 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { 
   ArrowLeft, 
   Loader2, 
-  Save, 
   Mail, 
   CheckCircle2, 
   Calendar, 
   Users, 
-  MapPin,
   CreditCard,
   Building2,
   User,
@@ -20,11 +18,10 @@ import {
 import { useList } from "@refinedev/core";
 import { AdminLayout } from "./AdminLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { 
   useEventBooking, 
@@ -38,12 +35,15 @@ export const EventBookingEditor = () => {
   const navigate = useNavigate();
   
   const { data: booking, isLoading, error } = useEventBooking(id);
-  const { mutate: updateBooking, isPending: isSaving } = useUpdateEventBooking();
+  const { mutate: updateBooking } = useUpdateEventBooking();
   const { mutate: confirmMenu, isPending: isConfirming } = useConfirmBookingMenu();
   
   const [menuSelection, setMenuSelection] = useState<MenuSelection>({ courses: [], drinks: [] });
   const [internalNotes, setInternalNotes] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitializedRef = useRef(false);
 
   // Fetch package for display
   const packagesQuery = useList({
@@ -67,8 +67,10 @@ export const EventBookingEditor = () => {
 
   const selectedPackage = packages.find((p: any) => p.id === booking?.package_id);
 
-  const handleSave = useCallback(() => {
-    if (!id) return;
+  // Auto-save function
+  const performSave = useCallback(() => {
+    if (!id || !isInitializedRef.current) return;
+    setSaveStatus('saving');
     
     updateBooking({
       bookingId: id,
@@ -77,10 +79,44 @@ export const EventBookingEditor = () => {
         internal_notes: internalNotes,
       },
     }, {
-      onSuccess: () => toast.success("Änderungen gespeichert"),
-      onError: () => toast.error("Fehler beim Speichern"),
+      onSuccess: () => {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      },
+      onError: () => {
+        toast.error("Fehler beim Speichern");
+        setSaveStatus('idle');
+      },
     });
   }, [id, updateBooking, menuSelection, internalNotes]);
+
+  // Auto-save on any change (debounced)
+  useEffect(() => {
+    if (!isInitializedRef.current) return;
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      performSave();
+    }, 800);
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [menuSelection, internalNotes, performSave]);
+
+  // Mark as initialized after first load
+  useEffect(() => {
+    if (booking && !isInitializedRef.current) {
+      setTimeout(() => {
+        isInitializedRef.current = true;
+      }, 100);
+    }
+  }, [booking]);
 
   const handleConfirmAndSend = useCallback(() => {
     if (!id) return;
@@ -154,15 +190,23 @@ export const EventBookingEditor = () => {
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
+          <div className="flex items-center gap-3">
+            {/* Auto-save status */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {saveStatus === 'saving' && (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Speichert...</span>
+                </>
               )}
-              Speichern
-            </Button>
+              {saveStatus === 'saved' && (
+                <>
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <span>Gespeichert</span>
+                </>
+              )}
+            </div>
+            
             {!booking.menu_confirmed && (
               <Button onClick={handleConfirmAndSend} disabled={isConfirming}>
                 {isConfirming ? (
