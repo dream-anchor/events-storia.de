@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.fetch-ristorante-menus]
 verify_jwt = false
+
+[functions.send-menu-confirmation]
+verify_jwt = true

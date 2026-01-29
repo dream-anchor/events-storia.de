@@ -14,3 +14,5 @@ export { SmartInquiryEditor } from './InquiryEditor';
 export { FloatingPillNav, MobilePillNav } from './FloatingPillNav';
 export { CommandPalette, useCommandPalette } from './CommandPalette';
 export { ContextBar } from './ContextBar';
+export { EventBookingsList } from './EventBookingsList';
+export { EventBookingEditor } from './EventBookingEditor';

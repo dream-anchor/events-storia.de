@@ -1,19 +1,23 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
-import { ArrowLeft, Loader2, Save, CalendarDays, Truck } from "lucide-react";
+import { ArrowLeft, Loader2, Save, CalendarDays, Truck, Layers, FileCheck } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EventModules } from "./EventModules";
 import { CateringModules } from "./CateringModules";
 import { AIComposer } from "./AIComposer";
 import { CalculationSummary } from "./CalculationSummary";
+import { MultiOfferComposer } from "./MultiOffer";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
 import { MenuSelection } from "./MenuComposer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+type OfferMode = 'simple' | 'multi';
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +25,7 @@ export const SmartInquiryEditor = () => {
   const [activeTab, setActiveTab] = useState("kalkulation");
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [offerMode, setOfferMode] = useState<OfferMode>('simple');
 
   // Local state for editable fields
   const [selectedPackages, setSelectedPackages] = useState<SelectedPackage[]>([]);
@@ -342,53 +347,89 @@ export const SmartInquiryEditor = () => {
 
           {/* Tab 1: Kalkulation */}
           <TabsContent value="kalkulation" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left: Type-specific modules */}
-              <div className="lg:col-span-2">
-                {inquiryType === 'event' ? (
-                  <EventModules
-                    inquiry={mergedInquiry}
-                    packages={packages}
-                    selectedPackages={selectedPackages}
-                    quoteItems={quoteItems}
-                    menuSelection={menuSelection}
-                    onPackageToggle={handlePackageToggle}
-                    onRoomChange={(v) => handleLocalFieldChange('room_selection', v)}
-                    onTimeSlotChange={(v) => handleLocalFieldChange('time_slot', v)}
-                    onGuestCountChange={(v) => handleLocalFieldChange('guest_count', v)}
-                    onItemAdd={handleItemAdd}
-                    onItemQuantityChange={handleItemQuantityChange}
-                    onItemRemove={handleItemRemove}
-                    onMenuSelectionChange={setMenuSelection}
-                    emailDraft={emailDraft}
-                    onEmailDraftChange={setEmailDraft}
-                    onSendOffer={handleSendOffer}
-                    isSending={isSending}
-                    templates={templates}
-                  />
-                ) : (
-                  <CateringModules
-                    inquiry={mergedInquiry}
-                    selectedItems={quoteItems}
-                    onItemAdd={handleItemAdd}
-                    onItemQuantityChange={handleItemQuantityChange}
-                    onItemRemove={handleItemRemove}
-                    onDeliveryChange={(field, value) => handleLocalFieldChange(field, value)}
-                  />
+            {/* Mode Toggle for Event inquiries */}
+            {inquiryType === 'event' && (
+              <div className="flex items-center justify-between">
+                <ToggleGroup
+                  type="single"
+                  value={offerMode}
+                  onValueChange={(v) => v && setOfferMode(v as OfferMode)}
+                  className="bg-muted p-1 rounded-lg"
+                >
+                  <ToggleGroupItem value="simple" aria-label="Einfaches Angebot" className="gap-2 px-4">
+                    <FileCheck className="h-4 w-4" />
+                    Einfaches Angebot
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="multi" aria-label="Multi-Optionen" className="gap-2 px-4">
+                    <Layers className="h-4 w-4" />
+                    Multi-Optionen
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                {offerMode === 'multi' && (
+                  <Badge variant="secondary" className="text-xs">
+                    Bis zu 5 Paket-Optionen mit Stripe-Links
+                  </Badge>
                 )}
               </div>
+            )}
 
-              {/* Right: Calculation Summary */}
-              <div>
-                <CalculationSummary
-                  quoteItems={quoteItems}
-                  selectedPackages={selectedPackages}
-                  guestCount={guestCount}
-                  notes={quoteNotes}
-                  onNotesChange={setQuoteNotes}
-                />
+            {/* Content based on mode */}
+            {inquiryType === 'event' && offerMode === 'multi' ? (
+              <MultiOfferComposer
+                inquiry={mergedInquiry}
+                packages={packages}
+                templates={templates}
+                onSave={handleSave}
+              />
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left: Type-specific modules */}
+                <div className="lg:col-span-2">
+                  {inquiryType === 'event' ? (
+                    <EventModules
+                      inquiry={mergedInquiry}
+                      packages={packages}
+                      selectedPackages={selectedPackages}
+                      quoteItems={quoteItems}
+                      menuSelection={menuSelection}
+                      onPackageToggle={handlePackageToggle}
+                      onRoomChange={(v) => handleLocalFieldChange('room_selection', v)}
+                      onTimeSlotChange={(v) => handleLocalFieldChange('time_slot', v)}
+                      onGuestCountChange={(v) => handleLocalFieldChange('guest_count', v)}
+                      onItemAdd={handleItemAdd}
+                      onItemQuantityChange={handleItemQuantityChange}
+                      onItemRemove={handleItemRemove}
+                      onMenuSelectionChange={setMenuSelection}
+                      emailDraft={emailDraft}
+                      onEmailDraftChange={setEmailDraft}
+                      onSendOffer={handleSendOffer}
+                      isSending={isSending}
+                      templates={templates}
+                    />
+                  ) : (
+                    <CateringModules
+                      inquiry={mergedInquiry}
+                      selectedItems={quoteItems}
+                      onItemAdd={handleItemAdd}
+                      onItemQuantityChange={handleItemQuantityChange}
+                      onItemRemove={handleItemRemove}
+                      onDeliveryChange={(field, value) => handleLocalFieldChange(field, value)}
+                    />
+                  )}
+                </div>
+
+                {/* Right: Calculation Summary */}
+                <div>
+                  <CalculationSummary
+                    quoteItems={quoteItems}
+                    selectedPackages={selectedPackages}
+                    guestCount={guestCount}
+                    notes={quoteNotes}
+                    onNotesChange={setQuoteNotes}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </TabsContent>
 
           {/* Tab 2: Kommunikation */}
