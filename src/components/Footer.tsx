@@ -153,7 +153,7 @@ const Footer = () => {
             >
               <Instagram className="h-5 w-5" />
             </a>
-            <Link to="/admin" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/50 transition-colors touch-manipulation">Admin</Link>
+            <Link to="/admin" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/50 transition-colors touch-manipulation">StoriaMaestro</Link>
           </div>
         </div>
       </div>
