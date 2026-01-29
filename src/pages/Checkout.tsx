@@ -157,7 +157,7 @@ const Checkout = () => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [addressDebounce, setAddressDebounce] = useState<NodeJS.Timeout | null>(null);
   const [dateTimeWarning, setDateTimeWarning] = useState<string | null>(null);
-  const [paymentMethod] = useState<'stripe'>('stripe'); // Billie B2B invoice now handled via Stripe Checkout
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'billie'>('stripe');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [newsletterSignup, setNewsletterSignup] = useState(true);
@@ -1011,6 +1011,7 @@ const Checkout = () => {
                 customerName: formData.name,
                 orderNumber: newOrderNumber,
                 items: orderItems.map(i => ({ name: i.name, quantity: i.quantity })),
+                paymentMethod: paymentMethod, // 'stripe' or 'billie'
               },
             }
           );
@@ -1636,39 +1637,59 @@ const Checkout = () => {
                       {language === 'de' ? 'Zahlungsart' : 'Payment Method'}
                     </h2>
                     <div className="space-y-3">
-                      {/* Combined payment info - all methods via Stripe */}
-                      <div className="p-4 border-2 border-primary rounded-lg bg-primary/5">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
-                            <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-foreground">
-                              {language === 'de' ? 'Sichere Zahlung via Stripe' : 'Secure Payment via Stripe'}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {language === 'de' 
-                                ? 'Alle gängigen Zahlungsmethoden werden im nächsten Schritt angezeigt.' 
-                                : 'All common payment methods will be shown in the next step.'}
-                            </p>
-                            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background border border-border">
-                                <CreditCard className="h-3 w-3" />
-                                {language === 'de' ? 'Kreditkarte' : 'Credit Card'}
-                              </span>
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background border border-border">
-                                Apple Pay / Google Pay
-                              </span>
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background border border-border">
-                                Klarna
-                              </span>
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background border border-border">
-                                <FileText className="h-3 w-3" />
-                                {language === 'de' ? 'Rechnungskauf via Billie' : 'B2B Invoice via Billie'}
-                              </span>
-                            </div>
-                          </div>
+                      {/* Stripe - Sofort bezahlen */}
+                      <label className="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-accent/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5 relative">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="stripe"
+                          checked={paymentMethod === 'stripe'}
+                          onChange={() => setPaymentMethod('stripe')}
+                          className="h-4 w-4 text-primary"
+                        />
+                        <CreditCard className="h-5 w-5 text-muted-foreground" />
+                        <div className="flex-1">
+                          <p className="font-medium">{language === 'de' ? 'Sofort bezahlen' : 'Pay Now'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'de' 
+                              ? 'Kreditkarte, Apple Pay, Google Pay, Klarna' 
+                              : 'Credit card, Apple Pay, Google Pay, Klarna'}
+                          </p>
                         </div>
+                        <span className="absolute top-2 right-2 text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-medium">
+                          {language === 'de' ? 'Beliebt' : 'Popular'}
+                        </span>
+                      </label>
+                      
+                      {/* Billie - Rechnungskauf für Unternehmen */}
+                      <label className="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-accent/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="billie"
+                          checked={paymentMethod === 'billie'}
+                          onChange={() => setPaymentMethod('billie')}
+                          className="h-4 w-4 text-primary"
+                        />
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{language === 'de' ? 'Rechnungskauf für Unternehmen via Billie' : 'B2B Invoice via Billie'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'de' 
+                              ? 'Zahlung in 30 Tagen – für Geschäftskunden' 
+                              : 'Pay in 30 days – for business customers'}
+                          </p>
+                        </div>
+                      </label>
+                      
+                      {/* Trust Notice */}
+                      <div className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                        <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          {language === 'de' 
+                            ? 'Sichere Zahlung per Stripe – Ihre Daten bleiben geschützt.'
+                            : 'Secure payment via Stripe – Your data stays protected.'}
+                        </p>
                       </div>
                     </div>
                     {/* Payment Logos */}

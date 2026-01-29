@@ -20,7 +20,7 @@ serve(async (req) => {
   try {
     logStep("Function started");
     
-    const { amount, customerEmail, customerName, orderNumber, items } = await req.json();
+    const { amount, customerEmail, customerName, orderNumber, items, paymentMethod } = await req.json();
     
     // Validate input
     if (!amount || amount <= 0) {
@@ -33,7 +33,7 @@ serve(async (req) => {
       throw new Error("Order number required");
     }
     
-    logStep("Input validated", { amount, customerEmail, orderNumber, itemCount: items?.length });
+    logStep("Input validated", { amount, customerEmail, orderNumber, itemCount: items?.length, paymentMethod });
 
     // SECURITY: Verify order exists and amount matches database record
     const supabase = createClient(
@@ -167,10 +167,10 @@ serve(async (req) => {
       ? `STORIA Event Buchung #${orderNumber}`
       : `STORIA Catering #${orderNumber}`;
 
-     // Create checkout session with dynamic price
-     // NOTE: For Stripe Checkout, the safest way to allow all payment methods enabled in the
-     // dashboard is to NOT set payment_method_types at all.
-    const session = await stripe.checkout.sessions.create({
+    // Create checkout session with dynamic price
+    // If paymentMethod is 'billie', restrict to Billie only
+    // Otherwise, let Stripe show all enabled payment methods
+    const sessionConfig: Parameters<typeof stripe.checkout.sessions.create>[0] = {
       customer: customerId,
       customer_email: customerId ? undefined : customerEmail,
       line_items: [
@@ -193,8 +193,18 @@ serve(async (req) => {
         order_number: orderNumber,
         customer_name: customerName,
         order_type: orderType,
+        payment_method_selected: paymentMethod || 'stripe',
       },
-    });
+    };
+
+    // For Billie B2B invoice, restrict payment methods to Billie only
+    if (paymentMethod === 'billie') {
+      sessionConfig.payment_method_types = ['billie'];
+      logStep("Billie payment method selected - restricting to Billie only");
+    }
+    // For regular stripe, don't set payment_method_types to allow all dashboard-enabled methods
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     logStep("Checkout session created", { sessionId: session.id, orderNumber, orderType });
 
