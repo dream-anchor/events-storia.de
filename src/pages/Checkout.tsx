@@ -1026,7 +1026,8 @@ const Checkout = () => {
     <Button
       type="submit"
       form="checkout-form"
-      className="w-full h-12 text-base font-medium"
+      variant="checkoutCta"
+      className="w-full h-12 text-base"
       disabled={isSubmitting || isProcessingPayment || !formData.acceptTerms}
     >
       {isSubmitting || isProcessingPayment ? (
@@ -1302,7 +1303,7 @@ const Checkout = () => {
                     {/* Date and Time */}
                     <div className="border-t border-border pt-5">
                       <h3 className="font-medium mb-4 flex items-center gap-2">
-                        <CalendarDays className="h-4 w-4 text-primary" />
+                        <CalendarDays className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                         {language === 'de' ? 'Wann wird Ihr Catering benötigt?' : 'When do you need your catering?'}
                       </h3>
                       
@@ -1378,6 +1379,7 @@ const Checkout = () => {
                         type="button"
                         onClick={() => handleContinueToNext('delivery')}
                         disabled={!isDeliveryStepComplete}
+                        variant="checkout"
                         className="w-full"
                       >
                         {language === 'de' ? 'Weiter zu Kontaktdaten' : 'Continue to Contact'}
@@ -1402,7 +1404,7 @@ const Checkout = () => {
                         <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
                           <LogIn className="h-4 w-4" />
                           {language === 'de' ? 'Haben Sie ein Konto? ' : 'Have an account? '}
-                          <Link to="/login" state={{ redirect: '/checkout' }} className="text-primary hover:underline font-medium">
+                          <Link to="/login" state={{ redirect: '/checkout' }} className="text-gray-700 dark:text-gray-300 hover:underline font-medium">
                             {language === 'de' ? 'Anmelden' : 'Log in'}
                           </Link>
                         </p>
@@ -1546,8 +1548,8 @@ const Checkout = () => {
                         />
                         <Label htmlFor="acceptTerms" className="text-sm leading-relaxed cursor-pointer">
                           {language === 'de' 
-                            ? <>Ich habe die <Link to="/agb-catering" target="_blank" className="text-primary underline">AGB</Link> und <Link to="/widerrufsbelehrung" target="_blank" className="text-primary underline">Widerrufsbelehrung</Link> gelesen und akzeptiere diese. *</>
-                            : <>I have read and accept the <Link to="/agb-catering" target="_blank" className="text-primary underline">Terms</Link> and <Link to="/widerrufsbelehrung" target="_blank" className="text-primary underline">Cancellation Policy</Link>. *</>
+                            ? <>Ich habe die <Link to="/agb-catering" target="_blank" className="text-gray-700 dark:text-gray-300 underline hover:text-gray-900 dark:hover:text-white">AGB</Link> und <Link to="/widerrufsbelehrung" target="_blank" className="text-gray-700 dark:text-gray-300 underline hover:text-gray-900 dark:hover:text-white">Widerrufsbelehrung</Link> gelesen und akzeptiere diese. *</>
+                            : <>I have read and accept the <Link to="/agb-catering" target="_blank" className="text-gray-700 dark:text-gray-300 underline hover:text-gray-900 dark:hover:text-white">Terms</Link> and <Link to="/widerrufsbelehrung" target="_blank" className="text-gray-700 dark:text-gray-300 underline hover:text-gray-900 dark:hover:text-white">Cancellation Policy</Link>. *</>
                           }
                         </Label>
                       </div>
@@ -1559,6 +1561,7 @@ const Checkout = () => {
                         type="button"
                         onClick={() => handleContinueToNext('customer')}
                         disabled={!isCustomerStepComplete}
+                        variant="checkout"
                         className="w-full"
                       >
                         {language === 'de' ? 'Weiter zur Zahlung' : 'Continue to Payment'}
@@ -1616,6 +1619,7 @@ const Checkout = () => {
                     <div className="mt-6 pt-4 border-t border-border lg:hidden">
                       <Button
                         type="submit"
+                        variant="checkoutCta"
                         className="w-full h-12"
                         disabled={isSubmitting || isProcessingPayment || !formData.acceptTerms}
                       >

@@ -35,7 +35,7 @@ const AccordionSection = ({
     <div 
       className={cn(
         "border border-border rounded-xl bg-card overflow-hidden transition-all duration-300",
-        isOpen && "ring-2 ring-primary/20",
+        isOpen && "ring-2 ring-gray-400/20",
         className
       )}
     >
@@ -73,7 +73,7 @@ const AccordionSection = ({
 
         {/* Chevron / Edit */}
         {isCompleted && !isOpen ? (
-          <span className="flex items-center gap-1 text-sm text-primary hover:underline">
+          <span className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300 hover:underline">
             <Pencil className="h-3.5 w-3.5" />
             {language === 'de' ? 'Bearbeiten' : 'Edit'}
           </span>
