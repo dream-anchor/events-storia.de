@@ -65,25 +65,17 @@ const formatDateDE = (dateStr: string): string => {
 };
 
 // Generate order number using database sequence
-// Format: EVT-BUCHUNG-DD-MM-YYYY-XXX (Events) or CAT-ANGEBOT/CAT-RECHNUNG-DD-MM-YYYY-XXX (Catering)
+// Format: EVT-BUCHUNG-DD-MM-YYYY-XXX (Events) or CAT-BESTELLUNG-DD-MM-YYYY-XXX (Catering)
+// Note: Shop orders are always Stripe-paid, so we use CAT-BESTELLUNG (not CAT-ANGEBOT)
 const generateOrderNumber = async (
   supabase: any, 
-  isInvoice: boolean,
+  _isInvoice: boolean, // kept for API compatibility
   isEventBooking: boolean,
   date: Date
 ): Promise<string> => {
   // Event-Pakete: EVT-BUCHUNG
-  // Catering: CAT-RECHNUNG (bezahlt) oder CAT-ANGEBOT (Rechnung)
-  let prefix: string;
-  let displayPrefix: string;
-  
-  if (isEventBooking) {
-    prefix = 'EVT-BUCHUNG';
-    displayPrefix = 'EVT-BUCHUNG';
-  } else {
-    prefix = isInvoice ? 'CAT-RECHNUNG' : 'CAT-ANGEBOT';
-    displayPrefix = prefix;
-  }
+  // Catering: CAT-BESTELLUNG (Shop orders are always Stripe-paid)
+  const prefix = isEventBooking ? 'EVT-BUCHUNG' : 'CAT-BESTELLUNG';
   
   const year = date.getFullYear();
   const day = date.getDate().toString().padStart(2, '0');
@@ -100,15 +92,15 @@ const generateOrderNumber = async (
       logStep('Error getting next order number, using fallback', { error: error.message });
       // Fallback: use timestamp-based number
       const fallbackNum = Math.floor(Date.now() / 1000) % 1000 + 100;
-      return `${displayPrefix}-${day}-${month}-${year}-${fallbackNum}`;
+      return `${prefix}-${day}-${month}-${year}-${fallbackNum}`;
     }
     
     const sequenceNum = data || 100;
-    return `${displayPrefix}-${day}-${month}-${year}-${sequenceNum}`;
+    return `${prefix}-${day}-${month}-${year}-${sequenceNum}`;
   } catch (err) {
     logStep('Exception getting next order number', { error: String(err) });
     const fallbackNum = Math.floor(Date.now() / 1000) % 1000 + 100;
-    return `${displayPrefix}-${day}-${month}-${year}-${fallbackNum}`;
+    return `${prefix}-${day}-${month}-${year}-${fallbackNum}`;
   }
 };
 
@@ -464,7 +456,7 @@ serve(async (req) => {
       lineItems,
       totalPrice: { currency: 'EUR' },
       taxConditions: { taxType: 'net' },
-      title: isInvoice ? 'Catering-Rechnung' : 'Catering-Angebot',
+      title: 'Catering-Rechnung', // Shop orders are always paid via Stripe
       introduction,
       remark,
       paymentConditions

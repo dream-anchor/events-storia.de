@@ -550,16 +550,18 @@ const CustomerProfile = () => {
                                 )}
                                 {(() => {
                                   const isEventBooking = order.order_number.startsWith('EVT-BUCHUNG');
+                                  // Shop orders are always paid via Stripe, so they are always invoices/confirmations
                                   const isInvoice = order.lexoffice_document_type === 'invoice' || 
-                                                    order.order_number.includes('-RECHNUNG') || 
-                                                    order.order_number.includes('-BESTELLUNG');
+                                                    order.order_number.includes('-BESTELLUNG') ||
+                                                    order.order_number.includes('-RECHNUNG');
                                   
                                   if (isEventBooking) {
                                     return language === 'de' ? 'Bestellbestätigung herunterladen' : 'Download Confirmation';
                                   } else if (isInvoice) {
                                     return language === 'de' ? 'Rechnung herunterladen' : 'Download Invoice';
                                   } else {
-                                    return language === 'de' ? 'Angebot herunterladen' : 'Download Quotation';
+                                    // Fallback for legacy orders
+                                    return language === 'de' ? 'Dokument herunterladen' : 'Download Document';
                                   }
                                 })()}
                               </Button>
