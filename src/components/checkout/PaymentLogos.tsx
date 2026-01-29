@@ -6,7 +6,7 @@ interface PaymentLogosProps {
 
 const PaymentLogos = ({ className }: PaymentLogosProps) => {
   return (
-    <div className={cn("flex items-center justify-center gap-3 flex-wrap", className)}>
+    <div className={cn("flex items-center justify-center gap-2 flex-wrap", className)}>
       {/* Visa */}
       <div className="h-6 px-2 bg-white rounded border flex items-center justify-center">
         <svg viewBox="0 0 48 32" className="h-4 w-auto" fill="none">
@@ -28,11 +28,6 @@ const PaymentLogos = ({ className }: PaymentLogosProps) => {
         </svg>
       </div>
 
-      {/* American Express */}
-      <div className="h-6 px-2 bg-[#006FCF] rounded border flex items-center justify-center">
-        <span className="text-white text-[10px] font-bold tracking-tight">AMEX</span>
-      </div>
-
       {/* Apple Pay */}
       <div className="h-6 px-2 bg-black rounded border flex items-center justify-center">
         <svg viewBox="0 0 48 20" className="h-3 w-auto" fill="white">
@@ -43,17 +38,46 @@ const PaymentLogos = ({ className }: PaymentLogosProps) => {
         </svg>
       </div>
 
-      {/* Google Pay */}
-      <div className="h-6 px-2 bg-white rounded border flex items-center justify-center">
-        <svg viewBox="0 0 48 20" className="h-3 w-auto">
-          <path d="M22.7 10V14.5H21.2V4.5H25.3C26.3 4.5 27.2 4.9 27.9 5.5C28.6 6.2 29 7.1 29 8.1C29 9.2 28.6 10.1 27.9 10.7C27.2 11.3 26.3 11.7 25.3 11.7L22.7 10ZM22.7 6V8.5H25.4C25.9 8.5 26.3 8.3 26.6 8C26.9 7.7 27.1 7.3 27.1 6.8C27.1 6.3 26.9 5.9 26.6 5.6C26.3 5.3 25.9 5.1 25.4 5.1L22.7 6Z" fill="#5F6368"/>
-          <path d="M33.4 7.5C34.6 7.5 35.5 7.8 36.2 8.5C36.9 9.2 37.2 10.1 37.2 11.2V14.5H35.8V13.5H35.7C35.1 14.3 34.3 14.7 33.3 14.7C32.4 14.7 31.6 14.4 31 13.9C30.4 13.4 30.1 12.7 30.1 11.9C30.1 11.1 30.4 10.4 31.1 9.9C31.8 9.4 32.6 9.1 33.7 9.1C34.6 9.1 35.4 9.3 36 9.6V9.3C36 8.8 35.8 8.3 35.4 8C35 7.6 34.5 7.4 34 7.4C33.2 7.4 32.5 7.8 32.1 8.5L30.8 7.8C31.4 6.9 32.3 7.5 33.4 7.5ZM31.6 11.9C31.6 12.3 31.8 12.6 32.1 12.8C32.4 13.1 32.8 13.2 33.2 13.2C33.8 13.2 34.4 13 34.9 12.5C35.4 12 35.6 11.5 35.6 10.9C35.1 10.5 34.4 10.3 33.6 10.3C33 10.3 32.5 10.5 32.1 10.8C31.8 11.1 31.6 11.5 31.6 11.9Z" fill="#5F6368"/>
-          <path d="M43.8 7.7L39.5 17.5H38L39.5 14.3L36.5 7.7H38.1L40.3 12.7H40.4L42.5 7.7H43.8Z" fill="#5F6368"/>
-          <path d="M13 9.5C13 9.1 13 8.6 12.9 8.2H6.6V10.7H10.2C10 11.6 9.5 12.4 8.7 12.9V14.7H11C12.3 13.5 13 11.7 13 9.5Z" fill="#4285F4"/>
-          <path d="M6.6 16.5C8.5 16.5 10.1 15.9 11 14.7L8.7 12.9C8 13.4 7.2 13.7 6.2 13.7C4.4 13.7 2.9 12.4 2.4 10.7H0V12.6C1.2 14.8 3.7 16.5 6.6 16.5Z" fill="#34A853"/>
-          <path d="M2.4 10.7C2.2 10.1 2.1 9.6 2.1 9C2.1 8.4 2.2 7.9 2.4 7.3V5.4H0C-0.5 6.4 -0.8 7.6 -0.8 9C-0.8 10.4 -0.5 11.6 0 12.6L2.4 10.7Z" fill="#FBBC05"/>
-          <path d="M6.6 4.3C7.6 4.3 8.5 4.6 9.2 5.3L11.1 3.4C10.1 2.5 8.5 1.5 6.6 1.5C3.7 1.5 1.2 3.2 0 5.4L2.4 7.3C2.9 5.6 4.4 4.3 6.6 4.3Z" fill="#EA4335"/>
+      {/* Amazon Pay */}
+      <div className="h-6 px-2 bg-[#232F3E] rounded border flex items-center justify-center">
+        <svg viewBox="0 0 60 18" className="h-3 w-auto" fill="none">
+          <path d="M35.5 14.2C32.2 16.6 27.5 17.9 23.4 17.9C17.5 17.9 12.2 15.6 8.2 11.9C7.9 11.6 8.2 11.2 8.5 11.5C12.8 15.4 18.3 17.7 24.1 17.7C28 17.7 32.3 16.7 36.2 14.6C36.8 14.3 37.3 14.9 36.7 15.3" fill="#FF9900"/>
+          <path d="M37.9 12.7C37.5 12.2 35.2 12.5 34.2 12.6C33.9 12.6 33.8 12.4 34.1 12.2C35.8 11 38.6 11.4 39 11.8C39.4 12.2 38.9 15 37.3 16.5C37 16.8 36.8 16.6 36.9 16.4C37.2 15.6 38.3 13.2 37.9 12.7Z" fill="#FF9900"/>
+          <path d="M34.3 2V0.7C34.3 0.5 34.5 0.3 34.7 0.3H40.6C40.8 0.3 41 0.5 41 0.7V1.8C41 2 40.8 2.3 40.5 2.7L37.4 7.2C38.5 7.2 39.7 7.4 40.6 7.9C40.8 8 40.9 8.2 40.9 8.5V9.8C40.9 10.1 40.6 10.3 40.3 10.2C38.4 9.2 35.9 9.1 33.8 10.2C33.5 10.4 33.2 10.1 33.2 9.8V8.6C33.2 8.3 33.2 7.7 33.6 7.1L37.1 2H34.7C34.5 2 34.3 1.8 34.3 1.6V2Z" fill="white"/>
+          <path d="M12.1 10.5H10.3C10.1 10.5 10 10.3 10 10.2V0.8C10 0.6 10.2 0.4 10.4 0.4H12C12.2 0.4 12.4 0.6 12.4 0.8V2.2H12.5C13 0.8 14 0.1 15.5 0.1C17 0.1 17.9 0.8 18.5 2.2C19 0.8 20.2 0.1 21.6 0.1C22.6 0.1 23.7 0.5 24.3 1.5C25 2.6 24.8 4.1 24.8 5.4V10.1C24.8 10.3 24.6 10.5 24.4 10.5H22.6C22.4 10.5 22.3 10.3 22.3 10.1V6.1C22.3 5.5 22.4 4.2 22.2 3.7C21.9 2.9 21.3 2.6 20.6 2.6C20 2.6 19.3 3 19 3.7C18.7 4.4 18.7 5.4 18.7 6.1V10.1C18.7 10.3 18.5 10.5 18.3 10.5H16.5C16.3 10.5 16.2 10.3 16.2 10.1V6.1C16.2 4.6 16.4 2.5 14.6 2.5C12.8 2.5 12.8 4.5 12.8 6.1V10.1C12.8 10.3 12.6 10.5 12.4 10.5H12.1Z" fill="white"/>
+          <path d="M28.8 0.1C31.8 0.1 33.4 2.6 33.4 5.7C33.4 8.7 31.6 11.1 28.8 11.1C25.9 11.1 24.3 8.6 24.3 5.6C24.3 2.5 25.9 0.1 28.8 0.1ZM28.8 2.2C27 2.2 26.9 4.6 26.9 6C26.9 7.4 26.9 9 28.8 9C30.6 9 30.7 6.5 30.7 5C30.7 4 30.6 2.7 30.2 2.8C29.7 2.4 29.2 2.2 28.8 2.2Z" fill="white"/>
+          <path d="M44.9 10.5H43.1C42.9 10.5 42.8 10.3 42.8 10.1V0.7C42.8 0.5 43 0.3 43.2 0.3H44.9C45.1 0.3 45.2 0.5 45.2 0.7V2.3H45.3C45.9 0.9 46.7 0.1 48.3 0.1C49.4 0.1 50.4 0.5 51 1.5C51.6 2.5 51.6 4 51.6 5.2V10.2C51.6 10.4 51.4 10.5 51.2 10.5H49.4C49.2 10.5 49.1 10.4 49.1 10.2V6C49.1 4.5 49.3 2.5 47.5 2.5C46.9 2.5 46.3 2.9 46 3.5C45.6 4.2 45.5 5 45.5 5.7V10.1C45.5 10.3 45.3 10.5 45.1 10.5H44.9Z" fill="white"/>
+          <path d="M7.3 6C7.3 6.8 7.3 7.5 6.9 8.2C6.6 8.8 6 9.2 5.4 9.2C4.6 9.2 4.1 8.6 4.1 7.8C4.1 6.1 5.6 5.8 7.3 5.8V6ZM9.5 10.5C9.4 10.6 9.2 10.6 9.1 10.5C8.5 10 8.4 9.7 8.1 9.3C7.2 10.2 6.6 10.5 5.4 10.5C3.9 10.5 2.8 9.6 2.8 7.8C2.8 6.3 3.7 5.4 4.9 4.9C6 4.5 7.3 4.4 8.2 4.3V4.1C8.2 3.6 8.2 3 7.9 2.6C7.7 2.2 7.2 2 6.8 2C6 2 5.3 2.4 5.1 3.2C5.1 3.4 4.9 3.5 4.7 3.5L3 3.3C2.8 3.3 2.6 3.1 2.7 2.9C3.1 1.1 4.7 0.5 6.5 0.5C7.4 0.5 8.6 0.7 9.3 1.4C10.2 2.2 10.1 3.3 10.1 4.5V7.3C10.1 8.1 10.4 8.5 10.7 9C10.8 9.1 10.8 9.3 10.7 9.4C10.3 9.8 9.6 10.4 9.3 10.6L9.5 10.5Z" fill="white"/>
         </svg>
+      </div>
+
+      {/* Klarna */}
+      <div className="h-6 px-2 bg-[#FFB3C7] rounded border flex items-center justify-center">
+        <svg viewBox="0 0 60 20" className="h-3 w-auto" fill="none">
+          <path d="M5.5 0H2.8V15H5.5V0Z" fill="black"/>
+          <path d="M16.5 0H13.5C13.5 3.1 12.1 5.9 9.7 7.7L8.4 8.7L14.1 15H17.8L12.5 8.7C15 6.4 16.5 3.4 16.5 0Z" fill="black"/>
+          <path d="M17.2 15H19.9V0H17.2V15Z" fill="black"/>
+          <path d="M29.4 4.4C28.4 4.4 27.5 4.7 26.8 5.3V4.6H24.3V15H26.9V9.5C26.9 7.8 28 6.9 29.4 6.9C30.9 6.9 31.8 7.9 31.8 9.5V15H34.4V8.8C34.4 6.1 32.4 4.4 29.4 4.4Z" fill="black"/>
+          <path d="M44.5 4.6V5.2C43.6 4.6 42.5 4.3 41.3 4.3C37.9 4.3 35.2 7 35.2 10.3C35.2 13.6 37.9 16.3 41.3 16.3C42.5 16.3 43.6 16 44.5 15.4V15H47V4.6H44.5ZM41.6 13.5C39.7 13.5 38.2 12 38.2 10C38.2 8 39.7 6.5 41.6 6.5C43.5 6.5 45 8 45 10C45 12 43.5 13.5 41.6 13.5Z" fill="black"/>
+          <path d="M52.5 4.6V5.8C51.6 4.8 50.4 4.3 49 4.3V7C50.6 7 51.8 8.1 51.8 10V15H54.4V10C54.4 6.9 53.7 4.6 52.5 4.6Z" fill="black"/>
+          <path d="M58 4.6C56.8 4.6 55.8 5.6 55.8 6.8C55.8 8 56.8 9 58 9C59.2 9 60.2 8 60.2 6.8C60.2 5.6 59.2 4.6 58 4.6Z" fill="black"/>
+          <path d="M8.7 15H6V4.6H8.7V15Z" fill="black"/>
+        </svg>
+      </div>
+
+      {/* Link (Stripe) */}
+      <div className="h-6 px-2 bg-[#00D66F] rounded border flex items-center justify-center">
+        <span className="text-white text-[10px] font-bold tracking-tight">Link</span>
+      </div>
+
+      {/* EPS */}
+      <div className="h-6 px-2 bg-[#C8017B] rounded border flex items-center justify-center">
+        <span className="text-white text-[10px] font-bold tracking-tight">EPS</span>
+      </div>
+
+      {/* Bancontact */}
+      <div className="h-6 px-2 bg-[#005498] rounded border flex items-center justify-center">
+        <span className="text-white text-[10px] font-bold tracking-tight">Bancontact</span>
       </div>
     </div>
   );

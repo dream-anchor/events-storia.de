@@ -44,7 +44,7 @@ const StickyMobileCTA = ({
         <span>{language === 'de' ? 'Sichere Zahlung' : 'Secure Payment'}</span>
         <span className="mx-1">•</span>
         <CreditCard className="h-3.5 w-3.5" />
-        <span>Visa / Mastercard</span>
+        <span>Karte, Klarna, Apple Pay</span>
       </div>
 
       {/* CTA Button */}
