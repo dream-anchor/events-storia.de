@@ -41,18 +41,58 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { data: order, error: orderError } = await supabase
-      .from('catering_orders')
-      .select('id, order_number, total_amount, customer_email, payment_status')
-      .eq('order_number', orderNumber)
-      .single();
+    // Determine if this is an event booking or catering order based on order number prefix
+    const isEventBooking = orderNumber.startsWith('EVT-BUCHUNG');
+    let order: { id: string; total_amount: number; customer_email: string; payment_status: string | null } | null = null;
+    let orderType = 'catering';
 
-    if (orderError || !order) {
-      logStep("ERROR: Order not found", { orderNumber, error: orderError?.message });
-      return new Response(
-        JSON.stringify({ error: "Order not found" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
-      );
+    if (isEventBooking) {
+      // Query event_bookings table
+      const { data: eventOrder, error: eventError } = await supabase
+        .from('event_bookings')
+        .select('id, booking_number, total_amount, customer_email, payment_status')
+        .eq('booking_number', orderNumber)
+        .single();
+
+      if (eventError || !eventOrder) {
+        logStep("ERROR: Event booking not found", { orderNumber, error: eventError?.message });
+        return new Response(
+          JSON.stringify({ error: "Order not found" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+        );
+      }
+
+      order = {
+        id: eventOrder.id,
+        total_amount: eventOrder.total_amount || 0,
+        customer_email: eventOrder.customer_email,
+        payment_status: eventOrder.payment_status,
+      };
+      orderType = 'event';
+      logStep("Found event booking", { bookingId: order.id });
+    } else {
+      // Query catering_orders table
+      const { data: cateringOrder, error: orderError } = await supabase
+        .from('catering_orders')
+        .select('id, order_number, total_amount, customer_email, payment_status')
+        .eq('order_number', orderNumber)
+        .single();
+
+      if (orderError || !cateringOrder) {
+        logStep("ERROR: Catering order not found", { orderNumber, error: orderError?.message });
+        return new Response(
+          JSON.stringify({ error: "Order not found" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+        );
+      }
+
+      order = {
+        id: cateringOrder.id,
+        total_amount: cateringOrder.total_amount || 0,
+        customer_email: cateringOrder.customer_email,
+        payment_status: cateringOrder.payment_status,
+      };
+      logStep("Found catering order", { orderId: order.id });
     }
 
     // Verify email matches order
@@ -92,6 +132,7 @@ serve(async (req) => {
 
     logStep("Order validated successfully", { 
       orderId: order.id, 
+      orderType,
       dbAmount: order.total_amount, 
       requestAmount: amount 
     });
@@ -119,7 +160,12 @@ serve(async (req) => {
     const itemDescription = items
       ?.map((i: { quantity: number; name: string }) => `${i.quantity}× ${i.name}`)
       .join(", ")
-      .slice(0, 500) || "Catering Order";
+      .slice(0, 500) || (isEventBooking ? "Event Buchung" : "Catering Order");
+
+    // Determine product name based on order type
+    const productName = isEventBooking 
+      ? `STORIA Event Buchung #${orderNumber}`
+      : `STORIA Catering #${orderNumber}`;
 
     // Create checkout session with dynamic price
     const session = await stripe.checkout.sessions.create({
@@ -130,7 +176,7 @@ serve(async (req) => {
           price_data: {
             currency: "eur",
             product_data: {
-              name: `STORIA Catering #${orderNumber}`,
+              name: productName,
               description: itemDescription,
             },
             unit_amount: Math.round(amount * 100), // Stripe expects cents
@@ -144,10 +190,11 @@ serve(async (req) => {
       metadata: {
         order_number: orderNumber,
         customer_name: customerName,
+        order_type: orderType,
       },
     });
 
-    logStep("Checkout session created", { sessionId: session.id, orderNumber });
+    logStep("Checkout session created", { sessionId: session.id, orderNumber, orderType });
 
     return new Response(JSON.stringify({ url: session.url, sessionId: session.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
