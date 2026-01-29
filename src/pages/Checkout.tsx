@@ -1389,7 +1389,7 @@ const Checkout = () => {
                         <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
                           <LogIn className="h-4 w-4" />
                           {language === 'de' ? 'Haben Sie ein Konto? ' : 'Have an account? '}
-                          <Link to="/login" state={{ redirect: '/checkout' }} className="text-gray-700 dark:text-gray-300 hover:underline font-medium">
+                          <Link to="/login" state={{ redirect: '/checkout' }} className="text-amber-800 dark:text-amber-400 hover:underline font-medium">
                             {language === 'de' ? 'Anmelden' : 'Log in'}
                           </Link>
                         </p>
@@ -1533,8 +1533,8 @@ const Checkout = () => {
                         />
                         <Label htmlFor="acceptTerms" className="text-sm leading-relaxed cursor-pointer">
                           {language === 'de' 
-                            ? <>Ich habe die <Link to="/agb-catering" target="_blank" className="text-gray-700 dark:text-gray-300 underline hover:text-gray-900 dark:hover:text-white">AGB</Link> und <Link to="/widerrufsbelehrung" target="_blank" className="text-gray-700 dark:text-gray-300 underline hover:text-gray-900 dark:hover:text-white">Widerrufsbelehrung</Link> gelesen und akzeptiere diese. *</>
-                            : <>I have read and accept the <Link to="/agb-catering" target="_blank" className="text-gray-700 dark:text-gray-300 underline hover:text-gray-900 dark:hover:text-white">Terms</Link> and <Link to="/widerrufsbelehrung" target="_blank" className="text-gray-700 dark:text-gray-300 underline hover:text-gray-900 dark:hover:text-white">Cancellation Policy</Link>. *</>
+                            ? <>Ich habe die <Link to="/agb-catering" target="_blank" className="text-amber-800 dark:text-amber-400 underline hover:text-amber-900 dark:hover:text-amber-300">AGB</Link> und <Link to="/widerrufsbelehrung" target="_blank" className="text-amber-800 dark:text-amber-400 underline hover:text-amber-900 dark:hover:text-amber-300">Widerrufsbelehrung</Link> gelesen und akzeptiere diese. *</>
+                            : <>I have read and accept the <Link to="/agb-catering" target="_blank" className="text-amber-800 dark:text-amber-400 underline hover:text-amber-900 dark:hover:text-amber-300">Terms</Link> and <Link to="/widerrufsbelehrung" target="_blank" className="text-amber-800 dark:text-amber-400 underline hover:text-amber-900 dark:hover:text-amber-300">Cancellation Policy</Link>. *</>
                           }
                         </Label>
                       </div>

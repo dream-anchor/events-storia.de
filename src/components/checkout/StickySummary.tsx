@@ -119,7 +119,7 @@ const StickySummary = ({
               className={cn(
                 "px-2.5 py-1.5 rounded-md transition-colors",
                 showGross
-                  ? "bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900 font-medium"
+                  ? "bg-amber-900 text-amber-50 dark:bg-amber-800 font-medium"
                   : "bg-muted hover:bg-muted/80"
               )}
             >
@@ -131,7 +131,7 @@ const StickySummary = ({
               className={cn(
                 "px-2.5 py-1.5 rounded-md transition-colors",
                 !showGross
-                  ? "bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900 font-medium"
+                  ? "bg-amber-900 text-amber-50 dark:bg-amber-800 font-medium"
                   : "bg-muted hover:bg-muted/80"
               )}
             >
@@ -211,7 +211,7 @@ const StickySummary = ({
             <span className="font-serif text-lg font-semibold">
               {language === 'de' ? 'Gesamt' : 'Total'}
             </span>
-            <span className="font-serif text-xl font-bold text-gray-900 dark:text-white">
+            <span className="font-serif text-xl font-bold text-amber-950 dark:text-amber-50">
               {formatPrice(grandTotal)}
             </span>
           </div>

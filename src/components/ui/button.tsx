@@ -15,9 +15,9 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        // Checkout-specific variants (anthracite + yellow CTA)
-        checkout: "bg-gray-800 text-white hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-300",
-        checkoutCta: "bg-amber-500 text-gray-900 hover:bg-amber-400 font-semibold shadow-lg",
+        // Checkout-specific variants (warm Italian amber tones)
+        checkout: "bg-amber-900 text-amber-50 hover:bg-amber-800 dark:bg-amber-800 dark:text-amber-50 dark:hover:bg-amber-700",
+        checkoutCta: "bg-amber-500 text-amber-950 hover:bg-amber-400 font-semibold shadow-lg",
       },
       size: {
         default: "h-11 px-4 py-2",
