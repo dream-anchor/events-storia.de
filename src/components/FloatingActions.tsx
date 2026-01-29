@@ -42,8 +42,9 @@ const FloatingActions = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Nicht auf Admin-Seiten anzeigen
+  // Nicht auf Admin- oder Checkout-Seiten anzeigen
   if (location.pathname.startsWith('/admin')) return null;
+  if (location.pathname === '/checkout') return null;
 
   if (!isVisible) return null;
 
