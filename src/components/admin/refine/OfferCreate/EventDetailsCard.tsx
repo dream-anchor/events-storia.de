@@ -1,8 +1,10 @@
+import { format, parseISO } from "date-fns";
 import { CalendarDays, Clock, Users, Tag } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SmartDatePicker } from "@/components/ui/smart-date-picker";
 
 interface EventDetailsCardProps {
   preferredDate: string;
@@ -37,6 +39,17 @@ export const EventDetailsCard = ({
   onGuestCountChange,
   onEventTypeChange,
 }: EventDetailsCardProps) => {
+  // Convert string date to Date object for SmartDatePicker
+  const dateValue = preferredDate ? parseISO(preferredDate) : undefined;
+  
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+      onPreferredDateChange(format(date, 'yyyy-MM-dd'));
+    } else {
+      onPreferredDateChange('');
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -46,28 +59,28 @@ export const EventDetailsCard = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="preferred_date" className="text-sm">Datum</Label>
-            <Input
-              id="preferred_date"
-              type="date"
-              value={preferredDate}
-              onChange={(e) => onPreferredDateChange(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="preferred_time" className="text-sm flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              Uhrzeit
-            </Label>
-            <Input
-              id="preferred_time"
-              type="time"
-              value={preferredTime}
-              onChange={(e) => onPreferredTimeChange(e.target.value)}
-            />
-          </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Datum</Label>
+          <SmartDatePicker
+            value={dateValue}
+            onChange={handleDateChange}
+            language="de"
+            minLeadDays={1}
+            skipSundays={true}
+            quickSelectCount={3}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="preferred_time" className="text-sm flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Uhrzeit
+          </Label>
+          <Input
+            id="preferred_time"
+            type="time"
+            value={preferredTime}
+            onChange={(e) => onPreferredTimeChange(e.target.value)}
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
@@ -79,7 +92,7 @@ export const EventDetailsCard = ({
               id="guest_count"
               value={guestCount}
               onChange={(e) => onGuestCountChange(e.target.value)}
-              placeholder="z.B. 40 oder 30-40"
+              placeholder="z.B. 40"
             />
           </div>
           <div className="space-y-1.5">

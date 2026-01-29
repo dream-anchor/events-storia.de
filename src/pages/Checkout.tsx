@@ -27,7 +27,9 @@ import PaymentMethodCard from '@/components/checkout/PaymentMethodCard';
 import TimeSlotGrid from '@/components/checkout/TimeSlotGrid';
 import StickyMobileCTA from '@/components/checkout/StickyMobileCTA';
 import PaymentLogos from '@/components/checkout/PaymentLogos';
+import { SmartDatePicker } from '@/components/ui/smart-date-picker';
 import Footer from '@/components/Footer';
+import { format, parseISO } from 'date-fns';
 
 // Zod schema for checkout form validation with length limits (security)
 const checkoutSchema = z.object({
@@ -1293,25 +1295,22 @@ const Checkout = () => {
                       
                       {/* Date Picker */}
                       <div className="mb-5">
-                        <Label htmlFor="date">{language === 'de' ? 'Datum' : 'Date'} *</Label>
-                        <Input
-                          id="date"
-                          name="date"
-                          type="date"
-                          value={formData.date}
-                          onChange={handleInputChange}
-                          className="mt-1 max-w-xs"
-                          required
-                          min={(() => {
-                            if (isPizzaOnly) {
-                              return new Date().toISOString().split('T')[0];
-                            } else {
-                              const tomorrow = new Date();
-                              tomorrow.setDate(tomorrow.getDate() + 1);
-                              return tomorrow.toISOString().split('T')[0];
-                            }
-                          })()}
-                        />
+                        <Label>{language === 'de' ? 'Datum' : 'Date'} *</Label>
+                        <div className="mt-2">
+                          <SmartDatePicker
+                            value={formData.date ? parseISO(formData.date) : undefined}
+                            onChange={(date) => {
+                              setFormData(prev => ({
+                                ...prev,
+                                date: date ? format(date, 'yyyy-MM-dd') : ''
+                              }));
+                            }}
+                            language={language as 'de' | 'en'}
+                            minLeadDays={isPizzaOnly ? 0 : 1}
+                            skipSundays={isEventBooking}
+                            quickSelectCount={3}
+                          />
+                        </div>
                       </div>
                       
                       {/* Time Slot Grid */}

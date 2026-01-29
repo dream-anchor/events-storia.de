@@ -6,12 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, Clock, Users, Building2, User, Mail, Phone, MessageSquare, ArrowRight, ArrowLeft, Loader2, CheckCircle, Send } from "lucide-react";
+import { SmartDatePicker } from "@/components/ui/smart-date-picker";
+import { Clock, Users, Building2, User, Mail, Phone, MessageSquare, ArrowRight, ArrowLeft, Loader2, CheckCircle, Send } from "lucide-react";
 import { format } from "date-fns";
-import { de, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -287,41 +285,20 @@ const EventPackageInquiryDialog = ({
             {/* Date Picker */}
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4" />
                 {language === "de" ? "Gewünschtes Datum *" : "Preferred Date *"}
               </Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.date && "text-muted-foreground",
-                      errors.date && "border-destructive"
-                    )}
-                  >
-                    <CalendarDays className="mr-2 h-4 w-4" />
-                    {formData.date
-                      ? format(formData.date, "PPP", { locale: language === "de" ? de : enUS })
-                      : language === "de"
-                      ? "Datum wählen..."
-                      : "Select date..."}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.date}
-                    onSelect={(date) => {
-                      setFormData((prev) => ({ ...prev, date }));
-                      if (errors.date) setErrors((prev) => ({ ...prev, date: "" }));
-                    }}
-                    disabled={(date) => date < new Date()}
-                    locale={language === "de" ? de : enUS}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <SmartDatePicker
+                value={formData.date}
+                onChange={(date) => {
+                  setFormData((prev) => ({ ...prev, date }));
+                  if (errors.date) setErrors((prev) => ({ ...prev, date: "" }));
+                }}
+                language={language as 'de' | 'en'}
+                minLeadDays={1}
+                skipSundays={true}
+                quickSelectCount={3}
+                hasError={!!errors.date}
+              />
               {errors.date && <p className="text-xs text-destructive">{errors.date}</p>}
             </div>
 
