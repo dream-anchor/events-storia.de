@@ -1083,12 +1083,12 @@ const Checkout = () => {
               />
 
               {/* Two-Column Layout */}
-              <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-8 items-start">
+              <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-8 lg:items-start">
                 
                 {/* Left Column: Accordion Sections */}
                 <div className="space-y-4">
                   
-                  {/* Mobile Cart Overview */}
+                  {/* Mobile Cart Overview - outside grid flow on desktop */}
                   <div className="lg:hidden bg-card border border-border rounded-xl p-4">
                     <Collapsible defaultOpen={false}>
                       <CollapsibleTrigger className="flex items-center justify-between w-full">
