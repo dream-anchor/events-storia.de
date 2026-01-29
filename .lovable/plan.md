@@ -1,284 +1,211 @@
 
-# Plan: Checkout-Farbschema – Rot entfernen, Anthrazit + Gelb
+# Plan: Checkout-Farbschema – Warm & Einladend statt Kalt-Grau
 
-## Übersicht
+## Problem-Analyse
 
-Alle roten (`primary`) Elemente im Checkout werden durch Anthrazit-Töne ersetzt. Der Haupt-CTA-Button ("Zahlungspflichtig bestellen") wird gelb/gold gestylt, um als positive Aufforderung zu wirken statt als Warnung.
+Die aktuellen Anthrazit-Farben (`gray-800`) wirken im Checkout:
+- **Kalt und distanziert** – keine emotionale Verbindung
+- **Technisch** – wie ein Enterprise-Formular
+- **Nicht zum Marken-Feeling passend** – STORIA ist warm, italienisch, einladend
 
----
-
-## Identifizierte rote Elemente (aus Screenshot + Code)
-
-| Element | Aktuell | Neu |
-|---------|---------|-----|
-| "Weiter zu Kontaktdaten" Button | `bg-primary` (Rot) | Anthrazit (`bg-gray-800`) |
-| "Weiter zur Zahlung" Button | `bg-primary` (Rot) | Anthrazit (`bg-gray-800`) |
-| **"Zahlungspflichtig bestellen" Button** | `bg-primary` (Rot) | **Gelb** (`bg-amber-500`) |
-| Brutto/Netto Toggle (aktiv) | `bg-primary` (Rot) | Anthrazit (`bg-gray-800`) |
-| Gesamt-Preis | `text-primary` (Rot) | Anthrazit (`text-gray-900`) |
-| Accordion Ring (aktiv) | `ring-primary/20` (Rot) | `ring-gray-400/20` |
-| "Bearbeiten" Link | `text-primary` (Rot) | Anthrazit (`text-gray-700`) |
-| CalendarDays Icon | `text-primary` (Rot) | Anthrazit (`text-gray-600`) |
-| Login Link | `text-primary` (Rot) | Anthrazit (`text-gray-700`) |
-| AGB Links | `text-primary` (Rot) | Anthrazit (`text-gray-700`) |
+Das Brand-Design nutzt warme Erdtöne (HSL 25° = warm beige/terracotta).
 
 ---
 
-## Betroffene Dateien
+## Neue Farbstrategie: "Warm Italian Checkout"
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│              CHECKOUT FARBPALETTE 2026                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  WARM ESPRESSO (Primary Action Buttons)                     │
+│  ├── bg-amber-900        → #78350f (dunkles Kaffee-Braun)  │
+│  ├── hover:bg-amber-800  → Aufhellen beim Hover            │
+│  └── text-amber-50       → Heller Cremeton                 │
+│                                                              │
+│  GOLDENER CTA (Zahlungspflichtig bestellen)                 │
+│  ├── bg-amber-500        → Bleibt! (Positiv, einladend)    │
+│  └── text-amber-950      → Dunkler Text für Kontrast       │
+│                                                              │
+│  WARMES TERRACOTTA (Akzente, aktiver Ring)                  │
+│  ├── ring-amber-400/30   → Subtiler warmer Glow            │
+│  ├── text-amber-800      → Links, "Bearbeiten"             │
+│  └── border-amber-200    → Aktive Zustände                 │
+│                                                              │
+│  GRÜN (Erfolg – bleibt!)                                    │
+│  ├── bg-green-100        → Abgeschlossene Schritte         │
+│  └── text-green-600      → Checkmarks                      │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Visueller Vergleich
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    AKTUELL (Kalt-Grau)                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐     │
+│  │ ▓▓▓▓▓▓▓ Weiter zu Kontaktdaten ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │     │  ← gray-800 (kalt!)
+│  └────────────────────────────────────────────────────┘     │
+│                                                              │
+│  Brutto │ Netto                ← gray-800 Toggle (kalt!)    │
+│                                                              │
+│  Gesamt: 990,00 € ← gray-900 (neutral, aber kalt)          │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                    NEU (Warm Italian)                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐     │
+│  │ ☕☕☕☕ Weiter zu Kontaktdaten ☕☕☕☕☕☕☕☕☕☕☕☕│     │  ← amber-900 (warm!)
+│  └────────────────────────────────────────────────────┘     │
+│                                                              │
+│  Brutto │ Netto                ← amber-900 Toggle (warm!)   │
+│                                                              │
+│  Gesamt: 990,00 € ← amber-950 (warm & lesbar)              │
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐     │
+│  │ ████████ Zahlungspflichtig bestellen ██████████████│     │  ← amber-500 (golden!)
+│  └────────────────────────────────────────────────────┘     │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Betroffene Dateien & Änderungen
 
 ### 1. `src/components/ui/button.tsx`
 
-Neue Checkout-spezifische Button-Variante hinzufügen:
+**Button-Varianten aktualisieren:**
 
 ```typescript
-const buttonVariants = cva(
-  // ... base styles
-  {
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        // NEU: Checkout-Buttons
-        checkout: "bg-gray-800 text-white hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-300",
-        checkoutCta: "bg-amber-500 text-gray-900 hover:bg-amber-400 font-semibold shadow-lg",
-        // ... rest
-      },
-    },
-  }
-);
+// VORHER (kalt):
+checkout: "bg-gray-800 text-white hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-300",
+checkoutCta: "bg-amber-500 text-gray-900 hover:bg-amber-400 font-semibold shadow-lg",
+
+// NACHHER (warm):
+checkout: "bg-amber-900 text-amber-50 hover:bg-amber-800 dark:bg-amber-800 dark:text-amber-50 dark:hover:bg-amber-700",
+checkoutCta: "bg-amber-500 text-amber-950 hover:bg-amber-400 font-semibold shadow-lg",
 ```
 
-### 2. `src/pages/Checkout.tsx`
+### 2. `src/components/checkout/StickySummary.tsx`
 
-**Zeile 1305 – CalendarDays Icon:**
+**Brutto/Netto Toggle (Zeilen 121-139):**
+
 ```tsx
 // VORHER:
-<CalendarDays className="h-4 w-4 text-primary" />
-
-// NACHHER:
-<CalendarDays className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-```
-
-**Zeile 1377-1384 – "Weiter zu Kontaktdaten" Button:**
-```tsx
-// VORHER:
-<Button type="button" onClick={...} className="w-full">
-
-// NACHHER:
-<Button type="button" onClick={...} variant="checkout" className="w-full">
-```
-
-**Zeile 1405 – Login Link:**
-```tsx
-// VORHER:
-<Link ... className="text-primary hover:underline font-medium">
-
-// NACHHER:
-<Link ... className="text-gray-700 dark:text-gray-300 hover:underline font-medium">
-```
-
-**Zeile 1549-1550 – AGB Links:**
-```tsx
-// VORHER:
-<Link ... className="text-primary underline">
-
-// NACHHER:
-<Link ... className="text-gray-700 dark:text-gray-300 underline hover:text-gray-900 dark:hover:text-white">
-```
-
-**Zeile 1558-1565 – "Weiter zur Zahlung" Button:**
-```tsx
-<Button variant="checkout" className="w-full">
-```
-
-**Zeile 1617-1633 – Mobile Submit Button:**
-```tsx
-// NACHHER:
-<Button
-  type="submit"
-  variant="checkoutCta"
-  className="w-full h-12"
-  disabled={...}
->
-```
-
-### 3. `src/components/checkout/StickySummary.tsx`
-
-**Zeile 116-140 – Brutto/Netto Toggle:**
-```tsx
-// VORHER:
-showGross
-  ? "bg-primary text-primary-foreground font-medium"
-  : "bg-muted hover:bg-muted/80"
-
-// NACHHER:
 showGross
   ? "bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900 font-medium"
-  : "bg-muted hover:bg-muted/80"
-```
-
-**Zeile 214 – Gesamt-Preis:**
-```tsx
-// VORHER:
-<span className="font-serif text-xl font-bold text-primary">
 
 // NACHHER:
+showGross
+  ? "bg-amber-900 text-amber-50 dark:bg-amber-800 font-medium"
+```
+
+**Gesamt-Preis (Zeile 214):**
+
+```tsx
+// VORHER:
 <span className="font-serif text-xl font-bold text-gray-900 dark:text-white">
-```
-
-### 4. `src/components/checkout/StickyMobileCTA.tsx`
-
-**Zeile 81-100 – CTA Button:**
-```tsx
-// VORHER:
-<Button
-  className="w-full h-14 text-base font-semibold shadow-lg"
-  size="lg"
->
 
 // NACHHER:
-<Button
-  variant="checkoutCta"
-  className="w-full h-14 text-base shadow-lg"
-  size="lg"
->
+<span className="font-serif text-xl font-bold text-amber-950 dark:text-amber-50">
 ```
 
-### 5. `src/components/checkout/AccordionSection.tsx`
+### 3. `src/components/checkout/AccordionSection.tsx`
 
-**Zeile 37-38 – Aktiver Ring:**
+**Aktiver Ring (Zeile 38):**
+
 ```tsx
 // VORHER:
-isOpen && "ring-2 ring-primary/20",
-
-// NACHHER:
 isOpen && "ring-2 ring-gray-400/20",
+
+// NACHHER:
+isOpen && "ring-2 ring-amber-400/30",
 ```
 
-**Zeile 76 – "Bearbeiten" Link:**
+**Step-Indicator aktiv (Zeile 57):**
+
 ```tsx
 // VORHER:
-<span className="flex items-center gap-1 text-sm text-primary hover:underline">
+isOpen && !isCompleted && "bg-gray-100 text-gray-900 border-2 border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-200",
 
 // NACHHER:
-<span className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300 hover:underline">
+isOpen && !isCompleted && "bg-amber-50 text-amber-900 border-2 border-amber-800 dark:bg-amber-900 dark:text-amber-50 dark:border-amber-400",
 ```
 
----
+**Bearbeiten-Link (Zeile 76):**
 
-## Desktop CTA Button in StickySummary
+```tsx
+// VORHER:
+<span className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300 hover:underline">
 
-Der Desktop-CTA-Button wird über `ctaButton` Prop übergeben. Dieser muss in `Checkout.tsx` angepasst werden:
+// NACHHER:
+<span className="flex items-center gap-1 text-sm text-amber-800 dark:text-amber-400 hover:underline">
+```
 
-**Zeile 789-810 (ctaButton Definition):**
+### 4. `src/pages/Checkout.tsx`
+
+**Alle `text-gray-*` zu `text-amber-*` Links:**
+
+| Zeile | Element | Vorher | Nachher |
+|-------|---------|--------|---------|
+| ~1405 | Login-Link | `text-gray-700` | `text-amber-800` |
+| ~1549 | AGB-Links | `text-gray-700` | `text-amber-800` |
+
+### 5. `src/components/ui/calendar.tsx`
+
+**Selected Day (falls noch rot):**
+
 ```tsx
 // NACHHER:
-const ctaButton = (
-  <Button
-    type="submit"
-    variant="checkoutCta"
-    className="w-full h-12"
-    disabled={isSubmitting || isProcessingPayment || !formData.acceptTerms}
-  >
-    {isSubmitting || isProcessingPayment ? (
-      <>
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        {language === 'de' ? 'Wird verarbeitet...' : 'Processing...'}
-      </>
-    ) : (
-      <>
-        <Lock className="mr-2 h-4 w-4" />
-        {language === 'de' ? 'Zahlungspflichtig bestellen' : 'Place binding order'}
-      </>
-    )}
-  </Button>
-);
+day_selected:
+  "bg-amber-900 text-amber-50 hover:bg-amber-800 focus:bg-amber-900 dark:bg-amber-700 dark:text-amber-50",
 ```
 
 ---
 
-## Farbpalette
+## Farbpalette Referenz (Tailwind amber)
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Checkout-Farbschema                                         │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ANTHRAZIT (Neutrales Grau)                                 │
-│  ├── bg-gray-800 / text-white     → Weiter-Buttons          │
-│  ├── text-gray-700               → Links, Icons             │
-│  ├── text-gray-900               → Gesamt-Preis             │
-│  └── ring-gray-400/20            → Aktiver Accordion        │
-│                                                              │
-│  GELB/GOLD (Positiver CTA)                                  │
-│  ├── bg-amber-500                → Zahlungspflichtig Button │
-│  ├── hover:bg-amber-400          → Hover-State              │
-│  └── text-gray-900               → Button-Text              │
-│                                                              │
-│  GRÜN (Erfolg/Vertrauen – bleibt)                           │
-│  ├── text-green-600              → Checkmarks, SSL          │
-│  └── bg-green-50                 → Success-Boxen            │
-│                                                              │
-│  ROT (nur für Fehler!)                                      │
-│  └── text-destructive            → Validierungs-Fehler      │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-```
+| Klasse | Hex | Verwendung |
+|--------|-----|------------|
+| `amber-50` | #fffbeb | Text auf dunklem Hintergrund |
+| `amber-100` | #fef3c7 | Helle Hintergründe |
+| `amber-400` | #fbbf24 | Akzent-Ringe, Hover-States |
+| `amber-500` | #f59e0b | CTA-Button (Gold) |
+| `amber-800` | #92400e | Links, Hover-States |
+| `amber-900` | #78350f | Action-Buttons (Espresso) |
+| `amber-950` | #451a03 | Dunkler Text |
 
 ---
 
-## Visuelle Vorschau
+## Psychologie der Farben
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                      VORHER (Rot)                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐     │
-│  │ ██████████ Weiter zu Kontaktdaten ██████████████████│     │  ← ROT (Warnung!)
-│  └────────────────────────────────────────────────────┘     │
-│                                                              │
-│  Gesamt: 990,00 € ← ROT                                     │
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐     │
-│  │ ██████ Zahlungspflichtig bestellen ████████████████│     │  ← ROT (Warnung!)
-│  └────────────────────────────────────────────────────┘     │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│                     NACHHER (Anthrazit + Gelb)               │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐     │
-│  │ ▓▓▓▓▓▓▓▓ Weiter zu Kontaktdaten ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓│     │  ← Anthrazit (Neutral)
-│  └────────────────────────────────────────────────────┘     │
-│                                                              │
-│  Gesamt: 990,00 € ← Schwarz (neutral)                       │
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐     │
-│  │ ████████ Zahlungspflichtig bestellen ██████████████│     │  ← GELB (Positiv!)
-│  └────────────────────────────────────────────────────┘     │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-```
+| Farbe | Emotion | Wirkung im Checkout |
+|-------|---------|---------------------|
+| **Grau** (vorher) | Neutral, sicher, aber kalt | Keine Kaufmotivation |
+| **Amber/Gold** (neu) | Warm, wertvoll, appetitlich | Vertrauen + Begehrlichkeit |
+| **Espresso-Braun** | Gemütlich, hochwertig | Passt zu italienischem Essen |
+| **Grün** (bleibt) | Erfolg, Bestätigung | Abgeschlossene Schritte |
 
 ---
 
-## Zusammenfassung der Änderungen
+## Zusammenfassung
 
 | Datei | Änderungen |
 |-------|------------|
-| `src/components/ui/button.tsx` | +2 neue Varianten: `checkout`, `checkoutCta` |
-| `src/pages/Checkout.tsx` | ~8 Stellen: Button-Varianten, Links, Icons |
-| `src/components/checkout/StickySummary.tsx` | Brutto/Netto Toggle, Gesamt-Preis |
-| `src/components/checkout/StickyMobileCTA.tsx` | CTA Button Variante |
-| `src/components/checkout/AccordionSection.tsx` | Ring-Farbe, Bearbeiten-Link |
+| `button.tsx` | `checkout` + `checkoutCta` Varianten → amber-Töne |
+| `StickySummary.tsx` | Toggle + Gesamt-Preis → amber |
+| `AccordionSection.tsx` | Ring, Step-Indicator, Bearbeiten-Link → amber |
+| `Checkout.tsx` | Login- und AGB-Links → amber |
+| `calendar.tsx` | Selected day → amber |
 
----
-
-## Technische Hinweise
-
-- Die `variant="checkout"` und `variant="checkoutCta"` Varianten werden nur im Checkout verwendet
-- Die globale `primary` Farbe (Rot) bleibt für den Rest der Website erhalten
-- Destruktive Aktionen (Löschen, Fehler) verwenden weiterhin `destructive`
-- Grüne Akzente (Erfolg, Sicherheit) bleiben für Trust-Elemente bestehen
+**Ergebnis:** Ein warmer, einladender Checkout, der zum italienischen Restaurant-Branding passt und Kunden zum Abschluss motiviert statt sie mit kaltem Grau zu distanzieren.
