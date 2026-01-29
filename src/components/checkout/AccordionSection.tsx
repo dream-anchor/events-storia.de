@@ -35,7 +35,7 @@ const AccordionSection = ({
     <div 
       className={cn(
         "border border-border rounded-xl bg-card overflow-hidden transition-all duration-300",
-        isOpen && "ring-2 ring-gray-400/20",
+        isOpen && "ring-2 ring-amber-400/30",
         className
       )}
     >
@@ -54,7 +54,7 @@ const AccordionSection = ({
           className={cn(
             "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all",
             isCompleted && "bg-green-100 text-green-600 border-2 border-green-600",
-            isOpen && !isCompleted && "bg-gray-100 text-gray-900 border-2 border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-200",
+            isOpen && !isCompleted && "bg-amber-50 text-amber-900 border-2 border-amber-800 dark:bg-amber-900 dark:text-amber-50 dark:border-amber-400",
             !isCompleted && !isOpen && "bg-muted text-muted-foreground"
           )}
         >
@@ -73,7 +73,7 @@ const AccordionSection = ({
 
         {/* Chevron / Edit */}
         {isCompleted && !isOpen ? (
-          <span className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300 hover:underline">
+          <span className="flex items-center gap-1 text-sm text-amber-800 dark:text-amber-400 hover:underline">
             <Pencil className="h-3.5 w-3.5" />
             {language === 'de' ? 'Bearbeiten' : 'Edit'}
           </span>
