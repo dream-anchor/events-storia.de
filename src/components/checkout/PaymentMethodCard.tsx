@@ -39,10 +39,10 @@ const PaymentMethodCard = ({
       onClick={onSelect}
       className={cn(
         "w-full p-4 rounded-xl border-2 text-left transition-all duration-200",
-        "hover:border-gray-400 hover:bg-gray-50/50 dark:hover:border-gray-500 dark:hover:bg-gray-800/30",
-        "focus:outline-none focus:ring-2 focus:ring-gray-400/30 focus:ring-offset-2",
+        "hover:border-neutral-400 hover:bg-neutral-50/50 dark:hover:border-neutral-500 dark:hover:bg-neutral-800/30",
+        "focus:outline-none focus:ring-2 focus:ring-neutral-400/30 focus:ring-offset-2",
         isSelected
-          ? "border-gray-800 bg-gray-50 shadow-sm dark:border-gray-200 dark:bg-gray-800/50"
+          ? "border-neutral-900 bg-neutral-50 shadow-md ring-1 ring-neutral-900/20 dark:border-neutral-100 dark:bg-neutral-800/50 dark:ring-neutral-100/20"
           : "border-border bg-card",
         className
       )}
@@ -53,18 +53,18 @@ const PaymentMethodCard = ({
           className={cn(
             "mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
             isSelected
-              ? "border-gray-900 bg-gray-900 dark:border-white dark:bg-white"
+              ? "border-neutral-900 bg-neutral-900 dark:border-neutral-100 dark:bg-neutral-100"
               : "border-muted-foreground/40"
           )}
         >
-          {isSelected && <Check className="h-3 w-3 text-white dark:text-gray-900" />}
+          {isSelected && <Check className="h-3 w-3 text-white dark:text-neutral-900" />}
         </div>
 
         {/* Icon */}
         <div
           className={cn(
             "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center",
-            isSelected ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100" : "bg-muted text-muted-foreground"
+            isSelected ? "bg-neutral-100 text-neutral-900 dark:bg-neutral-700 dark:text-neutral-100" : "bg-muted text-muted-foreground"
           )}
         >
           {icon}
