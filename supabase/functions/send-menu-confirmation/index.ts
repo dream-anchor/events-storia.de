@@ -102,50 +102,103 @@ Mit freundlichen Grüßen,
 Ihr STORIA Team
 
 ---
-STORIA
-Geyerspergerstraße 32
-80689 München
-Tel: +49 89 15881020
-info@storia-muenchen.de`;
+STORIA · Ristorante
+Karlstraße 47a
+80333 München
+Tel: +49 89 51519696
+info@events-storia.de`;
 
     console.log('Email content generated');
 
     // Send email if requested
     if (sendEmail) {
-      const smtpHost = Deno.env.get('SMTP_HOST');
-      const smtpPort = Deno.env.get('SMTP_PORT');
-      const smtpUser = Deno.env.get('SMTP_USER');
+      const smtpHost = Deno.env.get('SMTP_HOST') || 'smtp.ionos.de';
+      const smtpPort = parseInt(Deno.env.get('SMTP_PORT') || '465');
+      const smtpUser = Deno.env.get('SMTP_USER')?.trim();
       const smtpPassword = Deno.env.get('SMTP_PASSWORD');
+      const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
-      if (!smtpHost || !smtpUser || !smtpPassword) {
-        console.warn('SMTP not configured, skipping email send');
-      } else {
-        // Use Resend or direct SMTP
-        const resendApiKey = Deno.env.get('RESEND_API_KEY');
-        
-        if (resendApiKey) {
-          const resendResponse = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${resendApiKey}`,
-              'Content-Type': 'application/json',
+      // Primary: Try IONOS SMTP
+      if (smtpUser && smtpPassword) {
+        try {
+          const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
+          
+          const client = new SMTPClient({
+            connection: {
+              hostname: smtpHost,
+              port: smtpPort,
+              tls: true,
+              auth: {
+                username: smtpUser,
+                password: smtpPassword,
+              },
             },
-            body: JSON.stringify({
-              from: 'STORIA Events <events@storia-muenchen.de>',
-              to: booking.customer_email,
-              subject: emailSubject,
-              text: emailBody,
-            }),
           });
 
-          if (!resendResponse.ok) {
-            const error = await resendResponse.text();
-            console.error('Resend error:', error);
-            throw new Error('Failed to send email via Resend');
-          }
+          await client.send({
+            from: `STORIA Events <${smtpUser}>`,
+            to: [booking.customer_email],
+            subject: emailSubject,
+            html: `<html><body><pre style="font-family: monospace; white-space: pre-wrap;">${emailBody}</pre></body></html>`,
+          });
 
-          console.log('Email sent successfully via Resend');
+          await client.close();
+          console.log('Email sent successfully via IONOS SMTP');
+        } catch (smtpError) {
+          console.error('SMTP error, trying Resend fallback:', smtpError);
+          
+          // Fallback: Try Resend if SMTP fails
+          if (resendApiKey) {
+            const resendResponse = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${resendApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                from: 'STORIA Events <info@events-storia.de>',
+                to: booking.customer_email,
+                subject: emailSubject,
+                text: emailBody,
+              }),
+            });
+
+            if (!resendResponse.ok) {
+              const error = await resendResponse.text();
+              console.error('Resend error:', error);
+              throw new Error('Failed to send email via both SMTP and Resend');
+            }
+
+            console.log('Email sent successfully via Resend (fallback)');
+          } else {
+            throw smtpError;
+          }
         }
+      } else if (resendApiKey) {
+        // No SMTP configured, use Resend directly
+        const resendResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'STORIA Events <info@events-storia.de>',
+            to: booking.customer_email,
+            subject: emailSubject,
+            text: emailBody,
+          }),
+        });
+
+        if (!resendResponse.ok) {
+          const error = await resendResponse.text();
+          console.error('Resend error:', error);
+          throw new Error('Failed to send email via Resend');
+        }
+
+        console.log('Email sent successfully via Resend');
+      } else {
+        console.warn('No email provider configured (SMTP or Resend)');
       }
     }
 

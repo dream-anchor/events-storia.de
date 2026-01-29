@@ -325,9 +325,9 @@ export const QuotePDFDocument = ({ event, items, notes, quoteNumber, menuSelecti
           </View>
           <View style={styles.headerInfo}>
             <Text>STORIA München</Text>
-            <Text>Schwanthalerstraße 5</Text>
-            <Text>80336 München</Text>
-            <Text style={{ marginTop: 5 }}>info@storia-muenchen.de</Text>
+            <Text>Karlstraße 47a</Text>
+            <Text>80333 München</Text>
+            <Text style={{ marginTop: 5 }}>info@events-storia.de</Text>
           </View>
         </View>
 
