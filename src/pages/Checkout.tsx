@@ -652,6 +652,13 @@ const Checkout = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // CRITICAL: Prevent double-submit by checking state at the start
+    // This catches cases where button disabled state hasn't updated yet
+    if (isSubmitting || isProcessingPayment) {
+      console.log('Double-submit prevented: already processing');
+      return;
+    }
+    
     // SECURITY: Honeypot check for bot detection
     if (honeypot) {
       console.log("Bot detected via honeypot field");
