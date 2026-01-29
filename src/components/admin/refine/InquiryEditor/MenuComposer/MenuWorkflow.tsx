@@ -197,6 +197,7 @@ export const MenuWorkflow = ({
               allMenuItems={menuItems}
               onSelect={handleCourseSelect}
               onNext={handleNextCourse}
+              isLastCourse={activeCourseIndex === courseConfigs.length - 1}
             />
           )}
 

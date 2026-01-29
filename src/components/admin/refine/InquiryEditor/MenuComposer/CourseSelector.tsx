@@ -18,6 +18,7 @@ interface CourseSelectorProps {
   allMenuItems?: MenuItem[]; // For global search
   onSelect: (selection: CourseSelection) => void;
   onNext: () => void;
+  isLastCourse?: boolean;
 }
 
 export const CourseSelector = ({
@@ -27,6 +28,7 @@ export const CourseSelector = ({
   allMenuItems = [],
   onSelect,
   onNext,
+  isLastCourse = false,
 }: CourseSelectorProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<'recommended' | 'global'>('recommended');
@@ -461,7 +463,7 @@ export const CourseSelector = ({
         {/* Continue Button */}
         {currentSelection && (currentSelection.itemId || currentSelection.isCustom) && (
           <Button onClick={onNext} className="w-full">
-            Weiter zum nächsten Gang
+            {isLastCourse ? "Weiter zu Getränke" : "Weiter zum nächsten Gang"}
           </Button>
         )}
       </CardContent>
