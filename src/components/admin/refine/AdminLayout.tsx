@@ -20,8 +20,8 @@ interface AdminLayoutProps {
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
   { name: 'Anfragen', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
-  { name: 'Buchungen', href: '/admin/bookings', icon: CheckCircle2, key: 'bookings', badge: 'bookings' },
-  { name: 'Bestellungen', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
+  { name: 'Events', href: '/admin/bookings', icon: CheckCircle2, key: 'bookings', badge: 'bookings' },
+  { name: 'Catering', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
   { name: 'Pakete', href: '/admin/packages', icon: Package, key: 'packages' },
   { name: 'Speisen', href: '/admin/menu', icon: UtensilsCrossed, key: 'menu' },
 ];

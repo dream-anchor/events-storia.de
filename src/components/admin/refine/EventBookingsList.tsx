@@ -67,7 +67,7 @@ export const EventBookingsList = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-serif font-semibold">Event-Buchungen</h1>
+            <h1 className="text-3xl font-serif font-semibold">Events</h1>
             <p className="text-muted-foreground">
               Bezahlte Events mit Menü-Konfiguration
             </p>
