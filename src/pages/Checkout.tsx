@@ -24,6 +24,7 @@ import CheckoutHeader from '@/components/checkout/CheckoutHeader';
 import AccordionSection from '@/components/checkout/AccordionSection';
 import StickySummary from '@/components/checkout/StickySummary';
 import PaymentMethodCard from '@/components/checkout/PaymentMethodCard';
+import TimeSlotGrid from '@/components/checkout/TimeSlotGrid';
 import StickyMobileCTA from '@/components/checkout/StickyMobileCTA';
 import PaymentLogos from '@/components/checkout/PaymentLogos';
 import Footer from '@/components/Footer';
@@ -137,7 +138,8 @@ const Checkout = () => {
     billingZip: '',
     billingCity: '',
     billingCountry: 'Deutschland',
-    acceptTerms: false
+    acceptTerms: false,
+    referenceNumber: ''
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -832,7 +834,8 @@ const Checkout = () => {
             calculated_distance_km: deliveryCalc?.distanceKm || null,
             payment_method: paymentMethod,
             payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending',
-            user_id: existingUserId
+            user_id: existingUserId,
+            reference_number: formData.referenceNumber?.trim() || null
           });
 
         if (error) throw error;
@@ -1298,47 +1301,43 @@ const Checkout = () => {
 
                     {/* Date and Time */}
                     <div className="border-t border-border pt-5">
-                      <h3 className="font-medium mb-3 flex items-center gap-2">
+                      <h3 className="font-medium mb-4 flex items-center gap-2">
                         <CalendarDays className="h-4 w-4 text-primary" />
                         {language === 'de' ? 'Wann wird Ihr Catering benötigt?' : 'When do you need your catering?'}
                       </h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="date">{language === 'de' ? 'Datum' : 'Date'} *</Label>
-                          <Input
-                            id="date"
-                            name="date"
-                            type="date"
-                            value={formData.date}
-                            onChange={handleInputChange}
-                            className="mt-1"
-                            required
-                            min={(() => {
-                              if (isPizzaOnly) {
-                                return new Date().toISOString().split('T')[0];
-                              } else {
-                                const tomorrow = new Date();
-                                tomorrow.setDate(tomorrow.getDate() + 1);
-                                return tomorrow.toISOString().split('T')[0];
-                              }
-                            })()}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="time">{language === 'de' ? 'Uhrzeit' : 'Time'} *</Label>
-                          <Input
-                            id="time"
-                            name="time"
-                            type="time"
-                            value={formData.time}
-                            onChange={handleInputChange}
-                            className="mt-1"
-                            required
-                          />
-                        </div>
+                      
+                      {/* Date Picker */}
+                      <div className="mb-5">
+                        <Label htmlFor="date">{language === 'de' ? 'Datum' : 'Date'} *</Label>
+                        <Input
+                          id="date"
+                          name="date"
+                          type="date"
+                          value={formData.date}
+                          onChange={handleInputChange}
+                          className="mt-1 max-w-xs"
+                          required
+                          min={(() => {
+                            if (isPizzaOnly) {
+                              return new Date().toISOString().split('T')[0];
+                            } else {
+                              const tomorrow = new Date();
+                              tomorrow.setDate(tomorrow.getDate() + 1);
+                              return tomorrow.toISOString().split('T')[0];
+                            }
+                          })()}
+                        />
                       </div>
+                      
+                      {/* Time Slot Grid */}
+                      <TimeSlotGrid
+                        value={formData.time}
+                        onChange={(time) => setFormData(prev => ({ ...prev, time }))}
+                        isPizzaOnly={isPizzaOnly}
+                      />
+                      
                       {dateTimeWarning && (
-                        <div className="flex items-start gap-2 mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <div className="flex items-start gap-2 mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                           <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                           <p className="text-sm text-amber-700 dark:text-amber-300" dangerouslySetInnerHTML={{ __html: dateTimeWarning }} />
                         </div>
@@ -1495,8 +1494,30 @@ const Checkout = () => {
                       </div>
                     )}
 
-                    {/* Notes */}
+                    {/* Reference / PO Number - Expandable */}
                     <div className="mt-6">
+                      <Collapsible>
+                        <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                          <ChevronDown className="h-4 w-4" />
+                          {language === 'de' ? 'Referenz / PO-Nummer hinzufügen' : 'Add reference / PO number'}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-3">
+                          <Input
+                            name="referenceNumber"
+                            value={formData.referenceNumber}
+                            onChange={handleInputChange}
+                            placeholder={language === 'de' ? 'Ihre interne Referenz oder PO-Nummer' : 'Your internal reference or PO number'}
+                            maxLength={50}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {language === 'de' ? 'Erscheint auf Ihrer Rechnung' : 'Will appear on your invoice'}
+                          </p>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+
+                    {/* Notes */}
+                    <div className="mt-4">
                       <Collapsible>
                         <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
                           <ChevronDown className="h-4 w-4" />

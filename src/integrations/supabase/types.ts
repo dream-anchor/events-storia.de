@@ -51,6 +51,7 @@ export type Database = {
           order_number: string
           payment_method: string | null
           payment_status: string | null
+          reference_number: string | null
           status: string | null
           stripe_payment_intent_id: string | null
           total_amount: number | null
@@ -92,6 +93,7 @@ export type Database = {
           order_number: string
           payment_method?: string | null
           payment_status?: string | null
+          reference_number?: string | null
           status?: string | null
           stripe_payment_intent_id?: string | null
           total_amount?: number | null
@@ -133,6 +135,7 @@ export type Database = {
           order_number?: string
           payment_method?: string | null
           payment_status?: string | null
+          reference_number?: string | null
           status?: string | null
           stripe_payment_intent_id?: string | null
           total_amount?: number | null

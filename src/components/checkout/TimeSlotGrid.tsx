@@ -1,0 +1,99 @@
+import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { Clock } from "lucide-react";
+
+interface TimeSlotGridProps {
+  value: string;
+  onChange: (time: string) => void;
+  isPizzaOnly?: boolean;
+  className?: string;
+}
+
+interface TimeGroup {
+  label: string;
+  labelEn: string;
+  slots: string[];
+}
+
+const TimeSlotGrid = ({ value, onChange, isPizzaOnly = false, className }: TimeSlotGridProps) => {
+  const { language } = useLanguage();
+
+  // Pizza times: 12:00-14:30 and 18:00-22:30
+  // Catering times: 10:00-21:30
+  const timeGroups: TimeGroup[] = isPizzaOnly
+    ? [
+        {
+          label: "Mittag",
+          labelEn: "Lunch",
+          slots: ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30"],
+        },
+        {
+          label: "Abend",
+          labelEn: "Evening",
+          slots: ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30"],
+        },
+      ]
+    : [
+        {
+          label: "Vormittag",
+          labelEn: "Morning",
+          slots: ["10:00", "10:30", "11:00", "11:30"],
+        },
+        {
+          label: "Mittag",
+          labelEn: "Lunch",
+          slots: ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30"],
+        },
+        {
+          label: "Nachmittag",
+          labelEn: "Afternoon",
+          slots: ["15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
+        },
+        {
+          label: "Abend",
+          labelEn: "Evening",
+          slots: ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30"],
+        },
+      ];
+
+  return (
+    <div className={cn("space-y-4", className)}>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Clock className="h-4 w-4" />
+        <span>{language === "de" ? "Gewünschte Uhrzeit wählen" : "Select preferred time"}</span>
+      </div>
+
+      {timeGroups.map((group) => (
+        <div key={group.label} className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            {language === "de" ? group.label : group.labelEn}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {group.slots.map((slot) => {
+              const isSelected = value === slot;
+              return (
+                <button
+                  key={slot}
+                  type="button"
+                  onClick={() => onChange(slot)}
+                  className={cn(
+                    "px-4 py-2 text-sm font-medium rounded-full border-2 transition-all duration-200",
+                    "hover:border-gray-400 hover:bg-gray-50 dark:hover:border-gray-500 dark:hover:bg-gray-800",
+                    "focus:outline-none focus:ring-2 focus:ring-gray-400/30 focus:ring-offset-2",
+                    isSelected
+                      ? "border-gray-800 bg-gray-900 text-white dark:border-gray-200 dark:bg-white dark:text-gray-900"
+                      : "border-border bg-background text-foreground"
+                  )}
+                >
+                  {slot}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default TimeSlotGrid;
