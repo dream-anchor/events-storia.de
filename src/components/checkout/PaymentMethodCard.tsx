@@ -39,10 +39,10 @@ const PaymentMethodCard = ({
       onClick={onSelect}
       className={cn(
         "w-full p-4 rounded-xl border-2 text-left transition-all duration-200",
-        "hover:border-primary/50 hover:bg-muted/30",
-        "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2",
+        "hover:border-gray-400 hover:bg-gray-50/50 dark:hover:border-gray-500 dark:hover:bg-gray-800/30",
+        "focus:outline-none focus:ring-2 focus:ring-gray-400/30 focus:ring-offset-2",
         isSelected
-          ? "border-primary bg-primary/5 shadow-sm"
+          ? "border-gray-800 bg-gray-50 shadow-sm dark:border-gray-200 dark:bg-gray-800/50"
           : "border-border bg-card",
         className
       )}
@@ -53,18 +53,18 @@ const PaymentMethodCard = ({
           className={cn(
             "mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
             isSelected
-              ? "border-primary bg-primary"
+              ? "border-gray-900 bg-gray-900 dark:border-white dark:bg-white"
               : "border-muted-foreground/40"
           )}
         >
-          {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+          {isSelected && <Check className="h-3 w-3 text-white dark:text-gray-900" />}
         </div>
 
         {/* Icon */}
         <div
           className={cn(
             "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center",
-            isSelected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+            isSelected ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100" : "bg-muted text-muted-foreground"
           )}
         >
           {icon}

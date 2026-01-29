@@ -53,8 +53,8 @@ const AccordionSection = ({
         <div
           className={cn(
             "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all",
-            isCompleted && "bg-primary text-primary-foreground",
-            isOpen && !isCompleted && "bg-primary/20 text-primary border-2 border-primary",
+            isCompleted && "bg-green-100 text-green-600 border-2 border-green-600",
+            isOpen && !isCompleted && "bg-gray-100 text-gray-900 border-2 border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-200",
             !isCompleted && !isOpen && "bg-muted text-muted-foreground"
           )}
         >
