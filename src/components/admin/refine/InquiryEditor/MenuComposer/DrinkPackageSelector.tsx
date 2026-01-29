@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { Check, Wine, Beer, Coffee, Droplets, GlassWater, Plus, Globe } from "lucide-react";
+import { Check, Wine, Coffee, Droplets, GlassWater } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { DrinkConfig, DrinkSelection, DrinkOption, DRINK_ICONS } from "./types";
+import { DrinkConfig, DrinkSelection, DrinkOption } from "./types";
 import { GlobalItemSearch } from "./GlobalItemSearch";
-import { CustomItemInput } from "./CustomItemInput";
 import { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 
 interface DrinkPackageSelectorProps {
@@ -36,7 +35,6 @@ export const DrinkPackageSelector = ({
   onSelect,
 }: DrinkPackageSelectorProps) => {
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
-  const [showCustomInput, setShowCustomInput] = useState(false);
   const [activeGroupForCustom, setActiveGroupForCustom] = useState<string | null>(null);
 
   const getSelection = (drinkGroup: string) => 
@@ -68,30 +66,9 @@ export const DrinkPackageSelector = ({
     setActiveGroupForCustom(null);
   };
 
-  const handleCustomDrink = (item: { name: string; description: string | null }) => {
-    if (activeGroupForCustom) {
-      const config = drinkConfigs.find(c => c.drink_group === activeGroupForCustom);
-      if (config) {
-        onSelect({
-          drinkGroup: config.drink_group,
-          drinkLabel: config.drink_label,
-          selectedChoice: null,
-          quantityLabel: config.quantity_label,
-          customDrink: item.name,
-        });
-      }
-    }
-    setActiveGroupForCustom(null);
-  };
-
   const openGlobalSearch = (drinkGroup: string) => {
     setActiveGroupForCustom(drinkGroup);
     setShowGlobalSearch(true);
-  };
-
-  const openCustomInput = (drinkGroup: string) => {
-    setActiveGroupForCustom(drinkGroup);
-    setShowCustomInput(true);
   };
 
   // Separate choice configs from included configs
@@ -121,15 +98,6 @@ export const DrinkPackageSelector = ({
                   <h4 className="font-medium">{config.drink_label}</h4>
                   <Badge variant="outline" className="text-xs">Auswählen</Badge>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openGlobalSearch(config.drink_group)}
-                  className="text-xs"
-                >
-                  <Globe className="h-3 w-3 mr-1" />
-                  Anderes Getränk
-                </Button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -182,7 +150,7 @@ export const DrinkPackageSelector = ({
                       <div>
                         <h5 className="font-semibold">{currentSelection.customDrink}</h5>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Individuell gewählt
+                          Aus Getränkekarte gewählt
                         </p>
                       </div>
                       <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
@@ -190,21 +158,21 @@ export const DrinkPackageSelector = ({
                       </div>
                     </div>
                     <Badge variant="secondary" className="mt-2 text-xs">
-                      Freie Auswahl
+                      Individuelle Auswahl
                     </Badge>
                   </div>
                 )}
               </div>
 
-              {/* Add Custom Button */}
+              {/* Add Drink from Menu Button */}
               <Button 
                 variant="outline" 
                 size="sm" 
                 className="w-full"
-                onClick={() => openCustomInput(config.drink_group)}
+                onClick={() => openGlobalSearch(config.drink_group)}
               >
-                <Plus className="h-3 w-3 mr-1" />
-                Freies Getränk hinzufügen
+                <Wine className="h-3 w-3 mr-1" />
+                Getränk aus Karte wählen
               </Button>
             </div>
           );
@@ -242,7 +210,7 @@ export const DrinkPackageSelector = ({
         )}
       </CardContent>
 
-      {/* Global Drink Search */}
+      {/* Global Drink Search - only drinks from menu, no custom input */}
       <GlobalItemSearch
         open={showGlobalSearch}
         onOpenChange={(open) => {
@@ -250,28 +218,8 @@ export const DrinkPackageSelector = ({
           if (!open) setActiveGroupForCustom(null);
         }}
         onSelect={handleGlobalDrinkSelect}
-        onCustomItem={() => {
-          setShowGlobalSearch(false);
-          setShowCustomInput(true);
-        }}
         filterType="drinks"
-        placeholder="Getränke durchsuchen..."
-      />
-
-      {/* Custom Drink Input */}
-      <CustomItemInput
-        open={showCustomInput}
-        onOpenChange={(open) => {
-          setShowCustomInput(open);
-          if (!open) setActiveGroupForCustom(null);
-        }}
-        onSubmit={handleCustomDrink}
-        title="Getränk hinzufügen"
-        description="Füge ein Getränk hinzu, das nicht in der Auswahl steht."
-        nameLabel="Getränk"
-        namePlaceholder="z.B. Champagner Moët"
-        descriptionLabel="Notiz (optional)"
-        descriptionPlaceholder="z.B. 0,75l pro 4 Personen"
+        placeholder="Getränke aus Karte suchen..."
       />
     </Card>
   );
