@@ -95,14 +95,21 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
     setIsSubmitting(true);
     
     try {
-      // Send notification email via Edge Function
-      const { error } = await supabase.functions.invoke('send-order-notification', {
+      // Call the correct receive-event-inquiry Edge Function
+      // which saves to event_inquiries AND sends emails
+      const { error } = await supabase.functions.invoke('receive-event-inquiry', {
         body: {
-          type: 'event_inquiry',
-          data: {
-            ...data,
-            date: data.date ? format(data.date, 'dd.MM.yyyy') : 'Nicht angegeben',
-          }
+          companyName: data.company,
+          contactName: data.name,
+          email: data.email,
+          phone: data.phone || undefined,
+          guestCount: data.guests,
+          eventType: data.eventType === 'sonstiges' && data.eventTypeOther 
+            ? data.eventTypeOther 
+            : data.eventType,
+          preferredDate: data.date ? data.date.toISOString().split('T')[0] : undefined,
+          message: data.message || undefined,
+          source: data.selectedPackage ? `website_package_${data.selectedPackage}` : 'website_contact_form',
         }
       });
 
