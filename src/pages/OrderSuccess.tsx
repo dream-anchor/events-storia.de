@@ -6,7 +6,7 @@ import Footer from '@/components/Footer';
 import SEO from '@/components/SEO';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
-import { useCustomerAuth } from '@/hooks/useCustomerAuth';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

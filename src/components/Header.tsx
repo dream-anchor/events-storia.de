@@ -1,6 +1,6 @@
 import { Phone, Mail, Instagram, User } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useCustomerAuth } from "@/hooks/useCustomerAuth";
+import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const Header = () => {

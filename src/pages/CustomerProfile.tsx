@@ -5,7 +5,7 @@ import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import SEO from '@/components/SEO';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useCustomerAuth, CustomerProfile as CustomerProfileType } from '@/hooks/useCustomerAuth';
+import { useCustomerAuth, CustomerProfile as CustomerProfileType } from '@/contexts/CustomerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

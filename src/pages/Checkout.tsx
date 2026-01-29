@@ -8,7 +8,7 @@ import SEO from '@/components/SEO';
 import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
-import { useCustomerAuth } from '@/hooks/useCustomerAuth';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

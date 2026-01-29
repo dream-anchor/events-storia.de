@@ -7,6 +7,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { PriceDisplayProvider } from "@/contexts/PriceDisplayContext";
+import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import Index from "./pages/Index";
 import Kontakt from "./pages/Kontakt";
 import NotFound from "./pages/NotFound";
@@ -54,7 +55,8 @@ const App = () => {
       <LanguageProvider>
         <PriceDisplayProvider>
           <CookieConsentProvider>
-            <CartProvider>
+            <CustomerAuthProvider>
+              <CartProvider>
               <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -108,7 +110,8 @@ const App = () => {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-            </CartProvider>
+              </CartProvider>
+            </CustomerAuthProvider>
           </CookieConsentProvider>
         </PriceDisplayProvider>
       </LanguageProvider>
