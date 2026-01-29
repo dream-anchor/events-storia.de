@@ -216,28 +216,38 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Inquiry saved to database:", inquiry.id);
 
-    // Send customer confirmation email
-    const customerEmailText = generateCustomerEmailText(data);
-    await sendEmail(
-      [data.email],
-      "Ihre Event-Anfrage bei STORIA",
-      customerEmailText,
-      "STORIA Events"
-    );
+    // Send emails in background - don't fail the request if email fails
+    let emailsSent = false;
+    try {
+      // Send customer confirmation email
+      const customerEmailText = generateCustomerEmailText(data);
+      await sendEmail(
+        [data.email],
+        "Ihre Event-Anfrage bei STORIA",
+        customerEmailText,
+        "STORIA Events"
+      );
 
-    // Send restaurant notification email
-    const restaurantEmailText = generateRestaurantEmailText(data);
-    await sendEmail(
-      ["info@events-storia.de"],
-      `Neue Event-Anfrage: ${data.companyName || data.contactName}`,
-      restaurantEmailText,
-      "STORIA Anfragen"
-    );
+      // Send restaurant notification email
+      const restaurantEmailText = generateRestaurantEmailText(data);
+      await sendEmail(
+        ["info@events-storia.de"],
+        `Neue Event-Anfrage: ${data.companyName || data.contactName}`,
+        restaurantEmailText,
+        "STORIA Anfragen"
+      );
+
+      emailsSent = true;
+      console.log("All emails sent successfully");
+    } catch (emailError: any) {
+      // Log email error but don't fail the request - inquiry is already saved
+      console.error("Email sending failed (inquiry still saved):", emailError.message);
+    }
 
     // Update notification_sent flag
     await supabase
       .from('event_inquiries')
-      .update({ notification_sent: true })
+      .update({ notification_sent: emailsSent })
       .eq('id', inquiry.id);
 
     return new Response(
