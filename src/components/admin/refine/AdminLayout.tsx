@@ -74,10 +74,10 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
                 className="hidden sm:flex items-center gap-2 text-muted-foreground"
               >
                 <Command className="h-3.5 w-3.5" />
-                <span className="text-xs">⌘K</span>
+                <span className="text-sm">⌘K</span>
               </Button>
 
-              <span className="hidden lg:block text-sm text-muted-foreground max-w-[150px] truncate">
+              <span className="hidden lg:block text-base text-muted-foreground max-w-[150px] truncate">
                 {identity?.email}
               </span>
               <Button variant="outline" size="sm" asChild className="hidden sm:flex">

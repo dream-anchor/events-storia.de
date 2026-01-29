@@ -163,8 +163,8 @@ export const AdminOfferCreate = () => {
             Zurück
           </Button>
           <div>
-            <h1 className="text-2xl font-serif font-semibold">Manuelle Anfrage erfassen</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-3xl font-serif font-semibold">Manuelle Anfrage erfassen</h1>
+            <p className="text-base text-muted-foreground">
               Kunden-E-Mail analysieren und Angebot erstellen
             </p>
           </div>

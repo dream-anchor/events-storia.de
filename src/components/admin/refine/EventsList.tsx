@@ -174,8 +174,8 @@ export const EventsList = () => {
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-serif font-semibold">Event-Anfragen</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-3xl font-serif font-semibold">Event-Anfragen</h1>
+            <p className="text-base text-muted-foreground">
               Verwalten Sie Event-Anfragen und erstellen Sie Angebote.
             </p>
           </div>

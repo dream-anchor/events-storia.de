@@ -111,7 +111,7 @@ export function DataTable<TData, TValue>({
               key={pill.id}
               onClick={() => onFilterChange?.(pill.id, pill.value)}
               className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-base font-medium transition-all",
                 pill.active
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -128,7 +128,7 @@ export function DataTable<TData, TValue>({
 
       {/* Active Filters Display */}
       {activeFilters.length > 0 && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-base text-muted-foreground">
           <span>Aktive Filter:</span>
           {activeFilters.map((filter) => (
             <Badge key={filter.id} variant="secondary" className="gap-1">
@@ -196,7 +196,7 @@ export function DataTable<TData, TValue>({
 
       {/* Pagination */}
       <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           Zeige {table.getState().pagination.pageIndex * pageSize + 1} bis{" "}
           {Math.min((table.getState().pagination.pageIndex + 1) * pageSize, data.length)} von{" "}
           {data.length} Einträgen
@@ -210,7 +210,7 @@ export function DataTable<TData, TValue>({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm font-medium">
+          <span className="text-base font-medium">
             Seite {table.getState().pagination.pageIndex + 1} von {table.getPageCount()}
           </span>
           <Button
