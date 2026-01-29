@@ -65,13 +65,26 @@ const formatDateDE = (dateStr: string): string => {
 };
 
 // Generate order number using database sequence
-// Format: EVENTS-ANGEBOT-DD-MM-YYYY-XXX or EVENTS-RECHNUNG-DD-MM-YYYY-XXX
+// Format: EVT-BUCHUNG-DD-MM-YYYY-XXX (Events) or CAT-ANGEBOT/CAT-RECHNUNG-DD-MM-YYYY-XXX (Catering)
 const generateOrderNumber = async (
   supabase: any, 
   isInvoice: boolean,
+  isEventBooking: boolean,
   date: Date
 ): Promise<string> => {
-  const prefix = isInvoice ? 'RECHNUNG' : 'ANGEBOT';
+  // Event-Pakete: EVT-BUCHUNG
+  // Catering: CAT-RECHNUNG (bezahlt) oder CAT-ANGEBOT (Rechnung)
+  let prefix: string;
+  let displayPrefix: string;
+  
+  if (isEventBooking) {
+    prefix = 'EVT-BUCHUNG';
+    displayPrefix = 'EVT-BUCHUNG';
+  } else {
+    prefix = isInvoice ? 'CAT-RECHNUNG' : 'CAT-ANGEBOT';
+    displayPrefix = prefix;
+  }
+  
   const year = date.getFullYear();
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -87,15 +100,15 @@ const generateOrderNumber = async (
       logStep('Error getting next order number, using fallback', { error: error.message });
       // Fallback: use timestamp-based number
       const fallbackNum = Math.floor(Date.now() / 1000) % 1000 + 100;
-      return `EVENTS-${prefix}-${day}-${month}-${year}-${fallbackNum}`;
+      return `${displayPrefix}-${day}-${month}-${year}-${fallbackNum}`;
     }
     
     const sequenceNum = data || 100;
-    return `EVENTS-${prefix}-${day}-${month}-${year}-${sequenceNum}`;
+    return `${displayPrefix}-${day}-${month}-${year}-${sequenceNum}`;
   } catch (err) {
     logStep('Exception getting next order number', { error: String(err) });
     const fallbackNum = Math.floor(Date.now() / 1000) % 1000 + 100;
-    return `EVENTS-${prefix}-${day}-${month}-${year}-${fallbackNum}`;
+    return `${displayPrefix}-${day}-${month}-${year}-${fallbackNum}`;
   }
 };
 
@@ -136,9 +149,13 @@ serve(async (req) => {
     let orderNumber = body.orderNumber;
     const isOldFormat = orderNumber.startsWith('STO-');
     
+    // Detect if this is an event booking based on order number prefix
+    const isEventBooking = orderNumber.startsWith('EVT-BUCHUNG') || 
+                           (body as any).isEventBooking === true;
+    
     if (isOldFormat) {
-      // Generate new order number with format EVENTS-ANGEBOT/RECHNUNG-DD-MM-YYYY-XXX
-      orderNumber = await generateOrderNumber(supabase, isInvoice, new Date());
+      // Generate new order number with correct format
+      orderNumber = await generateOrderNumber(supabase, isInvoice, isEventBooking, new Date());
       logStep('Generated new order number', { oldNumber: body.orderNumber, newNumber: orderNumber });
       
       // Update the order in database with new order number
