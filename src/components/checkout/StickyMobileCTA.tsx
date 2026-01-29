@@ -1,7 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { Loader2, ShieldCheck, CreditCard } from "lucide-react";
+import { Loader2, ShieldCheck, Lock } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
+
+import visaIcon from "@/assets/payment-logos/visa.svg";
+import mastercardIcon from "@/assets/payment-logos/mastercard.svg";
+import applePayIcon from "@/assets/payment-logos/apple-pay.svg";
+import klarnaIcon from "@/assets/payment-logos/klarna.svg";
 
 interface StickyMobileCTAProps {
   totalAmount: number;
@@ -29,22 +34,47 @@ const StickyMobileCTA = ({
 
   const buttonText = language === 'de' 
     ? 'Zahlungspflichtig bestellen' 
-    : 'Order with payment obligation';
+    : 'Place binding order';
+
+  // Compact payment logos for mobile
+  const compactLogos = [
+    { name: "Visa", icon: visaIcon },
+    { name: "Mastercard", icon: mastercardIcon },
+    { name: "Apple Pay", icon: applePayIcon },
+    { name: "Klarna", icon: klarnaIcon },
+  ];
 
   return (
     <div className={cn(
       "fixed bottom-0 left-0 right-0 z-50 lg:hidden",
-      "bg-background/95 backdrop-blur-md border-t border-border",
+      "bg-background/98 backdrop-blur-lg border-t border-border shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.1)]",
       "p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
       className
     )}>
-      {/* Trust Elements */}
-      <div className="flex items-center justify-center gap-2 mb-3 text-xs text-muted-foreground">
-        <ShieldCheck className="h-3.5 w-3.5 text-green-600" />
-        <span>{language === 'de' ? 'Sichere Zahlung' : 'Secure Payment'}</span>
-        <span className="mx-1">•</span>
-        <CreditCard className="h-3.5 w-3.5" />
-        <span>Karte, Klarna, Apple Pay</span>
+      {/* Trust Elements Row */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5 text-green-600" />
+          <span>{language === 'de' ? 'Sichere Zahlung' : 'Secure Payment'}</span>
+        </div>
+        
+        {/* Compact Payment Logos */}
+        <div className="flex items-center gap-1">
+          {compactLogos.map((method) => (
+            <div 
+              key={method.name}
+              className="h-5 px-1 bg-card rounded border border-border/50 flex items-center justify-center"
+              title={method.name}
+            >
+              <img 
+                src={method.icon} 
+                alt={method.name} 
+                className="h-3.5 w-auto object-contain"
+              />
+            </div>
+          ))}
+          <span className="text-xs text-muted-foreground ml-1">+7</span>
+        </div>
       </div>
 
       {/* CTA Button */}
@@ -52,7 +82,7 @@ const StickyMobileCTA = ({
         type="button"
         onClick={onSubmit}
         disabled={isSubmitting}
-        className="w-full h-12 text-base font-semibold"
+        className="w-full h-14 text-base font-semibold shadow-lg"
         size="lg"
       >
         {isSubmitting ? (
@@ -62,7 +92,9 @@ const StickyMobileCTA = ({
           </>
         ) : (
           <>
-            {buttonText} · {formatPrice(totalAmount)}
+            <Lock className="mr-2 h-4 w-4" />
+            <span className="flex-1 text-left">{buttonText}</span>
+            <span className="font-bold">{formatPrice(totalAmount)}</span>
           </>
         )}
       </Button>

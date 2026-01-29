@@ -33,17 +33,17 @@ const PaymentLogos = ({ className }: PaymentLogosProps) => {
   ];
 
   return (
-    <div className={cn("flex items-center justify-center gap-2 flex-wrap", className)}>
+    <div className={cn("flex items-center justify-start gap-1.5 flex-wrap", className)}>
       {paymentMethods.map((method) => (
         <div 
           key={method.name}
-          className="h-7 px-2 bg-card rounded border border-border flex items-center justify-center"
+          className="h-6 px-1.5 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center"
           title={method.name}
         >
           <img 
             src={method.icon} 
             alt={method.name} 
-            className="h-5 w-auto max-w-[40px] object-contain"
+            className="h-4 w-auto max-w-[32px] object-contain"
             loading="lazy"
           />
         </div>

@@ -1587,7 +1587,7 @@ const Checkout = () => {
                         icon={<CreditCard className="h-5 w-5" />}
                         isSelected={paymentMethod === 'stripe'}
                         onSelect={() => setPaymentMethod('stripe')}
-                        logos={<PaymentLogos className="opacity-60" />}
+                        logos={<PaymentLogos />}
                       />
                       
                       <PaymentMethodCard
