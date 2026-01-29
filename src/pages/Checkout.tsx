@@ -1636,32 +1636,38 @@ const Checkout = () => {
                       {language === 'de' ? 'Zahlungsart' : 'Payment Method'}
                     </h2>
                     <div className="space-y-3">
-                      {/* Stripe - All payment methods including Billie */}
-                      <div className="flex items-center gap-3 p-4 border-2 border-primary rounded-lg bg-primary/5 relative">
-                        <CreditCard className="h-5 w-5 text-primary" />
-                        <div className="flex-1">
-                          <p className="font-medium">{language === 'de' ? 'Sichere Zahlung' : 'Secure Payment'}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {language === 'de' 
-                              ? 'Kreditkarte, Apple Pay, Google Pay, Klarna & mehr' 
-                              : 'Credit card, Apple Pay, Google Pay, Klarna & more'}
-                          </p>
-                        </div>
-                        <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-                      </div>
-                      
-                      {/* Billie B2B Invoice Option - via Stripe */}
-                      <div className="flex items-center gap-3 p-4 border border-dashed rounded-lg bg-accent/30">
-                        <FileText className="h-5 w-5 text-muted-foreground" />
-                        <div className="flex-1">
-                          <p className="font-medium text-muted-foreground">
-                            {language === 'de' ? 'Rechnungskauf für Unternehmen via Billie' : 'B2B Invoice via Billie'}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {language === 'de' 
-                              ? 'Zahlung in 30 Tagen – im Stripe Checkout verfügbar' 
-                              : 'Pay in 30 days – available in Stripe Checkout'}
-                          </p>
+                      {/* Combined payment info - all methods via Stripe */}
+                      <div className="p-4 border-2 border-primary rounded-lg bg-primary/5">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
+                            <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-foreground">
+                              {language === 'de' ? 'Sichere Zahlung via Stripe' : 'Secure Payment via Stripe'}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {language === 'de' 
+                                ? 'Alle gängigen Zahlungsmethoden werden im nächsten Schritt angezeigt.' 
+                                : 'All common payment methods will be shown in the next step.'}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background border border-border">
+                                <CreditCard className="h-3 w-3" />
+                                {language === 'de' ? 'Kreditkarte' : 'Credit Card'}
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background border border-border">
+                                Apple Pay / Google Pay
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background border border-border">
+                                Klarna
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background border border-border">
+                                <FileText className="h-3 w-3" />
+                                {language === 'de' ? 'Rechnungskauf via Billie' : 'B2B Invoice via Billie'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
