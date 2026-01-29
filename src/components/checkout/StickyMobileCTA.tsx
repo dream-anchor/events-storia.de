@@ -82,7 +82,8 @@ const StickyMobileCTA = ({
         type="button"
         onClick={onSubmit}
         disabled={isSubmitting}
-        className="w-full h-14 text-base font-semibold shadow-lg"
+        variant="checkoutCta"
+        className="w-full h-14 text-base shadow-lg"
         size="lg"
       >
         {isSubmitting ? (
