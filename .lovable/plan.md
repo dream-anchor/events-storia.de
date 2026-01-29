@@ -1,64 +1,108 @@
 
-# Event-Buchungen in die richtige Tabelle speichern
 
-## ✅ IMPLEMENTIERT
+# Terminologie-Korrektur: "Anfrage" vs "Bestellung/Buchung"
 
-Bei direkten Event-Paket-Buchungen über den Shop werden die Daten jetzt korrekt in die `event_bookings` Tabelle geschrieben statt in `catering_orders`.
+## Problem
+Die aktuelle Logik unterscheidet nach **Zahlungsmethode** (Stripe vs Rechnung), aber das ist falsch:
+
+| Aktuell (FALSCH) | | |
+|------------------|-----------|---------|
+| Zahlungsmethode | Terminologie | Problem |
+| Stripe | "Bestellung" | ✓ Korrekt |
+| Rechnung | "Anfrage" | ✗ FALSCH - Rechnung = auch bezahlt! |
+
+## Korrekte Logik
+
+Die Unterscheidung muss nach **Zahlungsstatus** erfolgen, nicht nach Zahlungsmethode:
+
+| Zahlungsstatus | Terminologie |
+|----------------|--------------|
+| `paid` | **Bestellung** / **Buchung** |
+| `pending` / anderes | **Anfrage** |
 
 ---
 
 ## Technische Änderungen
 
-### 1. Checkout.tsx - Bedingte Tabellen-Insertion
+### 1. Edge Function: `send-order-notification/index.ts`
 
-Die `handleSubmit` Funktion prüft jetzt `isEventBooking` und speichert entsprechend:
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                    handleSubmit()                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│   if (isEventBooking && eventItem) {                         │
-│     ├── Insert in: event_bookings                           │
-│     ├── booking_number, customer_name, event_date,          │
-│     │   guest_count, package_id, total_amount, etc.         │
-│     └── status: 'menu_pending', menu_confirmed: false       │
-│   } else {                                                   │
-│     ├── Insert in: catering_orders                          │
-│     └── order_number, delivery_address, items, etc.         │
-│   }                                                          │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+**Interface erweitern (Zeile 53):**
+```typescript
+paymentStatus?: 'pending' | 'paid' | 'failed';  // NEU
 ```
 
-### 2. Feldmapping
+**Logik ändern (Zeile 380, 384-399):**
 
-| Catering | Event | Hinweis |
-|----------|-------|---------|
-| `order_number` | `booking_number` | Anderer Feldname |
-| `customer_phone` | `phone` | Anderer Feldname |
-| `desired_date` | `event_date` | Anderer Feldname |
-| `desired_time` | `event_time` | Anderer Feldname |
-| `items[0].quantity` | `guest_count` | Aus Menge extrahiert |
-| `items[0].id` | `package_id` | Ohne 'event-' Präfix |
-| `notes` | `internal_notes` | Anderer Feldname |
+Aktuell:
+```typescript
+const isStripe = data.paymentMethod === 'stripe';
+// verwendet isStripe für Terminologie
+```
 
-### 3. Email-Notifications (send-order-notification)
+Neu:
+```typescript
+const isPaid = data.paymentStatus === 'paid';
+// verwendet isPaid für Terminologie
+```
 
-- Unterschiedliche Betreffzeilen für Events vs Catering
-- Unterschiedliche Email-Texte (Veranstaltungsort statt Lieferadresse)
-- Hinweis an Restaurant: "MENÜAUSWAHL ERFORDERLICH"
+**Betroffene Stellen:**
+- Zeile 71-92: `generateCustomerEmailText` - Grußformel und nächste Schritte
+- Zeile 384-399: Email-Betreffzeilen
 
-### 4. Order-Nummern-Format
+| Feld | isPaid = true | isPaid = false |
+|------|---------------|----------------|
+| Kunden-Betreff (Event) | "Ihre Event-Buchung" | "Ihre Event-Anfrage" |
+| Kunden-Betreff (Catering) | "Ihre Catering-Bestellung" | "Ihre Catering-Anfrage" |
+| Restaurant-Betreff (Event) | "BEZAHLT: Neue Event-Buchung" | "Neue Event-Anfrage" |
+| Restaurant-Betreff (Catering) | "BEZAHLT: Neue Bestellung" | "Neue Anfrage" |
+| Gruß (Event) | "vielen Dank für Ihre Event-Buchung!" | "vielen Dank für Ihre Event-Anfrage!" |
+| Gruß (Catering) | "vielen Dank für Ihre Bestellung!" | "vielen Dank für Ihre Anfrage!" |
 
-- Event-Buchungen: `EVT-BUCHUNG-DD-MM-YYYY-XXX`
-- Catering bezahlt: `CAT-BESTELLUNG-DD-MM-YYYY-XXX`
-- Catering Angebot: `CAT-ANGEBOT-DD-MM-YYYY-XXX`
+### 2. Frontend: `Checkout.tsx`
+
+Beim Aufruf der Edge Function muss `paymentStatus` mitgesendet werden:
+
+```typescript
+// Bei send-order-notification Aufruf hinzufügen:
+paymentStatus: paymentMethod === 'stripe' ? 'pending' : 'pending',
+// Wird nach Stripe-Zahlung auf 'paid' gesetzt
+```
+
+**Wichtig:** Bei Stripe-Zahlungen wird die Email erst NACH erfolgreicher Zahlung gesendet (aus `create-catering-payment` oder `OrderSuccess`), daher ist `paymentStatus: 'paid'` korrekt.
+
+Bei Rechnungszahlungen wird die Email sofort gesendet mit `paymentStatus: 'pending'` - daher korrekt als "Anfrage" bezeichnet.
+
+### 3. Bestellnummer-Format (bereits korrekt)
+
+Das Format `CAT-ANGEBOT` vs `CAT-BESTELLUNG` ist bereits korrekt implementiert, da:
+- Stripe-Zahlung = sofort bezahlt = "BESTELLUNG"
+- Rechnung = noch nicht bezahlt = "ANGEBOT" (= Anfrage)
 
 ---
 
-## Betroffene Dateien
+## Dateien die geändert werden
 
-1. ✅ `src/pages/Checkout.tsx` – Bedingte Tabellen-Insertion
-2. ✅ `supabase/functions/send-order-notification/index.ts` – Event-spezifische Emails
-3. ✅ `supabase/functions/create-lexoffice-invoice/index.ts` – Bereits implementiert
+1. **`supabase/functions/send-order-notification/index.ts`** - Logik von `isStripe` auf `isPaid` umstellen
+2. **`src/pages/Checkout.tsx`** - `paymentStatus` Parameter beim Edge Function Aufruf hinzufügen
+
+---
+
+## Zusammenfassung der neuen Logik
+
+```text
+┌────────────────────────────────────────────────────────────┐
+│                    TERMINOLOGIE-REGEL                       │
+├────────────────────────────────────────────────────────────┤
+│                                                             │
+│   BEZAHLT (paymentStatus = 'paid'):                        │
+│     → "Bestellung" (Catering)                              │
+│     → "Buchung" (Event)                                    │
+│     → Betreff: "BEZAHLT: ..."                              │
+│                                                             │
+│   NICHT BEZAHLT (paymentStatus = 'pending'):               │
+│     → "Anfrage" (Catering & Event)                         │
+│     → Betreff: "Neue Anfrage ..."                          │
+│                                                             │
+└────────────────────────────────────────────────────────────┘
+```
+
