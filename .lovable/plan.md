@@ -1,87 +1,69 @@
 
-# Bestellnummer-Format für Event-Pakete anpassen
+# Button-Text und Dokumentname für Event-Buchungen anpassen
 
 ## Problem
-Bei direkten Event-Paket-Buchungen über den Shop wird aktuell eine Bestellnummer im Format `EVENTS-ANGEBOT-DD-MM-YYYY-XXX` generiert. Das Wort "ANGEBOT" ist hier falsch, da es sich um eine direkte Buchung handelt und nicht um ein Angebot/Anfrage.
+1. **Button-Label falsch**: Nach einer Event-Paket-Bestellung zeigt der Button "Angebot herunterladen" statt "Bestellbestätigung herunterladen"
+2. **Fehler "Dokument nicht verfügbar"**: Das Dokument existiert in LexOffice (ID: `04f7b599-de19-4691-81d4-1fde58ed0df5`), aber möglicherweise gibt es ein Timing-Problem oder der Dateiname ist irreführend
 
-## Lösung
-Die Bestellnummer-Generierung wird angepasst, sodass Event-Pakete ein eigenes Format erhalten: **`EVT-BUCHUNG-DD-MM-YYYY-XXX`**
+## Analyse
 
-Dieses Format:
-- Unterscheidet klar zwischen Event-Buchungen und Catering-Bestellungen
-- Vermeidet die irreführende Bezeichnung "ANGEBOT"
-- Passt zur bestehenden `EVT-YYYY-XXXX` Logik für Angebots-Zahlungen
+Die aktuelle Logik in `CustomerProfile.tsx` (Zeile 551-553):
+```
+if document_type === 'invoice' → "Rechnung herunterladen"
+else → "Angebot herunterladen"
+```
+
+Für Event-Buchungen ist dies irreführend, da es sich um eine direkte Buchung handelt, nicht um ein Angebot.
 
 ---
 
-## Technische Änderungen
+## Technische Lösung
 
-### 1. Frontend: `src/pages/Checkout.tsx`
+### 1. Frontend: `src/pages/CustomerProfile.tsx`
 
-Die `generateOrderNumber` Funktion wird erweitert, um den Buchungstyp zu berücksichtigen:
+Der Button-Text wird basierend auf dem **Bestellnummer-Präfix** angepasst:
 
-```text
-Aktuelle Logik (Zeile 634-643):
-┌─────────────────────────────────────────────┐
-│ isStripePaid = true  → EVENTS-BESTELLUNG    │
-│ isStripePaid = false → EVENTS-ANGEBOT       │
-└─────────────────────────────────────────────┘
+| Bestellnummer-Präfix | Button-Text (DE) | Button-Text (EN) |
+|---------------------|------------------|------------------|
+| `EVT-BUCHUNG` | Bestellbestätigung herunterladen | Download Confirmation |
+| `CAT-BESTELLUNG` / `*-RECHNUNG` | Rechnung herunterladen | Download Invoice |
+| `CAT-ANGEBOT` / `*-ANGEBOT` | Angebot herunterladen | Download Quotation |
 
-Neue Logik:
-┌─────────────────────────────────────────────┐
-│ isEventBooking = true:                      │
-│   → EVT-BUCHUNG-DD-MM-YYYY-XXX              │
-│                                             │
-│ isEventBooking = false (Catering):          │
-│   isStripePaid = true  → CAT-BESTELLUNG     │
-│   isStripePaid = false → CAT-ANGEBOT        │
-└─────────────────────────────────────────────┘
+Änderungen an Zeile 551-553:
+```typescript
+// Neue Logik basierend auf order_number Präfix
+const isEventBooking = order.order_number.startsWith('EVT-BUCHUNG');
+const isInvoice = order.lexoffice_document_type === 'invoice' || 
+                  order.order_number.includes('-RECHNUNG') || 
+                  order.order_number.includes('-BESTELLUNG');
+
+// Button-Text:
+// Event-Buchung → "Bestellbestätigung herunterladen"
+// Rechnung/Bestellung → "Rechnung herunterladen"  
+// Angebot → "Angebot herunterladen"
 ```
 
-Die Änderung betrifft:
-- Zeile 634-643: Funktion `generateOrderNumber` erhält neuen Parameter `isEvent`
-- Zeile 727: Aufruf wird angepasst, um `isEventBooking` zu übergeben
+### 2. Backend: `supabase/functions/get-lexoffice-document/index.ts`
 
-### 2. Backend: `supabase/functions/create-lexoffice-invoice/index.ts`
+Der Dateiname wird ebenfalls angepasst (Zeile 129):
 
-Die Edge Function erhält einen neuen Parameter `isEventBooking`, um das korrekte Nummernformat für LexOffice-Dokumente zu generieren:
-
-```text
-Aktuelle Logik (Zeile 67-100):
-┌─────────────────────────────────────────────┐
-│ isInvoice = true  → EVENTS-RECHNUNG         │
-│ isInvoice = false → EVENTS-ANGEBOT          │
-└─────────────────────────────────────────────┘
-
-Neue Logik:
-┌─────────────────────────────────────────────┐
-│ isEventBooking = true:                      │
-│   → EVT-BUCHUNG-DD-MM-YYYY-XXX              │
-│                                             │
-│ isEventBooking = false:                     │
-│   isInvoice = true  → CAT-RECHNUNG          │
-│   isInvoice = false → CAT-ANGEBOT           │
-└─────────────────────────────────────────────┘
-```
-
-### 3. Datenbank-Sequenz
-
-Ein neuer Präfix `EVT-BUCHUNG` wird in der `order_number_sequences` Tabelle verwendet, um eigene fortlaufende Nummern für Event-Buchungen zu erzeugen.
-
----
-
-## Zusammenfassung der Nummernformate nach Umsetzung
-
-| Typ | Zahlungsmethode | Format |
-|-----|-----------------|--------|
-| Event-Paket (Shop) | Stripe/Rechnung | `EVT-BUCHUNG-DD-MM-YYYY-XXX` |
-| Catering | Stripe | `CAT-BESTELLUNG-DD-MM-YYYY-XXX` |
-| Catering | Rechnung | `CAT-ANGEBOT-DD-MM-YYYY-XXX` |
-| Event via Angebot | Stripe | `EVT-YYYY-XXXX` (bestehend) |
+| Bestellnummer-Präfix | Dateiname |
+|---------------------|-----------|
+| `EVT-BUCHUNG` | `STORIA_Bestellbestaetigung_EVT-BUCHUNG-....pdf` |
+| Rechnung | `STORIA_Rechnung_....pdf` |
+| Angebot | `STORIA_Angebot_....pdf` |
 
 ---
 
 ## Dateien die geändert werden
 
-1. **`src/pages/Checkout.tsx`** – Anpassung der `generateOrderNumber` Funktion
-2. **`supabase/functions/create-lexoffice-invoice/index.ts`** – Anpassung der Bestellnummer-Generierung für LexOffice
+1. **`src/pages/CustomerProfile.tsx`** – Button-Text-Logik anpassen (Zeile 551-553)
+2. **`supabase/functions/get-lexoffice-document/index.ts`** – Dateinamen-Logik anpassen (Zeile 129-130)
+
+---
+
+## Hinweis zum "Dokument nicht verfügbar" Fehler
+
+Die Bestellung `EVENTS-ANGEBOT-29-01-2026-851` hat bereits eine gültige LexOffice-ID (`04f7b599-de19-4691-81d4-1fde58ed0df5`). Falls der Fehler weiterhin auftritt, sollte nach der Code-Änderung ein Test durchgeführt werden, um die Edge Function Logs zu prüfen. Mögliche Ursachen:
+- LexOffice benötigt einige Sekunden um das PDF zu rendern
+- Authentifizierungsproblem beim Download
