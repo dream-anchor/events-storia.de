@@ -25,13 +25,14 @@ interface EventPackageInquiryDialogProps {
   packageNameEn?: string | null;
   initialGuestCount: number;
   pricePerPerson: number;
+  minGuests?: number;
 }
 
-// Validation schema
-const step1Schema = z.object({
+// Validation schema factory - dynamic based on minGuests
+const createStep1Schema = (minGuests: number) => z.object({
   date: z.date({ required_error: "Datum erforderlich" }),
   time: z.string().min(1, "Uhrzeit erforderlich"),
-  guestCount: z.number().min(10, "Mindestens 10 Gäste"),
+  guestCount: z.number().min(minGuests, `Mindestens ${minGuests} Gäste`),
 });
 
 const step2Schema = z.object({
@@ -50,6 +51,7 @@ const EventPackageInquiryDialog = ({
   packageNameEn,
   initialGuestCount,
   pricePerPerson,
+  minGuests = 10,
 }: EventPackageInquiryDialogProps) => {
   const { language } = useLanguage();
   const { formatPrice } = usePriceDisplay();
@@ -86,6 +88,7 @@ const EventPackageInquiryDialog = ({
   };
 
   const validateStep1 = () => {
+    const step1Schema = createStep1Schema(minGuests);
     const result = step1Schema.safeParse({
       date: formData.date,
       time: formData.time,
@@ -358,7 +361,7 @@ const EventPackageInquiryDialog = ({
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                {language === "de" ? "Anzahl Gäste *" : "Number of Guests *"}
+                {language === "de" ? `Anzahl Gäste * (min. ${minGuests})` : `Number of Guests * (min. ${minGuests})`}
               </Label>
               <Input
                 type="number"
@@ -367,10 +370,10 @@ const EventPackageInquiryDialog = ({
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
-                    guestCount: parseInt(e.target.value) || 10,
+                    guestCount: parseInt(e.target.value) || minGuests,
                   }))
                 }
-                min={10}
+                min={minGuests}
                 className={cn(errors.guestCount && "border-destructive")}
               />
               {errors.guestCount && (
