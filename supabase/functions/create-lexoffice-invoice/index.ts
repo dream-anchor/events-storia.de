@@ -141,6 +141,46 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
+    // ============================================================
+    // SECURITY: Verify order exists and email matches
+    // ============================================================
+    if (!body.orderId) {
+      logStep('Security: Missing orderId in request');
+      return new Response(
+        JSON.stringify({ error: 'Order ID is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { data: existingOrder, error: orderLookupError } = await supabase
+      .from('catering_orders')
+      .select('id, order_number, customer_email, total_amount')
+      .eq('id', body.orderId)
+      .maybeSingle();
+    
+    if (orderLookupError || !existingOrder) {
+      logStep('Security: Order not found in database', { orderId: body.orderId });
+      return new Response(
+        JSON.stringify({ error: 'Order not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Verify email matches to prevent unauthorized document creation
+    if (existingOrder.customer_email?.toLowerCase() !== body.customerEmail?.toLowerCase()) {
+      logStep('Security: Email mismatch', { 
+        orderEmail: existingOrder.customer_email, 
+        requestEmail: body.customerEmail 
+      });
+      return new Response(
+        JSON.stringify({ error: 'Email mismatch' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    logStep('Security: Order validated', { orderId: body.orderId, orderNumber: existingOrder.order_number });
+    // ============================================================
+    
     // Determine document type: default to 'quotation' for unpaid orders
     const documentType = body.documentType || 'quotation';
     const isInvoice = documentType === 'invoice';
