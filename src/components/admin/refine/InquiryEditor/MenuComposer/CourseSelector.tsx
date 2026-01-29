@@ -140,9 +140,18 @@ export const CourseSelector = ({
   };
 
   // If this is a custom item (like Vorspeisenplatte), show it as pre-selected
+  // But if user has selected a different item, show that instead
   if (courseConfig.is_custom_item && courseConfig.custom_item_name) {
-    const isAlreadySelected = currentSelection?.isCustom && 
+    const isDefaultSelected = currentSelection?.isCustom && 
+      currentSelection.itemSource === 'custom' &&
       currentSelection.itemName === courseConfig.custom_item_name;
+    
+    // Check if user selected a different item (not the default custom one)
+    const hasAlternativeSelection = currentSelection && (
+      currentSelection.itemId !== null || // Selected from menu
+      (currentSelection.isCustom && currentSelection.itemSource !== 'custom') || // Manual entry
+      (currentSelection.isCustom && currentSelection.itemName !== courseConfig.custom_item_name) // Different custom
+    );
 
     return (
       <Card>
@@ -153,57 +162,109 @@ export const CourseSelector = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div 
-            onClick={() => {
-              onSelect({
-                courseType: courseConfig.course_type,
-                courseLabel: courseConfig.course_label,
-                itemId: null,
-                itemName: courseConfig.custom_item_name!,
-                itemDescription: courseConfig.custom_item_description,
-                itemSource: 'custom',
-                isCustom: true,
-              });
-            }}
-            className={cn(
-              "p-4 rounded-xl border-2 cursor-pointer transition-all",
-              "hover:border-primary/50 hover:shadow-sm",
-              isAlreadySelected
-                ? "border-primary bg-primary/5"
-                : "border-border"
-            )}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <h4 className="font-semibold text-base">{courseConfig.custom_item_name}</h4>
-                {courseConfig.custom_item_description && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {courseConfig.custom_item_description}
-                  </p>
-                )}
-              </div>
-              {isAlreadySelected && (
+          {/* Show selected alternative item if one was chosen */}
+          {hasAlternativeSelection && currentSelection ? (
+            <div className="p-4 rounded-xl border-2 border-primary bg-primary/5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-semibold text-base">{currentSelection.itemName}</h4>
+                    {currentSelection.itemSource === 'ristorante' && (
+                      <Utensils className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    {currentSelection.itemSource === 'catering' && (
+                      <ChefHat className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    {currentSelection.isCustom && (
+                      <Badge variant="outline" className="text-xs">Manuell</Badge>
+                    )}
+                  </div>
+                  {currentSelection.itemDescription && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {currentSelection.itemDescription}
+                    </p>
+                  )}
+                </div>
                 <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                   <Check className="h-4 w-4 text-primary-foreground" />
                 </div>
-              )}
+              </div>
             </div>
-            <Badge variant="secondary" className="mt-3">
-              Im Paket enthalten
-            </Badge>
-          </div>
+          ) : (
+            /* Show default custom item */
+            <div 
+              onClick={() => {
+                onSelect({
+                  courseType: courseConfig.course_type,
+                  courseLabel: courseConfig.course_label,
+                  itemId: null,
+                  itemName: courseConfig.custom_item_name!,
+                  itemDescription: courseConfig.custom_item_description,
+                  itemSource: 'custom',
+                  isCustom: true,
+                });
+              }}
+              className={cn(
+                "p-4 rounded-xl border-2 cursor-pointer transition-all",
+                "hover:border-primary/50 hover:shadow-sm",
+                isDefaultSelected
+                  ? "border-primary bg-primary/5"
+                  : "border-border"
+              )}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <h4 className="font-semibold text-base">{courseConfig.custom_item_name}</h4>
+                  {courseConfig.custom_item_description && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {courseConfig.custom_item_description}
+                    </p>
+                  )}
+                </div>
+                {isDefaultSelected && (
+                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                    <Check className="h-4 w-4 text-primary-foreground" />
+                  </div>
+                )}
+              </div>
+              <Badge variant="secondary" className="mt-3">
+                Im Paket enthalten
+              </Badge>
+            </div>
+          )}
 
-          {/* Option to add different item */}
+          {/* Option to change selection */}
           <Button 
             variant="outline" 
             className="w-full mt-3"
             onClick={() => setShowGlobalSearch(true)}
           >
             <Globe className="h-4 w-4 mr-2" />
-            Anderes Gericht wählen
+            {hasAlternativeSelection ? 'Gericht ändern' : 'Anderes Gericht wählen'}
           </Button>
 
-          {isAlreadySelected && (
+          {/* Reset to default button if alternative is selected */}
+          {hasAlternativeSelection && (
+            <Button 
+              variant="ghost" 
+              className="w-full mt-2 text-muted-foreground"
+              onClick={() => {
+                onSelect({
+                  courseType: courseConfig.course_type,
+                  courseLabel: courseConfig.course_label,
+                  itemId: null,
+                  itemName: courseConfig.custom_item_name!,
+                  itemDescription: courseConfig.custom_item_description,
+                  itemSource: 'custom',
+                  isCustom: true,
+                });
+              }}
+            >
+              Zurück zu "{courseConfig.custom_item_name}"
+            </Button>
+          )}
+
+          {(isDefaultSelected || hasAlternativeSelection) && (
             <Button onClick={onNext} className="w-full mt-3">
               Weiter zum nächsten Gang
             </Button>
