@@ -11,6 +11,10 @@ export interface CartItem {
   serving_info?: string;
   min_order?: number;
   category?: 'pizza' | 'buffet' | 'platter' | 'equipment' | 'dessert';
+  // Event package specific fields
+  isEventPackage?: boolean;
+  baseGuestCount?: number; // For tiered pricing (e.g., 70 for Location package)
+  packageId?: string; // Original package ID for price recalculation
 }
 
 export interface LastAddedItem {

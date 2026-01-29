@@ -5,6 +5,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { 
+  isLocationPackage, 
+  getLocationPricingBreakdown,
+  LOCATION_BASE_GUESTS,
+  LOCATION_PACKAGE_ID
+} from '@/lib/eventPricing';
 
 const CartSheet = () => {
   const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, totalPrice, clearCart, totalItems } = useCart();
@@ -59,6 +65,16 @@ const CartSheet = () => {
             <div className="flex-1 overflow-y-auto py-4 space-y-3 -mx-6 px-6">
               {items.map((item) => {
                 const name = language === 'en' && item.name_en ? item.name_en : item.name;
+                
+                // Check if this is the Location package with tiered pricing
+                const packageId = item.packageId || (item.id.startsWith('event-') ? item.id.replace('event-', '') : '');
+                const isLocationPkg = item.isEventPackage && isLocationPackage(packageId);
+                const hasTieredPricing = isLocationPkg && item.quantity > LOCATION_BASE_GUESTS;
+                const pricingBreakdown = isLocationPkg ? getLocationPricingBreakdown(item.quantity) : null;
+                
+                // Calculate item total (price is already effective unit price from ShopCard)
+                const itemTotal = item.price * item.quantity;
+                
                 return (
                   <div 
                     key={item.id} 
@@ -84,9 +100,17 @@ const CartSheet = () => {
                           {item.serving_info && (
                             <p className="text-xs text-muted-foreground mt-0.5">{item.serving_info}</p>
                           )}
+                          {/* Show tiered pricing breakdown for Location package */}
+                          {hasTieredPricing && pricingBreakdown && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {language === 'de' 
+                                ? `8.500 € + ${pricingBreakdown.extraGuests} × 121,43 €`
+                                : `€8,500 + ${pricingBreakdown.extraGuests} × €121.43`}
+                            </p>
+                          )}
                         </div>
                         <p className="text-primary font-semibold">
-                          {formatPrice(item.price * item.quantity)}
+                          {formatPrice(itemTotal)}
                         </p>
                       </div>
                     </div>
