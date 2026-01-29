@@ -2044,31 +2044,33 @@ const Checkout = () => {
                       )}
                     </div>
 
-                    {/* Setup Service Option */}
-                    <div className="border-t border-border pt-4 mt-4">
-                      <div className="flex items-start space-x-3">
-                        <Checkbox
-                          id="setupService"
-                          checked={formData.wantsSetupService}
-                          onCheckedChange={(checked) => 
-                            setFormData(prev => ({ ...prev, wantsSetupService: checked === true }))
-                          }
-                        />
-                        <div className="grid gap-1.5 leading-none">
-                          <Label htmlFor="setupService" className="font-medium cursor-pointer">
-                            {language === 'de' ? 'Aufbau & Service buchen (optional)' : 'Book Setup & Service (optional)'}
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            {language === 'de' 
-                              ? 'Preis nach Vereinbarung – wir beraten Sie gerne'
-                              : 'Price by arrangement – we\'ll be happy to advise you'}
-                          </p>
+                    {/* Setup Service Option - Only for catering, not events */}
+                    {!isEventBooking && (
+                      <div className="border-t border-border pt-4 mt-4">
+                        <div className="flex items-start space-x-3">
+                          <Checkbox
+                            id="setupService"
+                            checked={formData.wantsSetupService}
+                            onCheckedChange={(checked) => 
+                              setFormData(prev => ({ ...prev, wantsSetupService: checked === true }))
+                            }
+                          />
+                          <div className="grid gap-1.5 leading-none">
+                            <Label htmlFor="setupService" className="font-medium cursor-pointer">
+                              {language === 'de' ? 'Aufbau & Service buchen (optional)' : 'Book Setup & Service (optional)'}
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              {language === 'de' 
+                                ? 'Preis nach Vereinbarung – wir beraten Sie gerne'
+                                : 'Price by arrangement – we\'ll be happy to advise you'}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Chafing Dish Add-On (only for warm dishes) */}
-                    {hasWarmDishes && (
+                    {/* Chafing Dish Add-On (only for warm dishes, not events) */}
+                    {hasWarmDishes && !isEventBooking && (
                       <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 rounded-xl p-4 mt-4">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                           <div className="flex items-start gap-3">
@@ -2115,25 +2117,29 @@ const Checkout = () => {
                       </div>
                     )}
 
-                    {/* Cleaning Info */}
-                    <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      <span>
-                        {language === 'de' 
-                          ? 'Reinigung ist im Preis aller Platten inklusive'
-                          : 'Cleaning is included in the price of all platters'}
-                      </span>
-                    </div>
+                    {/* Cleaning Info - Only for catering, not events */}
+                    {!isEventBooking && (
+                      <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span>
+                          {language === 'de' 
+                            ? 'Reinigung ist im Preis aller Platten inklusive'
+                            : 'Cleaning is included in the price of all platters'}
+                        </span>
+                      </div>
+                    )}
 
-                    {/* Equipment Info */}
-                    <div className="flex items-start gap-2 mt-3 text-sm text-muted-foreground">
-                      <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                      <span>
-                        {language === 'de' 
-                          ? 'Besteck, Stoffservietten und weiteres Zubehör können auf Wunsch gegen Aufpreis hinzugebucht werden.'
-                          : 'Cutlery, cloth napkins and additional accessories can be added upon request for an extra charge.'}
-                      </span>
-                    </div>
+                    {/* Equipment Info - Only for catering, not events */}
+                    {!isEventBooking && (
+                      <div className="flex items-start gap-2 mt-3 text-sm text-muted-foreground">
+                        <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                        <span>
+                          {language === 'de' 
+                            ? 'Besteck, Stoffservietten und weiteres Zubehör können auf Wunsch gegen Aufpreis hinzugebucht werden.'
+                            : 'Cutlery, cloth napkins and additional accessories can be added upon request for an extra charge.'}
+                        </span>
+                      </div>
+                    )}
                   </section>
 
                   {/* Section 3: Billing Address (Smart Hidden) */}
