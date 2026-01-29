@@ -62,8 +62,8 @@ export const CalculationSummary = ({
       <CardContent className="space-y-4">
         {/* Min Guests Warnings */}
         {minGuestsWarnings.length > 0 && (
-          <Alert variant="destructive" className="border-amber-500 bg-amber-50 text-amber-800">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               <strong>Achtung:</strong>
               {minGuestsWarnings.map(pkg => (

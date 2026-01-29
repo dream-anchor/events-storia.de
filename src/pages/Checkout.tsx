@@ -206,6 +206,11 @@ const Checkout = () => {
     }
   }, [profile]);
 
+  // Check if order is an event booking (for location-based events)
+  const isEventBooking = useMemo(() => {
+    return items.some(item => item.id.startsWith('event-'));
+  }, [items]);
+
   // Check if order contains only pizza (no equipment pickup needed)
   const isPizzaOnly = items.length > 0 && items.every(item => item.category === 'pizza');
   
@@ -220,6 +225,13 @@ const Checkout = () => {
     item.name?.toLowerCase().includes('kabeljau') ||
     item.name?.toLowerCase().includes('parmigiana')
   );
+
+  // Auto-set delivery type to 'event' for event bookings (in-restaurant)
+  useEffect(() => {
+    if (isEventBooking) {
+      setFormData(prev => ({ ...prev, deliveryType: 'event' }));
+    }
+  }, [isEventBooking]);
 
   // Calculate delivery cost when address changes
   const calculateDelivery = useCallback(async (address: string, pizzaOnlyOrder: boolean) => {
@@ -1663,46 +1675,70 @@ const Checkout = () => {
                       {language === 'de' ? 'Lieferung & Termin' : 'Delivery & Schedule'}
                     </h2>
 
-                    {/* Delivery Type Selection */}
-                    <RadioGroup
-                      value={formData.deliveryType}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, deliveryType: value }))}
-                      className="mb-5"
-                    >
-                      <div className="grid grid-cols-2 gap-3">
-                        <label 
-                          htmlFor="delivery" 
-                          className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                            formData.deliveryType === 'delivery' 
-                              ? 'border-primary bg-primary/5' 
-                              : 'border-border hover:border-muted-foreground/50'
-                          }`}
-                        >
-                          <RadioGroupItem value="delivery" id="delivery" />
+                    {/* Event Booking Info (no delivery/pickup for in-restaurant events) */}
+                    {isEventBooking ? (
+                      <div className="rounded-lg p-4 border bg-primary/5 border-primary/20 mb-5">
+                        <div className="flex items-start gap-3">
+                          <MapPin className="h-5 w-5 mt-0.5 shrink-0 text-primary" />
                           <div>
-                            <span className="font-medium block">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
-                            <span className="text-xs text-muted-foreground">{language === 'de' ? 'Wir liefern zu Ihnen' : 'We deliver to you'}</span>
+                            <p className="font-medium text-foreground mb-1">
+                              {language === 'de' ? 'Event im STORIA' : 'Event at STORIA'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {language === 'de' 
+                                ? 'Ihr Event findet in unserem Restaurant statt. Keine Lieferung oder Abholung erforderlich.'
+                                : 'Your event takes place at our restaurant. No delivery or pickup needed.'}
+                            </p>
+                            <p className="text-sm font-medium mt-2">
+                              Karlstr. 47a, 80333 München
+                            </p>
                           </div>
-                        </label>
-                        <label 
-                          htmlFor="pickup" 
-                          className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                            formData.deliveryType === 'pickup' 
-                              ? 'border-primary bg-primary/5' 
-                              : 'border-border hover:border-muted-foreground/50'
-                          }`}
-                        >
-                          <RadioGroupItem value="pickup" id="pickup" />
-                          <div>
-                            <span className="font-medium block">{language === 'de' ? 'Abholung' : 'Pickup'}</span>
-                            <span className="text-xs text-muted-foreground">Karlstr. 47a, München</span>
-                          </div>
-                        </label>
+                        </div>
                       </div>
-                    </RadioGroup>
+                    ) : (
+                      <>
+                        {/* Delivery Type Selection - Hidden for events */}
+                        <RadioGroup
+                          value={formData.deliveryType}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, deliveryType: value }))}
+                          className="mb-5"
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            <label 
+                              htmlFor="delivery" 
+                              className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                formData.deliveryType === 'delivery' 
+                                  ? 'border-primary bg-primary/5' 
+                                  : 'border-border hover:border-muted-foreground/50'
+                              }`}
+                            >
+                              <RadioGroupItem value="delivery" id="delivery" />
+                              <div>
+                                <span className="font-medium block">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
+                                <span className="text-xs text-muted-foreground">{language === 'de' ? 'Wir liefern zu Ihnen' : 'We deliver to you'}</span>
+                              </div>
+                            </label>
+                            <label 
+                              htmlFor="pickup" 
+                              className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                formData.deliveryType === 'pickup' 
+                                  ? 'border-primary bg-primary/5' 
+                                  : 'border-border hover:border-muted-foreground/50'
+                              }`}
+                            >
+                              <RadioGroupItem value="pickup" id="pickup" />
+                              <div>
+                                <span className="font-medium block">{language === 'de' ? 'Abholung' : 'Pickup'}</span>
+                                <span className="text-xs text-muted-foreground">Karlstr. 47a, München</span>
+                              </div>
+                            </label>
+                          </div>
+                        </RadioGroup>
+                      </>
+                    )}
 
-                    {/* Delivery Address */}
-                    {formData.deliveryType === 'delivery' && (
+                    {/* Delivery Address - Hidden for events */}
+                    {formData.deliveryType === 'delivery' && !isEventBooking && (
                       <>
                         <div className="space-y-4 mb-4">
                           <Label className="flex items-center gap-1 mb-2">
@@ -1941,7 +1977,9 @@ const Checkout = () => {
                     <div className="border-t border-border pt-5 mt-4">
                       <h3 className="font-medium mb-3 flex items-center gap-2">
                         <CalendarDays className="h-4 w-4 text-primary" />
-                        {language === 'de' ? 'Wann wird Ihr Catering benötigt?' : 'When do you need your catering?'}
+                        {isEventBooking 
+                          ? (language === 'de' ? 'Wann findet Ihr Event statt?' : 'When is your event?')
+                          : (language === 'de' ? 'Wann wird Ihr Catering benötigt?' : 'When do you need your catering?')}
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>

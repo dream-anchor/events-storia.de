@@ -218,14 +218,14 @@ export const DrinkPackageSelector = ({
               {includedConfigs.map(config => (
                 <div
                   key={config.id}
-                  className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg border border-green-200"
+                  className="flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-lg border border-primary/20"
                 >
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-800">
+                  <Check className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium text-foreground">
                     {config.drink_label}
                   </span>
                   {config.quantity_label && (
-                    <span className="text-xs text-green-600">
+                    <span className="text-xs text-muted-foreground">
                       ({config.quantity_label})
                     </span>
                   )}

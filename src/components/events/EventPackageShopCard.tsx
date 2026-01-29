@@ -5,11 +5,10 @@ import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Check, Users, Minus, Plus, ShoppingCart, Sparkles } from "lucide-react";
+import { Check, Minus, Plus, ShoppingCart, Sparkles, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EventPackage } from "@/hooks/useEventPackages";
+import EventPackageInquiryDialog from "./EventPackageInquiryDialog";
 
 // Package images from STORIA website
 import sommerfest from "@/assets/events/sommerfest.webp";
@@ -42,6 +41,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const { formatPrice } = usePriceDisplay();
   const [guestCount, setGuestCount] = useState(pkg.min_guests || 20);
   const [isAdded, setIsAdded] = useState(false);
+  const [inquiryDialogOpen, setInquiryDialogOpen] = useState(false);
 
   const name = language === 'de' ? pkg.name : (pkg.name_en || pkg.name);
   const description = language === 'de' ? pkg.description : (pkg.description_en || pkg.description);
@@ -230,7 +230,29 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
             </>
           )}
         </Button>
+
+        {/* Get Quote Button */}
+        <Button 
+          variant="outline"
+          onClick={() => setInquiryDialogOpen(true)}
+          className="w-full gap-2 bg-background hover:bg-muted"
+          size="lg"
+        >
+          <Mail className="h-5 w-5" />
+          {language === 'de' ? 'Angebot erhalten' : 'Get Quote'}
+        </Button>
       </CardFooter>
+
+      {/* Inquiry Dialog */}
+      <EventPackageInquiryDialog
+        open={inquiryDialogOpen}
+        onOpenChange={setInquiryDialogOpen}
+        packageId={pkg.id}
+        packageName={pkg.name}
+        packageNameEn={pkg.name_en}
+        initialGuestCount={guestCount}
+        pricePerPerson={pkg.price}
+      />
     </Card>
   );
 };
