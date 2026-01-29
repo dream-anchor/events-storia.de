@@ -48,9 +48,9 @@ export const Dashboard = () => {
       <div className="space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-serif font-semibold">Event OS</h1>
+          <h1 className="text-3xl font-serif font-semibold">Storia Manager</h1>
           <p className="text-muted-foreground">
-            Willkommen im Catering-Management-System
+            Willkommen im Event- & Catering-Management
           </p>
         </div>
 
