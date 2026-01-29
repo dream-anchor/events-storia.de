@@ -3,7 +3,7 @@ import { useList, useUpdate } from "@refinedev/core";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Users, Building2, Mail, Phone, ChevronRight, Edit } from "lucide-react";
+import { Calendar, Users, Building2, Mail, Phone, ChevronRight, Edit, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable } from "./DataTable";
@@ -172,11 +172,19 @@ export const EventsList = () => {
   return (
     <AdminLayout activeTab="events">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-serif font-semibold">Event-Anfragen</h1>
-          <p className="text-muted-foreground">
-            Verwalten Sie Event-Anfragen und erstellen Sie Angebote.
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-serif font-semibold">Event-Anfragen</h1>
+            <p className="text-muted-foreground">
+              Verwalten Sie Event-Anfragen und erstellen Sie Angebote.
+            </p>
+          </div>
+          <Button asChild>
+            <Link to="/admin/events/create">
+              <Plus className="h-4 w-4 mr-2" />
+              Neue Anfrage
+            </Link>
+          </Button>
         </div>
 
         <DataTable

@@ -1,6 +1,6 @@
 import { useList } from "@refinedev/core";
 import { Link } from "react-router-dom";
-import { CalendarDays, FileText, UtensilsCrossed, TrendingUp, Clock, CheckCircle2, AlertCircle, ChefHat } from "lucide-react";
+import { CalendarDays, FileText, UtensilsCrossed, TrendingUp, Clock, CheckCircle2, AlertCircle, ChefHat, Plus } from "lucide-react";
 import { format, parseISO, isAfter, addDays } from "date-fns";
 import { de } from "date-fns/locale";
 import { AdminLayout } from "./AdminLayout";
@@ -46,12 +46,20 @@ export const Dashboard = () => {
   return (
     <AdminLayout activeTab="dashboard">
       <div className="space-y-8">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-serif font-semibold">StoriaMaestro</h1>
-          <p className="text-muted-foreground">
-            Willkommen im Event- & Catering-Management
-          </p>
+        {/* Header with Quick Action */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-serif font-semibold">StoriaMaestro</h1>
+            <p className="text-muted-foreground">
+              Willkommen im Event- & Catering-Management
+            </p>
+          </div>
+          <Button asChild>
+            <Link to="/admin/events/create">
+              <Plus className="h-4 w-4 mr-2" />
+              Neue Anfrage
+            </Link>
+          </Button>
         </div>
 
         {/* Stats Cards */}
