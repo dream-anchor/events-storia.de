@@ -1175,22 +1175,6 @@ const Checkout = () => {
                       </div>
                     )}
 
-                    {/* Event Booking Info */}
-                    {isEventBooking && (
-                      <div className="rounded-lg p-4 border bg-primary/5 border-primary/20 mb-6">
-                        <div className="flex items-start gap-3">
-                          <MapPin className="h-5 w-5 mt-0.5 shrink-0 text-primary" />
-                          <div>
-                            <p className="font-medium mb-1">{language === 'de' ? 'Event im STORIA' : 'Event at STORIA'}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {language === 'de' 
-                                ? 'Ihr Event findet in unserem Restaurant statt.'
-                                : 'Your event takes place at our restaurant.'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Delivery Address Fields */}
                     {formData.deliveryType === 'delivery' && !isEventBooking && (
@@ -1304,7 +1288,10 @@ const Checkout = () => {
                     <div className="border-t border-border pt-5">
                       <h3 className="font-medium mb-4 flex items-center gap-2">
                         <CalendarDays className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                        {language === 'de' ? 'Wann wird Ihr Catering benötigt?' : 'When do you need your catering?'}
+                        {isEventBooking
+                          ? (language === 'de' ? 'Wann beginnt Ihr Event?' : 'When does your event start?')
+                          : (language === 'de' ? 'Wann soll geliefert werden?' : 'When should we deliver?')
+                        }
                       </h3>
                       
                       {/* Date Picker */}
@@ -1335,6 +1322,7 @@ const Checkout = () => {
                         value={formData.time}
                         onChange={(time) => setFormData(prev => ({ ...prev, time }))}
                         isPizzaOnly={isPizzaOnly}
+                        isEventBooking={isEventBooking}
                       />
                       
                       {dateTimeWarning && (
