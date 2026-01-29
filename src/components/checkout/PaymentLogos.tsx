@@ -79,6 +79,11 @@ const PaymentLogos = ({ className }: PaymentLogosProps) => {
       <div className="h-6 px-2 bg-[#005498] rounded border flex items-center justify-center">
         <span className="text-white text-[10px] font-bold tracking-tight">Bancontact</span>
       </div>
+
+      {/* Billie (B2B Invoice) */}
+      <div className="h-6 px-2 bg-[#0A2540] rounded border flex items-center justify-center">
+        <span className="text-white text-[10px] font-bold tracking-tight">Billie</span>
+      </div>
     </div>
   );
 };
