@@ -10,6 +10,7 @@ import sepaIcon from "@/assets/payment-logos/sepa.svg";
 import idealIcon from "@/assets/payment-logos/ideal.svg";
 import epsIcon from "@/assets/payment-logos/eps.svg";
 import bancontactIcon from "@/assets/payment-logos/bancontact.svg";
+import billieIcon from "@/assets/payment-logos/billie.svg";
 
 interface PaymentLogosProps {
   className?: string;
@@ -24,6 +25,7 @@ const PaymentLogos = ({ className }: PaymentLogosProps) => {
     { name: "Apple Pay", icon: applePayIcon },
     { name: "Google Pay", icon: googlePayIcon },
     { name: "Klarna", icon: klarnaIcon },
+    { name: "Billie", icon: billieIcon },
     { name: "SEPA", icon: sepaIcon },
     { name: "iDEAL", icon: idealIcon },
     { name: "EPS", icon: epsIcon },
