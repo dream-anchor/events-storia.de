@@ -252,6 +252,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
         packageNameEn={pkg.name_en}
         initialGuestCount={guestCount}
         pricePerPerson={pkg.price}
+        minGuests={pkg.min_guests || 10}
       />
     </Card>
   );
