@@ -1,128 +1,64 @@
 
 # Event-Buchungen in die richtige Tabelle speichern
 
-## Problem
-Bei direkten Event-Paket-Buchungen über den Shop (z.B. "Business Dinner – Exclusive" für 2.970 €) werden die Daten in die falsche Tabelle `catering_orders` geschrieben statt in `event_bookings`.
+## ✅ IMPLEMENTIERT
 
-**Betroffene Bestellung:**
-- Bestellnummer: `EVENTS-ANGEBOT-29-01-2026-851`
-- Paket: Business Dinner – Exclusive (30 Gäste × 99 €)
-- Betrag: 2.970 €
-- Problem: In `catering_orders` statt `event_bookings` gespeichert
+Bei direkten Event-Paket-Buchungen über den Shop werden die Daten jetzt korrekt in die `event_bookings` Tabelle geschrieben statt in `catering_orders`.
 
 ---
 
-## Ursache
-Die `handleSubmit` Funktion in `Checkout.tsx` (Zeile 789) verwendet **immer** die `catering_orders` Tabelle – unabhängig davon ob `isEventBooking = true` ist.
+## Technische Änderungen
 
----
+### 1. Checkout.tsx - Bedingte Tabellen-Insertion
 
-## Technische Lösung
-
-### Checkout.tsx: Bedingte Tabellen-Insertion
-
-Der Code wird so angepasst, dass bei `isEventBooking === true` die Daten in die `event_bookings` Tabelle geschrieben werden:
+Die `handleSubmit` Funktion prüft jetzt `isEventBooking` und speichert entsprechend:
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    handleSubmit()                            │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│   if (isEventBooking) {                                      │
+│   if (isEventBooking && eventItem) {                         │
 │     ├── Insert in: event_bookings                           │
-│     ├── Felder: booking_number, customer_name, event_date,  │
-│     │           guest_count, package_id, total_amount, etc. │
-│     └── Kein delivery_address, keine Lieferkosten           │
+│     ├── booking_number, customer_name, event_date,          │
+│     │   guest_count, package_id, total_amount, etc.         │
+│     └── status: 'menu_pending', menu_confirmed: false       │
 │   } else {                                                   │
 │     ├── Insert in: catering_orders                          │
-│     └── Felder: order_number, delivery_address, etc.        │
+│     └── order_number, delivery_address, items, etc.         │
 │   }                                                          │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Feldmapping: catering_orders → event_bookings
+### 2. Feldmapping
 
-| catering_orders | event_bookings | Hinweis |
-|-----------------|----------------|---------|
-| `order_number` | `booking_number` | Gleiche Nummer, anderer Feldname |
-| `customer_name` | `customer_name` | ✓ |
-| `customer_email` | `customer_email` | ✓ |
+| Catering | Event | Hinweis |
+|----------|-------|---------|
+| `order_number` | `booking_number` | Anderer Feldname |
 | `customer_phone` | `phone` | Anderer Feldname |
-| `company_name` | `company_name` | ✓ |
 | `desired_date` | `event_date` | Anderer Feldname |
 | `desired_time` | `event_time` | Anderer Feldname |
-| `items[0].quantity` | `guest_count` | Aus Item-Menge extrahieren |
-| `items[0].id` | `package_id` | Ohne "event-" Präfix |
-| `total_amount` | `total_amount` | ✓ |
-| `payment_method` | – | Nicht in event_bookings (LexOffice/Stripe-Felder existieren) |
-| `payment_status` | `payment_status` | ✓ |
+| `items[0].quantity` | `guest_count` | Aus Menge extrahiert |
+| `items[0].id` | `package_id` | Ohne 'event-' Präfix |
 | `notes` | `internal_notes` | Anderer Feldname |
-| `user_id` | – | Nicht vorhanden in event_bookings |
 
-### Zusätzliche Event-spezifische Felder
+### 3. Email-Notifications (send-order-notification)
 
-| Feld | Wert |
-|------|------|
-| `status` | `'menu_pending'` (Menü-Auswahl steht noch aus) |
-| `menu_confirmed` | `false` |
-| `menu_selection` | `null` (wird später im Admin ausgefüllt) |
+- Unterschiedliche Betreffzeilen für Events vs Catering
+- Unterschiedliche Email-Texte (Veranstaltungsort statt Lieferadresse)
+- Hinweis an Restaurant: "MENÜAUSWAHL ERFORDERLICH"
 
----
+### 4. Order-Nummern-Format
 
-## Änderungen in Checkout.tsx
-
-### 1. Neue Funktion: extractEventBookingData()
-
-Hilfsfunktion zum Extrahieren der Event-spezifischen Daten aus dem Warenkorb:
-- `guest_count`: Aus der Item-Quantity
-- `package_id`: Aus der Item-ID (ohne `event-` Präfix)
-
-### 2. handleSubmit() anpassen (ca. Zeile 784-825)
-
-Bedingte Insertion basierend auf `isEventBooking`:
-
-**Für Event-Buchungen:**
-```typescript
-await supabase.from('event_bookings').insert({
-  id: bookingId,
-  booking_number: newOrderNumber,
-  customer_name: formData.name,
-  customer_email: formData.email,
-  phone: formData.phone,
-  company_name: formData.company || null,
-  event_date: formData.date,
-  event_time: formData.time || null,
-  guest_count: eventItem.quantity,
-  package_id: eventItem.id.replace('event-', ''),
-  total_amount: grandTotal,
-  payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending',
-  status: 'menu_pending',
-  menu_confirmed: false,
-  internal_notes: fullNotes || null,
-});
-```
-
-### 3. Email-Notification anpassen
-
-Die Edge Function `send-order-notification` muss erkennen, ob es sich um eine Event-Buchung handelt, um entsprechende Email-Texte zu verwenden.
-
-### 4. LexOffice-Integration anpassen
-
-`create-lexoffice-invoice` erhält Parameter `isEventBooking: true`, damit:
-- Das richtige Nummernformat verwendet wird
-- Der Dokumenttitel "Event-Buchungsbestätigung" lautet
+- Event-Buchungen: `EVT-BUCHUNG-DD-MM-YYYY-XXX`
+- Catering bezahlt: `CAT-BESTELLUNG-DD-MM-YYYY-XXX`
+- Catering Angebot: `CAT-ANGEBOT-DD-MM-YYYY-XXX`
 
 ---
 
 ## Betroffene Dateien
 
-1. **`src/pages/Checkout.tsx`** – Hauptänderung: Bedingte Tabellen-Insertion
-2. **`supabase/functions/send-order-notification/index.ts`** – Event-spezifische Email-Texte
-3. **`supabase/functions/create-lexoffice-invoice/index.ts`** – Event-Buchungs-Erkennung (teilweise bereits implementiert)
-
----
-
-## Hinweis zur bestehenden Bestellung
-
-Die fehlerhafte Bestellung `EVENTS-ANGEBOT-29-01-2026-851` kann manuell in die richtige Tabelle migriert werden, nachdem der Fix implementiert ist.
+1. ✅ `src/pages/Checkout.tsx` – Bedingte Tabellen-Insertion
+2. ✅ `supabase/functions/send-order-notification/index.ts` – Event-spezifische Emails
+3. ✅ `supabase/functions/create-lexoffice-invoice/index.ts` – Bereits implementiert

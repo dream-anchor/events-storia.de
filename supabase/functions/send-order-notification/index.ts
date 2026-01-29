@@ -36,6 +36,9 @@ interface OrderNotificationRequest {
   deliveryFloor?: string;
   hasElevator?: boolean;
   isPickup: boolean;
+  isEventBooking?: boolean;
+  eventPackageName?: string;
+  guestCount?: number;
   desiredDate?: string;
   desiredTime?: string;
   notes?: string;
@@ -66,14 +69,27 @@ const generateCustomerEmailText = (data: OrderNotificationRequest): string => {
   const subtotal = data.subtotal || data.totalAmount || 0;
   const grandTotal = data.grandTotal || data.totalAmount || 0;
   const isStripe = data.paymentMethod === 'stripe';
+  const isEvent = data.isEventBooking === true;
 
-  const greeting = isStripe
-    ? 'vielen Dank für Ihre Bestellung!'
-    : 'vielen Dank für Ihre Anfrage!';
-
-  const nextSteps = isStripe
-    ? 'Ihre Zahlung wurde erfolgreich verarbeitet. Wir bereiten Ihre Bestellung vor.'
-    : 'Wir melden uns innerhalb von 24 Stunden bei Ihnen.';
+  // Different greetings based on order type
+  let greeting: string;
+  let nextSteps: string;
+  
+  if (isEvent) {
+    greeting = isStripe
+      ? 'vielen Dank für Ihre Event-Buchung!'
+      : 'vielen Dank für Ihre Event-Anfrage!';
+    nextSteps = isStripe
+      ? 'Ihre Zahlung wurde erfolgreich verarbeitet. Wir werden uns in Kürze mit Ihnen bezüglich der Menüauswahl in Verbindung setzen.'
+      : 'Wir melden uns innerhalb von 24 Stunden bei Ihnen, um die Details Ihrer Veranstaltung zu besprechen.';
+  } else {
+    greeting = isStripe
+      ? 'vielen Dank für Ihre Bestellung!'
+      : 'vielen Dank für Ihre Anfrage!';
+    nextSteps = isStripe
+      ? 'Ihre Zahlung wurde erfolgreich verarbeitet. Wir bereiten Ihre Bestellung vor.'
+      : 'Wir melden uns innerhalb von 24 Stunden bei Ihnen.';
+  }
 
   let itemsList = '';
   for (const item of data.items) {
@@ -87,9 +103,15 @@ const generateCustomerEmailText = (data: OrderNotificationRequest): string => {
     itemsList += `  ${data.chafingDishQuantity}x Chafing Dish (Warmhaltebehälter)\n     ${formatPrice(data.chafingDishTotal)}\n\n`;
   }
 
-  // Delivery info
+  // Delivery info - different for events vs catering
   let deliveryInfo = '';
-  if (data.isPickup) {
+  if (isEvent) {
+    deliveryInfo = `Veranstaltungsort: STORIA Ristorante
+Karlstraße 47a, 80333 München`;
+    if (data.guestCount) {
+      deliveryInfo += `\nAnzahl Gäste: ${data.guestCount} Personen`;
+    }
+  } else if (data.isPickup) {
     deliveryInfo = `Lieferart: Selbstabholung
 Abholadresse: Karlstraße 47a, 80333 München`;
   } else {
@@ -113,27 +135,32 @@ Adresse: ${data.deliveryAddress}${floorInfo}${elevatorInfo}`;
     priceBreakdown += `Mindestbestellwert-Aufschlag: ${formatPrice(data.minimumOrderSurcharge)}\n`;
   }
 
-  if (data.isPickup) {
-    priceBreakdown += `Selbstabholung:             kostenlos\n`;
-  } else if (data.deliveryCost !== undefined) {
-    const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1)} km)` : '';
-    priceBreakdown += `Lieferung${distanceText}:      ${data.deliveryCost === 0 ? 'kostenlos' : formatPrice(data.deliveryCost)}\n`;
+  if (!isEvent) {
+    if (data.isPickup) {
+      priceBreakdown += `Selbstabholung:             kostenlos\n`;
+    } else if (data.deliveryCost !== undefined) {
+      const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1)} km)` : '';
+      priceBreakdown += `Lieferung${distanceText}:      ${data.deliveryCost === 0 ? 'kostenlos' : formatPrice(data.deliveryCost)}\n`;
+    }
   }
 
   const notesSection = data.notes ? `\nIHRE ANMERKUNGEN\n${data.notes}\n` : '';
 
+  const headerTitle = isEvent ? 'STORIA · EVENTS' : 'STORIA · CATERING & EVENTS';
+  const orderLabel = isEvent ? 'Buchungsnummer' : 'Bestellnummer';
+
   return `════════════════════════════════════════════
-          STORIA · CATERING & EVENTS
+          ${headerTitle}
 ════════════════════════════════════════════
 
 Guten Tag ${data.customerName},
 
 ${greeting}
 
-Bestellnummer: ${data.orderNumber}
+${orderLabel}: ${data.orderNumber}
 
 ────────────────────────────────────────────
-IHRE AUSWAHL
+${isEvent ? 'IHRE BUCHUNG' : 'IHRE AUSWAHL'}
 ────────────────────────────────────────────
 
 ${itemsList}────────────────────────────────────────────
@@ -141,7 +168,7 @@ ${priceBreakdown}─────────────────────
 GESAMTSUMME:                ${formatPrice(grandTotal)}
 ────────────────────────────────────────────
 
-TERMIN & LIEFERUNG
+${isEvent ? 'VERANSTALTUNG' : 'TERMIN & LIEFERUNG'}
 
 ${deliveryInfo}
 Datum: ${data.desiredDate ? formatDate(data.desiredDate) : 'Auf Anfrage'}
@@ -168,6 +195,7 @@ const generateRestaurantEmailText = (data: OrderNotificationRequest): string => 
   const subtotal = data.subtotal || data.totalAmount || 0;
   const grandTotal = data.grandTotal || data.totalAmount || 0;
   const isStripe = data.paymentMethod === 'stripe';
+  const isEvent = data.isEventBooking === true;
 
   const now = new Date().toLocaleString('de-DE', {
     dateStyle: 'full',
@@ -201,9 +229,15 @@ const generateRestaurantEmailText = (data: OrderNotificationRequest): string => 
     itemsList += `  ${data.chafingDishQuantity}x Chafing Dish (Warmhaltebehälter)\n     ${formatPrice(data.chafingDishTotal)}\n\n`;
   }
 
-  // Delivery info
+  // Delivery/Event info - different for events vs catering
   let deliveryInfo = '';
-  if (data.isPickup) {
+  if (isEvent) {
+    deliveryInfo = `Typ: EVENT-BUCHUNG (vor Ort im Restaurant)`;
+    if (data.guestCount) {
+      deliveryInfo += `\nAnzahl Gäste: ${data.guestCount} Personen`;
+    }
+    deliveryInfo += `\n\n⚠️ MENÜAUSWAHL ERFORDERLICH - Bitte Kunden kontaktieren!`;
+  } else if (data.isPickup) {
     deliveryInfo = 'Lieferart: SELBSTABHOLUNG';
   } else {
     const floorInfo = data.deliveryFloor ? `\nStockwerk: ${data.deliveryFloor}` : '';
@@ -226,11 +260,13 @@ Adresse: ${data.deliveryAddress}${floorInfo}${elevatorInfo}`;
     priceBreakdown += `Mindestbestellwert-Aufschlag: ${formatPrice(data.minimumOrderSurcharge)}\n`;
   }
 
-  if (data.isPickup) {
-    priceBreakdown += `Selbstabholung:             kostenlos\n`;
-  } else if (data.deliveryCost !== undefined) {
-    const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1)} km)` : '';
-    priceBreakdown += `Lieferkosten${distanceText}:   ${data.deliveryCost === 0 ? 'kostenlos' : formatPrice(data.deliveryCost)}\n`;
+  if (!isEvent) {
+    if (data.isPickup) {
+      priceBreakdown += `Selbstabholung:             kostenlos\n`;
+    } else if (data.deliveryCost !== undefined) {
+      const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1)} km)` : '';
+      priceBreakdown += `Lieferkosten${distanceText}:   ${data.deliveryCost === 0 ? 'kostenlos' : formatPrice(data.deliveryCost)}\n`;
+    }
   }
 
   const notesSection = data.notes ? `\nANMERKUNGEN DES KUNDEN\n${data.notes}\n` : '';
@@ -246,11 +282,17 @@ ${data.billingAddress.country}
 `;
   }
 
+  const headerTitle = isEvent 
+    ? 'NEUE EVENT-BUCHUNG EINGEGANGEN' 
+    : 'NEUE CATERING-BESTELLUNG EINGEGANGEN';
+  const orderLabel = isEvent ? 'Buchungsnummer' : 'Bestellnummer';
+  const itemsLabel = isEvent ? 'GEBUCHTES PAKET' : 'BESTELLTE ARTIKEL';
+
   return `════════════════════════════════════════════
-     NEUE CATERING-BESTELLUNG EINGEGANGEN
+     ${headerTitle}
 ════════════════════════════════════════════
 ${paymentBanner}
-Bestellnummer: ${data.orderNumber}
+${orderLabel}: ${data.orderNumber}
 Eingegangen: ${now}
 
 ────────────────────────────────────────────
@@ -262,7 +304,7 @@ ${data.companyName ? `Firma: ${data.companyName}\n` : ''}E-Mail: ${data.customer
 Telefon: ${data.customerPhone}
 
 ────────────────────────────────────────────
-BESTELLTE ARTIKEL
+${itemsLabel}
 ────────────────────────────────────────────
 
 ${itemsList}────────────────────────────────────────────
@@ -270,7 +312,7 @@ ${priceBreakdown}─────────────────────
 GESAMTSUMME:                ${formatPrice(grandTotal)}
 ────────────────────────────────────────────
 
-TERMIN & LIEFERUNG
+${isEvent ? 'VERANSTALTUNG' : 'TERMIN & LIEFERUNG'}
 
 ${deliveryInfo}
 Datum: ${data.desiredDate ? formatDate(data.desiredDate) : 'Auf Anfrage'}
@@ -336,16 +378,25 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Received order notification request:", JSON.stringify(data, null, 2));
 
     const isStripe = data.paymentMethod === 'stripe';
+    const isEvent = data.isEventBooking === true;
 
     // Customer email subject
-    const customerSubject = isStripe
-      ? `Ihre Catering-Bestellung bei STORIA (${data.orderNumber})`
-      : `Ihre Catering-Anfrage bei STORIA (${data.orderNumber})`;
+    const customerSubject = isEvent
+      ? (isStripe
+        ? `Ihre Event-Buchung bei STORIA (${data.orderNumber})`
+        : `Ihre Event-Anfrage bei STORIA (${data.orderNumber})`)
+      : (isStripe
+        ? `Ihre Catering-Bestellung bei STORIA (${data.orderNumber})`
+        : `Ihre Catering-Anfrage bei STORIA (${data.orderNumber})`);
 
     // Restaurant email subject
-    const restaurantSubject = isStripe
-      ? `BEZAHLT: Neue Bestellung ${data.orderNumber}`
-      : `Neue Anfrage ${data.orderNumber}`;
+    const restaurantSubject = isEvent
+      ? (isStripe
+        ? `BEZAHLT: Neue Event-Buchung ${data.orderNumber}`
+        : `Neue Event-Anfrage ${data.orderNumber}`)
+      : (isStripe
+        ? `BEZAHLT: Neue Bestellung ${data.orderNumber}`
+        : `Neue Anfrage ${data.orderNumber}`);
 
     // Send customer confirmation
     const customerEmailText = generateCustomerEmailText(data);

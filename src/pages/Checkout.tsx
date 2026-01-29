@@ -785,46 +785,76 @@ const Checkout = () => {
       // Generate order ID client-side to avoid RLS SELECT issues
       const orderId = crypto.randomUUID();
       
-      // Insert order without returning (RLS allows INSERT but not SELECT for anon)
-      const { error } = await supabase
-        .from('catering_orders')
-        .insert({
-          id: orderId,
-          order_number: newOrderNumber,
-          customer_name: formData.name,
-          customer_email: formData.email,
-          customer_phone: formData.phone,
-          company_name: formData.company || null,
-          // Structured delivery address
-          delivery_street: formData.deliveryType === 'delivery' ? formData.deliveryStreet : null,
-          delivery_zip: formData.deliveryType === 'delivery' ? formData.deliveryZip : null,
-          delivery_city: formData.deliveryType === 'delivery' ? formData.deliveryCity : null,
-          delivery_floor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : null,
-          has_elevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
-          // Composite address for backward compatibility
-          delivery_address: formData.deliveryType === 'delivery' ? fullDeliveryAddress : null,
-          is_pickup: formData.deliveryType === 'pickup',
-          desired_date: formData.date || null,
-          desired_time: formData.time || null,
-          notes: fullNotes || null,
-          items: orderItems,
-          total_amount: grandTotal,
-          billing_name: billingAddress.name || null,
-          billing_street: billingAddress.street || null,
-          billing_zip: billingAddress.zip || null,
-          billing_city: billingAddress.city || null,
-          billing_country: billingAddress.country || null,
-          delivery_cost: deliveryCalc?.deliveryCostGross || 0,
-          minimum_order_surcharge: minimumOrderSurcharge,
-          calculated_distance_km: deliveryCalc?.distanceKm || null,
-          // Payment tracking
-          payment_method: paymentMethod,
-          payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending',
-          // Link to customer account if logged in
-          user_id: existingUserId
-        });
+      // Extract event booking data if this is an event booking
+      const eventItem = isEventBooking ? items.find(item => item.id.startsWith('event-')) : null;
+      const eventGuestCount = eventItem?.quantity || 0;
+      const eventPackageId = eventItem?.id.replace('event-', '') || null;
+      
+      if (isEventBooking && eventItem) {
+        // Insert into event_bookings table for event packages
+        const { error } = await supabase
+          .from('event_bookings')
+          .insert({
+            id: orderId,
+            booking_number: newOrderNumber,
+            customer_name: formData.name,
+            customer_email: formData.email,
+            phone: formData.phone,
+            company_name: formData.company || null,
+            event_date: formData.date,
+            event_time: formData.time || null,
+            guest_count: eventGuestCount,
+            package_id: eventPackageId,
+            total_amount: grandTotal,
+            payment_status: 'pending',
+            status: 'menu_pending',
+            menu_confirmed: false,
+            internal_notes: fullNotes || null,
+          });
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        // Insert into catering_orders table for regular catering orders
+        const { error } = await supabase
+          .from('catering_orders')
+          .insert({
+            id: orderId,
+            order_number: newOrderNumber,
+            customer_name: formData.name,
+            customer_email: formData.email,
+            customer_phone: formData.phone,
+            company_name: formData.company || null,
+            // Structured delivery address
+            delivery_street: formData.deliveryType === 'delivery' ? formData.deliveryStreet : null,
+            delivery_zip: formData.deliveryType === 'delivery' ? formData.deliveryZip : null,
+            delivery_city: formData.deliveryType === 'delivery' ? formData.deliveryCity : null,
+            delivery_floor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : null,
+            has_elevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
+            // Composite address for backward compatibility
+            delivery_address: formData.deliveryType === 'delivery' ? fullDeliveryAddress : null,
+            is_pickup: formData.deliveryType === 'pickup',
+            desired_date: formData.date || null,
+            desired_time: formData.time || null,
+            notes: fullNotes || null,
+            items: orderItems,
+            total_amount: grandTotal,
+            billing_name: billingAddress.name || null,
+            billing_street: billingAddress.street || null,
+            billing_zip: billingAddress.zip || null,
+            billing_city: billingAddress.city || null,
+            billing_country: billingAddress.country || null,
+            delivery_cost: deliveryCalc?.deliveryCostGross || 0,
+            minimum_order_surcharge: minimumOrderSurcharge,
+            calculated_distance_km: deliveryCalc?.distanceKm || null,
+            // Payment tracking
+            payment_method: paymentMethod,
+            payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending',
+            // Link to customer account if logged in
+            user_id: existingUserId
+          });
+
+        if (error) throw error;
+      }
 
       // Send email notifications
       // For Stripe payments: email is sent AFTER successful payment (see handlePaymentSuccess)
@@ -840,6 +870,9 @@ const Checkout = () => {
               companyName: formData.company || undefined,
               deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
               isPickup: formData.deliveryType === 'pickup',
+              isEventBooking: isEventBooking,
+              eventPackageName: eventItem?.name || undefined,
+              guestCount: eventGuestCount || undefined,
               desiredDate: formData.date || undefined,
               desiredTime: formData.time || undefined,
               notes: fullNotes || undefined,
@@ -887,9 +920,10 @@ const Checkout = () => {
               distanceKm: deliveryCalc?.distanceKm || undefined,
               grandTotal: grandTotal,
               isPickup: formData.deliveryType === 'pickup',
+              isEventBooking: isEventBooking,
               documentType: 'quotation', // Angebot für unbezahlte Bestellungen
               isPaid: false,
-              // NEW: Additional order details
+              // Additional order details
               desiredDate: formData.date || undefined,
               desiredTime: formData.time || undefined,
               deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
