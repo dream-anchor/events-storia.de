@@ -340,7 +340,7 @@ export const SmartInquiryEditor = () => {
             </Button>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-serif font-semibold">
+                <h1 className="text-3xl font-serif font-semibold">
                   {mergedInquiry.company_name || mergedInquiry.contact_name}
                 </h1>
                 <Badge variant={inquiryType === 'event' ? 'default' : 'secondary'}>
@@ -358,7 +358,7 @@ export const SmartInquiryEditor = () => {
           </div>
           
           {/* Auto-save status indicator */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-base text-muted-foreground">
             {saveStatus === 'saving' && (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />

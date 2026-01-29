@@ -34,7 +34,7 @@ export const FloatingPillNav = ({
             key={item.key}
             to={item.href}
             className={cn(
-              "relative flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200",
+              "relative flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-medium transition-all duration-200",
               isActive
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -46,7 +46,7 @@ export const FloatingPillNav = ({
               <Badge 
                 variant="secondary" 
                 className={cn(
-                  "ml-1 px-1.5 py-0 text-[10px] min-w-[18px] h-[18px] flex items-center justify-center",
+                  "ml-1 px-1.5 py-0 text-xs min-w-[18px] h-[18px] flex items-center justify-center",
                   isActive 
                     ? "bg-primary-foreground/20 text-primary-foreground" 
                     : "bg-primary text-primary-foreground"
@@ -80,7 +80,7 @@ export const MobilePillNav = ({
             key={item.key}
             to={item.href}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap",
+              "flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
               isActive
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground bg-muted hover:text-foreground"
@@ -90,7 +90,7 @@ export const MobilePillNav = ({
             <span>{item.name}</span>
             {badgeCount > 0 && (
               <span className={cn(
-                "px-1.5 py-0.5 text-[10px] rounded-full min-w-[16px] text-center",
+                "px-1.5 py-0.5 text-xs rounded-full min-w-[16px] text-center",
                 isActive 
                   ? "bg-primary-foreground/20 text-primary-foreground" 
                   : "bg-primary text-primary-foreground"

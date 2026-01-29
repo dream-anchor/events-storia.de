@@ -49,8 +49,8 @@ export const Dashboard = () => {
         {/* Header with Quick Action */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-serif font-semibold">StoriaMaestro</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-4xl font-serif font-semibold">StoriaMaestro</h1>
+            <p className="text-base text-muted-foreground">
               Willkommen im Event- & Catering-Management
             </p>
           </div>
@@ -66,14 +66,14 @@ export const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-base font-medium text-muted-foreground">
                 Neue Anfragen
               </CardTitle>
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{newEventsCount}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-4xl font-bold">{newEventsCount}</div>
+              <p className="text-sm text-muted-foreground">
                 Warten auf Bearbeitung
               </p>
             </CardContent>
@@ -81,14 +81,14 @@ export const Dashboard = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-base font-medium text-muted-foreground">
                 Menü offen
               </CardTitle>
               <ChefHat className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{pendingMenuCount}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-4xl font-bold">{pendingMenuCount}</div>
+              <p className="text-sm text-muted-foreground">
                 Buchungen ohne Menü
               </p>
             </CardContent>
@@ -96,14 +96,14 @@ export const Dashboard = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-base font-medium text-muted-foreground">
                 Offene Bestellungen
               </CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{pendingOrdersCount}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-4xl font-bold">{pendingOrdersCount}</div>
+              <p className="text-sm text-muted-foreground">
                 Noch nicht bestätigt
               </p>
             </CardContent>
@@ -111,14 +111,14 @@ export const Dashboard = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-base font-medium text-muted-foreground">
                 Diese Woche
               </CardTitle>
               <CalendarDays className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{upcomingOrdersCount}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-4xl font-bold">{upcomingOrdersCount}</div>
+              <p className="text-sm text-muted-foreground">
                 Anstehende Lieferungen
               </p>
             </CardContent>

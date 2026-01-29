@@ -67,8 +67,8 @@ export const EventBookingsList = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-serif font-semibold">Events</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-4xl font-serif font-semibold">Events</h1>
+            <p className="text-base text-muted-foreground">
               Bezahlte Events mit Menü-Konfiguration
             </p>
           </div>
@@ -128,15 +128,15 @@ export const EventBookingsList = () => {
                       {/* Booking Info */}
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm text-muted-foreground">
+                          <span className="font-mono text-base text-muted-foreground">
                             {booking.booking_number}
                           </span>
                           {getStatusBadge(booking)}
                         </div>
-                        <p className="font-medium">
+                        <p className="font-medium text-lg">
                           {booking.company_name || booking.customer_name}
                         </p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-base text-muted-foreground">
                           {getPackageName(booking.package_id)}
                         </p>
                       </div>
@@ -144,12 +144,12 @@ export const EventBookingsList = () => {
 
                     {/* Right Side: Date & Details */}
                     <div className="text-right">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground justify-end mb-1">
+                      <div className="flex items-center gap-2 text-base text-muted-foreground justify-end mb-1">
                         <Calendar className="h-4 w-4" />
                         {booking.event_date && format(parseISO(booking.event_date), "dd.MM.yyyy", { locale: de })}
                         {booking.event_time && `, ${booking.event_time}`}
                       </div>
-                      <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-4 text-base">
                         <span className="flex items-center gap-1 text-muted-foreground">
                           <Users className="h-4 w-4" />
                           {booking.guest_count} Gäste
