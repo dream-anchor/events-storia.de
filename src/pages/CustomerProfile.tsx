@@ -548,9 +548,20 @@ const CustomerProfile = () => {
                                 ) : (
                                   <Download className="h-4 w-4" />
                                 )}
-                                {order.lexoffice_document_type === 'invoice' 
-                                  ? (language === 'de' ? 'Rechnung herunterladen' : 'Download Invoice')
-                                  : (language === 'de' ? 'Angebot herunterladen' : 'Download Quotation')}
+                                {(() => {
+                                  const isEventBooking = order.order_number.startsWith('EVT-BUCHUNG');
+                                  const isInvoice = order.lexoffice_document_type === 'invoice' || 
+                                                    order.order_number.includes('-RECHNUNG') || 
+                                                    order.order_number.includes('-BESTELLUNG');
+                                  
+                                  if (isEventBooking) {
+                                    return language === 'de' ? 'Bestellbestätigung herunterladen' : 'Download Confirmation';
+                                  } else if (isInvoice) {
+                                    return language === 'de' ? 'Rechnung herunterladen' : 'Download Invoice';
+                                  } else {
+                                    return language === 'de' ? 'Angebot herunterladen' : 'Download Quotation';
+                                  }
+                                })()}
                               </Button>
                             </div>
                           )}

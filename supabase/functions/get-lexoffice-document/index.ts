@@ -125,8 +125,17 @@ serve(async (req) => {
     }
     const base64 = btoa(binary);
     
-    // Generate filename
-    const docTypeLabel = order.lexoffice_document_type === 'invoice' ? 'Rechnung' : 'Angebot';
+    // Generate filename based on order type
+    let docTypeLabel: string;
+    if (order.order_number.startsWith('EVT-BUCHUNG')) {
+      docTypeLabel = 'Bestellbestaetigung';
+    } else if (order.lexoffice_document_type === 'invoice' || 
+               order.order_number.includes('-RECHNUNG') || 
+               order.order_number.includes('-BESTELLUNG')) {
+      docTypeLabel = 'Rechnung';
+    } else {
+      docTypeLabel = 'Angebot';
+    }
     const filename = `STORIA_${docTypeLabel}_${order.order_number}.pdf`;
     
     console.log(`Successfully fetched document, size: ${pdfBuffer.byteLength} bytes`);
