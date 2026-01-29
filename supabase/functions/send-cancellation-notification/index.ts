@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -235,6 +236,49 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const data: CancellationNotificationRequest = await req.json();
     console.log("Received cancellation notification request:", JSON.stringify(data, null, 2));
+
+    // ============================================================
+    // SECURITY: Verify order was actually cancelled in database
+    // ============================================================
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { data: order, error: orderError } = await supabase
+      .from('catering_orders')
+      .select('id, order_number, cancelled_at, customer_email')
+      .eq('order_number', data.orderNumber)
+      .maybeSingle();
+
+    if (orderError || !order) {
+      console.log("Security: Order not found in database", { orderNumber: data.orderNumber });
+      return new Response(
+        JSON.stringify({ error: 'Order not found' }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Verify order is actually cancelled in database
+    if (!order.cancelled_at) {
+      console.log("Security: Order is not cancelled", { orderNumber: data.orderNumber });
+      return new Response(
+        JSON.stringify({ error: 'Order is not cancelled' }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Verify email matches to prevent sending to unauthorized addresses
+    if (order.customer_email?.toLowerCase() !== data.customerEmail?.toLowerCase()) {
+      console.log("Security: Email mismatch", { storedEmail: order.customer_email, requestEmail: data.customerEmail });
+      return new Response(
+        JSON.stringify({ error: 'Email mismatch' }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("Security: Order cancellation validated", { orderNumber: data.orderNumber });
+    // ============================================================
 
     // Customer email
     const customerSubject = `Stornierung Ihrer Bestellung ${data.orderNumber}`;

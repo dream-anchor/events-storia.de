@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -378,8 +379,65 @@ const handler = async (req: Request): Promise<Response> => {
     const data: OrderNotificationRequest = await req.json();
     console.log("Received order notification request:", JSON.stringify(data, null, 2));
 
-    const isPaid = data.paymentStatus === 'paid';
+    // ============================================================
+    // SECURITY: Verify order exists in database and email matches
+    // ============================================================
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    let orderExists = false;
+    let storedEmail: string | null = null;
     const isEvent = data.isEventBooking === true;
+
+    if (isEvent) {
+      // Check event_bookings for event orders
+      const { data: eventBooking } = await supabase
+        .from('event_bookings')
+        .select('id, customer_email')
+        .eq('booking_number', data.orderNumber)
+        .maybeSingle();
+      
+      if (eventBooking) {
+        orderExists = true;
+        storedEmail = eventBooking.customer_email;
+      }
+    } else {
+      // Check catering_orders first
+      const { data: cateringOrder } = await supabase
+        .from('catering_orders')
+        .select('id, customer_email')
+        .eq('order_number', data.orderNumber)
+        .maybeSingle();
+
+      if (cateringOrder) {
+        orderExists = true;
+        storedEmail = cateringOrder.customer_email;
+      }
+    }
+
+    if (!orderExists) {
+      console.log("Security: Order not found in database", { orderNumber: data.orderNumber });
+      return new Response(
+        JSON.stringify({ error: 'Order not found' }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Verify email matches to prevent sending to unauthorized addresses
+    if (storedEmail?.toLowerCase() !== data.customerEmail?.toLowerCase()) {
+      console.log("Security: Email mismatch", { storedEmail, requestEmail: data.customerEmail });
+      return new Response(
+        JSON.stringify({ error: 'Email mismatch' }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("Security: Order validated", { orderNumber: data.orderNumber });
+    // ============================================================
+
+    const isPaid = data.paymentStatus === 'paid';
 
     // Customer email subject - based on payment STATUS, not method
     const customerSubject = isEvent
