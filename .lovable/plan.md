@@ -1,280 +1,383 @@
 
-# Phase 4: Event-Booking-System & Multi-Offer Integration
+# Umfassender Plan: Event-Anfrage-Button, Checkout-Logik & Design-Review
 
-## Ziel
+## Zusammenfassung
 
-Integration des Multi-Offer-Systems in den bestehenden SmartInquiryEditor und Erstellung des Buchungs-Workflows für bezahlte Events mit Menü-Konfiguration.
-
----
-
-## Teil 1: Multi-Offer Integration in SmartInquiryEditor
-
-### Aktuelle Situation
-- `SmartInquiryEditor` nutzt Single-Package-Auswahl via `EventModules`
-- `MultiOfferComposer` existiert als separate Komponente, ist aber nicht integriert
-- Zwei verschiedene Workflows nicht verbunden
-
-### Lösung: Modus-Umschaltung
-
-Der Editor erhält einen Toggle zwischen:
-- **Einfach-Modus** (bestehend): Ein Paket direkt auswählen und konfigurieren
-- **Multi-Offer-Modus** (neu): Bis zu 5 Optionen mit Stripe-Zahlungslinks
-
-```text
-SmartInquiryEditor
-├── Tab: Kalkulation
-│   ├── [Einfaches Angebot] [Multi-Optionen]  ← Mode Toggle
-│   │
-│   ├── Einfach: EventModules (bestehend)
-│   │   └── MenuComposer → FinalizePanel
-│   │
-│   └── Multi: MultiOfferComposer (neu integriert)
-│       ├── OfferOptionCard × n
-│       │   └── Integrierter MenuWorkflow pro Option
-│       └── FinalizePanel für Multi-Optionen
-│
-└── Tab: Kommunikation (für Follow-ups)
-```
-
-### Dateianpassungen
-
-**SmartInquiryEditor.tsx** - Erweitert um:
-- State: `offerMode: 'simple' | 'multi'`
-- Toggle-Button im Kalkulation-Tab
-- Conditional Rendering: `EventModules` vs `MultiOfferComposer`
-- Props-Weiterleitung an MultiOfferComposer
-
-**OfferOptionCard.tsx** - Erweitert um:
-- Integration des vollständigen `MenuWorkflow` statt Placeholder
-- Collapse/Expand für MenuWorkflow pro Option
-- Synchronisierung der MenuSelection mit Parent-State
+Dieses Update erweitert die Events-Seite um einen zweiten Button für individuelle Angebote, optimiert die Checkout-Logik für Event-Pakete und harmonisiert das Admin-Design zu einem einheitlichen, professionellen Look.
 
 ---
 
-## Teil 2: Event-Buchungs-Liste & Editor
+## Teil 1: "Angebot erhalten" Button auf der Events-Seite
 
-### Neue Route: `/admin/bookings`
+### Aktueller Zustand
+- `EventPackageShopCard.tsx` zeigt nur den roten "Zum Warenkorb" Button
+- Das `EventContactForm` existiert bereits unten auf der Seite, ist aber nicht paketspezifisch
 
-Zeigt bezahlte Event-Buchungen aus `event_bookings` Tabelle:
-
-```text
-┌────────────────────────────────────────────────────────────┐
-│ EVENT-BUCHUNGEN                                            │
-│                                                            │
-│ [Alle] [Menü offen] [Bereit]  ← Filter                    │
-│                                                            │
-│ ┌────────────────────────────────────────────────────────┐ │
-│ │ ✅ BEZAHLT  │ #EVT-2026-0042                           │ │
-│ │                                                        │ │
-│ │ Mueller GmbH │ Business Dinner │ 12.03.2026           │ │
-│ │ 35 Gäste │ 3.465,00 €                                  │ │
-│ │                                                        │ │
-│ │ Menü: ⚠️ Nicht konfiguriert         [Menü festlegen] │ │
-│ └────────────────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────────────┘
-```
-
-### Neue Komponente: EventBookingsList.tsx
-
-| Feature | Beschreibung |
-|---------|--------------|
-| Datenquelle | `event_bookings` Tabelle |
-| Filter | Status-Filter (menu_pending, ready, completed) |
-| Spalten | Buchungsnummer, Kunde, Paket, Datum, Gäste, Betrag, Menü-Status |
-| Aktionen | "Menü festlegen" → EventBookingEditor |
-
-### Neue Komponente: EventBookingEditor.tsx
-
-Read-only Buchungsdetails + Vollständiger MenuWorkflow:
+### Lösung: Zweiter Button mit Modal-Flow
 
 ```text
-┌────────────────────────────────────────────────────────────┐
-│ ← Zurück │ #EVT-2026-0042 │ ✅ Bezahlt                     │
-├────────────────────────────────────────────────────────────┤
-│                                                            │
-│ ┌────────────────────────────────────────────────────────┐ │
-│ │ BUCHUNGSDETAILS (read-only)                            │ │
-│ │                                                        │ │
-│ │ Paket      Business Dinner – Exclusive                 │ │
-│ │ Gäste      35 Personen                                 │ │
-│ │ Datum      12. März 2026, 19:00 Uhr                    │ │
-│ │ Location   Private Room                                │ │
-│ │ Betrag     3.465,00 € (bezahlt)                        │ │
-│ │                                                        │ │
-│ │ Kunde      Max Müller, Mueller GmbH                    │ │
-│ │ E-Mail     max@mueller-gmbh.de                         │ │
-│ └────────────────────────────────────────────────────────┘ │
-│                                                            │
-│ ┌────────────────────────────────────────────────────────┐ │
-│ │ MENÜ KONFIGURIEREN                                     │ │
-│ │                                                        │ │
-│ │ ┌──────────────────────────────────────────────────┐   │ │
-│ │ │ 🍽️ Gänge │ 🍷 Getränke │ ✓ Bestätigen           │   │ │
-│ │ └──────────────────────────────────────────────────┘   │ │
-│ │                                                        │ │
-│ │ ← Integration des bestehenden MenuWorkflow            │ │
-│ │    (CourseSelector, DrinkPackageSelector)             │ │
-│ │                                                        │ │
-│ └────────────────────────────────────────────────────────┘ │
-│                                                            │
-│ ┌────────────────────────────────────────────────────────┐ │
-│ │   [Menü speichern]   [Bestätigung an Kunden senden]   │ │
-│ └────────────────────────────────────────────────────────┘ │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  [PAKET-KARTE]                                                  │
+│                                                                 │
+│  Business Dinner – Exclusive                                    │
+│  99€ p.P.                                                       │
+│                                                                 │
+│  Gäste: [–] 35 [+]                                             │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │         🛒 Zum Warenkorb                                 │   │  ← Rot (Primary)
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │         📩 Angebot erhalten                             │   │  ← Weiß (Outline)
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
----
-
-## Teil 3: Navigation & Routing Updates
-
-### Neue Admin-Struktur
+### Klick auf "Angebot erhalten" öffnet Dialog
 
 ```text
-/admin
-├── /              Dashboard (angepasst für beide Workflows)
-├── /events        Event-Anfragen (Leads → Angebote)
-│   └── /:id/edit  SmartInquiryEditor (mit Multi-Offer)
-├── /bookings      Event-Buchungen (bezahlt → Menü-Konfiguration)  ← NEU
-│   └── /:id/edit  EventBookingEditor                              ← NEU
-├── /orders        Catering-Bestellungen (Shop-Bestellungen)
-├── /packages      Pakete verwalten
-└── /menu          Speisekarte
+┌─────────────────────────────────────────────────────────────────┐
+│ × INDIVIDUELLES ANGEBOT                                         │
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ Paket: Business Dinner – Exclusive                          │ │
+│ │ (kann im Gespräch noch geändert werden)                     │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│ Schritt 1/2: Event-Details                                      │
+│                                                                 │
+│ Gewünschtes Datum *        Uhrzeit                             │
+│ ┌───────────────────┐     ┌───────────────────┐                │
+│ │ 📅 12.03.2026     │     │ 🕐 19:00          │                │
+│ └───────────────────┘     └───────────────────┘                │
+│                                                                 │
+│ Anzahl Gäste *                                                  │
+│ ┌───────────────────┐                                          │
+│ │ 35                │                                          │
+│ └───────────────────┘                                          │
+│                                                                 │
+│                    [Weiter →]                                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ × INDIVIDUELLES ANGEBOT                                         │
+│                                                                 │
+│ Schritt 2/2: Kontaktdaten                                       │
+│                                                                 │
+│ Firma *                    Ansprechpartner *                    │
+│ ┌───────────────────┐     ┌───────────────────┐                │
+│ │ Mueller GmbH      │     │ Max Müller        │                │
+│ └───────────────────┘     └───────────────────┘                │
+│                                                                 │
+│ E-Mail *                   Telefon                              │
+│ ┌───────────────────┐     ┌───────────────────┐                │
+│ │ max@mueller.de    │     │ +49 89 123456     │                │
+│ └───────────────────┘     └───────────────────┘                │
+│                                                                 │
+│ Nachricht (optional)                                            │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ Besondere Wünsche, Allergien, Fragen...                     │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│ ☑ Ich möchte über exklusive Angebote informiert werden         │
+│                                                                 │
+│        [← Zurück]          [📩 Anfrage senden]                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Navigation-Update (FloatingPillNav)
+### Technische Umsetzung
 
-```text
-[ 📊 Dashboard ] [ 📅 Anfragen (3) ] [ ✅ Buchungen (2) ] [ 📦 Bestellungen ] [ 🍽️ ]
-                   └── event_inquiries   └── event_bookings   └── catering_orders
-```
+**Neue Komponente: `EventPackageInquiryDialog.tsx`**
 
-### Dateianpassungen
+- 2-Schritt-Wizard im Dialog
+- Schritt 1: Datum, Uhrzeit, Gästezahl (vorausgefüllt aus Karte)
+- Schritt 2: Kontaktdaten (Firma, Name, E-Mail, Telefon, Nachricht)
+- Speichert in `event_inquiries` Tabelle mit `source: 'package_inquiry'`
+- Sendet Benachrichtigung via bestehender Edge Function
 
-**RefineAdmin.tsx**:
-- Neue Resource: `bookings` → `/admin/bookings`
-- Neue Routen: 
-  - `<Route path="bookings" element={<EventBookingsList />} />`
-  - `<Route path="bookings/:id/edit" element={<EventBookingEditor />} />`
-
-**AdminLayout.tsx**:
-- Navigation erweitern um "Buchungen" mit Badge-Counter
-
-**Dashboard.tsx**:
-- Neue Kachel: "Buchungen ohne Menü" (menu_confirmed = false)
-- Quick-Links zu Buchungen mit offener Menü-Konfiguration
-
----
-
-## Teil 4: Bestätigungs-E-Mail nach Menü-Konfiguration
-
-### Neue Edge Function: send-menu-confirmation
-
-Wird aufgerufen wenn Mitarbeiter "Bestätigung senden" klickt:
+**Änderungen in `EventPackageShopCard.tsx`:**
 
 ```typescript
-// Request
-{
-  bookingId: string;
-  sendEmail: boolean;
-}
+// Neuer State
+const [inquiryDialogOpen, setInquiryDialogOpen] = useState(false);
 
-// Ablauf
-1. Lade Buchung mit menu_selection
-2. Generiere E-Mail-Text mit Menü-Details (via AI)
-3. Sende E-Mail an Kunden
-4. Update booking: menu_confirmed = true
-```
+// Neuer Button nach dem Warenkorb-Button
+<Button 
+  variant="outline"
+  onClick={() => setInquiryDialogOpen(true)}
+  className="w-full gap-2"
+  size="lg"
+>
+  <Mail className="h-5 w-5" />
+  {language === 'de' ? 'Angebot erhalten' : 'Get Quote'}
+</Button>
 
-### E-Mail-Inhalt
-
-```text
-Betreff: Ihr Menü für [Event-Datum] steht fest
-
-Sehr geehrte/r [Kunde],
-
-vielen Dank für Ihre Buchung des [Paket-Name] am [Datum].
-
-Wir haben folgendes Menü für Ihre Veranstaltung zusammengestellt:
-
-🍽️ VORSPEISE
-Vorspeisenplatte (hausgemacht)
-
-🥩 HAUPTGANG
-Tagliata di Manzo mit Rucola und Parmesan
-
-🍰 DESSERT
-Tiramisù nach Originalrezept
-
-🍷 GETRÄNKE
-Weinbegleitung (0,7l p.P.), Wasser, Kaffee
-
-[Standard-Hinweise zu Allergien, Fleisch/Veggie-Auswahl etc.]
-
-Mit freundlichen Grüßen,
-STORIA
+<EventPackageInquiryDialog
+  open={inquiryDialogOpen}
+  onOpenChange={setInquiryDialogOpen}
+  packageId={pkg.id}
+  packageName={name}
+  initialGuestCount={guestCount}
+  pricePerPerson={pkg.price}
+/>
 ```
 
 ---
 
-## Neue Dateien
+## Teil 2: Checkout-Logik für Event-Pakete
+
+### Problem
+Event-Pakete sind "im Restaurant" und können nicht zur Abholung angeboten werden.
+
+### Lösung: Automatische Erkennung & UI-Anpassung
+
+**Erkennung eines Event-Pakets:**
+
+```typescript
+// In Checkout.tsx
+const hasEventPackage = items.some(item => item.id.startsWith('event-'));
+const isEventOnly = items.every(item => item.id.startsWith('event-'));
+```
+
+**UI-Anpassung:**
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ EVENT-BUCHUNG                                                   │
+│                                                                 │
+│ ℹ️ Ihr Event findet im STORIA statt.                           │
+│    Keine Lieferung/Abholung erforderlich.                       │
+│                                                                 │
+│ Gewünschtes Datum *        Uhrzeit *                            │
+│ ┌───────────────────┐     ┌───────────────────┐                │
+│ │ 📅 12.03.2026     │     │ 🕐 19:00          │                │
+│ └───────────────────┘     └───────────────────┘                │
+│                                                                 │
+│ ⚠️ Lieferoptionen sind für Events im Restaurant nicht          │
+│    verfügbar und werden ausgeblendet.                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Änderungen in `Checkout.tsx`:**
+
+1. Neue Variable `isEventBooking` erkennt Event-Pakete
+2. `deliveryType` wird automatisch auf `'event'` gesetzt
+3. Lieferungs-/Abholungssektion wird komplett ausgeblendet
+4. Adressfelder werden ausgeblendet (Event ist im Restaurant)
+5. Event-spezifische Info-Box wird angezeigt
+6. Checkout erstellt Eintrag in `event_bookings` statt `catering_orders`
+
+### Datenfluss
+
+```text
+[Kunde wählt Event-Paket]
+         │
+         ▼
+[Zum Warenkorb hinzufügen]
+  - category: 'equipment'
+  - id: 'event-{uuid}'
+         │
+         ▼
+[Checkout erkennt Event]
+  - isEventBooking = true
+  - Keine Lieferoptionen
+  - Nur Datum/Zeit/Kontakt
+         │
+         ▼
+[Bezahlung via Stripe]
+         │
+         ▼
+[Speichern in event_bookings]
+  - status: 'menu_pending'
+  - payment_status: 'paid'
+         │
+         ▼
+[Admin konfiguriert Menü]
+  - EventBookingEditor
+```
+
+---
+
+## Teil 3: Umfassende Design-Harmonisierung
+
+### Frontend (Events-Seite) - Status: ✅ Gut
+
+Die Events-Seite folgt bereits dem 2026-Standard:
+- Glasmorphism-Hero
+- Moderne Karten mit Hover-Effekten
+- Responsive Grid
+- Trust-Bar
+
+### Backend (Admin) - Status: ⚠️ Verbesserungen nötig
+
+**Aktuelle Probleme:**
+
+1. **Bunte Badges**: Grün, Gelb, Rot für Status-Badges
+2. **Inkonsistente Farben**: Verschiedene Amber/Green/Red-Töne
+3. **Zu viele Akzentfarben**: Ablenkend und unprofessionell
+
+**Lösung: Monochrome Status-Badges + Subtile Akzente**
+
+```text
+VORHER (zu bunt)                    NACHHER (professionell)
+─────────────────                   ────────────────────────
+
+🟢 Bezahlt                         ✓ Bezahlt (muted)
+🟡 Menü offen                      ○ Menü offen (outline)
+🔴 Storniert                       ✕ Storniert (outline red)
+
+Badges:
+bg-green-500                       → bg-muted text-foreground
+bg-amber-500                       → border border-muted
+bg-red-500                         → variant="destructive"
+```
+
+**Änderungen:**
+
+| Komponente | Vorher | Nachher |
+|------------|--------|---------|
+| `FloatingPillNav.tsx` | `bg-amber-500` Badge | `bg-primary/10 text-primary` |
+| `EventBookingsList.tsx` | Grün/Amber Icons | Monochrome `bg-muted` |
+| `Dashboard.tsx` | Farbige Stats-Icons | Einheitlich `text-primary` |
+| Status-Badges generell | Farbige Backgrounds | Outline + subtile Farben |
+
+### Spezifische Änderungen
+
+**1. FloatingPillNav.tsx (Zeilen 45-57 & 91-99):**
+
+```typescript
+// Vorher
+"bg-amber-500 text-white"
+
+// Nachher
+"bg-primary text-primary-foreground"
+```
+
+**2. Dashboard.tsx Stats-Cards:**
+
+```typescript
+// Vorher
+<AlertCircle className="h-4 w-4 text-amber-500" />
+<Clock className="h-4 w-4 text-blue-500" />
+<CalendarDays className="h-4 w-4 text-green-500" />
+
+// Nachher (einheitlich)
+<AlertCircle className="h-4 w-4 text-muted-foreground" />
+<Clock className="h-4 w-4 text-muted-foreground" />
+<CalendarDays className="h-4 w-4 text-primary" />
+```
+
+**3. EventBookingsList.tsx:**
+
+```typescript
+// Vorher
+'bg-green-100 text-green-600'
+'bg-amber-100 text-amber-600'
+
+// Nachher
+'bg-primary/10 text-primary'
+'bg-muted text-muted-foreground'
+```
+
+---
+
+## Dateiänderungen
+
+### Neue Dateien
 
 | Datei | Beschreibung |
 |-------|--------------|
-| `src/components/admin/refine/EventBookingsList.tsx` | Liste bezahlter Buchungen |
-| `src/components/admin/refine/EventBookingEditor.tsx` | Buchungs-Details + MenuWorkflow |
-| `src/hooks/useEventBookings.ts` | React Query Hooks für Buchungen |
-| `supabase/functions/send-menu-confirmation/index.ts` | E-Mail nach Menü-Bestätigung |
+| `src/components/events/EventPackageInquiryDialog.tsx` | 2-Schritt Anfrageformular-Dialog |
 
-## Zu modifizierende Dateien
+### Zu modifizierende Dateien
 
 | Datei | Änderungen |
 |-------|------------|
-| `SmartInquiryEditor.tsx` | Toggle Simple/Multi-Offer, Integration MultiOfferComposer |
-| `OfferOptionCard.tsx` | Vollständiger MenuWorkflow statt Placeholder |
-| `RefineAdmin.tsx` | Neue Routen für /bookings |
-| `AdminLayout.tsx` | Navigation um "Buchungen" erweitern |
-| `Dashboard.tsx` | Neue Kachel für Buchungen ohne Menü |
-| `types/refine.ts` | EventBooking Interface |
-| `index.ts` (exports) | Neue Komponenten exportieren |
+| `EventPackageShopCard.tsx` | + "Angebot erhalten" Button, Dialog-Integration |
+| `Checkout.tsx` | Event-Erkennung, UI-Ausblendung, Event-Flow |
+| `FloatingPillNav.tsx` | Badge-Farben harmonisieren |
+| `Dashboard.tsx` | Icon-Farben vereinheitlichen |
+| `EventBookingsList.tsx` | Status-Farben anpassen |
+| `CartContext.tsx` | Optional: `isEvent` Flag in CartItem |
 
 ---
 
 ## Implementierungsreihenfolge
 
-1. **EventBookingsList + EventBookingEditor** erstellen
-2. **useEventBookings Hook** für Daten-Fetching
-3. **RefineAdmin Routing** erweitern
-4. **AdminLayout Navigation** anpassen
-5. **SmartInquiryEditor** mit Multi-Offer-Toggle
-6. **OfferOptionCard** mit vollständigem MenuWorkflow
-7. **send-menu-confirmation Edge Function**
-8. **Dashboard** mit Buchungs-Widgets
+### Phase 1: "Angebot erhalten" Button (Priorität: Hoch)
+1. `EventPackageInquiryDialog.tsx` erstellen
+2. `EventPackageShopCard.tsx` erweitern
+3. Backend-Integration (nutzt bestehende `event_inquiries` Tabelle)
+
+### Phase 2: Checkout-Logik (Priorität: Hoch)
+1. Event-Erkennung in `Checkout.tsx`
+2. UI-Ausblendung für Lieferoptionen
+3. Event-spezifische Info-Box
+4. Speicherung in `event_bookings` statt `catering_orders`
+
+### Phase 3: Design-Harmonisierung (Priorität: Mittel)
+1. Badge-Farben in Navigation
+2. Dashboard Stats vereinheitlichen
+3. Listen-Komponenten anpassen
+4. Globale Farbdefinition prüfen
 
 ---
 
-## Datenfluss-Visualisierung
+## Vorteile
 
-```text
-                        ANFRAGEN                              BUCHUNGEN
-                        ────────                              ─────────
+| Aspekt | Vorher | Nachher |
+|--------|--------|---------|
+| Anfrage-Flow | Scrollen zum Formular | Direkter Dialog am Paket |
+| Paket-Kontext | Geht verloren | Automatisch vorausgefüllt |
+| Checkout für Events | Verwirrt mit Lieferoptionen | Klarer Event-Flow |
+| Admin-Design | Zu bunt, unruhig | Professionell, fokussiert |
+| UX-Konsistenz | Inkonsistent | State of the Art 2026 |
 
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Anfrage    │     │   Angebot    │     │   Bezahlt    │     │   Bereit     │
-│   kommt an   │────►│   erstellt   │────►│   via Stripe │────►│   für Event  │
-│              │     │              │     │              │     │              │
-│ event_       │     │ inquiry_     │     │ event_       │     │ event_       │
-│ inquiries    │     │ offer_       │     │ bookings     │     │ bookings     │
-│ status=new   │     │ options      │     │ menu=null    │     │ menu=done    │
-└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
-                                                 │
-                                                 ▼
-                                          ┌──────────────┐
-                                          │   Menü       │
-                                          │   konfigu-   │
-                                          │   rieren     │
-                                          │              │
-                                          │ EventBooking │
-                                          │ Editor       │
-                                          └──────────────┘
+---
+
+## Technische Details
+
+### Event-Erkennung im Checkout
+
+```typescript
+// Neue Logik in Checkout.tsx
+const isEventBooking = useMemo(() => {
+  return items.some(item => item.id.startsWith('event-'));
+}, [items]);
+
+// Automatisch deliveryType setzen
+useEffect(() => {
+  if (isEventBooking) {
+    setFormData(prev => ({ ...prev, deliveryType: 'event' }));
+  }
+}, [isEventBooking]);
 ```
+
+### Dialog-Formular Validierung
+
+```typescript
+const inquirySchema = z.object({
+  date: z.date({ required_error: "Datum erforderlich" }),
+  time: z.string().min(1, "Uhrzeit erforderlich"),
+  guestCount: z.number().min(10, "Mindestens 10 Gäste"),
+  company: z.string().min(2, "Firmenname erforderlich"),
+  name: z.string().min(2, "Name erforderlich"),
+  email: z.string().email("Ungültige E-Mail"),
+  phone: z.string().optional(),
+  message: z.string().max(2000).optional(),
+});
+```
+
+### Refine-Integration
+
+Der Admin-Bereich nutzt Refine für:
+- Datenlisten (Events, Bookings, Orders)
+- CRUD-Operationen
+- Authentifizierung
+
+Die neuen Komponenten integrieren sich nahtlos in diese Architektur.
