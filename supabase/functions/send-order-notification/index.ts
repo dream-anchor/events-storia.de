@@ -51,6 +51,7 @@ interface OrderNotificationRequest {
   billingAddress?: BillingAddress;
   totalAmount?: number;
   paymentMethod?: 'invoice' | 'stripe';
+  paymentStatus?: 'pending' | 'paid' | 'failed';
   wantsChafingDish?: boolean;
   chafingDishQuantity?: number;
   chafingDishTotal?: number;
@@ -68,25 +69,25 @@ const formatDate = (dateStr: string) => {
 const generateCustomerEmailText = (data: OrderNotificationRequest): string => {
   const subtotal = data.subtotal || data.totalAmount || 0;
   const grandTotal = data.grandTotal || data.totalAmount || 0;
-  const isStripe = data.paymentMethod === 'stripe';
+  const isPaid = data.paymentStatus === 'paid';
   const isEvent = data.isEventBooking === true;
 
-  // Different greetings based on order type
+  // Different greetings based on payment status (not payment method!)
   let greeting: string;
   let nextSteps: string;
   
   if (isEvent) {
-    greeting = isStripe
+    greeting = isPaid
       ? 'vielen Dank für Ihre Event-Buchung!'
       : 'vielen Dank für Ihre Event-Anfrage!';
-    nextSteps = isStripe
+    nextSteps = isPaid
       ? 'Ihre Zahlung wurde erfolgreich verarbeitet. Wir werden uns in Kürze mit Ihnen bezüglich der Menüauswahl in Verbindung setzen.'
       : 'Wir melden uns innerhalb von 24 Stunden bei Ihnen, um die Details Ihrer Veranstaltung zu besprechen.';
   } else {
-    greeting = isStripe
+    greeting = isPaid
       ? 'vielen Dank für Ihre Bestellung!'
       : 'vielen Dank für Ihre Anfrage!';
-    nextSteps = isStripe
+    nextSteps = isPaid
       ? 'Ihre Zahlung wurde erfolgreich verarbeitet. Wir bereiten Ihre Bestellung vor.'
       : 'Wir melden uns innerhalb von 24 Stunden bei Ihnen.';
   }
@@ -194,7 +195,7 @@ events-storia.de
 const generateRestaurantEmailText = (data: OrderNotificationRequest): string => {
   const subtotal = data.subtotal || data.totalAmount || 0;
   const grandTotal = data.grandTotal || data.totalAmount || 0;
-  const isStripe = data.paymentMethod === 'stripe';
+  const isPaid = data.paymentStatus === 'paid';
   const isEvent = data.isEventBooking === true;
 
   const now = new Date().toLocaleString('de-DE', {
@@ -203,16 +204,16 @@ const generateRestaurantEmailText = (data: OrderNotificationRequest): string => 
   });
 
   let paymentBanner = '';
-  if (isStripe) {
+  if (isPaid) {
     paymentBanner = `
 ╔════════════════════════════════════════════╗
-║  ✓ BEREITS BEZAHLT via Stripe/Kreditkarte  ║
+║  ✓ BEREITS BEZAHLT                         ║
 ╚════════════════════════════════════════════╝
 `;
   } else {
     paymentBanner = `
 ╔════════════════════════════════════════════╗
-║  Zahlung per Rechnung (Angebot)            ║
+║  Zahlung ausstehend (Anfrage)              ║
 ╚════════════════════════════════════════════╝
 `;
   }
@@ -377,24 +378,24 @@ const handler = async (req: Request): Promise<Response> => {
     const data: OrderNotificationRequest = await req.json();
     console.log("Received order notification request:", JSON.stringify(data, null, 2));
 
-    const isStripe = data.paymentMethod === 'stripe';
+    const isPaid = data.paymentStatus === 'paid';
     const isEvent = data.isEventBooking === true;
 
-    // Customer email subject
+    // Customer email subject - based on payment STATUS, not method
     const customerSubject = isEvent
-      ? (isStripe
+      ? (isPaid
         ? `Ihre Event-Buchung bei STORIA (${data.orderNumber})`
         : `Ihre Event-Anfrage bei STORIA (${data.orderNumber})`)
-      : (isStripe
+      : (isPaid
         ? `Ihre Catering-Bestellung bei STORIA (${data.orderNumber})`
         : `Ihre Catering-Anfrage bei STORIA (${data.orderNumber})`);
 
     // Restaurant email subject
     const restaurantSubject = isEvent
-      ? (isStripe
+      ? (isPaid
         ? `BEZAHLT: Neue Event-Buchung ${data.orderNumber}`
         : `Neue Event-Anfrage ${data.orderNumber}`)
-      : (isStripe
+      : (isPaid
         ? `BEZAHLT: Neue Bestellung ${data.orderNumber}`
         : `Neue Anfrage ${data.orderNumber}`);
 

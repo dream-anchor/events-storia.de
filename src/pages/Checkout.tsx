@@ -401,7 +401,7 @@ const Checkout = () => {
               const emailResponse = await supabase.functions.invoke('send-order-notification', {
                 body: {
                   ...orderPayload,
-                  isPaid: true // Mark as already paid for email text
+                  paymentStatus: 'paid' // Mark as already paid for email text
                 }
               });
               
@@ -885,7 +885,8 @@ const Checkout = () => {
               distanceKm: deliveryCalc?.distanceKm || undefined,
               grandTotal: grandTotal,
               billingAddress: needsBillingAddress ? billingAddress : undefined,
-              paymentMethod: paymentMethod
+              paymentMethod: paymentMethod,
+              paymentStatus: 'pending' // Invoice payments are always pending initially
             }
           });
           
