@@ -145,40 +145,24 @@ const EventPackageInquiryDialog = ({
     setIsSubmitting(true);
     
     try {
-      // Insert into event_inquiries
-      const { error } = await supabase.from("event_inquiries").insert({
-        company_name: formData.company,
-        contact_name: formData.name,
-        email: formData.email,
-        phone: formData.phone || null,
-        guest_count: formData.guestCount.toString(),
-        preferred_date: formData.date ? format(formData.date, "yyyy-MM-dd") : null,
-        time_slot: formData.time,
-        event_type: displayName,
-        message: formData.message || null,
-        source: "package_inquiry",
-        inquiry_type: "event",
-        status: "new",
-        selected_packages: [{ id: packageId, name: packageName, price: pricePerPerson }],
-      });
-
-      if (error) throw error;
-
-      // Send notification
-      await supabase.functions.invoke("receive-event-inquiry", {
+      // Use receive-event-inquiry Edge Function which handles BOTH:
+      // 1. Database insertion into event_inquiries
+      // 2. Email notifications to customer and restaurant
+      const { error } = await supabase.functions.invoke("receive-event-inquiry", {
         body: {
           companyName: formData.company,
           contactName: formData.name,
           email: formData.email,
-          phone: formData.phone,
-          guestCount: formData.guestCount,
-          preferredDate: formData.date ? format(formData.date, "dd.MM.yyyy") : null,
-          timeSlot: formData.time,
+          phone: formData.phone || undefined,
+          guestCount: formData.guestCount.toString(),
+          preferredDate: formData.date ? format(formData.date, "yyyy-MM-dd") : undefined,
           eventType: displayName,
-          message: formData.message,
-          source: "package_inquiry",
+          message: formData.message || undefined,
+          source: `package_inquiry_${packageId}`,
         },
       });
+
+      if (error) throw error;
 
       setIsSuccess(true);
       
