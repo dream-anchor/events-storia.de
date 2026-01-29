@@ -239,11 +239,120 @@ export type Database = {
         }
         Relationships: []
       }
+      event_bookings: {
+        Row: {
+          booking_number: string
+          company_name: string | null
+          created_at: string
+          customer_email: string
+          customer_name: string
+          event_date: string
+          event_time: string | null
+          guest_count: number
+          id: string
+          internal_notes: string | null
+          location_id: string | null
+          menu_confirmed: boolean | null
+          menu_selection: Json | null
+          package_id: string | null
+          payment_status: string | null
+          phone: string | null
+          source_inquiry_id: string | null
+          source_option_id: string | null
+          status: string | null
+          stripe_payment_intent_id: string | null
+          stripe_payment_link_id: string | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          booking_number: string
+          company_name?: string | null
+          created_at?: string
+          customer_email: string
+          customer_name: string
+          event_date: string
+          event_time?: string | null
+          guest_count: number
+          id?: string
+          internal_notes?: string | null
+          location_id?: string | null
+          menu_confirmed?: boolean | null
+          menu_selection?: Json | null
+          package_id?: string | null
+          payment_status?: string | null
+          phone?: string | null
+          source_inquiry_id?: string | null
+          source_option_id?: string | null
+          status?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_payment_link_id?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          booking_number?: string
+          company_name?: string | null
+          created_at?: string
+          customer_email?: string
+          customer_name?: string
+          event_date?: string
+          event_time?: string | null
+          guest_count?: number
+          id?: string
+          internal_notes?: string | null
+          location_id?: string | null
+          menu_confirmed?: boolean | null
+          menu_selection?: Json | null
+          package_id?: string | null
+          payment_status?: string | null
+          phone?: string | null
+          source_inquiry_id?: string | null
+          source_option_id?: string | null
+          status?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_payment_link_id?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_bookings_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_bookings_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_bookings_source_inquiry_id_fkey"
+            columns: ["source_inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_bookings_source_option_id_fkey"
+            columns: ["source_option_id"]
+            isOneToOne: false
+            referencedRelation: "inquiry_offer_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_inquiries: {
         Row: {
           company_name: string | null
           contact_name: string
+          converted_to_booking_id: string | null
           created_at: string
+          current_offer_version: number | null
           delivery_city: string | null
           delivery_street: string | null
           delivery_time_slot: string | null
@@ -265,6 +374,7 @@ export type Database = {
           quote_notes: string | null
           room_selection: string | null
           selected_items: Json | null
+          selected_option_id: string | null
           selected_packages: Json | null
           source: string | null
           status: string | null
@@ -274,7 +384,9 @@ export type Database = {
         Insert: {
           company_name?: string | null
           contact_name: string
+          converted_to_booking_id?: string | null
           created_at?: string
+          current_offer_version?: number | null
           delivery_city?: string | null
           delivery_street?: string | null
           delivery_time_slot?: string | null
@@ -296,6 +408,7 @@ export type Database = {
           quote_notes?: string | null
           room_selection?: string | null
           selected_items?: Json | null
+          selected_option_id?: string | null
           selected_packages?: Json | null
           source?: string | null
           status?: string | null
@@ -305,7 +418,9 @@ export type Database = {
         Update: {
           company_name?: string | null
           contact_name?: string
+          converted_to_booking_id?: string | null
           created_at?: string
+          current_offer_version?: number | null
           delivery_city?: string | null
           delivery_street?: string | null
           delivery_time_slot?: string | null
@@ -327,13 +442,132 @@ export type Database = {
           quote_notes?: string | null
           room_selection?: string | null
           selected_items?: Json | null
+          selected_option_id?: string | null
           selected_packages?: Json | null
           source?: string | null
           status?: string | null
           time_slot?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "event_inquiries_converted_to_booking_id_fkey"
+            columns: ["converted_to_booking_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inquiry_offer_history: {
+        Row: {
+          created_at: string
+          email_content: string | null
+          id: string
+          inquiry_id: string
+          options_snapshot: Json
+          pdf_url: string | null
+          sent_at: string
+          sent_by: string | null
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          email_content?: string | null
+          id?: string
+          inquiry_id: string
+          options_snapshot: Json
+          pdf_url?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          version: number
+        }
+        Update: {
+          created_at?: string
+          email_content?: string | null
+          id?: string
+          inquiry_id?: string
+          options_snapshot?: Json
+          pdf_url?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_offer_history_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inquiry_offer_options: {
+        Row: {
+          created_at: string
+          guest_count: number
+          id: string
+          inquiry_id: string
+          is_active: boolean | null
+          menu_selection: Json | null
+          offer_version: number
+          option_label: string
+          package_id: string | null
+          sort_order: number | null
+          stripe_payment_link_id: string | null
+          stripe_payment_link_url: string | null
+          total_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          guest_count: number
+          id?: string
+          inquiry_id: string
+          is_active?: boolean | null
+          menu_selection?: Json | null
+          offer_version?: number
+          option_label?: string
+          package_id?: string | null
+          sort_order?: number | null
+          stripe_payment_link_id?: string | null
+          stripe_payment_link_url?: string | null
+          total_amount: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          guest_count?: number
+          id?: string
+          inquiry_id?: string
+          is_active?: boolean | null
+          menu_selection?: Json | null
+          offer_version?: number
+          option_label?: string
+          package_id?: string | null
+          sort_order?: number | null
+          stripe_payment_link_id?: string | null
+          stripe_payment_link_url?: string | null
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_offer_options_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiry_offer_options_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       locations: {
         Row: {
@@ -860,6 +1094,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_booking_number: { Args: never; Returns: string }
       get_next_order_number: {
         Args: { p_prefix: string; p_year: number }
         Returns: number

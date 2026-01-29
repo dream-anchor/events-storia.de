@@ -32,3 +32,12 @@ verify_jwt = true
 
 [functions.create-event-quotation]
 verify_jwt = true
+
+[functions.create-offer-payment-link]
+verify_jwt = true
+
+[functions.handle-offer-payment]
+verify_jwt = false
+
+[functions.fetch-ristorante-menus]
+verify_jwt = false
