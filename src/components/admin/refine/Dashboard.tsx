@@ -61,7 +61,7 @@ export const Dashboard = () => {
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Neue Anfragen
               </CardTitle>
-              <AlertCircle className="h-4 w-4 text-amber-500" />
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{newEventsCount}</div>
@@ -76,7 +76,7 @@ export const Dashboard = () => {
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Menü offen
               </CardTitle>
-              <ChefHat className="h-4 w-4 text-primary" />
+              <ChefHat className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{pendingMenuCount}</div>
@@ -91,7 +91,7 @@ export const Dashboard = () => {
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Offene Bestellungen
               </CardTitle>
-              <Clock className="h-4 w-4 text-blue-500" />
+              <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{pendingOrdersCount}</div>
@@ -106,7 +106,7 @@ export const Dashboard = () => {
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Diese Woche
               </CardTitle>
-              <CalendarDays className="h-4 w-4 text-green-500" />
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{upcomingOrdersCount}</div>

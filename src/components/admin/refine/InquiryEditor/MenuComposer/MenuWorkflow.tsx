@@ -168,7 +168,7 @@ export const MenuWorkflow = ({
               <Icon className="h-4 w-4" />
               <span className="hidden sm:inline">{step.label}</span>
               {step.isComplete && (
-                <Check className="h-4 w-4 text-green-600" />
+                <Check className="h-4 w-4 text-primary" />
               )}
             </button>
           );

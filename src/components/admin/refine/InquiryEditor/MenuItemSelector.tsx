@@ -152,7 +152,7 @@ export const MenuItemSelector = ({
               <span>Catering-Katalog</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span className="w-2 h-2 rounded-full bg-primary"></span>
               <span>Ristorante Storia</span>
             </div>
           </div>

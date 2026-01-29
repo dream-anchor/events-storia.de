@@ -49,7 +49,7 @@ export const FloatingPillNav = ({
                   "ml-1 px-1.5 py-0 text-[10px] min-w-[18px] h-[18px] flex items-center justify-center",
                   isActive 
                     ? "bg-primary-foreground/20 text-primary-foreground" 
-                    : "bg-amber-500 text-white"
+                    : "bg-primary text-primary-foreground"
                 )}
               >
                 {badgeCount}
@@ -93,7 +93,7 @@ export const MobilePillNav = ({
                 "px-1.5 py-0.5 text-[10px] rounded-full min-w-[16px] text-center",
                 isActive 
                   ? "bg-primary-foreground/20 text-primary-foreground" 
-                  : "bg-amber-500 text-white"
+                  : "bg-primary text-primary-foreground"
               )}>
                 {badgeCount}
               </span>

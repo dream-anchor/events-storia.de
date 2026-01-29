@@ -40,7 +40,7 @@ export const CourseProgress = ({
               className={cn(
                 "flex items-center gap-2 px-3 py-2 rounded-lg transition-all",
                 "hover:bg-background/80",
-                status === 'completed' && "bg-green-100 text-green-800",
+                status === 'completed' && "bg-primary/10 text-primary",
                 status === 'active' && "bg-primary text-primary-foreground shadow-sm",
                 status === 'pending' && "bg-muted text-muted-foreground"
               )}

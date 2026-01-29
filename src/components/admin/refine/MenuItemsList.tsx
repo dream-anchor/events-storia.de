@@ -195,9 +195,9 @@ export const MenuItemsList = () => {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Utensils className="h-4 w-4 text-amber-600" />
+            <Utensils className="h-4 w-4 text-primary" />
             <span className="text-muted-foreground">
-              <strong className="text-amber-700">Ristorante Storia</strong> – Nur Ansicht, externe Daten
+              <strong className="text-primary">Ristorante Storia</strong> – Nur Ansicht, externe Daten
             </span>
           </div>
         </div>

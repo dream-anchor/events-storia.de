@@ -257,9 +257,9 @@ export const EventModules = ({
 
       {/* Prepayment Notice */}
       {requiresPrepayment && (
-        <Alert className="border-amber-500/50 bg-amber-50">
-          <CreditCard className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-800">
+        <Alert className="border-muted bg-muted/50">
+          <CreditCard className="h-4 w-4 text-muted-foreground" />
+          <AlertDescription className="text-foreground">
             <strong>Vorauszahlung erforderlich:</strong> Für dieses Event ist eine Vorauszahlung von 100% erforderlich.
           </AlertDescription>
         </Alert>
@@ -355,7 +355,7 @@ export const EventModules = ({
 
                         {/* Warning if min guests not met */}
                         {minGuestsNotMet && selected && (
-                          <div className="flex items-center gap-1.5 text-xs text-amber-600 mt-2">
+                          <div className="flex items-center gap-1.5 text-xs text-destructive mt-2">
                             <AlertTriangle className="h-3.5 w-3.5" />
                             <span>Personenzahl unter Minimum</span>
                           </div>
