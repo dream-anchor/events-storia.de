@@ -1,194 +1,140 @@
 
-# Sicherheits-Fixes: Edge Functions und RLS Policies
+# Plan: Staffelpreis für "Gesamte Location" Paket
 
-## Analyse der gefundenen Probleme
+## Geschäftslogik
 
-### 🔴 Kritisch: Edge Functions ohne Authentifizierung
-Diese Edge Functions sind öffentlich zugänglich, obwohl sie kritische Geschäftslogik ausführen:
+Das Paket "Gesamte Location" hat ein spezielles Preismodell:
 
-| Function | Problem | Lösung |
-|----------|---------|--------|
-| `create-lexoffice-invoice` | Erstellt Rechnungen/Angebote ohne Auth | In-Code Validierung: Order muss existieren, Email muss übereinstimmen |
-| `send-order-notification` | Sendet E-Mails ohne Auth | In-Code Validierung: Order muss in DB existieren |
-| `send-cancellation-notification` | Sendet Stornierung-Emails | Wird nur intern aufgerufen - API-Key/Signatur prüfen |
-| `handle-offer-payment` | Verarbeitet Zahlungen | Stripe Webhook Signatur bereits implementiert ✅ |
+| Gästeanzahl | Preis |
+|-------------|-------|
+| 70 Personen (Basis) | 8.500 € |
+| 71 Personen | 8.621,43 € (+121,43 €) |
+| 80 Personen | 9.714,30 € (+1.214,30 €) |
+| 100 Personen | 12.142,90 € (+3.642,90 €) |
 
-**Hinweis**: Diese Functions können nicht auf `verify_jwt = true` gesetzt werden, da sie:
-- Von nicht eingeloggten Kunden aufgerufen werden (Checkout)
-- Als Stripe Webhooks fungieren
-- Die bessere Lösung ist In-Code Validierung
+**Formel:** `Preis = 8.500 € + max(0, guestCount - 70) × (8.500 / 70)`
 
-### 🟡 Mittel: RLS Policies mit `WITH CHECK (true)`
-
-| Tabelle | Policy | Problem |
-|---------|--------|---------|
-| `catering_orders` | Anyone can insert | Erlaubt anonyme Inserts - **GEWOLLT** für Guest Checkout |
-| `event_inquiries` | Anyone can insert | Erlaubt anonyme Inserts - **GEWOLLT** für Kontaktformular |
-
-Diese sind **beabsichtigt** und notwendig für:
-- Gast-Bestellungen ohne Login
-- Event-Anfragen über das Kontaktformular
-
-### ✅ Bereits implementierte Sicherheitsmaßnahmen
-- `create-catering-payment` validiert bereits Order-Existenz und Email-Match
-- `cancel-catering-order` erfordert Admin-Auth
-- `get-lexoffice-document` erfordert Admin-Auth
-- RLS auf sensiblen Tabellen korrekt konfiguriert
+Der Aufpreis pro zusätzliche Person beträgt **121,43 €** (gerundet: 8.500 / 70).
 
 ---
 
-## Implementierungsplan
+## Technische Umsetzung
 
-### 1. `create-lexoffice-invoice` absichern
-**Datei**: `supabase/functions/create-lexoffice-invoice/index.ts`
+### Zentrale Preisberechnungsfunktion
 
-```typescript
-// Nach CORS-Handler (Zeile ~120):
-// SECURITY: Verify order exists and matches request data
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+Eine neue Utility-Funktion wird erstellt, die an allen relevanten Stellen verwendet wird:
 
-const { data: order, error: orderError } = await supabase
-  .from('catering_orders')
-  .select('id, order_number, customer_email, total_amount')
-  .eq('id', body.orderId)
-  .single();
-
-if (orderError || !order) {
-  return new Response(
-    JSON.stringify({ error: 'Order not found' }),
-    { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-// Verify email matches
-if (order.customer_email !== body.customerEmail) {
-  return new Response(
-    JSON.stringify({ error: 'Email mismatch' }),
-    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
+```text
+src/lib/eventPricing.ts (NEU)
 ```
 
-### 2. `send-order-notification` absichern
-**Datei**: `supabase/functions/send-order-notification/index.ts`
-
 ```typescript
-// Nach Request-Body-Parsing:
-// SECURITY: Verify order exists in database
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
+// Package ID für "Gesamte Location" 
+const LOCATION_PACKAGE_ID = 'b147ea52-9907-445f-9f39-b7ddecbb0ddf';
 
-// Check catering_orders first
-let orderExists = false;
-const { data: cateringOrder } = await supabase
-  .from('catering_orders')
-  .select('id, customer_email')
-  .eq('order_number', data.orderNumber)
-  .single();
+// Basis-Konfiguration
+const LOCATION_BASE_PRICE = 8500;
+const LOCATION_BASE_GUESTS = 70;
+const PRICE_PER_EXTRA_GUEST = LOCATION_BASE_PRICE / LOCATION_BASE_GUESTS; // 121.43€
 
-if (cateringOrder) {
-  orderExists = true;
-  // Verify email matches
-  if (cateringOrder.customer_email !== data.customerEmail) {
-    return new Response(
-      JSON.stringify({ error: 'Email mismatch' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+export function calculateEventPackagePrice(
+  packageId: string,
+  basePrice: number,
+  guestCount: number,
+  pricePerPerson: boolean
+): number {
+  // Standard per-person Pakete (Network-Aperitivo, Business Dinner)
+  if (pricePerPerson) {
+    return basePrice * guestCount;
   }
-} else if (data.isEventBooking) {
-  // Check event_bookings for event orders
-  const { data: eventBooking } = await supabase
-    .from('event_bookings')
-    .select('id, customer_email')
-    .eq('booking_number', data.orderNumber)
-    .single();
   
-  if (eventBooking) {
-    orderExists = true;
-    if (eventBooking.customer_email !== data.customerEmail) {
-      return new Response(
-        JSON.stringify({ error: 'Email mismatch' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+  // Spezialfall: "Gesamte Location" mit Staffelpreis
+  if (packageId === LOCATION_PACKAGE_ID || 
+      basePrice === LOCATION_BASE_PRICE) {
+    const extraGuests = Math.max(0, guestCount - LOCATION_BASE_GUESTS);
+    return LOCATION_BASE_PRICE + (extraGuests * PRICE_PER_EXTRA_GUEST);
   }
+  
+  // Andere Pauschalpakete: fester Preis
+  return basePrice;
 }
 
-if (!orderExists) {
-  return new Response(
-    JSON.stringify({ error: 'Order not found' }),
-    { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-```
-
-### 3. `send-cancellation-notification` absichern
-**Datei**: `supabase/functions/send-cancellation-notification/index.ts`
-
-Diese Function wird nur intern von `cancel-catering-order` aufgerufen. Wir fügen eine Validierung hinzu:
-
-```typescript
-// Nach Request-Body-Parsing:
-// SECURITY: Verify the order was actually cancelled in database
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
-
-const { data: order, error: orderError } = await supabase
-  .from('catering_orders')
-  .select('id, order_number, cancelled_at, customer_email')
-  .eq('order_number', data.orderNumber)
-  .single();
-
-if (orderError || !order) {
-  return new Response(
-    JSON.stringify({ error: 'Order not found' }),
-    { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-// Verify order is actually cancelled
-if (!order.cancelled_at) {
-  return new Response(
-    JSON.stringify({ error: 'Order is not cancelled' }),
-    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-// Verify email matches
-if (order.customer_email !== data.customerEmail) {
-  return new Response(
-    JSON.stringify({ error: 'Email mismatch' }),
-    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
+export function isLocationPackage(packageId: string, price?: number): boolean {
+  return packageId === LOCATION_PACKAGE_ID || price === LOCATION_BASE_PRICE;
 }
 ```
 
-### 4. Input-Validierung mit Zod (optional, empfohlen)
-Alle Edge Functions sollten die Eingabedaten mit Zod validieren:
+---
 
-```typescript
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+## Dateien die geändert werden
 
-const requestSchema = z.object({
-  orderNumber: z.string().min(1).max(50),
-  customerEmail: z.string().email().max(255),
-  customerName: z.string().min(1).max(100),
-  // ... weitere Felder
-});
+### 1. `src/lib/eventPricing.ts` (NEU)
+Zentrale Preisberechnungs-Utility mit der Staffelpreis-Logik.
 
-// In der Handler-Funktion:
-const parseResult = requestSchema.safeParse(body);
-if (!parseResult.success) {
-  return new Response(
-    JSON.stringify({ error: 'Invalid input', details: parseResult.error.flatten() }),
-    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-const data = parseResult.data;
+### 2. `src/components/events/EventPackageShopCard.tsx`
+- Import der neuen `calculateEventPackagePrice` Funktion
+- Ersetze Zeile 62: `const totalPrice = pkg.price_per_person ? pkg.price * guestCount : pkg.price;`
+- Mit: `const totalPrice = calculateEventPackagePrice(pkg.id, pkg.price, guestCount, !!pkg.price_per_person);`
+- Zeige dynamischen Gesamtpreis auch für das Location-Paket an (nicht nur bei `price_per_person`)
+- Aktualisiere den `handleAddToCart` um den berechneten Einzelpreis zu übergeben
+
+### 3. `src/contexts/CartContext.tsx`
+- Import der neuen Utility
+- Erweitere `CartItem` Interface um optionale Felder für Event-Pakete:
+  - `isEventPackage?: boolean`
+  - `baseGuestCount?: number` (Basis für Staffelpreis)
+- Passe `totalPrice` Berechnung an, um die Staffellogik zu berücksichtigen
+
+### 4. `src/components/cart/CartSheet.tsx`
+- Verwende die neue Preisberechnungsfunktion für die Anzeige
+- Zeige bei Location-Paket einen Hinweis: "8.500 € Basis + X Pers. × 121,43 €"
+
+### 5. `src/pages/Checkout.tsx`
+- Verwende dieselbe Berechnungslogik für die Checkout-Summen
+- Stelle sicher, dass der korrekte Preis an Stripe übergeben wird
+
+---
+
+## UI-Anpassungen im EventPackageShopCard
+
+**Vorher (Zeilen 200-210):**
+Zeigt Gesamtpreis nur bei `price_per_person`
+
+**Nachher:**
+Zeigt immer einen dynamischen Gesamtpreis wenn er vom Basispreis abweicht:
+
+```tsx
+{/* Total Price - for per-person OR tiered pricing */}
+{(pkg.price_per_person || (totalPrice !== pkg.price)) && (
+  <div className="text-center">
+    <span className="text-base text-muted-foreground">
+      {language === 'de' ? 'Gesamt:' : 'Total:'} 
+    </span>
+    <span className="text-xl font-bold text-primary ml-2">
+      {formatPrice(totalPrice)}
+    </span>
+    {/* Explanation for tiered pricing */}
+    {!pkg.price_per_person && totalPrice > pkg.price && (
+      <p className="text-xs text-muted-foreground mt-1">
+        {language === 'de' 
+          ? `Basis 8.500 € + ${guestCount - 70} Pers. × 121,43 €`
+          : `Base €8,500 + ${guestCount - 70} guests × €121.43`}
+      </p>
+    )}
+  </div>
+)}
+```
+
+---
+
+## Preisanzeige im Warenkorb
+
+Für das Location-Paket wird die Berechnung transparent dargestellt:
+
+```text
+Gesamte Location
+80 Gäste
+8.500 € + 10 × 121,43 € = 9.714,30 €
 ```
 
 ---
@@ -197,19 +143,10 @@ const data = parseResult.data;
 
 | Datei | Änderung |
 |-------|----------|
-| `supabase/functions/create-lexoffice-invoice/index.ts` | Order-Existenz und Email-Validierung hinzufügen |
-| `supabase/functions/send-order-notification/index.ts` | Order-Existenz und Email-Validierung hinzufügen |
-| `supabase/functions/send-cancellation-notification/index.ts` | Order-Stornierung und Email-Validierung hinzufügen |
+| `src/lib/eventPricing.ts` | NEUE Datei mit Staffelpreis-Logik |
+| `src/components/events/EventPackageShopCard.tsx` | Nutzt neue Berechnungsfunktion |
+| `src/contexts/CartContext.tsx` | Erweiterte Preisberechnung für Staffelpreise |
+| `src/components/cart/CartSheet.tsx` | Transparente Preisdarstellung |
+| `src/pages/Checkout.tsx` | Korrekte Summenberechnung |
 
-## Nicht geändert (bereits sicher oder beabsichtigt)
-- `calculate-delivery` - Öffentlich, nur Adress-Geocoding, keine sensiblen Daten
-- `receive-event-inquiry` - Öffentlich, wie gewünscht für Kontaktformular
-- `fetch-ristorante-menus` - Öffentlich, nur Menü-Daten lesen
-- `handle-offer-payment` - Stripe Webhook Signatur bereits validiert
-- RLS INSERT Policies - Beabsichtigt für Guest Checkout
-
-## Technische Details
-- Alle Validierungen verwenden Service Role Key für DB-Zugriff
-- Email-Vergleich verhindert dass Angreifer Emails an beliebige Adressen senden
-- Order-Existenz-Check verhindert Spam und ungültige Requests
-- Stornierung-Check verhindert gefälschte Stornierung-Emails
+Die Änderung ist rückwärtskompatibel – alle anderen Pakete (Network-Aperitivo, Business Dinner) funktionieren weiterhin unverändert.
