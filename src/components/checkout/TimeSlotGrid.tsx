@@ -6,6 +6,7 @@ interface TimeSlotGridProps {
   value: string;
   onChange: (time: string) => void;
   isPizzaOnly?: boolean;
+  isEventBooking?: boolean;
   className?: string;
 }
 
@@ -15,12 +16,27 @@ interface TimeGroup {
   slots: string[];
 }
 
-const TimeSlotGrid = ({ value, onChange, isPizzaOnly = false, className }: TimeSlotGridProps) => {
+/**
+ * Generates time slots based on delivery type:
+ * - Event (In-Haus): 17:30 - 21:30 (30 min intervals)
+ * - Delivery: 09:00 - 22:00 (30 min intervals)
+ * - Pizza: 12:00-14:30 and 18:00-22:30
+ */
+const TimeSlotGrid = ({ value, onChange, isPizzaOnly = false, isEventBooking = false, className }: TimeSlotGridProps) => {
   const { language } = useLanguage();
 
+  // Event times: 17:30-21:30 (In-Haus Event)
   // Pizza times: 12:00-14:30 and 18:00-22:30
-  // Catering times: 10:00-21:30
-  const timeGroups: TimeGroup[] = isPizzaOnly
+  // Delivery times: 09:00-22:00
+  const timeGroups: TimeGroup[] = isEventBooking
+    ? [
+        {
+          label: "Abend",
+          labelEn: "Evening",
+          slots: ["17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30"],
+        },
+      ]
+    : isPizzaOnly
     ? [
         {
           label: "Mittag",
@@ -37,7 +53,7 @@ const TimeSlotGrid = ({ value, onChange, isPizzaOnly = false, className }: TimeS
         {
           label: "Vormittag",
           labelEn: "Morning",
-          slots: ["10:00", "10:30", "11:00", "11:30"],
+          slots: ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30"],
         },
         {
           label: "Mittag",
@@ -52,7 +68,7 @@ const TimeSlotGrid = ({ value, onChange, isPizzaOnly = false, className }: TimeS
         {
           label: "Abend",
           labelEn: "Evening",
-          slots: ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30"],
+          slots: ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00"],
         },
       ];
 
@@ -60,7 +76,12 @@ const TimeSlotGrid = ({ value, onChange, isPizzaOnly = false, className }: TimeS
     <div className={cn("space-y-4", className)}>
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Clock className="h-4 w-4" />
-        <span>{language === "de" ? "Gewünschte Uhrzeit wählen" : "Select preferred time"}</span>
+        <span>
+          {isEventBooking
+            ? (language === "de" ? "Event-Startzeit wählen" : "Select event start time")
+            : (language === "de" ? "Gewünschte Uhrzeit wählen" : "Select preferred time")
+          }
+        </span>
       </div>
 
       {timeGroups.map((group) => (
