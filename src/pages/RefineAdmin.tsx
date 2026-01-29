@@ -6,6 +6,7 @@ import { supabaseAuthProvider } from "@/providers/refine-auth-provider";
 import { Dashboard, EventsList, OrdersList, MenuItemsList, PackagesList, PackageEdit, LocationEdit, EventBookingsList, EventBookingEditor } from "@/components/admin/refine";
 import { CateringOrderEditor } from "@/components/admin/refine/CateringOrderEditor";
 import { SmartInquiryEditor } from "@/components/admin/refine/InquiryEditor";
+import { AdminOfferCreate } from "@/components/admin/refine/OfferCreate";
 
 const resources = [
   {
@@ -64,6 +65,7 @@ export const RefineAdminApp = () => {
         <Route index element={<Dashboard />} />
         <Route path="events">
           <Route index element={<EventsList />} />
+          <Route path="create" element={<AdminOfferCreate />} />
           <Route path=":id/edit" element={<SmartInquiryEditor />} />
         </Route>
         <Route path="bookings">
