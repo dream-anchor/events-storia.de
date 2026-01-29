@@ -5,115 +5,38 @@ interface PaymentLogosProps {
 }
 
 const PaymentLogos = ({ className }: PaymentLogosProps) => {
+  // Using official Stripe payment method icons
+  const paymentMethods = [
+    { name: "Visa", icon: "https://js.stripe.com/v3/fingerprinted/img/visa-729c05c240c4bdb47b03ac81d9945bfe.svg" },
+    { name: "Mastercard", icon: "https://js.stripe.com/v3/fingerprinted/img/mastercard-4d8844094130711885b5e41b28c9848f.svg" },
+    { name: "American Express", icon: "https://js.stripe.com/v3/fingerprinted/img/amex-a49b82f46c5cd6a96a6e418a6ca1717c.svg" },
+    { name: "Apple Pay", icon: "https://js.stripe.com/v3/fingerprinted/img/apple_pay-ea008df2e8b0ca5ac5a274f66e29ed3c.svg" },
+    { name: "Google Pay", icon: "https://js.stripe.com/v3/fingerprinted/img/google_pay-873d5735aa48c09a4f98d7a95f6b8b2b.svg" },
+    { name: "Klarna", icon: "https://js.stripe.com/v3/fingerprinted/img/klarna-3dc57b1e9ed48fb9f9f8b0a4bfa08b95.svg" },
+    { name: "SEPA", icon: "https://js.stripe.com/v3/fingerprinted/img/sepa_debit-e94b4918b4e88b869a34ab4bd7d48c68.svg" },
+    { name: "giropay", icon: "https://js.stripe.com/v3/fingerprinted/img/giropay-3ae73a54dea5e1cd0a9fc0078f8d2cb3.svg" },
+    { name: "iDEAL", icon: "https://js.stripe.com/v3/fingerprinted/img/ideal-8b728b0208fce4d9e3858e19f32c6c7f.svg" },
+    { name: "EPS", icon: "https://js.stripe.com/v3/fingerprinted/img/eps-6a8d7f9a05c1e7cd377afd3df17e4e41.svg" },
+    { name: "Bancontact", icon: "https://js.stripe.com/v3/fingerprinted/img/bancontact-35dc7b31c9c63f044b7e4e7e6b6d5c7e.svg" },
+    { name: "Sofort", icon: "https://js.stripe.com/v3/fingerprinted/img/sofort-b8c4c1a1f69fea5d2fea1f2ae4c48e2e.svg" },
+  ];
+
   return (
     <div className={cn("flex items-center justify-center gap-2 flex-wrap", className)}>
-      {/* Visa */}
-      <div className="h-6 px-2 bg-white rounded border flex items-center justify-center">
-        <svg viewBox="0 0 48 32" className="h-4 w-auto" fill="none">
-          <rect width="48" height="32" rx="4" fill="white"/>
-          <path d="M19.5 21.5L21.5 10.5H24.5L22.5 21.5H19.5Z" fill="#1A1F71"/>
-          <path d="M32 10.5L29.5 18L29 15.5L28 11.5C28 11.5 27.8 10.5 26.5 10.5H22L21.9 10.7C21.9 10.7 23.5 11.1 25.2 12.2L28 21.5H31.2L35 10.5H32Z" fill="#1A1F71"/>
-          <path d="M16.5 10.5L13 21.5H9.5L7.5 12.5C7.5 12 7.2 11.6 6.7 11.4C5.9 11 4.5 10.6 3.5 10.4L3.6 10.1H8.5C9.3 10.1 10 10.7 10.2 11.5L11.3 17.5L14.3 10.5H16.5Z" fill="#1A1F71"/>
-          <path d="M29 15.5L28 11.5C28 11.5 27.8 10.5 26.5 10.5H22L21.9 10.7C21.9 10.7 24.5 11.4 27 13.5C27 13.5 28.3 14.7 29 15.5Z" fill="#F9A533"/>
-        </svg>
-      </div>
-
-      {/* Mastercard */}
-      <div className="h-6 px-2 bg-white rounded border flex items-center justify-center">
-        <svg viewBox="0 0 48 32" className="h-4 w-auto" fill="none">
-          <rect width="48" height="32" rx="4" fill="white"/>
-          <circle cx="19" cy="16" r="8" fill="#EB001B"/>
-          <circle cx="29" cy="16" r="8" fill="#F79E1B"/>
-          <path d="M24 10.5C25.8 12 27 14.3 27 16.9C27 19.5 25.8 21.8 24 23.3C22.2 21.8 21 19.5 21 16.9C21 14.3 22.2 12 24 10.5Z" fill="#FF5F00"/>
-        </svg>
-      </div>
-
-      {/* Apple Pay */}
-      <div className="h-6 px-2 bg-black rounded border flex items-center justify-center">
-        <svg viewBox="0 0 48 20" className="h-3 w-auto" fill="white">
-          <path d="M8.4 3.8C7.7 4.6 6.7 5.2 5.8 5.1C5.7 4.2 6.1 3.2 6.8 2.5C7.5 1.7 8.6 1.2 9.4 1.1C9.5 2.1 9.1 3 8.4 3.8ZM9.4 5.4C8.1 5.3 6.9 6.1 6.3 6.1C5.6 6.1 4.6 5.4 3.5 5.5C2.1 5.5 0.8 6.2 0.1 7.4C-1.3 9.8 -0.2 13.3 1.2 15.3C1.8 16.3 2.6 17.4 3.7 17.4C4.7 17.3 5.1 16.7 6.4 16.7C7.6 16.7 8 17.4 9.1 17.3C10.2 17.3 10.9 16.3 11.6 15.3C12.3 14.2 12.6 13.1 12.6 13.1C12.6 13.1 10.5 12.2 10.5 9.8C10.5 7.8 12.2 6.8 12.3 6.8C11.3 5.3 9.8 5.4 9.4 5.4Z"/>
-          <path d="M17.5 2.2V17.2H20V11.8H23.5C26.6 11.8 28.8 9.7 28.8 6.9C28.8 4.2 26.7 2.2 23.6 2.2H17.5ZM20 4.4H22.9C25 4.4 26.2 5.5 26.2 7C26.2 8.5 25 9.6 22.9 9.6H20V4.4Z"/>
-          <path d="M34.5 17.4C36.2 17.4 37.8 16.5 38.5 15H38.6V17.2H40.9V9.5C40.9 6.8 38.8 5.1 35.5 5.1C32.4 5.1 30.2 6.8 30.1 9.2H32.4C32.6 8 33.7 7.2 35.4 7.2C37.4 7.2 38.5 8.1 38.5 9.8V10.9L35 11.1C31.7 11.3 29.9 12.7 29.9 15.2C29.9 16.7 31.4 17.4 34.5 17.4ZM35.2 15.4C33.5 15.4 32.4 14.7 32.4 13.5C32.4 12.3 33.4 11.6 35.4 11.5L38.5 11.3V12.4C38.5 14.1 37 15.4 35.2 15.4Z"/>
-          <path d="M43.5 21.5V19.3C43.7 19.4 44.2 19.4 44.4 19.4C45.5 19.4 46.2 18.9 46.6 17.7L46.8 17.1L42 5.3H44.6L48 14.8H48.1L51.5 5.3H54L48.8 18C47.7 21 46.4 21.6 44.2 21.6C44 21.6 43.7 21.5 43.5 21.5Z"/>
-        </svg>
-      </div>
-
-      {/* Amazon Pay */}
-      <div className="h-6 px-2 bg-[#232F3E] rounded border flex items-center justify-center">
-        <svg viewBox="0 0 60 18" className="h-3 w-auto" fill="none">
-          <path d="M35.5 14.2C32.2 16.6 27.5 17.9 23.4 17.9C17.5 17.9 12.2 15.6 8.2 11.9C7.9 11.6 8.2 11.2 8.5 11.5C12.8 15.4 18.3 17.7 24.1 17.7C28 17.7 32.3 16.7 36.2 14.6C36.8 14.3 37.3 14.9 36.7 15.3" fill="#FF9900"/>
-          <path d="M37.9 12.7C37.5 12.2 35.2 12.5 34.2 12.6C33.9 12.6 33.8 12.4 34.1 12.2C35.8 11 38.6 11.4 39 11.8C39.4 12.2 38.9 15 37.3 16.5C37 16.8 36.8 16.6 36.9 16.4C37.2 15.6 38.3 13.2 37.9 12.7Z" fill="#FF9900"/>
-          <path d="M34.3 2V0.7C34.3 0.5 34.5 0.3 34.7 0.3H40.6C40.8 0.3 41 0.5 41 0.7V1.8C41 2 40.8 2.3 40.5 2.7L37.4 7.2C38.5 7.2 39.7 7.4 40.6 7.9C40.8 8 40.9 8.2 40.9 8.5V9.8C40.9 10.1 40.6 10.3 40.3 10.2C38.4 9.2 35.9 9.1 33.8 10.2C33.5 10.4 33.2 10.1 33.2 9.8V8.6C33.2 8.3 33.2 7.7 33.6 7.1L37.1 2H34.7C34.5 2 34.3 1.8 34.3 1.6V2Z" fill="white"/>
-          <path d="M12.1 10.5H10.3C10.1 10.5 10 10.3 10 10.2V0.8C10 0.6 10.2 0.4 10.4 0.4H12C12.2 0.4 12.4 0.6 12.4 0.8V2.2H12.5C13 0.8 14 0.1 15.5 0.1C17 0.1 17.9 0.8 18.5 2.2C19 0.8 20.2 0.1 21.6 0.1C22.6 0.1 23.7 0.5 24.3 1.5C25 2.6 24.8 4.1 24.8 5.4V10.1C24.8 10.3 24.6 10.5 24.4 10.5H22.6C22.4 10.5 22.3 10.3 22.3 10.1V6.1C22.3 5.5 22.4 4.2 22.2 3.7C21.9 2.9 21.3 2.6 20.6 2.6C20 2.6 19.3 3 19 3.7C18.7 4.4 18.7 5.4 18.7 6.1V10.1C18.7 10.3 18.5 10.5 18.3 10.5H16.5C16.3 10.5 16.2 10.3 16.2 10.1V6.1C16.2 4.6 16.4 2.5 14.6 2.5C12.8 2.5 12.8 4.5 12.8 6.1V10.1C12.8 10.3 12.6 10.5 12.4 10.5H12.1Z" fill="white"/>
-          <path d="M28.8 0.1C31.8 0.1 33.4 2.6 33.4 5.7C33.4 8.7 31.6 11.1 28.8 11.1C25.9 11.1 24.3 8.6 24.3 5.6C24.3 2.5 25.9 0.1 28.8 0.1ZM28.8 2.2C27 2.2 26.9 4.6 26.9 6C26.9 7.4 26.9 9 28.8 9C30.6 9 30.7 6.5 30.7 5C30.7 4 30.6 2.7 30.2 2.8C29.7 2.4 29.2 2.2 28.8 2.2Z" fill="white"/>
-          <path d="M44.9 10.5H43.1C42.9 10.5 42.8 10.3 42.8 10.1V0.7C42.8 0.5 43 0.3 43.2 0.3H44.9C45.1 0.3 45.2 0.5 45.2 0.7V2.3H45.3C45.9 0.9 46.7 0.1 48.3 0.1C49.4 0.1 50.4 0.5 51 1.5C51.6 2.5 51.6 4 51.6 5.2V10.2C51.6 10.4 51.4 10.5 51.2 10.5H49.4C49.2 10.5 49.1 10.4 49.1 10.2V6C49.1 4.5 49.3 2.5 47.5 2.5C46.9 2.5 46.3 2.9 46 3.5C45.6 4.2 45.5 5 45.5 5.7V10.1C45.5 10.3 45.3 10.5 45.1 10.5H44.9Z" fill="white"/>
-          <path d="M7.3 6C7.3 6.8 7.3 7.5 6.9 8.2C6.6 8.8 6 9.2 5.4 9.2C4.6 9.2 4.1 8.6 4.1 7.8C4.1 6.1 5.6 5.8 7.3 5.8V6ZM9.5 10.5C9.4 10.6 9.2 10.6 9.1 10.5C8.5 10 8.4 9.7 8.1 9.3C7.2 10.2 6.6 10.5 5.4 10.5C3.9 10.5 2.8 9.6 2.8 7.8C2.8 6.3 3.7 5.4 4.9 4.9C6 4.5 7.3 4.4 8.2 4.3V4.1C8.2 3.6 8.2 3 7.9 2.6C7.7 2.2 7.2 2 6.8 2C6 2 5.3 2.4 5.1 3.2C5.1 3.4 4.9 3.5 4.7 3.5L3 3.3C2.8 3.3 2.6 3.1 2.7 2.9C3.1 1.1 4.7 0.5 6.5 0.5C7.4 0.5 8.6 0.7 9.3 1.4C10.2 2.2 10.1 3.3 10.1 4.5V7.3C10.1 8.1 10.4 8.5 10.7 9C10.8 9.1 10.8 9.3 10.7 9.4C10.3 9.8 9.6 10.4 9.3 10.6L9.5 10.5Z" fill="white"/>
-        </svg>
-      </div>
-
-      {/* Klarna */}
-      <div className="h-6 px-2 bg-[#FFB3C7] rounded border flex items-center justify-center">
-        <svg viewBox="0 0 60 20" className="h-3 w-auto" fill="none">
-          <path d="M5.5 0H2.8V15H5.5V0Z" fill="black"/>
-          <path d="M16.5 0H13.5C13.5 3.1 12.1 5.9 9.7 7.7L8.4 8.7L14.1 15H17.8L12.5 8.7C15 6.4 16.5 3.4 16.5 0Z" fill="black"/>
-          <path d="M17.2 15H19.9V0H17.2V15Z" fill="black"/>
-          <path d="M29.4 4.4C28.4 4.4 27.5 4.7 26.8 5.3V4.6H24.3V15H26.9V9.5C26.9 7.8 28 6.9 29.4 6.9C30.9 6.9 31.8 7.9 31.8 9.5V15H34.4V8.8C34.4 6.1 32.4 4.4 29.4 4.4Z" fill="black"/>
-          <path d="M44.5 4.6V5.2C43.6 4.6 42.5 4.3 41.3 4.3C37.9 4.3 35.2 7 35.2 10.3C35.2 13.6 37.9 16.3 41.3 16.3C42.5 16.3 43.6 16 44.5 15.4V15H47V4.6H44.5ZM41.6 13.5C39.7 13.5 38.2 12 38.2 10C38.2 8 39.7 6.5 41.6 6.5C43.5 6.5 45 8 45 10C45 12 43.5 13.5 41.6 13.5Z" fill="black"/>
-          <path d="M52.5 4.6V5.8C51.6 4.8 50.4 4.3 49 4.3V7C50.6 7 51.8 8.1 51.8 10V15H54.4V10C54.4 6.9 53.7 4.6 52.5 4.6Z" fill="black"/>
-          <path d="M58 4.6C56.8 4.6 55.8 5.6 55.8 6.8C55.8 8 56.8 9 58 9C59.2 9 60.2 8 60.2 6.8C60.2 5.6 59.2 4.6 58 4.6Z" fill="black"/>
-          <path d="M8.7 15H6V4.6H8.7V15Z" fill="black"/>
-        </svg>
-      </div>
-
-      {/* Link (Stripe) */}
-      <div className="h-6 px-2 bg-[#00D66F] rounded border flex items-center justify-center">
-        <span className="text-white text-[10px] font-bold tracking-tight">Link</span>
-      </div>
-
-      {/* EPS */}
-      <div className="h-6 px-2 bg-[#C8017B] rounded border flex items-center justify-center">
-        <span className="text-white text-[10px] font-bold tracking-tight">EPS</span>
-      </div>
-
-      {/* Bancontact */}
-      <div className="h-6 px-2 bg-[#005498] rounded border flex items-center justify-center">
-        <span className="text-white text-[10px] font-bold tracking-tight">Bancontact</span>
-      </div>
-
-      {/* BLIK */}
-      <div className="h-6 px-2 bg-[#E30613] rounded border flex items-center justify-center">
-        <span className="text-white text-[10px] font-bold tracking-tight">BLIK</span>
-      </div>
-
-      {/* TWINT */}
-      <div className="h-6 px-2 bg-[#000000] rounded border flex items-center justify-center">
-        <span className="text-white text-[10px] font-bold tracking-tight">TWINT</span>
-      </div>
-
-      {/* Billie (B2B Invoice) */}
-      <div className="h-6 px-2 bg-[#0A2540] rounded border flex items-center justify-center">
-        <span className="text-white text-[10px] font-bold tracking-tight">Billie</span>
-      </div>
-
-      {/* Samsung Pay */}
-      <div className="h-6 px-2 bg-[#1428A0] rounded border flex items-center justify-center">
-        <span className="text-white text-[10px] font-bold tracking-tight">Samsung Pay</span>
-      </div>
-
-      {/* Kakao Pay */}
-      <div className="h-6 px-2 bg-[#FFE812] rounded border flex items-center justify-center">
-        <span className="text-black text-[10px] font-bold tracking-tight">Kakao Pay</span>
-      </div>
-
-      {/* Naver Pay */}
-      <div className="h-6 px-2 bg-[#03C75A] rounded border flex items-center justify-center">
-        <span className="text-white text-[10px] font-bold tracking-tight">Naver Pay</span>
-      </div>
-
-      {/* PAYCO */}
-      <div className="h-6 px-2 bg-[#E5001B] rounded border flex items-center justify-center">
-        <span className="text-white text-[10px] font-bold tracking-tight">PAYCO</span>
-      </div>
+      {paymentMethods.map((method) => (
+        <div 
+          key={method.name}
+          className="h-7 px-2 bg-white rounded border flex items-center justify-center"
+          title={method.name}
+        >
+          <img 
+            src={method.icon} 
+            alt={method.name} 
+            className="h-5 w-auto max-w-[40px] object-contain"
+            loading="lazy"
+          />
+        </div>
+      ))}
     </div>
   );
 };
