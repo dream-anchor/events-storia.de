@@ -200,20 +200,22 @@ ${context}`
 
 ${context}`;
 
-    // Use Lovable AI API
+    // Use Lovable AI API - correct endpoint
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    const response = await fetch('https://api.lovable.dev/v1/chat/completions', {
+    console.log('Calling Lovable AI API...');
+
+    const response = await fetch('https://ai.lovable.dev/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -225,8 +227,8 @@ ${context}`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI API error:', errorText);
-      throw new Error(`AI API error: ${response.status}`);
+      console.error('Lovable AI API error:', response.status, errorText);
+      throw new Error(`Lovable AI API error: ${response.status} - ${errorText}`);
     }
 
     const aiResponse = await response.json();
