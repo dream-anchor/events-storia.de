@@ -321,7 +321,7 @@ Datum: ${data.desiredDate ? formatDate(data.desiredDate) : 'Auf Anfrage'}
 Uhrzeit: ${data.desiredTime ? data.desiredTime + ' Uhr' : 'Auf Anfrage'}
 ${notesSection}${billingSection}
 ────────────────────────────────────────────
-Admin-Bereich: https://storia-catering.lovable.app/admin
+Admin-Bereich: https://events-storia.de/admin
 ════════════════════════════════════════════
 `;
 };

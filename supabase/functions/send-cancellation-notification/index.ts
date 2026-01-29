@@ -179,7 +179,7 @@ Ursprünglicher Bestellwert: ${formatPrice(data.totalAmount)}
 AUTOMATISCHE AKTIONEN
 ${actionsSummary}
 ────────────────────────────────────────────
-Admin-Bereich: https://storia-catering.lovable.app/admin
+Admin-Bereich: https://events-storia.de/admin
 ════════════════════════════════════════════
 `;
 };
