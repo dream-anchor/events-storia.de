@@ -126,15 +126,17 @@ serve(async (req) => {
     const base64 = btoa(binary);
     
     // Generate filename based on order type
+    // Shop orders are always Stripe-paid, so they're always invoices/confirmations
     let docTypeLabel: string;
     if (order.order_number.startsWith('EVT-BUCHUNG')) {
       docTypeLabel = 'Bestellbestaetigung';
     } else if (order.lexoffice_document_type === 'invoice' || 
-               order.order_number.includes('-RECHNUNG') || 
-               order.order_number.includes('-BESTELLUNG')) {
+               order.order_number.includes('-BESTELLUNG') ||
+               order.order_number.includes('-RECHNUNG')) {
       docTypeLabel = 'Rechnung';
     } else {
-      docTypeLabel = 'Angebot';
+      // Fallback for legacy orders
+      docTypeLabel = 'Dokument';
     }
     const filename = `STORIA_${docTypeLabel}_${order.order_number}.pdf`;
     

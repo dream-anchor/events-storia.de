@@ -623,19 +623,16 @@ const Checkout = () => {
     setFormData(prev => ({ ...prev, [target.name]: target.value }));
   };
 
-  const generateOrderNumber = (isStripePaid: boolean = false, isEvent: boolean = false) => {
+  // Generate order number - Shop orders are always Stripe-paid
+  // EVT-BUCHUNG for events, CAT-BESTELLUNG for catering
+  const generateOrderNumber = (isEvent: boolean = false) => {
     const date = new Date();
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
     const sequence = Math.floor(Date.now() / 1000) % 1000 + 100;
     
-    let prefix: string;
-    if (isEvent) {
-      prefix = 'EVT-BUCHUNG';
-    } else {
-      prefix = isStripePaid ? 'CAT-BESTELLUNG' : 'CAT-ANGEBOT';
-    }
+    const prefix = isEvent ? 'EVT-BUCHUNG' : 'CAT-BESTELLUNG';
     return `${prefix}-${day}-${month}-${year}-${sequence}`;
   };
 
@@ -729,7 +726,7 @@ const Checkout = () => {
     }
 
     setIsSubmitting(true);
-    const newOrderNumber = generateOrderNumber(paymentMethod === 'stripe', isEventBooking);
+    const newOrderNumber = generateOrderNumber(isEventBooking);
     const existingUserId = user?.id || null;
 
     const orderItems = [
