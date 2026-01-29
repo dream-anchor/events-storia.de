@@ -80,9 +80,39 @@ const PaymentLogos = ({ className }: PaymentLogosProps) => {
         <span className="text-white text-[10px] font-bold tracking-tight">Bancontact</span>
       </div>
 
+      {/* BLIK */}
+      <div className="h-6 px-2 bg-[#E30613] rounded border flex items-center justify-center">
+        <span className="text-white text-[10px] font-bold tracking-tight">BLIK</span>
+      </div>
+
+      {/* TWINT */}
+      <div className="h-6 px-2 bg-[#000000] rounded border flex items-center justify-center">
+        <span className="text-white text-[10px] font-bold tracking-tight">TWINT</span>
+      </div>
+
       {/* Billie (B2B Invoice) */}
       <div className="h-6 px-2 bg-[#0A2540] rounded border flex items-center justify-center">
         <span className="text-white text-[10px] font-bold tracking-tight">Billie</span>
+      </div>
+
+      {/* Samsung Pay */}
+      <div className="h-6 px-2 bg-[#1428A0] rounded border flex items-center justify-center">
+        <span className="text-white text-[10px] font-bold tracking-tight">Samsung Pay</span>
+      </div>
+
+      {/* Kakao Pay */}
+      <div className="h-6 px-2 bg-[#FFE812] rounded border flex items-center justify-center">
+        <span className="text-black text-[10px] font-bold tracking-tight">Kakao Pay</span>
+      </div>
+
+      {/* Naver Pay */}
+      <div className="h-6 px-2 bg-[#03C75A] rounded border flex items-center justify-center">
+        <span className="text-white text-[10px] font-bold tracking-tight">Naver Pay</span>
+      </div>
+
+      {/* PAYCO */}
+      <div className="h-6 px-2 bg-[#E5001B] rounded border flex items-center justify-center">
+        <span className="text-white text-[10px] font-bold tracking-tight">PAYCO</span>
       </div>
     </div>
   );
