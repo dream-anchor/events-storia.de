@@ -302,6 +302,36 @@ export const CourseSelector = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Current Selection Summary - always visible */}
+        {currentSelection && (currentSelection.itemId || currentSelection.isCustom) && (
+          <div className="p-4 rounded-xl border-2 border-primary bg-primary/5">
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground mb-1">Aktuelle Auswahl</p>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-semibold">{currentSelection.itemName}</h4>
+                  {currentSelection.itemSource === 'ristorante' && (
+                    <Utensils className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  {currentSelection.itemSource === 'catering' && (
+                    <ChefHat className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  {currentSelection.isCustom && (
+                    <Badge variant="outline" className="text-xs">Manuell</Badge>
+                  )}
+                </div>
+                {currentSelection.itemDescription && (
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                    {currentSelection.itemDescription}
+                  </p>
+                )}
+              </div>
+              <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                <Check className="h-4 w-4 text-primary-foreground" />
+              </div>
+            </div>
+          </div>
+        )}
         {/* Search Mode Toggle */}
         <div className="flex gap-2 p-1 bg-muted rounded-full">
           <button
