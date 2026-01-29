@@ -105,12 +105,12 @@ const CateringCard = ({ item, language, index }: { item: CateringItem; language:
       <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors duration-300" />
       
       {/* Text-Container mit Glassmorphism */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
-        <div className="backdrop-blur-sm bg-black/20 rounded-lg p-3">
-          <h3 className="text-2xl md:text-3xl font-serif font-semibold mb-1 text-white drop-shadow-lg">
+      <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
+        <div className="backdrop-blur-sm bg-black/20 rounded-lg p-2.5">
+          <h3 className="text-lg md:text-xl font-serif font-semibold mb-0.5 text-white drop-shadow-lg">
             {title}
           </h3>
-          <p className="text-lg md:text-xl text-white/90 leading-relaxed drop-shadow-md line-clamp-2">
+          <p className="text-sm md:text-base text-white/90 leading-snug drop-shadow-md line-clamp-2">
             {description}
           </p>
         </div>
