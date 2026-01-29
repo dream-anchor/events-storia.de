@@ -488,6 +488,9 @@ const Checkout = () => {
             const successData = JSON.parse(successDataStr);
             localStorage.removeItem(successDataKey);
             
+            // Clear cart after successful payment
+            clearCart();
+            
             // Navigate to success page with order details
             navigate('/konto/bestellung-erfolgreich', {
               state: {
@@ -501,6 +504,7 @@ const Checkout = () => {
           } catch (parseErr) {
             console.error('Error parsing success data:', parseErr);
             // Fallback: navigate without details
+            clearCart();
             navigate('/konto/bestellung-erfolgreich', {
               state: { orderNumber: orderNum },
               replace: true
@@ -508,6 +512,7 @@ const Checkout = () => {
           }
         } else {
           // No cached data, navigate with minimal info
+          clearCart();
           navigate('/konto/bestellung-erfolgreich', {
             state: { orderNumber: orderNum },
             replace: true
@@ -1142,7 +1147,7 @@ const Checkout = () => {
           }
 
           // Redirect to Stripe Checkout - use direct assignment with fallback
-          clearCart();
+          // Note: Cart is NOT cleared here - it will be cleared after successful payment return
           
           // Try immediate redirect
           try {
