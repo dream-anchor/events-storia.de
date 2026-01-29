@@ -157,7 +157,7 @@ const Checkout = () => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [addressDebounce, setAddressDebounce] = useState<NodeJS.Timeout | null>(null);
   const [dateTimeWarning, setDateTimeWarning] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'invoice' | 'stripe'>('stripe');
+  const [paymentMethod] = useState<'stripe'>('stripe'); // Billie B2B invoice now handled via Stripe Checkout
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [newsletterSignup, setNewsletterSignup] = useState(true);
@@ -929,99 +929,8 @@ const Checkout = () => {
         if (error) throw error;
       }
 
-      // Send email notifications
-      // For Stripe payments: email is sent AFTER successful payment (see handlePaymentSuccess)
-      // For invoice payments: email is sent immediately
-      if (paymentMethod === 'invoice') {
-        try {
-          const emailResponse = await supabase.functions.invoke('send-order-notification', {
-            body: {
-              orderNumber: newOrderNumber,
-              customerName: formData.name,
-              customerEmail: formData.email,
-              customerPhone: formData.phone,
-              companyName: formData.company || undefined,
-              deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
-              isPickup: formData.deliveryType === 'pickup',
-              isEventBooking: isEventBooking,
-              eventPackageName: eventItem?.name || undefined,
-              guestCount: eventGuestCount || undefined,
-              desiredDate: formData.date || undefined,
-              desiredTime: formData.time || undefined,
-              notes: fullNotes || undefined,
-              items: orderItems,
-              subtotal: totalPrice,
-              deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-              deliveryCostNet: deliveryCalc?.deliveryCostNet || 0,
-              deliveryVat: deliveryCalc?.deliveryVat || 0,
-              minimumOrderSurcharge: minimumOrderSurcharge,
-              distanceKm: deliveryCalc?.distanceKm || undefined,
-              grandTotal: grandTotal,
-              billingAddress: needsBillingAddress ? billingAddress : undefined,
-              paymentMethod: paymentMethod,
-              paymentStatus: 'pending' // Invoice payments are always pending initially
-            }
-          });
-          
-          if (emailResponse.error) {
-            console.error('Email notification error:', emailResponse.error);
-          }
-        } catch (emailError) {
-          console.error('Email notification error:', emailError);
-        }
-      }
-
-      // Create Lexoffice document:
-      // - For invoice payment: Create QUOTATION (Angebot) immediately
-      // - For Stripe payment: Invoice (Rechnung) will be created after successful payment
-      if (paymentMethod === 'invoice') {
-        try {
-          const invoiceResponse = await supabase.functions.invoke('create-lexoffice-invoice', {
-            body: {
-              orderId: orderId,
-              orderNumber: newOrderNumber,
-              customerName: formData.name,
-              customerEmail: formData.email,
-              customerPhone: formData.phone,
-              companyName: formData.company || undefined,
-              billingAddress: billingAddress,
-              items: orderItems,
-              subtotal: totalPrice,
-              deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-              deliveryCostNet: deliveryCalc?.deliveryCostNet || 0,
-              deliveryVat: deliveryCalc?.deliveryVat || 0,
-              minimumOrderSurcharge: minimumOrderSurcharge,
-              distanceKm: deliveryCalc?.distanceKm || undefined,
-              grandTotal: grandTotal,
-              isPickup: formData.deliveryType === 'pickup',
-              isEventBooking: isEventBooking,
-              documentType: 'quotation', // Angebot für unbezahlte Bestellungen
-              isPaid: false,
-              // Additional order details
-              desiredDate: formData.date || undefined,
-              desiredTime: formData.time || undefined,
-              deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
-              notes: fullNotes || undefined,
-              paymentMethod: paymentMethod
-            }
-          });
-          
-          if (invoiceResponse.error) {
-            console.warn('Lexoffice quotation creation failed:', invoiceResponse.error);
-          } else if (invoiceResponse.data?.skipped) {
-            console.log('Lexoffice quotation skipped:', invoiceResponse.data.reason);
-          } else {
-            console.log('Lexoffice quotation created:', invoiceResponse.data?.documentId);
-            // Use the new order number from LexOffice response
-            if (invoiceResponse.data?.orderNumber) {
-              setOrderNumber(invoiceResponse.data.orderNumber);
-            }
-          }
-        } catch (invoiceError) {
-          console.warn('Lexoffice quotation error:', invoiceError);
-        }
-      }
-      // Note: For Stripe payments, the invoice will be created after payment success (see useEffect above)
+      // Email and LexOffice invoice are handled AFTER successful Stripe payment (see handlePaymentSuccess)
+      // Billie B2B invoice payments also go through Stripe Checkout
 
       setOrderNumber(newOrderNumber);
       
@@ -1727,62 +1636,34 @@ const Checkout = () => {
                       {language === 'de' ? 'Zahlungsart' : 'Payment Method'}
                     </h2>
                     <div className="space-y-3">
-                      {/* Stripe - Primary Option */}
-                      <label className="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-accent/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5 relative">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value="stripe"
-                          checked={paymentMethod === 'stripe'}
-                          onChange={() => setPaymentMethod('stripe')}
-                          className="h-4 w-4 text-primary"
-                        />
-                        <CreditCard className="h-5 w-5 text-muted-foreground" />
+                      {/* Stripe - All payment methods including Billie */}
+                      <div className="flex items-center gap-3 p-4 border-2 border-primary rounded-lg bg-primary/5 relative">
+                        <CreditCard className="h-5 w-5 text-primary" />
                         <div className="flex-1">
-                          <p className="font-medium">{language === 'de' ? 'Sofort bezahlen' : 'Pay Now'}</p>
+                          <p className="font-medium">{language === 'de' ? 'Sichere Zahlung' : 'Secure Payment'}</p>
                           <p className="text-sm text-muted-foreground">
                             {language === 'de' 
-                              ? 'Kreditkarte, Apple Pay, Google Pay' 
-                              : 'Credit card, Apple Pay, Google Pay'}
+                              ? 'Kreditkarte, Apple Pay, Google Pay, Klarna & mehr' 
+                              : 'Credit card, Apple Pay, Google Pay, Klarna & more'}
                           </p>
                         </div>
-                        <span className="absolute top-2 right-2 text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-medium">
-                          {language === 'de' ? 'Beliebt' : 'Popular'}
-                        </span>
-                      </label>
+                        <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
                       
-                      {/* Stripe Trust Notice */}
-                      {paymentMethod === 'stripe' && (
-                        <div className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
-                          <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
-                          <p className="text-sm text-green-700 dark:text-green-300">
-                            {language === 'de' 
-                              ? 'Sichere Zahlung per Stripe – Ihre Daten bleiben geschützt. Wir speichern keine Zahlungsinformationen.'
-                              : 'Secure payment via Stripe – Your data stays protected. We do not store payment information.'}
-                          </p>
-                        </div>
-                      )}
-                      
-                      {/* Invoice Option */}
-                      <label className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value="invoice"
-                          checked={paymentMethod === 'invoice'}
-                          onChange={() => setPaymentMethod('invoice')}
-                          className="h-4 w-4 text-primary"
-                        />
+                      {/* Billie B2B Invoice Option - via Stripe */}
+                      <div className="flex items-center gap-3 p-4 border border-dashed rounded-lg bg-accent/30">
                         <FileText className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium">{language === 'de' ? 'Rechnung' : 'Invoice'}</p>
+                        <div className="flex-1">
+                          <p className="font-medium text-muted-foreground">
+                            {language === 'de' ? 'Rechnungskauf für Unternehmen via Billie' : 'B2B Invoice via Billie'}
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             {language === 'de' 
-                              ? 'Zahlung nach Erhalt der Rechnung' 
-                              : 'Payment after receiving invoice'}
+                              ? 'Zahlung in 30 Tagen – im Stripe Checkout verfügbar' 
+                              : 'Pay in 30 days – available in Stripe Checkout'}
                           </p>
                         </div>
-                      </label>
+                      </div>
                     </div>
                     {/* Payment Logos */}
                     <PaymentLogos className="mt-4 pt-4 border-t border-border" />
