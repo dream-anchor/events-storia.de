@@ -5,17 +5,15 @@ import Footer from "@/components/Footer";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
 import EventPackageShopCard from "@/components/events/EventPackageShopCard";
-import EventLocationCard from "@/components/events/EventLocationCard";
 import EventTestimonials from "@/components/events/EventTestimonials";
 import EventContactForm from "@/components/events/EventContactForm";
 import ConsentElfsightReviews from "@/components/ConsentElfsightReviews";
-import { useEventPackages, useEventLocations } from "@/hooks/useEventPackages";
+import { useEventPackages } from "@/hooks/useEventPackages";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Building2, Users, Wine, MapPin, ChefHat, Sparkles,
@@ -98,7 +96,6 @@ const EventsImStoria = () => {
   const formRef = useRef<HTMLDivElement>(null);
 
   const { data: packages, isLoading: packagesLoading } = useEventPackages();
-  const { data: locations, isLoading: locationsLoading } = useEventLocations();
   const { showGross, setShowGross } = usePriceDisplay();
 
   const scrollToForm = (packageId?: string) => {
@@ -305,19 +302,7 @@ const EventsImStoria = () => {
               </p>
             </div>
 
-            <Tabs defaultValue="packages" className="max-w-6xl mx-auto">
-              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-10">
-                <TabsTrigger value="packages" className="gap-2 text-base">
-                  <Sparkles className="h-5 w-5" />
-                  {language === 'de' ? 'Pakete' : 'Packages'}
-                </TabsTrigger>
-                <TabsTrigger value="locations" className="gap-2 text-base">
-                  <MapPin className="h-5 w-5" />
-                  {language === 'de' ? 'Locations' : 'Venues'}
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="packages">
+            <div className="max-w-6xl mx-auto">
                 {/* Brutto/Netto Toggle */}
                 <div className="flex items-center justify-center gap-3 mb-8">
                   <Label 
@@ -378,24 +363,7 @@ const EventsImStoria = () => {
                       : '100% Deposit · No hidden costs · Free cancellation up to 14 days before'}
                   </div>
                 </div>
-              </TabsContent>
-
-              <TabsContent value="locations">
-                {locationsLoading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {[1, 2, 3, 4].map(i => (
-                      <Skeleton key={i} className="h-[200px] rounded-xl" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {locations?.map(location => (
-                      <EventLocationCard key={location.id} location={location} />
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+            </div>
           </div>
         </section>
 
