@@ -327,56 +327,117 @@ const Checkout = () => {
           const cachedOrder = localStorage.getItem(cachedOrderKey);
           
           let orderPayload;
+          let isEventOrder = false;
+          let tableToUpdate: 'catering_orders' | 'event_bookings' = 'catering_orders';
           
           if (cachedOrder) {
             // Use cached data from localStorage
             orderPayload = JSON.parse(cachedOrder);
+            isEventOrder = orderPayload.isEventBooking === true;
+            tableToUpdate = isEventOrder ? 'event_bookings' : 'catering_orders';
             // Clean up localStorage after use
             localStorage.removeItem(cachedOrderKey);
-            console.log('Using cached order data for LexOffice invoice');
+            console.log('Using cached order data for LexOffice invoice', { isEventOrder });
           } else {
             // Fallback: Try to fetch from database (works for logged-in users)
-            const { data: orderData, error: fetchError } = await supabase
+            // First try catering_orders
+            const { data: cateringData, error: cateringError } = await supabase
               .from('catering_orders')
               .select('*')
               .eq('order_number', orderNum)
               .single();
             
-            if (fetchError || !orderData) {
-              console.error('Failed to fetch order for invoice:', fetchError);
-              // Still redirect to success page even if invoice fails
-            } else {
+            if (!cateringError && cateringData) {
+              tableToUpdate = 'catering_orders';
               orderPayload = {
-                orderId: orderData.id,
+                orderId: cateringData.id,
                 orderNumber: orderNum,
-                customerName: orderData.customer_name,
-                customerEmail: orderData.customer_email,
-                customerPhone: orderData.customer_phone,
-                companyName: orderData.company_name || undefined,
+                customerName: cateringData.customer_name,
+                customerEmail: cateringData.customer_email,
+                customerPhone: cateringData.customer_phone,
+                companyName: cateringData.company_name || undefined,
                 billingAddress: {
-                  name: orderData.billing_name || orderData.customer_name,
-                  street: orderData.billing_street || '',
-                  zip: orderData.billing_zip || '',
-                  city: orderData.billing_city || '',
-                  country: orderData.billing_country || 'Deutschland'
+                  name: cateringData.billing_name || cateringData.customer_name,
+                  street: cateringData.billing_street || '',
+                  zip: cateringData.billing_zip || '',
+                  city: cateringData.billing_city || '',
+                  country: cateringData.billing_country || 'Deutschland'
                 },
-                items: orderData.items as { id: string; name: string; name_en?: string; quantity: number; price: number }[],
-                subtotal: orderData.total_amount - (orderData.delivery_cost || 0) - (orderData.minimum_order_surcharge || 0),
-                deliveryCost: orderData.delivery_cost || 0,
-                minimumOrderSurcharge: orderData.minimum_order_surcharge || 0,
-                distanceKm: orderData.calculated_distance_km || undefined,
-                grandTotal: orderData.total_amount,
-                isPickup: orderData.is_pickup || false,
-                paymentMethod: orderData.payment_method || 'stripe',
-                desiredDate: orderData.desired_date || undefined,
-                desiredTime: orderData.desired_time || undefined,
-                deliveryAddress: !orderData.is_pickup 
-                  ? `${orderData.delivery_street || ''}, ${orderData.delivery_zip || ''} ${orderData.delivery_city || ''}`.trim() 
+                items: cateringData.items as { id: string; name: string; name_en?: string; quantity: number; price: number }[],
+                subtotal: cateringData.total_amount - (cateringData.delivery_cost || 0) - (cateringData.minimum_order_surcharge || 0),
+                deliveryCost: cateringData.delivery_cost || 0,
+                minimumOrderSurcharge: cateringData.minimum_order_surcharge || 0,
+                distanceKm: cateringData.calculated_distance_km || undefined,
+                grandTotal: cateringData.total_amount,
+                isPickup: cateringData.is_pickup || false,
+                paymentMethod: cateringData.payment_method || 'stripe',
+                desiredDate: cateringData.desired_date || undefined,
+                desiredTime: cateringData.desired_time || undefined,
+                deliveryAddress: !cateringData.is_pickup 
+                  ? `${cateringData.delivery_street || ''}, ${cateringData.delivery_zip || ''} ${cateringData.delivery_city || ''}`.trim() 
                   : undefined,
-                deliveryFloor: orderData.delivery_floor || undefined,
-                hasElevator: orderData.has_elevator || false,
-                notes: orderData.notes || undefined
+                deliveryFloor: cateringData.delivery_floor || undefined,
+                hasElevator: cateringData.has_elevator || false,
+                notes: cateringData.notes || undefined,
+                isEventBooking: false
               };
+            } else {
+              // Not found in catering_orders - try event_bookings
+              const { data: eventData, error: eventError } = await supabase
+                .from('event_bookings')
+                .select('*')
+                .eq('booking_number', orderNum)
+                .single();
+              
+              if (!eventError && eventData) {
+                isEventOrder = true;
+                tableToUpdate = 'event_bookings';
+                orderPayload = {
+                  orderId: eventData.id,
+                  orderNumber: orderNum,
+                  customerName: eventData.customer_name,
+                  customerEmail: eventData.customer_email,
+                  customerPhone: eventData.phone || '',
+                  companyName: eventData.company_name || undefined,
+                  grandTotal: eventData.total_amount,
+                  paymentMethod: 'stripe',
+                  desiredDate: eventData.event_date || undefined,
+                  desiredTime: eventData.event_time || undefined,
+                  notes: eventData.internal_notes || undefined,
+                  isEventBooking: true,
+                  guestCount: eventData.guest_count,
+                  eventPackageId: eventData.package_id
+                };
+              } else {
+                console.error('Failed to fetch order for invoice from both tables:', { cateringError, eventError });
+              }
+            }
+          }
+          
+          // Update payment_status to 'paid' in the correct table
+          if (orderPayload) {
+            if (tableToUpdate === 'event_bookings') {
+              const { error: updateError } = await supabase
+                .from('event_bookings')
+                .update({ payment_status: 'paid' })
+                .eq('booking_number', orderNum);
+              
+              if (updateError) {
+                console.error('Failed to update payment_status in event_bookings:', updateError);
+              } else {
+                console.log('Updated payment_status to paid in event_bookings');
+              }
+            } else {
+              const { error: updateError } = await supabase
+                .from('catering_orders')
+                .update({ payment_status: 'paid' })
+                .eq('order_number', orderNum);
+              
+              if (updateError) {
+                console.error('Failed to update payment_status in catering_orders:', updateError);
+              } else {
+                console.log('Updated payment_status to paid in catering_orders');
+              }
             }
           }
 
@@ -986,7 +1047,12 @@ const Checkout = () => {
           desiredTime: formData.time || undefined,
           deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
           notes: fullNotes || undefined,
-          paymentMethod: 'stripe' as const
+          paymentMethod: 'stripe' as const,
+          // Event booking specific fields (for correct email terminology & invoice)
+          isEventBooking: isEventBooking,
+          guestCount: eventGuestCount || undefined,
+          eventPackageName: eventItem?.name || undefined,
+          eventPackageId: eventPackageId || undefined
         };
         localStorage.setItem(cachedOrderKey, JSON.stringify(orderDataForCache));
         

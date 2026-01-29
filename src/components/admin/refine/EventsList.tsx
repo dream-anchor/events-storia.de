@@ -175,7 +175,7 @@ export const EventsList = () => {
         <div>
           <h1 className="text-2xl font-serif font-semibold">Event-Anfragen</h1>
           <p className="text-muted-foreground">
-            Verwalten Sie Catering-Anfragen und erstellen Sie Angebote.
+            Verwalten Sie Event-Anfragen und erstellen Sie Angebote.
           </p>
         </div>
 
