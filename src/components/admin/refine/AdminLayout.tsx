@@ -1,13 +1,14 @@
 import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLogout, useGetIdentity } from "@refinedev/core";
-import { LogOut, ExternalLink, LayoutDashboard, CalendarDays, UtensilsCrossed, FileText, Package, Command } from "lucide-react";
+import { LogOut, ExternalLink, LayoutDashboard, CalendarDays, UtensilsCrossed, FileText, Package, Command, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import storiaLogo from "@/assets/storia-logo.webp";
 import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
+import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
 import { FloatingPillNav, MobilePillNav } from "./FloatingPillNav";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
 
@@ -18,7 +19,8 @@ interface AdminLayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
-  { name: 'Events', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
+  { name: 'Anfragen', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
+  { name: 'Buchungen', href: '/admin/bookings', icon: CheckCircle2, key: 'bookings', badge: 'bookings' },
   { name: 'Bestellungen', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
   { name: 'Pakete', href: '/admin/packages', icon: Package, key: 'packages' },
   { name: 'Speisen', href: '/admin/menu', icon: UtensilsCrossed, key: 'menu' },
@@ -30,10 +32,12 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
   const { data: identity } = useGetIdentity<{ email: string }>();
   const { data: newInquiriesCount } = useNewInquiriesCount();
   const { data: pendingOrdersCount } = usePendingOrdersCount();
+  const { data: pendingBookingsCount } = usePendingMenuBookingsCount();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
 
   const getBadgeCount = (key?: string) => {
     if (key === 'events') return newInquiriesCount || 0;
+    if (key === 'bookings') return pendingBookingsCount || 0;
     if (key === 'orders') return pendingOrdersCount || 0;
     return 0;
   };

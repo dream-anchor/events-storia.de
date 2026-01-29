@@ -1,6 +1,6 @@
 import { useList } from "@refinedev/core";
 import { Link } from "react-router-dom";
-import { CalendarDays, FileText, UtensilsCrossed, TrendingUp, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { CalendarDays, FileText, UtensilsCrossed, TrendingUp, Clock, CheckCircle2, AlertCircle, ChefHat } from "lucide-react";
 import { format, parseISO, isAfter, addDays } from "date-fns";
 import { de } from "date-fns/locale";
 import { AdminLayout } from "./AdminLayout";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EventInquiry, CateringOrder } from "@/types/refine";
+import { useEventBookings } from "@/hooks/useEventBookings";
 
 export const Dashboard = () => {
   // Fetch recent events
@@ -26,12 +27,17 @@ export const Dashboard = () => {
     sorters: [{ field: "desired_date", order: "asc" }],
   });
 
+  // Fetch bookings with pending menu
+  const { data: bookings } = useEventBookings('menu_pending');
+
   const events = eventsQuery.result?.data || [];
   const orders = ordersQuery.result?.data || [];
+  const pendingMenuBookings = bookings || [];
 
   // Stats
   const newEventsCount = events.filter(e => e.status === 'new').length;
   const pendingOrdersCount = orders.filter(o => o.status === 'pending').length;
+  const pendingMenuCount = pendingMenuBookings.length;
   const upcomingOrdersCount = orders.filter(o => 
     o.desired_date && isAfter(parseISO(o.desired_date), new Date()) && 
     isAfter(addDays(new Date(), 7), parseISO(o.desired_date))
@@ -49,7 +55,7 @@ export const Dashboard = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -61,6 +67,21 @@ export const Dashboard = () => {
               <div className="text-3xl font-bold">{newEventsCount}</div>
               <p className="text-xs text-muted-foreground">
                 Warten auf Bearbeitung
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Menü offen
+              </CardTitle>
+              <ChefHat className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{pendingMenuCount}</div>
+              <p className="text-xs text-muted-foreground">
+                Buchungen ohne Menü
               </p>
             </CardContent>
           </Card>
