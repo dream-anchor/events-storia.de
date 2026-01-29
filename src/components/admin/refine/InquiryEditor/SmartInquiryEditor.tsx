@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
-import { ArrowLeft, Loader2, Save, CalendarDays, Truck, Layers, FileCheck } from "lucide-react";
+import { ArrowLeft, Loader2, CalendarDays, Truck, Layers, FileCheck, CheckCircle2 } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,9 +23,11 @@ export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("kalkulation");
-  const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [offerMode, setOfferMode] = useState<OfferMode>('simple');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitializedRef = useRef(false);
 
   // Local state for editable fields
   const [selectedPackages, setSelectedPackages] = useState<SelectedPackage[]>([]);
@@ -162,36 +164,63 @@ export const SmartInquiryEditor = () => {
     setQuoteItems(prev => prev.filter(i => i.id !== itemId));
   }, []);
 
-  // Save handler
-  const handleSave = useCallback(async () => {
-    if (!id) return;
-    setIsSaving(true);
+  // Auto-save function (debounced)
+  const performSave = useCallback(async () => {
+    if (!id || !isInitializedRef.current) return;
+    setSaveStatus('saving');
 
-    try {
-      updateInquiry({
-        resource: "events",
-        id,
-        values: {
-          ...localInquiry,
-          selected_packages: selectedPackages,
-          quote_items: quoteItems,
-          quote_notes: quoteNotes,
-          email_draft: emailDraft,
-          menu_selection: menuSelection,
-        },
-      }, {
-        onSuccess: () => {
-          toast.success("Änderungen gespeichert");
-        },
-        onError: (error) => {
-          toast.error("Fehler beim Speichern");
-          console.error(error);
-        },
-      });
-    } finally {
-      setIsSaving(false);
-    }
+    updateInquiry({
+      resource: "events",
+      id,
+      values: {
+        ...localInquiry,
+        selected_packages: selectedPackages,
+        quote_items: quoteItems,
+        quote_notes: quoteNotes,
+        email_draft: emailDraft,
+        menu_selection: menuSelection,
+      },
+    }, {
+      onSuccess: () => {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      },
+      onError: (error) => {
+        toast.error("Fehler beim Speichern");
+        console.error(error);
+        setSaveStatus('idle');
+      },
+    });
   }, [id, updateInquiry, localInquiry, selectedPackages, quoteItems, quoteNotes, emailDraft, menuSelection]);
+
+  // Auto-save on any change (debounced)
+  useEffect(() => {
+    if (!isInitializedRef.current) return;
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      performSave();
+    }, 800); // 800ms debounce
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [localInquiry, selectedPackages, quoteItems, quoteNotes, emailDraft, menuSelection, performSave]);
+
+  // Mark as initialized after first load
+  useEffect(() => {
+    if (inquiry && !isInitializedRef.current) {
+      // Small delay to ensure state is set before enabling auto-save
+      setTimeout(() => {
+        isInitializedRef.current = true;
+      }, 100);
+    }
+  }, [inquiry]);
 
   // Send to LexOffice with email
   const handleSendOffer = useCallback(async () => {
@@ -204,7 +233,7 @@ export const SmartInquiryEditor = () => {
 
     try {
       // First save current state
-      await handleSave();
+      await performSave();
 
       // Build line items from packages and quote items
       const lineItems = [
@@ -275,7 +304,7 @@ export const SmartInquiryEditor = () => {
     } finally {
       setIsSending(false);
     }
-  }, [inquiry, id, emailDraft, handleSave, selectedPackages, quoteItems, quoteNotes, guestCount, mergedInquiry, updateInquiry, menuSelection]);
+  }, [inquiry, id, emailDraft, performSave, selectedPackages, quoteItems, quoteNotes, guestCount, mergedInquiry, updateInquiry, menuSelection]);
 
   if (isLoading) {
     return (
@@ -328,14 +357,21 @@ export const SmartInquiryEditor = () => {
             </div>
           </div>
           
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
+          {/* Auto-save status indicator */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {saveStatus === 'saving' && (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Speichert...</span>
+              </>
             )}
-            Speichern
-          </Button>
+            {saveStatus === 'saved' && (
+              <>
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <span>Gespeichert</span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Tabbed Interface */}
@@ -379,7 +415,7 @@ export const SmartInquiryEditor = () => {
                 inquiry={mergedInquiry}
                 packages={packages}
                 templates={templates}
-                onSave={handleSave}
+                onSave={performSave}
               />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
