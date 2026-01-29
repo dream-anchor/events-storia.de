@@ -9,6 +9,12 @@ import { Check, Minus, Plus, ShoppingCart, Sparkles, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EventPackage } from "@/hooks/useEventPackages";
 import EventPackageInquiryDialog from "./EventPackageInquiryDialog";
+import { 
+  calculateEventPackagePrice, 
+  isLocationPackage, 
+  getLocationPricingBreakdown,
+  LOCATION_BASE_GUESTS 
+} from "@/lib/eventPricing";
 
 // Package images from STORIA website
 import sommerfest from "@/assets/events/sommerfest.webp";
@@ -59,18 +65,37 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
     setGuestCount(prev => Math.min(maxGuests, prev + 1));
   };
 
-  const totalPrice = pkg.price_per_person ? pkg.price * guestCount : pkg.price;
+  // Use centralized pricing calculation
+  const totalPrice = calculateEventPackagePrice(
+    pkg.id,
+    pkg.price,
+    guestCount,
+    !!pkg.price_per_person
+  );
+
+  // Check if this is the location package with tiered pricing
+  const isLocationPkg = isLocationPackage(pkg.id, pkg.price);
+  const hasTieredPricing = isLocationPkg && guestCount > LOCATION_BASE_GUESTS;
+  const pricingBreakdown = isLocationPkg ? getLocationPricingBreakdown(guestCount) : null;
 
   const handleAddToCart = () => {
+    // For tiered pricing, store the effective unit price so cart calculation works
+    const effectivePrice = totalPrice / guestCount;
+    
     addToCart({
       id: `event-${pkg.id}`,
       name: pkg.name,
       name_en: pkg.name_en,
-      price: pkg.price,
+      price: effectivePrice,
       category: 'equipment',
       serving_info: pkg.price_per_person 
         ? (language === 'de' ? 'Pro Person' : 'Per Person')
-        : (language === 'de' ? 'Pauschalpreis' : 'Flat Rate'),
+        : isLocationPkg
+          ? (language === 'de' ? 'ab 70 Pers.' : 'from 70 guests')
+          : (language === 'de' ? 'Pauschalpreis' : 'Flat Rate'),
+      isEventPackage: true,
+      baseGuestCount: isLocationPkg ? LOCATION_BASE_GUESTS : undefined,
+      packageId: pkg.id,
     }, guestCount);
     
     setIsAdded(true);
@@ -80,7 +105,9 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   // Price unit text
   const priceUnit = pkg.price_per_person 
     ? (language === 'de' ? 'p.P.' : 'p.p.')
-    : (language === 'de' ? 'pauschal' : 'flat rate');
+    : isLocationPkg
+      ? (language === 'de' ? 'ab 70 Pers.' : 'from 70 guests')
+      : (language === 'de' ? 'pauschal' : 'flat rate');
 
   return (
     <Card className={cn(
@@ -197,8 +224,8 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
           </div>
         </div>
 
-        {/* Total Price */}
-        {pkg.price_per_person && (
+        {/* Total Price - for per-person OR tiered pricing */}
+        {(pkg.price_per_person || hasTieredPricing || totalPrice !== pkg.price) && (
           <div className="text-center">
             <span className="text-base text-muted-foreground">
               {language === 'de' ? 'Gesamt:' : 'Total:'} 
@@ -206,6 +233,14 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
             <span className="text-xl font-bold text-primary ml-2">
               {formatPrice(totalPrice)}
             </span>
+            {/* Explanation for tiered pricing */}
+            {hasTieredPricing && pricingBreakdown && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {language === 'de' 
+                  ? `Basis 8.500 € + ${pricingBreakdown.extraGuests} Pers. × 121,43 €`
+                  : `Base €8,500 + ${pricingBreakdown.extraGuests} guests × €121.43`}
+              </p>
+            )}
           </div>
         )}
 
