@@ -25,7 +25,7 @@ interface NavItem {
   }[];
 }
 
-// Navigation structure without Inbox
+// Navigation structure: Events + Catering as separate top-level categories
 const navigationContexts: NavItem[] = [
   { 
     name: 'Dashboard', 
@@ -34,16 +34,21 @@ const navigationContexts: NavItem[] = [
     key: 'dashboard' 
   },
   { 
-    name: 'Anfragen', 
+    name: 'Events', 
     href: '/admin/events', 
     icon: CalendarDays, 
-    key: 'workflow',
-    badge: 'events',
+    key: 'events',
     children: [
-      { name: 'Event-Anfragen', href: '/admin/events', key: 'events', badge: 'events', icon: CalendarDays },
+      { name: 'Anfragen', href: '/admin/events', key: 'events', badge: 'events', icon: CalendarDays },
       { name: 'Buchungen', href: '/admin/bookings', key: 'bookings', badge: 'bookings', icon: CheckCircle2 },
-      { name: 'Catering', href: '/admin/orders', key: 'orders', badge: 'orders', icon: FileText },
     ]
+  },
+  { 
+    name: 'Catering', 
+    href: '/admin/orders', 
+    icon: FileText, 
+    key: 'orders',
+    badge: 'orders',
   },
   { 
     name: 'Stammdaten', 
@@ -73,7 +78,8 @@ export const FloatingPillNav = ({
   const getActiveContext = () => {
     const path = location.pathname;
     if (path === '/admin' || path === '/admin/') return 'dashboard';
-    if (path.includes('/admin/events') || path.includes('/admin/bookings') || path.includes('/admin/orders')) return 'workflow';
+    if (path.includes('/admin/events') || path.includes('/admin/bookings')) return 'events';
+    if (path.includes('/admin/orders')) return 'orders';
     if (path.includes('/admin/packages') || path.includes('/admin/menu') || path.includes('/admin/locations')) return 'catalog';
     return activeKey;
   };
@@ -207,14 +213,14 @@ export const MobileBottomNav = ({
   const location = useLocation();
   
   const mobileItems = [
-    { name: 'Anfragen', href: '/admin/events', icon: CalendarDays, key: 'workflow', badge: 'events' },
-    { name: 'Buchungen', href: '/admin/bookings', icon: CheckCircle2, key: 'bookings', badge: 'bookings' },
-    { name: 'Katalog', href: '/admin/packages', icon: Database, key: 'catalog' },
+    { name: 'Events', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
+    { name: 'Catering', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
+    { name: 'Stammdaten', href: '/admin/packages', icon: Database, key: 'catalog' },
   ];
 
   const isActive = (href: string) => {
-    if (href === '/admin/events') return location.pathname.includes('/events') || location.pathname.includes('/orders');
-    if (href === '/admin/bookings') return location.pathname.includes('/bookings');
+    if (href === '/admin/events') return location.pathname.includes('/events') || location.pathname.includes('/bookings');
+    if (href === '/admin/orders') return location.pathname.includes('/orders');
     if (href === '/admin/packages') return location.pathname.includes('/packages') || location.pathname.includes('/menu');
     return false;
   };
