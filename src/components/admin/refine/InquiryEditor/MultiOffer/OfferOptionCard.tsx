@@ -264,7 +264,7 @@ export function OfferOptionCard({
                       className="h-9 px-3 gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-xl"
                     >
                       <Edit2 className="h-3.5 w-3.5" />
-                      {showMenuEditor ? 'Schließen' : 'Bearbeiten'}
+                      {showMenuEditor ? 'Schließen' : 'Menü anpassen'}
                     </Button>
                   </div>
                 )}
