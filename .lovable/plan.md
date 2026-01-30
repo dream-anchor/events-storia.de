@@ -1,97 +1,180 @@
 
 
-# Plan: "Bearbeiten"-Button in gesperrtem Zustand ausblenden + Button-Benennung klären
+# Plan: Versendete Menüs unveränderlich machen
 
-## Problem-Analyse
+## Problem
 
-### 1. "Bearbeiten"-Button sollte nicht klickbar sein nach Versand
+Nach dem Versand eines Angebots kann das Menü noch bearbeitet werden. Das ist falsch:
 
-Der Screenshot zeigt eine Anfrage, bei der:
-- Version 2 gesendet wurde (→ in History)
-- Version 3 "in Bearbeitung" ist (→ nach Unlock)
-- Das System ist im **entsperrten** Modus (`offer_sent_at = NULL`)
-
-**Der "Bearbeiten"-Button ist korrekt sichtbar**, weil Version 3 gerade bearbeitet wird. Das ist das gewünschte Verhalten – nach "Neues Angebot erstellen" kann die Konfiguration geändert werden.
-
-**ABER:** Wenn das Angebot **noch gesperrt** ist (vor dem Klick auf "Neues Angebot erstellen"), sollte der "Bearbeiten"-Button nicht erscheinen.
-
-→ Die Logik ist bereits korrekt implementiert in `OfferOptionCard.tsx` (Zeile 257-270):
-```typescript
-{!isLocked && (
-  <Button onClick={() => setShowMenuEditor(!showMenuEditor)}>
-    Bearbeiten
-  </Button>
-)}
+```text
+AKTUELL (falsch):
+┌─────────────────────────────────────────────────────────────────┐
+│ Option A: Business Dinner                                       │
+│ Menü: Carpaccio, Risotto, Tiramisu         [Menü anpassen] ← ⚠️│
+│                                                                 │
+│ Diese Option wurde in v2 gesendet – sollte NICHT mehr          │
+│ bearbeitbar sein!                                               │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. "Weitere Option hinzufügen" vs. "Neues Angebot erstellen"
-
-Diese zwei Buttons haben **unterschiedliche Funktionen**:
-
-| Button | Position | Funktion |
-|--------|----------|----------|
-| **Weitere Option hinzufügen** | Unter den Options-Karten | Fügt Option B, C, D zum **aktuellen** Angebot hinzu |
-| **Neues Angebot erstellen** | Im Locked-Banner | Entsperrt das Angebot für eine neue Version (v3, v4...) |
-
-**"Weitere Option hinzufügen" ist korrekt benannt** – es fügt dem aktuellen Angebot eine weitere Paket-Option hinzu (z.B. "Option B: Aperitivo" neben "Option A: Business Dinner").
-
-**Das ist NICHT das Gleiche** wie "Neues Angebot erstellen", welches eine komplett neue Version (v3) startet.
+**Geschäftslogik:**
+- Ein bereits versendetes Menü darf **niemals** geändert werden
+- Bei Änderungswunsch muss eine **neue Option hinzugefügt** werden
+- Alte Optionen bleiben als Dokumentation erhalten (was wurde dem Kunden gesendet?)
 
 ---
 
-## Empfohlene Klärung
+## Lösung
 
-Die Buttons sind korrekt benannt und funktionieren wie vorgesehen:
+### Konzept: Optionen tragen ihre eigene "gesperrt"-Info
+
+Jede Option speichert, in welcher Version sie erstellt wurde. Wenn diese Version bereits gesendet wurde, ist die Option dauerhaft gesperrt.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│ Locked-Banner (nach Versand sichtbar)                           │
-│                           [ Neues Angebot erstellen ] ← v3      │
+│ Option A: Business Dinner (v2 – gesendet)          🔒 Gesperrt  │
+│ Menü: Carpaccio, Risotto, Tiramisu                              │
+│                                                                 │
+│ [Keine Bearbeitung möglich]                                     │
 └─────────────────────────────────────────────────────────────────┘
-                                  ↓ Klick
+
 ┌─────────────────────────────────────────────────────────────────┐
-│ Entsperrt – Version 3 in Bearbeitung                            │
+│ Option B: Aperitivo (v3 – in Bearbeitung)               Aktiv   │
+│ Menü: noch nicht konfiguriert              [Menü konfigurieren] │
 │                                                                 │
-│ ┌─────────────────────────────────────────────────────────────┐ │
-│ │ Option A: Business Dinner – 1287€           [✓] Aktiv       │ │
-│ │ Menü konfiguriert • 3 Gänge                    [Bearbeiten] │ │ ← Korrekt!
-│ └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│ [ + Weitere Option hinzufügen ]  ← Fügt B, C, D zum v3 hinzu   │
+│ [Neu hinzugefügt – bearbeitbar]                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Optionale UX-Verbesserung
+## Technische Änderungen
 
-Falls der "Bearbeiten"-Button dennoch verwirrend wirkt, könnte er umbenannt werden:
+### 1. OfferOption erhält `createdInVersion`
 
-| Aktuell | Mögliche Alternative |
-|---------|---------------------|
-| "Bearbeiten" | "Menü anpassen" |
-| | "Gänge ändern" |
+**Datei:** `types.ts`
 
-### Änderung (optional)
-
-**Datei:** `src/components/admin/refine/InquiryEditor/MultiOffer/OfferOptionCard.tsx`
-
-Zeile 267:
 ```typescript
-// Aktuell:
-{showMenuEditor ? 'Schließen' : 'Bearbeiten'}
+export interface OfferOption {
+  // ... bestehende Felder
+  offerVersion: number;        // In welcher Version gespeichert
+  createdInVersion?: number;   // NEU: In welcher Version erstellt
+}
+```
 
-// Alternativ:
-{showMenuEditor ? 'Schließen' : 'Menü anpassen'}
+### 2. Lock-Logik pro Option
+
+**Datei:** `OfferOptionCard.tsx`
+
+Die `isLocked`-Prop wird nicht mehr global gesetzt, sondern pro Option berechnet:
+
+```typescript
+// Eine Option ist gesperrt, wenn sie in einer bereits gesendeten Version erstellt wurde
+const optionIsLocked = useMemo(() => {
+  // Prüfe ob die Version, in der diese Option erstellt wurde, bereits gesendet wurde
+  // (existiert in der History)
+  if (!option.createdInVersion) return false;
+  
+  // Finde in der History, ob diese Version gesendet wurde
+  return history.some(h => h.version >= option.createdInVersion);
+}, [option.createdInVersion, history]);
+```
+
+### 3. Neue Optionen erhalten aktuelle Version
+
+**Datei:** `useMultiOfferState.ts`
+
+Beim Hinzufügen einer neuen Option:
+
+```typescript
+const addOption = useCallback(() => {
+  // ...
+  setOptions(prev => [...prev, {
+    id: crypto.randomUUID(),
+    ...createEmptyOption(nextLabel, guestCount),
+    createdInVersion: currentVersion,  // NEU: Merken, in welcher Version erstellt
+  }]);
+}, [options, guestCount, currentVersion]);
+```
+
+### 4. MultiOfferComposer übergibt History an OptionCard
+
+**Datei:** `MultiOfferComposer.tsx`
+
+```typescript
+<OfferOptionCard
+  // ...
+  history={history}  // NEU: Für Lock-Berechnung
+  isLocked={...}     // Wird pro Option berechnet
+/>
+```
+
+### 5. UI-Feedback für gesperrte Optionen
+
+**Datei:** `OfferOptionCard.tsx`
+
+```typescript
+{optionIsLocked && (
+  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+    <Lock className="h-4 w-4" />
+    <span>Gesendet in v{option.createdInVersion} – nicht änderbar</span>
+  </div>
+)}
+```
+
+---
+
+## Workflow nach Änderung
+
+```text
+1. Option A erstellt (v1)
+2. Option A konfiguriert
+3. Angebot v1 gesendet
+   → Option A ist jetzt dauerhaft gesperrt
+   
+4. "Neues Angebot erstellen" geklickt → v2 startet
+5. Option A kann NICHT bearbeitet werden (v1 gesendet)
+6. Neue Option B hinzugefügt (v2)
+   → Option B ist bearbeitbar (v2 noch nicht gesendet)
+   
+7. Angebot v2 gesendet
+   → Option A bleibt gesperrt
+   → Option B ist jetzt auch gesperrt
+```
+
+---
+
+## Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `types.ts` | `createdInVersion` zu OfferOption hinzufügen |
+| `useMultiOfferState.ts` | `createdInVersion` beim Erstellen setzen |
+| `OfferOptionCard.tsx` | Lock-Logik pro Option, UI-Feedback |
+| `MultiOfferComposer.tsx` | History an OptionCard übergeben |
+| **DB Migration** | `created_in_version` Spalte zu `inquiry_offer_options` |
+
+---
+
+## Migration bestehender Daten
+
+Optionen, die bereits in einer gesendeten Version waren, erhalten `created_in_version = 1`:
+
+```sql
+-- Setze created_in_version für existierende Optionen
+UPDATE inquiry_offer_options o
+SET created_in_version = COALESCE(
+  (SELECT MIN(h.version) FROM inquiry_offer_history h WHERE h.inquiry_id = o.inquiry_id),
+  o.offer_version
+);
 ```
 
 ---
 
 ## Zusammenfassung
 
-- **"Bearbeiten" ist korrekt**: Erscheint nur im entsperrten Modus (nach "Neues Angebot erstellen")
-- **"Weitere Option hinzufügen" ist korrekt benannt**: Fügt Option B/C/D zum aktuellen Angebot hinzu
-- **"Neues Angebot erstellen" ist korrekt**: Startet eine neue Version
-
-Falls Sie möchten, kann der "Bearbeiten"-Button zu "Menü anpassen" umbenannt werden, um die Funktion klarer zu machen.
+- **Gesendete Optionen sind unveränderlich** – keine Bearbeitung möglich
+- **Neue Optionen können hinzugefügt werden** – für Änderungswünsche
+- **Klare visuelle Unterscheidung** – gesperrt vs. bearbeitbar
+- **History als Wahrheitsquelle** – bestimmt, was gesendet wurde
 
