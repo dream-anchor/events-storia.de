@@ -1,82 +1,163 @@
 
-
-# Plan: Locked-Banner anpassen – Kein Gelb, besserer Button-Text
+# Plan: Gesendete Versionen korrekt anzeigen – History als Wahrheitsquelle
 
 ## Problem
 
-1. **Farbgebung**: Das Banner verwendet Gelb/Amber-Töne (`amber-50`, `amber-200`, `amber-500`), was gegen die Design-Richtlinien verstößt
-2. **Button-Text**: "Neue Version erstellen" ist missverständlich – es geht darum, ein neues Angebot zu erstellen
+Die aktuelle Logik:
+```text
+wasSent = Boolean(inquiry.offer_sent_at)
+```
+
+Das ist **falsch**, weil `offer_sent_at` auf NULL gesetzt wird, wenn ein neues Angebot erstellt wird (Unlock-Flow). Aber Version 2 wurde definitiv gesendet – das steht in der History!
+
+**Datenbank aktuell:**
+```text
+event_inquiries:
+  offer_sent_at = NULL (weil V3 "in Arbeit")
+  current_offer_version = 3
+
+inquiry_offer_history:
+  version 2 → sent_at: 30.01.26 22:32 UTC (= 23:32 CET)
+```
 
 ---
 
-## Änderungen
-
-### 1. Farben ersetzen (Amber → Neutral/Muted)
-
-| Aktuell | Neu |
-|---------|-----|
-| `bg-amber-50/80` | `bg-muted/50` |
-| `border-amber-200/60` | `border-border` |
-| `bg-amber-500/10` | `bg-muted` |
-| `text-amber-600` | `text-muted-foreground` |
-| Lock-Icon gelb | Lock-Icon neutral |
-
-### 2. Button-Text anpassen
-
-| Aktuell | Neu |
-|---------|-----|
-| "Neue Version erstellen" | "Neues Angebot erstellen" |
-| Beschreibungstext | "Die gesendete Konfiguration ist schreibgeschützt. Für Änderungen erstellen Sie ein neues Angebot." |
-
----
-
-## Vorher → Nachher
+## Lösung: Zwei separate Status unterscheiden
 
 ```text
-VORHER (gelb):
 ┌─────────────────────────────────────────────────────────────────┐
-│ 🔒 Angebot v2 versendet              [ Neue Version erstellen ] │ ← Amber/Gelb
-│ Antoine Monot • 30.01.26 um 23:32                               │
-│ Die gesendete Konfiguration ist schreibgeschützt...             │
-└─────────────────────────────────────────────────────────────────┘
-
-NACHHER (neutral):
-┌─────────────────────────────────────────────────────────────────┐
-│ 🔒 Angebot v2 versendet           [ Neues Angebot erstellen ]   │ ← Grau/Neutral
-│ Antoine Monot • 30.01.26 um 23:32                               │
-│ Die gesendete Konfiguration ist schreibgeschützt...             │
+│ 1. AKTUELLE VERSION GESPERRT?                                   │
+│    → isLocked = offer_sent_at != null                           │
+│    → Wenn JA: Locked-Banner zeigen                              │
+│                                                                 │
+│ 2. WURDE JEMALS ETWAS GESENDET?                                 │
+│    → hasSentHistory = history.length > 0                        │
+│    → Die History enthält ALLE gesendeten Versionen              │
+│                                                                 │
+│ 3. ENTWURF-BANNER LOGIK:                                        │
+│    → Zeige nur wenn: email_draft UND keine aktuelle Sperre      │
+│    → Text: "Anschreiben gesendet" wenn history[0] existiert     │
+│           (und current_version > sent_version)                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Technische Änderungen
+## Konkrete Änderungen
 
-**Datei:** `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx`
+### 1. Draft-Banner Logik korrigieren (MultiOfferComposer.tsx)
 
-Zeilen ~494-556: Locked-Banner-Styles und Text aktualisieren
-
-```tsx
-// Vorher:
-className="... border-amber-200/60 bg-amber-50/80 dark:bg-amber-950/30 dark:border-amber-800/40"
-<div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-  <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-
-// Nachher:
-className="... border-border bg-muted/50"
-<div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center">
-  <Lock className="h-5 w-5 text-muted-foreground" />
-
-// Button-Text:
-// Vorher: "Neue Version erstellen"
-// Nachher: "Neues Angebot erstellen"
+**Vorher (Zeile 61):**
+```typescript
+const wasSent = Boolean(inquiry.offer_sent_at);
 ```
+
+**Nachher:**
+```typescript
+// Check if the CURRENT version was sent (locked)
+const currentVersionSent = Boolean(inquiry.offer_sent_at);
+
+// Check if ANY version was ever sent (from history)
+const lastSentVersion = history.length > 0 ? history[0] : null;
+const hasEverBeenSent = lastSentVersion !== null;
+```
+
+### 2. Banner-Anzeige anpassen
+
+**Szenario: V2 gesendet, V3 in Arbeit**
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ ✓ Anschreiben gesendet                               v2        │
+│ @ Antoine Monot  ⌚ 30.01.26 um 23:32                            │
+│                                                                 │
+│ (Eine neue Version v3 ist in Arbeit)                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- **Titel:** "Anschreiben gesendet" (nicht "Entwurf")
+- **Badge:** Die gesendete Version (v2), nicht die aktuelle (v3)
+- **Timestamp:** Aus `history[0].sent_at` (die echte Sendezeit)
+- **Sender:** Aus `history[0].sent_by`
+
+### 3. Datenbank-Korrektur für diese Anfrage
+
+Da Version 2 gesendet wurde, aber die UI das nicht zeigt, muss ich die History als Quelle nutzen:
+
+```sql
+-- Keine DB-Änderung nötig!
+-- Die Lösung liest aus inquiry_offer_history statt event_inquiries
+```
+
+---
+
+## Code-Änderungen im Detail
+
+### Datei: `MultiOfferComposer.tsx`
+
+**A) Zeile 59-62 ersetzen:**
+```typescript
+// OLD:
+const hasSavedDraft = Boolean(inquiry.email_draft);
+const wasSent = Boolean(inquiry.offer_sent_at);
+
+// NEW:
+const hasSavedDraft = Boolean(inquiry.email_draft);
+// The current version is locked if offer_sent_at is set
+const currentVersionLocked = Boolean(inquiry.offer_sent_at);
+// Check history for the last actually sent version
+const lastSentEntry = history.length > 0 ? history[0] : null;
+// Was ANY version ever sent?
+const hasBeenSentBefore = lastSentEntry !== null;
+```
+
+**B) Draft-Banner (Zeile 594-700) aktualisieren:**
+
+Banner sollte zeigen:
+- "Anschreiben gesendet" wenn `hasBeenSentBefore` (aus History)
+- Timestamp aus `lastSentEntry.sentAt` (nicht `inquiry.offer_sent_at`)
+- Sender aus `lastSentEntry.sentBy` (nicht `inquiry.offer_sent_by`)
+- Badge zeigt `lastSentEntry.version` (die gesendete Version)
+
+**C) Zusätzlich: Hinweis wenn neue Version in Arbeit**
+
+Wenn `hasBeenSentBefore` aber `!currentVersionLocked`, zeigen wir:
+```text
+"(Version X in Bearbeitung – noch nicht gesendet)"
+```
+
+---
+
+## Vorher → Nachher (Screenshot-Fall)
+
+```text
+VORHER (falsch):
+┌─────────────────────────────────────────────────────────────────┐
+│ ✉ Anschreiben-Entwurf vorhanden                        v3      │
+│ @ Antoine Monot  ⌚ 31.01.26 um 00:34                            │
+└─────────────────────────────────────────────────────────────────┘
+
+NACHHER (korrekt):
+┌─────────────────────────────────────────────────────────────────┐
+│ ✓ Anschreiben gesendet                                  v2     │
+│ @ Antoine Monot  ⌚ 30.01.26 um 23:32                            │
+│                                                                 │
+│ Version 3 in Bearbeitung                                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `MultiOfferComposer.tsx` | Draft-Banner Logik auf History umstellen |
 
 ---
 
 ## Zusammenfassung
 
-- **Keine gelben Farben** mehr im Locked-Banner
-- **Klarer Button-Text**: "Neues Angebot erstellen" 
-- Konsistent mit dem restlichen Premium-UI-Design (neutral/grau)
-
+- **History ist die Wahrheitsquelle** für gesendete Versionen
+- **Entwurf ≠ Gesendet:** Wir unterscheiden klar zwischen beiden Zuständen
+- **Korrekte Timestamps:** Immer aus `sent_at` in der History
+- **Korrekte Version:** Die gesendete Version wird angezeigt, nicht die aktuelle
