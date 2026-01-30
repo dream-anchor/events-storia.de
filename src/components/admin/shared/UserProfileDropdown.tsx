@@ -223,18 +223,14 @@ export function UserProfileDropdown() {
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 group">
+                <div 
+                  className="flex items-center gap-1.5 group cursor-pointer hover:bg-accent/30 -mx-1 px-1 py-0.5 rounded transition-colors"
+                  onClick={handleStartEditName}
+                >
                   <span className="font-medium text-foreground truncate">
                     {displayName}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    onClick={handleStartEditName}
-                  >
-                    <Pencil className="h-3 w-3 text-muted-foreground" />
-                  </Button>
+                  <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                 </div>
               )}
               
@@ -278,17 +274,13 @@ export function UserProfileDropdown() {
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground group">
+                <div 
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground group cursor-pointer hover:bg-accent/30 -mx-1 px-1 py-0.5 rounded transition-colors"
+                  onClick={handleStartEditEmail}
+                >
                   <Mail className="h-3 w-3 shrink-0" />
                   <span className="truncate">{identity?.email}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    onClick={handleStartEditEmail}
-                  >
-                    <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
-                  </Button>
+                  <Pencil className="h-2.5 w-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                 </div>
               )}
             </div>
