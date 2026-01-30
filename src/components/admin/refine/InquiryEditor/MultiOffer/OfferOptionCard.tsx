@@ -20,6 +20,7 @@ interface OfferOptionCardProps {
   isGeneratingPaymentLink?: boolean;
   isMenuEditorOpen?: boolean;
   onToggleMenuEditor?: (open: boolean) => void;
+  isLocked?: boolean; // When true, all inputs are disabled (offer was sent)
 }
 
 export function OfferOptionCard({
@@ -32,6 +33,7 @@ export function OfferOptionCard({
   isGeneratingPaymentLink,
   isMenuEditorOpen = false,
   onToggleMenuEditor,
+  isLocked = false,
 }: OfferOptionCardProps) {
   const [emailDraft, setEmailDraft] = useState("");
   
@@ -90,7 +92,8 @@ export function OfferOptionCard({
         "transition-all duration-300 backdrop-blur-sm",
         option.isActive 
           ? "border-border bg-card/80 shadow-md" 
-          : "border-border/50 bg-muted/20 opacity-60"
+          : "border-border/50 bg-muted/20 opacity-60",
+        isLocked && "ring-1 ring-muted-foreground/20"
       )}
     >
       <CardHeader className="pb-4">
@@ -107,57 +110,69 @@ export function OfferOptionCard({
             </div>
 
             <div className="flex-1">
-              <Select
-                value={option.packageId || ''}
-                onValueChange={handlePackageChange}
-              >
-                <SelectTrigger className="w-[280px] font-medium h-11">
-                  <SelectValue placeholder="Paket wählen..." />
-                </SelectTrigger>
-                <SelectContent className="font-sans">
-                  {packages.map(pkg => (
-                    <SelectItem key={pkg.id} value={pkg.id}>
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span>{pkg.name}</span>
-                        <span className="text-muted-foreground">
-                          {pkg.price}€ {pkg.price_per_person ? 'p.P.' : ''}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isLocked ? (
+                // Locked: Show package name as text
+                <div className="h-11 flex items-center px-3 font-medium text-foreground bg-muted/30 rounded-md border border-border/50">
+                  {selectedPackage?.name || 'Kein Paket gewählt'}
+                </div>
+              ) : (
+                // Editable: Show select
+                <Select
+                  value={option.packageId || ''}
+                  onValueChange={handlePackageChange}
+                >
+                  <SelectTrigger className="w-[280px] font-medium h-11">
+                    <SelectValue placeholder="Paket wählen..." />
+                  </SelectTrigger>
+                  <SelectContent className="font-sans">
+                    {packages.map(pkg => (
+                      <SelectItem key={pkg.id} value={pkg.id}>
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <span>{pkg.name}</span>
+                          <span className="text-muted-foreground">
+                            {pkg.price}€ {pkg.price_per_person ? 'p.P.' : ''}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
           <div className="flex items-center gap-1">
             {/* Toggle - Minimalist 2026 */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleActive}
-              className={cn(
-                "gap-1.5 h-10 px-3",
-                option.isActive 
-                  ? "text-foreground" 
-                  : "text-muted-foreground"
-              )}
-            >
-              {option.isActive ? (
-                <><Check className="h-4 w-4" /> Aktiv</>
-              ) : (
-                <><X className="h-4 w-4" /> Inaktiv</>
-              )}
-            </Button>
+            {!isLocked && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onToggleActive}
+                className={cn(
+                  "gap-1.5 h-10 px-3",
+                  option.isActive 
+                    ? "text-foreground" 
+                    : "text-muted-foreground"
+                )}
+              >
+                {option.isActive ? (
+                  <><Check className="h-4 w-4" /> Aktiv</>
+                ) : (
+                  <><X className="h-4 w-4" /> Inaktiv</>
+                )}
+              </Button>
+            )}
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onRemove}
-              className="h-10 w-10 text-muted-foreground hover:text-amber-600"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            {!isLocked && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRemove}
+                className="h-10 w-10 text-muted-foreground hover:text-destructive"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -239,18 +254,20 @@ export function OfferOptionCard({
                   </div>
                 )}
 
-                {/* Edit Button - Compact Ghost 2026 */}
-                <div className="flex justify-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowMenuEditor(!showMenuEditor)}
-                    className="h-9 px-3 gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-xl"
-                  >
-                    <Edit2 className="h-3.5 w-3.5" />
-                    {showMenuEditor ? 'Schließen' : 'Bearbeiten'}
-                  </Button>
-                </div>
+                {/* Edit Button - Only show if not locked */}
+                {!isLocked && (
+                  <div className="flex justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowMenuEditor(!showMenuEditor)}
+                      className="h-9 px-3 gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-xl"
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                      {showMenuEditor ? 'Schließen' : 'Bearbeiten'}
+                    </Button>
+                  </div>
+                )}
               </>
             ) : null}
           </div>

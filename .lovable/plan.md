@@ -2,6 +2,8 @@
 
 # Plan: Angebot nach Versand einfrieren – "Locked after Send"
 
+✅ **IMPLEMENTIERT** (30.01.2026)
+
 ## Übersicht
 
 Nachdem ein Angebot verschickt wurde, soll es nicht mehr bearbeitet werden können. Die gesendete Konfiguration muss **unveränderlich** bleiben, damit immer nachvollziehbar ist, was der Kunde erhalten hat.

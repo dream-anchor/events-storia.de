@@ -30,6 +30,12 @@ export interface ExtendedInquiry extends BaseRecord {
   quote_notes: string | null;
   email_draft: string | null;
   lexoffice_quotation_id: string | null;
+  // Offer tracking fields
+  offer_sent_at: string | null;
+  offer_sent_by: string | null;
+  current_offer_version: number | null;
+  last_edited_by: string | null;
+  last_edited_at: string | null;
 }
 
 export interface QuoteItem {
