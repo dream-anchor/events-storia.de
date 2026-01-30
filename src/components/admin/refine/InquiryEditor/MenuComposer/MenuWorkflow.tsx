@@ -258,11 +258,16 @@ export const MenuWorkflow = ({
           onSendOffer={onSendOffer}
           isSending={isSending}
           templates={templates}
-          // Inline editing props
+          // Navigation-based editing props
           courseConfigs={courseConfigs}
           drinkConfigs={drinkConfigs}
-          onCourseEdit={handleCourseSelect}
-          onDrinkEdit={handleDrinkSelect}
+          onNavigateToCourse={(courseIndex) => {
+            setActiveCourseIndex(courseIndex);
+            setActiveStep('courses');
+          }}
+          onNavigateToDrinks={() => {
+            setActiveStep('drinks');
+          }}
         />
       )}
     </div>

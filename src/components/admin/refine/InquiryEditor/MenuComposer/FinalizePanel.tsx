@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { 
   FileText, Send, Sparkles, Loader2, Copy, Check, 
   UtensilsCrossed, Wine, ChefHat, Utensils, Pencil 
@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { MenuSelection, CourseSelection, DrinkSelection, CourseConfig, DrinkConfig, COURSE_ICONS, DRINK_ICONS, CourseType, DrinkGroupType } from "./types";
-import { GlobalItemSearch } from "./GlobalItemSearch";
+import { MenuSelection, CourseConfig, DrinkConfig, COURSE_ICONS, DRINK_ICONS } from "./types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -23,11 +22,11 @@ interface FinalizePanelProps {
   onSendOffer?: () => void;
   isSending?: boolean;
   templates?: any[];
-  // New props for inline editing
+  // Navigation-based editing - navigate back to course/drink step
   courseConfigs?: CourseConfig[];
   drinkConfigs?: DrinkConfig[];
-  onCourseEdit?: (newSelection: CourseSelection) => void;
-  onDrinkEdit?: (newSelection: DrinkSelection) => void;
+  onNavigateToCourse?: (courseIndex: number) => void;
+  onNavigateToDrinks?: () => void;
 }
 
 export const FinalizePanel = ({
@@ -42,56 +41,14 @@ export const FinalizePanel = ({
   templates = [],
   courseConfigs = [],
   drinkConfigs = [],
-  onCourseEdit,
-  onDrinkEdit,
+  onNavigateToCourse,
+  onNavigateToDrinks,
 }: FinalizePanelProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [editingCourse, setEditingCourse] = useState<CourseType | null>(null);
-  const [editingDrink, setEditingDrink] = useState<DrinkGroupType | null>(null);
-  const [justEdited, setJustEdited] = useState<string | null>(null);
 
-  // Clear "just edited" indicator after animation
-  useEffect(() => {
-    if (justEdited) {
-      const timeout = setTimeout(() => setJustEdited(null), 1500);
-      return () => clearTimeout(timeout);
-    }
-  }, [justEdited]);
-
-  // Keyboard shortcuts: E + 1-5 for courses, E + D for drinks
-  useEffect(() => {
-    let ePressed = false;
-    let eTimeout: NodeJS.Timeout;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if typing in input/textarea
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      if (e.key.toLowerCase() === 'e') {
-        ePressed = true;
-        eTimeout = setTimeout(() => { ePressed = false; }, 500);
-      } else if (ePressed && menuSelection.courses.length > 0) {
-        const num = parseInt(e.key);
-        if (num >= 1 && num <= menuSelection.courses.length) {
-          const course = menuSelection.courses[num - 1];
-          setEditingCourse(course.courseType);
-          ePressed = false;
-        } else if (e.key.toLowerCase() === 'd' && menuSelection.drinks.length > 0) {
-          setEditingDrink(menuSelection.drinks[0].drinkGroup);
-          ePressed = false;
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      clearTimeout(eTimeout);
-    };
-  }, [menuSelection]);
+  const canEditCourses = !!onNavigateToCourse;
+  const canEditDrinks = !!onNavigateToDrinks;
 
   const handleGenerateEmail = useCallback(async () => {
     if (!inquiry) return;
@@ -135,47 +92,10 @@ export const FinalizePanel = ({
     toast.success("In Zwischenablage kopiert");
   }, [emailDraft]);
 
-  // Handle course edit selection
-  const handleCourseItemSelect = useCallback((item: any) => {
-    if (!editingCourse || !onCourseEdit) return;
-
-    const config = courseConfigs.find(c => c.course_type === editingCourse);
-    const newSelection: CourseSelection = {
-      courseType: editingCourse,
-      courseLabel: config?.course_label || editingCourse,
-      itemId: item.id,
-      itemName: item.name,
-      itemDescription: item.description,
-      itemSource: item.source,
-      isCustom: false,
-    };
-
-    onCourseEdit(newSelection);
-    setJustEdited(`course-${editingCourse}`);
-    setEditingCourse(null);
-    toast.success("Gang aktualisiert");
-  }, [editingCourse, courseConfigs, onCourseEdit]);
-
-  // Handle drink edit selection
-  const handleDrinkItemSelect = useCallback((item: any) => {
-    if (!editingDrink || !onDrinkEdit) return;
-
-    const config = drinkConfigs.find(d => d.drink_group === editingDrink);
-    const newSelection: DrinkSelection = {
-      drinkGroup: editingDrink,
-      drinkLabel: config?.drink_label || editingDrink,
-      selectedChoice: item.name,
-      quantityLabel: config?.quantity_label || null,
-      customDrink: null,
-    };
-
-    onDrinkEdit(newSelection);
-    setJustEdited(`drink-${editingDrink}`);
-    setEditingDrink(null);
-    toast.success("Getränk aktualisiert");
-  }, [editingDrink, drinkConfigs, onDrinkEdit]);
-
-  const canEdit = onCourseEdit || onDrinkEdit;
+  // Find the index of a course in courseConfigs
+  const findCourseIndex = (courseType: string): number => {
+    return courseConfigs.findIndex(c => c.course_type === courseType);
+  };
 
   return (
     <div className="space-y-6">
@@ -187,9 +107,9 @@ export const FinalizePanel = ({
               <UtensilsCrossed className="h-5 w-5" />
               Menü-Zusammenfassung
             </CardTitle>
-            {canEdit && (
+            {(canEditCourses || canEditDrinks) && (
               <span className="text-xs text-muted-foreground">
-                Klicke zum Bearbeiten • <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px]">E</kbd>+<kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px]">1-5</kbd>
+                Klicke zum Bearbeiten
               </span>
             )}
           </div>
@@ -215,20 +135,18 @@ export const FinalizePanel = ({
               </h4>
               <div className="space-y-2">
                 {menuSelection.courses.map((course, idx) => {
-                  const isEditing = editingCourse === course.courseType;
-                  const wasJustEdited = justEdited === `course-${course.courseType}`;
+                  const courseIndex = findCourseIndex(course.courseType);
                   
                   return (
                     <div 
                       key={idx} 
                       className={`
-                        group flex items-start justify-between p-3 rounded-lg transition-all
-                        ${wasJustEdited ? 'bg-primary/10 ring-2 ring-primary/30' : 'bg-muted/50'}
-                        ${canEdit && onCourseEdit ? 'hover:bg-muted cursor-pointer' : ''}
+                        group flex items-start justify-between p-3 rounded-lg transition-all bg-muted/50
+                        ${canEditCourses ? 'hover:bg-muted cursor-pointer' : ''}
                       `}
                       onClick={() => {
-                        if (canEdit && onCourseEdit) {
-                          setEditingCourse(course.courseType);
+                        if (canEditCourses && courseIndex >= 0) {
+                          onNavigateToCourse(courseIndex);
                         }
                       }}
                     >
@@ -258,14 +176,14 @@ export const FinalizePanel = ({
                            course.itemSource === 'custom' ? 'Paket' :
                            course.itemSource === 'ristorante' ? 'Restaurant' : 'Catering'}
                         </Badge>
-                        {canEdit && onCourseEdit && (
+                        {canEditCourses && courseIndex >= 0 && (
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setEditingCourse(course.courseType);
+                              onNavigateToCourse(courseIndex);
                             }}
                           >
                             <Pencil className="h-4 w-4" />
@@ -289,37 +207,32 @@ export const FinalizePanel = ({
                 Getränke
               </h4>
               <div className="flex flex-wrap gap-2">
-                {menuSelection.drinks.map((drink, idx) => {
-                  const wasJustEdited = justEdited === `drink-${drink.drinkGroup}`;
-                  
-                  return (
-                    <div 
-                      key={idx}
-                      className={`
-                        group flex items-center gap-2 px-3 py-2 rounded-lg transition-all
-                        ${wasJustEdited ? 'bg-primary/10 ring-2 ring-primary/30' : 'bg-muted/50'}
-                        ${canEdit && onDrinkEdit ? 'hover:bg-muted cursor-pointer' : ''}
-                      `}
-                      onClick={() => {
-                        if (canEdit && onDrinkEdit) {
-                          setEditingDrink(drink.drinkGroup);
-                        }
-                      }}
-                    >
-                      <span>{DRINK_ICONS[drink.drinkGroup] || '🍷'}</span>
-                      <div>
-                        <p className="text-sm font-medium">{drink.drinkLabel}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {drink.customDrink || drink.selectedChoice}
-                          {drink.quantityLabel && ` (${drink.quantityLabel})`}
-                        </p>
-                      </div>
-                      {canEdit && onDrinkEdit && (
-                        <Pencil className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground ml-1" />
-                      )}
+                {menuSelection.drinks.map((drink, idx) => (
+                  <div 
+                    key={idx}
+                    className={`
+                      group flex items-center gap-2 px-3 py-2 rounded-lg transition-all bg-muted/50
+                      ${canEditDrinks ? 'hover:bg-muted cursor-pointer' : ''}
+                    `}
+                    onClick={() => {
+                      if (canEditDrinks) {
+                        onNavigateToDrinks();
+                      }
+                    }}
+                  >
+                    <span>{DRINK_ICONS[drink.drinkGroup] || '🍷'}</span>
+                    <div>
+                      <p className="text-sm font-medium">{drink.drinkLabel}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {drink.customDrink || drink.selectedChoice}
+                        {drink.quantityLabel && ` (${drink.quantityLabel})`}
+                      </p>
                     </div>
-                  );
-                })}
+                    {canEditDrinks && (
+                      <Pencil className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground ml-1" />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -331,24 +244,6 @@ export const FinalizePanel = ({
           )}
         </CardContent>
       </Card>
-
-      {/* GlobalItemSearch for Course Editing */}
-      <GlobalItemSearch
-        open={!!editingCourse}
-        onOpenChange={(open) => !open && setEditingCourse(null)}
-        onSelect={handleCourseItemSelect}
-        filterType="food"
-        placeholder={`${menuSelection.courses.find(c => c.courseType === editingCourse)?.courseLabel || 'Gang'} ersetzen...`}
-      />
-
-      {/* GlobalItemSearch for Drink Editing */}
-      <GlobalItemSearch
-        open={!!editingDrink}
-        onOpenChange={(open) => !open && setEditingDrink(null)}
-        onSelect={handleDrinkItemSelect}
-        filterType="drinks"
-        placeholder={`${menuSelection.drinks.find(d => d.drinkGroup === editingDrink)?.drinkLabel || 'Getränk'} ersetzen...`}
-      />
 
       {/* AI Email Generator */}
       <Card>
