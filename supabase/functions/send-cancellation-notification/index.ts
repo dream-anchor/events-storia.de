@@ -32,6 +32,37 @@ interface CancellationNotificationRequest {
   isPickup?: boolean;
 }
 
+interface EmailLogEntry {
+  entity_type: string;
+  entity_id: string;
+  recipient_email: string;
+  recipient_name: string | null;
+  subject: string;
+  provider: string;
+  provider_message_id: string | null;
+  status: string;
+  error_message: string | null;
+  sent_by: string | null;
+  metadata: Record<string, unknown>;
+}
+
+// deno-lint-ignore no-explicit-any
+async function logEmailDelivery(supabase: any, entry: EmailLogEntry) {
+  try {
+    const { error } = await supabase
+      .from('email_delivery_logs')
+      .insert(entry);
+    
+    if (error) {
+      console.error('Failed to log email delivery:', error);
+    } else {
+      console.log('Email delivery logged:', entry.status, entry.recipient_email);
+    }
+  } catch (err) {
+    console.error('Error logging email delivery:', err);
+  }
+}
+
 const formatPrice = (price: number) => price.toFixed(2).replace('.', ',') + ' €';
 
 const formatDateTime = (dateStr: string) => {
@@ -263,25 +294,82 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Security: Order cancellation validated", { orderNumber: data.orderNumber });
 
+    // Send customer email
     const customerSubject = `Stornierung Ihrer Bestellung ${data.orderNumber}`;
     const customerEmailText = generateCustomerEmailText(data);
+    let customerEmailSent = false;
+    let customerEmailError: string | null = null;
     
-    await sendEmail(
-      [data.customerEmail],
-      customerSubject,
-      customerEmailText,
-      "STORIA Catering"
-    );
+    try {
+      await sendEmail(
+        [data.customerEmail],
+        customerSubject,
+        customerEmailText,
+        "STORIA Catering"
+      );
+      customerEmailSent = true;
+    } catch (err) {
+      customerEmailError = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Customer email error:', customerEmailError);
+    }
 
+    // Log customer email
+    await logEmailDelivery(supabase, {
+      entity_type: 'catering_order',
+      entity_id: order.id,
+      recipient_email: data.customerEmail,
+      recipient_name: data.customerName,
+      subject: customerSubject,
+      provider: 'ionos_smtp',
+      provider_message_id: null,
+      status: customerEmailSent ? 'sent' : 'failed',
+      error_message: customerEmailError,
+      sent_by: 'system',
+      metadata: {
+        order_number: data.orderNumber,
+        email_type: 'cancellation_customer',
+        cancellation_reason: data.cancellationReason,
+        stripe_refunded: data.stripeRefunded,
+      },
+    });
+
+    // Send restaurant email
     const restaurantSubject = `STORNIERT: ${data.orderNumber}`;
     const restaurantEmailText = generateRestaurantEmailText(data);
+    let restaurantEmailSent = false;
+    let restaurantEmailError: string | null = null;
     
-    await sendEmail(
-      ["info@events-storia.de"],
-      restaurantSubject,
-      restaurantEmailText,
-      "STORIA Bestellsystem"
-    );
+    try {
+      await sendEmail(
+        ["info@events-storia.de"],
+        restaurantSubject,
+        restaurantEmailText,
+        "STORIA Bestellsystem"
+      );
+      restaurantEmailSent = true;
+    } catch (err) {
+      restaurantEmailError = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Restaurant email error:', restaurantEmailError);
+    }
+
+    // Log restaurant email
+    await logEmailDelivery(supabase, {
+      entity_type: 'catering_order',
+      entity_id: order.id,
+      recipient_email: 'info@events-storia.de',
+      recipient_name: 'STORIA Team',
+      subject: restaurantSubject,
+      provider: 'ionos_smtp',
+      provider_message_id: null,
+      status: restaurantEmailSent ? 'sent' : 'failed',
+      error_message: restaurantEmailError,
+      sent_by: 'system',
+      metadata: {
+        order_number: data.orderNumber,
+        email_type: 'cancellation_restaurant',
+        cancellation_reason: data.cancellationReason,
+      },
+    });
 
     return new Response(
       JSON.stringify({ success: true, message: "Cancellation emails sent successfully" }),

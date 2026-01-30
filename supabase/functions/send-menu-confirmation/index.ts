@@ -9,6 +9,38 @@ const corsHeaders = {
 interface MenuConfirmationRequest {
   bookingId: string;
   sendEmail: boolean;
+  sentBy?: string; // Admin email who triggered the send
+}
+
+interface EmailLogEntry {
+  entity_type: string;
+  entity_id: string;
+  recipient_email: string;
+  recipient_name: string | null;
+  subject: string;
+  provider: string;
+  provider_message_id: string | null;
+  status: string;
+  error_message: string | null;
+  sent_by: string | null;
+  metadata: Record<string, unknown>;
+}
+
+// deno-lint-ignore no-explicit-any
+async function logEmailDelivery(supabase: any, entry: EmailLogEntry) {
+  try {
+    const { error } = await supabase
+      .from('email_delivery_logs')
+      .insert(entry);
+    
+    if (error) {
+      console.error('Failed to log email delivery:', error);
+    } else {
+      console.log('Email delivery logged:', entry.status, entry.recipient_email);
+    }
+  } catch (err) {
+    console.error('Error logging email delivery:', err);
+  }
 }
 
 serve(async (req) => {
@@ -17,7 +49,7 @@ serve(async (req) => {
   }
 
   try {
-    const { bookingId, sendEmail } = await req.json() as MenuConfirmationRequest;
+    const { bookingId, sendEmail, sentBy } = await req.json() as MenuConfirmationRequest;
 
     if (!bookingId) {
       throw new Error('bookingId is required');
@@ -103,6 +135,11 @@ info@events-storia.de`;
 
     console.log('Email content generated');
 
+    let emailSent = false;
+    let emailProvider = '';
+    let emailMessageId: string | null = null;
+    let emailError: string | null = null;
+
     if (sendEmail) {
       const smtpHost = Deno.env.get('SMTP_HOST') || 'smtp.ionos.de';
       const smtpPort = parseInt(Deno.env.get('SMTP_PORT') || '465');
@@ -144,60 +181,99 @@ info@events-storia.de`;
 
           await client.close();
           console.log('Email sent successfully via IONOS SMTP');
+          emailSent = true;
+          emailProvider = 'ionos_smtp';
         } catch (smtpError) {
           console.error('SMTP error, trying Resend fallback:', smtpError);
+          emailError = smtpError instanceof Error ? smtpError.message : 'SMTP error';
           
           if (resendApiKey) {
-            const resendResponse = await fetch('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${resendApiKey}`,
-                'Content-Type': 'application/json; charset=utf-8',
-              },
-              body: JSON.stringify({
-                from: 'STORIA Events <info@events-storia.de>',
-                to: booking.customer_email,
-                subject: emailSubject,
-                text: emailBody,
-              }),
-            });
+            try {
+              const resendResponse = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${resendApiKey}`,
+                  'Content-Type': 'application/json; charset=utf-8',
+                },
+                body: JSON.stringify({
+                  from: 'STORIA Events <info@events-storia.de>',
+                  to: booking.customer_email,
+                  subject: emailSubject,
+                  text: emailBody,
+                }),
+              });
 
-            if (!resendResponse.ok) {
-              const error = await resendResponse.text();
-              console.error('Resend error:', error);
-              throw new Error('Failed to send email via both SMTP and Resend');
+              if (!resendResponse.ok) {
+                const error = await resendResponse.text();
+                console.error('Resend error:', error);
+                emailError = `Resend error: ${error}`;
+              } else {
+                const resendData = await resendResponse.json();
+                console.log('Email sent successfully via Resend (fallback)');
+                emailSent = true;
+                emailProvider = 'resend';
+                emailMessageId = resendData.id || null;
+                emailError = null;
+              }
+            } catch (resendErr) {
+              emailError = resendErr instanceof Error ? resendErr.message : 'Resend error';
             }
-
-            console.log('Email sent successfully via Resend (fallback)');
-          } else {
-            throw smtpError;
           }
         }
       } else if (resendApiKey) {
-        const resendResponse = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json; charset=utf-8',
-          },
-          body: JSON.stringify({
-            from: 'STORIA Events <info@events-storia.de>',
-            to: booking.customer_email,
-            subject: emailSubject,
-            text: emailBody,
-          }),
-        });
+        try {
+          const resendResponse = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${resendApiKey}`,
+              'Content-Type': 'application/json; charset=utf-8',
+            },
+            body: JSON.stringify({
+              from: 'STORIA Events <info@events-storia.de>',
+              to: booking.customer_email,
+              subject: emailSubject,
+              text: emailBody,
+            }),
+          });
 
-        if (!resendResponse.ok) {
-          const error = await resendResponse.text();
-          console.error('Resend error:', error);
-          throw new Error('Failed to send email via Resend');
+          if (!resendResponse.ok) {
+            const error = await resendResponse.text();
+            console.error('Resend error:', error);
+            emailError = `Resend error: ${error}`;
+          } else {
+            const resendData = await resendResponse.json();
+            console.log('Email sent successfully via Resend');
+            emailSent = true;
+            emailProvider = 'resend';
+            emailMessageId = resendData.id || null;
+          }
+        } catch (resendErr) {
+          emailError = resendErr instanceof Error ? resendErr.message : 'Resend error';
         }
-
-        console.log('Email sent successfully via Resend');
       } else {
         console.warn('No email provider configured (SMTP or Resend)');
+        emailError = 'No email provider configured';
       }
+
+      // Log email delivery to database
+      await logEmailDelivery(supabase, {
+        entity_type: 'event_booking',
+        entity_id: bookingId,
+        recipient_email: booking.customer_email,
+        recipient_name: booking.customer_name,
+        subject: emailSubject,
+        provider: emailProvider || 'none',
+        provider_message_id: emailMessageId,
+        status: emailSent ? 'sent' : 'failed',
+        error_message: emailError,
+        sent_by: sentBy || null,
+        metadata: {
+          booking_number: booking.booking_number,
+          email_type: 'menu_confirmation',
+          package_name: packageName,
+          event_date: booking.event_date,
+        },
+      });
     }
 
     const { error: updateError } = await supabase
@@ -215,8 +291,9 @@ info@events-storia.de`;
     return new Response(
       JSON.stringify({ 
         success: true, 
-        emailSent: sendEmail,
+        emailSent: emailSent,
         bookingNumber: booking.booking_number,
+        provider: emailProvider || undefined,
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
