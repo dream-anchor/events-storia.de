@@ -114,15 +114,38 @@ export const EventsList = () => {
         let statusLabel = '';
         let statusIcon = null;
         let badgeClass = '';
+        let subLabel: string | null = null;
 
         if (event.offer_sent_at && event.status !== 'confirmed' && event.status !== 'declined') {
-          statusLabel = 'Angebot';
+          statusLabel = 'Angebot gesendet';
           statusIcon = <Send className="h-3 w-3 mr-1" />;
           badgeClass = 'border-emerald-500/50 text-emerald-700 bg-emerald-50';
+          // Extract name from email
+          if (event.offer_sent_by) {
+            const senderEmail = event.offer_sent_by;
+            if (senderEmail.includes('mimmo')) {
+              subLabel = 'von Domenico';
+            } else if (senderEmail.includes('madi')) {
+              subLabel = 'von Madina';
+            } else {
+              subLabel = `von ${senderEmail.split('@')[0]}`;
+            }
+          }
         } else if (event.last_edited_at && !event.offer_sent_at) {
           statusLabel = 'In Bearbeitung';
           statusIcon = <Edit3 className="h-3 w-3 mr-1" />;
           badgeClass = 'border-amber-500/50 text-amber-700 bg-amber-50';
+          // Show who is editing
+          if (event.last_edited_by) {
+            const editorEmail = event.last_edited_by;
+            if (editorEmail.includes('mimmo')) {
+              subLabel = 'von Domenico';
+            } else if (editorEmail.includes('madi')) {
+              subLabel = 'von Madina';
+            } else {
+              subLabel = `von ${editorEmail.split('@')[0]}`;
+            }
+          }
         } else if (event.status === 'confirmed') {
           statusLabel = 'Bestätigt';
           badgeClass = 'border-foreground/50 text-foreground bg-muted';
@@ -135,10 +158,15 @@ export const EventsList = () => {
         }
 
         return (
-          <Badge variant="outline" className={cn("font-medium flex items-center w-fit", badgeClass)}>
-            {statusIcon}
-            {statusLabel}
-          </Badge>
+          <div className="flex flex-col gap-0.5">
+            <Badge variant="outline" className={cn("font-medium flex items-center w-fit", badgeClass)}>
+              {statusIcon}
+              {statusLabel}
+            </Badge>
+            {subLabel && (
+              <span className="text-xs text-muted-foreground ml-0.5">{subLabel}</span>
+            )}
+          </div>
         );
       },
     },
