@@ -1,202 +1,119 @@
 
-# Typographie-Konzept: STORIA Catering Website
+# Plan: Floating Buttons → Bottom-Left Integration (Apple 2026)
 
 ## Übersicht
 
-Dieses Konzept definiert ein konsistentes Schriftgrößen-System für alle Bereiche der Webseite. Es basiert auf Tailwind CSS Klassen und unterscheidet zwischen **Serif** (Playfair Display für Überschriften) und **Sans-Serif** (Inter für UI/Body).
+Alle zentrierten Floating Buttons im StoriaMaestro Admin werden entfernt und durch kontextuelle Inline-Buttons am unteren linken Rand ersetzt. Dies folgt dem **F-Schema Lesefluss** (Apple 2026 UX) und reduziert visuellen Ballast.
 
----
+## Betroffene Komponenten
 
-## Schriftarten-Zuordnung
+| Komponente | Aktueller Zustand | Neuer Zustand |
+|------------|-------------------|---------------|
+| `CourseSelector.tsx` | `fixed bottom-6 left-1/2 -translate-x-1/2` (2× Instanzen) | Inline-Button unten links im Card-Container |
+| `MenuWorkflow.tsx` | `flex justify-end` (rechts ausgerichtet) | `flex justify-start` (links ausgerichtet) |
+| `FloatingActionBar.tsx` | `fixed bottom-24 left-1/2 -translate-x-1/2` | `fixed bottom-6 left-6` (linke Ecke) |
 
-| Schriftart | Tailwind-Klasse | Verwendung |
-|------------|-----------------|------------|
-| Playfair Display | `font-serif` | Hauptüberschriften, Preise |
-| Cormorant Garamond | `font-display` | Elegante Taglines, Kategorietitel |
-| Inter | `font-sans` | Body-Text, UI-Elemente, Buttons |
-| Great Vibes | `font-signature` | Spezielle Akzente (sparsam) |
+## Technische Änderungen
 
----
+### 1. CourseSelector.tsx (2 Stellen)
 
-## Schriftgrößen-Hierarchie
+**Zeilen 349-369** (Custom Item Branch):
+- Entferne `fixed bottom-6 left-1/2 -translate-x-1/2 z-50`
+- Ersetze durch relativen Container innerhalb der Card
+- Positioniere links ausgerichtet mit Glassmorphism-Styling
 
-### Hero-Bereich (Startseite & Landingpages)
+**Zeilen 634-654** (Standard Item Branch):
+- Identische Anpassung wie oben
+- Button wird Teil des `CardContent` Layouts
 
-| Element | Mobile | Desktop | Klassen |
-|---------|--------|---------|---------|
-| Logo | h-32 (128px) | h-40 (160px) | – (Bild) |
-| Tagline | 14px | 16px | `text-sm md:text-base` |
-| H1 Haupttitel | 18px | 20px | `text-lg md:text-xl` |
-
-### Sektionsüberschriften (H2)
-
-| Kontext | Mobile | Desktop | Klassen |
-|---------|--------|---------|---------|
-| Standard-Sektionen | 24px | 30px | `text-2xl md:text-3xl` |
-| Hero-Landingpages | 36px | 72px | `text-4xl md:text-6xl lg:text-7xl` |
-| Footer Service-Bereich | 30px | 36px | `text-3xl md:text-4xl` |
-
-### Untertitel & Lead-Text
-
-| Element | Mobile | Desktop | Klassen |
-|---------|--------|---------|---------|
-| Sektions-Subline | 18px | 18px | `text-lg` |
-| Lead-Paragraph | 20px | 20px | `text-xl` |
-| Service-Beschreibungen | 18px | 18px | `text-lg` |
-
-### Content-Bereich
-
-| Element | Mobile | Desktop | Klassen |
-|---------|--------|---------|---------|
-| Fließtext | 18px | 18px | `text-base` (Root: 18px) |
-| Produktbeschreibungen | 16px | 16px | `text-base` |
-| Card-Titel (H3) | 20px | 24px | `text-xl md:text-2xl` |
-| Kategorietitel | 20px | 24px | `text-xl md:text-2xl` |
-
-### Menükarten & Produktkarten
-
-| Element | Mobile | Desktop | Klassen |
-|---------|--------|---------|---------|
-| Produktname | 20px | 20px | `text-xl` |
-| Preis | 20px | 20px | `text-xl` |
-| Serving-Info | 14px | 14px | `text-sm` |
-| Beschreibung | 16px | 16px | `text-base` |
-| Min. Bestellung | 14px | 14px | `text-sm` |
-
-### Speisekarten-Anzeige (MenuDisplay)
-
-| Element | Mobile | Desktop | Klassen |
-|---------|--------|---------|---------|
-| Menü-Titel | 36px | 48px | `text-4xl md:text-5xl` |
-| Menü-Untertitel | 20px | 20px | `text-xl` |
-| Kategorie-Titel | 30px | 30px | `text-3xl` |
-| Kategorie-Beschreibung | 18px | 18px | `text-lg` |
-| Gericht-Name | 20px | 20px | `text-xl` |
-| Gericht-Preis | 20px | 20px | `text-xl` |
-| Gericht-Beschreibung | 18px | 18px | `text-lg` |
-
-### Navigation & Header
-
-| Element | Mobile | Desktop | Klassen |
-|---------|--------|---------|---------|
-| Logo-Text "STORIA" | 24.8px | 31.2px | `text-[1.55rem] md:text-[1.95rem]` |
-| Kontaktinfo | 16px | 16px | `text-base` |
-| Nav-Links | 16px | 16px | `text-base` |
-
-### Footer
-
-| Element | Mobile | Desktop | Klassen |
-|---------|--------|---------|---------|
-| Service-Titel (H2) | 30px | 36px | `text-3xl md:text-4xl` |
-| Service-Subline | 18px | 20px | `text-lg md:text-xl` |
-| Anker-Titel (H3) | 20px | 20px | `text-xl` |
-| Anker-Beschreibung | 18px | 18px | `text-lg` |
-| Kontakt-Label (H3) | 16px | 16px | `text-base` |
-| Kontaktdaten | 16px | 16px | `text-base` |
-| Copyright | 14px | 14px | `text-sm` |
-| Legal-Links | 14px | 14px | `text-sm` |
-
-### Testimonials & Bewertungen
-
-| Element | Mobile | Desktop | Klassen |
-|---------|--------|---------|---------|
-| Sektions-Titel | 24px | 30px | `text-2xl md:text-3xl` |
-| Zitat-Text | 14px | 14px | `text-sm` |
-| Autor-Name | 14px | 14px | `text-sm` |
-| Firma | 12px | 12px | `text-xs` |
-
-### Checkout & Formulare
-
-| Element | Mobile | Desktop | Klassen |
-|---------|--------|---------|---------|
-| Seiten-Titel | 24px | 30px | `text-2xl md:text-3xl` |
-| Formular-Labels | 16px | 16px | `text-base` |
-| Input-Felder | 16px | 16px | `text-base` (min 16px für iOS) |
-| Fehlermeldungen | 14px | 14px | `text-sm` |
-| Hilfetext | 14px | 14px | `text-sm` |
-
-### Statistiken & Trust-Bars
-
-| Element | Mobile | Desktop | Klassen |
-|---------|--------|---------|---------|
-| Zahl/Wert | 30px | 36px | `text-3xl md:text-4xl` |
-| Label | 16px | 16px | `text-base` |
-
-### Buttons
-
-| Variante | Größe | Klassen |
-|----------|-------|---------|
-| Standard | 14px | `text-sm` |
-| Large | 16px | `text-base` |
-| CTA Primary | 16px | `text-base` |
-
----
-
-## Responsive Scaling-Prinzipien
-
-1. **Mobile-First**: Basisgröße ist für Mobile definiert
-2. **Desktop-Skalierung**: +2-4px für wichtige Überschriften
-3. **Konsistente Abstufung**: Immer 1 Tailwind-Stufe (z.B. `sm` → `base` → `lg`)
-4. **iOS-Kompatibilität**: Formularfelder mindestens 16px (verhindert Auto-Zoom)
-
----
-
-## Empfohlene Anpassungen
-
-### Inkonsistenzen beheben
-
-| Bereich | Aktuell | Empfohlen |
-|---------|---------|-----------|
-| CateringCTA Body | `text-lg` | `text-base md:text-lg` |
-| Testimonial Zitate | `text-sm` | `text-base` |
-| EventTypes Card-Titel | `text-lg md:text-xl` | `text-xl` (konsistent) |
-
-### Optimierungen
-
-1. **Einheitliche Produktkarten**: Alle Catering-Seiten nutzen `text-xl` für Titel und `text-base` für Beschreibungen
-2. **Footer vereinheitlichen**: Kontakt- und Lieferzeiten-Labels konsistent auf `text-base` mit `tracking-[0.2em]`
-3. **Testimonial-Lesbarkeit**: Zitat-Text von `text-sm` auf `text-base` erhöhen
-
----
-
-## Technische Details
-
-### Root-Basisgröße (index.css)
-
-```css
-body {
-  font-size: 18px;
-  line-height: 1.6;
-}
+**Neues Markup (beide Stellen):**
+```tsx
+{/* Inline Action Bar - unten links */}
+<AnimatePresence>
+  {hasSelection && (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 10 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      className="mt-6 flex justify-start"
+    >
+      <Button 
+        onClick={onNext} 
+        size="lg"
+        className="px-6 h-12 rounded-2xl shadow-lg text-base gap-2 bg-primary"
+      >
+        {isLastCourse ? "Weiter zu Getränke" : "Nächster Gang"}
+        <ChevronRight className="h-5 w-5" />
+      </Button>
+    </motion.div>
+  )}
+</AnimatePresence>
 ```
 
-### Tailwind-Größen-Referenz
+### 2. MenuWorkflow.tsx
 
-| Klasse | Pixel | rem |
-|--------|-------|-----|
-| `text-xs` | 12px | 0.75rem |
-| `text-sm` | 14px | 0.875rem |
-| `text-base` | 16px* | 1rem |
-| `text-lg` | 18px | 1.125rem |
-| `text-xl` | 20px | 1.25rem |
-| `text-2xl` | 24px | 1.5rem |
-| `text-3xl` | 30px | 1.875rem |
-| `text-4xl` | 36px | 2.25rem |
-| `text-5xl` | 48px | 3rem |
-| `text-6xl` | 60px | 3.75rem |
-| `text-7xl` | 72px | 4.5rem |
+**Zeilen 213-225** (Courses → Drinks Button):
+```tsx
+// Alt: <div className="flex justify-end">
+// Neu:
+<div className="flex justify-start">
+```
 
-*Hinweis: Die Root-Schriftgröße ist 18px, daher erscheinen relative Größen entsprechend größer.
+**Zeilen 252-264** (Drinks → Finalize Button):
+```tsx
+// Alt: <div className="flex justify-end">
+// Neu:
+<div className="flex justify-start">
+```
 
----
+### 3. FloatingActionBar.tsx (Bulk Actions)
 
-## Zusammenfassung
+**Zeilen 23-29**:
+```tsx
+// Alt: className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-40"
+// Neu:
+className="fixed bottom-6 left-6 z-40"
+```
 
-Dieses Konzept etabliert eine klare typographische Hierarchie:
+Entferne `-translate-x-1/2` da Button nicht mehr zentriert.
 
-- **Große Überschriften** (H1/H2): Playfair Display, 24-72px
-- **Elegante Akzente**: Cormorant Garamond für Taglines
-- **Body & UI**: Inter, 16-18px für optimale Lesbarkeit
-- **Kleine Elemente**: 12-14px für Metadaten und rechtliche Hinweise
+## Visueller Vergleich
 
-Die Implementierung erfordert minimale Änderungen, da die meisten Bereiche bereits konsistent sind.
+```text
+┌─────────────────────────────────────────────────┐
+│  VORHER (Floating zentriert)                    │
+│                                                 │
+│             ┌───────────────────┐               │
+│             │  Nächster Gang  > │  ← Floating   │
+│             └───────────────────┘               │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│  NACHHER (Inline links)                         │
+│                                                 │
+│  ┌───────────────────┐                          │
+│  │  Nächster Gang  > │  ← Inline, links         │
+│  └───────────────────┘                          │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+## Vorteile
+
+1. **F-Schema Konformität**: Primäre Aktionen folgen dem natürlichen Lesefluss (oben-links → unten-links)
+2. **Kein Overlay-Konflikt**: Buttons überlagern keine anderen UI-Elemente mehr
+3. **Mobile Optimierung**: Keine Kollision mit der MobileBottomNav (fixed bottom-0)
+4. **Konsistente Interaktion**: Alle CTAs im Admin folgen demselben Pattern
+
+## Nicht betroffen (bleiben unverändert)
+
+- **MobileBottomNav** (`FloatingPillNav.tsx`): Dies ist die Hauptnavigation, kein Action-Button
+- **CookieSettingsButton**: Bereits korrekt positioniert (`bottom-4 left-4`)
+- **FloatingActions** (Telefon/WhatsApp): Nur auf Public-Seiten, nicht im Admin
+
+## Dateien zur Bearbeitung
+
+1. `src/components/admin/refine/InquiryEditor/MenuComposer/CourseSelector.tsx`
+2. `src/components/admin/refine/InquiryEditor/MenuComposer/MenuWorkflow.tsx`
+3. `src/components/admin/motion/FloatingActionBar.tsx`
