@@ -606,7 +606,7 @@ export function MultiOfferComposer({
                     {/* Split View: Email + PDF */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
                       {/* Email Content - Left */}
-                      <div className="p-5 max-h-[400px] overflow-y-auto bg-background/50 lg:border-r border-border">
+                      <div className="p-5 max-h-[600px] overflow-y-auto bg-background/50 lg:border-r border-border">
                         <p className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
                           {savedEmailDraft
                             .replace(/\*\*/g, '')
@@ -617,7 +617,7 @@ export function MultiOfferComposer({
                         </p>
                       </div>
                       {/* PDF Preview - Right */}
-                      <div className="p-4 bg-muted/20 max-h-[400px] overflow-hidden">
+                      <div className="p-4 bg-muted/20 h-[600px]">
                         <LivePDFPreview
                           inquiry={inquiry}
                           options={activeOptions}
