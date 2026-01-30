@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Command } from "lucide-react";
+import { Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
@@ -51,16 +51,16 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
             
             {/* Right Actions */}
             <div className="flex items-center gap-2">
-              {/* Command Palette Trigger */}
-              <motion.div whileTap={{ scale: 0.95 }}>
+              {/* Search Field Trigger */}
+              <motion.div whileTap={{ scale: 0.98 }}>
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={() => setCommandOpen(true)}
-                  className="hidden sm:flex items-center gap-2 text-muted-foreground rounded-2xl"
+                  className="hidden sm:flex items-center gap-2 text-muted-foreground rounded-2xl h-10 px-4 min-w-[200px] justify-start"
                 >
-                  <Command className="h-3.5 w-3.5" />
-                  <span className="text-sm">⌘K</span>
+                  <Search className="h-4 w-4" />
+                  <span className="text-sm">Suche...</span>
                 </Button>
               </motion.div>
 
