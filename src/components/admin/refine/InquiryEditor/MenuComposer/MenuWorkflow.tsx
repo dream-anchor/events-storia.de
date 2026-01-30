@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { UtensilsCrossed, Wine, FileText, Check, ChevronRight } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { CourseConfig, DrinkConfig, MenuSelection, CourseType } from "./types";
 import { CourseProgress } from "./CourseProgress";
@@ -175,101 +176,127 @@ export const MenuWorkflow = ({
         })}
       </div>
 
-      {/* Step Content */}
-      {activeStep === 'courses' && (
-        <div className="space-y-6">
-          {/* Course Progress Navigation */}
-          {courseConfigs.length > 0 && (
-            <CourseProgress
+      {/* Step Content with AnimatePresence for smooth transitions */}
+      <AnimatePresence mode="wait">
+        {activeStep === 'courses' && (
+          <motion.div
+            key={`course-step-${activeCourseIndex}`}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="space-y-6"
+          >
+            {/* Course Progress Navigation */}
+            {courseConfigs.length > 0 && (
+              <CourseProgress
+                courseConfigs={courseConfigs}
+                courseSelections={menuSelection.courses}
+                activeCourseIndex={activeCourseIndex}
+                onCourseClick={setActiveCourseIndex}
+              />
+            )}
+
+            {/* Active Course Selector */}
+            {currentCourseConfig && (
+              <CourseSelector
+                courseConfig={currentCourseConfig}
+                currentSelection={getCourseSelection(currentCourseConfig.course_type)}
+                menuItems={menuItems}
+                allMenuItems={menuItems}
+                onSelect={handleCourseSelect}
+                onNext={handleNextCourse}
+                isLastCourse={activeCourseIndex === courseConfigs.length - 1}
+              />
+            )}
+
+            {/* Next Step Button */}
+            {coursesComplete && (
+              <div className="flex justify-end">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setActiveStep('drinks')}
+                  className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors min-h-[48px]"
+                >
+                  Weiter zu Getränke
+                  <ChevronRight className="h-4 w-4" />
+                </motion.button>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeStep === 'drinks' && (
+          <motion.div
+            key="drinks-step"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="space-y-6"
+          >
+            {/* Drink Package Selector */}
+            {drinkConfigs.length > 0 ? (
+              <DrinkPackageSelector
+                drinkConfigs={drinkConfigs}
+                drinkSelections={menuSelection.drinks}
+                onSelect={handleDrinkSelect}
+              />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Wine className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                <p>Keine Getränke-Konfiguration für dieses Paket</p>
+              </div>
+            )}
+
+            {/* Next Step Button */}
+            {drinksComplete && (
+              <div className="flex justify-end">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setActiveStep('finalize')}
+                  className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors min-h-[48px]"
+                >
+                  Weiter zum Angebot
+                  <ChevronRight className="h-4 w-4" />
+                </motion.button>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeStep === 'finalize' && (
+          <motion.div
+            key="finalize-step"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            <FinalizePanel
+              inquiry={inquiry}
+              packageName={packageName}
+              guestCount={guestCount}
+              menuSelection={menuSelection}
+              emailDraft={emailDraft}
+              onEmailDraftChange={onEmailDraftChange}
+              onSendOffer={onSendOffer}
+              isSending={isSending}
+              templates={templates}
+              // Navigation-based editing props
               courseConfigs={courseConfigs}
-              courseSelections={menuSelection.courses}
-              activeCourseIndex={activeCourseIndex}
-              onCourseClick={setActiveCourseIndex}
-            />
-          )}
-
-          {/* Active Course Selector */}
-          {currentCourseConfig && (
-            <CourseSelector
-              courseConfig={currentCourseConfig}
-              currentSelection={getCourseSelection(currentCourseConfig.course_type)}
-              menuItems={menuItems}
-              allMenuItems={menuItems}
-              onSelect={handleCourseSelect}
-              onNext={handleNextCourse}
-              isLastCourse={activeCourseIndex === courseConfigs.length - 1}
-            />
-          )}
-
-          {/* Next Step Button */}
-          {coursesComplete && (
-            <div className="flex justify-end">
-              <button
-                onClick={() => setActiveStep('drinks')}
-                className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors"
-              >
-                Weiter zu Getränke
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeStep === 'drinks' && (
-        <div className="space-y-6">
-          {/* Drink Package Selector */}
-          {drinkConfigs.length > 0 ? (
-            <DrinkPackageSelector
               drinkConfigs={drinkConfigs}
-              drinkSelections={menuSelection.drinks}
-              onSelect={handleDrinkSelect}
+              onNavigateToCourse={(courseIndex) => {
+                setActiveCourseIndex(courseIndex);
+                setActiveStep('courses');
+              }}
+              onNavigateToDrinks={() => {
+                setActiveStep('drinks');
+              }}
             />
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Wine className="h-10 w-10 mx-auto mb-3 opacity-50" />
-              <p>Keine Getränke-Konfiguration für dieses Paket</p>
-            </div>
-          )}
-
-          {/* Next Step Button */}
-          {drinksComplete && (
-            <div className="flex justify-end">
-              <button
-                onClick={() => setActiveStep('finalize')}
-                className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors"
-              >
-                Weiter zum Angebot
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeStep === 'finalize' && (
-        <FinalizePanel
-          inquiry={inquiry}
-          packageName={packageName}
-          guestCount={guestCount}
-          menuSelection={menuSelection}
-          emailDraft={emailDraft}
-          onEmailDraftChange={onEmailDraftChange}
-          onSendOffer={onSendOffer}
-          isSending={isSending}
-          templates={templates}
-          // Navigation-based editing props
-          courseConfigs={courseConfigs}
-          drinkConfigs={drinkConfigs}
-          onNavigateToCourse={(courseIndex) => {
-            setActiveCourseIndex(courseIndex);
-            setActiveStep('courses');
-          }}
-          onNavigateToDrinks={() => {
-            setActiveStep('drinks');
-          }}
-        />
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

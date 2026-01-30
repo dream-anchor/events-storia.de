@@ -1,15 +1,18 @@
-import { useState, useMemo, useEffect } from "react";
-import { Search, Check, ChefHat, Utensils, Globe, Sparkles, Plus, Command } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { Search, Check, ChefHat, Utensils, Globe, Sparkles, Plus, Command, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { CourseConfig, CourseSelection, MenuItem, COURSE_ICONS } from "./types";
 import { GlobalItemSearch } from "./GlobalItemSearch";
 import { CustomItemInput } from "./CustomItemInput";
 import { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
+import { toast } from "sonner";
 
 interface CourseSelectorProps {
   courseConfig: CourseConfig;
@@ -34,11 +37,13 @@ export const CourseSelector = ({
   const [searchMode, setSearchMode] = useState<'recommended' | 'global'>('recommended');
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [activeSource, setActiveSource] = useState<'all' | 'catering' | 'ristorante'>(
     courseConfig.allowed_sources.length === 1 
       ? courseConfig.allowed_sources[0] 
       : 'all'
   );
+  const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Keyboard shortcut for global search
   useEffect(() => {
@@ -50,6 +55,15 @@ export const CourseSelector = ({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Cleanup auto-advance timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceRef.current) {
+        clearTimeout(autoAdvanceRef.current);
+      }
+    };
   }, []);
 
   // Items to display based on mode
@@ -106,6 +120,11 @@ export const CourseSelector = ({
   }, [displayItems]);
 
   const handleItemSelect = (item: MenuItem) => {
+    // Clear any existing auto-advance timer
+    if (autoAdvanceRef.current) {
+      clearTimeout(autoAdvanceRef.current);
+    }
+
     onSelect({
       courseType: courseConfig.course_type,
       courseLabel: courseConfig.course_label,
@@ -115,9 +134,24 @@ export const CourseSelector = ({
       itemSource: item.source,
       isCustom: false,
     });
+
+    // Show success toast
+    toast.success(`${item.name} ausgewählt`, { duration: 1500 });
+
+    // Auto-advance after 800ms if not last course
+    if (!isLastCourse) {
+      autoAdvanceRef.current = setTimeout(() => {
+        onNext();
+      }, 800);
+    }
   };
 
   const handleGlobalSelect = (item: CombinedMenuItem) => {
+    // Clear any existing auto-advance timer
+    if (autoAdvanceRef.current) {
+      clearTimeout(autoAdvanceRef.current);
+    }
+
     onSelect({
       courseType: courseConfig.course_type,
       courseLabel: courseConfig.course_label,
@@ -127,6 +161,16 @@ export const CourseSelector = ({
       itemSource: item.source,
       isCustom: false,
     });
+
+    // Show success toast
+    toast.success(`${item.name} ausgewählt`, { duration: 1500 });
+
+    // Auto-advance after 800ms if not last course
+    if (!isLastCourse) {
+      autoAdvanceRef.current = setTimeout(() => {
+        onNext();
+      }, 800);
+    }
   };
 
   const handleCustomItem = (item: { name: string; description: string | null }) => {
@@ -139,7 +183,12 @@ export const CourseSelector = ({
       itemSource: 'manual',
       isCustom: true,
     });
+
+    // Show success toast
+    toast.success(`${item.name} hinzugefügt`, { duration: 1500 });
   };
+
+  const hasSelection = currentSelection && (currentSelection.itemId || currentSelection.isCustom);
 
   // If this is a custom item (like Vorspeisenplatte), show it as pre-selected
   // But if user has selected a different item, show that instead
@@ -166,7 +215,11 @@ export const CourseSelector = ({
         <CardContent>
           {/* Show selected alternative item if one was chosen */}
           {hasAlternativeSelection && currentSelection ? (
-            <div className="p-4 rounded-xl border-2 border-primary bg-primary/5">
+            <motion.div 
+              initial={{ scale: 0.98, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="p-4 rounded-xl border-2 border-primary bg-primary/5"
+            >
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2">
@@ -187,14 +240,19 @@ export const CourseSelector = ({
                     </p>
                   )}
                 </div>
-                <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                  className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0"
+                >
                   <Check className="h-4 w-4 text-primary-foreground" />
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
           ) : (
             /* Show default custom item */
-            <div 
+            <motion.div 
               onClick={() => {
                 onSelect({
                   courseType: courseConfig.course_type,
@@ -205,7 +263,9 @@ export const CourseSelector = ({
                   itemSource: 'custom',
                   isCustom: true,
                 });
+                toast.success(`${courseConfig.custom_item_name} ausgewählt`, { duration: 1500 });
               }}
+              whileTap={{ scale: 0.97 }}
               className={cn(
                 "p-4 rounded-xl border-2 cursor-pointer transition-all",
                 "hover:border-primary/50 hover:shadow-sm",
@@ -224,15 +284,20 @@ export const CourseSelector = ({
                   )}
                 </div>
                 {isDefaultSelected && (
-                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                  <motion.div 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                    className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0"
+                  >
                     <Check className="h-4 w-4 text-primary-foreground" />
-                  </div>
+                  </motion.div>
                 )}
               </div>
               <Badge variant="secondary" className="mt-3">
                 Im Paket enthalten
               </Badge>
-            </div>
+            </motion.div>
           )}
 
           {/* Option to change selection */}
@@ -265,12 +330,6 @@ export const CourseSelector = ({
               Zurück zu "{courseConfig.custom_item_name}"
             </Button>
           )}
-
-          {(isDefaultSelected || hasAlternativeSelection) && (
-            <Button onClick={onNext} className="w-full mt-3">
-              Weiter zum nächsten Gang
-            </Button>
-          )}
         </CardContent>
 
         <GlobalItemSearch
@@ -286,6 +345,28 @@ export const CourseSelector = ({
           onOpenChange={setShowCustomInput}
           onSubmit={handleCustomItem}
         />
+
+        {/* Floating Action Bar */}
+        <AnimatePresence>
+          {(isDefaultSelected || hasAlternativeSelection) && (
+            <motion.div 
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+            >
+              <Button 
+                onClick={onNext} 
+                size="lg"
+                className="px-8 h-14 rounded-full shadow-[var(--shadow-floating)] text-base gap-2"
+              >
+                {isLastCourse ? "Weiter zu Getränke" : "Nächster Gang"}
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Card>
     );
   }
@@ -303,65 +384,64 @@ export const CourseSelector = ({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Current Selection Summary - always visible */}
-        {currentSelection && (currentSelection.itemId || currentSelection.isCustom) && (
-          <div className="p-4 rounded-xl border-2 border-primary bg-primary/5">
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground mb-1">Aktuelle Auswahl</p>
-                <div className="flex items-center gap-2">
-                  <h4 className="font-semibold">{currentSelection.itemName}</h4>
-                  {currentSelection.itemSource === 'ristorante' && (
-                    <Utensils className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  {currentSelection.itemSource === 'catering' && (
-                    <ChefHat className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  {currentSelection.isCustom && (
-                    <Badge variant="outline" className="text-xs">Manuell</Badge>
+        <AnimatePresence mode="wait">
+          {hasSelection && currentSelection && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="p-4 rounded-xl border-2 border-primary bg-primary/5"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground mb-1">Aktuelle Auswahl</p>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-semibold">{currentSelection.itemName}</h4>
+                    {currentSelection.itemSource === 'ristorante' && (
+                      <Utensils className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    {currentSelection.itemSource === 'catering' && (
+                      <ChefHat className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    {currentSelection.isCustom && (
+                      <Badge variant="outline" className="text-xs">Manuell</Badge>
+                    )}
+                  </div>
+                  {currentSelection.itemDescription && (
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      {currentSelection.itemDescription}
+                    </p>
                   )}
                 </div>
-                {currentSelection.itemDescription && (
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                    {currentSelection.itemDescription}
-                  </p>
-                )}
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                  className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0"
+                >
+                  <Check className="h-4 w-4 text-primary-foreground" />
+                </motion.div>
               </div>
-              <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                <Check className="h-4 w-4 text-primary-foreground" />
-              </div>
-            </div>
-          </div>
-        )}
-        {/* Search Mode Toggle */}
-        <div className="flex gap-2 p-1 bg-muted rounded-full">
-          <button
-            onClick={() => setSearchMode('recommended')}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
-              searchMode === 'recommended'
-                ? "bg-background shadow-sm text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Sparkles className="h-4 w-4" />
-            Empfohlen
-          </button>
-          <button
-            onClick={() => setSearchMode('global')}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
-              searchMode === 'global'
-                ? "bg-background shadow-sm text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Globe className="h-4 w-4" />
-            Alle Speisen
-          </button>
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Search & Filter */}
+        {/* Compact Search + Filter Toggle (Progressive Disclosure) */}
         <div className="flex gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              "shrink-0 h-11 w-11",
+              showFilters && "bg-muted"
+            )}
+            title="Filter anzeigen"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </Button>
+          
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -376,43 +456,76 @@ export const CourseSelector = ({
             variant="outline" 
             size="icon"
             onClick={() => setShowGlobalSearch(true)}
-            className="shrink-0"
+            className="shrink-0 h-11 w-11"
             title="Schnellsuche (⌘K)"
           >
             <Command className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* Source Filter - only in global mode */}
-        {searchMode === 'global' && (
-          <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as typeof activeSource)}>
-            <TabsList className="h-10 w-full">
-              <TabsTrigger value="all" className="text-xs flex-1">Alle</TabsTrigger>
-              <TabsTrigger value="catering" className="text-xs flex-1">
-                <ChefHat className="h-3 w-3 mr-1" />
-                Catering
-              </TabsTrigger>
-              <TabsTrigger value="ristorante" className="text-xs flex-1">
-                <Utensils className="h-3 w-3 mr-1" />
-                Restaurant
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        )}
+        {/* Collapsible Filters (Progressive Disclosure) */}
+        <Collapsible open={showFilters}>
+          <CollapsibleContent className="space-y-3 pt-2">
+            {/* Search Mode Toggle */}
+            <div className="flex gap-2 p-1 bg-muted rounded-full">
+              <button
+                onClick={() => setSearchMode('recommended')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all min-h-[44px]",
+                  searchMode === 'recommended'
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Sparkles className="h-4 w-4" />
+                Empfohlen
+              </button>
+              <button
+                onClick={() => setSearchMode('global')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all min-h-[44px]",
+                  searchMode === 'global'
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Globe className="h-4 w-4" />
+                Alle Speisen
+              </button>
+            </div>
 
-        {/* Category Info - only in recommended mode */}
-        {searchMode === 'recommended' && courseConfig.allowed_categories.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {courseConfig.allowed_categories.map(cat => (
-              <Badge key={cat} variant="outline" className="text-xs">
-                {cat}
-              </Badge>
-            ))}
-          </div>
-        )}
+            {/* Source Filter - only in global mode */}
+            {searchMode === 'global' && (
+              <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as typeof activeSource)}>
+                <TabsList className="h-11 w-full">
+                  <TabsTrigger value="all" className="text-xs flex-1 min-h-[44px]">Alle</TabsTrigger>
+                  <TabsTrigger value="catering" className="text-xs flex-1 min-h-[44px]">
+                    <ChefHat className="h-3 w-3 mr-1" />
+                    Catering
+                  </TabsTrigger>
+                  <TabsTrigger value="ristorante" className="text-xs flex-1 min-h-[44px]">
+                    <Utensils className="h-3 w-3 mr-1" />
+                    Restaurant
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+
+            {/* Category Info - only in recommended mode */}
+            {searchMode === 'recommended' && courseConfig.allowed_categories.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {courseConfig.allowed_categories.map(cat => (
+                  <Badge key={cat} variant="outline" className="text-xs">
+                    {cat}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Items Grid */}
-        <div className="max-h-[400px] overflow-y-auto space-y-4 pr-2">
+        <div className="max-h-[400px] overflow-y-auto space-y-4 pr-2 pb-20">
           {Object.entries(itemsByCategory).map(([category, items]) => (
             <div key={category}>
               <h5 className="text-sm font-medium text-muted-foreground mb-2 sticky top-0 bg-background py-1">
@@ -423,14 +536,17 @@ export const CourseSelector = ({
                   const isSelected = currentSelection?.itemId === item.id;
                   
                   return (
-                    <div
+                    <motion.div
                       key={item.id}
                       onClick={() => handleItemSelect(item)}
+                      whileTap={{ scale: 0.97 }}
+                      animate={isSelected ? { scale: [1, 1.02, 1] } : {}}
+                      transition={{ duration: 0.15 }}
                       className={cn(
-                        "p-3 rounded-lg border cursor-pointer transition-all",
+                        "p-3 rounded-xl border cursor-pointer transition-all",
                         "hover:border-primary/50 hover:bg-muted/50",
                         isSelected 
-                          ? "border-primary bg-primary/5" 
+                          ? "border-primary bg-primary/5 shadow-sm" 
                           : "border-border"
                       )}
                     >
@@ -451,13 +567,21 @@ export const CourseSelector = ({
                             </p>
                           )}
                         </div>
-                        {isSelected && (
-                          <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                            <Check className="h-3 w-3 text-primary-foreground" />
-                          </div>
-                        )}
+                        <AnimatePresence>
+                          {isSelected && (
+                            <motion.div 
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              exit={{ scale: 0 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                              className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0"
+                            >
+                              <Check className="h-3 w-3 text-primary-foreground" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -489,13 +613,6 @@ export const CourseSelector = ({
           <Plus className="h-4 w-4 mr-2" />
           Freie Position hinzufügen
         </Button>
-
-        {/* Continue Button */}
-        {currentSelection && (currentSelection.itemId || currentSelection.isCustom) && (
-          <Button onClick={onNext} className="w-full">
-            {isLastCourse ? "Weiter zu Getränke" : "Weiter zum nächsten Gang"}
-          </Button>
-        )}
       </CardContent>
 
       {/* Global Search Dialog */}
@@ -513,6 +630,28 @@ export const CourseSelector = ({
         onOpenChange={setShowCustomInput}
         onSubmit={handleCustomItem}
       />
+
+      {/* Floating Action Bar - Fitts's Law optimized */}
+      <AnimatePresence>
+        {hasSelection && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+          >
+            <Button 
+              onClick={onNext} 
+              size="lg"
+              className="px-8 h-14 rounded-full shadow-[var(--shadow-floating)] text-base gap-2"
+            >
+              {isLastCourse ? "Weiter zu Getränke" : "Nächster Gang"}
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Card>
   );
 };
