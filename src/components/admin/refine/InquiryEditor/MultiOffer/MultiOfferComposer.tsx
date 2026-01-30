@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Send, Loader2, History, Check, Sparkles } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { OfferOptionCard } from "./OfferOptionCard";
 import { OfferVersionHistory } from "./OfferVersionHistory";
+import { EmailEditorPanel } from "./EmailEditorPanel";
+import { LivePDFPreview } from "./LivePDFPreview";
 import { useMultiOfferState } from "./useMultiOfferState";
 import { Package, ExtendedInquiry, EmailTemplate } from "../types";
 import { supabase } from "@/integrations/supabase/client";
@@ -273,6 +272,131 @@ export function MultiOfferComposer({
     );
   }
 
+  // Conditional rendering: Email Draft Mode (Split Layout) vs Options List Mode
+  if (emailDraft) {
+    return (
+      <div className="space-y-6">
+        {/* Compact Header for Email Mode */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">Angebot finalisieren</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              E-Mail bearbeiten und PDF-Vorschau prüfen
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {saveStatus === 'saving' && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Speichert...
+              </span>
+            )}
+            {saveStatus === 'saved' && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Check className="h-3 w-3" />
+                Gespeichert
+              </span>
+            )}
+            <Badge variant="outline" className="text-sm font-medium">
+              Version {currentVersion}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Split Screen Layout: 60/40 */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 min-h-[calc(100vh-280px)]">
+          {/* Email Editor: 3 of 5 columns = 60% */}
+          <div className="lg:col-span-3 flex flex-col">
+            <EmailEditorPanel
+              emailDraft={emailDraft}
+              onChange={setEmailDraft}
+              templates={templates}
+              isGenerating={isGeneratingEmail}
+              onRegenerate={generateEmail}
+              onBack={() => setEmailDraft("")}
+              activeOptionsCount={activeOptions.length}
+            />
+          </div>
+
+          {/* PDF Preview: 2 of 5 columns = 40% */}
+          <div className="lg:col-span-2 flex flex-col">
+            <LivePDFPreview
+              inquiry={inquiry}
+              options={activeOptions}
+              packages={packages}
+              emailDraft={emailDraft}
+            />
+          </div>
+        </div>
+
+        {/* Spacer for Floating Island */}
+        <div className="h-24" />
+
+        {/* Floating Send Bar - Centered Pill */}
+        <motion.div
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          className={cn(
+            "fixed bottom-6 left-1/2 -translate-x-1/2 z-50",
+            "px-5 py-3 rounded-full",
+            "bg-background/80 backdrop-blur-2xl",
+            "border border-border/50",
+            "shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+          )}
+        >
+          <div className="flex items-center gap-4">
+            {/* Status */}
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-sm font-medium">
+                {activeOptions.length} Option{activeOptions.length !== 1 ? 'en' : ''}
+              </span>
+            </div>
+
+            <div className="h-4 w-px bg-border/50" />
+
+            <span className="text-sm text-muted-foreground">
+              {totalForAllOptions.toFixed(2)} €
+            </span>
+
+            <div className="h-4 w-px bg-border/50" />
+
+            {/* Send CTA */}
+            <motion.button
+              onClick={handleSendOffer}
+              disabled={isSending || !emailDraft.trim()}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              className={cn(
+                "h-10 px-5 rounded-full font-medium text-sm flex items-center gap-2",
+                "bg-gradient-to-r from-amber-500 to-amber-600",
+                "text-white shadow-lg shadow-amber-500/25",
+                "hover:shadow-xl hover:shadow-amber-500/35",
+                "transition-shadow duration-200",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              {isSending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sende…
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Angebot senden
+                </>
+              )}
+            </motion.button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Standard Options List Mode
   return (
     <div className="space-y-10">
       {/* Header - Clean 2026 */}
@@ -365,7 +489,7 @@ export function MultiOfferComposer({
                 {/* Status - Elegant Typography */}
                 <div className="flex flex-col gap-0.5">
                   <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                     <span className="text-lg font-semibold text-foreground tracking-tight">
                       {activeOptions.length} aktive Option{activeOptions.length !== 1 ? 'en' : ''}
                     </span>
@@ -427,36 +551,6 @@ export function MultiOfferComposer({
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Email Draft */}
-      {emailDraft && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">E-Mail-Entwurf</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Textarea
-              value={emailDraft}
-              onChange={(e) => setEmailDraft(e.target.value)}
-              rows={12}
-              className="font-mono text-sm"
-            />
-            <div className="flex justify-end">
-              <Button
-                onClick={handleSendOffer}
-                disabled={isSending || !emailDraft.trim()}
-              >
-                {isSending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4 mr-2" />
-                )}
-                Angebot senden
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
