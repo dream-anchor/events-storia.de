@@ -227,16 +227,18 @@ export function OfferOptionCard({
                   </div>
                 )}
 
-                {/* Edit Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowMenuEditor(!showMenuEditor)}
-                  className="w-full h-10"
-                >
-                  <Edit2 className="h-3.5 w-3.5 mr-1.5" />
-                  {showMenuEditor ? 'Schließen' : 'Menü bearbeiten'}
-                </Button>
+                {/* Edit Button - Compact Ghost 2026 */}
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowMenuEditor(!showMenuEditor)}
+                    className="h-9 px-3 gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-xl"
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                    {showMenuEditor ? 'Schließen' : 'Bearbeiten'}
+                  </Button>
+                </div>
               </>
             ) : (
               <div className="flex items-center justify-between py-1">
@@ -245,13 +247,13 @@ export function OfferOptionCard({
                   <span className="text-sm text-muted-foreground">Menü noch nicht konfiguriert</span>
                 </div>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setShowMenuEditor(!showMenuEditor)}
-                  className="h-10"
+                  className="h-9 px-3 gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-xl"
                 >
-                  <Edit2 className="h-3.5 w-3.5 mr-1.5" />
-                  {showMenuEditor ? 'Schließen' : 'Menü konfigurieren'}
+                  <Edit2 className="h-3.5 w-3.5" />
+                  {showMenuEditor ? 'Schließen' : 'Konfigurieren'}
                 </Button>
               </div>
             )}

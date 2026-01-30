@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Plus, Send, FileText, Loader2, History, Check } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, Send, Loader2, History, Check, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { OfferOptionCard } from "./OfferOptionCard";
 import { OfferVersionHistory } from "./OfferVersionHistory";
 import { useMultiOfferState } from "./useMultiOfferState";
@@ -345,41 +347,86 @@ export function MultiOfferComposer({
         </Button>
       )}
 
-      <Separator className="bg-border/50" />
+      {/* Spacer for Floating Island */}
+      <div className="h-28" />
 
-      {/* Summary - Glass Spatial 2026 */}
-      <Card className="bg-card/80 backdrop-blur-xl border-border/30 shadow-[var(--shadow-elevated,_0_8px_32px_-4px_rgba(0,0,0,0.1))]">
-        <CardContent className="pt-6 pb-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-base font-medium text-foreground">
-                {activeOptions.length} aktive Option{activeOptions.length !== 1 ? 'en' : ''}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Gesamtwert: <span className="font-semibold text-foreground">{totalForAllOptions.toFixed(2)} €</span>
-              </p>
+      {/* Floating Island Bottom Bar - Apple 2026 */}
+      <AnimatePresence>
+        {activeOptions.length > 0 && (
+          <motion.div
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 40, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-3rem)] max-w-2xl"
+          >
+            <div className="bg-background/80 backdrop-blur-2xl border border-border/50 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] px-6 py-4">
+              <div className="flex items-center justify-between gap-6">
+                {/* Status - Elegant Typography */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-lg font-semibold text-foreground tracking-tight">
+                      {activeOptions.length} aktive Option{activeOptions.length !== 1 ? 'en' : ''}
+                    </span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    Gesamtwert: 
+                    <span className="ml-1 font-medium text-foreground">
+                      {totalForAllOptions.toFixed(2)} €
+                    </span>
+                  </span>
+                </div>
+                
+                {/* Primary CTA - Amber Glow */}
+                <motion.button
+                  onClick={generateEmail}
+                  disabled={activeOptionsWithPackage.length === 0 || isGeneratingEmail}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className={cn(
+                    "h-12 px-6 rounded-2xl font-medium text-base flex items-center gap-2",
+                    "bg-gradient-to-r from-amber-500 to-amber-600",
+                    "text-white shadow-lg shadow-amber-500/25",
+                    "hover:shadow-xl hover:shadow-amber-500/35",
+                    "transition-shadow duration-200",
+                    "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg disabled:hover:shadow-amber-500/25"
+                  )}
+                >
+                  <AnimatePresence mode="wait">
+                    {isGeneratingEmail ? (
+                      <motion.span
+                        key="loading"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.15 }}
+                        className="flex items-center gap-2"
+                      >
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generiere…
+                      </motion.span>
+                    ) : (
+                      <motion.span
+                        key="default"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.15 }}
+                        className="flex items-center gap-2"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Anschreiben generieren
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
+              </div>
             </div>
-            <Button
-              variant="outline"
-              onClick={generateEmail}
-              disabled={activeOptionsWithPackage.length === 0 || isGeneratingEmail}
-              className="h-11"
-            >
-              {isGeneratingEmail ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Generiere…
-                </>
-              ) : (
-                <>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Anschreiben generieren
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Email Draft */}
       {emailDraft && (
