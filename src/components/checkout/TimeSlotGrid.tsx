@@ -99,10 +99,10 @@ const TimeSlotGrid = ({ value, onChange, isPizzaOnly = false, isEventBooking = f
                   onClick={() => onChange(slot)}
                   className={cn(
                     "px-4 py-2 text-sm font-medium rounded-full border-2 transition-all duration-200",
-                    "hover:border-gray-400 hover:bg-gray-50 dark:hover:border-gray-500 dark:hover:bg-gray-800",
-                    "focus:outline-none focus:ring-2 focus:ring-gray-400/30 focus:ring-offset-2",
+                    "hover:border-amber-600 hover:bg-amber-50 dark:hover:border-amber-500 dark:hover:bg-amber-900/20",
+                    "focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:ring-offset-2",
                     isSelected
-                      ? "border-gray-800 bg-gray-900 text-white dark:border-gray-200 dark:bg-white dark:text-gray-900"
+                      ? "border-amber-800 bg-amber-800 text-white dark:border-amber-600 dark:bg-amber-700 dark:text-white"
                       : "border-border bg-background text-foreground"
                   )}
                 >
