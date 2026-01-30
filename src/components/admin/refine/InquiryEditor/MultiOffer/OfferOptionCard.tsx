@@ -75,12 +75,15 @@ export function OfferOptionCard({
   const hasMenuConfig = configuredCourses > 0 || configuredDrinks > 0;
 
   return (
-    <Card className={cn(
-      "transition-all duration-300 backdrop-blur-sm",
-      option.isActive 
-        ? "border-border bg-card/80 shadow-md" 
-        : "border-border/50 bg-muted/20 opacity-60"
-    )}>
+    <Card 
+      id={`option-${option.id}`}
+      className={cn(
+        "transition-all duration-300 backdrop-blur-sm",
+        option.isActive 
+          ? "border-border bg-card/80 shadow-md" 
+          : "border-border/50 bg-muted/20 opacity-60"
+      )}
+    >
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">

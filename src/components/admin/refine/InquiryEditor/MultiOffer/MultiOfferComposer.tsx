@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Send, Loader2, History, Check, Sparkles, Mail, Clock, User } from "lucide-react";
+import { Plus, Send, Loader2, History, Check, Sparkles, Mail, Clock, User, ChefHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -73,6 +73,20 @@ export function MultiOfferComposer({
   const activeOptions = options.filter(o => o.isActive);
   const activeOptionsWithPackage = activeOptions.filter(o => o.packageId);
   const totalForAllOptions = activeOptions.reduce((sum, opt) => sum + opt.totalAmount, 0);
+  
+  // Check if all active options have menu configured
+  const allMenusConfigured = activeOptionsWithPackage.every(opt => {
+    const configuredCourses = opt.menuSelection.courses.filter(c => c.itemId || c.itemName).length;
+    const configuredDrinks = opt.menuSelection.drinks.filter(d => d.selectedChoice || d.customDrink).length;
+    return configuredCourses > 0 || configuredDrinks > 0;
+  });
+  
+  // Find first option without menu config (for "Konfigurieren" action)
+  const firstUnconfiguredOption = activeOptionsWithPackage.find(opt => {
+    const configuredCourses = opt.menuSelection.courses.filter(c => c.itemId || c.itemName).length;
+    const configuredDrinks = opt.menuSelection.drinks.filter(d => d.selectedChoice || d.customDrink).length;
+    return configuredCourses === 0 && configuredDrinks === 0;
+  });
 
   // Generate payment links for all active options
   const generatePaymentLinks = async () => {
@@ -600,51 +614,86 @@ export function MultiOfferComposer({
                 "shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
               )}>
                 <div className="flex items-center gap-4">
-                  {/* Left: Generate Button with glow */}
-                  <motion.button
-                    onClick={generateEmail}
-                    disabled={activeOptionsWithPackage.length === 0 || isGeneratingEmail}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                    className={cn(
-                      "h-12 px-6 rounded-2xl font-semibold text-sm flex items-center gap-2 whitespace-nowrap",
-                      "bg-gradient-to-r from-amber-500 to-amber-600",
-                      "text-white",
-                      "shadow-[0_4px_20px_-4px_rgba(245,158,11,0.5)]",
-                      "hover:shadow-[0_8px_30px_-4px_rgba(245,158,11,0.6)]",
-                      "transition-shadow duration-300",
-                      "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-                    )}
-                  >
-                    <AnimatePresence mode="wait">
-                      {isGeneratingEmail ? (
-                        <motion.span
-                          key="loading"
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9 }}
-                          transition={{ duration: 0.15 }}
-                          className="flex items-center gap-2"
-                        >
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Generiere…
-                        </motion.span>
-                      ) : (
-                        <motion.span
-                          key="default"
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9 }}
-                          transition={{ duration: 0.15 }}
-                          className="flex items-center gap-2"
-                        >
-                          <Sparkles className="h-4 w-4" />
-                          {hasSentOffer ? 'Folge-Mail generieren' : 'Anschreiben generieren'}
-                        </motion.span>
+                  {/* Primary CTA: "Konfigurieren" if menu missing, else "Anschreiben generieren" */}
+                  {!allMenusConfigured && firstUnconfiguredOption ? (
+                    // Menu not configured yet - show "Konfigurieren" as next step
+                    <motion.button
+                      onClick={() => {
+                        // Find the OfferOptionCard and trigger its menu editor
+                        // We scroll to the option and show a visual hint
+                        const optionElement = document.getElementById(`option-${firstUnconfiguredOption.id}`);
+                        if (optionElement) {
+                          optionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          // Add a highlight animation
+                          optionElement.classList.add('ring-2', 'ring-amber-500', 'ring-offset-2');
+                          setTimeout(() => {
+                            optionElement.classList.remove('ring-2', 'ring-amber-500', 'ring-offset-2');
+                          }, 2000);
+                        }
+                        toast.info(`Bitte das Menü für Option ${firstUnconfiguredOption.optionLabel} konfigurieren`);
+                      }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                      className={cn(
+                        "h-12 px-6 rounded-2xl font-semibold text-sm flex items-center gap-2 whitespace-nowrap",
+                        "bg-gradient-to-r from-amber-500 to-amber-600",
+                        "text-white",
+                        "shadow-[0_4px_20px_-4px_rgba(245,158,11,0.5)]",
+                        "hover:shadow-[0_8px_30px_-4px_rgba(245,158,11,0.6)]",
+                        "transition-shadow duration-300"
                       )}
-                    </AnimatePresence>
-                  </motion.button>
+                    >
+                      <ChefHat className="h-4 w-4" />
+                      Konfigurieren
+                    </motion.button>
+                  ) : (
+                    // All menus configured - show "Anschreiben generieren"
+                    <motion.button
+                      onClick={generateEmail}
+                      disabled={activeOptionsWithPackage.length === 0 || isGeneratingEmail}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                      className={cn(
+                        "h-12 px-6 rounded-2xl font-semibold text-sm flex items-center gap-2 whitespace-nowrap",
+                        "bg-gradient-to-r from-amber-500 to-amber-600",
+                        "text-white",
+                        "shadow-[0_4px_20px_-4px_rgba(245,158,11,0.5)]",
+                        "hover:shadow-[0_8px_30px_-4px_rgba(245,158,11,0.6)]",
+                        "transition-shadow duration-300",
+                        "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                      )}
+                    >
+                      <AnimatePresence mode="wait">
+                        {isGeneratingEmail ? (
+                          <motion.span
+                            key="loading"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.15 }}
+                            className="flex items-center gap-2"
+                          >
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Generiere…
+                          </motion.span>
+                        ) : (
+                          <motion.span
+                            key="default"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.15 }}
+                            className="flex items-center gap-2"
+                          >
+                            <Sparkles className="h-4 w-4" />
+                            {hasSentOffer ? 'Folge-Mail generieren' : 'Anschreiben generieren'}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </motion.button>
+                  )}
 
                   {/* Back button if creating follow-up */}
                   {isNewDraft && (
@@ -658,18 +707,24 @@ export function MultiOfferComposer({
                     </Button>
                   )}
 
-                  {/* Right: Status */}
+                  {/* Right: Status - show menu status or option count */}
                   <div className="flex flex-col gap-0.5 ml-auto text-right">
                     <div className="flex items-center gap-2 justify-end">
                       <span className="text-base font-semibold text-foreground tracking-tight">
-                        {activeOptions.length} aktive Option{activeOptions.length !== 1 ? 'en' : ''}
+                        {!allMenusConfigured && firstUnconfiguredOption 
+                          ? `Option ${firstUnconfiguredOption.optionLabel}: Menü fehlt`
+                          : `${activeOptions.length} aktive Option${activeOptions.length !== 1 ? 'en' : ''}`
+                        }
                       </span>
                       <motion.div 
-                        className="h-2 w-2 rounded-full bg-amber-500"
-                        animate={{ 
+                        className={cn(
+                          "h-2 w-2 rounded-full",
+                          allMenusConfigured ? "bg-amber-500" : "bg-muted-foreground"
+                        )}
+                        animate={allMenusConfigured ? { 
                           scale: [1, 1.2, 1],
                           opacity: [0.7, 1, 0.7]
-                        }}
+                        } : {}}
                         transition={{ 
                           duration: 2, 
                           repeat: Infinity,
