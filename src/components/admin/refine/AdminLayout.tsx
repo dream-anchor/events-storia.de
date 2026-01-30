@@ -37,7 +37,7 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
             {/* Logo with subtle animation */}
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Link to="/admin" className="flex items-center gap-2 shrink-0">
-                <span className="font-serif text-xl font-semibold tracking-tight">
+                <span className="font-sans text-xl font-semibold tracking-tight">
                   StoriaMaestro
                 </span>
               </Link>
