@@ -18,6 +18,8 @@ interface OfferOptionCardProps {
   onRemove: () => void;
   onToggleActive: () => void;
   isGeneratingPaymentLink?: boolean;
+  isMenuEditorOpen?: boolean;
+  onToggleMenuEditor?: (open: boolean) => void;
 }
 
 export function OfferOptionCard({
@@ -28,9 +30,16 @@ export function OfferOptionCard({
   onRemove,
   onToggleActive,
   isGeneratingPaymentLink,
+  isMenuEditorOpen = false,
+  onToggleMenuEditor,
 }: OfferOptionCardProps) {
-  const [showMenuEditor, setShowMenuEditor] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
+  
+  // Use controlled state from parent if provided, otherwise local state
+  const showMenuEditor = isMenuEditorOpen;
+  const setShowMenuEditor = (open: boolean) => {
+    onToggleMenuEditor?.(open);
+  };
 
   const selectedPackage = packages.find(p => p.id === option.packageId);
 
@@ -243,23 +252,7 @@ export function OfferOptionCard({
                   </Button>
                 </div>
               </>
-            ) : (
-              <div className="flex items-center justify-between py-1">
-                <div className="flex items-center gap-2.5">
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Menü noch nicht konfiguriert</span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowMenuEditor(!showMenuEditor)}
-                  className="h-9 px-3 gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-xl"
-                >
-                  <Edit2 className="h-3.5 w-3.5" />
-                  {showMenuEditor ? 'Schließen' : 'Konfigurieren'}
-                </Button>
-              </div>
-            )}
+            ) : null}
           </div>
         )}
 
