@@ -20,11 +20,11 @@ const Hero = () => {
         </Link>
         
         {/* Elegante Tagline */}
-        <p className="text-xs md:text-sm text-muted-foreground tracking-[0.3em] uppercase font-light mb-2">
+        <p className="font-display text-sm md:text-base text-muted-foreground tracking-[0.25em] uppercase mb-2">
           Catering · Events · Lieferservice
         </p>
         
-        <h1 id="hero-heading" className="text-lg md:text-xl font-light text-foreground/80 tracking-wide mb-3">
+        <h1 id="hero-heading" className="font-display text-lg md:text-xl text-foreground/80 tracking-wide mb-3">
           {language === 'de' 
             ? 'Italienische Küche für München' 
             : 'Italian Cuisine for Munich'}
