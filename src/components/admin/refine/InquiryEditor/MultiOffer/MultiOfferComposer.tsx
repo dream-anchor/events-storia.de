@@ -484,44 +484,8 @@ export function MultiOfferComposer({
             {/* Show button if no email draft, otherwise show email preview */}
             {!emailDraft ? (
               <div className="bg-muted/30 border border-border rounded-2xl p-6">
-                <div className="flex items-start gap-4">
-                  {/* Left: Status */}
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <motion.div 
-                        className="h-2 w-2 rounded-full bg-amber-500"
-                        animate={{ 
-                          scale: [1, 1.2, 1],
-                          opacity: [0.7, 1, 0.7]
-                        }}
-                        transition={{ 
-                          duration: 2, 
-                          repeat: Infinity,
-                          ease: "easeInOut"
-                        }}
-                      />
-                      <span className="text-base font-semibold text-foreground tracking-tight">
-                        {activeOptions.length} aktive Option{activeOptions.length !== 1 ? 'en' : ''}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground flex items-center gap-1">
-                      <span>Gesamtwert:</span>
-                      <AnimatePresence mode="wait">
-                        <motion.span
-                          key={totalForAllOptions.toFixed(2)}
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          transition={{ duration: 0.2, ease: "easeOut" }}
-                          className="font-semibold text-foreground"
-                        >
-                          {totalForAllOptions.toFixed(2)} €
-                        </motion.span>
-                      </AnimatePresence>
-                    </div>
-                  </div>
-
-                  {/* Right: Generate Button */}
+                <div className="flex items-center gap-4">
+                  {/* Left: Generate Button */}
                   <motion.button
                     onClick={generateEmail}
                     disabled={activeOptionsWithPackage.length === 0 || isGeneratingEmail}
@@ -529,7 +493,7 @@ export function MultiOfferComposer({
                     whileTap={{ scale: 0.98 }}
                     transition={{ type: "spring", stiffness: 400, damping: 20 }}
                     className={cn(
-                      "ml-auto h-12 px-6 rounded-2xl font-semibold text-sm flex items-center gap-2 whitespace-nowrap",
+                      "h-12 px-6 rounded-2xl font-semibold text-sm flex items-center gap-2 whitespace-nowrap",
                       "bg-gradient-to-r from-amber-500 to-amber-600",
                       "text-white",
                       "shadow-[0_4px_20px_-4px_rgba(245,158,11,0.5)]",
@@ -566,6 +530,42 @@ export function MultiOfferComposer({
                       )}
                     </AnimatePresence>
                   </motion.button>
+
+                  {/* Right: Status */}
+                  <div className="flex flex-col gap-0.5 ml-auto text-right">
+                    <div className="flex items-center gap-2 justify-end">
+                      <span className="text-base font-semibold text-foreground tracking-tight">
+                        {activeOptions.length} aktive Option{activeOptions.length !== 1 ? 'en' : ''}
+                      </span>
+                      <motion.div 
+                        className="h-2 w-2 rounded-full bg-amber-500"
+                        animate={{ 
+                          scale: [1, 1.2, 1],
+                          opacity: [0.7, 1, 0.7]
+                        }}
+                        transition={{ 
+                          duration: 2, 
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      />
+                    </div>
+                    <div className="text-sm text-muted-foreground flex items-center gap-1 justify-end">
+                      <span>Gesamtwert:</span>
+                      <AnimatePresence mode="wait">
+                        <motion.span
+                          key={totalForAllOptions.toFixed(2)}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="font-semibold text-foreground"
+                        >
+                          {totalForAllOptions.toFixed(2)} €
+                        </motion.span>
+                      </AnimatePresence>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
