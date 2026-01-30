@@ -58,8 +58,9 @@ export function MultiOfferComposer({
     createNewVersion,
   } = useMultiOfferState({ inquiryId: inquiry.id, guestCount, selectedPackages });
 
-  // Check if an offer was already sent (email_draft exists in DB)
-  const hasSentOffer = Boolean(inquiry.offer_sent_at && inquiry.email_draft);
+  // Check if an email draft was already generated (show if email_draft exists)
+  const hasSavedDraft = Boolean(inquiry.email_draft);
+  const wasSent = Boolean(inquiry.offer_sent_at);
   const savedEmailDraft = inquiry.email_draft || '';
   
   const [emailDraft, setEmailDraft] = useState("");
@@ -518,8 +519,8 @@ export function MultiOfferComposer({
         </Button>
       )}
 
-      {/* Sent Email Banner - Collapsible row */}
-      {hasSentOffer && (
+      {/* Saved Draft Banner - Collapsible row */}
+      {hasSavedDraft && (
         <div className="mt-6">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -527,24 +528,38 @@ export function MultiOfferComposer({
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
             className={cn(
               "relative overflow-hidden rounded-2xl",
-              "bg-emerald-50/80 dark:bg-emerald-900/20",
-              "border border-emerald-200/50 dark:border-emerald-800/50",
-              "transition-all duration-300"
+              wasSent 
+                ? "bg-emerald-50/80 dark:bg-emerald-900/20 border-emerald-200/50 dark:border-emerald-800/50"
+                : "bg-amber-50/80 dark:bg-amber-900/20 border-amber-200/50 dark:border-amber-800/50",
+              "border transition-all duration-300"
             )}
           >
             {/* Clickable Header Row */}
             <button
               onClick={() => setShowSentEmail(!showSentEmail)}
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-emerald-100/50 transition-colors text-left"
+              className={cn(
+                "w-full flex items-center justify-between px-5 py-4 transition-colors text-left",
+                wasSent ? "hover:bg-emerald-100/50" : "hover:bg-amber-100/50"
+              )}
             >
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                  <Check className="h-4 w-4 text-emerald-600" />
+                <div className={cn(
+                  "h-9 w-9 rounded-xl flex items-center justify-center",
+                  wasSent ? "bg-emerald-500/20" : "bg-amber-500/20"
+                )}>
+                  {wasSent ? (
+                    <Check className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <Mail className="h-4 w-4 text-amber-600" />
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-emerald-900 dark:text-emerald-100">
-                      Anschreiben gesendet
+                    <span className={cn(
+                      "font-medium",
+                      wasSent ? "text-emerald-900 dark:text-emerald-100" : "text-amber-900 dark:text-amber-100"
+                    )}>
+                      {wasSent ? 'Anschreiben gesendet' : 'Anschreiben-Entwurf vorhanden'}
                     </span>
                     <Badge variant="outline" className="text-xs border-emerald-500/50 text-emerald-700 bg-emerald-50/50">
                       v{inquiry.current_offer_version || 1}
@@ -632,7 +647,7 @@ export function MultiOfferComposer({
 
       {/* CASE 2: Creating new draft (follow-up) OR no offer sent yet */}
       <AnimatePresence mode="wait">
-        {(!hasSentOffer || isNewDraft) && activeOptions.length > 0 && (
+        {(!hasSavedDraft || isNewDraft) && activeOptions.length > 0 && (
           <motion.div
             key="draft-interface"
             initial={{ opacity: 0, y: 10 }}
@@ -722,7 +737,7 @@ export function MultiOfferComposer({
                             className="flex items-center gap-2"
                           >
                             <Sparkles className="h-4 w-4" />
-                            {hasSentOffer ? 'Folge-Mail generieren' : 'Anschreiben generieren'}
+                            {hasSavedDraft ? 'Folge-Mail generieren' : 'Anschreiben generieren'}
                           </motion.span>
                         )}
                       </AnimatePresence>
@@ -803,7 +818,7 @@ export function MultiOfferComposer({
                   <div className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-emerald-600" />
                     <span className="font-medium text-sm text-foreground">
-                      {hasSentOffer ? 'Folge-Mail bereit' : 'Anschreiben generiert'}
+                      {wasSent ? 'Folge-Mail bereit' : 'Anschreiben generiert'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -853,7 +868,7 @@ export function MultiOfferComposer({
                     ) : (
                       <>
                         <Send className="h-4 w-4 mr-2" />
-                        {hasSentOffer ? 'Folge-Mail senden' : 'Angebot senden'}
+                        {wasSent ? 'Folge-Mail senden' : 'Angebot senden'}
                       </>
                     )}
                   </Button>
