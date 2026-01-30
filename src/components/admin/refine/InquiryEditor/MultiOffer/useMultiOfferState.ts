@@ -3,12 +3,18 @@ import { OfferOption, OfferHistoryEntry, OPTION_LABELS, createEmptyOption, MenuS
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+interface SelectedPackage {
+  id: string;
+  name?: string;
+}
+
 interface UseMultiOfferStateProps {
   inquiryId: string;
   guestCount: number;
+  selectedPackages?: SelectedPackage[];
 }
 
-export function useMultiOfferState({ inquiryId, guestCount }: UseMultiOfferStateProps) {
+export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: UseMultiOfferStateProps) {
   const [options, setOptions] = useState<OfferOption[]>([]);
   const [currentVersion, setCurrentVersion] = useState(1);
   const [history, setHistory] = useState<OfferHistoryEntry[]>([]);
@@ -49,10 +55,12 @@ export function useMultiOfferState({ inquiryId, guestCount }: UseMultiOfferState
           setOptions(mappedOptions);
           setCurrentVersion(Math.max(...mappedOptions.map(o => o.offerVersion)));
         } else {
-          // Create initial empty option A
+          // Create initial option A - pre-fill with customer's selected package if available
+          const customerPackageId = selectedPackages?.[0]?.id || null;
           setOptions([{
             id: crypto.randomUUID(),
             ...createEmptyOption('A', guestCount),
+            packageId: customerPackageId,
           }]);
         }
 

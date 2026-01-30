@@ -27,6 +27,11 @@ export function MultiOfferComposer({
 }: MultiOfferComposerProps) {
   const guestCount = parseInt(inquiry.guest_count || '1') || 1;
   
+  // Parse selected_packages from inquiry (customer's original selection)
+  const selectedPackages = Array.isArray(inquiry.selected_packages) 
+    ? inquiry.selected_packages as { id: string; name?: string }[]
+    : [];
+  
   const {
     options,
     currentVersion,
@@ -39,7 +44,7 @@ export function MultiOfferComposer({
     toggleOptionActive,
     saveOptions,
     createNewVersion,
-  } = useMultiOfferState({ inquiryId: inquiry.id, guestCount });
+  } = useMultiOfferState({ inquiryId: inquiry.id, guestCount, selectedPackages });
 
   const [emailDraft, setEmailDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
