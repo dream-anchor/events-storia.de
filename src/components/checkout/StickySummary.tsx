@@ -47,7 +47,7 @@ const StickySummary = ({
   const chafingDishGross = chafingDishQuantity * chafingDishPrice;
 
   return (
-    <div className={cn("sticky top-0", className)}>
+    <div className={cn("sticky top-[10px]", className)}>
       <div className="bg-card border border-border rounded-xl p-5 space-y-4 shadow-sm">
         <h2 className="font-serif text-lg flex items-center gap-2">
           {language === 'de' ? 'Ihre Bestellung' : 'Your Order'}
