@@ -355,17 +355,20 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
   }, [currentVersion, inquiryId, options]);
 
   // Unlock for new version - resets offer_sent_at to null, allowing edits
+  // IMPORTANT: Status stays 'offer_sent' - once sent, always in that category
   const unlockForNewVersion = useCallback(async () => {
     try {
       const newVersion = currentVersion + 1;
       
-      // Reset offer_sent_at to unlock editing
+      // Reset offer_sent_at to unlock editing, but keep status as 'offer_sent'
+      // The status is the source of truth for categorization, not offer_sent_at
       await supabase
         .from("event_inquiries")
         .update({ 
           offer_sent_at: null,
           offer_sent_by: null,
           current_offer_version: newVersion,
+          status: 'offer_sent', // Explicitly keep status as offer_sent
         })
         .eq("id", inquiryId);
       

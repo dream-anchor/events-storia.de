@@ -41,7 +41,8 @@ export const Dashboard = () => {
   const pendingMenuBookings = bookings || [];
   const paidEventBookings = paidBookings || [];
 
-  // Categorize events into 3 sections based on status (primary) and tracking timestamps (fallback)
+  // Categorize events into 3 sections based on status (the single source of truth)
+  // Status 'offer_sent' means at least one version was sent - it stays there even when editing a new version
   const newInquiries = events.filter(e => 
     e.status === 'new' && !e.last_edited_at
   );
@@ -53,10 +54,9 @@ export const Dashboard = () => {
     e.status !== 'declined'
   );
   
+  // offer_sent = status is the source of truth (set once, stays forever unless confirmed/declined)
   const offerSentInquiries = events.filter(e => 
-    (e.status === 'offer_sent' || e.offer_sent_at) && 
-    e.status !== 'confirmed' && 
-    e.status !== 'declined'
+    e.status === 'offer_sent'
   );
 
   // Stats
