@@ -131,7 +131,7 @@ export const FloatingPillNav = ({
               </DropdownMenuTrigger>
               <DropdownMenuContent 
                 align="start" 
-                className="w-56 mt-2 glass-card border-0"
+                className="w-56 mt-2 glass-card border-0 font-sans"
               >
                 {item.children.map((child) => {
                   const ChildIcon = child.icon;
