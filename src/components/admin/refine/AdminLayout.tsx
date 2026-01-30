@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLogout, useGetIdentity } from "@refinedev/core";
-import { LogOut, ExternalLink, LayoutDashboard, CalendarDays, UtensilsCrossed, FileText, Package, Command, CheckCircle2 } from "lucide-react";
+import { LogOut, ExternalLink, LayoutDashboard, CalendarDays, UtensilsCrossed, FileText, Package, Command, CheckCircle2, Inbox, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -9,8 +9,10 @@ import storiaLogo from "@/assets/storia-logo.webp";
 import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
 import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
+import { useInboxCounts } from "@/hooks/useUnifiedInbox";
 import { FloatingPillNav, MobilePillNav } from "./FloatingPillNav";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
+import { useTheme } from "next-themes";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -19,6 +21,7 @@ interface AdminLayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
+  { name: 'Inbox', href: '/admin/inbox', icon: Inbox, key: 'inbox', badge: 'inbox' },
   { name: 'Anfragen', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
   { name: 'Events', href: '/admin/bookings', icon: CheckCircle2, key: 'bookings', badge: 'bookings' },
   { name: 'Catering', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
@@ -33,9 +36,12 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
   const { data: newInquiriesCount } = useNewInquiriesCount();
   const { data: pendingOrdersCount } = usePendingOrdersCount();
   const { data: pendingBookingsCount } = usePendingMenuBookingsCount();
+  const { data: inboxCounts } = useInboxCounts();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
+  const { theme, setTheme } = useTheme();
 
   const getBadgeCount = (key?: string) => {
+    if (key === 'inbox') return inboxCounts?.total || 0;
     if (key === 'events') return newInquiriesCount || 0;
     if (key === 'bookings') return pendingBookingsCount || 0;
     if (key === 'orders') return pendingOrdersCount || 0;
@@ -66,6 +72,16 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
             
             {/* Right Actions */}
             <div className="flex items-center gap-2">
+              {/* Dark Mode Toggle */}
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="h-9 w-9"
+              >
+                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+
               {/* Command Palette Trigger */}
               <Button 
                 variant="outline" 
