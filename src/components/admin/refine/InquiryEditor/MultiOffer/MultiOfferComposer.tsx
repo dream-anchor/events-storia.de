@@ -471,110 +471,163 @@ export function MultiOfferComposer({
         </Button>
       )}
 
-      {/* Spacer for Floating Island */}
-      <div className="h-32" />
-
-      {/* Floating Island Bottom Bar - Apple 2026 Spatial Design */}
-      <AnimatePresence>
+      {/* Email Generation Section - Static Inline */}
+      <AnimatePresence mode="wait">
         {activeOptions.length > 0 && (
           <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 20, opacity: 0 }}
-            transition={{ 
-              type: "spring", 
-              stiffness: 300, 
-              damping: 28,
-              mass: 0.8
-            }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-xl"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="mt-8"
           >
-            {/* Glassmorphism Container with Deep Shadow */}
-            <div className="bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-[28px] shadow-2xl px-6 py-4">
-              <div className="flex items-center justify-between gap-4">
-                {/* Status - Elegant Typography */}
-                <div className="flex flex-col gap-0.5 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <motion.div 
-                      className="h-2 w-2 rounded-full bg-amber-500"
-                      animate={{ 
-                        scale: [1, 1.2, 1],
-                        opacity: [0.7, 1, 0.7]
-                      }}
-                      transition={{ 
-                        duration: 2, 
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
-                    />
-                    <span className="text-base font-semibold text-neutral-900 dark:text-neutral-100 tracking-tight">
-                      {activeOptions.length} aktive Option{activeOptions.length !== 1 ? 'en' : ''}
-                    </span>
+            {/* Show button if no email draft, otherwise show email preview */}
+            {!emailDraft ? (
+              <div className="bg-muted/30 border border-border rounded-2xl p-6">
+                <div className="flex items-start gap-4">
+                  {/* Left: Status */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <motion.div 
+                        className="h-2 w-2 rounded-full bg-amber-500"
+                        animate={{ 
+                          scale: [1, 1.2, 1],
+                          opacity: [0.7, 1, 0.7]
+                        }}
+                        transition={{ 
+                          duration: 2, 
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      />
+                      <span className="text-base font-semibold text-foreground tracking-tight">
+                        {activeOptions.length} aktive Option{activeOptions.length !== 1 ? 'en' : ''}
+                      </span>
+                    </div>
+                    <div className="text-sm text-muted-foreground flex items-center gap-1">
+                      <span>Gesamtwert:</span>
+                      <AnimatePresence mode="wait">
+                        <motion.span
+                          key={totalForAllOptions.toFixed(2)}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="font-semibold text-foreground"
+                        >
+                          {totalForAllOptions.toFixed(2)} €
+                        </motion.span>
+                      </AnimatePresence>
+                    </div>
                   </div>
-                  <div className="text-sm text-neutral-500 dark:text-neutral-400 flex items-center gap-1">
-                    <span>Gesamtwert:</span>
+
+                  {/* Right: Generate Button */}
+                  <motion.button
+                    onClick={generateEmail}
+                    disabled={activeOptionsWithPackage.length === 0 || isGeneratingEmail}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                    className={cn(
+                      "ml-auto h-12 px-6 rounded-2xl font-semibold text-sm flex items-center gap-2 whitespace-nowrap",
+                      "bg-gradient-to-r from-amber-500 to-amber-600",
+                      "text-white",
+                      "shadow-[0_4px_20px_-4px_rgba(245,158,11,0.5)]",
+                      "hover:shadow-[0_8px_30px_-4px_rgba(245,158,11,0.6)]",
+                      "transition-shadow duration-300",
+                      "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                    )}
+                  >
                     <AnimatePresence mode="wait">
-                      <motion.span
-                        key={totalForAllOptions.toFixed(2)}
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="font-semibold text-neutral-900 dark:text-neutral-100"
-                      >
-                        {totalForAllOptions.toFixed(2)} €
-                      </motion.span>
+                      {isGeneratingEmail ? (
+                        <motion.span
+                          key="loading"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.15 }}
+                          className="flex items-center gap-2"
+                        >
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generiere…
+                        </motion.span>
+                      ) : (
+                        <motion.span
+                          key="default"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.15 }}
+                          className="flex items-center gap-2"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          Anschreiben generieren
+                        </motion.span>
+                      )}
                     </AnimatePresence>
+                  </motion.button>
+                </div>
+              </div>
+            ) : (
+              /* Email Draft Preview */
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                className="bg-card border border-border rounded-2xl overflow-hidden"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-600" />
+                    <span className="font-medium text-sm text-foreground">Anschreiben generiert</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEmailDraft("")}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      Neu generieren
+                    </Button>
                   </div>
                 </div>
                 
-                {/* Primary CTA - Amber Glow Effect */}
-                <motion.button
-                  onClick={generateEmail}
-                  disabled={activeOptionsWithPackage.length === 0 || isGeneratingEmail}
-                  whileHover={{ scale: 1.04, y: -1 }}
-                  whileTap={{ scale: 0.97 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                  className={cn(
-                    "h-12 px-6 rounded-2xl font-semibold text-sm flex items-center gap-2 whitespace-nowrap",
-                    "bg-gradient-to-r from-amber-500 to-amber-600",
-                    "text-white",
-                    "shadow-[0_4px_20px_-4px_rgba(245,158,11,0.5)]",
-                    "hover:shadow-[0_8px_30px_-4px_rgba(245,158,11,0.6)]",
-                    "transition-shadow duration-300",
-                    "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-                  )}
-                >
-                  <AnimatePresence mode="wait">
-                    {isGeneratingEmail ? (
-                      <motion.span
-                        key="loading"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.15 }}
-                        className="flex items-center gap-2"
-                      >
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Generiere…
-                      </motion.span>
+                {/* Email Content Preview */}
+                <div className="p-5">
+                  <div className="prose prose-sm max-w-none">
+                    <pre className="whitespace-pre-wrap font-sans text-sm text-foreground bg-transparent p-0 m-0 overflow-hidden">
+                      {emailDraft.length > 500 ? emailDraft.slice(0, 500) + '...' : emailDraft}
+                    </pre>
+                  </div>
+                </div>
+
+                {/* Footer with Send Action */}
+                <div className="flex items-center justify-between px-5 py-4 border-t border-border bg-muted/20">
+                  <div className="text-sm text-muted-foreground">
+                    {activeOptions.length} Option{activeOptions.length !== 1 ? 'en' : ''} · {totalForAllOptions.toFixed(2)} €
+                  </div>
+                  <Button
+                    onClick={handleSendOffer}
+                    disabled={isSending}
+                    className="bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700"
+                  >
+                    {isSending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Sende...
+                      </>
                     ) : (
-                      <motion.span
-                        key="default"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.15 }}
-                        className="flex items-center gap-2"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        Anschreiben generieren
-                      </motion.span>
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Angebot senden
+                      </>
                     )}
-                  </AnimatePresence>
-                </motion.button>
-              </div>
-            </div>
+                  </Button>
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
