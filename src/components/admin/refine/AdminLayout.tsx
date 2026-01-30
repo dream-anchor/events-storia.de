@@ -1,7 +1,16 @@
 import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLogout, useGetIdentity } from "@refinedev/core";
-import { LogOut, ExternalLink, Command } from "lucide-react";
+import { LogOut, Command, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,6 +24,16 @@ interface AdminLayoutProps {
   children: ReactNode;
   activeTab?: string;
 }
+
+const getInitials = (name?: string) => {
+  if (!name) return 'A';
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
 
 export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
   const navigate = useNavigate();
@@ -68,25 +87,49 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
                 </Button>
               </motion.div>
 
-              <span className="hidden lg:block text-base text-muted-foreground max-w-[180px] truncate">
-                {identity?.name || identity?.email}
-              </span>
-              <Button variant="outline" size="sm" asChild className="hidden sm:flex rounded-2xl">
-                <Link to="/">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Webseite
-                </Link>
-              </Button>
-              <motion.div whileTap={{ scale: 0.9 }}>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={() => logout()}
-                  className="h-9 w-9"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </motion.div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    className="flex items-center gap-2 rounded-2xl px-2 h-10"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                        {getInitials(identity?.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="hidden lg:block text-sm font-medium max-w-[120px] truncate">
+                      {identity?.name}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex items-center gap-3 py-1">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {getInitials(identity?.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{identity?.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {identity?.email}
+                        </span>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => logout()}
+                    className="text-destructive focus:text-destructive cursor-pointer"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Abmelden
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
           
