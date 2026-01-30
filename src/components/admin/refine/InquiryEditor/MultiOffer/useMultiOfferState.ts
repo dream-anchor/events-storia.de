@@ -56,11 +56,37 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
           setCurrentVersion(Math.max(...mappedOptions.map(o => o.offerVersion)));
         } else {
           // Create initial option A - pre-fill with customer's selected package if available
-          const customerPackageId = selectedPackages?.[0]?.id || null;
+          const customerPackage = selectedPackages?.[0];
+          const customerPackageId = customerPackage?.id || null;
+          
+          // Calculate initial total if package is selected
+          let initialTotal = 0;
+          let initialPackageName = '';
+          
+          if (customerPackage) {
+            // Try to get price info from selected_packages data
+            // The selected_packages array contains full package info from cart
+            const pkgData = customerPackage as { 
+              id: string; 
+              name?: string; 
+              price?: number; 
+              pricePerPerson?: boolean;
+            };
+            
+            initialPackageName = pkgData.name || '';
+            if (pkgData.price) {
+              initialTotal = pkgData.pricePerPerson 
+                ? pkgData.price * guestCount 
+                : pkgData.price;
+            }
+          }
+          
           setOptions([{
             id: crypto.randomUUID(),
             ...createEmptyOption('A', guestCount),
             packageId: customerPackageId,
+            packageName: initialPackageName,
+            totalAmount: initialTotal,
           }]);
         }
 
@@ -91,7 +117,7 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     };
 
     loadOptions();
-  }, [inquiryId, guestCount]);
+  }, [inquiryId, guestCount, selectedPackages]);
 
   // Add a new option
   const addOption = useCallback(() => {
