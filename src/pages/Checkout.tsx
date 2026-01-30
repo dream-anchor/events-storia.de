@@ -114,34 +114,79 @@ const Checkout = () => {
   const { user, profile } = useCustomerAuth();
   const isMobile = useIsMobile();
 
-  // Accordion state
-  const [currentStep, setCurrentStep] = useState<CheckoutStep>('delivery');
-  const [completedSteps, setCompletedSteps] = useState<CheckoutStep[]>([]);
+  // localStorage keys for persistence
+  const CHECKOUT_FORM_KEY = 'storia-checkout-form';
+  const CHECKOUT_STEP_KEY = 'storia-checkout-step';
+  const CHECKOUT_COMPLETED_KEY = 'storia-checkout-completed';
 
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    company: '',
-    deliveryType: 'delivery',
-    deliveryStreet: '',
-    deliveryZip: '',
-    deliveryCity: '',
-    deliveryFloor: '',
-    hasElevator: false,
-    date: '',
-    time: '',
-    notes: '',
-    wantsSetupService: false,
-    sameAsDelivery: true,
-    showBillingAddress: false,
-    billingName: '',
-    billingStreet: '',
-    billingZip: '',
-    billingCity: '',
-    billingCountry: 'Deutschland',
-    acceptTerms: false,
-    referenceNumber: ''
+  // Accordion state with localStorage persistence
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(CHECKOUT_STEP_KEY);
+      if (stored && ['delivery', 'customer', 'payment'].includes(stored)) {
+        return stored as CheckoutStep;
+      }
+    }
+    return 'delivery';
+  });
+
+  const [completedSteps, setCompletedSteps] = useState<CheckoutStep[]>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(CHECKOUT_COMPLETED_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            return parsed.filter(s => ['delivery', 'customer', 'payment'].includes(s));
+          }
+        } catch (e) {
+          // Parsing error: use default
+        }
+      }
+    }
+    return [];
+  });
+
+  const [formData, setFormData] = useState(() => {
+    const defaultState = {
+      name: '',
+      email: '',
+      phone: '',
+      company: '',
+      deliveryType: 'delivery',
+      deliveryStreet: '',
+      deliveryZip: '',
+      deliveryCity: '',
+      deliveryFloor: '',
+      hasElevator: false,
+      date: '',
+      time: '',
+      notes: '',
+      wantsSetupService: false,
+      sameAsDelivery: true,
+      showBillingAddress: false,
+      billingName: '',
+      billingStreet: '',
+      billingZip: '',
+      billingCity: '',
+      billingCountry: 'Deutschland',
+      acceptTerms: false,
+      referenceNumber: ''
+    };
+    
+    // Restore from localStorage if available
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(CHECKOUT_FORM_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          return { ...defaultState, ...parsed };
+        } catch (e) {
+          // Parsing error: use default
+        }
+      }
+    }
+    return defaultState;
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -222,6 +267,25 @@ const Checkout = () => {
       }));
     }
   }, [profile]);
+
+  // Debounced localStorage persistence for formData
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      localStorage.setItem(CHECKOUT_FORM_KEY, JSON.stringify(formData));
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [formData]);
+
+  // Persist currentStep changes
+  useEffect(() => {
+    localStorage.setItem(CHECKOUT_STEP_KEY, currentStep);
+  }, [currentStep]);
+
+  // Persist completedSteps changes
+  useEffect(() => {
+    localStorage.setItem(CHECKOUT_COMPLETED_KEY, JSON.stringify(completedSteps));
+  }, [completedSteps]);
 
   const isEventBooking = useMemo(() => {
     return items.some(item => item.id.startsWith('event-'));
@@ -441,6 +505,11 @@ const Checkout = () => {
         
         const successDataKey = `stripe_success_${orderNum}`;
         const successDataStr = localStorage.getItem(successDataKey);
+        
+        // Clear checkout form persistence on successful payment
+        localStorage.removeItem(CHECKOUT_FORM_KEY);
+        localStorage.removeItem(CHECKOUT_STEP_KEY);
+        localStorage.removeItem(CHECKOUT_COMPLETED_KEY);
         
         if (successDataStr) {
           try {
