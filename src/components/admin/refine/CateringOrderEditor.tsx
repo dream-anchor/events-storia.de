@@ -244,267 +244,288 @@ export const CateringOrderEditor = () => {
           </Card>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Order Details */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Items */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Bestellte Artikel</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted">
-                      <tr>
-                        <th className="text-left p-3 font-medium">Artikel</th>
-                        <th className="text-center p-3 font-medium">Menge</th>
-                        <th className="text-right p-3 font-medium">Preis</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((item: any, index: number) => (
-                        <tr key={index} className="border-t">
-                          <td className="p-3">{item.name}</td>
-                          <td className="p-3 text-center">{item.quantity}x</td>
-                          <td className="p-3 text-right">
-                            {((item.price || 0) * (item.quantity || 1)).toFixed(2).replace('.', ',')} €
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-muted/50">
-                      <tr className="border-t">
-                        <td className="p-3" colSpan={2}>Zwischensumme</td>
-                        <td className="p-3 text-right">
-                          {items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1), 0).toFixed(2).replace('.', ',')} €
-                        </td>
-                      </tr>
-                      {order.minimum_order_surcharge > 0 && (
-                        <tr className="border-t text-muted-foreground">
-                          <td className="p-3" colSpan={2}>Mindestbestellwert-Aufschlag</td>
-                          <td className="p-3 text-right">
-                            +{order.minimum_order_surcharge.toFixed(2).replace('.', ',')} €
-                          </td>
-                        </tr>
+        {/* Tabs */}
+        <Tabs defaultValue="details" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="details">Bestellung</TabsTrigger>
+            <TabsTrigger value="aktivitaeten" className="gap-1.5">
+              <Activity className="h-4 w-4" />
+              Aktivitäten
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab: Details */}
+          <TabsContent value="details">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Order Details */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Items */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Bestellte Artikel</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="text-left p-3 font-medium">Artikel</th>
+                            <th className="text-center p-3 font-medium">Menge</th>
+                            <th className="text-right p-3 font-medium">Preis</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.map((item: any, index: number) => (
+                            <tr key={index} className="border-t">
+                              <td className="p-3">{item.name}</td>
+                              <td className="p-3 text-center">{item.quantity}x</td>
+                              <td className="p-3 text-right">
+                                {((item.price || 0) * (item.quantity || 1)).toFixed(2).replace('.', ',')} €
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-muted/50">
+                          <tr className="border-t">
+                            <td className="p-3" colSpan={2}>Zwischensumme</td>
+                            <td className="p-3 text-right">
+                              {items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1), 0).toFixed(2).replace('.', ',')} €
+                            </td>
+                          </tr>
+                          {order.minimum_order_surcharge > 0 && (
+                            <tr className="border-t text-muted-foreground">
+                              <td className="p-3" colSpan={2}>Mindestbestellwert-Aufschlag</td>
+                              <td className="p-3 text-right">
+                                +{order.minimum_order_surcharge.toFixed(2).replace('.', ',')} €
+                              </td>
+                            </tr>
+                          )}
+                          {order.delivery_cost > 0 && (
+                            <tr className="border-t">
+                              <td className="p-3" colSpan={2}>
+                                Lieferkosten
+                                {order.calculated_distance_km && (
+                                  <span className="text-muted-foreground ml-1">
+                                    ({order.calculated_distance_km.toFixed(1)} km)
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right">
+                                +{order.delivery_cost.toFixed(2).replace('.', ',')} €
+                              </td>
+                            </tr>
+                          )}
+                          <tr className="border-t-2 font-semibold bg-muted">
+                            <td className="p-3" colSpan={2}>Gesamtsumme (inkl. MwSt.)</td>
+                            <td className="p-3 text-right text-primary text-lg">
+                              {(order.total_amount || 0).toFixed(2).replace('.', ',')} €
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Customer Notes */}
+                {order.notes && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Kundenanmerkungen
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm bg-muted/50 rounded-lg p-4">{order.notes}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Internal Notes */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Interne Notizen</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Textarea
+                      value={internalNotes}
+                      onChange={(e) => setInternalNotes(e.target.value)}
+                      placeholder="Notizen für das Team (z.B. Besonderheiten, Rücksprache nötig...)"
+                      className="min-h-[100px]"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right Column - Info Cards */}
+              <div className="space-y-6">
+                {/* Status */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Status</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Select 
+                      value={status} 
+                      onValueChange={(v) => setStatus(v as OrderStatus)}
+                      disabled={isCancelled}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Neu</SelectItem>
+                        <SelectItem value="confirmed">Bestätigt</SelectItem>
+                        <SelectItem value="completed">Erledigt</SelectItem>
+                        <SelectItem value="cancelled">Storniert</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </CardContent>
+                </Card>
+
+                {/* Customer */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Kunde</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="font-medium text-lg">{order.customer_name}</p>
+                    {order.company_name && (
+                      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Building2 className="h-4 w-4" />
+                        {order.company_name}
+                      </p>
+                    )}
+                    <a href={`mailto:${order.customer_email}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
+                      <Mail className="h-4 w-4" />
+                      {order.customer_email}
+                    </a>
+                    <a href={`tel:${order.customer_phone}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
+                      <Phone className="h-4 w-4" />
+                      {order.customer_phone}
+                    </a>
+                    <div className="pt-2 border-t">
+                      {order.user_id ? (
+                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
+                          <BadgeCheck className="h-3 w-3 mr-1" />
+                          Registrierter Kunde
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">
+                          <User className="h-3 w-3 mr-1" />
+                          Gast
+                        </Badge>
                       )}
-                      {order.delivery_cost > 0 && (
-                        <tr className="border-t">
-                          <td className="p-3" colSpan={2}>
-                            Lieferkosten
-                            {order.calculated_distance_km && (
-                              <span className="text-muted-foreground ml-1">
-                                ({order.calculated_distance_km.toFixed(1)} km)
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3 text-right">
-                            +{order.delivery_cost.toFixed(2).replace('.', ',')} €
-                          </td>
-                        </tr>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Delivery */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {order.is_pickup ? (
+                        <><Package className="h-4 w-4" /> Abholung</>
+                      ) : (
+                        <><Truck className="h-4 w-4" /> Lieferung</>
                       )}
-                      <tr className="border-t-2 font-semibold bg-muted">
-                        <td className="p-3" colSpan={2}>Gesamtsumme (inkl. MwSt.)</td>
-                        <td className="p-3 text-right text-primary text-lg">
-                          {(order.total_amount || 0).toFixed(2).replace('.', ',')} €
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {order.desired_date && (
+                      <p className="flex items-center gap-2 text-sm">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        {format(parseISO(order.desired_date), "EEEE, dd. MMMM yyyy", { locale: de })}
+                      </p>
+                    )}
+                    {order.desired_time && (
+                      <p className="flex items-center gap-2 text-sm">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        {order.desired_time} Uhr
+                      </p>
+                    )}
+                    {!order.is_pickup && (order.delivery_street || order.delivery_city) && (
+                      <div className="pt-2 border-t">
+                        <p className="flex items-start gap-2 text-sm">
+                          <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                          <span>
+                            {order.delivery_street && <>{order.delivery_street}<br /></>}
+                            {order.delivery_zip} {order.delivery_city}
+                            {order.delivery_floor && <><br />Etage: {order.delivery_floor}</>}
+                            {order.has_elevator && <><br /><span className="text-muted-foreground">(mit Aufzug)</span></>}
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
-            {/* Customer Notes */}
-            {order.notes && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Kundenanmerkungen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm bg-muted/50 rounded-lg p-4">{order.notes}</p>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Internal Notes */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Interne Notizen</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  value={internalNotes}
-                  onChange={(e) => setInternalNotes(e.target.value)}
-                  placeholder="Notizen für das Team (z.B. Besonderheiten, Rücksprache nötig...)"
-                  className="min-h-[100px]"
-                />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column - Info Cards */}
-          <div className="space-y-6">
-            {/* Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Select 
-                  value={status} 
-                  onValueChange={(v) => setStatus(v as OrderStatus)}
-                  disabled={isCancelled}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Neu</SelectItem>
-                    <SelectItem value="confirmed">Bestätigt</SelectItem>
-                    <SelectItem value="completed">Erledigt</SelectItem>
-                    <SelectItem value="cancelled">Storniert</SelectItem>
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
-
-            {/* Customer */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Kunde</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="font-medium text-lg">{order.customer_name}</p>
-                {order.company_name && (
-                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Building2 className="h-4 w-4" />
-                    {order.company_name}
-                  </p>
-                )}
-                <a href={`mailto:${order.customer_email}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
-                  <Mail className="h-4 w-4" />
-                  {order.customer_email}
-                </a>
-                <a href={`tel:${order.customer_phone}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
-                  <Phone className="h-4 w-4" />
-                  {order.customer_phone}
-                </a>
-                <div className="pt-2 border-t">
-                  {order.user_id ? (
-                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
-                      <BadgeCheck className="h-3 w-3 mr-1" />
-                      Registrierter Kunde
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline">
-                      <User className="h-3 w-3 mr-1" />
-                      Gast
-                    </Badge>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Delivery */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  {order.is_pickup ? (
-                    <><Package className="h-4 w-4" /> Abholung</>
-                  ) : (
-                    <><Truck className="h-4 w-4" /> Lieferung</>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {order.desired_date && (
-                  <p className="flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    {format(parseISO(order.desired_date), "EEEE, dd. MMMM yyyy", { locale: de })}
-                  </p>
-                )}
-                {order.desired_time && (
-                  <p className="flex items-center gap-2 text-sm">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    {order.desired_time} Uhr
-                  </p>
-                )}
-                {!order.is_pickup && (order.delivery_street || order.delivery_city) && (
-                  <div className="pt-2 border-t">
-                    <p className="flex items-start gap-2 text-sm">
-                      <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                      <span>
-                        {order.delivery_street && <>{order.delivery_street}<br /></>}
-                        {order.delivery_zip} {order.delivery_city}
-                        {order.delivery_floor && <><br />Etage: {order.delivery_floor}</>}
-                        {order.has_elevator && <><br /><span className="text-muted-foreground">(mit Aufzug)</span></>}
-                      </span>
+                {/* Payment */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Zahlung
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm">
+                      <span className="text-muted-foreground">Methode:</span>{" "}
+                      {order.payment_method === 'stripe' ? 'Sofortzahlung (Stripe)' : 'Rechnung'}
                     </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Status:</span>
+                      <Badge variant={order.payment_status === 'paid' ? 'default' : 'secondary'}>
+                        {order.payment_status === 'paid' ? 'Bezahlt' : 'Ausstehend'}
+                      </Badge>
+                    </div>
+                    {order.lexoffice_invoice_id && (
+                      <p className="text-sm">
+                        <span className="text-muted-foreground">LexOffice:</span>{" "}
+                        {order.lexoffice_document_type === 'invoice' ? 'Rechnung' : 'Angebot'}
+                      </p>
+                    )}
+                    {order.stripe_payment_intent_id && (
+                      <p className="text-xs text-muted-foreground font-mono">
+                        PI: {order.stripe_payment_intent_id.slice(0, 20)}...
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
 
-            {/* Payment */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  Zahlung
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm">
-                  <span className="text-muted-foreground">Methode:</span>{" "}
-                  {order.payment_method === 'stripe' ? 'Sofortzahlung (Stripe)' : 'Rechnung'}
-                </p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Status:</span>
-                  <Badge variant={order.payment_status === 'paid' ? 'default' : 'secondary'}>
-                    {order.payment_status === 'paid' ? 'Bezahlt' : 'Ausstehend'}
-                  </Badge>
-                </div>
-                {order.lexoffice_invoice_id && (
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">LexOffice:</span>{" "}
-                    {order.lexoffice_document_type === 'invoice' ? 'Rechnung' : 'Angebot'}
-                  </p>
+                {/* Billing Address */}
+                {order.billing_name && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Receipt className="h-4 w-4" />
+                        Rechnungsadresse
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm space-y-1">
+                      <p className="font-medium">{order.billing_name}</p>
+                      {order.billing_street && <p>{order.billing_street}</p>}
+                      {(order.billing_zip || order.billing_city) && (
+                        <p>{order.billing_zip} {order.billing_city}</p>
+                      )}
+                      {order.billing_country && order.billing_country !== 'Deutschland' && (
+                        <p>{order.billing_country}</p>
+                      )}
+                    </CardContent>
+                  </Card>
                 )}
-                {order.stripe_payment_intent_id && (
-                  <p className="text-xs text-muted-foreground font-mono">
-                    PI: {order.stripe_payment_intent_id.slice(0, 20)}...
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+          </TabsContent>
 
-            {/* Billing Address */}
-            {order.billing_name && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Receipt className="h-4 w-4" />
-                    Rechnungsadresse
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-1">
-                  <p className="font-medium">{order.billing_name}</p>
-                  {order.billing_street && <p>{order.billing_street}</p>}
-                  {(order.billing_zip || order.billing_city) && (
-                    <p>{order.billing_zip} {order.billing_city}</p>
-                  )}
-                  {order.billing_country && order.billing_country !== 'Deutschland' && (
-                    <p>{order.billing_country}</p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
+          {/* Tab: Aktivitäten */}
+          <TabsContent value="aktivitaeten">
+            <div className="max-w-3xl">
+              <Timeline entityType="catering_order" entityId={id!} />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </AdminLayout>
   );
