@@ -306,6 +306,7 @@ export function MultiOfferComposer({
             key={option.id}
             option={option}
             packages={packages}
+            inquiry={inquiry}
             onUpdate={(updates) => updateOption(option.id, updates)}
             onRemove={() => removeOption(option.id)}
             onToggleActive={() => toggleOptionActive(option.id)}

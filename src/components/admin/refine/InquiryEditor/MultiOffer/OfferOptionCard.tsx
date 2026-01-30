@@ -6,13 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { OfferOption } from "./types";
-import { Package as PackageType } from "../types";
+import { Package as PackageType, ExtendedInquiry } from "../types";
 import { MenuComposer } from "../MenuComposer";
 import type { MenuSelection } from "../MenuComposer/types";
 
 interface OfferOptionCardProps {
   option: OfferOption;
   packages: PackageType[];
+  inquiry: ExtendedInquiry;
   onUpdate: (updates: Partial<OfferOption>) => void;
   onRemove: () => void;
   onToggleActive: () => void;
@@ -22,12 +23,14 @@ interface OfferOptionCardProps {
 export function OfferOptionCard({
   option,
   packages,
+  inquiry,
   onUpdate,
   onRemove,
   onToggleActive,
   isGeneratingPaymentLink,
 }: OfferOptionCardProps) {
   const [showMenuEditor, setShowMenuEditor] = useState(false);
+  const [emailDraft, setEmailDraft] = useState("");
 
   const selectedPackage = packages.find(p => p.id === option.packageId);
 
@@ -236,6 +239,9 @@ export function OfferOptionCard({
                   onMenuSelectionChange={(selection) => 
                     onUpdate({ menuSelection: selection })
                   }
+                  inquiry={inquiry}
+                  emailDraft={emailDraft}
+                  onEmailDraftChange={setEmailDraft}
                 />
               </div>
             )}
