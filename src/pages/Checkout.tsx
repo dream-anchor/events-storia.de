@@ -1470,9 +1470,9 @@ const Checkout = () => {
 
                     {/* Logged in indicator */}
                     {user && (
-                      <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-border">
-                        <p className="text-sm text-muted-foreground flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-foreground/70" />
+                      <div className="mb-4 p-3 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+                        <p className="text-sm text-neutral-600 dark:text-neutral-300 flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4" />
                           {language === 'de' ? `Angemeldet als ${profile?.name || user.email}` : `Logged in as ${profile?.name || user.email}`}
                         </p>
                       </div>
