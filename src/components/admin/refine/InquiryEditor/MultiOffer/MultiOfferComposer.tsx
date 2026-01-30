@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Send, Loader2, History, Check, Sparkles, Mail, Clock, User, ChefHat } from "lucide-react";
+import { Plus, Send, Loader2, History, Check, Sparkles, Mail, Clock, User, ChefHat, Lock, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -49,7 +49,12 @@ export function MultiOfferComposer({
     toggleOptionActive,
     saveOptions,
     createNewVersion,
+    unlockForNewVersion,
   } = useMultiOfferState({ inquiryId: inquiry.id, guestCount, selectedPackages });
+
+  // LOCKED MODE: When an offer was sent, the configuration becomes read-only
+  // This ensures traceability - what was sent cannot be changed
+  const isLocked = Boolean(inquiry.offer_sent_at);
 
   // Check if an email draft was already generated (show if email_draft exists)
   const hasSavedDraft = Boolean(inquiry.email_draft);
@@ -64,6 +69,7 @@ export function MultiOfferComposer({
   const [showHistory, setShowHistory] = useState(false);
   const [openMenuEditorOptionId, setOpenMenuEditorOptionId] = useState<string | null>(null);
   const [showSentEmail, setShowSentEmail] = useState(false); // Collapsible sent email section
+  const [isUnlocking, setIsUnlocking] = useState(false); // For unlock button loading state
 
   // Calculate totals for active options
   const activeOptions = options.filter(o => o.isActive);
@@ -443,18 +449,21 @@ export function MultiOfferComposer({
         <div>
           <h3 className="text-lg font-semibold text-foreground">Multi-Paket-Angebot</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Erstellen Sie bis zu 5 Optionen mit unterschiedlichen Paketen
+            {isLocked 
+              ? 'Dieses Angebot wurde versendet und ist schreibgeschützt'
+              : 'Erstellen Sie bis zu 5 Optionen mit unterschiedlichen Paketen'
+            }
           </p>
         </div>
         <div className="flex items-center gap-3">
           {/* Auto-save status - Subtle 2026 */}
-          {saveStatus === 'saving' && (
+          {!isLocked && saveStatus === 'saving' && (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
               Speichert...
             </span>
           )}
-          {saveStatus === 'saved' && (
+          {!isLocked && saveStatus === 'saved' && (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Check className="h-3 w-3" />
               Gespeichert
@@ -477,6 +486,70 @@ export function MultiOfferComposer({
         </div>
       </div>
 
+      {/* LOCKED BANNER - Shows when offer was sent */}
+      {isLocked && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden rounded-2xl border border-amber-200/60 bg-amber-50/80 dark:bg-amber-950/30 dark:border-amber-800/40"
+        >
+          <div className="flex items-center justify-between px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground">
+                    Angebot v{inquiry.current_offer_version || currentVersion} versendet
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                  <span className="flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    {getAdminDisplayName(inquiry.offer_sent_by)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {inquiry.offer_sent_at 
+                      ? format(parseISO(inquiry.offer_sent_at), "dd.MM.yy 'um' HH:mm", { locale: de })
+                      : '-'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                setIsUnlocking(true);
+                await unlockForNewVersion();
+                setIsUnlocking(false);
+                // Force page reload to get fresh inquiry data
+                window.location.reload();
+              }}
+              disabled={isUnlocking}
+              className="h-10 px-4 rounded-xl gap-2"
+            >
+              {isUnlocking ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Entsperre...
+                </>
+              ) : (
+                <>
+                  <Unlock className="h-4 w-4" />
+                  Neue Version erstellen
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="px-5 pb-4 text-sm text-muted-foreground">
+            Die gesendete Konfiguration ist schreibgeschützt. Um Änderungen vorzunehmen, erstellen Sie eine neue Version.
+          </div>
+        </motion.div>
+      )}
+
       {/* Version History */}
       {showHistory && history.length > 0 && (
         <OfferVersionHistory history={history} onClose={() => setShowHistory(false)} />
@@ -496,12 +569,13 @@ export function MultiOfferComposer({
             isGeneratingPaymentLink={generatingPaymentLinks.has(option.id)}
             isMenuEditorOpen={openMenuEditorOptionId === option.id}
             onToggleMenuEditor={(open) => setOpenMenuEditorOptionId(open ? option.id : null)}
+            isLocked={isLocked}
           />
         ))}
       </div>
 
-      {/* Add Option Button */}
-      {options.length < 5 && (
+      {/* Add Option Button - Hide when locked */}
+      {!isLocked && options.length < 5 && (
         <Button
           variant="outline"
           onClick={addOption}
@@ -641,32 +715,34 @@ export function MultiOfferComposer({
             </AnimatePresence>
           </motion.div>
 
-          {/* Separate "Neue Nachricht" Button - Outside collapsible */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 25 }}
-            className="mt-4"
-          >
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => {
-                setIsNewDraft(true);
-                setShowSentEmail(false);
-              }}
-              className="h-12 px-6 rounded-2xl border-dashed"
+          {/* Separate "Neue Nachricht" Button - Only show if NOT locked (user must unlock via banner first) */}
+          {!isLocked && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 25 }}
+              className="mt-4"
             >
-              <Mail className="h-4 w-4 mr-2" />
-              Neue Nachricht erstellen
-            </Button>
-          </motion.div>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => {
+                  setIsNewDraft(true);
+                  setShowSentEmail(false);
+                }}
+                className="h-12 px-6 rounded-2xl border-dashed"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Neue Nachricht erstellen
+              </Button>
+            </motion.div>
+          )}
         </div>
       )}
 
       {/* CASE 2: Creating new draft (follow-up) OR no offer sent yet */}
       <AnimatePresence mode="wait">
-        {(!hasSavedDraft || isNewDraft) && activeOptions.length > 0 && (
+        {(!hasSavedDraft || isNewDraft) && !isLocked && activeOptions.length > 0 && (
           <motion.div
             key="draft-interface"
             initial={{ opacity: 0, y: 10 }}

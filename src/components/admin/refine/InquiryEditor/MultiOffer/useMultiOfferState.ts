@@ -316,7 +316,7 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     }
   }, [inquiryId, options, currentVersion]);
 
-  // Create a new version (increment and save history)
+  // Create a new version (increment and save history) - called when SENDING
   const createNewVersion = useCallback(async (emailContent: string) => {
     const newVersion = currentVersion + 1;
     setCurrentVersion(newVersion);
@@ -354,6 +354,41 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     return newVersion;
   }, [currentVersion, inquiryId, options]);
 
+  // Unlock for new version - resets offer_sent_at to null, allowing edits
+  const unlockForNewVersion = useCallback(async () => {
+    try {
+      const newVersion = currentVersion + 1;
+      
+      // Reset offer_sent_at to unlock editing
+      await supabase
+        .from("event_inquiries")
+        .update({ 
+          offer_sent_at: null,
+          offer_sent_by: null,
+          current_offer_version: newVersion,
+        })
+        .eq("id", inquiryId);
+      
+      setCurrentVersion(newVersion);
+      
+      // Update all options to new version
+      setOptions(prev => prev.map(o => ({ ...o, offerVersion: newVersion })));
+      
+      // Log activity
+      await logActivity(inquiryId, 'offer_unlocked_for_revision', {
+        newVersion,
+      });
+      
+      toast.success(`Version ${newVersion} erstellt – Angebot kann bearbeitet werden`);
+      
+      return newVersion;
+    } catch (error) {
+      console.error("Error unlocking for new version:", error);
+      toast.error("Fehler beim Entsperren");
+      return currentVersion;
+    }
+  }, [currentVersion, inquiryId]);
+
   return {
     options,
     currentVersion,
@@ -367,6 +402,7 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     toggleOptionActive,
     saveOptions,
     createNewVersion,
+    unlockForNewVersion,
     setOptions,
   };
 }
