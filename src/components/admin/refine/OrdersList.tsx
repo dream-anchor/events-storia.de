@@ -170,7 +170,7 @@ export const OrdersList = () => {
     <AdminLayout activeTab="orders">
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-serif font-semibold">Catering</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Catering-Bestellungen</h1>
           <p className="text-muted-foreground">
             Übersicht aller eingegangenen Bestellungen.
           </p>

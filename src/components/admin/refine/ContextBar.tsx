@@ -31,7 +31,7 @@ export const ContextBar = ({
     : null;
 
   return (
-    <div className="flex items-center gap-4 py-3 px-4 bg-muted/50 border-b border-border/50 -mx-4 mb-6">
+    <div className="flex items-center gap-4 py-3 px-4 bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-200/60 dark:border-slate-800/60 -mx-4 mb-6 rounded-t-xl">
       <Button 
         variant="ghost" 
         size="icon" 

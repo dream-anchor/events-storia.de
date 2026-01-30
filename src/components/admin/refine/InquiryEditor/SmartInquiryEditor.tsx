@@ -340,7 +340,7 @@ export const SmartInquiryEditor = () => {
             </Button>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-serif font-semibold">
+                <h1 className="text-2xl font-semibold tracking-tight">
                   {mergedInquiry.company_name || mergedInquiry.contact_name}
                 </h1>
                 <Badge variant={inquiryType === 'event' ? 'default' : 'secondary'}>

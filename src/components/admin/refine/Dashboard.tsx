@@ -49,12 +49,12 @@ export const Dashboard = () => {
         {/* Header with Quick Action */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-4xl font-serif font-semibold">StoriaMaestro</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">StoriaMaestro</h1>
             <p className="text-base text-muted-foreground">
               Willkommen im Event- & Catering-Management
             </p>
           </div>
-          <Button asChild>
+          <Button asChild className="shadow-sm">
             <Link to="/admin/events/create">
               <Plus className="h-4 w-4 mr-2" />
               Neue Anfrage
@@ -64,7 +64,7 @@ export const Dashboard = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-slate-200/60 dark:border-slate-800/60">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base font-medium text-muted-foreground">
                 Neue Anfragen
@@ -79,7 +79,7 @@ export const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-slate-200/60 dark:border-slate-800/60">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base font-medium text-muted-foreground">
                 Menü offen
@@ -94,7 +94,7 @@ export const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-slate-200/60 dark:border-slate-800/60">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base font-medium text-muted-foreground">
                 Offene Bestellungen
@@ -109,7 +109,7 @@ export const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-slate-200/60 dark:border-slate-800/60">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base font-medium text-muted-foreground">
                 Diese Woche
@@ -128,7 +128,7 @@ export const Dashboard = () => {
         {/* Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Events */}
-          <Card>
+          <Card className="border-slate-200/60 dark:border-slate-800/60">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -185,7 +185,7 @@ export const Dashboard = () => {
           </Card>
 
           {/* Upcoming Orders */}
-          <Card>
+          <Card className="border-slate-200/60 dark:border-slate-800/60">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
