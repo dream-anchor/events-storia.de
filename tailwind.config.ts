@@ -14,7 +14,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        'serif': ['Cormorant Garamond', 'serif'],
+        'serif': ['Playfair Display', 'serif'],
         'sans': ['Inter', 'sans-serif'],
         'signature': ['Great Vibes', 'cursive'],
       },
