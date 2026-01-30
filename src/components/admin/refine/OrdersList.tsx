@@ -149,22 +149,11 @@ export const OrdersList = () => {
         </p>
       ),
     },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Button 
-            size="sm" 
-            variant="ghost"
-            onClick={() => navigate(`/admin/orders/${row.original.id}/edit`)}
-          >
-            <Eye className="h-4 w-4 mr-1" />
-            Details
-          </Button>
-        </div>
-      ),
-    },
   ];
+
+  const handleRowClick = (order: CateringOrder) => {
+    navigate(`/admin/orders/${order.id}/edit`);
+  };
 
   return (
     <AdminLayout activeTab="orders">
@@ -183,6 +172,7 @@ export const OrdersList = () => {
           filterPills={filterPills}
           onFilterChange={handleFilterChange}
           onRefresh={() => ordersQuery.query.refetch()}
+          onRowClick={handleRowClick}
           isLoading={isLoading}
           pageSize={15}
         />

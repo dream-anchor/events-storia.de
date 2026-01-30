@@ -32,6 +32,7 @@ interface DataTableProps<TData, TValue> {
   filterPills?: FilterPill[];
   onFilterChange?: (filterId: string, value: string) => void;
   onRefresh?: () => void;
+  onRowClick?: (row: TData) => void;
   isLoading?: boolean;
   pageSize?: number;
 }
@@ -44,6 +45,7 @@ export function DataTable<TData, TValue>({
   filterPills = [],
   onFilterChange,
   onRefresh,
+  onRowClick,
   isLoading,
   pageSize = 10,
 }: DataTableProps<TData, TValue>) {
@@ -174,7 +176,11 @@ export function DataTable<TData, TValue>({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="hover:bg-secondary/50 transition-colors"
+                  className={cn(
+                    "hover:bg-secondary/50 transition-colors",
+                    onRowClick && "cursor-pointer"
+                  )}
+                  onClick={() => onRowClick?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
