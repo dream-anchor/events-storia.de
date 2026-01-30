@@ -439,10 +439,14 @@ export type Database = {
           id: string
           inquiry_type: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes: string | null
+          last_edited_at: string | null
+          last_edited_by: string | null
           lexoffice_quotation_id: string | null
           menu_selection: Json | null
           message: string | null
           notification_sent: boolean | null
+          offer_sent_at: string | null
+          offer_sent_by: string | null
           phone: string | null
           preferred_date: string | null
           quote_items: Json | null
@@ -473,10 +477,14 @@ export type Database = {
           id?: string
           inquiry_type?: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes?: string | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           lexoffice_quotation_id?: string | null
           menu_selection?: Json | null
           message?: string | null
           notification_sent?: boolean | null
+          offer_sent_at?: string | null
+          offer_sent_by?: string | null
           phone?: string | null
           preferred_date?: string | null
           quote_items?: Json | null
@@ -507,10 +515,14 @@ export type Database = {
           id?: string
           inquiry_type?: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes?: string | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           lexoffice_quotation_id?: string | null
           menu_selection?: Json | null
           message?: string | null
           notification_sent?: boolean | null
+          offer_sent_at?: string | null
+          offer_sent_by?: string | null
           phone?: string | null
           preferred_date?: string | null
           quote_items?: Json | null

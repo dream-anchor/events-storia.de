@@ -37,6 +37,11 @@ export interface EventInquiry extends BaseRecord {
   notification_sent: boolean;
   created_at: string;
   updated_at: string | null;
+  // Editor tracking fields
+  last_edited_by: string | null;
+  last_edited_at: string | null;
+  offer_sent_at: string | null;
+  offer_sent_by: string | null;
 }
 
 export interface CateringOrder extends BaseRecord {
