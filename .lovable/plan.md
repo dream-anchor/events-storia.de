@@ -1,195 +1,257 @@
 
-# StoriaMaestro Visual Redesign 2026
+# StoriaMaestro UX Modernisierung: Navigation & User Flows
 
-## Analyse: Aktuelle Problemstellen
+## Analyse des aktuellen Zustands
 
-### 1. Typografie wirkt "Windows-like"
-- **Cormorant Garamond** (Serifenschrift) wird für alle Überschriften im Admin verwendet
-- Diese verschnörkelte, dekorative Schrift passt zum Frontend (Restaurant-Flair), aber wirkt im Backend altmodisch und schwer lesbar
-- Beispiel: `text-4xl font-serif font-semibold` für Dashboard-Titel
+### 1. Hauptnavigation (FloatingPillNav)
+**Aktuell:** 7 Navigationspunkte horizontal angeordnet
+- Dashboard, Inbox, Anfragen, Events, Catering, Pakete, Speisen
 
-### 2. Farbschema zu warm/rustikal
-- Die primäre Farbe (`--primary: 358 65% 35%`) ist ein warmes Rot/Bordeaux - passend für Restaurant, aber nicht für ein modernes Admin-Tool
-- Hintergrund (`bg-muted/30`) und Cards wirken wie ein altes ERP-System
+**Probleme:**
+- Zu viele gleichwertige Elemente ohne Hierarchie
+- "Anfragen" und "Events" sind semantisch ähnlich, aber getrennt
+- Keine visuelle Gruppierung nach Workflow-Kontext
+- Mobile Version ist ein horizontaler Scroll ohne Priorisierung
 
-### 3. Fehlende "State of the Art" Elemente
-- Keine Subtle Gradients oder moderne Shadows
-- Keine visuellen Hierarchien durch Tiefe
-- Standard-Borders statt weiche, moderne Übergänge
+### 2. Dashboard → Listen → Editor Flow
+**Aktuell:**
+```
+Dashboard → Events-Liste → SmartInquiryEditor
+```
+
+**Probleme:**
+- Kein Breadcrumb oder Context-Trail
+- Der Zurück-Button ist ein einfacher Ghost-Button (subtil)
+- Kein klarer visueller Übergang zwischen Hierarchieebenen
+
+### 3. Inbox vs. Editor-Dualität
+**Aktuell:** Zwei parallele Workflows existieren:
+1. Inbox (Master-Detail) → Schnelle Übersicht
+2. Listen (DataTable) → Details via Edit-Button
+
+**Problem:** Nutzer wissen nicht, welchen Einstiegspunkt sie nutzen sollen
+
+### 4. MenuWorkflow (3-Step Wizard)
+**Aktuell:** Gänge → Getränke → Angebot als Pill-Navigation
+
+**Positiv:** Modernes Design mit Step-Indikatoren
+**Verbesserungspotenzial:** Könnte als Muster für alle Multi-Step-Prozesse dienen
+
+### 5. Command Palette (⌘K)
+**Aktuell:** Basic Navigation + Schnellaktionen
+
+**Fehlt:**
+- Suche nach echten Daten (Events, Bestellungen)
+- Kontextuelle Aktionen basierend auf aktuellem Bereich
 
 ---
 
-## Lösung: Maestro Design System
+## Lösung: Unified Navigation Architecture 2026
 
-### Design-Philosophie
-Ein **professionelles Maestro-System** für Event & Catering Management:
-- **Klarheit**: Sans-Serif-Typografie für alle Texte
-- **Tiefe**: Layered UI mit subtilen Shadows und Glassmorphism
-- **Monochrom**: Neutrales Slate/Zinc-Farbschema mit einem dezenten Akzent
-- **2026 Ästhetik**: Große Weißräume, weiche Ecken, Micro-Interactions
+### Konzept: "Focused Context System"
 
----
+Statt vieler gleichwertiger Tabs: **Drei Kontexte** mit Tiefennavigation
 
-## Technische Änderungen
-
-### Phase 1: Admin-spezifisches Farbschema
-
-**Datei: `src/index.css`**
-
-Neues Admin-Theme mit eigenen CSS-Variablen:
-
-```css
-/* Admin-specific modern theme */
-.admin-layout {
-  --background: 220 14% 96%;      /* Cool neutral gray */
-  --foreground: 224 71% 4%;       /* Near black */
-  --card: 0 0% 100%;              /* Pure white cards */
-  --muted: 220 14% 92%;           /* Subtle gray */
-  --muted-foreground: 220 9% 46%;
-  --primary: 221 83% 53%;         /* Professional blue accent */
-  --primary-foreground: 0 0% 100%;
-  --border: 220 13% 91%;
-  --ring: 221 83% 53%;
-}
-
-.admin-layout.dark {
-  --background: 224 71% 4%;
-  --foreground: 210 20% 98%;
-  --card: 222 47% 11%;
-  --muted: 215 28% 17%;
-  --muted-foreground: 217 10% 64%;
-  --primary: 217 91% 60%;
-  --border: 215 28% 17%;
-}
+```
+┌────────────────────────────────────────────────────────┐
+│  [Logo]    [Context Pill] ──▶ [Suche]    [⌘K] [User]  │
+│                                                         │
+│  Inbox  ◀────────▶  Anfragen  ◀────────▶  Stammdaten   │
+│  (Triage)           (Workflow)           (Katalog)     │
+└────────────────────────────────────────────────────────┘
 ```
 
-### Phase 2: Typografie modernisieren
-
-**Datei: `src/index.css`**
-
-Admin-spezifische Typografie-Overrides:
-
-```css
-.admin-layout {
-  font-family: 'Inter', system-ui, sans-serif;
-}
-
-.admin-layout h1,
-.admin-layout h2,
-.admin-layout h3 {
-  @apply font-sans font-semibold tracking-tight;
-}
-```
-
-### Phase 3: AdminLayout modernisieren
+### Phase 1: Navigation Redesign
 
 **Datei: `src/components/admin/refine/AdminLayout.tsx`**
 
-Änderungen:
-- Hintergrund von `bg-muted/30` zu einem subtilen Gradient
-- Header mit mehr Tiefe und modernem Look
-- Weichere Shadows und Borders
+Neue Navigation mit 3 Hauptbereichen + Context-Trail:
 
-```tsx
-// Hauptcontainer mit modernem Background
-<div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 admin-layout">
-
-// Header mit mehr Tiefe
-<header className="sticky top-0 z-50 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-sm">
+```typescript
+const navigationContexts = [
+  { 
+    name: 'Inbox', 
+    href: '/admin/inbox', 
+    icon: Inbox, 
+    key: 'inbox',
+    description: 'Triage & Schnellaktionen'
+  },
+  { 
+    name: 'Anfragen', 
+    href: '/admin/events', 
+    icon: CalendarDays, 
+    key: 'workflow',
+    description: 'Event & Catering Workflows',
+    children: [
+      { name: 'Events', href: '/admin/events', badge: 'events' },
+      { name: 'Buchungen', href: '/admin/bookings', badge: 'bookings' },
+      { name: 'Catering', href: '/admin/orders', badge: 'orders' },
+    ]
+  },
+  { 
+    name: 'Stammdaten', 
+    href: '/admin/packages', 
+    icon: Database, 
+    key: 'catalog',
+    description: 'Pakete, Speisen, Locations',
+    children: [
+      { name: 'Pakete', href: '/admin/packages' },
+      { name: 'Speisen', href: '/admin/menu' },
+    ]
+  },
+];
 ```
 
-### Phase 4: Dashboard-Header
+### Phase 2: Context-Aware Header
 
-**Datei: `src/components/admin/refine/Dashboard.tsx`**
+**Datei: `src/components/admin/refine/ContextHeader.tsx`** (neu)
 
-Von dekorativ zu modern:
+Ein intelligenter Header, der den aktuellen Kontext anzeigt:
 
-```tsx
-// ALT: Verschnörkelt
-<h1 className="text-4xl font-serif font-semibold">StoriaMaestro</h1>
+```typescript
+// Beispiel für Events-Liste
+<ContextHeader
+  breadcrumb={[
+    { label: 'Anfragen', href: '/admin/events' },
+    { label: 'Event-Anfragen', current: true }
+  ]}
+  title="Event-Anfragen"
+  subtitle="23 offene Anfragen"
+  actions={<Button>Neue Anfrage</Button>}
+  quickFilters={['Neu', 'Angebot', 'Bestätigt']}
+/>
 
-// NEU: Clean & Modern
-<h1 className="text-3xl font-semibold tracking-tight">StoriaMaestro</h1>
+// Beispiel für Editor
+<ContextHeader
+  breadcrumb={[
+    { label: 'Anfragen', href: '/admin/events' },
+    { label: 'Event-Anfragen', href: '/admin/events' },
+    { label: 'Firma XY', current: true }
+  ]}
+  title="Firma XY - Weihnachtsfeier"
+  subtitle="50 Gäste • 15.12.2026"
+  actions={<StatusBadge />}
+/>
 ```
 
-### Phase 5: Stat-Cards mit Tiefe
+### Phase 3: Unified Workflow Indicator
 
-**Datei: `src/components/admin/refine/Dashboard.tsx`**
+**Konzept:** Der MenuWorkflow-Pill-Style als universelles Muster
 
-Moderne Card-Styles mit Hover-Effekten:
+Alle mehrstufigen Prozesse bekommen einen einheitlichen Step-Indicator:
 
-```tsx
-<Card className="group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-slate-200/60 dark:border-slate-800/60">
+```
+┌─────────────────────────────────────────────────┐
+│  ● Kontakt  ──  ○ Kalkulation  ──  ○ Angebot   │
+│    ✓ abgeschlossen   aktiv        ausstehend   │
+└─────────────────────────────────────────────────┘
 ```
 
-### Phase 6: FloatingPillNav modernisieren
+**Anwendung:**
+- SmartInquiryEditor: Kontakt → Kalkulation → Kommunikation
+- Catering-Bestellung: Produkte → Lieferung → Zahlung
+- Paket-Erstellung: Basis → Inhalt → Locations
 
-**Datei: `src/components/admin/refine/FloatingPillNav.tsx`**
+### Phase 4: Smart Command Palette
 
-Subtilere, modernere Navigation:
+**Datei: `src/components/admin/refine/CommandPalette.tsx`**
 
-```tsx
-<nav className="hidden md:flex items-center gap-0.5 p-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/60 dark:border-slate-800/60 rounded-2xl shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50">
+Erweiterte Suche mit echten Daten:
+
+```typescript
+// Neue Struktur
+<CommandGroup heading="Schnellzugriff">
+  {/* Dynamische Ergebnisse aus der Datenbank */}
+  {recentEvents.map(event => (
+    <CommandItem onSelect={() => navigate(`/admin/events/${event.id}/edit`)}>
+      <CalendarDays className="mr-2 h-4 w-4" />
+      {event.company_name || event.contact_name}
+      <CommandShortcut>{event.preferred_date}</CommandShortcut>
+    </CommandItem>
+  ))}
+</CommandGroup>
+
+<CommandGroup heading="Aktionen">
+  <CommandItem>Neue Anfrage erstellen</CommandItem>
+  <CommandItem>E-Mail-Entwurf öffnen</CommandItem>
+  <CommandItem>Zur Kalkulation springen</CommandItem>
+</CommandGroup>
 ```
 
-### Phase 7: DataTable modernisieren
+### Phase 5: Transition Animations
 
-**Datei: `src/components/admin/refine/DataTable.tsx`**
+**Datei: `src/index.css`**
 
-- Weichere Zeilen-Hovers
-- Modernere Filter-Pills
-- Subtilere Pagination
+Sanfte Übergänge zwischen Hierarchieebenen:
 
-```tsx
-// Modernere Filter Pills
-<button
-  className={cn(
-    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all",
-    pill.active
-      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
-      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200"
-  )}
->
+```css
+.admin-layout {
+  /* Page transitions */
+  .page-enter {
+    @apply opacity-0 translate-x-4;
+  }
+  .page-enter-active {
+    @apply opacity-100 translate-x-0 transition-all duration-200;
+  }
+  
+  /* Card hover lift */
+  .interactive-card {
+    @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+  }
+}
 ```
 
-### Phase 8: Event/Order Listen
+### Phase 6: Mobile-First Navigation
 
-Alle Listen-Seiten erhalten den modernen Header-Style:
+**Datei: `src/components/admin/refine/MobileNav.tsx`** (neu)
 
-```tsx
-// EventsList.tsx, OrdersList.tsx, etc.
-<h1 className="text-2xl font-semibold tracking-tight">Event-Anfragen</h1>
+Bottom-Tab-Navigation für Mobile mit Swipe-Gesten:
+
+```typescript
+// Drei primäre Tabs am unteren Rand
+<nav className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-xl border-t">
+  <div className="grid grid-cols-3 h-16">
+    <NavTab icon={Inbox} label="Inbox" href="/admin/inbox" />
+    <NavTab icon={CalendarDays} label="Anfragen" href="/admin/events" />
+    <NavTab icon={Database} label="Katalog" href="/admin/packages" />
+  </div>
+</nav>
 ```
-
----
-
-## Zusammenfassung der Änderungen
-
-| Bereich | Alt | Neu |
-|---------|-----|-----|
-| **Schrift Headings** | Cormorant Garamond (Serif) | Inter (Sans-Serif) |
-| **Primary Color** | Bordeaux-Rot | Professionelles Blau |
-| **Background** | Warmes Beige | Kühles Slate-Gradient |
-| **Cards** | Flach, harte Borders | Subtle Shadows, weiche Borders |
-| **Navigation** | Standard Pill | Layered Glassmorphism |
-| **Interaktionen** | Statisch | Micro-Animations (Hover/Lift) |
 
 ---
 
 ## Betroffene Dateien
 
-1. `src/index.css` - Admin-spezifische Theme-Variablen
-2. `src/components/admin/refine/AdminLayout.tsx` - Layout-Container
-3. `src/components/admin/refine/Dashboard.tsx` - Dashboard-Styles
-4. `src/components/admin/refine/FloatingPillNav.tsx` - Navigation
-5. `src/components/admin/refine/DataTable.tsx` - Tabellen-Styles
-6. `src/components/admin/refine/EventsList.tsx` - Listen-Header
-7. `src/components/admin/refine/OrdersList.tsx` - Listen-Header
-8. `src/components/admin/refine/ContextBar.tsx` - Editor-Header
-9. `src/components/admin/refine/SmartInquiryEditor.tsx` - Editor-Styles
+| Datei | Änderung |
+|-------|----------|
+| `AdminLayout.tsx` | Navigation auf 3 Kontexte reduzieren |
+| `FloatingPillNav.tsx` | Dropdown für Sub-Navigation |
+| `CommandPalette.tsx` | Echte Datensuche + kontextuelle Aktionen |
+| `ContextBar.tsx` → `ContextHeader.tsx` | Erweiterter Breadcrumb-Header |
+| `EventsList.tsx` | Neuer ContextHeader |
+| `SmartInquiryEditor.tsx` | Workflow-Indicator hinzufügen |
+| `InboxPage.tsx` | Als primärer Einstiegspunkt optimieren |
+| `index.css` | Transition-Animationen |
+| `MobileNav.tsx` (neu) | Bottom-Tab-Navigation |
 
 ---
 
-## Das Frontend bleibt unverändert
+## Vorher / Nachher Vergleich
 
-Das warme, italienische Restaurant-Design (Cormorant Garamond, Bordeaux-Töne) bleibt für alle kundenorientierten Seiten erhalten. Die Änderungen betreffen **ausschließlich** den Admin-Bereich (`.admin-layout`).
+| Aspekt | Vorher | Nachher |
+|--------|--------|---------|
+| **Navigationspunkte** | 7 gleichwertige Tabs | 3 Kontexte mit Dropdown |
+| **Orientierung** | Flach, keine Hierarchie | Breadcrumb-Trail |
+| **Mobile** | Horizontaler Scroll | Bottom-Tab + Swipe |
+| **Suche (⌘K)** | Nur Navigation | Echte Daten + Aktionen |
+| **Übergänge** | Hart, sofort | Sanfte Animations |
+| **Workflow-Status** | Nur im MenuWorkflow | Überall konsistent |
+
+---
+
+## Priorisierung
+
+1. **High Impact, Low Effort:** Navigation auf 3 Kontexte + Breadcrumb
+2. **High Impact, Medium Effort:** Smart Command Palette mit Datensuche
+3. **Medium Impact:** Workflow-Indicator als universelles Muster
+4. **Polish:** Transition-Animationen, Mobile Bottom-Nav
