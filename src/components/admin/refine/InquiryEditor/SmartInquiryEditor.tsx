@@ -353,20 +353,7 @@ export const SmartInquiryEditor = () => {
             </div>
           </div>
           
-          {/* Auto-save status indicator - permanent, non-blinking */}
-          <div className="flex items-center gap-1.5 text-sm">
-            {saveStatus === 'saving' ? (
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Speichert...
-              </span>
-            ) : (
-              <span className="text-muted-foreground/60 flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5" />
-                Gespeichert
-              </span>
-            )}
-          </div>
+          {/* Auto-save runs silently in background - no visual indicator to avoid distraction */}
         </div>
 
         {/* Tabbed Interface - simplified to 2 tabs */}
