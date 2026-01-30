@@ -1,141 +1,202 @@
 
-## Font-Umstellung: Cormorant Garamond → Playfair Display + Great Vibes lokal
+# Typographie-Konzept: STORIA Catering Website
 
-### Übersicht
+## Übersicht
 
-Die aktuelle Didone-Schrift **Cormorant Garamond** wird durch **Playfair Display** ersetzt. Zusätzlich wird **Great Vibes** (Signatur-Schrift) lokal gehostet, um vollständige DSGVO-Konformität zu gewährleisten.
-
----
-
-### Betroffene Dateien
-
-| Datei | Änderung |
-|-------|----------|
-| `public/fonts/` | Neue Font-Dateien hinzufügen |
-| `src/styles/fonts.css` | @font-face Deklarationen aktualisieren |
-| `tailwind.config.ts` | Font-Familie anpassen |
-| `index.html` | Preload-Links + Google Fonts Referenz entfernen |
+Dieses Konzept definiert ein konsistentes Schriftgrößen-System für alle Bereiche der Webseite. Es basiert auf Tailwind CSS Klassen und unterscheidet zwischen **Serif** (Playfair Display für Überschriften) und **Sans-Serif** (Inter für UI/Body).
 
 ---
 
-### Schritt 1: Font-Dateien herunterladen
+## Schriftarten-Zuordnung
 
-Die folgenden woff2-Dateien werden benötigt und in `public/fonts/` abgelegt:
-
-**Playfair Display (ersetzt Cormorant Garamond):**
-- `PlayfairDisplay-Regular.woff2` (400)
-- `PlayfairDisplay-Medium.woff2` (500)
-- `PlayfairDisplay-SemiBold.woff2` (600)
-- `PlayfairDisplay-Bold.woff2` (700)
-
-**Great Vibes (bisher Google Fonts):**
-- `GreatVibes-Regular.woff2` (400)
+| Schriftart | Tailwind-Klasse | Verwendung |
+|------------|-----------------|------------|
+| Playfair Display | `font-serif` | Hauptüberschriften, Preise |
+| Cormorant Garamond | `font-display` | Elegante Taglines, Kategorietitel |
+| Inter | `font-sans` | Body-Text, UI-Elemente, Buttons |
+| Great Vibes | `font-signature` | Spezielle Akzente (sparsam) |
 
 ---
 
-### Schritt 2: fonts.css aktualisieren
+## Schriftgrößen-Hierarchie
+
+### Hero-Bereich (Startseite & Landingpages)
+
+| Element | Mobile | Desktop | Klassen |
+|---------|--------|---------|---------|
+| Logo | h-32 (128px) | h-40 (160px) | – (Bild) |
+| Tagline | 14px | 16px | `text-sm md:text-base` |
+| H1 Haupttitel | 18px | 20px | `text-lg md:text-xl` |
+
+### Sektionsüberschriften (H2)
+
+| Kontext | Mobile | Desktop | Klassen |
+|---------|--------|---------|---------|
+| Standard-Sektionen | 24px | 30px | `text-2xl md:text-3xl` |
+| Hero-Landingpages | 36px | 72px | `text-4xl md:text-6xl lg:text-7xl` |
+| Footer Service-Bereich | 30px | 36px | `text-3xl md:text-4xl` |
+
+### Untertitel & Lead-Text
+
+| Element | Mobile | Desktop | Klassen |
+|---------|--------|---------|---------|
+| Sektions-Subline | 18px | 18px | `text-lg` |
+| Lead-Paragraph | 20px | 20px | `text-xl` |
+| Service-Beschreibungen | 18px | 18px | `text-lg` |
+
+### Content-Bereich
+
+| Element | Mobile | Desktop | Klassen |
+|---------|--------|---------|---------|
+| Fließtext | 18px | 18px | `text-base` (Root: 18px) |
+| Produktbeschreibungen | 16px | 16px | `text-base` |
+| Card-Titel (H3) | 20px | 24px | `text-xl md:text-2xl` |
+| Kategorietitel | 20px | 24px | `text-xl md:text-2xl` |
+
+### Menükarten & Produktkarten
+
+| Element | Mobile | Desktop | Klassen |
+|---------|--------|---------|---------|
+| Produktname | 20px | 20px | `text-xl` |
+| Preis | 20px | 20px | `text-xl` |
+| Serving-Info | 14px | 14px | `text-sm` |
+| Beschreibung | 16px | 16px | `text-base` |
+| Min. Bestellung | 14px | 14px | `text-sm` |
+
+### Speisekarten-Anzeige (MenuDisplay)
+
+| Element | Mobile | Desktop | Klassen |
+|---------|--------|---------|---------|
+| Menü-Titel | 36px | 48px | `text-4xl md:text-5xl` |
+| Menü-Untertitel | 20px | 20px | `text-xl` |
+| Kategorie-Titel | 30px | 30px | `text-3xl` |
+| Kategorie-Beschreibung | 18px | 18px | `text-lg` |
+| Gericht-Name | 20px | 20px | `text-xl` |
+| Gericht-Preis | 20px | 20px | `text-xl` |
+| Gericht-Beschreibung | 18px | 18px | `text-lg` |
+
+### Navigation & Header
+
+| Element | Mobile | Desktop | Klassen |
+|---------|--------|---------|---------|
+| Logo-Text "STORIA" | 24.8px | 31.2px | `text-[1.55rem] md:text-[1.95rem]` |
+| Kontaktinfo | 16px | 16px | `text-base` |
+| Nav-Links | 16px | 16px | `text-base` |
+
+### Footer
+
+| Element | Mobile | Desktop | Klassen |
+|---------|--------|---------|---------|
+| Service-Titel (H2) | 30px | 36px | `text-3xl md:text-4xl` |
+| Service-Subline | 18px | 20px | `text-lg md:text-xl` |
+| Anker-Titel (H3) | 20px | 20px | `text-xl` |
+| Anker-Beschreibung | 18px | 18px | `text-lg` |
+| Kontakt-Label (H3) | 16px | 16px | `text-base` |
+| Kontaktdaten | 16px | 16px | `text-base` |
+| Copyright | 14px | 14px | `text-sm` |
+| Legal-Links | 14px | 14px | `text-sm` |
+
+### Testimonials & Bewertungen
+
+| Element | Mobile | Desktop | Klassen |
+|---------|--------|---------|---------|
+| Sektions-Titel | 24px | 30px | `text-2xl md:text-3xl` |
+| Zitat-Text | 14px | 14px | `text-sm` |
+| Autor-Name | 14px | 14px | `text-sm` |
+| Firma | 12px | 12px | `text-xs` |
+
+### Checkout & Formulare
+
+| Element | Mobile | Desktop | Klassen |
+|---------|--------|---------|---------|
+| Seiten-Titel | 24px | 30px | `text-2xl md:text-3xl` |
+| Formular-Labels | 16px | 16px | `text-base` |
+| Input-Felder | 16px | 16px | `text-base` (min 16px für iOS) |
+| Fehlermeldungen | 14px | 14px | `text-sm` |
+| Hilfetext | 14px | 14px | `text-sm` |
+
+### Statistiken & Trust-Bars
+
+| Element | Mobile | Desktop | Klassen |
+|---------|--------|---------|---------|
+| Zahl/Wert | 30px | 36px | `text-3xl md:text-4xl` |
+| Label | 16px | 16px | `text-base` |
+
+### Buttons
+
+| Variante | Größe | Klassen |
+|----------|-------|---------|
+| Standard | 14px | `text-sm` |
+| Large | 16px | `text-base` |
+| CTA Primary | 16px | `text-base` |
+
+---
+
+## Responsive Scaling-Prinzipien
+
+1. **Mobile-First**: Basisgröße ist für Mobile definiert
+2. **Desktop-Skalierung**: +2-4px für wichtige Überschriften
+3. **Konsistente Abstufung**: Immer 1 Tailwind-Stufe (z.B. `sm` → `base` → `lg`)
+4. **iOS-Kompatibilität**: Formularfelder mindestens 16px (verhindert Auto-Zoom)
+
+---
+
+## Empfohlene Anpassungen
+
+### Inkonsistenzen beheben
+
+| Bereich | Aktuell | Empfohlen |
+|---------|---------|-----------|
+| CateringCTA Body | `text-lg` | `text-base md:text-lg` |
+| Testimonial Zitate | `text-sm` | `text-base` |
+| EventTypes Card-Titel | `text-lg md:text-xl` | `text-xl` (konsistent) |
+
+### Optimierungen
+
+1. **Einheitliche Produktkarten**: Alle Catering-Seiten nutzen `text-xl` für Titel und `text-base` für Beschreibungen
+2. **Footer vereinheitlichen**: Kontakt- und Lieferzeiten-Labels konsistent auf `text-base` mit `tracking-[0.2em]`
+3. **Testimonial-Lesbarkeit**: Zitat-Text von `text-sm` auf `text-base` erhöhen
+
+---
+
+## Technische Details
+
+### Root-Basisgröße (index.css)
 
 ```css
-/* Playfair Display - Ersetzt Cormorant Garamond */
-@font-face {
-  font-family: 'Playfair Display';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts/PlayfairDisplay-Regular.woff2') format('woff2');
+body {
+  font-size: 18px;
+  line-height: 1.6;
 }
-
-@font-face {
-  font-family: 'Playfair Display';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('/fonts/PlayfairDisplay-Medium.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Playfair Display';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('/fonts/PlayfairDisplay-SemiBold.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Playfair Display';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('/fonts/PlayfairDisplay-Bold.woff2') format('woff2');
-}
-
-/* Great Vibes - Jetzt lokal gehostet */
-@font-face {
-  font-family: 'Great Vibes';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts/GreatVibes-Regular.woff2') format('woff2');
-}
-
-/* Inter bleibt unverändert */
 ```
 
----
+### Tailwind-Größen-Referenz
 
-### Schritt 3: tailwind.config.ts anpassen
+| Klasse | Pixel | rem |
+|--------|-------|-----|
+| `text-xs` | 12px | 0.75rem |
+| `text-sm` | 14px | 0.875rem |
+| `text-base` | 16px* | 1rem |
+| `text-lg` | 18px | 1.125rem |
+| `text-xl` | 20px | 1.25rem |
+| `text-2xl` | 24px | 1.5rem |
+| `text-3xl` | 30px | 1.875rem |
+| `text-4xl` | 36px | 2.25rem |
+| `text-5xl` | 48px | 3rem |
+| `text-6xl` | 60px | 3.75rem |
+| `text-7xl` | 72px | 4.5rem |
 
-```typescript
-fontFamily: {
-  'serif': ['Playfair Display', 'serif'],  // War: Cormorant Garamond
-  'sans': ['Inter', 'sans-serif'],
-  'signature': ['Great Vibes', 'cursive'],
-},
-```
-
----
-
-### Schritt 4: index.html bereinigen
-
-**Entfernen:**
-- Google Fonts preconnect Links (Zeilen 37-38)
-- Google Fonts Great Vibes Referenz (Zeilen 48-50)
-- Preload für CormorantGaramond (Zeile 45)
-
-**Hinzufügen:**
-- Preload für Playfair Display
-
-```html
-<!-- Preload critical fonts -->
-<link rel="preload" href="/fonts/PlayfairDisplay-Regular.woff2" as="font" type="font/woff2" crossorigin />
-<link rel="preload" href="/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin />
-```
+*Hinweis: Die Root-Schriftgröße ist 18px, daher erscheinen relative Größen entsprechend größer.
 
 ---
 
-### Schritt 5: Alte Font-Dateien aufräumen (optional)
+## Zusammenfassung
 
-Nach erfolgreicher Umstellung können die alten Cormorant Garamond Dateien entfernt werden:
-- `CormorantGaramond-Regular.woff2`
-- `CormorantGaramond-Medium.woff2`
-- `CormorantGaramond-SemiBold.woff2`
-- `CormorantGaramond-Bold.woff2`
+Dieses Konzept etabliert eine klare typographische Hierarchie:
 
----
+- **Große Überschriften** (H1/H2): Playfair Display, 24-72px
+- **Elegante Akzente**: Cormorant Garamond für Taglines
+- **Body & UI**: Inter, 16-18px für optimale Lesbarkeit
+- **Kleine Elemente**: 12-14px für Metadaten und rechtliche Hinweise
 
-### Ergebnis
-
-- **100% DSGVO-konform**: Keine externen Google Fonts Verbindungen mehr
-- **Playfair Display**: Elegante Didone-Schrift für Überschriften und Fließtext
-- **Performance**: Lokales Hosting = schnellere Ladezeiten
-- **Konsistenz**: Alle Schriften einheitlich aus `/fonts/` geladen
-
----
-
-### Technische Hinweise
-
-**Font-Dateien Download:**  
-Die woff2-Dateien können von [Google Fonts Helper](https://gwfh.mranftl.com/fonts) oder direkt von [fonts.google.com](https://fonts.google.com) heruntergeladen werden. Ich werde die Dateien für dich bereitstellen.
-
-**Fallback-Kette:**  
-Playfair Display → Georgia → serif (Browser-Standard)
+Die Implementierung erfordert minimale Änderungen, da die meisten Bereiche bereits konsistent sind.
