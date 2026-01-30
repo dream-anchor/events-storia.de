@@ -255,17 +255,17 @@ export function MultiOfferComposer({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-8">
+      {/* Header - Clean 2026 */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Multi-Paket-Angebot</h3>
-          <p className="text-sm text-muted-foreground">
+          <h3 className="text-lg font-semibold text-foreground">Multi-Paket-Angebot</h3>
+          <p className="text-sm text-muted-foreground mt-1">
             Erstellen Sie bis zu 5 Optionen mit unterschiedlichen Paketen
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Auto-save status indicator */}
+        <div className="flex items-center gap-3">
+          {/* Auto-save status - Subtle 2026 */}
           {saveStatus === 'saving' && (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -273,12 +273,12 @@ export function MultiOfferComposer({
             </span>
           )}
           {saveStatus === 'saved' && (
-            <span className="flex items-center gap-1.5 text-xs text-primary">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Check className="h-3 w-3" />
               Gespeichert
             </span>
           )}
-          <Badge variant="outline" className="text-sm">
+          <Badge variant="outline" className="text-sm font-medium">
             Version {currentVersion}
           </Badge>
           {history.length > 0 && (
@@ -286,6 +286,7 @@ export function MultiOfferComposer({
               variant="ghost"
               size="sm"
               onClick={() => setShowHistory(!showHistory)}
+              className="h-10"
             >
               <History className="h-4 w-4 mr-1.5" />
               Historie
@@ -299,8 +300,8 @@ export function MultiOfferComposer({
         <OfferVersionHistory history={history} onClose={() => setShowHistory(false)} />
       )}
 
-      {/* Options List */}
-      <div className="space-y-4">
+      {/* Options List - More spacing 2026 */}
+      <div className="space-y-5">
         {options.map(option => (
           <OfferOptionCard
             key={option.id}
@@ -320,37 +321,36 @@ export function MultiOfferComposer({
         <Button
           variant="outline"
           onClick={addOption}
-          className="w-full border-dashed"
+          className="w-full border-dashed h-12 text-muted-foreground hover:text-foreground"
         >
           <Plus className="h-4 w-4 mr-2" />
           Weitere Option hinzufügen
         </Button>
       )}
 
-      <Separator />
+      <Separator className="bg-border/50" />
 
-      {/* Summary */}
-      <Card className="bg-primary/5 border-primary/20">
-        <CardContent className="pt-4">
+      {/* Summary - Glass 2026 */}
+      <Card className="bg-muted/30 border-border/50 backdrop-blur-sm">
+        <CardContent className="pt-5 pb-5">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
+            <div className="space-y-1">
+              <p className="text-base font-medium text-foreground">
                 {activeOptions.length} aktive Option{activeOptions.length !== 1 ? 'en' : ''}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Gesamtwert aller Optionen: {totalForAllOptions.toFixed(2)} €
+              <p className="text-sm text-muted-foreground">
+                Gesamtwert: <span className="font-semibold text-foreground">{totalForAllOptions.toFixed(2)} €</span>
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={generateEmail}
-                disabled={activeOptionsWithPackage.length === 0}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Anschreiben generieren
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              onClick={generateEmail}
+              disabled={activeOptionsWithPackage.length === 0}
+              className="h-11"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Anschreiben generieren
+            </Button>
           </div>
         </CardContent>
       </Card>

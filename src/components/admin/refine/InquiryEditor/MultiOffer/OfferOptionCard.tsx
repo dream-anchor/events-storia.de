@@ -76,19 +76,20 @@ export function OfferOptionCard({
 
   return (
     <Card className={cn(
-      "transition-all duration-200",
+      "transition-all duration-300 backdrop-blur-sm",
       option.isActive 
-        ? "border-primary/50 bg-card shadow-sm" 
-        : "border-muted bg-muted/30 opacity-75"
+        ? "border-border bg-card/80 shadow-md" 
+        : "border-border/50 bg-muted/20 opacity-60"
     )}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {/* Option Label Circle - Monochrome 2026 */}
             <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg",
+              "w-11 h-11 rounded-full flex items-center justify-center font-semibold text-lg transition-colors",
               option.isActive 
-                ? "bg-primary text-primary-foreground" 
-                : "bg-muted-foreground/20 text-muted-foreground"
+                ? "bg-foreground text-background" 
+                : "bg-muted text-muted-foreground border border-border"
             )}>
               {option.optionLabel}
             </div>
@@ -98,7 +99,7 @@ export function OfferOptionCard({
                 value={option.packageId || ''}
                 onValueChange={handlePackageChange}
               >
-                <SelectTrigger className="w-[280px] font-medium">
+                <SelectTrigger className="w-[280px] font-medium h-11">
                   <SelectValue placeholder="Paket wählen..." />
                 </SelectTrigger>
                 <SelectContent className="font-sans">
@@ -117,14 +118,17 @@ export function OfferOptionCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            {/* Toggle - Minimalist 2026 */}
             <Button
               variant="ghost"
               size="sm"
               onClick={onToggleActive}
               className={cn(
-                "gap-1.5",
-                option.isActive ? "text-primary" : "text-muted-foreground"
+                "gap-1.5 h-10 px-3",
+                option.isActive 
+                  ? "text-foreground" 
+                  : "text-muted-foreground"
               )}
             >
               {option.isActive ? (
@@ -138,7 +142,7 @@ export function OfferOptionCard({
               variant="ghost"
               size="icon"
               onClick={onRemove}
-              className="text-muted-foreground hover:text-destructive"
+              className="h-10 w-10 text-muted-foreground hover:text-destructive"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -146,22 +150,23 @@ export function OfferOptionCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
+        {/* Pricing Section - Clean 2026 */}
         {selectedPackage && (
-          <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+          <div className="p-4 rounded-xl bg-muted/30 border border-border/50 space-y-3">
             {selectedPackage.price_per_person ? (
               <>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Preis pro Person</span>
-                  <span className="font-medium">{selectedPackage.price.toFixed(2)} €</span>
+                  <span className="font-medium text-foreground">{selectedPackage.price.toFixed(2)} €</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Gäste</span>
-                  <span className="font-medium">× {option.guestCount}</span>
+                  <span className="font-medium text-foreground">× {option.guestCount}</span>
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                  <span className="text-sm font-medium">Gesamt</span>
-                  <span className="text-xl font-bold text-primary">{total.toFixed(2)} €</span>
+                <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                  <span className="text-base font-medium text-foreground">Gesamt</span>
+                  <span className="text-2xl font-semibold text-foreground tracking-tight">{total.toFixed(2)} €</span>
                 </div>
               </>
             ) : (
@@ -169,19 +174,21 @@ export function OfferOptionCard({
                 <span className="text-sm text-muted-foreground">
                   Pauschalpreis für {option.guestCount} Gäste
                 </span>
-                <span className="text-xl font-bold text-primary">{total.toFixed(2)} €</span>
+                <span className="text-2xl font-semibold text-foreground tracking-tight">{total.toFixed(2)} €</span>
               </div>
             )}
           </div>
         )}
 
+        {/* Menu Configuration Status - 2026 */}
         {selectedPackage && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-2.5">
               <Package className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">
                 {hasMenuConfig ? (
-                  <span className="text-primary">
+                  <span className="text-foreground flex items-center gap-1.5">
+                    <Check className="h-3.5 w-3.5" />
                     {configuredCourses} Gänge, {configuredDrinks} Getränke konfiguriert
                   </span>
                 ) : (
@@ -193,6 +200,7 @@ export function OfferOptionCard({
               variant="outline"
               size="sm"
               onClick={() => setShowMenuEditor(!showMenuEditor)}
+              className="h-10"
             >
               <Edit2 className="h-3.5 w-3.5 mr-1.5" />
               {showMenuEditor ? 'Schließen' : 'Menü konfigurieren'}
@@ -200,9 +208,10 @@ export function OfferOptionCard({
           </div>
         )}
 
+        {/* Payment Link Section - Subtle 2026 */}
         {option.stripePaymentLinkUrl && (
-          <div className="flex items-center justify-between p-2 rounded-lg bg-primary/5 border border-primary/20">
-            <div className="flex items-center gap-2 text-sm text-primary">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50">
+            <div className="flex items-center gap-2.5 text-sm text-foreground">
               <Check className="h-4 w-4" />
               <span>Zahlungslink erstellt</span>
             </div>
@@ -210,7 +219,7 @@ export function OfferOptionCard({
               variant="ghost"
               size="sm"
               asChild
-              className="text-primary hover:text-primary/80"
+              className="h-10 text-foreground hover:text-foreground/80"
             >
               <a href={option.stripePaymentLinkUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
@@ -221,7 +230,7 @@ export function OfferOptionCard({
         )}
 
         {isGeneratingPaymentLink && (
-          <div className="flex items-center gap-2 p-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2.5 p-3 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>Zahlungslink wird erstellt...</span>
           </div>
