@@ -111,7 +111,7 @@ export const DetailHeader = ({
       </div>
 
       {/* Customer info bar */}
-      <div className="px-4 py-2 bg-muted/30 border-t border-border/50 flex items-center gap-4 text-sm">
+      <div className="px-4 py-2 bg-muted/30 border-t border-border/50 flex items-center gap-4 text-sm flex-wrap">
         <div>
           <span className="text-muted-foreground">Kunde:</span>{' '}
           <span className="font-medium">{item.customerName}</span>
@@ -122,6 +122,23 @@ export const DetailHeader = ({
             {item.customerEmail}
           </a>
         </div>
+        {item.date && (
+          <div>
+            <span className="text-muted-foreground">Termin:</span>{' '}
+            <span className="font-medium">{item.date}</span>
+            {(item.raw as any)?.time_slot && (
+              <span className="ml-1">um {(item.raw as any).time_slot} Uhr</span>
+            )}
+          </div>
+        )}
+        {item.entityType === 'event_inquiry' && (item.raw as any)?.event_type && (
+          <div>
+            <span className="text-muted-foreground">Paket:</span>{' '}
+            <Badge variant="secondary" className="ml-1">
+              {(item.raw as any).event_type}
+            </Badge>
+          </div>
+        )}
         {item.companyName && (
           <div>
             <span className="text-muted-foreground">Firma:</span>{' '}

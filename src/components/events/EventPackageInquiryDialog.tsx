@@ -154,6 +154,8 @@ const EventPackageInquiryDialog = ({
           phone: formData.phone || undefined,
           guestCount: formData.guestCount.toString(),
           preferredDate: formData.date ? format(formData.date, "yyyy-MM-dd") : undefined,
+          timeSlot: formData.time,
+          packageId: packageId,
           eventType: displayName,
           message: formData.message || undefined,
           source: `package_inquiry_${packageId}`,
