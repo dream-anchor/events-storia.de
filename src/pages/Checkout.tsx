@@ -753,24 +753,22 @@ const Checkout = () => {
       fullNotes += (fullNotes ? '\n\n' : '') + '📦 Aufbau & Service gewünscht';
     }
 
-    const needsBillingAddress = formData.deliveryType === 'pickup' 
-      ? formData.showBillingAddress 
-      : !formData.sameAsDelivery;
-    
-    const billingAddress = !needsBillingAddress && formData.deliveryType === 'delivery'
+    // Billing address logic: Use delivery address if sameAsDelivery, otherwise use billing fields
+    // For pickup: use contact data as fallback when sameAsDelivery is true
+    const billingAddress = formData.sameAsDelivery
       ? {
           name: formData.company || formData.name,
-          street: formData.deliveryStreet,
-          zip: formData.deliveryZip,
-          city: formData.deliveryCity,
+          street: formData.deliveryType === 'delivery' ? formData.deliveryStreet : '',
+          zip: formData.deliveryType === 'delivery' ? formData.deliveryZip : '',
+          city: formData.deliveryType === 'delivery' ? formData.deliveryCity : '',
           country: 'Deutschland'
         }
       : {
-          name: formData.billingName,
+          name: formData.billingName || formData.company || formData.name,
           street: formData.billingStreet,
           zip: formData.billingZip,
           city: formData.billingCity,
-          country: formData.billingCountry
+          country: formData.billingCountry || 'Deutschland'
         };
 
     try {
@@ -1443,8 +1441,8 @@ const Checkout = () => {
                       </div>
                     </div>
 
-                    {/* Billing Address Toggle */}
-                    {formData.deliveryType === 'delivery' && (
+                    {/* Billing Address Toggle - Always visible (Amazon-style) */}
+                    {!isEventBooking && (
                       <div className="mt-6 pt-4 border-t border-border">
                         <div className="flex items-center space-x-2 mb-4">
                           <Checkbox
@@ -1453,14 +1451,17 @@ const Checkout = () => {
                             onCheckedChange={(checked) => setFormData(prev => ({ ...prev, sameAsDelivery: checked === true }))}
                           />
                           <Label htmlFor="sameAsDelivery" className="font-normal cursor-pointer">
-                            {language === 'de' ? 'Rechnungsadresse gleich Lieferadresse' : 'Billing same as delivery'}
+                            {formData.deliveryType === 'delivery'
+                              ? (language === 'de' ? 'Rechnungsadresse gleich Lieferadresse' : 'Billing same as delivery')
+                              : (language === 'de' ? 'Keine abweichende Rechnungsadresse' : 'No separate billing address')
+                            }
                           </Label>
                         </div>
                         
                         {!formData.sameAsDelivery && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
-                              <Label htmlFor="billingName">{language === 'de' ? 'Name / Firma' : 'Name / Company'} *</Label>
+                              <Label htmlFor="billingName">{language === 'de' ? 'Rechnungsempfänger (Name/Firma)' : 'Billing recipient (Name/Company)'} *</Label>
                               <Input id="billingName" name="billingName" value={formData.billingName} onChange={handleInputChange} required={!formData.sameAsDelivery} className="mt-1" />
                             </div>
                             <div className="md:col-span-2">
