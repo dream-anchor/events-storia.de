@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Package, Check, X, Edit2, ExternalLink, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { OfferOption, MenuSelectionType } from "./types";
+import { OfferOption } from "./types";
 import { Package as PackageType } from "../types";
+import { MenuComposer } from "../MenuComposer";
+import type { MenuSelection } from "../MenuComposer/types";
 
 interface OfferOptionCardProps {
   option: OfferOption;
@@ -29,6 +30,20 @@ export function OfferOptionCard({
   const [showMenuEditor, setShowMenuEditor] = useState(false);
 
   const selectedPackage = packages.find(p => p.id === option.packageId);
+
+  // Adapt MenuSelectionType to MenuSelection (string -> typed enums)
+  // The types are structurally compatible but TypeScript needs explicit casting
+  const adaptedMenuSelection: MenuSelection = useMemo(() => ({
+    courses: option.menuSelection.courses.map(c => ({
+      ...c,
+      courseType: c.courseType as MenuSelection['courses'][0]['courseType'],
+      itemSource: c.itemSource as MenuSelection['courses'][0]['itemSource'],
+    })),
+    drinks: option.menuSelection.drinks.map(d => ({
+      ...d,
+      drinkGroup: d.drinkGroup as MenuSelection['drinks'][0]['drinkGroup'],
+    })),
+  }), [option.menuSelection]);
   
   const calculateTotal = () => {
     if (!selectedPackage) return 0;
@@ -199,9 +214,15 @@ export function OfferOptionCard({
           <CollapsibleContent>
             {selectedPackage && (
               <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Menü-Konfiguration wird über den Haupt-Editor vorgenommen
-                </p>
+                <MenuComposer
+                  packageId={option.packageId}
+                  packageName={selectedPackage.name}
+                  guestCount={option.guestCount}
+                  menuSelection={adaptedMenuSelection}
+                  onMenuSelectionChange={(selection) => 
+                    onUpdate({ menuSelection: selection })
+                  }
+                />
               </div>
             )}
           </CollapsibleContent>
