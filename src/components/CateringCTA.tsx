@@ -13,7 +13,7 @@ const CateringCTA = () => {
             ? 'Ihr Event. Ihr Büro. Ihr Zuhause. Unser Catering.' 
             : 'Your Event. Your Office. Your Home. Our Catering.'}
         </h2>
-        <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+        <p className="text-base md:text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
           {language === 'de' 
             ? 'Wir erstellen Ihnen ein individuelles Catering-Angebot – passend zu Personenanzahl, Anlass und Budget. Frisch gekocht, zuverlässig geliefert, sofort servierbereit.' 
             : 'We create a customized catering offer for you – tailored to the number of guests, occasion and budget. Freshly prepared, reliably delivered, ready to serve immediately.'}

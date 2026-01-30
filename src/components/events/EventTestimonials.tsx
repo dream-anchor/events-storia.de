@@ -69,7 +69,7 @@ const EventTestimonials = () => {
               </div>
               
               {/* Quote */}
-              <blockquote className="text-muted-foreground text-sm leading-relaxed mb-6">
+              <blockquote className="text-muted-foreground text-base leading-relaxed mb-6">
                 "{language === 'de' ? testimonial.text : testimonial.text_en}"
               </blockquote>
               
