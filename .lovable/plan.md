@@ -1,100 +1,112 @@
 
-# Fix: Menü-Konfiguration in Multi-Optionen-Karten integrieren
+# Navigation-Korrektur: Semantisch korrekte Menüstruktur
 
 ## Problem
 
-In der `OfferOptionCard` wird beim Klick auf "Menü konfigurieren" nur ein Platzhalter-Text angezeigt:
+Der Haupt-Navigationsbutton heißt "Anfragen", aber enthält:
+- Event-Anfragen ✓ (passt zum Namen)
+- Buchungen ✗ (sind keine "Anfragen")
+- Catering ✗ (sind keine "Anfragen")
 
-> "Menü-Konfiguration wird über den Haupt-Editor vorgenommen"
-
-Der eigentliche `MenuComposer` (mit dem geführten 3-Stufen-Workflow: Gänge → Getränke → Angebot) ist **nicht eingebunden**.
-
-## Ursache
-
-Als der `MultiOfferComposer` als neuer Standard eingeführt wurde, wurde der `MenuComposer` nicht in die `OfferOptionCard` integriert. Stattdessen wurde nur ein Platzhalter eingefügt.
-
-## Lösung
-
-Den `MenuComposer` direkt in die `OfferOptionCard` einbetten, sodass jede Option ihren eigenen vollständigen Menü-Workflow hat.
+## Lösung: Zwei getrennte Haupt-Kategorien
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│  Option A: Premium-Paket                                │
-│  ┌───────────────────────────────────────────────────┐  │
-│  │ 45 Gäste × 99€ p.P. = 4.455,00 €                  │  │
-│  └───────────────────────────────────────────────────┘  │
-│                                                         │
-│  [Menü konfigurieren ▼]  ← Klick öffnet MenuComposer   │
-│                                                         │
-│  ┌───────────────────────────────────────────────────┐  │
-│  │  [Gänge ●] ─── [Getränke ○] ─── [Zusammenfassung] │  │
-│  │                                                   │  │
-│  │  🥗 Vorspeise: Burratina ausgewählt              │  │
-│  │  🍝 Primo: Tagliatelle ausgewählt                │  │
-│  │  ...                                              │  │
-│  └───────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
+Vorher:
+[Dashboard] [Anfragen ▼]        [Stammdaten ▼]
+             └── Event-Anfragen
+             └── Buchungen
+             └── Catering
+
+Nachher:
+[Dashboard] [Events ▼]          [Catering] [Stammdaten ▼]
+             └── Anfragen
+             └── Buchungen
 ```
+
+### Semantik gemäß Business-Logik
+
+| Kategorie | Unterpunkte | Beschreibung |
+|-----------|-------------|--------------|
+| **Events** | Anfragen, Buchungen | Alles rund um Restaurant-Events |
+| **Catering** | (keine Unterpunkte) | Shop-Bestellungen für Lieferung |
+| **Stammdaten** | Pakete, Speisen & Getränke | Konfiguration |
 
 ## Technische Änderungen
 
-### Datei: `src/components/admin/refine/InquiryEditor/MultiOffer/OfferOptionCard.tsx`
+### Datei: `src/components/admin/refine/FloatingPillNav.tsx`
 
-1. **Import hinzufügen**: `MenuComposer` aus dem benachbarten Verzeichnis importieren
-
-2. **Platzhalter ersetzen**: Den Text "Menü-Konfiguration wird über den Haupt-Editor vorgenommen" durch den echten `MenuComposer` ersetzen
-
-3. **Props durchreichen**: Die `onUpdate`-Funktion nutzen, um Menü-Änderungen in `option.menuSelection` zu speichern
-
+**Desktop-Navigation (Zeilen 29-58):**
 ```tsx
-// Vorher (Zeilen 198-207)
-<Collapsible open={showMenuEditor} onOpenChange={setShowMenuEditor}>
-  <CollapsibleContent>
-    {selectedPackage && (
-      <div className="pt-4 border-t">
-        <p className="text-sm text-muted-foreground text-center py-4">
-          Menü-Konfiguration wird über den Haupt-Editor vorgenommen
-        </p>
-      </div>
-    )}
-  </CollapsibleContent>
-</Collapsible>
-
-// Nachher
-<Collapsible open={showMenuEditor} onOpenChange={setShowMenuEditor}>
-  <CollapsibleContent>
-    {selectedPackage && (
-      <div className="pt-4 border-t">
-        <MenuComposer
-          packageId={option.packageId}
-          packageName={selectedPackage.name}
-          guestCount={option.guestCount}
-          menuSelection={option.menuSelection}
-          onMenuSelectionChange={(selection) => 
-            onUpdate({ menuSelection: selection })
-          }
-        />
-      </div>
-    )}
-  </CollapsibleContent>
-</Collapsible>
+const navigationContexts: NavItem[] = [
+  { 
+    name: 'Dashboard', 
+    href: '/admin', 
+    icon: LayoutDashboard, 
+    key: 'dashboard' 
+  },
+  { 
+    name: 'Events',       // Vorher: "Anfragen"
+    href: '/admin/events', 
+    icon: CalendarDays, 
+    key: 'events',
+    children: [
+      { name: 'Anfragen', href: '/admin/events', key: 'events', badge: 'events', icon: CalendarDays },
+      { name: 'Buchungen', href: '/admin/bookings', key: 'bookings', badge: 'bookings', icon: CheckCircle2 },
+    ]
+  },
+  { 
+    name: 'Catering',     // Eigene Haupt-Kategorie (ohne Dropdown)
+    href: '/admin/orders', 
+    icon: FileText, 
+    key: 'orders',
+    badge: 'orders',
+  },
+  { 
+    name: 'Stammdaten', 
+    href: '/admin/packages', 
+    icon: Database, 
+    key: 'catalog',
+    children: [
+      { name: 'Pakete', href: '/admin/packages', key: 'packages', icon: Package },
+      { name: 'Speisen & Getränke', href: '/admin/menu', key: 'menu', icon: UtensilsCrossed },
+    ]
+  },
+];
 ```
 
-## Anpassungen am MenuComposer
+**Mobile-Navigation (MobileBottomNav, Zeilen 209-213):**
+```tsx
+const mobileItems = [
+  { name: 'Events', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
+  { name: 'Catering', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
+  { name: 'Stammdaten', href: '/admin/packages', icon: Database, key: 'catalog' },
+];
+```
 
-Der `MenuComposer` wird in diesem Kontext **ohne** die E-Mail-Generierung verwendet (da diese im übergeordneten `MultiOfferComposer` stattfindet). Die optionalen Props `inquiry`, `emailDraft`, `onEmailDraftChange`, `onSendOffer` werden daher nicht übergeben.
+**Mobile-Pill-Navigation (MobilePillNav, Zeilen 283-288):**
+```tsx
+const shortcuts = [
+  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
+  { name: 'Anfragen', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
+  { name: 'Buchungen', href: '/admin/bookings', icon: CheckCircle2, key: 'bookings', badge: 'bookings' },
+  { name: 'Catering', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
+];
+```
 
-## Workflow nach der Änderung
+**Active-Context-Logik anpassen (Zeile 76):**
+```tsx
+const getActiveContext = () => {
+  const path = location.pathname;
+  if (path === '/admin' || path === '/admin/') return 'dashboard';
+  if (path.includes('/admin/events') || path.includes('/admin/bookings')) return 'events';
+  if (path.includes('/admin/orders')) return 'orders';  // Separate Kategorie
+  if (path.includes('/admin/packages') || path.includes('/admin/menu') || path.includes('/admin/locations')) return 'catalog';
+  return activeKey;
+};
+```
 
-1. Nutzer wählt Paket in Option A
-2. Klick auf "Menü konfigurieren" expandiert den MenuComposer
-3. Der geführte 3-Stufen-Workflow (Gänge → Getränke → Zusammenfassung) wird angezeigt
-4. Nutzer wählt Gerichte und Getränke aus
-5. Änderungen werden automatisch in `option.menuSelection` gespeichert
-6. Nach Fertigstellung aller Optionen: "E-Mail generieren" im MultiOfferComposer
+## Ergebnis
 
-## Betroffene Dateien
-
-1. `src/components/admin/refine/InquiryEditor/MultiOffer/OfferOptionCard.tsx`
-   - MenuComposer importieren
-   - Platzhalter durch echten MenuComposer ersetzen
+- **Events** (Dropdown): Anfragen + Buchungen = kompletter Event-Workflow
+- **Catering** (Direkt-Link): Shop-Bestellungen = separater Verkaufskanal
+- Klare semantische Trennung der beiden Geschäftsbereiche
