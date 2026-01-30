@@ -377,6 +377,9 @@ export type Database = {
           guest_count: number
           id: string
           internal_notes: string | null
+          lexoffice_contact_id: string | null
+          lexoffice_document_type: string | null
+          lexoffice_invoice_id: string | null
           location_id: string | null
           menu_confirmed: boolean | null
           menu_selection: Json | null
@@ -402,6 +405,9 @@ export type Database = {
           guest_count: number
           id?: string
           internal_notes?: string | null
+          lexoffice_contact_id?: string | null
+          lexoffice_document_type?: string | null
+          lexoffice_invoice_id?: string | null
           location_id?: string | null
           menu_confirmed?: boolean | null
           menu_selection?: Json | null
@@ -427,6 +433,9 @@ export type Database = {
           guest_count?: number
           id?: string
           internal_notes?: string | null
+          lexoffice_contact_id?: string | null
+          lexoffice_document_type?: string | null
+          lexoffice_invoice_id?: string | null
           location_id?: string | null
           menu_confirmed?: boolean | null
           menu_selection?: Json | null

@@ -1,7 +1,7 @@
 import { useList } from "@refinedev/core";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { CalendarDays, FileText, Clock, CheckCircle2, AlertCircle, ChefHat, Plus, Send, Edit3 } from "lucide-react";
+import { CalendarDays, FileText, Clock, CheckCircle2, AlertCircle, ChefHat, Plus, Send, Edit3, CreditCard, Receipt } from "lucide-react";
 import { format, parseISO, isAfter, addDays, formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { AdminLayout } from "./AdminLayout";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EventInquiry, CateringOrder } from "@/types/refine";
-import { useEventBookings } from "@/hooks/useEventBookings";
+import { useEventBookings, usePaidEventBookings } from "@/hooks/useEventBookings";
 import { PageTransition, MotionCard } from "@/components/admin/motion";
 import { EditorIndicator } from "@/components/admin/shared/EditorIndicator";
 
@@ -32,10 +32,14 @@ export const Dashboard = () => {
 
   // Fetch bookings with pending menu
   const { data: bookings } = useEventBookings('menu_pending');
+  
+  // Fetch paid event bookings
+  const { data: paidBookings } = usePaidEventBookings();
 
   const events = eventsQuery.result?.data || [];
   const orders = ordersQuery.result?.data || [];
   const pendingMenuBookings = bookings || [];
+  const paidEventBookings = paidBookings || [];
 
   // Categorize events into 3 sections based on status (primary) and tracking timestamps (fallback)
   const newInquiries = events.filter(e => 
@@ -256,6 +260,79 @@ export const Dashboard = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Paid Event Bookings Box */}
+          {paidEventBookings.length > 0 && (
+            <Card className="border-l-4 border-l-emerald-500">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5 text-emerald-600" />
+                      Bezahlte Aufträge
+                    </CardTitle>
+                    <CardDescription>Erfolgreich bezahlte Event-Buchungen</CardDescription>
+                  </div>
+                  <Badge variant="secondary" className="font-mono">
+                    {paidEventBookings.length}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {paidEventBookings.slice(0, 5).map((booking) => (
+                    <Link
+                      key={booking.id}
+                      to={`/admin/bookings/${booking.id}/edit`}
+                      className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono text-sm font-medium">
+                            {booking.booking_number}
+                          </p>
+                          <Badge variant="default" className="bg-emerald-600 text-xs">
+                            Bezahlt
+                          </Badge>
+                        </div>
+                        <p className="font-medium">
+                          {booking.company_name || booking.customer_name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {booking.guest_count} Gäste • {booking.event_date && format(parseISO(booking.event_date), "dd.MM.yy", { locale: de })}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {booking.lexoffice_invoice_id ? (
+                            <span className="flex items-center gap-1 text-xs text-emerald-600">
+                              <Receipt className="h-3 w-3" />
+                              LexOffice: Rechnung erstellt
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-xs text-amber-600">
+                              <Receipt className="h-3 w-3" />
+                              LexOffice: ausstehend
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-emerald-600">
+                          {booking.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                  {paidEventBookings.length > 5 && (
+                    <Button variant="ghost" size="sm" asChild className="w-full">
+                      <Link to="/admin/bookings?filter=paid">
+                        +{paidEventBookings.length - 5} weitere anzeigen
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Bottom Row: Orders + Menu Pending */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
