@@ -53,6 +53,7 @@ export function MultiOfferComposer({
 
   // Calculate totals for active options
   const activeOptions = options.filter(o => o.isActive);
+  const activeOptionsWithPackage = activeOptions.filter(o => o.packageId);
   const totalForAllOptions = activeOptions.reduce((sum, opt) => sum + opt.totalAmount, 0);
 
   // Generate payment links for all active options
@@ -329,10 +330,10 @@ export function MultiOfferComposer({
               <Button
                 variant="outline"
                 onClick={generateEmail}
-                disabled={activeOptions.length === 0}
+                disabled={activeOptionsWithPackage.length === 0}
               >
                 <FileText className="h-4 w-4 mr-2" />
-                E-Mail generieren
+                Anschreiben generieren
               </Button>
             </div>
           </div>
