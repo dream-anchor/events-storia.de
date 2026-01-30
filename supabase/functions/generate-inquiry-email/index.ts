@@ -275,8 +275,33 @@ ${context}`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI API error:', response.status, errorText);
-      throw new Error(`Lovable AI API error: ${response.status} - ${errorText}`);
+      const status = response.status;
+
+      // Surface gateway billing/rate-limit issues in a user-friendly way.
+      // NOTE: We intentionally return 200 here so the frontend doesn't only show
+      // the generic "Edge Function returned a non-2xx status code".
+      let friendly = `KI-Service Fehler (HTTP ${status}).`;
+      if (status === 429) {
+        friendly =
+          'KI-Service ist gerade rate-limited (zu viele Anfragen). Bitte 30–60 Sekunden warten und erneut versuchen.';
+      } else if (status === 402) {
+        friendly =
+          'KI-Service: Guthaben/Limit erreicht (Payment Required). Bitte Credits im Workspace nachladen und erneut versuchen.';
+      }
+
+      console.error('Lovable AI API error:', status, errorText);
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: friendly,
+          status,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const aiResponse = await response.json();
@@ -300,10 +325,13 @@ ${context}`;
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: errorMessage 
+        error: errorMessage,
+        status: 500,
       }),
       { 
-        status: 500, 
+        // Return 200 so the client can show the real error message (see above)
+        // instead of a generic "non-2xx" invoke error.
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
