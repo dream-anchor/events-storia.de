@@ -281,13 +281,18 @@ export function MultiOfferComposer({
 
       if (error) throw error;
 
-      // 5. Update inquiry status
+      // 5. Update inquiry status with sent timestamp
+      const now = new Date().toISOString();
+      const { data: userData } = await supabase.auth.getUser();
+      
       await supabase
         .from('event_inquiries')
         .update({
           status: 'offer_sent',
           current_offer_version: newVersion,
           email_draft: emailDraft,
+          offer_sent_at: now,
+          offer_sent_by: userData.user?.email || null,
         })
         .eq('id', inquiry.id);
 
