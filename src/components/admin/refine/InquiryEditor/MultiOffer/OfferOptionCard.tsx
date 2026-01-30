@@ -259,10 +259,6 @@ export function OfferOptionCard({
         {/* Payment Link Section - Subtle 2026 */}
         {option.stripePaymentLinkUrl && (
           <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50">
-            <div className="flex items-center gap-2.5 text-sm text-foreground">
-              <Check className="h-4 w-4" />
-              <span>Zahlungslink erstellt</span>
-            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -274,6 +270,10 @@ export function OfferOptionCard({
                 Link öffnen
               </a>
             </Button>
+            <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+              <Check className="h-4 w-4" />
+              <span>Zahlungslink erstellt</span>
+            </div>
           </div>
         )}
 
