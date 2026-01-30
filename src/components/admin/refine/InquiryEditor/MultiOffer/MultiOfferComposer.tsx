@@ -272,7 +272,7 @@ export function MultiOfferComposer({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {/* Header - Clean 2026 */}
       <div className="flex items-center justify-between">
         <div>
@@ -347,9 +347,9 @@ export function MultiOfferComposer({
 
       <Separator className="bg-border/50" />
 
-      {/* Summary - Glass 2026 */}
-      <Card className="bg-muted/30 border-border/50 backdrop-blur-sm">
-        <CardContent className="pt-5 pb-5">
+      {/* Summary - Glass Spatial 2026 */}
+      <Card className="bg-card/80 backdrop-blur-xl border-border/30 shadow-[var(--shadow-elevated,_0_8px_32px_-4px_rgba(0,0,0,0.1))]">
+        <CardContent className="pt-6 pb-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-base font-medium text-foreground">
