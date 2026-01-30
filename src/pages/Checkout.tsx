@@ -1194,7 +1194,7 @@ const Checkout = () => {
                                     <Plus className="h-3 w-3" />
                                   </button>
                                 </div>
-                                <button type="button" onClick={() => removeFromCart(item.id)} className="p-1 text-destructive hover:bg-destructive/10 rounded">
+                                <button type="button" onClick={() => removeFromCart(item.id)} className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded">
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>

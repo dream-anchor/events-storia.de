@@ -98,7 +98,7 @@ const StickySummary = ({
                 <button
                   type="button"
                   onClick={() => removeFromCart(item.id)}
-                  className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors"
+                  className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -117,10 +117,10 @@ const StickySummary = ({
               type="button"
               onClick={() => setShowGross(true)}
               className={cn(
-                "px-2.5 py-1.5 rounded-md transition-colors",
+                "px-2.5 py-1.5 rounded-md transition-colors border",
                 showGross
-                  ? "bg-amber-900 text-amber-50 dark:bg-amber-800 font-medium"
-                  : "bg-muted hover:bg-muted/80"
+                  ? "bg-foreground text-background border-foreground font-medium"
+                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
               )}
             >
               Brutto
@@ -129,10 +129,10 @@ const StickySummary = ({
               type="button"
               onClick={() => setShowGross(false)}
               className={cn(
-                "px-2.5 py-1.5 rounded-md transition-colors",
+                "px-2.5 py-1.5 rounded-md transition-colors border",
                 !showGross
-                  ? "bg-amber-900 text-amber-50 dark:bg-amber-800 font-medium"
-                  : "bg-muted hover:bg-muted/80"
+                  ? "bg-foreground text-background border-foreground font-medium"
+                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
               )}
             >
               Netto
