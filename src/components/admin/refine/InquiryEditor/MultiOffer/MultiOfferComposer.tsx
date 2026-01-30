@@ -68,6 +68,7 @@ export function MultiOfferComposer({
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
   const [generatingPaymentLinks, setGeneratingPaymentLinks] = useState<Set<string>>(new Set());
   const [showHistory, setShowHistory] = useState(false);
+  const [openMenuEditorOptionId, setOpenMenuEditorOptionId] = useState<string | null>(null);
 
   // Calculate totals for active options
   const activeOptions = options.filter(o => o.isActive);
@@ -498,6 +499,8 @@ export function MultiOfferComposer({
             onRemove={() => removeOption(option.id)}
             onToggleActive={() => toggleOptionActive(option.id)}
             isGeneratingPaymentLink={generatingPaymentLinks.has(option.id)}
+            isMenuEditorOpen={openMenuEditorOptionId === option.id}
+            onToggleMenuEditor={(open) => setOpenMenuEditorOptionId(open ? option.id : null)}
           />
         ))}
       </div>
@@ -626,18 +629,15 @@ export function MultiOfferComposer({
                     // Menu not configured yet - show "Konfigurieren" as next step
                     <motion.button
                       onClick={() => {
-                        // Find the OfferOptionCard and trigger its menu editor
-                        // We scroll to the option and show a visual hint
+                        // Open the menu editor for this option
+                        setOpenMenuEditorOptionId(firstUnconfiguredOption.id);
+                        // Scroll to the option
                         const optionElement = document.getElementById(`option-${firstUnconfiguredOption.id}`);
                         if (optionElement) {
-                          optionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          // Add a highlight animation
-                          optionElement.classList.add('ring-2', 'ring-amber-500', 'ring-offset-2');
                           setTimeout(() => {
-                            optionElement.classList.remove('ring-2', 'ring-amber-500', 'ring-offset-2');
-                          }, 2000);
+                            optionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }, 100);
                         }
-                        toast.info(`Bitte das Menü für Option ${firstUnconfiguredOption.optionLabel} konfigurieren`);
                       }}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
