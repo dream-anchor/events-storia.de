@@ -3,8 +3,8 @@ import { useList, useUpdate } from "@refinedev/core";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Users, Building2, Mail, Phone, ChevronRight, Edit, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Calendar, Users, Building2, Mail, Phone, Plus } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable } from "./DataTable";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ const eventTypeLabels: Record<string, string> = {
 };
 
 export const EventsList = () => {
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<InquiryStatus | null>(null);
 
   const eventsQuery = useList<EventInquiry>({
@@ -154,20 +155,11 @@ export const EventsList = () => {
         </div>
       ),
     },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" asChild>
-            <Link to={`/admin/events/${row.original.id}/edit`}>
-              <Edit className="h-4 w-4 mr-1" />
-              Angebot
-            </Link>
-          </Button>
-        </div>
-      ),
-    },
   ];
+
+  const handleRowClick = (event: EventInquiry) => {
+    navigate(`/admin/events/${event.id}/edit`);
+  };
 
   return (
     <AdminLayout activeTab="events">
@@ -194,6 +186,7 @@ export const EventsList = () => {
           filterPills={filterPills}
           onFilterChange={handleFilterChange}
           onRefresh={() => eventsQuery.query.refetch()}
+          onRowClick={handleRowClick}
           isLoading={isLoading}
           pageSize={15}
         />
