@@ -145,16 +145,30 @@ export function OfferOptionCard({
 
       <CardContent className="space-y-4">
         {selectedPackage && (
-          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-            <div className="text-sm">
-              <span className="text-muted-foreground">
-                {option.guestCount} Gäste × {selectedPackage.price}€
-                {selectedPackage.price_per_person ? ' p.P.' : ''}
-              </span>
-            </div>
-            <div className="text-xl font-bold text-primary">
-              {total.toFixed(2)} €
-            </div>
+          <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+            {selectedPackage.price_per_person ? (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Preis pro Person</span>
+                  <span className="font-medium">{selectedPackage.price.toFixed(2)} €</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Gäste</span>
+                  <span className="font-medium">× {option.guestCount}</span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <span className="text-sm font-medium">Gesamt</span>
+                  <span className="text-xl font-bold text-primary">{total.toFixed(2)} €</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  Pauschalpreis für {option.guestCount} Gäste
+                </span>
+                <span className="text-xl font-bold text-primary">{total.toFixed(2)} €</span>
+              </div>
+            )}
           </div>
         )}
 
