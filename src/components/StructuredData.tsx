@@ -204,11 +204,15 @@ const StructuredData = ({ type = 'restaurant', breadcrumbs, faqItems, eventData,
     })),
   } : null;
 
-  const faqSchema = faqItems ? {
+  // Only generate FAQPage schema when faqItems are provided AND type is explicitly 'faq' or 'restaurant'
+  // This prevents duplicate FAQPage objects across different StructuredData instances
+  const faqSchema = faqItems && faqItems.length > 0 && (type === 'faq' || type === 'restaurant') ? {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    mainEntity: faqItems.map(item => ({
+    '@id': 'https://ristorantestoria.de/#faq',
+    mainEntity: faqItems.map((item, index) => ({
       '@type': 'Question',
+      '@id': `https://ristorantestoria.de/#faq-q${index + 1}`,
       name: item.question,
       acceptedAnswer: {
         '@type': 'Answer',
