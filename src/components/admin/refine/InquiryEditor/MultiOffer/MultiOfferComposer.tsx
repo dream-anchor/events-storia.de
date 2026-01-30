@@ -566,13 +566,15 @@ export function MultiOfferComposer({
                   <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                     <span className="flex items-center gap-1">
                       <User className="h-3 w-3" />
-                      {getDisplayName(inquiry.offer_sent_by)}
+                      {getDisplayName(wasSent ? inquiry.offer_sent_by : inquiry.last_edited_by)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {inquiry.offer_sent_at 
+                      {wasSent && inquiry.offer_sent_at 
                         ? format(parseISO(inquiry.offer_sent_at), "dd.MM.yy 'um' HH:mm", { locale: de })
-                        : '-'}
+                        : inquiry.last_edited_at
+                          ? format(parseISO(inquiry.last_edited_at), "dd.MM.yy 'um' HH:mm", { locale: de })
+                          : '-'}
                     </span>
                   </div>
                 </div>
