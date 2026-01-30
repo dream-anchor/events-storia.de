@@ -35,6 +35,7 @@ export interface OfferOption {
   stripePaymentLinkId: string | null;
   stripePaymentLinkUrl: string | null;
   offerVersion: number;
+  createdInVersion?: number; // Version in which this option was created - locked if version was sent
   sortOrder: number;
 }
 

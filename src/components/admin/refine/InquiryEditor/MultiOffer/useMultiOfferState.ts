@@ -251,8 +251,9 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     setOptions(prev => [...prev, {
       id: crypto.randomUUID(),
       ...createEmptyOption(nextLabel, guestCount),
+      createdInVersion: currentVersion, // Track which version this option was created in
     }]);
-  }, [options, guestCount]);
+  }, [options, guestCount, currentVersion]);
 
   // Remove an option
   const removeOption = useCallback((optionId: string) => {

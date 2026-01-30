@@ -575,13 +575,13 @@ export function MultiOfferComposer({
             option={option}
             packages={packages}
             inquiry={inquiry}
+            history={history}
             onUpdate={(updates) => updateOption(option.id, updates)}
             onRemove={() => removeOption(option.id)}
             onToggleActive={() => toggleOptionActive(option.id)}
             isGeneratingPaymentLink={generatingPaymentLinks.has(option.id)}
             isMenuEditorOpen={openMenuEditorOptionId === option.id}
             onToggleMenuEditor={(open) => setOpenMenuEditorOptionId(open ? option.id : null)}
-            isLocked={isLocked}
           />
         ))}
       </div>

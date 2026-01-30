@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
-import { Package, Check, X, Edit2, ExternalLink, Loader2 } from "lucide-react";
+import { Package, Check, X, Edit2, ExternalLink, Loader2, Lock } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { OfferOption } from "./types";
+import { OfferOption, OfferHistoryEntry } from "./types";
 import { Package as PackageType, ExtendedInquiry } from "../types";
 import { MenuComposer } from "../MenuComposer";
 import type { MenuSelection } from "../MenuComposer/types";
@@ -14,28 +14,37 @@ interface OfferOptionCardProps {
   option: OfferOption;
   packages: PackageType[];
   inquiry: ExtendedInquiry;
+  history: OfferHistoryEntry[]; // History entries to determine if option's version was sent
   onUpdate: (updates: Partial<OfferOption>) => void;
   onRemove: () => void;
   onToggleActive: () => void;
   isGeneratingPaymentLink?: boolean;
   isMenuEditorOpen?: boolean;
   onToggleMenuEditor?: (open: boolean) => void;
-  isLocked?: boolean; // When true, all inputs are disabled (offer was sent)
 }
 
 export function OfferOptionCard({
   option,
   packages,
   inquiry,
+  history,
   onUpdate,
   onRemove,
   onToggleActive,
   isGeneratingPaymentLink,
   isMenuEditorOpen = false,
   onToggleMenuEditor,
-  isLocked = false,
 }: OfferOptionCardProps) {
   const [emailDraft, setEmailDraft] = useState("");
+  
+  // Per-option lock logic: An option is locked if its createdInVersion was already sent
+  // This ensures sent menus can never be modified - only new options can be added
+  const isLocked = useMemo(() => {
+    if (!option.createdInVersion) return false;
+    // Check if any history entry has a version >= this option's created version
+    // If so, this option was included in a sent offer
+    return history.some(h => h.version >= option.createdInVersion!);
+  }, [option.createdInVersion, history]);
   
   // Use controlled state from parent if provided, otherwise local state
   const showMenuEditor = isMenuEditorOpen;
@@ -109,12 +118,18 @@ export function OfferOptionCard({
               {option.optionLabel}
             </div>
 
-            <div className="flex-1">
+            <div className="flex-1 flex items-center gap-3">
               {isLocked ? (
-                // Locked: Show package name as text
-                <div className="h-11 flex items-center px-3 font-medium text-foreground bg-muted/30 rounded-md border border-border/50">
-                  {selectedPackage?.name || 'Kein Paket gewählt'}
-                </div>
+                // Locked: Show package name as text with lock indicator
+                <>
+                  <div className="h-11 flex items-center px-3 font-medium text-foreground bg-muted/30 rounded-md border border-border/50">
+                    {selectedPackage?.name || 'Kein Paket gewählt'}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2 py-1 rounded-md">
+                    <Lock className="h-3 w-3" />
+                    <span>v{option.createdInVersion} gesendet</span>
+                  </div>
+                </>
               ) : (
                 // Editable: Show select
                 <Select

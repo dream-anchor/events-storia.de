@@ -653,6 +653,7 @@ export type Database = {
       inquiry_offer_options: {
         Row: {
           created_at: string
+          created_in_version: number | null
           guest_count: number
           id: string
           inquiry_id: string
@@ -669,6 +670,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          created_in_version?: number | null
           guest_count: number
           id?: string
           inquiry_id: string
@@ -685,6 +687,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          created_in_version?: number | null
           guest_count?: number
           id?: string
           inquiry_id?: string
