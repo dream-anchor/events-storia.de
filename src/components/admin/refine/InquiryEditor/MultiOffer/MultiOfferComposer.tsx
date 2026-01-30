@@ -69,6 +69,7 @@ export function MultiOfferComposer({
   const [generatingPaymentLinks, setGeneratingPaymentLinks] = useState<Set<string>>(new Set());
   const [showHistory, setShowHistory] = useState(false);
   const [openMenuEditorOptionId, setOpenMenuEditorOptionId] = useState<string | null>(null);
+  const [showSentEmail, setShowSentEmail] = useState(false); // Collapsible sent email section
 
   // Calculate totals for active options
   const activeOptions = options.filter(o => o.isActive);
@@ -517,94 +518,120 @@ export function MultiOfferComposer({
         </Button>
       )}
 
-      {/* Email Section - Show sent offer OR generation interface */}
-      <AnimatePresence mode="wait">
-        {/* CASE 1: Already sent offer - show read-only with Apple 2026 glassmorphism */}
-        {hasSentOffer && !isNewDraft && (
+      {/* Sent Email Banner - Collapsible row */}
+      {hasSentOffer && (
+        <div className="mt-6">
           <motion.div
-            key="sent-offer"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="mt-8"
+            className={cn(
+              "relative overflow-hidden rounded-2xl",
+              "bg-emerald-50/80 dark:bg-emerald-900/20",
+              "border border-emerald-200/50 dark:border-emerald-800/50",
+              "transition-all duration-300"
+            )}
           >
-            <div className={cn(
-              "relative overflow-hidden rounded-3xl",
-              "bg-white/70 dark:bg-neutral-900/70",
-              "backdrop-blur-xl",
-              "border border-white/20",
-              "shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
-            )}>
-              {/* Header with sent status */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
-                    <Send className="h-5 w-5 text-emerald-600" />
+            {/* Clickable Header Row */}
+            <button
+              onClick={() => setShowSentEmail(!showSentEmail)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-emerald-100/50 transition-colors text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                  <Check className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-emerald-900 dark:text-emerald-100">
+                      Anschreiben gesendet
+                    </span>
+                    <Badge variant="outline" className="text-xs border-emerald-500/50 text-emerald-700 bg-emerald-50/50">
+                      v{inquiry.current_offer_version || 1}
+                    </Badge>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-foreground">Angebot gesendet</span>
-                      <Badge variant="outline" className="text-xs border-emerald-500/50 text-emerald-700 bg-emerald-50">
-                        Version {inquiry.current_offer_version || 1}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                      <span className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {getDisplayName(inquiry.offer_sent_by)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {inquiry.offer_sent_at 
-                          ? format(parseISO(inquiry.offer_sent_at), "dd.MM.yy 'um' HH:mm", { locale: de })
-                          : '-'}
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-3 text-xs text-emerald-700/70 dark:text-emerald-300/70 mt-0.5">
+                    <span className="flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      {getDisplayName(inquiry.offer_sent_by)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {inquiry.offer_sent_at 
+                        ? format(parseISO(inquiry.offer_sent_at), "dd.MM.yy 'um' HH:mm", { locale: de })
+                        : '-'}
+                    </span>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsNewDraft(true)}
-                  className="rounded-xl"
+              </div>
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{ rotate: showSentEmail ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-emerald-600"
                 >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Nachricht senden
-                </Button>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </motion.div>
               </div>
-              
-              {/* Read-only email content */}
-              <div className="p-6 max-h-[300px] overflow-y-auto">
-                <div className="prose prose-sm max-w-none">
-                  <pre className="whitespace-pre-wrap font-sans text-sm text-foreground bg-transparent p-0 m-0">
-                    {savedEmailDraft}
-                  </pre>
-                </div>
-              </div>
+            </button>
 
-              {/* Footer with summary */}
-              <div className="flex items-center justify-between px-6 py-4 border-t border-border/50 bg-muted/20">
-                <div className="text-sm text-muted-foreground">
-                  {activeOptions.length} Option{activeOptions.length !== 1 ? 'en' : ''} · {totalForAllOptions.toFixed(2)} €
-                </div>
-                {history.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowHistory(!showHistory)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <History className="h-4 w-4 mr-1.5" />
-                    {history.length} Version{history.length !== 1 ? 'en' : ''}
-                  </Button>
-                )}
-              </div>
-            </div>
+            {/* Collapsible Email Content */}
+            <AnimatePresence>
+              {showSentEmail && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="overflow-hidden"
+                >
+                  <div className="border-t border-emerald-200/50 dark:border-emerald-800/50">
+                    <div className="p-5 max-h-[280px] overflow-y-auto bg-white/50 dark:bg-neutral-900/30">
+                      <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
+                        {savedEmailDraft}
+                      </pre>
+                    </div>
+                    <div className="flex items-center justify-between px-5 py-3 border-t border-emerald-200/50 dark:border-emerald-800/50 bg-emerald-50/50">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsNewDraft(true);
+                          setShowSentEmail(false);
+                        }}
+                        className="text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100"
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Neue Nachricht senden
+                      </Button>
+                      {history.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowHistory(!showHistory);
+                          }}
+                          className="text-emerald-600 hover:text-emerald-700"
+                        >
+                          <History className="h-4 w-4 mr-1.5" />
+                          {history.length} Version{history.length !== 1 ? 'en' : ''}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
-        )}
+        </div>
+      )}
 
-        {/* CASE 2: Creating new draft (follow-up) OR no offer sent yet */}
+      {/* CASE 2: Creating new draft (follow-up) OR no offer sent yet */}
+      <AnimatePresence mode="wait">
         {(!hasSentOffer || isNewDraft) && activeOptions.length > 0 && (
           <motion.div
             key="draft-interface"
