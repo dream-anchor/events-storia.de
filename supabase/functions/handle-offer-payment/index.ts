@@ -291,6 +291,94 @@ async function processSuccessfulPayment(
 
   logStep("Inquiry updated to confirmed");
 
+  // Create LexOffice invoice for the paid booking
+  try {
+    logStep("Creating LexOffice invoice for event booking");
+    
+    const lexofficePayload = {
+      orderId: booking.id,
+      orderNumber: bookingNumber,
+      customerName: inquiry.contact_name,
+      customerEmail: inquiry.email,
+      customerPhone: inquiry.phone || '',
+      companyName: inquiry.company_name || undefined,
+      billingAddress: {
+        name: inquiry.company_name || inquiry.contact_name,
+        street: '',
+        zip: '',
+        city: '',
+        country: 'DE',
+      },
+      items: [{
+        id: option.package_id || 'event-package',
+        name: `Event-Paket: ${option.option_label}`,
+        quantity: option.guest_count,
+        price: option.total_amount / option.guest_count,
+      }],
+      subtotal: option.total_amount,
+      deliveryCost: 0,
+      minimumOrderSurcharge: 0,
+      grandTotal: option.total_amount,
+      isPickup: false,
+      documentType: 'invoice' as const,
+      isPaid: true,
+      desiredDate: inquiry.preferred_date || undefined,
+      desiredTime: inquiry.time_slot || undefined,
+      paymentMethod: 'stripe' as const,
+      isEventBooking: true,
+    };
+
+    const lexofficeResponse = await fetch(
+      `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-lexoffice-invoice`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify(lexofficePayload),
+      }
+    );
+
+    if (lexofficeResponse.ok) {
+      const lexofficeResult = await lexofficeResponse.json();
+      
+      if (lexofficeResult.invoiceId || lexofficeResult.quotationId) {
+        const invoiceId = lexofficeResult.invoiceId || lexofficeResult.quotationId;
+        const documentType = lexofficeResult.invoiceId ? 'invoice' : 'quotation';
+        
+        // Update booking with LexOffice data
+        await supabase
+          .from("event_bookings")
+          .update({
+            lexoffice_invoice_id: invoiceId,
+            lexoffice_document_type: documentType,
+            lexoffice_contact_id: lexofficeResult.contactId || null,
+          })
+          .eq("id", booking.id);
+
+        logStep("LexOffice invoice created and linked", { 
+          invoiceId, 
+          documentType,
+          bookingId: booking.id 
+        });
+      } else if (lexofficeResult.skipped) {
+        logStep("LexOffice skipped", { reason: lexofficeResult.reason });
+      }
+    } else {
+      const errorText = await lexofficeResponse.text();
+      logStep("LexOffice invoice creation failed", { 
+        status: lexofficeResponse.status, 
+        error: errorText 
+      });
+    }
+  } catch (lexError) {
+    // Don't fail the payment processing if LexOffice fails
+    logStep("LexOffice invoice creation error (non-fatal)", { 
+      error: lexError instanceof Error ? lexError.message : String(lexError) 
+    });
+  }
+
   return {
     bookingId: booking.id,
     bookingNumber: booking.booking_number,

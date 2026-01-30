@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface EventBooking {
   id: string;
@@ -42,9 +43,22 @@ export interface EventBooking {
   source_option_id: string | null;
   created_at: string;
   updated_at: string | null;
+  // LexOffice integration fields
+  lexoffice_invoice_id: string | null;
+  lexoffice_document_type: string | null;
+  lexoffice_contact_id: string | null;
 }
 
 export type BookingStatus = 'menu_pending' | 'ready' | 'completed' | 'cancelled';
+
+// Helper to safely cast database row to EventBooking
+const castToEventBooking = (row: unknown): EventBooking => {
+  const data = row as Record<string, unknown>;
+  return {
+    ...data,
+    menu_selection: data.menu_selection as EventBooking['menu_selection'],
+  } as EventBooking;
+};
 
 export const useEventBookings = (statusFilter?: BookingStatus | 'all') => {
   return useQuery({
@@ -62,7 +76,7 @@ export const useEventBookings = (statusFilter?: BookingStatus | 'all') => {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data as EventBooking[];
+      return (data || []).map(castToEventBooking);
     },
   });
 };
@@ -80,9 +94,26 @@ export const useEventBooking = (id: string | undefined) => {
         .single();
       
       if (error) throw error;
-      return data as EventBooking;
+      return castToEventBooking(data);
     },
     enabled: !!id,
+  });
+};
+
+// Hook for paid event bookings (for Dashboard)
+export const usePaidEventBookings = () => {
+  return useQuery({
+    queryKey: ['event-bookings-paid'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('event_bookings')
+        .select('*')
+        .eq('payment_status', 'paid')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map(castToEventBooking);
+    },
   });
 };
 
@@ -99,13 +130,14 @@ export const useUpdateEventBooking = () => {
     }) => {
       const { error } = await supabase
         .from('event_bookings')
-        .update(updates)
+        .update(updates as Record<string, unknown>)
         .eq('id', bookingId);
 
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['event-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['event-bookings-paid'] });
       queryClient.invalidateQueries({ queryKey: ['event-booking', variables.bookingId] });
     },
   });
@@ -143,7 +175,7 @@ export const useConfirmBookingMenu = () => {
       const { error: updateError } = await supabase
         .from('event_bookings')
         .update({ 
-          menu_selection: menuSelection,
+          menu_selection: menuSelection as unknown as Json,
           menu_confirmed: true,
           status: 'ready',
         })
@@ -165,6 +197,7 @@ export const useConfirmBookingMenu = () => {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['event-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['event-bookings-paid'] });
       queryClient.invalidateQueries({ queryKey: ['event-booking', variables.bookingId] });
       queryClient.invalidateQueries({ queryKey: ['event-bookings-menu-pending-count'] });
     },
