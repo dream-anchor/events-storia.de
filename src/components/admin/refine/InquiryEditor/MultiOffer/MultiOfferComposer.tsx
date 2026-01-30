@@ -58,8 +58,15 @@ export function MultiOfferComposer({
 
   // Check if an email draft was already generated (show if email_draft exists)
   const hasSavedDraft = Boolean(inquiry.email_draft);
-  const wasSent = Boolean(inquiry.offer_sent_at);
   const savedEmailDraft = inquiry.email_draft || '';
+  
+  // TRUTH SOURCE: History tells us what was actually SENT
+  // offer_sent_at on inquiry only means the CURRENT version is locked
+  const currentVersionLocked = Boolean(inquiry.offer_sent_at);
+  
+  // Check history for the last actually sent version
+  const lastSentEntry = history.length > 0 ? history[0] : null;
+  const hasBeenSentBefore = lastSentEntry !== null;
   
   const [emailDraft, setEmailDraft] = useState("");
   const [isNewDraft, setIsNewDraft] = useState(false); // Track if user is creating a follow-up
@@ -591,19 +598,14 @@ export function MultiOfferComposer({
         </Button>
       )}
 
-      {/* Saved Draft Banner - Collapsible row */}
-      {hasSavedDraft && (
+      {/* Sent Version Banner - Show when ANY version was ever sent (from history) */}
+      {hasBeenSentBefore && lastSentEntry && (
         <div className="mt-6">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className={cn(
-              "relative overflow-hidden rounded-2xl border transition-all duration-300",
-              wasSent 
-                ? "bg-neutral-50/80 dark:bg-neutral-900/40 border-neutral-200/60 dark:border-neutral-700/60"
-                : "bg-neutral-100/60 dark:bg-neutral-800/40 border-neutral-200/50 dark:border-neutral-700/50"
-            )}
+            className="relative overflow-hidden rounded-2xl border transition-all duration-300 bg-neutral-50/80 dark:bg-neutral-900/40 border-neutral-200/60 dark:border-neutral-700/60"
           >
             {/* Clickable Header Row */}
             <button
@@ -614,39 +616,170 @@ export function MultiOfferComposer({
               )}
             >
               <div className="flex items-center gap-3">
-                <div className={cn(
-                  "h-9 w-9 rounded-xl flex items-center justify-center",
-                  wasSent 
-                    ? "bg-neutral-800 dark:bg-neutral-200" 
-                    : "bg-neutral-200 dark:bg-neutral-700"
-                )}>
-                  {wasSent ? (
-                    <Check className="h-4 w-4 text-white dark:text-neutral-900" />
-                  ) : (
-                    <Mail className="h-4 w-4 text-neutral-600 dark:text-neutral-300" />
-                  )}
+                <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-neutral-800 dark:bg-neutral-200">
+                  <Check className="h-4 w-4 text-white dark:text-neutral-900" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-foreground">
-                      {wasSent ? 'Anschreiben gesendet' : 'Anschreiben-Entwurf vorhanden'}
+                      Anschreiben gesendet
                     </span>
                     <Badge variant="outline" className="text-xs">
-                      v{inquiry.current_offer_version || 1}
+                      v{lastSentEntry.version}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                     <span className="flex items-center gap-1">
                       <User className="h-3 w-3" />
-                      {getAdminDisplayName(wasSent ? inquiry.offer_sent_by : inquiry.last_edited_by)}
+                      {getAdminDisplayName(lastSentEntry.sentBy)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {wasSent && inquiry.offer_sent_at 
-                        ? format(parseISO(inquiry.offer_sent_at), "dd.MM.yy 'um' HH:mm", { locale: de })
-                        : inquiry.last_edited_at
-                          ? format(parseISO(inquiry.last_edited_at), "dd.MM.yy 'um' HH:mm", { locale: de })
-                          : '-'}
+                      {format(parseISO(lastSentEntry.sentAt), "dd.MM.yy 'um' HH:mm", { locale: de })}
+                    </span>
+                    {/* Show if a new version is in progress */}
+                    {!currentVersionLocked && currentVersion > lastSentEntry.version && (
+                      <span className="text-muted-foreground/70 italic">
+                        • Version {currentVersion} in Bearbeitung
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{ rotate: showSentEmail ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-muted-foreground"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </motion.div>
+              </div>
+            </button>
+
+            {/* Collapsible Email Content */}
+            <AnimatePresence>
+              {showSentEmail && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="overflow-hidden"
+                >
+                  <div className="border-t border-border">
+                    {/* Split View: Email + PDF */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                      {/* Email Content - Left */}
+                      <div className="p-5 max-h-[600px] overflow-y-auto bg-background/50 lg:border-r border-border">
+                        <p className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
+                          {(lastSentEntry.emailContent || savedEmailDraft)
+                            .replace(/\*\*/g, '')
+                            .replace(/\*/g, '')
+                            .replace(/^#+\s*/gm, '')
+                            .replace(/^-\s*/gm, '• ')
+                          }
+                        </p>
+                      </div>
+                      {/* PDF Preview - Right */}
+                      <div className="p-4 bg-muted/20 h-[600px]">
+                        <LivePDFPreview
+                          inquiry={inquiry}
+                          options={activeOptions}
+                          packages={packages}
+                          emailDraft={lastSentEntry.emailContent || savedEmailDraft}
+                        />
+                      </div>
+                    </div>
+                    {/* Footer with History */}
+                    <div className="flex items-center justify-end px-5 py-3 border-t border-border bg-muted/30">
+                      {history.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowHistory(!showHistory);
+                          }}
+                        >
+                          <History className="h-4 w-4 mr-1.5" />
+                          {history.length} Version{history.length !== 1 ? 'en' : ''}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* Separate "Neue Nachricht" Button - Only show if NOT locked (user must unlock via banner first) */}
+          {!isLocked && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 25 }}
+              className="mt-4"
+            >
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => {
+                  setIsNewDraft(true);
+                  setShowSentEmail(false);
+                }}
+                className="h-12 px-6 rounded-2xl border-dashed"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Neue Nachricht erstellen
+              </Button>
+            </motion.div>
+          )}
+        </div>
+      )}
+      
+      {/* Draft-Only Banner - Show when there's a draft but NO sent history */}
+      {hasSavedDraft && !hasBeenSentBefore && (
+        <div className="mt-6">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="relative overflow-hidden rounded-2xl border transition-all duration-300 bg-neutral-100/60 dark:bg-neutral-800/40 border-neutral-200/50 dark:border-neutral-700/50"
+          >
+            {/* Clickable Header Row */}
+            <button
+              onClick={() => setShowSentEmail(!showSentEmail)}
+              className={cn(
+                "w-full flex items-center justify-between px-5 py-4 transition-colors text-left",
+                "hover:bg-neutral-100/80 dark:hover:bg-neutral-800/60"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-neutral-200 dark:bg-neutral-700">
+                  <Mail className="h-4 w-4 text-neutral-600 dark:text-neutral-300" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground">
+                      Anschreiben-Entwurf vorhanden
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      v{currentVersion}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                    <span className="flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      {getAdminDisplayName(inquiry.last_edited_by)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {inquiry.last_edited_at
+                        ? format(parseISO(inquiry.last_edited_at), "dd.MM.yy 'um' HH:mm", { locale: de })
+                        : '-'}
                     </span>
                   </div>
                 </div>
@@ -698,50 +831,11 @@ export function MultiOfferComposer({
                         />
                       </div>
                     </div>
-                    {/* Footer with History */}
-                    <div className="flex items-center justify-end px-5 py-3 border-t border-border bg-muted/30">
-                      {history.length > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowHistory(!showHistory);
-                          }}
-                        >
-                          <History className="h-4 w-4 mr-1.5" />
-                          {history.length} Version{history.length !== 1 ? 'en' : ''}
-                        </Button>
-                      )}
-                    </div>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </motion.div>
-
-          {/* Separate "Neue Nachricht" Button - Only show if NOT locked (user must unlock via banner first) */}
-          {!isLocked && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 25 }}
-              className="mt-4"
-            >
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => {
-                  setIsNewDraft(true);
-                  setShowSentEmail(false);
-                }}
-                className="h-12 px-6 rounded-2xl border-dashed"
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                Neue Nachricht erstellen
-              </Button>
-            </motion.div>
-          )}
         </div>
       )}
 
@@ -918,7 +1012,7 @@ export function MultiOfferComposer({
                   <div className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-emerald-600" />
                     <span className="font-medium text-sm text-foreground">
-                      {wasSent ? 'Folge-Mail bereit' : 'Anschreiben generiert'}
+                      {hasBeenSentBefore ? 'Folge-Mail bereit' : 'Anschreiben generiert'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -968,7 +1062,7 @@ export function MultiOfferComposer({
                     ) : (
                       <>
                         <Send className="h-4 w-4 mr-2" />
-                        {wasSent ? 'Folge-Mail senden' : 'Angebot senden'}
+                        {hasBeenSentBefore ? 'Folge-Mail senden' : 'Angebot senden'}
                       </>
                     )}
                   </Button>
