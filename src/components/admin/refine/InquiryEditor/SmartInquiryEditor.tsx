@@ -1,15 +1,13 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
-import { ArrowLeft, Loader2, CalendarDays, Truck, Layers, FileCheck, CheckCircle2, Activity } from "lucide-react";
+import { ArrowLeft, Loader2, CalendarDays, Truck, Check, Activity } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EventModules } from "./EventModules";
 import { CateringModules } from "./CateringModules";
-import { AIComposer } from "./AIComposer";
 import { CalculationSummary } from "./CalculationSummary";
 import { MultiOfferComposer } from "./MultiOffer";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
@@ -18,14 +16,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Timeline } from "@/components/admin/shared/Timeline";
 
-type OfferMode = 'simple' | 'multi';
-
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("kalkulation");
   const [isSending, setIsSending] = useState(false);
-  const [offerMode, setOfferMode] = useState<OfferMode>('simple');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitializedRef = useRef(false);
@@ -358,28 +353,26 @@ export const SmartInquiryEditor = () => {
             </div>
           </div>
           
-          {/* Auto-save status indicator */}
-          <div className="flex items-center gap-2 text-base text-muted-foreground">
-            {saveStatus === 'saving' && (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Speichert...</span>
-              </>
-            )}
-            {saveStatus === 'saved' && (
-              <>
-                <CheckCircle2 className="h-4 w-4 text-primary" />
-                <span>Gespeichert</span>
-              </>
+          {/* Auto-save status indicator - permanent, non-blinking */}
+          <div className="flex items-center gap-1.5 text-sm">
+            {saveStatus === 'saving' ? (
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Speichert...
+              </span>
+            ) : (
+              <span className="text-muted-foreground/60 flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5" />
+                Gespeichert
+              </span>
             )}
           </div>
         </div>
 
-        {/* Tabbed Interface */}
+        {/* Tabbed Interface - simplified to 2 tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-lg">
+          <TabsList className="grid w-full grid-cols-2 max-w-sm">
             <TabsTrigger value="kalkulation">Kalkulation</TabsTrigger>
-            <TabsTrigger value="kommunikation">Kommunikation</TabsTrigger>
             <TabsTrigger value="aktivitaeten" className="gap-1.5">
               <Activity className="h-4 w-4" />
               Aktivitäten
@@ -388,34 +381,8 @@ export const SmartInquiryEditor = () => {
 
           {/* Tab 1: Kalkulation */}
           <TabsContent value="kalkulation" className="space-y-6">
-            {/* Mode Toggle for Event inquiries */}
-            {inquiryType === 'event' && (
-              <div className="flex items-center justify-between">
-                <ToggleGroup
-                  type="single"
-                  value={offerMode}
-                  onValueChange={(v) => v && setOfferMode(v as OfferMode)}
-                  className="bg-muted p-1 rounded-lg"
-                >
-                  <ToggleGroupItem value="simple" aria-label="Einfaches Angebot" className="gap-2 px-4">
-                    <FileCheck className="h-4 w-4" />
-                    Einfaches Angebot
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="multi" aria-label="Multi-Optionen" className="gap-2 px-4">
-                    <Layers className="h-4 w-4" />
-                    Multi-Optionen
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                {offerMode === 'multi' && (
-                  <Badge variant="secondary" className="text-xs">
-                    Bis zu 5 Paket-Optionen mit Stripe-Links
-                  </Badge>
-                )}
-              </div>
-            )}
-
-            {/* Content based on mode */}
-            {inquiryType === 'event' && offerMode === 'multi' ? (
+            {/* Event inquiries use MultiOfferComposer (works for single & multi options) */}
+            {inquiryType === 'event' ? (
               <MultiOfferComposer
                 inquiry={mergedInquiry}
                 packages={packages}
@@ -423,40 +390,18 @@ export const SmartInquiryEditor = () => {
                 onSave={performSave}
               />
             ) : (
+              /* Catering inquiries use existing flow */
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left: Type-specific modules */}
+                {/* Left: Catering modules */}
                 <div className="lg:col-span-2">
-                  {inquiryType === 'event' ? (
-                    <EventModules
-                      inquiry={mergedInquiry}
-                      packages={packages}
-                      selectedPackages={selectedPackages}
-                      quoteItems={quoteItems}
-                      menuSelection={menuSelection}
-                      onPackageToggle={handlePackageToggle}
-                      onRoomChange={(v) => handleLocalFieldChange('room_selection', v)}
-                      onTimeSlotChange={(v) => handleLocalFieldChange('time_slot', v)}
-                      onGuestCountChange={(v) => handleLocalFieldChange('guest_count', v)}
-                      onItemAdd={handleItemAdd}
-                      onItemQuantityChange={handleItemQuantityChange}
-                      onItemRemove={handleItemRemove}
-                      onMenuSelectionChange={setMenuSelection}
-                      emailDraft={emailDraft}
-                      onEmailDraftChange={setEmailDraft}
-                      onSendOffer={handleSendOffer}
-                      isSending={isSending}
-                      templates={templates}
-                    />
-                  ) : (
-                    <CateringModules
-                      inquiry={mergedInquiry}
-                      selectedItems={quoteItems}
-                      onItemAdd={handleItemAdd}
-                      onItemQuantityChange={handleItemQuantityChange}
-                      onItemRemove={handleItemRemove}
-                      onDeliveryChange={(field, value) => handleLocalFieldChange(field, value)}
-                    />
-                  )}
+                  <CateringModules
+                    inquiry={mergedInquiry}
+                    selectedItems={quoteItems}
+                    onItemAdd={handleItemAdd}
+                    onItemQuantityChange={handleItemQuantityChange}
+                    onItemRemove={handleItemRemove}
+                    onDeliveryChange={(field, value) => handleLocalFieldChange(field, value)}
+                  />
                 </div>
 
                 {/* Right: Calculation Summary */}
@@ -473,34 +418,7 @@ export const SmartInquiryEditor = () => {
             )}
           </TabsContent>
 
-          {/* Tab 2: Kommunikation */}
-          <TabsContent value="kommunikation">
-            <div className="max-w-2xl mx-auto">
-              <AIComposer
-                inquiry={mergedInquiry}
-                quoteItems={[
-                  ...quoteItems,
-                  ...selectedPackages.map(pkg => ({
-                    id: pkg.id,
-                    name: pkg.name,
-                    description: pkg.description,
-                    price: pkg.pricePerPerson ? pkg.price * guestCount : pkg.price,
-                    quantity: pkg.quantity,
-                    isPackage: true,
-                  })),
-                ]}
-                templates={templates}
-                emailDraft={emailDraft}
-                onEmailDraftChange={setEmailDraft}
-                onSendEmail={handleSendOffer}
-                isSending={isSending}
-                menuSelection={menuSelection}
-                packageName={selectedPackages.length > 0 ? selectedPackages[0].name : undefined}
-              />
-            </div>
-          </TabsContent>
-
-          {/* Tab 3: Aktivitäten */}
+          {/* Tab 2: Aktivitäten */}
           <TabsContent value="aktivitaeten">
             <div className="max-w-3xl">
               <Timeline entityType="event_inquiry" entityId={id!} />
