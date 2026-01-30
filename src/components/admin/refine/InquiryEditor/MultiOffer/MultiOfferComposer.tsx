@@ -527,11 +527,10 @@ export function MultiOfferComposer({
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
             className={cn(
-              "relative overflow-hidden rounded-2xl",
+              "relative overflow-hidden rounded-2xl border transition-all duration-300",
               wasSent 
-                ? "bg-emerald-50/80 dark:bg-emerald-900/20 border-emerald-200/50 dark:border-emerald-800/50"
-                : "bg-amber-50/80 dark:bg-amber-900/20 border-amber-200/50 dark:border-amber-800/50",
-              "border transition-all duration-300"
+                ? "bg-neutral-50/80 dark:bg-neutral-900/40 border-neutral-200/60 dark:border-neutral-700/60"
+                : "bg-neutral-100/60 dark:bg-neutral-800/40 border-neutral-200/50 dark:border-neutral-700/50"
             )}
           >
             {/* Clickable Header Row */}
@@ -539,33 +538,32 @@ export function MultiOfferComposer({
               onClick={() => setShowSentEmail(!showSentEmail)}
               className={cn(
                 "w-full flex items-center justify-between px-5 py-4 transition-colors text-left",
-                wasSent ? "hover:bg-emerald-100/50" : "hover:bg-amber-100/50"
+                "hover:bg-neutral-100/80 dark:hover:bg-neutral-800/60"
               )}
             >
               <div className="flex items-center gap-3">
                 <div className={cn(
                   "h-9 w-9 rounded-xl flex items-center justify-center",
-                  wasSent ? "bg-emerald-500/20" : "bg-amber-500/20"
+                  wasSent 
+                    ? "bg-neutral-800 dark:bg-neutral-200" 
+                    : "bg-neutral-200 dark:bg-neutral-700"
                 )}>
                   {wasSent ? (
-                    <Check className="h-4 w-4 text-emerald-600" />
+                    <Check className="h-4 w-4 text-white dark:text-neutral-900" />
                   ) : (
-                    <Mail className="h-4 w-4 text-amber-600" />
+                    <Mail className="h-4 w-4 text-neutral-600 dark:text-neutral-300" />
                   )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "font-medium",
-                      wasSent ? "text-emerald-900 dark:text-emerald-100" : "text-amber-900 dark:text-amber-100"
-                    )}>
+                    <span className="font-medium text-foreground">
                       {wasSent ? 'Anschreiben gesendet' : 'Anschreiben-Entwurf vorhanden'}
                     </span>
-                    <Badge variant="outline" className="text-xs border-emerald-500/50 text-emerald-700 bg-emerald-50/50">
+                    <Badge variant="outline" className="text-xs">
                       v{inquiry.current_offer_version || 1}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-emerald-700/70 dark:text-emerald-300/70 mt-0.5">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                     <span className="flex items-center gap-1">
                       <User className="h-3 w-3" />
                       {getDisplayName(inquiry.offer_sent_by)}
@@ -583,7 +581,7 @@ export function MultiOfferComposer({
                 <motion.div
                   animate={{ rotate: showSentEmail ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
-                  className="text-emerald-600"
+                  className="text-muted-foreground"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="6 9 12 15 18 9" />
@@ -602,13 +600,13 @@ export function MultiOfferComposer({
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                   className="overflow-hidden"
                 >
-                  <div className="border-t border-emerald-200/50 dark:border-emerald-800/50">
-                    <div className="p-5 max-h-[280px] overflow-y-auto bg-white/50 dark:bg-neutral-900/30">
+                  <div className="border-t border-border">
+                    <div className="p-5 max-h-[280px] overflow-y-auto bg-background/50">
                       <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
                         {savedEmailDraft}
                       </pre>
                     </div>
-                    <div className="flex items-center justify-between px-5 py-3 border-t border-emerald-200/50 dark:border-emerald-800/50 bg-emerald-50/50">
+                    <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-muted/30">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -617,7 +615,6 @@ export function MultiOfferComposer({
                           setIsNewDraft(true);
                           setShowSentEmail(false);
                         }}
-                        className="text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100"
                       >
                         <Mail className="h-4 w-4 mr-2" />
                         Neue Nachricht senden
@@ -630,7 +627,6 @@ export function MultiOfferComposer({
                             e.stopPropagation();
                             setShowHistory(!showHistory);
                           }}
-                          className="text-emerald-600 hover:text-emerald-700"
                         >
                           <History className="h-4 w-4 mr-1.5" />
                           {history.length} Version{history.length !== 1 ? 'en' : ''}
