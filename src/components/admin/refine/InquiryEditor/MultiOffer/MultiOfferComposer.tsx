@@ -329,53 +329,24 @@ export function MultiOfferComposer({
           </div>
         </div>
 
-        {/* Spacer for Floating Island */}
-        <div className="h-24" />
-
-        {/* Floating Send Bar - Centered Pill */}
-        <motion.div
-          initial={{ y: 40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className={cn(
-            "fixed bottom-6 left-1/2 -translate-x-1/2 z-50",
-            "px-5 py-3 rounded-full",
-            "bg-background/80 backdrop-blur-2xl",
-            "border border-border/50",
-            "shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
-          )}
-        >
+        {/* Static Send Bar */}
+        <div className="mt-8 bg-muted/30 border border-border rounded-2xl p-6">
           <div className="flex items-center gap-4">
-            {/* Status */}
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-              <span className="text-sm font-medium">
-                {activeOptions.length} Option{activeOptions.length !== 1 ? 'en' : ''}
-              </span>
-            </div>
-
-            <div className="h-4 w-px bg-border/50" />
-
-            <span className="text-sm text-muted-foreground">
-              {totalForAllOptions.toFixed(2)} €
-            </span>
-
-            <div className="h-4 w-px bg-border/50" />
-
-            {/* Send CTA */}
+            {/* Left: Send Button */}
             <motion.button
               onClick={handleSendOffer}
               disabled={isSending || !emailDraft.trim()}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
               className={cn(
-                "h-10 px-5 rounded-full font-medium text-sm flex items-center gap-2",
+                "h-12 px-6 rounded-2xl font-semibold text-sm flex items-center gap-2 whitespace-nowrap",
                 "bg-gradient-to-r from-amber-500 to-amber-600",
-                "text-white shadow-lg shadow-amber-500/25",
-                "hover:shadow-xl hover:shadow-amber-500/35",
-                "transition-shadow duration-200",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
+                "text-white",
+                "shadow-[0_4px_20px_-4px_rgba(245,158,11,0.5)]",
+                "hover:shadow-[0_8px_30px_-4px_rgba(245,158,11,0.6)]",
+                "transition-shadow duration-300",
+                "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               )}
             >
               {isSending ? (
@@ -390,8 +361,44 @@ export function MultiOfferComposer({
                 </>
               )}
             </motion.button>
+
+            {/* Right: Status */}
+            <div className="flex flex-col gap-0.5 ml-auto text-right">
+              <div className="flex items-center gap-2 justify-end">
+                <span className="text-base font-semibold text-foreground tracking-tight">
+                  {activeOptions.length} Option{activeOptions.length !== 1 ? 'en' : ''}
+                </span>
+                <motion.div 
+                  className="h-2 w-2 rounded-full bg-amber-500"
+                  animate={{ 
+                    scale: [1, 1.2, 1],
+                    opacity: [0.7, 1, 0.7]
+                  }}
+                  transition={{ 
+                    duration: 2, 
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                />
+              </div>
+              <div className="text-sm text-muted-foreground flex items-center gap-1 justify-end">
+                <span>Gesamtwert:</span>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={totalForAllOptions.toFixed(2)}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="font-semibold text-foreground"
+                  >
+                    {totalForAllOptions.toFixed(2)} €
+                  </motion.span>
+                </AnimatePresence>
+              </div>
+            </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     );
   }
