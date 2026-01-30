@@ -318,77 +318,15 @@ const EventPackageInquiryDialog = ({
               {errors.time && <p className="text-xs text-destructive">{errors.time}</p>}
             </div>
 
-            {/* Guest Count */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                {language === "de" ? `Anzahl Gäste * (min. ${minGuests})` : `Number of Guests * (min. ${minGuests})`}
-              </Label>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 shrink-0"
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      guestCount: Math.max(minGuests, prev.guestCount - 1),
-                    }))
-                  }
-                  disabled={formData.guestCount <= minGuests}
-                >
-                  <span className="text-lg font-medium">−</span>
-                </Button>
-                <Input
-                  type="number"
-                  name="guestCount"
-                  value={formData.guestCount}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Allow empty input for typing
-                    if (value === "") {
-                      setFormData((prev) => ({ ...prev, guestCount: minGuests }));
-                    } else {
-                      const num = parseInt(value, 10);
-                      if (!isNaN(num)) {
-                        setFormData((prev) => ({ ...prev, guestCount: num }));
-                      }
-                    }
-                    if (errors.guestCount) {
-                      setErrors((prev) => ({ ...prev, guestCount: "" }));
-                    }
-                  }}
-                  onBlur={() => {
-                    // Enforce minimum on blur
-                    if (formData.guestCount < minGuests) {
-                      setFormData((prev) => ({ ...prev, guestCount: minGuests }));
-                    }
-                  }}
-                  min={minGuests}
-                  className={cn(
-                    "text-center text-lg font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                    errors.guestCount && "border-destructive"
-                  )}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 shrink-0"
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      guestCount: prev.guestCount + 1,
-                    }))
-                  }
-                >
-                  <span className="text-lg font-medium">+</span>
-                </Button>
+            {/* Guest Count - Display only (already selected on card) */}
+            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+              <Users className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {language === "de" ? "Anzahl Gäste" : "Number of Guests"}
+                </p>
+                <p className="font-medium">{formData.guestCount} {language === "de" ? "Personen" : "guests"}</p>
               </div>
-              {errors.guestCount && (
-                <p className="text-xs text-destructive">{errors.guestCount}</p>
-              )}
             </div>
 
             {/* Estimated Total */}
