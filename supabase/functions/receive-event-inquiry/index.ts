@@ -15,6 +15,8 @@ interface EventInquiryRequest {
   guestCount?: string;
   eventType?: string;
   preferredDate?: string;
+  timeSlot?: string;
+  packageId?: string;
   message?: string;
   source?: string;
 }
@@ -43,6 +45,7 @@ const getEventTypeLabel = (eventType: string): string => {
 const generateCustomerEmailText = (data: EventInquiryRequest): string => {
   const eventTypeLabel = data.eventType ? getEventTypeLabel(data.eventType) : 'Nicht angegeben';
   const dateText = data.preferredDate ? formatDate(data.preferredDate) : 'Flexibel';
+  const timeText = data.timeSlot || 'Nicht angegeben';
 
   return `STORIA · EVENTS & CATERING
 
@@ -61,6 +64,7 @@ ${data.phone ? `Telefon: ${data.phone}\n` : ''}
 Eventart: ${eventTypeLabel}
 Gästeanzahl: ${data.guestCount || 'Nicht angegeben'}
 Wunschtermin: ${dateText}
+Uhrzeit: ${timeText} Uhr
 
 ${data.message ? `Ihre Nachricht:\n${data.message}\n` : ''}
 
@@ -84,6 +88,7 @@ const generateRestaurantEmailText = (data: EventInquiryRequest): string => {
 
   const eventTypeLabel = data.eventType ? getEventTypeLabel(data.eventType) : 'Nicht angegeben';
   const dateText = data.preferredDate ? formatDate(data.preferredDate) : 'Flexibel';
+  const timeText = data.timeSlot || 'Nicht angegeben';
 
   return `NEUE EVENT-ANFRAGE EINGEGANGEN
 
@@ -102,6 +107,7 @@ EVENT-DETAILS
 Eventart: ${eventTypeLabel}
 Gästeanzahl: ${data.guestCount || 'Nicht angegeben'}
 Wunschtermin: ${dateText}
+Uhrzeit: ${timeText} Uhr
 
 ${data.message ? `Nachricht des Kunden:\n${data.message}\n` : ''}
 
@@ -195,6 +201,10 @@ const handler = async (req: Request): Promise<Response> => {
         guest_count: data.guestCount || null,
         event_type: data.eventType || null,
         preferred_date: data.preferredDate || null,
+        time_slot: data.timeSlot || null,
+        selected_packages: data.packageId 
+          ? [{ id: data.packageId, name: data.eventType }]
+          : null,
         message: data.message || null,
         source: data.source || 'website',
         notification_sent: false,
