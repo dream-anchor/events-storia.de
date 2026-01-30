@@ -12,7 +12,6 @@ interface MenuConfirmationRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -24,12 +23,10 @@ serve(async (req) => {
       throw new Error('bookingId is required');
     }
 
-    // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch booking with package details
     const { data: booking, error: bookingError } = await supabase
       .from('event_bookings')
       .select('*, packages(*)')
@@ -42,7 +39,6 @@ serve(async (req) => {
 
     console.log('Booking found:', booking.booking_number);
 
-    // Generate email content from menu selection
     const menuSelection = booking.menu_selection as {
       courses: Array<{ courseLabel: string; itemName: string; itemDescription?: string }>;
       drinks: Array<{ drinkLabel: string; selectedChoice?: string; customDrink?: string }>;
@@ -51,7 +47,7 @@ serve(async (req) => {
     let menuText = '';
     
     if (menuSelection?.courses?.length) {
-      menuText += '🍽️ MENÜ\n\n';
+      menuText += 'MENÜ\n\n';
       for (const course of menuSelection.courses) {
         if (course.itemName) {
           menuText += `${course.courseLabel}\n`;
@@ -65,7 +61,7 @@ serve(async (req) => {
     }
 
     if (menuSelection?.drinks?.length) {
-      menuText += '🍷 GETRÄNKE\n\n';
+      menuText += '\nGETRÄNKE\n\n';
       for (const drink of menuSelection.drinks) {
         const selection = drink.selectedChoice || drink.customDrink;
         if (selection) {
@@ -74,7 +70,6 @@ serve(async (req) => {
       }
     }
 
-    // Format event date
     const eventDate = new Date(booking.event_date).toLocaleDateString('de-DE', {
       weekday: 'long',
       day: '2-digit',
@@ -84,7 +79,6 @@ serve(async (req) => {
 
     const packageName = booking.packages?.name || 'Event-Paket';
 
-    // Compose email
     const emailSubject = `Ihr Menü für ${eventDate} steht fest`;
     const emailBody = `Sehr geehrte/r ${booking.customer_name},
 
@@ -101,7 +95,6 @@ Bei Fragen stehen wir Ihnen gerne zur Verfügung.
 Mit freundlichen Grüßen,
 Ihr STORIA Team
 
----
 STORIA · Ristorante
 Karlstraße 47a
 80333 München
@@ -110,7 +103,6 @@ info@events-storia.de`;
 
     console.log('Email content generated');
 
-    // Send email if requested
     if (sendEmail) {
       const smtpHost = Deno.env.get('SMTP_HOST') || 'smtp.ionos.de';
       const smtpPort = parseInt(Deno.env.get('SMTP_PORT') || '465');
@@ -118,7 +110,6 @@ info@events-storia.de`;
       const smtpPassword = Deno.env.get('SMTP_PASSWORD');
       const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
-      // Primary: Try IONOS SMTP
       if (smtpUser && smtpPassword) {
         try {
           const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
@@ -139,7 +130,16 @@ info@events-storia.de`;
             from: `STORIA Events <${smtpUser}>`,
             to: [booking.customer_email],
             subject: emailSubject,
-            html: `<html><body><pre style="font-family: monospace; white-space: pre-wrap;">${emailBody}</pre></body></html>`,
+            html: `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="white-space: pre-wrap;">${emailBody}</div>
+</body>
+</html>`,
           });
 
           await client.close();
@@ -147,13 +147,12 @@ info@events-storia.de`;
         } catch (smtpError) {
           console.error('SMTP error, trying Resend fallback:', smtpError);
           
-          // Fallback: Try Resend if SMTP fails
           if (resendApiKey) {
             const resendResponse = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${resendApiKey}`,
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
               },
               body: JSON.stringify({
                 from: 'STORIA Events <info@events-storia.de>',
@@ -175,12 +174,11 @@ info@events-storia.de`;
           }
         }
       } else if (resendApiKey) {
-        // No SMTP configured, use Resend directly
         const resendResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
           },
           body: JSON.stringify({
             from: 'STORIA Events <info@events-storia.de>',
@@ -202,7 +200,6 @@ info@events-storia.de`;
       }
     }
 
-    // Update booking to mark menu as confirmed
     const { error: updateError } = await supabase
       .from('event_bookings')
       .update({ 
@@ -222,7 +219,7 @@ info@events-storia.de`;
         bookingNumber: booking.booking_number,
       }),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
         status: 200,
       }
     );
@@ -233,7 +230,7 @@ info@events-storia.de`;
     return new Response(
       JSON.stringify({ error: errorMessage }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
         status: 400,
       }
     );

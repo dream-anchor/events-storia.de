@@ -73,7 +73,6 @@ const generateCustomerEmailText = (data: OrderNotificationRequest): string => {
   const isPaid = data.paymentStatus === 'paid';
   const isEvent = data.isEventBooking === true;
 
-  // Different greetings based on payment status (not payment method!)
   let greeting: string;
   let nextSteps: string;
   
@@ -97,41 +96,33 @@ const generateCustomerEmailText = (data: OrderNotificationRequest): string => {
   for (const item of data.items) {
     const itemTotal = item.price * item.quantity;
     const servingInfo = item.servingInfo ? ` (${item.servingInfo})` : '';
-    itemsList += `  ${item.quantity}x ${item.name}${servingInfo}\n     ${formatPrice(itemTotal)}\n\n`;
+    itemsList += `• ${item.quantity}x ${item.name}${servingInfo} – ${formatPrice(itemTotal)}\n`;
   }
 
-  // Chafing Dish
   if (data.wantsChafingDish && data.chafingDishQuantity && data.chafingDishTotal) {
-    itemsList += `  ${data.chafingDishQuantity}x Chafing Dish (Warmhaltebehälter)\n     ${formatPrice(data.chafingDishTotal)}\n\n`;
+    itemsList += `• ${data.chafingDishQuantity}x Chafing Dish (Warmhaltebehälter) – ${formatPrice(data.chafingDishTotal)}\n`;
   }
 
-  // Delivery info - different for events vs catering
   let deliveryInfo = '';
   if (isEvent) {
-    deliveryInfo = `Veranstaltungsort: STORIA Ristorante
-Karlstraße 47a, 80333 München`;
+    deliveryInfo = `Veranstaltungsort: STORIA Ristorante, Karlstraße 47a, 80333 München`;
     if (data.guestCount) {
       deliveryInfo += `\nAnzahl Gäste: ${data.guestCount} Personen`;
     }
   } else if (data.isPickup) {
-    deliveryInfo = `Lieferart: Selbstabholung
-Abholadresse: Karlstraße 47a, 80333 München`;
+    deliveryInfo = `Lieferart: Selbstabholung\nAbholadresse: Karlstraße 47a, 80333 München`;
   } else {
-    const floorInfo = data.deliveryFloor ? `\nStockwerk: ${data.deliveryFloor}` : '';
-    const elevatorInfo = data.hasElevator === true ? '\nAufzug: Ja' : (data.hasElevator === false ? '\nAufzug: Nein' : '');
+    const floorInfo = data.deliveryFloor ? `, Stockwerk: ${data.deliveryFloor}` : '';
+    const elevatorInfo = data.hasElevator === true ? ', Aufzug vorhanden' : (data.hasElevator === false ? ', kein Aufzug' : '');
 
     if (data.deliveryStreet && data.deliveryZip && data.deliveryCity) {
-      deliveryInfo = `Lieferart: Lieferung
-Adresse: ${data.deliveryStreet}
-         ${data.deliveryZip} ${data.deliveryCity}${floorInfo}${elevatorInfo}`;
+      deliveryInfo = `Lieferart: Lieferung\nAdresse: ${data.deliveryStreet}, ${data.deliveryZip} ${data.deliveryCity}${floorInfo}${elevatorInfo}`;
     } else if (data.deliveryAddress) {
-      deliveryInfo = `Lieferart: Lieferung
-Adresse: ${data.deliveryAddress}${floorInfo}${elevatorInfo}`;
+      deliveryInfo = `Lieferart: Lieferung\nAdresse: ${data.deliveryAddress}${floorInfo}${elevatorInfo}`;
     }
   }
 
-  // Price breakdown
-  let priceBreakdown = `Zwischensumme:              ${formatPrice(subtotal)}\n`;
+  let priceBreakdown = `Zwischensumme: ${formatPrice(subtotal)}\n`;
 
   if (data.minimumOrderSurcharge && data.minimumOrderSurcharge > 0) {
     priceBreakdown += `Mindestbestellwert-Aufschlag: ${formatPrice(data.minimumOrderSurcharge)}\n`;
@@ -139,21 +130,19 @@ Adresse: ${data.deliveryAddress}${floorInfo}${elevatorInfo}`;
 
   if (!isEvent) {
     if (data.isPickup) {
-      priceBreakdown += `Selbstabholung:             kostenlos\n`;
+      priceBreakdown += `Selbstabholung: kostenlos\n`;
     } else if (data.deliveryCost !== undefined) {
       const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1)} km)` : '';
-      priceBreakdown += `Lieferung${distanceText}:      ${data.deliveryCost === 0 ? 'kostenlos' : formatPrice(data.deliveryCost)}\n`;
+      priceBreakdown += `Lieferung${distanceText}: ${data.deliveryCost === 0 ? 'kostenlos' : formatPrice(data.deliveryCost)}\n`;
     }
   }
 
-  const notesSection = data.notes ? `\nIHRE ANMERKUNGEN\n${data.notes}\n` : '';
+  const notesSection = data.notes ? `\nIhre Anmerkungen:\n${data.notes}\n` : '';
 
   const headerTitle = isEvent ? 'STORIA · EVENTS' : 'STORIA · CATERING & EVENTS';
   const orderLabel = isEvent ? 'Buchungsnummer' : 'Bestellnummer';
 
-  return `════════════════════════════════════════════
-          ${headerTitle}
-════════════════════════════════════════════
+  return `${headerTitle}
 
 Guten Tag ${data.customerName},
 
@@ -161,14 +150,13 @@ ${greeting}
 
 ${orderLabel}: ${data.orderNumber}
 
-────────────────────────────────────────────
-${isEvent ? 'IHRE BUCHUNG' : 'IHRE AUSWAHL'}
-────────────────────────────────────────────
 
-${itemsList}────────────────────────────────────────────
-${priceBreakdown}────────────────────────────────────────────
-GESAMTSUMME:                ${formatPrice(grandTotal)}
-────────────────────────────────────────────
+${isEvent ? 'IHRE BUCHUNG' : 'IHRE AUSWAHL'}
+
+${itemsList}
+${priceBreakdown}
+Gesamtsumme: ${formatPrice(grandTotal)}
+
 
 ${isEvent ? 'VERANSTALTUNG' : 'TERMIN & LIEFERUNG'}
 
@@ -178,9 +166,8 @@ Uhrzeit: ${data.desiredTime ? data.desiredTime + ' Uhr' : 'Auf Anfrage'}
 ${notesSection}
 ${nextSteps}
 
-────────────────────────────────────────────
-Bei Fragen erreichen Sie uns unter:
 
+Bei Fragen erreichen Sie uns unter:
 Tel: +49 89 51519696
 E-Mail: info@events-storia.de
 
@@ -189,7 +176,6 @@ Karlstraße 47a
 80333 München
 
 events-storia.de
-════════════════════════════════════════════
 `;
 };
 
@@ -204,59 +190,42 @@ const generateRestaurantEmailText = (data: OrderNotificationRequest): string => 
     timeStyle: 'short'
   });
 
-  let paymentBanner = '';
-  if (isPaid) {
-    paymentBanner = `
-╔════════════════════════════════════════════╗
-║  ✓ BEREITS BEZAHLT                         ║
-╚════════════════════════════════════════════╝
-`;
-  } else {
-    paymentBanner = `
-╔════════════════════════════════════════════╗
-║  Zahlung ausstehend (Anfrage)              ║
-╚════════════════════════════════════════════╝
-`;
-  }
+  const paymentBanner = isPaid
+    ? '✓ BEREITS BEZAHLT'
+    : '⏳ Zahlung ausstehend (Anfrage)';
 
   let itemsList = '';
   for (const item of data.items) {
     const itemTotal = item.price * item.quantity;
     const servingInfo = item.servingInfo ? ` (${item.servingInfo})` : '';
-    itemsList += `  ${item.quantity}x ${item.name}${servingInfo}\n     Einzelpreis: ${formatPrice(item.price)} | Gesamt: ${formatPrice(itemTotal)}\n\n`;
+    itemsList += `• ${item.quantity}x ${item.name}${servingInfo}\n  Einzelpreis: ${formatPrice(item.price)} | Gesamt: ${formatPrice(itemTotal)}\n\n`;
   }
 
-  // Chafing Dish
   if (data.wantsChafingDish && data.chafingDishQuantity && data.chafingDishTotal) {
-    itemsList += `  ${data.chafingDishQuantity}x Chafing Dish (Warmhaltebehälter)\n     ${formatPrice(data.chafingDishTotal)}\n\n`;
+    itemsList += `• ${data.chafingDishQuantity}x Chafing Dish (Warmhaltebehälter) – ${formatPrice(data.chafingDishTotal)}\n\n`;
   }
 
-  // Delivery/Event info - different for events vs catering
   let deliveryInfo = '';
   if (isEvent) {
     deliveryInfo = `Typ: EVENT-BUCHUNG (vor Ort im Restaurant)`;
     if (data.guestCount) {
       deliveryInfo += `\nAnzahl Gäste: ${data.guestCount} Personen`;
     }
-    deliveryInfo += `\n\n⚠️ MENÜAUSWAHL ERFORDERLICH - Bitte Kunden kontaktieren!`;
+    deliveryInfo += `\n\n⚠️ MENÜAUSWAHL ERFORDERLICH – Bitte Kunden kontaktieren!`;
   } else if (data.isPickup) {
     deliveryInfo = 'Lieferart: SELBSTABHOLUNG';
   } else {
-    const floorInfo = data.deliveryFloor ? `\nStockwerk: ${data.deliveryFloor}` : '';
-    const elevatorInfo = data.hasElevator === true ? '\nAufzug: Ja' : (data.hasElevator === false ? '\nAufzug: Nein' : '');
+    const floorInfo = data.deliveryFloor ? `, Stockwerk: ${data.deliveryFloor}` : '';
+    const elevatorInfo = data.hasElevator === true ? ', Aufzug vorhanden' : (data.hasElevator === false ? ', kein Aufzug' : '');
 
     if (data.deliveryStreet && data.deliveryZip && data.deliveryCity) {
-      deliveryInfo = `Lieferart: LIEFERUNG
-Adresse: ${data.deliveryStreet}
-         ${data.deliveryZip} ${data.deliveryCity}${floorInfo}${elevatorInfo}`;
+      deliveryInfo = `Lieferart: LIEFERUNG\nAdresse: ${data.deliveryStreet}, ${data.deliveryZip} ${data.deliveryCity}${floorInfo}${elevatorInfo}`;
     } else if (data.deliveryAddress) {
-      deliveryInfo = `Lieferart: LIEFERUNG
-Adresse: ${data.deliveryAddress}${floorInfo}${elevatorInfo}`;
+      deliveryInfo = `Lieferart: LIEFERUNG\nAdresse: ${data.deliveryAddress}${floorInfo}${elevatorInfo}`;
     }
   }
 
-  // Price breakdown
-  let priceBreakdown = `Warenwert:                  ${formatPrice(subtotal)}\n`;
+  let priceBreakdown = `Warenwert: ${formatPrice(subtotal)}\n`;
 
   if (data.minimumOrderSurcharge && data.minimumOrderSurcharge > 0) {
     priceBreakdown += `Mindestbestellwert-Aufschlag: ${formatPrice(data.minimumOrderSurcharge)}\n`;
@@ -264,24 +233,18 @@ Adresse: ${data.deliveryAddress}${floorInfo}${elevatorInfo}`;
 
   if (!isEvent) {
     if (data.isPickup) {
-      priceBreakdown += `Selbstabholung:             kostenlos\n`;
+      priceBreakdown += `Selbstabholung: kostenlos\n`;
     } else if (data.deliveryCost !== undefined) {
       const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1)} km)` : '';
-      priceBreakdown += `Lieferkosten${distanceText}:   ${data.deliveryCost === 0 ? 'kostenlos' : formatPrice(data.deliveryCost)}\n`;
+      priceBreakdown += `Lieferkosten${distanceText}: ${data.deliveryCost === 0 ? 'kostenlos' : formatPrice(data.deliveryCost)}\n`;
     }
   }
 
-  const notesSection = data.notes ? `\nANMERKUNGEN DES KUNDEN\n${data.notes}\n` : '';
+  const notesSection = data.notes ? `\nAnmerkungen des Kunden:\n${data.notes}\n` : '';
 
   let billingSection = '';
   if (data.billingAddress && data.billingAddress.name) {
-    billingSection = `
-RECHNUNGSADRESSE
-${data.billingAddress.name}
-${data.billingAddress.street}
-${data.billingAddress.zip} ${data.billingAddress.city}
-${data.billingAddress.country}
-`;
+    billingSection = `\nRechnungsadresse:\n${data.billingAddress.name}\n${data.billingAddress.street}\n${data.billingAddress.zip} ${data.billingAddress.city}\n${data.billingAddress.country}\n`;
   }
 
   const headerTitle = isEvent 
@@ -290,29 +253,27 @@ ${data.billingAddress.country}
   const orderLabel = isEvent ? 'Buchungsnummer' : 'Bestellnummer';
   const itemsLabel = isEvent ? 'GEBUCHTES PAKET' : 'BESTELLTE ARTIKEL';
 
-  return `════════════════════════════════════════════
-     ${headerTitle}
-════════════════════════════════════════════
+  return `${headerTitle}
+
 ${paymentBanner}
+
 ${orderLabel}: ${data.orderNumber}
 Eingegangen: ${now}
 
-────────────────────────────────────────────
+
 KUNDENDATEN
-────────────────────────────────────────────
 
 Name: ${data.customerName}
 ${data.companyName ? `Firma: ${data.companyName}\n` : ''}E-Mail: ${data.customerEmail}
 Telefon: ${data.customerPhone}
 
-────────────────────────────────────────────
-${itemsLabel}
-────────────────────────────────────────────
 
-${itemsList}────────────────────────────────────────────
-${priceBreakdown}────────────────────────────────────────────
-GESAMTSUMME:                ${formatPrice(grandTotal)}
-────────────────────────────────────────────
+${itemsLabel}
+
+${itemsList}
+${priceBreakdown}
+Gesamtsumme: ${formatPrice(grandTotal)}
+
 
 ${isEvent ? 'VERANSTALTUNG' : 'TERMIN & LIEFERUNG'}
 
@@ -320,9 +281,8 @@ ${deliveryInfo}
 Datum: ${data.desiredDate ? formatDate(data.desiredDate) : 'Auf Anfrage'}
 Uhrzeit: ${data.desiredTime ? data.desiredTime + ' Uhr' : 'Auf Anfrage'}
 ${notesSection}${billingSection}
-────────────────────────────────────────────
+
 Admin-Bereich: https://events-storia.de/admin
-════════════════════════════════════════════
 `;
 };
 
@@ -344,7 +304,7 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
     connection: {
       hostname: smtpHost,
       port: smtpPort,
-      tls: true,  // Implicit SSL/TLS für Port 465
+      tls: true,
       auth: {
         username: smtpUser,
         password: smtpPassword,
@@ -357,7 +317,16 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
       from: `${fromName} <${smtpUser}>`,
       to: to,
       subject: subject,
-      html: `<html><body><pre style="font-family: monospace; white-space: pre-wrap;">${text}</pre></body></html>`,
+      html: `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="white-space: pre-wrap;">${text}</div>
+</body>
+</html>`,
     });
 
     console.log("Email sent successfully via IONOS SMTP");
@@ -379,9 +348,6 @@ const handler = async (req: Request): Promise<Response> => {
     const data: OrderNotificationRequest = await req.json();
     console.log("Received order notification request:", JSON.stringify(data, null, 2));
 
-    // ============================================================
-    // SECURITY: Verify order exists in database and email matches
-    // ============================================================
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -392,7 +358,6 @@ const handler = async (req: Request): Promise<Response> => {
     const isEvent = data.isEventBooking === true;
 
     if (isEvent) {
-      // Check event_bookings for event orders
       const { data: eventBooking } = await supabase
         .from('event_bookings')
         .select('id, customer_email')
@@ -404,7 +369,6 @@ const handler = async (req: Request): Promise<Response> => {
         storedEmail = eventBooking.customer_email;
       }
     } else {
-      // Check catering_orders first
       const { data: cateringOrder } = await supabase
         .from('catering_orders')
         .select('id, customer_email')
@@ -421,25 +385,22 @@ const handler = async (req: Request): Promise<Response> => {
       console.log("Security: Order not found in database", { orderNumber: data.orderNumber });
       return new Response(
         JSON.stringify({ error: 'Order not found' }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 404, headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders } }
       );
     }
 
-    // Verify email matches to prevent sending to unauthorized addresses
     if (storedEmail?.toLowerCase() !== data.customerEmail?.toLowerCase()) {
       console.log("Security: Email mismatch", { storedEmail, requestEmail: data.customerEmail });
       return new Response(
         JSON.stringify({ error: 'Email mismatch' }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 400, headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders } }
       );
     }
 
     console.log("Security: Order validated", { orderNumber: data.orderNumber });
-    // ============================================================
 
     const isPaid = data.paymentStatus === 'paid';
 
-    // Customer email subject - based on payment STATUS, not method
     const customerSubject = isEvent
       ? (isPaid
         ? `Ihre Event-Buchung bei STORIA (${data.orderNumber})`
@@ -448,7 +409,6 @@ const handler = async (req: Request): Promise<Response> => {
         ? `Ihre Catering-Bestellung bei STORIA (${data.orderNumber})`
         : `Ihre Catering-Anfrage bei STORIA (${data.orderNumber})`);
 
-    // Restaurant email subject
     const restaurantSubject = isEvent
       ? (isPaid
         ? `BEZAHLT: Neue Event-Buchung ${data.orderNumber}`
@@ -457,7 +417,6 @@ const handler = async (req: Request): Promise<Response> => {
         ? `BEZAHLT: Neue Bestellung ${data.orderNumber}`
         : `Neue Anfrage ${data.orderNumber}`);
 
-    // Send customer confirmation
     const customerEmailText = generateCustomerEmailText(data);
     await sendEmail(
       [data.customerEmail],
@@ -466,7 +425,6 @@ const handler = async (req: Request): Promise<Response> => {
       "STORIA Catering"
     );
 
-    // Send restaurant notification
     const restaurantEmailText = generateRestaurantEmailText(data);
     await sendEmail(
       ["info@events-storia.de"],
@@ -479,7 +437,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ success: true, message: "Emails sent successfully via IONOS SMTP" }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders },
       }
     );
   } catch (error: any) {
@@ -488,7 +446,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ error: error.message }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders },
       }
     );
   }
