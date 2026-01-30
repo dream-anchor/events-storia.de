@@ -98,7 +98,7 @@ export function OfferOptionCard({
                 <SelectTrigger className="w-[280px] font-medium">
                   <SelectValue placeholder="Paket wählen..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="font-sans">
                   {packages.map(pkg => (
                     <SelectItem key={pkg.id} value={pkg.id}>
                       <div className="flex items-center justify-between w-full gap-4">
