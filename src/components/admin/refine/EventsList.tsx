@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { EventInquiry, InquiryStatus } from "@/types/refine";
 import { EditorIndicator } from "@/components/admin/shared/EditorIndicator";
 import { cn } from "@/lib/utils";
+import { getAdminDisplayName } from "@/lib/adminDisplayNames";
 
 const statusConfig: Record<InquiryStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   new: { label: "Neu", variant: "default" },
@@ -125,31 +126,17 @@ export const EventsList = () => {
           statusLabel = 'Angebot gesendet';
           statusIcon = <Send className="h-3 w-3 mr-1" />;
           badgeClass = 'border-emerald-500/50 text-emerald-700 bg-emerald-50';
-          // Extract name from email
+          // Use central admin display name
           if (event.offer_sent_by) {
-            const senderEmail = event.offer_sent_by;
-            if (senderEmail.includes('mimmo')) {
-              subLabel = 'von Domenico';
-            } else if (senderEmail.includes('madi')) {
-              subLabel = 'von Madina';
-            } else {
-              subLabel = `von ${senderEmail.split('@')[0]}`;
-            }
+            subLabel = `von ${getAdminDisplayName(event.offer_sent_by)}`;
           }
         } else if (event.last_edited_at && !event.offer_sent_at) {
           statusLabel = 'In Bearbeitung';
           statusIcon = <Edit3 className="h-3 w-3 mr-1" />;
           badgeClass = 'border-amber-500/50 text-amber-700 bg-amber-50';
-          // Show who is editing
+          // Use central admin display name
           if (event.last_edited_by) {
-            const editorEmail = event.last_edited_by;
-            if (editorEmail.includes('mimmo')) {
-              subLabel = 'von Domenico';
-            } else if (editorEmail.includes('madi')) {
-              subLabel = 'von Madina';
-            } else {
-              subLabel = `von ${editorEmail.split('@')[0]}`;
-            }
+            subLabel = `von ${getAdminDisplayName(event.last_edited_by)}`;
           }
         } else if (event.status === 'confirmed') {
           statusLabel = 'Bestätigt';

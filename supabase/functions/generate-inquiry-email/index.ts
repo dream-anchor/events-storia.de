@@ -6,10 +6,13 @@ const corsHeaders = {
 };
 
 // Sender mapping for personalized signatures
-const SENDER_INFO: Record<string, { firstName: string; mobile: string }> = {
+const SENDER_INFO: Record<string, { firstName: string; mobile?: string }> = {
+  'monot@hey.com': { firstName: 'Antoine' },
   'mimmo2905@yahoo.de': { firstName: 'Domenico', mobile: '+49 163 6033912' },
+  'nicola@storia.de': { firstName: 'Nicola' },
   'madi@events-storia.de': { firstName: 'Madina', mobile: '+49 179 2200921' },
   'madina.khader@gmail.com': { firstName: 'Madina', mobile: '+49 179 2200921' },
+  'info@storia.de': { firstName: 'STORIA Team' },
 };
 
 const COMPANY_FOOTER = `Speranza GmbH

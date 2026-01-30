@@ -2,13 +2,7 @@ import { formatDistanceToNow, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-// Admin display name mapping
-const ADMIN_DISPLAY_NAMES: Record<string, { name: string; initials: string }> = {
-  'monot@hey.com': { name: 'Domenico', initials: 'DS' },
-  'nicola@storia.de': { name: 'Nicola', initials: 'NS' },
-  'info@storia.de': { name: 'Team', initials: 'ST' },
-};
+import { getAdminDisplayName, getAdminInitials } from "@/lib/adminDisplayNames";
 
 interface EditorIndicatorProps {
   editedBy?: string | null;
@@ -25,10 +19,8 @@ export function EditorIndicator({ editedBy, editedAt, compact = false }: EditorI
     );
   }
 
-  // Try to resolve display name from email (editedBy could be UUID or email)
-  const displayInfo = editedBy ? ADMIN_DISPLAY_NAMES[editedBy] : null;
-  const initials = displayInfo?.initials || (editedBy ? editedBy.substring(0, 2).toUpperCase() : '??');
-  const displayName = displayInfo?.name || editedBy || 'Unbekannt';
+  const initials = getAdminInitials(editedBy);
+  const displayName = getAdminDisplayName(editedBy);
   
   const relativeTime = editedAt 
     ? formatDistanceToNow(parseISO(editedAt), { addSuffix: true, locale: de })
