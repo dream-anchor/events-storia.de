@@ -73,6 +73,7 @@ export const AIComposer = ({
           eventType: inquiry.event_type,
           guestCount: inquiry.guest_count,
           preferredDate: inquiry.preferred_date,
+          timeSlot: inquiry.time_slot,
           items: quoteItems.map(i => ({ 
             name: i.name, 
             quantity: i.quantity, 
