@@ -1,165 +1,97 @@
 
 
-# Plan: Versendete Angebote korrekt in der Übersicht anzeigen
+# Plan: "Bearbeiten"-Button in gesperrtem Zustand ausblenden + Button-Benennung klären
 
-## Problem
+## Problem-Analyse
 
-Wenn ein Angebot gesendet wurde, wird es nicht unter "Angebot versendet" angezeigt. Das liegt daran, dass:
+### 1. "Bearbeiten"-Button sollte nicht klickbar sein nach Versand
 
-1. **Unlock-Logik setzt offer_sent_at auf NULL**: Beim Klick auf "Neues Angebot erstellen" wird `offer_sent_at` zurückgesetzt, damit die aktuelle Version bearbeitet werden kann
-2. **Filter prüft nur offer_sent_at**: Dashboard und EventsList kategorisieren Anfragen anhand von `offer_sent_at`, nicht anhand der Historie
-3. **Status wird nicht aktualisiert**: Der `status` bleibt auf 'new' statt 'offer_sent'
+Der Screenshot zeigt eine Anfrage, bei der:
+- Version 2 gesendet wurde (→ in History)
+- Version 3 "in Bearbeitung" ist (→ nach Unlock)
+- Das System ist im **entsperrten** Modus (`offer_sent_at = NULL`)
 
-```text
-Aktuelle Daten im Test-Fall:
-┌──────────────────────────────────────────────────────────────┐
-│ event_inquiries (ID: 7c7ca1cf...)                           │
-│   status = 'new'            ← Falsch! Sollte 'offer_sent'   │
-│   offer_sent_at = NULL      ← Weil V3 in Arbeit             │
-│   current_offer_version = 3                                  │
-├──────────────────────────────────────────────────────────────┤
-│ inquiry_offer_history                                        │
-│   version 2 → sent_at: 30.01.26 22:32 ✓                     │
-└──────────────────────────────────────────────────────────────┘
-```
+**Der "Bearbeiten"-Button ist korrekt sichtbar**, weil Version 3 gerade bearbeitet wird. Das ist das gewünschte Verhalten – nach "Neues Angebot erstellen" kann die Konfiguration geändert werden.
 
----
+**ABER:** Wenn das Angebot **noch gesperrt** ist (vor dem Klick auf "Neues Angebot erstellen"), sollte der "Bearbeiten"-Button nicht erscheinen.
 
-## Lösung
-
-### 1. Historie als Wahrheitsquelle für Kategorisierung
-
-Die Filterlogik muss prüfen, ob jemals ein Angebot gesendet wurde – unabhängig davon, ob gerade eine neue Version bearbeitet wird.
-
-```text
-VORHER (falsch):
-offerSent = status === 'offer_sent' || offer_sent_at
-
-NACHHER (korrekt):
-offerSent = status === 'offer_sent' 
-         || offer_sent_at 
-         || history_count > 0   ← NEU
-```
-
-**Technische Umsetzung:**
-- Neues Feld `has_sent_offer` als berechnete Spalte oder
-- Join mit `inquiry_offer_history` um zu prüfen, ob Einträge existieren
-
-### 2. Unlock setzt Status auf 'offer_sent' statt 'new'
-
-Wenn bereits ein Angebot gesendet wurde, soll der Status `'offer_sent'` bleiben – nicht auf 'new' zurückfallen.
-
-```text
-useMultiOfferState.ts → unlockForNewVersion():
-
-VORHER:
-  offer_sent_at: null,      ← Entfernt nur den Lock
-  offer_sent_by: null,
-
-NACHHER:
-  offer_sent_at: null,
-  offer_sent_by: null,
-  status: 'offer_sent',     ← Status bleibt 'offer_sent'
-```
-
-### 3. Bestehende Daten reparieren (einmalig)
-
-Alle Anfragen, die Einträge in `inquiry_offer_history` haben, aber nicht als `'offer_sent'` markiert sind, werden automatisch korrigiert:
-
-```sql
-UPDATE event_inquiries e
-SET status = 'offer_sent'
-WHERE status NOT IN ('confirmed', 'declined')
-AND EXISTS (
-  SELECT 1 FROM inquiry_offer_history h
-  WHERE h.inquiry_id = e.id
-);
-```
-
----
-
-## Technische Änderungen
-
-### A. Dashboard.tsx und EventsList.tsx
-
-Die Kategorisierung muss auf den `status` vertrauen können. Da wir den Status korrekt setzen, reicht:
-
+→ Die Logik ist bereits korrekt implementiert in `OfferOptionCard.tsx` (Zeile 257-270):
 ```typescript
-// VORHER (unzuverlässig):
-const offerSent = events.filter(e => 
-  (e.status === 'offer_sent' || e.offer_sent_at) && ...
-);
-
-// NACHHER (verlässt sich auf korrekten Status):
-const offerSent = events.filter(e => 
-  e.status === 'offer_sent' && 
-  e.status !== 'confirmed' && 
-  e.status !== 'declined'
-);
+{!isLocked && (
+  <Button onClick={() => setShowMenuEditor(!showMenuEditor)}>
+    Bearbeiten
+  </Button>
+)}
 ```
 
-### B. useMultiOfferState.ts → unlockForNewVersion()
+### 2. "Weitere Option hinzufügen" vs. "Neues Angebot erstellen"
 
-Status nicht ändern, wenn bereits gesendet:
+Diese zwei Buttons haben **unterschiedliche Funktionen**:
 
-```typescript
-await supabase
-  .from("event_inquiries")
-  .update({ 
-    offer_sent_at: null,
-    offer_sent_by: null,
-    current_offer_version: newVersion,
-    // status bleibt 'offer_sent' → wird NICHT auf 'new' zurückgesetzt
-  })
-  .eq("id", inquiryId);
-```
+| Button | Position | Funktion |
+|--------|----------|----------|
+| **Weitere Option hinzufügen** | Unter den Options-Karten | Fügt Option B, C, D zum **aktuellen** Angebot hinzu |
+| **Neues Angebot erstellen** | Im Locked-Banner | Entsperrt das Angebot für eine neue Version (v3, v4...) |
 
-### C. Datenbank-Migration
+**"Weitere Option hinzufügen" ist korrekt benannt** – es fügt dem aktuellen Angebot eine weitere Paket-Option hinzu (z.B. "Option B: Aperitivo" neben "Option A: Business Dinner").
 
-Einmalige Korrektur aller inkonsistenten Einträge:
-
-```sql
--- Repariere alle Anfragen mit gesendeter Historie
-UPDATE event_inquiries
-SET status = 'offer_sent'
-WHERE status NOT IN ('confirmed', 'declined')
-AND id IN (
-  SELECT DISTINCT inquiry_id FROM inquiry_offer_history
-);
-```
+**Das ist NICHT das Gleiche** wie "Neues Angebot erstellen", welches eine komplett neue Version (v3) startet.
 
 ---
 
-## Ergebnis
+## Empfohlene Klärung
+
+Die Buttons sind korrekt benannt und funktionieren wie vorgesehen:
 
 ```text
-VORHER:                              NACHHER:
-┌─────────────────┬─────────────┐    ┌─────────────────┬─────────────┐
-│ In Bearbeitung  │ Versendet   │    │ In Bearbeitung  │ Versendet   │
-├─────────────────┼─────────────┤    ├─────────────────┼─────────────┤
-│ Test3 (falsch!) │ (leer)      │    │ (andere...)     │ Test3 ✓     │
-│ Test GmbH       │             │    │                 │ • v2        │
-└─────────────────┴─────────────┘    │                 │ • 30.01.26  │
-                                     └─────────────────┴─────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ Locked-Banner (nach Versand sichtbar)                           │
+│                           [ Neues Angebot erstellen ] ← v3      │
+└─────────────────────────────────────────────────────────────────┘
+                                  ↓ Klick
+┌─────────────────────────────────────────────────────────────────┐
+│ Entsperrt – Version 3 in Bearbeitung                            │
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ Option A: Business Dinner – 1287€           [✓] Aktiv       │ │
+│ │ Menü konfiguriert • 3 Gänge                    [Bearbeiten] │ │ ← Korrekt!
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│ [ + Weitere Option hinzufügen ]  ← Fügt B, C, D zum v3 hinzu   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Dateien
+## Optionale UX-Verbesserung
 
-| Datei | Änderung |
-|-------|----------|
-| `src/components/admin/refine/Dashboard.tsx` | Filterlogik vereinfachen auf `status === 'offer_sent'` |
-| `src/components/admin/refine/EventsList.tsx` | Filterlogik vereinfachen auf `status === 'offer_sent'` |
-| `src/components/admin/refine/InquiryEditor/MultiOffer/useMultiOfferState.ts` | Unlock setzt Status nicht zurück |
-| **DB Migration** | Korrektur bestehender Anfragen mit Historie |
+Falls der "Bearbeiten"-Button dennoch verwirrend wirkt, könnte er umbenannt werden:
+
+| Aktuell | Mögliche Alternative |
+|---------|---------------------|
+| "Bearbeiten" | "Menü anpassen" |
+| | "Gänge ändern" |
+
+### Änderung (optional)
+
+**Datei:** `src/components/admin/refine/InquiryEditor/MultiOffer/OfferOptionCard.tsx`
+
+Zeile 267:
+```typescript
+// Aktuell:
+{showMenuEditor ? 'Schließen' : 'Bearbeiten'}
+
+// Alternativ:
+{showMenuEditor ? 'Schließen' : 'Menü anpassen'}
+```
 
 ---
 
 ## Zusammenfassung
 
-- **Status ist die Wahrheitsquelle**: Einmal gesendet = `status: 'offer_sent'`
-- **offer_sent_at nur für Lock-Zustand**: Zeigt an, ob die aktuelle Version gesperrt ist
-- **Automatische Reparatur**: Bestehende Daten werden einmalig korrigiert
-- **Konsistente UI**: "Angebot versendet" zeigt alle Anfragen, bei denen mindestens eine Version gesendet wurde
+- **"Bearbeiten" ist korrekt**: Erscheint nur im entsperrten Modus (nach "Neues Angebot erstellen")
+- **"Weitere Option hinzufügen" ist korrekt benannt**: Fügt Option B/C/D zum aktuellen Angebot hinzu
+- **"Neues Angebot erstellen" ist korrekt**: Startet eine neue Version
+
+Falls Sie möchten, kann der "Bearbeiten"-Button zu "Menü anpassen" umbenannt werden, um die Funktion klarer zu machen.
 
