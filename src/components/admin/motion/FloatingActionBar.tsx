@@ -25,7 +25,7 @@ export const FloatingActionBar = ({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 100 }}
           transition={{ type: "spring", damping: 20, stiffness: 300 }}
-          className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-40"
+          className="fixed bottom-6 left-6 z-40"
         >
           <div className="glass-card rounded-2xl px-4 py-3 flex items-center gap-3 shadow-2xl">
             <span className="text-sm font-medium">
