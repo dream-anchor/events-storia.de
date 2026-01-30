@@ -472,50 +472,77 @@ export function MultiOfferComposer({
       )}
 
       {/* Spacer for Floating Island */}
-      <div className="h-28" />
+      <div className="h-32" />
 
-      {/* Floating Island Bottom Bar - Apple 2026 */}
+      {/* Floating Island Bottom Bar - Apple 2026 Spatial Design */}
       <AnimatePresence>
         {activeOptions.length > 0 && (
           <motion.div
-            initial={{ y: 40, opacity: 0 }}
+            initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 40, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-3rem)] max-w-2xl"
+            exit={{ y: 20, opacity: 0 }}
+            transition={{ 
+              type: "spring", 
+              stiffness: 300, 
+              damping: 28,
+              mass: 0.8
+            }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-xl"
           >
-            <div className="bg-background/80 backdrop-blur-2xl border border-border/50 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] px-6 py-4">
-              <div className="flex items-center justify-between gap-6">
+            {/* Glassmorphism Container with Deep Shadow */}
+            <div className="bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-[28px] shadow-2xl px-6 py-4">
+              <div className="flex items-center justify-between gap-4">
                 {/* Status - Elegant Typography */}
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-0.5 min-w-0">
                   <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                    <span className="text-lg font-semibold text-foreground tracking-tight">
+                    <motion.div 
+                      className="h-2 w-2 rounded-full bg-amber-500"
+                      animate={{ 
+                        scale: [1, 1.2, 1],
+                        opacity: [0.7, 1, 0.7]
+                      }}
+                      transition={{ 
+                        duration: 2, 
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
+                    <span className="text-base font-semibold text-neutral-900 dark:text-neutral-100 tracking-tight">
                       {activeOptions.length} aktive Option{activeOptions.length !== 1 ? 'en' : ''}
                     </span>
                   </div>
-                  <span className="text-sm text-muted-foreground">
-                    Gesamtwert: 
-                    <span className="ml-1 font-medium text-foreground">
-                      {totalForAllOptions.toFixed(2)} €
-                    </span>
-                  </span>
+                  <div className="text-sm text-neutral-500 dark:text-neutral-400 flex items-center gap-1">
+                    <span>Gesamtwert:</span>
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={totalForAllOptions.toFixed(2)}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="font-semibold text-neutral-900 dark:text-neutral-100"
+                      >
+                        {totalForAllOptions.toFixed(2)} €
+                      </motion.span>
+                    </AnimatePresence>
+                  </div>
                 </div>
                 
-                {/* Primary CTA - Amber Glow */}
+                {/* Primary CTA - Amber Glow Effect */}
                 <motion.button
                   onClick={generateEmail}
                   disabled={activeOptionsWithPackage.length === 0 || isGeneratingEmail}
-                  whileHover={{ scale: 1.03 }}
+                  whileHover={{ scale: 1.04, y: -1 }}
                   whileTap={{ scale: 0.97 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
                   className={cn(
-                    "h-12 px-6 rounded-2xl font-medium text-base flex items-center gap-2",
+                    "h-12 px-6 rounded-2xl font-semibold text-sm flex items-center gap-2 whitespace-nowrap",
                     "bg-gradient-to-r from-amber-500 to-amber-600",
-                    "text-white shadow-lg shadow-amber-500/25",
-                    "hover:shadow-xl hover:shadow-amber-500/35",
-                    "transition-shadow duration-200",
-                    "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg disabled:hover:shadow-amber-500/25"
+                    "text-white",
+                    "shadow-[0_4px_20px_-4px_rgba(245,158,11,0.5)]",
+                    "hover:shadow-[0_8px_30px_-4px_rgba(245,158,11,0.6)]",
+                    "transition-shadow duration-300",
+                    "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                   )}
                 >
                   <AnimatePresence mode="wait">
