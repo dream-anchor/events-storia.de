@@ -35,7 +35,6 @@ const AccordionSection = ({
     <div 
       className={cn(
         "border border-border rounded-xl bg-card overflow-hidden transition-all duration-300",
-        isOpen && "ring-2 ring-amber-400/30",
         className
       )}
     >
