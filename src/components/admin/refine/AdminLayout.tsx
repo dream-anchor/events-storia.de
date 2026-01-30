@@ -1,16 +1,15 @@
 import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLogout, useGetIdentity } from "@refinedev/core";
-import { LogOut, ExternalLink, LayoutDashboard, CalendarDays, UtensilsCrossed, FileText, Package, Command, CheckCircle2, Inbox, Moon, Sun } from "lucide-react";
+import { LogOut, ExternalLink, Command, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import storiaLogo from "@/assets/storia-logo.webp";
 import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
 import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
 import { useInboxCounts } from "@/hooks/useUnifiedInbox";
-import { FloatingPillNav, MobilePillNav } from "./FloatingPillNav";
+import { FloatingPillNav, MobilePillNav, MobileBottomNav } from "./FloatingPillNav";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
 import { useTheme } from "next-themes";
 
@@ -18,16 +17,6 @@ interface AdminLayoutProps {
   children: ReactNode;
   activeTab?: string;
 }
-
-const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
-  { name: 'Inbox', href: '/admin/inbox', icon: Inbox, key: 'inbox', badge: 'inbox' },
-  { name: 'Anfragen', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
-  { name: 'Events', href: '/admin/bookings', icon: CheckCircle2, key: 'bookings', badge: 'bookings' },
-  { name: 'Catering', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
-  { name: 'Pakete', href: '/admin/packages', icon: Package, key: 'packages' },
-  { name: 'Speisen', href: '/admin/menu', icon: UtensilsCrossed, key: 'menu' },
-];
 
 export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
   const navigate = useNavigate();
@@ -55,7 +44,7 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-3 shrink-0">
+            <Link to="/admin" className="flex items-center gap-3 shrink-0">
               <img 
                 src={storiaLogo} 
                 alt="STORIA" 
@@ -65,7 +54,6 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
             
             {/* Floating Pill Navigation (Desktop) */}
             <FloatingPillNav 
-              items={navigation} 
               activeKey={activeTab}
               getBadgeCount={getBadgeCount}
             />
@@ -113,10 +101,9 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
             </div>
           </div>
           
-          {/* Mobile Navigation */}
+          {/* Mobile Secondary Navigation (Horizontal Scroll) */}
           <div className="mt-3 md:hidden">
             <MobilePillNav 
-              items={navigation} 
               activeKey={activeTab}
               getBadgeCount={getBadgeCount}
             />
@@ -127,10 +114,13 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
       {/* Command Palette */}
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
+      {/* Main Content - with bottom padding for mobile nav */}
+      <main className="container mx-auto px-4 py-6 pb-24 md:pb-6">
         {children}
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav getBadgeCount={getBadgeCount} />
     </div>
   );
 };
