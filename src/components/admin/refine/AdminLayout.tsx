@@ -5,7 +5,6 @@ import { LogOut, ExternalLink, Command } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import storiaLogo from "@/assets/storia-logo.webp";
 import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
 import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
@@ -41,12 +40,10 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
           <div className="flex items-center justify-between gap-4">
             {/* Logo with subtle animation */}
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Link to="/admin" className="flex items-center gap-3 shrink-0">
-                <img 
-                  src={storiaLogo} 
-                  alt="STORIA" 
-                  className="h-7 hover:opacity-80 transition-opacity" 
-                />
+              <Link to="/admin" className="flex items-center gap-2 shrink-0">
+                <span className="font-serif text-xl font-semibold tracking-tight">
+                  StoriaMaestro
+                </span>
               </Link>
             </motion.div>
             
