@@ -1,112 +1,69 @@
 
-# Navigation-Korrektur: Semantisch korrekte Menüstruktur
+# Fix: Paketvorauswahl korrekt anzeigen und berechnen
 
 ## Problem
 
-Der Haupt-Navigationsbutton heißt "Anfragen", aber enthält:
-- Event-Anfragen ✓ (passt zum Namen)
-- Buchungen ✗ (sind keine "Anfragen")
-- Catering ✗ (sind keine "Anfragen")
+Wenn ein Kunde bei der Anfrage ein Paket ausgewählt hat (z.B. "Business Dinner – Exclusive"), wird dieses zwar beim Initialisieren gesetzt, aber:
+1. Das Dropdown zeigt es nicht korrekt an, weil `totalAmount` = 0 ist
+2. Der Preis wird nicht berechnet
+3. `selectedPackages` fehlt in den useEffect-Dependencies
 
-## Lösung: Zwei getrennte Haupt-Kategorien
+## Lösung
 
-```text
-Vorher:
-[Dashboard] [Anfragen ▼]        [Stammdaten ▼]
-             └── Event-Anfragen
-             └── Buchungen
-             └── Catering
-
-Nachher:
-[Dashboard] [Events ▼]          [Catering] [Stammdaten ▼]
-             └── Anfragen
-             └── Buchungen
-```
-
-### Semantik gemäß Business-Logik
-
-| Kategorie | Unterpunkte | Beschreibung |
-|-----------|-------------|--------------|
-| **Events** | Anfragen, Buchungen | Alles rund um Restaurant-Events |
-| **Catering** | (keine Unterpunkte) | Shop-Bestellungen für Lieferung |
-| **Stammdaten** | Pakete, Speisen & Getränke | Konfiguration |
+Im `useMultiOfferState.ts` Hook bei der Initialisierung auch den Preis berechnen und den Paketnamen setzen.
 
 ## Technische Änderungen
 
-### Datei: `src/components/admin/refine/FloatingPillNav.tsx`
+### Datei: `src/components/admin/refine/InquiryEditor/MultiOffer/useMultiOfferState.ts`
 
-**Desktop-Navigation (Zeilen 29-58):**
-```tsx
-const navigationContexts: NavItem[] = [
-  { 
-    name: 'Dashboard', 
-    href: '/admin', 
-    icon: LayoutDashboard, 
-    key: 'dashboard' 
-  },
-  { 
-    name: 'Events',       // Vorher: "Anfragen"
-    href: '/admin/events', 
-    icon: CalendarDays, 
-    key: 'events',
-    children: [
-      { name: 'Anfragen', href: '/admin/events', key: 'events', badge: 'events', icon: CalendarDays },
-      { name: 'Buchungen', href: '/admin/bookings', key: 'bookings', badge: 'bookings', icon: CheckCircle2 },
-    ]
-  },
-  { 
-    name: 'Catering',     // Eigene Haupt-Kategorie (ohne Dropdown)
-    href: '/admin/orders', 
-    icon: FileText, 
-    key: 'orders',
-    badge: 'orders',
-  },
-  { 
-    name: 'Stammdaten', 
-    href: '/admin/packages', 
-    icon: Database, 
-    key: 'catalog',
-    children: [
-      { name: 'Pakete', href: '/admin/packages', key: 'packages', icon: Package },
-      { name: 'Speisen & Getränke', href: '/admin/menu', key: 'menu', icon: UtensilsCrossed },
-    ]
-  },
-];
+**Zeilen 57-64 ändern:**
+
+```typescript
+} else {
+  // Create initial option A - pre-fill with customer's selected package if available
+  const customerPackage = selectedPackages?.[0];
+  const customerPackageId = customerPackage?.id || null;
+  
+  // Calculate initial total if package is selected
+  let initialTotal = 0;
+  let initialPackageName = '';
+  
+  if (customerPackage) {
+    // Try to get price info from selected_packages data
+    // The selected_packages array contains full package info from cart
+    const pkgData = customerPackage as { 
+      id: string; 
+      name?: string; 
+      price?: number; 
+      pricePerPerson?: boolean;
+    };
+    
+    initialPackageName = pkgData.name || '';
+    if (pkgData.price) {
+      initialTotal = pkgData.pricePerPerson 
+        ? pkgData.price * guestCount 
+        : pkgData.price;
+    }
+  }
+  
+  setOptions([{
+    id: crypto.randomUUID(),
+    ...createEmptyOption('A', guestCount),
+    packageId: customerPackageId,
+    packageName: initialPackageName,
+    totalAmount: initialTotal,
+  }]);
+}
 ```
 
-**Mobile-Navigation (MobileBottomNav, Zeilen 209-213):**
-```tsx
-const mobileItems = [
-  { name: 'Events', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
-  { name: 'Catering', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
-  { name: 'Stammdaten', href: '/admin/packages', icon: Database, key: 'catalog' },
-];
-```
+**Dependency Array erweitern (Zeile 94):**
 
-**Mobile-Pill-Navigation (MobilePillNav, Zeilen 283-288):**
-```tsx
-const shortcuts = [
-  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
-  { name: 'Anfragen', href: '/admin/events', icon: CalendarDays, key: 'events', badge: 'events' },
-  { name: 'Buchungen', href: '/admin/bookings', icon: CheckCircle2, key: 'bookings', badge: 'bookings' },
-  { name: 'Catering', href: '/admin/orders', icon: FileText, key: 'orders', badge: 'orders' },
-];
-```
-
-**Active-Context-Logik anpassen (Zeile 76):**
-```tsx
-const getActiveContext = () => {
-  const path = location.pathname;
-  if (path === '/admin' || path === '/admin/') return 'dashboard';
-  if (path.includes('/admin/events') || path.includes('/admin/bookings')) return 'events';
-  if (path.includes('/admin/orders')) return 'orders';  // Separate Kategorie
-  if (path.includes('/admin/packages') || path.includes('/admin/menu') || path.includes('/admin/locations')) return 'catalog';
-  return activeKey;
-};
+```typescript
+}, [inquiryId, guestCount, selectedPackages]);
 ```
 
 ## Ergebnis
 
-- **Events** (Dropdown): Anfragen + Buchungen = kompletter Event-Workflow
-- **Catering** (Direkt-Link): Shop-Bestellungen = separater Verkaufskanal
-- Klare semantische Trennung der beiden Geschäftsbereiche
+- Das vom Kunden gewählte Paket erscheint sofort im Dropdown als ausgewählt
+- Der Preis wird automatisch auf Basis der Gästezahl berechnet
+- Der Paketname wird in der Option gespeichert
