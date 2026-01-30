@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLogout, useGetIdentity } from "@refinedev/core";
-import { LogOut, ChevronDown, User, Mail, Check, X, Pencil } from "lucide-react";
+import { LogOut, ChevronDown, User, Mail, Check, X, Pencil, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   DropdownMenu,
@@ -13,6 +13,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // Known admin display names
 const ADMIN_DISPLAY_NAMES: Record<string, string> = {
@@ -59,15 +61,30 @@ const getDisplayName = (email?: string, providedName?: string) => {
 
 export function UserProfileDropdown() {
   const { mutate: logout } = useLogout();
-  const { data: identity } = useGetIdentity<{ email: string; name?: string }>();
+  const { data: identity, refetch: refetchIdentity } = useGetIdentity<{ email: string; name?: string }>();
   
+  // Name editing state
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [customName, setCustomName] = useState<string | null>(null);
   
+  // Email editing state
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editedEmail, setEditedEmail] = useState('');
+  const [isEmailLoading, setIsEmailLoading] = useState(false);
+  
   const displayName = customName || getDisplayName(identity?.email, identity?.name);
   const initials = getInitials(displayName, identity?.email);
   
+  // Load custom name from localStorage on mount
+  useEffect(() => {
+    if (identity?.email) {
+      const stored = localStorage.getItem(`admin_display_name_${identity.email}`);
+      if (stored) setCustomName(stored);
+    }
+  }, [identity?.email]);
+  
+  // Name editing handlers
   const handleStartEditName = () => {
     setEditedName(displayName);
     setIsEditingName(true);
@@ -76,26 +93,66 @@ export function UserProfileDropdown() {
   const handleSaveName = () => {
     if (editedName.trim()) {
       setCustomName(editedName.trim());
-      // Store in localStorage for persistence
       if (identity?.email) {
         localStorage.setItem(`admin_display_name_${identity.email}`, editedName.trim());
       }
+      toast.success('Name aktualisiert');
     }
     setIsEditingName(false);
   };
   
-  const handleCancelEdit = () => {
+  const handleCancelEditName = () => {
     setIsEditingName(false);
     setEditedName('');
   };
-
-  // Load custom name from localStorage on mount
-  useState(() => {
-    if (identity?.email) {
-      const stored = localStorage.getItem(`admin_display_name_${identity.email}`);
-      if (stored) setCustomName(stored);
+  
+  // Email editing handlers
+  const handleStartEditEmail = () => {
+    setEditedEmail(identity?.email || '');
+    setIsEditingEmail(true);
+  };
+  
+  const handleSaveEmail = async () => {
+    if (!editedEmail.trim() || editedEmail === identity?.email) {
+      setIsEditingEmail(false);
+      return;
     }
-  });
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editedEmail.trim())) {
+      toast.error('Ungültige E-Mail-Adresse');
+      return;
+    }
+    
+    setIsEmailLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        email: editedEmail.trim(),
+      });
+      
+      if (error) throw error;
+      
+      toast.success('Bestätigungs-E-Mail gesendet', {
+        description: 'Bitte bestätige die neue E-Mail-Adresse über den Link in der E-Mail.',
+      });
+      setIsEditingEmail(false);
+      // Refetch identity after a delay to get updated email
+      setTimeout(() => refetchIdentity(), 2000);
+    } catch (error: any) {
+      console.error('Email update error:', error);
+      toast.error('Fehler beim Aktualisieren', {
+        description: error.message || 'E-Mail konnte nicht geändert werden.',
+      });
+    } finally {
+      setIsEmailLoading(false);
+    }
+  };
+  
+  const handleCancelEditEmail = () => {
+    setIsEditingEmail(false);
+    setEditedEmail('');
+  };
 
   return (
     <DropdownMenu>
@@ -134,22 +191,24 @@ export function UserProfileDropdown() {
             
             <div className="flex-1 min-w-0 space-y-1">
               {/* Editable Name */}
+              {/* Editable Name */}
               {isEditingName ? (
                 <div className="flex items-center gap-1">
                   <Input
                     value={editedName}
                     onChange={(e) => setEditedName(e.target.value)}
                     className="h-7 text-sm font-medium px-2"
+                    placeholder="Dein Name"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleSaveName();
-                      if (e.key === 'Escape') handleCancelEdit();
+                      if (e.key === 'Escape') handleCancelEditName();
                     }}
                   />
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-primary hover:text-primary"
+                    className="h-7 w-7 text-primary hover:text-primary shrink-0"
                     onClick={handleSaveName}
                   >
                     <Check className="h-3.5 w-3.5" />
@@ -157,8 +216,8 @@ export function UserProfileDropdown() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                    onClick={handleCancelEdit}
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                    onClick={handleCancelEditName}
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
@@ -171,7 +230,7 @@ export function UserProfileDropdown() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                     onClick={handleStartEditName}
                   >
                     <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -179,11 +238,59 @@ export function UserProfileDropdown() {
                 </div>
               )}
               
-              {/* Email */}
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Mail className="h-3 w-3 shrink-0" />
-                <span className="truncate">{identity?.email}</span>
-              </div>
+              {/* Editable Email */}
+              {isEditingEmail ? (
+                <div className="flex items-center gap-1 mt-1">
+                  <Input
+                    type="email"
+                    value={editedEmail}
+                    onChange={(e) => setEditedEmail(e.target.value)}
+                    className="h-7 text-xs px-2"
+                    placeholder="neue@email.de"
+                    autoFocus
+                    disabled={isEmailLoading}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveEmail();
+                      if (e.key === 'Escape') handleCancelEditEmail();
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-primary hover:text-primary shrink-0"
+                    onClick={handleSaveEmail}
+                    disabled={isEmailLoading}
+                  >
+                    {isEmailLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                    onClick={handleCancelEditEmail}
+                    disabled={isEmailLoading}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground group">
+                  <Mail className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{identity?.email}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    onClick={handleStartEditEmail}
+                  >
+                    <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
