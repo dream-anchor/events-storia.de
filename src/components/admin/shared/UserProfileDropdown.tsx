@@ -160,14 +160,14 @@ export function UserProfileDropdown() {
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Button 
             variant="ghost" 
-            className="flex items-center gap-2 rounded-2xl px-2.5 h-10 hover:bg-accent/50"
+            className="flex items-center gap-2 rounded-2xl px-2.5 h-10 hover:bg-accent/50 font-sans"
           >
             <Avatar className="h-8 w-8 border border-border/50">
-              <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/5 text-primary text-sm font-semibold">
+              <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/5 text-primary text-sm font-semibold font-sans">
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <span className="hidden lg:block text-sm font-medium max-w-[140px] truncate">
+            <span className="hidden lg:block text-sm font-medium max-w-[140px] truncate font-sans">
               {displayName}
             </span>
             <ChevronDown className="h-4 w-4 text-muted-foreground/70" />
@@ -177,14 +177,14 @@ export function UserProfileDropdown() {
       
       <DropdownMenuContent 
         align="end" 
-        className="w-72 p-0 overflow-hidden"
+        className="w-72 p-0 overflow-hidden font-sans"
         sideOffset={8}
       >
         {/* Profile Header */}
         <div className="bg-gradient-to-br from-muted/50 to-muted/30 p-4">
           <div className="flex items-start gap-3">
             <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
-              <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-base font-semibold">
+              <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-base font-semibold font-sans">
                 {initials}
               </AvatarFallback>
             </Avatar>
