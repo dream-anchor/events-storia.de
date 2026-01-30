@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { OfferOption, OfferHistoryEntry, OPTION_LABELS, createEmptyOption, MenuSelectionType } from "./types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -20,6 +20,9 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
   const [history, setHistory] = useState<OfferHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const isInitialLoad = useRef(true);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load existing options from database
   useEffect(() => {
@@ -118,6 +121,74 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
 
     loadOptions();
   }, [inquiryId, guestCount, selectedPackages]);
+
+  // Auto-save options when they change (debounced)
+  useEffect(() => {
+    // Skip auto-save during initial load
+    if (isLoading || isInitialLoad.current) {
+      return;
+    }
+
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce save by 800ms
+    setSaveStatus('saving');
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        // Delete existing options for this inquiry
+        await supabase
+          .from("inquiry_offer_options")
+          .delete()
+          .eq("inquiry_id", inquiryId);
+
+        // Insert updated options
+        for (const opt of options) {
+          await (supabase as any)
+            .from("inquiry_offer_options")
+            .insert({
+              id: opt.id,
+              inquiry_id: inquiryId,
+              offer_version: currentVersion,
+              package_id: opt.packageId,
+              option_label: opt.optionLabel,
+              guest_count: opt.guestCount,
+              menu_selection: opt.menuSelection,
+              total_amount: opt.totalAmount,
+              stripe_payment_link_id: opt.stripePaymentLinkId,
+              stripe_payment_link_url: opt.stripePaymentLinkUrl,
+              is_active: opt.isActive,
+              sort_order: opt.sortOrder,
+            });
+        }
+
+        setSaveStatus('saved');
+        // Reset to idle after 2 seconds
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } catch (error) {
+        console.error("Auto-save error:", error);
+        setSaveStatus('idle');
+      }
+    }, 800);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [options, inquiryId, currentVersion, isLoading]);
+
+  // Mark initial load as complete after first load
+  useEffect(() => {
+    if (!isLoading && isInitialLoad.current) {
+      // Small delay to ensure state is settled
+      setTimeout(() => {
+        isInitialLoad.current = false;
+      }, 100);
+    }
+  }, [isLoading]);
 
   // Add a new option
   const addOption = useCallback(() => {
@@ -236,6 +307,7 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     history,
     isLoading,
     isSaving,
+    saveStatus,
     addOption,
     removeOption,
     updateOption,

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Send, FileText, Loader2, History } from "lucide-react";
+import { Plus, Send, FileText, Loader2, History, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,7 @@ export function MultiOfferComposer({
     history,
     isLoading,
     isSaving,
+    saveStatus,
     addOption,
     removeOption,
     updateOption,
@@ -264,6 +265,19 @@ export function MultiOfferComposer({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Auto-save status indicator */}
+          {saveStatus === 'saving' && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Speichert...
+            </span>
+          )}
+          {saveStatus === 'saved' && (
+            <span className="flex items-center gap-1.5 text-xs text-primary">
+              <Check className="h-3 w-3" />
+              Gespeichert
+            </span>
+          )}
           <Badge variant="outline" className="text-sm">
             Version {currentVersion}
           </Badge>
