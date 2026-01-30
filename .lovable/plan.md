@@ -1,130 +1,141 @@
 
+## Font-Umstellung: Cormorant Garamond → Playfair Display + Great Vibes lokal
 
-## Fehlerbehebung: create-catering-payment Edge Function
+### Übersicht
 
-### Problem identifiziert
+Die aktuelle Didone-Schrift **Cormorant Garamond** wird durch **Playfair Display** ersetzt. Zusätzlich wird **Great Vibes** (Signatur-Schrift) lokal gehostet, um vollständige DSGVO-Konformität zu gewährleisten.
 
-Die Edge Function `create-catering-payment` schlägt mit folgendem Fehler fehl:
+---
 
-```
-Invalid URL: An explicit scheme (such as https) must be provided.
-```
+### Betroffene Dateien
 
-**Ursache:** Der `Origin`-Header ist in manchen Fällen `null`, was zu ungültigen Stripe-Redirect-URLs führt:
+| Datei | Änderung |
+|-------|----------|
+| `public/fonts/` | Neue Font-Dateien hinzufügen |
+| `src/styles/fonts.css` | @font-face Deklarationen aktualisieren |
+| `tailwind.config.ts` | Font-Familie anpassen |
+| `index.html` | Preload-Links + Google Fonts Referenz entfernen |
 
-```typescript
-// Zeile 190-191 - Problem:
-success_url: `${req.headers.get("origin")}/checkout?payment=success&order=${orderNumber}`,
-cancel_url: `${req.headers.get("origin")}/checkout?payment=cancelled`,
+---
 
-// Ergebnis wenn Origin fehlt:
-// success_url: "null/checkout?payment=success..." → INVALID!
+### Schritt 1: Font-Dateien herunterladen
+
+Die folgenden woff2-Dateien werden benötigt und in `public/fonts/` abgelegt:
+
+**Playfair Display (ersetzt Cormorant Garamond):**
+- `PlayfairDisplay-Regular.woff2` (400)
+- `PlayfairDisplay-Medium.woff2` (500)
+- `PlayfairDisplay-SemiBold.woff2` (600)
+- `PlayfairDisplay-Bold.woff2` (700)
+
+**Great Vibes (bisher Google Fonts):**
+- `GreatVibes-Regular.woff2` (400)
+
+---
+
+### Schritt 2: fonts.css aktualisieren
+
+```css
+/* Playfair Display - Ersetzt Cormorant Garamond */
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/PlayfairDisplay-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/PlayfairDisplay-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/PlayfairDisplay-SemiBold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/PlayfairDisplay-Bold.woff2') format('woff2');
+}
+
+/* Great Vibes - Jetzt lokal gehostet */
+@font-face {
+  font-family: 'Great Vibes';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/GreatVibes-Regular.woff2') format('woff2');
+}
+
+/* Inter bleibt unverändert */
 ```
 
 ---
 
-### Lösung
-
-Die Edge Function muss einen **Fallback** verwenden, wenn der `Origin`-Header fehlt. Es gibt zwei Optionen:
-
-#### Option 1: Referer-Header als Fallback (bevorzugt)
+### Schritt 3: tailwind.config.ts anpassen
 
 ```typescript
-// Ermittle die Basis-URL aus Origin oder Referer
-const origin = req.headers.get("origin");
-const referer = req.headers.get("referer");
-
-let baseUrl = origin;
-if (!baseUrl && referer) {
-  // Extrahiere Origin aus Referer (z.B. "https://example.com/checkout" → "https://example.com")
-  try {
-    const refererUrl = new URL(referer);
-    baseUrl = refererUrl.origin;
-  } catch {
-    baseUrl = null;
-  }
-}
-
-// Fallback auf bekannte Produktions-Domain
-if (!baseUrl) {
-  baseUrl = "https://ristorantestoria.de";
-}
-
-// Verwende sichere baseUrl für Stripe-Redirects
-success_url: `${baseUrl}/checkout?payment=success&order=${orderNumber}`,
-cancel_url: `${baseUrl}/checkout?payment=cancelled`,
-```
-
-#### Option 2: Explizite URL vom Client übergeben
-
-Der Client sendet im Request-Body die aktuelle URL mit, z.B.:
-
-```typescript
-// Checkout.tsx beim Aufruf
-body: {
-  ...
-  returnUrl: window.location.origin,
-}
-
-// Edge Function
-const returnUrl = body.returnUrl || "https://ristorantestoria.de";
+fontFamily: {
+  'serif': ['Playfair Display', 'serif'],  // War: Cormorant Garamond
+  'sans': ['Inter', 'sans-serif'],
+  'signature': ['Great Vibes', 'cursive'],
+},
 ```
 
 ---
 
-### Empfehlung: Option 1 (Referer-Fallback)
+### Schritt 4: index.html bereinigen
 
-**Warum?**
-- Kein Frontend-Update nötig
-- Funktioniert auch in Edge Cases (z.B. Previews, Custom Domains)
-- Robuster Fallback auf bekannte Produktions-Domain
+**Entfernen:**
+- Google Fonts preconnect Links (Zeilen 37-38)
+- Google Fonts Great Vibes Referenz (Zeilen 48-50)
+- Preload für CormorantGaramond (Zeile 45)
 
----
+**Hinzufügen:**
+- Preload für Playfair Display
 
-### Implementierung
-
-**Datei:** `supabase/functions/create-catering-payment/index.ts`
-
-**Änderungen:**
-
-1. Nach Zeile 23 (`const { amount, ... } = await req.json();`) hinzufügen:
-
-```typescript
-// Determine base URL for Stripe redirect URLs
-const origin = req.headers.get("origin");
-const referer = req.headers.get("referer");
-
-let baseUrl = origin;
-if (!baseUrl && referer) {
-  try {
-    const refererUrl = new URL(referer);
-    baseUrl = refererUrl.origin;
-  } catch {
-    baseUrl = null;
-  }
-}
-
-// Fallback to production domain if no origin detected
-if (!baseUrl) {
-  baseUrl = "https://ristorantestoria.de";
-}
-
-logStep("Base URL determined", { origin, referer, baseUrl });
-```
-
-2. Zeilen 190-191 ändern zu:
-
-```typescript
-success_url: `${baseUrl}/checkout?payment=success&order=${orderNumber}`,
-cancel_url: `${baseUrl}/checkout?payment=cancelled`,
+```html
+<!-- Preload critical fonts -->
+<link rel="preload" href="/fonts/PlayfairDisplay-Regular.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin />
 ```
 
 ---
 
-### Erwartetes Ergebnis
+### Schritt 5: Alte Font-Dateien aufräumen (optional)
 
-- Zahlungen funktionieren auch wenn `Origin`-Header fehlt
-- Preview-Domains werden automatisch erkannt
-- Produktions-Fallback verhindert Fehler in Edge Cases
-- Logging hilft bei zukünftiger Fehleranalyse
+Nach erfolgreicher Umstellung können die alten Cormorant Garamond Dateien entfernt werden:
+- `CormorantGaramond-Regular.woff2`
+- `CormorantGaramond-Medium.woff2`
+- `CormorantGaramond-SemiBold.woff2`
+- `CormorantGaramond-Bold.woff2`
 
+---
+
+### Ergebnis
+
+- **100% DSGVO-konform**: Keine externen Google Fonts Verbindungen mehr
+- **Playfair Display**: Elegante Didone-Schrift für Überschriften und Fließtext
+- **Performance**: Lokales Hosting = schnellere Ladezeiten
+- **Konsistenz**: Alle Schriften einheitlich aus `/fonts/` geladen
+
+---
+
+### Technische Hinweise
+
+**Font-Dateien Download:**  
+Die woff2-Dateien können von [Google Fonts Helper](https://gwfh.mranftl.com/fonts) oder direkt von [fonts.google.com](https://fonts.google.com) heruntergeladen werden. Ich werde die Dateien für dich bereitstellen.
+
+**Fallback-Kette:**  
+Playfair Display → Georgia → serif (Browser-Standard)
