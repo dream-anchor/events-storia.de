@@ -1,138 +1,244 @@
 
-# Plan: Mitarbeiternamen vollständig anzeigen – "Antoine Monot" statt "monot"
+
+# Plan: Angebot nach Versand einfrieren – "Locked after Send"
 
 ## Übersicht
 
-Aktuell wird der Benutzer `monot@hey.com` als "Domenico" (mit Initialen "DS") angezeigt. Das ist falsch – der korrekte Name lautet **Antoine Monot** (Initialen "AM").
+Nachdem ein Angebot verschickt wurde, soll es nicht mehr bearbeitet werden können. Die gesendete Konfiguration muss **unveränderlich** bleiben, damit immer nachvollziehbar ist, was der Kunde erhalten hat.
 
-Zusätzlich sind die Mitarbeiter-Namens-Mappings über 7+ Dateien verstreut, was zu Inkonsistenzen führt. Diese werden in eine zentrale Utility-Datei konsolidiert.
+Will der Kunde Änderungen, muss eine **neue Version** erstellt werden.
 
 ---
 
-## Schritt 1: Zentrale Admin-Utilities erstellen
-
-Neue Datei `src/lib/adminDisplayNames.ts` mit allen Mitarbeiter-Mappings:
+## Aktueller Stand
 
 ```text
-Alle bekannten Admins:
 ┌─────────────────────────────────────────────────────────────────┐
-│ E-Mail                     │ Vollständiger Name  │ Initialen   │
-├────────────────────────────┼─────────────────────┼─────────────┤
-│ monot@hey.com              │ Antoine Monot       │ AM          │
-│ mimmo2905@yahoo.de         │ Domenico Speranza   │ DS          │
-│ nicola@storia.de           │ Nicola Speranza     │ NS          │
-│ madi@events-storia.de      │ Madina Khader       │ MK          │
-│ madina.khader@gmail.com    │ Madina Khader       │ MK          │
-│ info@storia.de             │ Storia Team         │ ST          │
+│ inquiry_offer_history                                           │
+│   → Snapshots jeder gesendeten Version (options_snapshot JSON)  │
+│   → Version 1, 2, 3 ...                                         │
+├─────────────────────────────────────────────────────────────────┤
+│ inquiry_offer_options                                           │
+│   → Aktuelle Optionen (editierbar)                              │
+│   → PROBLEM: Werden auch nach Versand verändert!                │
+├─────────────────────────────────────────────────────────────────┤
+│ event_inquiries                                                 │
+│   → offer_sent_at: Wann zuletzt gesendet                        │
+│   → current_offer_version: Aktuelle Version                     │
 └─────────────────────────────────────────────────────────────────┘
-
-Exportierte Funktionen:
-- getAdminDisplayName(email): string → Vollständiger Name
-- getAdminInitials(email): string → Initialen (2 Buchstaben)
-- getAdminFirstName(email): string → Vorname für E-Mail-Signaturen
 ```
 
 ---
 
-## Schritt 2: Betroffene Dateien aktualisieren
+## Lösung: "Locked Mode" nach Versand
+
+### Konzept
+
+```text
+                    ┌──────────────────────────────────┐
+                    │       Angebot gesendet?          │
+                    │     (offer_sent_at != null)      │
+                    └───────────────┬──────────────────┘
+                                    │
+                         ┌──────────┴──────────┐
+                         ▼                     ▼
+                    ┌─────────┐           ┌─────────────┐
+                    │   JA    │           │    NEIN     │
+                    └────┬────┘           └──────┬──────┘
+                         │                       │
+                         ▼                       ▼
+              ┌─────────────────────┐    ┌──────────────────┐
+              │  READONLY-MODUS     │    │  EDIT-MODUS      │
+              │  • Paket-Dropdown   │    │  • Alles normal  │
+              │    deaktiviert      │    │    bearbeitbar   │
+              │  • Menü-Editor      │    │                  │
+              │    deaktiviert      │    │                  │
+              │  • Gäste-Anzahl     │    │                  │
+              │    deaktiviert      │    │                  │
+              │  • "Neue Version"   │    │                  │
+              │    Button aktiv     │    │                  │
+              └─────────────────────┘    └──────────────────┘
+```
+
+---
+
+## Schritt 1: Read-Only State an Komponenten übergeben
+
+### MultiOfferComposer.tsx
+
+Neue Prop `isLocked` berechnen und an alle Kinder durchreichen:
+
+```text
+const isLocked = Boolean(inquiry.offer_sent_at);
+
+// Wenn gelockt, werden Optionen aus History-Snapshot gelesen
+// NICHT aus den editierbaren inquiry_offer_options
+```
+
+### OfferOptionCard.tsx
+
+Neue Prop `isLocked` empfangen:
+
+```text
+interface OfferOptionCardProps {
+  ...
+  isLocked?: boolean;  // NEU
+}
+```
+
+Bei `isLocked = true`:
+- Paket-Select: `disabled`
+- Gäste-Input: `disabled`  
+- Menü-Bearbeiten-Button: Versteckt
+- Aktiv/Inaktiv-Toggle: `disabled`
+- Löschen-Button: Versteckt
+
+---
+
+## Schritt 2: Gesendete Optionen anzeigen
+
+Wenn `isLocked = true`, sollen die Optionen **aus dem letzten History-Snapshot** angezeigt werden, nicht aus den editierbaren `inquiry_offer_options`.
+
+```text
+const displayOptions = isLocked && history.length > 0
+  ? history[0].optionsSnapshot  // Letzte gesendete Version
+  : options;                    // Aktuelle bearbeitbare Optionen
+```
+
+Dies stellt sicher, dass immer genau das angezeigt wird, was gesendet wurde.
+
+---
+
+## Schritt 3: "Neue Version erstellen" Flow
+
+Wenn gesperrt, gibt es einen Button um eine neue Version zu starten:
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  ⚠️ Dieses Angebot wurde am 15.01.26 um 14:30 versendet.       │
+│                                                                 │
+│  Die gesendete Konfiguration kann nicht mehr geändert werden.  │
+│                                                                 │
+│  [ 📝 Neue Version erstellen ]                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Ablauf "Neue Version erstellen":**
+
+1. System kopiert die gesperrten Optionen in neue bearbeitbare Optionen
+2. `offer_sent_at` wird auf `null` gesetzt (entsperrt zum Bearbeiten)
+3. `current_offer_version` wird inkrementiert
+4. Nach dem erneuten Senden wird wieder gesperrt
+
+---
+
+## Schritt 4: UI-Änderungen im Detail
+
+### 4a. Gesperrter Zustand – OfferOptionCard
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  [A]  Business Dinner                    🔒 Gesendet    │
+│       (nicht änderbar)                                  │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ Preis pro Person        49,00 €                 │   │
+│  │ Gäste                   × 50                    │   │
+│  │ ─────────────────────────────────────────────── │   │
+│  │ Gesamt                  2.450,00 €              │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+│  Gänge (3 ausgewählt)                                   │
+│  ✓ Vorspeise: Burrata mit Tomaten                       │
+│  ✓ Hauptgang: Saltimbocca                               │
+│  ✓ Dessert: Tiramisu                                    │
+│                                                         │
+│  [Link öffnen]                    ✓ Zahlungslink erstellt│
+└─────────────────────────────────────────────────────────┘
+
+(Alle Felder nur zur Ansicht, keine Edit-Buttons)
+```
+
+### 4b. Banner für gesperrte Anfragen
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  🔒 Angebot v2 wurde am 15.01.26 versendet             │
+│     von Domenico Speranza                               │
+│                                                         │
+│  [ Neue Version erstellen ]   [ Historie anzeigen ]     │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Technische Änderungen
 
 | Datei | Änderung |
 |-------|----------|
-| `src/lib/adminDisplayNames.ts` | **NEU** – Zentrale Mapping-Datei |
-| `src/components/admin/shared/EditorIndicator.tsx` | Import zentrales Mapping, "Antoine Monot" statt "Domenico" |
-| `src/components/admin/shared/Timeline.tsx` | Import zentrales Mapping |
-| `src/components/admin/shared/UserProfileDropdown.tsx` | Import zentrales Mapping |
-| `src/providers/refine-auth-provider.ts` | Import zentrales Mapping |
-| `src/components/admin/refine/EventsList.tsx` | Ersetze `email.includes('mimmo')` durch Lookup |
-| `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx` | Ersetze lokales `getDisplayName` |
-| `supabase/functions/generate-inquiry-email/index.ts` | Füge `monot@hey.com` → "Antoine" hinzu |
+| `MultiOfferComposer.tsx` | `isLocked` State berechnen, gesperrte Optionen aus History laden, Banner anzeigen |
+| `OfferOptionCard.tsx` | `isLocked` Prop, alle interaktiven Elemente deaktivieren |
+| `useMultiOfferState.ts` | Funktion `createNewVersion()` erweitern für Copy & Unlock Flow |
 
 ---
 
-## Schritt 3: Edge Function E-Mail-Signaturen
-
-Die Edge Function `generate-inquiry-email` verwendet Vornamen für E-Mail-Signaturen. Antoine Monot wird hinzugefügt:
+## Ablauf nach Implementierung
 
 ```text
-SENDER_INFO erweitern:
-+ 'monot@hey.com': { firstName: 'Antoine', mobile: '[zu erfragen]' }
-```
-
-**Hinweis:** Falls Antoine Monot keine personalisierte E-Mail-Signatur benötigt, kann dieser Eintrag weggelassen werden (Fallback auf Standard-Signatur).
-
----
-
-## Vorher → Nachher
-
-```text
-EditorIndicator (kompakt):
-┌─────────────────────────────┐     ┌─────────────────────────────┐
-│ [DS] vor 5 Min.             │ →   │ [AM] vor 5 Min.             │
-│ Tooltip: "Domenico"         │     │ Tooltip: "Antoine Monot"    │
-└─────────────────────────────┘     └─────────────────────────────┘
-
-Timeline:
-┌─────────────────────────────┐     ┌─────────────────────────────┐
-│ von monot                   │ →   │ von Antoine Monot           │
-└─────────────────────────────┘     └─────────────────────────────┘
-
-EventsList Status:
-┌─────────────────────────────┐     ┌─────────────────────────────┐
-│ "von monot"                 │ →   │ "von Antoine Monot"         │
-└─────────────────────────────┘     └─────────────────────────────┘
-```
-
----
-
-## Technische Details
-
-### Neue Utility-Datei: `src/lib/adminDisplayNames.ts`
-
-```typescript
-// Zentrale Admin-Konfiguration
-interface AdminInfo {
-  fullName: string;
-  firstName: string;
-  initials: string;
-  mobile?: string;
-}
-
-const ADMIN_REGISTRY: Record<string, AdminInfo> = {
-  'monot@hey.com': { 
-    fullName: 'Antoine Monot', 
-    firstName: 'Antoine', 
-    initials: 'AM' 
-  },
-  'mimmo2905@yahoo.de': { 
-    fullName: 'Domenico Speranza', 
-    firstName: 'Domenico', 
-    initials: 'DS',
-    mobile: '+49 163 6033912'
-  },
-  // ... weitere Einträge
-};
-
-export function getAdminDisplayName(email?: string | null): string;
-export function getAdminInitials(email?: string | null): string;
-export function getAdminFirstName(email?: string | null): string;
-```
-
-### Komponenten-Import-Muster
-
-```typescript
-// Vorher (in jeder Datei dupliziert)
-const ADMIN_DISPLAY_NAMES = { ... };
-const getDisplayName = (email) => ...;
-
-// Nachher (zentraler Import)
-import { getAdminDisplayName, getAdminInitials } from '@/lib/adminDisplayNames';
+                     Anfrage erstellt
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │ Optionen    │
+                    │ konfigurieren│
+                    └──────┬──────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │ Angebot     │
+                    │ senden      │
+                    └──────┬──────┘
+                           │
+                           ▼
+              ┌────────────────────────┐
+              │ 🔒 GESPERRT            │
+              │ • Optionen readonly    │
+              │ • Aus Snapshot geladen │
+              │ • Exakt wie gesendet   │
+              └───────────┬────────────┘
+                          │
+                          │ Kunde wünscht Änderung
+                          ▼
+              ┌────────────────────────┐
+              │ "Neue Version" klicken │
+              └───────────┬────────────┘
+                          │
+                          ▼
+              ┌────────────────────────┐
+              │ 🔓 ENTSPERRT           │
+              │ • Optionen bearbeitbar │
+              │ • Version inkrementiert│
+              └───────────┬────────────┘
+                          │
+                          ▼
+                    ┌─────────────┐
+                    │ Erneut      │
+                    │ senden      │
+                    └──────┬──────┘
+                          │
+                          ▼
+              ┌────────────────────────┐
+              │ 🔒 GESPERRT (v2)       │
+              └────────────────────────┘
 ```
 
 ---
 
 ## Zusammenfassung
 
-- **1 neue Datei:** Zentrale Admin-Utilities
-- **7 Dateien aktualisiert:** Alle verwenden jetzt die zentrale Quelle
-- **Korrektur:** `monot@hey.com` = "Antoine Monot" (AM)
-- **Bonus:** Kein duplizierter Code mehr, einfache Wartung bei neuen Mitarbeitern
+- **Nachvollziehbarkeit:** Was gesendet wurde, bleibt unverändert erhalten
+- **Versionierung:** Jede Änderung = neue Version
+- **Klare UI:** Gesperrte Optionen sind optisch erkennbar (🔒, grau, keine Buttons)
+- **Flexibilität:** "Neue Version erstellen" ermöglicht Folge-Angebote
+
