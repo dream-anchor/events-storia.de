@@ -18,8 +18,9 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useActivityLogs, formatActivityAction } from '@/hooks/useActivityLog';
-import type { ActivityLog, EntityType } from '../types';
+import type { ActivityLog, EntityType } from './types';
 
 interface TimelineProps {
   entityType: EntityType;
@@ -106,7 +107,7 @@ const TimelineEntry = ({ log }: TimelineEntryProps) => {
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2">
               <div 
-                className="rounded-md border bg-white dark:bg-muted p-3 prose prose-sm max-w-none text-foreground overflow-auto max-h-[300px]"
+                className="rounded-md border bg-white p-3 prose prose-sm max-w-none text-foreground overflow-auto max-h-[300px]"
                 dangerouslySetInnerHTML={{ __html: log.metadata?.html_content || '' }}
               />
             </CollapsibleContent>
@@ -137,38 +138,62 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
 
   if (isLoading) {
     return (
-      <div className={cn("p-4", className)}>
-        <div className="animate-pulse space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-16 bg-muted rounded-lg" />
-          ))}
-        </div>
-      </div>
+      <Card className={className}>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Aktivitäten
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="animate-pulse space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-16 bg-muted rounded-lg" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   if (logs.length === 0) {
     return (
-      <div className={cn("p-6 text-center text-muted-foreground", className)}>
-        <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">Noch keine Aktivitäten</p>
-      </div>
+      <Card className={className}>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Aktivitäten
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center text-muted-foreground py-6">
+            <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Noch keine Aktivitäten</p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className={cn("p-4", className)}>
-      <h3 className="text-sm font-medium mb-4">Aktivitäten</h3>
-      
-      {/* Timeline with vertical connector */}
-      <div className="relative pl-6 space-y-4">
-        {/* Vertical line */}
-        <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-        
-        {logs.map(log => (
-          <TimelineEntry key={log.id} log={log} />
-        ))}
-      </div>
-    </div>
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Activity className="h-4 w-4" />
+          Aktivitäten
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {/* Timeline with vertical connector */}
+        <div className="relative pl-6 space-y-4">
+          {/* Vertical line */}
+          <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+          
+          {logs.map(log => (
+            <TimelineEntry key={log.id} log={log} />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 };

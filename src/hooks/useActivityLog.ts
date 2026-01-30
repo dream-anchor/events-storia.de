@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { ActivityLog, EntityType } from '@/components/admin/inbox/types';
+import type { ActivityLog, EntityType } from '@/components/admin/shared/types';
 
 /**
  * Fetch activity logs for an entity

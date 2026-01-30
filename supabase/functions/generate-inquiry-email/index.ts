@@ -13,13 +13,11 @@ const SENDER_INFO: Record<string, { firstName: string; mobile: string }> = {
 };
 
 const COMPANY_FOOTER = `Speranza GmbH
-
 Karlstraße 47a
 80333 München
 Deutschland
 
 Telefon: +49 89 51519696
-
 E-Mail: info@events-storia.de
 
 Vertreten durch die Geschäftsführerin:
@@ -69,11 +67,10 @@ interface InquiryEmailRequest {
   notes?: string;
   menuSelection?: MenuSelection;
   packageName?: string;
-  senderEmail?: string;  // Email of the admin sending the offer
+  senderEmail?: string;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -98,12 +95,10 @@ serve(async (req) => {
     }: InquiryEmailRequest = await req.json();
 
     console.log('Generating email for inquiry type:', inquiryType);
-    console.log('Menu selection received:', menuSelection ? 'yes' : 'no');
     console.log('Sender email:', senderEmail);
 
     // Get sender info for personalized signature
     const senderInfo = SENDER_INFO[senderEmail?.toLowerCase() || ''] || { firstName: 'STORIA Team', mobile: '' };
-    console.log('Using sender info:', senderInfo.firstName);
 
     // Build personalized signature
     const personalizedSignature = `Viele Grüße
@@ -115,28 +110,15 @@ ${COMPANY_FOOTER}`;
     let menuContext = '';
     if (menuSelection) {
       if (menuSelection.courses && menuSelection.courses.length > 0) {
-        menuContext += '\nZusammengestelltes Menü:\n';
-        menuSelection.courses.forEach((course, index) => {
-          menuContext += `${index + 1}. ${course.courseLabel || course.courseType}: ${course.itemName}`;
-          if (course.itemDescription) {
-            menuContext += ` (${course.itemDescription})`;
-          }
-          menuContext += '\n';
-        });
+        menuContext += 'Ausgewähltes Menü: ';
+        menuContext += menuSelection.courses.map(c => c.itemName).join(', ');
+        menuContext += '\n';
       }
       
       if (menuSelection.drinks && menuSelection.drinks.length > 0) {
-        menuContext += '\nGetränke-Pauschale:\n';
-        menuSelection.drinks.forEach(drink => {
-          let drinkText = `- ${drink.drinkLabel || drink.drinkGroup}`;
-          if (drink.selectedChoice) {
-            drinkText += `: ${drink.selectedChoice}`;
-          }
-          if (drink.quantityLabel) {
-            drinkText += ` (${drink.quantityLabel})`;
-          }
-          menuContext += drinkText + '\n';
-        });
+        menuContext += 'Getränke: ';
+        menuContext += menuSelection.drinks.map(d => d.selectedChoice || d.drinkLabel).join(', ');
+        menuContext += '\n';
       }
     }
 
@@ -145,110 +127,72 @@ ${COMPANY_FOOTER}`;
     
     if (inquiryType === 'event') {
       context = `
-Art der Anfrage: Event/Feier im Restaurant Storia
 Kunde: ${contactName}${companyName ? ` (${companyName})` : ''}
-Art des Events: ${eventType || 'Feier'}
-Anzahl Gäste: ${guestCount || 'nicht angegeben'}
-Gewünschtes Datum: ${preferredDate || 'flexibel'}
-${packages && packages.length > 0 ? `Gewählte Pakete:\n${packages.map(p => `- ${p.name} (${p.price.toFixed(2)}€)`).join('\n')}` : ''}
+Event: ${eventType || 'Feier'}
+Datum: ${preferredDate || 'nach Absprache'}
+Gäste: ${guestCount || 'n.a.'}
+${packageName ? `Paket: ${packageName}` : ''}
 ${menuContext}
-${items && items.length > 0 ? `Zusätzliche Speisen:\n${items.map(i => `- ${i.quantity}x ${i.name}`).join('\n')}` : ''}
-${totalAmount ? `Gesamtbetrag: ${totalAmount.toFixed(2)}€` : ''}
-${notes ? `Notizen: ${notes}` : ''}
+${notes ? `Bemerkung: ${notes}` : ''}
       `.trim();
     } else {
       context = `
-Art der Anfrage: Catering-Lieferung außer Haus
 Kunde: ${contactName}${companyName ? ` (${companyName})` : ''}
-Lieferadresse: ${deliveryAddress || 'nicht angegeben'}
-Lieferzeit: ${deliveryTime || 'nicht angegeben'}
-Datum: ${preferredDate || 'nicht angegeben'}
+Lieferung: ${deliveryAddress || 'n.a.'}
+Datum/Zeit: ${preferredDate || ''} ${deliveryTime || ''}
 ${menuContext}
-${items && items.length > 0 ? `Bestellte Speisen:\n${items.map(i => `- ${i.quantity}x ${i.name}`).join('\n')}` : ''}
-${totalAmount ? `Gesamtbetrag: ${totalAmount.toFixed(2)}€` : ''}
-${notes ? `Notizen: ${notes}` : ''}
+${notes ? `Bemerkung: ${notes}` : ''}
       `.trim();
     }
 
-    // Determine drink type based on package name for context-aware phrasing
-    const isAperitivo = packageName?.toLowerCase().includes('aperitivo') || packageName?.toLowerCase().includes('network');
-    const isDinner = packageName?.toLowerCase().includes('dinner') || packageName?.toLowerCase().includes('exclusive');
-    const isFullBuyout = packageName?.toLowerCase().includes('location') || packageName?.toLowerCase().includes('buyout');
-    
-    // Package-specific drink terminology
-    let drinkTerminology = 'Getränke-Pauschale';
-    if (isAperitivo) {
-      drinkTerminology = 'Getränke-Pauschale (Aperitif & Wein/Bier)';
-    } else if (isDinner || isFullBuyout) {
-      drinkTerminology = 'Weinbegleitung';
-    }
+    // Optimized system prompt for short, professional emails
+    const systemPrompt = `Du bist ein professioneller Mitarbeiter von STORIA München.
 
-    const systemPrompt = `Du bist ein freundlicher Mitarbeiter des italienischen Business-Event-Restaurants "STORIA" in München. 
-Schreibe professionelle, aber herzliche E-Mails an Kunden. 
-Verwende "Sie" als Anrede.
-Halte die E-Mail strukturiert und angemessen lang (ca. 200-300 Wörter).
+STIL:
+- Freundlich, aber geschäftsmäßig und auf den Punkt
+- Kurz und prägnant (maximal 100-150 Wörter)
+- Keine überschwänglichen Floskeln wie "wunderbar", "fantastisch", "herausragend", "Es ist uns eine große Ehre"
+- KEIN Markdown (keine **, keine #, keine Listen mit -)
+- Normaler E-Mail-Fließtext mit kurzen Absätzen
 
-WICHTIG - SIGNATUR:
-Unterschreibe die E-Mail EXAKT mit folgender Signatur (keine Änderungen!):
+STRUKTUR (genau einhalten):
+1. Kurze Anrede (1 Satz)
+2. Bestätigung der wichtigsten Fakten (Datum, Gästeanzahl, ggf. Paket) in einem Fließtext-Satz
+3. Hinweis: "Das detaillierte Angebot finden Sie im Anhang."
+4. Info zur Vorauszahlung (100% erforderlich)
+5. Schlusssatz mit Kontaktangebot
+6. Signatur
 
-${personalizedSignature}
+VERBOTEN:
+- Aufzählungslisten
+- Fettdruck oder andere Formatierung
+- Übertrieben blumige Sprache
+- Mehr als 3 kurze Absätze vor der Signatur
+- Phrasen wie "Wir freuen uns außerordentlich", "Ihr exklusives Event wird unvergesslich"
 
-Erwähne NICHT den genauen Preis in der E-Mail - das Angebot wird als PDF-Anhang mitgeschickt.
+BEISPIEL-TON:
+"Sehr geehrte Frau Schmidt,
 
-ÜBER STORIA:
-- Moderne Eventlocation im Herzen Münchens für Business Events, Firmendinner und Kundenevents
-- Exklusiver Private Room (bis 65 Personen), Bar- & Open-Kitchen-Bereich (bis 42 Personen)
-- Kombinierbare Räume: bis 90-100 Personen sitzend, Flying Buffet bis 180 Gäste
+vielen Dank für Ihre Anfrage. Gerne bestätigen wir Ihnen folgende Details: Business Dinner für 45 Personen am 15.03.2026 mit unserem Exclusive-Paket.
 
-UNSERE PAKETE:
-1. Business Dinner – Exclusive (ab 99€ p.P., min. 30 Pers.): Welcome-Aperitivo, geteilte Vorspeisen, Zwei-Gang-Dinner, Wein/Wasser/Kaffee
-2. Networking Aperitivo (ab 69€ p.P., min. 20 Pers.): Italienisches Fingerfood, Live-Pasta-Station, Wein & Cocktails
-3. Full Buyout (ab 8.500€ pauschal): Exklusive Nutzung gesamte Location, individuelles Setup, Firmenbranding möglich
+Das detaillierte Angebot mit allen Konditionen finden Sie im Anhang. Für Ihr gewähltes Paket ist eine Vorauszahlung von 100% erforderlich.
 
-MENÜ-ERWÄHNUNG (WICHTIG):
-${menuSelection && (menuSelection.courses?.length > 0 || menuSelection.drinks?.length > 0) ? `
-- Das Menü wurde bereits zusammengestellt - beschreibe kurz und appetitanregend die Gänge
-- Erwähne die ausgewählten Gerichte namentlich mit einer kurzen, einladenden Beschreibung
-- Formuliere das Menü so, dass Vorfreude entsteht
-` : `
-- Kein spezifisches Menü ausgewählt - erwähne, dass Details im Angebot zu finden sind
-`}
+Bei Fragen stehe ich Ihnen gerne zur Verfügung.
 
-WICHTIGE HINWEISE (IMMER AM ENDE DER E-MAIL VOR DER SIGNATUR EINFÜGEN):
-Füge am Ende der E-Mail folgende Hinweise ein und passe sie dem Paket an:
+${personalizedSignature}"
 
-1. Getränke-Flexibilität (angepasst an Paket-Typ):
-   - Für Dinner/Full Buyout: "Der Wert der Weinbegleitung kann auf Wunsch auch flexibel auf andere Getränke angerechnet werden."
-   - Für Aperitivo: "Der Wert der Getränke-Pauschale kann auf Wunsch flexibel angepasst werden."
-
-2. Menü-Individualität:
-   "Die Menüs können innerhalb der Gruppe individuell gewählt werden. Allergien oder besondere Ernährungswünsche berücksichtigen wir selbstverständlich nach vorheriger Abstimmung."
-
-3. Verbindliche Angaben (nur bei Dinner mit Fleisch/Fisch-Auswahl):
-   "Für unsere Planung bitten wir um eine verbindliche Angabe der Anzahl der Fleisch- und Fisch-Menüs spätestens 3 Tage vor dem Termin."
-
-Das gewählte Paket ist: ${packageName || 'nicht spezifiziert'}
-Passe die Formulierungen entsprechend an (z.B. "${drinkTerminology}" statt generisch "Getränke").
-
-SCHLÜSSELREGELN (STRIKT EINHALTEN):
-- Wir arbeiten mit fixen Paketen und transparenten Festpreisen
-- Es werden KEINE Rabatte gewährt - niemals!
-- Falls der Kunde nach Rabatt gefragt hat, antworte höflich aber bestimmt:
-  "Wir arbeiten mit transparenten Festpreisen, um Ihnen maximale Qualität und Planungssicherheit zu garantieren."
-- Vorauszahlung von 100% ist verpflichtend für alle Pakete
-- Erwähne bei Events: "Für Ihr gewähltes Paket ist eine Vorauszahlung von 100% erforderlich."
-- Formate sind anpassbar, aber keine Preisnachlässe
-- Betone stets die Exklusivität, zentrale Lage und schlüsselfertige Eventorganisation`;
+SIGNATUR (exakt so verwenden):
+${personalizedSignature}`;
 
     const userPrompt = inquiryType === 'event' 
-      ? `Schreibe eine freundliche Bestätigungs-E-Mail für folgende Event-Anfrage. Bestätige den Empfang, zeige Begeisterung für das Event, erwähne die gewählten Pakete und das zusammengestellte Menü (falls vorhanden), und weise auf das beigefügte Angebot hin.
+      ? `Schreibe eine kurze, professionelle Bestätigungs-E-Mail (max. 150 Wörter, keine Markdown-Formatierung) für diese Event-Anfrage:
 
 ${context}`
-      : `Schreibe eine freundliche Bestätigungs-E-Mail für folgende Catering-Bestellung. Bestätige die Bestellung, erwähne den Liefertermin und das zusammengestellte Menü (falls vorhanden), und weise auf das beigefügte Angebot hin.
+      : `Schreibe eine kurze Bestätigungs-E-Mail (max. 150 Wörter, keine Markdown-Formatierung) für diese Catering-Bestellung:
 
 ${context}`;
 
-    // Use Lovable AI API - correct endpoint
+    // Use Lovable AI API
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
       throw new Error('LOVABLE_API_KEY not configured');
@@ -268,8 +212,8 @@ ${context}`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.7,
-        max_tokens: 1000,
+        temperature: 0.5,
+        max_tokens: 600,
       }),
     });
 
@@ -277,30 +221,18 @@ ${context}`;
       const errorText = await response.text();
       const status = response.status;
 
-      // Surface gateway billing/rate-limit issues in a user-friendly way.
-      // NOTE: We intentionally return 200 here so the frontend doesn't only show
-      // the generic "Edge Function returned a non-2xx status code".
       let friendly = `KI-Service Fehler (HTTP ${status}).`;
       if (status === 429) {
-        friendly =
-          'KI-Service ist gerade rate-limited (zu viele Anfragen). Bitte 30–60 Sekunden warten und erneut versuchen.';
+        friendly = 'KI-Service ist gerade rate-limited. Bitte 30-60 Sekunden warten.';
       } else if (status === 402) {
-        friendly =
-          'KI-Service: Guthaben/Limit erreicht (Payment Required). Bitte Credits im Workspace nachladen und erneut versuchen.';
+        friendly = 'KI-Service: Guthaben/Limit erreicht. Bitte Credits nachladen.';
       }
 
       console.error('Lovable AI API error:', status, errorText);
 
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: friendly,
-          status,
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        JSON.stringify({ success: false, error: friendly, status }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -310,30 +242,16 @@ ${context}`;
     console.log('Email generated successfully');
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        email: generatedEmail 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ success: true, email: generatedEmail }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: unknown) {
     console.error('Error generating email:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: errorMessage,
-        status: 500,
-      }),
-      { 
-        // Return 200 so the client can show the real error message (see above)
-        // instead of a generic "non-2xx" invoke error.
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ success: false, error: errorMessage, status: 500 }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

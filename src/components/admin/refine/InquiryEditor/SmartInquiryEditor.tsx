@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
-import { ArrowLeft, Loader2, CalendarDays, Truck, Layers, FileCheck, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, CalendarDays, Truck, Layers, FileCheck, CheckCircle2, Activity } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +16,7 @@ import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } f
 import { MenuSelection } from "./MenuComposer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Timeline } from "@/components/admin/shared/Timeline";
 
 type OfferMode = 'simple' | 'multi';
 
@@ -376,9 +377,13 @@ export const SmartInquiryEditor = () => {
 
         {/* Tabbed Interface */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsList className="grid w-full grid-cols-3 max-w-lg">
             <TabsTrigger value="kalkulation">Kalkulation</TabsTrigger>
             <TabsTrigger value="kommunikation">Kommunikation</TabsTrigger>
+            <TabsTrigger value="aktivitaeten" className="gap-1.5">
+              <Activity className="h-4 w-4" />
+              Aktivitäten
+            </TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Kalkulation */}
@@ -492,6 +497,13 @@ export const SmartInquiryEditor = () => {
                 menuSelection={menuSelection}
                 packageName={selectedPackages.length > 0 ? selectedPackages[0].name : undefined}
               />
+            </div>
+          </TabsContent>
+
+          {/* Tab 3: Aktivitäten */}
+          <TabsContent value="aktivitaeten">
+            <div className="max-w-3xl">
+              <Timeline entityType="event_inquiry" entityId={id!} />
             </div>
           </TabsContent>
         </Tabs>

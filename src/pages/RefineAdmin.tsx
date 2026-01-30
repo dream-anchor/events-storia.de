@@ -7,7 +7,6 @@ import { Dashboard, EventsList, OrdersList, MenuItemsList, PackagesList, Package
 import { CateringOrderEditor } from "@/components/admin/refine/CateringOrderEditor";
 import { SmartInquiryEditor } from "@/components/admin/refine/InquiryEditor";
 import { AdminOfferCreate } from "@/components/admin/refine/OfferCreate";
-import InboxPage from "@/pages/admin/InboxPage";
 
 const resources = [
   {
@@ -64,8 +63,6 @@ export const RefineAdminApp = () => {
     >
       <Routes>
         <Route index element={<Dashboard />} />
-        <Route path="inbox" element={<InboxPage />} />
-        <Route path="inbox/:entityType/:id" element={<InboxPage />} />
         <Route path="events">
           <Route index element={<EventsList />} />
           <Route path="create" element={<AdminOfferCreate />} />

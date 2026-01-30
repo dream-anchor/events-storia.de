@@ -9,7 +9,6 @@ import storiaLogo from "@/assets/storia-logo.webp";
 import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
 import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
-import { useInboxCounts } from "@/hooks/useUnifiedInbox";
 import { FloatingPillNav, MobilePillNav, MobileBottomNav } from "./FloatingPillNav";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
 
@@ -25,11 +24,9 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
   const { data: newInquiriesCount } = useNewInquiriesCount();
   const { data: pendingOrdersCount } = usePendingOrdersCount();
   const { data: pendingBookingsCount } = usePendingMenuBookingsCount();
-  const { data: inboxCounts } = useInboxCounts();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
 
   const getBadgeCount = (key?: string) => {
-    if (key === 'inbox') return inboxCounts?.total || 0;
     if (key === 'events') return newInquiriesCount || 0;
     if (key === 'bookings') return pendingBookingsCount || 0;
     if (key === 'orders') return pendingOrdersCount || 0;

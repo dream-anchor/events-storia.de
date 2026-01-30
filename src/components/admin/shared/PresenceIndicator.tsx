@@ -2,7 +2,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { usePresenceMessage } from '@/hooks/usePresence';
-import type { Viewer } from '../types';
+import type { Viewer } from './types';
 
 interface PresenceIndicatorProps {
   viewers: Viewer[];
@@ -22,12 +22,12 @@ export const PresenceIndicator = ({ viewers, className }: PresenceIndicatorProps
         <TooltipTrigger asChild>
           <div className={cn(
             "flex items-center gap-2 px-2 py-1 rounded-full text-xs",
-            hasEditor ? "bg-amber-100 dark:bg-amber-900/30" : "bg-muted",
+            hasEditor ? "bg-amber-100" : "bg-muted",
             className
           )}>
             {/* Stacked avatars */}
             <div className="flex -space-x-2">
-              {viewers.slice(0, 3).map((viewer, i) => (
+              {viewers.slice(0, 3).map((viewer) => (
                 <Avatar 
                   key={viewer.user_id} 
                   className={cn(
@@ -57,7 +57,7 @@ export const PresenceIndicator = ({ viewers, className }: PresenceIndicatorProps
             {/* Status text */}
             <span className={cn(
               "text-muted-foreground hidden sm:inline",
-              hasEditor && "text-amber-700 dark:text-amber-400"
+              hasEditor && "text-amber-700"
             )}>
               {hasEditor ? 'Wird bearbeitet' : 'Online'}
             </span>

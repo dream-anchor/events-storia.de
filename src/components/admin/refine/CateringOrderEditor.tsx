@@ -9,14 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   ArrowLeft, Loader2, Save, Phone, Mail, Building2, MapPin, 
   Calendar, Clock, CreditCard, Receipt, User, BadgeCheck, 
-  FileText, Truck, Package, Ban, RefreshCw, AlertCircle
+  FileText, Truck, Package, Ban, RefreshCw, AlertCircle, Activity
 } from "lucide-react";
+import { Timeline } from "@/components/admin/shared/Timeline";
 
 type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
