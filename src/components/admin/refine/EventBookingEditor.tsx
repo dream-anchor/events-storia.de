@@ -13,7 +13,8 @@ import {
   Building2,
   User,
   Phone,
-  AtSign
+  AtSign,
+  Activity
 } from "lucide-react";
 import { useList } from "@refinedev/core";
 import { AdminLayout } from "./AdminLayout";
@@ -22,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { 
   useEventBooking, 
@@ -29,6 +31,7 @@ import {
   useConfirmBookingMenu 
 } from "@/hooks/useEventBookings";
 import { MenuComposer, MenuSelection } from "./InquiryEditor/MenuComposer";
+import { Timeline } from "@/components/admin/shared/Timeline";
 
 export const EventBookingEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -220,120 +223,138 @@ export const EventBookingEditor = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Menu Configuration */}
-          <div className="lg:col-span-2 space-y-6">
-            <MenuComposer
-              packageId={booking.package_id}
-              packageName={selectedPackage?.name || null}
-              guestCount={booking.guest_count}
-              menuSelection={menuSelection}
-              onMenuSelectionChange={setMenuSelection}
-            />
-          </div>
+        <Tabs defaultValue="details" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 max-w-sm">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="aktivitaeten" className="gap-1.5">
+              <Activity className="h-4 w-4" />
+              Aktivitäten
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Right: Booking Details */}
-          <div className="space-y-4">
-            {/* Event Details Card */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Event-Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>
-                    {booking.event_date && format(parseISO(booking.event_date), "EEEE, dd. MMMM yyyy", { locale: de })}
-                  </span>
-                </div>
-                {booking.event_time && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="w-4" />
-                    <span className="text-muted-foreground">{booking.event_time} Uhr</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span>{booking.guest_count} Gäste</span>
-                </div>
-                
-                <Separator />
-                
-                {selectedPackage && (
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Paket</p>
-                    <p className="font-medium">{selectedPackage.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedPackage.price_per_person 
-                        ? `${selectedPackage.price}€ p.P.`
-                        : `${selectedPackage.price}€ pauschal`}
-                    </p>
-                  </div>
-                )}
-                
-                <Separator />
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Gesamtbetrag</span>
-                  <span className="text-xl font-bold text-primary">
-                    {booking.total_amount?.toLocaleString('de-DE', { 
-                      style: 'currency', 
-                      currency: 'EUR' 
-                    })}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Customer Info Card */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Kunde</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>{booking.customer_name}</span>
-                </div>
-                {booking.company_name && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <span>{booking.company_name}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-sm">
-                  <AtSign className="h-4 w-4 text-muted-foreground" />
-                  <a href={`mailto:${booking.customer_email}`} className="text-primary hover:underline">
-                    {booking.customer_email}
-                  </a>
-                </div>
-                {booking.phone && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <a href={`tel:${booking.phone}`} className="text-primary hover:underline">
-                      {booking.phone}
-                    </a>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Internal Notes Card */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Interne Notizen</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  value={internalNotes}
-                  onChange={(e) => setInternalNotes(e.target.value)}
-                  placeholder="Notizen für das Team..."
-                  rows={4}
+          <TabsContent value="details">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left: Menu Configuration */}
+              <div className="lg:col-span-2 space-y-6">
+                <MenuComposer
+                  packageId={booking.package_id}
+                  packageName={selectedPackage?.name || null}
+                  guestCount={booking.guest_count}
+                  menuSelection={menuSelection}
+                  onMenuSelectionChange={setMenuSelection}
                 />
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+              </div>
+
+              {/* Right: Booking Details */}
+              <div className="space-y-4">
+                {/* Event Details Card */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Event-Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        {booking.event_date && format(parseISO(booking.event_date), "EEEE, dd. MMMM yyyy", { locale: de })}
+                      </span>
+                    </div>
+                    {booking.event_time && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="w-4" />
+                        <span className="text-muted-foreground">{booking.event_time} Uhr</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>{booking.guest_count} Gäste</span>
+                    </div>
+                    
+                    <Separator />
+                    
+                    {selectedPackage && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Paket</p>
+                        <p className="font-medium">{selectedPackage.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedPackage.price_per_person 
+                            ? `${selectedPackage.price}€ p.P.`
+                            : `${selectedPackage.price}€ pauschal`}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <Separator />
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Gesamtbetrag</span>
+                      <span className="text-xl font-bold text-primary">
+                        {booking.total_amount?.toLocaleString('de-DE', { 
+                          style: 'currency', 
+                          currency: 'EUR' 
+                        })}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Customer Info Card */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Kunde</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span>{booking.customer_name}</span>
+                    </div>
+                    {booking.company_name && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <span>{booking.company_name}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-sm">
+                      <AtSign className="h-4 w-4 text-muted-foreground" />
+                      <a href={`mailto:${booking.customer_email}`} className="text-primary hover:underline">
+                        {booking.customer_email}
+                      </a>
+                    </div>
+                    {booking.phone && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <a href={`tel:${booking.phone}`} className="text-primary hover:underline">
+                          {booking.phone}
+                        </a>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Internal Notes Card */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Interne Notizen</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Textarea
+                      value={internalNotes}
+                      onChange={(e) => setInternalNotes(e.target.value)}
+                      placeholder="Notizen für das Team..."
+                      rows={4}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="aktivitaeten">
+            <div className="max-w-3xl">
+              <Timeline entityType="event_booking" entityId={id!} />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </AdminLayout>
   );

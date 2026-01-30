@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Viewer, PresenceState } from '@/components/admin/inbox/types';
+import type { Viewer, PresenceState } from '@/components/admin/shared/types';
 
 interface UsePresenceOptions {
   onViewersChange?: (viewers: Viewer[]) => void;

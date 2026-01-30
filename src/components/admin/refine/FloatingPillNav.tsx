@@ -8,7 +8,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { LucideIcon, ChevronDown, Inbox, CalendarDays, Database, LayoutDashboard, CheckCircle2, FileText, Package, UtensilsCrossed } from "lucide-react";
+import { LucideIcon, ChevronDown, CalendarDays, Database, LayoutDashboard, CheckCircle2, FileText, Package, UtensilsCrossed } from "lucide-react";
 
 interface NavItem {
   name: string;
@@ -25,20 +25,13 @@ interface NavItem {
   }[];
 }
 
-// New consolidated navigation structure with 3 main contexts
+// Navigation structure without Inbox
 const navigationContexts: NavItem[] = [
   { 
     name: 'Dashboard', 
     href: '/admin', 
     icon: LayoutDashboard, 
     key: 'dashboard' 
-  },
-  { 
-    name: 'Inbox', 
-    href: '/admin/inbox', 
-    icon: Inbox, 
-    key: 'inbox',
-    badge: 'inbox'
   },
   { 
     name: 'Anfragen', 
@@ -80,7 +73,6 @@ export const FloatingPillNav = ({
   const getActiveContext = () => {
     const path = location.pathname;
     if (path === '/admin' || path === '/admin/') return 'dashboard';
-    if (path.includes('/admin/inbox')) return 'inbox';
     if (path.includes('/admin/events') || path.includes('/admin/bookings') || path.includes('/admin/orders')) return 'workflow';
     if (path.includes('/admin/packages') || path.includes('/admin/menu') || path.includes('/admin/locations')) return 'catalog';
     return activeKey;
@@ -215,14 +207,14 @@ export const MobileBottomNav = ({
   const location = useLocation();
   
   const mobileItems = [
-    { name: 'Inbox', href: '/admin/inbox', icon: Inbox, key: 'inbox', badge: 'inbox' },
     { name: 'Anfragen', href: '/admin/events', icon: CalendarDays, key: 'workflow', badge: 'events' },
+    { name: 'Buchungen', href: '/admin/bookings', icon: CheckCircle2, key: 'bookings', badge: 'bookings' },
     { name: 'Katalog', href: '/admin/packages', icon: Database, key: 'catalog' },
   ];
 
   const isActive = (href: string) => {
-    if (href === '/admin/inbox') return location.pathname.includes('/inbox');
-    if (href === '/admin/events') return location.pathname.includes('/events') || location.pathname.includes('/bookings') || location.pathname.includes('/orders');
+    if (href === '/admin/events') return location.pathname.includes('/events') || location.pathname.includes('/orders');
+    if (href === '/admin/bookings') return location.pathname.includes('/bookings');
     if (href === '/admin/packages') return location.pathname.includes('/packages') || location.pathname.includes('/menu');
     return false;
   };
