@@ -1,638 +1,229 @@
 
-# StoriaMaestro Premium UI Framework
+# Inbox-Entfernung & E-Mail-Optimierung
 
-## Übersicht: Von "Verwaltungstool" zu "Premium-App"
+## Übersicht
 
-Das Ziel ist ein durchgängig helles, elegantes Interface im Apple-Stil, das Komplexität durch visuelle Einfachheit versteckt. Der Nutzer soll sich wie in einer Premium-App fühlen, nicht in einem Verwaltungstool.
-
----
-
-## Phase 1: Dependencies & Foundation
-
-### Neue Abhängigkeit: framer-motion
-```bash
-npm install framer-motion
-```
-
-Framer Motion ist die Kern-Bibliothek für:
-- List Stagger (Items erscheinen nacheinander)
-- Hover/Tap Feedback
-- Page Transitions
-- Swipe-to-Action Gesten
+Zwei Hauptaufgaben:
+1. **Inbox komplett entfernen**, aber die Aktivitäts-Timeline und Presence-Indikatoren in die bestehenden Editoren übertragen
+2. **E-Mail-Generierung überarbeiten**: Kürzer, prägnanter, weniger überschwänglich, keine Markdown-Formatierung
 
 ---
 
-## Phase 2: Visuelle Sprache überarbeiten
+## Teil 1: Inbox entfernen & Features übertragen
 
-### 2.1 Farbpalette: Amber/Gold als Akzent
+### Was wird entfernt
 
-**Datei: `src/index.css`**
+| Datei/Ordner | Aktion |
+|--------------|--------|
+| `src/pages/admin/InboxPage.tsx` | Löschen |
+| `src/components/admin/inbox/` (gesamter Ordner) | Löschen |
+| `src/hooks/useUnifiedInbox.ts` | Löschen |
+| `src/hooks/useInboxRealtime.ts` | Löschen |
+| `src/hooks/useInboxKeyboard.ts` | Löschen |
+| Route in `RefineAdmin.tsx` | Entfernen |
+| Navigation in `FloatingPillNav.tsx` | Inbox-Eintrag entfernen |
 
-Das aktuelle Blau (`221 83% 53%`) wird durch Amber/Gold ersetzt – ein warmer, einladender Akzent, der Professionalität ausstrahlt:
+### Was bleibt erhalten
 
-```css
-.admin-layout {
-  /* Strikte Light-Mode Durchsetzung */
-  --background: 0 0% 99%;           /* Fast reines Weiß */
-  --foreground: 222 47% 11%;        /* Tiefes Slate */
-  --card: 0 0% 100%;                /* Reines Weiß für Cards */
-  --card-foreground: 222 47% 11%;
+Diese Komponenten und Hooks werden **nicht** gelöscht, da sie weiterhin benötigt werden:
+
+| Komponente/Hook | Neue Verwendung |
+|-----------------|-----------------|
+| `Timeline.tsx` | → Verschoben nach `src/components/admin/shared/Timeline.tsx` |
+| `PresenceIndicator.tsx` | → Verschoben nach `src/components/admin/shared/PresenceIndicator.tsx` |
+| `useActivityLog.ts` | → Bleibt erhalten (unverändert) |
+| `usePresence.ts` | → Bleibt erhalten (unverändert) |
+| `activity_logs` Tabelle | → Bleibt erhalten |
+| `admin_presence` Tabelle | → Bleibt erhalten |
+
+### Integration in SmartInquiryEditor
+
+Die Timeline und Presence werden direkt in die ContextBar und einen neuen Tab integriert:
+
+**Datei: `src/components/admin/refine/ContextBar.tsx`**
+
+Erweiterung um Presence-Anzeige:
+
+```tsx
+// Neue Props
+interface ContextBarProps {
+  // ... existing props
+  entityType?: 'event_inquiry' | 'catering_order' | 'event_booking';
+  entityId?: string;
+}
+
+// Im Return:
+<div className="flex items-center gap-4 ...">
+  {/* Zurück-Button & Titel (wie bisher) */}
   
-  /* Amber/Gold Akzent statt Blau */
-  --primary: 38 92% 50%;            /* Amber-500 */
-  --primary-foreground: 26 83% 14%; /* Amber-950 */
-  --accent: 38 92% 50%;
+  {/* NEU: Presence Indicator im Header */}
+  {entityType && entityId && (
+    <PresenceIndicator 
+      viewers={viewers} 
+      className="hidden md:flex"
+    />
+  )}
+</div>
+```
+
+**Datei: `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx`**
+
+Neuer Tab "Aktivitäten" hinzufügen:
+
+```tsx
+<Tabs defaultValue="kalkulation">
+  <TabsList>
+    <TabsTrigger value="kalkulation">Kalkulation</TabsTrigger>
+    <TabsTrigger value="kommunikation">Kommunikation</TabsTrigger>
+    <TabsTrigger value="aktivitaeten">Aktivitäten</TabsTrigger>  {/* NEU */}
+  </TabsList>
   
-  /* Weichere Borders */
-  --border: 220 13% 93%;            /* Noch heller */
-  --input: 220 13% 93%;
-  --ring: 38 92% 50%;               /* Amber Focus Ring */
+  {/* ... existing TabsContent ... */}
   
-  /* Größerer Radius für alle Elemente */
-  --radius: 1rem;                   /* 16px = rounded-2xl */
-}
+  <TabsContent value="aktivitaeten">
+    <Timeline entityType="event_inquiry" entityId={id!} />
+  </TabsContent>
+</Tabs>
 ```
 
-### 2.2 Glassmorphism Utility
-
-**Datei: `src/index.css`**
-
-Neue CSS-Klasse für glasartige Oberflächen:
-
-```css
-.admin-layout .glass-card {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.08);
-}
-
-.admin-layout .glass-header {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-}
-```
-
-### 2.3 Ecken: rounded-2xl überall
-
-Alle Buttons, Cards, Modals und Inputs erhalten `rounded-2xl` (16px):
-
-**Datei: `src/components/ui/button.tsx`**
-
-```tsx
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-sm font-medium ...",
-  // ... Rest bleibt gleich
-);
-```
-
-**Datei: `src/components/ui/card.tsx`**
-
-```tsx
-const Card = React.forwardRef<...>(({ className, ...props }, ref) => (
-  <div 
-    ref={ref} 
-    className={cn(
-      "rounded-2xl border bg-card text-card-foreground shadow-sm",
-      className
-    )} 
-    {...props} 
-  />
-));
-```
-
----
-
-## Phase 3: Motion Design mit framer-motion
-
-### 3.1 Neue Komponente: MotionCard
-
-**Datei: `src/components/admin/motion/MotionCard.tsx` (neu)**
-
-```tsx
-import { motion } from "framer-motion";
-import { Card } from "@/components/ui/card";
-import { forwardRef } from "react";
-import { cn } from "@/lib/utils";
-
-interface MotionCardProps extends React.HTMLAttributes<HTMLDivElement> {
-  index?: number;
-}
-
-export const MotionCard = forwardRef<HTMLDivElement, MotionCardProps>(
-  ({ className, index = 0, children, ...props }, ref) => {
-    return (
-      <motion.div
-        ref={ref}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        transition={{ 
-          duration: 0.3,
-          delay: index * 0.05,
-          ease: [0.25, 0.1, 0.25, 1]
-        }}
-        whileHover={{ 
-          y: -4, 
-          scale: 1.02,
-          boxShadow: "0 20px 40px -12px rgba(0, 0, 0, 0.15)"
-        }}
-        whileTap={{ scale: 0.98 }}
-        {...props}
-      >
-        <Card className={cn("cursor-pointer transition-shadow", className)}>
-          {children}
-        </Card>
-      </motion.div>
-    );
-  }
-);
-```
-
-### 3.2 List Stagger Pattern
-
-**Datei: `src/components/admin/motion/StaggerList.tsx` (neu)**
-
-```tsx
-import { motion, AnimatePresence } from "framer-motion";
-import { ReactNode } from "react";
-
-interface StaggerListProps {
-  children: ReactNode[];
-}
-
-export const StaggerList = ({ children }: StaggerListProps) => {
-  return (
-    <AnimatePresence mode="popLayout">
-      {children.map((child, index) => (
-        <motion.div
-          key={index}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ delay: index * 0.05 }}
-        >
-          {child}
-        </motion.div>
-      ))}
-    </AnimatePresence>
-  );
-};
-```
-
-### 3.3 Page Transitions
-
-**Datei: `src/components/admin/motion/PageTransition.tsx` (neu)**
-
-```tsx
-import { motion } from "framer-motion";
-import { ReactNode } from "react";
-
-export const PageTransition = ({ children }: { children: ReactNode }) => (
-  <motion.div
-    initial={{ opacity: 0, x: 20 }}
-    animate={{ opacity: 1, x: 0 }}
-    exit={{ opacity: 0, x: -20 }}
-    transition={{ duration: 0.2, ease: "easeOut" }}
-  >
-    {children}
-  </motion.div>
-);
-```
-
----
-
-## Phase 4: Mobile-First PWA Patterns
-
-### 4.1 BottomNav mit Safe-Area
+### Navigation anpassen
 
 **Datei: `src/components/admin/refine/FloatingPillNav.tsx`**
 
-Update der `MobileBottomNav`:
+Inbox-Eintrag entfernen, Navigation vereinfachen:
 
 ```tsx
-export const MobileBottomNav = ({ getBadgeCount }: Props) => {
-  return (
-    <motion.nav 
-      className="fixed bottom-0 inset-x-0 z-50 md:hidden glass-header"
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-      initial={{ y: 100 }}
-      animate={{ y: 0 }}
-      transition={{ type: "spring", damping: 20 }}
-    >
-      <div className="grid grid-cols-3 h-16">
-        {items.map((item) => (
-          <motion.div
-            key={item.key}
-            whileTap={{ scale: 0.9 }}
-          >
-            <Link to={item.href} className="...">
-              {/* ... */}
-            </Link>
-          </motion.div>
-        ))}
-      </div>
-    </motion.nav>
-  );
-};
-```
-
-### 4.2 Touch Targets: Mindestens 44x44px
-
-**Datei: `src/index.css`**
-
-```css
-/* Touch-optimierte Targets */
-.admin-layout button,
-.admin-layout [role="button"],
-.admin-layout a {
-  min-height: 44px;
-  min-width: 44px;
-}
-
-.admin-layout .action-button {
-  min-height: 48px;
-  padding-inline: 1.25rem;
-}
-```
-
-### 4.3 Responsive Dialogs: Modal → Bottom Sheet
-
-**Datei: `src/components/admin/motion/ResponsiveDialog.tsx` (neu)**
-
-```tsx
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { ReactNode } from "react";
-
-interface ResponsiveDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  children: ReactNode;
-}
-
-export const ResponsiveDialog = ({ 
-  open, 
-  onOpenChange, 
-  children 
-}: ResponsiveDialogProps) => {
-  const isMobile = useIsMobile();
-
-  if (isMobile) {
-    return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="rounded-t-2xl">
-          {children}
-        </DrawerContent>
-      </Drawer>
-    );
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl">
-        {children}
-      </DialogContent>
-    </Dialog>
-  );
-};
+const navigationContexts: NavItem[] = [
+  { 
+    name: 'Dashboard', 
+    href: '/admin', 
+    icon: LayoutDashboard, 
+    key: 'dashboard' 
+  },
+  // INBOX ENTFERNT
+  { 
+    name: 'Anfragen', 
+    href: '/admin/events', 
+    icon: CalendarDays, 
+    key: 'workflow',
+    // ...
+  },
+  { 
+    name: 'Stammdaten', 
+    // ...
+  },
+];
 ```
 
 ---
 
-## Phase 5: Interaktions-Patterns
+## Teil 2: E-Mail-Generierung optimieren
 
-### 5.1 SwipeableCard für Listen
+### Problem
 
-**Datei: `src/components/admin/motion/SwipeableCard.tsx` (neu)**
+Der aktuelle System-Prompt erzeugt:
+- Zu lange E-Mails (200-300 Wörter angefordert)
+- Überschwängliche, anbiederische Formulierungen
+- Markdown-Formatierung (unpassend für E-Mail-Clients)
 
-```tsx
-import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
-import { ReactNode, useState } from "react";
-import { Trash2 } from "lucide-react";
+### Lösung
 
-interface SwipeableCardProps {
-  children: ReactNode;
-  onDelete?: () => void;
-  onArchive?: () => void;
-}
+**Datei: `supabase/functions/generate-inquiry-email/index.ts`**
 
-export const SwipeableCard = ({ 
-  children, 
-  onDelete,
-  onArchive 
-}: SwipeableCardProps) => {
-  const x = useMotionValue(0);
-  const background = useTransform(
-    x,
-    [-150, 0, 150],
-    ["#ef4444", "#ffffff", "#22c55e"]
-  );
-  const opacity = useTransform(x, [-150, 0, 150], [1, 0, 1]);
+Komplett überarbeiteter System-Prompt:
+
+```typescript
+const systemPrompt = `Du bist ein professioneller Mitarbeiter von STORIA München.
+
+STIL:
+- Freundlich, aber geschäftsmäßig und auf den Punkt
+- Kurz und prägnant (max. 100-150 Wörter)
+- Keine überschwänglichen Floskeln wie "wunderbar", "fantastisch", "herausragend"
+- KEIN Markdown (keine **, keine #, keine Listen mit -)
+- Normaler E-Mail-Fließtext mit Absätzen
+
+STRUKTUR:
+1. Kurze Begrüßung (1 Satz)
+2. Bestätigung der Anfrage mit den wichtigsten Fakten (Datum, Gästeanzahl, Paket)
+3. Hinweis auf beigefügtes Angebot
+4. Kurze Info zu nächsten Schritten / Vorauszahlung
+5. Signatur
+
+VERBOTEN:
+- "Wir freuen uns außerordentlich..."
+- "Es ist uns eine große Ehre..."
+- "Ihr exklusives Event wird unvergesslich..."
+- Aufzählungslisten (stattdessen: Fließtext mit Kommas)
+- Fettdruck oder andere Formatierung
+- Mehr als 3 Absätze vor der Signatur
+
+SIGNATUR (exakt so verwenden):
+${personalizedSignature}
+
+BEISPIEL-TON:
+"Vielen Dank für Ihre Anfrage. Gerne bestätigen wir Ihnen folgende Details: Business Dinner für 45 Personen am 15.03.2026. Das detaillierte Angebot finden Sie im Anhang. Für Ihr gewähltes Paket ist eine Vorauszahlung von 100% erforderlich. Bei Fragen stehe ich Ihnen gerne zur Verfügung."
+`;
+```
+
+### Änderungen im User-Prompt
+
+```typescript
+const userPrompt = inquiryType === 'event' 
+  ? `Schreibe eine kurze, professionelle Bestätigungs-E-Mail für diese Event-Anfrage:
   
-  const handleDragEnd = (event: MouseEvent | TouchEvent, info: PanInfo) => {
-    if (info.offset.x < -100) {
-      onDelete?.();
-    } else if (info.offset.x > 100) {
-      onArchive?.();
-    }
-  };
+${context}
 
-  return (
-    <div className="relative overflow-hidden rounded-2xl">
-      {/* Delete Action (links) */}
-      <motion.div 
-        className="absolute inset-y-0 left-0 w-24 flex items-center justify-center bg-red-500"
-        style={{ opacity }}
-      >
-        <Trash2 className="h-5 w-5 text-white" />
-      </motion.div>
-      
-      {/* Archive Action (rechts) */}
-      <motion.div 
-        className="absolute inset-y-0 right-0 w-24 flex items-center justify-center bg-green-500"
-        style={{ opacity }}
-      >
-        <CheckCircle2 className="h-5 w-5 text-white" />
-      </motion.div>
-      
-      {/* Swipeable Content */}
-      <motion.div
-        style={{ x, background }}
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.1}
-        onDragEnd={handleDragEnd}
-        className="relative z-10 bg-card rounded-2xl touch-pan-y"
-      >
-        {children}
-      </motion.div>
-    </div>
-  );
-};
-```
-
-### 5.2 Floating Action Bar bei Mehrfachauswahl
-
-**Datei: `src/components/admin/motion/FloatingActionBar.tsx` (neu)**
-
-```tsx
-import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Trash2, Archive, Mail, X } from "lucide-react";
-
-interface FloatingActionBarProps {
-  selectedCount: number;
-  onClear: () => void;
-  onDelete?: () => void;
-  onArchive?: () => void;
-  onEmail?: () => void;
-}
-
-export const FloatingActionBar = ({
-  selectedCount,
-  onClear,
-  onDelete,
-  onArchive,
-  onEmail,
-}: FloatingActionBarProps) => {
-  return (
-    <AnimatePresence>
-      {selectedCount > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 100 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 100 }}
-          className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-40"
-        >
-          <div className="glass-card rounded-2xl px-4 py-3 flex items-center gap-3 shadow-2xl">
-            <span className="text-sm font-medium">
-              {selectedCount} ausgewählt
-            </span>
-            
-            <div className="flex items-center gap-1">
-              {onEmail && (
-                <Button size="sm" variant="ghost" onClick={onEmail}>
-                  <Mail className="h-4 w-4" />
-                </Button>
-              )}
-              {onArchive && (
-                <Button size="sm" variant="ghost" onClick={onArchive}>
-                  <Archive className="h-4 w-4" />
-                </Button>
-              )}
-              {onDelete && (
-                <Button size="sm" variant="ghost" className="text-red-500" onClick={onDelete}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            
-            <Button size="sm" variant="ghost" onClick={onClear}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-};
-```
-
-### 5.3 Direct Selection (Klick = Auswahl)
-
-Das InboxItem und DataTable-Rows werden so angepasst, dass ein einfacher Klick sofort auswählt (kein separater Checkbox-Klick nötig).
-
----
-
-## Phase 6: Light-Mode Enforcement
-
-**Datei: `src/index.css`**
-
-```css
-/* Strikte Light-Mode Durchsetzung im Admin */
-.admin-layout,
-.admin-layout * {
-  color-scheme: light !important;
-}
-
-/* Override für alle Radix UI Popover/Dropdowns */
-[data-radix-popper-content-wrapper] {
-  z-index: 10001 !important;
-}
-
-.admin-layout [role="menu"],
-.admin-layout [role="dialog"],
-.admin-layout [role="listbox"] {
-  background-color: #ffffff !important;
-  color: #111827 !important;
-  border-color: rgba(0, 0, 0, 0.08) !important;
-}
-```
-
-**Datei: `src/components/admin/refine/AdminLayout.tsx`**
-
-Entfernung des Dark-Mode-Toggles und forcierter Light-Mode:
-
-```tsx
-// Dark Mode Toggle entfernen
-// useTheme und Theme-Toggle werden nicht mehr benötigt
-
-return (
-  <div className="min-h-screen admin-layout admin-light-mode">
-    {/* ... */}
-  </div>
-);
-```
-
----
-
-## Phase 7: Dashboard Redesign
-
-**Datei: `src/components/admin/refine/Dashboard.tsx`**
-
-Integration aller neuen Patterns:
-
-```tsx
-import { motion } from "framer-motion";
-import { MotionCard } from "@/components/admin/motion/MotionCard";
-import { PageTransition } from "@/components/admin/motion/PageTransition";
-
-export const Dashboard = () => {
-  // ... existing hooks
+Wichtig: Maximal 150 Wörter. Keine Markdown-Formatierung. Sachlich und freundlich.`
+  : `Schreibe eine kurze Bestätigungs-E-Mail für diese Catering-Bestellung:
   
-  return (
-    <AdminLayout activeTab="dashboard">
-      <PageTransition>
-        <div className="space-y-8">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-start justify-between"
-          >
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
-                StoriaMaestro
-              </h1>
-              <p className="text-base text-muted-foreground">
-                Willkommen im Event- & Catering-Management
-              </p>
-            </div>
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button className="rounded-2xl shadow-lg">
-                <Plus className="h-4 w-4 mr-2" />
-                Neue Anfrage
-              </Button>
-            </motion.div>
-          </motion.div>
+${context}
 
-          {/* Stats Cards mit Stagger */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {stats.map((stat, index) => (
-              <MotionCard key={stat.id} index={index}>
-                <CardHeader>...</CardHeader>
-                <CardContent>...</CardContent>
-              </MotionCard>
-            ))}
-          </div>
-          
-          {/* ... */}
-        </div>
-      </PageTransition>
-    </AdminLayout>
-  );
-};
+Wichtig: Maximal 150 Wörter. Keine Markdown-Formatierung. Sachlich und freundlich.`;
 ```
 
 ---
 
-## Phase 8: Header Redesign mit Glassmorphism
+## Zusammenfassung der Dateiänderungen
 
-**Datei: `src/components/admin/refine/AdminLayout.tsx`**
+### Zu löschende Dateien
+1. `src/pages/admin/InboxPage.tsx`
+2. `src/components/admin/inbox/InboxLayout.tsx`
+3. `src/components/admin/inbox/InboxSidebar/` (gesamter Ordner)
+4. `src/components/admin/inbox/DetailPane/DetailHeader.tsx`
+5. `src/components/admin/inbox/DetailPane/DocumentViewer.tsx`
+6. `src/components/admin/inbox/DetailPane/index.tsx`
+7. `src/components/admin/inbox/types.ts`
+8. `src/components/admin/inbox/index.ts`
+9. `src/hooks/useUnifiedInbox.ts`
+10. `src/hooks/useInboxRealtime.ts`
+11. `src/hooks/useInboxKeyboard.ts`
 
-```tsx
-<header className="sticky top-0 z-50 glass-header">
-  <div className="container mx-auto px-4 py-3">
-    <div className="flex items-center justify-between gap-4">
-      {/* Logo mit subtle Animation */}
-      <motion.div whileHover={{ scale: 1.02 }}>
-        <Link to="/admin" className="flex items-center gap-3">
-          <img src={storiaLogo} alt="STORIA" className="h-7" />
-        </Link>
-      </motion.div>
-      
-      {/* Navigation mit Animation */}
-      <FloatingPillNav activeKey={activeTab} getBadgeCount={getBadgeCount} />
-      
-      {/* Actions */}
-      <div className="flex items-center gap-2">
-        <motion.div whileTap={{ scale: 0.95 }}>
-          <Button variant="outline" size="sm" className="rounded-2xl">
-            <Command className="h-3.5 w-3.5 mr-1" />
-            ⌘K
-          </Button>
-        </motion.div>
-        {/* ... weitere Actions */}
-      </div>
-    </div>
-  </div>
-</header>
-```
+### Zu verschiebende Dateien
+1. `src/components/admin/inbox/DetailPane/Timeline.tsx` → `src/components/admin/shared/Timeline.tsx`
+2. `src/components/admin/inbox/DetailPane/PresenceIndicator.tsx` → `src/components/admin/shared/PresenceIndicator.tsx`
 
----
-
-## Zusammenfassung der Änderungen
-
-| Komponente | Vorher | Nachher |
-|------------|--------|---------|
-| **Motion Library** | Nur CSS Transitions | framer-motion |
-| **Border Radius** | rounded-xl (12px) | rounded-2xl (16px) |
-| **Primary Color** | Blau | Amber/Gold |
-| **Dark Mode** | Toggle vorhanden | Strikt Light Mode |
-| **Card Hover** | CSS translate-y | Framer Scale + Shadow |
-| **List Animation** | Sofort sichtbar | Stagger Effect |
-| **Mobile Dialogs** | Standard Modals | Bottom Sheets (Drawer) |
-| **Swipe Actions** | Nicht vorhanden | SwipeableCard |
-| **Multi-Select** | Checkboxen | Direct Click + Floating Bar |
-| **Header Style** | backdrop-blur-xl | Glassmorphism class |
-
----
-
-## Betroffene Dateien
+### Zu bearbeitende Dateien
+1. `src/pages/RefineAdmin.tsx` - Inbox-Routes entfernen
+2. `src/components/admin/refine/FloatingPillNav.tsx` - Inbox aus Navigation entfernen
+3. `src/components/admin/refine/ContextBar.tsx` - Presence-Indicator hinzufügen
+4. `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` - Timeline-Tab hinzufügen, Presence-Hook einbinden
+5. `src/components/admin/refine/CateringOrderEditor.tsx` - Timeline-Tab hinzufügen
+6. `src/components/admin/refine/EventBookingEditor.tsx` - Timeline-Tab hinzufügen
+7. `supabase/functions/generate-inquiry-email/index.ts` - System-Prompt komplett überarbeiten
+8. `src/hooks/useActivityLog.ts` - Import-Pfad für Types anpassen
 
 ### Neue Dateien
-1. `src/components/admin/motion/MotionCard.tsx`
-2. `src/components/admin/motion/StaggerList.tsx`
-3. `src/components/admin/motion/PageTransition.tsx`
-4. `src/components/admin/motion/SwipeableCard.tsx`
-5. `src/components/admin/motion/FloatingActionBar.tsx`
-6. `src/components/admin/motion/ResponsiveDialog.tsx`
-7. `src/components/admin/motion/index.ts` (Barrel Export)
-
-### Zu ändernde Dateien
-1. `package.json` → framer-motion hinzufügen
-2. `src/index.css` → Glassmorphism, Light-Mode, Amber Palette
-3. `src/components/ui/button.tsx` → rounded-2xl
-4. `src/components/ui/card.tsx` → rounded-2xl
-5. `src/components/admin/refine/AdminLayout.tsx` → Glass Header, Light Mode
-6. `src/components/admin/refine/Dashboard.tsx` → Motion Integration
-7. `src/components/admin/refine/FloatingPillNav.tsx` → Motion + Safe Area
-8. `src/components/admin/refine/DataTable.tsx` → rounded-2xl, Motion Rows
-9. `src/components/admin/inbox/InboxItem.tsx` → SwipeableCard
-10. `src/components/ui/drawer.tsx` → rounded-2xl für Bottom Sheet
+1. `src/components/admin/shared/index.ts` - Barrel Export für shared Components
 
 ---
 
-## Implementierungs-Reihenfolge
+## Aktivitäts-Tracking bleibt erhalten
 
-1. **Foundation**: framer-motion installieren, CSS Utilities
-2. **Visual**: Amber Palette, rounded-2xl, Glassmorphism
-3. **Motion Components**: MotionCard, StaggerList, PageTransition
-4. **Interaktionen**: SwipeableCard, FloatingActionBar
-5. **Layout**: AdminLayout, BottomNav, Header
-6. **Integration**: Dashboard, DataTable, Inbox
+Die Activity-Logs werden weiterhin bei jeder Aktion erstellt:
+- Status-Änderungen
+- Preis-Updates  
+- E-Mail-Versand (mit HTML-Content)
+- Menü-Bestätigungen
+- Angebots-Erstellung
+
+Diese werden jetzt direkt im jeweiligen Editor-Tab "Aktivitäten" angezeigt, nicht mehr in der separaten Inbox.
