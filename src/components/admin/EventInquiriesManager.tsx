@@ -18,7 +18,7 @@ const statusConfig: Record<InquiryStatus, { label: string; color: string; bg: st
   contacted: { label: "Kontaktiert", color: "text-blue-700", bg: "bg-blue-100" },
   offer_sent: { label: "Angebot gesendet", color: "text-purple-700", bg: "bg-purple-100" },
   confirmed: { label: "Bestätigt", color: "text-green-700", bg: "bg-green-100" },
-  declined: { label: "Abgelehnt", color: "text-red-700", bg: "bg-red-100" },
+  declined: { label: "Abgelehnt", color: "text-muted-foreground", bg: "bg-muted" },
 };
 
 const eventTypeLabels: Record<string, string> = {

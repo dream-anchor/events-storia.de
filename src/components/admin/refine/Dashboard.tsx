@@ -150,11 +150,11 @@ export const Dashboard = () => {
           {/* Three Column Layout for Inquiry Categories */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* New Inquiries */}
-            <Card className="border-l-4 border-l-destructive/50">
+            <Card className="border-l-4 border-l-amber-500/50">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-destructive/70" />
+                    <AlertCircle className="h-5 w-5 text-amber-600" />
                     <CardTitle className="text-base">Neue Anfragen</CardTitle>
                   </div>
                   <Badge variant="secondary" className="font-mono">

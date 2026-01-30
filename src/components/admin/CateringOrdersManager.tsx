@@ -18,7 +18,7 @@ const statusConfig: Record<OrderStatus, { label: string; color: string; bg: stri
   pending: { label: "Neu", color: "text-amber-700", bg: "bg-amber-100" },
   confirmed: { label: "Bestätigt", color: "text-blue-700", bg: "bg-blue-100" },
   completed: { label: "Erledigt", color: "text-green-700", bg: "bg-green-100" },
-  cancelled: { label: "Storniert", color: "text-red-700", bg: "bg-red-100" },
+  cancelled: { label: "Storniert", color: "text-muted-foreground", bg: "bg-muted" },
 };
 
 const CateringOrdersManager = () => {

@@ -222,12 +222,12 @@ export const CateringOrderEditor = () => {
 
         {/* Cancelled Notice */}
         {isCancelled && (
-          <Card className="border-destructive/50 bg-destructive/5">
+          <Card className="border-muted-foreground/30 bg-muted/50">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
-                <Ban className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <Ban className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium text-destructive">Bestellung storniert</p>
+                  <p className="font-medium text-muted-foreground">Bestellung storniert</p>
                   {order.cancellation_reason && (
                     <p className="text-sm text-muted-foreground mt-1">
                       Grund: {order.cancellation_reason}

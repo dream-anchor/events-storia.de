@@ -532,7 +532,7 @@ export const PackageEdit = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      className="h-7 w-7 text-muted-foreground hover:text-amber-600"
                       onClick={() => removeIncludeItem(index)}
                     >
                       <X className="h-4 w-4" />

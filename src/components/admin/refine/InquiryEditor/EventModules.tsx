@@ -355,7 +355,7 @@ export const EventModules = ({
 
                         {/* Warning if min guests not met */}
                         {minGuestsNotMet && selected && (
-                          <div className="flex items-center gap-1.5 text-xs text-destructive mt-2">
+                          <div className="flex items-center gap-1.5 text-xs text-amber-600 mt-2">
                             <AlertTriangle className="h-3.5 w-3.5" />
                             <span>Personenzahl unter Minimum</span>
                           </div>

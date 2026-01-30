@@ -216,7 +216,7 @@ export function UserProfileDropdown() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                    className="h-7 w-7 text-muted-foreground hover:text-muted-foreground shrink-0"
                     onClick={handleCancelEditName}
                   >
                     <X className="h-3.5 w-3.5" />
@@ -266,7 +266,7 @@ export function UserProfileDropdown() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                    className="h-7 w-7 text-muted-foreground hover:text-muted-foreground shrink-0"
                     onClick={handleCancelEditEmail}
                     disabled={isEmailLoading}
                   >
@@ -303,7 +303,7 @@ export function UserProfileDropdown() {
         <div className="p-1">
           <DropdownMenuItem 
             onClick={() => logout()}
-            className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer gap-2 py-2.5"
+            className="text-foreground focus:text-foreground focus:bg-accent/10 cursor-pointer gap-2 py-2.5"
           >
             <LogOut className="h-4 w-4" />
             Abmelden
