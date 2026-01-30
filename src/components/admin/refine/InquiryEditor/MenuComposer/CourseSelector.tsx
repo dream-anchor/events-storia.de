@@ -346,20 +346,20 @@ export const CourseSelector = ({
           onSubmit={handleCustomItem}
         />
 
-        {/* Floating Action Bar */}
+        {/* Inline Action Bar - unten links */}
         <AnimatePresence>
           {(isDefaultSelected || hasAlternativeSelection) && (
             <motion.div 
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 100, opacity: 0 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+              className="mt-6 flex justify-start"
             >
               <Button 
                 onClick={onNext} 
                 size="lg"
-                className="px-8 h-14 rounded-full shadow-[var(--shadow-floating)] text-base gap-2"
+                className="px-6 h-12 rounded-2xl shadow-lg text-base gap-2"
               >
                 {isLastCourse ? "Weiter zu Getränke" : "Nächster Gang"}
                 <ChevronRight className="h-5 w-5" />
@@ -631,20 +631,20 @@ export const CourseSelector = ({
         onSubmit={handleCustomItem}
       />
 
-      {/* Floating Action Bar - Fitts's Law optimized */}
+      {/* Inline Action Bar - unten links */}
       <AnimatePresence>
         {hasSelection && (
           <motion.div 
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+            className="mt-6 flex justify-start"
           >
             <Button 
               onClick={onNext} 
               size="lg"
-              className="px-8 h-14 rounded-full shadow-[var(--shadow-floating)] text-base gap-2"
+              className="px-6 h-12 rounded-2xl shadow-lg text-base gap-2"
             >
               {isLastCourse ? "Weiter zu Getränke" : "Nächster Gang"}
               <ChevronRight className="h-5 w-5" />

@@ -212,7 +212,7 @@ export const MenuWorkflow = ({
 
             {/* Next Step Button */}
             {coursesComplete && (
-              <div className="flex justify-end">
+              <div className="flex justify-start">
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={() => setActiveStep('drinks')}
@@ -251,7 +251,7 @@ export const MenuWorkflow = ({
 
             {/* Next Step Button */}
             {drinksComplete && (
-              <div className="flex justify-end">
+              <div className="flex justify-start">
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={() => setActiveStep('finalize')}
