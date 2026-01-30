@@ -601,24 +601,31 @@ export function MultiOfferComposer({
                   className="overflow-hidden"
                 >
                   <div className="border-t border-border">
-                    <div className="p-5 max-h-[280px] overflow-y-auto bg-background/50">
-                      <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
-                        {savedEmailDraft}
-                      </pre>
+                    {/* Split View: Email + PDF */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                      {/* Email Content - Left */}
+                      <div className="p-5 max-h-[400px] overflow-y-auto bg-background/50 lg:border-r border-border">
+                        <p className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
+                          {savedEmailDraft
+                            .replace(/\*\*/g, '')
+                            .replace(/\*/g, '')
+                            .replace(/^#+\s*/gm, '')
+                            .replace(/^-\s*/gm, '• ')
+                          }
+                        </p>
+                      </div>
+                      {/* PDF Preview - Right */}
+                      <div className="p-4 bg-muted/20 max-h-[400px] overflow-hidden">
+                        <LivePDFPreview
+                          inquiry={inquiry}
+                          options={activeOptions}
+                          packages={packages}
+                          emailDraft={savedEmailDraft}
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-muted/30">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsNewDraft(true);
-                          setShowSentEmail(false);
-                        }}
-                      >
-                        <Mail className="h-4 w-4 mr-2" />
-                        Neue Nachricht senden
-                      </Button>
+                    {/* Footer with History */}
+                    <div className="flex items-center justify-end px-5 py-3 border-t border-border bg-muted/30">
                       {history.length > 0 && (
                         <Button
                           variant="ghost"
@@ -637,6 +644,27 @@ export function MultiOfferComposer({
                 </motion.div>
               )}
             </AnimatePresence>
+          </motion.div>
+
+          {/* Separate "Neue Nachricht" Button - Outside collapsible */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 25 }}
+            className="mt-4"
+          >
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => {
+                setIsNewDraft(true);
+                setShowSentEmail(false);
+              }}
+              className="h-12 px-6 rounded-2xl border-dashed"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Neue Nachricht erstellen
+            </Button>
           </motion.div>
         </div>
       )}
