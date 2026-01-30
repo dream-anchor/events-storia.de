@@ -1,120 +1,247 @@
 
-## Farbschema-Standardisierung: Nur Orange/Amber
 
-### Problem
-An verschiedenen Stellen im Admin-Bereich wurden rote Farben eingeführt (sichtbar in den Screenshots):
-- **Logout-Button** "Abmelden" mit rotem Text und Icon
-- **Status-Badges** für "Abgelehnt" und "Storniert" 
-- **Warn-Hinweise** und **Lösch-Dialoge**
+## Spatial Design & Apple HIG 2026 Optimierung
 
-Dies widerspricht dem Premium UI Framework 2026, das Amber/Gold als Akzentfarbe definiert.
+### Design-Prinzipien für diese Überarbeitung
 
-### Design-Lösung
-Beschränkung auf **eine Akzentfarbe: Amber/Orange** mit Varianten durch:
-- Unterschiedliche Transparenzstufen (`amber-500/10`, `amber-500/20`, etc.)
-- Unterschiedliche Helligkeitsstufen (`amber-400`, `amber-500`, `amber-600`, `amber-700`)
-- Unterschiedliche Hintergründe (`bg-amber-50`, `bg-amber-100`)
+1. **Visuelle Hierarchie** – Klare Abstufung von Primär → Sekundär → Tertiär
+2. **Massiver Whitespace** – Mehr Luft zwischen Elementen, weniger Dichte
+3. **Subtile Tiefe (Glassmorphism)** – Sanfte Schatten, Blur-Effekte für Layer-Trennung
+4. **Progressive Disclosure** – Komplexität verstecken, nur Relevantes zeigen
+5. **Haptisches Feedback** – Micro-Interactions bei jeder Aktion
 
-### Betroffene Dateien und Änderungen
+---
 
-#### 1. UserProfileDropdown.tsx
-**Zeile 306** - Logout-Button von Rot auf dezentes Grau/Neutral:
-```tsx
-// Von:
-className="text-destructive focus:text-destructive focus:bg-destructive/10"
-// Zu:
-className="text-foreground focus:text-foreground focus:bg-accent/10"
-```
-**Zeilen 219, 269** - Cancel-Buttons: `hover:text-destructive` → `hover:text-muted-foreground`
+### Konkrete Änderungen
 
-#### 2. Dashboard.tsx
-**Zeilen 153-157** - Neue-Anfragen-Card von Rot auf Amber:
-```tsx
-// Von:
-border-l-destructive/50, text-destructive/70
-// Zu:
-border-l-amber-500/50, text-amber-600
-```
+#### 1. Design-Tokens erweitern (index.css)
 
-#### 3. EventsList.tsx
-**Zeilen 129-134** - Status-Badges für "Abgelehnt" und "Neu":
-```tsx
-// Von:
-'border-destructive/50 text-destructive bg-destructive/10'
-// Zu (Abgelehnt):
-'border-muted-foreground/50 text-muted-foreground bg-muted'
-// Oder Amber-Variante für "Neu":
-'border-amber-500/50 text-amber-700 bg-amber-50'
+**Neue CSS-Variablen für Spatial Design:**
+
+```css
+.admin-layout {
+  /* Erweiterte Spacing-Tokens für großzügigeren Whitespace */
+  --space-section: 3rem;      /* 48px zwischen großen Sektionen */
+  --space-group: 2rem;        /* 32px innerhalb von Gruppen */
+  --space-element: 1.5rem;    /* 24px zwischen Elementen */
+  
+  /* Tiefe/Elevation-Tokens */
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-card: 0 4px 12px -2px rgba(0, 0, 0, 0.06);
+  --shadow-elevated: 0 8px 32px -4px rgba(0, 0, 0, 0.1);
+  --shadow-floating: 0 16px 48px -8px rgba(0, 0, 0, 0.12);
+  
+  /* Glassmorphism-Stufen */
+  --glass-light: rgba(255, 255, 255, 0.6);
+  --glass-medium: rgba(255, 255, 255, 0.75);
+  --glass-strong: rgba(255, 255, 255, 0.9);
+}
 ```
 
-#### 4. CateringOrdersManager.tsx
-**Zeile 21** - Storniert-Status:
+#### 2. Card-Komponente: Mehr Tiefe & Spacing (card.tsx)
+
+**Vorher:**
 ```tsx
-// Von:
-cancelled: { label: "Storniert", color: "text-red-700", bg: "bg-red-100" }
-// Zu:
-cancelled: { label: "Storniert", color: "text-muted-foreground", bg: "bg-muted" }
+className="rounded-2xl border bg-card text-card-foreground shadow-sm"
 ```
 
-#### 5. EventInquiriesManager.tsx
-**Zeile 21** - Abgelehnt-Status:
+**Nachher:**
 ```tsx
-// Von:
-declined: { label: "Abgelehnt", color: "text-red-700", bg: "bg-red-100" }
-// Zu:
-declined: { label: "Abgelehnt", color: "text-muted-foreground", bg: "bg-muted" }
+className="rounded-2xl border border-border/40 bg-card text-card-foreground shadow-[var(--shadow-card)]"
 ```
 
-#### 6. OfferOptionCard.tsx
-**Zeile 145** - X-Button:
+**CardHeader & CardContent mit mehr Padding:**
+- CardHeader: `p-6` → `p-8`
+- CardContent: `p-6 pt-0` → `p-8 pt-0`
+
+#### 3. Dashboard: Spatial Layout (Dashboard.tsx)
+
+**Verbesserungen:**
+
+a) **Sektionsabstände vergrößern:**
 ```tsx
-// Von:
-hover:text-destructive
-// Zu:
-hover:text-amber-600
+// Von: space-y-8
+// Zu: space-y-12 (48px statt 32px)
+<div className="space-y-12">
 ```
 
-#### 7. CateringOrderEditor.tsx
-**Zeilen 225-230** - Storniert-Notice:
+b) **Stat-Cards mit subtilerem Hover-Effekt:**
 ```tsx
-// Von:
-border-destructive/50, bg-destructive/5, text-destructive
-// Zu:
-border-muted-foreground/30, bg-muted/50, text-muted-foreground
+// MotionCard Anpassung: sanftere Animation
+whileHover={{ 
+  y: -2,           // Reduziert von -4
+  scale: 1.01,     // Reduziert von 1.02
+  boxShadow: "var(--shadow-elevated)"
+}}
 ```
 
-#### 8. PackageEdit.tsx
-**Zeile 535** - Entfernen-Button:
+c) **Drei-Spalten-Layout: Mehr Lücke zwischen Cards:**
 ```tsx
-// Von:
-hover:text-destructive
-// Zu:
-hover:text-amber-600
+// Von: gap-6
+// Zu: gap-8
+<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 ```
 
-#### 9. EventModules.tsx
-**Zeilen 358-359** - Minimum-Warnung:
+d) **Progressive Disclosure: Leere States subtiler:**
 ```tsx
-// Von:
-text-destructive
-// Zu:
-text-amber-600
+// Leerer State mit weniger visueller Präsenz
+<p className="text-sm text-muted-foreground/60 text-center py-8">
+  Keine neuen Anfragen
+</p>
 ```
 
-### Farb-Richtlinie (nach Umsetzung)
+#### 4. OfferOptionCard: Klarere Hierarchie (OfferOptionCard.tsx)
 
-| Verwendung | Farbe |
-|------------|-------|
-| Primär-Akzent | `amber-500` |
-| Hover auf Buttons | `amber-600` |
-| Text-Warnung | `amber-600` / `amber-700` |
-| Leichte Hintergründe | `amber-50` / `amber-100` |
-| Borders | `amber-500/50` |
-| Deaktiviert/Abgelehnt | `muted-foreground` + `bg-muted` |
-| Logout/Neutral-Action | `text-foreground` (kein Rot) |
+**Verbesserungen:**
 
-### Lösch-Dialoge bleiben unverändert
-Die `AlertDialogAction` für echte Lösch-Vorgänge kann als einzige Ausnahme `destructive` behalten, da Löschen eine unwiderrufliche Aktion ist. Alternativ auch hier auf Amber umstellen.
+a) **Option-Label größer und prominenter:**
+```tsx
+// Von: w-11 h-11 text-lg
+// Zu: w-14 h-14 text-xl (mehr visuelle Anker)
+<div className="w-14 h-14 rounded-full flex items-center justify-center font-semibold text-xl">
+```
 
-### Zusammenfassung
-9 Dateien werden angepasst, um alle roten Farben durch Amber-Töne oder neutrale Grautöne zu ersetzen. Das Ergebnis ist ein konsistentes, warmes Farbschema im gesamten Admin-Bereich.
+b) **Pricing-Section mit Tiefenebene:**
+```tsx
+// Mehr Innenabstand, subtilerer Hintergrund
+<div className="p-5 rounded-2xl bg-muted/20 border border-border/30 shadow-[var(--shadow-subtle)]">
+```
+
+c) **Menü-Konfiguration: Collapsed by default (Progressive Disclosure):**
+```tsx
+// Zeigt nur Zusammenfassung, Details auf Klick
+{!showMenuEditor && hasMenuConfig && (
+  <div className="flex items-center justify-between p-4 rounded-xl bg-muted/10">
+    <span className="text-sm">{configuredCourses} Gänge, {configuredDrinks} Getränke</span>
+    <Button variant="ghost" size="sm">Details</Button>
+  </div>
+)}
+```
+
+#### 5. MultiOfferComposer: Fokus-Flow (MultiOfferComposer.tsx)
+
+**Verbesserungen:**
+
+a) **Header mit mehr Breathing Room:**
+```tsx
+// Von: space-y-8
+// Zu: space-y-10
+<div className="space-y-10">
+```
+
+b) **Summary-Card: Floating-Effekt für CTA:**
+```tsx
+<Card className="bg-card/80 backdrop-blur-xl border-border/30 shadow-[var(--shadow-elevated)]">
+```
+
+c) **Email-Draft: Sanftes Einblenden:**
+```tsx
+{emailDraft && (
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3, ease: "easeOut" }}
+  >
+    <Card>...</Card>
+  </motion.div>
+)}
+```
+
+#### 6. FloatingPillNav: Mehr Tiefe (FloatingPillNav.tsx)
+
+**Verbesserungen:**
+
+a) **Nav-Container mit stärkerem Glass-Effekt:**
+```tsx
+// Von: glass-card rounded-2xl shadow-lg shadow-slate-200/40
+// Zu: Mehr Blur, subtilerer Schatten
+className="p-2 bg-white/70 backdrop-blur-2xl rounded-3xl shadow-[var(--shadow-floating)] border border-white/50"
+```
+
+b) **Nav-Items mit größeren Touch-Targets:**
+```tsx
+// Von: px-4 py-2.5 rounded-xl
+// Zu: px-5 py-3 rounded-2xl (mehr Polster)
+className="px-5 py-3 rounded-2xl text-sm font-medium"
+```
+
+#### 7. MotionCard: Subtilere Animationen (MotionCard.tsx)
+
+**Apple-typische, zurückhaltende Micro-Interactions:**
+
+```tsx
+whileHover={{ 
+  y: -2,                    // Sanfter als -4
+  scale: 1.005,             // Fast unmerklich
+  boxShadow: "0 12px 24px -8px rgba(0, 0, 0, 0.1)"
+}}
+whileTap={{ scale: 0.995 }} // Subtiles Feedback
+transition={{ 
+  type: "spring",
+  stiffness: 400,           // Schnellere Reaktion
+  damping: 30               // Weniger Bouncing
+}}
+```
+
+#### 8. Utility-Klassen hinzufügen (index.css)
+
+**Neue Spatial-Utilities:**
+
+```css
+/* Spatial Design Utilities */
+.admin-layout .section-spacing {
+  padding-block: var(--space-section);
+}
+
+.admin-layout .group-spacing {
+  gap: var(--space-group);
+}
+
+.admin-layout .element-spacing {
+  gap: var(--space-element);
+}
+
+/* Elevated Card Variant */
+.admin-layout .card-elevated {
+  box-shadow: var(--shadow-elevated);
+  border-color: transparent;
+}
+
+/* Focus States - Haptisches Feedback */
+.admin-layout button:focus-visible,
+.admin-layout [role="button"]:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  transition: outline-offset 0.1s ease;
+}
+
+.admin-layout button:active,
+.admin-layout [role="button"]:active {
+  transform: scale(0.98);
+}
+```
+
+---
+
+### Dateien, die geändert werden
+
+| Datei | Änderungen |
+|-------|------------|
+| `src/index.css` | Neue Design-Tokens, Utilities |
+| `src/components/ui/card.tsx` | Erhöhtes Padding, subtilere Shadows |
+| `src/components/admin/motion/MotionCard.tsx` | Sanftere Hover-Animationen |
+| `src/components/admin/refine/Dashboard.tsx` | Mehr Whitespace, größere Abstände |
+| `src/components/admin/refine/FloatingPillNav.tsx` | Stärkerer Glass-Effekt |
+| `src/components/admin/refine/InquiryEditor/MultiOffer/OfferOptionCard.tsx` | Klarere Hierarchie |
+| `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx` | Besserer Flow |
+
+---
+
+### Erwartetes Ergebnis
+
+- **Mehr Ruhe** durch großzügigen Whitespace
+- **Klarere Fokus-Punkte** durch visuelle Hierarchie
+- **Premium-Gefühl** durch subtile Tiefe und Glassmorphism
+- **Bessere Touch-Targets** auf Mobile
+- **Sanfteres Feedback** bei allen Interaktionen
+
