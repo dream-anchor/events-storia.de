@@ -15,13 +15,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-// Known admin display names
-const ADMIN_DISPLAY_NAMES: Record<string, string> = {
-  'mimmo2905@yahoo.de': 'Domenico Speranza',
-  'madi@events-storia.de': 'Madina Khader',
-  'madina.khader@gmail.com': 'Madina Khader',
-};
+import { getAdminDisplayName, getAdminInitials, isKnownAdmin } from "@/lib/adminDisplayNames";
 
 const getInitials = (name?: string, email?: string) => {
   if (name && !name.includes('@')) {
@@ -32,6 +26,10 @@ const getInitials = (name?: string, email?: string) => {
       .toUpperCase()
       .slice(0, 2);
   }
+  // Use central registry for known admins
+  if (email && isKnownAdmin(email)) {
+    return getAdminInitials(email);
+  }
   // Fallback to first letter of email
   return email?.[0]?.toUpperCase() || 'A';
 };
@@ -41,9 +39,9 @@ const getDisplayName = (email?: string, providedName?: string) => {
   if (providedName && !providedName.includes('@')) {
     return providedName;
   }
-  // Check known admins
-  if (email && ADMIN_DISPLAY_NAMES[email.toLowerCase()]) {
-    return ADMIN_DISPLAY_NAMES[email.toLowerCase()];
+  // Use central registry for known admins
+  if (email && isKnownAdmin(email)) {
+    return getAdminDisplayName(email);
   }
   // Fallback: extract name from email
   if (email) {

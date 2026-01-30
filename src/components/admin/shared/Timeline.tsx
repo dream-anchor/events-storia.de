@@ -34,6 +34,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useActivityLogs, formatActivityAction } from '@/hooks/useActivityLog';
 import { useEmailDeliveryLogs, formatProvider, formatEmailStatus, type EmailDeliveryLog } from '@/hooks/useEmailDeliveryLogs';
 import type { ActivityLog, EntityType } from './types';
+import { getAdminDisplayName, getAdminInitials } from '@/lib/adminDisplayNames';
 
 // Combined timeline entry type
 type TimelineItem = 
@@ -45,28 +46,6 @@ interface TimelineProps {
   entityId: string;
   className?: string;
 }
-
-// Admin display names mapping
-const ADMIN_DISPLAY_NAMES: Record<string, string> = {
-  'mimmo2905@yahoo.de': 'Domenico Speranza',
-  'madi@events-storia.de': 'Madina Khader',
-  'madina.khader@gmail.com': 'Madina Khader',
-};
-
-const getDisplayName = (email: string | undefined): string => {
-  if (!email) return 'System';
-  return ADMIN_DISPLAY_NAMES[email.toLowerCase()] || email.split('@')[0];
-};
-
-const getInitials = (email: string | undefined): string => {
-  if (!email) return 'S';
-  const name = ADMIN_DISPLAY_NAMES[email.toLowerCase()];
-  if (name) {
-    const parts = name.split(' ');
-    return parts.map(p => p[0]).join('').toUpperCase().slice(0, 2);
-  }
-  return email.slice(0, 2).toUpperCase();
-};
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   'status_changed': <ArrowRightLeft className="h-3 w-3" />,
@@ -118,8 +97,8 @@ const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasEmailContent = log.action === 'email_sent' && log.metadata?.html_content;
   const actionText = formatActivityAction(log);
-  const actorName = getDisplayName(log.actor_email);
-  const initials = getInitials(log.actor_email);
+  const actorName = getAdminDisplayName(log.actor_email);
+  const initials = getAdminInitials(log.actor_email);
   const theme = getActionTheme(log.action);
   const hasSummary = log.metadata?.summary;
 
@@ -270,8 +249,8 @@ interface EmailDeliveryEntryProps {
 const EmailDeliveryEntry = ({ emailLog, isFirst, isLast }: EmailDeliveryEntryProps) => {
   const statusInfo = formatEmailStatus(emailLog.status);
   const providerName = formatProvider(emailLog.provider);
-  const actorName = getDisplayName(emailLog.sent_by || undefined);
-  const initials = emailLog.sent_by ? getInitials(emailLog.sent_by) : 'SY';
+  const actorName = getAdminDisplayName(emailLog.sent_by || undefined);
+  const initials = emailLog.sent_by ? getAdminInitials(emailLog.sent_by) : 'SY';
   
   const isSuccess = emailLog.status === 'sent';
   const theme = isSuccess 

@@ -14,14 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-
-// Helper to get display name from email
-const getDisplayName = (email: string | null | undefined): string => {
-  if (!email) return 'Unbekannt';
-  if (email.includes('mimmo')) return 'Domenico';
-  if (email.includes('madi')) return 'Madina';
-  return email.split('@')[0];
-};
+import { getAdminDisplayName } from "@/lib/adminDisplayNames";
 
 interface MultiOfferComposerProps {
   inquiry: ExtendedInquiry;
@@ -566,7 +559,7 @@ export function MultiOfferComposer({
                   <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                     <span className="flex items-center gap-1">
                       <User className="h-3 w-3" />
-                      {getDisplayName(wasSent ? inquiry.offer_sent_by : inquiry.last_edited_by)}
+                      {getAdminDisplayName(wasSent ? inquiry.offer_sent_by : inquiry.last_edited_by)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
