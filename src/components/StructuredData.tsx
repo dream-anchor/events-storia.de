@@ -271,54 +271,67 @@ const StructuredData = ({ type = 'restaurant', breadcrumbs, faqItems, eventData,
     aggregateRating,
   })) || [];
 
+  // Build a single @graph array to prevent duplicate schema issues
+  const buildSchemaGraph = () => {
+    const schemas: object[] = [];
+
+    if (type === 'restaurant') {
+      // Remove @context from individual schemas when using @graph
+      const { '@context': _rc, ...restaurantWithoutContext } = restaurantSchema;
+      const { '@context': _lc, ...localBusinessWithoutContext } = localBusinessSchema;
+      const { '@context': _wc, ...websiteWithoutContext } = websiteSchema;
+      const { '@context': _oc, ...organizationWithoutContext } = organizationSchema;
+      
+      schemas.push(restaurantWithoutContext, localBusinessWithoutContext, websiteWithoutContext, organizationWithoutContext);
+    }
+
+    if (type === 'localbusiness') {
+      const { '@context': _cc, ...cateringWithoutContext } = cateringBusinessSchema;
+      const { '@context': _oc, ...organizationWithoutContext } = organizationSchema;
+      schemas.push(cateringWithoutContext, organizationWithoutContext);
+    }
+
+    if (breadcrumbSchema) {
+      const { '@context': _bc, ...breadcrumbWithoutContext } = breadcrumbSchema;
+      schemas.push(breadcrumbWithoutContext);
+    }
+
+    // Only add FAQPage once, when faqSchema exists
+    if (faqSchema) {
+      const { '@context': _fc, ...faqWithoutContext } = faqSchema;
+      schemas.push(faqWithoutContext);
+    }
+
+    if (eventSchema) {
+      const { '@context': _ec, ...eventWithoutContext } = eventSchema;
+      schemas.push(eventWithoutContext);
+    }
+
+    return schemas;
+  };
+
+  const graphSchemas = buildSchemaGraph();
+
+  // Create single consolidated schema with @graph
+  const consolidatedSchema = graphSchemas.length > 0 ? {
+    '@context': 'https://schema.org',
+    '@graph': graphSchemas,
+  } : null;
+
   return (
     <Helmet>
-      {type === 'restaurant' && (
-        <>
-          <script type="application/ld+json">
-            {JSON.stringify(restaurantSchema)}
-          </script>
-          <script type="application/ld+json">
-            {JSON.stringify(localBusinessSchema)}
-          </script>
-          <script type="application/ld+json">
-            {JSON.stringify(websiteSchema)}
-          </script>
-          <script type="application/ld+json">
-            {JSON.stringify(organizationSchema)}
-          </script>
-        </>
+      {/* Single consolidated schema for restaurant, localbusiness, faq, breadcrumb, event */}
+      {consolidatedSchema && (
+        <script type="application/ld+json">
+          {JSON.stringify(consolidatedSchema)}
+        </script>
       )}
-      {type === 'localbusiness' && (
-        <>
-          <script type="application/ld+json">
-            {JSON.stringify(cateringBusinessSchema)}
-          </script>
-          <script type="application/ld+json">
-            {JSON.stringify(organizationSchema)}
-          </script>
-        </>
-      )}
+      {/* Product schemas remain separate as they may be numerous */}
       {type === 'product' && productSchemas.map((schema, index) => (
         <script key={index} type="application/ld+json">
           {JSON.stringify(schema)}
         </script>
       ))}
-      {breadcrumbSchema && (
-        <script type="application/ld+json">
-          {JSON.stringify(breadcrumbSchema)}
-        </script>
-      )}
-      {faqSchema && (
-        <script type="application/ld+json">
-          {JSON.stringify(faqSchema)}
-        </script>
-      )}
-      {eventSchema && (
-        <script type="application/ld+json">
-          {JSON.stringify(eventSchema)}
-        </script>
-      )}
     </Helmet>
   );
 };
