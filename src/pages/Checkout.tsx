@@ -496,7 +496,9 @@ const Checkout = () => {
            (timeValue >= dinner.start && timeValue <= dinner.end);
   };
 
-  const isWeekendDeliveryTooLate = (selectedDate: string, isPickup: boolean): boolean => {
+  const isWeekendDeliveryTooLate = (selectedDate: string, isPickup: boolean, isEvent: boolean): boolean => {
+    // Events happen at the restaurant - no delivery cutoff applies
+    if (isEvent) return false;
     if (isPickup) return false;
     
     const orderDate = new Date(selectedDate);
@@ -525,7 +527,7 @@ const Checkout = () => {
     
     const isPickup = formData.deliveryType === 'pickup';
     
-    if (isWeekendDeliveryTooLate(formData.date, isPickup)) {
+    if (isWeekendDeliveryTooLate(formData.date, isPickup, isEventBooking)) {
       const selectedDate = new Date(formData.date);
       const dayName = selectedDate.getDay() === 6 ? 'Samstag' : 'Sonntag';
       const dayNameEn = selectedDate.getDay() === 6 ? 'Saturday' : 'Sunday';
@@ -575,7 +577,7 @@ const Checkout = () => {
         setDateTimeWarning(null);
       }
     }
-  }, [formData.date, formData.time, formData.deliveryType, language, isMobile, isPizzaOnly]);
+  }, [formData.date, formData.time, formData.deliveryType, language, isMobile, isPizzaOnly, isEventBooking]);
 
   // VAT calculations
   const minimumOrderSurcharge = deliveryCalc && totalPrice < deliveryCalc.minimumOrder 
