@@ -15,11 +15,11 @@ interface InboxItemProps {
 const EntityIcon = ({ type }: { type: EntityType }) => {
   switch (type) {
     case 'event_inquiry':
-      return <CalendarDays className="h-4 w-4 text-blue-500" />;
+      return <CalendarDays className="h-4 w-4 text-primary" />;
     case 'catering_order':
-      return <FileText className="h-4 w-4 text-amber-500" />;
+      return <FileText className="h-4 w-4 text-primary" />;
     case 'event_booking':
-      return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      return <CheckCircle2 className="h-4 w-4 text-primary" />;
   }
 };
 

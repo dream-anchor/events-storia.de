@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -97,7 +97,7 @@ export const FloatingPillNav = ({
   };
 
   return (
-    <nav className="hidden md:flex items-center gap-1 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/60 dark:border-slate-800/60 rounded-2xl shadow-lg shadow-slate-200/40 dark:shadow-slate-900/40">
+    <nav className="hidden md:flex items-center gap-1 p-1.5 glass-card rounded-2xl shadow-lg shadow-slate-200/40">
       {navigationContexts.map((item) => {
         const Icon = item.icon;
         const isActive = activeContext === item.key || 
@@ -109,12 +109,14 @@ export const FloatingPillNav = ({
           return (
             <DropdownMenu key={item.key}>
               <DropdownMenuTrigger asChild>
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   className={cn(
                     "relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 outline-none",
                     isActive
-                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -126,18 +128,18 @@ export const FloatingPillNav = ({
                       className={cn(
                         "ml-1 px-1.5 py-0 text-xs min-w-[18px] h-[18px] flex items-center justify-center rounded-md",
                         isActive 
-                          ? "bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900" 
-                          : "bg-blue-500 text-white"
+                          ? "bg-primary-foreground/20 text-primary-foreground" 
+                          : "bg-primary text-primary-foreground"
                       )}
                     >
                       {badgeCount}
                     </Badge>
                   )}
-                </button>
+                </motion.button>
               </DropdownMenuTrigger>
               <DropdownMenuContent 
                 align="start" 
-                className="w-56 mt-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-slate-200/60 dark:border-slate-800/60"
+                className="w-56 mt-2 glass-card border-0"
               >
                 {item.children.map((child) => {
                   const ChildIcon = child.icon;
@@ -150,7 +152,7 @@ export const FloatingPillNav = ({
                         to={child.href}
                         className={cn(
                           "flex items-center justify-between gap-2 cursor-pointer",
-                          isChildActive && "bg-slate-100 dark:bg-slate-800"
+                          isChildActive && "bg-secondary"
                         )}
                       >
                         <div className="flex items-center gap-2">
@@ -158,7 +160,7 @@ export const FloatingPillNav = ({
                           <span>{child.name}</span>
                         </div>
                         {childBadgeCount > 0 && (
-                          <Badge variant="secondary" className="bg-blue-500 text-white text-xs px-1.5 py-0 h-5">
+                          <Badge variant="secondary" className="bg-primary text-primary-foreground text-xs px-1.5 py-0 h-5">
                             {childBadgeCount}
                           </Badge>
                         )}
@@ -173,16 +175,16 @@ export const FloatingPillNav = ({
         
         // Simple items without children
         return (
-          <Link
-            key={item.key}
-            to={item.href}
-            className={cn(
-              "relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-              isActive
-                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-            )}
-          >
+          <motion.div key={item.key} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Link
+              to={item.href}
+              className={cn(
+                "relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              )}
+            >
             <Icon className="h-4 w-4" />
             <span>{item.name}</span>
             {badgeCount > 0 && (
@@ -191,14 +193,15 @@ export const FloatingPillNav = ({
                 className={cn(
                   "ml-1 px-1.5 py-0 text-xs min-w-[18px] h-[18px] flex items-center justify-center rounded-md",
                   isActive 
-                    ? "bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900" 
-                    : "bg-blue-500 text-white"
+                    ? "bg-primary-foreground/20 text-primary-foreground" 
+                    : "bg-primary text-primary-foreground"
                 )}
               >
                 {badgeCount}
               </Badge>
             )}
-          </Link>
+            </Link>
+          </motion.div>
         );
       })}
     </nav>
@@ -225,7 +228,13 @@ export const MobileBottomNav = ({
   };
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-50 md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/60 dark:border-slate-800/60 pb-safe">
+    <motion.nav 
+      className="fixed bottom-0 inset-x-0 z-50 md:hidden glass-header pb-safe"
+      initial={{ y: 100 }}
+      animate={{ y: 0 }}
+      transition={{ type: "spring", damping: 20, stiffness: 300 }}
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+    >
       <div className="grid grid-cols-3 h-16">
         {mobileItems.map((item) => {
           const Icon = item.icon;
@@ -233,38 +242,42 @@ export const MobileBottomNav = ({
           const badgeCount = getBadgeCount?.(item.badge) || 0;
           
           return (
-            <Link
-              key={item.key}
-              to={item.href}
-              className={cn(
-                "flex flex-col items-center justify-center gap-1 relative transition-colors",
-                active 
-                  ? "text-slate-900 dark:text-white" 
-                  : "text-slate-500 dark:text-slate-400"
-              )}
-            >
-              <div className="relative">
-                <Icon className="h-5 w-5" />
-                {badgeCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-blue-500 text-white text-[10px] font-medium min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">
-                    {badgeCount}
-                  </span>
+            <motion.div key={item.key} whileTap={{ scale: 0.9 }}>
+              <Link
+                to={item.href}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 relative transition-colors h-full",
+                  active 
+                    ? "text-primary" 
+                    : "text-muted-foreground"
                 )}
-              </div>
-              <span className={cn(
-                "text-[11px] font-medium",
-                active && "font-semibold"
-              )}>
-                {item.name}
-              </span>
-              {active && (
-                <div className="absolute top-0 inset-x-4 h-0.5 bg-slate-900 dark:bg-white rounded-full" />
-              )}
-            </Link>
+              >
+                <div className="relative">
+                  <Icon className="h-5 w-5" />
+                  {badgeCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[10px] font-medium min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">
+                      {badgeCount}
+                    </span>
+                  )}
+                </div>
+                <span className={cn(
+                  "text-[11px] font-medium",
+                  active && "font-semibold"
+                )}>
+                  {item.name}
+                </span>
+                {active && (
+                  <motion.div 
+                    layoutId="activeTab"
+                    className="absolute top-0 inset-x-4 h-0.5 bg-primary rounded-full" 
+                  />
+                )}
+              </Link>
+            </motion.div>
           );
         })}
       </div>
-    </nav>
+    </motion.nav>
   );
 };
 
@@ -290,29 +303,30 @@ export const MobilePillNav = ({
         const isActive = activeKey === item.key;
         
         return (
-          <Link
-            key={item.key}
-            to={item.href}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
-              isActive
-                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
-                : "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
-            )}
-          >
+          <motion.div key={item.key} whileTap={{ scale: 0.95 }}>
+            <Link
+              to={item.href}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground bg-secondary hover:bg-secondary/80"
+              )}
+            >
             <Icon className="h-3.5 w-3.5" />
             <span>{item.name}</span>
             {badgeCount > 0 && (
               <span className={cn(
                 "px-1.5 py-0.5 text-xs rounded-md min-w-[16px] text-center",
                 isActive 
-                  ? "bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900" 
-                  : "bg-blue-500 text-white"
+                  ? "bg-primary-foreground/20 text-primary-foreground" 
+                  : "bg-primary text-primary-foreground"
               )}>
                 {badgeCount}
               </span>
             )}
-          </Link>
+            </Link>
+          </motion.div>
         );
       })}
     </nav>

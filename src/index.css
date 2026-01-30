@@ -118,50 +118,70 @@ All colors MUST be HSL.
   }
 }
 
-/* Admin Maestro Design System - State of the Art 2026 */
+/* Admin Maestro Design System - Premium UI Framework 2026 */
+/* Apple-style Professionalität mit Amber/Gold Akzenten */
 .admin-layout {
   font-size: 16px;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   
-  /* Modern cool neutral palette */
-  --background: 220 14% 96%;
-  --foreground: 224 71% 4%;
+  /* Strikte Light-Mode Durchsetzung */
+  color-scheme: light !important;
+  
+  /* Premium Light Theme - Fast reines Weiß mit warmen Amber Akzenten */
+  --background: 0 0% 99%;
+  --foreground: 222 47% 11%;
   --card: 0 0% 100%;
-  --card-foreground: 224 71% 4%;
+  --card-foreground: 222 47% 11%;
   --popover: 0 0% 100%;
-  --popover-foreground: 224 71% 4%;
-  --primary: 221 83% 53%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 14% 92%;
-  --secondary-foreground: 224 71% 4%;
-  --muted: 220 14% 92%;
+  --popover-foreground: 222 47% 11%;
+  
+  /* Amber/Gold Akzent - warm und einladend */
+  --primary: 38 92% 50%;
+  --primary-foreground: 26 83% 14%;
+  
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 220 14% 96%;
   --muted-foreground: 220 9% 46%;
-  --accent: 221 83% 53%;
-  --accent-foreground: 0 0% 100%;
-  --border: 220 13% 91%;
-  --input: 220 13% 91%;
-  --ring: 221 83% 53%;
+  --accent: 38 92% 50%;
+  --accent-foreground: 26 83% 14%;
+  
+  /* Weichere Borders */
+  --border: 220 13% 93%;
+  --input: 220 13% 93%;
+  --ring: 38 92% 50%;
+  
+  /* Größerer Radius für Premium Look */
+  --radius: 1rem;
 }
 
-.admin-layout.dark,
-.dark .admin-layout {
-  --background: 224 71% 4%;
-  --foreground: 210 20% 98%;
-  --card: 222 47% 11%;
-  --card-foreground: 210 20% 98%;
-  --popover: 222 47% 11%;
-  --popover-foreground: 210 20% 98%;
-  --primary: 217 91% 60%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 215 28% 17%;
-  --secondary-foreground: 210 20% 98%;
-  --muted: 215 28% 17%;
-  --muted-foreground: 217 10% 64%;
-  --accent: 217 91% 60%;
-  --accent-foreground: 0 0% 100%;
-  --border: 215 28% 17%;
-  --input: 215 28% 17%;
-  --ring: 217 91% 60%;
+/* Glassmorphism Utilities */
+.admin-layout .glass-card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.08);
+}
+
+.admin-layout .glass-header {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+/* Light-Mode Enforcement für alle Radix-Popovers */
+[data-radix-popper-content-wrapper] {
+  z-index: 10001 !important;
+}
+
+.admin-layout [role="menu"],
+.admin-layout [role="dialog"],
+.admin-layout [role="listbox"] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 /* Typography overrides - Sans-Serif for Admin */
