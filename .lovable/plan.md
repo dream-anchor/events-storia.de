@@ -1,98 +1,120 @@
 
-## Problem (kurz & verständlich)
-Der Button **„Anschreiben generieren“** ist zwar klickbar, aber es passiert sichtbar nichts, weil **UI und Backend-Funktion nicht denselben “Vertrag” sprechen**:
+## Farbschema-Standardisierung: Nur Orange/Amber
 
-- In der **Multi-Offer**-Ansicht wird die Backend-Funktion mit einem **anderen Request-Format** aufgerufen (nested `inquiry` + `options` + `isMultiOption`).
-- Die Backend-Funktion `generate-inquiry-email` erwartet aber aktuell **flache Felder** wie `inquiryType`, `contactName`, `preferredDate`, usw.
-- Zusätzlich liefert die Backend-Funktion **`{ success, email }`** zurück, während `MultiOfferComposer` aktuell auf **`data.emailDraft`** wartet.
-- Ergebnis: kein Fehler, kein Draft – aus Nutzersicht „passiert nichts“.
+### Problem
+An verschiedenen Stellen im Admin-Bereich wurden rote Farben eingeführt (sichtbar in den Screenshots):
+- **Logout-Button** "Abmelden" mit rotem Text und Icon
+- **Status-Badges** für "Abgelehnt" und "Storniert" 
+- **Warn-Hinweise** und **Lösch-Dialoge**
 
-## Ziel
-1) Klick auf **„Anschreiben generieren“** erzeugt zuverlässig einen E-Mail-Entwurf und zeigt ihn direkt an.  
-2) Multi-Offer-E-Mails enthalten die aktiven Optionen (A/B/C…) verständlich.  
-3) Bestehende Stellen (FinalizePanel/AIComposer) dürfen nicht kaputtgehen.
+Dies widerspricht dem Premium UI Framework 2026, das Amber/Gold als Akzentfarbe definiert.
 
----
+### Design-Lösung
+Beschränkung auf **eine Akzentfarbe: Amber/Orange** mit Varianten durch:
+- Unterschiedliche Transparenzstufen (`amber-500/10`, `amber-500/20`, etc.)
+- Unterschiedliche Helligkeitsstufen (`amber-400`, `amber-500`, `amber-600`, `amber-700`)
+- Unterschiedliche Hintergründe (`bg-amber-50`, `bg-amber-100`)
 
-## Umsetzung (konkret)
+### Betroffene Dateien und Änderungen
 
-### 1) Backend-Funktion kompatibel machen (Multi-Offer + bestehende Calls)
-**Datei:** `supabase/functions/generate-inquiry-email/index.ts`
+#### 1. UserProfileDropdown.tsx
+**Zeile 306** - Logout-Button von Rot auf dezentes Grau/Neutral:
+```tsx
+// Von:
+className="text-destructive focus:text-destructive focus:bg-destructive/10"
+// Zu:
+className="text-foreground focus:text-foreground focus:bg-accent/10"
+```
+**Zeilen 219, 269** - Cancel-Buttons: `hover:text-destructive` → `hover:text-muted-foreground`
 
-**Änderungen:**
-- Request zuerst als „raw“ einlesen und dann **zwei Formate** unterstützen:
-  - **Format A (bestehend):** `inquiryType`, `contactName`, `menuSelection`, `packageName`, …
-  - **Format B (Multi-Offer):** `{ inquiry: {...}, options: [...], isMultiOption: true }`
-- Wenn Multi-Offer erkannt wird:
-  - `contactName/companyName/preferredDate/eventType` aus `raw.inquiry` ableiten
-  - Pro Option eine kompakte Beschreibung bauen (Option-Label, Paketname, Gästezahl, Gesamtbetrag, ggf. Menüauswahl, ggf. Payment-Link falls vorhanden)
-  - Kontext so formulieren, dass das Modell daraus einen **kurzen, übersichtlichen** Text erstellen kann
-- Response vereinheitlichen/abwärtskompatibel machen:
-  - Immer zurückgeben:  
-    ` { success: true, email: generatedEmail, emailDraft: generatedEmail } `
-  - Bei Fehlern weiterhin:  
-    ` { success: false, error: "...", status: ... } `  
-  (Damit funktionieren alle Aufrufer sicher, egal ob sie `email` oder `emailDraft` lesen.)
+#### 2. Dashboard.tsx
+**Zeilen 153-157** - Neue-Anfragen-Card von Rot auf Amber:
+```tsx
+// Von:
+border-l-destructive/50, text-destructive/70
+// Zu:
+border-l-amber-500/50, text-amber-600
+```
 
-**Warum so?**
-- Schnellster Fix ohne Side-Effects
-- Keine Migration nötig
-- Keine neue Backend-Funktion nötig, kein Secret-Setup nötig
+#### 3. EventsList.tsx
+**Zeilen 129-134** - Status-Badges für "Abgelehnt" und "Neu":
+```tsx
+// Von:
+'border-destructive/50 text-destructive bg-destructive/10'
+// Zu (Abgelehnt):
+'border-muted-foreground/50 text-muted-foreground bg-muted'
+// Oder Amber-Variante für "Neu":
+'border-amber-500/50 text-amber-700 bg-amber-50'
+```
 
----
+#### 4. CateringOrdersManager.tsx
+**Zeile 21** - Storniert-Status:
+```tsx
+// Von:
+cancelled: { label: "Storniert", color: "text-red-700", bg: "bg-red-100" }
+// Zu:
+cancelled: { label: "Storniert", color: "text-muted-foreground", bg: "bg-muted" }
+```
 
-### 2) MultiOfferComposer: korrektes Response-Handling + sichtbares Feedback
-**Datei:** `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx`
+#### 5. EventInquiriesManager.tsx
+**Zeile 21** - Abgelehnt-Status:
+```tsx
+// Von:
+declined: { label: "Abgelehnt", color: "text-red-700", bg: "bg-red-100" }
+// Zu:
+declined: { label: "Abgelehnt", color: "text-muted-foreground", bg: "bg-muted" }
+```
 
-**Änderungen:**
-- Neues State: `isGeneratingEmail` (ähnlich wie `isSending`)
-- `generateEmail`:
-  - Button währenddessen deaktivieren + Spinner/Text („Generiere…“)
-  - Nach `invoke`:
-    - `if (error) throw error`
-    - `if (!data?.success) throw new Error(data?.error || "Generierung fehlgeschlagen")`
-    - Draft-Text aus `data.email ?? data.emailDraft` holen
-    - Wenn leer: verständlicher Fehler („Keine E-Mail vom Service erhalten“)
-    - `setEmailDraft(...)` + Success-Toast
-- Optional (UX-Polish): nach erfolgreicher Generierung zum Draft-Bereich scrollen, damit man direkt sieht „da ist was passiert“.
+#### 6. OfferOptionCard.tsx
+**Zeile 145** - X-Button:
+```tsx
+// Von:
+hover:text-destructive
+// Zu:
+hover:text-amber-600
+```
 
-**Warum so?**
-- Der Button wirkt “tot”, weil es keinen Ladezustand gibt und weil der Erfolg nicht erkannt wird.
-- Mit Spinner + klaren Fehlermeldungen ist sofort sichtbar, ob:
-  - gerade generiert wird
-  - es einen Service-Fehler gab (z.B. Rate limit)
-  - der Draft erfolgreich gesetzt wurde
+#### 7. CateringOrderEditor.tsx
+**Zeilen 225-230** - Storniert-Notice:
+```tsx
+// Von:
+border-destructive/50, bg-destructive/5, text-destructive
+// Zu:
+border-muted-foreground/30, bg-muted/50, text-muted-foreground
+```
 
----
+#### 8. PackageEdit.tsx
+**Zeile 535** - Entfernen-Button:
+```tsx
+// Von:
+hover:text-destructive
+// Zu:
+hover:text-amber-600
+```
 
-## Edge Cases, die ich abfange
-- Keine aktive Option → Toast „Bitte mindestens eine Option aktivieren“
-- Aktive Option ohne Paket → Button bleibt deaktiviert wie bisher
-- Backend liefert `success:false` mit `error` → Toast zeigt konkrete Fehlermeldung
-- Backend liefert `success:true`, aber kein `email` → Toast „Keine E-Mail erhalten“
-- Multi-Offer mit 1–5 Optionen → E-Mail bleibt kurz, Optionen kompakt erwähnt
+#### 9. EventModules.tsx
+**Zeilen 358-359** - Minimum-Warnung:
+```tsx
+// Von:
+text-destructive
+// Zu:
+text-amber-600
+```
 
----
+### Farb-Richtlinie (nach Umsetzung)
 
-## Tests (End-to-End)
-1) Öffne eine Anfrage: `/admin/events/:id/edit`
-2) Klicke **„Anschreiben generieren“**
-   - Erwartung: Button zeigt „Generiere…“ + Spinner
-   - Danach: Toast Erfolg + **E-Mail-Entwurf Card** erscheint (Textarea gefüllt)
-3) Teste den anderen Flow:
-   - In einem Menü-Flow (FinalizePanel) ebenfalls „Anschreiben generieren“
-   - Erwartung: funktioniert unverändert, Text wird weiterhin angezeigt
-4) Negativtest:
-   - Warte beim Generieren absichtlich kurz / mehrfach klicken
-   - Erwartung: saubere Fehlermeldung bei Rate-Limit, keine “stille” Aktion
+| Verwendung | Farbe |
+|------------|-------|
+| Primär-Akzent | `amber-500` |
+| Hover auf Buttons | `amber-600` |
+| Text-Warnung | `amber-600` / `amber-700` |
+| Leichte Hintergründe | `amber-50` / `amber-100` |
+| Borders | `amber-500/50` |
+| Deaktiviert/Abgelehnt | `muted-foreground` + `bg-muted` |
+| Logout/Neutral-Action | `text-foreground` (kein Rot) |
 
----
+### Lösch-Dialoge bleiben unverändert
+Die `AlertDialogAction` für echte Lösch-Vorgänge kann als einzige Ausnahme `destructive` behalten, da Löschen eine unwiderrufliche Aktion ist. Alternativ auch hier auf Amber umstellen.
 
-## Dateien, die ich anfassen werde
-- `supabase/functions/generate-inquiry-email/index.ts`
-- `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx`
-
----
-
-## Technische Notiz (Ursache in einem Satz)
-Die Multi-Offer-UI sendet ein anderes Payload-Format und erwartet ein anderes Response-Feld als die Backend-Funktion liefert – dadurch wird kein Draft gesetzt und es gibt keine sichtbare Reaktion.
+### Zusammenfassung
+9 Dateien werden angepasst, um alle roten Farben durch Amber-Töne oder neutrale Grautöne zu ersetzen. Das Ergebnis ist ein konsistentes, warmes Farbschema im gesamten Admin-Bereich.
