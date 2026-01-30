@@ -1,229 +1,210 @@
 
-# Inbox-Entfernung & E-Mail-Optimierung
+# StoriaMaestro 2026: Radikal vereinfachte UX
 
-## Übersicht
+## Analyse der aktuellen Situation
 
-Zwei Hauptaufgaben:
-1. **Inbox komplett entfernen**, aber die Aktivitäts-Timeline und Presence-Indikatoren in die bestehenden Editoren übertragen
-2. **E-Mail-Generierung überarbeiten**: Kürzer, prägnanter, weniger überschwänglich, keine Markdown-Formatierung
+### 1. Einfaches Angebot vs. Multi-Optionen
+
+**Ergebnis der Analyse:**
+
+| Feature | Einfaches Angebot | Multi-Optionen |
+|---------|-------------------|----------------|
+| Paketauswahl | ✅ Einzelpaket | ✅ Bis zu 5 Pakete als A/B/C |
+| Menü-Composer | ✅ Geführter 3-Stufen-Workflow | ❌ Nur Basis-Menüauswahl |
+| Stripe-Links | ❌ Nicht integriert | ✅ Individuelle Zahlungslinks |
+| Email-Generator | ✅ Im FinalizePanel | ✅ Eigener Generator |
+| Versionierung | ❌ Nicht vorhanden | ✅ Angebotshistorie |
+
+**Empfehlung:** Multi-Optionen bietet den vollständigeren Workflow (Stripe-Links, Versionierung) und sollte zum **einzigen Modus** werden. Der "Einfaches Angebot"-Toggle ist redundant, da Multi-Optionen mit einer einzigen Option genauso funktioniert.
+
+→ **Toggle "Einfaches Angebot / Multi-Optionen" entfernen**
 
 ---
 
-## Teil 1: Inbox entfernen & Features übertragen
+### 2. Kommunikation-Tab
 
-### Was wird entfernt
+**Aktuelle Situation:**
+- Tab "Kommunikation" zeigt `AIComposer` mit E-Mail-Generierung und Versand
+- **Aber:** Der `FinalizePanel` im MenuComposer (unter "Kalkulation") enthält exakt dieselbe Funktionalität
+- Das bedeutet: Kommunikation ist doppelt vorhanden
 
-| Datei/Ordner | Aktion |
-|--------------|--------|
-| `src/pages/admin/InboxPage.tsx` | Löschen |
-| `src/components/admin/inbox/` (gesamter Ordner) | Löschen |
-| `src/hooks/useUnifiedInbox.ts` | Löschen |
-| `src/hooks/useInboxRealtime.ts` | Löschen |
-| `src/hooks/useInboxKeyboard.ts` | Löschen |
-| Route in `RefineAdmin.tsx` | Entfernen |
-| Navigation in `FloatingPillNav.tsx` | Inbox-Eintrag entfernen |
+**Empfehlung:** Der "Kommunikation"-Tab ist redundant, da:
+1. Der MenuWorkflow endet bereits mit dem FinalizePanel (inkl. E-Mail-Generierung + Versand)
+2. Der Workflow sollte linear sein: Pakete → Menü → Getränke → Anschreiben → Senden
 
-### Was bleibt erhalten
+→ **"Kommunikation"-Tab entfernen, FinalizePanel als finalen Schritt behalten**
 
-Diese Komponenten und Hooks werden **nicht** gelöscht, da sie weiterhin benötigt werden:
+---
 
-| Komponente/Hook | Neue Verwendung |
-|-----------------|-----------------|
-| `Timeline.tsx` | → Verschoben nach `src/components/admin/shared/Timeline.tsx` |
-| `PresenceIndicator.tsx` | → Verschoben nach `src/components/admin/shared/PresenceIndicator.tsx` |
-| `useActivityLog.ts` | → Bleibt erhalten (unverändert) |
-| `usePresence.ts` | → Bleibt erhalten (unverändert) |
-| `activity_logs` Tabelle | → Bleibt erhalten |
-| `admin_presence` Tabelle | → Bleibt erhalten |
+### 3. Gespeichert-Indikator "blinkt"
 
-### Integration in SmartInquiryEditor
+**Problem:** Der Auto-Save läuft alle 800ms wenn sich Daten ändern. Bei jedem Speichervorgang:
+1. "Speichert..." erscheint
+2. Nach Success: "Gespeichert" für 2 Sekunden
+3. Dann verschwindet es wieder
 
-Die Timeline und Presence werden direkt in die ContextBar und einen neuen Tab integriert:
+Bei kontinuierlichen Eingaben entsteht ein störendes Flackern.
 
-**Datei: `src/components/admin/refine/ContextBar.tsx`**
+**Lösung:** "Gespeichert" nur einmalig anzeigen und dann **permanent subtil eingeblendet** lassen. Nur bei aktiven Änderungen auf "Speichert..." wechseln.
 
-Erweiterung um Presence-Anzeige:
+```text
+Vorher:  [Speichert...] → [Gespeichert ✓] (2s) → [nichts] → [Speichert...] ...
+Nachher: [Speichert...] → [✓ Gespeichert] (permanent, dezent) → [Speichert...] ...
+```
+
+---
+
+## State of the Art 2026 Redesign
+
+### Kernprinzip: Progressive Disclosure
+
+Statt alle Features gleichzeitig zu zeigen, wird der Nutzer durch einen **linearen, geführten Flow** geleitet:
+
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│  SCHRITT 1: GRUNDDATEN                                               │
+│  ┌─────────────────────┐                                             │
+│  │ Event-Details       │  ← Kompakte Card mit Datum, Gäste, Typ     │
+│  │ 📅 15.03.2026       │                                             │
+│  │ 👥 45 Gäste         │                                             │
+│  │ 🏢 Firmenfeier      │                                             │
+│  └─────────────────────┘                                             │
+├──────────────────────────────────────────────────────────────────────┤
+│  SCHRITT 2: PAKET WÄHLEN                                             │
+│  ┌───────────┐  ┌───────────┐  ┌───────────┐                         │
+│  │  Essenz   │  │  Premium  │  │  Exclusiv │  ← Große, klare Cards  │
+│  │   79€ pp  │  │   99€ pp  │  │   129€ pp │                         │
+│  │     ○     │  │     ●     │  │     ○     │                         │
+│  └───────────┘  └───────────┘  └───────────┘                         │
+├──────────────────────────────────────────────────────────────────────┤
+│  SCHRITT 3: MENÜ ZUSAMMENSTELLEN (erscheint nach Paketauswahl)       │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  [Gänge ●] ─── [Getränke ○] ─── [Zusammenfassung ○]            │ │
+│  │                                                                 │ │
+│  │  🥗 Vorspeise                                                   │ │
+│  │  ┌──────────────────────────────────────────────────────────┐  │ │
+│  │  │ Burratina mit San-Marzano-Tomaten              gewählt ✓ │  │ │
+│  │  └──────────────────────────────────────────────────────────┘  │ │
+│  │                                                                 │ │
+│  │  🍝 Primo                                                       │ │
+│  │  ┌──────────────────────────────────────────────────────────┐  │ │
+│  │  │ Wähle ein Gericht...                                     │  │ │
+│  │  └──────────────────────────────────────────────────────────┘  │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+├──────────────────────────────────────────────────────────────────────┤
+│  SCHRITT 4: ANSCHREIBEN & SENDEN (erscheint nach Menü-Auswahl)       │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  [✨ Anschreiben generieren]                                    │ │
+│  │                                                                 │ │
+│  │  Hallo Max,                                                     │ │
+│  │                                                                 │ │
+│  │  vielen Dank für Ihre Anfrage...                               │ │
+│  │                                                                 │ │
+│  │  ───────────────────────────────────────────────                │ │
+│  │                                                                 │ │
+│  │  [     Angebot senden & E-Mail versenden     ]                 │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Konkrete Änderungen
+
+### Datei: `SmartInquiryEditor.tsx`
+
+**1. ToggleGroup "Einfaches Angebot / Multi-Optionen" entfernen**
+- Zeilen 391-415: Kompletter ToggleGroup-Block wird gelöscht
+- Der `offerMode` State wird nicht mehr benötigt
+- Es wird nur noch `MultiOfferComposer` verwendet (funktioniert auch mit 1 Option)
+
+**2. "Kommunikation"-Tab entfernen**
+- Zeilen 380-387: TabsList auf 2 Tabs reduzieren ("Kalkulation", "Aktivitäten")
+- Zeilen 476-501: TabsContent "kommunikation" komplett entfernen
+- Der AIComposer bleibt im FinalizePanel des MenuComposer erhalten
+
+**3. Gespeichert-Indikator optimieren**
+- Zeilen 362-375: Logik ändern
+- "Gespeichert" bleibt permanent sichtbar (ohne Animation)
+- Nur "Speichert..." wird bei aktiver Speicherung angezeigt
 
 ```tsx
-// Neue Props
-interface ContextBarProps {
-  // ... existing props
-  entityType?: 'event_inquiry' | 'catering_order' | 'event_booking';
-  entityId?: string;
-}
+// Vorher
+{saveStatus === 'saved' && (
+  <>
+    <CheckCircle2 className="h-4 w-4 text-primary" />
+    <span>Gespeichert</span>
+  </>
+)}
 
-// Im Return:
-<div className="flex items-center gap-4 ...">
-  {/* Zurück-Button & Titel (wie bisher) */}
-  
-  {/* NEU: Presence Indicator im Header */}
-  {entityType && entityId && (
-    <PresenceIndicator 
-      viewers={viewers} 
-      className="hidden md:flex"
-    />
-  )}
-</div>
-```
-
-**Datei: `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx`**
-
-Neuer Tab "Aktivitäten" hinzufügen:
-
-```tsx
-<Tabs defaultValue="kalkulation">
-  <TabsList>
-    <TabsTrigger value="kalkulation">Kalkulation</TabsTrigger>
-    <TabsTrigger value="kommunikation">Kommunikation</TabsTrigger>
-    <TabsTrigger value="aktivitaeten">Aktivitäten</TabsTrigger>  {/* NEU */}
-  </TabsList>
-  
-  {/* ... existing TabsContent ... */}
-  
-  <TabsContent value="aktivitaeten">
-    <Timeline entityType="event_inquiry" entityId={id!} />
-  </TabsContent>
-</Tabs>
-```
-
-### Navigation anpassen
-
-**Datei: `src/components/admin/refine/FloatingPillNav.tsx`**
-
-Inbox-Eintrag entfernen, Navigation vereinfachen:
-
-```tsx
-const navigationContexts: NavItem[] = [
-  { 
-    name: 'Dashboard', 
-    href: '/admin', 
-    icon: LayoutDashboard, 
-    key: 'dashboard' 
-  },
-  // INBOX ENTFERNT
-  { 
-    name: 'Anfragen', 
-    href: '/admin/events', 
-    icon: CalendarDays, 
-    key: 'workflow',
-    // ...
-  },
-  { 
-    name: 'Stammdaten', 
-    // ...
-  },
-];
+// Nachher
+{(saveStatus === 'idle' || saveStatus === 'saved') && (
+  <span className="text-muted-foreground/60 text-sm">
+    <Check className="h-3.5 w-3.5 inline mr-1" />
+    Gespeichert
+  </span>
+)}
+{saveStatus === 'saving' && (
+  <span className="text-muted-foreground text-sm">
+    <Loader2 className="h-3.5 w-3.5 inline mr-1 animate-spin" />
+    Speichert...
+  </span>
+)}
 ```
 
 ---
 
-## Teil 2: E-Mail-Generierung optimieren
+### Datei: `EventModules.tsx`
 
-### Problem
-
-Der aktuelle System-Prompt erzeugt:
-- Zu lange E-Mails (200-300 Wörter angefordert)
-- Überschwängliche, anbiederische Formulierungen
-- Markdown-Formatierung (unpassend für E-Mail-Clients)
-
-### Lösung
-
-**Datei: `supabase/functions/generate-inquiry-email/index.ts`**
-
-Komplett überarbeiteter System-Prompt:
-
-```typescript
-const systemPrompt = `Du bist ein professioneller Mitarbeiter von STORIA München.
-
-STIL:
-- Freundlich, aber geschäftsmäßig und auf den Punkt
-- Kurz und prägnant (max. 100-150 Wörter)
-- Keine überschwänglichen Floskeln wie "wunderbar", "fantastisch", "herausragend"
-- KEIN Markdown (keine **, keine #, keine Listen mit -)
-- Normaler E-Mail-Fließtext mit Absätzen
-
-STRUKTUR:
-1. Kurze Begrüßung (1 Satz)
-2. Bestätigung der Anfrage mit den wichtigsten Fakten (Datum, Gästeanzahl, Paket)
-3. Hinweis auf beigefügtes Angebot
-4. Kurze Info zu nächsten Schritten / Vorauszahlung
-5. Signatur
-
-VERBOTEN:
-- "Wir freuen uns außerordentlich..."
-- "Es ist uns eine große Ehre..."
-- "Ihr exklusives Event wird unvergesslich..."
-- Aufzählungslisten (stattdessen: Fließtext mit Kommas)
-- Fettdruck oder andere Formatierung
-- Mehr als 3 Absätze vor der Signatur
-
-SIGNATUR (exakt so verwenden):
-${personalizedSignature}
-
-BEISPIEL-TON:
-"Vielen Dank für Ihre Anfrage. Gerne bestätigen wir Ihnen folgende Details: Business Dinner für 45 Personen am 15.03.2026. Das detaillierte Angebot finden Sie im Anhang. Für Ihr gewähltes Paket ist eine Vorauszahlung von 100% erforderlich. Bei Fragen stehe ich Ihnen gerne zur Verfügung."
-`;
-```
-
-### Änderungen im User-Prompt
-
-```typescript
-const userPrompt = inquiryType === 'event' 
-  ? `Schreibe eine kurze, professionelle Bestätigungs-E-Mail für diese Event-Anfrage:
-  
-${context}
-
-Wichtig: Maximal 150 Wörter. Keine Markdown-Formatierung. Sachlich und freundlich.`
-  : `Schreibe eine kurze Bestätigungs-E-Mail für diese Catering-Bestellung:
-  
-${context}
-
-Wichtig: Maximal 150 Wörter. Keine Markdown-Formatierung. Sachlich und freundlich.`;
-```
+**Vereinfachung:** Der komplette Paket-Auswahl-Block wird kompakter gestaltet. Die Menü-Logik wird in den MenuComposer verlagert, der bereits gut funktioniert.
 
 ---
 
-## Zusammenfassung der Dateiänderungen
+### Datei: `MultiOfferComposer.tsx`
 
-### Zu löschende Dateien
-1. `src/pages/admin/InboxPage.tsx`
-2. `src/components/admin/inbox/InboxLayout.tsx`
-3. `src/components/admin/inbox/InboxSidebar/` (gesamter Ordner)
-4. `src/components/admin/inbox/DetailPane/DetailHeader.tsx`
-5. `src/components/admin/inbox/DetailPane/DocumentViewer.tsx`
-6. `src/components/admin/inbox/DetailPane/index.tsx`
-7. `src/components/admin/inbox/types.ts`
-8. `src/components/admin/inbox/index.ts`
-9. `src/hooks/useUnifiedInbox.ts`
-10. `src/hooks/useInboxRealtime.ts`
-11. `src/hooks/useInboxKeyboard.ts`
-
-### Zu verschiebende Dateien
-1. `src/components/admin/inbox/DetailPane/Timeline.tsx` → `src/components/admin/shared/Timeline.tsx`
-2. `src/components/admin/inbox/DetailPane/PresenceIndicator.tsx` → `src/components/admin/shared/PresenceIndicator.tsx`
-
-### Zu bearbeitende Dateien
-1. `src/pages/RefineAdmin.tsx` - Inbox-Routes entfernen
-2. `src/components/admin/refine/FloatingPillNav.tsx` - Inbox aus Navigation entfernen
-3. `src/components/admin/refine/ContextBar.tsx` - Presence-Indicator hinzufügen
-4. `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` - Timeline-Tab hinzufügen, Presence-Hook einbinden
-5. `src/components/admin/refine/CateringOrderEditor.tsx` - Timeline-Tab hinzufügen
-6. `src/components/admin/refine/EventBookingEditor.tsx` - Timeline-Tab hinzufügen
-7. `supabase/functions/generate-inquiry-email/index.ts` - System-Prompt komplett überarbeiten
-8. `src/hooks/useActivityLog.ts` - Import-Pfad für Types anpassen
-
-### Neue Dateien
-1. `src/components/admin/shared/index.ts` - Barrel Export für shared Components
+**Anpassungen für Single-Option-Default:**
+- Startet mit genau 1 Option (A)
+- "Weitere Option hinzufügen" Button ermöglicht bei Bedarf mehr Optionen
+- E-Mail-Generierung ist bereits integriert
+- Keine UI-Änderung nötig, da der aktuelle Flow bereits gut ist
 
 ---
 
-## Aktivitäts-Tracking bleibt erhalten
+### Weitere Optimierungen
 
-Die Activity-Logs werden weiterhin bei jeder Aktion erstellt:
-- Status-Änderungen
-- Preis-Updates  
-- E-Mail-Versand (mit HTML-Content)
-- Menü-Bestätigungen
-- Angebots-Erstellung
+**1. MenuComposer beibehalten**
+- Der geführte 3-Stufen-Workflow (Gänge → Getränke → Angebot) ist bereits "State of the Art"
+- FinalizePanel enthält AIComposer + Versand – das ist der richtige Ort
 
-Diese werden jetzt direkt im jeweiligen Editor-Tab "Aktivitäten" angezeigt, nicht mehr in der separaten Inbox.
+**2. Aktivitäten-Tab bleibt**
+- Zeigt Timeline/History
+- Wichtig für Nachvollziehbarkeit
+
+**3. Keine funktionalen Einschränkungen**
+- Alle bestehenden Features bleiben erhalten
+- Nur die Präsentation wird vereinfacht
+
+---
+
+## Zusammenfassung der Änderungen
+
+| Was | Aktion |
+|-----|--------|
+| Toggle "Einfaches/Multi" | Entfernen (Multi als Default, funktioniert auch mit 1 Option) |
+| Tab "Kommunikation" | Entfernen (redundant, FinalizePanel bleibt) |
+| Tab "Kalkulation" | Bleibt (enthält Paket + MenuComposer) |
+| Tab "Aktivitäten" | Bleibt (Timeline) |
+| Gespeichert-Blinken | Permanent dezent anzeigen, nur bei Speicherung "Speichert..." |
+
+---
+
+## Betroffene Dateien
+
+1. `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx`
+   - Toggle entfernen
+   - Kommunikation-Tab entfernen
+   - Save-Status-Indikator optimieren
+
+2. (Optional) `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx`
+   - Default auf 1 Option setzen (falls nicht bereits so)
+
