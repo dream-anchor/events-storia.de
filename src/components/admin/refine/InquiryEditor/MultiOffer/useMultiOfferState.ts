@@ -159,9 +159,9 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     setSaveStatus('saving');
     saveTimeoutRef.current = setTimeout(async () => {
       try {
-        // Get current user for editor tracking
+        // Get current user for editor tracking - use email for human-readable display
         const { data: userData } = await supabase.auth.getUser();
-        const currentUserId = userData.user?.id;
+        const currentUserEmail = userData.user?.email;
 
         // Delete existing options for this inquiry
         await supabase
@@ -189,12 +189,12 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
             });
         }
 
-        // Update editor tracking on the inquiry
-        if (currentUserId) {
+        // Update editor tracking on the inquiry - store email for display
+        if (currentUserEmail) {
           await supabase
             .from("event_inquiries")
             .update({
-              last_edited_by: currentUserId,
+              last_edited_by: currentUserEmail,
               last_edited_at: new Date().toISOString(),
             })
             .eq("id", inquiryId);
@@ -337,13 +337,13 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
         options_snapshot: options,
       });
 
-      // Update inquiry with new version AND offer_sent tracking
+      // Update inquiry with new version AND offer_sent tracking - store email for display
       await supabase
         .from("event_inquiries")
         .update({ 
           current_offer_version: newVersion,
           offer_sent_at: now,
-          offer_sent_by: user?.id || null,
+          offer_sent_by: user?.email || null,
         })
         .eq("id", inquiryId);
 

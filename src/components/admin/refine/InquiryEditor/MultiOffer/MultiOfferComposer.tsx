@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Send, Loader2, History, Check, Sparkles } from "lucide-react";
+import { Plus, Send, Loader2, History, Check, Sparkles, Mail, Clock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,16 @@ import { useMultiOfferState } from "./useMultiOfferState";
 import { Package, ExtendedInquiry, EmailTemplate } from "../types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { format, parseISO } from "date-fns";
+import { de } from "date-fns/locale";
+
+// Helper to get display name from email
+const getDisplayName = (email: string | null | undefined): string => {
+  if (!email) return 'Unbekannt';
+  if (email.includes('mimmo')) return 'Domenico';
+  if (email.includes('madi')) return 'Madina';
+  return email.split('@')[0];
+};
 
 interface MultiOfferComposerProps {
   inquiry: ExtendedInquiry;
@@ -48,7 +58,12 @@ export function MultiOfferComposer({
     createNewVersion,
   } = useMultiOfferState({ inquiryId: inquiry.id, guestCount, selectedPackages });
 
+  // Check if an offer was already sent (email_draft exists in DB)
+  const hasSentOffer = Boolean(inquiry.offer_sent_at && inquiry.email_draft);
+  const savedEmailDraft = inquiry.email_draft || '';
+  
   const [emailDraft, setEmailDraft] = useState("");
+  const [isNewDraft, setIsNewDraft] = useState(false); // Track if user is creating a follow-up
   const [isSending, setIsSending] = useState(false);
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
   const [generatingPaymentLinks, setGeneratingPaymentLinks] = useState<Set<string>>(new Set());
@@ -478,10 +493,97 @@ export function MultiOfferComposer({
         </Button>
       )}
 
-      {/* Email Generation Section - Static Inline */}
+      {/* Email Section - Show sent offer OR generation interface */}
       <AnimatePresence mode="wait">
-        {activeOptions.length > 0 && (
+        {/* CASE 1: Already sent offer - show read-only with Apple 2026 glassmorphism */}
+        {hasSentOffer && !isNewDraft && (
           <motion.div
+            key="sent-offer"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="mt-8"
+          >
+            <div className={cn(
+              "relative overflow-hidden rounded-3xl",
+              "bg-white/70 dark:bg-neutral-900/70",
+              "backdrop-blur-xl",
+              "border border-white/20",
+              "shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
+            )}>
+              {/* Header with sent status */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+                    <Send className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-foreground">Angebot gesendet</span>
+                      <Badge variant="outline" className="text-xs border-emerald-500/50 text-emerald-700 bg-emerald-50">
+                        Version {inquiry.current_offer_version || 1}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                      <span className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {getDisplayName(inquiry.offer_sent_by)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {inquiry.offer_sent_at 
+                          ? format(parseISO(inquiry.offer_sent_at), "dd.MM.yy 'um' HH:mm", { locale: de })
+                          : '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsNewDraft(true)}
+                  className="rounded-xl"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Nachricht senden
+                </Button>
+              </div>
+              
+              {/* Read-only email content */}
+              <div className="p-6 max-h-[300px] overflow-y-auto">
+                <div className="prose prose-sm max-w-none">
+                  <pre className="whitespace-pre-wrap font-sans text-sm text-foreground bg-transparent p-0 m-0">
+                    {savedEmailDraft}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Footer with summary */}
+              <div className="flex items-center justify-between px-6 py-4 border-t border-border/50 bg-muted/20">
+                <div className="text-sm text-muted-foreground">
+                  {activeOptions.length} Option{activeOptions.length !== 1 ? 'en' : ''} · {totalForAllOptions.toFixed(2)} €
+                </div>
+                {history.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowHistory(!showHistory)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <History className="h-4 w-4 mr-1.5" />
+                    {history.length} Version{history.length !== 1 ? 'en' : ''}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* CASE 2: Creating new draft (follow-up) OR no offer sent yet */}
+        {(!hasSentOffer || isNewDraft) && activeOptions.length > 0 && (
+          <motion.div
+            key="draft-interface"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
@@ -490,9 +592,15 @@ export function MultiOfferComposer({
           >
             {/* Show button if no email draft, otherwise show email preview */}
             {!emailDraft ? (
-              <div className="bg-muted/30 border border-border rounded-2xl p-6">
+              <div className={cn(
+                "rounded-3xl p-6",
+                "bg-white/70 dark:bg-neutral-900/70",
+                "backdrop-blur-xl",
+                "border border-white/20",
+                "shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
+              )}>
                 <div className="flex items-center gap-4">
-                  {/* Left: Generate Button */}
+                  {/* Left: Generate Button with glow */}
                   <motion.button
                     onClick={generateEmail}
                     disabled={activeOptionsWithPackage.length === 0 || isGeneratingEmail}
@@ -532,11 +640,23 @@ export function MultiOfferComposer({
                           className="flex items-center gap-2"
                         >
                           <Sparkles className="h-4 w-4" />
-                          Anschreiben generieren
+                          {hasSentOffer ? 'Folge-Mail generieren' : 'Anschreiben generieren'}
                         </motion.span>
                       )}
                     </AnimatePresence>
                   </motion.button>
+
+                  {/* Back button if creating follow-up */}
+                  {isNewDraft && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsNewDraft(false)}
+                      className="text-muted-foreground"
+                    >
+                      Abbrechen
+                    </Button>
+                  )}
 
                   {/* Right: Status */}
                   <div className="flex flex-col gap-0.5 ml-auto text-right">
@@ -576,49 +696,65 @@ export function MultiOfferComposer({
                 </div>
               </div>
             ) : (
-              /* Email Draft Preview */
+              /* Email Draft Preview - ready to send */
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className="bg-card border border-border rounded-2xl overflow-hidden"
+                className={cn(
+                  "overflow-hidden rounded-3xl",
+                  "bg-white/70 dark:bg-neutral-900/70",
+                  "backdrop-blur-xl",
+                  "border border-white/20",
+                  "shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
+                )}
               >
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
                   <div className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-600" />
-                    <span className="font-medium text-sm text-foreground">Anschreiben generiert</span>
+                    <Check className="h-4 w-4 text-emerald-600" />
+                    <span className="font-medium text-sm text-foreground">
+                      {hasSentOffer ? 'Folge-Mail bereit' : 'Anschreiben generiert'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setEmailDraft("")}
+                      onClick={() => {
+                        setEmailDraft("");
+                        if (isNewDraft) setIsNewDraft(false);
+                      }}
                       className="text-muted-foreground hover:text-foreground"
                     >
-                      Neu generieren
+                      {isNewDraft ? 'Abbrechen' : 'Neu generieren'}
                     </Button>
                   </div>
                 </div>
                 
                 {/* Email Content Preview */}
-                <div className="p-5">
+                <div className="p-6 max-h-[250px] overflow-y-auto">
                   <div className="prose prose-sm max-w-none">
-                    <pre className="whitespace-pre-wrap font-sans text-sm text-foreground bg-transparent p-0 m-0 overflow-hidden">
+                    <pre className="whitespace-pre-wrap font-sans text-sm text-foreground bg-transparent p-0 m-0">
                       {emailDraft.length > 500 ? emailDraft.slice(0, 500) + '...' : emailDraft}
                     </pre>
                   </div>
                 </div>
 
                 {/* Footer with Send Action */}
-                <div className="flex items-center justify-between px-5 py-4 border-t border-border bg-muted/20">
+                <div className="flex items-center justify-between px-6 py-4 border-t border-border/50 bg-muted/20">
                   <div className="text-sm text-muted-foreground">
                     {activeOptions.length} Option{activeOptions.length !== 1 ? 'en' : ''} · {totalForAllOptions.toFixed(2)} €
                   </div>
                   <Button
                     onClick={handleSendOffer}
                     disabled={isSending}
-                    className="bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700"
+                    className={cn(
+                      "rounded-xl",
+                      "bg-gradient-to-r from-amber-500 to-amber-600 text-white",
+                      "hover:from-amber-600 hover:to-amber-700",
+                      "shadow-[0_4px_16px_-4px_rgba(245,158,11,0.4)]"
+                    )}
                   >
                     {isSending ? (
                       <>
@@ -628,7 +764,7 @@ export function MultiOfferComposer({
                     ) : (
                       <>
                         <Send className="h-4 w-4 mr-2" />
-                        Angebot senden
+                        {hasSentOffer ? 'Folge-Mail senden' : 'Angebot senden'}
                       </>
                     )}
                   </Button>
