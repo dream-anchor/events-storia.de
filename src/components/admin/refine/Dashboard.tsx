@@ -37,17 +37,22 @@ export const Dashboard = () => {
   const orders = ordersQuery.result?.data || [];
   const pendingMenuBookings = bookings || [];
 
-  // Categorize events into 3 sections
+  // Categorize events into 3 sections based on status (primary) and tracking timestamps (fallback)
   const newInquiries = events.filter(e => 
     e.status === 'new' && !e.last_edited_at
   );
   
   const inProgressInquiries = events.filter(e => 
-    e.last_edited_at && !e.offer_sent_at && e.status !== 'confirmed' && e.status !== 'declined'
+    (e.last_edited_at || e.status === 'contacted') && 
+    e.status !== 'offer_sent' && 
+    e.status !== 'confirmed' && 
+    e.status !== 'declined'
   );
   
   const offerSentInquiries = events.filter(e => 
-    e.offer_sent_at && e.status !== 'confirmed' && e.status !== 'declined'
+    (e.status === 'offer_sent' || e.offer_sent_at) && 
+    e.status !== 'confirmed' && 
+    e.status !== 'declined'
   );
 
   // Stats
