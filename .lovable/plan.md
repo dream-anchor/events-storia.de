@@ -1,125 +1,149 @@
 
-# Plan: Benutzer-Dropdown im Admin Header
 
-## Aktuelle Situation
+# UI-Redesign: Multi-Offer-Composer auf "State of the Art 2026"
 
-Der Admin-Header zeigt derzeit:
-- Name/E-Mail als statischen Text
-- Separaten "Webseite" Link
-- Separaten Logout-Button
+## Analyse des aktuellen Problems
 
-## Gewünschte Änderung
+Die aktuelle UI nutzt:
+- **Orange/Rot-Töne** via `text-primary` und `bg-primary` (Primary ist derzeit HSL 358°, also ein warmes Rot)
+- **Überladene Karten** mit vielen verschachtelten Containern
+- **Inkonsistente Hierarchie** - zu viele visuelle Elemente konkurrieren um Aufmerksamkeit
+- **Fehlende Glassmorphism-Effekte** die im Rest des Admin-Bereichs verwendet werden
 
-1. **Entfernen**: "Webseite" Link oben rechts
-2. **Neues Benutzer-Dropdown** mit:
-   - Klickbarer Avatar mit Initialen
-   - Im Dropdown: Name, E-Mail, Logout-Button
-   - Alles in einem modernen 2026-Style
+## Design-Prinzipien "State of the Art 2026"
 
-## Design
+Basierend auf dem bestehenden Premium UI Framework:
+
+| Element | Alt (Aktuell) | Neu (2026) |
+|---------|---------------|------------|
+| Farben | `text-primary` (Rot/Orange) | Monochromes Grau + `text-foreground` |
+| Akzente | `bg-primary/5` | Dezentes `bg-muted/50` oder `glass-card` |
+| Cards | Standard borders | `glass-card` mit `backdrop-blur` |
+| Preise | `text-primary` Bold | `text-foreground` mit eleganter Typografie |
+| Badges | Farbige Borders | Subtile monochromatische Varianten |
+| Spacing | Kompakt | Großzügiger mit mehr Weißraum |
+
+## Technischer Plan
+
+### Datei 1: `OfferOptionCard.tsx` - Komplettes Redesign
+
+**Aktuelle Probleme:**
+- Orange Option-Labels (`bg-primary text-primary-foreground`)
+- Orange Preisanzeige (`text-primary`)
+- Orange Status-Badges und Links
+- Verschachtelte Container mit zu wenig Kontrast
+
+**Änderungen:**
+```text
+1. Option-Label (A, B, C...):
+   - Alt: bg-primary (orange) → Neu: bg-foreground/10 text-foreground
+   - Aktiv: Dezent hervorgehoben mit border statt Farbe
+
+2. Preis-Anzeige:
+   - Alt: text-xl font-bold text-primary → Neu: text-2xl font-semibold text-foreground
+   - Elegante typografische Hierarchie statt Farbakzent
+
+3. Aktiv/Inaktiv Toggle:
+   - Alt: text-primary vs text-muted-foreground
+   - Neu: Switch-Komponente oder minimalistischer Toggle
+
+4. Menü-Konfiguration Status:
+   - Alt: text-primary für konfiguriert
+   - Neu: Checkmark-Icon + text-muted-foreground
+
+5. Zahlungslink-Box:
+   - Alt: bg-primary/5 border-primary/20
+   - Neu: glass-card Styling oder subtle bg-muted
+```
+
+### Datei 2: `MultiOfferComposer.tsx` - Vereinfachtes Layout
+
+**Änderungen:**
+```text
+1. Summary Card:
+   - Alt: bg-primary/5 border-primary/20
+   - Neu: Standard Card mit glass-card oder neutral bg-muted/30
+
+2. Version Badge:
+   - Bleibt neutral (variant="outline" ist bereits gut)
+
+3. Speicher-Status:
+   - Alt: text-primary für "Gespeichert"
+   - Neu: text-muted-foreground mit Check-Icon
+
+4. Button "Weitere Option hinzufügen":
+   - Bleibt border-dashed, ist bereits neutral
+
+5. Email-Draft Card:
+   - Saubere Typografie, weniger visuelles Rauschen
+```
+
+### Datei 3: `OfferVersionHistory.tsx` - Konsistenz prüfen
+
+- Sicherstellen dass keine orange Akzente verwendet werden
+
+## Visual-Konzept
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  StoriaMaestro    [ Events | Buchungen | Catering ]   [⌘K] │
-│                                                        [DS]◀─┐
-└─────────────────────────────────────────────────────────────┘
-                                                               │
-                    ┌──────────────────────────────────────────┘
-                    │
-                    ▼
-         ┌─────────────────────────────┐
-         │  ┌────┐                     │
-         │  │ DS │  Domenico Speranza  │
-         │  └────┘  mimmo2905@yahoo.de │
-         │  ─────────────────────────  │
-         │  🚪 Abmelden                │
-         └─────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  Multi-Paket-Angebot                    [Version 1] [Historie]  │
+│  Erstellen Sie bis zu 5 Optionen...                ✓ Gespeichert│
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─ GLASS-CARD ──────────────────────────────────────────────┐ │
+│  │  ┌──┐                                                     │ │
+│  │  │A │  [Paket wählen ▼]                    ○ Aktiv  ✕     │ │
+│  │  └──┘                                                     │ │
+│  │                                                           │ │
+│  │  ┌ Dezenter Container ─────────────────────────────────┐  │ │
+│  │  │  Preis pro Person              85,00 €              │  │ │
+│  │  │  Gäste                         × 50                 │  │ │
+│  │  │  ─────────────────────────────────────              │  │ │
+│  │  │  Gesamt                        4.250,00 €           │  │ │
+│  │  └─────────────────────────────────────────────────────┘  │ │
+│  │                                                           │ │
+│  │  📦 3 Gänge, 2 Getränke konfiguriert   [Menü bearbeiten]  │ │
+│  │                                                           │ │
+│  │  ✓ Zahlungslink erstellt              [Link öffnen ↗]     │ │
+│  └───────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│  ┌ + Weitere Option hinzufügen ─────────────────────────────┐  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ────────────────────────────────────────────────────────────── │
+│                                                                 │
+│  ┌ SUMMARY ──────────────────────────────────────────────────┐ │
+│  │  1 aktive Option                [Anschreiben generieren]  │ │
+│  │  Gesamtwert: 4.250,00 €                                   │ │
+│  └───────────────────────────────────────────────────────────┘ │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Technische Umsetzung
+## Konkrete CSS-Klassen-Änderungen
 
-### Datei: `src/components/admin/refine/AdminLayout.tsx`
+| Komponente | Alt | Neu |
+|------------|-----|-----|
+| Option Circle | `bg-primary text-primary-foreground` | `bg-foreground/10 text-foreground border border-border` |
+| Option Circle (aktiv) | `bg-primary text-primary-foreground` | `bg-foreground text-background` |
+| Preis Gesamt | `text-xl font-bold text-primary` | `text-2xl font-semibold text-foreground tracking-tight` |
+| Aktiv Button | `text-primary` | `text-foreground` |
+| Menü konfiguriert | `text-primary` | `text-foreground` mit ✓ Icon |
+| Payment Link Box | `bg-primary/5 border-primary/20` | `bg-muted/50 border-border` |
+| Payment Link Text | `text-primary` | `text-foreground` |
+| Summary Card | `bg-primary/5 border-primary/20` | `bg-muted/30` oder `glass-card` |
+| Saved Status | `text-primary` | `text-muted-foreground` |
 
-**Zu entfernende Elemente** (Zeilen 71-89):
-- Statischer Name/E-Mail Text
-- "Webseite" Button mit Link
-- Separater Logout-Button
+## Zusätzliche UX-Verbesserungen
 
-**Neues Element**: Benutzer-Dropdown mit DropdownMenu
+1. **Mehr Weißraum**: `space-y-4` → `space-y-6` zwischen Sections
+2. **Größere Touch-Targets**: Buttons mindestens `h-10`
+3. **Subtilere Trennlinien**: `border-border/50` statt volle Opacity
+4. **Konsistente Schriftgrößen**: `text-base` als Standard, `text-sm` nur für Metadaten
 
-```tsx
-// Import hinzufügen
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ChevronDown } from "lucide-react";
+## Betroffene Dateien
 
-// Initialen-Berechnung
-const getInitials = (name?: string) => {
-  if (!name) return 'A';
-  return name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
+1. `src/components/admin/refine/InquiryEditor/MultiOffer/OfferOptionCard.tsx`
+2. `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx`
+3. `src/components/admin/refine/InquiryEditor/MultiOffer/OfferVersionHistory.tsx` (optional, falls orange Elemente)
 
-// Neues Dropdown im Right Actions Bereich
-<DropdownMenu>
-  <DropdownMenuTrigger asChild>
-    <Button 
-      variant="ghost" 
-      className="flex items-center gap-2 rounded-2xl px-2"
-    >
-      <Avatar className="h-8 w-8">
-        <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-          {getInitials(identity?.name)}
-        </AvatarFallback>
-      </Avatar>
-      <span className="hidden lg:block text-sm font-medium max-w-[120px] truncate">
-        {identity?.name}
-      </span>
-      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-    </Button>
-  </DropdownMenuTrigger>
-  <DropdownMenuContent align="end" className="w-64">
-    <DropdownMenuLabel className="font-normal">
-      <div className="flex items-center gap-3">
-        <Avatar className="h-10 w-10">
-          <AvatarFallback className="bg-primary/10 text-primary">
-            {getInitials(identity?.name)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex flex-col">
-          <span className="font-medium">{identity?.name}</span>
-          <span className="text-xs text-muted-foreground">
-            {identity?.email}
-          </span>
-        </div>
-      </div>
-    </DropdownMenuLabel>
-    <DropdownMenuSeparator />
-    <DropdownMenuItem 
-      onClick={() => logout()}
-      className="text-destructive focus:text-destructive cursor-pointer"
-    >
-      <LogOut className="h-4 w-4 mr-2" />
-      Abmelden
-    </DropdownMenuItem>
-  </DropdownMenuContent>
-</DropdownMenu>
-```
-
-## Ergebnis
-
-- Cleaner Header ohne unnötigen "Webseite" Link
-- Modernes Benutzer-Dropdown mit Avatar, Name und E-Mail
-- Logout-Funktion integriert im Dropdown
-- State-of-the-Art 2026 Design mit Glassmorphism-Stil
