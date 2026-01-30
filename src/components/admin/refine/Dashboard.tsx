@@ -1,5 +1,6 @@
 import { useList } from "@refinedev/core";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { CalendarDays, FileText, UtensilsCrossed, TrendingUp, Clock, CheckCircle2, AlertCircle, ChefHat, Plus } from "lucide-react";
 import { format, parseISO, isAfter, addDays } from "date-fns";
 import { de } from "date-fns/locale";
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EventInquiry, CateringOrder } from "@/types/refine";
 import { useEventBookings } from "@/hooks/useEventBookings";
+import { PageTransition, MotionCard } from "@/components/admin/motion";
 
 export const Dashboard = () => {
   // Fetch recent events
@@ -45,90 +47,97 @@ export const Dashboard = () => {
 
   return (
     <AdminLayout activeTab="dashboard">
-      <div className="space-y-8">
-        {/* Header with Quick Action */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">StoriaMaestro</h1>
-            <p className="text-base text-muted-foreground">
-              Willkommen im Event- & Catering-Management
-            </p>
+      <PageTransition>
+        <div className="space-y-8">
+          {/* Header with Quick Action */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-start justify-between"
+          >
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight">StoriaMaestro</h1>
+              <p className="text-base text-muted-foreground">
+                Willkommen im Event- & Catering-Management
+              </p>
+            </div>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button asChild className="shadow-lg rounded-2xl">
+                <Link to="/admin/events/create">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Neue Anfrage
+                </Link>
+              </Button>
+            </motion.div>
+          </motion.div>
+
+          {/* Stats Cards with Stagger Animation */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <MotionCard index={0}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-medium text-muted-foreground">
+                  Neue Anfragen
+                </CardTitle>
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold">{newEventsCount}</div>
+                <p className="text-sm text-muted-foreground">
+                  Warten auf Bearbeitung
+                </p>
+              </CardContent>
+            </MotionCard>
+
+            <MotionCard index={1}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-medium text-muted-foreground">
+                  Menü offen
+                </CardTitle>
+                <ChefHat className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold">{pendingMenuCount}</div>
+                <p className="text-sm text-muted-foreground">
+                  Buchungen ohne Menü
+                </p>
+              </CardContent>
+            </MotionCard>
+
+            <MotionCard index={2}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-medium text-muted-foreground">
+                  Offene Bestellungen
+                </CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold">{pendingOrdersCount}</div>
+                <p className="text-sm text-muted-foreground">
+                  Noch nicht bestätigt
+                </p>
+              </CardContent>
+            </MotionCard>
+
+            <MotionCard index={3}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-medium text-muted-foreground">
+                  Diese Woche
+                </CardTitle>
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold">{upcomingOrdersCount}</div>
+                <p className="text-sm text-muted-foreground">
+                  Anstehende Lieferungen
+                </p>
+              </CardContent>
+            </MotionCard>
           </div>
-          <Button asChild className="shadow-sm">
-            <Link to="/admin/events/create">
-              <Plus className="h-4 w-4 mr-2" />
-              Neue Anfrage
-            </Link>
-          </Button>
-        </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-slate-200/60 dark:border-slate-800/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-medium text-muted-foreground">
-                Neue Anfragen
-              </CardTitle>
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold">{newEventsCount}</div>
-              <p className="text-sm text-muted-foreground">
-                Warten auf Bearbeitung
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-slate-200/60 dark:border-slate-800/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-medium text-muted-foreground">
-                Menü offen
-              </CardTitle>
-              <ChefHat className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold">{pendingMenuCount}</div>
-              <p className="text-sm text-muted-foreground">
-                Buchungen ohne Menü
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-slate-200/60 dark:border-slate-800/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-medium text-muted-foreground">
-                Offene Bestellungen
-              </CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold">{pendingOrdersCount}</div>
-              <p className="text-sm text-muted-foreground">
-                Noch nicht bestätigt
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-slate-200/60 dark:border-slate-800/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-medium text-muted-foreground">
-                Diese Woche
-              </CardTitle>
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold">{upcomingOrdersCount}</div>
-              <p className="text-sm text-muted-foreground">
-                Anstehende Lieferungen
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Events */}
-          <Card className="border-slate-200/60 dark:border-slate-800/60">
+          {/* Recent Activity */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Recent Events */}
+            <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -184,8 +193,8 @@ export const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Upcoming Orders */}
-          <Card className="border-slate-200/60 dark:border-slate-800/60">
+            {/* Upcoming Orders */}
+            <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -236,9 +245,10 @@ export const Dashboard = () => {
                 </div>
               )}
             </CardContent>
-          </Card>
+            </Card>
+          </div>
         </div>
-      </div>
+      </PageTransition>
     </AdminLayout>
   );
 };
