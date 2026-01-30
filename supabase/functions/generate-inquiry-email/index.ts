@@ -157,15 +157,20 @@ STIL:
 - KEIN Markdown (keine **, keine #, keine Listen mit -)
 - Normaler E-Mail-Fließtext mit kurzen Absätzen
 
+ANREDE:
+- IMMER "Hallo [Vorname]," verwenden (z.B. "Hallo Max," oder "Hallo Frau Müller,")
+- NIEMALS "Sehr geehrte/r" verwenden
+
 STRUKTUR (genau einhalten):
-1. Kurze Anrede (1 Satz)
-2. Bestätigung der wichtigsten Fakten (Datum, Gästeanzahl, ggf. Paket) in einem Fließtext-Satz
+1. Anrede: "Hallo [Name],"
+2. Bestätigung der wichtigsten Fakten (Datum, Uhrzeit, Gästeanzahl, ggf. Paket) in einem Fließtext-Satz
 3. Hinweis: "Das detaillierte Angebot finden Sie im Anhang."
 4. Info zur Vorauszahlung (100% erforderlich)
 5. Schlusssatz mit Kontaktangebot
 6. Signatur
 
 VERBOTEN:
+- "Sehr geehrte/r" als Anrede
 - Aufzählungslisten
 - Fettdruck oder andere Formatierung
 - Übertrieben blumige Sprache
@@ -173,9 +178,9 @@ VERBOTEN:
 - Phrasen wie "Wir freuen uns außerordentlich", "Ihr exklusives Event wird unvergesslich"
 
 BEISPIEL-TON:
-"Sehr geehrte Frau Schmidt,
+"Hallo Max,
 
-vielen Dank für Ihre Anfrage. Gerne bestätigen wir Ihnen folgende Details: Business Dinner für 45 Personen am 15.03.2026 mit unserem Exclusive-Paket.
+vielen Dank für Ihre Anfrage. Gerne bestätigen wir Ihnen folgende Details: Business Dinner für 45 Personen am 15.03.2026 um 19:00 Uhr mit unserem Exclusive-Paket.
 
 Das detaillierte Angebot mit allen Konditionen finden Sie im Anhang. Für Ihr gewähltes Paket ist eine Vorauszahlung von 100% erforderlich.
 
@@ -183,7 +188,7 @@ Bei Fragen stehe ich Ihnen gerne zur Verfügung.
 
 ${personalizedSignature}"
 
-SIGNATUR (exakt so verwenden):
+SIGNATUR (exakt so verwenden - NICHT ändern!):
 ${personalizedSignature}`;
 
     const userPrompt = inquiryType === 'event' 
