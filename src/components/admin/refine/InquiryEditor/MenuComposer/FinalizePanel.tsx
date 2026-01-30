@@ -297,7 +297,7 @@ export const FinalizePanel = ({
         <CardContent className="pt-6">
           <Button 
             onClick={onSendOffer} 
-            disabled={isSending || !emailDraft}
+            disabled={isSending || !emailDraft || !onSendOffer}
             className="w-full"
             size="lg"
           >
