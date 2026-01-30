@@ -28,7 +28,7 @@ export const CourseProgress = ({
   };
 
   return (
-    <div className="flex items-center justify-center gap-2 p-4 bg-muted/30 rounded-lg mb-6">
+    <div className="flex items-center justify-center gap-2 p-4 bg-muted/30 rounded-2xl mb-6">
       {courseConfigs.map((config, index) => {
         const status = getCourseStatus(config.course_type);
         const icon = COURSE_ICONS[config.course_type] || '🍽️';
@@ -38,8 +38,8 @@ export const CourseProgress = ({
             <button
               onClick={() => onCourseClick(index)}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-lg transition-all",
-                "hover:bg-background/80",
+                "flex items-center gap-2 px-4 py-3 rounded-2xl transition-all min-h-[48px]",
+                "hover:bg-background/80 active:scale-[0.98]",
                 status === 'completed' && "bg-primary/10 text-primary",
                 status === 'active' && "bg-primary text-primary-foreground shadow-sm",
                 status === 'pending' && "bg-muted text-muted-foreground"
