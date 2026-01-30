@@ -111,6 +111,9 @@ export function MultiOfferComposer({
     }
 
     try {
+      // Get current user for personalized signature
+      const { data: { user } } = await supabase.auth.getUser();
+
       const { data, error } = await supabase.functions.invoke('generate-inquiry-email', {
         body: {
           inquiry: {
@@ -134,6 +137,7 @@ export function MultiOfferComposer({
             };
           }),
           isMultiOption: true,
+          senderEmail: user?.email,
         },
       });
 

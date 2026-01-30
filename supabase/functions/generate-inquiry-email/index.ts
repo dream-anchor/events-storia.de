@@ -5,6 +5,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Sender mapping for personalized signatures
+const SENDER_INFO: Record<string, { firstName: string; mobile: string }> = {
+  'mimmo2905@yahoo.de': { firstName: 'Domenico', mobile: '+49 163 6033912' },
+  'madi@events-storia.de': { firstName: 'Madina', mobile: '+49 179 2200921' },
+  'madina.khader@gmail.com': { firstName: 'Madina', mobile: '+49 179 2200921' },
+};
+
+const COMPANY_FOOTER = `Speranza GmbH
+
+Karlstraße 47a
+80333 München
+Deutschland
+
+Telefon: +49 89 51519696
+
+E-Mail: info@events-storia.de
+
+Vertreten durch die Geschäftsführerin:
+Agnese Lettieri
+
+Registereintrag
+Eingetragen im Handelsregister des Amtsgerichts München
+Handelsregisternummer: HRB 209637
+
+Umsatzsteuer-ID
+DE 296024880
+
+Steuernummer
+143/182/00980`;
+
 interface CourseSelection {
   courseType: string;
   courseLabel: string;
@@ -39,6 +69,7 @@ interface InquiryEmailRequest {
   notes?: string;
   menuSelection?: MenuSelection;
   packageName?: string;
+  senderEmail?: string;  // Email of the admin sending the offer
 }
 
 serve(async (req) => {
@@ -63,10 +94,22 @@ serve(async (req) => {
       notes,
       menuSelection,
       packageName,
+      senderEmail,
     }: InquiryEmailRequest = await req.json();
 
     console.log('Generating email for inquiry type:', inquiryType);
     console.log('Menu selection received:', menuSelection ? 'yes' : 'no');
+    console.log('Sender email:', senderEmail);
+
+    // Get sender info for personalized signature
+    const senderInfo = SENDER_INFO[senderEmail?.toLowerCase() || ''] || { firstName: 'STORIA Team', mobile: '' };
+    console.log('Using sender info:', senderInfo.firstName);
+
+    // Build personalized signature
+    const personalizedSignature = `Viele Grüße
+${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}
+
+${COMPANY_FOOTER}`;
 
     // Format menu selection for prompt
     let menuContext = '';
@@ -144,7 +187,12 @@ ${notes ? `Notizen: ${notes}` : ''}
 Schreibe professionelle, aber herzliche E-Mails an Kunden. 
 Verwende "Sie" als Anrede.
 Halte die E-Mail strukturiert und angemessen lang (ca. 200-300 Wörter).
-Unterschreibe mit "Herzliche Grüße, Ihr STORIA-Team".
+
+WICHTIG - SIGNATUR:
+Unterschreibe die E-Mail EXAKT mit folgender Signatur (keine Änderungen!):
+
+${personalizedSignature}
+
 Erwähne NICHT den genauen Preis in der E-Mail - das Angebot wird als PDF-Anhang mitgeschickt.
 
 ÜBER STORIA:
@@ -166,7 +214,7 @@ ${menuSelection && (menuSelection.courses?.length > 0 || menuSelection.drinks?.l
 - Kein spezifisches Menü ausgewählt - erwähne, dass Details im Angebot zu finden sind
 `}
 
-WICHTIGE HINWEISE (IMMER AM ENDE DER E-MAIL EINFÜGEN):
+WICHTIGE HINWEISE (IMMER AM ENDE DER E-MAIL VOR DER SIGNATUR EINFÜGEN):
 Füge am Ende der E-Mail folgende Hinweise ein und passe sie dem Paket an:
 
 1. Getränke-Flexibilität (angepasst an Paket-Typ):

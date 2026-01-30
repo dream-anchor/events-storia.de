@@ -43,6 +43,9 @@ export const FinalizePanel = ({
     setIsGenerating(true);
 
     try {
+      // Get current user for personalized signature
+      const { data: { user } } = await supabase.auth.getUser();
+
       const { data, error } = await supabase.functions.invoke('generate-inquiry-email', {
         body: {
           inquiryType: inquiry.inquiry_type || 'event',
@@ -54,6 +57,7 @@ export const FinalizePanel = ({
           items: [],
           menuSelection: menuSelection,
           packageName: packageName,
+          senderEmail: user?.email,
         },
       });
 

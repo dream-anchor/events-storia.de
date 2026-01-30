@@ -59,6 +59,9 @@ export const AIComposer = ({
     setIsGenerating(true);
     
     try {
+      // Get current user for personalized signature
+      const { data: { user } } = await supabase.auth.getUser();
+      
       // Calculate total
       const totalAmount = quoteItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       
@@ -83,6 +86,7 @@ export const AIComposer = ({
           notes: inquiry.quote_notes,
           menuSelection: menuSelection,
           packageName: packageName,
+          senderEmail: user?.email,
         },
       });
 
