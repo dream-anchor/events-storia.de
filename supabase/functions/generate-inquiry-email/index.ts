@@ -33,6 +33,7 @@ DE 296024880
 Steuernummer
 143/182/00980`;
 
+// Types for legacy format
 interface CourseSelection {
   courseType: string;
   courseLabel: string;
@@ -52,7 +53,8 @@ interface MenuSelection {
   drinks: DrinkSelection[];
 }
 
-interface InquiryEmailRequest {
+// Legacy request format (flat fields)
+interface LegacyRequest {
   inquiryType: 'event' | 'catering';
   contactName: string;
   companyName?: string;
@@ -71,35 +73,118 @@ interface InquiryEmailRequest {
   senderEmail?: string;
 }
 
+// Multi-Offer request format (nested)
+interface MultiOfferInquiry {
+  contact_name: string;
+  company_name?: string;
+  email?: string;
+  preferred_date?: string;
+  guest_count?: string;
+  event_type?: string;
+  message?: string;
+}
+
+interface MultiOfferOption {
+  label: string;
+  packageName: string;
+  guestCount: number;
+  totalAmount: number;
+  menuSelection?: MenuSelection;
+  paymentLinkUrl?: string;
+}
+
+interface MultiOfferRequest {
+  inquiry: MultiOfferInquiry;
+  options: MultiOfferOption[];
+  isMultiOption: true;
+  senderEmail?: string;
+}
+
+type RequestBody = LegacyRequest | MultiOfferRequest;
+
+function isMultiOfferRequest(body: RequestBody): body is MultiOfferRequest {
+  return 'isMultiOption' in body && body.isMultiOption === true && 'options' in body;
+}
+
+function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferOption[]): string {
+  let context = `Kunde: ${inquiry.contact_name}${inquiry.company_name ? ` (${inquiry.company_name})` : ''}
+Event-Typ: ${inquiry.event_type || 'Feier'}
+Datum: ${inquiry.preferred_date || 'nach Absprache'}
+`;
+
+  context += `\nAngebotene Optionen:\n`;
+  
+  for (const opt of options) {
+    context += `\n--- Option ${opt.label} ---\n`;
+    context += `Paket: ${opt.packageName}\n`;
+    context += `Gäste: ${opt.guestCount}\n`;
+    context += `Gesamtbetrag: ${opt.totalAmount.toFixed(2)} €\n`;
+    
+    if (opt.menuSelection?.courses && opt.menuSelection.courses.length > 0) {
+      context += `Menü: ${opt.menuSelection.courses.map(c => c.itemName).join(', ')}\n`;
+    }
+    
+    if (opt.menuSelection?.drinks && opt.menuSelection.drinks.length > 0) {
+      context += `Getränke: ${opt.menuSelection.drinks.map(d => d.selectedChoice || d.drinkLabel).join(', ')}\n`;
+    }
+  }
+
+  if (inquiry.message) {
+    context += `\nKundenanmerkung: ${inquiry.message}`;
+  }
+
+  return context.trim();
+}
+
+function buildLegacyContext(body: LegacyRequest): string {
+  let menuContext = '';
+  if (body.menuSelection) {
+    if (body.menuSelection.courses && body.menuSelection.courses.length > 0) {
+      menuContext += 'Ausgewähltes Menü: ';
+      menuContext += body.menuSelection.courses.map(c => c.itemName).join(', ');
+      menuContext += '\n';
+    }
+    
+    if (body.menuSelection.drinks && body.menuSelection.drinks.length > 0) {
+      menuContext += 'Getränke: ';
+      menuContext += body.menuSelection.drinks.map(d => d.selectedChoice || d.drinkLabel).join(', ');
+      menuContext += '\n';
+    }
+  }
+
+  if (body.inquiryType === 'event') {
+    return `
+Kunde: ${body.contactName}${body.companyName ? ` (${body.companyName})` : ''}
+Event: ${body.eventType || 'Feier'}
+Datum: ${body.preferredDate || 'nach Absprache'}${body.timeSlot ? ` um ${body.timeSlot} Uhr` : ''}
+Gäste: ${body.guestCount || 'n.a.'}
+${body.packageName ? `Paket: ${body.packageName}` : ''}
+${menuContext}
+${body.notes ? `Bemerkung: ${body.notes}` : ''}
+    `.trim();
+  } else {
+    return `
+Kunde: ${body.contactName}${body.companyName ? ` (${body.companyName})` : ''}
+Lieferung: ${body.deliveryAddress || 'n.a.'}
+Datum/Zeit: ${body.preferredDate || ''} ${body.deliveryTime || ''}
+${menuContext}
+${body.notes ? `Bemerkung: ${body.notes}` : ''}
+    `.trim();
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const {
-      inquiryType,
-      contactName,
-      companyName,
-      eventType,
-      guestCount,
-      preferredDate,
-      timeSlot,
-      items,
-      packages,
-      deliveryAddress,
-      deliveryTime,
-      totalAmount,
-      notes,
-      menuSelection,
-      packageName,
-      senderEmail,
-    }: InquiryEmailRequest = await req.json();
+    const rawBody: RequestBody = await req.json();
 
-    console.log('Generating email for inquiry type:', inquiryType);
-    console.log('Sender email:', senderEmail);
+    console.log('Generating email, isMultiOption:', isMultiOfferRequest(rawBody));
 
-    // Get sender info for personalized signature
+    // Determine sender email for personalized signature
+    const senderEmail = 'senderEmail' in rawBody ? rawBody.senderEmail : undefined;
     const senderInfo = SENDER_INFO[senderEmail?.toLowerCase() || ''] || { firstName: 'STORIA Team', mobile: '' };
 
     // Build personalized signature
@@ -108,47 +193,53 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}
 
 ${COMPANY_FOOTER}`;
 
-    // Format menu selection for prompt
-    let menuContext = '';
-    if (menuSelection) {
-      if (menuSelection.courses && menuSelection.courses.length > 0) {
-        menuContext += 'Ausgewähltes Menü: ';
-        menuContext += menuSelection.courses.map(c => c.itemName).join(', ');
-        menuContext += '\n';
-      }
-      
-      if (menuSelection.drinks && menuSelection.drinks.length > 0) {
-        menuContext += 'Getränke: ';
-        menuContext += menuSelection.drinks.map(d => d.selectedChoice || d.drinkLabel).join(', ');
-        menuContext += '\n';
-      }
-    }
+    // Build context based on request format
+    let context: string;
+    let isMultiOption = false;
+    let optionCount = 0;
 
-    // Build context for AI
-    let context = '';
-    
-    if (inquiryType === 'event') {
-      context = `
-Kunde: ${contactName}${companyName ? ` (${companyName})` : ''}
-Event: ${eventType || 'Feier'}
-Datum: ${preferredDate || 'nach Absprache'}${timeSlot ? ` um ${timeSlot} Uhr` : ''}
-Gäste: ${guestCount || 'n.a.'}
-${packageName ? `Paket: ${packageName}` : ''}
-${menuContext}
-${notes ? `Bemerkung: ${notes}` : ''}
-      `.trim();
+    if (isMultiOfferRequest(rawBody)) {
+      isMultiOption = true;
+      optionCount = rawBody.options.length;
+      context = buildMultiOfferContext(rawBody.inquiry, rawBody.options);
     } else {
-      context = `
-Kunde: ${contactName}${companyName ? ` (${companyName})` : ''}
-Lieferung: ${deliveryAddress || 'n.a.'}
-Datum/Zeit: ${preferredDate || ''} ${deliveryTime || ''}
-${menuContext}
-${notes ? `Bemerkung: ${notes}` : ''}
-      `.trim();
+      context = buildLegacyContext(rawBody);
     }
 
-    // Optimized system prompt for short, professional emails
-    const systemPrompt = `Du bist ein professioneller Mitarbeiter von STORIA München.
+    // Build system prompt
+    const systemPrompt = isMultiOption
+      ? `Du bist ein professioneller Mitarbeiter von STORIA München.
+
+STIL:
+- Freundlich, aber geschäftsmäßig und auf den Punkt
+- Kurz und prägnant (maximal 150-200 Wörter)
+- Keine überschwänglichen Floskeln wie "wunderbar", "fantastisch", "herausragend"
+- KEIN Markdown (keine **, keine #, keine Listen mit -)
+- Normaler E-Mail-Fließtext mit kurzen Absätzen
+
+ANREDE:
+- IMMER "Hallo [Vorname]," verwenden
+- NIEMALS "Sehr geehrte/r" verwenden
+
+STRUKTUR für Multi-Optionen-Angebot:
+1. Anrede: "Hallo [Name],"
+2. Kurzer Dank für die Anfrage
+3. Erwähne, dass du ${optionCount} Optionen anbietest
+4. Liste jede Option KURZ auf (1 Zeile pro Option: Option A/B/C: Paketname, X Gäste, Betrag €)
+5. Hinweis: "Die detaillierten Angebote finden Sie im Anhang."
+6. Info zur Vorauszahlung (100% erforderlich)
+7. Schlusssatz mit Kontaktangebot
+8. Signatur
+
+VERBOTEN:
+- "Sehr geehrte/r" als Anrede
+- Fettdruck oder andere Formatierung
+- Übertrieben blumige Sprache
+- Mehr als 4 kurze Absätze vor der Signatur
+
+SIGNATUR (exakt so verwenden - NICHT ändern!):
+${personalizedSignature}`
+      : `Du bist ein professioneller Mitarbeiter von STORIA München.
 
 STIL:
 - Freundlich, aber geschäftsmäßig und auf den Punkt
@@ -177,25 +268,14 @@ VERBOTEN:
 - Mehr als 3 kurze Absätze vor der Signatur
 - Phrasen wie "Wir freuen uns außerordentlich", "Ihr exklusives Event wird unvergesslich"
 
-BEISPIEL-TON:
-"Hallo Max,
-
-vielen Dank für Ihre Anfrage. Gerne bestätigen wir Ihnen folgende Details: Business Dinner für 45 Personen am 15.03.2026 um 19:00 Uhr mit unserem Exclusive-Paket.
-
-Das detaillierte Angebot mit allen Konditionen finden Sie im Anhang. Für Ihr gewähltes Paket ist eine Vorauszahlung von 100% erforderlich.
-
-Bei Fragen stehe ich Ihnen gerne zur Verfügung.
-
-${personalizedSignature}"
-
 SIGNATUR (exakt so verwenden - NICHT ändern!):
 ${personalizedSignature}`;
 
-    const userPrompt = inquiryType === 'event' 
-      ? `Schreibe eine kurze, professionelle Bestätigungs-E-Mail (max. 150 Wörter, keine Markdown-Formatierung) für diese Event-Anfrage:
+    const userPrompt = isMultiOption
+      ? `Schreibe eine kurze, professionelle Bestätigungs-E-Mail (max. 200 Wörter, keine Markdown-Formatierung) für diese Event-Anfrage mit mehreren Paket-Optionen:
 
 ${context}`
-      : `Schreibe eine kurze Bestätigungs-E-Mail (max. 150 Wörter, keine Markdown-Formatierung) für diese Catering-Bestellung:
+      : `Schreibe eine kurze, professionelle Bestätigungs-E-Mail (max. 150 Wörter, keine Markdown-Formatierung) für diese Anfrage:
 
 ${context}`;
 
@@ -220,7 +300,7 @@ ${context}`;
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.5,
-        max_tokens: 600,
+        max_tokens: 800,
       }),
     });
 
@@ -246,10 +326,11 @@ ${context}`;
     const aiResponse = await response.json();
     const generatedEmail = aiResponse.choices?.[0]?.message?.content || '';
 
-    console.log('Email generated successfully');
+    console.log('Email generated successfully, length:', generatedEmail.length);
 
+    // Return both `email` and `emailDraft` for compatibility with all callers
     return new Response(
-      JSON.stringify({ success: true, email: generatedEmail }),
+      JSON.stringify({ success: true, email: generatedEmail, emailDraft: generatedEmail }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

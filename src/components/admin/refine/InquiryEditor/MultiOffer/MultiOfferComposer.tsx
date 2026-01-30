@@ -49,6 +49,7 @@ export function MultiOfferComposer({
 
   const [emailDraft, setEmailDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
   const [generatingPaymentLinks, setGeneratingPaymentLinks] = useState<Set<string>>(new Set());
   const [showHistory, setShowHistory] = useState(false);
 
@@ -117,6 +118,8 @@ export function MultiOfferComposer({
       return;
     }
 
+    setIsGeneratingEmail(true);
+
     try {
       // Get current user for personalized signature
       const { data: { user } } = await supabase.auth.getUser();
@@ -136,7 +139,7 @@ export function MultiOfferComposer({
             const pkg = packages.find(p => p.id === opt.packageId);
             return {
               label: opt.optionLabel,
-              packageName: pkg?.name || opt.packageName,
+              packageName: pkg?.name || opt.packageName || 'Individuelles Paket',
               guestCount: opt.guestCount,
               totalAmount: opt.totalAmount,
               menuSelection: opt.menuSelection,
@@ -149,13 +152,27 @@ export function MultiOfferComposer({
       });
 
       if (error) throw error;
-      if (data?.emailDraft) {
-        setEmailDraft(data.emailDraft);
-        toast.success("E-Mail-Entwurf erstellt");
+      
+      // Check for backend error response
+      if (data && !data.success) {
+        throw new Error(data.error || 'Generierung fehlgeschlagen');
       }
+      
+      // Get email from response (support both field names for compatibility)
+      const generatedText = data?.email || data?.emailDraft;
+      
+      if (!generatedText) {
+        throw new Error('Keine E-Mail vom Service erhalten');
+      }
+      
+      setEmailDraft(generatedText);
+      toast.success("E-Mail-Entwurf erstellt");
+      
     } catch (error) {
       console.error('Error generating email:', error);
-      toast.error("Fehler beim Generieren der E-Mail");
+      toast.error(error instanceof Error ? error.message : "Fehler beim Generieren der E-Mail");
+    } finally {
+      setIsGeneratingEmail(false);
     }
   };
 
@@ -345,11 +362,20 @@ export function MultiOfferComposer({
             <Button
               variant="outline"
               onClick={generateEmail}
-              disabled={activeOptionsWithPackage.length === 0}
+              disabled={activeOptionsWithPackage.length === 0 || isGeneratingEmail}
               className="h-11"
             >
-              <FileText className="h-4 w-4 mr-2" />
-              Anschreiben generieren
+              {isGeneratingEmail ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generiere…
+                </>
+              ) : (
+                <>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Anschreiben generieren
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
