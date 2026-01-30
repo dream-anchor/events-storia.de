@@ -59,6 +59,7 @@ interface InquiryEmailRequest {
   eventType?: string;
   guestCount?: string;
   preferredDate?: string;
+  timeSlot?: string;
   items?: Array<{ name: string; quantity: number; price: number }>;
   packages?: Array<{ name: string; price: number }>;
   deliveryAddress?: string;
@@ -83,6 +84,7 @@ serve(async (req) => {
       eventType,
       guestCount,
       preferredDate,
+      timeSlot,
       items,
       packages,
       deliveryAddress,
@@ -129,7 +131,7 @@ ${COMPANY_FOOTER}`;
       context = `
 Kunde: ${contactName}${companyName ? ` (${companyName})` : ''}
 Event: ${eventType || 'Feier'}
-Datum: ${preferredDate || 'nach Absprache'}
+Datum: ${preferredDate || 'nach Absprache'}${timeSlot ? ` um ${timeSlot} Uhr` : ''}
 Gäste: ${guestCount || 'n.a.'}
 ${packageName ? `Paket: ${packageName}` : ''}
 ${menuContext}
