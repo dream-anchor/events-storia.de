@@ -1621,8 +1621,7 @@ const Checkout = () => {
                         type="button"
                         onClick={() => handleContinueToNext('customer')}
                         disabled={!isCustomerStepComplete}
-                        variant="checkout"
-                        className="w-full"
+                        className="w-full h-12 bg-[#FFD814] hover:bg-[#F7CA00] text-neutral-900 font-semibold rounded-lg border-0 shadow-sm"
                       >
                         {language === 'de' ? 'Weiter zur Zahlung' : 'Continue to Payment'}
                       </Button>
@@ -1717,7 +1716,6 @@ const Checkout = () => {
                     distanceKm={deliveryCalc?.distanceKm}
                     isRoundTrip={deliveryCalc?.isRoundTrip}
                     oneWayDistanceKm={deliveryCalc?.oneWayDistanceKm}
-                    ctaButton={ctaButton}
                   />
                 </div>
               </div>
