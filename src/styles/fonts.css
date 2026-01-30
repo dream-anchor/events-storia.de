@@ -33,6 +33,23 @@
   src: url('/fonts/PlayfairDisplay-Bold.woff2') format('woff2');
 }
 
+/* Cormorant Garamond - Für Logo-Bereich */
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/CormorantGaramond-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/CormorantGaramond-SemiBold.woff2') format('woff2');
+}
+
 /* Great Vibes - Jetzt lokal gehostet */
 @font-face {
   font-family: 'Great Vibes';
@@ -41,8 +58,6 @@
   font-display: swap;
   src: url('/fonts/GreatVibes-Regular.woff2') format('woff2');
 }
-
-/* Inter */
 @font-face {
   font-family: 'Inter';
   font-style: normal;
