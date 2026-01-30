@@ -1,15 +1,16 @@
 import { useState, useMemo } from "react";
-import { useList, useUpdate } from "@refinedev/core";
+import { useList } from "@refinedev/core";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Users, Building2, Mail, Phone, Plus } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable } from "./DataTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EventInquiry, InquiryStatus } from "@/types/refine";
+import { EditorIndicator } from "@/components/admin/shared/EditorIndicator";
 import { cn } from "@/lib/utils";
 
 const statusConfig: Record<InquiryStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -31,47 +32,76 @@ const eventTypeLabels: Record<string, string> = {
   sonstiges: "Sonstiges",
 };
 
+type FilterType = 'all' | 'new' | 'in_progress' | 'offer_sent' | 'confirmed' | 'declined';
+
 export const EventsList = () => {
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<InquiryStatus | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialFilter = (searchParams.get('filter') as FilterType) || 'all';
+  const [currentFilter, setCurrentFilter] = useState<FilterType>(initialFilter);
 
   const eventsQuery = useList<EventInquiry>({
     resource: "events",
-    pagination: { pageSize: 50 },
-    filters: statusFilter ? [{ field: "status", operator: "eq", value: statusFilter }] : [],
+    pagination: { pageSize: 100 },
     sorters: [{ field: "created_at", order: "desc" }],
   });
 
-  const events = eventsQuery.result?.data || [];
+  const allEvents = eventsQuery.result?.data || [];
   const isLoading = eventsQuery.query.isLoading;
 
-  // Status counts for filter pills
-  const statusCounts = useMemo(() => {
-    const allEvents = events;
-    return {
-      all: allEvents.length,
-      new: allEvents.filter(e => e.status === 'new').length,
-      contacted: allEvents.filter(e => e.status === 'contacted').length,
-      offer_sent: allEvents.filter(e => e.status === 'offer_sent').length,
-      confirmed: allEvents.filter(e => e.status === 'confirmed').length,
-      declined: allEvents.filter(e => e.status === 'declined').length,
-    };
-  }, [events]);
+  // Categorize events
+  const categorizedEvents = useMemo(() => {
+    const newInquiries = allEvents.filter(e => 
+      e.status === 'new' && !e.last_edited_at
+    );
+    const inProgress = allEvents.filter(e => 
+      e.last_edited_at && !e.offer_sent_at && e.status !== 'confirmed' && e.status !== 'declined'
+    );
+    const offerSent = allEvents.filter(e => 
+      e.offer_sent_at && e.status !== 'confirmed' && e.status !== 'declined'
+    );
+    const confirmed = allEvents.filter(e => e.status === 'confirmed');
+    const declined = allEvents.filter(e => e.status === 'declined');
 
+    return { newInquiries, inProgress, offerSent, confirmed, declined };
+  }, [allEvents]);
+
+  // Get filtered events based on current filter
+  const filteredEvents = useMemo(() => {
+    switch (currentFilter) {
+      case 'new':
+        return categorizedEvents.newInquiries;
+      case 'in_progress':
+        return categorizedEvents.inProgress;
+      case 'offer_sent':
+        return categorizedEvents.offerSent;
+      case 'confirmed':
+        return categorizedEvents.confirmed;
+      case 'declined':
+        return categorizedEvents.declined;
+      default:
+        return allEvents;
+    }
+  }, [currentFilter, categorizedEvents, allEvents]);
+
+  // Filter pills with counts
   const filterPills = [
-    { id: 'all', label: `Alle (${statusCounts.all})`, value: '', active: !statusFilter },
-    { id: 'new', label: `Neu (${statusCounts.new})`, value: 'new', active: statusFilter === 'new' },
-    { id: 'contacted', label: `Kontaktiert (${statusCounts.contacted})`, value: 'contacted', active: statusFilter === 'contacted' },
-    { id: 'offer_sent', label: `Angebot (${statusCounts.offer_sent})`, value: 'offer_sent', active: statusFilter === 'offer_sent' },
-    { id: 'confirmed', label: `Bestätigt (${statusCounts.confirmed})`, value: 'confirmed', active: statusFilter === 'confirmed' },
+    { id: 'all', label: `Alle (${allEvents.length})`, value: 'all', active: currentFilter === 'all' },
+    { id: 'new', label: `Neu (${categorizedEvents.newInquiries.length})`, value: 'new', active: currentFilter === 'new', icon: <span className="w-2 h-2 rounded-full bg-destructive/70 mr-1" /> },
+    { id: 'in_progress', label: `In Bearbeitung (${categorizedEvents.inProgress.length})`, value: 'in_progress', active: currentFilter === 'in_progress', icon: <Edit3 className="h-3 w-3 mr-1 text-amber-600" /> },
+    { id: 'offer_sent', label: `Angebot (${categorizedEvents.offerSent.length})`, value: 'offer_sent', active: currentFilter === 'offer_sent', icon: <Send className="h-3 w-3 mr-1 text-emerald-600" /> },
+    { id: 'confirmed', label: `Bestätigt (${categorizedEvents.confirmed.length})`, value: 'confirmed', active: currentFilter === 'confirmed' },
   ];
 
   const handleFilterChange = (filterId: string, value: string) => {
-    if (filterId === 'all' || !value) {
-      setStatusFilter(null);
+    const newFilter = value as FilterType || 'all';
+    setCurrentFilter(newFilter);
+    if (newFilter === 'all') {
+      searchParams.delete('filter');
     } else {
-      setStatusFilter(value as InquiryStatus);
+      searchParams.set('filter', newFilter);
     }
+    setSearchParams(searchParams);
   };
 
   const columns: ColumnDef<EventInquiry>[] = [
@@ -79,11 +109,35 @@ export const EventsList = () => {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => {
-        const status = row.original.status as InquiryStatus;
-        const config = statusConfig[status] || statusConfig.new;
+        const event = row.original;
+        // Determine visual status based on tracking
+        let statusLabel = '';
+        let statusIcon = null;
+        let badgeClass = '';
+
+        if (event.offer_sent_at && event.status !== 'confirmed' && event.status !== 'declined') {
+          statusLabel = 'Angebot';
+          statusIcon = <Send className="h-3 w-3 mr-1" />;
+          badgeClass = 'border-emerald-500/50 text-emerald-700 bg-emerald-50';
+        } else if (event.last_edited_at && !event.offer_sent_at) {
+          statusLabel = 'In Bearbeitung';
+          statusIcon = <Edit3 className="h-3 w-3 mr-1" />;
+          badgeClass = 'border-amber-500/50 text-amber-700 bg-amber-50';
+        } else if (event.status === 'confirmed') {
+          statusLabel = 'Bestätigt';
+          badgeClass = 'border-foreground/50 text-foreground bg-muted';
+        } else if (event.status === 'declined') {
+          statusLabel = 'Abgelehnt';
+          badgeClass = 'border-destructive/50 text-destructive bg-destructive/10';
+        } else {
+          statusLabel = 'Neu';
+          badgeClass = 'border-destructive/50 text-destructive bg-destructive/10';
+        }
+
         return (
-          <Badge variant={config.variant} className="font-medium">
-            {config.label}
+          <Badge variant="outline" className={cn("font-medium flex items-center w-fit", badgeClass)}>
+            {statusIcon}
+            {statusLabel}
           </Badge>
         );
       },
@@ -138,12 +192,28 @@ export const EventsList = () => {
       },
     },
     {
+      accessorKey: "last_edited_at",
+      header: "Bearbeitet",
+      cell: ({ row }) => {
+        const event = row.original;
+        if (!event.last_edited_at) {
+          return <span className="text-xs text-muted-foreground">-</span>;
+        }
+        return (
+          <EditorIndicator 
+            editedAt={event.last_edited_at}
+            compact
+          />
+        );
+      },
+    },
+    {
       accessorKey: "email",
-      header: "Kontakt",
+      header: "E-Mail",
       cell: ({ row }) => (
         <div className="space-y-1">
-          <a href={`mailto:${row.original.email}`} className="text-sm text-primary hover:underline flex items-center gap-1">
-            <Mail className="h-3 w-3" />
+          <a href={`mailto:${row.original.email}`} className="text-sm text-foreground hover:underline flex items-center gap-1">
+            <Mail className="h-3 w-3 text-muted-foreground" />
             {row.original.email}
           </a>
           {row.original.phone && (
@@ -181,7 +251,7 @@ export const EventsList = () => {
 
         <DataTable
           columns={columns}
-          data={events}
+          data={filteredEvents}
           searchPlaceholder="Suche nach Name, Firma, E-Mail..."
           filterPills={filterPills}
           onFilterChange={handleFilterChange}
