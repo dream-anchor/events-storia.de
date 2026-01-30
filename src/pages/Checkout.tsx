@@ -1394,20 +1394,20 @@ const Checkout = () => {
                       />
                       
                       {dateTimeWarning && (
-                        <div className="flex items-start gap-2 mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-                          <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                          <p className="text-sm text-amber-700 dark:text-amber-300" dangerouslySetInnerHTML={{ __html: dateTimeWarning }} />
+                        <div className="flex items-start gap-2 mt-4 p-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg">
+                          <Info className="h-4 w-4 text-neutral-600 dark:text-neutral-400 mt-0.5 shrink-0" />
+                          <p className="text-sm text-neutral-700 dark:text-neutral-300" dangerouslySetInnerHTML={{ __html: dateTimeWarning }} />
                         </div>
                       )}
                     </div>
 
                     {/* Chafing Dish Add-On */}
                     {hasWarmDishes && !isEventBooking && (
-                      <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 rounded-xl p-4 mt-5">
+                      <div className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4 mt-5">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                           <div className="flex items-start gap-3">
-                            <div className="bg-amber-100 dark:bg-amber-900/30 p-2.5 rounded-full shrink-0">
-                              <Flame className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                            <div className="bg-neutral-200 dark:bg-neutral-700 p-2.5 rounded-full shrink-0">
+                              <Flame className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
                             </div>
                             <div>
                               <p className="font-medium text-sm">{language === 'de' ? 'Chafing Dish hinzufügen?' : 'Add Chafing Dish?'}</p>
@@ -1417,12 +1417,12 @@ const Checkout = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-3 ml-11 sm:ml-0">
-                            <button type="button" onClick={() => setChafingDishQuantity(Math.max(0, chafingDishQuantity - 1))} disabled={chafingDishQuantity === 0} className="w-9 h-9 rounded-full border border-amber-300 dark:border-amber-700 flex items-center justify-center hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors disabled:opacity-40">
-                              <Minus className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                            <button type="button" onClick={() => setChafingDishQuantity(Math.max(0, chafingDishQuantity - 1))} disabled={chafingDishQuantity === 0} className="w-9 h-9 rounded-full border border-neutral-300 dark:border-neutral-600 flex items-center justify-center hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors disabled:opacity-40">
+                              <Minus className="h-4 w-4 text-neutral-700 dark:text-neutral-300" />
                             </button>
-                            <span className="w-6 text-center font-medium text-amber-700 dark:text-amber-300">{chafingDishQuantity}</span>
-                            <button type="button" onClick={() => setChafingDishQuantity(chafingDishQuantity + 1)} className="w-9 h-9 rounded-full border border-amber-300 dark:border-amber-700 flex items-center justify-center hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
-                              <Plus className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                            <span className="w-6 text-center font-medium text-neutral-700 dark:text-neutral-300">{chafingDishQuantity}</span>
+                            <button type="button" onClick={() => setChafingDishQuantity(chafingDishQuantity + 1)} className="w-9 h-9 rounded-full border border-neutral-300 dark:border-neutral-600 flex items-center justify-center hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors">
+                              <Plus className="h-4 w-4 text-neutral-700 dark:text-neutral-300" />
                             </button>
                           </div>
                         </div>
@@ -1461,7 +1461,7 @@ const Checkout = () => {
                         <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
                           <LogIn className="h-4 w-4" />
                           {language === 'de' ? 'Haben Sie ein Konto? ' : 'Have an account? '}
-                          <Link to="/login" state={{ redirect: '/checkout' }} className="text-amber-800 dark:text-amber-400 hover:underline font-medium">
+                          <Link to="/login" state={{ redirect: '/checkout' }} className="text-neutral-700 dark:text-neutral-300 hover:underline font-medium">
                             {language === 'de' ? 'Anmelden' : 'Log in'}
                           </Link>
                         </p>
@@ -1608,8 +1608,8 @@ const Checkout = () => {
                         />
                         <Label htmlFor="acceptTerms" className="text-sm leading-relaxed cursor-pointer">
                           {language === 'de' 
-                            ? <>Ich habe die <Link to="/agb-catering" target="_blank" className="text-amber-800 dark:text-amber-400 underline hover:text-amber-900 dark:hover:text-amber-300">AGB</Link> und <Link to="/widerrufsbelehrung" target="_blank" className="text-amber-800 dark:text-amber-400 underline hover:text-amber-900 dark:hover:text-amber-300">Widerrufsbelehrung</Link> gelesen und akzeptiere diese. *</>
-                            : <>I have read and accept the <Link to="/agb-catering" target="_blank" className="text-amber-800 dark:text-amber-400 underline hover:text-amber-900 dark:hover:text-amber-300">Terms</Link> and <Link to="/widerrufsbelehrung" target="_blank" className="text-amber-800 dark:text-amber-400 underline hover:text-amber-900 dark:hover:text-amber-300">Cancellation Policy</Link>. *</>
+                            ? <>Ich habe die <Link to="/agb-catering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">AGB</Link> und <Link to="/widerrufsbelehrung" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Widerrufsbelehrung</Link> gelesen und akzeptiere diese. *</>
+                            : <>I have read and accept the <Link to="/agb-catering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Terms</Link> and <Link to="/widerrufsbelehrung" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Cancellation Policy</Link>. *</>
                           }
                         </Label>
                       </div>
