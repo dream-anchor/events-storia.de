@@ -80,8 +80,8 @@ serve(async (req) => {
 
     // Build LexOffice quotation payload
     const quotationPayload = {
-      voucherDate: new Date().toISOString().split('T')[0],
-      expirationDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      voucherDate: new Date().toISOString(),
+      expirationDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       address: {
         name: event.company_name || event.contact_name,
         supplement: event.company_name ? event.contact_name : undefined,
