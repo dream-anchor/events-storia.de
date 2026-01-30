@@ -182,29 +182,79 @@ export function OfferOptionCard({
 
         {/* Menu Configuration Status - 2026 */}
         {selectedPackage && (
-          <div className="flex items-center justify-between py-1">
-            <div className="flex items-center gap-2.5">
-              <Package className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">
-                {hasMenuConfig ? (
-                  <span className="text-foreground flex items-center gap-1.5">
-                    <Check className="h-3.5 w-3.5" />
-                    {configuredCourses} Gänge, {configuredDrinks} Getränke konfiguriert
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">Menü noch nicht konfiguriert</span>
+          <div className="space-y-3">
+            {hasMenuConfig ? (
+              <>
+                {/* Configured Courses */}
+                {configuredCourses > 0 && (
+                  <div className="p-3 rounded-xl bg-muted/20 border border-border/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Gänge</span>
+                      <span className="text-xs text-muted-foreground">{configuredCourses} ausgewählt</span>
+                    </div>
+                    <div className="space-y-1">
+                      {option.menuSelection.courses
+                        .filter(c => c.itemId || c.itemName)
+                        .map((course, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <Check className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-muted-foreground">{course.courseLabel}:</span>
+                            <span className="text-foreground truncate">{course.itemName}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
                 )}
-              </span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowMenuEditor(!showMenuEditor)}
-              className="h-10"
-            >
-              <Edit2 className="h-3.5 w-3.5 mr-1.5" />
-              {showMenuEditor ? 'Schließen' : 'Menü konfigurieren'}
-            </Button>
+
+                {/* Configured Drinks */}
+                {configuredDrinks > 0 && (
+                  <div className="p-3 rounded-xl bg-muted/20 border border-border/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Getränke</span>
+                      <span className="text-xs text-muted-foreground">{configuredDrinks} ausgewählt</span>
+                    </div>
+                    <div className="space-y-1">
+                      {option.menuSelection.drinks
+                        .filter(d => d.selectedChoice || d.customDrink)
+                        .map((drink, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <Check className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-muted-foreground">{drink.drinkLabel}:</span>
+                            <span className="text-foreground truncate">{drink.customDrink || drink.selectedChoice}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Edit Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowMenuEditor(!showMenuEditor)}
+                  className="w-full h-10"
+                >
+                  <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+                  {showMenuEditor ? 'Schließen' : 'Menü bearbeiten'}
+                </Button>
+              </>
+            ) : (
+              <div className="flex items-center justify-between py-1">
+                <div className="flex items-center gap-2.5">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Menü noch nicht konfiguriert</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowMenuEditor(!showMenuEditor)}
+                  className="h-10"
+                >
+                  <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+                  {showMenuEditor ? 'Schließen' : 'Menü konfigurieren'}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
