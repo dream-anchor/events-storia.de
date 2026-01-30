@@ -1,59 +1,119 @@
 
+# Plan: Bezahlte Event-Aufträge im Dashboard anzeigen + LexOffice-Integration
 
-# Plan: Automatische Status-Kategorisierung reparieren
+## Übersicht
 
-## Problemanalyse
+Wenn ein Kunde über einen Stripe-Zahlungslink bezahlt, wird dies bereits in `event_bookings` mit `payment_status: "paid"` erfasst. Allerdings fehlen:
+1. Eine automatische LexOffice-Rechnung nach der Zahlung
+2. Die entsprechenden Datenbankfelder in `event_bookings`
+3. Eine Anzeige im Dashboard unter "Bezahlte Aufträge"
 
-Die Datenbankabfrage zeigt, dass Anfragen wie "Test3" einen `email_draft` haben und `last_edited_at` gesetzt ist, aber `offer_sent_at` ist NULL. Die Dashboard-Kategorisierung:
+---
 
-| Spalte | Aktuelle Logik | Problem |
-|--------|----------------|---------|
-| Neue Anfragen | `status === 'new' && !last_edited_at` | OK |
-| In Bearbeitung | `last_edited_at && !offer_sent_at` | Anfragen mit generiertem Entwurf bleiben hier hängen |
-| Angebot versendet | `offer_sent_at !== null` | Wird nie erreicht, wenn nur generiert |
+## Schritt 1: Datenbank-Migration
 
-## Ursache
-
-Der Workflow erfordert zwei separate Aktionen:
-1. "Anschreiben generieren" → setzt `email_draft`
-2. "Angebot senden" → setzt `offer_sent_at` und `status: 'offer_sent'`
-
-Wenn der Nutzer nur Schritt 1 macht, bleibt die Anfrage in "In Bearbeitung".
-
-## Lösung
-
-Die Kategorisierungslogik muss die `status`-Spalte als primären Indikator nutzen (statt nur der Tracking-Timestamps):
-
-### Neue Kategorisierungslogik
+Neue Spalten für `event_bookings` (analog zu `catering_orders`):
 
 ```text
-Dashboard.tsx & EventsList.tsx:
-
-1. Neue Anfragen:
-   status === 'new' && !last_edited_at
-
-2. In Bearbeitung:
-   (last_edited_at || status === 'contacted') && 
-   status !== 'offer_sent' && 
-   status !== 'confirmed' && 
-   status !== 'declined'
-
-3. Angebot versendet:
-   status === 'offer_sent' || offer_sent_at !== null
-   (Beide Bedingungen berücksichtigen für Rückwärtskompatibilität)
+ALTER TABLE event_bookings ADD COLUMN:
+- lexoffice_invoice_id (text)
+- lexoffice_document_type (text)  
+- lexoffice_contact_id (text)
 ```
 
-### Technische Änderungen
+---
 
-1. `src/components/admin/refine/Dashboard.tsx` (Zeilen 40-51):
-   - `offerSentInquiries`: Filter auf `status === 'offer_sent'` ODER `offer_sent_at`
-   - Dies stellt sicher, dass der explizite Status-Wert aus `handleSendOffer` erkannt wird
+## Schritt 2: Edge Function erweitern
 
-2. `src/components/admin/refine/EventsList.tsx` (Zeilen 54-62):
-   - Identische Anpassung der Filterlogik
+Die `handle-offer-payment` Edge Function wird erweitert, um nach erfolgreicher Buchungserstellung automatisch eine LexOffice-Rechnung zu erstellen:
 
-### Zu ändernde Dateien
+```text
+processSuccessfulPayment():
+  1. Buchung erstellen (existiert bereits)
+  2. Inquiry aktualisieren (existiert bereits)
+  3. NEU: LexOffice-Rechnung erstellen via create-lexoffice-invoice
+  4. NEU: Buchung mit lexoffice_invoice_id aktualisieren
+```
 
-1. `src/components/admin/refine/Dashboard.tsx`
-2. `src/components/admin/refine/EventsList.tsx`
+---
 
+## Schritt 3: Hook für bezahlte Buchungen
+
+Neuer React Query Hook `usePaidEventBookings`:
+
+```text
+- Filtert event_bookings WHERE payment_status = 'paid'
+- Sortiert nach created_at DESC
+- Liefert Buchungsdaten inkl. LexOffice-Status
+```
+
+---
+
+## Schritt 4: Dashboard-Erweiterung
+
+Neue "Bezahlte Aufträge" Box im Dashboard:
+
+```text
+┌─────────────────────────────────────────────┐
+│ 💳 Bezahlte Aufträge                        │
+│ Erfolgreich bezahlte Event-Buchungen        │
+├─────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────┐ │
+│ │ EVT-2026-0001                           │ │
+│ │ Firma ABC GmbH                          │ │
+│ │ 50 Gäste • 15.03.26                     │ │
+│ │ ✅ Bezahlt • 2.415,00 €                 │ │
+│ │ 📄 LexOffice: Rechnung erstellt         │ │
+│ └─────────────────────────────────────────┘ │
+│                                             │
+│ ┌─────────────────────────────────────────┐ │
+│ │ EVT-2026-0002                           │ │
+│ │ ...                                     │ │
+│ └─────────────────────────────────────────┘ │
+└─────────────────────────────────────────────┘
+```
+
+### Angezeigte Informationen pro Buchung:
+- Buchungsnummer (EVT-XXXX-XXXX)
+- Firma/Kundenname
+- Gästeanzahl + Event-Datum
+- Zahlungsstatus mit Betrag
+- LexOffice-Status (Rechnung erstellt / ausstehend)
+- Link zur Buchungsdetailseite
+
+---
+
+## Technische Änderungen
+
+| Datei | Änderung |
+|-------|----------|
+| `supabase/migrations/...` | Neue Spalten für LexOffice-Integration |
+| `src/integrations/supabase/types.ts` | Automatisch aktualisiert |
+| `supabase/functions/handle-offer-payment/index.ts` | LexOffice-Rechnung nach Zahlung erstellen |
+| `src/hooks/useEventBookings.ts` | Neuer Hook `usePaidEventBookings` |
+| `src/components/admin/refine/Dashboard.tsx` | Neue "Bezahlte Aufträge" Box |
+
+---
+
+## Ablauf nach Implementierung
+
+```text
+Kunde bezahlt via Stripe-Link
+         ↓
+handle-offer-payment (Webhook)
+         ↓
+    ┌────┴────┐
+    ↓         ↓
+Buchung    Inquiry auf
+erstellen  'confirmed'
+    ↓         
+LexOffice-Rechnung erstellen
+    ↓
+Buchung mit lexoffice_invoice_id aktualisieren
+    ↓
+Dashboard zeigt in "Bezahlte Aufträge":
+- Buchungsnummer
+- Kunde/Firma
+- Betrag
+- LexOffice-Status
+```
