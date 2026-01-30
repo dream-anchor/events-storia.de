@@ -128,10 +128,10 @@ export const EventsList = () => {
           badgeClass = 'border-foreground/50 text-foreground bg-muted';
         } else if (event.status === 'declined') {
           statusLabel = 'Abgelehnt';
-          badgeClass = 'border-destructive/50 text-destructive bg-destructive/10';
+          badgeClass = 'border-muted-foreground/50 text-muted-foreground bg-muted';
         } else {
           statusLabel = 'Neu';
-          badgeClass = 'border-destructive/50 text-destructive bg-destructive/10';
+          badgeClass = 'border-amber-500/50 text-amber-700 bg-amber-50';
         }
 
         return (
