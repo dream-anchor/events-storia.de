@@ -33,8 +33,8 @@ const StickyMobileCTA = ({
   };
 
   const buttonText = language === 'de' 
-    ? 'Zahlungspflichtig bestellen' 
-    : 'Place binding order';
+    ? 'Sofort kaufen' 
+    : 'Buy now';
 
   // Compact payment logos for mobile
   const compactLogos = [

@@ -1037,11 +1037,14 @@ const Checkout = () => {
       ) : (
         <>
           <Lock className="mr-2 h-4 w-4" />
-          {language === 'de' ? 'Zahlungspflichtig bestellen' : 'Place binding order'}
+          {language === 'de' ? 'Sofort kaufen' : 'Buy now'}
         </>
       )}
     </Button>
   );
+
+  // Amazon-style: Check if form is complete to enable CTA early
+  const isFormComplete = isDeliveryStepComplete && isCustomerStepComplete && formData.acceptTerms;
 
   return (
     <>
@@ -1371,7 +1374,8 @@ const Checkout = () => {
                     </div>
                   </AccordionSection>
 
-                  {/* Section 2: Customer Details */}
+                  {/* Section 2: Customer Details - only show after step 1 is touched */}
+                  {completedSteps.includes('delivery') && (
                   <AccordionSection
                     stepNumber={2}
                     title="Kundendaten"
@@ -1555,8 +1559,10 @@ const Checkout = () => {
                       </Button>
                     </div>
                   </AccordionSection>
+                  )}
 
-                  {/* Section 3: Payment */}
+                  {/* Section 3: Payment - only show after step 2 is touched */}
+                  {completedSteps.includes('customer') && (
                   <AccordionSection
                     stepNumber={3}
                     title="Zahlungsmethode"
@@ -1618,12 +1624,13 @@ const Checkout = () => {
                         ) : (
                           <>
                             <Lock className="mr-2 h-4 w-4" />
-                            {language === 'de' ? 'Zahlungspflichtig bestellen' : 'Place binding order'}
+                            {language === 'de' ? 'Sofort kaufen' : 'Buy now'}
                           </>
                         )}
                       </Button>
                     </div>
                   </AccordionSection>
+                  )}
 
                 </div>
 
