@@ -272,7 +272,7 @@ const EventsImStoria = () => {
                     <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
                       <Icon className="w-6 h-6 text-primary" />
                     </div>
-                    <h3 className="font-medium text-lg md:text-xl mb-1">
+                    <h3 className="font-medium text-xl mb-1">
                       {language === 'de' ? type.titleDe : type.titleEn}
                     </h3>
                     <p className="text-base text-muted-foreground">
