@@ -75,7 +75,7 @@ export function MultiOfferComposer({
   const totalForAllOptions = activeOptions.reduce((sum, opt) => sum + opt.totalAmount, 0);
   
   // Check if all active options have menu configured
-  const allMenusConfigured = activeOptionsWithPackage.every(opt => {
+  const allMenusConfigured = activeOptionsWithPackage.length > 0 && activeOptionsWithPackage.every(opt => {
     const configuredCourses = opt.menuSelection.courses.filter(c => c.itemId || c.itemName).length;
     const configuredDrinks = opt.menuSelection.drinks.filter(d => d.selectedChoice || d.customDrink).length;
     return configuredCourses > 0 || configuredDrinks > 0;
@@ -86,6 +86,13 @@ export function MultiOfferComposer({
     const configuredCourses = opt.menuSelection.courses.filter(c => c.itemId || c.itemName).length;
     const configuredDrinks = opt.menuSelection.drinks.filter(d => d.selectedChoice || d.customDrink).length;
     return configuredCourses === 0 && configuredDrinks === 0;
+  });
+  
+  // Debug logging
+  console.log('[MenuConfig Debug]', {
+    activeOptionsWithPackage: activeOptionsWithPackage.length,
+    allMenusConfigured,
+    firstUnconfiguredOption: firstUnconfiguredOption?.optionLabel,
   });
 
   // Generate payment links for all active options
