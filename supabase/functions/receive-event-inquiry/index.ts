@@ -80,6 +80,17 @@ events-storia.de
 `;
 };
 
+const getSourceLabel = (source: string | undefined): string => {
+  if (!source) return 'Website';
+  // Convert technical source identifiers to human-readable labels
+  if (source.startsWith('package_inquiry_')) return 'Paket-Anfrage (Website)';
+  if (source === 'contact_form') return 'Kontaktformular';
+  if (source === 'manual_entry') return 'Manuell erfasst';
+  if (source === 'email') return 'E-Mail';
+  if (source === 'phone') return 'Telefonisch';
+  return source.charAt(0).toUpperCase() + source.slice(1).replace(/_/g, ' ');
+};
+
 const generateRestaurantEmailText = (data: EventInquiryRequest): string => {
   const now = new Date().toLocaleString('de-DE', {
     dateStyle: 'full',
@@ -89,12 +100,13 @@ const generateRestaurantEmailText = (data: EventInquiryRequest): string => {
   const eventTypeLabel = data.eventType ? getEventTypeLabel(data.eventType) : 'Nicht angegeben';
   const dateText = data.preferredDate ? formatDate(data.preferredDate) : 'Flexibel';
   const timeText = data.timeSlot || 'Nicht angegeben';
+  const sourceLabel = getSourceLabel(data.source);
 
   return `NEUE EVENT-ANFRAGE EINGEGANGEN
 
 Eingegangen: ${now}
-Quelle: ${data.source || 'Website'}
-
+Quelle: ${sourceLabel}
+${data.eventType ? `Gewähltes Paket: ${data.eventType}\n` : ''}
 
 KONTAKTDATEN
 
