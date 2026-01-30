@@ -49,16 +49,21 @@ export const EventsList = () => {
   const allEvents = eventsQuery.result?.data || [];
   const isLoading = eventsQuery.query.isLoading;
 
-  // Categorize events
+  // Categorize events based on status (primary) and tracking timestamps (fallback)
   const categorizedEvents = useMemo(() => {
     const newInquiries = allEvents.filter(e => 
       e.status === 'new' && !e.last_edited_at
     );
     const inProgress = allEvents.filter(e => 
-      e.last_edited_at && !e.offer_sent_at && e.status !== 'confirmed' && e.status !== 'declined'
+      (e.last_edited_at || e.status === 'contacted') && 
+      e.status !== 'offer_sent' && 
+      e.status !== 'confirmed' && 
+      e.status !== 'declined'
     );
     const offerSent = allEvents.filter(e => 
-      e.offer_sent_at && e.status !== 'confirmed' && e.status !== 'declined'
+      (e.status === 'offer_sent' || e.offer_sent_at) && 
+      e.status !== 'confirmed' && 
+      e.status !== 'declined'
     );
     const confirmed = allEvents.filter(e => e.status === 'confirmed');
     const declined = allEvents.filter(e => e.status === 'declined');
