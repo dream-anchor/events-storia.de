@@ -61,7 +61,7 @@ export const Dashboard = () => {
   return (
     <AdminLayout activeTab="dashboard">
       <PageTransition>
-        <div className="space-y-8">
+        <div className="space-y-12">
           {/* Header with Quick Action */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -85,7 +85,7 @@ export const Dashboard = () => {
           </motion.div>
 
           {/* Stats Cards with Stagger Animation */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <MotionCard index={0}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-base font-medium text-muted-foreground">
@@ -148,7 +148,7 @@ export const Dashboard = () => {
           </div>
 
           {/* Three Column Layout for Inquiry Categories */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* New Inquiries */}
             <Card className="border-l-4 border-l-amber-500/50">
               <CardHeader className="pb-3">
@@ -165,7 +165,7 @@ export const Dashboard = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 {newInquiries.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
+                  <p className="text-sm text-muted-foreground/60 text-center py-8">
                     Keine neuen Anfragen
                   </p>
                 ) : (
@@ -199,7 +199,7 @@ export const Dashboard = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 {inProgressInquiries.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
+                  <p className="text-sm text-muted-foreground/60 text-center py-8">
                     Keine Anfragen in Bearbeitung
                   </p>
                 ) : (
@@ -233,7 +233,7 @@ export const Dashboard = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 {offerSentInquiries.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
+                  <p className="text-sm text-muted-foreground/60 text-center py-8">
                     Keine versendeten Angebote
                   </p>
                 ) : (
@@ -253,7 +253,7 @@ export const Dashboard = () => {
           </div>
 
           {/* Bottom Row: Orders + Menu Pending */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Pending Menu Bookings */}
             {pendingMenuCount > 0 && (
               <Card>

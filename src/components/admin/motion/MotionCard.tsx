@@ -24,16 +24,17 @@ export const MotionCard = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ 
-        duration: 0.3,
+        type: "spring",
+        stiffness: 400,
+        damping: 30,
         delay: index * 0.05,
-        ease: [0.25, 0.1, 0.25, 1]
       }}
       whileHover={disableHover ? undefined : { 
-        y: -4, 
-        scale: 1.02,
-        boxShadow: "0 20px 40px -12px rgba(0, 0, 0, 0.15)"
+        y: -2,
+        scale: 1.005,
+        boxShadow: "0 12px 24px -8px rgba(0, 0, 0, 0.1)"
       }}
-      whileTap={disableHover ? undefined : { scale: 0.98 }}
+      whileTap={disableHover ? undefined : { scale: 0.995 }}
       onClick={onClick}
     >
       <Card className={cn("cursor-pointer transition-shadow h-full", className)}>

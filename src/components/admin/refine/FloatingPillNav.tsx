@@ -95,7 +95,7 @@ export const FloatingPillNav = ({
   };
 
   return (
-    <nav className="hidden md:flex items-center gap-1 p-1.5 glass-card rounded-2xl shadow-lg shadow-slate-200/40">
+    <nav className="hidden md:flex items-center gap-1.5 p-2 bg-white/70 backdrop-blur-2xl rounded-3xl shadow-[var(--shadow-floating,_0_16px_48px_-8px_rgba(0,0,0,0.12))] border border-white/50">
       {navigationContexts.map((item) => {
         const Icon = item.icon;
         const isActive = activeContext === item.key || 
@@ -108,10 +108,10 @@ export const FloatingPillNav = ({
             <DropdownMenu key={item.key}>
               <DropdownMenuTrigger asChild>
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
                   className={cn(
-                    "relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 outline-none",
+                    "relative flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-medium transition-all duration-200 outline-none",
                     isActive
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -173,11 +173,11 @@ export const FloatingPillNav = ({
         
         // Simple items without children
         return (
-          <motion.div key={item.key} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <motion.div key={item.key} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
             <Link
               to={item.href}
               className={cn(
-                "relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                "relative flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-medium transition-all duration-200",
                 isActive
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary"

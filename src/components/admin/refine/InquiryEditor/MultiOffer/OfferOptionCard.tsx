@@ -84,9 +84,9 @@ export function OfferOptionCard({
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            {/* Option Label Circle - Monochrome 2026 */}
+            {/* Option Label Circle - Spatial 2026 */}
             <div className={cn(
-              "w-11 h-11 rounded-full flex items-center justify-center font-semibold text-lg transition-colors",
+              "w-14 h-14 rounded-full flex items-center justify-center font-semibold text-xl transition-colors shadow-[var(--shadow-subtle,_0_1px_2px_rgba(0,0,0,0.03))]",
               option.isActive 
                 ? "bg-foreground text-background" 
                 : "bg-muted text-muted-foreground border border-border"
@@ -151,9 +151,9 @@ export function OfferOptionCard({
       </CardHeader>
 
       <CardContent className="space-y-5">
-        {/* Pricing Section - Clean 2026 */}
+        {/* Pricing Section - Spatial 2026 */}
         {selectedPackage && (
-          <div className="p-4 rounded-xl bg-muted/30 border border-border/50 space-y-3">
+          <div className="p-5 rounded-2xl bg-muted/20 border border-border/30 shadow-[var(--shadow-subtle,_0_1px_2px_rgba(0,0,0,0.03))] space-y-3">
             {selectedPackage.price_per_person ? (
               <>
                 <div className="flex items-center justify-between text-sm">
