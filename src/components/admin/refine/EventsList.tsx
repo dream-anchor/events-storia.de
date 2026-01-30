@@ -50,7 +50,8 @@ export const EventsList = () => {
   const allEvents = eventsQuery.result?.data || [];
   const isLoading = eventsQuery.query.isLoading;
 
-  // Categorize events based on status (primary) and tracking timestamps (fallback)
+  // Categorize events based on status (the single source of truth)
+  // Status 'offer_sent' means at least one version was sent - it stays there even when editing a new version
   const categorizedEvents = useMemo(() => {
     const newInquiries = allEvents.filter(e => 
       e.status === 'new' && !e.last_edited_at
@@ -61,10 +62,9 @@ export const EventsList = () => {
       e.status !== 'confirmed' && 
       e.status !== 'declined'
     );
+    // offer_sent = status is the source of truth (set once, stays forever unless confirmed/declined)
     const offerSent = allEvents.filter(e => 
-      (e.status === 'offer_sent' || e.offer_sent_at) && 
-      e.status !== 'confirmed' && 
-      e.status !== 'declined'
+      e.status === 'offer_sent'
     );
     const confirmed = allEvents.filter(e => e.status === 'confirmed');
     const declined = allEvents.filter(e => e.status === 'declined');
