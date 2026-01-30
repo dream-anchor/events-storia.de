@@ -22,6 +22,27 @@ serve(async (req) => {
     
     const { amount, customerEmail, customerName, orderNumber, items, paymentMethod } = await req.json();
     
+    // Determine base URL for Stripe redirect URLs
+    const origin = req.headers.get("origin");
+    const referer = req.headers.get("referer");
+
+    let baseUrl = origin;
+    if (!baseUrl && referer) {
+      try {
+        const refererUrl = new URL(referer);
+        baseUrl = refererUrl.origin;
+      } catch {
+        baseUrl = null;
+      }
+    }
+
+    // Fallback to production domain if no origin detected
+    if (!baseUrl) {
+      baseUrl = "https://ristorantestoria.de";
+    }
+
+    logStep("Base URL determined", { origin, referer, baseUrl });
+    
     // Validate input
     if (!amount || amount <= 0) {
       throw new Error("Invalid amount");
@@ -187,8 +208,8 @@ serve(async (req) => {
         },
       ],
       mode: "payment",
-      success_url: `${req.headers.get("origin")}/checkout?payment=success&order=${orderNumber}`,
-      cancel_url: `${req.headers.get("origin")}/checkout?payment=cancelled`,
+      success_url: `${baseUrl}/checkout?payment=success&order=${orderNumber}`,
+      cancel_url: `${baseUrl}/checkout?payment=cancelled`,
       metadata: {
         order_number: orderNumber,
         customer_name: customerName,
