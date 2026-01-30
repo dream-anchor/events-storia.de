@@ -44,21 +44,16 @@ const generateCustomerEmailText = (data: EventInquiryRequest): string => {
   const eventTypeLabel = data.eventType ? getEventTypeLabel(data.eventType) : 'Nicht angegeben';
   const dateText = data.preferredDate ? formatDate(data.preferredDate) : 'Flexibel';
 
-  return `════════════════════════════════════════════
-          STORIA · EVENTS & CATERING
-════════════════════════════════════════════
+  return `STORIA · EVENTS & CATERING
 
 Guten Tag ${data.contactName},
 
 vielen Dank für Ihre Event-Anfrage!
 
-Wir haben Ihre Anfrage erhalten und melden uns 
-innerhalb von 24 Stunden bei Ihnen mit einem 
-individuellen Angebot.
+Wir haben Ihre Anfrage erhalten und melden uns innerhalb von 24 Stunden bei Ihnen mit einem individuellen Angebot.
 
-────────────────────────────────────────────
+
 IHRE ANFRAGE
-────────────────────────────────────────────
 
 ${data.companyName ? `Firma: ${data.companyName}\n` : ''}Ansprechpartner: ${data.contactName}
 E-Mail: ${data.email}
@@ -68,9 +63,8 @@ Gästeanzahl: ${data.guestCount || 'Nicht angegeben'}
 Wunschtermin: ${dateText}
 
 ${data.message ? `Ihre Nachricht:\n${data.message}\n` : ''}
-────────────────────────────────────────────
-Bei Fragen erreichen Sie uns unter:
 
+Bei Fragen erreichen Sie uns unter:
 Tel: +49 89 51519696
 E-Mail: info@events-storia.de
 
@@ -79,7 +73,6 @@ Karlstraße 47a
 80333 München
 
 events-storia.de
-════════════════════════════════════════════
 `;
 };
 
@@ -92,32 +85,27 @@ const generateRestaurantEmailText = (data: EventInquiryRequest): string => {
   const eventTypeLabel = data.eventType ? getEventTypeLabel(data.eventType) : 'Nicht angegeben';
   const dateText = data.preferredDate ? formatDate(data.preferredDate) : 'Flexibel';
 
-  return `════════════════════════════════════════════
-       NEUE EVENT-ANFRAGE EINGEGANGEN
-════════════════════════════════════════════
+  return `NEUE EVENT-ANFRAGE EINGEGANGEN
 
 Eingegangen: ${now}
 Quelle: ${data.source || 'Website'}
 
-────────────────────────────────────────────
+
 KONTAKTDATEN
-────────────────────────────────────────────
 
 ${data.companyName ? `Firma: ${data.companyName}\n` : ''}Ansprechpartner: ${data.contactName}
 E-Mail: ${data.email}
 ${data.phone ? `Telefon: ${data.phone}\n` : ''}
-────────────────────────────────────────────
+
 EVENT-DETAILS
-────────────────────────────────────────────
 
 Eventart: ${eventTypeLabel}
 Gästeanzahl: ${data.guestCount || 'Nicht angegeben'}
 Wunschtermin: ${dateText}
 
-${data.message ? `NACHRICHT DES KUNDEN:\n${data.message}\n` : ''}
-────────────────────────────────────────────
+${data.message ? `Nachricht des Kunden:\n${data.message}\n` : ''}
+
 Admin-Bereich: https://events-storia.de/admin
-════════════════════════════════════════════
 `;
 };
 
@@ -152,7 +140,16 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
       from: `${fromName} <${smtpUser}>`,
       to: to,
       subject: subject,
-      html: `<html><body><pre style="font-family: monospace; white-space: pre-wrap;">${text}</pre></body></html>`,
+      html: `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="white-space: pre-wrap;">${text}</div>
+</body>
+</html>`,
     });
 
     console.log("Email sent successfully via IONOS SMTP");
@@ -174,23 +171,20 @@ const handler = async (req: Request): Promise<Response> => {
     const data: EventInquiryRequest = await req.json();
     console.log("Received event inquiry request:", JSON.stringify(data, null, 2));
 
-    // Validate required fields
     if (!data.contactName || !data.email) {
       return new Response(
         JSON.stringify({ error: "Name und E-Mail sind erforderlich" }),
         {
           status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
+          headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders },
         }
       );
     }
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Insert inquiry into database
     const { data: inquiry, error: insertError } = await supabase
       .from('event_inquiries')
       .insert({
@@ -216,10 +210,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Inquiry saved to database:", inquiry.id);
 
-    // Send emails in background - don't fail the request if email fails
     let emailsSent = false;
     try {
-      // Send customer confirmation email
       const customerEmailText = generateCustomerEmailText(data);
       await sendEmail(
         [data.email],
@@ -228,7 +220,6 @@ const handler = async (req: Request): Promise<Response> => {
         "STORIA Events"
       );
 
-      // Send restaurant notification email
       const restaurantEmailText = generateRestaurantEmailText(data);
       await sendEmail(
         ["info@events-storia.de"],
@@ -240,11 +231,9 @@ const handler = async (req: Request): Promise<Response> => {
       emailsSent = true;
       console.log("All emails sent successfully");
     } catch (emailError: any) {
-      // Log email error but don't fail the request - inquiry is already saved
       console.error("Email sending failed (inquiry still saved):", emailError.message);
     }
 
-    // Update notification_sent flag
     await supabase
       .from('event_inquiries')
       .update({ notification_sent: emailsSent })
@@ -258,7 +247,7 @@ const handler = async (req: Request): Promise<Response> => {
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders },
       }
     );
   } catch (error: any) {
@@ -267,7 +256,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ error: error.message }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders },
       }
     );
   }

@@ -49,23 +49,18 @@ const formatDate = (dateStr: string) => {
   return `${days[date.getDay()]}, ${date.getDate()}. ${months[date.getMonth()]} ${date.getFullYear()}`;
 };
 
-// ============================================
-// CUSTOMER EMAIL TEMPLATE
-// Anpassbar: Text hier ändern für Kunden-E-Mail
-// ============================================
 const generateCustomerEmailText = (data: CancellationNotificationRequest): string => {
   let itemsList = '';
   for (const item of data.items) {
     const itemTotal = item.price * item.quantity;
-    itemsList += `  ${item.quantity}x ${item.name}\n     ${formatPrice(itemTotal)}\n\n`;
+    itemsList += `• ${item.quantity}x ${item.name} – ${formatPrice(itemTotal)}\n`;
   }
 
   let refundInfo = '';
   if (data.stripeRefunded) {
     refundInfo = `
-✓ RÜCKERSTATTUNG
-Der Betrag von ${formatPrice(data.totalAmount)} wird auf Ihr Zahlungsmittel 
-zurückerstattet. Die Gutschrift erfolgt in 5-10 Werktagen.
+✓ Rückerstattung
+Der Betrag von ${formatPrice(data.totalAmount)} wird auf Ihr Zahlungsmittel zurückerstattet. Die Gutschrift erfolgt in 5-10 Werktagen.
 `;
   }
 
@@ -73,9 +68,7 @@ zurückerstattet. Die Gutschrift erfolgt in 5-10 Werktagen.
     ? `Grund: ${data.cancellationReason}` 
     : '';
 
-  return `════════════════════════════════════════════
-          STORIA · CATERING & EVENTS
-════════════════════════════════════════════
+  return `STORIA · CATERING & EVENTS
 
 Guten Tag ${data.customerName},
 
@@ -85,20 +78,16 @@ Bestellnummer: ${data.orderNumber}
 Storniert am: ${formatDateTime(data.cancelledAt)}
 ${reasonText}
 
-────────────────────────────────────────────
+
 STORNIERTE BESTELLUNG
-────────────────────────────────────────────
 
-${itemsList}────────────────────────────────────────────
+${itemsList}
 Ursprünglicher Gesamtbetrag: ${formatPrice(data.totalAmount)}
-────────────────────────────────────────────
 ${refundInfo}
-Falls Sie Fragen haben oder eine neue Bestellung 
-aufgeben möchten, kontaktieren Sie uns gerne.
+Falls Sie Fragen haben oder eine neue Bestellung aufgeben möchten, kontaktieren Sie uns gerne.
 
-────────────────────────────────────────────
+
 Bei Fragen erreichen Sie uns unter:
-
 Tel: +49 89 51519696
 E-Mail: info@events-storia.de
 
@@ -107,19 +96,14 @@ Karlstraße 47a
 80333 München
 
 events-storia.de
-════════════════════════════════════════════
 `;
 };
 
-// ============================================
-// RESTAURANT EMAIL TEMPLATE
-// Anpassbar: Text hier ändern für Restaurant-E-Mail
-// ============================================
 const generateRestaurantEmailText = (data: CancellationNotificationRequest): string => {
   let itemsList = '';
   for (const item of data.items) {
     const itemTotal = item.price * item.quantity;
-    itemsList += `  ${item.quantity}x ${item.name}\n     ${formatPrice(itemTotal)}\n\n`;
+    itemsList += `• ${item.quantity}x ${item.name} – ${formatPrice(itemTotal)}\n`;
   }
 
   const reasonText = data.cancellationReason 
@@ -149,38 +133,34 @@ const generateRestaurantEmailText = (data: CancellationNotificationRequest): str
     actionsSummary = 'Keine automatischen Aktionen erforderlich.\n';
   }
 
-  return `════════════════════════════════════════════
-     ⚠️ BESTELLUNG STORNIERT
-════════════════════════════════════════════
+  return `⚠️ BESTELLUNG STORNIERT
 
 Bestellnummer: ${data.orderNumber}
 Storniert am: ${formatDateTime(data.cancelledAt)}
 Grund: ${reasonText}
 
-────────────────────────────────────────────
+
 KUNDENDATEN
-────────────────────────────────────────────
 
 Name: ${data.customerName}
 ${data.companyName ? `Firma: ${data.companyName}\n` : ''}E-Mail: ${data.customerEmail}
 Telefon: ${data.customerPhone}
 
-────────────────────────────────────────────
+
 URSPRÜNGLICHE BESTELLUNG
-────────────────────────────────────────────
 
 Art: ${deliveryInfo}
 Termin: ${eventDate}
 
-${itemsList}────────────────────────────────────────────
+${itemsList}
 Ursprünglicher Bestellwert: ${formatPrice(data.totalAmount)}
-────────────────────────────────────────────
+
 
 AUTOMATISCHE AKTIONEN
+
 ${actionsSummary}
-────────────────────────────────────────────
+
 Admin-Bereich: https://events-storia.de/admin
-════════════════════════════════════════════
 `;
 };
 
@@ -215,7 +195,16 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
       from: `${fromName} <${smtpUser}>`,
       to: to,
       subject: subject,
-      html: `<html><body><pre style="font-family: monospace; white-space: pre-wrap;">${text}</pre></body></html>`,
+      html: `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="white-space: pre-wrap;">${text}</div>
+</body>
+</html>`,
     });
 
     console.log("Cancellation email sent successfully via IONOS SMTP");
@@ -237,9 +226,6 @@ const handler = async (req: Request): Promise<Response> => {
     const data: CancellationNotificationRequest = await req.json();
     console.log("Received cancellation notification request:", JSON.stringify(data, null, 2));
 
-    // ============================================================
-    // SECURITY: Verify order was actually cancelled in database
-    // ============================================================
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -255,32 +241,28 @@ const handler = async (req: Request): Promise<Response> => {
       console.log("Security: Order not found in database", { orderNumber: data.orderNumber });
       return new Response(
         JSON.stringify({ error: 'Order not found' }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 404, headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders } }
       );
     }
 
-    // Verify order is actually cancelled in database
     if (!order.cancelled_at) {
       console.log("Security: Order is not cancelled", { orderNumber: data.orderNumber });
       return new Response(
         JSON.stringify({ error: 'Order is not cancelled' }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 400, headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders } }
       );
     }
 
-    // Verify email matches to prevent sending to unauthorized addresses
     if (order.customer_email?.toLowerCase() !== data.customerEmail?.toLowerCase()) {
       console.log("Security: Email mismatch", { storedEmail: order.customer_email, requestEmail: data.customerEmail });
       return new Response(
         JSON.stringify({ error: 'Email mismatch' }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 400, headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders } }
       );
     }
 
     console.log("Security: Order cancellation validated", { orderNumber: data.orderNumber });
-    // ============================================================
 
-    // Customer email
     const customerSubject = `Stornierung Ihrer Bestellung ${data.orderNumber}`;
     const customerEmailText = generateCustomerEmailText(data);
     
@@ -291,7 +273,6 @@ const handler = async (req: Request): Promise<Response> => {
       "STORIA Catering"
     );
 
-    // Restaurant email
     const restaurantSubject = `STORNIERT: ${data.orderNumber}`;
     const restaurantEmailText = generateRestaurantEmailText(data);
     
@@ -306,7 +287,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ success: true, message: "Cancellation emails sent successfully" }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders },
       }
     );
   } catch (error: any) {
@@ -315,7 +296,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ error: error.message }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders },
       }
     );
   }
