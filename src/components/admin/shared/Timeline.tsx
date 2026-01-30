@@ -15,7 +15,11 @@ import {
   Clock,
   ExternalLink,
   Package,
-  Settings
+  Settings,
+  CheckCircle2,
+  XCircle,
+  Send,
+  Server
 } from 'lucide-react';
 import { formatDistanceToNow, format, parseISO, isToday, isYesterday } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -28,7 +32,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useActivityLogs, formatActivityAction } from '@/hooks/useActivityLog';
+import { useEmailDeliveryLogs, formatProvider, formatEmailStatus, type EmailDeliveryLog } from '@/hooks/useEmailDeliveryLogs';
 import type { ActivityLog, EntityType } from './types';
+
+// Combined timeline entry type
+type TimelineItem = 
+  | { type: 'activity'; data: ActivityLog; timestamp: string }
+  | { type: 'email'; data: EmailDeliveryLog; timestamp: string };
 
 interface TimelineProps {
   entityType: EntityType;
@@ -98,13 +108,13 @@ const formatDateGroup = (dateString: string): string => {
   return format(date, 'EEEE, d. MMMM yyyy', { locale: de });
 };
 
-interface TimelineEntryProps {
+interface ActivityEntryProps {
   log: ActivityLog;
   isFirst: boolean;
   isLast: boolean;
 }
 
-const TimelineEntry = ({ log, isFirst, isLast }: TimelineEntryProps) => {
+const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasEmailContent = log.action === 'email_sent' && log.metadata?.html_content;
   const actionText = formatActivityAction(log);
@@ -250,24 +260,220 @@ const TimelineEntry = ({ log, isFirst, isLast }: TimelineEntryProps) => {
   );
 };
 
-// Group logs by date
-const groupLogsByDate = (logs: ActivityLog[]): Map<string, ActivityLog[]> => {
-  const groups = new Map<string, ActivityLog[]>();
+// Email Delivery Log Entry Component
+interface EmailDeliveryEntryProps {
+  emailLog: EmailDeliveryLog;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
+const EmailDeliveryEntry = ({ emailLog, isFirst, isLast }: EmailDeliveryEntryProps) => {
+  const statusInfo = formatEmailStatus(emailLog.status);
+  const providerName = formatProvider(emailLog.provider);
+  const actorName = getDisplayName(emailLog.sent_by || undefined);
+  const initials = emailLog.sent_by ? getInitials(emailLog.sent_by) : 'SY';
   
-  logs.forEach(log => {
-    const dateKey = format(parseISO(log.created_at), 'yyyy-MM-dd');
+  const isSuccess = emailLog.status === 'sent';
+  const theme = isSuccess 
+    ? { bg: 'bg-green-500/10', border: 'border-green-500/30', icon: 'text-green-600' }
+    : { bg: 'bg-red-500/10', border: 'border-red-500/30', icon: 'text-red-600' };
+
+  return (
+    <div className="relative flex gap-3 group">
+      {/* Timeline connector */}
+      <div className="relative flex flex-col items-center">
+        {!isFirst && (
+          <div className="absolute top-0 w-px h-3 bg-border" />
+        )}
+        
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="relative">
+                <Avatar className="h-8 w-8 border-2 border-background shadow-sm">
+                  <AvatarFallback className="text-xs font-medium bg-violet-500/10 text-violet-600">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                {/* Status icon badge */}
+                <div className={cn(
+                  "absolute -bottom-0.5 -right-0.5 p-0.5 rounded-full border",
+                  theme.bg, theme.border
+                )}>
+                  <div className={theme.icon}>
+                    {isSuccess ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                  </div>
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">
+              <p className="font-medium">{actorName}</p>
+              <p className="text-muted-foreground">{emailLog.sent_by || 'System'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {!isLast && (
+          <div className="flex-1 w-px bg-border mt-1" />
+        )}
+      </div>
+
+      {/* Content */}
+      <div className={cn(
+        "flex-1 pb-4",
+        isLast && "pb-0"
+      )}>
+        <div className={cn(
+          "rounded-lg border p-3 transition-all",
+          "hover:shadow-sm hover:border-border",
+          theme.bg, theme.border
+        )}>
+          {/* Header */}
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-sm">{actorName}</span>
+                <span className="text-xs text-muted-foreground">•</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs text-muted-foreground cursor-default flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDistanceToNow(parseISO(emailLog.sent_at), { 
+                          locale: de, 
+                          addSuffix: true 
+                        })}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {format(parseISO(emailLog.sent_at), 'PPpp', { locale: de })}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Badge 
+                variant={statusInfo.variant === 'success' ? 'default' : statusInfo.variant === 'destructive' ? 'destructive' : 'secondary'} 
+                className={cn(
+                  "text-xs shrink-0 font-normal",
+                  statusInfo.variant === 'success' && "bg-green-500 hover:bg-green-600"
+                )}
+              >
+                {statusInfo.label}
+              </Badge>
+              <Badge variant="outline" className="text-xs shrink-0 font-normal">
+                {format(parseISO(emailLog.sent_at), 'HH:mm', { locale: de })}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Email subject */}
+          <p className="text-sm text-foreground flex items-center gap-1.5">
+            <Send className="h-3.5 w-3.5 text-muted-foreground" />
+            E-Mail "{emailLog.subject}" an {emailLog.recipient_name || emailLog.recipient_email}
+          </p>
+
+          {/* Provider & Message ID details */}
+          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 cursor-default">
+                    <Server className="h-3 w-3" />
+                    {providerName}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  E-Mail-Provider
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            {emailLog.provider_message_id && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="font-mono text-[10px] bg-muted/50 px-1.5 py-0.5 rounded cursor-default truncate max-w-[200px]">
+                      {emailLog.provider_message_id}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Message-ID vom Provider</p>
+                    <p className="font-mono text-xs break-all">{emailLog.provider_message_id}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+
+          {/* Error message if failed */}
+          {emailLog.error_message && (
+            <div className="mt-2 p-2 rounded bg-destructive/10 border border-destructive/20">
+              <p className="text-xs text-destructive font-medium">Fehler:</p>
+              <p className="text-xs text-destructive/80 mt-0.5">{emailLog.error_message}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Combined Timeline Entry
+interface TimelineEntryProps {
+  item: TimelineItem;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
+const TimelineEntry = ({ item, isFirst, isLast }: TimelineEntryProps) => {
+  if (item.type === 'email') {
+    return <EmailDeliveryEntry emailLog={item.data} isFirst={isFirst} isLast={isLast} />;
+  }
+  return <ActivityEntry log={item.data} isFirst={isFirst} isLast={isLast} />;
+};
+
+// Group items by date
+const groupItemsByDate = (items: TimelineItem[]): Map<string, TimelineItem[]> => {
+  const groups = new Map<string, TimelineItem[]>();
+  
+  items.forEach(item => {
+    const dateKey = format(parseISO(item.timestamp), 'yyyy-MM-dd');
     const existing = groups.get(dateKey) || [];
-    groups.set(dateKey, [...existing, log]);
+    groups.set(dateKey, [...existing, item]);
   });
   
   return groups;
 };
 
 export const Timeline = ({ entityType, entityId, className }: TimelineProps) => {
-  const { data: logs = [], isLoading } = useActivityLogs(entityType, entityId);
+  const { data: activityLogs = [], isLoading: isLoadingActivity } = useActivityLogs(entityType, entityId);
+  const { data: emailLogs = [], isLoading: isLoadingEmail } = useEmailDeliveryLogs(entityType, entityId);
   
-  const groupedLogs = useMemo(() => groupLogsByDate(logs), [logs]);
-  const dateKeys = useMemo(() => Array.from(groupedLogs.keys()), [groupedLogs]);
+  const isLoading = isLoadingActivity || isLoadingEmail;
+  
+  // Combine and sort all timeline items
+  const combinedItems = useMemo((): TimelineItem[] => {
+    const activityItems: TimelineItem[] = activityLogs.map(log => ({
+      type: 'activity' as const,
+      data: log,
+      timestamp: log.created_at,
+    }));
+    
+    const emailItems: TimelineItem[] = emailLogs.map(log => ({
+      type: 'email' as const,
+      data: log,
+      timestamp: log.sent_at,
+    }));
+    
+    return [...activityItems, ...emailItems].sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  }, [activityLogs, emailLogs]);
+  
+  const groupedItems = useMemo(() => groupItemsByDate(combinedItems), [combinedItems]);
+  const dateKeys = useMemo(() => Array.from(groupedItems.keys()), [groupedItems]);
 
   if (isLoading) {
     return (
@@ -295,7 +501,7 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
     );
   }
 
-  if (logs.length === 0) {
+  if (combinedItems.length === 0) {
     return (
       <Card className={className}>
         <CardHeader className="pb-3">
@@ -327,15 +533,23 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
             <Activity className="h-4 w-4" />
             Aktivitäten
           </CardTitle>
-          <Badge variant="secondary" className="font-normal">
-            {logs.length} {logs.length === 1 ? 'Eintrag' : 'Einträge'}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {emailLogs.length > 0 && (
+              <Badge variant="outline" className="font-normal text-xs">
+                <Mail className="h-3 w-3 mr-1" />
+                {emailLogs.length} E-Mail{emailLogs.length !== 1 ? 's' : ''}
+              </Badge>
+            )}
+            <Badge variant="secondary" className="font-normal">
+              {combinedItems.length} {combinedItems.length === 1 ? 'Eintrag' : 'Einträge'}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
           {dateKeys.map((dateKey, groupIndex) => {
-            const groupLogs = groupedLogs.get(dateKey) || [];
+            const groupItems = groupedItems.get(dateKey) || [];
             const isLastGroup = groupIndex === dateKeys.length - 1;
             
             return (
@@ -344,21 +558,24 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
                 <div className="flex items-center gap-2 mb-3">
                   <div className="h-px flex-1 bg-border" />
                   <span className="text-xs font-medium text-muted-foreground px-2">
-                    {formatDateGroup(groupLogs[0].created_at)}
+                    {formatDateGroup(groupItems[0].timestamp)}
                   </span>
                   <div className="h-px flex-1 bg-border" />
                 </div>
                 
                 {/* Entries for this date */}
                 <div>
-                  {groupLogs.map((log, logIndex) => (
-                    <TimelineEntry 
-                      key={log.id} 
-                      log={log}
-                      isFirst={logIndex === 0}
-                      isLast={isLastGroup && logIndex === groupLogs.length - 1}
-                    />
-                  ))}
+                  {groupItems.map((item, itemIndex) => {
+                    const itemId = item.type === 'activity' ? item.data.id : item.data.id;
+                    return (
+                      <TimelineEntry 
+                        key={`${item.type}-${itemId}`}
+                        item={item}
+                        isFirst={itemIndex === 0}
+                        isLast={isLastGroup && itemIndex === groupItems.length - 1}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             );
