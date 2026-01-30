@@ -258,6 +258,11 @@ export const MenuWorkflow = ({
           onSendOffer={onSendOffer}
           isSending={isSending}
           templates={templates}
+          // Inline editing props
+          courseConfigs={courseConfigs}
+          drinkConfigs={drinkConfigs}
+          onCourseEdit={handleCourseSelect}
+          onDrinkEdit={handleDrinkSelect}
         />
       )}
     </div>
