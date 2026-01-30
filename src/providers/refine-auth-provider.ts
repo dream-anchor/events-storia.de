@@ -1,6 +1,18 @@
 import { AuthProvider } from "@refinedev/core";
 import { supabase } from "@/integrations/supabase/client";
 
+// Map admin emails to display names
+const ADMIN_DISPLAY_NAMES: Record<string, string> = {
+  'mimmo2905@yahoo.de': 'Domenico Speranza',
+  'madi@events-storia.de': 'Madina Khader',
+  'madina.khader@gmail.com': 'Madina Khader',
+};
+
+const getDisplayName = (email: string | undefined): string => {
+  if (!email) return 'Admin';
+  return ADMIN_DISPLAY_NAMES[email.toLowerCase()] || email;
+};
+
 export const supabaseAuthProvider: AuthProvider = {
   login: async ({ email, password }) => {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -84,7 +96,7 @@ export const supabaseAuthProvider: AuthProvider = {
       return {
         id: data.user.id,
         email: data.user.email,
-        name: data.user.email,
+        name: getDisplayName(data.user.email),
       };
     }
 

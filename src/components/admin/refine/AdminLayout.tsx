@@ -32,7 +32,7 @@ const navigation = [
 export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
   const navigate = useNavigate();
   const { mutate: logout } = useLogout();
-  const { data: identity } = useGetIdentity<{ email: string }>();
+  const { data: identity } = useGetIdentity<{ email: string; name?: string }>();
   const { data: newInquiriesCount } = useNewInquiriesCount();
   const { data: pendingOrdersCount } = usePendingOrdersCount();
   const { data: pendingBookingsCount } = usePendingMenuBookingsCount();
@@ -93,8 +93,8 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
                 <span className="text-sm">⌘K</span>
               </Button>
 
-              <span className="hidden lg:block text-base text-muted-foreground max-w-[150px] truncate">
-                {identity?.email}
+              <span className="hidden lg:block text-base text-muted-foreground max-w-[180px] truncate">
+                {identity?.name || identity?.email}
               </span>
               <Button variant="outline" size="sm" asChild className="hidden sm:flex">
                 <Link to="/">
