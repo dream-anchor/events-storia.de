@@ -496,12 +496,12 @@ export function MultiOfferComposer({
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-2xl border border-amber-200/60 bg-amber-50/80 dark:bg-amber-950/30 dark:border-amber-800/40"
+          className="relative overflow-hidden rounded-2xl border border-border bg-muted/50"
         >
           <div className="flex items-center justify-between px-5 py-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center">
+                <Lock className="h-5 w-5 text-muted-foreground" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -544,13 +544,13 @@ export function MultiOfferComposer({
               ) : (
                 <>
                   <Unlock className="h-4 w-4" />
-                  Neue Version erstellen
+                  Neues Angebot erstellen
                 </>
               )}
             </Button>
           </div>
           <div className="px-5 pb-4 text-sm text-muted-foreground">
-            Die gesendete Konfiguration ist schreibgeschützt. Um Änderungen vorzunehmen, erstellen Sie eine neue Version.
+            Die gesendete Konfiguration ist schreibgeschützt. Für Änderungen erstellen Sie ein neues Angebot.
           </div>
         </motion.div>
       )}
