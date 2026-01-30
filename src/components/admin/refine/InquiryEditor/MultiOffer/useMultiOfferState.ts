@@ -3,6 +3,27 @@ import { OfferOption, OfferHistoryEntry, OPTION_LABELS, createEmptyOption, MenuS
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Helper to log activity
+const logActivity = async (
+  entityId: string,
+  action: string,
+  metadata?: Record<string, unknown>
+) => {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    await supabase.from('activity_logs').insert([{
+      entity_type: 'event_inquiry',
+      entity_id: entityId,
+      action,
+      actor_id: userData.user?.id,
+      actor_email: userData.user?.email,
+      metadata: metadata as never,
+    }]);
+  } catch (error) {
+    console.error('Activity log error:', error);
+  }
+};
+
 interface SelectedPackage {
   id: string;
   name?: string;
@@ -163,6 +184,18 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
               sort_order: opt.sortOrder,
             });
         }
+
+        // Log the activity with details about what changed
+        const activeOptions = options.filter(o => o.isActive);
+        const optionSummary = activeOptions.map(o => 
+          `Option ${o.optionLabel}: ${o.packageName || 'Kein Paket'} (${o.guestCount} Gäste, ${o.totalAmount.toFixed(2)} €)`
+        ).join(', ');
+        
+        await logActivity(inquiryId, 'offer_updated', {
+          optionCount: activeOptions.length,
+          summary: optionSummary,
+          version: currentVersion,
+        });
 
         setSaveStatus('saved');
         // Reset to idle after 2 seconds

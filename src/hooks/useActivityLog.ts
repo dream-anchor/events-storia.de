@@ -86,12 +86,28 @@ export const formatActivityAction = (log: ActivityLog): string => {
     },
     'note_added': () => 'Interne Notiz hinzugefügt',
     'offer_created': () => 'Angebot erstellt',
-    'offer_updated': () => 'Angebot aktualisiert',
+    'offer_updated': (l) => {
+      const optionCount = l.metadata?.optionCount;
+      if (optionCount) {
+        return `Angebot mit ${optionCount} Option${optionCount === 1 ? '' : 'en'} aktualisiert`;
+      }
+      return 'Angebot aktualisiert';
+    },
     'payment_received': () => 'Zahlung eingegangen',
     'booking_created': () => 'Buchung erstellt',
     'menu_confirmed': () => 'Menü bestätigt',
     'created': () => 'Anfrage eingegangen',
     'updated': () => 'Daten aktualisiert',
+    'package_selected': (l) => {
+      const packageName = l.metadata?.packageName || 'Paket';
+      return `Paket "${packageName}" ausgewählt`;
+    },
+    'menu_updated': () => 'Menüauswahl aktualisiert',
+    'guest_count_changed': (l) => {
+      const oldCount = l.old_value?.guest_count || '?';
+      const newCount = l.new_value?.guest_count || '?';
+      return `Gästeanzahl geändert: ${oldCount} → ${newCount}`;
+    },
   };
 
   const formatter = actions[log.action];
