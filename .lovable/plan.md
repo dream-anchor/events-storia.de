@@ -1,149 +1,98 @@
 
+## Problem (kurz & verständlich)
+Der Button **„Anschreiben generieren“** ist zwar klickbar, aber es passiert sichtbar nichts, weil **UI und Backend-Funktion nicht denselben “Vertrag” sprechen**:
 
-# UI-Redesign: Multi-Offer-Composer auf "State of the Art 2026"
+- In der **Multi-Offer**-Ansicht wird die Backend-Funktion mit einem **anderen Request-Format** aufgerufen (nested `inquiry` + `options` + `isMultiOption`).
+- Die Backend-Funktion `generate-inquiry-email` erwartet aber aktuell **flache Felder** wie `inquiryType`, `contactName`, `preferredDate`, usw.
+- Zusätzlich liefert die Backend-Funktion **`{ success, email }`** zurück, während `MultiOfferComposer` aktuell auf **`data.emailDraft`** wartet.
+- Ergebnis: kein Fehler, kein Draft – aus Nutzersicht „passiert nichts“.
 
-## Analyse des aktuellen Problems
+## Ziel
+1) Klick auf **„Anschreiben generieren“** erzeugt zuverlässig einen E-Mail-Entwurf und zeigt ihn direkt an.  
+2) Multi-Offer-E-Mails enthalten die aktiven Optionen (A/B/C…) verständlich.  
+3) Bestehende Stellen (FinalizePanel/AIComposer) dürfen nicht kaputtgehen.
 
-Die aktuelle UI nutzt:
-- **Orange/Rot-Töne** via `text-primary` und `bg-primary` (Primary ist derzeit HSL 358°, also ein warmes Rot)
-- **Überladene Karten** mit vielen verschachtelten Containern
-- **Inkonsistente Hierarchie** - zu viele visuelle Elemente konkurrieren um Aufmerksamkeit
-- **Fehlende Glassmorphism-Effekte** die im Rest des Admin-Bereichs verwendet werden
+---
 
-## Design-Prinzipien "State of the Art 2026"
+## Umsetzung (konkret)
 
-Basierend auf dem bestehenden Premium UI Framework:
-
-| Element | Alt (Aktuell) | Neu (2026) |
-|---------|---------------|------------|
-| Farben | `text-primary` (Rot/Orange) | Monochromes Grau + `text-foreground` |
-| Akzente | `bg-primary/5` | Dezentes `bg-muted/50` oder `glass-card` |
-| Cards | Standard borders | `glass-card` mit `backdrop-blur` |
-| Preise | `text-primary` Bold | `text-foreground` mit eleganter Typografie |
-| Badges | Farbige Borders | Subtile monochromatische Varianten |
-| Spacing | Kompakt | Großzügiger mit mehr Weißraum |
-
-## Technischer Plan
-
-### Datei 1: `OfferOptionCard.tsx` - Komplettes Redesign
-
-**Aktuelle Probleme:**
-- Orange Option-Labels (`bg-primary text-primary-foreground`)
-- Orange Preisanzeige (`text-primary`)
-- Orange Status-Badges und Links
-- Verschachtelte Container mit zu wenig Kontrast
+### 1) Backend-Funktion kompatibel machen (Multi-Offer + bestehende Calls)
+**Datei:** `supabase/functions/generate-inquiry-email/index.ts`
 
 **Änderungen:**
-```text
-1. Option-Label (A, B, C...):
-   - Alt: bg-primary (orange) → Neu: bg-foreground/10 text-foreground
-   - Aktiv: Dezent hervorgehoben mit border statt Farbe
+- Request zuerst als „raw“ einlesen und dann **zwei Formate** unterstützen:
+  - **Format A (bestehend):** `inquiryType`, `contactName`, `menuSelection`, `packageName`, …
+  - **Format B (Multi-Offer):** `{ inquiry: {...}, options: [...], isMultiOption: true }`
+- Wenn Multi-Offer erkannt wird:
+  - `contactName/companyName/preferredDate/eventType` aus `raw.inquiry` ableiten
+  - Pro Option eine kompakte Beschreibung bauen (Option-Label, Paketname, Gästezahl, Gesamtbetrag, ggf. Menüauswahl, ggf. Payment-Link falls vorhanden)
+  - Kontext so formulieren, dass das Modell daraus einen **kurzen, übersichtlichen** Text erstellen kann
+- Response vereinheitlichen/abwärtskompatibel machen:
+  - Immer zurückgeben:  
+    ` { success: true, email: generatedEmail, emailDraft: generatedEmail } `
+  - Bei Fehlern weiterhin:  
+    ` { success: false, error: "...", status: ... } `  
+  (Damit funktionieren alle Aufrufer sicher, egal ob sie `email` oder `emailDraft` lesen.)
 
-2. Preis-Anzeige:
-   - Alt: text-xl font-bold text-primary → Neu: text-2xl font-semibold text-foreground
-   - Elegante typografische Hierarchie statt Farbakzent
+**Warum so?**
+- Schnellster Fix ohne Side-Effects
+- Keine Migration nötig
+- Keine neue Backend-Funktion nötig, kein Secret-Setup nötig
 
-3. Aktiv/Inaktiv Toggle:
-   - Alt: text-primary vs text-muted-foreground
-   - Neu: Switch-Komponente oder minimalistischer Toggle
+---
 
-4. Menü-Konfiguration Status:
-   - Alt: text-primary für konfiguriert
-   - Neu: Checkmark-Icon + text-muted-foreground
-
-5. Zahlungslink-Box:
-   - Alt: bg-primary/5 border-primary/20
-   - Neu: glass-card Styling oder subtle bg-muted
-```
-
-### Datei 2: `MultiOfferComposer.tsx` - Vereinfachtes Layout
+### 2) MultiOfferComposer: korrektes Response-Handling + sichtbares Feedback
+**Datei:** `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx`
 
 **Änderungen:**
-```text
-1. Summary Card:
-   - Alt: bg-primary/5 border-primary/20
-   - Neu: Standard Card mit glass-card oder neutral bg-muted/30
+- Neues State: `isGeneratingEmail` (ähnlich wie `isSending`)
+- `generateEmail`:
+  - Button währenddessen deaktivieren + Spinner/Text („Generiere…“)
+  - Nach `invoke`:
+    - `if (error) throw error`
+    - `if (!data?.success) throw new Error(data?.error || "Generierung fehlgeschlagen")`
+    - Draft-Text aus `data.email ?? data.emailDraft` holen
+    - Wenn leer: verständlicher Fehler („Keine E-Mail vom Service erhalten“)
+    - `setEmailDraft(...)` + Success-Toast
+- Optional (UX-Polish): nach erfolgreicher Generierung zum Draft-Bereich scrollen, damit man direkt sieht „da ist was passiert“.
 
-2. Version Badge:
-   - Bleibt neutral (variant="outline" ist bereits gut)
+**Warum so?**
+- Der Button wirkt “tot”, weil es keinen Ladezustand gibt und weil der Erfolg nicht erkannt wird.
+- Mit Spinner + klaren Fehlermeldungen ist sofort sichtbar, ob:
+  - gerade generiert wird
+  - es einen Service-Fehler gab (z.B. Rate limit)
+  - der Draft erfolgreich gesetzt wurde
 
-3. Speicher-Status:
-   - Alt: text-primary für "Gespeichert"
-   - Neu: text-muted-foreground mit Check-Icon
+---
 
-4. Button "Weitere Option hinzufügen":
-   - Bleibt border-dashed, ist bereits neutral
+## Edge Cases, die ich abfange
+- Keine aktive Option → Toast „Bitte mindestens eine Option aktivieren“
+- Aktive Option ohne Paket → Button bleibt deaktiviert wie bisher
+- Backend liefert `success:false` mit `error` → Toast zeigt konkrete Fehlermeldung
+- Backend liefert `success:true`, aber kein `email` → Toast „Keine E-Mail erhalten“
+- Multi-Offer mit 1–5 Optionen → E-Mail bleibt kurz, Optionen kompakt erwähnt
 
-5. Email-Draft Card:
-   - Saubere Typografie, weniger visuelles Rauschen
-```
+---
 
-### Datei 3: `OfferVersionHistory.tsx` - Konsistenz prüfen
+## Tests (End-to-End)
+1) Öffne eine Anfrage: `/admin/events/:id/edit`
+2) Klicke **„Anschreiben generieren“**
+   - Erwartung: Button zeigt „Generiere…“ + Spinner
+   - Danach: Toast Erfolg + **E-Mail-Entwurf Card** erscheint (Textarea gefüllt)
+3) Teste den anderen Flow:
+   - In einem Menü-Flow (FinalizePanel) ebenfalls „Anschreiben generieren“
+   - Erwartung: funktioniert unverändert, Text wird weiterhin angezeigt
+4) Negativtest:
+   - Warte beim Generieren absichtlich kurz / mehrfach klicken
+   - Erwartung: saubere Fehlermeldung bei Rate-Limit, keine “stille” Aktion
 
-- Sicherstellen dass keine orange Akzente verwendet werden
+---
 
-## Visual-Konzept
+## Dateien, die ich anfassen werde
+- `supabase/functions/generate-inquiry-email/index.ts`
+- `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx`
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│  Multi-Paket-Angebot                    [Version 1] [Historie]  │
-│  Erstellen Sie bis zu 5 Optionen...                ✓ Gespeichert│
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─ GLASS-CARD ──────────────────────────────────────────────┐ │
-│  │  ┌──┐                                                     │ │
-│  │  │A │  [Paket wählen ▼]                    ○ Aktiv  ✕     │ │
-│  │  └──┘                                                     │ │
-│  │                                                           │ │
-│  │  ┌ Dezenter Container ─────────────────────────────────┐  │ │
-│  │  │  Preis pro Person              85,00 €              │  │ │
-│  │  │  Gäste                         × 50                 │  │ │
-│  │  │  ─────────────────────────────────────              │  │ │
-│  │  │  Gesamt                        4.250,00 €           │  │ │
-│  │  └─────────────────────────────────────────────────────┘  │ │
-│  │                                                           │ │
-│  │  📦 3 Gänge, 2 Getränke konfiguriert   [Menü bearbeiten]  │ │
-│  │                                                           │ │
-│  │  ✓ Zahlungslink erstellt              [Link öffnen ↗]     │ │
-│  └───────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│  ┌ + Weitere Option hinzufügen ─────────────────────────────┐  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                                                                 │
-│  ────────────────────────────────────────────────────────────── │
-│                                                                 │
-│  ┌ SUMMARY ──────────────────────────────────────────────────┐ │
-│  │  1 aktive Option                [Anschreiben generieren]  │ │
-│  │  Gesamtwert: 4.250,00 €                                   │ │
-│  └───────────────────────────────────────────────────────────┘ │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+---
 
-## Konkrete CSS-Klassen-Änderungen
-
-| Komponente | Alt | Neu |
-|------------|-----|-----|
-| Option Circle | `bg-primary text-primary-foreground` | `bg-foreground/10 text-foreground border border-border` |
-| Option Circle (aktiv) | `bg-primary text-primary-foreground` | `bg-foreground text-background` |
-| Preis Gesamt | `text-xl font-bold text-primary` | `text-2xl font-semibold text-foreground tracking-tight` |
-| Aktiv Button | `text-primary` | `text-foreground` |
-| Menü konfiguriert | `text-primary` | `text-foreground` mit ✓ Icon |
-| Payment Link Box | `bg-primary/5 border-primary/20` | `bg-muted/50 border-border` |
-| Payment Link Text | `text-primary` | `text-foreground` |
-| Summary Card | `bg-primary/5 border-primary/20` | `bg-muted/30` oder `glass-card` |
-| Saved Status | `text-primary` | `text-muted-foreground` |
-
-## Zusätzliche UX-Verbesserungen
-
-1. **Mehr Weißraum**: `space-y-4` → `space-y-6` zwischen Sections
-2. **Größere Touch-Targets**: Buttons mindestens `h-10`
-3. **Subtilere Trennlinien**: `border-border/50` statt volle Opacity
-4. **Konsistente Schriftgrößen**: `text-base` als Standard, `text-sm` nur für Metadaten
-
-## Betroffene Dateien
-
-1. `src/components/admin/refine/InquiryEditor/MultiOffer/OfferOptionCard.tsx`
-2. `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx`
-3. `src/components/admin/refine/InquiryEditor/MultiOffer/OfferVersionHistory.tsx` (optional, falls orange Elemente)
-
+## Technische Notiz (Ursache in einem Satz)
+Die Multi-Offer-UI sendet ein anderes Payload-Format und erwartet ein anderes Response-Feld als die Backend-Funktion liefert – dadurch wird kein Draft gesetzt und es gibt keine sichtbare Reaktion.
