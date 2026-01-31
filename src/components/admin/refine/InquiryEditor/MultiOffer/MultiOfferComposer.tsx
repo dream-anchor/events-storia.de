@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Send, Loader2, History, Check, Sparkles, Mail, Clock, User, ChefHat, Lock, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { getAdminDisplayName } from "@/lib/adminDisplayNames";
+import { useAllPackageCourseConfigs } from "@/hooks/useAllPackageCourseConfigs";
+import { OfferOption } from "./types";
 
 interface MultiOfferComposerProps {
   inquiry: ExtendedInquiry;
@@ -83,25 +85,47 @@ export function MultiOfferComposer({
   const activeOptionsWithPackage = activeOptions.filter(o => o.packageId);
   const totalForAllOptions = activeOptions.reduce((sum, opt) => sum + opt.totalAmount, 0);
   
-  // Check if all active options have menu configured
-  const allMenusConfigured = activeOptionsWithPackage.length > 0 && activeOptionsWithPackage.every(opt => {
-    const configuredCourses = opt.menuSelection.courses.filter(c => c.itemId || c.itemName).length;
-    const configuredDrinks = opt.menuSelection.drinks.filter(d => d.selectedChoice || d.customDrink).length;
-    return configuredCourses > 0 || configuredDrinks > 0;
-  });
+  // Fetch course configs for all packages used in options
+  const packageIdsInUse = useMemo(
+    () => activeOptionsWithPackage.map(o => o.packageId).filter(Boolean) as string[],
+    [activeOptionsWithPackage]
+  );
+  const { data: courseConfigsByPackage = {} } = useAllPackageCourseConfigs(packageIdsInUse);
   
-  // Find first option without menu config (for "Konfigurieren" action)
-  const firstUnconfiguredOption = activeOptionsWithPackage.find(opt => {
-    const configuredCourses = opt.menuSelection.courses.filter(c => c.itemId || c.itemName).length;
-    const configuredDrinks = opt.menuSelection.drinks.filter(d => d.selectedChoice || d.customDrink).length;
-    return configuredCourses === 0 && configuredDrinks === 0;
-  });
+  // Helper: Check if an option's menu is complete (all required courses configured)
+  const isMenuComplete = (opt: OfferOption): boolean => {
+    const configs = courseConfigsByPackage[opt.packageId || ''] || [];
+    const requiredCourses = configs.filter(c => c.is_required);
+    
+    // If no required courses defined, fallback to legacy check (at least 1 course)
+    if (requiredCourses.length === 0) {
+      const configuredCourses = opt.menuSelection.courses.filter(c => c.itemId || c.itemName).length;
+      return configuredCourses > 0;
+    }
+    
+    // Check that ALL required course types are configured
+    const configuredCourseTypes = new Set(
+      opt.menuSelection.courses
+        .filter(c => c.itemId || c.itemName)
+        .map(c => c.courseType)
+    );
+    
+    return requiredCourses.every(rc => configuredCourseTypes.has(rc.course_type));
+  };
+  
+  // Check if all active options have COMPLETE menu (all required courses)
+  const allMenusConfigured = activeOptionsWithPackage.length > 0 && 
+    activeOptionsWithPackage.every(opt => isMenuComplete(opt));
+  
+  // Find first option with incomplete menu (for "Konfigurieren" action)
+  const firstUnconfiguredOption = activeOptionsWithPackage.find(opt => !isMenuComplete(opt));
   
   // Debug logging
   console.log('[MenuConfig Debug]', {
     activeOptionsWithPackage: activeOptionsWithPackage.length,
     allMenusConfigured,
     firstUnconfiguredOption: firstUnconfiguredOption?.optionLabel,
+    courseConfigsByPackage,
   });
 
   // Generate payment links for all active options
