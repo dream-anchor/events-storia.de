@@ -1,145 +1,99 @@
 
 
-# Plan: Versendete Menüs unveränderlich machen
+# Plan: "Anschreiben generieren" nur bei vollständigem Menü erlauben
 
 ## Problem
 
-Nach dem Versand eines Angebots kann das Menü noch bearbeitet werden. Das ist falsch:
+Der Button "Anschreiben generieren" erscheint, obwohl das Menü nicht vollständig ist:
 
+| Paket | Pflichtgänge | Konfiguriert | Button zeigt |
+|-------|--------------|--------------|--------------|
+| Business Dinner – Exclusive | 3 (Vorspeise, Hauptgang, Dessert) | 1 (nur Vorspeise) | "Anschreiben generieren" |
+
+Die aktuelle Prüfung ist zu nachsichtig:
 ```text
-AKTUELL (falsch):
-┌─────────────────────────────────────────────────────────────────┐
-│ Option A: Business Dinner                                       │
-│ Menü: Carpaccio, Risotto, Tiramisu         [Menü anpassen] ← ⚠️│
-│                                                                 │
-│ Diese Option wurde in v2 gesendet – sollte NICHT mehr          │
-│ bearbeitbar sein!                                               │
-└─────────────────────────────────────────────────────────────────┘
+configuredCourses > 0 || configuredDrinks > 0
+→ "Mindestens 1 Element vorhanden" = fertig
 ```
 
-**Geschäftslogik:**
-- Ein bereits versendetes Menü darf **niemals** geändert werden
-- Bei Änderungswunsch muss eine **neue Option hinzugefügt** werden
-- Alte Optionen bleiben als Dokumentation erhalten (was wurde dem Kunden gesendet?)
+Das ist falsch – alle **Pflichtgänge** des Pakets müssen konfiguriert sein.
 
 ---
 
 ## Lösung
 
-### Konzept: Optionen tragen ihre eigene "gesperrt"-Info
-
-Jede Option speichert, in welcher Version sie erstellt wurde. Wenn diese Version bereits gesendet wurde, ist die Option dauerhaft gesperrt.
+Die Menü-Vollständigkeitsprüfung muss die **Paket-Konfiguration** berücksichtigen:
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│ Option A: Business Dinner (v2 – gesendet)          🔒 Gesperrt  │
-│ Menü: Carpaccio, Risotto, Tiramisu                              │
-│                                                                 │
-│ [Keine Bearbeitung möglich]                                     │
-└─────────────────────────────────────────────────────────────────┘
+VORHER (falsch):
+Menü fertig = mindestens 1 Gang ODER 1 Getränk
 
-┌─────────────────────────────────────────────────────────────────┐
-│ Option B: Aperitivo (v3 – in Bearbeitung)               Aktiv   │
-│ Menü: noch nicht konfiguriert              [Menü konfigurieren] │
-│                                                                 │
-│ [Neu hinzugefügt – bearbeitbar]                                 │
-└─────────────────────────────────────────────────────────────────┘
+NACHHER (korrekt):
+Menü fertig = ALLE Pflichtgänge des Pakets sind konfiguriert
 ```
 
 ---
 
 ## Technische Änderungen
 
-### 1. OfferOption erhält `createdInVersion`
+### 1. Neue Hilfsfunktion: `isMenuComplete`
 
-**Datei:** `types.ts`
-
-```typescript
-export interface OfferOption {
-  // ... bestehende Felder
-  offerVersion: number;        // In welcher Version gespeichert
-  createdInVersion?: number;   // NEU: In welcher Version erstellt
-}
-```
-
-### 2. Lock-Logik pro Option
-
-**Datei:** `OfferOptionCard.tsx`
-
-Die `isLocked`-Prop wird nicht mehr global gesetzt, sondern pro Option berechnet:
+Prüft für jede Option, ob alle Pflichtgänge konfiguriert sind:
 
 ```typescript
-// Eine Option ist gesperrt, wenn sie in einer bereits gesendeten Version erstellt wurde
-const optionIsLocked = useMemo(() => {
-  // Prüfe ob die Version, in der diese Option erstellt wurde, bereits gesendet wurde
-  // (existiert in der History)
-  if (!option.createdInVersion) return false;
+const isMenuComplete = (opt: OfferOption, packages: Package[]) => {
+  const pkg = packages.find(p => p.id === opt.packageId);
+  if (!pkg) return false;
   
-  // Finde in der History, ob diese Version gesendet wurde
-  return history.some(h => h.version >= option.createdInVersion);
-}, [option.createdInVersion, history]);
+  // Hole die Pflichtgänge aus der Paket-Konfiguration
+  const requiredCourses = pkg.courseConfigs?.filter(c => c.is_required) || [];
+  
+  // Prüfe für jeden Pflichtgang, ob er konfiguriert ist
+  const configuredCourseTypes = new Set(
+    opt.menuSelection.courses
+      .filter(c => c.itemId || c.itemName)
+      .map(c => c.courseType)
+  );
+  
+  return requiredCourses.every(rc => 
+    configuredCourseTypes.has(rc.course_type)
+  );
+};
 ```
 
-### 3. Neue Optionen erhalten aktuelle Version
-
-**Datei:** `useMultiOfferState.ts`
-
-Beim Hinzufügen einer neuen Option:
+### 2. allMenusConfigured aktualisieren
 
 ```typescript
-const addOption = useCallback(() => {
-  // ...
-  setOptions(prev => [...prev, {
-    id: crypto.randomUUID(),
-    ...createEmptyOption(nextLabel, guestCount),
-    createdInVersion: currentVersion,  // NEU: Merken, in welcher Version erstellt
-  }]);
-}, [options, guestCount, currentVersion]);
+// VORHER (Zeile 87-91):
+const allMenusConfigured = activeOptionsWithPackage.every(opt => {
+  const configuredCourses = opt.menuSelection.courses.filter(c => c.itemId || c.itemName).length;
+  return configuredCourses > 0 || configuredDrinks > 0;  // ← Zu nachsichtig
+});
+
+// NACHHER:
+const allMenusConfigured = activeOptionsWithPackage.every(opt => 
+  isMenuComplete(opt, packages)
+);
 ```
 
-### 4. MultiOfferComposer übergibt History an OptionCard
+### 3. Paket-Konfiguration in OfferOption laden
 
-**Datei:** `MultiOfferComposer.tsx`
-
-```typescript
-<OfferOptionCard
-  // ...
-  history={history}  // NEU: Für Lock-Berechnung
-  isLocked={...}     // Wird pro Option berechnet
-/>
-```
-
-### 5. UI-Feedback für gesperrte Optionen
-
-**Datei:** `OfferOptionCard.tsx`
-
-```typescript
-{optionIsLocked && (
-  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-    <Lock className="h-4 w-4" />
-    <span>Gesendet in v{option.createdInVersion} – nicht änderbar</span>
-  </div>
-)}
-```
+Die `packages` werden bereits als Prop übergeben. Die Konfiguration (courseConfigs) muss beim Laden der Pakete mit abgerufen werden.
 
 ---
 
 ## Workflow nach Änderung
 
 ```text
-1. Option A erstellt (v1)
-2. Option A konfiguriert
-3. Angebot v1 gesendet
-   → Option A ist jetzt dauerhaft gesperrt
-   
-4. "Neues Angebot erstellen" geklickt → v2 startet
-5. Option A kann NICHT bearbeitet werden (v1 gesendet)
-6. Neue Option B hinzugefügt (v2)
-   → Option B ist bearbeitbar (v2 noch nicht gesendet)
-   
-7. Angebot v2 gesendet
-   → Option A bleibt gesperrt
-   → Option B ist jetzt auch gesperrt
+Option A: Business Dinner – Exclusive
+├── Pflichtgänge: Vorspeise ✓, Hauptgang ✗, Dessert ✗
+├── Status: UNVOLLSTÄNDIG
+└── Button: "Konfigurieren" (scrollt zu Option A, öffnet Menü-Editor)
+
+Nach Konfiguration aller Gänge:
+├── Pflichtgänge: Vorspeise ✓, Hauptgang ✓, Dessert ✓  
+├── Status: VOLLSTÄNDIG
+└── Button: "Anschreiben generieren" ← Erst jetzt verfügbar!
 ```
 
 ---
@@ -148,33 +102,33 @@ const addOption = useCallback(() => {
 
 | Datei | Änderung |
 |-------|----------|
-| `types.ts` | `createdInVersion` zu OfferOption hinzufügen |
-| `useMultiOfferState.ts` | `createdInVersion` beim Erstellen setzen |
-| `OfferOptionCard.tsx` | Lock-Logik pro Option, UI-Feedback |
-| `MultiOfferComposer.tsx` | History an OptionCard übergeben |
-| **DB Migration** | `created_in_version` Spalte zu `inquiry_offer_options` |
+| `MultiOfferComposer.tsx` | `allMenusConfigured` mit Pflichtgang-Prüfung |
+| `useEventPackages.ts` oder Query | Paket-Konfiguration (courseConfigs) mit laden |
 
 ---
 
-## Migration bestehender Daten
+## UI-Feedback (optional)
 
-Optionen, die bereits in einer gesendeten Version waren, erhalten `created_in_version = 1`:
+Zeige visuell, welche Gänge noch fehlen:
 
-```sql
--- Setze created_in_version für existierende Optionen
-UPDATE inquiry_offer_options o
-SET created_in_version = COALESCE(
-  (SELECT MIN(h.version) FROM inquiry_offer_history h WHERE h.inquiry_id = o.inquiry_id),
-  o.offer_version
-);
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ Option A: Business Dinner – Exclusive                       │
+├─────────────────────────────────────────────────────────────┤
+│ GÄNGE                                          2/3 fehlen   │
+│ ✓ Vorspeise: Vorspeisenplatte                               │
+│ ○ Hauptgang: nicht konfiguriert ← Visueller Hinweis        │
+│ ○ Dessert: nicht konfiguriert                               │
+│                                                             │
+│                               [Menü vervollständigen]       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Zusammenfassung
 
-- **Gesendete Optionen sind unveränderlich** – keine Bearbeitung möglich
-- **Neue Optionen können hinzugefügt werden** – für Änderungswünsche
-- **Klare visuelle Unterscheidung** – gesperrt vs. bearbeitbar
-- **History als Wahrheitsquelle** – bestimmt, was gesendet wurde
+- **Anschreiben erst bei vollständigem Menü** – alle Pflichtgänge müssen konfiguriert sein
+- **Klare Aktion** – "Konfigurieren" statt "Anschreiben generieren" bei unvollständigem Menü
+- **Optionales visuelles Feedback** – zeigt welche Gänge noch fehlen
 
