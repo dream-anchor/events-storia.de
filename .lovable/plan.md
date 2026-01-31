@@ -1,100 +1,60 @@
 
 
-# Plan: "Anschreiben generieren" nur bei vollständigem Menü erlauben
+# Plan: Grün entfernen + "Jetzt zahlen" Button in rechter Box hinzufügen
 
-## Problem
+## Problem 1: Grüne Elemente entfernen
 
-Der Button "Anschreiben generieren" erscheint, obwohl das Menü nicht vollständig ist:
+Es gibt drei Stellen mit grüner Farbe:
 
-| Paket | Pflichtgänge | Konfiguriert | Button zeigt |
-|-------|--------------|--------------|--------------|
-| Business Dinner – Exclusive | 3 (Vorspeise, Hauptgang, Dessert) | 1 (nur Vorspeise) | "Anschreiben generieren" |
+| Datei | Element | Aktuell |
+|-------|---------|---------|
+| `StickySummary.tsx` Z.187-190 | "Lieferung kostenlos" | `text-green-600` |
+| `Checkout.tsx` Z.1670-1677 | Trust-Notice Box | `bg-green-50`, `text-green-600/700` |
+| `Checkout.tsx` Z.1649 | "Beliebt" Badge | `badgeColor="green"` |
 
-Die aktuelle Prüfung ist zu nachsichtig:
-```text
-configuredCourses > 0 || configuredDrinks > 0
-→ "Mindestens 1 Element vorhanden" = fertig
-```
-
-Das ist falsch – alle **Pflichtgänge** des Pakets müssen konfiguriert sein.
+**Änderung:** Alle grünen Farben durch monochrome Grautöne ersetzen.
 
 ---
 
-## Lösung
+## Problem 2: Fehlender CTA-Button in rechter Box
 
-Die Menü-Vollständigkeitsprüfung muss die **Paket-Konfiguration** berücksichtigen:
-
-```text
-VORHER (falsch):
-Menü fertig = mindestens 1 Gang ODER 1 Getränk
-
-NACHHER (korrekt):
-Menü fertig = ALLE Pflichtgänge des Pakets sind konfiguriert
+Die `StickySummary` Komponente hat einen `ctaButton` Slot (Zeile 221):
+```tsx
+{ctaButton && <div className="pt-2">{ctaButton}</div>}
 ```
 
----
+Aber in `Checkout.tsx` wird dieser **nicht übergeben** (Zeile 1707-1719).
 
-## Technische Änderungen
-
-### 1. Neue Hilfsfunktion: `isMenuComplete`
-
-Prüft für jede Option, ob alle Pflichtgänge konfiguriert sind:
-
-```typescript
-const isMenuComplete = (opt: OfferOption, packages: Package[]) => {
-  const pkg = packages.find(p => p.id === opt.packageId);
-  if (!pkg) return false;
-  
-  // Hole die Pflichtgänge aus der Paket-Konfiguration
-  const requiredCourses = pkg.courseConfigs?.filter(c => c.is_required) || [];
-  
-  // Prüfe für jeden Pflichtgang, ob er konfiguriert ist
-  const configuredCourseTypes = new Set(
-    opt.menuSelection.courses
-      .filter(c => c.itemId || c.itemName)
-      .map(c => c.courseType)
-  );
-  
-  return requiredCourses.every(rc => 
-    configuredCourseTypes.has(rc.course_type)
-  );
-};
+**Änderung:** CTA-Button als `ctaButton` Prop übergeben:
+```tsx
+<StickySummary
+  // ... andere props
+  ctaButton={
+    completedSteps.includes('payment') && (
+      <Button
+        type="submit"
+        variant="checkoutCta"
+        className="w-full h-12"
+        disabled={isSubmitting || isProcessingPayment || !formData.acceptTerms}
+      >
+        {isSubmitting || isProcessingPayment ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Wird verarbeitet...
+          </>
+        ) : (
+          <>
+            <Lock className="mr-2 h-4 w-4" />
+            Sofort kaufen
+          </>
+        )}
+      </Button>
+    )
+  }
+/>
 ```
 
-### 2. allMenusConfigured aktualisieren
-
-```typescript
-// VORHER (Zeile 87-91):
-const allMenusConfigured = activeOptionsWithPackage.every(opt => {
-  const configuredCourses = opt.menuSelection.courses.filter(c => c.itemId || c.itemName).length;
-  return configuredCourses > 0 || configuredDrinks > 0;  // ← Zu nachsichtig
-});
-
-// NACHHER:
-const allMenusConfigured = activeOptionsWithPackage.every(opt => 
-  isMenuComplete(opt, packages)
-);
-```
-
-### 3. Paket-Konfiguration in OfferOption laden
-
-Die `packages` werden bereits als Prop übergeben. Die Konfiguration (courseConfigs) muss beim Laden der Pakete mit abgerufen werden.
-
----
-
-## Workflow nach Änderung
-
-```text
-Option A: Business Dinner – Exclusive
-├── Pflichtgänge: Vorspeise ✓, Hauptgang ✗, Dessert ✗
-├── Status: UNVOLLSTÄNDIG
-└── Button: "Konfigurieren" (scrollt zu Option A, öffnet Menü-Editor)
-
-Nach Konfiguration aller Gänge:
-├── Pflichtgänge: Vorspeise ✓, Hauptgang ✓, Dessert ✓  
-├── Status: VOLLSTÄNDIG
-└── Button: "Anschreiben generieren" ← Erst jetzt verfügbar!
-```
+Der Button erscheint erst, wenn Schritt 3 (Zahlung) abgeschlossen ist.
 
 ---
 
@@ -102,33 +62,15 @@ Nach Konfiguration aller Gänge:
 
 | Datei | Änderung |
 |-------|----------|
-| `MultiOfferComposer.tsx` | `allMenusConfigured` mit Pflichtgang-Prüfung |
-| `useEventPackages.ts` oder Query | Paket-Konfiguration (courseConfigs) mit laden |
+| `StickySummary.tsx` | Grün bei "Lieferung kostenlos" → neutral |
+| `Checkout.tsx` Z.1649 | `badgeColor="green"` → `badgeColor="neutral"` |
+| `Checkout.tsx` Z.1670-1677 | Trust-Notice: Grün → Neutral |
+| `Checkout.tsx` Z.1707-1719 | `ctaButton` Prop hinzufügen |
 
 ---
 
-## UI-Feedback (optional)
+## Ergebnis
 
-Zeige visuell, welche Gänge noch fehlen:
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ Option A: Business Dinner – Exclusive                       │
-├─────────────────────────────────────────────────────────────┤
-│ GÄNGE                                          2/3 fehlen   │
-│ ✓ Vorspeise: Vorspeisenplatte                               │
-│ ○ Hauptgang: nicht konfiguriert ← Visueller Hinweis        │
-│ ○ Dessert: nicht konfiguriert                               │
-│                                                             │
-│                               [Menü vervollständigen]       │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Zusammenfassung
-
-- **Anschreiben erst bei vollständigem Menü** – alle Pflichtgänge müssen konfiguriert sein
-- **Klare Aktion** – "Konfigurieren" statt "Anschreiben generieren" bei unvollständigem Menü
-- **Optionales visuelles Feedback** – zeigt welche Gänge noch fehlen
+1. Alle grünen Akzente entfernt → monochrome Ästhetik
+2. "Sofort kaufen" Button erscheint in der rechten Zusammenfassung, sobald alle Schritte ausgefüllt sind
 
