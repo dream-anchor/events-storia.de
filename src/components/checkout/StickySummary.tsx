@@ -184,7 +184,7 @@ const StickySummary = ({
           )}
 
           {isDelivery && deliveryCost === 0 && (
-            <div className="flex justify-between items-center text-sm text-green-600 dark:text-green-400">
+            <div className="flex justify-between items-center text-sm text-muted-foreground">
               <span>{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
               <span>{language === 'de' ? 'Kostenlos' : 'Free'}</span>
             </div>

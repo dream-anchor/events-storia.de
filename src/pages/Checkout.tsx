@@ -1647,7 +1647,7 @@ const Checkout = () => {
                         title={language === 'de' ? 'Sofort bezahlen' : 'Pay Now'}
                         subtitle={language === 'de' ? 'Kreditkarte, Apple Pay, Google Pay, Klarna' : 'Credit card, Apple Pay, Google Pay, Klarna'}
                         badge={language === 'de' ? 'Beliebt' : 'Popular'}
-                        badgeColor="green"
+                        badgeColor="default"
                         icon={<CreditCard className="h-5 w-5" />}
                         isSelected={paymentMethod === 'stripe'}
                         onSelect={() => setPaymentMethod('stripe')}
@@ -1667,9 +1667,9 @@ const Checkout = () => {
                     </div>
 
                     {/* Trust Notice */}
-                    <div className="flex items-start gap-2 p-3 mt-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
-                      <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
-                      <p className="text-sm text-green-700 dark:text-green-300">
+                    <div className="flex items-start gap-2 p-3 mt-4 bg-muted rounded-lg border border-border">
+                      <ShieldCheck className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                      <p className="text-sm text-muted-foreground">
                         {language === 'de' 
                           ? 'Sichere Zahlung per Stripe – Ihre Daten bleiben geschützt.'
                           : 'Secure payment via Stripe – Your data stays protected.'}
@@ -1716,6 +1716,28 @@ const Checkout = () => {
                     distanceKm={deliveryCalc?.distanceKm}
                     isRoundTrip={deliveryCalc?.isRoundTrip}
                     oneWayDistanceKm={deliveryCalc?.oneWayDistanceKm}
+                    ctaButton={
+                      completedSteps.includes('payment') && (
+                        <Button
+                          type="submit"
+                          variant="checkoutCta"
+                          className="w-full h-12"
+                          disabled={isSubmitting || isProcessingPayment || !formData.acceptTerms}
+                        >
+                          {isSubmitting || isProcessingPayment ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              {language === 'de' ? 'Wird verarbeitet...' : 'Processing...'}
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="mr-2 h-4 w-4" />
+                              {language === 'de' ? 'Sofort kaufen' : 'Buy now'}
+                            </>
+                          )}
+                        </Button>
+                      )
+                    }
                   />
                 </div>
               </div>
