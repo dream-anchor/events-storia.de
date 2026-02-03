@@ -81,11 +81,15 @@ export interface Package {
 export interface EmailTemplate {
   id: string;
   name: string;
+  subject: string;
+  body: string;
   category: string;
-  content: string;
-  content_en: string | null;
+  variables: string[];
   is_active: boolean;
-  sort_order: number;
+  // Legacy compatibility
+  content?: string;
+  content_en?: string | null;
+  sort_order?: number;
 }
 
 export type InquiryStatus = 'new' | 'contacted' | 'offer_sent' | 'confirmed' | 'declined';

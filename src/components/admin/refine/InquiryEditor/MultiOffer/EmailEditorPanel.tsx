@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Copy, Sparkles, ChevronDown, Check, ArrowLeft } from "lucide-react";
+import { Copy, Sparkles, ChevronDown, Check, ArrowLeft, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { EmailTemplate } from "../types";
 import { toast } from "sonner";
@@ -22,6 +28,11 @@ interface EmailEditorPanelProps {
   onRegenerate: () => void;
   onBack: () => void;
   activeOptionsCount: number;
+  // For variable replacement
+  customerName?: string;
+  eventDate?: string;
+  packageName?: string;
+  guestCount?: string;
 }
 
 export function EmailEditorPanel({
@@ -32,6 +43,10 @@ export function EmailEditorPanel({
   onRegenerate,
   onBack,
   activeOptionsCount,
+  customerName = "",
+  eventDate = "",
+  packageName = "",
+  guestCount = "",
 }: EmailEditorPanelProps) {
   const [copied, setCopied] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -43,8 +58,27 @@ export function EmailEditorPanel({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Replace template variables with actual values
+  const replaceVariables = (text: string): string => {
+    return text
+      .replace(/\{\{kundenname\}\}/g, customerName || "[Kundenname]")
+      .replace(/\{\{eventdatum\}\}/g, eventDate || "[Eventdatum]")
+      .replace(/\{\{paketname\}\}/g, packageName || "[Paketname]")
+      .replace(/\{\{gaeste\}\}/g, guestCount || "[Gästeanzahl]");
+  };
+
+  const applyTemplate = (template: EmailTemplate) => {
+    // Use body field, fallback to content for legacy templates
+    const templateText = template.body || template.content || "";
+    const processedText = replaceVariables(templateText);
+    onChange(processedText);
+    setShowTemplates(false);
+    toast.success(`Vorlage "${template.name}" angewendet`);
+  };
+
   const insertTemplate = (content: string) => {
-    onChange(emailDraft + "\n\n" + content);
+    const processedContent = replaceVariables(content);
+    onChange(emailDraft + "\n\n" + processedContent);
     setShowTemplates(false);
   };
 
@@ -71,6 +105,28 @@ export function EmailEditorPanel({
           </Badge>
         </div>
         <div className="flex items-center gap-2">
+          {/* Template Dropdown */}
+          {templates.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 rounded-xl gap-1.5">
+                  <FileText className="h-3.5 w-3.5" />
+                  Vorlage
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {templates.map((template) => (
+                  <DropdownMenuItem
+                    key={template.id}
+                    onClick={() => applyTemplate(template)}
+                  >
+                    {template.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button
             variant="ghost"
             size="icon"

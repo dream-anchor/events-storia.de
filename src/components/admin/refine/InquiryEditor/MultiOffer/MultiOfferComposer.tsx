@@ -389,6 +389,10 @@ export function MultiOfferComposer({
               onRegenerate={generateEmail}
               onBack={() => setEmailDraft("")}
               activeOptionsCount={activeOptions.length}
+              customerName={inquiry.contact_name || inquiry.company_name || ""}
+              eventDate={inquiry.preferred_date ? format(parseISO(inquiry.preferred_date), "dd. MMMM yyyy", { locale: de }) : ""}
+              packageName={activeOptionsWithPackage[0]?.packageName || ""}
+              guestCount={inquiry.guest_count || ""}
             />
           </div>
 
