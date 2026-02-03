@@ -25,7 +25,7 @@ import AccordionSection from '@/components/checkout/AccordionSection';
 import StickySummary from '@/components/checkout/StickySummary';
 import PaymentMethodCard from '@/components/checkout/PaymentMethodCard';
 import TimeSlotGrid from '@/components/checkout/TimeSlotGrid';
-import StickyMobileCTA from '@/components/checkout/StickyMobileCTA';
+import SaveForLaterCheckbox from '@/components/checkout/SaveForLaterCheckbox';
 import PaymentLogos from '@/components/checkout/PaymentLogos';
 import { SmartDatePicker } from '@/components/ui/smart-date-picker';
 import Footer from '@/components/Footer';
@@ -201,6 +201,81 @@ const Checkout = () => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [newsletterSignup, setNewsletterSignup] = useState(true);
   const [chafingDishQuantity, setChafingDishQuantity] = useState(0);
+
+  // Save for Later feature (DSGVO-compliant opt-in)
+  const SAVED_CUSTOMER_KEY = 'storia-saved-customer';
+  const SAVED_CUSTOMER_EXPIRY_DAYS = 30;
+  const [saveForLater, setSaveForLater] = useState(false);
+  const [isDataRestored, setIsDataRestored] = useState(false);
+
+  // Load saved customer data on mount (with expiry check)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const savedData = localStorage.getItem(SAVED_CUSTOMER_KEY);
+    if (!savedData) return;
+
+    try {
+      const parsed = JSON.parse(savedData);
+      const now = Date.now();
+
+      // Check if data has expired
+      if (parsed.expiresAt && now > parsed.expiresAt) {
+        localStorage.removeItem(SAVED_CUSTOMER_KEY);
+        return;
+      }
+
+      // Restore customer data (not delivery/payment data)
+      if (parsed.customerData) {
+        setFormData(prev => ({
+          ...prev,
+          name: parsed.customerData.name || prev.name,
+          email: parsed.customerData.email || prev.email,
+          phone: parsed.customerData.phone || prev.phone,
+          company: parsed.customerData.company || prev.company,
+        }));
+        setSaveForLater(true);
+        setIsDataRestored(true);
+
+        // Clear restored indicator after 5 seconds
+        setTimeout(() => setIsDataRestored(false), 5000);
+      }
+    } catch (e) {
+      localStorage.removeItem(SAVED_CUSTOMER_KEY);
+    }
+  }, []);
+
+  // Save customer data when saveForLater is enabled
+  const saveCustomerData = useCallback(() => {
+    if (!saveForLater) {
+      localStorage.removeItem(SAVED_CUSTOMER_KEY);
+      return;
+    }
+
+    const now = Date.now();
+    const expiresAt = now + (SAVED_CUSTOMER_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+
+    const dataToSave = {
+      customerData: {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        company: formData.company,
+      },
+      savedAt: now,
+      expiresAt,
+    };
+
+    localStorage.setItem(SAVED_CUSTOMER_KEY, JSON.stringify(dataToSave));
+  }, [saveForLater, formData.name, formData.email, formData.phone, formData.company]);
+
+  // Clear saved customer data
+  const clearSavedCustomerData = useCallback(() => {
+    localStorage.removeItem(SAVED_CUSTOMER_KEY);
+    setSaveForLater(false);
+    setIsDataRestored(false);
+    toast.success(language === 'de' ? 'Gespeicherte Daten gelöscht' : 'Saved data cleared');
+  }, [language]);
 
   const CHAFING_DISH = {
     id: 'chafing-dish',
@@ -763,6 +838,11 @@ const Checkout = () => {
     if (items.length === 0) {
       toast.error(language === 'de' ? 'Warenkorb ist leer' : 'Cart is empty');
       return;
+    }
+
+    // Save customer data if opt-in is enabled
+    if (saveForLater) {
+      saveCustomerData();
     }
 
     const zodValidation = checkoutSchema.safeParse({
@@ -1643,12 +1723,29 @@ const Checkout = () => {
                           className="mt-0.5"
                         />
                         <Label htmlFor="acceptTerms" className="text-sm leading-relaxed cursor-pointer">
-                          {language === 'de' 
+                          {language === 'de'
                             ? <>Ich habe die <Link to="/agb-catering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">AGB</Link> und <Link to="/widerrufsbelehrung" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Widerrufsbelehrung</Link> gelesen und akzeptiere diese. *</>
                             : <>I have read and accept the <Link to="/agb-catering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Terms</Link> and <Link to="/widerrufsbelehrung" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Cancellation Policy</Link>. *</>
                           }
                         </Label>
                       </div>
+                    </div>
+
+                    {/* Save for Later (DSGVO-compliant opt-in) */}
+                    <div className="mt-4">
+                      <SaveForLaterCheckbox
+                        checked={saveForLater}
+                        onChange={(checked) => {
+                          setSaveForLater(checked);
+                          if (checked) {
+                            saveCustomerData();
+                          } else {
+                            localStorage.removeItem(SAVED_CUSTOMER_KEY);
+                          }
+                        }}
+                        isRestored={isDataRestored}
+                        onClearSaved={clearSavedCustomerData}
+                      />
                     </div>
 
                     {/* Continue Button */}
@@ -1780,25 +1877,7 @@ const Checkout = () => {
               </div>
             </form>
 
-            {/* Mobile Sticky CTA */}
-            <StickyMobileCTA
-              totalAmount={grandTotal}
-              isSubmitting={isSubmitting || isProcessingPayment}
-              paymentMethod={paymentMethod}
-              onSubmit={() => {
-                const form = document.querySelector('form');
-                if (form) form.requestSubmit();
-              }}
-              subtotal={totalPrice + chafingDishGross}
-              deliveryCost={deliveryCalc?.deliveryCostGross || 0}
-              minimumOrderSurcharge={minimumOrderSurcharge}
-              // Step-aware props for dynamic button text
-              currentStep={currentStep}
-              isDeliveryComplete={isDeliveryStepComplete}
-              isCustomerComplete={isCustomerStepComplete}
-              isReadyToPay={isDeliveryStepComplete && isCustomerStepComplete && formData.acceptTerms}
-              onContinue={() => handleContinueToNext(currentStep)}
-            />
+{/* Mobile Sticky CTA removed - summary is in right column */}
           </div>
         </main>
         
