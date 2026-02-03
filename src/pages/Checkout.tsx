@@ -1717,7 +1717,7 @@ const Checkout = () => {
                     isRoundTrip={deliveryCalc?.isRoundTrip}
                     oneWayDistanceKm={deliveryCalc?.oneWayDistanceKm}
                     ctaButton={
-                      completedSteps.includes('payment') && (
+                      isDeliveryStepComplete && isCustomerStepComplete && (
                         <Button
                           type="submit"
                           variant="checkoutCta"
