@@ -1757,6 +1757,12 @@ const Checkout = () => {
               subtotal={totalPrice + chafingDishGross}
               deliveryCost={deliveryCalc?.deliveryCostGross || 0}
               minimumOrderSurcharge={minimumOrderSurcharge}
+              // Step-aware props for dynamic button text
+              currentStep={currentStep}
+              isDeliveryComplete={isDeliveryStepComplete}
+              isCustomerComplete={isCustomerStepComplete}
+              isReadyToPay={isDeliveryStepComplete && isCustomerStepComplete && formData.acceptTerms}
+              onContinue={() => handleContinueToNext(currentStep)}
             />
           </div>
         </main>

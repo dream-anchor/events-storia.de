@@ -18,6 +18,12 @@ interface StickyMobileCTAProps {
   subtotal?: number;
   deliveryCost?: number;
   minimumOrderSurcharge?: number;
+  // Step-aware props for dynamic button text
+  currentStep?: 'delivery' | 'customer' | 'payment';
+  isDeliveryComplete?: boolean;
+  isCustomerComplete?: boolean;
+  isReadyToPay?: boolean;
+  onContinue?: () => void;
 }
 
 const StickyMobileCTA = ({
@@ -29,6 +35,12 @@ const StickyMobileCTA = ({
   subtotal,
   deliveryCost = 0,
   minimumOrderSurcharge = 0,
+  // Step-aware props
+  currentStep,
+  isDeliveryComplete,
+  isCustomerComplete,
+  isReadyToPay,
+  onContinue,
 }: StickyMobileCTAProps) => {
   const { language } = useLanguage();
 
@@ -39,9 +51,37 @@ const StickyMobileCTA = ({
     }).format(price);
   };
 
-  const buttonText = language === 'de' 
-    ? 'Sofort kaufen' 
-    : 'Buy now';
+  // Dynamic button text based on checkout progress
+  const getButtonText = () => {
+    // Fallback for backwards compatibility (when step props not provided)
+    if (isReadyToPay === undefined) {
+      return language === 'de' ? 'Sofort kaufen' : 'Buy now';
+    }
+
+    if (!isDeliveryComplete) {
+      return language === 'de' ? 'Lieferdaten eingeben' : 'Enter delivery info';
+    }
+    if (!isCustomerComplete) {
+      return language === 'de' ? 'Weiter zu Kontaktdaten' : 'Continue to contact';
+    }
+    if (!isReadyToPay) {
+      return language === 'de' ? 'AGB akzeptieren' : 'Accept terms';
+    }
+    return language === 'de' ? 'Sofort kaufen' : 'Buy now';
+  };
+
+  // Handle button click - either continue to next step or submit
+  const handleClick = () => {
+    if (isReadyToPay) {
+      onSubmit();
+    } else if (onContinue) {
+      onContinue();
+    } else {
+      onSubmit(); // Fallback
+    }
+  };
+
+  const buttonText = getButtonText();
 
   // Compact payment logos for mobile
   const compactLogos = [
@@ -119,7 +159,7 @@ const StickyMobileCTA = ({
       {/* CTA Button */}
       <Button
         type="button"
-        onClick={onSubmit}
+        onClick={handleClick}
         disabled={isSubmitting}
         variant="checkoutCta"
         className="w-full h-14 text-base shadow-lg"
