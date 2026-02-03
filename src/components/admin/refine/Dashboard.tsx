@@ -481,9 +481,9 @@ function InquiryCard({
         )}
       </div>
       <div className="text-right ml-2">
-        {event.preferred_date && (
+        {event.created_at && (
           <p className="text-xs text-muted-foreground">
-            {format(parseISO(event.preferred_date), "dd.MM.yy", { locale: de })}
+            {format(parseISO(event.created_at), "dd.MM.yy", { locale: de })}
           </p>
         )}
       </div>
