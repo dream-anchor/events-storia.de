@@ -127,7 +127,7 @@ Admin-Bereich: https://events-storia.de/admin
 `;
 };
 
-async function sendEmail(to: string[], subject: string, text: string, fromName: string) {
+async function sendEmail(to: string[], subject: string, text: string, fromName: string, replyTo?: string) {
   const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.ionos.de";
   const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
   const smtpUser = Deno.env.get("SMTP_USER")?.trim();
@@ -139,7 +139,7 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
     throw new Error("SMTP credentials not configured (SMTP_USER, SMTP_PASSWORD)");
   }
 
-  console.log(`Sending email via IONOS SMTP (SSL) to: ${to.join(', ')}, subject: ${subject}`);
+  console.log(`Sending email via IONOS SMTP (SSL) to: ${to.join(', ')}, subject: ${subject}${replyTo ? `, replyTo: ${replyTo}` : ''}`);
 
   const client = new SMTPClient({
     connection: {
@@ -157,6 +157,7 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
     await client.send({
       from: `${fromName} <${smtpUser}>`,
       to: to,
+      replyTo: replyTo,
       subject: subject,
       html: `<!DOCTYPE html>
 <html lang="de">
@@ -247,7 +248,8 @@ const handler = async (req: Request): Promise<Response> => {
         ["info@events-storia.de"],
         `Neue Event-Anfrage: ${data.companyName || data.contactName}`,
         restaurantEmailText,
-        "STORIA Anfragen"
+        "STORIA Anfragen",
+        data.email  // Reply-To Header - Antworten gehen direkt an den Kunden
       );
 
       emailsSent = true;
