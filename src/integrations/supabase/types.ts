@@ -342,6 +342,8 @@ export type Database = {
           is_active: boolean | null
           name: string
           sort_order: number | null
+          subject: string
+          variables: string[] | null
         }
         Insert: {
           category?: string
@@ -352,6 +354,8 @@ export type Database = {
           is_active?: boolean | null
           name: string
           sort_order?: number | null
+          subject: string
+          variables?: string[] | null
         }
         Update: {
           category?: string
@@ -362,6 +366,8 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           sort_order?: number | null
+          subject?: string
+          variables?: string[] | null
         }
         Relationships: []
       }
@@ -511,6 +517,8 @@ export type Database = {
           preferred_date: string | null
           quote_items: Json | null
           quote_notes: string | null
+          reminder_count: number | null
+          reminder_sent_at: string | null
           room_selection: string | null
           selected_items: Json | null
           selected_option_id: string | null
@@ -549,6 +557,8 @@ export type Database = {
           preferred_date?: string | null
           quote_items?: Json | null
           quote_notes?: string | null
+          reminder_count?: number | null
+          reminder_sent_at?: string | null
           room_selection?: string | null
           selected_items?: Json | null
           selected_option_id?: string | null
@@ -587,6 +597,8 @@ export type Database = {
           preferred_date?: string | null
           quote_items?: Json | null
           quote_notes?: string | null
+          reminder_count?: number | null
+          reminder_sent_at?: string | null
           room_selection?: string | null
           selected_items?: Json | null
           selected_option_id?: string | null

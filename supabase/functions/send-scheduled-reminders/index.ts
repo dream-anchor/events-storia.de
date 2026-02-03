@@ -1,80 +1,97 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
-// German date formatting
-const formatDateGerman = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-  const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-  return `${days[date.getDay()]}, ${date.getDate()}. ${months[date.getMonth()]} ${date.getFullYear()}`;
-};
+interface ReminderResult {
+  type: string;
+  inquiryId?: string;
+  bookingId?: string;
+  email: string;
+  success: boolean;
+  error?: string;
+}
 
-// Calculate days between two dates
-const daysBetween = (date1: Date, date2: Date): number => {
-  const oneDay = 24 * 60 * 60 * 1000;
-  return Math.round((date2.getTime() - date1.getTime()) / oneDay);
-};
-
-async function sendEmail(to: string, subject: string, body: string) {
+async function sendEmail(
+  to: string[],
+  subject: string,
+  html: string,
+  fromName: string
+): Promise<void> {
   const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.ionos.de";
   const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
   const smtpUser = Deno.env.get("SMTP_USER")?.trim();
   const smtpPassword = Deno.env.get("SMTP_PASSWORD");
 
   if (!smtpUser || !smtpPassword) {
-    console.error("SMTP credentials not configured");
-    return false;
+    throw new Error("SMTP credentials not configured");
   }
+
+  console.log(`Sending reminder email to: ${to.join(", ")}`);
 
   const client = new SMTPClient({
     connection: {
       hostname: smtpHost,
       port: smtpPort,
       tls: true,
-      auth: {
-        username: smtpUser,
-        password: smtpPassword,
-      },
+      auth: { username: smtpUser, password: smtpPassword },
     },
   });
 
   try {
     await client.send({
-      from: `STORIA Events <${smtpUser}>`,
-      to: [to],
+      from: `${fromName} <${smtpUser}>`,
+      to: to,
       subject: subject,
       html: `<!DOCTYPE html>
 <html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="white-space: pre-wrap;">${body}</div>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333;">
+  ${html}
 </body>
 </html>`,
     });
-    console.log(`Email sent to ${to}: ${subject}`);
-    return true;
-  } catch (error) {
-    console.error(`Failed to send email to ${to}:`, error);
-    return false;
+    console.log(`Email sent successfully to ${to.join(", ")}`);
   } finally {
-    try {
-      await client.close();
-    } catch (e) {
-      // ignore close errors
-    }
+    await client.close();
   }
 }
 
-const handler = async (req: Request): Promise<Response> => {
+async function logEmailDelivery(
+  supabase: any,
+  data: {
+    entity_type: string;
+    entity_id: string;
+    recipient_email: string;
+    recipient_name: string | null;
+    subject: string;
+    status: string;
+    error_message?: string;
+  }
+) {
+  try {
+    await supabase.from("email_delivery_logs").insert({
+      entity_type: data.entity_type,
+      entity_id: data.entity_id,
+      recipient_email: data.recipient_email,
+      recipient_name: data.recipient_name,
+      subject: data.subject,
+      provider: "ionos_smtp",
+      status: data.status,
+      error_message: data.error_message || null,
+      metadata: { reminder: true },
+    });
+  } catch (error) {
+    console.error("Failed to log email delivery:", error);
+  }
+}
+
+serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -84,218 +101,289 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const results: ReminderResult[] = [];
     const now = new Date();
-    const results = {
-      offerReminders: 0,
-      menuReminders: 0,
-      eventTomorrowReminders: 0,
-      errors: 0,
-    };
+    const today = now.toISOString().split("T")[0];
+
+    console.log(`Running scheduled reminders at ${now.toISOString()}`);
 
     // ============================================
-    // 1. OFFER REMINDERS (Day 3 and Day 7)
-    // Find inquiries with offer_sent but not confirmed/declined
+    // 1. ANGEBOTE OHNE ZAHLUNG (Tag 3 + Tag 7)
     // ============================================
-    const { data: pendingOffers } = await supabase
-      .from('event_inquiries')
-      .select('*')
-      .eq('status', 'offer_sent')
-      .is('converted_to_booking_id', null);
+    const { data: pendingOffers, error: offersError } = await supabase
+      .from("event_inquiries")
+      .select("id, email, contact_name, company_name, preferred_date, offer_sent_at, reminder_count")
+      .eq("status", "offer_sent")
+      .not("offer_sent_at", "is", null);
 
-    for (const inquiry of (pendingOffers || [])) {
-      if (!inquiry.offer_sent_at || !inquiry.email) continue;
+    if (offersError) {
+      console.error("Error fetching pending offers:", offersError);
+    } else if (pendingOffers) {
+      for (const inquiry of pendingOffers) {
+        if (!inquiry.offer_sent_at || !inquiry.email) continue;
 
-      const offerSentDate = new Date(inquiry.offer_sent_at);
-      const daysSinceSent = daysBetween(offerSentDate, now);
-      const reminderCount = inquiry.reminder_count || 0;
-
-      // Day 3 reminder (first reminder)
-      if (daysSinceSent >= 3 && daysSinceSent < 7 && reminderCount === 0) {
-        const sent = await sendEmail(
-          inquiry.email,
-          "Erinnerung: Ihr Angebot wartet auf Sie",
-          `Guten Tag ${inquiry.contact_name},
-
-wir möchten Sie freundlich an unser Angebot für Ihr Event am ${inquiry.preferred_date ? formatDateGerman(inquiry.preferred_date) : 'Ihrem Wunschtermin'} erinnern.
-
-Falls Sie noch Fragen haben oder Änderungen wünschen, stehen wir Ihnen gerne zur Verfügung.
-
-Mit freundlichen Grüßen
-Ihr STORIA Events Team
-
-Tel: +49 89 51519696
-E-Mail: info@events-storia.de`
+        const offerSentDate = new Date(inquiry.offer_sent_at);
+        const daysSinceOffer = Math.floor(
+          (now.getTime() - offerSentDate.getTime()) / (1000 * 60 * 60 * 24)
         );
+        const reminderCount = inquiry.reminder_count || 0;
 
-        if (sent) {
-          await supabase
-            .from('event_inquiries')
-            .update({
-              reminder_count: 1,
-              reminder_sent_at: now.toISOString()
-            })
-            .eq('id', inquiry.id);
-          results.offerReminders++;
-        } else {
-          results.errors++;
-        }
-      }
+        // Erster Reminder nach 3 Tagen, zweiter nach 7 Tagen
+        const shouldSendReminder =
+          (daysSinceOffer >= 3 && reminderCount === 0) ||
+          (daysSinceOffer >= 7 && reminderCount === 1);
 
-      // Day 7 reminder (final reminder)
-      if (daysSinceSent >= 7 && reminderCount === 1) {
-        const sent = await sendEmail(
-          inquiry.email,
-          "Letzte Erinnerung: Ihr Angebot läuft bald ab",
-          `Guten Tag ${inquiry.contact_name},
+        if (shouldSendReminder) {
+          const reminderNumber = reminderCount + 1;
+          const subject =
+            reminderNumber === 1
+              ? "Erinnerung: Ihr Angebot von STORIA wartet auf Sie"
+              : "Letzte Erinnerung: Ihr STORIA Angebot läuft bald ab";
 
-dies ist eine letzte freundliche Erinnerung an unser Angebot für Ihr Event.
+          const html = `
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h2 style="color: #1a1a1a;">Erinnerung an Ihr Angebot</h2>
+              <p>Sehr geehrte/r ${inquiry.contact_name || "Kunde"},</p>
+              <p>wir haben vor ${daysSinceOffer} Tagen ein Angebot für Ihre Veranstaltung${
+            inquiry.preferred_date ? ` am ${inquiry.preferred_date}` : ""
+          } erstellt.</p>
+              <p>Falls Sie noch Fragen haben oder Änderungen wünschen, stehen wir Ihnen gerne zur Verfügung.</p>
+              ${
+                reminderNumber === 2
+                  ? '<p style="color: #c0392b;"><strong>Bitte beachten Sie:</strong> Um Ihren Wunschtermin zu sichern, benötigen wir zeitnah Ihre Rückmeldung.</p>'
+                  : ""
+              }
+              <p style="margin-top: 20px;">Mit freundlichen Grüßen<br>Ihr STORIA Events Team</p>
+              <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+              <p style="font-size: 12px; color: #666;">
+                STORIA Ristorante & Events<br>
+                Buttermelcherstraße 9, 80469 München<br>
+                Tel: 089 20328484
+              </p>
+            </div>
+          `;
 
-Unser Angebot ist noch bis Ende dieser Woche gültig. Wenn Sie Interesse haben, melden Sie sich bitte zeitnah bei uns.
+          try {
+            await sendEmail([inquiry.email], subject, html, "STORIA Events");
 
-Mit freundlichen Grüßen
-Ihr STORIA Events Team
+            // Update reminder count
+            await supabase
+              .from("event_inquiries")
+              .update({
+                reminder_count: reminderNumber,
+                reminder_sent_at: now.toISOString(),
+              })
+              .eq("id", inquiry.id);
 
-Tel: +49 89 51519696
-E-Mail: info@events-storia.de`
-        );
+            await logEmailDelivery(supabase, {
+              entity_type: "event_inquiry",
+              entity_id: inquiry.id,
+              recipient_email: inquiry.email,
+              recipient_name: inquiry.contact_name,
+              subject: subject,
+              status: "sent",
+            });
 
-        if (sent) {
-          await supabase
-            .from('event_inquiries')
-            .update({
-              reminder_count: 2,
-              reminder_sent_at: now.toISOString()
-            })
-            .eq('id', inquiry.id);
-          results.offerReminders++;
-        } else {
-          results.errors++;
+            results.push({
+              type: "offer_reminder",
+              inquiryId: inquiry.id,
+              email: inquiry.email,
+              success: true,
+            });
+          } catch (error) {
+            console.error(`Failed to send offer reminder to ${inquiry.email}:`, error);
+            results.push({
+              type: "offer_reminder",
+              inquiryId: inquiry.id,
+              email: inquiry.email,
+              success: false,
+              error: error instanceof Error ? error.message : "Unknown error",
+            });
+          }
         }
       }
     }
 
     // ============================================
-    // 2. MENU CONFIRMATION REMINDERS (7 days before event)
-    // Find bookings with menu_confirmed = false
+    // 2. MENÜ NICHT BESTÄTIGT (7 Tage vor Event)
     // ============================================
     const sevenDaysFromNow = new Date(now);
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-    const sevenDaysStr = sevenDaysFromNow.toISOString().split('T')[0];
+    const sevenDaysDate = sevenDaysFromNow.toISOString().split("T")[0];
 
-    const { data: pendingMenuBookings } = await supabase
-      .from('event_bookings')
-      .select('*')
-      .eq('menu_confirmed', false)
-      .eq('status', 'menu_pending')
-      .lte('event_date', sevenDaysStr);
+    const { data: pendingMenus, error: menusError } = await supabase
+      .from("event_bookings")
+      .select("id, customer_email, customer_name, event_date, booking_number")
+      .eq("menu_confirmed", false)
+      .eq("event_date", sevenDaysDate)
+      .in("status", ["menu_pending", "confirmed"]);
 
-    for (const booking of (pendingMenuBookings || [])) {
-      if (!booking.customer_email || !booking.event_date) continue;
+    if (menusError) {
+      console.error("Error fetching pending menus:", menusError);
+    } else if (pendingMenus) {
+      for (const booking of pendingMenus) {
+        if (!booking.customer_email) continue;
 
-      const eventDate = new Date(booking.event_date);
-      const daysUntilEvent = daysBetween(now, eventDate);
+        const subject = `Menü-Bestätigung erforderlich für Ihr Event am ${booking.event_date}`;
+        const html = `
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #1a1a1a;">Menü-Bestätigung erforderlich</h2>
+            <p>Sehr geehrte/r ${booking.customer_name || "Kunde"},</p>
+            <p>Ihr Event am <strong>${booking.event_date}</strong> rückt näher!</p>
+            <p>Damit wir alle Vorbereitungen treffen können, bitten wir Sie, Ihre Menüauswahl zeitnah zu bestätigen.</p>
+            <p>Bitte kontaktieren Sie uns per E-Mail oder telefonisch, um Ihre Auswahl zu finalisieren.</p>
+            <p style="margin-top: 20px;">Mit freundlichen Grüßen<br>Ihr STORIA Events Team</p>
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+            <p style="font-size: 12px; color: #666;">
+              Buchungsnummer: ${booking.booking_number}<br>
+              STORIA Ristorante & Events<br>
+              Tel: 089 20328484
+            </p>
+          </div>
+        `;
 
-      // Only send if event is 5-7 days away (gives customer time to respond)
-      if (daysUntilEvent >= 5 && daysUntilEvent <= 7) {
-        const sent = await sendEmail(
-          booking.customer_email,
-          `Bitte bestätigen Sie Ihr Menü für ${formatDateGerman(booking.event_date)}`,
-          `Guten Tag ${booking.customer_name},
+        try {
+          await sendEmail([booking.customer_email], subject, html, "STORIA Events");
 
-Ihr Event bei STORIA findet in einer Woche statt!
+          await logEmailDelivery(supabase, {
+            entity_type: "event_booking",
+            entity_id: booking.id,
+            recipient_email: booking.customer_email,
+            recipient_name: booking.customer_name,
+            subject: subject,
+            status: "sent",
+          });
 
-Bitte bestätigen Sie noch Ihre Menüauswahl, damit wir alles perfekt für Sie vorbereiten können.
-
-Event-Datum: ${formatDateGerman(booking.event_date)}
-Gästeanzahl: ${booking.guest_count} Personen
-
-Bei Fragen oder Änderungswünschen erreichen Sie uns unter:
-Tel: +49 89 51519696
-E-Mail: info@events-storia.de
-
-Wir freuen uns auf Ihr Event!
-
-Mit freundlichen Grüßen
-Ihr STORIA Events Team`
-        );
-
-        if (sent) {
-          results.menuReminders++;
-        } else {
-          results.errors++;
+          results.push({
+            type: "menu_reminder",
+            bookingId: booking.id,
+            email: booking.customer_email,
+            success: true,
+          });
+        } catch (error) {
+          console.error(`Failed to send menu reminder to ${booking.customer_email}:`, error);
+          results.push({
+            type: "menu_reminder",
+            bookingId: booking.id,
+            email: booking.customer_email,
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
         }
       }
     }
 
     // ============================================
-    // 3. EVENT TOMORROW REMINDERS
-    // Find bookings where event_date = tomorrow
+    // 3. EVENT IST MORGEN
     // ============================================
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowDate = tomorrow.toISOString().split("T")[0];
 
-    const { data: tomorrowBookings } = await supabase
-      .from('event_bookings')
-      .select('*')
-      .eq('event_date', tomorrowStr)
-      .in('status', ['ready', 'confirmed']);
+    const { data: tomorrowEvents, error: eventsError } = await supabase
+      .from("event_bookings")
+      .select("id, customer_email, customer_name, event_date, event_time, booking_number, guest_count")
+      .eq("event_date", tomorrowDate)
+      .in("status", ["confirmed", "menu_pending"]);
 
-    for (const booking of (tomorrowBookings || [])) {
-      if (!booking.customer_email) continue;
+    if (eventsError) {
+      console.error("Error fetching tomorrow events:", eventsError);
+    } else if (tomorrowEvents) {
+      for (const booking of tomorrowEvents) {
+        if (!booking.customer_email) continue;
 
-      const sent = await sendEmail(
-        booking.customer_email,
-        "Ihr Event bei STORIA ist morgen!",
-        `Guten Tag ${booking.customer_name},
+        const subject = `Ihr Event bei STORIA ist morgen – Alle wichtigen Infos`;
+        const html = `
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #1a1a1a;">Ihr Event ist morgen! 🎉</h2>
+            <p>Sehr geehrte/r ${booking.customer_name || "Kunde"},</p>
+            <p>Wir freuen uns, Sie morgen bei uns begrüßen zu dürfen!</p>
+            
+            <div style="background: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0;">Event-Details</h3>
+              <p><strong>Datum:</strong> ${booking.event_date}</p>
+              ${booking.event_time ? `<p><strong>Uhrzeit:</strong> ${booking.event_time}</p>` : ""}
+              <p><strong>Gäste:</strong> ${booking.guest_count} Personen</p>
+              <p><strong>Buchungsnummer:</strong> ${booking.booking_number}</p>
+            </div>
+            
+            <h3>Wichtige Informationen</h3>
+            <ul style="color: #555;">
+              <li>Adresse: Buttermelcherstraße 9, 80469 München</li>
+              <li>Bei Ankunft bitte an der Rezeption melden</li>
+              <li>Bei Fragen erreichen Sie uns unter 089 20328484</li>
+            </ul>
+            
+            <p style="margin-top: 20px;">Wir freuen uns auf Sie!</p>
+            <p>Ihr STORIA Events Team</p>
+          </div>
+        `;
 
-wir freuen uns, Sie morgen bei STORIA begrüßen zu dürfen!
+        try {
+          await sendEmail([booking.customer_email], subject, html, "STORIA Events");
 
-Event-Details:
-Datum: ${formatDateGerman(booking.event_date)}
-${booking.event_time ? `Uhrzeit: ${booking.event_time} Uhr` : ''}
-Gästeanzahl: ${booking.guest_count} Personen
+          await logEmailDelivery(supabase, {
+            entity_type: "event_booking",
+            entity_id: booking.id,
+            recipient_email: booking.customer_email,
+            recipient_name: booking.customer_name,
+            subject: subject,
+            status: "sent",
+          });
 
-Unser Team hat alles für Sie vorbereitet und freut sich auf einen wunderbaren Abend mit Ihnen.
-
-Bei kurzfristigen Fragen erreichen Sie uns unter:
-Tel: +49 89 51519696
-
-Bis morgen!
-
-Ihr STORIA Events Team`
-      );
-
-      if (sent) {
-        results.eventTomorrowReminders++;
-      } else {
-        results.errors++;
+          results.push({
+            type: "event_tomorrow",
+            bookingId: booking.id,
+            email: booking.customer_email,
+            success: true,
+          });
+        } catch (error) {
+          console.error(`Failed to send tomorrow reminder to ${booking.customer_email}:`, error);
+          results.push({
+            type: "event_tomorrow",
+            bookingId: booking.id,
+            email: booking.customer_email,
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
       }
     }
 
-    console.log("Scheduled reminders completed:", results);
+    // ============================================
+    // SUMMARY
+    // ============================================
+    const successCount = results.filter((r) => r.success).length;
+    const failCount = results.filter((r) => !r.success).length;
+
+    console.log(`Reminder job completed: ${successCount} sent, ${failCount} failed`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Scheduled reminders processed",
-        results
+        summary: {
+          total: results.length,
+          sent: successCount,
+          failed: failCount,
+        },
+        results: results,
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in send-scheduled-reminders:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
   }
-};
-
-serve(handler);
+});

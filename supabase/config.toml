@@ -47,3 +47,6 @@ verify_jwt = true
 
 [functions.parse-inquiry-text]
 verify_jwt = true
+
+[functions.send-scheduled-reminders]
+verify_jwt = false

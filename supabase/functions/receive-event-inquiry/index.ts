@@ -139,7 +139,7 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
     throw new Error("SMTP credentials not configured (SMTP_USER, SMTP_PASSWORD)");
   }
 
-  console.log(`Sending email via IONOS SMTP (SSL) to: ${to.join(', ')}, subject: ${subject}`);
+  console.log(`Sending email via IONOS SMTP (SSL) to: ${to.join(', ')}, subject: ${subject}${replyTo ? `, replyTo: ${replyTo}` : ''}`);
 
   const client = new SMTPClient({
     connection: {
@@ -249,7 +249,7 @@ const handler = async (req: Request): Promise<Response> => {
         `Neue Event-Anfrage: ${data.companyName || data.contactName}`,
         restaurantEmailText,
         "STORIA Anfragen",
-        data.email
+        data.email  // Reply-To Header - Antworten gehen direkt an den Kunden
       );
 
       emailsSent = true;
