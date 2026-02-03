@@ -69,6 +69,7 @@ export const FinalizePanel = ({
           menuSelection: menuSelection,
           packageName: packageName,
           senderEmail: user?.email,
+          customerMessage: inquiry.message, // Original customer message for context
         },
       });
 

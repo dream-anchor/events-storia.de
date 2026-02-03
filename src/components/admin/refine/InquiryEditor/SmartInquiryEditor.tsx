@@ -10,6 +10,7 @@ import { EventModules } from "./EventModules";
 import { CateringModules } from "./CateringModules";
 import { CalculationSummary } from "./CalculationSummary";
 import { MultiOfferComposer } from "./MultiOffer";
+import { InquiryDetailsPanel } from "./InquiryDetailsPanel";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
 import { MenuSelection } from "./MenuComposer";
 import { supabase } from "@/integrations/supabase/client";
@@ -355,6 +356,12 @@ export const SmartInquiryEditor = () => {
           
           {/* Auto-save runs silently in background - no visual indicator to avoid distraction */}
         </div>
+
+        {/* Inquiry Details Panel - shows original customer message and key info */}
+        <InquiryDetailsPanel
+          inquiry={mergedInquiry}
+          onInternalNotesChange={(notes) => handleLocalFieldChange('internal_notes', notes)}
+        />
 
         {/* Tabbed Interface - simplified to 2 tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

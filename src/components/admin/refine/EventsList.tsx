@@ -3,7 +3,7 @@ import { useList } from "@refinedev/core";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send } from "lucide-react";
+import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable } from "./DataTable";
@@ -163,10 +163,10 @@ export const EventsList = () => {
       },
     },
     {
-      accessorKey: "preferred_date",
-      header: "Datum",
+      accessorKey: "created_at",
+      header: "Eingegangen",
       cell: ({ row }) => {
-        const date = row.original.preferred_date;
+        const date = row.original.created_at;
         if (!date) return <span className="text-muted-foreground">-</span>;
         return (
           <div className="flex items-center gap-2">
@@ -180,12 +180,18 @@ export const EventsList = () => {
       accessorKey: "contact_name",
       header: "Kontakt",
       cell: ({ row }) => (
-        <div>
+        <div className="max-w-[280px]">
           <p className="font-medium">{row.original.contact_name}</p>
           {row.original.company_name && (
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <Building2 className="h-3 w-3" />
               {row.original.company_name}
+            </p>
+          )}
+          {row.original.message && (
+            <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2 italic flex items-start gap-1">
+              <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+              <span className="truncate">"{row.original.message.slice(0, 80)}{row.original.message.length > 80 ? '...' : ''}"</span>
             </p>
           )}
         </div>

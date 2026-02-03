@@ -2,7 +2,7 @@ import React from "react";
 import { useList, useUpdate } from "@refinedev/core";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { CalendarDays, FileText, Clock, CheckCircle2, AlertCircle, ChefHat, Plus, Send, Edit3, CreditCard, Receipt, Phone } from "lucide-react";
+import { CalendarDays, FileText, Clock, CheckCircle2, AlertCircle, ChefHat, Plus, Send, Edit3, CreditCard, Receipt, Phone, MessageSquare } from "lucide-react";
 import { format, parseISO, isAfter, addDays, formatDistanceToNow, differenceInHours } from "date-fns";
 import { de } from "date-fns/locale";
 import { AdminLayout } from "./AdminLayout";
@@ -506,6 +506,13 @@ function InquiryCard({
         <p className="text-sm text-muted-foreground">
           {event.guest_count} Gäste • {event.event_type || 'Event'}
         </p>
+        {/* Message Preview */}
+        {event.message && (
+          <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2 italic flex items-start gap-1">
+            <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+            <span>"{event.message.slice(0, 100)}{event.message.length > 100 ? '...' : ''}"</span>
+          </p>
+        )}
         {/* Antwortzeit-Anzeige */}
         {event.created_at && (
           <p className="text-xs text-muted-foreground/70 mt-0.5">

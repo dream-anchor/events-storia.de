@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Check, Minus, Plus, ShoppingCart, Sparkles, Mail } from "lucide-react";
+import { Check, Minus, Plus, ShoppingCart, Sparkles, Mail, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EventPackage } from "@/hooks/useEventPackages";
 import EventPackageInquiryDialog from "./EventPackageInquiryDialog";
@@ -43,11 +44,14 @@ interface EventPackageShopCardProps {
 
 const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const { language } = useLanguage();
-  const { addToCart } = useCart();
+  const { addToCart, items } = useCart();
   const { formatPrice } = usePriceDisplay();
   const [guestCount, setGuestCount] = useState(pkg.min_guests || 20);
   const [isAdded, setIsAdded] = useState(false);
   const [inquiryDialogOpen, setInquiryDialogOpen] = useState(false);
+
+  const cartItem = items.find(i => i.id === `event-${pkg.id}`);
+  const isInCart = !!cartItem;
 
   const name = language === 'de' ? pkg.name : (pkg.name_en || pkg.name);
   const description = language === 'de' ? pkg.description : (pkg.description_en || pkg.description);
@@ -245,7 +249,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
         )}
 
         {/* Add to Cart Button */}
-        <Button 
+        <Button
           onClick={handleAddToCart}
           className={cn(
             "w-full gap-2 transition-all",
@@ -266,8 +270,23 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
           )}
         </Button>
 
+        {/* Checkout Button - appears when item is in cart */}
+        {isInCart && !isAdded && (
+          <Button
+            asChild
+            variant="checkoutCta"
+            size="lg"
+            className="w-full gap-2"
+          >
+            <Link to="/checkout">
+              {language === 'de' ? 'Zur Kasse' : 'Checkout'}
+              <ArrowRight className="h-5 w-5" />
+            </Link>
+          </Button>
+        )}
+
         {/* Get Quote Button */}
-        <Button 
+        <Button
           variant="outline"
           onClick={() => setInquiryDialogOpen(true)}
           className="w-full gap-2 bg-background hover:bg-muted"

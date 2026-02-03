@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
@@ -11,7 +12,7 @@ import { useCateringMenuBySlug, CateringMenuItem } from "@/hooks/useCateringMenu
 import { useCart } from "@/contexts/CartContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Plus, Minus, ShoppingCart, Check, Flame, Wheat } from "lucide-react";
+import { Plus, Minus, ShoppingCart, Check, Flame, Wheat, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HighlightCard, ServicesGrid } from "@/components/catering/ServiceInfoCard";
 
@@ -99,43 +100,58 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
 
         {/* Add to Cart Controls */}
         {item.price && (
-          <div className="flex items-center gap-2 mt-auto">
-            <div className="flex items-center border border-border rounded-md">
-              <button
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="px-2 py-1.5 hover:bg-muted transition-colors"
-                aria-label="Menge reduzieren"
+          <div className="flex flex-col gap-2 mt-auto">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center border border-border rounded-md">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="px-2 py-1.5 hover:bg-muted transition-colors"
+                  aria-label="Menge reduzieren"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <span className="px-3 py-1.5 text-sm font-medium min-w-[40px] text-center">
+                  {quantity}
+                </span>
+                <button
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="px-2 py-1.5 hover:bg-muted transition-colors"
+                  aria-label="Menge erhöhen"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              <Button
+                onClick={handleAddToCart}
+                size="sm"
+                className={`flex-1 transition-all ${added ? 'bg-green-600 hover:bg-green-600' : ''}`}
               >
-                <Minus className="h-4 w-4" />
-              </button>
-              <span className="px-3 py-1.5 text-sm font-medium min-w-[40px] text-center">
-                {quantity}
-              </span>
-              <button
-                onClick={() => setQuantity(quantity + 1)}
-                className="px-2 py-1.5 hover:bg-muted transition-colors"
-                aria-label="Menge erhöhen"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
+                {added ? (
+                  <>
+                    <Check className="h-4 w-4 mr-1" />
+                    {language === 'de' ? 'Hinzugefügt' : 'Added'}
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="h-4 w-4 mr-1" />
+                    {language === 'de' ? 'In den Warenkorb' : 'Add to Cart'}
+                  </>
+                )}
+              </Button>
             </div>
-            <Button
-              onClick={handleAddToCart}
-              size="sm"
-              className={`flex-1 transition-all ${added ? 'bg-green-600 hover:bg-green-600' : ''}`}
-            >
-              {added ? (
-                <>
-                  <Check className="h-4 w-4 mr-1" />
-                  {language === 'de' ? 'Hinzugefügt' : 'Added'}
-                </>
-              ) : (
-                <>
-                  <ShoppingCart className="h-4 w-4 mr-1" />
-                  {language === 'de' ? 'In den Warenkorb' : 'Add to Cart'}
-                </>
-              )}
-            </Button>
+            {isInCart && !added && (
+              <Button
+                asChild
+                variant="checkoutCta"
+                size="sm"
+                className="w-full"
+              >
+                <Link to="/checkout">
+                  {language === 'de' ? 'Zur Kasse' : 'Checkout'}
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </Link>
+              </Button>
+            )}
           </div>
         )}
       </div>

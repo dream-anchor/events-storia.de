@@ -1435,8 +1435,8 @@ const Checkout = () => {
                         type="button"
                         onClick={() => handleContinueToNext('delivery')}
                         disabled={!isDeliveryStepComplete}
-                        variant="checkout"
-                        className="w-full"
+                        variant="checkoutCta"
+                        className="w-full h-12"
                       >
                         {language === 'de' ? 'Weiter zu Kontaktdaten' : 'Continue to Contact'}
                       </Button>
@@ -1454,6 +1454,7 @@ const Checkout = () => {
                     completedSummary={isCustomerStepComplete ? getCustomerSummary() : undefined}
                     onToggle={() => completedSteps.includes('delivery') && setCurrentStep('customer')}
                     onEdit={() => handleEditStep('customer')}
+                    hideHeader
                   >
                     {/* Login hint */}
                     {!user && (
@@ -1640,6 +1641,7 @@ const Checkout = () => {
                     completedSummary={getPaymentSummary()}
                     onToggle={() => completedSteps.includes('customer') && setCurrentStep('payment')}
                     onEdit={() => handleEditStep('payment')}
+                    hideHeader
                   >
                     <div className="space-y-3">
                       <PaymentMethodCard
@@ -1752,6 +1754,9 @@ const Checkout = () => {
                 const form = document.querySelector('form');
                 if (form) form.requestSubmit();
               }}
+              subtotal={totalPrice + chafingDishGross}
+              deliveryCost={deliveryCalc?.deliveryCostGross || 0}
+              minimumOrderSurcharge={minimumOrderSurcharge}
             />
           </div>
         </main>

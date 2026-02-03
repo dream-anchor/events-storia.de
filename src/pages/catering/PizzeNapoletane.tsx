@@ -1,4 +1,5 @@
-import { Plus, Minus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Plus, Minus, ArrowRight } from "lucide-react";
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
@@ -10,6 +11,7 @@ import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { useCateringMenuBySlug, CateringMenuItem } from "@/hooks/useCateringMenus";
 import { useCart } from "@/contexts/CartContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ServicesGrid, AllergenInfo } from "@/components/catering/ServiceInfoCard";
 import heroImage from "@/assets/catering/pizze/hero-pizza.webp";
@@ -81,38 +83,53 @@ const PizzaListItem = ({ item, language }: PizzaListItemProps) => {
             </p>
           )}
         </div>
-        
+
         <div className="flex items-center gap-3 sm:gap-4">
           {item.price && (
             <span className="font-semibold text-foreground whitespace-nowrap">
               {formatPrice(item.price)}
             </span>
           )}
-          
+
           {item.price && (
-            <div className={cn(
-              "flex items-center gap-1 rounded-full p-1 transition-colors",
-              currentQuantity > 0 ? "bg-primary/10" : "bg-muted/50"
-            )}>
-              <button
-                onClick={handleDecrease}
-                disabled={currentQuantity === 0}
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-background transition-colors disabled:opacity-30"
-                aria-label="Decrease quantity"
-              >
-                <Minus className="h-3 w-3" />
-              </button>
-              <span className={cn(
-                "w-6 text-center text-sm font-medium",
-                currentQuantity > 0 && "text-primary"
-              )}>{currentQuantity}</span>
-              <button
-                onClick={handleIncrease}
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-background transition-colors"
-                aria-label="Increase quantity"
-              >
-                <Plus className="h-3 w-3" />
-              </button>
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "flex items-center gap-1 rounded-full p-1 transition-colors",
+                currentQuantity > 0 ? "bg-primary/10" : "bg-muted/50"
+              )}>
+                <button
+                  onClick={handleDecrease}
+                  disabled={currentQuantity === 0}
+                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-background transition-colors disabled:opacity-30"
+                  aria-label="Decrease quantity"
+                >
+                  <Minus className="h-3 w-3" />
+                </button>
+                <span className={cn(
+                  "w-6 text-center text-sm font-medium",
+                  currentQuantity > 0 && "text-primary"
+                )}>{currentQuantity}</span>
+                <button
+                  onClick={handleIncrease}
+                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-background transition-colors"
+                  aria-label="Increase quantity"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
+              {currentQuantity > 0 && (
+                <Button
+                  asChild
+                  variant="checkoutCta"
+                  size="sm"
+                  className="h-8 px-3 text-xs"
+                >
+                  <Link to="/checkout">
+                    {language === 'de' ? 'Kasse' : 'Checkout'}
+                    <ArrowRight className="h-3 w-3 ml-1" />
+                  </Link>
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -163,28 +180,42 @@ const PizzaPaneCard = ({ item, language }: { item: CateringMenuItem; language: s
           <span className="text-2xl font-semibold">
             {formatPrice(item.price)}
           </span>
-          
-          <div className={cn(
-            "flex items-center gap-2 rounded-full p-1 border transition-colors",
-            currentQuantity > 0 ? "bg-primary/10 border-primary/30" : "bg-background border-border/50"
-          )}>
-            <button
-              onClick={handleDecrease}
-              disabled={currentQuantity === 0}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors disabled:opacity-30"
-            >
-              <Minus className="h-4 w-4" />
-            </button>
-            <span className={cn(
-              "w-8 text-center font-medium",
-              currentQuantity > 0 && "text-primary"
-            )}>{currentQuantity}</span>
-            <button
-              onClick={handleIncrease}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "flex items-center gap-2 rounded-full p-1 border transition-colors",
+              currentQuantity > 0 ? "bg-primary/10 border-primary/30" : "bg-background border-border/50"
+            )}>
+              <button
+                onClick={handleDecrease}
+                disabled={currentQuantity === 0}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors disabled:opacity-30"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className={cn(
+                "w-8 text-center font-medium",
+                currentQuantity > 0 && "text-primary"
+              )}>{currentQuantity}</span>
+              <button
+                onClick={handleIncrease}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            {currentQuantity > 0 && (
+              <Button
+                asChild
+                variant="checkoutCta"
+                size="sm"
+              >
+                <Link to="/checkout">
+                  {language === 'de' ? 'Zur Kasse' : 'Checkout'}
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
       )}

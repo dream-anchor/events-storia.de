@@ -14,6 +14,10 @@ interface StickyMobileCTAProps {
   paymentMethod: string;
   onSubmit: () => void;
   className?: string;
+  // Cost breakdown (optional)
+  subtotal?: number;
+  deliveryCost?: number;
+  minimumOrderSurcharge?: number;
 }
 
 const StickyMobileCTA = ({
@@ -21,7 +25,10 @@ const StickyMobileCTA = ({
   isSubmitting,
   paymentMethod,
   onSubmit,
-  className
+  className,
+  subtotal,
+  deliveryCost = 0,
+  minimumOrderSurcharge = 0,
 }: StickyMobileCTAProps) => {
   const { language } = useLanguage();
 
@@ -51,24 +58,56 @@ const StickyMobileCTA = ({
       "p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
       className
     )}>
+      {/* Cost Breakdown */}
+      {subtotal !== undefined && (
+        <div className="mb-3 pb-3 border-b border-border/50 space-y-1.5">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
+            <span>{formatPrice(subtotal)}</span>
+          </div>
+          {deliveryCost > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
+              <span>{formatPrice(deliveryCost)}</span>
+            </div>
+          )}
+          {deliveryCost === 0 && subtotal > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
+              <span className="text-green-600">{language === 'de' ? 'Kostenlos' : 'Free'}</span>
+            </div>
+          )}
+          {minimumOrderSurcharge > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">{language === 'de' ? 'Mindestbestellwert' : 'Min. order'}</span>
+              <span>{formatPrice(minimumOrderSurcharge)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm font-semibold pt-1">
+            <span>{language === 'de' ? 'Gesamt' : 'Total'}</span>
+            <span>{formatPrice(totalAmount)}</span>
+          </div>
+        </div>
+      )}
+
       {/* Trust Elements Row */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ShieldCheck className="h-3.5 w-3.5 text-green-600" />
           <span>{language === 'de' ? 'Sichere Zahlung' : 'Secure Payment'}</span>
         </div>
-        
+
         {/* Compact Payment Logos */}
         <div className="flex items-center gap-1">
           {compactLogos.map((method) => (
-            <div 
+            <div
               key={method.name}
               className="h-5 px-1 bg-card rounded border border-border/50 flex items-center justify-center"
               title={method.name}
             >
-              <img 
-                src={method.icon} 
-                alt={method.name} 
+              <img
+                src={method.icon}
+                alt={method.name}
                 className="h-3.5 w-auto object-contain"
               />
             </div>

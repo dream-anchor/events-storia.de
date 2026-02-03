@@ -14,6 +14,7 @@ interface AccordionSectionProps {
   onEdit?: () => void;
   children: ReactNode;
   className?: string;
+  hideHeader?: boolean;
 }
 
 const AccordionSection = ({
@@ -27,12 +28,27 @@ const AccordionSection = ({
   onEdit,
   children,
   className,
+  hideHeader = false,
 }: AccordionSectionProps) => {
   const { language } = useLanguage();
   const displayTitle = language === 'en' && titleEn ? titleEn : title;
 
+  // If hideHeader is true and section is open, show only content without header/border
+  if (hideHeader && isOpen) {
+    return (
+      <div className={cn("pt-6", className)}>
+        {children}
+      </div>
+    );
+  }
+
+  // If hideHeader is true and section is not open, don't render anything
+  if (hideHeader && !isOpen) {
+    return null;
+  }
+
   return (
-    <div 
+    <div
       className={cn(
         "border border-border rounded-xl bg-card overflow-hidden transition-all duration-300",
         className

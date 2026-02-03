@@ -74,12 +74,12 @@ export const AIComposer = ({
           guestCount: inquiry.guest_count,
           preferredDate: inquiry.preferred_date,
           timeSlot: inquiry.time_slot,
-          items: quoteItems.map(i => ({ 
-            name: i.name, 
-            quantity: i.quantity, 
-            price: i.price 
+          items: quoteItems.map(i => ({
+            name: i.name,
+            quantity: i.quantity,
+            price: i.price
           })),
-          deliveryAddress: inquiry.delivery_street 
+          deliveryAddress: inquiry.delivery_street
             ? `${inquiry.delivery_street}, ${inquiry.delivery_zip} ${inquiry.delivery_city}`
             : undefined,
           deliveryTime: inquiry.delivery_time_slot,
@@ -88,6 +88,7 @@ export const AIComposer = ({
           menuSelection: menuSelection,
           packageName: packageName,
           senderEmail: user?.email,
+          customerMessage: inquiry.message, // Original customer message for context
         },
       });
 
