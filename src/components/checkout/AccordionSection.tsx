@@ -42,8 +42,9 @@ const AccordionSection = ({
     );
   }
 
-  // If hideHeader is true and section is not open, don't render anything
-  if (hideHeader && !isOpen) {
+  // If hideHeader is true and section is not open AND not completed, don't render anything
+  // Completed sections should always be visible so users can edit them
+  if (hideHeader && !isOpen && !isCompleted) {
     return null;
   }
 
