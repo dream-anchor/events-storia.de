@@ -17,7 +17,7 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         // Checkout-specific variants (monochrome professional)
         checkout: "bg-neutral-800 text-neutral-50 hover:bg-neutral-700 dark:bg-neutral-700 dark:text-neutral-50 dark:hover:bg-neutral-600",
-        checkoutCta: "bg-neutral-900 text-white hover:bg-neutral-800 font-semibold shadow-lg dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200",
+        checkoutCta: "bg-[#FFD814] text-[#0F1111] hover:bg-[#F7CA00] font-semibold shadow-lg",
       },
       size: {
         default: "h-11 px-4 py-2",
