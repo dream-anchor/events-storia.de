@@ -472,7 +472,7 @@ const CustomerProfile = () => {
                                   </span>
                                 )}
                                 <span className="text-xs text-muted-foreground">
-                                  {language === 'de' ? 'vom' : 'from'} {order.created_at && new Date(order.created_at).toLocaleDateString('de-DE')}
+                                  {language === 'de' ? 'vom' : 'from'} {order.created_at && new Date(order.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                 </span>
                               </div>
                             </div>
@@ -486,8 +486,8 @@ const CustomerProfile = () => {
                                 {language === 'de' ? 'Diese Bestellung wurde storniert' : 'This order was cancelled'}
                               </p>
                               <p className="text-destructive/80 text-sm">
-                                {language === 'de' ? 'Storniert am' : 'Cancelled on'}: {new Date(order.cancelled_at).toLocaleDateString('de-DE')} 
-                                {' '}{language === 'de' ? 'um' : 'at'} {new Date(order.cancelled_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                {language === 'de' ? 'Storniert am' : 'Cancelled on'}: {new Date(order.cancelled_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                {' '}{new Date(order.cancelled_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
                               </p>
                               {order.cancellation_reason && (
                                 <p className="text-destructive/80 text-sm mt-1">
@@ -502,7 +502,7 @@ const CustomerProfile = () => {
                             <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-4 w-4" />
-                                {language === 'de' ? 'Lieferung' : 'Delivery'}: {new Date(order.desired_date).toLocaleDateString('de-DE')}
+                                {language === 'de' ? 'Lieferung' : 'Delivery'}: {new Date(order.desired_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                               </span>
                               {order.desired_time && (
                                 <span className="flex items-center gap-1">

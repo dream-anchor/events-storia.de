@@ -305,10 +305,16 @@ const Checkout = () => {
 
   // Get summary text for completed sections
   const getDeliverySummary = () => {
+    // Format date as DD.MM.YYYY
+    const formattedDate = formData.date
+      ? new Date(formData.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : '';
+    const timeStr = formData.time ? ` ${formData.time}` : '';
+
     if (formData.deliveryType === 'pickup') {
-      return `${language === 'de' ? 'Selbstabholung' : 'Pickup'} · ${formData.date} ${formData.time}`;
+      return `${language === 'de' ? 'Selbstabholung' : 'Pickup'} · ${formattedDate}${timeStr}`;
     }
-    return `${formData.deliveryCity} · ${formData.date} ${formData.time}`;
+    return `${formData.deliveryCity} · ${formattedDate}${timeStr}`;
   };
 
   const getCustomerSummary = () => {

@@ -240,12 +240,12 @@ const OrderSuccess = () => {
                       <div className="flex items-center gap-2 mt-3">
                         <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
                         <span className="text-sm">
-                          {orderDetails.date && new Date(orderDetails.date).toLocaleDateString(language === 'de' ? 'de-DE' : 'en-US', { 
-                            weekday: 'long', 
-                            day: 'numeric', 
-                            month: 'long' 
+                          {orderDetails.date && new Date(orderDetails.date).toLocaleDateString('de-DE', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
                           })}
-                          {orderDetails.time && ` ${language === 'de' ? 'um' : 'at'} ${orderDetails.time} ${language === 'de' ? 'Uhr' : ''}`}
+                          {orderDetails.time && ` ${orderDetails.time} ${language === 'de' ? 'Uhr' : ''}`}
                         </span>
                       </div>
                     )}
