@@ -287,6 +287,30 @@ const Checkout = () => {
     localStorage.setItem(CHECKOUT_COMPLETED_KEY, JSON.stringify(completedSteps));
   }, [completedSteps]);
 
+  // Auto-navigate to the furthest complete step on page load
+  useEffect(() => {
+    // Only run once on mount, skip if cart is empty
+    if (items.length === 0) return;
+
+    if (isDeliveryStepComplete && isCustomerStepComplete) {
+      setCurrentStep('payment');
+      setCompletedSteps(prev => {
+        const newSteps = new Set(prev);
+        newSteps.add('delivery');
+        newSteps.add('customer');
+        return Array.from(newSteps) as CheckoutStep[];
+      });
+    } else if (isDeliveryStepComplete) {
+      setCurrentStep('customer');
+      setCompletedSteps(prev => {
+        const newSteps = new Set(prev);
+        newSteps.add('delivery');
+        return Array.from(newSteps) as CheckoutStep[];
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only on mount
+
   const isEventBooking = useMemo(() => {
     return items.some(item => item.id.startsWith('event-'));
   }, [items]);
@@ -1186,11 +1210,22 @@ const Checkout = () => {
                                   <p className="text-xs text-muted-foreground">{item.quantity}× {formatPrice(item.price)}</p>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <button type="button" onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:bg-muted">
+                                  <button type="button" onClick={() => {
+                                    const step = item.min_order || 1;
+                                    const newQty = item.quantity - step;
+                                    if (newQty < step) {
+                                      removeFromCart(item.id);
+                                    } else {
+                                      updateQuantity(item.id, newQty);
+                                    }
+                                  }} className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:bg-muted">
                                     <Minus className="h-3 w-3" />
                                   </button>
                                   <span className="w-6 text-center text-xs">{item.quantity}</span>
-                                  <button type="button" onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:bg-muted">
+                                  <button type="button" onClick={() => {
+                                    const step = item.min_order || 1;
+                                    updateQuantity(item.id, item.quantity + step);
+                                  }} className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:bg-muted">
                                     <Plus className="h-3 w-3" />
                                   </button>
                                 </div>

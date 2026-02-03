@@ -74,6 +74,7 @@ interface LegacyRequest {
   menuSelection?: MenuSelection;
   packageName?: string;
   senderEmail?: string;
+  customerMessage?: string; // Original message from customer inquiry
 }
 
 // Multi-Offer request format (nested)
@@ -164,6 +165,7 @@ Gäste: ${body.guestCount || 'n.a.'}
 ${body.packageName ? `Paket: ${body.packageName}` : ''}
 ${menuContext}
 ${body.notes ? `Bemerkung: ${body.notes}` : ''}
+${body.customerMessage ? `Kundenanfrage: ${body.customerMessage}` : ''}
     `.trim();
   } else {
     return `
@@ -172,6 +174,7 @@ Lieferung: ${body.deliveryAddress || 'n.a.'}
 Datum/Zeit: ${body.preferredDate || ''} ${body.deliveryTime || ''}
 ${menuContext}
 ${body.notes ? `Bemerkung: ${body.notes}` : ''}
+${body.customerMessage ? `Kundenanfrage: ${body.customerMessage}` : ''}
     `.trim();
   }
 }

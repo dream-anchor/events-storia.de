@@ -119,7 +119,15 @@ const CartSheet = () => {
                     <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-t border-border/30">
                       <div className="flex items-center gap-1 bg-background rounded-full p-1 shadow-inner">
                         <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          onClick={() => {
+                            const step = item.min_order || 1;
+                            const newQty = item.quantity - step;
+                            if (newQty < step) {
+                              removeFromCart(item.id);
+                            } else {
+                              updateQuantity(item.id, newQty);
+                            }
+                          }}
                           className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-muted transition-colors touch-manipulation"
                           aria-label="Menge reduzieren"
                         >
@@ -127,7 +135,10 @@ const CartSheet = () => {
                         </button>
                         <span className="w-10 text-center font-medium text-base tabular-nums">{item.quantity}</span>
                         <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          onClick={() => {
+                            const step = item.min_order || 1;
+                            updateQuantity(item.id, item.quantity + step);
+                          }}
                           className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-muted transition-colors touch-manipulation"
                           aria-label="Menge erhöhen"
                         >
