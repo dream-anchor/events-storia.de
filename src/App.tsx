@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -49,6 +50,15 @@ const queryClient = new QueryClient();
 
 // App component with all providers and contexts
 const App = () => {
+  // SSG: Signal to prerenderer that the page is ready for capture
+  useEffect(() => {
+    // Dispatch event after initial render for prerendering tools
+    const timer = setTimeout(() => {
+      document.dispatchEvent(new Event('prerender-ready'));
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>

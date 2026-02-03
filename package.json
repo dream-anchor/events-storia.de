@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run sitemap && vite build",
     "build:dev": "vite build --mode development",
+    "sitemap": "npx tsx scripts/generate-sitemap.ts",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -75,6 +76,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@prerenderer/renderer-puppeteer": "^1.2.4",
+    "@prerenderer/rollup-plugin": "^0.3.12",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.16.5",
     "@types/react": "^18.3.23",
@@ -87,6 +90,7 @@
     "globals": "^15.15.0",
     "lovable-tagger": "^1.1.11",
     "postcss": "^8.5.6",
+    "puppeteer": "^24.36.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
