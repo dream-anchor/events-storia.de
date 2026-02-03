@@ -1,8 +1,9 @@
-import { useList } from "@refinedev/core";
+import React from "react";
+import { useList, useUpdate } from "@refinedev/core";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { CalendarDays, FileText, Clock, CheckCircle2, AlertCircle, ChefHat, Plus, Send, Edit3, CreditCard, Receipt } from "lucide-react";
-import { format, parseISO, isAfter, addDays, formatDistanceToNow } from "date-fns";
+import { CalendarDays, FileText, Clock, CheckCircle2, AlertCircle, ChefHat, Plus, Send, Edit3, CreditCard, Receipt, Phone } from "lucide-react";
+import { format, parseISO, isAfter, addDays, formatDistanceToNow, differenceInHours } from "date-fns";
 import { de } from "date-fns/locale";
 import { AdminLayout } from "./AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,10 +63,21 @@ export const Dashboard = () => {
   // Stats
   const pendingOrdersCount = orders.filter(o => o.status === 'pending').length;
   const pendingMenuCount = pendingMenuBookings.length;
-  const upcomingOrdersCount = orders.filter(o => 
-    o.desired_date && isAfter(parseISO(o.desired_date), new Date()) && 
+  const upcomingOrdersCount = orders.filter(o =>
+    o.desired_date && isAfter(parseISO(o.desired_date), new Date()) &&
     isAfter(addDays(new Date(), 7), parseISO(o.desired_date))
   ).length;
+
+  // Quick Action: Mark as contacted
+  const { mutate: updateInquiry } = useUpdate();
+
+  const handleMarkContacted = (id: string) => {
+    updateInquiry({
+      resource: "events",
+      id,
+      values: { status: "contacted" },
+    });
+  };
 
   return (
     <AdminLayout activeTab="dashboard">
@@ -179,7 +191,12 @@ export const Dashboard = () => {
                   </p>
                 ) : (
                   newInquiries.slice(0, 5).map((event) => (
-                    <InquiryCard key={event.id} event={event} />
+                    <InquiryCard
+                      key={event.id}
+                      event={event}
+                      showQuickActions
+                      onMarkContacted={handleMarkContacted}
+                    />
                   ))
                 )}
                 {newInquiries.length > 5 && (
@@ -445,32 +462,61 @@ export const Dashboard = () => {
 };
 
 // Inquiry Card Component
-function InquiryCard({ 
-  event, 
+function InquiryCard({
+  event,
   showEditor = false,
-  showOfferSent = false 
-}: { 
-  event: EventInquiry; 
+  showOfferSent = false,
+  showQuickActions = false,
+  onMarkContacted
+}: {
+  event: EventInquiry;
   showEditor?: boolean;
   showOfferSent?: boolean;
+  showQuickActions?: boolean;
+  onMarkContacted?: (id: string) => void;
 }) {
+  // Calculate if inquiry is urgent (> 48h old and still 'new')
+  const isUrgent = event.status === 'new' && event.created_at &&
+    differenceInHours(new Date(), parseISO(event.created_at)) > 48;
+
+  const handleMarkContacted = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onMarkContacted) {
+      onMarkContacted(event.id);
+    }
+  };
+
   return (
     <Link
       to={`/admin/events/${event.id}/edit`}
       className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
     >
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">
-          {event.company_name || event.contact_name}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="font-medium truncate">
+            {event.company_name || event.contact_name}
+          </p>
+          {isUrgent && (
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0 animate-pulse">
+              Dringend
+            </Badge>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground">
           {event.guest_count} Gäste • {event.event_type || 'Event'}
         </p>
+        {/* Antwortzeit-Anzeige */}
+        {event.created_at && (
+          <p className="text-xs text-muted-foreground/70 mt-0.5">
+            Eingegangen {formatDistanceToNow(parseISO(event.created_at), { addSuffix: true, locale: de })}
+          </p>
+        )}
         {showEditor && event.last_edited_at && (
           <div className="mt-1">
-            <EditorIndicator 
-              editedAt={event.last_edited_at} 
-              compact 
+            <EditorIndicator
+              editedAt={event.last_edited_at}
+              compact
             />
           </div>
         )}
@@ -480,11 +526,23 @@ function InquiryCard({
           </p>
         )}
       </div>
-      <div className="text-right ml-2">
+      <div className="text-right ml-2 flex flex-col items-end gap-1">
         {event.created_at && (
           <p className="text-xs text-muted-foreground">
             {format(parseISO(event.created_at), "dd.MM.yy", { locale: de })}
           </p>
+        )}
+        {/* Quick Action: Als kontaktiert markieren */}
+        {showQuickActions && onMarkContacted && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={handleMarkContacted}
+          >
+            <Phone className="h-3 w-3 mr-1" />
+            Kontaktiert
+          </Button>
         )}
       </div>
     </Link>
