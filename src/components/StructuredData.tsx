@@ -66,7 +66,7 @@ const StructuredData = ({
     url: 'https://events-storia.de',
     logo: 'https://events-storia.de/storia-logo.webp',
     image: 'https://events-storia.de/og-image.jpg',
-    priceRange: '€€-€€€',
+    priceRange: '€€',
     address: {
       '@type': 'PostalAddress',
       streetAddress: 'Karlstraße 47a',
@@ -77,25 +77,33 @@ const StructuredData = ({
     },
     geo: {
       '@type': 'GeoCoordinates',
-      latitude: 48.1459,
-      longitude: 11.5660,
+      latitude: 48.1447,
+      longitude: 11.5628,
     },
+    // Corrected opening hours matching actual business hours
     openingHoursSpecification: [
       {
         '@type': 'OpeningHoursSpecification',
         dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
         opens: '09:00',
-        closes: '20:00',
-        description: language === 'de' ? 'Catering-Bestellungen' : 'Catering orders',
+        closes: '01:00',
       },
       {
         '@type': 'OpeningHoursSpecification',
         dayOfWeek: ['Saturday', 'Sunday'],
-        opens: '10:00',
-        closes: '18:00',
-        description: language === 'de' ? 'Auf Anfrage' : 'On request',
+        opens: '12:00',
+        closes: '01:00',
       },
     ],
+    // Local SEO: hasMap for Google Maps integration
+    hasMap: 'https://www.google.com/maps/place/Karlstra%C3%9Fe+47a,+80333+M%C3%BCnchen',
+    // Local SEO: Payment methods
+    paymentAccepted: ['Cash', 'Credit Card', 'EC Card', 'PayPal', 'Bank Transfer', 'Invoice'],
+    currenciesAccepted: 'EUR',
+    // Local SEO: Accessibility
+    isAccessibleForFree: false,
+    publicAccess: true,
+    smokingAllowed: false,
   };
 
   // Updated AggregateRating with current review data
@@ -219,10 +227,42 @@ const StructuredData = ({
 
   const localBusinessSchema = {
     '@context': 'https://schema.org',
-    '@type': 'LocalBusiness',
+    '@type': ['LocalBusiness', 'CateringBusiness', 'Restaurant'],
     '@id': 'https://events-storia.de/#localbusiness',
     ...baseBusinessInfo,
+    description: language === 'de'
+      ? 'Italienisches Catering für Firmenfeiern, Weihnachtsfeiern & Events in München. Fingerfood, Pizza, Buffets – frisch aus der Maxvorstadt.'
+      : 'Italian catering for corporate parties, Christmas parties & events in Munich. Finger food, pizza, buffets – fresh from Maxvorstadt.',
+    // Local SEO: areaServed with multiple administrative areas
+    areaServed: [
+      { '@type': 'City', name: 'München' },
+      { '@type': 'AdministrativeArea', name: 'Maxvorstadt' },
+      { '@type': 'AdministrativeArea', name: 'Schwabing' },
+      { '@type': 'AdministrativeArea', name: 'Neuhausen-Nymphenburg' },
+      { '@type': 'AdministrativeArea', name: 'Bogenhausen' },
+      { '@type': 'AdministrativeArea', name: 'Sendling' },
+      { '@type': 'AdministrativeArea', name: 'Haidhausen' },
+      { '@type': 'State', name: 'Bayern' },
+    ],
+    // Local SEO: containedInPlace for location hierarchy
+    containedInPlace: {
+      '@type': 'Neighborhood',
+      name: 'Maxvorstadt',
+      containedInPlace: {
+        '@type': 'City',
+        name: 'München',
+        containedInPlace: {
+          '@type': 'State',
+          name: 'Bayern',
+          containedInPlace: {
+            '@type': 'Country',
+            name: 'Deutschland',
+          },
+        },
+      },
+    },
     aggregateRating,
+    servesCuisine: ['Italian', 'Pizza Napoletana', 'Pasta', 'Mediterranean', 'Fingerfood'],
   };
 
   // Enhanced LocalBusiness/CateringBusiness schema for location pages
@@ -238,11 +278,34 @@ const StructuredData = ({
     ...baseBusinessInfo,
     servesCuisine: ['Italian', 'Pizza Napoletana', 'Pasta', 'Mediterranean', 'Fingerfood'],
     aggregateRating,
-    areaServed: {
-      '@type': 'GeoCircle',
-      geoMidpoint: baseBusinessInfo.geo,
-      geoRadius: '50000',
-      description: language === 'de' ? 'München und 50km Umkreis' : 'Munich and 50km radius',
+    // Extended areaServed with specific Munich neighborhoods
+    areaServed: [
+      { '@type': 'City', name: 'München' },
+      { '@type': 'AdministrativeArea', name: 'Maxvorstadt' },
+      { '@type': 'AdministrativeArea', name: 'Schwabing' },
+      { '@type': 'AdministrativeArea', name: 'Neuhausen-Nymphenburg' },
+      { '@type': 'AdministrativeArea', name: 'Bogenhausen' },
+      { '@type': 'AdministrativeArea', name: 'Sendling' },
+      { '@type': 'AdministrativeArea', name: 'Haidhausen' },
+      {
+        '@type': 'GeoCircle',
+        geoMidpoint: baseBusinessInfo.geo,
+        geoRadius: '50000',
+        description: language === 'de' ? 'München und 50km Umkreis' : 'Munich and 50km radius',
+      },
+    ],
+    // containedInPlace for location hierarchy
+    containedInPlace: {
+      '@type': 'Neighborhood',
+      name: 'Maxvorstadt',
+      containedInPlace: {
+        '@type': 'City',
+        name: 'München',
+        containedInPlace: {
+          '@type': 'State',
+          name: 'Bayern',
+        },
+      },
     },
     hasOfferCatalog: {
       '@type': 'OfferCatalog',
@@ -266,9 +329,6 @@ const StructuredData = ({
         },
       ],
     },
-    paymentAccepted: ['Cash', 'Credit Card', 'Debit Card', 'Invoice', 'Bank Transfer'],
-    currenciesAccepted: 'EUR',
-    priceRange: '€€-€€€',
     deliveryChargeSpecification: {
       '@type': 'DeliveryChargeSpecification',
       appliesToDeliveryMethod: 'http://purl.org/goodrelations/v1#DeliveryModeOwnFleet',

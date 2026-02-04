@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import staticMenusData from "@/data/static-menus.json";
 
 export interface CateringMenuItem {
   id: string;
@@ -94,7 +95,11 @@ export const useCateringMenus = () => {
   });
 };
 
+// Cast static data to proper type for SSG
+const staticMenus = staticMenusData as CateringMenu[];
+
 // Fetch published catering menus (for frontend)
+// Uses static data for SSG, then hydrates with fresh data client-side
 export const usePublishedCateringMenus = () => {
   return useQuery({
     queryKey: ["published-catering-menus"],
@@ -141,11 +146,19 @@ export const usePublishedCateringMenus = () => {
 
       return menusWithContent as CateringMenu[];
     },
+    // Static menu data for SSG - available immediately on first render
+    initialData: staticMenus.length > 0 ? staticMenus : undefined,
+    // Keep data fresh but don't refetch too aggressively
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };
 
 // Fetch single catering menu by slug
+// Uses static data for SSG, then hydrates with fresh data client-side
 export const useCateringMenuBySlug = (slug: string | undefined) => {
+  // Find static menu by slug for SSG initial data
+  const staticMenu = slug ? staticMenus.find((m) => m.slug === slug) : undefined;
+
   return useQuery({
     queryKey: ["catering-menu", slug],
     queryFn: async (): Promise<CateringMenu | null> => {
@@ -192,6 +205,9 @@ export const useCateringMenuBySlug = (slug: string | undefined) => {
       } as CateringMenu;
     },
     enabled: !!slug,
+    // Static menu data for SSG - available immediately on first render
+    initialData: staticMenu || undefined,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };
 

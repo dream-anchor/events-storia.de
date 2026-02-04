@@ -110,11 +110,11 @@ const SEO = ({
       <meta name="twitter:image:alt" content={fullTitle} />
       <meta name="twitter:site" content="@STORIAMunich" />
 
-      {/* Geo Tags (Local SEO) */}
+      {/* Geo Tags (Local SEO) - Corrected coordinates */}
       <meta name="geo.region" content="DE-BY" />
       <meta name="geo.placename" content="München, Maxvorstadt" />
-      <meta name="geo.position" content="48.1459;11.5660" />
-      <meta name="ICBM" content="48.1459, 11.5660" />
+      <meta name="geo.position" content="48.1447;11.5628" />
+      <meta name="ICBM" content="48.1447, 11.5628" />
 
       {/* Additional SEO Tags */}
       <meta name="rating" content="general" />
