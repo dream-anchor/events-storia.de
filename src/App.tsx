@@ -25,6 +25,7 @@ import Widerrufsbelehrung from "./pages/Widerrufsbelehrung";
 import Zahlungsinformationen from "./pages/Zahlungsinformationen";
 import Lebensmittelhinweise from "./pages/Lebensmittelhinweise";
 import Haftungsausschluss from "./pages/Haftungsausschluss";
+import FAQ from "./pages/FAQ";
 import FloatingActions from "./components/FloatingActions";
 import CookieBanner from "./components/CookieBanner";
 import CookieSettingsButton from "./components/CookieSettingsButton";
@@ -116,7 +117,8 @@ const App = () => {
                 <Route path="/zahlungsinformationen" element={<Zahlungsinformationen />} />
                 <Route path="/lebensmittelhinweise" element={<Lebensmittelhinweise />} />
                 <Route path="/haftungsausschluss" element={<Haftungsausschluss />} />
-                
+                <Route path="/faq-catering-muenchen" element={<FAQ />} />
+
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

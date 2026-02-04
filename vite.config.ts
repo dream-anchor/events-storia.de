@@ -14,6 +14,7 @@ const PRERENDER_ROUTES = [
   '/catering/pizze-napoletane',
   '/catering/desserts',
   '/events',
+  '/faq-catering-muenchen',
   '/impressum',
   '/datenschutz',
   '/cookie-richtlinie',

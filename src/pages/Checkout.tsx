@@ -228,6 +228,7 @@ const Checkout = () => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [newsletterSignup, setNewsletterSignup] = useState(true);
   const [chafingDishQuantity, setChafingDishQuantity] = useState(0);
+  const [termsError, setTermsError] = useState(false);
 
   // Save for Later feature (DSGVO-compliant opt-in)
   const SAVED_CUSTOMER_KEY = 'storia-saved-customer';
@@ -927,11 +928,17 @@ const Checkout = () => {
     }
 
     if (!formData.acceptTerms) {
+      setTermsError(true);
       toast.error(
-        language === 'de' 
-          ? 'Bitte akzeptieren Sie die AGB und Widerrufsbelehrung' 
+        language === 'de'
+          ? 'Bitte akzeptieren Sie die AGB und Widerrufsbelehrung'
           : 'Please accept the terms and cancellation policy'
       );
+      // Scroll to terms checkbox on mobile
+      const termsCheckbox = document.getElementById('acceptTerms');
+      if (termsCheckbox) {
+        termsCheckbox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
@@ -1747,20 +1754,43 @@ const Checkout = () => {
                     </div>
 
                     {/* Terms acceptance */}
-                    <div className="mt-6 pt-4 border-t border-border">
+                    <div className={cn(
+                      "mt-6 pt-4 border-t rounded-lg transition-all",
+                      termsError && !formData.acceptTerms
+                        ? "border-destructive bg-destructive/5 p-4 -mx-4"
+                        : "border-border"
+                    )}>
                       <div className="flex items-start space-x-3">
                         <Checkbox
                           id="acceptTerms"
                           checked={formData.acceptTerms}
-                          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, acceptTerms: checked === true }))}
-                          className="mt-0.5"
+                          onCheckedChange={(checked) => {
+                            setFormData(prev => ({ ...prev, acceptTerms: checked === true }));
+                            if (checked) setTermsError(false);
+                          }}
+                          className={cn(
+                            "mt-0.5",
+                            termsError && !formData.acceptTerms && "border-destructive data-[state=unchecked]:border-destructive"
+                          )}
                         />
-                        <Label htmlFor="acceptTerms" className="text-sm leading-relaxed cursor-pointer">
-                          {language === 'de'
-                            ? <>Ich habe die <Link to="/agb-catering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">AGB</Link> und <Link to="/widerrufsbelehrung" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Widerrufsbelehrung</Link> gelesen und akzeptiere diese. *</>
-                            : <>I have read and accept the <Link to="/agb-catering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Terms</Link> and <Link to="/widerrufsbelehrung" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Cancellation Policy</Link>. *</>
-                          }
-                        </Label>
+                        <div>
+                          <Label htmlFor="acceptTerms" className={cn(
+                            "text-sm leading-relaxed cursor-pointer",
+                            termsError && !formData.acceptTerms && "text-destructive"
+                          )}>
+                            {language === 'de'
+                              ? <>Ich habe die <Link to="/agb-catering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">AGB</Link> und <Link to="/widerrufsbelehrung" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Widerrufsbelehrung</Link> gelesen und akzeptiere diese. *</>
+                              : <>I have read and accept the <Link to="/agb-catering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Terms</Link> and <Link to="/widerrufsbelehrung" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Cancellation Policy</Link>. *</>
+                            }
+                          </Label>
+                          {termsError && !formData.acceptTerms && (
+                            <p className="text-xs text-destructive mt-1 font-medium">
+                              {language === 'de'
+                                ? '⚠️ Bitte akzeptieren Sie die AGB, um fortzufahren'
+                                : '⚠️ Please accept the terms to continue'}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1845,11 +1875,18 @@ const Checkout = () => {
 
                     {/* Submit on mobile */}
                     <div className="mt-6 pt-4 border-t border-border lg:hidden">
+                      {!formData.acceptTerms && (
+                        <p className="text-xs text-muted-foreground text-center mb-3">
+                          {language === 'de'
+                            ? '↑ Bitte akzeptieren Sie die AGB oben'
+                            : '↑ Please accept the terms above'}
+                        </p>
+                      )}
                       <Button
                         type="submit"
                         variant="checkoutCta"
                         className="w-full h-12"
-                        disabled={isSubmitting || isProcessingPayment || !formData.acceptTerms}
+                        disabled={isSubmitting || isProcessingPayment}
                       >
                         {isSubmitting || isProcessingPayment ? (
                           <>
@@ -1885,24 +1922,33 @@ const Checkout = () => {
                     oneWayDistanceKm={deliveryCalc?.oneWayDistanceKm}
                     ctaButton={
                       isDeliveryStepComplete && isCustomerStepComplete && (
-                        <Button
-                          type="submit"
-                          variant="checkoutCta"
-                          className="w-full h-12"
-                          disabled={isSubmitting || isProcessingPayment || !formData.acceptTerms}
-                        >
-                          {isSubmitting || isProcessingPayment ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              {language === 'de' ? 'Wird verarbeitet...' : 'Processing...'}
-                            </>
-                          ) : (
-                            <>
-                              <Lock className="mr-2 h-4 w-4" />
-                              {language === 'de' ? 'Sofort kaufen' : 'Buy now'}
-                            </>
+                        <div>
+                          {!formData.acceptTerms && (
+                            <p className="text-xs text-muted-foreground text-center mb-2">
+                              {language === 'de'
+                                ? 'Bitte AGB akzeptieren'
+                                : 'Please accept terms'}
+                            </p>
                           )}
-                        </Button>
+                          <Button
+                            type="submit"
+                            variant="checkoutCta"
+                            className="w-full h-12"
+                            disabled={isSubmitting || isProcessingPayment}
+                          >
+                            {isSubmitting || isProcessingPayment ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                {language === 'de' ? 'Wird verarbeitet...' : 'Processing...'}
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="mr-2 h-4 w-4" />
+                                {language === 'de' ? 'Sofort kaufen' : 'Buy now'}
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       )
                     }
                   />

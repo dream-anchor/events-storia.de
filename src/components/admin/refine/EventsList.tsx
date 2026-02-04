@@ -3,7 +3,7 @@ import { useList } from "@refinedev/core";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare, User, Flag, AlertTriangle, LayoutGrid, Table2 } from "lucide-react";
+import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare, User, Flag, AlertTriangle, LayoutGrid, Table2, Archive } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable } from "./DataTable";
@@ -37,7 +37,7 @@ const eventTypeLabels: Record<string, string> = {
   sonstiges: "Sonstiges",
 };
 
-type FilterType = 'all' | 'mine' | 'new' | 'in_progress' | 'offer_sent' | 'confirmed' | 'declined' | 'urgent';
+type FilterType = 'all' | 'mine' | 'new' | 'in_progress' | 'offer_sent' | 'confirmed' | 'declined' | 'urgent' | 'archived';
 
 // Priority badge component
 const PriorityIndicator = ({ priority }: { priority?: InquiryPriority }) => {
@@ -108,41 +108,48 @@ export const EventsList = () => {
   const allEvents = eventsQuery.result?.data || [];
   const isLoading = eventsQuery.query.isLoading;
 
+  // Separate archived and active events
+  const { activeEvents, archivedEvents } = useMemo(() => {
+    const archived = allEvents.filter(e => e.archived_at);
+    const active = allEvents.filter(e => !e.archived_at);
+    return { activeEvents: active, archivedEvents: archived };
+  }, [allEvents]);
+
   // Categorize events based on status (the single source of truth)
   // Status 'offer_sent' means at least one version was sent - it stays there even when editing a new version
   const categorizedEvents = useMemo(() => {
-    const newInquiries = allEvents.filter(e =>
+    const newInquiries = activeEvents.filter(e =>
       e.status === 'new' && !e.last_edited_at
     );
-    const inProgress = allEvents.filter(e =>
+    const inProgress = activeEvents.filter(e =>
       (e.last_edited_at || e.status === 'contacted') &&
       e.status !== 'offer_sent' &&
       e.status !== 'confirmed' &&
       e.status !== 'declined'
     );
     // offer_sent = status is the source of truth (set once, stays forever unless confirmed/declined)
-    const offerSent = allEvents.filter(e =>
+    const offerSent = activeEvents.filter(e =>
       e.status === 'offer_sent'
     );
-    const confirmed = allEvents.filter(e => e.status === 'confirmed');
-    const declined = allEvents.filter(e => e.status === 'declined');
+    const confirmed = activeEvents.filter(e => e.status === 'confirmed');
+    const declined = activeEvents.filter(e => e.status === 'declined');
 
-    // My assigned inquiries
-    const mine = allEvents.filter(e =>
+    // My assigned inquiries (non-archived only)
+    const mine = activeEvents.filter(e =>
       e.assigned_to === currentUserEmail &&
       e.status !== 'confirmed' &&
       e.status !== 'declined'
     );
 
-    // Urgent/High priority
-    const urgent = allEvents.filter(e =>
+    // Urgent/High priority (non-archived only)
+    const urgent = activeEvents.filter(e =>
       (e.priority === 'urgent' || e.priority === 'high') &&
       e.status !== 'confirmed' &&
       e.status !== 'declined'
     );
 
     return { newInquiries, inProgress, offerSent, confirmed, declined, mine, urgent };
-  }, [allEvents, currentUserEmail]);
+  }, [activeEvents, currentUserEmail]);
 
   // Get filtered events based on current filter
   const filteredEvents = useMemo(() => {
@@ -161,14 +168,16 @@ export const EventsList = () => {
         return categorizedEvents.mine;
       case 'urgent':
         return categorizedEvents.urgent;
+      case 'archived':
+        return archivedEvents;
       default:
-        return allEvents;
+        return activeEvents; // 'all' shows only active (non-archived) events
     }
-  }, [currentFilter, categorizedEvents, allEvents]);
+  }, [currentFilter, categorizedEvents, activeEvents, archivedEvents]);
 
   // Filter pills with counts
   const filterPills = [
-    { id: 'all', label: `Alle (${allEvents.length})`, value: 'all', active: currentFilter === 'all' },
+    { id: 'all', label: `Alle (${activeEvents.length})`, value: 'all', active: currentFilter === 'all' },
     ...(currentUserEmail && categorizedEvents.mine.length > 0 ? [{
       id: 'mine',
       label: `Meine (${categorizedEvents.mine.length})`,
@@ -187,6 +196,7 @@ export const EventsList = () => {
     { id: 'in_progress', label: `In Bearbeitung (${categorizedEvents.inProgress.length})`, value: 'in_progress', active: currentFilter === 'in_progress', icon: <Edit3 className="h-3 w-3 mr-1 text-amber-600" /> },
     { id: 'offer_sent', label: `Angebot (${categorizedEvents.offerSent.length})`, value: 'offer_sent', active: currentFilter === 'offer_sent', icon: <Send className="h-3 w-3 mr-1 text-emerald-600" /> },
     { id: 'confirmed', label: `Bestätigt (${categorizedEvents.confirmed.length})`, value: 'confirmed', active: currentFilter === 'confirmed' },
+    { id: 'archived', label: `Archiv (${archivedEvents.length})`, value: 'archived', active: currentFilter === 'archived', icon: <Archive className="h-3 w-3 mr-1 text-muted-foreground" /> },
   ];
 
   const handleFilterChange = (filterId: string, value: string) => {
@@ -212,7 +222,15 @@ export const EventsList = () => {
         let badgeClass = '';
         let subLabel: string | null = null;
 
-        if (event.offer_sent_at && event.status !== 'confirmed' && event.status !== 'declined') {
+        // Check if archived first
+        if (event.archived_at) {
+          statusLabel = 'Archiviert';
+          statusIcon = <Archive className="h-3 w-3 mr-1" />;
+          badgeClass = 'border-slate-400/50 text-slate-600 bg-slate-100';
+          if (event.archived_by) {
+            subLabel = `von ${getAdminDisplayName(event.archived_by)}`;
+          }
+        } else if (event.offer_sent_at && event.status !== 'confirmed' && event.status !== 'declined') {
           statusLabel = 'Angebot gesendet';
           statusIcon = <Send className="h-3 w-3 mr-1" />;
           badgeClass = 'border-emerald-500/50 text-emerald-700 bg-emerald-50';
@@ -411,6 +429,7 @@ export const EventsList = () => {
               selectedIds={selectedIds}
               onClearSelection={() => setSelectedIds([])}
               onActionComplete={() => eventsQuery.query.refetch()}
+              showRestoreAction={currentFilter === 'archived'}
             />
           </>
         ) : (

@@ -23,6 +23,9 @@ const routes: SitemapRoute[] = [
   { path: '/events', priority: 0.9, changefreq: 'weekly' },
   { path: '/kontakt', priority: 0.8, changefreq: 'monthly' },
 
+  // Service pages - Medium-high priority
+  { path: '/faq-catering-muenchen', priority: 0.7, changefreq: 'monthly' },
+
   // Catering pages - Medium-high priority
   { path: '/catering/buffet-fingerfood', priority: 0.8, changefreq: 'weekly' },
   { path: '/catering/buffet-platten', priority: 0.8, changefreq: 'weekly' },

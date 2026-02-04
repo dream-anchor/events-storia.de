@@ -48,6 +48,13 @@ export interface EventInquiry extends BaseRecord {
   assigned_by: string | null;
   // Priority field (Phase 2)
   priority: InquiryPriority;
+  // Archive fields
+  archived_at: string | null;
+  archived_by: string | null;
+  // LexOffice fields
+  lexoffice_invoice_id: string | null;
+  lexoffice_document_type: string | null;
+  lexoffice_contact_id: string | null;
 }
 
 export type InquiryPriority = 'normal' | 'high' | 'urgent';

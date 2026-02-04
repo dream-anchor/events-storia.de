@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Send, Loader2 } from "lucide-react";
+import { CalendarIcon, Clock, Send, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,7 @@ const formSchema = z.object({
   eventType: z.string().min(1, "Bitte Event-Art wählen"),
   eventTypeOther: z.string().optional(),
   date: z.date().optional(),
+  time: z.string().optional(),
   message: z.string().optional(),
   newsletter: z.boolean().default(true),
   selectedPackage: z.string().optional(),
@@ -54,7 +55,8 @@ interface EventContactFormProps {
 const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
   const { language } = useLanguage();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -65,6 +67,7 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
       guests: "",
       eventType: "",
       eventTypeOther: "",
+      time: "",
       message: "",
       newsletter: true,
       selectedPackage: preselectedPackage || "",
@@ -104,10 +107,11 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
           email: data.email,
           phone: data.phone || undefined,
           guestCount: data.guests,
-          eventType: data.eventType === 'sonstiges' && data.eventTypeOther 
-            ? data.eventTypeOther 
+          eventType: data.eventType === 'sonstiges' && data.eventTypeOther
+            ? data.eventTypeOther
             : data.eventType,
           preferredDate: data.date ? data.date.toISOString().split('T')[0] : undefined,
+          timeSlot: data.time || undefined,
           message: data.message || undefined,
           source: data.selectedPackage ? `website_package_${data.selectedPackage}` : 'website_contact_form',
         }
@@ -312,47 +316,72 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
                 />
               )}
 
-              {/* Date */}
-              <FormField
-                control={form.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>{language === 'de' ? 'Gewünschtes Datum' : 'Preferred Date'}</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP", { locale: language === 'de' ? de : enUS })
-                            ) : (
-                              <span>{language === 'de' ? 'Datum wählen' : 'Pick a date'}</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => date < new Date()}
-                          initialFocus
-                          className="pointer-events-auto"
+              {/* Date & Time */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>{language === 'de' ? 'Gewünschtes Datum' : 'Preferred Date'}</FormLabel>
+                      <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP", { locale: language === 'de' ? de : enUS })
+                              ) : (
+                                <span>{language === 'de' ? 'Datum wählen' : 'Pick a date'}</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={(date) => {
+                              field.onChange(date);
+                              setDatePickerOpen(false);
+                            }}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="time"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5" />
+                        {language === 'de' ? 'Gewünschte Uhrzeit' : 'Preferred Time'}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="time"
+                          {...field}
+                          className="w-full"
                         />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               {/* Message */}
               <FormField

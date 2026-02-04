@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
-import { ArrowLeft, Loader2, CalendarDays, Truck, Check, Activity } from "lucide-react";
+import { ArrowLeft, Loader2, CalendarDays, Truck, Check, Activity, Receipt } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { MenuSelection } from "./MenuComposer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Timeline } from "@/components/admin/shared/Timeline";
+import { CreateManualInvoiceDialog } from "../CreateManualInvoiceDialog";
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,7 @@ export const SmartInquiryEditor = () => {
   const [activeTab, setActiveTab] = useState("kalkulation");
   const [isSending, setIsSending] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitializedRef = useRef(false);
 
@@ -380,8 +382,18 @@ export const SmartInquiryEditor = () => {
               </p>
             </div>
           </div>
-          
-          {/* Auto-save runs silently in background - no visual indicator to avoid distraction */}
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCreateInvoiceOpen(true)}
+            >
+              <Receipt className="h-4 w-4 mr-2" />
+              Rechnung erstellen
+            </Button>
+          </div>
         </div>
 
         {/* Inquiry Details Panel - shows original customer message and key info */}
@@ -447,6 +459,20 @@ export const SmartInquiryEditor = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Manual Invoice Creation Dialog */}
+      <CreateManualInvoiceDialog
+        open={createInvoiceOpen}
+        onOpenChange={setCreateInvoiceOpen}
+        prefillData={{
+          contactName: mergedInquiry.contact_name,
+          companyName: mergedInquiry.company_name || undefined,
+          email: mergedInquiry.email,
+          phone: mergedInquiry.phone || undefined,
+          eventInquiryId: id,
+        }}
+        onSuccess={() => inquiryQuery.query.refetch()}
+      />
     </AdminLayout>
   );
 };

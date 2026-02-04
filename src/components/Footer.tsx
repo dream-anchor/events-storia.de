@@ -130,7 +130,16 @@ const Footer = () => {
           <p className="text-sm font-sans text-primary-foreground/40">
             © {new Date().getFullYear()} {t.footer.copyright}
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-6 text-sm font-sans text-primary-foreground/40">
+
+          {/* Service Links */}
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-6 text-sm font-sans text-primary-foreground/60">
+            <Link to="/faq-catering-muenchen" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'FAQ Catering & Events' : 'Catering & Events FAQ'}</Link>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <Link to="/kontakt" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{t.footer.contact}</Link>
+          </div>
+
+          {/* Legal Links */}
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-4 text-sm font-sans text-primary-foreground/40">
             <Link to="/impressum" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.imprint}</Link>
             <span className="opacity-50 hidden sm:inline">·</span>
             <Link to="/datenschutz" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.privacy}</Link>

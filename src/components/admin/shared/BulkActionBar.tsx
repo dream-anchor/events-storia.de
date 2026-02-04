@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Phone, UserPlus, Archive, Trash2, Loader2, Flag } from "lucide-react";
+import { X, Phone, UserPlus, Archive, Trash2, Loader2, Flag, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,12 +25,14 @@ interface BulkActionBarProps {
   selectedIds: string[];
   onClearSelection: () => void;
   onActionComplete: () => void;
+  showRestoreAction?: boolean; // Show restore instead of archive when viewing archived items
 }
 
 export function BulkActionBar({
   selectedIds,
   onClearSelection,
   onActionComplete,
+  showRestoreAction = false,
 }: BulkActionBarProps) {
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -115,9 +117,14 @@ export function BulkActionBar({
   const handleBulkArchive = async () => {
     setIsProcessing(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
       const { error } = await supabase
         .from("event_inquiries")
-        .update({ status: "declined" })
+        .update({
+          archived_at: new Date().toISOString(),
+          archived_by: user?.email || null,
+        })
         .in("id", selectedIds);
 
       if (error) throw error;
@@ -128,6 +135,30 @@ export function BulkActionBar({
     } catch (error) {
       console.error("Bulk archive error:", error);
       toast.error("Fehler beim Archivieren");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from("event_inquiries")
+        .update({
+          archived_at: null,
+          archived_by: null,
+        })
+        .in("id", selectedIds);
+
+      if (error) throw error;
+
+      toast.success(`${count} Anfragen wiederhergestellt`);
+      onClearSelection();
+      onActionComplete();
+    } catch (error) {
+      console.error("Bulk restore error:", error);
+      toast.error("Fehler beim Wiederherstellen");
     } finally {
       setIsProcessing(false);
     }
@@ -215,17 +246,30 @@ export function BulkActionBar({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Archive */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleBulkArchive}
-              disabled={isProcessing}
-              className="gap-1.5 text-muted-foreground hover:text-destructive"
-            >
-              <Archive className="h-4 w-4" />
-              Archivieren
-            </Button>
+            {/* Archive or Restore */}
+            {showRestoreAction ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBulkRestore}
+                disabled={isProcessing}
+                className="gap-1.5 text-emerald-600 hover:text-emerald-700"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Wiederherstellen
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBulkArchive}
+                disabled={isProcessing}
+                className="gap-1.5 text-muted-foreground hover:text-destructive"
+              >
+                <Archive className="h-4 w-4" />
+                Archivieren
+              </Button>
+            )}
           </div>
 
           {/* Divider */}

@@ -2,7 +2,7 @@ import React from "react";
 import { useList, useUpdate } from "@refinedev/core";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { CalendarDays, FileText, Clock, CheckCircle2, AlertCircle, ChefHat, Plus, Send, Edit3, CreditCard, Receipt, Phone, MessageSquare, MoreVertical, Copy, Mail, Flame, ExternalLink, User, AlertTriangle } from "lucide-react";
+import { CalendarDays, FileText, Clock, CheckCircle2, AlertCircle, ChefHat, Plus, Send, Edit3, CreditCard, Receipt, Phone, MessageSquare, MoreVertical, Copy, Mail, Flame, ExternalLink, User, AlertTriangle, Archive } from "lucide-react";
 import { format, parseISO, isAfter, addDays, formatDistanceToNow, differenceInHours } from "date-fns";
 import { de } from "date-fns/locale";
 import { AdminLayout } from "./AdminLayout";
@@ -27,11 +27,14 @@ import { TasksWidget } from "@/components/admin/refine/TasksWidget";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Dashboard = () => {
-  // Fetch ALL events to categorize them
+  // Fetch ALL events to categorize them (excluding archived)
   const eventsQuery = useList<EventInquiry>({
     resource: "events",
     pagination: { pageSize: 100 },
-    filters: [{ field: "status", operator: "in", value: ["new", "contacted", "offer_sent"] }],
+    filters: [
+      { field: "status", operator: "in", value: ["new", "contacted", "offer_sent"] },
+      { field: "archived_at", operator: "null", value: true },
+    ],
     sorters: [{ field: "created_at", order: "desc" }],
   });
 
@@ -572,6 +575,21 @@ function InquiryCard({
     window.location.reload();
   };
 
+  const handleArchive = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase
+      .from('event_inquiries')
+      .update({
+        archived_at: new Date().toISOString(),
+        archived_by: user?.email || null,
+      })
+      .eq('id', event.id);
+    toast({ description: "Anfrage wurde archiviert" });
+    window.location.reload();
+  };
+
   return (
     <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors group">
       <Link
@@ -690,6 +708,11 @@ function InquiryCard({
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Anfrage öffnen
                 </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleArchive} className="text-muted-foreground">
+                <Archive className="h-4 w-4 mr-2" />
+                Als erledigt archivieren
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

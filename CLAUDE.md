@@ -189,8 +189,71 @@ npm run prerender          # Generate static pages for SEO
 
 ---
 
+## SEO Ground Rules (Binding)
+
+These rules are mandatory for all content and page creation tasks.
+
+- Every page MUST target exactly ONE primary keyword.
+- No new page may target a primary keyword already assigned to another page.
+- Keyword cannibalization is strictly forbidden.
+- H1 MUST be a natural-language version of the primary keyword.
+- `<title>` MUST include the primary keyword and a local modifier if applicable.
+- Canonical, hreflang and breadcrumb data MUST always be set.
+
+---
+
+## Content Architecture (Pillar & Cluster Model)
+
+### Pillar Pages (Authority Hubs)
+- `/` (Homepage)
+- `/events/` (Event location Munich)
+- `/catering/*` (Catering menus)
+
+### Cluster Pages
+- City / district pages (e.g. Maxvorstadt, Schwabing)
+- Occasion pages (Firmenfeier, Geburtstag, Weihnachtsfeier)
+- Culinary focus pages (Pizza, Buffet, Fingerfood)
+
+### Rules
+- Cluster pages MUST link to their corresponding pillar page.
+- Pillar pages SHOULD link to all related cluster pages.
+- All conversion-oriented CTAs MUST lead to `/checkout/` or contact forms.
+
+---
+
+## Keyword Mapping Reference
+
+The authoritative keyword mapping is defined in:
+
+`docs/seo-strategy.md`
+
+Claude MUST:
+- Consult this document before creating or modifying pages
+- Respect all existing primary keywords
+- STOP and request clarification if a conflict is detected
+
+---
+
+## Local SEO Focus
+
+### Primary Location
+- Munich – Maxvorstadt (Restaurant address: Karlstr. 47a, 80333 München)
+
+### Secondary Geo Targets
+- Greater Munich area
+- Adjacent districts (Schwabing, Lehel, Isarvorstadt)
+
+### Rules
+- City and district pages MUST include real-world local context (landmarks, public transport).
+- NAP data MUST only be sourced from the central configuration.
+- No fabricated reviews, ratings or testimonials are allowed.
+
+---
+
 ## Instructions for Claude
 
 > When a user request involves cross-module changes or deep codebase analysis, explicitly state: *"I will delegate the [Research/Review] to a sub-agent to preserve context."*
 
 > Always prioritize the integrity of the existing architecture.
+
+> Before creating or modifying any public-facing page, consult `docs/seo-strategy.md` to ensure keyword compliance.

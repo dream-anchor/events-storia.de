@@ -8,7 +8,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { LucideIcon, ChevronDown, CalendarDays, Database, LayoutDashboard, CheckCircle2, FileText, Package, UtensilsCrossed } from "lucide-react";
+import { LucideIcon, ChevronDown, CalendarDays, Database, LayoutDashboard, CheckCircle2, FileText, Package, UtensilsCrossed, Receipt } from "lucide-react";
 
 interface NavItem {
   name: string;
@@ -43,17 +43,23 @@ const navigationContexts: NavItem[] = [
       { name: 'Buchungen', href: '/admin/bookings', key: 'bookings', badge: 'bookings', icon: CheckCircle2 },
     ]
   },
-  { 
-    name: 'Catering', 
-    href: '/admin/orders', 
-    icon: FileText, 
+  {
+    name: 'Catering',
+    href: '/admin/orders',
+    icon: FileText,
     key: 'orders',
     badge: 'orders',
   },
-  { 
-    name: 'Stammdaten', 
-    href: '/admin/packages', 
-    icon: Database, 
+  {
+    name: 'Buchhaltung',
+    href: '/admin/invoices',
+    icon: Receipt,
+    key: 'invoices',
+  },
+  {
+    name: 'Stammdaten',
+    href: '/admin/packages',
+    icon: Database,
     key: 'catalog',
     children: [
       { name: 'Pakete', href: '/admin/packages', key: 'packages', icon: Package },
@@ -80,6 +86,7 @@ export const FloatingPillNav = ({
     if (path === '/admin' || path === '/admin/') return 'dashboard';
     if (path.includes('/admin/events') || path.includes('/admin/bookings')) return 'events';
     if (path.includes('/admin/orders')) return 'orders';
+    if (path.includes('/admin/invoices')) return 'invoices';
     if (path.includes('/admin/packages') || path.includes('/admin/menu') || path.includes('/admin/locations')) return 'catalog';
     return activeKey;
   };
