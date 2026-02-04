@@ -44,10 +44,10 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
     addToCart({
       id: item.id,
       name: item.name,
-      name_en: item.name_en || null,
+      name_en: item.name_en,
       price: item.price,
-      image,
-      serving_info: servingInfo || undefined,
+      image: image ?? undefined,
+      serving_info: servingInfo ?? undefined,
       min_order: 4,
       category: 'buffet',
     }, quantity);

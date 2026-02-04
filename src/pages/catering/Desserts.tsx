@@ -166,14 +166,14 @@ const Desserts = () => {
           type="product" 
           products={allItems.map(item => ({
             name: item.name,
-            name_en: item.name_en || undefined,
-            description: item.description || undefined,
-            description_en: item.description_en || undefined,
+            name_en: item.name_en ?? '',
+            description: item.description ?? '',
+            description_en: item.description_en ?? '',
             price: item.price || 0,
-            image: item.image_url || undefined,
+            image: item.image_url ?? undefined,
             sku: item.id,
-            servingInfo: item.serving_info || undefined,
-          }))} 
+            servingInfo: item.serving_info ?? undefined,
+          }))}
         />
       )}
       <Header />

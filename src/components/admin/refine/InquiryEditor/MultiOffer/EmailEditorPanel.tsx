@@ -226,7 +226,7 @@ export function EmailEditorPanel({
                   key={template.id}
                   variant="outline"
                   size="sm"
-                  onClick={() => insertTemplate(template.content)}
+                  onClick={() => insertTemplate(template.content || '')}
                   className="h-7 text-xs rounded-lg"
                 >
                   {template.name}

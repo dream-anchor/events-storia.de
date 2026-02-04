@@ -336,13 +336,13 @@ const CateringOrdersManager = () => {
     });
   }, [orders, searchQuery]);
 
-  const isUrgent = (order: typeof orders[0]) => {
+  const isUrgent = (order: CateringOrder) => {
     if (!order.desired_date || order.status !== 'pending') return false;
     const desiredDate = parseISO(order.desired_date);
     return isBefore(desiredDate, addDays(new Date(), 1));
   };
 
-  const isOverdue = (order: typeof orders[0]) => {
+  const isOverdue = (order: CateringOrder) => {
     if (!order.desired_date || order.status === 'completed' || order.status === 'cancelled') return false;
     return isBefore(parseISO(order.desired_date), new Date());
   };

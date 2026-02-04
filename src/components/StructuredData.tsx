@@ -270,12 +270,10 @@ const StructuredData = ({
     '@context': 'https://schema.org',
     '@type': 'CateringBusiness',
     '@id': 'https://events-storia.de/#cateringbusiness',
-    name: 'STORIA Catering München',
-    alternateName: 'STORIA Events',
+    ...baseBusinessInfo,
     description: language === 'de'
       ? 'Italienisches Catering für Firmenfeiern, Weihnachtsfeiern und Events in München. Fingerfood, Pizza, Buffets – frisch zubereitet und flexibel geliefert. Kapazität: bis zu 200 Gäste.'
       : 'Italian catering for corporate parties, Christmas parties and events in Munich. Finger food, pizza, buffets – freshly prepared and flexibly delivered. Capacity: up to 200 guests.',
-    ...baseBusinessInfo,
     servesCuisine: ['Italian', 'Pizza Napoletana', 'Pasta', 'Mediterranean', 'Fingerfood'],
     aggregateRating,
     // Extended areaServed with specific Munich neighborhoods
