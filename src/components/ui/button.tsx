@@ -18,6 +18,10 @@ const buttonVariants = cva(
         // Checkout-specific variants (monochrome professional)
         checkout: "bg-neutral-800 text-neutral-50 hover:bg-neutral-700 dark:bg-neutral-700 dark:text-neutral-50 dark:hover:bg-neutral-600",
         checkoutCta: "bg-[#FFD814] text-[#0F1111] hover:bg-[#F7CA00] font-semibold shadow-lg",
+        // Apple 2026 Experience: Primary with Glow Effect
+        primaryGlow: "bg-primary text-primary-foreground shadow-[var(--glow-primary)] hover:shadow-[var(--glow-primary-hover)] hover:scale-[1.02] active:shadow-[var(--glow-primary-active)] active:scale-[0.98] transition-all duration-200",
+        // Apple 2026 Experience: Secondary with subtle lift
+        secondaryElevated: "bg-secondary text-secondary-foreground shadow-[var(--shadow-subtle)] hover:shadow-[var(--shadow-card)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-150",
       },
       size: {
         default: "h-11 px-4 py-2",

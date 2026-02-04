@@ -120,18 +120,32 @@ export const Dashboard = () => {
             </motion.div>
           </motion.div>
 
-          {/* Stats Cards with Stagger Animation - Clickable for filtering */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* Stats Cards with Stagger Animation - Apple 2026 Experience */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-[var(--space-4)]">
             <Link to="/admin/events?filter=new" className="block">
-              <MotionCard index={0} className="cursor-pointer hover:border-amber-500/50 transition-colors">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <MotionCard index={0} className="cursor-pointer group hover:border-amber-500/50 transition-all relative overflow-hidden">
+                {/* Gradient overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
                   <CardTitle className="text-base font-medium text-muted-foreground">
                     Neue Anfragen
                   </CardTitle>
-                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  <motion.div
+                    whileHover={{ rotate: 12, scale: 1.1 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  >
+                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  </motion.div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold">{newInquiries.length}</div>
+                <CardContent className="relative z-10">
+                  <motion.div
+                    className="text-4xl font-bold tabular-nums"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                  >
+                    {newInquiries.length}
+                  </motion.div>
                   <p className="text-sm text-muted-foreground">
                     Warten auf Bearbeitung
                   </p>
@@ -140,15 +154,28 @@ export const Dashboard = () => {
             </Link>
 
             <Link to="/admin/events?filter=in_progress" className="block">
-              <MotionCard index={1} className="cursor-pointer hover:border-amber-500/50 transition-colors">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <MotionCard index={1} className="cursor-pointer group hover:border-amber-500/50 transition-all relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
                   <CardTitle className="text-base font-medium text-muted-foreground">
                     In Bearbeitung
                   </CardTitle>
-                  <Edit3 className="h-4 w-4 text-muted-foreground" />
+                  <motion.div
+                    whileHover={{ rotate: 12, scale: 1.1 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  >
+                    <Edit3 className="h-4 w-4 text-muted-foreground" />
+                  </motion.div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold">{inProgressInquiries.length}</div>
+                <CardContent className="relative z-10">
+                  <motion.div
+                    className="text-4xl font-bold tabular-nums"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                  >
+                    {inProgressInquiries.length}
+                  </motion.div>
                   <p className="text-sm text-muted-foreground">
                     Angebot wird erstellt
                   </p>
@@ -157,15 +184,28 @@ export const Dashboard = () => {
             </Link>
 
             <Link to="/admin/events?filter=offer_sent" className="block">
-              <MotionCard index={2} className="cursor-pointer hover:border-emerald-500/50 transition-colors">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <MotionCard index={2} className="cursor-pointer group hover:border-emerald-500/50 transition-all relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
                   <CardTitle className="text-base font-medium text-muted-foreground">
                     Angebot versendet
                   </CardTitle>
-                  <Send className="h-4 w-4 text-muted-foreground" />
+                  <motion.div
+                    whileHover={{ rotate: 12, scale: 1.1 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  >
+                    <Send className="h-4 w-4 text-muted-foreground" />
+                  </motion.div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold">{offerSentInquiries.length}</div>
+                <CardContent className="relative z-10">
+                  <motion.div
+                    className="text-4xl font-bold tabular-nums"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    {offerSentInquiries.length}
+                  </motion.div>
                   <p className="text-sm text-muted-foreground">
                     Wartet auf Rückmeldung
                   </p>
@@ -174,15 +214,28 @@ export const Dashboard = () => {
             </Link>
 
             <Link to="/admin/orders" className="block">
-              <MotionCard index={3} className="cursor-pointer hover:border-primary/50 transition-colors">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <MotionCard index={3} className="cursor-pointer group hover:border-primary/50 transition-all relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
                   <CardTitle className="text-base font-medium text-muted-foreground">
                     Diese Woche
                   </CardTitle>
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <motion.div
+                    whileHover={{ rotate: 12, scale: 1.1 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  >
+                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  </motion.div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold">{upcomingOrdersCount}</div>
+                <CardContent className="relative z-10">
+                  <motion.div
+                    className="text-4xl font-bold tabular-nums"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 }}
+                  >
+                    {upcomingOrdersCount}
+                  </motion.div>
                   <p className="text-sm text-muted-foreground">
                     Anstehende Lieferungen
                   </p>

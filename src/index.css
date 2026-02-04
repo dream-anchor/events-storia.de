@@ -153,38 +153,141 @@ All colors MUST be HSL.
   
   /* Größerer Radius für Premium Look */
   --radius: 1rem;
-  
-  /* Spatial Design: Erweiterte Spacing-Tokens */
-  --space-section: 3rem;      /* 48px zwischen großen Sektionen */
-  --space-group: 2rem;        /* 32px innerhalb von Gruppen */
-  --space-element: 1.5rem;    /* 24px zwischen Elementen */
-  
-  /* Tiefe/Elevation-Tokens */
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Apple 2026 Experience: Squircle Border Radius System
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --radius-sm: 8px;       /* Buttons, badges */
+  --radius-md: 12px;      /* Inputs, small cards */
+  --radius-lg: 16px;      /* Cards */
+  --radius-xl: 20px;      /* Large cards */
+  --radius-2xl: 24px;     /* Navigation pills */
+  --radius-3xl: 32px;     /* Floating containers */
+  --radius-full: 9999px;  /* Circular elements */
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Apple 2026 Experience: Strict 8pt Grid System
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --space-0: 0px;
+  --space-1: 8px;         /* Micro spacing */
+  --space-2: 16px;        /* Element padding */
+  --space-3: 24px;        /* Element gaps */
+  --space-4: 32px;        /* Group spacing */
+  --space-5: 40px;        /* Section padding */
+  --space-6: 48px;        /* Section spacing */
+  --space-7: 56px;        /* Large sections */
+  --space-8: 64px;        /* Page margins */
+
+  /* Legacy aliases for backward compatibility */
+  --space-section: var(--space-6);
+  --space-group: var(--space-4);
+  --space-element: var(--space-3);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Apple 2026 Experience: Elevation/Shadow System
+     ═══════════════════════════════════════════════════════════════════════════ */
   --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.03);
   --shadow-card: 0 4px 12px -2px rgba(0, 0, 0, 0.06);
   --shadow-elevated: 0 8px 32px -4px rgba(0, 0, 0, 0.1);
   --shadow-floating: 0 16px 48px -8px rgba(0, 0, 0, 0.12);
-  
-  /* Glassmorphism-Stufen */
-  --glass-light: rgba(255, 255, 255, 0.6);
-  --glass-medium: rgba(255, 255, 255, 0.75);
-  --glass-strong: rgba(255, 255, 255, 0.9);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Apple 2026 Experience: 5-Tier Glassmorphism Depth System
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --glass-level-1: rgba(255, 255, 255, 0.5);    /* Subtle overlay */
+  --glass-level-2: rgba(255, 255, 255, 0.65);   /* Cards */
+  --glass-level-3: rgba(255, 255, 255, 0.75);   /* Elevated panels */
+  --glass-level-4: rgba(255, 255, 255, 0.85);   /* Navigation */
+  --glass-level-5: rgba(255, 255, 255, 0.92);   /* Floating modals */
+
+  --blur-subtle: 12px;
+  --blur-medium: 16px;
+  --blur-standard: 20px;
+  --blur-strong: 24px;
+  --blur-ultra: 32px;
+
+  /* Legacy aliases */
+  --glass-light: var(--glass-level-1);
+  --glass-medium: var(--glass-level-3);
+  --glass-strong: var(--glass-level-5);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Apple 2026 Experience: CTA Glow Effects
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --glow-primary: 0 0 20px hsla(38, 92%, 50%, 0.4);
+  --glow-primary-hover: 0 0 32px hsla(38, 92%, 50%, 0.5);
+  --glow-primary-active: 0 0 24px hsla(38, 92%, 50%, 0.6);
+  --glow-success: 0 0 20px hsla(142, 71%, 45%, 0.4);
+  --glow-danger: 0 0 20px hsla(0, 84%, 60%, 0.4);
+  --ambient-glow: 0 8px 32px -8px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.1);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Apple 2026 Experience: Motion Timing Tokens
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --duration-instant: 50ms;
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-deliberate: 400ms;
+
+  /* Spring-like easing (CSS approximation of Framer Motion springs) */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring-soft: cubic-bezier(0.22, 0.68, 0.35, 1.1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Glassmorphism Utilities */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Apple 2026 Experience: Glassmorphism Utility Classes
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Level 1: Subtle background panels */
+.admin-layout .glass-subtle {
+  background: var(--glass-level-1);
+  backdrop-filter: blur(var(--blur-subtle));
+  -webkit-backdrop-filter: blur(var(--blur-subtle));
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* Level 2: Standard cards */
 .admin-layout .glass-card {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.08);
+  background: var(--glass-level-2);
+  backdrop-filter: blur(var(--blur-medium));
+  -webkit-backdrop-filter: blur(var(--blur-medium));
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: all var(--duration-normal) var(--ease-out-expo);
 }
 
+.admin-layout .glass-card:hover {
+  box-shadow: var(--shadow-elevated), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+/* Level 3: Elevated panels */
+.admin-layout .glass-panel {
+  background: var(--glass-level-3);
+  backdrop-filter: blur(var(--blur-standard));
+  -webkit-backdrop-filter: blur(var(--blur-standard));
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: var(--shadow-elevated), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Level 4: Navigation (header) */
 .admin-layout .glass-header {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  background: var(--glass-level-4);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+}
+
+/* Level 5: Floating modals & dropdowns */
+.admin-layout .glass-floating {
+  background: var(--glass-level-5);
+  backdrop-filter: blur(var(--blur-ultra));
+  -webkit-backdrop-filter: blur(var(--blur-ultra));
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: var(--shadow-floating), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 /* Light-Mode Enforcement für alle Radix-Popovers */
@@ -316,15 +419,62 @@ html, body {
   border-color: transparent;
 }
 
-/* Focus States - Haptisches Feedback */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Apple 2026 Experience: Enhanced Focus States
+   ═══════════════════════════════════════════════════════════════════════════ */
 .admin-layout button:focus-visible,
-.admin-layout [role="button"]:focus-visible {
+.admin-layout [role="button"]:focus-visible,
+.admin-layout a:focus-visible,
+.admin-layout input:focus-visible,
+.admin-layout select:focus-visible,
+.admin-layout textarea:focus-visible {
   outline: 2px solid hsl(var(--primary));
   outline-offset: 2px;
-  transition: outline-offset 0.1s ease;
+  box-shadow: 0 0 0 4px hsla(var(--primary) / 0.2);
+  transition: outline-offset var(--duration-fast) ease,
+              box-shadow var(--duration-fast) ease;
 }
 
 .admin-layout button:active,
 .admin-layout [role="button"]:active {
   transform: scale(0.98);
+  transition: transform var(--duration-instant) ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Apple 2026 Experience: Accessibility - Reduced Motion Support
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .admin-layout *,
+  .admin-layout *::before,
+  .admin-layout *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .admin-layout [class*="glass-"] {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .admin-layout .glass-card:hover,
+  .admin-layout button:active,
+  .admin-layout [role="button"]:active {
+    transform: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Apple 2026 Experience: GPU Acceleration for Animated Elements
+   ═══════════════════════════════════════════════════════════════════════════ */
+.admin-layout .glass-card,
+.admin-layout .glass-header,
+.admin-layout .glass-floating,
+.admin-layout .glass-panel {
+  will-change: transform, box-shadow;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }

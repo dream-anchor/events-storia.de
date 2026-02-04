@@ -102,13 +102,19 @@ export const FloatingPillNav = ({
   };
 
   return (
-    <nav className="hidden md:flex items-center gap-1.5 p-2 bg-white/70 backdrop-blur-2xl rounded-3xl shadow-[var(--shadow-floating,_0_16px_48px_-8px_rgba(0,0,0,0.12))] border border-white/50">
+    <nav className={cn(
+      "hidden md:flex items-center gap-1.5 p-2",
+      "bg-[var(--glass-level-4)] backdrop-blur-[var(--blur-strong)]",
+      "rounded-[var(--radius-3xl)] border border-white/40",
+      "shadow-[var(--shadow-floating),_var(--ambient-glow)]",
+      "transition-shadow duration-300"
+    )}>
       {navigationContexts.map((item) => {
         const Icon = item.icon;
-        const isActive = activeContext === item.key || 
+        const isActive = activeContext === item.key ||
           (item.children?.some(child => location.pathname.includes(child.href)));
         const badgeCount = getContextBadgeCount(item);
-        
+
         // Items with children get a dropdown
         if (item.children) {
           return (
@@ -118,10 +124,10 @@ export const FloatingPillNav = ({
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
                   className={cn(
-                    "relative flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-medium transition-all duration-200 outline-none",
+                    "relative flex items-center gap-2 px-5 py-3 rounded-[var(--radius-2xl)] text-sm font-medium transition-all duration-200 outline-none",
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      ? "bg-primary text-primary-foreground shadow-[var(--glow-primary)]"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -184,10 +190,10 @@ export const FloatingPillNav = ({
             <Link
               to={item.href}
               className={cn(
-                "relative flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-medium transition-all duration-200",
+                "relative flex items-center gap-2 px-5 py-3 rounded-[var(--radius-2xl)] text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  ? "bg-primary text-primary-foreground shadow-[var(--glow-primary)]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"
               )}
             >
             <Icon className="h-4 w-4" />
@@ -233,11 +239,20 @@ export const MobileBottomNav = ({
   };
 
   return (
-    <motion.nav 
-      className="fixed bottom-0 inset-x-0 z-50 md:hidden glass-header pb-safe"
+    <motion.nav
+      className={cn(
+        "fixed bottom-0 inset-x-0 z-50 md:hidden",
+        "glass-floating border-t-0",
+        "shadow-[0_-8px_32px_-8px_rgba(0,0,0,0.1)]"
+      )}
       initial={{ y: 100 }}
       animate={{ y: 0 }}
-      transition={{ type: "spring", damping: 20, stiffness: 300 }}
+      transition={{
+        type: "spring",
+        stiffness: 350,
+        damping: 28,
+        mass: 0.8
+      }}
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="grid grid-cols-3 h-16">
@@ -245,15 +260,15 @@ export const MobileBottomNav = ({
           const Icon = item.icon;
           const active = isActive(item.href);
           const badgeCount = getBadgeCount?.(item.badge) || 0;
-          
+
           return (
             <motion.div key={item.key} whileTap={{ scale: 0.9 }}>
               <Link
                 to={item.href}
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 relative transition-colors h-full",
-                  active 
-                    ? "text-primary" 
+                  active
+                    ? "text-primary"
                     : "text-muted-foreground"
                 )}
               >
@@ -272,9 +287,10 @@ export const MobileBottomNav = ({
                   {item.name}
                 </span>
                 {active && (
-                  <motion.div 
-                    layoutId="activeTab"
-                    className="absolute top-0 inset-x-4 h-0.5 bg-primary rounded-full" 
+                  <motion.div
+                    layoutId="mobileActiveTab"
+                    className="absolute top-0 inset-x-4 h-0.5 bg-primary rounded-full shadow-[var(--glow-primary)]"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   />
                 )}
               </Link>
