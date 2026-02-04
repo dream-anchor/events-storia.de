@@ -96,11 +96,11 @@ interface ActivityEntryProps {
 const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasEmailContent = log.action === 'email_sent' && log.metadata?.html_content;
-  const actionText = String(formatActivityAction(log));
+  const actionText: string = String(formatActivityAction(log));
   const actorName = getAdminDisplayName(log.actor_email);
   const initials = getAdminInitials(log.actor_email);
   const theme = getActionTheme(log.action);
-  const hasSummary = log.metadata?.summary;
+  const hasSummary: boolean = Boolean(log.metadata?.summary);
 
   return (
     <div className="relative flex gap-3 group">
@@ -186,7 +186,7 @@ const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
 
           {/* Action description */}
           <p className="text-sm text-foreground">
-            {actionText as React.ReactNode}
+            {actionText}
           </p>
 
           {/* Summary metadata if available */}
