@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { ArrowLeft, Loader2, CalendarDays, Truck, Check, Activity } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
+import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -302,6 +303,32 @@ export const SmartInquiryEditor = () => {
       setIsSending(false);
     }
   }, [inquiry, id, emailDraft, performSave, selectedPackages, quoteItems, quoteNotes, guestCount, mergedInquiry, updateInquiry, menuSelection]);
+
+  // Keyboard shortcuts for editor
+  useEditorShortcuts({
+    onSave: () => {
+      performSave();
+      toast.success("Gespeichert");
+    },
+    onSendOffer: () => {
+      // Only trigger if we have an email draft ready
+      if (emailDraft && inquiry?.status !== 'offer_sent') {
+        handleSendOffer();
+      }
+    },
+    onGenerateEmail: () => {
+      // Switch to Kalkulation tab where email is composed
+      setActiveTab("kalkulation");
+      toast.info("Nutze den E-Mail-Editor im Kalkulation-Tab");
+    },
+    onNextInquiry: () => {
+      // Navigate to events list for now - could be enhanced with actual navigation
+      toast.info("Tipp: Nutze ⌘K für schnelle Navigation");
+    },
+    onPreviousInquiry: () => {
+      toast.info("Tipp: Nutze ⌘K für schnelle Navigation");
+    },
+  });
 
   if (isLoading) {
     return (

@@ -14,12 +14,11 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
-    "strict": false,
+    /* Linting - Strict Mode enabled per CLAUDE.md */
+    "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noImplicitAny": false,
-    "noFallthroughCasesInSwitch": false,
+    "noFallthroughCasesInSwitch": true,
 
     "baseUrl": ".",
     "paths": {

@@ -2,17 +2,29 @@ import React from "react";
 import { useList, useUpdate } from "@refinedev/core";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { CalendarDays, FileText, Clock, CheckCircle2, AlertCircle, ChefHat, Plus, Send, Edit3, CreditCard, Receipt, Phone, MessageSquare } from "lucide-react";
+import { CalendarDays, FileText, Clock, CheckCircle2, AlertCircle, ChefHat, Plus, Send, Edit3, CreditCard, Receipt, Phone, MessageSquare, MoreVertical, Copy, Mail, Flame, ExternalLink, User, AlertTriangle } from "lucide-react";
 import { format, parseISO, isAfter, addDays, formatDistanceToNow, differenceInHours } from "date-fns";
 import { de } from "date-fns/locale";
 import { AdminLayout } from "./AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
 import { EventInquiry, CateringOrder } from "@/types/refine";
 import { useEventBookings, usePaidEventBookings } from "@/hooks/useEventBookings";
 import { PageTransition, MotionCard } from "@/components/admin/motion";
 import { EditorIndicator } from "@/components/admin/shared/EditorIndicator";
+import { AssigneeBadge, AssigneeSelector } from "@/components/admin/shared/AssigneeSelector";
+import { PriorityBadge } from "@/components/admin/shared/PrioritySelector";
+import { TasksWidget } from "@/components/admin/refine/TasksWidget";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Dashboard = () => {
   // Fetch ALL events to categorize them
@@ -105,67 +117,75 @@ export const Dashboard = () => {
             </motion.div>
           </motion.div>
 
-          {/* Stats Cards with Stagger Animation */}
+          {/* Stats Cards with Stagger Animation - Clickable for filtering */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <MotionCard index={0}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-base font-medium text-muted-foreground">
-                  Neue Anfragen
-                </CardTitle>
-                <AlertCircle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold">{newInquiries.length}</div>
-                <p className="text-sm text-muted-foreground">
-                  Warten auf Bearbeitung
-                </p>
-              </CardContent>
-            </MotionCard>
+            <Link to="/admin/events?filter=new" className="block">
+              <MotionCard index={0} className="cursor-pointer hover:border-amber-500/50 transition-colors">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base font-medium text-muted-foreground">
+                    Neue Anfragen
+                  </CardTitle>
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-4xl font-bold">{newInquiries.length}</div>
+                  <p className="text-sm text-muted-foreground">
+                    Warten auf Bearbeitung
+                  </p>
+                </CardContent>
+              </MotionCard>
+            </Link>
 
-            <MotionCard index={1}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-base font-medium text-muted-foreground">
-                  In Bearbeitung
-                </CardTitle>
-                <Edit3 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold">{inProgressInquiries.length}</div>
-                <p className="text-sm text-muted-foreground">
-                  Angebot wird erstellt
-                </p>
-              </CardContent>
-            </MotionCard>
+            <Link to="/admin/events?filter=in_progress" className="block">
+              <MotionCard index={1} className="cursor-pointer hover:border-amber-500/50 transition-colors">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base font-medium text-muted-foreground">
+                    In Bearbeitung
+                  </CardTitle>
+                  <Edit3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-4xl font-bold">{inProgressInquiries.length}</div>
+                  <p className="text-sm text-muted-foreground">
+                    Angebot wird erstellt
+                  </p>
+                </CardContent>
+              </MotionCard>
+            </Link>
 
-            <MotionCard index={2}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-base font-medium text-muted-foreground">
-                  Angebot versendet
-                </CardTitle>
-                <Send className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold">{offerSentInquiries.length}</div>
-                <p className="text-sm text-muted-foreground">
-                  Wartet auf Rückmeldung
-                </p>
-              </CardContent>
-            </MotionCard>
+            <Link to="/admin/events?filter=offer_sent" className="block">
+              <MotionCard index={2} className="cursor-pointer hover:border-emerald-500/50 transition-colors">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base font-medium text-muted-foreground">
+                    Angebot versendet
+                  </CardTitle>
+                  <Send className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-4xl font-bold">{offerSentInquiries.length}</div>
+                  <p className="text-sm text-muted-foreground">
+                    Wartet auf Rückmeldung
+                  </p>
+                </CardContent>
+              </MotionCard>
+            </Link>
 
-            <MotionCard index={3}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-base font-medium text-muted-foreground">
-                  Diese Woche
-                </CardTitle>
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold">{upcomingOrdersCount}</div>
-                <p className="text-sm text-muted-foreground">
-                  Anstehende Lieferungen
-                </p>
-              </CardContent>
-            </MotionCard>
+            <Link to="/admin/orders" className="block">
+              <MotionCard index={3} className="cursor-pointer hover:border-primary/50 transition-colors">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base font-medium text-muted-foreground">
+                    Diese Woche
+                  </CardTitle>
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-4xl font-bold">{upcomingOrdersCount}</div>
+                  <p className="text-sm text-muted-foreground">
+                    Anstehende Lieferungen
+                  </p>
+                </CardContent>
+              </MotionCard>
+            </Link>
           </div>
 
           {/* Three Column Layout for Inquiry Categories */}
@@ -351,8 +371,11 @@ export const Dashboard = () => {
             </Card>
           )}
 
-          {/* Bottom Row: Orders + Menu Pending */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Bottom Row: Tasks + Orders + Menu Pending */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Tasks Widget */}
+            <TasksWidget />
+
             {/* Pending Menu Bookings */}
             {pendingMenuCount > 0 && (
               <Card>
@@ -461,7 +484,7 @@ export const Dashboard = () => {
   );
 };
 
-// Inquiry Card Component
+// Inquiry Card Component with Quick Actions Dropdown
 function InquiryCard({
   event,
   showEditor = false,
@@ -475,6 +498,8 @@ function InquiryCard({
   showQuickActions?: boolean;
   onMarkContacted?: (id: string) => void;
 }) {
+  const { toast } = useToast();
+
   // Calculate if inquiry is urgent (> 48h old and still 'new')
   const isUrgent = event.status === 'new' && event.created_at &&
     differenceInHours(new Date(), parseISO(event.created_at)) > 48;
@@ -487,21 +512,82 @@ function InquiryCard({
     }
   };
 
+  const handleCopyEmail = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (event.email) {
+      navigator.clipboard.writeText(event.email);
+      toast({
+        description: `E-Mail kopiert: ${event.email}`,
+      });
+    }
+  };
+
+  const handleCopyPhone = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (event.phone) {
+      navigator.clipboard.writeText(event.phone);
+      toast({
+        description: `Telefon kopiert: ${event.phone}`,
+      });
+    }
+  };
+
+  const handleOpenEmail = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (event.email) {
+      window.open(`mailto:${event.email}`, '_blank');
+    }
+  };
+
+  const handleAssignToMe = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email) {
+      await supabase
+        .from('event_inquiries')
+        .update({
+          assigned_to: user.email,
+          assigned_at: new Date().toISOString(),
+          assigned_by: user.email,
+        })
+        .eq('id', event.id);
+      toast({ description: "Anfrage wurde dir zugewiesen" });
+      // Trigger refetch by refreshing
+      window.location.reload();
+    }
+  };
+
+  const handleSetPriority = async (e: React.MouseEvent, priority: 'high' | 'urgent') => {
+    e.preventDefault();
+    e.stopPropagation();
+    await supabase
+      .from('event_inquiries')
+      .update({ priority })
+      .eq('id', event.id);
+    toast({ description: `Priorität auf "${priority === 'high' ? 'Hoch' : 'Dringend'}" gesetzt` });
+    window.location.reload();
+  };
+
   return (
-    <Link
-      to={`/admin/events/${event.id}/edit`}
-      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-    >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+    <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors group">
+      <Link
+        to={`/admin/events/${event.id}/edit`}
+        className="flex-1 min-w-0"
+      >
+        <div className="flex items-center gap-2 flex-wrap">
           <p className="font-medium truncate">
             {event.company_name || event.contact_name}
           </p>
-          {isUrgent && (
-            <Badge variant="destructive" className="text-[10px] px-1.5 py-0 animate-pulse">
-              Dringend
-            </Badge>
+          {/* Priority Badge - show if high/urgent OR auto-urgent */}
+          {(event.priority === 'urgent' || event.priority === 'high' || isUrgent) && (
+            <PriorityBadge priority={isUrgent && event.priority === 'normal' ? 'urgent' : event.priority} showLabel={false} />
           )}
+          {/* Assignee Badge */}
+          {event.assigned_to && <AssigneeBadge email={event.assigned_to} />}
         </div>
         <p className="text-sm text-muted-foreground">
           {event.guest_count} Gäste • {event.event_type || 'Event'}
@@ -532,26 +618,96 @@ function InquiryCard({
             Versendet {formatDistanceToNow(parseISO(event.offer_sent_at), { addSuffix: true, locale: de })}
           </p>
         )}
-      </div>
+      </Link>
       <div className="text-right ml-2 flex flex-col items-end gap-1">
         {event.created_at && (
           <p className="text-xs text-muted-foreground">
             {format(parseISO(event.created_at), "dd.MM.yy", { locale: de })}
           </p>
         )}
-        {/* Quick Action: Als kontaktiert markieren */}
-        {showQuickActions && onMarkContacted && (
+        {/* Quick Actions Dropdown */}
+        {showQuickActions && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => e.preventDefault()}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              {onMarkContacted && (
+                <DropdownMenuItem onClick={handleMarkContacted}>
+                  <Phone className="h-4 w-4 mr-2" />
+                  Als kontaktiert markieren
+                </DropdownMenuItem>
+              )}
+              {/* Assignment */}
+              {!event.assigned_to && (
+                <DropdownMenuItem onClick={handleAssignToMe}>
+                  <User className="h-4 w-4 mr-2" />
+                  Mir zuweisen
+                </DropdownMenuItem>
+              )}
+              {/* Priority */}
+              {event.priority !== 'urgent' && (
+                <DropdownMenuItem onClick={(e) => handleSetPriority(e, 'urgent')}>
+                  <Flame className="h-4 w-4 mr-2 text-red-500" />
+                  Als dringend markieren
+                </DropdownMenuItem>
+              )}
+              {event.priority !== 'high' && event.priority !== 'urgent' && (
+                <DropdownMenuItem onClick={(e) => handleSetPriority(e, 'high')}>
+                  <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
+                  Hohe Priorität setzen
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              {event.email && (
+                <>
+                  <DropdownMenuItem onClick={handleCopyEmail}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    E-Mail kopieren
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleOpenEmail}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    E-Mail öffnen
+                  </DropdownMenuItem>
+                </>
+              )}
+              {event.phone && (
+                <DropdownMenuItem onClick={handleCopyPhone}>
+                  <Phone className="h-4 w-4 mr-2" />
+                  Telefon kopieren
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to={`/admin/events/${event.id}/edit`} onClick={(e) => e.stopPropagation()}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Anfrage öffnen
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        {/* Non-dropdown quick action for non-new cards */}
+        {!showQuickActions && showEditor && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={handleMarkContacted}
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            asChild
           >
-            <Phone className="h-3 w-3 mr-1" />
-            Kontaktiert
+            <Link to={`/admin/events/${event.id}/edit`}>
+              <ExternalLink className="h-3 w-3" />
+            </Link>
           </Button>
         )}
       </div>
-    </Link>
+    </div>
   );
 }

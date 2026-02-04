@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import {
   MessageSquare, Calendar, Users, Building2, Mail, Phone,
-  ChevronDown, ChevronUp, StickyNote, Pencil, Check, X
+  ChevronDown, ChevronUp, StickyNote, Pencil, Check, X, UserCircle, Flag, ListTodo
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,21 +11,38 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ExtendedInquiry } from "./types";
+import { AssigneeSelector } from "@/components/admin/shared/AssigneeSelector";
+import { PrioritySelector } from "@/components/admin/shared/PrioritySelector";
+import { TaskManager } from "@/components/admin/shared/TaskManager";
+import { InquiryPriority } from "@/types/refine";
+import { supabase } from "@/integrations/supabase/client";
 
 interface InquiryDetailsPanelProps {
   inquiry: ExtendedInquiry;
   onInternalNotesChange?: (notes: string) => void;
+  onAssigneeChange?: (email: string | null) => void;
+  onPriorityChange?: (priority: InquiryPriority) => void;
   className?: string;
 }
 
 export const InquiryDetailsPanel = ({
   inquiry,
   onInternalNotesChange,
+  onAssigneeChange,
+  onPriorityChange,
   className
 }: InquiryDetailsPanelProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [localNotes, setLocalNotes] = useState(inquiry.internal_notes || "");
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>();
+
+  // Get current user email for "Mir zuweisen" feature
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserEmail(user?.email || undefined);
+    });
+  }, []);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "Nicht angegeben";
@@ -150,6 +167,36 @@ export const InquiryDetailsPanel = ({
             )}
           </div>
 
+          {/* Assignment & Priority Section */}
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/50">
+            {/* Assignee */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <UserCircle className="h-3.5 w-3.5" />
+                Zugewiesen an
+              </label>
+              <AssigneeSelector
+                value={inquiry.assigned_to || null}
+                onChange={(email) => onAssigneeChange?.(email)}
+                currentUserEmail={currentUserEmail}
+                disabled={!onAssigneeChange}
+              />
+            </div>
+
+            {/* Priority */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Flag className="h-3.5 w-3.5" />
+                Priorität
+              </label>
+              <PrioritySelector
+                value={inquiry.priority || 'normal'}
+                onChange={(priority) => onPriorityChange?.(priority)}
+                disabled={!onPriorityChange}
+              />
+            </div>
+          </div>
+
           {/* Internal Notes */}
           <div className="space-y-1.5 pt-2 border-t border-border/50">
             <div className="flex items-center justify-between">
@@ -208,6 +255,18 @@ export const InquiryDetailsPanel = ({
                 )}
               </div>
             )}
+          </div>
+
+          {/* Tasks / Follow-ups */}
+          <div className="space-y-1.5 pt-2 border-t border-border/50">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <ListTodo className="h-3.5 w-3.5" />
+              Aufgaben & Follow-ups
+            </label>
+            <TaskManager
+              inquiryId={inquiry.id}
+              currentUserEmail={currentUserEmail}
+            />
           </div>
 
           {/* Inquiry Received Date */}

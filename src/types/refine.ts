@@ -42,7 +42,15 @@ export interface EventInquiry extends BaseRecord {
   last_edited_at: string | null;
   offer_sent_at: string | null;
   offer_sent_by: string | null;
+  // Assignment fields (Phase 2)
+  assigned_to: string | null;
+  assigned_at: string | null;
+  assigned_by: string | null;
+  // Priority field (Phase 2)
+  priority: InquiryPriority;
 }
+
+export type InquiryPriority = 'normal' | 'high' | 'urgent';
 
 export interface CateringOrder extends BaseRecord {
   id: string;

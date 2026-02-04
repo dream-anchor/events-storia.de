@@ -9,6 +9,7 @@ import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
 import { FloatingPillNav, MobilePillNav, MobileBottomNav } from "./FloatingPillNav";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
 import { UserProfileDropdown } from "../shared/UserProfileDropdown";
+import { NotificationCenter } from "../shared/NotificationCenter";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -53,8 +54,8 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
             <div className="flex items-center gap-2">
               {/* Search Field Trigger */}
               <motion.div whileTap={{ scale: 0.98 }}>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => setCommandOpen(true)}
                   className="hidden sm:flex items-center gap-2 text-muted-foreground rounded-2xl h-10 px-4 min-w-[200px] justify-start"
@@ -63,6 +64,9 @@ export const AdminLayout = ({ children, activeTab }: AdminLayoutProps) => {
                   <span className="text-sm">Suche...</span>
                 </Button>
               </motion.div>
+
+              {/* Notification Center */}
+              <NotificationCenter />
 
               <UserProfileDropdown />
             </div>

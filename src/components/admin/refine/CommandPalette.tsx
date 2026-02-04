@@ -202,6 +202,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
           <CommandItem onSelect={() => handleSelect('/admin/events/create')}>
             <Plus className="mr-2 h-4 w-4" />
             <span>Neue Event-Anfrage erstellen</span>
+            <CommandShortcut>⇧⌘N</CommandShortcut>
           </CommandItem>
           <CommandItem onSelect={() => handleSelect('/admin/packages/create')}>
             <Plus className="mr-2 h-4 w-4" />
@@ -232,7 +233,7 @@ export const useCommandPalette = () => {
         e.preventDefault();
         setOpen(prev => !prev);
       }
-      // Additional shortcuts
+      // Global navigation shortcuts (Cmd+Key without Shift)
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
         if (e.key === 'd') {
           e.preventDefault();
@@ -246,6 +247,23 @@ export const useCommandPalette = () => {
           e.preventDefault();
           window.location.href = '/admin/events';
         }
+        if (e.key === 'o') {
+          e.preventDefault();
+          window.location.href = '/admin/orders';
+        }
+        if (e.key === 'p') {
+          e.preventDefault();
+          window.location.href = '/admin/packages';
+        }
+        if (e.key === 'm') {
+          e.preventDefault();
+          window.location.href = '/admin/menu';
+        }
+      }
+      // Schnellaktion: Cmd+Shift+N für neue Anfrage
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'n') {
+        e.preventDefault();
+        window.location.href = '/admin/events/create';
       }
     };
 
@@ -254,4 +272,62 @@ export const useCommandPalette = () => {
   }, []);
 
   return { open, setOpen };
+};
+
+/**
+ * Hook for editor-specific keyboard shortcuts
+ * Use in SmartInquiryEditor for context-aware shortcuts
+ */
+export interface EditorShortcutHandlers {
+  onGenerateEmail?: () => void;
+  onSendOffer?: () => void;
+  onSave?: () => void;
+  onNextInquiry?: () => void;
+  onPreviousInquiry?: () => void;
+}
+
+export const useEditorShortcuts = (handlers: EditorShortcutHandlers) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if user is typing in an input/textarea
+      const target = e.target as HTMLElement;
+      const isTyping = target.tagName === 'INPUT' ||
+                       target.tagName === 'TEXTAREA' ||
+                       target.isContentEditable;
+
+      // Cmd+Shift+E - Generate Email
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'e') {
+        e.preventDefault();
+        handlers.onGenerateEmail?.();
+      }
+
+      // Cmd+Enter - Send Offer (works even in text fields)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handlers.onSendOffer?.();
+      }
+
+      // Cmd+S - Force Save
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        handlers.onSave?.();
+      }
+
+      // Navigation shortcuts only when not typing
+      if (!isTyping) {
+        // Arrow Up/Down or J/K for vim-style navigation
+        if (e.key === 'ArrowUp' || e.key === 'k') {
+          e.preventDefault();
+          handlers.onPreviousInquiry?.();
+        }
+        if (e.key === 'ArrowDown' || e.key === 'j') {
+          e.preventDefault();
+          handlers.onNextInquiry?.();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handlers]);
 };

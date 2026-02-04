@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Copy, Sparkles, ChevronDown, Check, ArrowLeft, FileText } from "lucide-react";
+import { Copy, Sparkles, ChevronDown, Check, ArrowLeft, FileText, Zap } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,6 +50,11 @@ export function EmailEditorPanel({
 }: EmailEditorPanelProps) {
   const [copied, setCopied] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+
+  // Get top 3 templates for quick access (sorted by sort_order)
+  const quickTemplates = useMemo(() => {
+    return templates.slice(0, 3);
+  }, [templates]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(emailDraft);
@@ -153,6 +158,34 @@ export function EmailEditorPanel({
           </motion.div>
         </div>
       </div>
+
+      {/* Quick Templates - Always Visible */}
+      {quickTemplates.length > 0 && !emailDraft && (
+        <div className="px-6 py-3 border-b border-border/30 bg-muted/20">
+          <div className="flex items-center gap-2 mb-2">
+            <Zap className="h-3.5 w-3.5 text-amber-500" />
+            <span className="text-xs font-medium text-muted-foreground">Schnellvorlagen</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {quickTemplates.map((template) => (
+              <motion.div
+                key={template.id}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => applyTemplate(template)}
+                  className="h-8 rounded-xl text-xs font-medium bg-background hover:bg-primary/5 hover:border-primary/30"
+                >
+                  {template.name}
+                </Button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Full-Height Textarea */}
       <div className="flex-1 p-6 min-h-0">

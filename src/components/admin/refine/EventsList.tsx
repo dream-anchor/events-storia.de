@@ -1,18 +1,22 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useList } from "@refinedev/core";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare } from "lucide-react";
+import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare, User, Flag, AlertTriangle, LayoutGrid, Table2 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable } from "./DataTable";
+import { KanbanView } from "./KanbanView";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { EventInquiry, InquiryStatus } from "@/types/refine";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { EventInquiry, InquiryStatus, InquiryPriority } from "@/types/refine";
 import { EditorIndicator } from "@/components/admin/shared/EditorIndicator";
+import { BulkActionBar } from "@/components/admin/shared/BulkActionBar";
 import { cn } from "@/lib/utils";
-import { getAdminDisplayName } from "@/lib/adminDisplayNames";
+import { getAdminDisplayName, getAdminInitials } from "@/lib/adminDisplayNames";
+import { supabase } from "@/integrations/supabase/client";
 
 const statusConfig: Record<InquiryStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   new: { label: "Neu", variant: "default" },
@@ -33,13 +37,67 @@ const eventTypeLabels: Record<string, string> = {
   sonstiges: "Sonstiges",
 };
 
-type FilterType = 'all' | 'new' | 'in_progress' | 'offer_sent' | 'confirmed' | 'declined';
+type FilterType = 'all' | 'mine' | 'new' | 'in_progress' | 'offer_sent' | 'confirmed' | 'declined' | 'urgent';
+
+// Priority badge component
+const PriorityIndicator = ({ priority }: { priority?: InquiryPriority }) => {
+  if (!priority || priority === "normal") return null;
+
+  if (priority === "urgent") {
+    return (
+      <Badge variant="destructive" className="gap-1 text-[10px] px-1.5 py-0">
+        <AlertTriangle className="h-2.5 w-2.5" />
+        Dringend
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0 border-amber-500/50 text-amber-700 bg-amber-50">
+      <Flag className="h-2.5 w-2.5" />
+      Hoch
+    </Badge>
+  );
+};
+
+// Assignee indicator
+const AssigneeIndicator = ({ email }: { email?: string | null }) => {
+  if (!email) return null;
+
+  const initials = getAdminInitials(email);
+  const name = getAdminDisplayName(email);
+
+  return (
+    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`Zugewiesen an ${name}`}>
+      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-medium">
+        {initials}
+      </div>
+    </div>
+  );
+};
 
 export const EventsList = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialFilter = (searchParams.get('filter') as FilterType) || 'all';
   const [currentFilter, setCurrentFilter] = useState<FilterType>(initialFilter);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"table" | "kanban">(
+    () => (localStorage.getItem("eventsViewMode") as "table" | "kanban") || "table"
+  );
+
+  // Save view preference
+  useEffect(() => {
+    localStorage.setItem("eventsViewMode", viewMode);
+  }, [viewMode]);
+
+  // Get current user email
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserEmail(user?.email || null);
+    });
+  }, []);
 
   const eventsQuery = useList<EventInquiry>({
     resource: "events",
@@ -53,24 +111,38 @@ export const EventsList = () => {
   // Categorize events based on status (the single source of truth)
   // Status 'offer_sent' means at least one version was sent - it stays there even when editing a new version
   const categorizedEvents = useMemo(() => {
-    const newInquiries = allEvents.filter(e => 
+    const newInquiries = allEvents.filter(e =>
       e.status === 'new' && !e.last_edited_at
     );
-    const inProgress = allEvents.filter(e => 
-      (e.last_edited_at || e.status === 'contacted') && 
-      e.status !== 'offer_sent' && 
-      e.status !== 'confirmed' && 
+    const inProgress = allEvents.filter(e =>
+      (e.last_edited_at || e.status === 'contacted') &&
+      e.status !== 'offer_sent' &&
+      e.status !== 'confirmed' &&
       e.status !== 'declined'
     );
     // offer_sent = status is the source of truth (set once, stays forever unless confirmed/declined)
-    const offerSent = allEvents.filter(e => 
+    const offerSent = allEvents.filter(e =>
       e.status === 'offer_sent'
     );
     const confirmed = allEvents.filter(e => e.status === 'confirmed');
     const declined = allEvents.filter(e => e.status === 'declined');
 
-    return { newInquiries, inProgress, offerSent, confirmed, declined };
-  }, [allEvents]);
+    // My assigned inquiries
+    const mine = allEvents.filter(e =>
+      e.assigned_to === currentUserEmail &&
+      e.status !== 'confirmed' &&
+      e.status !== 'declined'
+    );
+
+    // Urgent/High priority
+    const urgent = allEvents.filter(e =>
+      (e.priority === 'urgent' || e.priority === 'high') &&
+      e.status !== 'confirmed' &&
+      e.status !== 'declined'
+    );
+
+    return { newInquiries, inProgress, offerSent, confirmed, declined, mine, urgent };
+  }, [allEvents, currentUserEmail]);
 
   // Get filtered events based on current filter
   const filteredEvents = useMemo(() => {
@@ -85,6 +157,10 @@ export const EventsList = () => {
         return categorizedEvents.confirmed;
       case 'declined':
         return categorizedEvents.declined;
+      case 'mine':
+        return categorizedEvents.mine;
+      case 'urgent':
+        return categorizedEvents.urgent;
       default:
         return allEvents;
     }
@@ -93,6 +169,20 @@ export const EventsList = () => {
   // Filter pills with counts
   const filterPills = [
     { id: 'all', label: `Alle (${allEvents.length})`, value: 'all', active: currentFilter === 'all' },
+    ...(currentUserEmail && categorizedEvents.mine.length > 0 ? [{
+      id: 'mine',
+      label: `Meine (${categorizedEvents.mine.length})`,
+      value: 'mine',
+      active: currentFilter === 'mine',
+      icon: <User className="h-3 w-3 mr-1 text-primary" />
+    }] : []),
+    ...(categorizedEvents.urgent.length > 0 ? [{
+      id: 'urgent',
+      label: `Dringend (${categorizedEvents.urgent.length})`,
+      value: 'urgent',
+      active: currentFilter === 'urgent',
+      icon: <AlertTriangle className="h-3 w-3 mr-1 text-destructive" />
+    }] : []),
     { id: 'new', label: `Neu (${categorizedEvents.newInquiries.length})`, value: 'new', active: currentFilter === 'new', icon: <span className="w-2 h-2 rounded-full bg-destructive/70 mr-1" /> },
     { id: 'in_progress', label: `In Bearbeitung (${categorizedEvents.inProgress.length})`, value: 'in_progress', active: currentFilter === 'in_progress', icon: <Edit3 className="h-3 w-3 mr-1 text-amber-600" /> },
     { id: 'offer_sent', label: `Angebot (${categorizedEvents.offerSent.length})`, value: 'offer_sent', active: currentFilter === 'offer_sent', icon: <Send className="h-3 w-3 mr-1 text-emerald-600" /> },
@@ -150,11 +240,15 @@ export const EventsList = () => {
         }
 
         return (
-          <div className="flex flex-col gap-0.5">
-            <Badge variant="outline" className={cn("font-medium flex items-center w-fit", badgeClass)}>
-              {statusIcon}
-              {statusLabel}
-            </Badge>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <Badge variant="outline" className={cn("font-medium flex items-center w-fit", badgeClass)}>
+                {statusIcon}
+                {statusLabel}
+              </Badge>
+              <PriorityIndicator priority={event.priority as InquiryPriority} />
+              <AssigneeIndicator email={event.assigned_to} />
+            </div>
             {subLabel && (
               <span className="text-xs text-muted-foreground ml-0.5">{subLabel}</span>
             )}
@@ -267,25 +361,64 @@ export const EventsList = () => {
               Verwalten Sie Event-Anfragen und erstellen Sie Angebote.
             </p>
           </div>
-          <Button asChild>
-            <Link to="/admin/events/create">
-              <Plus className="h-4 w-4 mr-2" />
-              Neue Anfrage
-            </Link>
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* View Toggle */}
+            <ToggleGroup
+              type="single"
+              value={viewMode}
+              onValueChange={(value) => value && setViewMode(value as "table" | "kanban")}
+              className="border rounded-lg p-0.5"
+            >
+              <ToggleGroupItem value="table" aria-label="Tabellenansicht" className="h-8 px-3">
+                <Table2 className="h-4 w-4 mr-1.5" />
+                Tabelle
+              </ToggleGroupItem>
+              <ToggleGroupItem value="kanban" aria-label="Kanban-Ansicht" className="h-8 px-3">
+                <LayoutGrid className="h-4 w-4 mr-1.5" />
+                Kanban
+              </ToggleGroupItem>
+            </ToggleGroup>
+
+            <Button asChild>
+              <Link to="/admin/events/create">
+                <Plus className="h-4 w-4 mr-2" />
+                Neue Anfrage
+              </Link>
+            </Button>
+          </div>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={filteredEvents}
-          searchPlaceholder="Suche nach Name, Firma, E-Mail..."
-          filterPills={filterPills}
-          onFilterChange={handleFilterChange}
-          onRefresh={() => eventsQuery.query.refetch()}
-          onRowClick={handleRowClick}
-          isLoading={isLoading}
-          pageSize={15}
-        />
+        {viewMode === "table" ? (
+          <>
+            <DataTable
+              columns={columns}
+              data={filteredEvents}
+              searchPlaceholder="Suche nach Name, Firma, E-Mail..."
+              filterPills={filterPills}
+              onFilterChange={handleFilterChange}
+              onRefresh={() => eventsQuery.query.refetch()}
+              onRowClick={handleRowClick}
+              isLoading={isLoading}
+              pageSize={15}
+              enableSelection
+              selectedRowIds={selectedIds}
+              onSelectionChange={setSelectedIds}
+              getRowId={(row) => row.id}
+            />
+
+            {/* Bulk Action Bar */}
+            <BulkActionBar
+              selectedIds={selectedIds}
+              onClearSelection={() => setSelectedIds([])}
+              onActionComplete={() => eventsQuery.query.refetch()}
+            />
+          </>
+        ) : (
+          <KanbanView
+            events={allEvents}
+            onRefresh={() => eventsQuery.query.refetch()}
+          />
+        )}
       </div>
     </AdminLayout>
   );
