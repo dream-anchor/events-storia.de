@@ -1,6 +1,11 @@
-import { Wheat, Truck, Utensils, Sparkles, Info, LucideIcon } from "lucide-react";
+import { Wheat, Truck, Utensils, Sparkles, Info, LucideIcon, MapPin, Phone } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface ServiceItem {
   icon: LucideIcon;
@@ -8,6 +13,7 @@ interface ServiceItem {
   title_en: string;
   subtitle: string;
   subtitle_en: string;
+  key: 'delivery' | 'service' | 'cleaning';
 }
 
 const defaultServices: ServiceItem[] = [
@@ -16,23 +22,217 @@ const defaultServices: ServiceItem[] = [
     title: "Lieferung & Abholung",
     title_en: "Delivery & Pickup",
     subtitle: "Kostenlos im nahen Umkreis",
-    subtitle_en: "Free within nearby area"
+    subtitle_en: "Free within nearby area",
+    key: 'delivery'
   },
   {
     icon: Utensils,
     title: "Aufbau & Service",
     title_en: "Setup & Service",
     subtitle: "Optional buchbar",
-    subtitle_en: "Optionally bookable"
+    subtitle_en: "Optionally bookable",
+    key: 'service'
   },
   {
     icon: Sparkles,
     title: "Reinigung",
     title_en: "Cleaning",
     subtitle: "Im Preis inklusive",
-    subtitle_en: "Included in price"
+    subtitle_en: "Included in price",
+    key: 'cleaning'
   }
 ];
+
+// Detailed popover content for each service
+const ServicePopoverContent = ({ serviceKey, language }: { serviceKey: string; language: string }) => {
+  if (serviceKey === 'delivery') {
+    return language === 'de' ? (
+      <div className="space-y-4 text-sm">
+        <div>
+          <p className="font-semibold text-foreground mb-2">Lieferkosten nach Entfernung:</p>
+          <div className="space-y-3">
+            <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800">
+              <p className="font-medium text-green-800 dark:text-green-200">≤ 1 km: KOSTENLOS</p>
+              <p className="text-xs text-green-700 dark:text-green-300 mt-1">Mindestbestellwert: 50€</p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="font-medium">1–25 km (München & Umland)</p>
+              <p className="text-muted-foreground mt-1">25€ netto pro Fahrt</p>
+              <p className="text-xs text-muted-foreground">• Pizza: 1× Hinfahrt</p>
+              <p className="text-xs text-muted-foreground">• Catering mit Equipment: Hin + Rückfahrt (50€)</p>
+              <p className="text-xs text-muted-foreground mt-1">Mindestbestellwert: 150€</p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="font-medium">&gt; 25 km</p>
+              <p className="text-muted-foreground mt-1">1,20€ netto pro km</p>
+              <p className="text-xs text-muted-foreground">• Pizza: 1× Strecke</p>
+              <p className="text-xs text-muted-foreground">• Catering mit Equipment: 2× Strecke</p>
+              <p className="text-xs text-muted-foreground mt-1">Mindestbestellwert: 200€</p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">Alle Preise zzgl. 19% MwSt.</p>
+        </div>
+        <div className="border-t pt-3">
+          <div className="flex items-start gap-2">
+            <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">Abholung möglich</p>
+              <p className="text-muted-foreground text-xs">Karlstr. 47a, 80333 München</p>
+              <p className="text-xs text-green-600 dark:text-green-400">Kostenlos, kein Mindestbestellwert</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div className="space-y-4 text-sm">
+        <div>
+          <p className="font-semibold text-foreground mb-2">Delivery costs by distance:</p>
+          <div className="space-y-3">
+            <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800">
+              <p className="font-medium text-green-800 dark:text-green-200">≤ 1 km: FREE</p>
+              <p className="text-xs text-green-700 dark:text-green-300 mt-1">Minimum order: €50</p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="font-medium">1–25 km (Munich area)</p>
+              <p className="text-muted-foreground mt-1">€25 net per trip</p>
+              <p className="text-xs text-muted-foreground">• Pizza: 1× one-way</p>
+              <p className="text-xs text-muted-foreground">• Catering with equipment: round trip (€50)</p>
+              <p className="text-xs text-muted-foreground mt-1">Minimum order: €150</p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="font-medium">&gt; 25 km</p>
+              <p className="text-muted-foreground mt-1">€1.20 net per km</p>
+              <p className="text-xs text-muted-foreground">• Pizza: 1× distance</p>
+              <p className="text-xs text-muted-foreground">• Catering with equipment: 2× distance</p>
+              <p className="text-xs text-muted-foreground mt-1">Minimum order: €200</p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">All prices plus 19% VAT.</p>
+        </div>
+        <div className="border-t pt-3">
+          <div className="flex items-start gap-2">
+            <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">Pickup available</p>
+              <p className="text-muted-foreground text-xs">Karlstr. 47a, 80333 Munich</p>
+              <p className="text-xs text-green-600 dark:text-green-400">Free, no minimum order</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (serviceKey === 'service') {
+    return language === 'de' ? (
+      <div className="space-y-3 text-sm">
+        <p className="font-semibold text-foreground">Aufbau & Service auf Anfrage</p>
+        <ul className="space-y-2 text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Professioneller Buffet-Aufbau</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Geschirr & Besteck-Service</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Personal vor Ort (nach Absprache)</span>
+          </li>
+        </ul>
+        <div className="border-t pt-3">
+          <div className="flex items-start gap-2">
+            <Phone className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">Individuelles Angebot</p>
+              <p className="text-muted-foreground text-xs">Tel: 089 55 06 71 50</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div className="space-y-3 text-sm">
+        <p className="font-semibold text-foreground">Setup & Service on request</p>
+        <ul className="space-y-2 text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Professional buffet setup</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Tableware & cutlery service</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Staff on-site (by arrangement)</span>
+          </li>
+        </ul>
+        <div className="border-t pt-3">
+          <div className="flex items-start gap-2">
+            <Phone className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">Custom quote</p>
+              <p className="text-muted-foreground text-xs">Tel: +49 89 55 06 71 50</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (serviceKey === 'cleaning') {
+    return language === 'de' ? (
+      <div className="space-y-3 text-sm">
+        <p className="font-semibold text-foreground">Reinigung inklusive</p>
+        <ul className="space-y-2 text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Leihgeschirr wird gereinigt zurückgenommen</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Keine Reinigungsgebühren</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Einfache Rückgabe bei Abholung</span>
+          </li>
+        </ul>
+        <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800 mt-3">
+          <p className="text-xs text-amber-800 dark:text-amber-200">
+            <span className="font-medium">Tipp:</span> Reste einfach entsorgen – Geschirr muss nicht gespült werden.
+          </p>
+        </div>
+      </div>
+    ) : (
+      <div className="space-y-3 text-sm">
+        <p className="font-semibold text-foreground">Cleaning included</p>
+        <ul className="space-y-2 text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Rental tableware returned clean</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>No cleaning fees</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Easy return on pickup</span>
+          </li>
+        </ul>
+        <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800 mt-3">
+          <p className="text-xs text-amber-800 dark:text-amber-200">
+            <span className="font-medium">Tip:</span> Just dispose of leftovers – no need to wash the dishes.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
 
 // Elegant highlight card for special notices (bread, etc.)
 export const HighlightCard = ({
@@ -72,7 +272,7 @@ export const HighlightCard = ({
   );
 };
 
-// Services grid with icon cards
+// Services grid with icon cards and info popovers
 export const ServicesGrid = ({
   services = defaultServices,
   title,
@@ -83,7 +283,7 @@ export const ServicesGrid = ({
   className?: string;
 }) => {
   const { language } = useLanguage();
-  
+
   return (
     <div className={cn("max-w-3xl mx-auto", className)}>
       {title && (
@@ -95,20 +295,29 @@ export const ServicesGrid = ({
         {services.map((service, index) => {
           const Icon = service.icon;
           return (
-            <div 
-              key={index}
-              className="flex flex-col items-center text-center p-5 rounded-xl bg-card border border-border/50 shadow-sm"
-            >
-              <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center mb-3">
-                <Icon className="h-5 w-5 text-primary/70" strokeWidth={1.5} />
-              </div>
-              <p className="font-medium text-base text-foreground">
-                {language === 'en' ? service.title_en : service.title}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {language === 'en' ? service.subtitle_en : service.subtitle}
-              </p>
-            </div>
+            <Popover key={index}>
+              <PopoverTrigger asChild>
+                <button
+                  className="flex flex-col items-center text-center p-5 rounded-xl bg-card border border-border/50 shadow-sm hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer group w-full"
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center mb-3 group-hover:bg-primary/10 transition-colors">
+                    <Icon className="h-5 w-5 text-primary/70" strokeWidth={1.5} />
+                  </div>
+                  <p className="font-medium text-base text-foreground">
+                    {language === 'en' ? service.title_en : service.title}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {language === 'en' ? service.subtitle_en : service.subtitle}
+                  </p>
+                  <p className="text-xs text-primary/60 mt-2 group-hover:text-primary transition-colors">
+                    {language === 'de' ? 'Mehr erfahren →' : 'Learn more →'}
+                  </p>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4" align="center" sideOffset={8}>
+                <ServicePopoverContent serviceKey={service.key} language={language} />
+              </PopoverContent>
+            </Popover>
           );
         })}
       </div>
