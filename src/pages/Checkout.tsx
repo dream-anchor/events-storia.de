@@ -644,6 +644,7 @@ const Checkout = () => {
         localStorage.removeItem(CHECKOUT_FORM_KEY);
         localStorage.removeItem(CHECKOUT_STEP_KEY);
         localStorage.removeItem(CHECKOUT_COMPLETED_KEY);
+        sessionStorage.removeItem('storia-checkout-entry-page');
         
         if (successDataStr) {
           try {

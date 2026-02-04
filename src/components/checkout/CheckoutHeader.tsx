@@ -1,26 +1,57 @@
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+// Key for storing the checkout entry page
+const CHECKOUT_ENTRY_PAGE_KEY = 'storia-checkout-entry-page';
+
 const CheckoutHeader = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const [entryPage, setEntryPage] = useState<string>('/');
 
-  // Go back to previous page, or fallback to homepage
-  const handleBack = () => {
-    // Check if there's history to go back to
-    if (window.history.length > 1) {
-      navigate(-1);
+  // On mount, store or retrieve the entry page
+  useEffect(() => {
+    const storedEntryPage = sessionStorage.getItem(CHECKOUT_ENTRY_PAGE_KEY);
+
+    if (storedEntryPage) {
+      // Already have an entry page stored - use it
+      setEntryPage(storedEntryPage);
     } else {
-      navigate('/');
+      // First time entering checkout - store the referrer
+      const referrer = document.referrer;
+      let entryUrl = '/';
+
+      if (referrer) {
+        try {
+          const url = new URL(referrer);
+          // Only use referrer if it's from the same domain and not checkout/payment pages
+          if (url.origin === window.location.origin &&
+              !url.pathname.includes('/checkout') &&
+              !url.pathname.includes('/payment')) {
+            entryUrl = url.pathname;
+          }
+        } catch {
+          // Invalid URL, use default
+        }
+      }
+
+      sessionStorage.setItem(CHECKOUT_ENTRY_PAGE_KEY, entryUrl);
+      setEntryPage(entryUrl);
     }
+  }, []);
+
+  // Navigate back to the entry page
+  const handleBack = () => {
+    navigate(entryPage);
   };
 
   return (
     <header className="bg-background border-b border-border">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          {/* Back to previous page */}
+          {/* Back to entry page */}
           <button
             type="button"
             onClick={handleBack}
@@ -28,7 +59,7 @@ const CheckoutHeader = () => {
           >
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">
-              {language === 'de' ? 'Zurück' : 'Back'}
+              {language === 'de' ? 'Zurück zum Menü' : 'Back to menu'}
             </span>
           </button>
           
