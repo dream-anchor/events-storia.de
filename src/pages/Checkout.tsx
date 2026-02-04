@@ -875,6 +875,33 @@ const Checkout = () => {
       return;
     }
 
+    // Check if delivery step is complete - navigate to it if not
+    if (!isDeliveryStepComplete) {
+      setCurrentStep('delivery');
+      toast.error(
+        language === 'de'
+          ? 'Bitte füllen Sie zuerst die Lieferdetails aus'
+          : 'Please complete delivery details first'
+      );
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    // Check if customer step basics are complete
+    if (!formData.name || !formData.email || !formData.phone) {
+      setCurrentStep('customer');
+      if (!completedSteps.includes('delivery')) {
+        setCompletedSteps(prev => [...prev, 'delivery']);
+      }
+      toast.error(
+        language === 'de'
+          ? 'Bitte füllen Sie Ihre Kontaktdaten aus'
+          : 'Please complete your contact details'
+      );
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     // Save customer data if opt-in is enabled
     if (saveForLater) {
       saveCustomerData();
@@ -930,16 +957,23 @@ const Checkout = () => {
 
     if (!formData.acceptTerms) {
       setTermsError(true);
+      // Make sure customer section is open so user can see the AGB checkbox
+      if (!completedSteps.includes('delivery')) {
+        setCompletedSteps(prev => [...prev, 'delivery']);
+      }
+      setCurrentStep('customer');
       toast.error(
         language === 'de'
           ? 'Bitte akzeptieren Sie die AGB und Widerrufsbelehrung'
           : 'Please accept the terms and cancellation policy'
       );
-      // Scroll to terms checkbox on mobile
-      const termsCheckbox = document.getElementById('acceptTerms');
-      if (termsCheckbox) {
-        termsCheckbox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      // Scroll to terms checkbox
+      setTimeout(() => {
+        const termsCheckbox = document.getElementById('acceptTerms');
+        if (termsCheckbox) {
+          termsCheckbox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
       return;
     }
 
@@ -1957,10 +1991,52 @@ const Checkout = () => {
               </div>
             </form>
 
-{/* Mobile Sticky CTA removed - summary is in right column */}
+            {/* Mobile Sticky CTA - Always visible on mobile */}
+            <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 lg:hidden z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
+              <div className="container mx-auto max-w-lg">
+                {/* Show what's missing */}
+                {(!isDeliveryStepComplete || !isCustomerStepComplete || !formData.acceptTerms) && (
+                  <p className="text-xs text-muted-foreground text-center mb-2">
+                    {!isDeliveryStepComplete
+                      ? (language === 'de' ? '⚠️ Bitte Lieferdetails ausfüllen' : '⚠️ Please fill delivery details')
+                      : !formData.name || !formData.email || !formData.phone
+                        ? (language === 'de' ? '⚠️ Bitte Kontaktdaten ausfüllen' : '⚠️ Please fill contact details')
+                        : !formData.acceptTerms
+                          ? (language === 'de' ? '⚠️ Bitte AGB akzeptieren' : '⚠️ Please accept terms')
+                          : ''
+                    }
+                  </p>
+                )}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">{language === 'de' ? 'Gesamt:' : 'Total:'}</span>
+                    <span className="font-bold text-lg ml-1">{formatPrice(grandTotal)}</span>
+                  </div>
+                  <Button
+                    type="submit"
+                    form="checkout-form"
+                    variant="checkoutCta"
+                    className="flex-1 max-w-[200px] h-11"
+                    disabled={isSubmitting || isProcessingPayment}
+                  >
+                    {isSubmitting || isProcessingPayment ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {language === 'de' ? 'Lädt...' : 'Loading...'}
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="mr-2 h-4 w-4" />
+                        {language === 'de' ? 'Kaufen' : 'Buy'}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </main>
-        
+
         <Footer />
       </div>
     </>
