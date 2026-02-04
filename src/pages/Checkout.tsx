@@ -881,8 +881,8 @@ const Checkout = () => {
       setCurrentStep('delivery');
       toast.error(
         language === 'de'
-          ? 'Bitte füllen Sie zuerst die Lieferdetails aus'
-          : 'Please complete delivery details first'
+          ? (isEventBooking ? 'Bitte wählen Sie Datum und Uhrzeit' : 'Bitte füllen Sie zuerst die Lieferdetails aus')
+          : (isEventBooking ? 'Please select date and time' : 'Please complete delivery details first')
       );
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -1999,7 +1999,9 @@ const Checkout = () => {
                 {(!isDeliveryStepComplete || !isCustomerStepComplete || !formData.acceptTerms) && (
                   <p className="text-xs text-muted-foreground text-center mb-2">
                     {!isDeliveryStepComplete
-                      ? (language === 'de' ? '⚠️ Bitte Lieferdetails ausfüllen' : '⚠️ Please fill delivery details')
+                      ? (language === 'de'
+                          ? (isEventBooking ? '⚠️ Bitte Datum & Uhrzeit wählen' : '⚠️ Bitte Lieferdetails ausfüllen')
+                          : (isEventBooking ? '⚠️ Please select date & time' : '⚠️ Please fill delivery details'))
                       : !formData.name || !formData.email || !formData.phone
                         ? (language === 'de' ? '⚠️ Bitte Kontaktdaten ausfüllen' : '⚠️ Please fill contact details')
                         : !formData.acceptTerms

@@ -103,17 +103,21 @@ const AccordionSection = ({
         )}
       </button>
 
-      {/* Content */}
+      {/* Content - Using max-height instead of CSS Grid for better mobile compatibility */}
       <div
         className={cn(
-          "grid transition-all duration-300 ease-out",
-          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          "overflow-hidden transition-all duration-300 ease-out",
+          isOpen
+            ? "max-h-[2000px] opacity-100 pointer-events-auto"
+            : "max-h-0 opacity-0 pointer-events-none"
         )}
+        style={{
+          // Ensure content is accessible on mobile
+          visibility: isOpen ? 'visible' : 'hidden',
+        }}
       >
-        <div className="overflow-hidden">
-          <div className="px-5 pb-5 pt-2 border-t border-border">
-            {children}
-          </div>
+        <div className="px-5 pb-5 pt-2 border-t border-border">
+          {children}
         </div>
       </div>
     </div>
