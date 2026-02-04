@@ -30,6 +30,10 @@ export interface ExtendedInquiry extends BaseRecord {
   quote_notes: string | null;
   email_draft: string | null;
   lexoffice_quotation_id: string | null;
+  // LexOffice invoice/quotation fields
+  lexoffice_invoice_id: string | null;
+  lexoffice_document_type: 'invoice' | 'quotation' | null;
+  lexoffice_contact_id: string | null;
   // Offer tracking fields
   offer_sent_at: string | null;
   offer_sent_by: string | null;

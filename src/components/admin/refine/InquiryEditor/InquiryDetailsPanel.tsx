@@ -3,8 +3,11 @@ import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import {
   MessageSquare, Calendar, Users, Building2, Mail, Phone,
-  ChevronDown, ChevronUp, StickyNote, Pencil, Check, X, UserCircle, Flag, ListTodo
+  ChevronDown, ChevronUp, StickyNote, Pencil, Check, X, UserCircle, Flag, ListTodo,
+  Receipt, FileText, ExternalLink, Loader2
 } from "lucide-react";
+import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +39,33 @@ export const InquiryDetailsPanel = ({
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [localNotes, setLocalNotes] = useState(inquiry.internal_notes || "");
   const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>();
+  const downloadDocument = useDownloadLexOfficeDocument();
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  // Check for LexOffice document (either invoice_id or quotation_id)
+  const lexofficeDocId = (inquiry as any).lexoffice_invoice_id || inquiry.lexoffice_quotation_id;
+  const lexofficeDocType = (inquiry as any).lexoffice_document_type ||
+    (inquiry.lexoffice_quotation_id ? 'quotation' : null);
+
+  const handleDownloadDocument = async () => {
+    if (!lexofficeDocId || !lexofficeDocType) return;
+    setIsDownloading(true);
+    try {
+      const result = await downloadDocument.mutateAsync({
+        voucherId: lexofficeDocId,
+        voucherType: lexofficeDocType
+      });
+      if (result?.pdfUrl) {
+        window.open(result.pdfUrl, '_blank');
+      } else {
+        toast.error("PDF konnte nicht geladen werden");
+      }
+    } catch (error) {
+      toast.error("Fehler beim Laden des Dokuments");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   // Get current user email for "Mir zuweisen" feature
   useEffect(() => {
@@ -268,6 +298,39 @@ export const InquiryDetailsPanel = ({
               currentUserEmail={currentUserEmail}
             />
           </div>
+
+          {/* LexOffice Document - Show if linked */}
+          {lexofficeDocId && (
+            <div className="space-y-1.5 pt-2 border-t border-border/50">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                {lexofficeDocType === 'invoice' ? (
+                  <Receipt className="h-3.5 w-3.5" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
+                LexOffice {lexofficeDocType === 'invoice' ? 'Rechnung' : 'Angebot'}
+              </label>
+              <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/20 rounded-lg p-2.5 border border-green-200/50 dark:border-green-800/30">
+                <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
+                  {lexofficeDocType === 'invoice' ? 'Rechnung' : 'Angebot'} erstellt
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDownloadDocument}
+                  disabled={isDownloading}
+                  className="h-7 px-2 text-xs ml-auto"
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                  ) : (
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  PDF öffnen
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Inquiry Received Date */}
           <div className="text-xs text-muted-foreground pt-2 border-t border-border/50">

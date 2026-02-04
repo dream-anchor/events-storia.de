@@ -105,12 +105,12 @@ serve(async (req) => {
     const params = new URLSearchParams();
 
     // Voucher type filter
+    // Note: LexOffice API does NOT accept comma-separated voucherType values
+    // When voucherType is 'all', we omit the parameter entirely - LexOffice returns all types by default
     if (voucherType && voucherType !== 'all') {
       params.append('voucherType', voucherType);
-    } else {
-      // Fetch invoices, quotations, and credit notes
-      params.append('voucherType', 'invoice,quotation,creditnote');
     }
+    // For 'all', we don't add voucherType - API returns invoice, quotation, creditnote by default
 
     // Status filter
     if (voucherStatus) {
