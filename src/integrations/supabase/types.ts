@@ -489,6 +489,8 @@ export type Database = {
       }
       event_inquiries: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           assigned_at: string | null
           assigned_by: string | null
           assigned_to: string | null
@@ -533,6 +535,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           assigned_at?: string | null
           assigned_by?: string | null
           assigned_to?: string | null
@@ -577,6 +581,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           assigned_at?: string | null
           assigned_by?: string | null
           assigned_to?: string | null
