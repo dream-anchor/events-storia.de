@@ -94,6 +94,10 @@ export function LivePDFPreview({
     last_edited_at: null,
     offer_sent_at: null,
     offer_sent_by: null,
+    assigned_to: null,
+    assigned_at: null,
+    assigned_by: null,
+    priority: 'normal',
   }), [inquiry]);
 
   // Generate PDF document

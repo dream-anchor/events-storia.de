@@ -65,6 +65,33 @@ interface DeliveryCalculation {
 // Accordion step types
 type CheckoutStep = 'delivery' | 'customer' | 'payment';
 
+// Form data type
+interface CheckoutFormData {
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  deliveryType: string;
+  deliveryStreet: string;
+  deliveryZip: string;
+  deliveryCity: string;
+  deliveryFloor: string;
+  hasElevator: boolean;
+  date: string;
+  time: string;
+  notes: string;
+  wantsSetupService: boolean;
+  sameAsDelivery: boolean;
+  showBillingAddress: boolean;
+  billingName: string;
+  billingStreet: string;
+  billingZip: string;
+  billingCity: string;
+  billingCountry: string;
+  acceptTerms: boolean;
+  referenceNumber: string;
+}
+
 // Email validation helper
 const validateEmail = (email: string): { valid: boolean; suggestion?: string; error?: string } => {
   const trimmed = email.trim().toLowerCase();
@@ -147,7 +174,7 @@ const Checkout = () => {
     return [];
   });
 
-  const [formData, setFormData] = useState(() => {
+  const [formData, setFormData] = useState<CheckoutFormData>(() => {
     const defaultState = {
       name: '',
       email: '',
@@ -534,7 +561,7 @@ const Checkout = () => {
                   country: cateringData.billing_country || 'Deutschland'
                 },
                 items: cateringData.items as { id: string; name: string; name_en?: string; quantity: number; price: number }[],
-                subtotal: cateringData.total_amount - (cateringData.delivery_cost || 0) - (cateringData.minimum_order_surcharge || 0),
+                subtotal: (cateringData.total_amount || 0) - (cateringData.delivery_cost || 0) - (cateringData.minimum_order_surcharge || 0),
                 deliveryCost: cateringData.delivery_cost || 0,
                 minimumOrderSurcharge: cateringData.minimum_order_surcharge || 0,
                 distanceKm: cateringData.calculated_distance_km || undefined,

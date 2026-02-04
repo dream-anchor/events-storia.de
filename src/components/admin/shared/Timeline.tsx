@@ -96,7 +96,7 @@ interface ActivityEntryProps {
 const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasEmailContent = log.action === 'email_sent' && log.metadata?.html_content;
-  const actionText = formatActivityAction(log);
+  const actionText = String(formatActivityAction(log));
   const actorName = getAdminDisplayName(log.actor_email);
   const initials = getAdminInitials(log.actor_email);
   const theme = getActionTheme(log.action);
@@ -186,13 +186,13 @@ const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
 
           {/* Action description */}
           <p className="text-sm text-foreground">
-            {actionText}
+            {actionText as React.ReactNode}
           </p>
 
           {/* Summary metadata if available */}
           {hasSummary && (
             <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
-              {log.metadata?.summary as string}
+              {String(log.metadata?.summary ?? '')}
             </p>
           )}
 
@@ -212,7 +212,7 @@ const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
               <CollapsibleContent className="mt-2 animate-in fade-in-0 slide-in-from-top-2">
                 <div 
                   className="rounded-md border bg-background p-4 prose prose-sm max-w-none text-foreground overflow-auto max-h-[400px] shadow-inner"
-                  dangerouslySetInnerHTML={{ __html: log.metadata?.html_content || '' }}
+                  dangerouslySetInnerHTML={{ __html: String(log.metadata?.html_content ?? '') }}
                 />
               </CollapsibleContent>
             </Collapsible>
@@ -226,7 +226,7 @@ const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
               className="mt-2 h-7 text-xs gap-1.5 -ml-2"
               asChild
             >
-              <a href={log.metadata.pdf_url as string} target="_blank" rel="noopener noreferrer">
+              <a href={String(log.metadata?.pdf_url ?? '')} target="_blank" rel="noopener noreferrer">
                 <FileText className="h-3 w-3" />
                 PDF öffnen
                 <ExternalLink className="h-3 w-3 ml-1" />

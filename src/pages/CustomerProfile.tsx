@@ -103,7 +103,8 @@ const CustomerProfile = () => {
         if (error) {
           console.error('Error fetching orders:', error);
         } else {
-          setOrders(data || []);
+          // Filter out orders without created_at for type safety
+          setOrders((data || []).filter((o): o is typeof o & { created_at: string } => o.created_at !== null));
         }
       } catch (err) {
         console.error('Error fetching orders:', err);

@@ -12,12 +12,12 @@ export const useUpdateCateringMenu = () => {
     }: {
       menuId: string;
       data: {
-        title?: string;
-        title_en?: string;
-        subtitle?: string;
-        subtitle_en?: string;
-        additional_info?: string;
-        additional_info_en?: string;
+        title?: string | null;
+        title_en?: string | null;
+        subtitle?: string | null;
+        subtitle_en?: string | null;
+        additional_info?: string | null;
+        additional_info_en?: string | null;
       };
     }) => {
       const { error } = await supabase
@@ -46,9 +46,9 @@ export const useUpdateCategory = () => {
       categoryId: string;
       data: {
         name?: string;
-        name_en?: string;
-        description?: string;
-        description_en?: string;
+        name_en?: string | null;
+        description?: string | null;
+        description_en?: string | null;
       };
     }) => {
       const { error } = await supabase
@@ -134,9 +134,9 @@ export const useUpdateMenuItem = () => {
       itemId: string;
       data: {
         name?: string;
-        name_en?: string;
-        description?: string;
-        description_en?: string;
+        name_en?: string | null;
+        description?: string | null;
+        description_en?: string | null;
         price?: number | null;
         price_display?: string | null;
         image_url?: string | null;

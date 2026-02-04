@@ -489,6 +489,9 @@ export type Database = {
       }
       event_inquiries: {
         Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          assigned_to: string | null
           company_name: string | null
           contact_name: string
           converted_to_booking_id: string | null
@@ -515,6 +518,7 @@ export type Database = {
           offer_sent_by: string | null
           phone: string | null
           preferred_date: string | null
+          priority: string | null
           quote_items: Json | null
           quote_notes: string | null
           reminder_count: number | null
@@ -529,6 +533,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
           company_name?: string | null
           contact_name: string
           converted_to_booking_id?: string | null
@@ -555,6 +562,7 @@ export type Database = {
           offer_sent_by?: string | null
           phone?: string | null
           preferred_date?: string | null
+          priority?: string | null
           quote_items?: Json | null
           quote_notes?: string | null
           reminder_count?: number | null
@@ -569,6 +577,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
           company_name?: string | null
           contact_name?: string
           converted_to_booking_id?: string | null
@@ -595,6 +606,7 @@ export type Database = {
           offer_sent_by?: string | null
           phone?: string | null
           preferred_date?: string | null
+          priority?: string | null
           quote_items?: Json | null
           quote_notes?: string | null
           reminder_count?: number | null
@@ -614,6 +626,51 @@ export type Database = {
             columns: ["converted_to_booking_id"]
             isOneToOne: false
             referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inquiry_comments: {
+        Row: {
+          author_email: string
+          content: string
+          created_at: string
+          id: string
+          inquiry_id: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_email: string
+          content: string
+          created_at?: string
+          id?: string
+          inquiry_id: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_email?: string
+          content?: string
+          created_at?: string
+          id?: string
+          inquiry_id?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_comments_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiry_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "inquiry_comments"
             referencedColumns: ["id"]
           },
         ]
@@ -727,6 +784,62 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inquiry_tasks: {
+        Row: {
+          assigned_to: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          due_date: string | null
+          id: string
+          inquiry_id: string | null
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          inquiry_id?: string | null
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          inquiry_id?: string | null
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_tasks_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
             referencedColumns: ["id"]
           },
         ]

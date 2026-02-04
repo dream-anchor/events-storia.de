@@ -61,7 +61,6 @@ export default defineConfig(({ mode }) => ({
               '</head>',
               '<meta name="prerendered" content="true"></head>'
             );
-            return renderedRoute;
           },
         })
       ] : []
