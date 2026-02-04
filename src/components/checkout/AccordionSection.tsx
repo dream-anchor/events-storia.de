@@ -34,9 +34,13 @@ const AccordionSection = ({
   const displayTitle = language === 'en' && titleEn ? titleEn : title;
 
   // If hideHeader is true and section is open, show only content without header/border
+  // IMPORTANT: Must include pointer-events-auto for mobile touch compatibility
   if (hideHeader && isOpen) {
     return (
-      <div className={cn("pt-6", className)}>
+      <div
+        className={cn("pt-6 pointer-events-auto", className)}
+        style={{ visibility: 'visible' }}
+      >
         {children}
       </div>
     );

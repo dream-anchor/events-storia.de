@@ -1396,11 +1396,11 @@ const Checkout = () => {
                     </Collapsible>
                   </div>
 
-                  {/* Section 1: Delivery & Schedule */}
+                  {/* Section 1: Delivery & Schedule (or Date & Time for event bookings) */}
                   <AccordionSection
                     stepNumber={1}
-                    title="Lieferung & Termin"
-                    titleEn="Delivery & Schedule"
+                    title={isEventBooking ? "Datum & Uhrzeit" : "Lieferung & Termin"}
+                    titleEn={isEventBooking ? "Date & Time" : "Delivery & Schedule"}
                     isOpen={currentStep === 'delivery'}
                     isCompleted={completedSteps.includes('delivery')}
                     completedSummary={isDeliveryStepComplete ? getDeliverySummary() : undefined}
