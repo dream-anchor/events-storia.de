@@ -167,8 +167,8 @@ serve(async (req) => {
             result.updated++;
             logStep(`Updated ${order.order_number} to paid`);
 
-            // Log activity
-            await supabaseAdmin.from('activity_logs').insert({
+            // Log activity (fire and forget)
+            void supabaseAdmin.from('activity_logs').insert({
               entity_type: 'catering_order',
               entity_id: order.id,
               action: 'payment_status_synced',
@@ -177,8 +177,8 @@ serve(async (req) => {
                 to_status: 'paid',
                 source: 'lexoffice_sync'
               },
-              performed_by: user.email
-            }).catch(() => {}); // Ignore activity log errors
+              actor_email: user.email
+            }); // Ignore activity log errors
           }
         }
       } catch (err) {
@@ -188,7 +188,7 @@ serve(async (req) => {
       }
     }
 
-    logStep('Sync completed', result);
+    logStep('Sync completed', result as unknown as Record<string, unknown>);
 
     return new Response(
       JSON.stringify(result),

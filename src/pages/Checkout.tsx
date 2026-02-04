@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import { z } from 'zod';
 import SEO from '@/components/SEO';
 import { useCart } from '@/contexts/CartContext';

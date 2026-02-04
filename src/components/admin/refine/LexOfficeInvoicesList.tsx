@@ -62,7 +62,7 @@ export const LexOfficeInvoicesList = () => {
 
   const handleSync = async () => {
     try {
-      const result = await syncMutation.mutateAsync();
+      const result = await syncMutation.mutateAsync(undefined);
       if (result.updated > 0) {
         toast.success(`${result.updated} von ${result.processed} Dokumenten aktualisiert`);
       } else {

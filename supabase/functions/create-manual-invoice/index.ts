@@ -277,7 +277,8 @@ serve(async (req) => {
         logStep('Event inquiry updated with LexOffice IDs');
 
         // Log activity
-        await supabaseAdmin.from('activity_logs').insert({
+        // Fire and forget activity log
+        void supabaseAdmin.from('activity_logs').insert({
           entity_type: 'event_inquiry',
           entity_id: body.eventInquiryId,
           action: `${body.documentType}_created`,
@@ -285,8 +286,8 @@ serve(async (req) => {
             lexoffice_invoice_id: documentId,
             document_type: body.documentType
           },
-          performed_by: user.email
-        }).catch(() => {});
+          actor_email: user.email
+        });
       }
     }
 
