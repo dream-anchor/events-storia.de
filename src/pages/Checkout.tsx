@@ -1437,6 +1437,53 @@ const Checkout = () => {
                       </div>
                     )}
 
+                    {/* Delivery Pricing Info - subtle collapsible */}
+                    {formData.deliveryType === 'delivery' && !isEventBooking && (
+                      <Collapsible className="mb-4">
+                        <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group w-full">
+                          <Info className="h-3.5 w-3.5" />
+                          <span>{language === 'de' ? 'Lieferkosten-Info anzeigen' : 'Show delivery pricing info'}</span>
+                          <ChevronDown className="h-3 w-3 ml-auto transition-transform group-data-[state=open]:rotate-180" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="mt-3">
+                          <div className="bg-muted/30 rounded-lg p-4 text-xs space-y-2 border border-border/50">
+                            <p className="font-medium text-sm mb-3">
+                              {language === 'de' ? '📍 Lieferkosten nach Entfernung' : '📍 Delivery costs by distance'}
+                            </p>
+                            <div className="grid gap-2">
+                              <div className="flex justify-between items-center">
+                                <span>{language === 'de' ? 'Bis 1 km' : 'Up to 1 km'}</span>
+                                <span className="font-medium text-green-600 dark:text-green-400">
+                                  {language === 'de' ? 'Kostenlos' : 'Free'} <span className="text-muted-foreground font-normal">(min. 50€)</span>
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span>1–8 km</span>
+                                <span className="font-medium">
+                                  50€ netto/Fahrt <span className="text-muted-foreground font-normal">(min. 150€)</span>
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span>{language === 'de' ? 'Über 8 km' : 'Over 8 km'}</span>
+                                <span className="font-medium">
+                                  1,20€/km <span className="text-muted-foreground font-normal">(min. 200€)</span>
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-muted-foreground pt-2 border-t border-border/50 mt-3">
+                              {language === 'de'
+                                ? 'Catering mit Equipment: Hin- & Rückfahrt · Pizza: nur Hinfahrt'
+                                : 'Catering with equipment: round trip · Pizza: one-way only'}
+                            </p>
+                            <p className="text-muted-foreground">
+                              {language === 'de'
+                                ? 'Alle Preise zzgl. 19% MwSt.'
+                                : 'All prices excl. 19% VAT'}
+                            </p>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
 
                     {/* Delivery Address Fields */}
                     {formData.deliveryType === 'delivery' && !isEventBooking && (
