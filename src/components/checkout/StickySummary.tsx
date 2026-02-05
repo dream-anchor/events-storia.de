@@ -186,10 +186,22 @@ const StickySummary = ({
             </div>
           )}
 
-          {isDelivery && deliveryCost === 0 && (
-            <div className="flex justify-between items-center text-sm text-muted-foreground">
+          {isDelivery && deliveryCost === 0 && distanceKm !== undefined && (
+            <div className="flex justify-between items-center text-sm text-green-600 dark:text-green-400">
               <span>{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
               <span>{language === 'de' ? 'Kostenlos' : 'Free'}</span>
+            </div>
+          )}
+
+          {isDelivery && deliveryCost === 0 && distanceKm === undefined && (
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1">
+              <p className="font-medium">{language === 'de' ? 'Lieferkosten:' : 'Delivery costs:'}</p>
+              <p>≤1 km: {language === 'de' ? 'Kostenlos' : 'Free'} (min. 50€)</p>
+              <p>1-8 km: 50€/Fahrt (min. 150€)</p>
+              <p>&gt;8 km: 1,20€/km (min. 200€)</p>
+              <p className="text-xs pt-1 border-t border-border/50 mt-2">
+                {language === 'de' ? 'Bitte Adresse eingeben für genaue Berechnung' : 'Enter address for exact calculation'}
+              </p>
             </div>
           )}
 
