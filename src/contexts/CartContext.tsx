@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useLanguage } from './LanguageContext';
+import { toast } from 'sonner';
 
 export interface CartItem {
   id: string;
@@ -56,22 +57,50 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   }, [items]);
 
   const addToCart = (item: Omit<CartItem, 'quantity'>, quantity = 4) => {
+    const isEventItem = item.id.startsWith('event-') || item.isEventPackage;
+
     setItems(prev => {
+      // Check for mixed cart scenarios
+      const hasEventItems = prev.some(i => i.id.startsWith('event-') || i.isEventPackage);
+      const hasCateringItems = prev.some(i => !i.id.startsWith('event-') && !i.isEventPackage);
+
+      // If adding event item to cart with catering items, clear cart first
+      if (isEventItem && hasCateringItems) {
+        toast.info(
+          language === 'de'
+            ? 'Event-Pakete müssen separat bestellt werden. Ihr Warenkorb wurde geleert.'
+            : 'Event packages must be ordered separately. Your cart has been cleared.',
+          { duration: 4000 }
+        );
+        return [{ ...item, quantity }];
+      }
+
+      // If adding catering item to cart with event items, clear cart first
+      if (!isEventItem && hasEventItems) {
+        toast.info(
+          language === 'de'
+            ? 'Catering-Artikel müssen separat von Event-Paketen bestellt werden. Ihr Warenkorb wurde geleert.'
+            : 'Catering items must be ordered separately from event packages. Your cart has been cleared.',
+          { duration: 4000 }
+        );
+        return [{ ...item, quantity }];
+      }
+
       const existing = prev.find(i => i.id === item.id);
       if (existing) {
-        return prev.map(i => 
-          i.id === item.id 
+        return prev.map(i =>
+          i.id === item.id
             ? { ...i, quantity: i.quantity + quantity }
             : i
         );
       }
       return [...prev, { ...item, quantity }];
     });
-    
+
     // Set last added item for animation (no toast)
     const itemName = language === 'en' && item.name_en ? item.name_en : item.name;
     setLastAddedItem({ name: itemName, quantity });
-    
+
     // Reset after 2.5 seconds
     setTimeout(() => setLastAddedItem(null), 2500);
   };
