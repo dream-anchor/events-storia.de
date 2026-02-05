@@ -56,14 +56,14 @@ const ServicePopoverContent = ({ serviceKey, language }: { serviceKey: string; l
               <p className="text-xs text-green-700 dark:text-green-300 mt-1">Mindestbestellwert: 50€</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3">
-              <p className="font-medium">1–25 km (München & Umland)</p>
-              <p className="text-muted-foreground mt-1">25€ netto pro Fahrt</p>
-              <p className="text-xs text-muted-foreground">• Pizza: 1× Hinfahrt</p>
-              <p className="text-xs text-muted-foreground">• Catering mit Equipment: Hin + Rückfahrt (50€)</p>
+              <p className="font-medium">1–8 km (München)</p>
+              <p className="text-muted-foreground mt-1">50€ netto pro Fahrt</p>
+              <p className="text-xs text-muted-foreground">• Pizza: 1× Hinfahrt (50€)</p>
+              <p className="text-xs text-muted-foreground">• Catering mit Equipment: Hin + Rückfahrt (100€)</p>
               <p className="text-xs text-muted-foreground mt-1">Mindestbestellwert: 150€</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3">
-              <p className="font-medium">&gt; 25 km</p>
+              <p className="font-medium">&gt; 8 km</p>
               <p className="text-muted-foreground mt-1">1,20€ netto pro km</p>
               <p className="text-xs text-muted-foreground">• Pizza: 1× Strecke</p>
               <p className="text-xs text-muted-foreground">• Catering mit Equipment: 2× Strecke</p>
@@ -72,7 +72,12 @@ const ServicePopoverContent = ({ serviceKey, language }: { serviceKey: string; l
           </div>
           <p className="text-xs text-muted-foreground mt-2">Alle Preise zzgl. 19% MwSt.</p>
         </div>
-        <div className="border-t pt-3">
+        <div className="border-t pt-3 space-y-3">
+          <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+            <p className="text-xs text-amber-800 dark:text-amber-200">
+              <span className="font-medium">Wartezeit:</span> Bei Lieferzeit über 15 Min. vor Ort: 50€/Mann pro angefangene Stunde
+            </p>
+          </div>
           <div className="flex items-start gap-2">
             <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
             <div>
@@ -93,14 +98,14 @@ const ServicePopoverContent = ({ serviceKey, language }: { serviceKey: string; l
               <p className="text-xs text-green-700 dark:text-green-300 mt-1">Minimum order: €50</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3">
-              <p className="font-medium">1–25 km (Munich area)</p>
-              <p className="text-muted-foreground mt-1">€25 net per trip</p>
-              <p className="text-xs text-muted-foreground">• Pizza: 1× one-way</p>
-              <p className="text-xs text-muted-foreground">• Catering with equipment: round trip (€50)</p>
+              <p className="font-medium">1–8 km (Munich)</p>
+              <p className="text-muted-foreground mt-1">€50 net per trip</p>
+              <p className="text-xs text-muted-foreground">• Pizza: 1× one-way (€50)</p>
+              <p className="text-xs text-muted-foreground">• Catering with equipment: round trip (€100)</p>
               <p className="text-xs text-muted-foreground mt-1">Minimum order: €150</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3">
-              <p className="font-medium">&gt; 25 km</p>
+              <p className="font-medium">&gt; 8 km</p>
               <p className="text-muted-foreground mt-1">€1.20 net per km</p>
               <p className="text-xs text-muted-foreground">• Pizza: 1× distance</p>
               <p className="text-xs text-muted-foreground">• Catering with equipment: 2× distance</p>
@@ -109,7 +114,12 @@ const ServicePopoverContent = ({ serviceKey, language }: { serviceKey: string; l
           </div>
           <p className="text-xs text-muted-foreground mt-2">All prices plus 19% VAT.</p>
         </div>
-        <div className="border-t pt-3">
+        <div className="border-t pt-3 space-y-3">
+          <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+            <p className="text-xs text-amber-800 dark:text-amber-200">
+              <span className="font-medium">Waiting time:</span> If delivery takes over 15 min on-site: €50/person per started hour
+            </p>
+          </div>
           <div className="flex items-start gap-2">
             <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
             <div>
@@ -126,7 +136,7 @@ const ServicePopoverContent = ({ serviceKey, language }: { serviceKey: string; l
   if (serviceKey === 'service') {
     return language === 'de' ? (
       <div className="space-y-3 text-sm">
-        <p className="font-semibold text-foreground">Aufbau & Service auf Anfrage</p>
+        <p className="font-semibold text-foreground">Aufbau & Service</p>
         <ul className="space-y-2 text-muted-foreground">
           <li className="flex items-start gap-2">
             <span className="text-primary">•</span>
@@ -134,18 +144,25 @@ const ServicePopoverContent = ({ serviceKey, language }: { serviceKey: string; l
           </li>
           <li className="flex items-start gap-2">
             <span className="text-primary">•</span>
-            <span>Geschirr & Besteck-Service</span>
+            <span>Raumgestaltung & Dekoration</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-primary">•</span>
-            <span>Personal vor Ort (nach Absprache)</span>
+            <span>Zusätzliches Equipment (Küche, Grill, etc.)</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Service-Personal vor Ort</span>
           </li>
         </ul>
+        <div className="bg-muted/50 rounded-lg p-3 mt-2">
+          <p className="text-xs text-muted-foreground">Preis nach Vereinbarung – wir erstellen Ihnen ein individuelles Angebot.</p>
+        </div>
         <div className="border-t pt-3">
           <div className="flex items-start gap-2">
             <Phone className="h-4 w-4 text-primary mt-0.5 shrink-0" />
             <div>
-              <p className="font-medium">Individuelles Angebot</p>
+              <p className="font-medium">Jetzt anfragen</p>
               <p className="text-muted-foreground text-xs">Tel: 089 55 06 71 50</p>
             </div>
           </div>
@@ -153,7 +170,7 @@ const ServicePopoverContent = ({ serviceKey, language }: { serviceKey: string; l
       </div>
     ) : (
       <div className="space-y-3 text-sm">
-        <p className="font-semibold text-foreground">Setup & Service on request</p>
+        <p className="font-semibold text-foreground">Setup & Service</p>
         <ul className="space-y-2 text-muted-foreground">
           <li className="flex items-start gap-2">
             <span className="text-primary">•</span>
@@ -161,18 +178,25 @@ const ServicePopoverContent = ({ serviceKey, language }: { serviceKey: string; l
           </li>
           <li className="flex items-start gap-2">
             <span className="text-primary">•</span>
-            <span>Tableware & cutlery service</span>
+            <span>Room styling & decoration</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-primary">•</span>
-            <span>Staff on-site (by arrangement)</span>
+            <span>Additional equipment (kitchen, grill, etc.)</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Service staff on-site</span>
           </li>
         </ul>
+        <div className="bg-muted/50 rounded-lg p-3 mt-2">
+          <p className="text-xs text-muted-foreground">Price by arrangement – we'll create a custom quote for you.</p>
+        </div>
         <div className="border-t pt-3">
           <div className="flex items-start gap-2">
             <Phone className="h-4 w-4 text-primary mt-0.5 shrink-0" />
             <div>
-              <p className="font-medium">Custom quote</p>
+              <p className="font-medium">Get in touch</p>
               <p className="text-muted-foreground text-xs">Tel: +49 89 55 06 71 50</p>
             </div>
           </div>

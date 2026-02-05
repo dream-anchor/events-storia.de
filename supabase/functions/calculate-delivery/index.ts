@@ -136,15 +136,15 @@ serve(async (req) => {
         isRoundTrip: false,
         oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };
-    } else if (oneWayDistanceKm <= 25) {
-      // €25 NET per trip for 1-25km in Munich area
-      // Round trip (2×25 = €50) for equipment pickup, single trip (€25) for pizza-only
+    } else if (oneWayDistanceKm <= 8) {
+      // €50 NET per trip for 1-8km in Munich area
+      // Round trip (2×50 = €100) for equipment pickup, single trip (€50) for pizza-only
       const tripMultiplier = isPizzaOnly ? 1 : 2;
-      const netCostPerTrip = 25;
+      const netCostPerTrip = 50;
       const netCost = netCostPerTrip * tripMultiplier;
       const grossCost = Math.round(netCost * (1 + VAT_RATE) * 100) / 100;
       const vatAmount = Math.round((grossCost - netCost) * 100) / 100;
-      
+
       result = {
         distanceKm: Math.round(oneWayDistanceKm * 10) / 10,
         deliveryCostNet: netCost,
@@ -153,7 +153,7 @@ serve(async (req) => {
         deliveryVatRate: VAT_RATE,
         isFreeDelivery: false,
         minimumOrder: 150,
-        message: isPizzaOnly 
+        message: isPizzaOnly
           ? 'Lieferung im Münchner Raum (nur Hinfahrt)'
           : 'Lieferung im Münchner Raum (Hin- und Rückfahrt)',
         messageEn: isPizzaOnly
@@ -163,14 +163,14 @@ serve(async (req) => {
         oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };
     } else {
-      // Outside Munich: €1.20 per km NET (+ 19% VAT)
+      // Beyond 8km: €1.20 per km NET (+ 19% VAT)
       // Pizza: single trip (one-way), Equipment: round trip (×2)
       const tripMultiplier = isPizzaOnly ? 1 : 2;
       const totalDistanceKm = oneWayDistanceKm * tripMultiplier;
       const netCost = Math.round(totalDistanceKm * NET_COST_PER_KM * 100) / 100;
       const grossCost = Math.round(netCost * (1 + VAT_RATE) * 100) / 100;
       const vatAmount = Math.round((grossCost - netCost) * 100) / 100;
-      
+
       result = {
         distanceKm: Math.round(totalDistanceKm * 10) / 10,
         deliveryCostNet: netCost,
@@ -179,12 +179,12 @@ serve(async (req) => {
         deliveryVatRate: VAT_RATE,
         isFreeDelivery: false,
         minimumOrder: 200,
-        message: isPizzaOnly 
-          ? `Lieferung außerhalb München (${Math.round(oneWayDistanceKm)} km)`
-          : `Lieferung außerhalb München (${Math.round(oneWayDistanceKm)} km × 2 Fahrten)`,
+        message: isPizzaOnly
+          ? `Lieferung (${Math.round(oneWayDistanceKm)} km)`
+          : `Lieferung (${Math.round(oneWayDistanceKm)} km × 2 Fahrten)`,
         messageEn: isPizzaOnly
-          ? `Delivery outside Munich (${Math.round(oneWayDistanceKm)} km)`
-          : `Delivery outside Munich (${Math.round(oneWayDistanceKm)} km × 2 trips)`,
+          ? `Delivery (${Math.round(oneWayDistanceKm)} km)`
+          : `Delivery (${Math.round(oneWayDistanceKm)} km × 2 trips)`,
         isRoundTrip: !isPizzaOnly,
         oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };
