@@ -1391,6 +1391,68 @@ const Checkout = () => {
                               </div>
                             );
                           })}
+                          {/* Pricing breakdown for mobile */}
+                          <div className="pt-4 mt-4 border-t border-border space-y-2 text-sm">
+                            <div className="flex justify-between text-muted-foreground">
+                              <span>{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
+                              <span>{formatPrice(totalPrice)}</span>
+                            </div>
+                            {minimumOrderSurcharge > 0 && (
+                              <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                                <span className="flex items-center gap-1">
+                                  <Info className="h-3 w-3" />
+                                  {language === 'de' ? 'Mindestbest.-Aufschlag' : 'Min. order surcharge'}
+                                </span>
+                                <span>+{formatPrice(minimumOrderSurcharge)}</span>
+                              </div>
+                            )}
+                            {chafingDishQuantity > 0 && (
+                              <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                                <span className="flex items-center gap-1">
+                                  <Flame className="h-3 w-3" />
+                                  {chafingDishQuantity}× Chafing Dish
+                                </span>
+                                <span>+{formatPrice(chafingDishQuantity * CHAFING_DISH.price)}</span>
+                              </div>
+                            )}
+                            {formData.deliveryType === 'delivery' && deliveryCalc && (
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>
+                                  {language === 'de' ? 'Lieferung' : 'Delivery'}
+                                  {deliveryCalc.oneWayDistanceKm > 1 && (
+                                    <span className="text-xs text-muted-foreground/70 ml-1">
+                                      ({deliveryCalc.oneWayDistanceKm} km{deliveryCalc.isRoundTrip ? ' ×2' : ''})
+                                    </span>
+                                  )}
+                                </span>
+                                <span>
+                                  {deliveryCalc.isFreeDelivery
+                                    ? (language === 'de' ? 'Kostenlos' : 'Free')
+                                    : `+${formatPrice(deliveryCalc.deliveryCostGross)}`
+                                  }
+                                </span>
+                              </div>
+                            )}
+                            {/* VAT breakdown */}
+                            <div className="text-xs text-muted-foreground pt-2 border-t border-border/50 space-y-1">
+                              {totalVat7 > 0 && (
+                                <div className="flex justify-between">
+                                  <span>{language === 'de' ? 'inkl. 7% MwSt. (Speisen)' : 'incl. 7% VAT (food)'}</span>
+                                  <span>{formatPrice(totalVat7)}</span>
+                                </div>
+                              )}
+                              {totalVat19 > 0 && (
+                                <div className="flex justify-between">
+                                  <span>{language === 'de' ? 'inkl. 19% MwSt. (Lieferung)' : 'incl. 19% VAT (delivery)'}</span>
+                                  <span>{formatPrice(totalVat19)}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex justify-between pt-2 border-t border-border font-medium">
+                              <span>{language === 'de' ? 'Gesamt' : 'Total'}</span>
+                              <span className="text-primary font-bold">{formatPrice(grandTotal)}</span>
+                            </div>
+                          </div>
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
@@ -1564,7 +1626,7 @@ const Checkout = () => {
                         )}
                         {deliveryCalc && (
                           <div className={`rounded-lg p-4 border ${
-                            deliveryCalc.isFreeDelivery 
+                            deliveryCalc.isFreeDelivery
                               ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800'
                               : 'bg-muted/50 border-border'
                           }`}>
@@ -1575,6 +1637,26 @@ const Checkout = () => {
                               {!deliveryCalc.isFreeDelivery && (
                                 <span className="font-medium">{formatPrice(deliveryCalc.deliveryCostGross)}</span>
                               )}
+                            </div>
+                            {/* Additional delivery details */}
+                            <div className="mt-2 pt-2 border-t border-border/50 text-xs text-muted-foreground space-y-1">
+                              {deliveryCalc.oneWayDistanceKm > 1 && (
+                                <p>
+                                  {language === 'de'
+                                    ? `Entfernung: ${deliveryCalc.oneWayDistanceKm} km`
+                                    : `Distance: ${deliveryCalc.oneWayDistanceKm} km`}
+                                  {deliveryCalc.isRoundTrip && (
+                                    <span className="text-muted-foreground/70">
+                                      {' '}({language === 'de' ? 'Hin- & Rückfahrt' : 'round trip'})
+                                    </span>
+                                  )}
+                                </p>
+                              )}
+                              <p>
+                                {language === 'de'
+                                  ? `Mindestbestellwert: ${formatPrice(deliveryCalc.minimumOrder)}`
+                                  : `Minimum order: ${formatPrice(deliveryCalc.minimumOrder)}`}
+                              </p>
                             </div>
                           </div>
                         )}

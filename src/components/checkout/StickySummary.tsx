@@ -173,9 +173,12 @@ const StickySummary = ({
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">
                 {language === 'de' ? 'Lieferung' : 'Delivery'}
-                {isRoundTrip && oneWayDistanceKm && oneWayDistanceKm > 25 && (
+                {oneWayDistanceKm && oneWayDistanceKm > 1 && (
                   <span className="text-xs block text-muted-foreground/70">
-                    ({oneWayDistanceKm} km × 2)
+                    {isRoundTrip
+                      ? `(${oneWayDistanceKm} km × 2 ${language === 'de' ? 'Fahrten' : 'trips'})`
+                      : `(${oneWayDistanceKm} km)`
+                    }
                   </span>
                 )}
               </span>
