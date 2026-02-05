@@ -1342,15 +1342,60 @@ const Checkout = () => {
                   
                   {/* Mobile Cart Overview - outside grid flow on desktop */}
                   <div className="lg:hidden bg-card border border-border rounded-xl p-4">
-                    <Collapsible defaultOpen={false}>
-                      <CollapsibleTrigger className="flex items-center justify-between w-full">
-                        <span className="font-serif text-lg">
-                          {language === 'de' ? 'Ihre Auswahl' : 'Your Selection'} ({items.length})
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-primary">{formatPrice(grandTotal)}</span>
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    {/* Always visible cost summary */}
+                    <div className="space-y-2 text-sm mb-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{language === 'de' ? 'Speisen' : 'Food'}</span>
+                        <span>{formatPrice(totalPrice)}</span>
+                      </div>
+                      {minimumOrderSurcharge > 0 && (
+                        <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                          <span className="flex items-center gap-1">
+                            <Info className="h-3 w-3" />
+                            {language === 'de' ? 'Mindestbest.-Aufschlag' : 'Min. order'}
+                          </span>
+                          <span>+{formatPrice(minimumOrderSurcharge)}</span>
                         </div>
+                      )}
+                      {chafingDishQuantity > 0 && (
+                        <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                          <span className="flex items-center gap-1">
+                            <Flame className="h-3 w-3" />
+                            {chafingDishQuantity}× Chafing Dish
+                          </span>
+                          <span>+{formatPrice(chafingDishQuantity * CHAFING_DISH.price)}</span>
+                        </div>
+                      )}
+                      {formData.deliveryType === 'delivery' && deliveryCalc && !deliveryCalc.isFreeDelivery && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            {language === 'de' ? 'Lieferung' : 'Delivery'}
+                            {deliveryCalc.oneWayDistanceKm > 1 && (
+                              <span className="text-xs ml-1">({deliveryCalc.oneWayDistanceKm} km{deliveryCalc.isRoundTrip ? ' ×2' : ''})</span>
+                            )}
+                          </span>
+                          <span>+{formatPrice(deliveryCalc.deliveryCostGross)}</span>
+                        </div>
+                      )}
+                      {formData.deliveryType === 'delivery' && deliveryCalc?.isFreeDelivery && (
+                        <div className="flex justify-between text-green-600 dark:text-green-400">
+                          <span>{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
+                          <span>{language === 'de' ? 'Kostenlos' : 'Free'}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between pt-2 border-t border-border font-semibold">
+                        <span>{language === 'de' ? 'Gesamt' : 'Total'}</span>
+                        <span className="text-primary">{formatPrice(grandTotal)}</span>
+                      </div>
+                    </div>
+
+                    <Collapsible defaultOpen={false}>
+                      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        <span className="flex items-center gap-1">
+                          <Info className="h-3 w-3" />
+                          {language === 'de' ? 'Details anzeigen' : 'Show details'}
+                        </span>
+                        <ChevronDown className="h-3 w-3" />
                       </CollapsibleTrigger>
                       <CollapsibleContent className="pt-4">
                         <div className="space-y-3">
