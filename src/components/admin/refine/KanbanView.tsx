@@ -1,71 +1,80 @@
 import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, parseISO, formatDistanceToNow } from "date-fns";
+import { format, parseISO, formatDistanceToNow, differenceInHours } from "date-fns";
 import { de } from "date-fns/locale";
 import {
-  AlertCircle,
-  Edit3,
-  Send,
-  CheckCircle2,
-  Users,
-  Building2,
-  Phone,
-  Mail,
   GripVertical,
-  AlertTriangle,
-  Flag,
+  Calendar,
+  Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { EventInquiry, InquiryPriority, InquiryStatus } from "@/types/refine";
+import { EventInquiry, InquiryStatus } from "@/types/refine";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { getAdminDisplayName, getAdminInitials } from "@/lib/adminDisplayNames";
+import { getAdminInitials } from "@/lib/adminDisplayNames";
 
 interface KanbanViewProps {
   events: EventInquiry[];
   onRefresh: () => void;
 }
 
-// Kanban column configuration
+// Kanban column configuration matching mockup
 const COLUMNS = [
   {
     id: "new",
-    title: "Neu",
-    icon: AlertCircle,
-    color: "text-amber-600",
-    borderColor: "border-l-amber-500",
-    description: "Noch nicht bearbeitet",
+    title: "Neue Anfragen",
+    color: "bg-blue-400",
+    badgeClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
   },
   {
     id: "in_progress",
-    title: "In Bearbeitung",
-    icon: Edit3,
-    color: "text-blue-600",
-    borderColor: "border-l-blue-500",
-    description: "Angebot wird erstellt",
+    title: "Qualifizierung",
+    color: "bg-orange-400",
+    badgeClass: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
   },
   {
     id: "offer_sent",
     title: "Angebot versendet",
-    icon: Send,
-    color: "text-emerald-600",
-    borderColor: "border-l-emerald-500",
-    description: "Wartet auf Rückmeldung",
+    color: "bg-purple-400",
+    badgeClass: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
   },
   {
     id: "confirmed",
     title: "Bestätigt",
-    icon: CheckCircle2,
-    color: "text-green-600",
-    borderColor: "border-l-green-500",
-    description: "Buchung bestätigt",
+    color: "bg-green-400",
+    badgeClass: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   },
 ] as const;
 
 type ColumnId = (typeof COLUMNS)[number]["id"];
+
+// Get badge label based on status and priority
+function getBadgeLabel(event: EventInquiry, columnId: ColumnId): { label: string; class: string } {
+  const isUrgent = event.status === 'new' && event.created_at &&
+    differenceInHours(new Date(), parseISO(event.created_at)) > 48;
+
+  if (event.priority === 'urgent' || isUrgent) {
+    return { label: 'Dringend', class: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' };
+  }
+  if (event.priority === 'high') {
+    return { label: 'Hot Lead', class: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' };
+  }
+
+  switch (columnId) {
+    case 'new':
+      return { label: 'Anfrage', class: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' };
+    case 'in_progress':
+      return { label: 'In Prüfung', class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' };
+    case 'offer_sent':
+      return { label: 'Wartet', class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' };
+    case 'confirmed':
+      return { label: 'Gebucht', class: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' };
+    default:
+      return { label: 'Anfrage', class: 'bg-gray-100 text-gray-600' };
+  }
+}
 
 export function KanbanView({ events, onRefresh }: KanbanViewProps) {
   const navigate = useNavigate();
@@ -127,11 +136,9 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
 
       if (!eventId) return;
 
-      // Find the event
       const event = events.find((ev) => ev.id === eventId);
       if (!event) return;
 
-      // Determine new status based on target column
       let newStatus: InquiryStatus;
       switch (targetColumn) {
         case "new":
@@ -150,10 +157,8 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
           return;
       }
 
-      // Don't update if same status
       if (event.status === newStatus) return;
 
-      // Update in database
       try {
         const { error } = await supabase
           .from("event_inquiries")
@@ -176,66 +181,65 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
   );
 
   return (
-    <div className="w-full overflow-x-auto">
-      <div className="flex gap-4 min-w-max pb-4">
-        {COLUMNS.map((column) => {
-          const items = columnData[column.id];
-          const Icon = column.icon;
+    <div className="flex gap-6 h-[calc(100vh-220px)] min-h-[500px] overflow-x-auto pb-4">
+      {COLUMNS.map((column) => {
+        const items = columnData[column.id];
 
-          return (
-            <div
-              key={column.id}
-              className={cn(
-                "flex-1 min-w-[300px] max-w-[350px] rounded-xl border bg-muted/30",
-                column.borderColor,
-                "border-l-4",
-                dragOverColumn === column.id && "bg-primary/5 border-primary"
-              )}
-              onDragOver={(e) => handleDragOver(e, column.id)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, column.id)}
-            >
-              {/* Column Header */}
-              <div className="p-4 border-b border-border/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon className={cn("h-4 w-4", column.color)} />
-                    <span className="font-medium">{column.title}</span>
-                  </div>
-                  <Badge variant="secondary" className="font-mono text-xs">
-                    {items.length}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {column.description}
-                </p>
-              </div>
-
-              {/* Column Content */}
-              <ScrollArea className="h-[calc(100vh-340px)]">
-                <div className="p-2 space-y-2">
-                  {items.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground text-sm">
-                      Keine Anfragen
-                    </div>
-                  ) : (
-                    items.map((event) => (
-                      <KanbanCard
-                        key={event.id}
-                        event={event}
-                        isDragging={draggingId === event.id}
-                        onDragStart={(e) => handleDragStart(e, event.id)}
-                        onDragEnd={handleDragEnd}
-                        onClick={() => navigate(`/admin/events/${event.id}/edit`)}
-                      />
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
+        return (
+          <div
+            key={column.id}
+            className={cn(
+              "flex-shrink-0 w-[300px] flex flex-col rounded-xl border border-border",
+              "bg-muted/30 dark:bg-gray-800/30",
+              dragOverColumn === column.id && "ring-2 ring-primary bg-primary/5"
+            )}
+            onDragOver={(e) => handleDragOver(e, column.id)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, column.id)}
+          >
+            {/* Column Header */}
+            <div className="flex items-center justify-between px-4 py-3">
+              <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                <span className={cn("size-2 rounded-full", column.color)} />
+                {column.title}
+              </h3>
+              <span className="bg-muted px-2 py-0.5 rounded text-xs font-bold">
+                {items.length}
+              </span>
             </div>
-          );
-        })}
-      </div>
+
+            {/* Column Content */}
+            <ScrollArea className="flex-1 px-3 pb-3">
+              <div className="space-y-3">
+                {items.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    Keine Anfragen
+                  </div>
+                ) : (
+                  items.map((event) => (
+                    <KanbanCard
+                      key={event.id}
+                      event={event}
+                      columnId={column.id}
+                      isDragging={draggingId === event.id}
+                      onDragStart={(e) => handleDragStart(e, event.id)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => navigate(`/admin/events/${event.id}/edit`)}
+                    />
+                  ))
+                )}
+
+                {/* Drop zone indicator for confirmed column */}
+                {column.id === 'confirmed' && (
+                  <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-4 flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-all cursor-pointer">
+                    <span className="text-xs font-bold uppercase tracking-widest">Hierher ziehen</span>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -243,6 +247,7 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
 // Kanban Card Component
 interface KanbanCardProps {
   event: EventInquiry;
+  columnId: ColumnId;
   isDragging: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
@@ -251,95 +256,75 @@ interface KanbanCardProps {
 
 function KanbanCard({
   event,
+  columnId,
   isDragging,
   onDragStart,
   onDragEnd,
   onClick,
 }: KanbanCardProps) {
+  const badge = getBadgeLabel(event, columnId);
+
   return (
-    <Card
+    <div
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onClick}
       className={cn(
-        "cursor-pointer hover:shadow-md transition-all",
-        isDragging && "opacity-50 rotate-2 scale-105 shadow-lg"
+        "bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-border",
+        "cursor-grab active:cursor-grabbing hover:border-primary/50 transition-all group",
+        isDragging && "opacity-50 rotate-1 scale-105 shadow-lg",
+        columnId === 'confirmed' && "border-l-4 border-l-green-500"
       )}
     >
-      <CardContent className="p-3 space-y-2">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-grab" />
-            <div className="min-w-0">
-              <p className="font-medium text-sm truncate">
-                {event.company_name || event.contact_name}
-              </p>
-              {event.company_name && (
-                <p className="text-xs text-muted-foreground truncate">
-                  {event.contact_name}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Priority */}
-            {event.priority === "urgent" && (
-              <Badge variant="destructive" className="text-[10px] px-1 py-0 h-4">
-                <AlertTriangle className="h-2.5 w-2.5" />
-              </Badge>
-            )}
-            {event.priority === "high" && (
-              <Badge
-                variant="outline"
-                className="text-[10px] px-1 py-0 h-4 border-amber-500/50 text-amber-700 bg-amber-50"
-              >
-                <Flag className="h-2.5 w-2.5" />
-              </Badge>
-            )}
-            {/* Assignee */}
-            {event.assigned_to && (
-              <div
-                className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-medium"
-                title={getAdminDisplayName(event.assigned_to)}
-              >
-                {getAdminInitials(event.assigned_to)}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Header with badge and drag handle */}
+      <div className="flex justify-between items-start mb-3">
+        <span className={cn(
+          "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide",
+          badge.class
+        )}>
+          {badge.label}
+        </span>
+        <GripVertical className="h-4 w-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
+      </div>
 
-        {/* Details */}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          {event.guest_count && (
-            <span className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              {event.guest_count}
-            </span>
-          )}
-          {event.event_type && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              {event.event_type}
-            </Badge>
-          )}
-        </div>
+      {/* Title */}
+      <h4 className="font-bold text-foreground mb-3 line-clamp-2">
+        {event.company_name || event.contact_name}
+      </h4>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
-          <span>
-            {event.created_at &&
-              formatDistanceToNow(parseISO(event.created_at), {
-                addSuffix: true,
-                locale: de,
-              })}
-          </span>
-          <div className="flex items-center gap-2">
-            {event.email && <Mail className="h-3 w-3" />}
-            {event.phone && <Phone className="h-3 w-3" />}
+      {/* Event Details */}
+      <div className="space-y-2">
+        {event.preferred_date && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5" />
+            {format(parseISO(event.preferred_date), "d. MMM yyyy", { locale: de })}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        )}
+        {event.guest_count && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Users className="h-3.5 w-3.5" />
+            {event.guest_count} Gäste
+          </div>
+        )}
+      </div>
+
+      {/* Footer with avatar and details link */}
+      <div className="mt-4 pt-4 border-t border-border flex justify-between items-center">
+        {event.assigned_to ? (
+          <div
+            className="size-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary"
+            title={event.assigned_to}
+          >
+            {getAdminInitials(event.assigned_to)}
+          </div>
+        ) : (
+          <div className="size-6 rounded-full bg-muted" />
+        )}
+        <button className="text-xs text-primary font-bold hover:underline">
+          Details
+        </button>
+      </div>
+    </div>
   );
 }
