@@ -11,7 +11,7 @@ export { DataTable } from './DataTable';
 export { QuoteBuilder } from './QuoteBuilder';
 export { QuotePDFDocument } from './QuotePDF';
 export { SmartInquiryEditor } from './InquiryEditor';
-export { FloatingPillNav, MobilePillNav } from './FloatingPillNav';
+// FloatingPillNav removed - using sidebar navigation in AdminLayout
 export { CommandPalette, useCommandPalette } from './CommandPalette';
 export { ContextBar } from './ContextBar';
 export { EventBookingsList } from './EventBookingsList';
