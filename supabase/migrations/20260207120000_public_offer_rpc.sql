@@ -1,6 +1,7 @@
 -- Public Offer RPC: Returns offer data for the public-facing offer page
 -- Uses SECURITY DEFINER to bypass RLS safely.
--- Only returns data for offers that have been sent (offer_sent_at IS NOT NULL).
+-- Only returns data for offers that have been sent (status = 'offer_sent' or 'confirmed').
+-- Uses status instead of offer_sent_at because offer_sent_at is cleared when creating new versions.
 -- The UUID in the URL acts as an implicit access token (unguessable).
 
 CREATE OR REPLACE FUNCTION public.get_public_offer(offer_id uuid)
@@ -44,7 +45,7 @@ BEGIN
   ) INTO result
   FROM event_inquiries ei
   WHERE ei.id = offer_id
-  AND ei.offer_sent_at IS NOT NULL;
+  AND ei.status IN ('offer_sent', 'confirmed');
 
   RETURN result;
 END;

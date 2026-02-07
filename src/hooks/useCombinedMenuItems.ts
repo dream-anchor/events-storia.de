@@ -1,6 +1,6 @@
-import { useMemo } from "react";
-import { useList } from "@refinedev/core";
-import { useRistoranteMenus, RistoranteMenuItem } from "./useRistoranteMenus";
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useRistoranteMenus } from "./useRistoranteMenus";
 
 export interface CombinedMenuItem {
   id: string;
@@ -21,55 +21,86 @@ interface UseCombinedMenuItemsOptions {
   includeCatering?: boolean;
 }
 
+interface CateringRow {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | null;
+  serving_info: string | null;
+  image_url: string | null;
+  is_vegetarian: boolean;
+  is_vegan: boolean;
+  menu_categories: {
+    name: string;
+  } | null;
+}
+
 export const useCombinedMenuItems = (options: UseCombinedMenuItemsOptions = {}) => {
-  const { 
-    includeRistorante = true, 
-    includeCatering = true 
+  const {
+    includeRistorante = true,
+    includeCatering = true
   } = options;
 
-  // Fetch local catering menu items
-  const cateringQuery = useList({
-    resource: "menu_items",
-    pagination: { pageSize: 200 },
-    sorters: [{ field: "sort_order", order: "asc" }],
-    meta: {
-      select: "*, menu_categories!inner(name, menu_id, menus!inner(menu_type))",
-    },
-  });
+  // Direct Supabase query for catering items with proper joins
+  const [cateringItems, setCateringItems] = useState<CombinedMenuItem[]>([]);
+  const [cateringLoading, setCateringLoading] = useState(true);
+  const [cateringError, setCateringError] = useState(false);
+
+  useEffect(() => {
+    if (!includeCatering) {
+      setCateringItems([]);
+      setCateringLoading(false);
+      return;
+    }
+
+    const fetchCateringItems = async () => {
+      setCateringLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("menu_items")
+          .select("id, name, description, price, serving_info, image_url, is_vegetarian, is_vegan, menu_categories!inner(name)")
+          .order("sort_order", { ascending: true })
+          .limit(500);
+
+        if (error) throw error;
+
+        const items: CombinedMenuItem[] = (data || []).map((row: CateringRow) => ({
+          id: `catering_${row.id}`,
+          name: row.name,
+          description: row.description,
+          price: row.price,
+          serving_info: row.serving_info,
+          image_url: row.image_url,
+          category_name: row.menu_categories?.name || 'Catering',
+          source: 'catering' as const,
+          is_vegetarian: row.is_vegetarian,
+          is_vegan: row.is_vegan,
+        }));
+
+        setCateringItems(items);
+      } catch (err) {
+        console.error("Error fetching catering menu items:", err);
+        setCateringError(true);
+      } finally {
+        setCateringLoading(false);
+      }
+    };
+
+    fetchCateringItems();
+  }, [includeCatering]);
 
   // Fetch restaurant menu items (food & drinks)
-  const ristoranteQuery = useRistoranteMenus({ 
+  const ristoranteQuery = useRistoranteMenus({
     menuTypes: ['food', 'drinks', 'lunch'],
-    enabled: includeRistorante 
+    enabled: includeRistorante
   });
 
-  const isLoading = cateringQuery.query.isLoading || ristoranteQuery.isLoading;
-  const isError = cateringQuery.query.isError || ristoranteQuery.isError;
+  const isLoading = cateringLoading || ristoranteQuery.isLoading;
+  const isError = cateringError || ristoranteQuery.isError;
 
   // Combine both sources into unified format
   const combinedItems = useMemo((): CombinedMenuItem[] => {
-    const items: CombinedMenuItem[] = [];
-
-    // Add catering items
-    if (includeCatering && cateringQuery.result?.data) {
-      for (const item of cateringQuery.result.data) {
-        const menuItem = item as Record<string, unknown>;
-        const category = menuItem.menu_categories as { name?: string } | undefined;
-        
-        items.push({
-          id: `catering_${menuItem.id}`,
-          name: menuItem.name as string,
-          description: menuItem.description as string | null,
-          price: menuItem.price as number | null,
-          serving_info: menuItem.serving_info as string | null,
-          image_url: menuItem.image_url as string | null,
-          category_name: category?.name || 'Catering',
-          source: 'catering',
-          is_vegetarian: menuItem.is_vegetarian as boolean,
-          is_vegan: menuItem.is_vegan as boolean,
-        });
-      }
-    }
+    const items: CombinedMenuItem[] = [...cateringItems];
 
     // Add ristorante items
     if (includeRistorante && ristoranteQuery.data?.items) {
@@ -91,19 +122,19 @@ export const useCombinedMenuItems = (options: UseCombinedMenuItemsOptions = {}) 
     }
 
     return items;
-  }, [includeCatering, includeRistorante, cateringQuery.result?.data, ristoranteQuery.data?.items]);
+  }, [cateringItems, includeRistorante, ristoranteQuery.data?.items]);
 
   // Group by source for display
   const groupedItems = useMemo(() => {
-    const cateringItems = combinedItems.filter(i => i.source === 'catering');
+    const catering = combinedItems.filter(i => i.source === 'catering');
     const ristoranteItems = combinedItems.filter(i => i.source === 'ristorante');
-    
+
     // Further group ristorante by menu type
     const ristoranteFood = ristoranteItems.filter(i => i.menu_type === 'food' || i.menu_type === 'lunch');
     const ristoranteDrinks = ristoranteItems.filter(i => i.menu_type === 'drinks');
 
     return {
-      catering: cateringItems,
+      catering,
       ristoranteFood,
       ristoranteDrinks,
       all: combinedItems,
