@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import { RefineAdminApp } from "./pages/RefineAdmin";
 import AdminLogin from "./pages/AdminLogin";
+import { AdminAuthGuard } from "./components/admin/AdminAuthGuard";
 import Impressum from "./pages/Impressum";
 import Datenschutz from "./pages/Datenschutz";
 import CookieRichtlinie from "./pages/CookieRichtlinie";
@@ -102,9 +103,13 @@ const App = () => {
                 <Route path="/konto/passwort-reset" element={<PasswordReset />} />
                 <Route path="/konto/bestellung-erfolgreich" element={<OrderSuccess />} />
                 
-                {/* Admin - New Refine-based */}
-                <Route path="/admin/*" element={<RefineAdminApp />} />
+                {/* Admin - Login route first, then protected routes */}
                 <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin/*" element={
+                  <AdminAuthGuard>
+                    <RefineAdminApp />
+                  </AdminAuthGuard>
+                } />
                 
                 {/* Legal Pages */}
                 <Route path="/impressum" element={<Impressum />} />
