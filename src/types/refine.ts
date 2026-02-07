@@ -32,7 +32,7 @@ export interface EventInquiry extends BaseRecord {
   preferred_date: string | null;
   message: string | null;
   source: string | null;
-  status: 'new' | 'contacted' | 'offer_sent' | 'confirmed' | 'declined';
+  status: InquiryStatus;
   internal_notes: string | null;
   notification_sent: boolean;
   created_at: string;
@@ -108,5 +108,5 @@ export interface Quote {
   updatedAt: string;
 }
 
-export type InquiryStatus = 'new' | 'contacted' | 'offer_sent' | 'confirmed' | 'declined';
+export type InquiryStatus = 'new' | 'contacted' | 'offer_sent' | 'confirmed' | 'declined' | 'cancelled';
 export type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';

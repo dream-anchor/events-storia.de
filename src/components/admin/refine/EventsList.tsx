@@ -24,6 +24,7 @@ const statusConfig: Record<InquiryStatus, { label: string; variant: "default" | 
   offer_sent: { label: "Angebot", variant: "outline" },
   confirmed: { label: "Bestätigt", variant: "default" },
   declined: { label: "Abgelehnt", variant: "destructive" },
+  cancelled: { label: "Storniert", variant: "destructive" },
 };
 
 const eventTypeLabels: Record<string, string> = {

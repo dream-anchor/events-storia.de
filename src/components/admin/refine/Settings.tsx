@@ -71,27 +71,27 @@ export const Settings = () => {
   });
 
   // Fetch menu items count
-  const { data: menuItemsData } = useList({
+  const menuItemsQuery = useList({
     resource: "menu_items" as never,
-    pagination: { pageSize: 1, current: 1 },
+    pagination: { pageSize: 1 },
   });
-  const menuItemsCount = menuItemsData?.total || 0;
+  const menuItemsCount = menuItemsQuery.result?.total || 0;
 
   // Fetch packages count
-  const { data: packagesData } = useList({
+  const packagesQuery = useList({
     resource: "packages" as never,
-    pagination: { pageSize: 1, current: 1 },
+    pagination: { pageSize: 1 },
     filters: [{ field: "is_active", operator: "eq", value: true }],
   });
-  const packagesCount = packagesData?.total || 0;
+  const packagesCount = packagesQuery.result?.total || 0;
 
   // Fetch locations count
-  const { data: locationsData } = useList({
+  const locationsQuery = useList({
     resource: "locations" as never,
-    pagination: { pageSize: 1, current: 1 },
+    pagination: { pageSize: 1 },
     filters: [{ field: "is_active", operator: "eq", value: true }],
   });
-  const locationsCount = locationsData?.total || 0;
+  const locationsCount = locationsQuery.result?.total || 0;
 
   // Get current user
   useEffect(() => {
