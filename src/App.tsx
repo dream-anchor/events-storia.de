@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -12,7 +12,6 @@ import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import Index from "./pages/Index";
 import Kontakt from "./pages/Kontakt";
 import NotFound from "./pages/NotFound";
-import Admin from "./pages/Admin";
 import { RefineAdminApp } from "./pages/RefineAdmin";
 import AdminLogin from "./pages/AdminLogin";
 import { AdminAuthGuard } from "./components/admin/AdminAuthGuard";
@@ -39,6 +38,22 @@ import CustomerAuth from "./pages/CustomerAuth";
 import CustomerProfile from "./pages/CustomerProfile";
 import OrderSuccess from "./pages/OrderSuccess";
 import PasswordReset from "./pages/PasswordReset";
+
+/** Renders frontend-only global components (cart, cookie banner, etc.) only on non-admin routes */
+const FrontendGlobals = () => {
+  const location = useLocation();
+  if (location.pathname.startsWith('/admin')) return null;
+  return (
+    <>
+      <FloatingActions />
+      <CartButton />
+      <StickyCartPanel />
+      <CartSheet />
+      <CookieBanner />
+      <CookieSettingsButton />
+    </>
+  );
+};
 
 // Catering Pages
 import BuffetFingerfood from "./pages/catering/BuffetFingerfood";
@@ -73,12 +88,7 @@ const App = () => {
             <Sonner />
             <BrowserRouter>
               <ScrollToTop />
-              <FloatingActions />
-              <CartButton />
-              <StickyCartPanel />
-              <CartSheet />
-              <CookieBanner />
-              <CookieSettingsButton />
+              <FrontendGlobals />
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/kontakt" element={<Kontakt />} />
