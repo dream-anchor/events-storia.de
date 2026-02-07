@@ -12,6 +12,7 @@ import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import Index from "./pages/Index";
 import Kontakt from "./pages/Kontakt";
 import NotFound from "./pages/NotFound";
+import PublicOffer from "./pages/PublicOffer";
 import { RefineAdminApp } from "./pages/RefineAdmin";
 import AdminLogin from "./pages/AdminLogin";
 import { AdminAuthGuard } from "./components/admin/AdminAuthGuard";
@@ -113,6 +114,9 @@ const App = () => {
                 <Route path="/konto/passwort-reset" element={<PasswordReset />} />
                 <Route path="/konto/bestellung-erfolgreich" element={<OrderSuccess />} />
                 
+                {/* Public Offer Page (link shared with customers) */}
+                <Route path="/offer/:id" element={<PublicOffer />} />
+
                 {/* Admin - Login route first, then protected routes */}
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin/*" element={
