@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { OfferOption, OfferHistoryEntry, OPTION_LABELS, createEmptyOption, MenuSelectionType } from "./types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { calculateEventPackagePrice } from "@/lib/eventPricing";
 
 // Helper to log activity
 const logActivity = async (
@@ -99,9 +100,12 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
             
             initialPackageName = pkgData.name || '';
             if (pkgData.price) {
-              initialTotal = pkgData.pricePerPerson 
-                ? pkgData.price * guestCount 
-                : pkgData.price;
+              initialTotal = calculateEventPackagePrice(
+                customerPackageId,
+                pkgData.price,
+                guestCount,
+                !!pkgData.pricePerPerson
+              );
             }
           }
           

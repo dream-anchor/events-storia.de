@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { OfferOption } from "./types";
 import { Package } from "../types";
+import { calculateEventPackagePrice } from "@/lib/eventPricing";
 
 interface LiveCalculationProps {
   option: OfferOption;
@@ -33,15 +34,20 @@ export function LiveCalculation({
   nextStepLabel,
   isNextDisabled,
 }: LiveCalculationProps) {
-  const pricePerPerson = selectedPackage?.price_per_person
-    ? selectedPackage.price
+  const total = selectedPackage
+    ? calculateEventPackagePrice(
+        selectedPackage.id,
+        selectedPackage.price,
+        option.guestCount,
+        !!selectedPackage.price_per_person
+      )
     : 0;
 
-  const total = selectedPackage
-    ? selectedPackage.price_per_person
-      ? selectedPackage.price * option.guestCount
-      : selectedPackage.price
-    : 0;
+  const pricePerPerson = selectedPackage?.price_per_person
+    ? selectedPackage.price
+    : total > 0 && option.guestCount > 0
+      ? total / option.guestCount
+      : 0;
 
   const configuredCourses = useMemo(
     () => option.menuSelection.courses.filter((c) => c.itemId || c.itemName),

@@ -25,6 +25,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils";
 import { OfferOption } from "./types";
 import { Package } from "../types";
+import { calculateEventPackagePrice } from "@/lib/eventPricing";
 
 interface OptionsOverviewProps {
   options: OfferOption[];
@@ -89,9 +90,12 @@ export function OptionsOverview({
     if (!activeOption) return;
     const pkg = packages.find((p) => p.id === packageId);
     if (pkg) {
-      const newTotal = pkg.price_per_person
-        ? pkg.price * activeOption.guestCount
-        : pkg.price;
+      const newTotal = calculateEventPackagePrice(
+        pkg.id,
+        pkg.price,
+        activeOption.guestCount,
+        !!pkg.price_per_person
+      );
       onUpdateOption(activeOption.id, {
         packageId,
         packageName: pkg.name,

@@ -23,6 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { OfferOption, MenuSelectionType } from "./types";
 import { Package, ExtendedInquiry } from "../types";
+import { calculateEventPackagePrice } from "@/lib/eventPricing";
 import { LiveCalculation } from "./LiveCalculation";
 import { CourseProgress } from "../MenuComposer/CourseProgress";
 import { CourseSelector } from "../MenuComposer/CourseSelector";
@@ -197,9 +198,12 @@ export function WizardConfigurator({
   const handlePackageChange = (packageId: string) => {
     const pkg = packages.find((p) => p.id === packageId);
     if (pkg) {
-      const newTotal = pkg.price_per_person
-        ? pkg.price * option.guestCount
-        : pkg.price;
+      const newTotal = calculateEventPackagePrice(
+        pkg.id,
+        pkg.price,
+        option.guestCount,
+        !!pkg.price_per_person
+      );
       onUpdateOption({
         packageId,
         packageName: pkg.name,
