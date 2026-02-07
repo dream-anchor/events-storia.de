@@ -322,9 +322,6 @@ const EventsImStoria = () => {
                   >
                     {language === 'de' ? 'Brutto' : 'Gross'}
                   </Label>
-                  <span className="text-sm text-muted-foreground ml-2">
-                    ({language === 'de' ? '70% Speisen 7% · 30% Getränke 19%' : '70% food 7% · 30% drinks 19%'})
-                  </span>
                 </div>
 
                 {packagesLoading ? (
