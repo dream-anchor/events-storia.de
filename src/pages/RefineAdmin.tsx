@@ -3,7 +3,7 @@ import routerProvider from "@refinedev/react-router";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { supabaseDataProvider } from "@/providers/refine-data-provider";
 import { supabaseAuthProvider } from "@/providers/refine-auth-provider";
-import { Dashboard, EventsList, OrdersList, MenuItemsList, PackagesList, PackageEdit, LocationEdit, EventBookingsList, EventBookingEditor } from "@/components/admin/refine";
+import { Dashboard, EventsList, OrdersList, MenuItemsList, PackagesList, PackageEdit, LocationEdit, EventBookingsList, EventBookingEditor, Settings } from "@/components/admin/refine";
 import { LexOfficeInvoicesList } from "@/components/admin/refine/LexOfficeInvoicesList";
 import { CateringOrderEditor } from "@/components/admin/refine/CateringOrderEditor";
 import { SmartInquiryEditor } from "@/components/admin/refine/InquiryEditor";
@@ -52,6 +52,10 @@ const resources = [
     create: "/admin/locations/create",
     edit: "/admin/locations/:id/edit",
   },
+  {
+    name: "settings",
+    list: "/admin/settings",
+  },
 ];
 
 export const RefineAdminApp = () => {
@@ -96,6 +100,7 @@ export const RefineAdminApp = () => {
           <Route path="create" element={<LocationEdit />} />
           <Route path=":id/edit" element={<LocationEdit />} />
         </Route>
+        <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </Refine>
