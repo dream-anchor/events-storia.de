@@ -86,14 +86,14 @@ export default function PublicOffer() {
     const fetchOffer = async () => {
       try {
         const { data: result, error: rpcError } = await supabase.rpc(
-          "get_public_offer",
+          "get_public_offer" as any,
           { offer_id: id }
         );
 
-        if (rpcError || !result || !result.inquiry) {
+        if (rpcError || !result || !(result as any).inquiry) {
           setError(true);
         } else {
-          setData(result as PublicOfferData);
+          setData(result as unknown as PublicOfferData);
         }
       } catch {
         setError(true);

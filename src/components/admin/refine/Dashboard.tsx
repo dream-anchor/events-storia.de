@@ -18,7 +18,7 @@ export const Dashboard = () => {
   const events = eventsQuery.result?.data || [];
 
   const handleRefresh = () => {
-    eventsQuery.refetch();
+    eventsQuery.query.refetch();
   };
 
   return (

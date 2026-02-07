@@ -1389,6 +1389,7 @@ export type Database = {
         Args: { p_prefix: string; p_year: number }
         Returns: number
       }
+      get_public_offer: { Args: { offer_id: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

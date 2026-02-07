@@ -155,7 +155,7 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
       const columnId = getColumnFromStatus(event);
       data[columnId].items.push(event);
       data[columnId].totalSum += event.total_amount || 0;
-      data[columnId].totalGuests += event.guest_count || 0;
+      data[columnId].totalGuests += parseInt(String(event.guest_count || '0'), 10) || 0;
     });
 
     return data;
