@@ -67,8 +67,8 @@ export const EventBookingsList = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-serif font-semibold">Events</h1>
-            <p className="text-base text-muted-foreground">
+            <h1 className="text-2xl font-bold tracking-tight">Events</h1>
+            <p className="text-sm text-muted-foreground">
               Bezahlte Events mit Menü-Konfiguration
             </p>
           </div>
@@ -106,7 +106,7 @@ export const EventBookingsList = () => {
         ) : (
           <div className="space-y-3">
             {bookings?.map((booking) => (
-              <Card key={booking.id} className="hover:shadow-md transition-shadow">
+              <Card key={booking.id} className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 hover:shadow-md hover:border-primary/40 transition-all">
                 <CardContent className="p-0">
                   <Link
                     to={`/admin/bookings/${booking.id}/edit`}

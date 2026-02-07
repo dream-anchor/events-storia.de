@@ -94,7 +94,7 @@ export const InquiryDetailsPanel = ({
   };
 
   return (
-    <Card className={cn("border-amber-200/50 dark:border-amber-800/30 bg-amber-50/30 dark:bg-amber-950/10", className)}>
+    <Card className={cn("rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/40 dark:bg-amber-950/20", className)}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-medium flex items-center gap-2">

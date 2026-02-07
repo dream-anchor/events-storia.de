@@ -372,11 +372,12 @@ export const EventsList = () => {
   return (
     <AdminLayout activeTab="events">
       <div className="space-y-6">
-        <div className="flex items-start justify-between">
+        {/* Page Header */}
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Event-Anfragen</h1>
-            <p className="text-base text-muted-foreground">
-              Verwalten Sie Event-Anfragen und erstellen Sie Angebote.
+            <h1 className="text-2xl font-bold tracking-tight">Event-Anfragen</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {activeEvents.length} aktive Anfragen • {archivedEvents.length} archiviert
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -385,19 +386,27 @@ export const EventsList = () => {
               type="single"
               value={viewMode}
               onValueChange={(value) => value && setViewMode(value as "table" | "kanban")}
-              className="border rounded-lg p-0.5"
+              className="bg-muted/50 rounded-lg p-1"
             >
-              <ToggleGroupItem value="table" aria-label="Tabellenansicht" className="h-8 px-3">
+              <ToggleGroupItem
+                value="table"
+                aria-label="Tabellenansicht"
+                className="h-8 px-3 data-[state=on]:bg-white dark:data-[state=on]:bg-gray-800 data-[state=on]:shadow-sm rounded-md"
+              >
                 <Table2 className="h-4 w-4 mr-1.5" />
                 Tabelle
               </ToggleGroupItem>
-              <ToggleGroupItem value="kanban" aria-label="Kanban-Ansicht" className="h-8 px-3">
+              <ToggleGroupItem
+                value="kanban"
+                aria-label="Kanban-Ansicht"
+                className="h-8 px-3 data-[state=on]:bg-white dark:data-[state=on]:bg-gray-800 data-[state=on]:shadow-sm rounded-md"
+              >
                 <LayoutGrid className="h-4 w-4 mr-1.5" />
                 Kanban
               </ToggleGroupItem>
             </ToggleGroup>
 
-            <Button asChild>
+            <Button asChild className="shadow-sm">
               <Link to="/admin/events/create">
                 <Plus className="h-4 w-4 mr-2" />
                 Neue Anfrage

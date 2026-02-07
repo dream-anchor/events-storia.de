@@ -1,33 +1,41 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
-import { ArrowLeft, Loader2, CalendarDays, Truck, Check, Activity, Receipt } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { de } from "date-fns/locale";
+import { ArrowLeft, Loader2, FileText, Send, Receipt, Check, History, ListTodo, ExternalLink } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { EventModules } from "./EventModules";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EventDNACard } from "./EventDNACard";
+import { MultiOfferComposer } from "./MultiOffer";
 import { CateringModules } from "./CateringModules";
 import { CalculationSummary } from "./CalculationSummary";
-import { MultiOfferComposer } from "./MultiOffer";
-import { InquiryDetailsPanel } from "./InquiryDetailsPanel";
+import { ClientPreview } from "./ClientPreview";
+import { StaffNote } from "./StaffNote";
+import { Timeline } from "@/components/admin/shared/Timeline";
+import { TaskManager } from "@/components/admin/shared/TaskManager";
+import { CreateManualInvoiceDialog } from "../CreateManualInvoiceDialog";
+import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
+import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
 import { MenuSelection } from "./MenuComposer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Timeline } from "@/components/admin/shared/Timeline";
-import { CreateManualInvoiceDialog } from "../CreateManualInvoiceDialog";
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("kalkulation");
   const [isSending, setIsSending] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitializedRef = useRef(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>();
+  const [isDownloading, setIsDownloading] = useState(false);
+  const downloadDocument = useDownloadLexOfficeDocument();
 
   // Local state for editable fields
   const [selectedPackages, setSelectedPackages] = useState<SelectedPackage[]>([]);
@@ -55,8 +63,6 @@ export const SmartInquiryEditor = () => {
   });
   const packages = packagesQuery.result?.data || [];
 
-  // Note: Menu items are now fetched internally by CateringModules via useCombinedMenuItems
-
   // Fetch email templates
   const templatesQuery = useList<EmailTemplate>({
     resource: "email_templates" as never,
@@ -75,8 +81,7 @@ export const SmartInquiryEditor = () => {
       setLocalInquiry(inquiry);
       setQuoteNotes(inquiry.quote_notes || "");
       setEmailDraft(inquiry.email_draft || "");
-      
-      // Parse JSON fields
+
       try {
         if (inquiry.selected_packages && Array.isArray(inquiry.selected_packages)) {
           setSelectedPackages(inquiry.selected_packages);
@@ -84,7 +89,6 @@ export const SmartInquiryEditor = () => {
         if (inquiry.quote_items && Array.isArray(inquiry.quote_items)) {
           setQuoteItems(inquiry.quote_items);
         }
-        // Parse menu_selection if available
         const storedMenuSelection = (inquiry as any).menu_selection;
         if (storedMenuSelection && typeof storedMenuSelection === 'object') {
           setMenuSelection({
@@ -115,27 +119,17 @@ export const SmartInquiryEditor = () => {
   // Determine inquiry type
   const inquiryType = mergedInquiry?.inquiry_type || 'event';
 
-  // Handlers
-  const handlePackageToggle = useCallback((pkg: Package) => {
-    setSelectedPackages(prev => {
-      const exists = prev.find(p => p.id === pkg.id);
-      if (exists) {
-        return prev.filter(p => p.id !== pkg.id);
-      }
-      return [...prev, {
-        id: pkg.id,
-        name: pkg.name,
-        description: pkg.description,
-        price: pkg.price,
-        pricePerPerson: pkg.price_per_person,
-        quantity: 1,
-        minGuests: pkg.min_guests ?? undefined,
-        requiresPrepayment: pkg.requires_prepayment,
-        prepaymentPercentage: pkg.prepayment_percentage,
-      }];
-    });
-  }, []);
+  // Get status info
+  const getStatusInfo = () => {
+    if (inquiry?.status === 'confirmed') return { label: 'Bestätigt', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' };
+    if (inquiry?.status === 'offer_sent') return { label: 'Angebot gesendet', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' };
+    if (inquiry?.status === 'declined') return { label: 'Abgelehnt', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' };
+    if (inquiry?.last_edited_at) return { label: 'In Bearbeitung', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' };
+    return { label: 'Neu', color: 'bg-primary/10 text-primary' };
+  };
+  const statusInfo = getStatusInfo();
 
+  // Handlers
   const handleLocalFieldChange = useCallback((field: keyof ExtendedInquiry, value: unknown) => {
     setLocalInquiry(prev => ({ ...prev, [field]: value }));
   }, []);
@@ -163,6 +157,72 @@ export const SmartInquiryEditor = () => {
   const handleItemRemove = useCallback((itemId: string) => {
     setQuoteItems(prev => prev.filter(i => i.id !== itemId));
   }, []);
+
+  // Get current user email for assignee feature
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserEmail(user?.email || undefined);
+    });
+  }, []);
+
+  // LexOffice document handling
+  const lexofficeDocId = (inquiry as any)?.lexoffice_invoice_id || inquiry?.lexoffice_quotation_id;
+  const lexofficeDocType = (inquiry as any)?.lexoffice_document_type ||
+    (inquiry?.lexoffice_quotation_id ? 'quotation' : null);
+
+  const handleDownloadDocument = async () => {
+    if (!lexofficeDocId || !lexofficeDocType) return;
+    setIsDownloading(true);
+    try {
+      const result = await downloadDocument.mutateAsync({
+        voucherId: lexofficeDocId,
+        voucherType: lexofficeDocType
+      });
+      if (result?.pdfUrl) {
+        window.open(result.pdfUrl, '_blank');
+      } else {
+        toast.error("PDF konnte nicht geladen werden");
+      }
+    } catch {
+      toast.error("Fehler beim Laden des Dokuments");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Send offer handler
+  const handleSendOffer = useCallback(async () => {
+    if (!emailDraft || !inquiry?.email) {
+      toast.error("E-Mail-Entwurf oder Empfänger fehlt");
+      return;
+    }
+    setIsSending(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-quote-email', {
+        body: {
+          to: inquiry.email,
+          subject: `Ihr Angebot von Storia`,
+          html: emailDraft,
+          inquiryId: id,
+        }
+      });
+      if (error) throw error;
+
+      // Update inquiry status
+      updateInquiry({
+        resource: "events",
+        id: id!,
+        values: { status: 'offer_sent' }
+      });
+
+      toast.success("E-Mail wurde gesendet");
+    } catch (error) {
+      console.error(error);
+      toast.error("Fehler beim Senden der E-Mail");
+    } finally {
+      setIsSending(false);
+    }
+  }, [emailDraft, inquiry?.email, id, updateInquiry]);
 
   // Auto-save function (debounced)
   const performSave = useCallback(async () => {
@@ -196,15 +256,15 @@ export const SmartInquiryEditor = () => {
   // Auto-save on any change (debounced)
   useEffect(() => {
     if (!isInitializedRef.current) return;
-    
+
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    
+
     saveTimeoutRef.current = setTimeout(() => {
       performSave();
-    }, 800); // 800ms debounce
-    
+    }, 800);
+
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -215,121 +275,22 @@ export const SmartInquiryEditor = () => {
   // Mark as initialized after first load
   useEffect(() => {
     if (inquiry && !isInitializedRef.current) {
-      // Small delay to ensure state is set before enabling auto-save
       setTimeout(() => {
         isInitializedRef.current = true;
       }, 100);
     }
   }, [inquiry]);
 
-  // Send to LexOffice with email
-  const handleSendOffer = useCallback(async () => {
-    if (!inquiry || !id || !emailDraft) {
-      toast.error("Bitte erst einen E-Mail-Text erstellen");
-      return;
-    }
-
-    setIsSending(true);
-
-    try {
-      // First save current state
-      await performSave();
-
-      // Build line items from packages and quote items
-      const lineItems = [
-        ...selectedPackages.map(pkg => ({
-          type: 'custom',
-          name: pkg.name,
-          description: pkg.description || '',
-          quantity: pkg.pricePerPerson ? guestCount : pkg.quantity,
-          unitName: pkg.pricePerPerson ? 'Person' : 'Stück',
-          unitPrice: {
-            currency: 'EUR',
-            netAmount: pkg.price,
-            taxRatePercentage: 7,
-          },
-        })),
-        ...quoteItems.map(item => ({
-          type: 'custom',
-          name: item.name,
-          description: item.description || '',
-          quantity: item.quantity,
-          unitName: 'Stück',
-          unitPrice: {
-            currency: 'EUR',
-            netAmount: item.price,
-            taxRatePercentage: 7,
-          },
-        })),
-      ];
-
-      // Call edge function to create LexOffice quotation
-      const { data, error } = await supabase.functions.invoke('create-event-quotation', {
-        body: {
-          eventId: id,
-          event: {
-            contact_name: mergedInquiry.contact_name,
-            company_name: mergedInquiry.company_name,
-            email: mergedInquiry.email,
-            phone: mergedInquiry.phone,
-            preferred_date: mergedInquiry.preferred_date,
-            guest_count: mergedInquiry.guest_count,
-            event_type: mergedInquiry.event_type,
-          },
-          items: lineItems,
-          notes: quoteNotes,
-          emailBody: emailDraft,
-          menuSelection: menuSelection,
-        },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      // Update inquiry status
-      updateInquiry({
-        resource: "events",
-        id,
-        values: {
-          status: 'offer_sent',
-          lexoffice_quotation_id: data?.quotationId,
-        },
-      });
-
-      toast.success("Angebot wurde erstellt und per E-Mail versendet!");
-
-    } catch (err) {
-      console.error('Send offer error:', err);
-      toast.error(err instanceof Error ? err.message : "Fehler beim Senden");
-    } finally {
-      setIsSending(false);
-    }
-  }, [inquiry, id, emailDraft, performSave, selectedPackages, quoteItems, quoteNotes, guestCount, mergedInquiry, updateInquiry, menuSelection]);
-
-  // Keyboard shortcuts for editor
+  // Keyboard shortcuts
   useEditorShortcuts({
     onSave: () => {
       performSave();
       toast.success("Gespeichert");
     },
-    onSendOffer: () => {
-      // Only trigger if we have an email draft ready
-      if (emailDraft && inquiry?.status !== 'offer_sent') {
-        handleSendOffer();
-      }
-    },
-    onGenerateEmail: () => {
-      // Switch to Kalkulation tab where email is composed
-      setActiveTab("kalkulation");
-      toast.info("Nutze den E-Mail-Editor im Kalkulation-Tab");
-    },
-    onNextInquiry: () => {
-      // Navigate to events list for now - could be enhanced with actual navigation
-      toast.info("Tipp: Nutze ⌘K für schnelle Navigation");
-    },
-    onPreviousInquiry: () => {
-      toast.info("Tipp: Nutze ⌘K für schnelle Navigation");
-    },
+    onSendOffer: handleSendOffer,
+    onGenerateEmail: () => {},
+    onNextInquiry: () => toast.info("Tipp: Nutze ⌘K für schnelle Navigation"),
+    onPreviousInquiry: () => toast.info("Tipp: Nutze ⌘K für schnelle Navigation"),
   });
 
   if (isLoading) {
@@ -357,107 +318,193 @@ export const SmartInquiryEditor = () => {
 
   return (
     <AdminLayout activeTab="events">
-      <div className="space-y-6">
-        {/* Header */}
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-40 -mx-6 px-6 py-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-border/40 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate('/admin/events')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-semibold tracking-tight">
-                  {mergedInquiry.company_name || mergedInquiry.contact_name}
-                </h1>
-                <Badge variant={inquiryType === 'event' ? 'default' : 'secondary'}>
-                  {inquiryType === 'event' ? (
-                    <><CalendarDays className="h-3 w-3 mr-1" /> Event</>
-                  ) : (
-                    <><Truck className="h-3 w-3 mr-1" /> Catering</>
-                  )}
-                </Badge>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center text-white">
+                <FileText className="h-5 w-5" />
               </div>
-              <p className="text-muted-foreground">
-                {mergedInquiry.email} • {mergedInquiry.event_type || 'Anfrage'}
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-bold tracking-tight">
+                    Anfrage #{id?.slice(0, 8)}
+                  </h1>
+                  <Badge className={statusInfo.color}>
+                    {statusInfo.label}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Erstellt am {inquiry.created_at ? format(parseISO(inquiry.created_at), "dd. MMM yyyy", { locale: de }) : "Unbekannt"}
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Header Actions */}
           <div className="flex items-center gap-2">
+            {/* Save Status */}
+            {saveStatus === 'saving' && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground mr-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Speichert...
+              </span>
+            )}
+            {saveStatus === 'saved' && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground mr-2">
+                <Check className="h-3 w-3" />
+                Gespeichert
+              </span>
+            )}
+
+            {/* LexOffice Document Button - Show if linked */}
+            {lexofficeDocId && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-950"
+                onClick={handleDownloadDocument}
+                disabled={isDownloading}
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {lexofficeDocType === 'invoice' ? 'Rechnung' : 'Angebot'} PDF
+                </span>
+              </Button>
+            )}
+
             <Button
               variant="outline"
               size="sm"
+              className="gap-2"
               onClick={() => setCreateInvoiceOpen(true)}
             >
-              <Receipt className="h-4 w-4 mr-2" />
-              Rechnung erstellen
+              <Receipt className="h-4 w-4" />
+              <span className="hidden sm:inline">Rechnung</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+
+            <Button
+              size="sm"
+              className="gap-2 bg-primary hover:bg-primary/90"
+              disabled={!emailDraft || isSending}
+              onClick={handleSendOffer}
+            >
+              {isSending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">E-Mail senden</span>
             </Button>
           </div>
         </div>
+      </div>
 
-        {/* Inquiry Details Panel - shows original customer message and key info */}
-        <InquiryDetailsPanel
-          inquiry={mergedInquiry}
-          onInternalNotesChange={(notes) => handleLocalFieldChange('internal_notes', notes)}
-        />
+      {/* Main Content - 12-column grid, 7/5 split */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left Column - 7 columns */}
+        <div className="lg:col-span-7 space-y-8">
+          {/* Event DNA Card */}
+          <EventDNACard
+            inquiry={mergedInquiry}
+            onFieldChange={handleLocalFieldChange}
+            isReadOnly={inquiry.status === 'confirmed'}
+            currentUserEmail={currentUserEmail}
+            onAssigneeChange={(email) => handleLocalFieldChange('assigned_to', email)}
+            onPriorityChange={(priority) => handleLocalFieldChange('priority', priority)}
+          />
 
-        {/* Tabbed Interface - simplified to 2 tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-sm">
-            <TabsTrigger value="kalkulation">Kalkulation</TabsTrigger>
-            <TabsTrigger value="aktivitaeten" className="gap-1.5">
-              <Activity className="h-4 w-4" />
-              Aktivitäten
-            </TabsTrigger>
-          </TabsList>
+          {/* Multi-Package Offer Section */}
+          {inquiryType === 'event' ? (
+            <MultiOfferComposer
+              inquiry={mergedInquiry}
+              packages={packages}
+              templates={templates}
+              onSave={performSave}
+            />
+          ) : (
+            /* Catering inquiries use existing flow */
+            <CateringModules
+              inquiry={mergedInquiry}
+              selectedItems={quoteItems}
+              onItemAdd={handleItemAdd}
+              onItemQuantityChange={handleItemQuantityChange}
+              onItemRemove={handleItemRemove}
+              onDeliveryChange={(field, value) => handleLocalFieldChange(field, value)}
+            />
+          )}
 
-          {/* Tab 1: Kalkulation */}
-          <TabsContent value="kalkulation" className="space-y-6">
-            {/* Event inquiries use MultiOfferComposer (works for single & multi options) */}
-            {inquiryType === 'event' ? (
-              <MultiOfferComposer
-                inquiry={mergedInquiry}
-                packages={packages}
-                templates={templates}
-                onSave={performSave}
-              />
-            ) : (
-              /* Catering inquiries use existing flow */
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left: Catering modules */}
-                <div className="lg:col-span-2">
-                  <CateringModules
-                    inquiry={mergedInquiry}
-                    selectedItems={quoteItems}
-                    onItemAdd={handleItemAdd}
-                    onItemQuantityChange={handleItemQuantityChange}
-                    onItemRemove={handleItemRemove}
-                    onDeliveryChange={(field, value) => handleLocalFieldChange(field, value)}
-                  />
-                </div>
-
-                {/* Right: Calculation Summary */}
-                <div>
-                  <CalculationSummary
-                    quoteItems={quoteItems}
-                    selectedPackages={selectedPackages}
-                    guestCount={guestCount}
-                    notes={quoteNotes}
-                    onNotesChange={setQuoteNotes}
-                  />
-                </div>
+          {/* Timeline & Activity */}
+          <div className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-bold tracking-tight">Timeline & Aktivitäten</h2>
               </div>
-            )}
-          </TabsContent>
-
-          {/* Tab 2: Aktivitäten */}
-          <TabsContent value="aktivitaeten">
-            <div className="max-w-3xl">
-              <Timeline entityType="event_inquiry" entityId={id!} />
+              <Button variant="ghost" size="sm" className="text-xs text-primary">
+                Alle anzeigen
+              </Button>
             </div>
-          </TabsContent>
-        </Tabs>
+            <Timeline entityType="event_inquiry" entityId={id!} />
+          </div>
+        </div>
+
+        {/* Right Column - 5 columns */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Cost Calculator / Calculation Summary */}
+          <CalculationSummary
+            quoteItems={quoteItems}
+            selectedPackages={selectedPackages}
+            guestCount={guestCount}
+            notes={quoteNotes}
+            onNotesChange={setQuoteNotes}
+          />
+
+          {/* Client Preview */}
+          <ClientPreview
+            inquiryId={id!}
+            version={inquiry.current_offer_version || 1}
+          />
+
+          {/* Tasks & Follow-ups */}
+          <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <ListTodo className="h-4 w-4 text-primary" />
+                Aufgaben & Follow-ups
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TaskManager
+                inquiryId={id!}
+                currentUserEmail={currentUserEmail}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Staff Note */}
+          <StaffNote
+            note={inquiry.internal_notes || ''}
+            onNoteChange={(note) => handleLocalFieldChange('internal_notes', note)}
+          />
+        </div>
       </div>
 
       {/* Manual Invoice Creation Dialog */}

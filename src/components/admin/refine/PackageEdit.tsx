@@ -271,7 +271,7 @@ export const PackageEdit = () => {
         </div>
 
         {/* Basic Info */}
-        <Card>
+        <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
           <CardHeader>
             <CardTitle>Grundinformationen</CardTitle>
           </CardHeader>
@@ -359,7 +359,7 @@ export const PackageEdit = () => {
         </Card>
 
         {/* Pricing */}
-        <Card>
+        <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
           <CardHeader>
             <CardTitle>Preisgestaltung</CardTitle>
             <CardDescription>Legen Sie den Preis und die Berechnungsart fest</CardDescription>
@@ -417,7 +417,7 @@ export const PackageEdit = () => {
         </Card>
 
         {/* Payment */}
-        <Card>
+        <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
           <CardHeader>
             <CardTitle>Zahlungsbedingungen</CardTitle>
           </CardHeader>
@@ -454,7 +454,7 @@ export const PackageEdit = () => {
         </Card>
 
         {/* Locations */}
-        <Card>
+        <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
@@ -503,7 +503,7 @@ export const PackageEdit = () => {
         )}
 
         {/* Includes */}
-        <Card>
+        <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
           <CardHeader>
             <CardTitle>Inklusivleistungen</CardTitle>
             <CardDescription>Was ist in diesem Paket enthalten? (Freitext-Liste)</CardDescription>

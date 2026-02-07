@@ -160,10 +160,10 @@ export const EventEdit = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-serif font-semibold">
+            <h1 className="text-2xl font-bold tracking-tight">
               Angebot erstellen
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {event.company_name || event.contact_name} • {event.email}
             </p>
           </div>

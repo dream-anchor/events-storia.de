@@ -155,13 +155,18 @@ export const OrdersList = () => {
     navigate(`/admin/orders/${order.id}/edit`);
   };
 
+  // Calculate order counts for subtitle
+  const pendingCount = orders.filter(o => o.status === 'pending').length;
+  const confirmedCount = orders.filter(o => o.status === 'confirmed').length;
+
   return (
     <AdminLayout activeTab="orders">
       <div className="space-y-6">
+        {/* Page Header */}
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Catering-Bestellungen</h1>
-          <p className="text-muted-foreground">
-            Übersicht aller eingegangenen Bestellungen.
+          <h1 className="text-2xl font-bold tracking-tight">Catering-Bestellungen</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {orders.length} Bestellungen • {pendingCount} neu • {confirmedCount} bestätigt
           </p>
         </div>
 

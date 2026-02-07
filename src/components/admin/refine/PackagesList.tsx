@@ -205,9 +205,9 @@ export const PackagesList = () => {
     <AdminLayout activeTab="packages">
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight">Pakete & Locations</h1>
-          <p className="text-lg text-muted-foreground">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight">Pakete & Locations</h1>
+          <p className="text-muted-foreground">
             Verwalten Sie Event-Pakete und verfügbare Räumlichkeiten
           </p>
         </div>
@@ -238,12 +238,12 @@ export const PackagesList = () => {
 
           {/* Search */}
           <div className="relative max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Suchen..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 text-base"
+              className="pl-10 h-10 bg-white dark:bg-gray-900 border-border/60 rounded-lg"
             />
           </div>
 
@@ -276,13 +276,13 @@ export const PackagesList = () => {
             ) : (
               <div className="grid gap-6 lg:grid-cols-3">
                 {filteredPackages.map((pkg) => (
-                  <Card 
-                    key={pkg.id} 
-                    className={`group relative overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 flex flex-col ${!pkg.is_active ? 'opacity-60' : ''}`}
+                  <Card
+                    key={pkg.id}
+                    className={`group relative overflow-hidden transition-all rounded-xl border border-border/60 bg-white dark:bg-gray-900 hover:shadow-md hover:border-primary/40 flex flex-col ${!pkg.is_active ? 'opacity-60' : ''}`}
                   >
                     {/* Price Badge */}
                     <div className="absolute top-4 right-4 z-10">
-                      <Badge className="text-lg font-bold px-4 py-2 bg-primary text-primary-foreground">
+                      <Badge className="text-base font-semibold px-3 py-1.5 bg-primary text-primary-foreground">
                         {pkg.price_per_person ? 'ab ' : ''}{formatPrice(pkg.price, pkg.price_per_person)}
                       </Badge>
                     </div>
@@ -430,9 +430,9 @@ export const PackagesList = () => {
             ) : (
               <div className="grid gap-6 md:grid-cols-2">
                 {filteredLocations.map((loc) => (
-                  <Card 
-                    key={loc.id} 
-                    className={`group transition-all hover:shadow-lg hover:border-primary/50 ${!loc.is_active ? 'opacity-60' : ''}`}
+                  <Card
+                    key={loc.id}
+                    className={`group transition-all rounded-xl border border-border/60 bg-white dark:bg-gray-900 hover:shadow-md hover:border-primary/40 ${!loc.is_active ? 'opacity-60' : ''}`}
                   >
                     <CardHeader className="pb-4">
                       <div className="flex items-start justify-between gap-4">

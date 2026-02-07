@@ -257,3 +257,9 @@ Claude MUST:
 > Always prioritize the integrity of the existing architecture.
 
 > Before creating or modifying any public-facing page, consult `docs/seo-strategy.md` to ensure keyword compliance.
+
+---
+
+## Auto-Deployment
+
+Nach jeder Code-Änderung automatisch committen und deployen (git add, commit, push).

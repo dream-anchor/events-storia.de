@@ -55,9 +55,9 @@ export const CalculationSummary = ({
   );
 
   return (
-    <Card>
+    <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Kalkulation</CardTitle>
+        <CardTitle className="text-base font-semibold">Kalkulation</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Min Guests Warnings */}

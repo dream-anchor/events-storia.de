@@ -175,9 +175,9 @@ export const LocationEdit = () => {
         </div>
 
         {/* Basic Info */}
-        <Card>
+        <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2">
+            <CardTitle className="text-lg flex items-center gap-2">
               <MapPin className="h-5 w-5" />
               Grundinformationen
             </CardTitle>
@@ -242,9 +242,9 @@ export const LocationEdit = () => {
         </Card>
 
         {/* Capacity */}
-        <Card>
+        <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2">
+            <CardTitle className="text-lg flex items-center gap-2">
               <Users className="h-5 w-5" />
               Kapazität
             </CardTitle>
@@ -292,9 +292,9 @@ export const LocationEdit = () => {
         </Card>
 
         {/* Features */}
-        <Card>
+        <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl">Ausstattung & Features</CardTitle>
+            <CardTitle className="text-lg">Ausstattung & Features</CardTitle>
             <CardDescription className="text-base">
               Besondere Merkmale dieses Raums
             </CardDescription>

@@ -160,9 +160,9 @@ export const MenuItemsList = () => {
     <AdminLayout activeTab="menu">
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-serif font-semibold">Speisen & Getränke</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Speisen & Getränke</h1>
           <p className="text-muted-foreground">
-            Verwalten Sie alle Speisen und Getränke aus beiden Quellen.
+            Alle Speisen und Getränke aus Catering und Ristorante.
           </p>
         </div>
 
