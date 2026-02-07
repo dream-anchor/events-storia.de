@@ -9,7 +9,7 @@ export const Dashboard = () => {
     resource: "events",
     pagination: { pageSize: 100 },
     filters: [
-      { field: "status", operator: "in", value: ["new", "contacted", "offer_sent", "confirmed"] },
+      { field: "status", operator: "in", value: ["new", "contacted", "offer_sent", "confirmed", "declined", "cancelled"] },
       { field: "archived_at", operator: "null", value: true },
     ],
     sorters: [{ field: "created_at", order: "desc" }],
