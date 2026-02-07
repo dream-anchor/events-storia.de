@@ -3,15 +3,14 @@ RewriteEngine On
 # ============================================
 # 0. HTTPS + WWW Kanonisierung (SEO)
 # ============================================
-# Alle Anfragen auf https://www.ristorantestoria.de umleiten
 
 # Schritt 1: HTTP zu HTTPS erzwingen
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 
 # Schritt 2: Non-www zu www umleiten (nur bei HTTPS)
-RewriteCond %{HTTP_HOST} ^ristorantestoria\.de$ [NC]
-RewriteRule ^(.*)$ https://www.ristorantestoria.de/$1 [R=301,L]
+RewriteCond %{HTTP_HOST} ^events-storia\.de$ [NC]
+RewriteRule ^(.*)$ https://www.events-storia.de/$1 [R=301,L]
 
 # ============================================
 # 1. Spezielle Weiterleitungen (Query-String)
@@ -29,6 +28,13 @@ RewriteRule ^ristorantestoria-de/?$ / [R=301,L]
 # ============================================
 # 3. SPA-Routing (React Router)
 # ============================================
+# Admin-Bereich: Serve clean HTML without pre-rendered frontend content
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} ^/admin
+RewriteRule ^ /admin/index.html [L]
+
+# Frontend: Serve pre-rendered index.html
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ /index.html [L]

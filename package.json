@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "prebuild": "npx tsx scripts/fetch-menu-data.ts",
-    "build": "npm run sitemap && npm run prebuild && vite build",
+    "build": "npm run sitemap && npm run prebuild && vite build && npx tsx scripts/generate-admin-html.ts",
     "build:dev": "vite build --mode development",
     "sitemap": "npx tsx scripts/generate-sitemap.ts",
     "fetch-menus": "npx tsx scripts/fetch-menu-data.ts",
