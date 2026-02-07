@@ -69,13 +69,19 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
           return;
         }
 
-        // Step 3: Single DB query for admin role
-        const { data: roleData, error } = await supabase
+        // Step 3: Single DB query for admin role — with timeout
+        const roleCheck = supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', userId)
           .eq('role', 'admin')
           .maybeSingle();
+
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Auth check timeout')), 8000)
+        );
+
+        const { data: roleData, error } = await Promise.race([roleCheck, timeout]);
 
         if (!mounted) return;
 
