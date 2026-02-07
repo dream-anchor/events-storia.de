@@ -28,8 +28,8 @@ interface CateringRow {
   price: number | null;
   serving_info: string | null;
   image_url: string | null;
-  is_vegetarian: boolean;
-  is_vegan: boolean;
+  is_vegetarian: boolean | null;
+  is_vegan: boolean | null;
   menu_categories: {
     name: string;
   } | null;
@@ -73,8 +73,8 @@ export const useCombinedMenuItems = (options: UseCombinedMenuItemsOptions = {}) 
           image_url: row.image_url,
           category_name: row.menu_categories?.name || 'Catering',
           source: 'catering' as const,
-          is_vegetarian: row.is_vegetarian,
-          is_vegan: row.is_vegan,
+          is_vegetarian: row.is_vegetarian ?? undefined,
+          is_vegan: row.is_vegan ?? undefined,
         }));
 
         setCateringItems(items);
