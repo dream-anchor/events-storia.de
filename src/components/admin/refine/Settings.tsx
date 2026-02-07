@@ -350,58 +350,73 @@ export const Settings = () => {
 
           {/* Speisen Tab */}
           <TabsContent value="speisen" className="space-y-6">
+            {/* Catering Menu - Editable */}
             <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <UtensilsCrossed className="h-5 w-5 text-primary" />
-                      Speisekarte verwalten
+                      Catering-Speisekarte
                     </CardTitle>
                     <CardDescription>
-                      {menuItemsCount} Speisen in der Datenbank
+                      Speisen für Catering-Bestellungen und Events
                     </CardDescription>
                   </div>
-                  <Badge variant="secondary" className="text-lg px-3 py-1">
-                    {menuItemsCount}
+                  <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                    Bearbeitbar
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Verwalten Sie alle Speisen für Catering und Restaurant. Fügen Sie neue Gerichte hinzu,
-                  bearbeiten Sie Preise und Beschreibungen.
+                  Verwalten Sie Fingerfood, Buffet-Platten, Pizzen und Desserts für das Catering.
+                  Diese Speisen können direkt hier bearbeitet werden.
                 </p>
                 <Link to="/admin/menu">
                   <Button className="gap-2">
-                    Speisekarte öffnen
+                    Catering-Speisen bearbeiten
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </Link>
               </CardContent>
             </Card>
 
-            {/* Quick Stats */}
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold">{menuItemsCount}</div>
-                  <p className="text-sm text-muted-foreground">Speisen gesamt</p>
-                </CardContent>
-              </Card>
-              <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold text-green-600">Aktiv</div>
-                  <p className="text-sm text-muted-foreground">Speisekarten-Status</p>
-                </CardContent>
-              </Card>
-              <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold">5</div>
-                  <p className="text-sm text-muted-foreground">Kategorien</p>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Restaurant Menu - External Link */}
+            <Card className="rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/40 dark:bg-amber-950/20">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <UtensilsCrossed className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      Restaurant-Speisekarte
+                    </CardTitle>
+                    <CardDescription>
+                      Speisen für das Ristorante Storia
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300">
+                    Externes System
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Die Restaurant-Speisekarte wird über das separate Admin-Panel des Ristorante Storia verwaltet.
+                  Änderungen an den Restaurant-Gerichten erfolgen dort.
+                </p>
+                <a
+                  href="https://www.ristorantestoria.de/admin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" className="gap-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950">
+                    Restaurant-Admin öffnen
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </a>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Pakete & Locations Tab */}
