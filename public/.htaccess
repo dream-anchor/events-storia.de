@@ -42,6 +42,15 @@ RewriteRule ^weihnachtsmenues/?$ / [R=301,L]
 RewriteRule ^silvesterparty/?$ / [R=301,L]
 RewriteRule ^ristorantestoria-de/?$ / [R=301,L]
 
+# Legacy WordPress/Wix URLs → 301
+RewriteRule ^veranstaltung(/.*)?$ /events/ [R=301,L]
+RewriteRule ^gallerie(/.*)?$ /events/ [R=301,L]
+
+# Legacy WordPress URLs → 410 Gone
+RewriteRule ^comments/feed(/.*)?$ - [G,L]
+RewriteRule ^feed(/.*)?$ - [G,L]
+RewriteRule ^-_-/resources(/.*)?$ - [G,L]
+
 # ============================================
 # 2b. Multi-Language Slug Redirects
 # ============================================
