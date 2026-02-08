@@ -242,7 +242,7 @@ const ChafingDishOption = ({ language }: { language: string }) => {
 };
 
 const BuffetAuflauf = () => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const { data: menu, isLoading, error } = useCateringMenuBySlug("buffet-auflauf");
 
   const title = language === 'en' && menu?.title_en ? menu.title_en : menu?.title;
@@ -253,10 +253,9 @@ const BuffetAuflauf = () => {
 
   return (
     <>
-      <SEO 
-        title={language === 'de' ? "Buffet & Warme Gerichte | STORIA Catering München" : "Buffet & Hot Dishes | STORIA Catering Munich"}
-        description={language === 'de' ? "Warme italienische Gerichte für Ihr Event: Lasagne, Parmigiana, Ossobuco & mehr. Mit Chafing Dish Option. STORIA Catering München." : "Hot Italian dishes for your event: lasagna, parmigiana, ossobuco & more. Chafing dish available. STORIA Catering Munich."}
-        canonical="/catering/buffet-auflauf"
+      <SEO
+        title={t.seo.cateringCasseroles.title}
+        description={t.seo.cateringCasseroles.description}
       />
       {allItems.length > 0 && (
         <StructuredData

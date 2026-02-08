@@ -91,7 +91,7 @@ const processSteps = [
 ];
 
 const EventsImStoria = () => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const [selectedPackage, setSelectedPackage] = useState<string>("");
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -110,11 +110,8 @@ const EventsImStoria = () => {
   return (
     <>
       <SEO
-        title={language === 'de' ? "Events & Firmenfeiern im STORIA Restaurant München" : "Events & Corporate Celebrations at STORIA Restaurant Munich"}
-        description={language === 'de' 
-          ? "Firmenfeiern, Weihnachtsfeiern & private Events im STORIA München: Business Dinner, Network-Aperitivo, Full Location Buyout. Jetzt online buchen!"
-          : "Corporate events, Christmas parties & private events at STORIA Munich: Business Dinner, Network Aperitivo, Full Location Buyout. Book online now!"}
-        canonical="/events"
+        title={t.seo.events.title}
+        description={t.seo.events.description}
       />
       <StructuredData
         type="event"

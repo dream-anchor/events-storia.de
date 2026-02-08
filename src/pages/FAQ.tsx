@@ -5,6 +5,7 @@ import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { LocalizedLink } from "@/components/LocalizedLink";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface FAQQuestion {
   question: string;
@@ -217,13 +218,13 @@ const allFaqItems = faqCategories.flatMap(category =>
 );
 
 const FAQ = () => {
+  const { t } = useLanguage();
+
   return (
     <>
       <SEO
-        title="FAQ – Häufig gestellte Fragen | STORIA Catering München"
-        description="Antworten auf häufige Fragen zu STORIA Catering: Preise, Mindestbestellungen, Liefergebiet München, Speisen, Buchungsablauf und mehr."
-        canonical="/faq-catering-muenchen"
-        noIndex={false}
+        title={t.seo.faq.title}
+        description={t.seo.faq.description}
       />
 
       <StructuredData

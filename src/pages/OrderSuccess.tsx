@@ -46,7 +46,7 @@ interface LocationState {
 }
 
 const OrderSuccess = () => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const { formatPrice } = usePriceDisplay();
   const navigate = useNavigate();
   const location = useLocation();
@@ -120,9 +120,9 @@ const OrderSuccess = () => {
 
   return (
     <>
-      <SEO 
-        title={language === 'de' ? 'Bestellung erfolgreich | STORIA' : 'Order Successful | STORIA'}
-        description={language === 'de' ? 'Ihre Bestellung war erfolgreich' : 'Your order was successful'}
+      <SEO
+        title={t.seo.orderSuccess.title}
+        description={t.seo.orderSuccess.description}
       />
       
       <div className="min-h-screen flex flex-col bg-background">

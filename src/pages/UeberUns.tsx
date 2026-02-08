@@ -10,13 +10,9 @@ const UeberUns = () => {
 
   return (
     <>
-      <SEO 
-        title={language === 'de' ? "Über uns – La Famiglia Speranza" : "About Us – La Famiglia Speranza"}
-        description={language === 'de' 
-          ? "STORIA – Ihr Italiener in der Maxvorstadt München. Ristorante Pizzeria mit neapolitanischer Pizza, hausgemachter Pasta und italienischem Trattoria-Flair. La Famiglia Speranza."
-          : "STORIA – Your Italian restaurant in Maxvorstadt Munich. Ristorante Pizzeria with Neapolitan pizza, homemade pasta and Italian trattoria atmosphere. La Famiglia Speranza."
-        }
-        canonical="/ueber-uns"
+      <SEO
+        title={t.seo.about.title}
+        description={t.seo.about.description}
       />
       <div className="min-h-screen bg-background flex flex-col">
         <Header />

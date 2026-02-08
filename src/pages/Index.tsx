@@ -11,7 +11,7 @@ import ConsentElfsightReviews from "@/components/ConsentElfsightReviews";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const Index = () => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
 
   const faqItems =
     language === "de"
@@ -71,7 +71,10 @@ const Index = () => {
 
   return (
     <>
-      <SEO canonical="/" />
+      <SEO
+        title={t.seo.home.title}
+        description={t.seo.home.description}
+      />
       <StructuredData type="restaurant" faqItems={faqItems} />
       <Header />
       <Navigation />

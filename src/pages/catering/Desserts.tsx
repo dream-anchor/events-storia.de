@@ -147,7 +147,7 @@ const DessertCard = ({ item, language }: DessertCardProps) => {
 };
 
 const Desserts = () => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const { data: menu, isLoading, error } = useCateringMenuBySlug('desserts');
 
   // Get all items from all categories
@@ -156,10 +156,8 @@ const Desserts = () => {
   return (
     <>
       <SEO
-        title={language === 'de' ? 'Desserts | STORIA Catering München' : 'Desserts | STORIA Catering Munich'}
-        description={language === 'de' 
-          ? 'Italienische Desserts für Ihr Catering: Hausgemachtes Tiramisù & Pistazien-Törtchen. Ab 4 Personen bestellbar. STORIA München.'
-          : 'Italian desserts for your catering: homemade tiramisù & pistachio tartlets. Minimum order 4 people. STORIA Munich.'}
+        title={t.seo.cateringDesserts.title}
+        description={t.seo.cateringDesserts.description}
       />
       {allItems.length > 0 && (
         <StructuredData

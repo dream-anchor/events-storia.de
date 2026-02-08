@@ -224,7 +224,7 @@ const PizzaPaneCard = ({ item, language }: { item: CateringMenuItem; language: s
 };
 
 const PizzeNapoletane = () => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const { data: menu, isLoading, error } = useCateringMenuBySlug("pizze-napoletane");
 
   // Separate Pizza Pane from other pizzas (first category is usually Pizza Pane)
@@ -241,12 +241,9 @@ const PizzeNapoletane = () => {
 
   return (
     <>
-      <SEO 
-        title={language === 'de' ? "Pizze Napoletane | STORIA Catering München" : "Pizze Napoletane | STORIA Catering Munich"}
-        description={language === 'de' 
-          ? "Original neapolitanische Pizza aus dem Steinofen – 25 Sorten für Lieferung & Abholung in München. STORIA Catering – Jetzt bestellen!" 
-          : "Authentic Neapolitan stone-oven pizza – 25 varieties for delivery & pickup in Munich. STORIA Catering – Order now!"}
-        canonical="/catering/pizze-napoletane"
+      <SEO
+        title={t.seo.cateringPizza.title}
+        description={t.seo.cateringPizza.description}
       />
       {allItems.length > 0 && (
         <StructuredData

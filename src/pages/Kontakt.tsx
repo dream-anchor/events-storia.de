@@ -53,12 +53,8 @@ const Kontakt = () => {
   return (
     <>
       <SEO
-        title={language === 'de' ? 'Kontakt & Anfahrt – Catering München Maxvorstadt' : 'Contact & Directions – Catering Munich Maxvorstadt'}
-        description={language === 'de'
-          ? 'STORIA Catering München: Karlstraße 47a, Maxvorstadt. Nähe Hauptbahnhof, Königsplatz & TU München. Öffnungszeiten Mo-Fr 9-1 Uhr, Sa-So 12-1 Uhr. Jetzt anrufen: +49 89 54043770!'
-          : 'STORIA Catering Munich: Karlstraße 47a, Maxvorstadt. Near main station, Königsplatz & TU Munich. Open Mon-Fri 9am-1am, Sat-Sun 12pm-1am. Call now: +49 89 54043770!'}
-        canonical={language === 'de' ? '/kontakt' : '/en/contact'}
-        alternateUrl={language === 'de' ? '/en/contact' : '/kontakt'}
+        title={t.seo.contact.title}
+        description={t.seo.contact.description}
       />
       <StructuredData type="localbusiness" />
       <StructuredData

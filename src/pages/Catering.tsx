@@ -14,12 +14,9 @@ const Catering = () => {
 
   return (
     <>
-      <SEO 
-        title={language === 'de' ? 'Catering & Events – Eventlocation München' : 'Catering & Events – Event Location Munich'}
-        description={language === 'de' 
-          ? 'Italienisches Catering München & Eventlocation Maxvorstadt: Firmenfeiern, Hochzeiten, Geburtstage. STORIA – Ihr Partner für unvergessliche Events!'
-          : 'Italian catering Munich & event location Maxvorstadt: Corporate events, weddings, birthdays. STORIA – your partner for unforgettable events!'}
-        canonical="/catering"
+      <SEO
+        title={t.seo.catering.title}
+        description={t.seo.catering.description}
       />
       <StructuredData 
         type="breadcrumb" 

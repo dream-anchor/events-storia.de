@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import SEO from "@/components/SEO";
 import storiaLogo from "@/assets/storia-logo.webp";
 import { LocalizedLink } from "@/components/LocalizedLink";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const NotFound = () => {
+  const { t } = useLanguage();
   const location = useLocation();
 
   useEffect(() => {
@@ -15,9 +17,9 @@ const NotFound = () => {
 
   return (
     <>
-      <SEO 
-        title="Seite nicht gefunden"
-        description="Die angeforderte Seite konnte nicht gefunden werden. Besuchen Sie unsere Startseite oder kontaktieren Sie uns."
+      <SEO
+        title={t.seo.notFound.title}
+        description={t.seo.notFound.description}
         noIndex={true}
       />
       <main className="flex min-h-screen flex-col items-center justify-center bg-background px-4">

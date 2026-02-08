@@ -165,7 +165,7 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
 };
 
 const BuffetPlatten = () => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const { data: menu, isLoading, error } = useCateringMenuBySlug("buffet-platten");
 
   const title = language === 'en' && menu?.title_en ? menu.title_en : menu?.title;
@@ -176,10 +176,9 @@ const BuffetPlatten = () => {
 
   return (
     <>
-      <SEO 
-        title={language === 'de' ? "Platten & Sharing | STORIA Catering München" : "Platters & Sharing | STORIA Catering Munich"}
-        description={language === 'de' ? "Italienische Antipasti-Platten für Meetings & Feiern: Vitello Tonnato, Bruschette, Käse & mehr. STORIA Catering München – Jetzt bestellen!" : "Italian antipasti platters for meetings & celebrations: Vitello Tonnato, bruschetta, cheese & more. STORIA Catering Munich – Order now!"}
-        canonical="/catering/buffet-platten"
+      <SEO
+        title={t.seo.cateringPlatters.title}
+        description={t.seo.cateringPlatters.description}
       />
       {allItems.length > 0 && (
         <StructuredData

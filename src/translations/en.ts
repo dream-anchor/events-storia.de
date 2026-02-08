@@ -194,6 +194,86 @@ export const en = {
     foodInfo: "Food Info",
     disclaimer: "Disclaimer",
   },
+  seo: {
+    // Main pages
+    home: {
+      title: 'Italian Catering & Events Munich',
+      description: 'STORIA Catering Munich: Italian finger food, pizza, buffets & events. Freshly prepared from Maxvorstadt. Corporate parties, Christmas parties, business events. Inquire now!',
+    },
+    contact: {
+      title: 'Contact & Directions – Catering Munich Maxvorstadt',
+      description: 'STORIA Catering Munich: Karlstraße 47a, Maxvorstadt. Near main station, Königsplatz & TU Munich. Open Mon-Fri 9am-1am, Sat-Sun 12pm-1am. Call now: +49 89 54043770!',
+    },
+    events: {
+      title: 'Events & Corporate Celebrations at STORIA Restaurant Munich',
+      description: 'Corporate events, Christmas parties & private events at STORIA Munich: Business Dinner, Network Aperitivo, Full Location Buyout. Book online now!',
+    },
+    catering: {
+      title: 'Catering & Events – Event Location Munich',
+      description: 'Italian catering Munich & event location Maxvorstadt: Corporate events, weddings, birthdays. STORIA – your partner for unforgettable events!',
+    },
+    // Catering subpages
+    cateringFingerfood: {
+      title: 'Finger Food & Mini Dishes | STORIA Catering Munich',
+      description: 'Order Italian finger food for events in Munich: bruschetta, octopus, burrata & more. Delivery & pickup available. Book online now!',
+    },
+    cateringPlatters: {
+      title: 'Platters & Sharing | STORIA Catering Munich',
+      description: 'Italian antipasti platters for meetings & celebrations: Vitello Tonnato, bruschetta, cheese & more. STORIA Catering Munich – Order now!',
+    },
+    cateringCasseroles: {
+      title: 'Buffet & Hot Dishes | STORIA Catering Munich',
+      description: 'Hot Italian dishes for your event: lasagna, parmigiana, ossobuco & more. Chafing dish available. STORIA Catering Munich.',
+    },
+    cateringPizza: {
+      title: 'Pizze Napoletane | STORIA Catering Munich',
+      description: 'Authentic Neapolitan stone-oven pizza – 25 varieties for delivery & pickup in Munich. STORIA Catering – Order now!',
+    },
+    cateringDesserts: {
+      title: 'Desserts | STORIA Catering Munich',
+      description: 'Italian desserts for your catering: homemade tiramisù & pistachio tartlets. Minimum order 4 people. STORIA Munich.',
+    },
+    // Other public pages
+    faq: {
+      title: 'FAQ – Frequently Asked Questions | STORIA Catering Munich',
+      description: 'Answers to common questions about STORIA Catering: prices, minimum orders, delivery area Munich, dishes, booking process and more.',
+    },
+    speisekarte: {
+      title: 'Menu – Neapolitan Pizza & Pasta',
+      description: 'STORIA Munich menu: Neapolitan stone-oven pizza, homemade pasta & antipasti. Italian restaurant Maxvorstadt near Königsplatz. Book your table now!',
+    },
+    getraenke: {
+      title: 'Drinks Menu – Aperitivo Munich',
+      description: 'STORIA drinks menu: Aperitivo Munich, Italian wines & cocktails. Late Night Aperitivo 9-10:30 PM. Bar in Maxvorstadt. Book your table now!',
+    },
+    mittagsmenu: {
+      title: 'Lunch Menu – Italian Lunch Munich',
+      description: 'Lunch menu at STORIA Munich Maxvorstadt: Fresh Italian cuisine Mon-Fri at great prices. Lunch near main station & Königsplatz. Enjoy your lunch break!',
+    },
+    about: {
+      title: 'About Us – La Famiglia Speranza',
+      description: 'STORIA – Your Italian restaurant in Maxvorstadt Munich. Ristorante Pizzeria with Neapolitan pizza, homemade pasta and Italian trattoria atmosphere. La Famiglia Speranza.',
+    },
+    // Auth/utility pages (noIndex)
+    checkout: {
+      title: 'Place Order | STORIA Catering',
+    },
+    login: {
+      title: 'Customer Account | STORIA Catering',
+      description: 'Login or register for your STORIA Catering customer account.',
+    },
+    passwordReset: {
+      title: 'Reset Password | STORIA',
+    },
+    orderSuccess: {
+      title: 'Order Successful | STORIA',
+      description: 'Your order was successful',
+    },
+    notFound: {
+      title: 'Page Not Found',
+      description: 'The requested page could not be found. Please visit our homepage or contact us.',
+    },
+  },
   about: {
     title: 'STORIA CATERING - ITALIAN CUISINE FOR MUNICH',
     p1: 'Dear Guests,',

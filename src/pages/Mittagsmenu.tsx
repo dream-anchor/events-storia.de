@@ -14,12 +14,9 @@ const Mittagsmenu = () => {
 
   return (
     <>
-      <SEO 
-        title={language === 'de' ? 'Mittagsmenü – Lunch München Maxvorstadt' : 'Lunch Menu – Italian Lunch Munich'}
-        description={language === 'de' 
-          ? 'Mittagsmenü im STORIA München Maxvorstadt: Frische italienische Küche Mo-Fr zu attraktiven Preisen. Lunch nahe Hauptbahnhof & Königsplatz. Jetzt Mittagstisch genießen!'
-          : 'Lunch menu at STORIA Munich Maxvorstadt: Fresh Italian cuisine Mon-Fri at great prices. Lunch near main station & Königsplatz. Enjoy your lunch break!'}
-        canonical="/mittagsmenu"
+      <SEO
+        title={t.seo.mittagsmenu.title}
+        description={t.seo.mittagsmenu.description}
       />
       <StructuredData 
         type="menu" 

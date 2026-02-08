@@ -165,7 +165,7 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
 };
 
 const BuffetFingerfood = () => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const { data: menu, isLoading, error } = useCateringMenuBySlug("buffet-fingerfood");
 
   const title = language === 'en' && menu?.title_en ? menu.title_en : menu?.title;
@@ -177,10 +177,9 @@ const BuffetFingerfood = () => {
 
   return (
     <>
-      <SEO 
-        title={language === 'de' ? "Fingerfood & Mini-Gerichte | STORIA Catering München" : "Finger Food & Mini Dishes | STORIA Catering Munich"}
-        description={language === 'de' ? "Italienisches Fingerfood für Events in München bestellen: Bruschette, Oktopus, Burrata & mehr. Lieferung & Abholung. Jetzt online buchen!" : "Order Italian finger food for events in Munich: bruschetta, octopus, burrata & more. Delivery & pickup available. Book online now!"}
-        canonical="/catering/buffet-fingerfood"
+      <SEO
+        title={t.seo.cateringFingerfood.title}
+        description={t.seo.cateringFingerfood.description}
       />
       {allItems.length > 0 && (
         <StructuredData

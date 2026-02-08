@@ -194,6 +194,86 @@ export const de = {
     foodInfo: "Lebensmittelinfo",
     disclaimer: "Disclaimer",
   },
+  seo: {
+    // Main pages
+    home: {
+      title: 'Italienisches Catering & Events München',
+      description: 'STORIA Catering München: Italienisches Fingerfood, Pizza, Buffets & Events. Frisch zubereitet aus der Maxvorstadt. Firmenfeiern, Weihnachtsfeiern, Business-Events. Jetzt anfragen!',
+    },
+    contact: {
+      title: 'Kontakt & Anfahrt – Catering München Maxvorstadt',
+      description: 'STORIA Catering München: Karlstraße 47a, Maxvorstadt. Nähe Hauptbahnhof, Königsplatz & TU München. Öffnungszeiten Mo-Fr 9-1 Uhr, Sa-So 12-1 Uhr. Jetzt anrufen: +49 89 54043770!',
+    },
+    events: {
+      title: 'Events & Firmenfeiern im STORIA Restaurant München',
+      description: 'Firmenfeiern, Weihnachtsfeiern & private Events im STORIA München: Business Dinner, Network-Aperitivo, Full Location Buyout. Jetzt online buchen!',
+    },
+    catering: {
+      title: 'Catering & Events – Eventlocation München',
+      description: 'Italienisches Catering München & Eventlocation Maxvorstadt: Firmenfeiern, Hochzeiten, Geburtstage. STORIA – Ihr Partner für unvergessliche Events!',
+    },
+    // Catering subpages
+    cateringFingerfood: {
+      title: 'Fingerfood & Mini-Gerichte | STORIA Catering München',
+      description: 'Italienisches Fingerfood für Events in München bestellen: Bruschette, Oktopus, Burrata & mehr. Lieferung & Abholung. Jetzt online buchen!',
+    },
+    cateringPlatters: {
+      title: 'Platten & Sharing | STORIA Catering München',
+      description: 'Italienische Antipasti-Platten für Meetings & Feiern: Vitello Tonnato, Bruschette, Käse & mehr. STORIA Catering München – Jetzt bestellen!',
+    },
+    cateringCasseroles: {
+      title: 'Buffet & Warme Gerichte | STORIA Catering München',
+      description: 'Warme italienische Gerichte für Ihr Event: Lasagne, Parmigiana, Ossobuco & mehr. Mit Chafing Dish Option. STORIA Catering München.',
+    },
+    cateringPizza: {
+      title: 'Pizze Napoletane | STORIA Catering München',
+      description: 'Original neapolitanische Pizza aus dem Steinofen – 25 Sorten für Lieferung & Abholung in München. STORIA Catering – Jetzt bestellen!',
+    },
+    cateringDesserts: {
+      title: 'Desserts | STORIA Catering München',
+      description: 'Italienische Desserts für Ihr Catering: Hausgemachtes Tiramisù & Pistazien-Törtchen. Ab 4 Personen bestellbar. STORIA München.',
+    },
+    // Other public pages
+    faq: {
+      title: 'FAQ – Häufig gestellte Fragen | STORIA Catering München',
+      description: 'Antworten auf häufige Fragen zu STORIA Catering: Preise, Mindestbestellungen, Liefergebiet München, Speisen, Buchungsablauf und mehr.',
+    },
+    speisekarte: {
+      title: 'Speisekarte – Neapolitanische Pizza & Pasta',
+      description: 'Speisekarte STORIA München: Neapolitanische Pizza aus dem Steinofen, hausgemachte Pasta & Antipasti. Ristorante Maxvorstadt nahe Königsplatz. Jetzt Tisch reservieren!',
+    },
+    getraenke: {
+      title: 'Getränkekarte – Aperitivo München',
+      description: 'Getränkekarte STORIA: Aperitivo München, italienische Weine & Cocktails. Late Night Aperitivo 21-22:30 Uhr. Bar in der Maxvorstadt. Jetzt Tisch reservieren!',
+    },
+    mittagsmenu: {
+      title: 'Mittagsmenü – Lunch München Maxvorstadt',
+      description: 'Mittagsmenü im STORIA München Maxvorstadt: Frische italienische Küche Mo-Fr zu attraktiven Preisen. Lunch nahe Hauptbahnhof & Königsplatz. Jetzt Mittagstisch genießen!',
+    },
+    about: {
+      title: 'Über uns – La Famiglia Speranza',
+      description: 'STORIA – Ihr Italiener in der Maxvorstadt München. Ristorante Pizzeria mit neapolitanischer Pizza, hausgemachter Pasta und italienischem Trattoria-Flair. La Famiglia Speranza.',
+    },
+    // Auth/utility pages (noIndex)
+    checkout: {
+      title: 'Bestellung aufgeben | STORIA Catering',
+    },
+    login: {
+      title: 'Kundenkonto | STORIA Catering',
+      description: 'Anmelden oder registrieren für Ihr STORIA Catering Kundenkonto.',
+    },
+    passwordReset: {
+      title: 'Passwort zurücksetzen | STORIA',
+    },
+    orderSuccess: {
+      title: 'Bestellung erfolgreich | STORIA',
+      description: 'Ihre Bestellung war erfolgreich',
+    },
+    notFound: {
+      title: 'Seite nicht gefunden',
+      description: 'Die angeforderte Seite konnte nicht gefunden werden. Besuchen Sie unsere Startseite oder kontaktieren Sie uns.',
+    },
+  },
   about: {
     title: 'STORIA CATERING - ITALIENISCHE KÜCHE FÜR MÜNCHEN',
     p1: 'Liebe Gäste,',

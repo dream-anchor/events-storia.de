@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { Loader2, Mail, Lock, User, ArrowLeft } from 'lucide-react';
 
 const CustomerAuth = () => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, login, signup, loading: authLoading } = useCustomerAuth();
@@ -153,9 +153,9 @@ const CustomerAuth = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <SEO 
-        title={language === 'de' ? 'Kundenkonto | STORIA Catering' : 'Customer Account | STORIA Catering'}
-        description={language === 'de' ? 'Anmelden oder registrieren für Ihr STORIA Catering Kundenkonto.' : 'Login or register for your STORIA Catering customer account.'}
+      <SEO
+        title={t.seo.login.title}
+        description={t.seo.login.description}
       />
       <Header />
       <Navigation />

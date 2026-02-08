@@ -14,12 +14,9 @@ const Getraenke = () => {
 
   return (
     <>
-      <SEO 
-        title={language === 'de' ? 'Getränkekarte – Aperitivo München' : 'Drinks Menu – Aperitivo Munich'}
-        description={language === 'de' 
-          ? 'Getränkekarte STORIA: Aperitivo München, italienische Weine & Cocktails. Late Night Aperitivo 21-22:30 Uhr. Bar in der Maxvorstadt. Jetzt Tisch reservieren!'
-          : 'STORIA drinks menu: Aperitivo Munich, Italian wines & cocktails. Late Night Aperitivo 9-10:30 PM. Bar in Maxvorstadt. Book your table now!'}
-        canonical="/getraenke"
+      <SEO
+        title={t.seo.getraenke.title}
+        description={t.seo.getraenke.description}
       />
       <StructuredData 
         type="menu" 
