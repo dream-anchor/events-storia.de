@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
@@ -16,6 +17,7 @@ import { Loader2, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 const PasswordReset = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const { getPath } = useLocalizedPath();
   
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
@@ -118,7 +120,7 @@ const PasswordReset = () => {
     } else {
       setIsSuccess(true);
       toast.success(language === 'de' ? 'Passwort erfolgreich geändert!' : 'Password changed successfully!');
-      setTimeout(() => navigate('/konto'), 2000);
+      setTimeout(() => navigate(getPath('account')), 2000);
     }
 
     setIsSubmitting(false);
@@ -170,7 +172,7 @@ const PasswordReset = () => {
                 {language === 'de' ? 'Link ungültig' : 'Invalid Link'}
               </h2>
               <p className="text-muted-foreground mb-6">{error}</p>
-              <Button onClick={() => navigate('/login')} variant="outline">
+              <Button onClick={() => navigate(getPath('login'))} variant="outline">
                 {language === 'de' ? 'Zurück zum Login' : 'Back to Login'}
               </Button>
             </CardContent>

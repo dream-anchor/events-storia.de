@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { LocalizedLink } from "@/components/LocalizedLink";
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
@@ -134,10 +134,10 @@ const DessertCard = ({ item, language }: DessertCardProps) => {
               size="sm"
               className="w-full"
             >
-              <Link to="/checkout">
+              <LocalizedLink to="checkout">
                 {language === 'de' ? 'Zur Kasse' : 'Checkout'}
                 <ArrowRight className="h-4 w-4 ml-1" />
-              </Link>
+              </LocalizedLink>
             </Button>
           )}
         </div>

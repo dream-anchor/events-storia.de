@@ -1,6 +1,6 @@
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LocalizedLink } from "@/components/LocalizedLink";
 
 const CateringCTA = () => {
   const { language } = useLanguage();
@@ -19,9 +19,9 @@ const CateringCTA = () => {
             : 'We create a customized catering offer for you – tailored to the number of guests, occasion and budget. Freshly prepared, reliably delivered, ready to serve immediately.'}
         </p>
         <Button size="lg" asChild>
-          <Link to="/events#contact">
+          <LocalizedLink to="events#contact">
             {language === 'de' ? 'Unverbindlich anfragen' : 'Request a Quote'}
-          </Link>
+          </LocalizedLink>
         </Button>
       </div>
     </section>

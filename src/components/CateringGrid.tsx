@@ -1,5 +1,6 @@
-import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LocalizedLink } from "@/components/LocalizedLink";
+import type { RouteKey } from "@/config/routes";
 
 // Bessere Bildauswahl mit echten Fotos
 import fingerfoodImg from "@/assets/catering/fingerfood/burratina.webp";
@@ -15,7 +16,7 @@ interface CateringItem {
   titleEn: string;
   descriptionDe: string;
   descriptionEn: string;
-  path: string;
+  routeKey: RouteKey;
   image: string;
 }
 
@@ -26,7 +27,7 @@ const cateringItems: CateringItem[] = [
     titleEn: "Events at Storia",
     descriptionDe: "Private Feiern & Firmenevents – individuelle Menüs im Restaurant.",
     descriptionEn: "Private parties & corporate events – custom menus at the restaurant.",
-    path: "/events",
+    routeKey: "events",
     image: eventsImg,
   },
   {
@@ -35,7 +36,7 @@ const cateringItems: CateringItem[] = [
     titleEn: "Finger Food & Mini Dishes",
     descriptionDe: "Elegante Häppchen für Empfänge, Meetings & gesellige Runden.",
     descriptionEn: "Elegant bites for receptions, meetings & social gatherings.",
-    path: "/catering/buffet-fingerfood",
+    routeKey: "catering.fingerfood",
     image: fingerfoodImg,
   },
   {
@@ -44,7 +45,7 @@ const cateringItems: CateringItem[] = [
     titleEn: "Platters & Sharing",
     descriptionDe: "Ideal für Teams, Familien & private Dinner – servierfertig geliefert.",
     descriptionEn: "Ideal for teams, families & private dinners – delivered ready to serve.",
-    path: "/catering/buffet-platten",
+    routeKey: "catering.platters",
     image: plattenImg,
   },
   {
@@ -53,7 +54,7 @@ const cateringItems: CateringItem[] = [
     titleEn: "Hot Dishes & Casseroles",
     descriptionDe: "Wie hausgemacht – ofenfrisch geliefert für Büro, Zuhause oder Events.",
     descriptionEn: "Like homemade – delivered oven-fresh for office, home or events.",
-    path: "/catering/buffet-auflauf",
+    routeKey: "catering.casseroles",
     image: auflaufImg,
   },
   {
@@ -62,7 +63,7 @@ const cateringItems: CateringItem[] = [
     titleEn: "Pizza Napoletana",
     descriptionDe: "Frisch aus dem Steinofen – knusprig, heiß geliefert, überall genießbar.",
     descriptionEn: "Fresh from the stone oven – crispy, delivered hot, enjoyable anywhere.",
-    path: "/catering/pizze-napoletane",
+    routeKey: "catering.pizza",
     image: pizzaImg,
   },
   {
@@ -71,7 +72,7 @@ const cateringItems: CateringItem[] = [
     titleEn: "Desserts",
     descriptionDe: "Süße Verführungen im Glas – Tiramisù & Pistazien-Törtchen.",
     descriptionEn: "Sweet temptations in a glass – Tiramisù & Pistachio Tartlets.",
-    path: "/catering/desserts",
+    routeKey: "catering.desserts",
     image: dessertsImg,
   },
 ];
@@ -82,8 +83,8 @@ const CateringCard = ({ item, language, index }: { item: CateringItem; language:
   const isAboveFold = index < 3;
 
   return (
-    <Link 
-      to={item.path}
+    <LocalizedLink
+      to={item.routeKey}
       className="group relative overflow-hidden aspect-[3/2] block shadow-lg hover:shadow-xl transition-all duration-300"
     >
       {/* Bild mit Zoom-Effekt */}
@@ -97,13 +98,13 @@ const CateringCard = ({ item, language, index }: { item: CateringItem; language:
         fetchPriority={isAboveFold ? "high" : undefined}
         decoding="async"
       />
-      
+
       {/* Minimaler Gradient nur am unteren Textbereich */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-      
+
       {/* Hover-Overlay */}
       <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors duration-300" />
-      
+
       {/* Text-Container mit Glassmorphism */}
       <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
         <div className="backdrop-blur-sm bg-black/20 rounded-lg p-2.5">
@@ -115,7 +116,7 @@ const CateringCard = ({ item, language, index }: { item: CateringItem; language:
           </p>
         </div>
       </div>
-    </Link>
+    </LocalizedLink>
   );
 };
 
@@ -126,8 +127,8 @@ const CateringGrid = () => {
     <section className="bg-background py-6 md:py-10" aria-labelledby="catering-categories-heading">
       <div className="container mx-auto px-4">
         {/* SEO-freundliche Überschrift - dezent aber sichtbar */}
-        <h2 
-          id="catering-categories-heading" 
+        <h2
+          id="catering-categories-heading"
           className="font-display text-center text-lg md:text-xl text-muted-foreground tracking-[0.2em] uppercase mb-2"
         >
           {language === 'de' ? 'Unsere Catering-Kategorien' : 'Our Catering Categories'}
@@ -137,7 +138,7 @@ const CateringGrid = () => {
             ? 'Fingerfood, Pizza, Pasta & mehr – frisch zubereitet und flexibel geliefert.'
             : 'Finger food, pizza, pasta & more – freshly prepared and flexibly delivered.'}
         </p>
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cateringItems.map((item, index) => (
             <CateringCard key={item.id} item={item} language={language} index={index} />

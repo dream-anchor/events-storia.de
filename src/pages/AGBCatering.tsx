@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
 import SEO from "@/components/SEO";
-import { Link } from "react-router-dom";
+import { LocalizedLink } from "@/components/LocalizedLink";
 
 const AGBCatering = () => {
   return (
@@ -248,9 +248,9 @@ const AGBCatering = () => {
                 </li>
                 <li>
                   Weitere Informationen finden Sie in unserer{' '}
-                  <Link to="/widerrufsbelehrung" className="text-primary underline hover:text-primary/80">
+                  <LocalizedLink to="legal.withdrawal" className="text-primary underline hover:text-primary/80">
                     Widerrufsbelehrung
-                  </Link>.
+                  </LocalizedLink>.
                 </li>
               </ol>
             </section>
@@ -262,9 +262,9 @@ const AGBCatering = () => {
               </h2>
               <p>
                 Informationen zur Erhebung und Verarbeitung personenbezogener Daten finden Sie in unserer{' '}
-                <Link to="/datenschutz" className="text-primary underline hover:text-primary/80">
+                <LocalizedLink to="legal.privacy" className="text-primary underline hover:text-primary/80">
                   Datenschutzerklärung
-                </Link>.
+                </LocalizedLink>.
               </p>
             </section>
 

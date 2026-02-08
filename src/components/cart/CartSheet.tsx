@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import { 
   isLocationPackage, 
   getLocationPricingBreakdown,
@@ -17,10 +18,11 @@ const CartSheet = () => {
   const { language } = useLanguage();
   const { formatPrice } = usePriceDisplay();
   const navigate = useNavigate();
+  const { getPath } = useLocalizedPath();
 
   const handleCheckout = () => {
     setIsOpen(false);
-    navigate('/checkout');
+    navigate(getPath('checkout'));
   };
 
   return (

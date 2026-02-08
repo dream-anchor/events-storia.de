@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { LocalizedLink } from '@/components/LocalizedLink';
+import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import { cn } from '@/lib/utils';
 import { z } from 'zod';
 import SEO from '@/components/SEO';
@@ -139,6 +141,7 @@ const Checkout = () => {
   const { language } = useLanguage();
   const { formatPrice, showGross, setShowGross } = usePriceDisplay();
   const navigate = useNavigate();
+  const { getPath } = useLocalizedPath();
   const { user, profile } = useCustomerAuth();
   const isMobile = useIsMobile();
 
@@ -651,7 +654,7 @@ const Checkout = () => {
             const successData = JSON.parse(successDataStr);
             localStorage.removeItem(successDataKey);
             clearCart();
-            navigate('/konto/bestellung-erfolgreich', {
+            navigate(getPath('account.orderSuccess'), {
               state: {
                 email: successData.email,
                 name: successData.name,
@@ -662,14 +665,14 @@ const Checkout = () => {
             });
           } catch {
             clearCart();
-            navigate('/konto/bestellung-erfolgreich', {
+            navigate(getPath('account.orderSuccess'), {
               state: { orderNumber: orderNum },
               replace: true
             });
           }
         } else {
           clearCart();
-          navigate('/konto/bestellung-erfolgreich', {
+          navigate(getPath('account.orderSuccess'), {
             state: { orderNumber: orderNum },
             replace: true
           });
@@ -1173,7 +1176,7 @@ const Checkout = () => {
             setIsProcessingPayment(false);
             localStorage.removeItem(cachedOrderKey);
             clearCart();
-            navigate('/konto/bestellung-erfolgreich', { 
+            navigate(getPath('account.orderSuccess'), { 
               state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
               replace: true
             });
@@ -1192,7 +1195,7 @@ const Checkout = () => {
           setIsProcessingPayment(false);
           localStorage.removeItem(cachedOrderKey);
           clearCart();
-          navigate('/konto/bestellung-erfolgreich', { 
+          navigate(getPath('account.orderSuccess'), { 
             state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
             replace: true
           });
@@ -1201,7 +1204,7 @@ const Checkout = () => {
       }
       
       clearCart();
-      navigate('/konto/bestellung-erfolgreich', { 
+      navigate(getPath('account.orderSuccess'), { 
         state: { 
           email: formData.email, 
           name: formData.name, 
@@ -1827,9 +1830,9 @@ const Checkout = () => {
                         <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
                           <LogIn className="h-4 w-4" />
                           {language === 'de' ? 'Haben Sie ein Konto? ' : 'Have an account? '}
-                          <Link to="/login" state={{ redirect: '/checkout' }} className="text-neutral-700 dark:text-neutral-300 hover:underline font-medium">
+                          <LocalizedLink to="login" state={{ redirect: '/checkout' }} className="text-neutral-700 dark:text-neutral-300 hover:underline font-medium">
                             {language === 'de' ? 'Anmelden' : 'Log in'}
-                          </Link>
+                          </LocalizedLink>
                         </p>
                       </div>
                     )}
@@ -1989,8 +1992,8 @@ const Checkout = () => {
                             termsError && !formData.acceptTerms && "text-destructive"
                           )}>
                             {language === 'de'
-                              ? <>Ich habe die <Link to="/agb-catering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">AGB</Link> und <Link to="/widerrufsbelehrung" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Widerrufsbelehrung</Link> gelesen und akzeptiere diese. *</>
-                              : <>I have read and accept the <Link to="/agb-catering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Terms</Link> and <Link to="/widerrufsbelehrung" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Cancellation Policy</Link>. *</>
+                              ? <>Ich habe die <LocalizedLink to="legal.termsCatering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">AGB</LocalizedLink> und <LocalizedLink to="legal.withdrawal" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Widerrufsbelehrung</LocalizedLink> gelesen und akzeptiere diese. *</>
+                              : <>I have read and accept the <LocalizedLink to="legal.termsCatering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Terms</LocalizedLink> and <LocalizedLink to="legal.withdrawal" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Cancellation Policy</LocalizedLink>. *</>
                             }
                           </Label>
                           {termsError && !formData.acceptTerms && (

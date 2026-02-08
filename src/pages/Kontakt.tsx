@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
 import Header from "@/components/Header";
+import { LocalizedLink } from "@/components/LocalizedLink";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import ConsentGoogleMaps from "@/components/ConsentGoogleMaps";
@@ -57,14 +57,15 @@ const Kontakt = () => {
         description={language === 'de'
           ? 'STORIA Catering München: Karlstraße 47a, Maxvorstadt. Nähe Hauptbahnhof, Königsplatz & TU München. Öffnungszeiten Mo-Fr 9-1 Uhr, Sa-So 12-1 Uhr. Jetzt anrufen: +49 89 54043770!'
           : 'STORIA Catering Munich: Karlstraße 47a, Maxvorstadt. Near main station, Königsplatz & TU Munich. Open Mon-Fri 9am-1am, Sat-Sun 12pm-1am. Call now: +49 89 54043770!'}
-        canonical="/kontakt"
+        canonical={language === 'de' ? '/kontakt' : '/en/contact'}
+        alternateUrl={language === 'de' ? '/en/contact' : '/kontakt'}
       />
       <StructuredData type="localbusiness" />
       <StructuredData
         type="breadcrumb"
         breadcrumbs={[
-          { name: 'Home', url: '/' },
-          { name: language === 'de' ? 'Kontakt' : 'Contact', url: '/kontakt' }
+          { name: 'Home', url: language === 'de' ? '/' : '/en' },
+          { name: language === 'de' ? 'Kontakt' : 'Contact', url: language === 'de' ? '/kontakt' : '/en/contact' }
         ]}
       />
       <StructuredData type="faq" faqItems={localFaqItems} />
@@ -72,9 +73,9 @@ const Kontakt = () => {
       <Header />
       <div className="bg-background border-b border-border">
         <div className="container mx-auto px-4 py-8 text-center">
-          <Link to="/">
+          <LocalizedLink to="home">
             <img src={storiaLogo} alt="STORIA – Italienisches Catering München Maxvorstadt" className="h-24 md:h-32 mx-auto mb-4 hover:opacity-80 transition-opacity cursor-pointer" />
-          </Link>
+          </LocalizedLink>
           <p className="text-lg text-muted-foreground tracking-wide">
             {t.hero.subtitle}
           </p>

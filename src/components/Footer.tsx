@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Phone, Mail, MapPin, Clock, Instagram, UtensilsCrossed, Truck, Home, ArrowRight } from "lucide-react";
 import storiaLogo from "@/assets/storia-logo.webp";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LocalizedLink } from "@/components/LocalizedLink";
 
 const Footer = () => {
   const { t, language } = useLanguage();
@@ -46,13 +47,13 @@ const Footer = () => {
           </div>
           
           {/* CTA Button */}
-          <Link 
-            to="/events#kontaktformular" 
+          <LocalizedLink
+            to="events#kontaktformular"
             className="inline-flex items-center gap-2.5 px-8 py-4 bg-primary-foreground/15 hover:bg-primary-foreground/25 rounded-lg transition-colors text-primary-foreground font-medium text-base"
           >
             {t.footer.serviceCta}
             <ArrowRight className="h-5 w-5" />
-          </Link>
+          </LocalizedLink>
         </div>
       </div>
 
@@ -78,15 +79,15 @@ const Footer = () => {
                   <Mail className="h-4 w-4" />
                   info@events-storia.de
                 </a>
-                <Link 
-                  to="/kontakt#map" 
+                <LocalizedLink
+                  to="contact#map"
                   className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] md:min-h-0 py-2 hover:text-primary-foreground transition-colors touch-manipulation"
                 >
                   <MapPin className="h-4 w-4" />
                   <span>
                     {language === 'de' ? 'Liefergebiet: München & Umgebung' : 'Delivery area: Munich & surroundings'}
                   </span>
-                </Link>
+                </LocalizedLink>
               </div>
             </div>
 
@@ -133,24 +134,24 @@ const Footer = () => {
 
           {/* Service Links */}
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-6 text-sm font-sans text-primary-foreground/60">
-            <Link to="/faq-catering-muenchen" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'FAQ Catering & Events' : 'Catering & Events FAQ'}</Link>
+            <LocalizedLink to="faq" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'FAQ Catering & Events' : 'Catering & Events FAQ'}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <Link to="/kontakt" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{t.footer.contact}</Link>
+            <LocalizedLink to="contact" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{t.footer.contact}</LocalizedLink>
           </div>
 
           {/* Legal Links */}
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-4 text-sm font-sans text-primary-foreground/40">
-            <Link to="/impressum" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.imprint}</Link>
+            <LocalizedLink to="legal.imprint" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.imprint}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <Link to="/datenschutz" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.privacy}</Link>
+            <LocalizedLink to="legal.privacy" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.privacy}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <Link to="/cookie-richtlinie" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.legal.cookies}</Link>
+            <LocalizedLink to="legal.cookies" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.legal.cookies}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <Link to="/agb-catering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'AGB Catering' : 'Catering Terms'}</Link>
+            <LocalizedLink to="legal.termsCatering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'AGB Catering' : 'Catering Terms'}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <Link to="/widerrufsbelehrung" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'Widerrufsbelehrung' : 'Cancellation Policy'}</Link>
+            <LocalizedLink to="legal.withdrawal" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'Widerrufsbelehrung' : 'Cancellation Policy'}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <Link to="/lebensmittelhinweise" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.legal.foodInfo}</Link>
+            <LocalizedLink to="legal.foodInfo" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.legal.foodInfo}</LocalizedLink>
           </div>
           <div className="flex items-center justify-center gap-6 mt-4 text-sm font-sans text-primary-foreground/30">
             <a 

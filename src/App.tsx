@@ -79,74 +79,108 @@ const App = () => {
   return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <LanguageProvider>
-        <PriceDisplayProvider>
-          <CookieConsentProvider>
-            <CustomerAuthProvider>
-              <CartProvider>
-              <Toaster />
+      <PriceDisplayProvider>
+        <CookieConsentProvider>
+          <CustomerAuthProvider>
+            <Toaster />
             <Sonner />
             <BrowserRouter>
-              <ScrollToTop />
-              <FrontendGlobals />
-              <Suspense fallback={<div className="min-h-screen" />}>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/kontakt" element={<Kontakt />} />
-                
-                {/* Catering Pages */}
-                <Route path="/catering/buffet-fingerfood" element={<BuffetFingerfood />} />
-                <Route path="/catering/buffet-platten" element={<BuffetPlatten />} />
-                <Route path="/catering/buffet-auflauf" element={<BuffetAuflauf />} />
-                <Route path="/catering/pizze-napoletane" element={<PizzeNapoletane />} />
-                <Route path="/catering/desserts" element={<Desserts />} />
-                <Route path="/events" element={<EventsImStoria />} />
-                {/* Redirects for old URLs */}
-                <Route path="/catering/flying-buffet" element={<EventsImStoria />} />
-                <Route path="/catering/festmenus" element={<EventsImStoria />} />
-                
-                {/* Checkout */}
-                <Route path="/checkout" element={<Checkout />} />
-                
-                {/* Customer Account */}
-                <Route path="/login" element={<CustomerAuth />} />
-                <Route path="/konto" element={<CustomerProfile />} />
-                <Route path="/konto/passwort-reset" element={<PasswordReset />} />
-                <Route path="/konto/bestellung-erfolgreich" element={<OrderSuccess />} />
-                
-                {/* Public Offer Page (link shared with customers) */}
-                <Route path="/offer/:id" element={<PublicOffer />} />
+              <LanguageProvider>
+                <CartProvider>
+                  <ScrollToTop />
+                  <FrontendGlobals />
+                  <Suspense fallback={<div className="min-h-screen" />}>
+                  <Routes>
+                    {/* === German Routes (no prefix) === */}
+                    <Route path="/" element={<Index />} />
+                    <Route path="/kontakt" element={<Kontakt />} />
 
-                {/* Admin - Login route first, then protected routes */}
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin/*" element={
-                  <AdminAuthGuard>
-                    <RefineAdminApp />
-                  </AdminAuthGuard>
-                } />
-                
-                {/* Legal Pages */}
-                <Route path="/impressum" element={<Impressum />} />
-                <Route path="/datenschutz" element={<Datenschutz />} />
-                <Route path="/cookie-richtlinie" element={<CookieRichtlinie />} />
-                <Route path="/agb-restaurant" element={<AGBRestaurant />} />
-                <Route path="/agb-gutscheine" element={<AGBGutscheine />} />
-                <Route path="/agb-catering" element={<AGBCatering />} />
-                <Route path="/widerrufsbelehrung" element={<Widerrufsbelehrung />} />
-                <Route path="/zahlungsinformationen" element={<Zahlungsinformationen />} />
-                <Route path="/lebensmittelhinweise" element={<Lebensmittelhinweise />} />
-                <Route path="/haftungsausschluss" element={<Haftungsausschluss />} />
-                <Route path="/faq-catering-muenchen" element={<FAQ />} />
+                    {/* Catering */}
+                    <Route path="/catering/buffet-fingerfood" element={<BuffetFingerfood />} />
+                    <Route path="/catering/buffet-platten" element={<BuffetPlatten />} />
+                    <Route path="/catering/buffet-auflauf" element={<BuffetAuflauf />} />
+                    <Route path="/catering/pizze-napoletane" element={<PizzeNapoletane />} />
+                    <Route path="/catering/desserts" element={<Desserts />} />
+                    <Route path="/events" element={<EventsImStoria />} />
+                    {/* Redirects for old URLs */}
+                    <Route path="/catering/flying-buffet" element={<EventsImStoria />} />
+                    <Route path="/catering/festmenus" element={<EventsImStoria />} />
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              </Suspense>
+                    {/* Checkout & Account */}
+                    <Route path="/checkout" element={<Checkout />} />
+                    <Route path="/login" element={<CustomerAuth />} />
+                    <Route path="/konto" element={<CustomerProfile />} />
+                    <Route path="/konto/passwort-reset" element={<PasswordReset />} />
+                    <Route path="/konto/bestellung-erfolgreich" element={<OrderSuccess />} />
+
+                    {/* Public Offer */}
+                    <Route path="/offer/:id" element={<PublicOffer />} />
+
+                    {/* Legal */}
+                    <Route path="/impressum" element={<Impressum />} />
+                    <Route path="/datenschutz" element={<Datenschutz />} />
+                    <Route path="/cookie-richtlinie" element={<CookieRichtlinie />} />
+                    <Route path="/agb-restaurant" element={<AGBRestaurant />} />
+                    <Route path="/agb-gutscheine" element={<AGBGutscheine />} />
+                    <Route path="/agb-catering" element={<AGBCatering />} />
+                    <Route path="/widerrufsbelehrung" element={<Widerrufsbelehrung />} />
+                    <Route path="/zahlungsinformationen" element={<Zahlungsinformationen />} />
+                    <Route path="/lebensmittelhinweise" element={<Lebensmittelhinweise />} />
+                    <Route path="/haftungsausschluss" element={<Haftungsausschluss />} />
+                    <Route path="/faq-catering-muenchen" element={<FAQ />} />
+
+                    {/* === English Routes (/en/ prefix) === */}
+                    <Route path="/en" element={<Index />} />
+                    <Route path="/en/contact" element={<Kontakt />} />
+
+                    {/* Catering EN */}
+                    <Route path="/en/catering/finger-food-buffet" element={<BuffetFingerfood />} />
+                    <Route path="/en/catering/platters-sharing" element={<BuffetPlatten />} />
+                    <Route path="/en/catering/hot-dishes" element={<BuffetAuflauf />} />
+                    <Route path="/en/catering/pizza-napoletana" element={<PizzeNapoletane />} />
+                    <Route path="/en/catering/desserts" element={<Desserts />} />
+                    <Route path="/en/events" element={<EventsImStoria />} />
+
+                    {/* Checkout & Account EN */}
+                    <Route path="/en/checkout" element={<Checkout />} />
+                    <Route path="/en/login" element={<CustomerAuth />} />
+                    <Route path="/en/account" element={<CustomerProfile />} />
+                    <Route path="/en/account/password-reset" element={<PasswordReset />} />
+                    <Route path="/en/account/order-success" element={<OrderSuccess />} />
+
+                    {/* Public Offer EN */}
+                    <Route path="/en/offer/:id" element={<PublicOffer />} />
+
+                    {/* Legal EN */}
+                    <Route path="/en/imprint" element={<Impressum />} />
+                    <Route path="/en/privacy" element={<Datenschutz />} />
+                    <Route path="/en/cookie-policy" element={<CookieRichtlinie />} />
+                    <Route path="/en/restaurant-terms" element={<AGBRestaurant />} />
+                    <Route path="/en/voucher-terms" element={<AGBGutscheine />} />
+                    <Route path="/en/catering-terms" element={<AGBCatering />} />
+                    <Route path="/en/cancellation-policy" element={<Widerrufsbelehrung />} />
+                    <Route path="/en/payment-information" element={<Zahlungsinformationen />} />
+                    <Route path="/en/food-information" element={<Lebensmittelhinweise />} />
+                    <Route path="/en/disclaimer" element={<Haftungsausschluss />} />
+                    <Route path="/en/catering-faq-munich" element={<FAQ />} />
+
+                    {/* === Admin (language-neutral) === */}
+                    <Route path="/admin/login" element={<AdminLogin />} />
+                    <Route path="/admin/*" element={
+                      <AdminAuthGuard>
+                        <RefineAdminApp />
+                      </AdminAuthGuard>
+                    } />
+
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                  </Suspense>
+                </CartProvider>
+              </LanguageProvider>
             </BrowserRouter>
-              </CartProvider>
-            </CustomerAuthProvider>
-          </CookieConsentProvider>
-        </PriceDisplayProvider>
-      </LanguageProvider>
+          </CustomerAuthProvider>
+        </CookieConsentProvider>
+      </PriceDisplayProvider>
     </TooltipProvider>
   </QueryClientProvider>
   );

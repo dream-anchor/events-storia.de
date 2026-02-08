@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { LocalizedLink } from "@/components/LocalizedLink";
 import { Plus, Minus, ArrowRight } from "lucide-react";
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
@@ -124,10 +124,10 @@ const PizzaListItem = ({ item, language }: PizzaListItemProps) => {
                   size="sm"
                   className="h-8 px-3 text-xs"
                 >
-                  <Link to="/checkout">
+                  <LocalizedLink to="checkout">
                     {language === 'de' ? 'Kasse' : 'Checkout'}
                     <ArrowRight className="h-3 w-3 ml-1" />
-                  </Link>
+                  </LocalizedLink>
                 </Button>
               )}
             </div>
@@ -210,10 +210,10 @@ const PizzaPaneCard = ({ item, language }: { item: CateringMenuItem; language: s
                 variant="checkoutCta"
                 size="sm"
               >
-                <Link to="/checkout">
+                <LocalizedLink to="checkout">
                   {language === 'de' ? 'Zur Kasse' : 'Checkout'}
                   <ArrowRight className="h-4 w-4 ml-1" />
-                </Link>
+                </LocalizedLink>
               </Button>
             )}
           </div>

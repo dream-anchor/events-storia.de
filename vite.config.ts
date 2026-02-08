@@ -4,16 +4,17 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import prerender from "@prerenderer/rollup-plugin";
 
-// SSG: Routes to prerender for SEO
+// SSG: Routes to prerender for SEO (DE + EN)
 const PRERENDER_ROUTES = [
+  // DE routes (no prefix)
   '/',
   '/kontakt',
+  '/events',
   '/catering/buffet-fingerfood',
   '/catering/buffet-platten',
   '/catering/buffet-auflauf',
   '/catering/pizze-napoletane',
   '/catering/desserts',
-  '/events',
   '/faq-catering-muenchen',
   '/impressum',
   '/datenschutz',
@@ -25,6 +26,26 @@ const PRERENDER_ROUTES = [
   '/zahlungsinformationen',
   '/lebensmittelhinweise',
   '/haftungsausschluss',
+  // EN routes (/en prefix)
+  '/en',
+  '/en/contact',
+  '/en/events',
+  '/en/catering/finger-food-buffet',
+  '/en/catering/platters-sharing',
+  '/en/catering/hot-dishes',
+  '/en/catering/pizza-napoletana',
+  '/en/catering/desserts',
+  '/en/catering-faq-munich',
+  '/en/imprint',
+  '/en/privacy',
+  '/en/cookie-policy',
+  '/en/catering-terms',
+  '/en/restaurant-terms',
+  '/en/voucher-terms',
+  '/en/cancellation-policy',
+  '/en/payment-information',
+  '/en/food-information',
+  '/en/disclaimer',
 ];
 
 // https://vitejs.dev/config/

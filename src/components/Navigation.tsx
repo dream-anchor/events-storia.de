@@ -9,6 +9,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLocalizedPath } from "@/hooks/useLocalizedPath";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 interface NavChild {
@@ -31,29 +32,27 @@ const Navigation = () => {
   const [openMenus, setOpenMenus] = useState<string[]>(["CATERING & LIEFERSERVICE", "EVENTS IM STORIA"]);
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const { language } = useLanguage();
+  const { getPath } = useLocalizedPath();
 
   // Shop-Kategorie: Bestellbare Produkte
   const shopChildren: NavChild[] = language === 'de' ? [
-    { label: "FINGERFOOD", path: "/catering/buffet-fingerfood", description: "Häppchen & Snacks" },
-    { label: "PLATTEN & SHARING", path: "/catering/buffet-platten", description: "Kalte Buffet-Platten" },
-    { label: "WARME GERICHTE", path: "/catering/buffet-auflauf", description: "Aufläufe & Schmorgerichte" },
-    { label: "PIZZA NAPOLETANA", path: "/catering/pizze-napoletane", description: "Authentisch aus Neapel" },
-    { label: "DESSERTS", path: "/catering/desserts", description: "Süße Verführungen" },
+    { label: "FINGERFOOD", path: getPath('catering.fingerfood'), description: "Häppchen & Snacks" },
+    { label: "PLATTEN & SHARING", path: getPath('catering.platters'), description: "Kalte Buffet-Platten" },
+    { label: "WARME GERICHTE", path: getPath('catering.casseroles'), description: "Aufläufe & Schmorgerichte" },
+    { label: "PIZZA NAPOLETANA", path: getPath('catering.pizza'), description: "Authentisch aus Neapel" },
+    { label: "DESSERTS", path: getPath('catering.desserts'), description: "Süße Verführungen" },
   ] : [
-    { label: "FINGER FOOD", path: "/catering/buffet-fingerfood", description: "Bites & Snacks" },
-    { label: "PLATTERS & SHARING", path: "/catering/buffet-platten", description: "Cold Buffet Platters" },
-    { label: "HOT DISHES", path: "/catering/buffet-auflauf", description: "Casseroles & Braised Dishes" },
-    { label: "PIZZA NAPOLETANA", path: "/catering/pizze-napoletane", description: "Authentic from Naples" },
-    { label: "DESSERTS", path: "/catering/desserts", description: "Sweet Temptations" },
+    { label: "FINGER FOOD", path: getPath('catering.fingerfood'), description: "Bites & Snacks" },
+    { label: "PLATTERS & SHARING", path: getPath('catering.platters'), description: "Cold Buffet Platters" },
+    { label: "HOT DISHES", path: getPath('catering.casseroles'), description: "Casseroles & Braised Dishes" },
+    { label: "PIZZA NAPOLETANA", path: getPath('catering.pizza'), description: "Authentic from Naples" },
+    { label: "DESSERTS", path: getPath('catering.desserts'), description: "Sweet Temptations" },
   ];
 
-  // Events-Kategorie: Direkter Link zur Events-Seite
-  const eventsPath = "/events";
-
   const navItems: NavItem[] = [
-    { 
-      label: "HOME", 
-      path: "/" 
+    {
+      label: "HOME",
+      path: getPath('home')
     },
     {
       label: language === 'de' ? "CATERING & LIEFERSERVICE" : "CATERING & DELIVERY",
@@ -62,14 +61,14 @@ const Navigation = () => {
     },
     {
       label: language === 'de' ? "EVENTS IM STORIA" : "EVENTS AT STORIA",
-      path: eventsPath,
+      path: getPath('events'),
       icon: <Sparkles className="h-4 w-4" />,
     },
-    { label: language === 'de' ? "KONTAKT" : "CONTACT", path: "/kontakt" },
-    { 
-      label: "RISTORANTE STORIA", 
+    { label: language === 'de' ? "KONTAKT" : "CONTACT", path: getPath('contact') },
+    {
+      label: "RISTORANTE STORIA",
       path: "https://www.ristorantestoria.de/",
-      external: true 
+      external: true
     },
   ];
 

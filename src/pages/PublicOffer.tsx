@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { LocalizedLink } from "@/components/LocalizedLink";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
@@ -129,9 +130,9 @@ export default function PublicOffer() {
           <p className="text-muted-foreground mb-8">
             Dieses Angebot ist nicht verfügbar oder wurde noch nicht versendet.
           </p>
-          <Link to="/" className="text-primary hover:underline font-medium">
+          <LocalizedLink to="home" className="text-primary hover:underline font-medium">
             Zur Startseite
-          </Link>
+          </LocalizedLink>
         </div>
         <OfferFooter />
       </div>
@@ -311,12 +312,12 @@ function OfferFooter() {
         <div className="mt-6 pt-6 border-t border-primary-foreground/10 text-center text-xs text-primary-foreground/50">
           <p>&copy; {new Date().getFullYear()} STORIA Catering & Events</p>
           <div className="flex items-center justify-center gap-4 mt-2">
-            <Link to="/impressum" className="hover:text-primary-foreground/80 transition-colors">
+            <LocalizedLink to="legal.imprint" className="hover:text-primary-foreground/80 transition-colors">
               Impressum
-            </Link>
-            <Link to="/datenschutz" className="hover:text-primary-foreground/80 transition-colors">
+            </LocalizedLink>
+            <LocalizedLink to="legal.privacy" className="hover:text-primary-foreground/80 transition-colors">
               Datenschutz
-            </Link>
+            </LocalizedLink>
           </div>
         </div>
       </div>

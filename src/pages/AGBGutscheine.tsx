@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
 import SEO from "@/components/SEO";
-import { Link } from "react-router-dom";
+import { LocalizedLink } from "@/components/LocalizedLink";
 
 const AGBGutscheine = () => {
   return (
@@ -117,9 +117,9 @@ const AGBGutscheine = () => {
               <p>
                 Für digitale Gutscheine gilt ein 14-tägiges Widerrufsrecht. Weitere Informationen 
                 finden Sie in unserer{" "}
-                <Link to="/widerrufsbelehrung" className="text-primary hover:underline">
+                <LocalizedLink to="legal.withdrawal" className="text-primary hover:underline">
                   Widerrufsbelehrung
-                </Link>.
+                </LocalizedLink>.
               </p>
             </section>
 

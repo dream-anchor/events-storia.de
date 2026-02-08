@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { LocalizedLink } from '@/components/LocalizedLink';
+import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
@@ -42,6 +44,7 @@ interface Order {
 const CustomerProfile = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const { getPath } = useLocalizedPath();
   const { user, profile, loading: authLoading, logout, updateProfile, refreshProfile } = useCustomerAuth();
   
   const [isUpdating, setIsUpdating] = useState(false);
@@ -66,7 +69,7 @@ const CustomerProfile = () => {
   // Redirect if not logged in
   useEffect(() => {
     if (!user && !authLoading) {
-      navigate('/login');
+      navigate(getPath('login'));
     }
   }, [user, authLoading, navigate]);
 

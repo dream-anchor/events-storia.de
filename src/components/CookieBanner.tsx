@@ -4,7 +4,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { X, Cookie, ChevronDown, ChevronUp } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { LocalizedLink } from "@/components/LocalizedLink";
 
 const CookieBanner = () => {
   const { showBanner, showSettings, acceptAll, rejectAll, savePreferences, closeSettings, openSettings } = useCookieConsent();
@@ -124,9 +125,9 @@ const CookieBanner = () => {
           </div>
 
           <div className="px-4 pb-4 text-center">
-            <Link to="/cookie-richtlinie" className="text-xs text-muted-foreground hover:text-foreground underline">
+            <LocalizedLink to="legal.cookies" className="text-xs text-muted-foreground hover:text-foreground underline">
               {t.cookies.moreInfo}
-            </Link>
+            </LocalizedLink>
           </div>
         </div>
       </div>
@@ -161,12 +162,12 @@ const CookieBanner = () => {
           </div>
 
           <div className="mt-3 text-center">
-            <Link to="/datenschutz" className="text-xs text-muted-foreground hover:text-foreground underline mr-3">
+            <LocalizedLink to="legal.privacy" className="text-xs text-muted-foreground hover:text-foreground underline mr-3">
               {t.footer.privacy}
-            </Link>
-            <Link to="/cookie-richtlinie" className="text-xs text-muted-foreground hover:text-foreground underline">
+            </LocalizedLink>
+            <LocalizedLink to="legal.cookies" className="text-xs text-muted-foreground hover:text-foreground underline">
               {t.cookies.moreInfo}
-            </Link>
+            </LocalizedLink>
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
@@ -49,6 +50,7 @@ const OrderSuccess = () => {
   const { formatPrice } = usePriceDisplay();
   const navigate = useNavigate();
   const location = useLocation();
+  const { getPath } = useLocalizedPath();
   const { user, signup, loading } = useCustomerAuth();
   
   const state = location.state as LocationState | null;
@@ -64,14 +66,14 @@ const OrderSuccess = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (!loading && user) {
-      navigate('/konto');
+      navigate(getPath('account'));
     }
   }, [user, loading, navigate]);
 
   // Redirect only if accessed directly without order data
   useEffect(() => {
     if (!state?.email && !state?.orderNumber) {
-      navigate('/');
+      navigate(getPath('home'));
     }
   }, [state, navigate]);
 
@@ -100,7 +102,7 @@ const OrderSuccess = () => {
         return;
       }
       toast.success(language === 'de' ? 'Konto erstellt! Bitte bestätigen Sie Ihre E-Mail.' : 'Account created! Please confirm your email.');
-      navigate('/konto');
+      navigate(getPath('account'));
     } catch (err) {
       toast.error(language === 'de' ? 'Ein Fehler ist aufgetreten' : 'An error occurred');
     } finally {

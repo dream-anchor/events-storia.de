@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
 import Header from "@/components/Header";
+import { LocalizedLink } from "@/components/LocalizedLink";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -32,9 +32,9 @@ const Catering = () => {
         <Header />
         <div className="bg-background border-b border-border">
           <div className="container mx-auto px-4 py-8 text-center">
-            <Link to="/">
+            <LocalizedLink to="home">
               <img src={storiaLogo} alt="STORIA – Italienisches Restaurant München" className="h-24 md:h-32 mx-auto mb-4 hover:opacity-80 transition-opacity cursor-pointer" />
-            </Link>
+            </LocalizedLink>
             <p className="text-lg text-muted-foreground tracking-wide">
               {t.hero.subtitle}
             </p>

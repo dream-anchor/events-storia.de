@@ -1,9 +1,10 @@
-import { useLocation, Link } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Home, Phone, Mail, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SEO from "@/components/SEO";
 import storiaLogo from "@/assets/storia-logo.webp";
+import { LocalizedLink } from "@/components/LocalizedLink";
 
 const NotFound = () => {
   const location = useLocation();
@@ -20,16 +21,16 @@ const NotFound = () => {
         noIndex={true}
       />
       <main className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-        <Link to="/">
-          <img 
-            src={storiaLogo} 
-            alt="STORIA Logo – Zur Startseite" 
+        <LocalizedLink to="home">
+          <img
+            src={storiaLogo}
+            alt="STORIA Logo – Zur Startseite"
             className="h-24 md:h-32 mb-8 hover:opacity-80 transition-opacity"
             width="auto"
             height="128"
             loading="lazy"
           />
-        </Link>
+        </LocalizedLink>
         
         <div className="text-center max-w-md">
           <h1 className="text-6xl md:text-8xl font-serif font-bold text-primary mb-4">404</h1>
@@ -40,15 +41,15 @@ const NotFound = () => {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Button asChild size="lg" className="gap-2">
-              <Link to="/">
+              <LocalizedLink to="home">
                 <Home className="h-4 w-4" />
                 Zur Startseite
-              </Link>
+              </LocalizedLink>
             </Button>
             <Button asChild variant="outline" size="lg" className="gap-2">
-              <Link to="/kontakt">
+              <LocalizedLink to="contact">
                 Kontakt
-              </Link>
+              </LocalizedLink>
             </Button>
           </div>
           

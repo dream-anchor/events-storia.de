@@ -4,7 +4,7 @@ import FloatingActions from "@/components/FloatingActions";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Link } from "react-router-dom";
+import { LocalizedLink } from "@/components/LocalizedLink";
 
 interface FAQQuestion {
   question: string;
@@ -247,9 +247,9 @@ const FAQ = () => {
             <p className="text-lg text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
               Hier finden Sie Antworten auf die wichtigsten Fragen rund um STORIA Catering.
               Ihre Frage ist nicht dabei?{" "}
-              <Link to="/kontakt" className="text-primary hover:underline">
+              <LocalizedLink to="contact" className="text-primary hover:underline">
                 Kontaktieren Sie uns
-              </Link>
+              </LocalizedLink>
               .
             </p>
 

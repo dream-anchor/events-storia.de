@@ -1,7 +1,7 @@
 import { Phone, Mail, Instagram, User } from "lucide-react";
-import { Link } from "react-router-dom";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LocalizedLink } from "@/components/LocalizedLink";
 
 const Header = () => {
   const { user } = useCustomerAuth();
@@ -11,9 +11,9 @@ const Header = () => {
     <header className="border-b border-border bg-background">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
-          <Link to="/" className="font-serif text-[1.55rem] md:text-[1.95rem] font-bold hover:opacity-80 transition-opacity">
+          <LocalizedLink to="home" className="font-serif text-[1.55rem] md:text-[1.95rem] font-bold hover:opacity-80 transition-opacity">
             STORIA
-          </Link>
+          </LocalizedLink>
           <div className="flex items-center gap-2 md:gap-6 text-base text-foreground/80 font-medium">
             <a 
               href="tel:+498951519696" 
@@ -37,22 +37,22 @@ const Header = () => {
             >
               <Instagram className="h-5 w-5" />
             </a>
-            <Link 
-              to={user ? "/konto" : "/login"}
+            <LocalizedLink
+              to={user ? "account" : "login"}
               className="flex items-center justify-center min-h-[44px] min-w-[44px] gap-2 hover:text-foreground transition-colors touch-manipulation"
-              title={user 
+              title={user
                 ? (language === 'de' ? 'Mein Konto' : 'My Account')
                 : (language === 'de' ? 'Anmelden' : 'Login')
               }
             >
               <User className="h-5 w-5" />
               <span className="hidden lg:inline">
-                {user 
+                {user
                   ? (language === 'de' ? 'Mein Konto' : 'My Account')
                   : (language === 'de' ? 'Anmelden' : 'Login')
                 }
               </span>
-            </Link>
+            </LocalizedLink>
           </div>
         </div>
       </div>

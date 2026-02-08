@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { LocalizedLink } from "@/components/LocalizedLink";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
@@ -278,10 +278,10 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
             size="lg"
             className="w-full gap-2"
           >
-            <Link to="/checkout">
+            <LocalizedLink to="checkout">
               {language === 'de' ? 'Zur Kasse' : 'Checkout'}
               <ArrowRight className="h-5 w-5" />
-            </Link>
+            </LocalizedLink>
           </Button>
         )}
 

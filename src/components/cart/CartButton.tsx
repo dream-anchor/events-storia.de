@@ -1,5 +1,6 @@
 import { ShoppingCart } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import { useCart } from '@/contexts/CartContext';
 import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -11,15 +12,16 @@ const CartButton = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
+  const { getPath } = useLocalizedPath();
 
   // Hide on checkout page, admin pages, or when cart is empty
-  if (location.pathname === '/checkout') return null;
+  if (location.pathname === '/checkout' || location.pathname === '/en/checkout') return null;
   if (location.pathname.startsWith('/admin')) return null;
   if (totalItems === 0) return null;
 
   return (
     <button
-      onClick={() => navigate('/checkout')}
+      onClick={() => navigate(getPath('checkout'))}
       className={cn(
         "fixed top-[120px] right-4 z-40",
         "flex flex-col items-center gap-1",
