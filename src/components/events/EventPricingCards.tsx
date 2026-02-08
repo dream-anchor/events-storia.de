@@ -159,6 +159,10 @@ const EventPricingCards = ({ onInquiry }: EventPricingCardsProps) => {
                     src={image}
                     alt={name}
                     className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                    width="600"
+                    height="280"
+                    loading="lazy"
+                    decoding="async"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 </div>

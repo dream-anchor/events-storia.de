@@ -1,5 +1,7 @@
 import { Helmet } from 'react-helmet-async';
+import { useLocation } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getAlternatePath, getRouteByDePath, getRouteByEnPath } from '@/config/routes';
 
 interface SEOProps {
   title?: string;
@@ -16,7 +18,7 @@ interface SEOProps {
   availability?: 'InStock' | 'OutOfStock' | 'PreOrder';
   // Additional SEO fields
   keywords?: string;
-  // i18n: Path to the alternate language version (e.g. "/en/contact" for DE page "/kontakt")
+  // i18n: Path to the alternate language version — auto-detected from route config if omitted
   alternateUrl?: string;
 }
 
@@ -35,6 +37,7 @@ const SEO = ({
   alternateUrl,
 }: SEOProps) => {
   const { language } = useLanguage();
+  const location = useLocation();
   const baseUrl = 'https://events-storia.de';
 
   const siteTitle = 'STORIA – Italienisches Catering & Events München';
@@ -50,8 +53,28 @@ const SEO = ({
 
   const metaDescription = description || defaultDescription;
   const metaKeywords = keywords || defaultKeywords;
-  const canonicalUrl = canonical ? `${baseUrl}${canonical}` : baseUrl;
+
+  // Auto-detect canonical from current path if not explicitly provided
+  const effectiveCanonical = canonical ?? location.pathname;
+  const canonicalUrl = `${baseUrl}${effectiveCanonical}`;
+
+  // Auto-detect alternateUrl from route config if not explicitly provided
+  const effectiveAlternateUrl = alternateUrl ?? (() => {
+    const pathOnly = location.pathname;
+    if (language === 'en') {
+      const enSlug = pathOnly === '/en' ? '/' : pathOnly.replace(/^\/en/, '');
+      const route = getRouteByEnPath(enSlug);
+      return route ? route.de : undefined;
+    } else {
+      const route = getRouteByDePath(pathOnly);
+      if (!route) return undefined;
+      return route.en === '/' ? '/en' : `/en${route.en}`;
+    }
+  })();
+
   const alternateLanguage = language === 'de' ? 'en' : 'de';
+  // x-default always points to DE version
+  const xDefaultUrl = language === 'de' ? canonicalUrl : (effectiveAlternateUrl ? `${baseUrl}${effectiveAlternateUrl}` : canonicalUrl);
 
   // Default to current date if no modifiedTime provided (signals fresh content)
   const effectiveModifiedTime = modifiedTime || new Date().toISOString().split('T')[0];
@@ -73,10 +96,10 @@ const SEO = ({
       {/* Canonical & Language Alternates */}
       <link rel="canonical" href={canonicalUrl} />
       <link rel="alternate" hrefLang={language} href={canonicalUrl} />
-      {alternateUrl && (
-        <link rel="alternate" hrefLang={alternateLanguage} href={`${baseUrl}${alternateUrl}`} />
+      {effectiveAlternateUrl && (
+        <link rel="alternate" hrefLang={alternateLanguage} href={`${baseUrl}${effectiveAlternateUrl}`} />
       )}
-      <link rel="alternate" hrefLang="x-default" href={language === 'de' ? canonicalUrl : (alternateUrl ? `${baseUrl}${alternateUrl}` : canonicalUrl)} />
+      <link rel="alternate" hrefLang="x-default" href={xDefaultUrl} />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type === 'product' ? 'product' : type} />

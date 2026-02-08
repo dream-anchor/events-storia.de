@@ -1,46 +1,94 @@
+# UTF-8
+AddDefaultCharset UTF-8
+
 RewriteEngine On
+RewriteBase /
 
 # ============================================
-# 0. HTTPS + WWW Kanonisierung (SEO)
+# 0. HTTPS + WWW + Trailing Slash — ein 301-Hop
 # ============================================
 
-# Schritt 1: HTTP zu HTTPS erzwingen
-RewriteCond %{HTTPS} off
-RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+# Nicht-kanonisch OHNE Slash -> https://www. MIT Slash
+RewriteCond %{HTTPS} off [OR]
+RewriteCond %{HTTP_HOST} !^www\. [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_URI} !^/$
+RewriteCond %{REQUEST_URI} !/$
+RewriteCond %{REQUEST_URI} !\.[a-zA-Z0-9]+$
+RewriteRule ^(.*)$ https://www.events-storia.de/$1/ [R=301,L]
 
-# Schritt 2: Non-www zu www umleiten (nur bei HTTPS)
-RewriteCond %{HTTP_HOST} ^events-storia\.de$ [NC]
-RewriteRule ^(.*)$ https://www.events-storia.de/$1 [R=301,L]
+# Nicht-kanonisch MIT Slash -> https://www.
+RewriteCond %{HTTPS} off [OR]
+RewriteCond %{HTTP_HOST} !^www\. [NC]
+RewriteRule ^ https://www.events-storia.de%{REQUEST_URI} [R=301,L]
+
+# Bereits https://www. aber ohne Slash -> Slash hinzufügen
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_URI} !^/$
+RewriteCond %{REQUEST_URI} !/$
+RewriteCond %{REQUEST_URI} !\.[a-zA-Z0-9]+$
+RewriteRule ^(.*)$ /$1/ [R=301,L]
 
 # ============================================
 # 1. Spezielle Weiterleitungen (Query-String)
 # ============================================
 RewriteCond %{QUERY_STRING} ^page_id=2881$
-RewriteRule ^$ /impressum? [R=301,L]
+RewriteRule ^$ /impressum/? [R=301,L]
 
 # ============================================
-# 2. 301 Redirects für alte URLs (VOR dem SPA-Fallback!)
+# 2. 301 Redirects für alte URLs
 # ============================================
-RewriteRule ^weihnachtsmenues$ /besondere-anlaesse/weihnachtsmenues [R=301,L]
-RewriteRule ^silvesterparty$ /besondere-anlaesse/silvesterparty [R=301,L]
+RewriteRule ^weihnachtsmenues/?$ / [R=301,L]
+RewriteRule ^silvesterparty/?$ / [R=301,L]
 RewriteRule ^ristorantestoria-de/?$ / [R=301,L]
 
 # ============================================
-# 3. SPA-Routing (React Router)
+# 2b. Multi-Language Slug Redirects
 # ============================================
+# Prevent DE slugs on EN paths -> correct EN slug
+RewriteRule ^en/kontakt/?$ /en/contact/ [R=301,L]
+RewriteRule ^en/catering/buffet-fingerfood/?$ /en/catering/finger-food-buffet/ [R=301,L]
+RewriteRule ^en/catering/buffet-platten/?$ /en/catering/platters-sharing/ [R=301,L]
+RewriteRule ^en/catering/buffet-auflauf/?$ /en/catering/hot-dishes/ [R=301,L]
+RewriteRule ^en/catering/pizze-napoletane/?$ /en/catering/pizza-napoletana/ [R=301,L]
+RewriteRule ^en/faq-catering-muenchen/?$ /en/catering-faq-munich/ [R=301,L]
+RewriteRule ^en/impressum/?$ /en/imprint/ [R=301,L]
+RewriteRule ^en/datenschutz/?$ /en/privacy/ [R=301,L]
+RewriteRule ^en/cookie-richtlinie/?$ /en/cookie-policy/ [R=301,L]
+RewriteRule ^en/agb-catering/?$ /en/catering-terms/ [R=301,L]
+RewriteRule ^en/agb-restaurant/?$ /en/restaurant-terms/ [R=301,L]
+RewriteRule ^en/agb-gutscheine/?$ /en/voucher-terms/ [R=301,L]
+RewriteRule ^en/widerrufsbelehrung/?$ /en/cancellation-policy/ [R=301,L]
+RewriteRule ^en/zahlungsinformationen/?$ /en/payment-information/ [R=301,L]
+RewriteRule ^en/lebensmittelhinweise/?$ /en/food-information/ [R=301,L]
+RewriteRule ^en/haftungsausschluss/?$ /en/disclaimer/ [R=301,L]
+RewriteRule ^en/konto/?$ /en/account/ [R=301,L]
+
+# ============================================
+# 3. Error Documents
+# ============================================
+ErrorDocument 404 /index.html
+
+# ============================================
+# 4. SPA-Routing & SSG Support
+# ============================================
+# Statische Dateien direkt ausliefern
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# SSG: Ordner mit index.html direkt ausliefern
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
 # Admin-Bereich: Serve clean HTML without pre-rendered frontend content
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_URI} ^/admin
 RewriteRule ^ /admin/index.html [L]
 
-# Frontend: Serve pre-rendered index.html
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
+# Frontend: Serve pre-rendered index.html (SPA Fallback)
 RewriteRule ^ /index.html [L]
 
 # ============================================
-# 4. MIME-Types für korrekte Dateiauslieferung
+# 5. MIME-Types
 # ============================================
 <IfModule mod_mime.c>
   AddType application/javascript .js
@@ -53,14 +101,14 @@ RewriteRule ^ /index.html [L]
 </IfModule>
 
 # ============================================
-# 5. GZIP-Komprimierung für bessere Performance
+# 6. GZIP-Komprimierung
 # ============================================
 <IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml application/xml
 </IfModule>
 
 # ============================================
-# 6. Browser-Caching für statische Assets
+# 7. Browser-Caching
 # ============================================
 <IfModule mod_expires.c>
   ExpiresActive On
@@ -72,7 +120,17 @@ RewriteRule ^ /index.html [L]
 </IfModule>
 
 # ============================================
-# 7. Erzwungene MIME-Types für spezifische Dateien
+# 8. Security Headers
+# ============================================
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
+</IfModule>
+
+# ============================================
+# 9. Sitemap XML
 # ============================================
 <FilesMatch "\.xml$">
   ForceType application/xml
@@ -81,5 +139,7 @@ RewriteRule ^ /index.html [L]
 <IfModule mod_headers.c>
   <FilesMatch "sitemap\.xml$">
     Header set Content-Type "application/xml; charset=UTF-8"
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
   </FilesMatch>
 </IfModule>
+AddCharset UTF-8 .xml

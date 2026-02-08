@@ -27,6 +27,7 @@ const ImageCard = ({ image, alt, title, subtitle, className = "", imageClassName
         width="400"
         height="400"
         loading="lazy"
+        decoding="async"
       />
       {(title || subtitle) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center pointer-events-none">
