@@ -138,6 +138,14 @@ const Footer = () => {
             <LocalizedLink to="faq" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'FAQ Catering & Events' : 'Catering & Events FAQ'}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
             <LocalizedLink to="contact" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{t.footer.contact}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="seo.italienischesCatering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Italienisches Catering' : 'Italian Catering'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="seo.firmenfeier" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Firmenfeier Catering' : 'Corporate Event Catering'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="seo.pizzaCatering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Pizza Catering' : 'Pizza Catering'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="seo.bueroCatering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Büro Catering' : 'Office Catering'}</LocalizedLink>
           </div>
 
           {/* Legal Links */}

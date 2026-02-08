@@ -273,6 +273,27 @@ export const en = {
       title: 'Page Not Found',
       description: 'The requested page could not be found. Please visit our homepage or contact us.',
     },
+    // SEO Landing Pages
+    italienischesCatering: {
+      title: 'Italian Catering Munich – Finger Food, Pizza & Buffets',
+      description: 'Order Italian catering in Munich: finger food, Pizza Napoletana, antipasti platters & hot buffets. STORIA – freshly prepared from Maxvorstadt. Inquire now!',
+    },
+    firmenfeier: {
+      title: 'Corporate Event Catering Munich – Business Events & Celebrations',
+      description: 'Catering for corporate events in Munich: team events, anniversaries, summer parties & client events. Italian cuisine by STORIA – individually planned. Request a quote now!',
+    },
+    weihnachtsfeier: {
+      title: 'Christmas Party Catering Munich – Festive Menus & Buffets',
+      description: 'Christmas party catering in Munich: festive Italian menus, buffets & finger food for your corporate Christmas party. STORIA – Book early now!',
+    },
+    pizzaCatering: {
+      title: 'Pizza Catering Munich – Neapolitan Pizza for Events',
+      description: 'Pizza catering in Munich: authentic Neapolitan stone-oven pizza for corporate events, birthdays & events. STORIA – 25 varieties, delivered hot!',
+    },
+    bueroCatering: {
+      title: 'Office Catering Munich – Business Lunch & Office Catering',
+      description: 'Office catering in Munich: Italian business lunch, team lunch & meeting catering. STORIA – freshly delivered to your office. Order now!',
+    },
   },
   about: {
     title: 'STORIA CATERING - ITALIAN CUISINE FOR MUNICH',

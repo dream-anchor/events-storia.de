@@ -273,6 +273,27 @@ export const de = {
       title: 'Seite nicht gefunden',
       description: 'Die angeforderte Seite konnte nicht gefunden werden. Besuchen Sie unsere Startseite oder kontaktieren Sie uns.',
     },
+    // SEO Landing Pages
+    italienischesCatering: {
+      title: 'Italienisches Catering München – Fingerfood, Pizza & Buffets',
+      description: 'Italienisches Catering in München bestellen: Fingerfood, Pizza Napoletana, Antipasti-Platten & warme Buffets. STORIA – frisch aus der Maxvorstadt. Jetzt anfragen!',
+    },
+    firmenfeier: {
+      title: 'Firmenfeier Catering München – Business Events & Firmenfeiern',
+      description: 'Catering für Firmenfeiern in München: Team-Events, Jubiläen, Sommerfeste & Kundenevents. Italienische Küche von STORIA – individuell geplant. Jetzt Angebot anfragen!',
+    },
+    weihnachtsfeier: {
+      title: 'Weihnachtsfeier Catering München – Festliche Menüs & Buffets',
+      description: 'Weihnachtsfeier Catering in München: Festliche italienische Menüs, Buffets & Fingerfood für Ihre Firmen-Weihnachtsfeier. STORIA – Jetzt frühzeitig buchen!',
+    },
+    pizzaCatering: {
+      title: 'Pizza Catering München – Neapolitanische Pizza für Events',
+      description: 'Pizza Catering in München: Echte neapolitanische Pizza aus dem Steinofen für Firmenfeiern, Geburtstage & Events. STORIA – 25 Sorten, heiß geliefert!',
+    },
+    bueroCatering: {
+      title: 'Büro Catering München – Business Lunch & Office Catering',
+      description: 'Büro Catering in München: Italienischer Business Lunch, Team-Lunch & Meeting-Catering. STORIA – frisch geliefert ins Büro. Jetzt bestellen!',
+    },
   },
   about: {
     title: 'STORIA CATERING - ITALIENISCHE KÜCHE FÜR MÜNCHEN',

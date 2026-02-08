@@ -73,6 +73,13 @@ RewriteRule ^en/lebensmittelhinweise/?$ /en/food-information/ [R=301,L]
 RewriteRule ^en/haftungsausschluss/?$ /en/disclaimer/ [R=301,L]
 RewriteRule ^en/konto/?$ /en/account/ [R=301,L]
 
+# Prevent DE slugs on EN SEO landing pages -> correct EN slug
+RewriteRule ^en/italienisches-catering-muenchen/?$ /en/italian-catering-munich/ [R=301,L]
+RewriteRule ^en/firmenfeier-catering-muenchen/?$ /en/corporate-event-catering-munich/ [R=301,L]
+RewriteRule ^en/weihnachtsfeier-catering-muenchen/?$ /en/christmas-party-catering-munich/ [R=301,L]
+RewriteRule ^en/pizza-catering-muenchen/?$ /en/pizza-catering-munich/ [R=301,L]
+RewriteRule ^en/buero-catering-muenchen/?$ /en/office-catering-munich/ [R=301,L]
+
 # ============================================
 # 3. Error Documents
 # ============================================

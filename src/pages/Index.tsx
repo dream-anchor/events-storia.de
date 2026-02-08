@@ -108,11 +108,15 @@ const Index = () => {
                       alles frisch zubereitet und zuverlässig geliefert.
                     </p>
                     <p>
-                      Ob Firmenevent, Weihnachtsfeier, Geburtstagsparty oder ein entspanntes
+                      Ob{' '}
+                      <LocalizedLink to="seo.firmenfeier" className="underline hover:text-foreground transition-colors">Firmenevent</LocalizedLink>,{' '}
+                      <LocalizedLink to="seo.weihnachtsfeier" className="underline hover:text-foreground transition-colors">Weihnachtsfeier</LocalizedLink>,
+                      Geburtstagsparty oder ein entspanntes
                       Dinner mit Freunden: Wir erstellen Ihnen ein individuelles Angebot,
-                      passend zu Personenanzahl, Anlass und Budget. Seit Jahren vertrauen
-                      Münchner Unternehmen und Privatpersonen auf unseren Catering-Service –
-                      für Momente, die in Erinnerung bleiben.
+                      passend zu Personenanzahl, Anlass und Budget. Ob{' '}
+                      <LocalizedLink to="seo.pizzaCatering" className="underline hover:text-foreground transition-colors">Pizza Catering</LocalizedLink> oder{' '}
+                      <LocalizedLink to="seo.bueroCatering" className="underline hover:text-foreground transition-colors">Büro Catering</LocalizedLink> –
+                      seit Jahren vertrauen Münchner Unternehmen und Privatpersonen auf unseren Catering-Service.
                     </p>
                   </>
                 ) : (
@@ -129,10 +133,15 @@ const Index = () => {
                       everything freshly prepared and reliably delivered.
                     </p>
                     <p>
-                      Whether corporate event, Christmas party, birthday celebration or a relaxed
+                      Whether{' '}
+                      <LocalizedLink to="seo.firmenfeier" className="underline hover:text-foreground transition-colors">corporate event</LocalizedLink>,{' '}
+                      <LocalizedLink to="seo.weihnachtsfeier" className="underline hover:text-foreground transition-colors">Christmas party</LocalizedLink>,
+                      birthday celebration or a relaxed
                       dinner with friends: We create a customised offer tailored to your guest count,
-                      occasion and budget. For years, Munich businesses and private clients have
-                      trusted our catering service – for moments that create lasting memories.
+                      occasion and budget. Whether{' '}
+                      <LocalizedLink to="seo.pizzaCatering" className="underline hover:text-foreground transition-colors">pizza catering</LocalizedLink> or{' '}
+                      <LocalizedLink to="seo.bueroCatering" className="underline hover:text-foreground transition-colors">office catering</LocalizedLink> –
+                      for years, Munich businesses and private clients have trusted our catering service.
                     </p>
                   </>
                 )}

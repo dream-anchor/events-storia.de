@@ -69,6 +69,13 @@ const PizzeNapoletane = lazy(() => import("./pages/catering/PizzeNapoletane"));
 const Desserts = lazy(() => import("./pages/catering/Desserts"));
 const EventsImStoria = lazy(() => import("./pages/catering/EventsImStoria"));
 
+// SEO Landing Pages (lazy)
+const ItalienischesCateringMuenchen = lazy(() => import("./pages/seo/ItalienischesCateringMuenchen"));
+const FirmenfeierCateringMuenchen = lazy(() => import("./pages/seo/FirmenfeierCateringMuenchen"));
+const WeihnachtsfeierCateringMuenchen = lazy(() => import("./pages/seo/WeihnachtsfeierCateringMuenchen"));
+const PizzaCateringMuenchen = lazy(() => import("./pages/seo/PizzaCateringMuenchen"));
+const BueroCateringMuenchen = lazy(() => import("./pages/seo/BueroCateringMuenchen"));
+
 const queryClient = new QueryClient();
 
 // App component with all providers and contexts
@@ -129,6 +136,13 @@ const App = () => {
                     <Route path="/haftungsausschluss" element={<Haftungsausschluss />} />
                     <Route path="/faq-catering-muenchen" element={<FAQ />} />
 
+                    {/* SEO Landing Pages DE */}
+                    <Route path="/italienisches-catering-muenchen" element={<ItalienischesCateringMuenchen />} />
+                    <Route path="/firmenfeier-catering-muenchen" element={<FirmenfeierCateringMuenchen />} />
+                    <Route path="/weihnachtsfeier-catering-muenchen" element={<WeihnachtsfeierCateringMuenchen />} />
+                    <Route path="/pizza-catering-muenchen" element={<PizzaCateringMuenchen />} />
+                    <Route path="/buero-catering-muenchen" element={<BueroCateringMuenchen />} />
+
                     {/* === English Routes (/en/ prefix) === */}
                     <Route path="/en" element={<Index />} />
                     <Route path="/en/contact" element={<Kontakt />} />
@@ -163,6 +177,13 @@ const App = () => {
                     <Route path="/en/food-information" element={<Lebensmittelhinweise />} />
                     <Route path="/en/disclaimer" element={<Haftungsausschluss />} />
                     <Route path="/en/catering-faq-munich" element={<FAQ />} />
+
+                    {/* SEO Landing Pages EN */}
+                    <Route path="/en/italian-catering-munich" element={<ItalienischesCateringMuenchen />} />
+                    <Route path="/en/corporate-event-catering-munich" element={<FirmenfeierCateringMuenchen />} />
+                    <Route path="/en/christmas-party-catering-munich" element={<WeihnachtsfeierCateringMuenchen />} />
+                    <Route path="/en/pizza-catering-munich" element={<PizzaCateringMuenchen />} />
+                    <Route path="/en/office-catering-munich" element={<BueroCateringMuenchen />} />
 
                     {/* === Admin (language-neutral) === */}
                     <Route path="/admin/login" element={<AdminLogin />} />

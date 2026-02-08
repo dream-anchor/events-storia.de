@@ -26,6 +26,12 @@ const PRERENDER_ROUTES = [
   '/zahlungsinformationen',
   '/lebensmittelhinweise',
   '/haftungsausschluss',
+  // SEO Landing Pages DE
+  '/italienisches-catering-muenchen',
+  '/firmenfeier-catering-muenchen',
+  '/weihnachtsfeier-catering-muenchen',
+  '/pizza-catering-muenchen',
+  '/buero-catering-muenchen',
   // EN routes (/en prefix)
   '/en',
   '/en/contact',
@@ -46,6 +52,12 @@ const PRERENDER_ROUTES = [
   '/en/payment-information',
   '/en/food-information',
   '/en/disclaimer',
+  // SEO Landing Pages EN
+  '/en/italian-catering-munich',
+  '/en/corporate-event-catering-munich',
+  '/en/christmas-party-catering-munich',
+  '/en/pizza-catering-munich',
+  '/en/office-catering-munich',
 ];
 
 // https://vitejs.dev/config/

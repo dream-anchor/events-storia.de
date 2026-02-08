@@ -19,6 +19,11 @@ export type RouteKey =
   | 'account.passwordReset'
   | 'account.orderSuccess'
   | 'faq'
+  | 'seo.italienischesCatering'
+  | 'seo.firmenfeier'
+  | 'seo.weihnachtsfeier'
+  | 'seo.pizzaCatering'
+  | 'seo.bueroCatering'
   | 'legal.imprint'
   | 'legal.privacy'
   | 'legal.cookies'
@@ -57,6 +62,13 @@ export const ROUTES: RouteConfig[] = [
 
   // FAQ
   { key: 'faq', de: '/faq-catering-muenchen', en: '/catering-faq-munich', languages: ['de', 'en'], prerender: true, priority: 0.7, changefreq: 'monthly' },
+
+  // SEO Landing Pages
+  { key: 'seo.italienischesCatering', de: '/italienisches-catering-muenchen', en: '/italian-catering-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
+  { key: 'seo.firmenfeier', de: '/firmenfeier-catering-muenchen', en: '/corporate-event-catering-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
+  { key: 'seo.weihnachtsfeier', de: '/weihnachtsfeier-catering-muenchen', en: '/christmas-party-catering-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
+  { key: 'seo.pizzaCatering', de: '/pizza-catering-muenchen', en: '/pizza-catering-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
+  { key: 'seo.bueroCatering', de: '/buero-catering-muenchen', en: '/office-catering-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
 
   // Checkout & Account (no prerender — dynamic/auth)
   { key: 'checkout', de: '/checkout', en: '/checkout', languages: ['de', 'en'], prerender: false },
