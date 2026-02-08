@@ -23,7 +23,7 @@ const CartButton = () => {
     <button
       onClick={() => navigate(getPath('checkout'))}
       className={cn(
-        "fixed top-[120px] right-4 z-40",
+        "fixed top-[120px] right-4 z-[60]",
         "flex flex-col items-center gap-1",
         "bg-background/80 backdrop-blur-lg",
         "border border-border/50 rounded-xl",
