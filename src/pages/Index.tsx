@@ -84,67 +84,75 @@ const Index = () => {
           <Hero />
           <CateringGrid />
 
-          {/* SEO Content Section — Thin Content Fix */}
-          <section className="bg-background py-10 md:py-14">
-            <div className="max-w-4xl mx-auto px-4">
-              <h2 className="text-2xl md:text-3xl font-serif font-medium text-center mb-6">
-                {language === 'de'
-                  ? 'Ihr italienischer Catering-Partner in München'
-                  : 'Your Italian Catering Partner in Munich'}
-              </h2>
-              <div className="text-muted-foreground leading-relaxed space-y-4 text-left md:text-center">
-                {language === 'de' ? (
-                  <>
-                    <p>
-                      STORIA Catering bringt die authentische Küche unseres Ristorante STORIA
-                      aus der Münchner Maxvorstadt direkt zu Ihnen – ob ins Büro, nach Hause
-                      oder zu Ihrem Event. Von elegantem{' '}
-                      <LocalizedLink to="catering.fingerfood" className="underline hover:text-foreground transition-colors">Fingerfood</LocalizedLink> für
-                      Empfänge über{' '}
-                      <LocalizedLink to="catering.pizza" className="underline hover:text-foreground transition-colors">neapolitanische Pizza aus dem Steinofen</LocalizedLink> bis
-                      hin zu{' '}
-                      <LocalizedLink to="catering.casseroles" className="underline hover:text-foreground transition-colors">warmen Aufläufen</LocalizedLink> und{' '}
-                      <LocalizedLink to="catering.desserts" className="underline hover:text-foreground transition-colors">hausgemachtem Tiramisù</LocalizedLink> –
-                      alles frisch zubereitet und zuverlässig geliefert.
-                    </p>
-                    <p>
-                      Ob{' '}
-                      <LocalizedLink to="seo.firmenfeier" className="underline hover:text-foreground transition-colors">Firmenevent</LocalizedLink>,{' '}
-                      <LocalizedLink to="seo.weihnachtsfeier" className="underline hover:text-foreground transition-colors">Weihnachtsfeier</LocalizedLink>,
-                      Geburtstagsparty oder ein entspanntes
-                      Dinner mit Freunden: Wir erstellen Ihnen ein individuelles Angebot,
-                      passend zu Personenanzahl, Anlass und Budget. Ob{' '}
-                      <LocalizedLink to="seo.pizzaCatering" className="underline hover:text-foreground transition-colors">Pizza Catering</LocalizedLink> oder{' '}
-                      <LocalizedLink to="seo.bueroCatering" className="underline hover:text-foreground transition-colors">Büro Catering</LocalizedLink> –
-                      seit Jahren vertrauen Münchner Unternehmen und Privatpersonen auf unseren Catering-Service.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p>
-                      STORIA Catering brings the authentic cuisine of our Ristorante STORIA
-                      in Munich's Maxvorstadt directly to you – whether to your office, home
-                      or event. From elegant{' '}
-                      <LocalizedLink to="catering.fingerfood" className="underline hover:text-foreground transition-colors">finger food</LocalizedLink> for
-                      receptions to{' '}
-                      <LocalizedLink to="catering.pizza" className="underline hover:text-foreground transition-colors">Neapolitan stone-oven pizza</LocalizedLink> to{' '}
-                      <LocalizedLink to="catering.casseroles" className="underline hover:text-foreground transition-colors">hot casseroles</LocalizedLink> and{' '}
-                      <LocalizedLink to="catering.desserts" className="underline hover:text-foreground transition-colors">homemade tiramisù</LocalizedLink> –
-                      everything freshly prepared and reliably delivered.
-                    </p>
-                    <p>
-                      Whether{' '}
-                      <LocalizedLink to="seo.firmenfeier" className="underline hover:text-foreground transition-colors">corporate event</LocalizedLink>,{' '}
-                      <LocalizedLink to="seo.weihnachtsfeier" className="underline hover:text-foreground transition-colors">Christmas party</LocalizedLink>,
-                      birthday celebration or a relaxed
-                      dinner with friends: We create a customised offer tailored to your guest count,
-                      occasion and budget. Whether{' '}
-                      <LocalizedLink to="seo.pizzaCatering" className="underline hover:text-foreground transition-colors">pizza catering</LocalizedLink> or{' '}
-                      <LocalizedLink to="seo.bueroCatering" className="underline hover:text-foreground transition-colors">office catering</LocalizedLink> –
-                      for years, Munich businesses and private clients have trusted our catering service.
-                    </p>
-                  </>
-                )}
+          {/* SEO Content Section — Glassmorphism Welcome Card */}
+          <section className="py-12 md:py-20">
+            <div className="container mx-auto px-4">
+              <div className="max-w-[800px] mx-auto bg-white/70 dark:bg-white/10 backdrop-blur-[15px] rounded-3xl p-8 md:p-12 shadow-[0_20px_40px_rgba(0,0,0,0.05)] border border-white/40 text-center">
+                <h2 className="font-serif text-2xl md:text-[2.5rem] md:leading-tight tracking-[0.02em] text-foreground mb-6">
+                  {language === 'de'
+                    ? 'Ihr italienischer Catering-Partner in München'
+                    : 'Your Italian Catering Partner in Munich'}
+                </h2>
+                <div className="text-[#444] dark:text-muted-foreground text-base md:text-lg leading-[1.8] space-y-4">
+                  {language === 'de' ? (
+                    <>
+                      <p>
+                        STORIA Catering bringt die authentische Küche unseres Ristorante STORIA
+                        aus der Münchner Maxvorstadt direkt zu Ihnen – ob ins Büro, nach Hause
+                        oder zu Ihrem Event. Von elegantem{' '}
+                        <LocalizedLink to="catering.fingerfood" className="underline hover:text-foreground transition-colors">Fingerfood</LocalizedLink> für
+                        Empfänge über{' '}
+                        <LocalizedLink to="catering.pizza" className="underline hover:text-foreground transition-colors">neapolitanische Pizza aus dem Steinofen</LocalizedLink> bis
+                        hin zu{' '}
+                        <LocalizedLink to="catering.casseroles" className="underline hover:text-foreground transition-colors">warmen Aufläufen</LocalizedLink> und{' '}
+                        <LocalizedLink to="catering.desserts" className="underline hover:text-foreground transition-colors">hausgemachtem Tiramisù</LocalizedLink> –
+                        alles frisch zubereitet und zuverlässig geliefert.
+                      </p>
+                      <p>
+                        Ob{' '}
+                        <LocalizedLink to="seo.firmenfeier" className="underline hover:text-foreground transition-colors">Firmenevent</LocalizedLink>,{' '}
+                        <LocalizedLink to="seo.weihnachtsfeier" className="underline hover:text-foreground transition-colors">Weihnachtsfeier</LocalizedLink>,
+                        Geburtstagsparty oder ein entspanntes
+                        Dinner mit Freunden: Wir erstellen Ihnen ein individuelles Angebot,
+                        passend zu Personenanzahl, Anlass und Budget. Ob{' '}
+                        <LocalizedLink to="seo.pizzaCatering" className="underline hover:text-foreground transition-colors">Pizza Catering</LocalizedLink> oder{' '}
+                        <LocalizedLink to="seo.bueroCatering" className="underline hover:text-foreground transition-colors">Büro Catering</LocalizedLink> –
+                        seit Jahren vertrauen Münchner Unternehmen und Privatpersonen auf unseren Catering-Service.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        STORIA Catering brings the authentic cuisine of our Ristorante STORIA
+                        in Munich's Maxvorstadt directly to you – whether to your office, home
+                        or event. From elegant{' '}
+                        <LocalizedLink to="catering.fingerfood" className="underline hover:text-foreground transition-colors">finger food</LocalizedLink> for
+                        receptions to{' '}
+                        <LocalizedLink to="catering.pizza" className="underline hover:text-foreground transition-colors">Neapolitan stone-oven pizza</LocalizedLink> to{' '}
+                        <LocalizedLink to="catering.casseroles" className="underline hover:text-foreground transition-colors">hot casseroles</LocalizedLink> and{' '}
+                        <LocalizedLink to="catering.desserts" className="underline hover:text-foreground transition-colors">homemade tiramisù</LocalizedLink> –
+                        everything freshly prepared and reliably delivered.
+                      </p>
+                      <p>
+                        Whether{' '}
+                        <LocalizedLink to="seo.firmenfeier" className="underline hover:text-foreground transition-colors">corporate event</LocalizedLink>,{' '}
+                        <LocalizedLink to="seo.weihnachtsfeier" className="underline hover:text-foreground transition-colors">Christmas party</LocalizedLink>,
+                        birthday celebration or a relaxed
+                        dinner with friends: We create a customised offer tailored to your guest count,
+                        occasion and budget. Whether{' '}
+                        <LocalizedLink to="seo.pizzaCatering" className="underline hover:text-foreground transition-colors">pizza catering</LocalizedLink> or{' '}
+                        <LocalizedLink to="seo.bueroCatering" className="underline hover:text-foreground transition-colors">office catering</LocalizedLink> –
+                        for years, Munich businesses and private clients have trusted our catering service.
+                      </p>
+                    </>
+                  )}
+                </div>
+                <LocalizedLink
+                  to="events#contact"
+                  className="inline-block mt-8 px-8 py-3 bg-[#8b0000] text-white rounded-full shadow-[0_4px_15px_rgba(139,0,0,0.3)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-300 font-medium"
+                >
+                  {language === 'de' ? 'Unverbindlich anfragen' : 'Request a Quote'}
+                </LocalizedLink>
               </div>
             </div>
           </section>
