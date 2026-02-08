@@ -22,13 +22,13 @@ import {
 } from "lucide-react";
 import { useState, useRef } from "react";
 
-import heroImg from "@/assets/events/firmenfeier-2.webp";
+import heroImg from "@/assets/events/firmenfeier-eventlocation-storia-muenchen-2.webp";
 
 // Event Gallery Images
-import firmenfeierImg from "@/assets/events/firmenfeier.webp";
-import geburtstagsfeierImg from "@/assets/events/geburtstagsfeier.webp";
-import sommerfestImg from "@/assets/events/sommerfest.webp";
-import weihnachtsfeierImg from "@/assets/events/weihnachtsfeier.webp";
+import firmenfeierImg from "@/assets/events/firmenfeier-catering-muenchen-storia.webp";
+import geburtstagsfeierImg from "@/assets/events/geburtstagsfeier-catering-muenchen-storia.webp";
+import sommerfestImg from "@/assets/events/sommerfest-firmenfeier-catering-muenchen.webp";
+import weihnachtsfeierImg from "@/assets/events/weihnachtsfeier-catering-muenchen-storia.webp";
 
 // Event Types
 const eventTypes = [

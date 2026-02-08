@@ -2,12 +2,13 @@ import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Hero from "@/components/Hero";
 import CateringGrid from "@/components/CateringGrid";
-import lieferungMuenchen from "@/assets/lieferung-muenchen.webp";
+import lieferungMuenchen from "@/assets/catering-lieferservice-muenchen-storia.webp";
 import CateringCTA from "@/components/CateringCTA";
 import Footer from "@/components/Footer";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
 import ConsentElfsightReviews from "@/components/ConsentElfsightReviews";
+import { LocalizedLink } from "@/components/LocalizedLink";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const Index = () => {
@@ -82,6 +83,63 @@ const Index = () => {
         <main className="flex-1">
           <Hero />
           <CateringGrid />
+
+          {/* SEO Content Section — Thin Content Fix */}
+          <section className="bg-background py-10 md:py-14">
+            <div className="max-w-4xl mx-auto px-4">
+              <h2 className="text-2xl md:text-3xl font-serif font-medium text-center mb-6">
+                {language === 'de'
+                  ? 'Ihr italienischer Catering-Partner in München'
+                  : 'Your Italian Catering Partner in Munich'}
+              </h2>
+              <div className="text-muted-foreground leading-relaxed space-y-4 text-left md:text-center">
+                {language === 'de' ? (
+                  <>
+                    <p>
+                      STORIA Catering bringt die authentische Küche unseres Ristorante STORIA
+                      aus der Münchner Maxvorstadt direkt zu Ihnen – ob ins Büro, nach Hause
+                      oder zu Ihrem Event. Von elegantem{' '}
+                      <LocalizedLink to="catering.fingerfood" className="underline hover:text-foreground transition-colors">Fingerfood</LocalizedLink> für
+                      Empfänge über{' '}
+                      <LocalizedLink to="catering.pizza" className="underline hover:text-foreground transition-colors">neapolitanische Pizza aus dem Steinofen</LocalizedLink> bis
+                      hin zu{' '}
+                      <LocalizedLink to="catering.casseroles" className="underline hover:text-foreground transition-colors">warmen Aufläufen</LocalizedLink> und{' '}
+                      <LocalizedLink to="catering.desserts" className="underline hover:text-foreground transition-colors">hausgemachtem Tiramisù</LocalizedLink> –
+                      alles frisch zubereitet und zuverlässig geliefert.
+                    </p>
+                    <p>
+                      Ob Firmenevent, Weihnachtsfeier, Geburtstagsparty oder ein entspanntes
+                      Dinner mit Freunden: Wir erstellen Ihnen ein individuelles Angebot,
+                      passend zu Personenanzahl, Anlass und Budget. Seit Jahren vertrauen
+                      Münchner Unternehmen und Privatpersonen auf unseren Catering-Service –
+                      für Momente, die in Erinnerung bleiben.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      STORIA Catering brings the authentic cuisine of our Ristorante STORIA
+                      in Munich's Maxvorstadt directly to you – whether to your office, home
+                      or event. From elegant{' '}
+                      <LocalizedLink to="catering.fingerfood" className="underline hover:text-foreground transition-colors">finger food</LocalizedLink> for
+                      receptions to{' '}
+                      <LocalizedLink to="catering.pizza" className="underline hover:text-foreground transition-colors">Neapolitan stone-oven pizza</LocalizedLink> to{' '}
+                      <LocalizedLink to="catering.casseroles" className="underline hover:text-foreground transition-colors">hot casseroles</LocalizedLink> and{' '}
+                      <LocalizedLink to="catering.desserts" className="underline hover:text-foreground transition-colors">homemade tiramisù</LocalizedLink> –
+                      everything freshly prepared and reliably delivered.
+                    </p>
+                    <p>
+                      Whether corporate event, Christmas party, birthday celebration or a relaxed
+                      dinner with friends: We create a customised offer tailored to your guest count,
+                      occasion and budget. For years, Munich businesses and private clients have
+                      trusted our catering service – for moments that create lasting memories.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          </section>
+
           <CateringCTA />
 
           {/* Delivery Image Section */}

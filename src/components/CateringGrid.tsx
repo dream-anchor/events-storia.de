@@ -2,13 +2,13 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import type { RouteKey } from "@/config/routes";
 
-// Bessere Bildauswahl mit echten Fotos
-import fingerfoodImg from "@/assets/catering/fingerfood/burratina.webp";
-import plattenImg from "@/assets/catering/platten/vitello-tonnato.webp";
-import auflaufImg from "@/assets/catering/auflauf/lasagna.webp";
-import pizzaImg from "@/assets/catering/pizze/hero-pizza.webp";
-import dessertsImg from "@/assets/catering/fingerfood/tiramisu.webp";
-import eventsImg from "@/assets/events/firmenfeier-3.webp";
+// SEO-optimierte Bildnamen
+import fingerfoodImg from "@/assets/catering/fingerfood/fingerfood-burratina-catering-storia-muenchen.webp";
+import plattenImg from "@/assets/catering/platten/vitello-tonnato-buffet-catering-muenchen.webp";
+import auflaufImg from "@/assets/catering/auflauf/lasagne-auflauf-catering-storia-muenchen.webp";
+import pizzaImg from "@/assets/catering/pizze/pizza-napoletana-steinofen-storia-muenchen.webp";
+import dessertsImg from "@/assets/catering/fingerfood/tiramisu-dessert-catering-storia-muenchen.webp";
+import eventsImg from "@/assets/events/firmenfeier-eventlocation-storia-muenchen.webp";
 
 interface CateringItem {
   id: string;
@@ -16,6 +16,8 @@ interface CateringItem {
   titleEn: string;
   descriptionDe: string;
   descriptionEn: string;
+  altDe: string;
+  altEn: string;
   routeKey: RouteKey;
   image: string;
 }
@@ -27,6 +29,8 @@ const cateringItems: CateringItem[] = [
     titleEn: "Events at Storia",
     descriptionDe: "Private Feiern & Firmenevents – individuelle Menüs im Restaurant.",
     descriptionEn: "Private parties & corporate events – custom menus at the restaurant.",
+    altDe: "Firmenfeier & Events im Ristorante STORIA München – Italienisches Catering",
+    altEn: "Corporate events at Ristorante STORIA Munich – Italian catering",
     routeKey: "events",
     image: eventsImg,
   },
@@ -36,6 +40,8 @@ const cateringItems: CateringItem[] = [
     titleEn: "Finger Food & Mini Dishes",
     descriptionDe: "Elegante Häppchen für Empfänge, Meetings & gesellige Runden.",
     descriptionEn: "Elegant bites for receptions, meetings & social gatherings.",
+    altDe: "Italienisches Fingerfood Burratina – STORIA Catering München für Events & Büro",
+    altEn: "Italian finger food Burratina – STORIA Catering Munich for events & office",
     routeKey: "catering.fingerfood",
     image: fingerfoodImg,
   },
@@ -45,6 +51,8 @@ const cateringItems: CateringItem[] = [
     titleEn: "Platters & Sharing",
     descriptionDe: "Ideal für Teams, Familien & private Dinner – servierfertig geliefert.",
     descriptionEn: "Ideal for teams, families & private dinners – delivered ready to serve.",
+    altDe: "Vitello Tonnato Buffet-Platte – Italienisches Catering STORIA München",
+    altEn: "Vitello Tonnato buffet platter – Italian catering STORIA Munich",
     routeKey: "catering.platters",
     image: plattenImg,
   },
@@ -54,6 +62,8 @@ const cateringItems: CateringItem[] = [
     titleEn: "Hot Dishes & Casseroles",
     descriptionDe: "Wie hausgemacht – ofenfrisch geliefert für Büro, Zuhause oder Events.",
     descriptionEn: "Like homemade – delivered oven-fresh for office, home or events.",
+    altDe: "Hausgemachte Lasagne – Warme Gerichte Catering STORIA München",
+    altEn: "Homemade lasagna – Hot dishes catering STORIA Munich",
     routeKey: "catering.casseroles",
     image: auflaufImg,
   },
@@ -63,6 +73,8 @@ const cateringItems: CateringItem[] = [
     titleEn: "Pizza Napoletana",
     descriptionDe: "Frisch aus dem Steinofen – knusprig, heiß geliefert, überall genießbar.",
     descriptionEn: "Fresh from the stone oven – crispy, delivered hot, enjoyable anywhere.",
+    altDe: "Pizza Napoletana aus dem Steinofen – STORIA Catering München Lieferservice",
+    altEn: "Pizza Napoletana from the stone oven – STORIA Catering Munich delivery",
     routeKey: "catering.pizza",
     image: pizzaImg,
   },
@@ -72,6 +84,8 @@ const cateringItems: CateringItem[] = [
     titleEn: "Desserts",
     descriptionDe: "Süße Verführungen im Glas – Tiramisù & Pistazien-Törtchen.",
     descriptionEn: "Sweet temptations in a glass – Tiramisù & Pistachio Tartlets.",
+    altDe: "Tiramisù im Glas – Italienische Desserts Catering STORIA München",
+    altEn: "Tiramisù in a glass – Italian desserts catering STORIA Munich",
     routeKey: "catering.desserts",
     image: dessertsImg,
   },
@@ -80,7 +94,7 @@ const cateringItems: CateringItem[] = [
 const CateringCard = ({ item, language, index }: { item: CateringItem; language: string; index: number }) => {
   const title = language === 'de' ? item.titleDe : item.titleEn;
   const description = language === 'de' ? item.descriptionDe : item.descriptionEn;
-  const isAboveFold = index < 3;
+  const isAboveFold = index === 0;
 
   return (
     <LocalizedLink
@@ -90,7 +104,7 @@ const CateringCard = ({ item, language, index }: { item: CateringItem; language:
       {/* Bild mit Zoom-Effekt */}
       <img
         src={item.image}
-        alt={`${title} – STORIA Catering München`}
+        alt={language === 'de' ? item.altDe : item.altEn}
         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         width="600"
         height="400"

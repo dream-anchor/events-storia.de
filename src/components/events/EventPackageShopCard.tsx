@@ -18,9 +18,9 @@ import {
 } from "@/lib/eventPricing";
 
 // Package images from STORIA website
-import sommerfest from "@/assets/events/sommerfest.webp";
+import sommerfest from "@/assets/events/sommerfest-firmenfeier-catering-muenchen.webp";
 import ravioliDinner from "@/assets/events/ravioli-dinner.webp";
-import firmenfeier from "@/assets/events/firmenfeier.webp";
+import firmenfeier from "@/assets/events/firmenfeier-catering-muenchen-storia.webp";
 
 // Get image for package by matching name patterns
 const getPackageImage = (name: string): string => {

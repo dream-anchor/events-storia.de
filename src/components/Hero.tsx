@@ -26,9 +26,9 @@ const Hero = () => {
         </p>
         
         <h1 id="hero-heading" className="font-display text-lg md:text-xl text-foreground/80 tracking-wide mb-3">
-          {language === 'de' 
-            ? 'Italienische Küche für München' 
-            : 'Italian Cuisine for Munich'}
+          {language === 'de'
+            ? 'Italienisches Catering in München'
+            : 'Italian Catering in Munich'}
         </h1>
         
       </div>

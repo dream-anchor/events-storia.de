@@ -10,7 +10,6 @@ import { CartProvider } from "@/contexts/CartContext";
 import { PriceDisplayProvider } from "@/contexts/PriceDisplayContext";
 import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import Index from "./pages/Index";
-import Kontakt from "./pages/Kontakt";
 import NotFound from "./pages/NotFound";
 import { AdminAuthGuard } from "./components/admin/AdminAuthGuard";
 import FloatingActions from "./components/FloatingActions";
@@ -32,6 +31,7 @@ const CustomerProfile = lazy(() => import("./pages/CustomerProfile"));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
 const PasswordReset = lazy(() => import("./pages/PasswordReset"));
 const FAQ = lazy(() => import("./pages/FAQ"));
+const Kontakt = lazy(() => import("./pages/Kontakt"));
 
 // Legal Pages (lazy)
 const Impressum = lazy(() => import("./pages/Impressum"));
@@ -61,13 +61,13 @@ const FrontendGlobals = () => {
   );
 };
 
-// Catering Pages
-import BuffetFingerfood from "./pages/catering/BuffetFingerfood";
-import BuffetPlatten from "./pages/catering/BuffetPlatten";
-import BuffetAuflauf from "./pages/catering/BuffetAuflauf";
-import PizzeNapoletane from "./pages/catering/PizzeNapoletane";
-import Desserts from "./pages/catering/Desserts";
-import EventsImStoria from "./pages/catering/EventsImStoria";
+// Catering Pages (lazy)
+const BuffetFingerfood = lazy(() => import("./pages/catering/BuffetFingerfood"));
+const BuffetPlatten = lazy(() => import("./pages/catering/BuffetPlatten"));
+const BuffetAuflauf = lazy(() => import("./pages/catering/BuffetAuflauf"));
+const PizzeNapoletane = lazy(() => import("./pages/catering/PizzeNapoletane"));
+const Desserts = lazy(() => import("./pages/catering/Desserts"));
+const EventsImStoria = lazy(() => import("./pages/catering/EventsImStoria"));
 
 const queryClient = new QueryClient();
 
