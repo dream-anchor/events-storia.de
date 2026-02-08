@@ -162,8 +162,13 @@ const Desserts = () => {
           : 'Italian desserts for your catering: homemade tiramisù & pistachio tartlets. Minimum order 4 people. STORIA Munich.'}
       />
       {allItems.length > 0 && (
-        <StructuredData 
-          type="product" 
+        <StructuredData
+          type="product"
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'Catering', url: '/events' },
+            { name: 'Desserts', url: '/catering/desserts' },
+          ]}
           products={allItems.map(item => ({
             name: item.name,
             name_en: item.name_en ?? '',

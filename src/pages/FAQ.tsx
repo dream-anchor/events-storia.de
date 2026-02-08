@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
 import SEO from "@/components/SEO";
+import StructuredData from "@/components/StructuredData";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Link } from "react-router-dom";
 
@@ -207,29 +208,15 @@ const faqCategories: FAQCategory[] = [
   }
 ];
 
-// Generate JSON-LD Schema
-const generateFAQSchema = () => {
-  const mainEntity = faqCategories.flatMap(category =>
-    category.questions.map(q => ({
-      "@type": "Question",
-      "name": q.question,
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": q.answer
-      }
-    }))
-  );
-
-  return {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": mainEntity
-  };
-};
+// Collect all FAQ items for StructuredData
+const allFaqItems = faqCategories.flatMap(category =>
+  category.questions.map(q => ({
+    question: q.question,
+    answer: q.answer,
+  }))
+);
 
 const FAQ = () => {
-  const faqSchema = generateFAQSchema();
-
   return (
     <>
       <SEO
@@ -239,10 +226,13 @@ const FAQ = () => {
         noIndex={false}
       />
 
-      {/* JSON-LD Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      <StructuredData
+        type="faq"
+        faqItems={allFaqItems}
+        breadcrumbs={[
+          { name: 'Home', url: '/' },
+          { name: 'FAQ', url: '/faq-catering-muenchen' },
+        ]}
       />
 
       <div className="min-h-screen bg-background">
@@ -279,7 +269,7 @@ const FAQ = () => {
                         <AccordionTrigger className="text-left text-base font-medium">
                           {item.question}
                         </AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground leading-relaxed">
+                        <AccordionContent forceMount className="text-muted-foreground leading-relaxed">
                           {item.answer}
                         </AccordionContent>
                       </AccordionItem>

@@ -182,8 +182,13 @@ const BuffetPlatten = () => {
         canonical="/catering/buffet-platten"
       />
       {allItems.length > 0 && (
-        <StructuredData 
-          type="product" 
+        <StructuredData
+          type="product"
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'Catering', url: '/events' },
+            { name: 'Platten & Sharing', url: '/catering/buffet-platten' },
+          ]}
           products={allItems.map(item => ({
             name: item.name,
             name_en: item.name_en || undefined,

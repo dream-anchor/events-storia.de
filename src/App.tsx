@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,33 +12,38 @@ import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import Index from "./pages/Index";
 import Kontakt from "./pages/Kontakt";
 import NotFound from "./pages/NotFound";
-import PublicOffer from "./pages/PublicOffer";
-import { RefineAdminApp } from "./pages/RefineAdmin";
-import AdminLogin from "./pages/AdminLogin";
 import { AdminAuthGuard } from "./components/admin/AdminAuthGuard";
-import Impressum from "./pages/Impressum";
-import Datenschutz from "./pages/Datenschutz";
-import CookieRichtlinie from "./pages/CookieRichtlinie";
-import AGBRestaurant from "./pages/AGBRestaurant";
-import AGBGutscheine from "./pages/AGBGutscheine";
-import AGBCatering from "./pages/AGBCatering";
-import Widerrufsbelehrung from "./pages/Widerrufsbelehrung";
-import Zahlungsinformationen from "./pages/Zahlungsinformationen";
-import Lebensmittelhinweise from "./pages/Lebensmittelhinweise";
-import Haftungsausschluss from "./pages/Haftungsausschluss";
-import FAQ from "./pages/FAQ";
 import FloatingActions from "./components/FloatingActions";
 import CookieBanner from "./components/CookieBanner";
 import CookieSettingsButton from "./components/CookieSettingsButton";
 import ScrollToTop from "./components/ScrollToTop";
 import CartButton from "./components/cart/CartButton";
 import CartSheet from "./components/cart/CartSheet";
+import { usePrerenderReady } from "./hooks/usePrerenderReady";
 import StickyCartPanel from "./components/cart/StickyCartPanel";
-import Checkout from "./pages/Checkout";
-import CustomerAuth from "./pages/CustomerAuth";
-import CustomerProfile from "./pages/CustomerProfile";
-import OrderSuccess from "./pages/OrderSuccess";
-import PasswordReset from "./pages/PasswordReset";
+
+// Lazy-loaded routes (Code Splitting)
+const PublicOffer = lazy(() => import("./pages/PublicOffer"));
+const RefineAdminApp = lazy(() => import("./pages/RefineAdmin").then(m => ({ default: m.RefineAdminApp })));
+const AdminLogin = lazy(() => import("./pages/AdminLogin"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const CustomerAuth = lazy(() => import("./pages/CustomerAuth"));
+const CustomerProfile = lazy(() => import("./pages/CustomerProfile"));
+const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
+const PasswordReset = lazy(() => import("./pages/PasswordReset"));
+const FAQ = lazy(() => import("./pages/FAQ"));
+
+// Legal Pages (lazy)
+const Impressum = lazy(() => import("./pages/Impressum"));
+const Datenschutz = lazy(() => import("./pages/Datenschutz"));
+const CookieRichtlinie = lazy(() => import("./pages/CookieRichtlinie"));
+const AGBRestaurant = lazy(() => import("./pages/AGBRestaurant"));
+const AGBGutscheine = lazy(() => import("./pages/AGBGutscheine"));
+const AGBCatering = lazy(() => import("./pages/AGBCatering"));
+const Widerrufsbelehrung = lazy(() => import("./pages/Widerrufsbelehrung"));
+const Zahlungsinformationen = lazy(() => import("./pages/Zahlungsinformationen"));
+const Lebensmittelhinweise = lazy(() => import("./pages/Lebensmittelhinweise"));
+const Haftungsausschluss = lazy(() => import("./pages/Haftungsausschluss"));
 
 /** Renders frontend-only global components (cart, cookie banner, etc.) only on non-admin routes */
 const FrontendGlobals = () => {
@@ -69,13 +74,7 @@ const queryClient = new QueryClient();
 // App component with all providers and contexts
 const App = () => {
   // SSG: Signal to prerenderer that the page is ready for capture
-  useEffect(() => {
-    // Dispatch event after initial render for prerendering tools
-    const timer = setTimeout(() => {
-      document.dispatchEvent(new Event('prerender-ready'));
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
+  usePrerenderReady();
 
   return (
   <QueryClientProvider client={queryClient}>
@@ -90,6 +89,7 @@ const App = () => {
             <BrowserRouter>
               <ScrollToTop />
               <FrontendGlobals />
+              <Suspense fallback={<div className="min-h-screen" />}>
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/kontakt" element={<Kontakt />} />
@@ -140,6 +140,7 @@ const App = () => {
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </Suspense>
             </BrowserRouter>
               </CartProvider>
             </CustomerAuthProvider>

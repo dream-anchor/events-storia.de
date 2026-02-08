@@ -5,7 +5,10 @@
 # =====================================================
 
 # Sitemaps
-Sitemap: https://events-storia.de/sitemap.xml
+Sitemap: https://www.events-storia.de/sitemap.xml
+
+# LLMs.txt
+LLMs-Txt: https://www.events-storia.de/llms.txt
 
 # =====================================================
 # LLM-OPTIMIERTE SEITEN
@@ -173,3 +176,6 @@ User-agent: *
 Disallow: /admin
 Disallow: /admin-login
 Disallow: /konto
+Disallow: /checkout
+Disallow: /login
+Disallow: /offer/

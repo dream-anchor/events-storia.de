@@ -116,7 +116,13 @@ const EventsImStoria = () => {
           : "Corporate events, Christmas parties & private events at STORIA Munich: Business Dinner, Network Aperitivo, Full Location Buyout. Book online now!"}
         canonical="/events"
       />
-      <StructuredData type="event" />
+      <StructuredData
+        type="event"
+        breadcrumbs={[
+          { name: 'Home', url: '/' },
+          { name: 'Events', url: '/events' },
+        ]}
+      />
 
       <Header />
       <Navigation />

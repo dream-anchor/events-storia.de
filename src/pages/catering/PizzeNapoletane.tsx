@@ -249,8 +249,13 @@ const PizzeNapoletane = () => {
         canonical="/catering/pizze-napoletane"
       />
       {allItems.length > 0 && (
-        <StructuredData 
-          type="product" 
+        <StructuredData
+          type="product"
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'Catering', url: '/events' },
+            { name: 'Pizze Napoletane', url: '/catering/pizze-napoletane' },
+          ]}
           products={allItems.map(item => ({
             name: item.name,
             name_en: item.name_en || undefined,
@@ -258,7 +263,7 @@ const PizzeNapoletane = () => {
             description_en: item.description_en || undefined,
             price: item.price || 0,
             sku: item.id,
-          }))} 
+          }))}
         />
       )}
       <Header />

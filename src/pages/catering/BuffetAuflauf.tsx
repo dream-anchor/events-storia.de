@@ -259,8 +259,13 @@ const BuffetAuflauf = () => {
         canonical="/catering/buffet-auflauf"
       />
       {allItems.length > 0 && (
-        <StructuredData 
-          type="product" 
+        <StructuredData
+          type="product"
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'Catering', url: '/events' },
+            { name: language === 'de' ? 'Warme Gerichte' : 'Hot Dishes', url: '/catering/buffet-auflauf' },
+          ]}
           products={allItems.map(item => ({
             name: item.name,
             name_en: item.name_en || undefined,
@@ -270,7 +275,7 @@ const BuffetAuflauf = () => {
             image: item.image_url || undefined,
             sku: item.id,
             servingInfo: item.serving_info || undefined,
-          }))} 
+          }))}
         />
       )}
       <Header />

@@ -16,6 +16,8 @@ interface SEOProps {
   availability?: 'InStock' | 'OutOfStock' | 'PreOrder';
   // Additional SEO fields
   keywords?: string;
+  // i18n: Path to the alternate language version (e.g. "/en/contact" for DE page "/kontakt")
+  alternateUrl?: string;
 }
 
 const SEO = ({
@@ -30,6 +32,7 @@ const SEO = ({
   price,
   availability = 'InStock',
   keywords,
+  alternateUrl,
 }: SEOProps) => {
   const { language } = useLanguage();
   const baseUrl = 'https://events-storia.de';
@@ -70,8 +73,10 @@ const SEO = ({
       {/* Canonical & Language Alternates */}
       <link rel="canonical" href={canonicalUrl} />
       <link rel="alternate" hrefLang={language} href={canonicalUrl} />
-      <link rel="alternate" hrefLang={alternateLanguage} href={canonicalUrl} />
-      <link rel="alternate" hrefLang="x-default" href={canonicalUrl} />
+      {alternateUrl && (
+        <link rel="alternate" hrefLang={alternateLanguage} href={`${baseUrl}${alternateUrl}`} />
+      )}
+      <link rel="alternate" hrefLang="x-default" href={language === 'de' ? canonicalUrl : (alternateUrl ? `${baseUrl}${alternateUrl}` : canonicalUrl)} />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type === 'product' ? 'product' : type} />
