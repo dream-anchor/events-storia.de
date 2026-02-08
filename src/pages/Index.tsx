@@ -206,6 +206,40 @@ const Index = () => {
               </p>
             </div>
           </section>
+
+          {/* Entdecken Sie mehr — Internal SEO Links Hub */}
+          <section className="py-10 md:py-14 border-t border-border/50">
+            <div className="container mx-auto px-4 text-center">
+              <h2 className="font-display text-sm md:text-base text-muted-foreground/60 tracking-[0.25em] uppercase mb-5">
+                {language === 'de' ? 'Entdecken Sie mehr' : 'Discover More'}
+              </h2>
+              <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm md:text-base text-muted-foreground">
+                <LocalizedLink to="seo.italienischesCatering" className="hover:text-foreground transition-colors">{language === 'de' ? 'Italienisches Catering München' : 'Italian Catering Munich'}</LocalizedLink>
+                <span className="text-muted-foreground/30">·</span>
+                <LocalizedLink to="seo.firmenfeier" className="hover:text-foreground transition-colors">{language === 'de' ? 'Firmenfeier Catering' : 'Corporate Event Catering'}</LocalizedLink>
+                <span className="text-muted-foreground/30">·</span>
+                <LocalizedLink to="seo.weihnachtsfeier" className="hover:text-foreground transition-colors">{language === 'de' ? 'Weihnachtsfeier Catering' : 'Christmas Party Catering'}</LocalizedLink>
+                <span className="text-muted-foreground/30">·</span>
+                <LocalizedLink to="seo.pizzaCatering" className="hover:text-foreground transition-colors">{language === 'de' ? 'Pizza Catering München' : 'Pizza Catering Munich'}</LocalizedLink>
+                <span className="text-muted-foreground/30">·</span>
+                <LocalizedLink to="seo.bueroCatering" className="hover:text-foreground transition-colors">{language === 'de' ? 'Büro Catering München' : 'Office Catering Munich'}</LocalizedLink>
+                <span className="text-muted-foreground/30">·</span>
+                <LocalizedLink to="catering.fingerfood" className="hover:text-foreground transition-colors">{language === 'de' ? 'Fingerfood Catering' : 'Finger Food Catering'}</LocalizedLink>
+                <span className="text-muted-foreground/30">·</span>
+                <LocalizedLink to="catering.platters" className="hover:text-foreground transition-colors">{language === 'de' ? 'Platten & Sharing' : 'Platters & Sharing'}</LocalizedLink>
+                <span className="text-muted-foreground/30">·</span>
+                <LocalizedLink to="catering.casseroles" className="hover:text-foreground transition-colors">{language === 'de' ? 'Warme Gerichte' : 'Hot Dishes'}</LocalizedLink>
+                <span className="text-muted-foreground/30">·</span>
+                <LocalizedLink to="catering.pizza" className="hover:text-foreground transition-colors">{language === 'de' ? 'Pizza Napoletana' : 'Pizza Napoletana'}</LocalizedLink>
+                <span className="text-muted-foreground/30">·</span>
+                <LocalizedLink to="catering.desserts" className="hover:text-foreground transition-colors">{language === 'de' ? 'Desserts' : 'Desserts'}</LocalizedLink>
+                <span className="text-muted-foreground/30">·</span>
+                <LocalizedLink to="events" className="hover:text-foreground transition-colors">{language === 'de' ? 'Events im Storia' : 'Events at Storia'}</LocalizedLink>
+                <span className="text-muted-foreground/30">·</span>
+                <LocalizedLink to="faq" className="hover:text-foreground transition-colors">{language === 'de' ? 'FAQ Catering' : 'Catering FAQ'}</LocalizedLink>
+              </div>
+            </div>
+          </section>
         </main>
         <Footer />
       </div>
