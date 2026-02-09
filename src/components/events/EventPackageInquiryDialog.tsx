@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
+import { calculateEventPackagePrice, isLocationPackage, getLocationPricingBreakdown, LOCATION_BASE_GUESTS } from "@/lib/eventPricing";
 
 interface EventPackageInquiryDialogProps {
   open: boolean;
@@ -23,6 +24,7 @@ interface EventPackageInquiryDialogProps {
   packageNameEn?: string | null;
   initialGuestCount: number;
   pricePerPerson: number;
+  isPricePerPerson?: boolean;
   minGuests?: number;
 }
 
@@ -49,6 +51,7 @@ const EventPackageInquiryDialog = ({
   packageNameEn,
   initialGuestCount,
   pricePerPerson,
+  isPricePerPerson = true,
   minGuests = 10,
 }: EventPackageInquiryDialogProps) => {
   const { language } = useLanguage();
@@ -72,7 +75,14 @@ const EventPackageInquiryDialog = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const displayName = language === "en" && packageNameEn ? packageNameEn : packageName;
-  const estimatedTotal = pricePerPerson * formData.guestCount;
+  const isLocationPkg = isLocationPackage(packageId, pricePerPerson);
+  const estimatedTotal = calculateEventPackagePrice(
+    packageId,
+    pricePerPerson,
+    formData.guestCount,
+    isPricePerPerson
+  );
+  const pricingBreakdown = isLocationPkg ? getLocationPricingBreakdown(formData.guestCount) : null;
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -240,7 +250,14 @@ const EventPackageInquiryDialog = ({
               </p>
               <p className="font-medium">{displayName}</p>
             </div>
-            <Badge variant="secondary">{formatPrice(pricePerPerson)} p.P.</Badge>
+            <Badge variant="secondary">
+              {formatPrice(pricePerPerson)}{' '}
+              {isPricePerPerson
+                ? (language === 'de' ? 'p.P.' : 'p.p.')
+                : isLocationPkg
+                  ? (language === 'de' ? `ab ${LOCATION_BASE_GUESTS} Pers.` : `from ${LOCATION_BASE_GUESTS} guests`)
+                  : (language === 'de' ? 'pauschal' : 'flat rate')}
+            </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
             {language === "de"
@@ -332,7 +349,16 @@ const EventPackageInquiryDialog = ({
             </div>
 
             {/* Estimated Total */}
-            <div className="bg-muted/50 rounded-lg p-3 mt-4">
+            <div className="bg-muted/50 rounded-lg p-3 mt-4 space-y-1">
+              {isLocationPkg && pricingBreakdown && pricingBreakdown.extraGuests > 0 && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>
+                    {language === 'de'
+                      ? `Basis ${formatPrice(pricingBreakdown.basePrice)} + ${pricingBreakdown.extraGuests} Pers. × ${formatPrice(pricingBreakdown.pricePerExtraGuest)}`
+                      : `Base ${formatPrice(pricingBreakdown.basePrice)} + ${pricingBreakdown.extraGuests} guests × ${formatPrice(pricingBreakdown.pricePerExtraGuest)}`}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
                   {language === "de" ? "Geschätzt:" : "Estimated:"}
