@@ -2,12 +2,12 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import type { RouteKey } from "@/config/routes";
 
-// SEO-optimierte Bildnamen
-import fingerfoodImg from "@/assets/catering/fingerfood/fingerfood-burratina-catering-storia-muenchen.webp";
-import plattenImg from "@/assets/catering/platten/vitello-tonnato-buffet-catering-muenchen.webp";
-import auflaufImg from "@/assets/catering/auflauf/lasagne-auflauf-catering-storia-muenchen.webp";
-import pizzaImg from "@/assets/catering/pizze/pizza-napoletana-steinofen-storia-muenchen.webp";
-import dessertsImg from "@/assets/catering/fingerfood/tiramisu-dessert-catering-storia-muenchen.webp";
+// Category images
+import fingerfoodImg from "@/assets/catering/fingerfood/burratina.webp";
+import plattenImg from "@/assets/catering/platten/vitello-tonnato.webp";
+import auflaufImg from "@/assets/catering/auflauf/lasagna.webp";
+import pizzaImg from "@/assets/catering/pizze/hero-pizza.webp";
+import dessertsImg from "@/assets/catering/fingerfood/tiramisu.webp";
 import eventsImg from "@/assets/events/firmenfeier-eventlocation-storia-muenchen.webp";
 
 interface CateringItem {

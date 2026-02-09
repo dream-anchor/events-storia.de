@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, ChevronDown, ShoppingBag, Sparkles, ExternalLink } from "lucide-react";
 import { useState } from "react";
@@ -153,20 +154,19 @@ const Navigation = () => {
                       </CollapsibleContent>
                     </Collapsible>
                   ) : item.external ? (
-                    <>
+                    <Fragment key={item.label}>
                       <div className="border-t border-primary-foreground/20 my-2 mx-4" />
                       <a
-                        key={item.path}
                         href={item.path!}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => setIsOpen(false)}
-                        className="flex items-center justify-between px-4 py-3 text-sm font-medium tracking-wider rounded-lg transition-all duration-300 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                        className="flex items-center justify-between px-4 py-3 text-sm font-medium tracking-wider rounded-lg transition-all duration-300 text-primary-foreground hover:bg-primary-foreground/10"
                       >
                         {item.label}
                         <ExternalLink className="h-4 w-4" />
                       </a>
-                    </>
+                    </Fragment>
                   ) : (
                     <Link
                       key={item.path}

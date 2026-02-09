@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ServicesGrid, AllergenInfo } from "@/components/catering/ServiceInfoCard";
-import heroImage from "@/assets/catering/pizze/pizza-napoletana-steinofen-storia-muenchen.webp";
+import heroImage from "@/assets/catering/pizze/hero-pizza.webp";
 
 const allergenKey = {
   a: { de: "Gluten", en: "Gluten" },

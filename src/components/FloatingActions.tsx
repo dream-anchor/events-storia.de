@@ -51,7 +51,7 @@ const FloatingActions = () => {
   const buttonClasses = "bg-white hover:bg-gray-50 text-primary border-2 border-primary/20 rounded-2xl px-5 py-3 shadow-xl transition-all hover:scale-105 flex flex-col items-center gap-1";
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 animate-fade-in">
+    <div className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom,1.5rem))] right-6 z-50 flex flex-col gap-3 animate-fade-in">
       {/* Telefon Button */}
       {isMobile ? (
         <a
