@@ -181,18 +181,15 @@ export const CourseSelector = ({
   const hasSelection = currentSelections.length > 0;
   const selectionCount = currentSelections.length;
 
-  // If this is a custom item (like Vorspeisenplatte), show it as pre-selected
-  // But if user has selected a different item, show that instead
+  // Custom item courses (like Vorspeisenplatte) — with multi-select support
   if (courseConfig.is_custom_item && courseConfig.custom_item_name) {
-    const isDefaultSelected = currentSelection?.isCustom && 
-      currentSelection.itemSource === 'custom' &&
-      currentSelection.itemName === courseConfig.custom_item_name;
-    
-    // Check if user selected a different item (not the default custom one)
-    const hasAlternativeSelection = currentSelection && (
-      currentSelection.itemId !== null || // Selected from menu
-      (currentSelection.isCustom && currentSelection.itemSource !== 'custom') || // Manual entry
-      (currentSelection.isCustom && currentSelection.itemName !== courseConfig.custom_item_name) // Different custom
+    const isDefaultSelected = currentSelections.some(
+      s => s.isCustom && s.itemSource === 'custom' && s.itemName === courseConfig.custom_item_name
+    );
+
+    // All non-default selections (alternatives from menu or manual entries)
+    const alternativeSelections = currentSelections.filter(
+      s => !(s.isCustom && s.itemSource === 'custom' && s.itemName === courseConfig.custom_item_name)
     );
 
     return (
@@ -201,126 +198,121 @@ export const CourseSelector = ({
           <CardTitle className="flex items-center gap-2 text-lg">
             <span className="text-xl">{COURSE_ICONS[courseConfig.course_type]}</span>
             {courseConfig.course_label}
+            {selectionCount > 1 && (
+              <Badge variant="secondary" className="text-xs">{selectionCount} Optionen</Badge>
+            )}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          {/* Show selected alternative item if one was chosen */}
-          {hasAlternativeSelection && currentSelection ? (
-            <motion.div 
-              initial={{ scale: 0.98, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="p-4 rounded-xl border-2 border-primary bg-primary/5"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-semibold text-base">{currentSelection.itemName}</h4>
-                    {currentSelection.itemSource === 'ristorante' && (
-                      <Utensils className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    {currentSelection.itemSource === 'catering' && (
-                      <ChefHat className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    {currentSelection.isCustom && (
-                      <Badge variant="outline" className="text-xs">Manuell</Badge>
-                    )}
-                  </div>
-                  {currentSelection.itemDescription && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {currentSelection.itemDescription}
-                    </p>
-                  )}
-                </div>
-                <motion.div 
+        <CardContent className="space-y-3">
+          {/* Default custom item — toggle on/off */}
+          <motion.div
+            onClick={() => {
+              onSelect({
+                courseType: courseConfig.course_type,
+                courseLabel: courseConfig.course_label,
+                itemId: null,
+                itemName: courseConfig.custom_item_name!,
+                itemDescription: courseConfig.custom_item_description,
+                itemSource: 'custom',
+                isCustom: true,
+              });
+              toast.success(
+                isDefaultSelected
+                  ? `${courseConfig.custom_item_name} entfernt`
+                  : `${courseConfig.custom_item_name} hinzugefügt`,
+                { duration: 1500 }
+              );
+            }}
+            whileTap={{ scale: 0.97 }}
+            className={cn(
+              "p-4 rounded-xl border-2 cursor-pointer transition-all",
+              "hover:border-primary/50 hover:shadow-sm",
+              isDefaultSelected
+                ? "border-primary bg-primary/5"
+                : "border-border"
+            )}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <h4 className="font-semibold text-base">{courseConfig.custom_item_name}</h4>
+                {courseConfig.custom_item_description && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {courseConfig.custom_item_description}
+                  </p>
+                )}
+              </div>
+              {isDefaultSelected && (
+                <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                  className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0"
+                  className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0"
                 >
-                  <Check className="h-4 w-4 text-primary-foreground" />
+                  <Check className="h-3 w-3 text-primary-foreground" />
                 </motion.div>
-              </div>
-            </motion.div>
-          ) : (
-            /* Show default custom item */
-            <motion.div 
-              onClick={() => {
-                onSelect({
-                  courseType: courseConfig.course_type,
-                  courseLabel: courseConfig.course_label,
-                  itemId: null,
-                  itemName: courseConfig.custom_item_name!,
-                  itemDescription: courseConfig.custom_item_description,
-                  itemSource: 'custom',
-                  isCustom: true,
-                });
-                toast.success(`${courseConfig.custom_item_name} ausgewählt`, { duration: 1500 });
-              }}
-              whileTap={{ scale: 0.97 }}
-              className={cn(
-                "p-4 rounded-xl border-2 cursor-pointer transition-all",
-                "hover:border-primary/50 hover:shadow-sm",
-                isDefaultSelected
-                  ? "border-primary bg-primary/5"
-                  : "border-border"
               )}
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h4 className="font-semibold text-base">{courseConfig.custom_item_name}</h4>
-                  {courseConfig.custom_item_description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {courseConfig.custom_item_description}
-                    </p>
-                  )}
-                </div>
-                {isDefaultSelected && (
-                  <motion.div 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                    className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0"
-                  >
-                    <Check className="h-4 w-4 text-primary-foreground" />
-                  </motion.div>
-                )}
-              </div>
-              <Badge variant="secondary" className="mt-3">
-                Im Paket enthalten
-              </Badge>
-            </motion.div>
+            </div>
+            <Badge variant="secondary" className="mt-3">
+              Im Paket enthalten
+            </Badge>
+          </motion.div>
+
+          {/* Show all alternative selections */}
+          {alternativeSelections.length > 0 && (
+            <div className="space-y-2">
+              {alternativeSelections.map((sel, idx) => (
+                <motion.div
+                  key={sel.itemId || sel.itemName + idx}
+                  initial={{ scale: 0.98, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="p-3 rounded-xl border-2 border-primary bg-primary/5 cursor-pointer hover:bg-primary/10 transition-all"
+                  onClick={() => {
+                    onSelect(sel);
+                    toast.success(`${sel.itemName} entfernt`, { duration: 1500 });
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium text-sm truncate">{sel.itemName}</h4>
+                        {sel.itemSource === 'ristorante' && <Utensils className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                        {sel.itemSource === 'catering' && <ChefHat className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                        {sel.isCustom && sel.itemSource === 'manual' && (
+                          <Badge variant="outline" className="text-[10px] px-1">Manuell</Badge>
+                        )}
+                      </div>
+                      {sel.itemDescription && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{sel.itemDescription}</p>
+                      )}
+                    </div>
+                    <motion.div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                      <Check className="h-3 w-3 text-primary-foreground" />
+                    </motion.div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           )}
 
-          {/* Option to change selection */}
-          <Button 
-            variant="outline" 
-            className="w-full mt-3"
+          {/* Add more items from menu */}
+          <Button
+            variant="outline"
+            className="w-full"
             onClick={() => setShowGlobalSearch(true)}
           >
-            <Globe className="h-4 w-4 mr-2" />
-            {hasAlternativeSelection ? 'Gericht ändern' : 'Anderes Gericht wählen'}
+            <Plus className="h-4 w-4 mr-2" />
+            {hasSelection ? 'Weitere Gerichte hinzufügen' : 'Gericht aus Karte wählen'}
           </Button>
 
-          {/* Reset to default button if alternative is selected */}
-          {hasAlternativeSelection && (
-            <Button 
-              variant="ghost" 
-              className="w-full mt-2 text-muted-foreground"
-              onClick={() => {
-                onSelect({
-                  courseType: courseConfig.course_type,
-                  courseLabel: courseConfig.course_label,
-                  itemId: null,
-                  itemName: courseConfig.custom_item_name!,
-                  itemDescription: courseConfig.custom_item_description,
-                  itemSource: 'custom',
-                  isCustom: true,
-                });
-              }}
-            >
-              Zurück zu "{courseConfig.custom_item_name}"
-            </Button>
-          )}
+          {/* Free-form item */}
+          <Button
+            variant="ghost"
+            className="w-full text-muted-foreground"
+            onClick={() => setShowCustomInput(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Freie Position hinzufügen
+          </Button>
         </CardContent>
 
         <GlobalItemSearch
@@ -337,18 +329,18 @@ export const CourseSelector = ({
           onSubmit={handleCustomItem}
         />
 
-        {/* Inline Action Bar - unten links */}
+        {/* Inline Action Bar */}
         <AnimatePresence>
-          {(isDefaultSelected || hasAlternativeSelection) && (
-            <motion.div 
+          {hasSelection && (
+            <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               className="mt-6 flex justify-start"
             >
-              <Button 
-                onClick={onNext} 
+              <Button
+                onClick={onNext}
                 size="lg"
                 className="px-6 h-12 rounded-2xl shadow-lg text-base gap-2"
               >

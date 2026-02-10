@@ -58,18 +58,18 @@ export const MenuComposer = ({
     }));
   }, [allMenuItems]);
 
-  // Calculate progress
+  // Calculate progress — uses .filter().some() to support multi-select
   const progress = useMemo(() => {
     if (courseConfigs.length === 0) return 0;
-    
+
     const requiredCourses = courseConfigs.filter(c => c.is_required);
     const completedCourses = requiredCourses.filter(config => {
-      const selection = menuSelection.courses.find(c => c.courseType === config.course_type);
-      return selection && (selection.itemId || selection.isCustom);
+      const selections = menuSelection.courses.filter(c => c.courseType === config.course_type);
+      return selections.some(s => s.itemId || s.isCustom);
     });
-    
-    const courseProgress = requiredCourses.length > 0 
-      ? (completedCourses.length / requiredCourses.length) * 50 
+
+    const courseProgress = requiredCourses.length > 0
+      ? (completedCourses.length / requiredCourses.length) * 50
       : 50;
 
     const requiredDrinkChoices = drinkConfigs.filter(c => c.is_choice);
@@ -77,9 +77,9 @@ export const MenuComposer = ({
       const selection = menuSelection.drinks.find(d => d.drinkGroup === config.drink_group);
       return selection?.selectedChoice || selection?.customDrink;
     });
-    
-    const drinkProgress = requiredDrinkChoices.length > 0 
-      ? (completedDrinks.length / requiredDrinkChoices.length) * 50 
+
+    const drinkProgress = requiredDrinkChoices.length > 0
+      ? (completedDrinks.length / requiredDrinkChoices.length) * 50
       : 50;
 
     return Math.round(courseProgress + drinkProgress);
@@ -89,8 +89,8 @@ export const MenuComposer = ({
   const isComplete = useMemo(() => {
     const requiredCourses = courseConfigs.filter(c => c.is_required);
     const allCoursesSelected = requiredCourses.every(config => {
-      const selection = menuSelection.courses.find(c => c.courseType === config.course_type);
-      return selection && (selection.itemId || selection.isCustom);
+      const selections = menuSelection.courses.filter(c => c.courseType === config.course_type);
+      return selections.some(s => s.itemId || s.isCustom);
     });
 
     const requiredDrinkChoices = drinkConfigs.filter(c => c.is_choice);
