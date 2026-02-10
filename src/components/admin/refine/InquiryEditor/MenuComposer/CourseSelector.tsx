@@ -16,7 +16,7 @@ import { toast } from "sonner";
 
 interface CourseSelectorProps {
   courseConfig: CourseConfig;
-  currentSelection: CourseSelection | null;
+  currentSelections: CourseSelection[];
   menuItems: MenuItem[];
   allMenuItems?: MenuItem[]; // For global search
   onSelect: (selection: CourseSelection) => void;
@@ -26,13 +26,15 @@ interface CourseSelectorProps {
 
 export const CourseSelector = ({
   courseConfig,
-  currentSelection,
+  currentSelections,
   menuItems,
   allMenuItems = [],
   onSelect,
   onNext,
   isLastCourse = false,
 }: CourseSelectorProps) => {
+  // Compat: first selection for custom-item display
+  const currentSelection = currentSelections[0] || null;
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<'recommended' | 'global'>('recommended');
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
@@ -120,10 +122,7 @@ export const CourseSelector = ({
   }, [displayItems]);
 
   const handleItemSelect = (item: MenuItem) => {
-    // Clear any existing auto-advance timer
-    if (autoAdvanceRef.current) {
-      clearTimeout(autoAdvanceRef.current);
-    }
+    const alreadySelected = isItemSelected(item.id);
 
     onSelect({
       courseType: courseConfig.course_type,
@@ -135,22 +134,14 @@ export const CourseSelector = ({
       isCustom: false,
     });
 
-    // Show success toast
-    toast.success(`${item.name} ausgewählt`, { duration: 1500 });
-
-    // Auto-advance after 800ms if not last course
-    if (!isLastCourse) {
-      autoAdvanceRef.current = setTimeout(() => {
-        onNext();
-      }, 800);
-    }
+    toast.success(
+      alreadySelected ? `${item.name} entfernt` : `${item.name} hinzugefügt`,
+      { duration: 1500 }
+    );
   };
 
   const handleGlobalSelect = (item: CombinedMenuItem) => {
-    // Clear any existing auto-advance timer
-    if (autoAdvanceRef.current) {
-      clearTimeout(autoAdvanceRef.current);
-    }
+    const alreadySelected = isItemSelected(item.id);
 
     onSelect({
       courseType: courseConfig.course_type,
@@ -162,15 +153,10 @@ export const CourseSelector = ({
       isCustom: false,
     });
 
-    // Show success toast
-    toast.success(`${item.name} ausgewählt`, { duration: 1500 });
-
-    // Auto-advance after 800ms if not last course
-    if (!isLastCourse) {
-      autoAdvanceRef.current = setTimeout(() => {
-        onNext();
-      }, 800);
-    }
+    toast.success(
+      alreadySelected ? `${item.name} entfernt` : `${item.name} hinzugefügt`,
+      { duration: 1500 }
+    );
   };
 
   const handleCustomItem = (item: { name: string; description: string | null }) => {
@@ -188,7 +174,12 @@ export const CourseSelector = ({
     toast.success(`${item.name} hinzugefügt`, { duration: 1500 });
   };
 
-  const hasSelection = currentSelection && (currentSelection.itemId || currentSelection.isCustom);
+  // Helper: check if an item is selected (by itemId)
+  const isItemSelected = (itemId: string) =>
+    currentSelections.some(s => s.itemId === itemId);
+
+  const hasSelection = currentSelections.length > 0;
+  const selectionCount = currentSelections.length;
 
   // If this is a custom item (like Vorspeisenplatte), show it as pre-selected
   // But if user has selected a different item, show that instead
@@ -383,46 +374,31 @@ export const CourseSelector = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Current Selection Summary - always visible */}
+        {/* Current Selections Summary - always visible */}
         <AnimatePresence mode="wait">
-          {hasSelection && currentSelection && (
-            <motion.div 
+          {hasSelection && (
+            <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="p-4 rounded-xl border-2 border-primary bg-primary/5"
+              className="p-4 rounded-xl border-2 border-primary bg-primary/5 space-y-2"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground mb-1">Aktuelle Auswahl</p>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-semibold">{currentSelection.itemName}</h4>
-                    {currentSelection.itemSource === 'ristorante' && (
-                      <Utensils className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    {currentSelection.itemSource === 'catering' && (
-                      <ChefHat className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    {currentSelection.isCustom && (
-                      <Badge variant="outline" className="text-xs">Manuell</Badge>
-                    )}
-                  </div>
-                  {currentSelection.itemDescription && (
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                      {currentSelection.itemDescription}
-                    </p>
-                  )}
-                </div>
-                <motion.div 
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                  className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0"
-                >
-                  <Check className="h-4 w-4 text-primary-foreground" />
-                </motion.div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {selectionCount === 1 ? 'Auswahl' : `${selectionCount} Optionen für Gäste`}
+                </p>
+                <Badge variant="secondary" className="text-xs">{selectionCount}</Badge>
               </div>
+              {currentSelections.map((sel, idx) => (
+                <div key={sel.itemId || sel.itemName + idx} className="flex items-center gap-2">
+                  <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="text-sm font-medium truncate">{sel.itemName}</span>
+                  {sel.itemSource === 'ristorante' && <Utensils className="h-3 w-3 text-muted-foreground shrink-0" />}
+                  {sel.itemSource === 'catering' && <ChefHat className="h-3 w-3 text-muted-foreground shrink-0" />}
+                  {sel.isCustom && <Badge variant="outline" className="text-[10px] px-1">Manuell</Badge>}
+                </div>
+              ))}
             </motion.div>
           )}
         </AnimatePresence>
@@ -533,7 +509,7 @@ export const CourseSelector = ({
               </h5>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {items.map(item => {
-                  const isSelected = currentSelection?.itemId === item.id;
+                  const isSelected = isItemSelected(item.id);
                   
                   return (
                     <motion.div

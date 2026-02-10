@@ -127,7 +127,7 @@ export const FinalizePanel = ({
             </div>
           )}
 
-          {/* Courses */}
+          {/* Courses — grouped by courseType for multi-select display */}
           {menuSelection.courses.length > 0 && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -135,48 +135,34 @@ export const FinalizePanel = ({
                 Gänge
               </h4>
               <div className="space-y-2">
-                {menuSelection.courses.map((course, idx) => {
-                  const courseIndex = findCourseIndex(course.courseType);
-                  
+                {courseConfigs.map((config) => {
+                  const selections = menuSelection.courses.filter(c => c.courseType === config.course_type);
+                  if (selections.length === 0) return null;
+                  const courseIndex = findCourseIndex(config.course_type);
+
                   return (
-                    <div 
-                      key={idx} 
+                    <div
+                      key={config.id}
                       className={`
-                        group flex items-start justify-between p-3 rounded-lg transition-all bg-muted/50
+                        group p-3 rounded-lg transition-all bg-muted/50
                         ${canEditCourses ? 'hover:bg-muted cursor-pointer' : ''}
                       `}
                       onClick={() => {
                         if (canEditCourses && courseIndex >= 0) {
-                          onNavigateToCourse(courseIndex);
+                          onNavigateToCourse!(courseIndex);
                         }
                       }}
                     >
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <span className="text-lg">{COURSE_ICONS[course.courseType] || '🍽️'}</span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm">{course.courseLabel}</p>
-                            <span className="text-xs text-muted-foreground">#{idx + 1}</span>
-                          </div>
-                          <p className="text-sm truncate">{course.itemName}</p>
-                          {course.itemDescription && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                              {course.itemDescription}
-                            </p>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{COURSE_ICONS[config.course_type] || '🍽️'}</span>
+                          <p className="font-medium text-sm">{config.course_label}</p>
+                          {selections.length > 1 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5">
+                              {selections.length} Optionen
+                            </Badge>
                           )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge 
-                          variant={course.itemSource === 'ristorante' ? 'secondary' : 'outline'}
-                          className="text-xs"
-                        >
-                          {course.itemSource === 'ristorante' && <Utensils className="h-3 w-3 mr-1" />}
-                          {course.itemSource === 'catering' && <ChefHat className="h-3 w-3 mr-1" />}
-                          {course.itemSource === 'manual' ? 'Frei' : 
-                           course.itemSource === 'custom' ? 'Paket' :
-                           course.itemSource === 'ristorante' ? 'Restaurant' : 'Catering'}
-                        </Badge>
                         {canEditCourses && courseIndex >= 0 && (
                           <Button
                             variant="ghost"
@@ -184,12 +170,30 @@ export const FinalizePanel = ({
                             className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onNavigateToCourse(courseIndex);
+                              onNavigateToCourse!(courseIndex);
                             }}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
                         )}
+                      </div>
+                      <div className="space-y-1 ml-8">
+                        {selections.map((course, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="text-sm truncate">{course.itemName}</span>
+                            <Badge
+                              variant={course.itemSource === 'ristorante' ? 'secondary' : 'outline'}
+                              className="text-[10px] px-1 shrink-0"
+                            >
+                              {course.itemSource === 'ristorante' && <Utensils className="h-2.5 w-2.5 mr-0.5" />}
+                              {course.itemSource === 'catering' && <ChefHat className="h-2.5 w-2.5 mr-0.5" />}
+                              {course.itemSource === 'manual' ? 'Frei' :
+                               course.itemSource === 'custom' ? 'Paket' :
+                               course.itemSource === 'ristorante' ? 'Rest.' : 'Cat.'}
+                            </Badge>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   );

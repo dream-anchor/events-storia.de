@@ -1,4 +1,5 @@
 import { Check, Circle, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { CourseConfig, CourseSelection, COURSE_ICONS } from "./types";
 
@@ -15,9 +16,12 @@ export const CourseProgress = ({
   activeCourseIndex,
   onCourseClick,
 }: CourseProgressProps) => {
+  const getSelectionsForCourse = (courseType: string) =>
+    courseSelections.filter(s => s.courseType === courseType);
+
   const getCourseStatus = (courseType: string): 'completed' | 'active' | 'pending' => {
-    const selection = courseSelections.find(s => s.courseType === courseType);
-    if (selection && (selection.itemId || selection.isCustom)) {
+    const selections = getSelectionsForCourse(courseType);
+    if (selections.some(s => s.itemId || s.isCustom)) {
       return 'completed';
     }
     const configIndex = courseConfigs.findIndex(c => c.course_type === courseType);
@@ -32,7 +36,8 @@ export const CourseProgress = ({
       {courseConfigs.map((config, index) => {
         const status = getCourseStatus(config.course_type);
         const icon = COURSE_ICONS[config.course_type] || '🍽️';
-        
+        const count = getSelectionsForCourse(config.course_type).length;
+
         return (
           <div key={config.id} className="flex items-center">
             <button
@@ -49,7 +54,12 @@ export const CourseProgress = ({
               <span className="text-sm font-medium hidden md:inline">
                 {config.course_label}
               </span>
-              {status === 'completed' && (
+              {status === 'completed' && count > 1 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 min-w-[20px] justify-center">
+                  {count}
+                </Badge>
+              )}
+              {status === 'completed' && count <= 1 && (
                 <Check className="h-4 w-4" />
               )}
               {status === 'active' && (

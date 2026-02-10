@@ -53,8 +53,8 @@ export const MenuWorkflow = ({
     if (courseConfigs.length === 0) return true;
     const requiredCourses = courseConfigs.filter(c => c.is_required);
     return requiredCourses.every(config => {
-      const selection = menuSelection.courses.find(c => c.courseType === config.course_type);
-      return selection && (selection.itemId || selection.isCustom);
+      const selections = menuSelection.courses.filter(c => c.courseType === config.course_type);
+      return selections.some(s => s.itemId || s.isCustom);
     });
   }, [courseConfigs, menuSelection.courses]);
 
@@ -70,19 +70,27 @@ export const MenuWorkflow = ({
   // Get current course config
   const currentCourseConfig = courseConfigs[activeCourseIndex];
 
-  // Course selection helper
-  const getCourseSelection = (courseType: CourseType) => {
-    return menuSelection.courses.find(c => c.courseType === courseType) || null;
+  // Course selection helper — returns ALL selections for a courseType (multi-select)
+  const getCourseSelections = (courseType: CourseType) => {
+    return menuSelection.courses.filter(c => c.courseType === courseType);
   };
 
-  // Handle course selection
+  // Handle course selection — toggle mode: add if not selected, remove if already selected
   const handleCourseSelect = (selection: any) => {
     const newCourses = [...menuSelection.courses];
-    const existingIndex = newCourses.findIndex(c => c.courseType === selection.courseType);
-    
+
+    // Check if this exact item is already selected for this course
+    const existingIndex = newCourses.findIndex(
+      c => c.courseType === selection.courseType &&
+           ((c.itemId && c.itemId === selection.itemId) ||
+            (c.isCustom && c.itemName === selection.itemName))
+    );
+
     if (existingIndex >= 0) {
-      newCourses[existingIndex] = selection;
+      // Toggle off — remove this selection
+      newCourses.splice(existingIndex, 1);
     } else {
+      // Add this selection (allows multiple per courseType)
       newCourses.push(selection);
     }
 
@@ -201,7 +209,7 @@ export const MenuWorkflow = ({
             {currentCourseConfig && (
               <CourseSelector
                 courseConfig={currentCourseConfig}
-                currentSelection={getCourseSelection(currentCourseConfig.course_type)}
+                currentSelections={getCourseSelections(currentCourseConfig.course_type)}
                 menuItems={menuItems}
                 allMenuItems={menuItems}
                 onSelect={handleCourseSelect}
