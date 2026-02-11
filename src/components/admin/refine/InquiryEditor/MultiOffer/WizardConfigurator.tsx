@@ -101,15 +101,15 @@ export function WizardConfigurator({
     [option.menuSelection]
   );
 
-  // Completion checks
+  // Completion checks — uses .filter().some() to support multi-select
   const coursesComplete = useMemo(() => {
     if (courseConfigs.length === 0) return true;
     const required = courseConfigs.filter((c) => c.is_required);
     return required.every((config) => {
-      const sel = adaptedMenuSelection.courses.find(
+      const selections = adaptedMenuSelection.courses.filter(
         (c) => c.courseType === config.course_type
       );
-      return sel && (sel.itemId || sel.isCustom);
+      return selections.some((s) => s.itemId || s.isCustom);
     });
   }, [courseConfigs, adaptedMenuSelection.courses]);
 
@@ -124,21 +124,15 @@ export function WizardConfigurator({
     });
   }, [drinkConfigs, adaptedMenuSelection.drinks]);
 
-  // Course selection helper
-  const getCourseSelection = (courseType: CourseType) => {
-    return (
-      adaptedMenuSelection.courses.find((c) => c.courseType === courseType) ||
-      null
-    );
+  // Course selection helper — returns ALL selections for a courseType (multi-select)
+  const getCourseSelections = (courseType: CourseType): CourseSelection[] => {
+    return adaptedMenuSelection.courses.filter((c) => c.courseType === courseType);
   };
 
-  // Handle course selection
+  // Handle course selection — toggle mode: add if not selected, remove if already selected
   const handleCourseSelect = useCallback(
     (selection: CourseSelection) => {
       const newCourses = [...option.menuSelection.courses];
-      const existingIndex = newCourses.findIndex(
-        (c) => c.courseType === selection.courseType
-      );
 
       const adapted = {
         ...selection,
@@ -146,9 +140,19 @@ export function WizardConfigurator({
         itemSource: selection.itemSource as string,
       };
 
+      // Check if this exact item is already selected for this course
+      const existingIndex = newCourses.findIndex(
+        (c) =>
+          c.courseType === selection.courseType &&
+          ((c.itemId && c.itemId === selection.itemId) ||
+            (c.isCustom && c.itemName === selection.itemName))
+      );
+
       if (existingIndex >= 0) {
-        newCourses[existingIndex] = adapted;
+        // Toggle off — remove this selection
+        newCourses.splice(existingIndex, 1);
       } else {
+        // Add this selection (allows multiple per courseType)
         newCourses.push(adapted);
       }
 
@@ -467,7 +471,7 @@ export function WizardConfigurator({
                 {currentCourseConfig && (
                   <CourseSelector
                     courseConfig={currentCourseConfig}
-                    currentSelection={getCourseSelection(
+                    currentSelections={getCourseSelections(
                       currentCourseConfig.course_type
                     )}
                     menuItems={menuItems}
