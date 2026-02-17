@@ -516,6 +516,7 @@ export type Database = {
           menu_selection: Json | null
           message: string | null
           notification_sent: boolean | null
+          offer_phase: string | null
           offer_sent_at: string | null
           offer_sent_by: string | null
           phone: string | null
@@ -562,6 +563,7 @@ export type Database = {
           menu_selection?: Json | null
           message?: string | null
           notification_sent?: boolean | null
+          offer_phase?: string | null
           offer_sent_at?: string | null
           offer_sent_by?: string | null
           phone?: string | null
@@ -608,6 +610,7 @@ export type Database = {
           menu_selection?: Json | null
           message?: string | null
           notification_sent?: boolean | null
+          offer_phase?: string | null
           offer_sent_at?: string | null
           offer_sent_by?: string | null
           phone?: string | null
@@ -734,6 +737,7 @@ export type Database = {
           inquiry_id: string
           is_active: boolean | null
           menu_selection: Json | null
+          offer_mode: string | null
           offer_version: number
           option_label: string
           package_id: string | null
@@ -751,6 +755,7 @@ export type Database = {
           inquiry_id: string
           is_active?: boolean | null
           menu_selection?: Json | null
+          offer_mode?: string | null
           offer_version?: number
           option_label?: string
           package_id?: string | null
@@ -768,6 +773,7 @@ export type Database = {
           inquiry_id?: string
           is_active?: boolean | null
           menu_selection?: Json | null
+          offer_mode?: string | null
           offer_version?: number
           option_label?: string
           package_id?: string | null
@@ -1070,6 +1076,54 @@ export type Database = {
         }
         Relationships: []
       }
+      offer_customer_responses: {
+        Row: {
+          created_at: string | null
+          customer_notes: string | null
+          id: string
+          inquiry_id: string
+          ip_address: string | null
+          responded_at: string | null
+          selected_option_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_notes?: string | null
+          id?: string
+          inquiry_id: string
+          ip_address?: string | null
+          responded_at?: string | null
+          selected_option_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_notes?: string | null
+          id?: string
+          inquiry_id?: string
+          ip_address?: string | null
+          responded_at?: string | null
+          selected_option_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_customer_responses_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offer_customer_responses_selected_option_id_fkey"
+            columns: ["selected_option_id"]
+            isOneToOne: false
+            referencedRelation: "inquiry_offer_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_number_sequences: {
         Row: {
           created_at: string | null
@@ -1314,6 +1368,8 @@ export type Database = {
           prepayment_percentage: number | null
           price: number
           price_per_person: boolean | null
+          pricing_tiers: Json | null
+          pricing_type: string | null
           requires_prepayment: boolean | null
           sort_order: number | null
           updated_at: string | null
@@ -1333,6 +1389,8 @@ export type Database = {
           prepayment_percentage?: number | null
           price?: number
           price_per_person?: boolean | null
+          pricing_tiers?: Json | null
+          pricing_type?: string | null
           requires_prepayment?: boolean | null
           sort_order?: number | null
           updated_at?: string | null
@@ -1352,6 +1410,8 @@ export type Database = {
           prepayment_percentage?: number | null
           price?: number
           price_per_person?: boolean | null
+          pricing_tiers?: Json | null
+          pricing_type?: string | null
           requires_prepayment?: boolean | null
           sort_order?: number | null
           updated_at?: string | null
@@ -1396,6 +1456,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      submit_offer_response: {
+        Args: {
+          p_customer_notes?: string
+          p_inquiry_id: string
+          p_selected_option_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {
