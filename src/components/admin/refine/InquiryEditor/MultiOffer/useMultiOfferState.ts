@@ -100,8 +100,8 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
             
             initialPackageName = pkgData.name || '';
             if (pkgData.price) {
-              initialTotal = calculateEventPackagePrice(
-                customerPackageId,
+            initialTotal = calculateEventPackagePrice(
+                customerPackageId!,
                 pkgData.price,
                 guestCount,
                 !!pkgData.pricePerPerson
