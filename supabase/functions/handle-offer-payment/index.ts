@@ -278,11 +278,12 @@ async function processSuccessfulPayment(
   const booking = bookingData as EventBooking;
   logStep("Booking created", { bookingId: booking.id, bookingNumber });
 
-  // Update the inquiry status and link to booking
+  // Update the inquiry status, offer_phase, and link to booking
   await supabase
     .from("event_inquiries")
     .update({
       status: "confirmed",
+      offer_phase: "confirmed",
       selected_option_id: option.id,
       converted_to_booking_id: booking.id,
       updated_at: new Date().toISOString(),

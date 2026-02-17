@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -104,7 +105,17 @@ interface MultiOfferRequest {
   senderEmail?: string;
 }
 
-type RequestBody = LegacyRequest | MultiOfferRequest;
+// OfferBuilder request format (new: fetches data from DB)
+interface OfferBuilderRequest {
+  inquiryId: string;
+  phase: 'proposal' | 'final';
+}
+
+type RequestBody = LegacyRequest | MultiOfferRequest | OfferBuilderRequest;
+
+function isOfferBuilderRequest(body: RequestBody): body is OfferBuilderRequest {
+  return 'inquiryId' in body && 'phase' in body && !('isMultiOption' in body);
+}
 
 function isMultiOfferRequest(body: RequestBody): body is MultiOfferRequest {
   return 'isMultiOption' in body && body.isMultiOption === true && 'options' in body;
@@ -187,10 +198,26 @@ serve(async (req) => {
   try {
     const rawBody: RequestBody = await req.json();
 
-    console.log('Generating email, isMultiOption:', isMultiOfferRequest(rawBody));
+    console.log('Generating email, isOfferBuilder:', isOfferBuilderRequest(rawBody), 'isMultiOption:', isMultiOfferRequest(rawBody));
 
     // Determine sender email for personalized signature
-    const senderEmail = 'senderEmail' in rawBody ? rawBody.senderEmail : undefined;
+    let senderEmail: string | undefined;
+
+    if (isOfferBuilderRequest(rawBody)) {
+      // Fetch sender from auth context (passed via Authorization header)
+      try {
+        const supabaseClient = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+          { global: { headers: { Authorization: req.headers.get('Authorization') || '' } } }
+        );
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        senderEmail = user?.email || undefined;
+      } catch { /* fallback to no sender */ }
+    } else {
+      senderEmail = 'senderEmail' in rawBody ? rawBody.senderEmail : undefined;
+    }
+
     const senderInfo = SENDER_INFO[senderEmail?.toLowerCase() || ''] || { firstName: 'STORIA Team', mobile: '' };
 
     // Build personalized signature
@@ -203,8 +230,73 @@ ${COMPANY_FOOTER}`;
     let context: string;
     let isMultiOption = false;
     let optionCount = 0;
+    let isProposal = false;
 
-    if (isMultiOfferRequest(rawBody)) {
+    if (isOfferBuilderRequest(rawBody)) {
+      // New: Fetch data from DB
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const { data: inquiryData } = await supabaseAdmin
+        .from('event_inquiries')
+        .select('contact_name, company_name, email, preferred_date, guest_count, event_type, message')
+        .eq('id', rawBody.inquiryId)
+        .single();
+
+      const { data: optionsData } = await supabaseAdmin
+        .from('inquiry_offer_options')
+        .select('option_label, guest_count, total_amount, menu_selection, is_active')
+        .eq('inquiry_id', rawBody.inquiryId)
+        .eq('is_active', true)
+        .order('sort_order');
+
+      // Also try to get package names
+      const { data: optionsWithPkg } = await supabaseAdmin
+        .from('inquiry_offer_options')
+        .select('option_label, guest_count, total_amount, menu_selection, package_id, is_active')
+        .eq('inquiry_id', rawBody.inquiryId)
+        .eq('is_active', true)
+        .order('sort_order');
+
+      const pkgIds = [...new Set((optionsWithPkg || []).filter(o => o.package_id).map(o => o.package_id))];
+      let pkgNames: Record<string, string> = {};
+      if (pkgIds.length > 0) {
+        const { data: pkgs } = await supabaseAdmin
+          .from('packages')
+          .select('id, name')
+          .in('id', pkgIds);
+        pkgNames = Object.fromEntries((pkgs || []).map(p => [p.id, p.name]));
+      }
+
+      if (!inquiryData) throw new Error('Inquiry not found');
+
+      isMultiOption = true;
+      isProposal = rawBody.phase === 'proposal';
+      const opts = optionsData || [];
+      optionCount = opts.length;
+
+      const multiOpts: MultiOfferOption[] = (optionsWithPkg || []).map(o => ({
+        label: o.option_label,
+        packageName: pkgNames[o.package_id] || 'Individuell',
+        guestCount: o.guest_count,
+        totalAmount: Number(o.total_amount),
+        menuSelection: o.menu_selection as MenuSelection | undefined,
+      }));
+
+      context = buildMultiOfferContext(
+        {
+          contact_name: inquiryData.contact_name,
+          company_name: inquiryData.company_name,
+          preferred_date: inquiryData.preferred_date,
+          guest_count: inquiryData.guest_count,
+          event_type: inquiryData.event_type,
+          message: inquiryData.message,
+        },
+        multiOpts
+      );
+    } else if (isMultiOfferRequest(rawBody)) {
       isMultiOption = true;
       optionCount = rawBody.options.length;
       context = buildMultiOfferContext(rawBody.inquiry, rawBody.options);
@@ -227,15 +319,24 @@ ANREDE:
 - IMMER "Hallo [Vorname]," verwenden
 - NIEMALS "Sehr geehrte/r" verwenden
 
-STRUKTUR für Multi-Optionen-Angebot:
+${isProposal ? `STRUKTUR für Vorschlag (Proposal):
 1. Anrede: "Hallo [Name],"
 2. Kurzer Dank für die Anfrage
-3. Erwähne, dass du ${optionCount} Optionen anbietest
+3. Erwähne, dass du ${optionCount} Optionen zusammengestellt hast
 4. Liste jede Option KURZ auf (1 Zeile pro Option: Option A/B/C: Paketname, X Gäste, Betrag €)
-5. Hinweis: "Die detaillierten Angebote finden Sie im Anhang."
-6. Info zur Vorauszahlung (100% erforderlich)
-7. Schlusssatz mit Kontaktangebot
-8. Signatur
+5. Hinweis: "Wählen Sie Ihren Favoriten über den folgenden Link und teilen Sie uns eventuelle Wünsche mit."
+6. Schlusssatz: Wir finalisieren das Angebot nach ihrer Rückmeldung
+7. Signatur
+
+WICHTIG: Dies ist ein VORSCHLAG, KEINE finale Buchung. Kein Hinweis auf Vorauszahlung oder Zahlung!`
+: `STRUKTUR für finales Angebot:
+1. Anrede: "Hallo [Name],"
+2. Bezug auf vorherige Abstimmung: "Wie besprochen haben wir Ihr Menü finalisiert."
+3. Kurze Zusammenfassung der finalen Option
+4. Hinweis: "Das finale Angebot mit Zahlungsmöglichkeit finden Sie im Anhang."
+5. Info zur Vorauszahlung (100% erforderlich)
+6. Schlusssatz mit Kontaktangebot
+7. Signatur`}
 
 VERBOTEN:
 - "Sehr geehrte/r" als Anrede
@@ -278,7 +379,11 @@ SIGNATUR (exakt so verwenden - NICHT ändern!):
 ${personalizedSignature}`;
 
     const userPrompt = isMultiOption
-      ? `Schreibe eine kurze, professionelle Bestätigungs-E-Mail (max. 200 Wörter, keine Markdown-Formatierung) für diese Event-Anfrage mit mehreren Paket-Optionen:
+      ? isProposal
+        ? `Schreibe eine kurze, professionelle Vorschlags-E-Mail (max. 200 Wörter, keine Markdown-Formatierung) für diese Event-Anfrage. Der Kunde soll über einen Link seine bevorzugte Option wählen:
+
+${context}`
+        : `Schreibe eine kurze, professionelle E-Mail für das finale Angebot (max. 200 Wörter, keine Markdown-Formatierung). Der Kunde hat bereits seine Wahl getroffen, das Menü ist finalisiert:
 
 ${context}`
       : `Schreibe eine kurze, professionelle Bestätigungs-E-Mail (max. 150 Wörter, keine Markdown-Formatierung) für diese Anfrage:

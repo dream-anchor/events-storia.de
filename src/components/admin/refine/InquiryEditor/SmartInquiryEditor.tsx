@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EventDNACard } from "./EventDNACard";
-import { MultiOfferComposer } from "./MultiOffer";
+import { OfferBuilder } from "./OfferBuilder";
 import { CateringModules } from "./CateringModules";
 import { CalculationSummary } from "./CalculationSummary";
 import { ClientPreview } from "./ClientPreview";
@@ -433,7 +433,7 @@ export const SmartInquiryEditor = () => {
 
           {/* Multi-Package Offer Section */}
           {inquiryType === 'event' ? (
-            <MultiOfferComposer
+            <OfferBuilder
               inquiry={mergedInquiry}
               packages={packages}
               templates={templates}

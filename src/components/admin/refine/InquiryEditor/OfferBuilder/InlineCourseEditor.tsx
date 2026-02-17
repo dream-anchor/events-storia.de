@@ -1,0 +1,174 @@
+import { Plus, GripVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { DishPicker } from "./DishPicker";
+import { COURSE_ICONS } from "./types";
+import type { CourseConfig, CourseSelection, CourseType } from "./types";
+import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
+
+interface InlineCourseEditorProps {
+  courses: CourseSelection[];
+  courseConfigs: CourseConfig[];
+  menuItems: CombinedMenuItem[];
+  onUpdateCourse: (index: number, update: Partial<CourseSelection>) => void;
+  onAddCourse: (courseType: CourseType, courseLabel: string) => void;
+  onRemoveCourse: (index: number) => void;
+  disabled?: boolean;
+  /** Teil-Menü: Nur Vorspeisen-Checkboxen */
+  isPartialMenu?: boolean;
+}
+
+export function InlineCourseEditor({
+  courses,
+  courseConfigs,
+  menuItems,
+  onUpdateCourse,
+  onAddCourse,
+  onRemoveCourse,
+  disabled = false,
+  isPartialMenu = false,
+}: InlineCourseEditorProps) {
+  const handleDishSelect = (
+    index: number,
+    dish: { id: string; name: string; description: string | null; source: string }
+  ) => {
+    onUpdateCourse(index, {
+      itemId: dish.id,
+      itemName: dish.name,
+      itemDescription: dish.description,
+      itemSource: dish.source as CourseSelection['itemSource'],
+      isCustom: dish.source === 'custom',
+    });
+  };
+
+  const handleClear = (index: number) => {
+    onUpdateCourse(index, {
+      itemId: null,
+      itemName: '',
+      itemDescription: null,
+      itemSource: 'catering',
+      isCustom: false,
+    });
+  };
+
+  // Finde passende CourseConfig für erlaubte Kategorien
+  const getFilterCategories = (courseType: string): string[] => {
+    const config = courseConfigs.find(c => c.course_type === courseType);
+    return config?.allowed_categories || [];
+  };
+
+  // Verfügbare Gänge zum Hinzufügen (nicht bereits vorhanden)
+  const availableCourseTypes = courseConfigs.filter(
+    config => !courses.some(c => c.courseType === config.course_type)
+  );
+
+  if (isPartialMenu) {
+    // Teil-Menü: Nur Vorspeisen (Starter) als Checkboxen
+    const starterConfigs = courseConfigs.filter(c =>
+      c.course_type === 'starter' || c.course_type === 'fingerfood'
+    );
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Vorbestellte Vorspeise (Gäste wählen 1 von {courses.length || '...'})
+          </span>
+        </div>
+        {courses.map((course, idx) => (
+          <div key={idx} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-muted/30">
+            <span className="text-base w-7 text-center shrink-0">
+              {COURSE_ICONS[course.courseType as CourseType] || '🍽️'}
+            </span>
+            <DishPicker
+              value={course.itemId ? { id: course.itemId, name: course.itemName } : null}
+              onSelect={(dish) => handleDishSelect(idx, dish)}
+              onClear={() => handleClear(idx)}
+              menuItems={menuItems}
+              filterCategories={getFilterCategories(course.courseType)}
+              placeholder="Vorspeise wählen..."
+              disabled={disabled}
+            />
+          </div>
+        ))}
+        {courses.length < 3 && !disabled && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onAddCourse('starter', 'Vorspeise')}
+            className="h-8 rounded-xl gap-1.5 text-xs text-muted-foreground"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Weitere Vorspeise zur Auswahl
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  // Fest-Menü: Alle Gänge inline
+  return (
+    <div className="space-y-1">
+      {courses.map((course, idx) => (
+        <div
+          key={idx}
+          className={cn(
+            "flex items-center gap-3 py-2 px-2 rounded-lg",
+            "hover:bg-muted/30 transition-colors group"
+          )}
+        >
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-muted-foreground/60 shrink-0" />
+          <span className="text-base w-7 text-center shrink-0">
+            {COURSE_ICONS[course.courseType as CourseType] || '🍽️'}
+          </span>
+          <span className="text-sm text-muted-foreground w-24 shrink-0 truncate">
+            {course.courseLabel}
+          </span>
+          <div className="flex-1">
+            <DishPicker
+              value={course.itemId ? { id: course.itemId, name: course.itemName } : null}
+              onSelect={(dish) => handleDishSelect(idx, dish)}
+              onClear={() => handleClear(idx)}
+              menuItems={menuItems}
+              filterCategories={getFilterCategories(course.courseType)}
+              placeholder={`${course.courseLabel} wählen...`}
+              disabled={disabled}
+            />
+          </div>
+          {!disabled && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onRemoveCourse(idx)}
+              className="h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            >
+              <span className="text-muted-foreground text-xs">×</span>
+            </Button>
+          )}
+        </div>
+      ))}
+
+      {!disabled && availableCourseTypes.length > 0 && (
+        <div className="flex items-center gap-2 pt-1 pl-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 rounded-xl gap-1.5 text-xs text-muted-foreground"
+            onClick={() => {
+              const next = availableCourseTypes[0];
+              onAddCourse(next.course_type, next.course_label);
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Gang hinzufügen
+          </Button>
+          {availableCourseTypes.length > 1 && (
+            <span className="text-xs text-muted-foreground/60">
+              ({availableCourseTypes.map(c => c.course_label).join(', ')})
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
