@@ -33,6 +33,7 @@ export function OfferBuilder({
     guestCount,
     selectedPackages,
     inquiry,
+    packages,
   });
 
   // --- Default-Modus für neue Optionen ---

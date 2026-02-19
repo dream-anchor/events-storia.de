@@ -1,9 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Trash2, Lock, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -65,11 +64,47 @@ export function OptionCard({
   const handlePackageChange = (packageId: string) => {
     const pkg = packages.find(p => p.id === packageId);
     if (!pkg) return;
+    // Courses + Drinks leeren bei Paketwechsel — werden durch useEffect neu initialisiert
     onUpdate({
       packageId,
       packageName: pkg.name,
+      menuSelection: { courses: [], drinks: [] },
     });
   };
+
+  // Courses aus Package-Config initialisieren (bei Paketwechsel oder wenn leer)
+  useEffect(() => {
+    if (!option.packageId || !courseConfigs.length) return;
+    if (option.offerMode === 'a_la_carte') return;
+    if (option.menuSelection.courses.length > 0) return;
+
+    const initialCourses: CourseSelection[] = courseConfigs.map(cc => ({
+      courseType: cc.course_type,
+      courseLabel: cc.course_label,
+      itemId: null,
+      itemName: cc.is_custom_item ? (cc.custom_item_name || '') : '',
+      itemDescription: cc.is_custom_item ? (cc.custom_item_description || null) : null,
+      itemSource: 'catering' as const,
+      isCustom: cc.is_custom_item ?? false,
+    }));
+    onUpdate({ menuSelection: { ...option.menuSelection, courses: initialCourses } });
+  }, [option.packageId, courseConfigs.length, option.offerMode]);
+
+  // Drinks aus Package-Config initialisieren (nur bei fest_menu)
+  useEffect(() => {
+    if (!option.packageId || !drinkConfigs.length) return;
+    if (option.offerMode !== 'fest_menu') return;
+    if (option.menuSelection.drinks.length > 0) return;
+
+    const initialDrinks: DrinkSelection[] = drinkConfigs.map(dc => ({
+      drinkGroup: dc.drink_group,
+      drinkLabel: dc.drink_label,
+      selectedChoice: null,
+      quantityLabel: dc.quantity_label || null,
+      customDrink: null,
+    }));
+    onUpdate({ menuSelection: { ...option.menuSelection, drinks: initialDrinks } });
+  }, [option.packageId, drinkConfigs.length, option.offerMode]);
 
   const handleGuestCountChange = (val: string) => {
     const count = parseInt(val) || 0;
@@ -141,9 +176,29 @@ export function OptionCard({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">Option {option.optionLabel}</span>
-                <Badge variant="outline" className="text-[10px] h-5 capitalize">
-                  {option.offerMode.replace('_', ' ')}
-                </Badge>
+                <Select
+                  value={option.offerMode}
+                  onValueChange={(mode: string) => {
+                    const offerMode = mode as OfferMode;
+                    onUpdate({
+                      offerMode,
+                      ...(offerMode === 'a_la_carte' ? {
+                        menuSelection: { courses: [], drinks: [] },
+                        budgetPerPerson: null,
+                      } : {}),
+                    });
+                  }}
+                  disabled={isLocked}
+                >
+                  <SelectTrigger className="h-5 w-auto text-[10px] rounded-lg border-0 bg-muted/50 px-2 gap-1 font-medium">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="a_la_carte">À la carte</SelectItem>
+                    <SelectItem value="teil_menu">Teil-Menü</SelectItem>
+                    <SelectItem value="fest_menu">Fest-Menü</SelectItem>
+                  </SelectContent>
+                </Select>
                 {isLocked && (
                   <Lock className="h-3 w-3 text-muted-foreground" />
                 )}
@@ -420,8 +475,8 @@ function FestMenuContent({
         />
       </div>
 
-      {/* Getränke */}
-      {option.menuSelection.drinks.length > 0 && (
+      {/* Getränke — anzeigen wenn Drinks vorhanden ODER drinkConfigs geladen */}
+      {(option.menuSelection.drinks.length > 0 || drinkConfigs.length > 0) && (
         <div>
           <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
             Getränke

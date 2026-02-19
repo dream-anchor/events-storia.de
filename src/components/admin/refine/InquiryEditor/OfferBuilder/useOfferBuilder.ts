@@ -44,6 +44,7 @@ interface UseOfferBuilderProps {
   guestCount: number;
   selectedPackages?: SelectedPackage[];
   inquiry: ExtendedInquiry;
+  packages?: Array<{ id: string; name: string; price: number; price_per_person: boolean; package_type?: string }>;
 }
 
 export function useOfferBuilder({
@@ -51,6 +52,7 @@ export function useOfferBuilder({
   guestCount,
   selectedPackages,
   inquiry,
+  packages: packagesProp,
 }: UseOfferBuilderProps): UseOfferBuilderReturn {
   // --- Core State (migriert aus useMultiOfferState) ---
   const [options, setOptions] = useState<OfferBuilderOption[]>([]);
@@ -356,6 +358,40 @@ export function useOfferBuilder({
   }, [isLoading]);
 
   // =================================================================
+  // TOTAL-AMOUNT RECALC — berechnet Preis pro Option automatisch
+  // =================================================================
+  const priceRecalcRef = useRef(false);
+
+  useEffect(() => {
+    if (isLoading || !packagesProp?.length) return;
+
+    setOptions(prev => {
+      let changed = false;
+      const updated = prev.map(opt => {
+        if (!opt.packageId) return opt;
+        const pkg = packagesProp.find(p => p.id === opt.packageId);
+        if (!pkg) return opt;
+
+        const locationPrice = calculateEventPackagePrice(
+          pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
+        );
+        const menuTotal = (opt.offerMode === 'fest_menu' && opt.budgetPerPerson)
+          ? opt.budgetPerPerson * opt.guestCount
+          : 0;
+        const newTotal = locationPrice + menuTotal;
+
+        if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
+        changed = true;
+        return { ...opt, totalAmount: newTotal };
+      });
+
+      if (!changed) return prev;
+      priceRecalcRef.current = true;
+      return updated;
+    });
+  }, [isLoading, packagesProp, options.map(o => `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}`).join(',')]);
+
+  // =================================================================
   // OPTION CRUD (migriert aus useMultiOfferState)
   // =================================================================
   const addOption = useCallback((mode: OfferMode = 'fest_menu') => {
@@ -521,15 +557,57 @@ export function useOfferBuilder({
     }
   }, [saveOptions, createNewVersion, inquiryId, options]);
 
-  /** Phase 2: Finales Angebot senden (mit Stripe) */
+  /** Phase 2: Finales Angebot senden (mit Stripe Payment Links) */
   const sendFinalOffer = useCallback(async (emailContent: string) => {
     await saveOptions();
+
+    // Stripe Payment Links für alle aktiven Optionen erstellen
+    const activeOpts = options.filter(o => o.isActive);
+    let linksCreated = 0;
+
+    for (const opt of activeOpts) {
+      if (opt.stripePaymentLinkUrl) { linksCreated++; continue; }
+      if (opt.totalAmount <= 0) continue;
+
+      try {
+        const pkg = packagesProp?.find(p => p.id === opt.packageId);
+        const { data: linkData, error: linkError } = await supabase.functions.invoke(
+          'create-offer-payment-link',
+          {
+            body: {
+              inquiryId,
+              optionId: opt.id,
+              packageName: pkg?.name || opt.packageName || opt.optionLabel,
+              amount: opt.totalAmount,
+              customerEmail: inquiry.email || '',
+              customerName: inquiry.contact_name || '',
+              eventDate: inquiry.preferred_date || '',
+              guestCount: opt.guestCount,
+              companyName: inquiry.company_name || undefined,
+            },
+          }
+        );
+
+        if (!linkError && linkData?.paymentLinkUrl) {
+          setOptions(prev => prev.map(o =>
+            o.id === opt.id
+              ? { ...o, stripePaymentLinkUrl: linkData.paymentLinkUrl, stripePaymentLinkId: linkData.paymentLinkId }
+              : o
+          ));
+          linksCreated++;
+        }
+      } catch (err) {
+        console.error(`Error creating payment link for option ${opt.optionLabel}:`, err);
+      }
+    }
+
     const newVersion = await createNewVersion(emailContent);
 
     try {
       await supabase
         .from("event_inquiries")
         .update({
+          status: 'offer_sent',
           offer_phase: 'final_sent',
         } as Record<string, unknown>)
         .eq("id", inquiryId);
@@ -538,15 +616,16 @@ export function useOfferBuilder({
 
       await logActivity(inquiryId, 'final_offer_sent', {
         version: newVersion,
-        optionCount: options.filter(o => o.isActive).length,
+        optionCount: activeOpts.length,
+        paymentLinksCreated: linksCreated,
       });
 
-      toast.success("Finales Angebot gesendet");
+      toast.success(`Finales Angebot gesendet (${linksCreated} Zahlungslink${linksCreated !== 1 ? 's' : ''})`);
     } catch (error) {
       console.error("Error sending final offer:", error);
       toast.error("Fehler beim Senden des finalen Angebots");
     }
-  }, [saveOptions, createNewVersion, inquiryId, options]);
+  }, [saveOptions, createNewVersion, inquiryId, options, packagesProp, inquiry]);
 
   // =================================================================
   // COMPUTED
