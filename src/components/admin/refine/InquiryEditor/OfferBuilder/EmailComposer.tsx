@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Copy, Check, ChevronDown, FileText, Zap } from "lucide-react";
+import { Sparkles, Copy, Check, ChevronDown, FileText, Zap, PlusCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -39,8 +41,28 @@ export function EmailComposer({
   guestCount = "",
 }: EmailComposerProps) {
   const [copied, setCopied] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const quickTemplates = useMemo(() => templates.slice(0, 3), [templates]);
+  // Vorlagen (category = 'vorlage') — ersetzen den gesamten Text
+  const vorlagen = useMemo(
+    () => templates.filter(t => t.category === 'vorlage').sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)),
+    [templates]
+  );
+
+  // Textbausteine (category = 'baustein') — werden eingefügt
+  const bausteine = useMemo(
+    () => templates.filter(t => t.category === 'baustein').sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)),
+    [templates]
+  );
+
+  // Legacy-Templates (category = 'angebot' oder andere)
+  const legacyTemplates = useMemo(
+    () => templates.filter(t => t.category !== 'vorlage' && t.category !== 'baustein'),
+    [templates]
+  );
+
+  // Alle Vorlagen für Schnellauswahl (wenn Textfeld leer)
+  const quickTemplates = useMemo(() => vorlagen.slice(0, 6), [vorlagen]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(emailDraft);
@@ -56,10 +78,38 @@ export function EmailComposer({
       .replace(/\{\{gaeste\}\}/g, guestCount || "[Gästeanzahl]");
   };
 
+  // Vorlage anwenden — ERSETZT den gesamten Text
   const applyTemplate = (template: EmailTemplate) => {
     const text = template.body || template.content || "";
     onChange(replaceVariables(text));
     toast.success(`Vorlage "${template.name}" angewendet`);
+  };
+
+  // Textbaustein einfügen — FÜGT AN (am Ende oder an Cursor-Position)
+  const insertSnippet = (template: EmailTemplate) => {
+    const snippet = replaceVariables(template.body || template.content || "");
+    const textarea = textareaRef.current;
+
+    if (textarea && textarea === document.activeElement) {
+      // An Cursor-Position einfügen
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const before = emailDraft.slice(0, start);
+      const after = emailDraft.slice(end);
+      const separator = before && !before.endsWith('\n') ? '\n\n' : '';
+      onChange(before + separator + snippet + after);
+      // Cursor nach dem Snippet positionieren
+      requestAnimationFrame(() => {
+        const newPos = start + separator.length + snippet.length;
+        textarea.setSelectionRange(newPos, newPos);
+        textarea.focus();
+      });
+    } else {
+      // Am Ende anfügen
+      const separator = emailDraft && !emailDraft.endsWith('\n') ? '\n\n' : '';
+      onChange(emailDraft + separator + snippet);
+    }
+    toast.success(`"${template.name}" eingefügt`);
   };
 
   return (
@@ -74,7 +124,8 @@ export function EmailComposer({
           </Badge>
         </div>
         <div className="flex items-center gap-1.5">
-          {templates.length > 0 && (
+          {/* Vorlagen-Dropdown (ersetzt Text) */}
+          {(vorlagen.length > 0 || legacyTemplates.length > 0) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-7 rounded-xl gap-1 text-xs">
@@ -83,15 +134,59 @@ export function EmailComposer({
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {templates.map((t) => (
-                  <DropdownMenuItem key={t.id} onClick={() => applyTemplate(t)}>
+              <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
+                {vorlagen.length > 0 && (
+                  <>
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      STORIA Vorlagen
+                    </DropdownMenuLabel>
+                    {vorlagen.map((t) => (
+                      <DropdownMenuItem key={t.id} onClick={() => applyTemplate(t)} className="text-xs">
+                        {t.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+                {legacyTemplates.length > 0 && (
+                  <>
+                    {vorlagen.length > 0 && <DropdownMenuSeparator />}
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Weitere
+                    </DropdownMenuLabel>
+                    {legacyTemplates.map((t) => (
+                      <DropdownMenuItem key={t.id} onClick={() => applyTemplate(t)} className="text-xs">
+                        {t.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* Textbausteine-Dropdown (fügt hinzu) */}
+          {bausteine.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 rounded-xl gap-1 text-xs">
+                  <PlusCircle className="h-3 w-3" />
+                  Baustein
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
+                <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Textbaustein einfügen
+                </DropdownMenuLabel>
+                {bausteine.map((t) => (
+                  <DropdownMenuItem key={t.id} onClick={() => insertSnippet(t)} className="text-xs">
                     {t.name}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+
           <Button
             variant="ghost"
             size="icon"
@@ -116,13 +211,13 @@ export function EmailComposer({
         </div>
       </div>
 
-      {/* Quick Templates (wenn leer) */}
+      {/* Schnellvorlagen (wenn Textfeld leer) */}
       {quickTemplates.length > 0 && !emailDraft && (
         <div className="px-5 py-2.5 border-b border-border/30 bg-muted/20">
           <div className="flex items-center gap-2 mb-1.5">
             <Zap className="h-3 w-3 text-amber-500" />
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-              Schnellvorlagen
+              Vorlage wählen
             </span>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -144,6 +239,7 @@ export function EmailComposer({
       {/* Textarea */}
       <div className="p-5">
         <Textarea
+          ref={textareaRef}
           value={emailDraft}
           onChange={(e) => onChange(e.target.value)}
           className={cn(
@@ -153,7 +249,7 @@ export function EmailComposer({
             "bg-transparent p-0",
             "placeholder:text-muted-foreground/50"
           )}
-          placeholder="Ihr Anschreiben an den Kunden..."
+          placeholder="Vorlage wählen oder Anschreiben verfassen..."
         />
       </div>
     </Card>

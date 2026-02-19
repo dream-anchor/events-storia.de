@@ -233,32 +233,34 @@ export function OptionCard({
 
         {/* Body */}
         <div className="p-5 space-y-4">
-          {/* Paket + Gäste */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                Location / Paket
-              </label>
-              <Select
-                value={option.packageId || ''}
-                onValueChange={handlePackageChange}
-                disabled={disabled}
-              >
-                <SelectTrigger className="h-9 rounded-xl">
-                  <SelectValue placeholder="Paket wählen..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {eventPackages.map(pkg => (
-                    <SelectItem key={pkg.id} value={pkg.id}>
-                      {pkg.name}
-                      <span className="text-muted-foreground ml-1 text-xs">
-                        ({pkg.price_per_person ? `${pkg.price} €/P.` : `${pkg.price} € pauschal`})
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Paket + Gäste (Paket nur bei teil_menu und fest_menu) */}
+          <div className={cn("grid gap-3", option.offerMode === 'a_la_carte' ? "grid-cols-1" : "grid-cols-2")}>
+            {option.offerMode !== 'a_la_carte' && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  Location / Paket
+                </label>
+                <Select
+                  value={option.packageId || ''}
+                  onValueChange={handlePackageChange}
+                  disabled={disabled}
+                >
+                  <SelectTrigger className="h-9 rounded-xl">
+                    <SelectValue placeholder="Paket wählen..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eventPackages.map(pkg => (
+                      <SelectItem key={pkg.id} value={pkg.id}>
+                        {pkg.name}
+                        <span className="text-muted-foreground ml-1 text-xs">
+                          ({pkg.price_per_person ? `${pkg.price} €/P.` : `${pkg.price} € pauschal`})
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">
                 Gäste
@@ -310,19 +312,21 @@ export function OptionCard({
             />
           )}
 
-          {/* Preis */}
-          <PriceBreakdown
-            packageData={selectedPackage}
-            guestCount={option.guestCount}
-            menuPricePerPerson={option.budgetPerPerson || 0}
-          />
+          {/* Preis (nicht bei à la carte — dort gibt es keinen Konfigurator-Preis) */}
+          {option.offerMode !== 'a_la_carte' && (
+            <PriceBreakdown
+              packageData={selectedPackage}
+              guestCount={option.guestCount}
+              menuPricePerPerson={option.budgetPerPerson || 0}
+            />
+          )}
         </div>
       </Card>
     </motion.div>
   );
 }
 
-// --- Modus: À la carte ---
+// --- Modus: À la carte (Reservierungsbestätigung, kein Konfigurator) ---
 function AlaCarteContent({
   option,
   onUpdate,
@@ -334,36 +338,40 @@ function AlaCarteContent({
 }) {
   return (
     <div className="space-y-3">
-      <div className="rounded-xl bg-muted/30 p-3 space-y-2">
-        <p className="text-xs text-muted-foreground">
-          Gäste bestellen frei von unserer Speisekarte. Keine Menü-Konfiguration nötig.
+      <div className="rounded-xl bg-amber-50 border border-amber-200/50 p-3 space-y-2">
+        <p className="text-xs font-medium text-amber-800">
+          Reservierungsbestätigung
         </p>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id={`attach-menu-${option.id}`}
-            checked={option.attachMenu}
-            onCheckedChange={(checked) =>
-              onUpdate({ attachMenu: checked === true })
-            }
-            disabled={disabled}
-          />
-          <label
-            htmlFor={`attach-menu-${option.id}`}
-            className="text-sm cursor-pointer"
-          >
-            <FileText className="h-3.5 w-3.5 inline mr-1 text-muted-foreground" />
-            Aktuelle Speisekarte als PDF beifügen
-          </label>
-        </div>
+        <p className="text-xs text-amber-700/80">
+          Gäste bestellen frei von unserer Speisekarte. Kein Menü-Konfigurator nötig.
+          Verwenden Sie die Vorlage "Reservierungsanfrage (Gruppen)" im Anschreiben.
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id={`attach-menu-${option.id}`}
+          checked={option.attachMenu}
+          onCheckedChange={(checked) =>
+            onUpdate({ attachMenu: checked === true })
+          }
+          disabled={disabled}
+        />
+        <label
+          htmlFor={`attach-menu-${option.id}`}
+          className="text-sm cursor-pointer"
+        >
+          <FileText className="h-3.5 w-3.5 inline mr-1 text-muted-foreground" />
+          Aktuelle Speisekarte als PDF beifügen
+        </label>
       </div>
       <div>
         <label className="text-xs font-medium text-muted-foreground mb-1 block">
-          Tisch-Anmerkung (optional)
+          Tisch-Anordnung (optional)
         </label>
         <Input
           value={option.tableNote || ''}
           onChange={(e) => onUpdate({ tableNote: e.target.value || null })}
-          placeholder="z.B. 2 Tafeln à 12 Personen"
+          placeholder="z.B. 2 lange Tafeln à 12 Personen, Vorspeisenplatte"
           className="h-9 rounded-xl"
           disabled={disabled}
         />
