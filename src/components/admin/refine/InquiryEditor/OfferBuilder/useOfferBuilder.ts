@@ -260,7 +260,7 @@ export function useOfferBuilder({
             id: r.id,
             selectedOptionId: r.selected_option_id,
             customerNotes: r.customer_notes,
-            respondedAt: r.responded_at,
+            respondedAt: r.responded_at ?? new Date().toISOString(),
           });
         }
       } catch (error) {
