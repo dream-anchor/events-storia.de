@@ -8,6 +8,7 @@ import type {
   CourseConfig,
   DrinkConfig,
 } from "./types";
+import { DEFAULT_COURSE_CONFIGS, DEFAULT_DRINK_CONFIGS } from "./types";
 import type { Package } from "../types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 
@@ -65,9 +66,12 @@ export function OptionCardGrid({
       >
         <AnimatePresence mode="popLayout">
           {options.map((option) => {
-            const configs = option.packageId
-              ? packageConfigs[option.packageId] || { courses: [], drinks: [] }
-              : { courses: [], drinks: [] };
+            // Menü-Modus: Default-Configs (kein Paket). Paket-Modus: Configs aus Paket.
+            const configs = option.offerMode === 'menu'
+              ? { courses: DEFAULT_COURSE_CONFIGS, drinks: DEFAULT_DRINK_CONFIGS }
+              : option.packageId
+                ? packageConfigs[option.packageId] || { courses: [], drinks: [] }
+                : { courses: [], drinks: [] };
 
             return (
               <OptionCard

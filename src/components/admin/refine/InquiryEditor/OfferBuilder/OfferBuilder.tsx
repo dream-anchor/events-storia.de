@@ -116,19 +116,21 @@ export function OfferBuilder({
         />
       )}
 
-      {/* 3. Options-Grid */}
-      <OptionCardGrid
-        options={builder.options}
-        packages={packages}
-        menuItems={builder.menuItems}
-        packageConfigs={builder.packageConfigs}
-        onUpdateOption={builder.updateOption}
-        onRemoveOption={builder.removeOption}
-        onToggleActive={builder.toggleOptionActive}
-        onAddOption={builder.addOption}
-        defaultMode={defaultMode}
-        isLocked={builder.isLocked}
-      />
+      {/* 3. Options-Grid (nur bei Menü/Paket — E-Mail zeigt nur den Composer) */}
+      {defaultMode !== 'email' && (
+        <OptionCardGrid
+          options={builder.options}
+          packages={packages}
+          menuItems={builder.menuItems}
+          packageConfigs={builder.packageConfigs}
+          onUpdateOption={builder.updateOption}
+          onRemoveOption={builder.removeOption}
+          onToggleActive={builder.toggleOptionActive}
+          onAddOption={builder.addOption}
+          defaultMode={defaultMode}
+          isLocked={builder.isLocked}
+        />
+      )}
 
       {/* 4. E-Mail Composer */}
       <EmailComposer
@@ -147,7 +149,7 @@ export function OfferBuilder({
       <SendControls
         offerPhase={builder.offerPhase}
         emailDraft={emailDraft}
-        activeOptionsCount={builder.activeOptions.length}
+        activeOptionsCount={defaultMode === 'email' ? 1 : builder.activeOptions.length}
         isSending={builder.isSaving}
         onSendProposal={builder.sendProposal}
         onSendFinalOffer={builder.sendFinalOffer}

@@ -1,6 +1,6 @@
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Trash2, Lock, Mail } from "lucide-react";
+import { Eye, EyeOff, Trash2, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,40 +69,6 @@ export function OptionCard({
       menuSelection: { courses: [], drinks: [] },
     });
   };
-
-  // Courses aus Package-Config initialisieren (bei Paketwechsel oder wenn leer)
-  useEffect(() => {
-    if (!option.packageId || !courseConfigs.length) return;
-    if (option.offerMode !== 'menu') return;
-    if (option.menuSelection.courses.length > 0) return;
-
-    const initialCourses: CourseSelection[] = courseConfigs.map(cc => ({
-      courseType: cc.course_type,
-      courseLabel: cc.course_label,
-      itemId: null,
-      itemName: cc.is_custom_item ? (cc.custom_item_name || '') : '',
-      itemDescription: cc.is_custom_item ? (cc.custom_item_description || null) : null,
-      itemSource: 'catering' as const,
-      isCustom: cc.is_custom_item ?? false,
-    }));
-    onUpdate({ menuSelection: { ...option.menuSelection, courses: initialCourses } });
-  }, [option.packageId, courseConfigs.length, option.offerMode]);
-
-  // Drinks aus Package-Config initialisieren (nur bei menu-Modus)
-  useEffect(() => {
-    if (!option.packageId || !drinkConfigs.length) return;
-    if (option.offerMode !== 'menu') return;
-    if (option.menuSelection.drinks.length > 0) return;
-
-    const initialDrinks: DrinkSelection[] = drinkConfigs.map(dc => ({
-      drinkGroup: dc.drink_group,
-      drinkLabel: dc.drink_label,
-      selectedChoice: null,
-      quantityLabel: dc.quantity_label || null,
-      customDrink: null,
-    }));
-    onUpdate({ menuSelection: { ...option.menuSelection, drinks: initialDrinks } });
-  }, [option.packageId, drinkConfigs.length, option.offerMode]);
 
   const handleGuestCountChange = (val: string) => {
     const count = parseInt(val) || 0;
@@ -180,9 +146,12 @@ export function OptionCard({
                     const offerMode = mode as OfferMode;
                     onUpdate({
                       offerMode,
-                      ...((offerMode === 'email' || offerMode === 'paket') ? {
+                      ...(offerMode === 'paket' ? {
                         menuSelection: { courses: [], drinks: [] },
                         budgetPerPerson: null,
+                      } : offerMode === 'menu' ? {
+                        packageId: null,
+                        packageName: '',
                       } : {}),
                     });
                   }}
@@ -194,7 +163,6 @@ export function OptionCard({
                   <SelectContent>
                     <SelectItem value="menu">Menü</SelectItem>
                     <SelectItem value="paket">Paket</SelectItem>
-                    <SelectItem value="email">E-Mail</SelectItem>
                   </SelectContent>
                 </Select>
                 {isLocked && (
@@ -231,65 +199,20 @@ export function OptionCard({
 
         {/* Body */}
         <div className="p-5 space-y-4">
-          {/* Location/Paket + Gäste (nur bei menu-Modus) */}
-          {option.offerMode === 'menu' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  Location / Paket
-                </label>
-                <Select
-                  value={option.packageId || ''}
-                  onValueChange={handlePackageChange}
-                  disabled={disabled}
-                >
-                  <SelectTrigger className="h-9 rounded-xl">
-                    <SelectValue placeholder="Paket wählen..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {eventPackages.map(pkg => (
-                      <SelectItem key={pkg.id} value={pkg.id}>
-                        {pkg.name}
-                        <span className="text-muted-foreground ml-1 text-xs">
-                          ({pkg.price_per_person ? `${pkg.price} €/P.` : `${pkg.price} € pauschal`})
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  Gäste
-                </label>
-                <Input
-                  type="number"
-                  value={option.guestCount}
-                  onChange={(e) => handleGuestCountChange(e.target.value)}
-                  min={1}
-                  className="h-9 rounded-xl"
-                  disabled={disabled}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Gäste bei paket + email (ohne Package-Dropdown) */}
-          {option.offerMode !== 'menu' && (
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                Gäste
-              </label>
-              <Input
-                type="number"
-                value={option.guestCount}
-                onChange={(e) => handleGuestCountChange(e.target.value)}
-                min={1}
-                className="h-9 rounded-xl"
-                disabled={disabled}
-              />
-            </div>
-          )}
+          {/* Gäste (bei menu + paket) */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">
+              Gäste
+            </label>
+            <Input
+              type="number"
+              value={option.guestCount}
+              onChange={(e) => handleGuestCountChange(e.target.value)}
+              min={1}
+              className="h-9 rounded-xl w-32"
+              disabled={disabled}
+            />
+          </div>
 
           {/* Modus-spezifischer Content */}
           {option.offerMode === 'menu' && (
@@ -316,22 +239,12 @@ export function OptionCard({
             />
           )}
 
-          {option.offerMode === 'email' && (
-            <EmailContent
-              option={option}
-              onUpdate={onUpdate}
-              disabled={disabled}
-            />
-          )}
-
-          {/* Preis (nur bei menu + paket) */}
-          {option.offerMode !== 'email' && (
-            <PriceBreakdown
-              packageData={selectedPackage}
-              guestCount={option.guestCount}
-              menuPricePerPerson={option.budgetPerPerson || 0}
-            />
-          )}
+          {/* Preis */}
+          <PriceBreakdown
+            packageData={selectedPackage}
+            guestCount={option.guestCount}
+            menuPricePerPerson={option.budgetPerPerson || 0}
+          />
         </div>
       </Card>
     </motion.div>
@@ -493,42 +406,3 @@ function PaketContent({
   );
 }
 
-// --- Modus: E-Mail (nur freie Nachricht, kein Konfigurator) ---
-function EmailContent({
-  option,
-  onUpdate,
-  disabled,
-}: {
-  option: OfferBuilderOption;
-  onUpdate: (u: Partial<OfferBuilderOption>) => void;
-  disabled: boolean;
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="rounded-xl bg-blue-50 border border-blue-200/50 p-3 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <Mail className="h-3.5 w-3.5 text-blue-600" />
-          <p className="text-xs font-medium text-blue-800">
-            Freie E-Mail-Antwort
-          </p>
-        </div>
-        <p className="text-xs text-blue-700/80">
-          Kein Menü-Konfigurator. Wählen Sie unten eine Vorlage oder schreiben Sie frei.
-          Ideal für Reservierungsbestätigungen, allgemeine Infos oder À-la-carte-Gruppen.
-        </p>
-      </div>
-      <div>
-        <label className="text-xs font-medium text-muted-foreground mb-1 block">
-          Tisch-Anordnung (optional)
-        </label>
-        <Input
-          value={option.tableNote || ''}
-          onChange={(e) => onUpdate({ tableNote: e.target.value || null })}
-          placeholder="z.B. 2 lange Tafeln à 12 Personen, Vorspeisenplatte"
-          className="h-9 rounded-xl"
-          disabled={disabled}
-        />
-      </div>
-    </div>
-  );
-}

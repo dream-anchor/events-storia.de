@@ -127,6 +127,25 @@ export const OFFER_MODES: OfferModeConfig[] = [
   },
 ];
 
+/** Default-Gangtypen für Menü-Modus (ohne Paket-Abhängigkeit) */
+export const DEFAULT_COURSE_CONFIGS: CourseConfig[] = [
+  { id: 'def-starter', package_id: '', course_type: 'starter', course_label: 'Antipasto', course_label_en: 'Starter', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 1 },
+  { id: 'def-pasta', package_id: '', course_type: 'pasta', course_label: 'Pasta', course_label_en: 'Pasta', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 2 },
+  { id: 'def-main', package_id: '', course_type: 'main', course_label: 'Hauptgang', course_label_en: 'Main Course', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 3 },
+  { id: 'def-main-fish', package_id: '', course_type: 'main_fish', course_label: 'Fisch', course_label_en: 'Fish', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 4 },
+  { id: 'def-main-meat', package_id: '', course_type: 'main_meat', course_label: 'Fleisch', course_label_en: 'Meat', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 5 },
+  { id: 'def-dessert', package_id: '', course_type: 'dessert', course_label: 'Dessert', course_label_en: 'Dessert', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 6 },
+  { id: 'def-fingerfood', package_id: '', course_type: 'fingerfood', course_label: 'Fingerfood', course_label_en: 'Finger Food', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 7 },
+];
+
+/** Default-Getränkegruppen für Menü-Modus (ohne Paket-Abhängigkeit) */
+export const DEFAULT_DRINK_CONFIGS: DrinkConfig[] = [
+  { id: 'def-aperitif', package_id: '', drink_group: 'aperitif', drink_label: 'Aperitif', drink_label_en: 'Aperitif', options: [], quantity_per_person: null, quantity_label: null, quantity_label_en: null, is_choice: false, is_included: false, sort_order: 1 },
+  { id: 'def-main-drink', package_id: '', drink_group: 'main_drink', drink_label: 'Weinbegleitung', drink_label_en: 'Wine Pairing', options: [], quantity_per_person: null, quantity_label: null, quantity_label_en: null, is_choice: false, is_included: false, sort_order: 2 },
+  { id: 'def-water', package_id: '', drink_group: 'water', drink_label: 'Wasser', drink_label_en: 'Water', options: [], quantity_per_person: null, quantity_label: null, quantity_label_en: null, is_choice: false, is_included: false, sort_order: 3 },
+  { id: 'def-coffee', package_id: '', drink_group: 'coffee', drink_label: 'Kaffee', drink_label_en: 'Coffee', options: [], quantity_per_person: null, quantity_label: null, quantity_label_en: null, is_choice: false, is_included: false, sort_order: 4 },
+];
+
 /** Leere Option erstellen */
 export function createEmptyOption(
   label: string,
