@@ -8,7 +8,7 @@ import type {
   CourseConfig,
   DrinkConfig,
 } from "./types";
-import { DEFAULT_COURSE_CONFIGS, DEFAULT_DRINK_CONFIGS } from "./types";
+import { DEFAULT_COURSE_CONFIGS } from "./types";
 import type { Package } from "../types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 
@@ -67,11 +67,11 @@ export function OptionCardGrid({
         <AnimatePresence mode="popLayout">
           {options.map((option) => {
             // Menü-Modus: Default-Configs (kein Paket). Paket-Modus: Configs aus Paket.
-            const configs = option.offerMode === 'menu'
-              ? { courses: DEFAULT_COURSE_CONFIGS, drinks: DEFAULT_DRINK_CONFIGS }
+            const courseConfigs = option.offerMode === 'menu'
+              ? DEFAULT_COURSE_CONFIGS
               : option.packageId
-                ? packageConfigs[option.packageId] || { courses: [], drinks: [] }
-                : { courses: [], drinks: [] };
+                ? (packageConfigs[option.packageId]?.courses || [])
+                : [];
 
             return (
               <OptionCard
@@ -79,8 +79,7 @@ export function OptionCardGrid({
                 option={option}
                 packages={packages}
                 menuItems={menuItems}
-                courseConfigs={configs.courses}
-                drinkConfigs={configs.drinks}
+                courseConfigs={courseConfigs}
                 onUpdate={(updates) => onUpdateOption(option.id, updates)}
                 onRemove={() => onRemoveOption(option.id)}
                 onToggleActive={() => onToggleActive(option.id)}

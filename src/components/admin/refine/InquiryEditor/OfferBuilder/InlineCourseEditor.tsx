@@ -1,5 +1,11 @@
+import { useState } from "react";
 import { Plus, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { DishPicker } from "./DishPicker";
 import { COURSE_ICONS } from "./types";
@@ -54,10 +60,7 @@ export function InlineCourseEditor({
     return config?.allowed_categories || [];
   };
 
-  // Verfügbare Gänge zum Hinzufügen (nicht bereits vorhanden)
-  const availableCourseTypes = courseConfigs.filter(
-    config => !courses.some(c => c.courseType === config.course_type)
-  );
+  const [addOpen, setAddOpen] = useState(false);
 
   return (
     <div className="space-y-1">
@@ -100,25 +103,37 @@ export function InlineCourseEditor({
         </div>
       ))}
 
-      {!disabled && availableCourseTypes.length > 0 && (
-        <div className="flex items-center gap-2 pt-1 pl-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 rounded-xl gap-1.5 text-xs text-muted-foreground"
-            onClick={() => {
-              const next = availableCourseTypes[0];
-              onAddCourse(next.course_type, next.course_label);
-            }}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Gang hinzufügen
-          </Button>
-          {availableCourseTypes.length > 1 && (
-            <span className="text-xs text-muted-foreground/60">
-              ({availableCourseTypes.map(c => c.course_label).join(', ')})
-            </span>
-          )}
+      {!disabled && courseConfigs.length > 0 && (
+        <div className="pt-1 pl-2">
+          <Popover open={addOpen} onOpenChange={setAddOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 rounded-xl gap-1.5 text-xs text-muted-foreground"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Gang hinzufügen
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-48 p-1">
+              {courseConfigs.map((config) => (
+                <button
+                  key={config.id}
+                  onClick={() => {
+                    onAddCourse(config.course_type, config.course_label);
+                    setAddOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted/50 transition-colors text-left"
+                >
+                  <span className="text-base w-6 text-center">
+                    {COURSE_ICONS[config.course_type] || '🍽️'}
+                  </span>
+                  <span>{config.course_label}</span>
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
         </div>
       )}
     </div>

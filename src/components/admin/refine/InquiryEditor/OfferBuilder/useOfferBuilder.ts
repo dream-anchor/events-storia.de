@@ -83,6 +83,14 @@ export function useOfferBuilder({
   const isInitialLoad = useRef(true);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Refs für Props die im Load-Effect gebraucht werden (kein Re-Trigger)
+  const guestCountRef = useRef(guestCount);
+  const selectedPackagesRef = useRef(selectedPackages);
+  const inquiryRef = useRef(inquiry);
+  guestCountRef.current = guestCount;
+  selectedPackagesRef.current = selectedPackages;
+  inquiryRef.current = inquiry;
+
   // --- Neue State ---
   const [offerPhase, setOfferPhase] = useState<OfferPhase>('draft');
   const [customerResponse, setCustomerResponse] = useState<CustomerResponse | null>(null);
@@ -218,7 +226,7 @@ export function useOfferBuilder({
           setCurrentVersion(Math.max(...mappedOptions.map(o => o.offerVersion)));
         } else {
           // Erstelle initiale Option A
-          const customerPackage = selectedPackages?.[0];
+          const customerPackage = selectedPackagesRef.current?.[0];
           const customerPackageId = customerPackage?.id || null;
           let initialTotal = 0;
           let initialPackageName = '';
@@ -229,7 +237,7 @@ export function useOfferBuilder({
               initialTotal = calculateEventPackagePrice(
                 customerPackageId!,
                 customerPackage.price,
-                guestCount,
+                guestCountRef.current,
                 !!customerPackage.pricePerPerson
               );
             }
@@ -237,7 +245,7 @@ export function useOfferBuilder({
 
           setOptions([{
             id: crypto.randomUUID(),
-            ...createEmptyOption('A', guestCount),
+            ...createEmptyOption('A', guestCountRef.current),
             packageId: customerPackageId,
             packageName: initialPackageName,
             totalAmount: initialTotal,
@@ -264,7 +272,7 @@ export function useOfferBuilder({
         }
 
         // 3. offer_phase aus inquiry lesen
-        const phase = (inquiry as Record<string, unknown>).offer_phase as string | undefined;
+        const phase = (inquiryRef.current as Record<string, unknown>).offer_phase as string | undefined;
         setOfferPhase((phase as OfferPhase) || 'draft');
 
         // 4. Customer Response laden
@@ -293,7 +301,9 @@ export function useOfferBuilder({
     };
 
     loadAll();
-  }, [inquiryId, guestCount, selectedPackages, inquiry]);
+  // Nur bei inquiryId-Wechsel laden. guestCount/inquiry/selectedPackages via Refs.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inquiryId]);
 
   // =================================================================
   // AUTO-SAVE — 800ms Debounce (exakt aus useMultiOfferState)
@@ -387,6 +397,10 @@ export function useOfferBuilder({
     setOptions(prev => {
       let changed = false;
       const updated = prev.map(opt => {
+        // Menü-Modus: Preis wird manuell gesetzt (kein Auto-Calc)
+        if (opt.offerMode === 'menu') return opt;
+
+        // Paket-Modus: Preis aus Paket-Kalkulation
         if (!opt.packageId) return opt;
         const pkg = packagesProp.find(p => p.id === opt.packageId);
         if (!pkg) return opt;
@@ -394,10 +408,7 @@ export function useOfferBuilder({
         const locationPrice = calculateEventPackagePrice(
           pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
         );
-        const menuTotal = (opt.offerMode === 'menu' && opt.budgetPerPerson)
-          ? opt.budgetPerPerson * opt.guestCount
-          : 0;
-        const newTotal = locationPrice + menuTotal;
+        const newTotal = locationPrice;
 
         if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
         changed = true;
@@ -408,7 +419,7 @@ export function useOfferBuilder({
       priceRecalcRef.current = true;
       return updated;
     });
-  }, [isLoading, packagesProp, options.map(o => `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}`).join(',')]);
+  }, [isLoading, packagesProp, options.map(o => `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.menuSelection.winePairingPrice}`).join(',')]);
 
   // =================================================================
   // OPTION CRUD (migriert aus useMultiOfferState)
@@ -476,7 +487,7 @@ export function useOfferBuilder({
           });
       }
 
-      toast.success("Optionen gespeichert");
+      // Still save — kein Toast (Auto-Save im Hintergrund)
     } catch (error) {
       console.error("Error saving options:", error);
       toast.error("Fehler beim Speichern");

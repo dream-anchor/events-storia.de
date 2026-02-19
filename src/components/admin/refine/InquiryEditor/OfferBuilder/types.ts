@@ -66,6 +66,7 @@ export interface OfferBuilderOption {
   menuSelection: {
     courses: import('../MenuComposer/types').CourseSelection[];
     drinks: import('../MenuComposer/types').DrinkSelection[];
+    winePairingPrice?: number | null;
   };
   totalAmount: number;
   stripePaymentLinkId: string | null;

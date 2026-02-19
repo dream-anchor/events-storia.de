@@ -1,14 +1,26 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { calculateEventPackagePrice, isLocationPackage, getLocationPricingBreakdown } from "@/lib/eventPricing";
 import type { Package } from "../types";
+import type { CourseSelection } from "./types";
+import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 
 interface PriceBreakdownProps {
   packageData: Package | undefined;
   guestCount: number;
-  /** Zusätzlicher Menü-Preis pro Person (z.B. bei Fest-Menü) */
+  /** Menü-Modus: Kurse mit Einzelpreisen */
+  courses?: CourseSelection[];
+  menuItems?: CombinedMenuItem[];
+  /** Weinbegleitung pro Person */
+  winePairingPrice?: number | null;
+  /** Manueller Gesamtpreis (frei editierbar) */
+  totalAmount?: number;
+  onTotalChange?: (total: number) => void;
+  /** Zusätzlicher Menü-Preis pro Person (legacy, für Paket-Modus) */
   menuPricePerPerson?: number;
+  disabled?: boolean;
 }
 
 function formatCurrency(amount: number): string {
@@ -23,8 +35,101 @@ function formatCurrency(amount: number): string {
 export function PriceBreakdown({
   packageData,
   guestCount,
+  courses,
+  menuItems,
+  winePairingPrice,
+  totalAmount,
+  onTotalChange,
   menuPricePerPerson = 0,
+  disabled = false,
 }: PriceBreakdownProps) {
+  // --- Menü-Modus (kein Paket) ---
+  if (!packageData && onTotalChange !== undefined) {
+    // Einzelpreise der gewählten Gerichte (als Referenz)
+    const dishLines = (courses || [])
+      .filter(c => c.itemId && c.itemName)
+      .map(c => {
+        const menuItem = menuItems?.find(m => m.id === c.itemId);
+        return {
+          label: c.courseLabel,
+          name: c.itemName,
+          price: menuItem?.price ?? null,
+        };
+      });
+
+    const dishSubtotal = dishLines.reduce((sum, d) => sum + (d.price || 0), 0);
+    const wineTotal = (winePairingPrice || 0) * guestCount;
+    const referenceTotal = dishSubtotal * guestCount + wineTotal;
+
+    return (
+      <div className="pt-3 border-t border-border/30 space-y-2">
+        {/* Einzelgerichte (Referenzpreise) */}
+        {dishLines.length > 0 && (
+          <div className="space-y-1">
+            <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
+              Gerichte (Katalogpreise)
+            </span>
+            {dishLines.map((d, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground truncate mr-2">
+                  {d.label}: {d.name}
+                </span>
+                <span className="text-muted-foreground/70 shrink-0">
+                  {d.price != null ? formatCurrency(d.price) : '—'}
+                </span>
+              </div>
+            ))}
+            {dishSubtotal > 0 && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground/70">
+                <span>Summe Gerichte × {guestCount} Gäste</span>
+                <span>{formatCurrency(dishSubtotal * guestCount)}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Weinbegleitung */}
+        {winePairingPrice != null && winePairingPrice > 0 && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              🍷 Weinbegleitung ({guestCount} × {formatCurrency(winePairingPrice)})
+            </span>
+            <span className="text-muted-foreground">{formatCurrency(wineTotal)}</span>
+          </div>
+        )}
+
+        {/* Referenzpreis */}
+        {referenceTotal > 0 && Math.abs((totalAmount || 0) - referenceTotal) > 0.01 && (
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground/50">
+            <span>Orientierung (Katalog)</span>
+            <span>{formatCurrency(referenceTotal)}</span>
+          </div>
+        )}
+
+        <Separator className="my-1" />
+
+        {/* Editierbarer Gesamtpreis */}
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-semibold">Gesamtpreis</span>
+          <div className="relative w-36">
+            <Input
+              type="number"
+              value={totalAmount || ''}
+              onChange={(e) => onTotalChange?.(parseFloat(e.target.value) || 0)}
+              placeholder="0,00"
+              className="h-8 rounded-xl pr-8 text-right font-bold"
+              disabled={disabled}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              €
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Paket-Modus (mit Paket) ---
   if (!packageData) {
     return (
       <div className="pt-3 border-t border-border/30">

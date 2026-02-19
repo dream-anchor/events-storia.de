@@ -13,15 +13,12 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { InlineCourseEditor } from "./InlineCourseEditor";
-import { InlineDrinkEditor } from "./InlineDrinkEditor";
 import { PriceBreakdown } from "./PriceBreakdown";
 import type {
   OfferBuilderOption,
   OfferMode,
   CourseConfig,
-  DrinkConfig,
   CourseSelection,
-  DrinkSelection,
   CourseType,
 } from "./types";
 import type { Package } from "../types";
@@ -32,7 +29,6 @@ interface OptionCardProps {
   packages: Package[];
   menuItems: CombinedMenuItem[];
   courseConfigs: CourseConfig[];
-  drinkConfigs: DrinkConfig[];
   onUpdate: (updates: Partial<OfferBuilderOption>) => void;
   onRemove: () => void;
   onToggleActive: () => void;
@@ -44,7 +40,6 @@ export function OptionCard({
   packages,
   menuItems,
   courseConfigs,
-  drinkConfigs,
   onUpdate,
   onRemove,
   onToggleActive,
@@ -102,12 +97,6 @@ export function OptionCard({
   const handleCourseRemove = (index: number) => {
     const updated = option.menuSelection.courses.filter((_, i) => i !== index);
     onUpdate({ menuSelection: { ...option.menuSelection, courses: updated } });
-  };
-
-  const handleDrinkUpdate = (index: number, update: Partial<DrinkSelection>) => {
-    const updated = [...option.menuSelection.drinks];
-    updated[index] = { ...updated[index], ...update };
-    onUpdate({ menuSelection: { ...option.menuSelection, drinks: updated } });
   };
 
   const disabled = isLocked;
@@ -219,13 +208,11 @@ export function OptionCard({
             <MenuContent
               option={option}
               courseConfigs={courseConfigs}
-              drinkConfigs={drinkConfigs}
               menuItems={menuItems}
               onUpdate={onUpdate}
               onCourseUpdate={handleCourseUpdate}
               onCourseAdd={handleCourseAdd}
               onCourseRemove={handleCourseRemove}
-              onDrinkUpdate={handleDrinkUpdate}
               disabled={disabled}
             />
           )}
@@ -243,7 +230,12 @@ export function OptionCard({
           <PriceBreakdown
             packageData={selectedPackage}
             guestCount={option.guestCount}
-            menuPricePerPerson={option.budgetPerPerson || 0}
+            courses={option.offerMode === 'menu' ? option.menuSelection.courses : undefined}
+            menuItems={option.offerMode === 'menu' ? menuItems : undefined}
+            winePairingPrice={option.menuSelection.winePairingPrice}
+            totalAmount={option.totalAmount}
+            onTotalChange={option.offerMode === 'menu' ? (total) => onUpdate({ totalAmount: total }) : undefined}
+            disabled={disabled}
           />
         </div>
       </Card>
@@ -255,50 +247,26 @@ export function OptionCard({
 function MenuContent({
   option,
   courseConfigs,
-  drinkConfigs,
   menuItems,
   onUpdate,
   onCourseUpdate,
   onCourseAdd,
   onCourseRemove,
-  onDrinkUpdate,
   disabled,
 }: {
   option: OfferBuilderOption;
   courseConfigs: CourseConfig[];
-  drinkConfigs: DrinkConfig[];
   menuItems: CombinedMenuItem[];
   onUpdate: (u: Partial<OfferBuilderOption>) => void;
   onCourseUpdate: (idx: number, u: Partial<CourseSelection>) => void;
   onCourseAdd: (type: CourseType, label: string) => void;
   onCourseRemove: (idx: number) => void;
-  onDrinkUpdate: (idx: number, u: Partial<DrinkSelection>) => void;
   disabled: boolean;
 }) {
+  const hasWinePairing = (option.menuSelection.winePairingPrice ?? null) !== null;
+
   return (
     <div className="space-y-4">
-      {/* Budget pro Person */}
-      <div>
-        <label className="text-xs font-medium text-muted-foreground mb-1 block">
-          Budget pro Person (Orientierung)
-        </label>
-        <div className="relative">
-          <Input
-            type="number"
-            value={option.budgetPerPerson || ''}
-            onChange={(e) =>
-              onUpdate({ budgetPerPerson: parseFloat(e.target.value) || null })
-            }
-            placeholder="z.B. 85"
-            className="h-9 rounded-xl pr-8"
-            disabled={disabled}
-          />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-            €
-          </span>
-        </div>
-      </div>
-
       {/* Gänge */}
       <div>
         <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
@@ -315,20 +283,50 @@ function MenuContent({
         />
       </div>
 
-      {/* Getränke */}
-      {(option.menuSelection.drinks.length > 0 || drinkConfigs.length > 0) && (
-        <div>
-          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-            Getränke
-          </h4>
-          <InlineDrinkEditor
-            drinks={option.menuSelection.drinks}
-            drinkConfigs={drinkConfigs}
-            onUpdateDrink={onDrinkUpdate}
+      {/* Weinbegleitung */}
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={hasWinePairing}
+            onChange={(e) => {
+              onUpdate({
+                menuSelection: {
+                  ...option.menuSelection,
+                  winePairingPrice: e.target.checked ? 0 : null,
+                },
+              });
+            }}
             disabled={disabled}
+            className="h-4 w-4 rounded border-border accent-primary"
           />
-        </div>
-      )}
+          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            🍷 Weinbegleitung
+          </span>
+        </label>
+        {hasWinePairing && (
+          <div className="relative ml-6 w-40">
+            <Input
+              type="number"
+              value={option.menuSelection.winePairingPrice || ''}
+              onChange={(e) =>
+                onUpdate({
+                  menuSelection: {
+                    ...option.menuSelection,
+                    winePairingPrice: parseFloat(e.target.value) || 0,
+                  },
+                })
+              }
+              placeholder="z.B. 25"
+              className="h-9 rounded-xl pr-16"
+              disabled={disabled}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              € / Pers.
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

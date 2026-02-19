@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,19 @@ export function DishPicker({
 }: DishPickerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Scroll nach oben zurücksetzen beim Öffnen
+  useEffect(() => {
+    if (open) {
+      setSearch("");
+      requestAnimationFrame(() => {
+        if (listRef.current) {
+          listRef.current.scrollTop = 0;
+        }
+      });
+    }
+  }, [open]);
 
   // Filtere Items nach erlaubten Kategorien
   const filteredItems = useMemo(() => {
@@ -52,11 +65,15 @@ export function DishPicker({
     );
   }, [menuItems, filterCategories]);
 
-  // Gruppiere nach Source
+  // Gruppiere nach Kategorie (statt Source)
   const grouped = useMemo(() => {
-    const catering = filteredItems.filter(i => i.source === 'catering');
-    const ristorante = filteredItems.filter(i => i.source === 'ristorante');
-    return { catering, ristorante };
+    const categories = new Map<string, CombinedMenuItem[]>();
+    for (const item of filteredItems) {
+      const key = item.category_name;
+      if (!categories.has(key)) categories.set(key, []);
+      categories.get(key)!.push(item);
+    }
+    return categories;
   }, [filteredItems]);
 
   const handleSelect = (item: CombinedMenuItem) => {
@@ -113,103 +130,86 @@ export function DishPicker({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0" align="start">
+      <PopoverContent
+        className="w-[360px] p-0 shadow-lg border-border/60"
+        align="start"
+        style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
+      >
         <Command shouldFilter={true}>
           <CommandInput
-            placeholder="Suchen..."
+            placeholder="Gericht suchen..."
             value={search}
             onValueChange={setSearch}
+            className="text-sm"
           />
-          <CommandList>
+          <CommandList ref={listRef} className="max-h-[280px]">
             <CommandEmpty>
               {allowCustom && search.trim() ? (
                 <button
                   onClick={handleCustom}
-                  className="flex items-center gap-2 w-full px-2 py-2 text-sm text-left hover:bg-accent rounded-sm"
+                  className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left hover:bg-muted/50 rounded-lg transition-colors"
                 >
-                  <Plus className="h-4 w-4 text-primary" />
-                  <span>"{search}" als Freitext hinzufügen</span>
+                  <Plus className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-foreground">
+                    <strong>„{search}"</strong>
+                    <span className="text-muted-foreground ml-1">als Freitext</span>
+                  </span>
                 </button>
               ) : (
-                <span>Kein Gericht gefunden.</span>
+                <span className="text-muted-foreground text-sm">Kein Gericht gefunden.</span>
               )}
             </CommandEmpty>
 
-            {grouped.catering.length > 0 && (
-              <CommandGroup heading="Catering">
-                {grouped.catering.map((item) => (
+            {[...grouped.entries()].map(([category, items], idx) => (
+              <CommandGroup
+                key={category}
+                heading={
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                    {category}
+                  </span>
+                }
+              >
+                {items.map((item) => (
                   <CommandItem
                     key={item.id}
-                    value={`${item.name} ${item.category_name}`}
+                    value={`${item.name} ${item.category_name} ${item.description || ''}`}
                     onSelect={() => handleSelect(item)}
+                    className="py-2 px-3 rounded-lg"
                   >
                     <Check
                       className={cn(
-                        "mr-2 h-4 w-4",
-                        value?.id === item.id ? "opacity-100" : "opacity-0"
+                        "mr-2 h-3.5 w-3.5 shrink-0",
+                        value?.id === item.id ? "opacity-100 text-primary" : "opacity-0"
                       )}
                     />
                     <div className="flex-1 min-w-0">
-                      <span className="block truncate text-sm">{item.name}</span>
+                      <span className="block truncate text-sm font-medium">{item.name}</span>
                       {item.description && (
-                        <span className="block truncate text-xs text-muted-foreground">
+                        <span className="block truncate text-xs text-muted-foreground/70 mt-0.5">
                           {item.description}
                         </span>
                       )}
                     </div>
                     {item.price != null && (
-                      <span className="text-xs text-muted-foreground ml-2 shrink-0">
+                      <span className="text-xs font-medium text-muted-foreground ml-2 shrink-0 tabular-nums">
                         {item.price.toFixed(2)} €
                       </span>
                     )}
                   </CommandItem>
                 ))}
               </CommandGroup>
-            )}
+            ))}
 
-            {grouped.catering.length > 0 && grouped.ristorante.length > 0 && (
-              <CommandSeparator />
-            )}
-
-            {grouped.ristorante.length > 0 && (
-              <CommandGroup heading="Ristorante">
-                {grouped.ristorante.map((item) => (
-                  <CommandItem
-                    key={item.id}
-                    value={`${item.name} ${item.category_name}`}
-                    onSelect={() => handleSelect(item)}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value?.id === item.id ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <span className="block truncate text-sm">{item.name}</span>
-                      {item.description && (
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {item.description}
-                        </span>
-                      )}
-                    </div>
-                    {item.price != null && (
-                      <span className="text-xs text-muted-foreground ml-2 shrink-0">
-                        {item.price.toFixed(2)} €
-                      </span>
-                    )}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-
-            {allowCustom && search.trim() && (filteredItems.length > 0) && (
+            {allowCustom && search.trim() && filteredItems.length > 0 && (
               <>
                 <CommandSeparator />
                 <CommandGroup>
-                  <CommandItem onSelect={handleCustom}>
-                    <Plus className="mr-2 h-4 w-4 text-primary" />
-                    <span>"{search}" als Freitext</span>
+                  <CommandItem onSelect={handleCustom} className="py-2 px-3 rounded-lg">
+                    <Plus className="mr-2 h-4 w-4 text-primary shrink-0" />
+                    <span className="text-sm">
+                      <strong>„{search}"</strong>
+                      <span className="text-muted-foreground ml-1">als Freitext</span>
+                    </span>
                   </CommandItem>
                 </CommandGroup>
               </>
