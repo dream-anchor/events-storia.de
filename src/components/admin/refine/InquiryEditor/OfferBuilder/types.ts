@@ -2,7 +2,7 @@
 // Ersetzt MultiOffer/types.ts mit Erweiterungen für 3-Modi und 2-Phasen-Flow
 
 // Re-export bestehende Types aus MenuComposer (werden weiterverwendet)
-export type {
+import type {
   CourseType,
   DrinkGroupType,
   ItemSource,
@@ -14,6 +14,18 @@ export type {
   MenuItem,
 } from '../MenuComposer/types';
 
+export type {
+  CourseType,
+  DrinkGroupType,
+  ItemSource,
+  CourseConfig,
+  DrinkConfig,
+  DrinkOption,
+  CourseSelection,
+  DrinkSelection,
+  MenuItem,
+};
+
 export { COURSE_ICONS, DRINK_ICONS } from '../MenuComposer/types';
 
 // Re-export MenuSelection aus MenuComposer (identische Struktur)
@@ -23,7 +35,8 @@ export type { MenuSelection as MenuSelectionType } from '../MenuComposer/types';
 export type { ExtendedInquiry, Package, EmailTemplate, SelectedPackage } from '../types';
 
 // Re-export CombinedMenuItem aus Hook
-export type { CombinedMenuItem } from '@/hooks/useCombinedMenuItems';
+import type { CombinedMenuItem } from '@/hooks/useCombinedMenuItems';
+export type { CombinedMenuItem };
 
 // --- Neue Types ---
 
