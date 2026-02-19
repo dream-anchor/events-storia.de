@@ -14,8 +14,6 @@ interface InlineCourseEditorProps {
   onAddCourse: (courseType: CourseType, courseLabel: string) => void;
   onRemoveCourse: (index: number) => void;
   disabled?: boolean;
-  /** Teil-Menü: Nur Vorspeisen-Checkboxen */
-  isPartialMenu?: boolean;
 }
 
 export function InlineCourseEditor({
@@ -26,7 +24,6 @@ export function InlineCourseEditor({
   onAddCourse,
   onRemoveCourse,
   disabled = false,
-  isPartialMenu = false,
 }: InlineCourseEditorProps) {
   const handleDishSelect = (
     index: number,
@@ -62,51 +59,6 @@ export function InlineCourseEditor({
     config => !courses.some(c => c.courseType === config.course_type)
   );
 
-  if (isPartialMenu) {
-    // Teil-Menü: Nur Vorspeisen (Starter) als Checkboxen
-    const starterConfigs = courseConfigs.filter(c =>
-      c.course_type === 'starter' || c.course_type === 'fingerfood'
-    );
-
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Vorbestellte Vorspeise (Gäste wählen 1 von {courses.length || '...'})
-          </span>
-        </div>
-        {courses.map((course, idx) => (
-          <div key={idx} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-muted/30">
-            <span className="text-base w-7 text-center shrink-0">
-              {COURSE_ICONS[course.courseType as CourseType] || '🍽️'}
-            </span>
-            <DishPicker
-              value={course.itemId ? { id: course.itemId, name: course.itemName } : null}
-              onSelect={(dish) => handleDishSelect(idx, dish)}
-              onClear={() => handleClear(idx)}
-              menuItems={menuItems}
-              filterCategories={getFilterCategories(course.courseType)}
-              placeholder="Vorspeise wählen..."
-              disabled={disabled}
-            />
-          </div>
-        ))}
-        {courses.length < 3 && !disabled && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onAddCourse('starter', 'Vorspeise')}
-            className="h-8 rounded-xl gap-1.5 text-xs text-muted-foreground"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Weitere Vorspeise zur Auswahl
-          </Button>
-        )}
-      </div>
-    );
-  }
-
-  // Fest-Menü: Alle Gänge inline
   return (
     <div className="space-y-1">
       {courses.map((course, idx) => (

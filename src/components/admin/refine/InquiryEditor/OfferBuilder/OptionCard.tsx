@@ -1,10 +1,9 @@
 import { useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Trash2, Lock, FileText } from "lucide-react";
+import { Eye, EyeOff, Trash2, Lock, Mail } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -64,7 +63,6 @@ export function OptionCard({
   const handlePackageChange = (packageId: string) => {
     const pkg = packages.find(p => p.id === packageId);
     if (!pkg) return;
-    // Courses + Drinks leeren bei Paketwechsel — werden durch useEffect neu initialisiert
     onUpdate({
       packageId,
       packageName: pkg.name,
@@ -75,7 +73,7 @@ export function OptionCard({
   // Courses aus Package-Config initialisieren (bei Paketwechsel oder wenn leer)
   useEffect(() => {
     if (!option.packageId || !courseConfigs.length) return;
-    if (option.offerMode === 'a_la_carte') return;
+    if (option.offerMode !== 'menu') return;
     if (option.menuSelection.courses.length > 0) return;
 
     const initialCourses: CourseSelection[] = courseConfigs.map(cc => ({
@@ -90,10 +88,10 @@ export function OptionCard({
     onUpdate({ menuSelection: { ...option.menuSelection, courses: initialCourses } });
   }, [option.packageId, courseConfigs.length, option.offerMode]);
 
-  // Drinks aus Package-Config initialisieren (nur bei fest_menu)
+  // Drinks aus Package-Config initialisieren (nur bei menu-Modus)
   useEffect(() => {
     if (!option.packageId || !drinkConfigs.length) return;
-    if (option.offerMode !== 'fest_menu') return;
+    if (option.offerMode !== 'menu') return;
     if (option.menuSelection.drinks.length > 0) return;
 
     const initialDrinks: DrinkSelection[] = drinkConfigs.map(dc => ({
@@ -182,7 +180,7 @@ export function OptionCard({
                     const offerMode = mode as OfferMode;
                     onUpdate({
                       offerMode,
-                      ...((offerMode === 'a_la_carte' || offerMode === 'paket') ? {
+                      ...((offerMode === 'email' || offerMode === 'paket') ? {
                         menuSelection: { courses: [], drinks: [] },
                         budgetPerPerson: null,
                       } : {}),
@@ -194,10 +192,9 @@ export function OptionCard({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="a_la_carte">À la carte</SelectItem>
-                    <SelectItem value="teil_menu">Teil-Menü</SelectItem>
-                    <SelectItem value="fest_menu">Fest-Menü</SelectItem>
+                    <SelectItem value="menu">Menü</SelectItem>
                     <SelectItem value="paket">Paket</SelectItem>
+                    <SelectItem value="email">E-Mail</SelectItem>
                   </SelectContent>
                 </Select>
                 {isLocked && (
@@ -234,9 +231,9 @@ export function OptionCard({
 
         {/* Body */}
         <div className="p-5 space-y-4">
-          {/* Paket + Gäste (Paket nur bei teil_menu und fest_menu) */}
-          <div className={cn("grid gap-3", (option.offerMode === 'a_la_carte' || option.offerMode === 'paket') ? "grid-cols-1" : "grid-cols-2")}>
-            {option.offerMode !== 'a_la_carte' && option.offerMode !== 'paket' && (
+          {/* Location/Paket + Gäste (nur bei menu-Modus) */}
+          {option.offerMode === 'menu' && (
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
                   Location / Paket
@@ -261,7 +258,24 @@ export function OptionCard({
                   </SelectContent>
                 </Select>
               </div>
-            )}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  Gäste
+                </label>
+                <Input
+                  type="number"
+                  value={option.guestCount}
+                  onChange={(e) => handleGuestCountChange(e.target.value)}
+                  min={1}
+                  className="h-9 rounded-xl"
+                  disabled={disabled}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Gäste bei paket + email (ohne Package-Dropdown) */}
+          {option.offerMode !== 'menu' && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">
                 Gäste
@@ -275,31 +289,11 @@ export function OptionCard({
                 disabled={disabled}
               />
             </div>
-          </div>
+          )}
 
           {/* Modus-spezifischer Content */}
-          {option.offerMode === 'a_la_carte' && (
-            <AlaCarteContent
-              option={option}
-              onUpdate={onUpdate}
-              disabled={disabled}
-            />
-          )}
-
-          {option.offerMode === 'teil_menu' && (
-            <TeilMenuContent
-              option={option}
-              courseConfigs={courseConfigs}
-              menuItems={menuItems}
-              onCourseUpdate={handleCourseUpdate}
-              onCourseAdd={handleCourseAdd}
-              onCourseRemove={handleCourseRemove}
-              disabled={disabled}
-            />
-          )}
-
-          {option.offerMode === 'fest_menu' && (
-            <FestMenuContent
+          {option.offerMode === 'menu' && (
+            <MenuContent
               option={option}
               courseConfigs={courseConfigs}
               drinkConfigs={drinkConfigs}
@@ -322,8 +316,16 @@ export function OptionCard({
             />
           )}
 
-          {/* Preis (nicht bei à la carte — dort gibt es keinen Konfigurator-Preis) */}
-          {option.offerMode !== 'a_la_carte' && (
+          {option.offerMode === 'email' && (
+            <EmailContent
+              option={option}
+              onUpdate={onUpdate}
+              disabled={disabled}
+            />
+          )}
+
+          {/* Preis (nur bei menu + paket) */}
+          {option.offerMode !== 'email' && (
             <PriceBreakdown
               packageData={selectedPackage}
               guestCount={option.guestCount}
@@ -336,94 +338,84 @@ export function OptionCard({
   );
 }
 
-// --- Modus: À la carte (Reservierungsbestätigung, kein Konfigurator) ---
-function AlaCarteContent({
-  option,
-  onUpdate,
-  disabled,
-}: {
-  option: OfferBuilderOption;
-  onUpdate: (u: Partial<OfferBuilderOption>) => void;
-  disabled: boolean;
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="rounded-xl bg-amber-50 border border-amber-200/50 p-3 space-y-2">
-        <p className="text-xs font-medium text-amber-800">
-          Reservierungsbestätigung
-        </p>
-        <p className="text-xs text-amber-700/80">
-          Gäste bestellen frei von unserer Speisekarte. Kein Menü-Konfigurator nötig.
-          Verwenden Sie die Vorlage "Reservierungsanfrage (Gruppen)" im Anschreiben.
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id={`attach-menu-${option.id}`}
-          checked={option.attachMenu}
-          onCheckedChange={(checked) =>
-            onUpdate({ attachMenu: checked === true })
-          }
-          disabled={disabled}
-        />
-        <label
-          htmlFor={`attach-menu-${option.id}`}
-          className="text-sm cursor-pointer"
-        >
-          <FileText className="h-3.5 w-3.5 inline mr-1 text-muted-foreground" />
-          Aktuelle Speisekarte als PDF beifügen
-        </label>
-      </div>
-      <div>
-        <label className="text-xs font-medium text-muted-foreground mb-1 block">
-          Tisch-Anordnung (optional)
-        </label>
-        <Input
-          value={option.tableNote || ''}
-          onChange={(e) => onUpdate({ tableNote: e.target.value || null })}
-          placeholder="z.B. 2 lange Tafeln à 12 Personen, Vorspeisenplatte"
-          className="h-9 rounded-xl"
-          disabled={disabled}
-        />
-      </div>
-    </div>
-  );
-}
-
-// --- Modus: Teil-Menü (alle Gänge wählbar, Rest à la carte) ---
-function TeilMenuContent({
+// --- Modus: Menü (freie Gangkonfiguration) ---
+function MenuContent({
   option,
   courseConfigs,
+  drinkConfigs,
   menuItems,
+  onUpdate,
   onCourseUpdate,
   onCourseAdd,
   onCourseRemove,
+  onDrinkUpdate,
   disabled,
 }: {
   option: OfferBuilderOption;
   courseConfigs: CourseConfig[];
+  drinkConfigs: DrinkConfig[];
   menuItems: CombinedMenuItem[];
+  onUpdate: (u: Partial<OfferBuilderOption>) => void;
   onCourseUpdate: (idx: number, u: Partial<CourseSelection>) => void;
   onCourseAdd: (type: CourseType, label: string) => void;
   onCourseRemove: (idx: number) => void;
+  onDrinkUpdate: (idx: number, u: Partial<DrinkSelection>) => void;
   disabled: boolean;
 }) {
   return (
-    <div className="space-y-3">
-      <InlineCourseEditor
-        courses={option.menuSelection.courses}
-        courseConfigs={courseConfigs}
-        menuItems={menuItems}
-        onUpdateCourse={onCourseUpdate}
-        onAddCourse={onCourseAdd}
-        onRemoveCourse={onCourseRemove}
-        disabled={disabled}
-      />
-      <div className="rounded-xl bg-amber-50 border border-amber-200/50 p-3">
-        <p className="text-xs text-amber-700/80">
-          Vorbestellte Gänge werden serviert. Restliche Gänge bestellen Gäste à la carte vor Ort.
-        </p>
+    <div className="space-y-4">
+      {/* Budget pro Person */}
+      <div>
+        <label className="text-xs font-medium text-muted-foreground mb-1 block">
+          Budget pro Person (Orientierung)
+        </label>
+        <div className="relative">
+          <Input
+            type="number"
+            value={option.budgetPerPerson || ''}
+            onChange={(e) =>
+              onUpdate({ budgetPerPerson: parseFloat(e.target.value) || null })
+            }
+            placeholder="z.B. 85"
+            className="h-9 rounded-xl pr-8"
+            disabled={disabled}
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+            €
+          </span>
+        </div>
       </div>
+
+      {/* Gänge */}
+      <div>
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+          Menü
+        </h4>
+        <InlineCourseEditor
+          courses={option.menuSelection.courses}
+          courseConfigs={courseConfigs}
+          menuItems={menuItems}
+          onUpdateCourse={onCourseUpdate}
+          onAddCourse={onCourseAdd}
+          onRemoveCourse={onCourseRemove}
+          disabled={disabled}
+        />
+      </div>
+
+      {/* Getränke */}
+      {(option.menuSelection.drinks.length > 0 || drinkConfigs.length > 0) && (
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+            Getränke
+          </h4>
+          <InlineDrinkEditor
+            drinks={option.menuSelection.drinks}
+            drinkConfigs={drinkConfigs}
+            onUpdateDrink={onDrinkUpdate}
+            disabled={disabled}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -501,84 +493,42 @@ function PaketContent({
   );
 }
 
-// --- Modus: Fest-Menü ---
-function FestMenuContent({
+// --- Modus: E-Mail (nur freie Nachricht, kein Konfigurator) ---
+function EmailContent({
   option,
-  courseConfigs,
-  drinkConfigs,
-  menuItems,
   onUpdate,
-  onCourseUpdate,
-  onCourseAdd,
-  onCourseRemove,
-  onDrinkUpdate,
   disabled,
 }: {
   option: OfferBuilderOption;
-  courseConfigs: CourseConfig[];
-  drinkConfigs: DrinkConfig[];
-  menuItems: CombinedMenuItem[];
   onUpdate: (u: Partial<OfferBuilderOption>) => void;
-  onCourseUpdate: (idx: number, u: Partial<CourseSelection>) => void;
-  onCourseAdd: (type: CourseType, label: string) => void;
-  onCourseRemove: (idx: number) => void;
-  onDrinkUpdate: (idx: number, u: Partial<DrinkSelection>) => void;
   disabled: boolean;
 }) {
   return (
-    <div className="space-y-4">
-      {/* Budget pro Person */}
+    <div className="space-y-3">
+      <div className="rounded-xl bg-blue-50 border border-blue-200/50 p-3 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <Mail className="h-3.5 w-3.5 text-blue-600" />
+          <p className="text-xs font-medium text-blue-800">
+            Freie E-Mail-Antwort
+          </p>
+        </div>
+        <p className="text-xs text-blue-700/80">
+          Kein Menü-Konfigurator. Wählen Sie unten eine Vorlage oder schreiben Sie frei.
+          Ideal für Reservierungsbestätigungen, allgemeine Infos oder À-la-carte-Gruppen.
+        </p>
+      </div>
       <div>
         <label className="text-xs font-medium text-muted-foreground mb-1 block">
-          Budget pro Person (Orientierung)
+          Tisch-Anordnung (optional)
         </label>
-        <div className="relative">
-          <Input
-            type="number"
-            value={option.budgetPerPerson || ''}
-            onChange={(e) =>
-              onUpdate({ budgetPerPerson: parseFloat(e.target.value) || null })
-            }
-            placeholder="z.B. 85"
-            className="h-9 rounded-xl pr-8"
-            disabled={disabled}
-          />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-            €
-          </span>
-        </div>
-      </div>
-
-      {/* Gänge */}
-      <div>
-        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-          Menü
-        </h4>
-        <InlineCourseEditor
-          courses={option.menuSelection.courses}
-          courseConfigs={courseConfigs}
-          menuItems={menuItems}
-          onUpdateCourse={onCourseUpdate}
-          onAddCourse={onCourseAdd}
-          onRemoveCourse={onCourseRemove}
+        <Input
+          value={option.tableNote || ''}
+          onChange={(e) => onUpdate({ tableNote: e.target.value || null })}
+          placeholder="z.B. 2 lange Tafeln à 12 Personen, Vorspeisenplatte"
+          className="h-9 rounded-xl"
           disabled={disabled}
         />
       </div>
-
-      {/* Getränke — anzeigen wenn Drinks vorhanden ODER drinkConfigs geladen */}
-      {(option.menuSelection.drinks.length > 0 || drinkConfigs.length > 0) && (
-        <div>
-          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-            Getränke
-          </h4>
-          <InlineDrinkEditor
-            drinks={option.menuSelection.drinks}
-            drinkConfigs={drinkConfigs}
-            onUpdateDrink={onDrinkUpdate}
-            disabled={disabled}
-          />
-        </div>
-      )}
     </div>
   );
 }

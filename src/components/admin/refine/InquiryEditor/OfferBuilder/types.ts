@@ -40,7 +40,7 @@ export type { CombinedMenuItem };
 
 // --- Neue Types ---
 
-export type OfferMode = 'a_la_carte' | 'teil_menu' | 'fest_menu' | 'paket';
+export type OfferMode = 'menu' | 'paket' | 'email';
 
 export type OfferPhase =
   | 'draft'
@@ -108,28 +108,22 @@ export interface OfferModeConfig {
 
 export const OFFER_MODES: OfferModeConfig[] = [
   {
-    mode: 'a_la_carte',
-    label: 'À la carte',
-    description: 'Gäste bestellen frei von unserer Speisekarte',
-    icon: 'utensils',
-  },
-  {
-    mode: 'teil_menu',
-    label: 'Teil-Menü',
-    description: 'Vorspeise vorbestellt, Rest à la carte vor Ort',
-    icon: 'utensils-crossed',
-  },
-  {
-    mode: 'fest_menu',
-    label: 'Fest-Menü',
-    description: 'Komplettes Menü (2–10+ Gänge) vordefiniert',
+    mode: 'menu',
+    label: 'Menü',
+    description: 'Gänge frei zusammenstellen — von 1 Vorspeise bis 10-Gänge-Menü',
     icon: 'chef-hat',
   },
   {
     mode: 'paket',
     label: 'Paket',
-    description: 'Fertige Pakete: Aperitivo, Business Dinner, Location',
+    description: 'Network Aperitivo · Business Dinner · Gesamte Location',
     icon: 'package',
+  },
+  {
+    mode: 'email',
+    label: 'E-Mail',
+    description: 'Freie Antwort — Reservierung, Info oder individuelle Nachricht',
+    icon: 'mail',
   },
 ];
 
@@ -137,7 +131,7 @@ export const OFFER_MODES: OfferModeConfig[] = [
 export function createEmptyOption(
   label: string,
   guestCount: number,
-  mode: OfferMode = 'fest_menu',
+  mode: OfferMode = 'menu',
 ): Omit<OfferBuilderOption, 'id'> {
   return {
     packageId: null,

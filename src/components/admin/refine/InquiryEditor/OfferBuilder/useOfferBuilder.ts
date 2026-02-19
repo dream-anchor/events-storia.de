@@ -17,6 +17,25 @@ import {
 } from "./types";
 import type { ExtendedInquiry, SelectedPackage } from "../types";
 
+/** Alte DB-Werte auf neue 3-Modi-Keys mappen */
+function mapLegacyMode(dbMode: string | null | undefined): OfferMode {
+  switch (dbMode) {
+    case 'menu': return 'menu';
+    case 'paket': return 'paket';
+    case 'email': return 'email';
+    case 'fest_menu':
+    case 'full_menu':
+    case 'teil_menu':
+    case 'partial_menu':
+      return 'menu';
+    case 'a_la_carte':
+    case 'alacarte':
+      return 'email';
+    default:
+      return 'menu';
+  }
+}
+
 // --- Activity Logging (migriert aus useMultiOfferState) ---
 const logActivity = async (
   entityId: string,
@@ -181,7 +200,7 @@ export function useOfferBuilder({
             packageId: opt.package_id,
             packageName: '',
             optionLabel: opt.option_label,
-            offerMode: ((opt as Record<string, unknown>).offer_mode as OfferMode) || 'fest_menu',
+            offerMode: mapLegacyMode((opt as Record<string, unknown>).offer_mode as string),
             isActive: opt.is_active ?? true,
             guestCount: opt.guest_count,
             menuSelection: (opt.menu_selection as unknown as OfferBuilderOption['menuSelection']) || { courses: [], drinks: [] },
@@ -375,7 +394,7 @@ export function useOfferBuilder({
         const locationPrice = calculateEventPackagePrice(
           pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
         );
-        const menuTotal = (opt.offerMode === 'fest_menu' && opt.budgetPerPerson)
+        const menuTotal = (opt.offerMode === 'menu' && opt.budgetPerPerson)
           ? opt.budgetPerPerson * opt.guestCount
           : 0;
         const newTotal = locationPrice + menuTotal;
@@ -394,7 +413,7 @@ export function useOfferBuilder({
   // =================================================================
   // OPTION CRUD (migriert aus useMultiOfferState)
   // =================================================================
-  const addOption = useCallback((mode: OfferMode = 'fest_menu') => {
+  const addOption = useCallback((mode: OfferMode = 'menu') => {
     const usedLabels = options.map(o => o.optionLabel);
     const nextLabel = OPTION_LABELS.find(l => !usedLabels.includes(l));
 

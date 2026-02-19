@@ -37,7 +37,7 @@ export function OfferBuilder({
   });
 
   // --- Default-Modus für neue Optionen ---
-  const [defaultMode, setDefaultMode] = useState<OfferMode>("fest_menu");
+  const [defaultMode, setDefaultMode] = useState<OfferMode>("menu");
 
   // --- E-Mail Draft (lokal, nicht im Hook) ---
   const [emailDraft, setEmailDraft] = useState(inquiry.email_draft || "");
