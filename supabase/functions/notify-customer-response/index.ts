@@ -121,7 +121,7 @@ ${supabaseUrl.replace(".supabase.co", "").replace("https://", "https://events-st
       console.log("Notification email sent to:", notificationRecipients.join(", "));
     } catch (smtpError) {
       console.error("SMTP error:", smtpError);
-      await client.close().catch(() => {});
+      try { await client.close(); } catch { /* ignore */ }
     }
 
     // Log in email_delivery_logs
@@ -142,7 +142,7 @@ ${supabaseUrl.replace(".supabase.co", "").replace("https://", "https://events-st
     });
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

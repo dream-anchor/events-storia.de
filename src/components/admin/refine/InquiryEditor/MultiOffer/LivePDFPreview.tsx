@@ -103,6 +103,9 @@ export function LivePDFPreview({
     lexoffice_invoice_id: null,
     lexoffice_document_type: null,
     lexoffice_contact_id: null,
+    offer_phase: null,
+    total_amount: null,
+    selected_option_id: null,
   }), [inquiry]);
 
   // Generate PDF document
