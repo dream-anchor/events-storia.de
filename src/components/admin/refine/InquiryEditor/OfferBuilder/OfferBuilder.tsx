@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
-import { Loader2, Save, Cloud, CloudOff } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useOfferBuilder } from "./useOfferBuilder";
@@ -89,29 +88,15 @@ export function OfferBuilder({
 
   return (
     <div className="space-y-8">
-      {/* Save Status Indicator */}
+      {/* Header — Save-Fehler nur bei Problemen anzeigen */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold tracking-tight">Angebot konfigurieren</h2>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          {builder.saveStatus === "saving" && (
-            <>
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>Speichert...</span>
-            </>
-          )}
-          {builder.saveStatus === "saved" && (
-            <>
-              <Cloud className="h-3 w-3 text-primary" />
-              <span>Gespeichert</span>
-            </>
-          )}
-          {builder.saveStatus === "idle" && (
-            <>
-              <CloudOff className="h-3 w-3" />
-              <span>Version {builder.currentVersion}</span>
-            </>
-          )}
-        </div>
+        {builder.saveStatus === "error" && (
+          <div className="flex items-center gap-1.5 text-xs text-destructive">
+            <AlertCircle className="h-3 w-3" />
+            <span>Speichern fehlgeschlagen</span>
+          </div>
+        )}
       </div>
 
       {/* 1. Modus-Auswahl */}

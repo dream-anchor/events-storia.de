@@ -58,7 +58,7 @@ export function useOfferBuilder({
   const [history, setHistory] = useState<OfferHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const isInitialLoad = useRef(true);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -339,7 +339,7 @@ export function useOfferBuilder({
         setTimeout(() => setSaveStatus('idle'), 2000);
       } catch (error) {
         console.error("Auto-save error:", error);
-        setSaveStatus('idle');
+        setSaveStatus('error');
       }
     }, 800);
 

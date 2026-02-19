@@ -155,7 +155,7 @@ export interface UseOfferBuilderReturn {
   // Loading/Status
   isLoading: boolean;
   isSaving: boolean;
-  saveStatus: 'idle' | 'saving' | 'saved';
+  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
 
   // Option CRUD
   addOption: (mode?: OfferMode) => void;
