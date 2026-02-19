@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,8 @@ interface PriceBreakdownProps {
   /** Manueller Gesamtpreis (frei editierbar) */
   totalAmount?: number;
   onTotalChange?: (total: number) => void;
+  /** Callback für Kurs-Update (overridePrice) */
+  onCourseUpdate?: (index: number, update: Partial<CourseSelection>) => void;
   /** Zusätzlicher Menü-Preis pro Person (legacy, für Paket-Modus) */
   menuPricePerPerson?: number;
   disabled?: boolean;
@@ -40,48 +43,78 @@ export function PriceBreakdown({
   winePairingPrice,
   totalAmount,
   onTotalChange,
+  onCourseUpdate,
   menuPricePerPerson = 0,
   disabled = false,
 }: PriceBreakdownProps) {
   // --- Menü-Modus (kein Paket) ---
   if (!packageData && onTotalChange !== undefined) {
-    // Einzelpreise der gewählten Gerichte (als Referenz)
     const dishLines = (courses || [])
-      .filter(c => c.itemId && c.itemName)
-      .map(c => {
+      .map((c, idx) => {
+        if (!c.itemId && !c.itemName) return null;
         const menuItem = menuItems?.find(m => m.id === c.itemId);
+        const catalogPrice = menuItem?.price ?? null;
+        // overridePrice hat Vorrang, sonst Katalogpreis
+        const effectivePrice = c.overridePrice != null ? c.overridePrice : catalogPrice;
         return {
+          index: idx,
           label: c.courseLabel,
           name: c.itemName,
-          price: menuItem?.price ?? null,
+          catalogPrice,
+          effectivePrice,
+          overridePrice: c.overridePrice,
         };
-      });
+      })
+      .filter(Boolean) as {
+        index: number;
+        label: string;
+        name: string;
+        catalogPrice: number | null;
+        effectivePrice: number | null;
+        overridePrice?: number | null;
+      }[];
 
-    const dishSubtotal = dishLines.reduce((sum, d) => sum + (d.price || 0), 0);
-    const wineTotal = (winePairingPrice || 0) * guestCount;
-    const referenceTotal = dishSubtotal * guestCount + wineTotal;
+    const dishSubtotal = dishLines.reduce((sum, d) => sum + (d.effectivePrice || 0), 0);
+    const winePerPerson = winePairingPrice || 0;
+    const wineTotal = winePerPerson * guestCount;
+    const calculatedTotal = dishSubtotal * guestCount + wineTotal;
 
     return (
       <div className="pt-3 border-t border-border/30 space-y-2">
-        {/* Einzelgerichte (Referenzpreise) */}
+        {/* Einzelgerichte mit editierbarem Preis */}
         {dishLines.length > 0 && (
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
-              Gerichte (Katalogpreise)
+              Gerichte (Preis pro Person)
             </span>
-            {dishLines.map((d, i) => (
-              <div key={i} className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground truncate mr-2">
+            {dishLines.map((d) => (
+              <div key={d.index} className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground truncate flex-1">
                   {d.label}: {d.name}
                 </span>
-                <span className="text-muted-foreground/70 shrink-0">
-                  {d.price != null ? formatCurrency(d.price) : '—'}
-                </span>
+                <div className="relative w-24 shrink-0">
+                  <Input
+                    type="number"
+                    value={d.overridePrice != null ? d.overridePrice : (d.catalogPrice ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      onCourseUpdate?.(d.index, {
+                        overridePrice: val === '' ? null : parseFloat(val) || 0,
+                      });
+                    }}
+                    placeholder={d.catalogPrice != null ? d.catalogPrice.toFixed(2) : '0,00'}
+                    className="h-7 rounded-lg pr-6 text-right text-xs"
+                    disabled={disabled}
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                    €
+                  </span>
+                </div>
               </div>
             ))}
-            {dishSubtotal > 0 && (
-              <div className="flex items-center justify-between text-xs text-muted-foreground/70">
-                <span>Summe Gerichte × {guestCount} Gäste</span>
+            {dishSubtotal > 0 && guestCount > 1 && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground/70 pt-0.5">
+                <span>{formatCurrency(dishSubtotal)} × {guestCount} Gäste</span>
                 <span>{formatCurrency(dishSubtotal * guestCount)}</span>
               </div>
             )}
@@ -89,20 +122,18 @@ export function PriceBreakdown({
         )}
 
         {/* Weinbegleitung */}
-        {winePairingPrice != null && winePairingPrice > 0 && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">
-              🍷 Weinbegleitung ({guestCount} × {formatCurrency(winePairingPrice)})
-            </span>
-            <span className="text-muted-foreground">{formatCurrency(wineTotal)}</span>
+        {winePairingPrice != null && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground/70 pt-0.5">
+            <span>🍷 Weinbegleitung × {guestCount}</span>
+            <span>{formatCurrency(wineTotal)}</span>
           </div>
         )}
 
-        {/* Referenzpreis */}
-        {referenceTotal > 0 && Math.abs((totalAmount || 0) - referenceTotal) > 0.01 && (
+        {/* Berechneter Referenzpreis */}
+        {calculatedTotal > 0 && Math.abs((totalAmount || 0) - calculatedTotal) > 0.01 && (
           <div className="flex items-center justify-between text-[10px] text-muted-foreground/50">
-            <span>Orientierung (Katalog)</span>
-            <span>{formatCurrency(referenceTotal)}</span>
+            <span>Berechnet</span>
+            <span>{formatCurrency(calculatedTotal)}</span>
           </div>
         )}
 
@@ -116,7 +147,7 @@ export function PriceBreakdown({
               type="number"
               value={totalAmount || ''}
               onChange={(e) => onTotalChange?.(parseFloat(e.target.value) || 0)}
-              placeholder="0,00"
+              placeholder={calculatedTotal > 0 ? calculatedTotal.toFixed(2) : '0,00'}
               className="h-8 rounded-xl pr-8 text-right font-bold"
               disabled={disabled}
             />

@@ -228,13 +228,14 @@ export function OptionCard({
 
           {/* Preis */}
           <PriceBreakdown
-            packageData={selectedPackage}
+            packageData={option.offerMode === 'menu' ? undefined : selectedPackage}
             guestCount={option.guestCount}
             courses={option.offerMode === 'menu' ? option.menuSelection.courses : undefined}
             menuItems={option.offerMode === 'menu' ? menuItems : undefined}
             winePairingPrice={option.menuSelection.winePairingPrice}
             totalAmount={option.totalAmount}
             onTotalChange={option.offerMode === 'menu' ? (total) => onUpdate({ totalAmount: total }) : undefined}
+            onCourseUpdate={option.offerMode === 'menu' ? handleCourseUpdate : undefined}
             disabled={disabled}
           />
         </div>

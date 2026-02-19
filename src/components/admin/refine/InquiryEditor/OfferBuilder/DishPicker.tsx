@@ -20,7 +20,7 @@ import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 
 interface DishPickerProps {
   value: { id: string; name: string } | null;
-  onSelect: (dish: { id: string; name: string; description: string | null; source: string }) => void;
+  onSelect: (dish: { id: string; name: string; description: string | null; source: string; price: number | null }) => void;
   onClear?: () => void;
   menuItems: CombinedMenuItem[];
   filterCategories?: string[];
@@ -82,6 +82,7 @@ export function DishPicker({
       name: item.name,
       description: item.description,
       source: item.source,
+      price: item.price ?? null,
     });
     setOpen(false);
     setSearch("");
@@ -94,6 +95,7 @@ export function DishPicker({
       name: search.trim(),
       description: null,
       source: 'custom',
+      price: null,
     });
     setOpen(false);
     setSearch("");

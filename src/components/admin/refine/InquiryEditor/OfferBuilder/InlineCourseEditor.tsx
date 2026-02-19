@@ -33,14 +33,17 @@ export function InlineCourseEditor({
 }: InlineCourseEditorProps) {
   const handleDishSelect = (
     index: number,
-    dish: { id: string; name: string; description: string | null; source: string }
+    dish: { id: string; name: string; description: string | null; source: string; price: number | null }
   ) => {
+    // Katalogpreis minus 20% als Default-Preis
+    const overridePrice = dish.price != null ? Math.round(dish.price * 0.8 * 100) / 100 : null;
     onUpdateCourse(index, {
       itemId: dish.id,
       itemName: dish.name,
       itemDescription: dish.description,
       itemSource: dish.source as CourseSelection['itemSource'],
       isCustom: dish.source === 'custom',
+      overridePrice,
     });
   };
 
@@ -51,6 +54,7 @@ export function InlineCourseEditor({
       itemDescription: null,
       itemSource: 'catering',
       isCustom: false,
+      overridePrice: null,
     });
   };
 

@@ -63,6 +63,8 @@ export interface CourseSelection {
   itemDescription: string | null;
   itemSource: ItemSource;
   isCustom: boolean;
+  /** Editierbarer Preis pro Gericht (überschreibt Katalogpreis) */
+  overridePrice?: number | null;
 }
 
 export interface DrinkSelection {
