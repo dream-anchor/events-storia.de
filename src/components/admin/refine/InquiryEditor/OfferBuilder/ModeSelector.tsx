@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Utensils, UtensilsCrossed, ChefHat } from "lucide-react";
+import { Utensils, UtensilsCrossed, ChefHat, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OfferMode } from "./types";
 import { OFFER_MODES } from "./types";
@@ -8,6 +8,7 @@ const MODE_ICONS: Record<OfferMode, React.ElementType> = {
   a_la_carte: Utensils,
   teil_menu: UtensilsCrossed,
   fest_menu: ChefHat,
+  paket: Package,
 };
 
 interface ModeSelectorProps {
@@ -22,7 +23,7 @@ export function ModeSelector({ selectedMode, onSelect, disabled }: ModeSelectorP
       <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
         Wie wird gegessen?
       </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {OFFER_MODES.map((config) => {
           const Icon = MODE_ICONS[config.mode];
           const isSelected = selectedMode === config.mode;

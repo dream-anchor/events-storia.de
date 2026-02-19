@@ -55,6 +55,10 @@ export interface EventInquiry extends BaseRecord {
   lexoffice_invoice_id: string | null;
   lexoffice_document_type: string | null;
   lexoffice_contact_id: string | null;
+  // OfferBuilder fields
+  offer_phase: string | null;
+  total_amount: number | null;
+  selected_option_id: string | null;
 }
 
 export type InquiryPriority = 'normal' | 'high' | 'urgent';

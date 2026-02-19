@@ -182,7 +182,7 @@ export function OptionCard({
                     const offerMode = mode as OfferMode;
                     onUpdate({
                       offerMode,
-                      ...(offerMode === 'a_la_carte' ? {
+                      ...((offerMode === 'a_la_carte' || offerMode === 'paket') ? {
                         menuSelection: { courses: [], drinks: [] },
                         budgetPerPerson: null,
                       } : {}),
@@ -197,6 +197,7 @@ export function OptionCard({
                     <SelectItem value="a_la_carte">À la carte</SelectItem>
                     <SelectItem value="teil_menu">Teil-Menü</SelectItem>
                     <SelectItem value="fest_menu">Fest-Menü</SelectItem>
+                    <SelectItem value="paket">Paket</SelectItem>
                   </SelectContent>
                 </Select>
                 {isLocked && (
@@ -234,8 +235,8 @@ export function OptionCard({
         {/* Body */}
         <div className="p-5 space-y-4">
           {/* Paket + Gäste (Paket nur bei teil_menu und fest_menu) */}
-          <div className={cn("grid gap-3", option.offerMode === 'a_la_carte' ? "grid-cols-1" : "grid-cols-2")}>
-            {option.offerMode !== 'a_la_carte' && (
+          <div className={cn("grid gap-3", (option.offerMode === 'a_la_carte' || option.offerMode === 'paket') ? "grid-cols-1" : "grid-cols-2")}>
+            {option.offerMode !== 'a_la_carte' && option.offerMode !== 'paket' && (
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
                   Location / Paket
@@ -312,6 +313,15 @@ export function OptionCard({
             />
           )}
 
+          {option.offerMode === 'paket' && (
+            <PaketContent
+              option={option}
+              packages={packages}
+              onUpdate={onUpdate}
+              disabled={disabled}
+            />
+          )}
+
           {/* Preis (nicht bei à la carte — dort gibt es keinen Konfigurator-Preis) */}
           {option.offerMode !== 'a_la_carte' && (
             <PriceBreakdown
@@ -380,7 +390,7 @@ function AlaCarteContent({
   );
 }
 
-// --- Modus: Teil-Menü ---
+// --- Modus: Teil-Menü (alle Gänge wählbar, Rest à la carte) ---
 function TeilMenuContent({
   option,
   courseConfigs,
@@ -408,12 +418,84 @@ function TeilMenuContent({
         onAddCourse={onCourseAdd}
         onRemoveCourse={onCourseRemove}
         disabled={disabled}
-        isPartialMenu
       />
-      <div className="rounded-xl bg-muted/30 p-3">
-        <p className="text-xs text-muted-foreground">
-          Hauptgang & Rest: Gäste bestellen à la carte vor Ort.
+      <div className="rounded-xl bg-amber-50 border border-amber-200/50 p-3">
+        <p className="text-xs text-amber-700/80">
+          Vorbestellte Gänge werden serviert. Restliche Gänge bestellen Gäste à la carte vor Ort.
         </p>
+      </div>
+    </div>
+  );
+}
+
+// --- Modus: Paket (Fertige Pakete zur Auswahl) ---
+function PaketContent({
+  option,
+  packages,
+  onUpdate,
+  disabled,
+}: {
+  option: OfferBuilderOption;
+  packages: Package[];
+  onUpdate: (u: Partial<OfferBuilderOption>) => void;
+  disabled: boolean;
+}) {
+  const eventPackages = useMemo(
+    () => packages.filter(p => p.package_type === 'event'),
+    [packages]
+  );
+
+  const handleSelectPackage = (pkg: Package) => {
+    onUpdate({
+      packageId: pkg.id,
+      packageName: pkg.name,
+      menuSelection: { courses: [], drinks: [] },
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        Paket wählen
+      </span>
+      <div className="grid gap-2">
+        {eventPackages.map(pkg => {
+          const isSelected = option.packageId === pkg.id;
+          return (
+            <button
+              key={pkg.id}
+              onClick={() => !disabled && handleSelectPackage(pkg)}
+              disabled={disabled}
+              className={cn(
+                "flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-colors",
+                isSelected
+                  ? "border-primary bg-primary/5"
+                  : "border-border/40 hover:border-border hover:bg-muted/20",
+                disabled && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <div className={cn(
+                "h-4 w-4 rounded-full border-2 shrink-0 mt-0.5",
+                isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
+              )} />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold">{pkg.name}</div>
+                {pkg.description && (
+                  <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                    {pkg.description}
+                  </div>
+                )}
+                <div className="text-xs font-medium text-primary mt-1">
+                  {pkg.price_per_person
+                    ? `${pkg.price.toFixed(2)} € pro Person`
+                    : `${pkg.price.toFixed(2)} € pauschal`}
+                  {pkg.min_guests && ` · ab ${pkg.min_guests} Pers.`}
+                  {pkg.max_guests && ` · max. ${pkg.max_guests} Pers.`}
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

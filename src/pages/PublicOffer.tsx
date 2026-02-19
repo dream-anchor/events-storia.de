@@ -323,6 +323,11 @@ function ProposalView({
         return;
       }
 
+      // Admin-Notification senden (fire-and-forget)
+      supabase.functions.invoke("notify-customer-response", {
+        body: { inquiryId: inquiry.id },
+      }).catch(() => {});
+
       // Update parent state to show ThankYouView
       onSubmitted({
         inquiry: {

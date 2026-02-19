@@ -82,6 +82,11 @@ function getColumnFromStatus(event: EventInquiry): ColumnId {
 }
 
 function getBadgeLabel(event: EventInquiry, columnId: ColumnId): { label: string; class: string } {
+  // Kunde hat geantwortet — höchste Priorität-Badge
+  if (event.offer_phase === 'customer_responded') {
+    return { label: 'Kunde antwortete', class: 'bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400 ring-1 ring-teal-300' };
+  }
+
   const isUrgent = event.priority === 'urgent' ||
     (event.status === 'new' && event.created_at && differenceInHours(new Date(), parseISO(event.created_at)) > 48);
 
@@ -341,6 +346,7 @@ function KanbanCard({
 
   const isUrgent = event.priority === 'urgent' ||
     (event.status === 'new' && event.created_at && differenceInHours(new Date(), parseISO(event.created_at)) > 48);
+  const hasCustomerResponse = event.offer_phase === 'customer_responded';
 
   return (
     <div
@@ -352,7 +358,8 @@ function KanbanCard({
         "bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700",
         "hover:shadow-md hover:border-primary/40 transition-all group cursor-grab active:cursor-grabbing",
         isDragging && "opacity-50 rotate-1 scale-105 shadow-lg",
-        isUrgent && "border-l-4 border-l-red-500"
+        hasCustomerResponse && "border-l-4 border-l-teal-500 bg-teal-50/30 dark:bg-teal-900/10",
+        isUrgent && !hasCustomerResponse && "border-l-4 border-l-red-500"
       )}
     >
       {/* Header with badge */}

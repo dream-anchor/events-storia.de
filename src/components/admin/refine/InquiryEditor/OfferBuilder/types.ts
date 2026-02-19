@@ -40,7 +40,7 @@ export type { CombinedMenuItem };
 
 // --- Neue Types ---
 
-export type OfferMode = 'a_la_carte' | 'teil_menu' | 'fest_menu';
+export type OfferMode = 'a_la_carte' | 'teil_menu' | 'fest_menu' | 'paket';
 
 export type OfferPhase =
   | 'draft'
@@ -124,6 +124,12 @@ export const OFFER_MODES: OfferModeConfig[] = [
     label: 'Fest-Menü',
     description: 'Komplettes Menü (2–10+ Gänge) vordefiniert',
     icon: 'chef-hat',
+  },
+  {
+    mode: 'paket',
+    label: 'Paket',
+    description: 'Fertige Pakete: Aperitivo, Business Dinner, Location',
+    icon: 'package',
   },
 ];
 

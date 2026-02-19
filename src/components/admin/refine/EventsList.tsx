@@ -223,8 +223,13 @@ export const EventsList = () => {
         let badgeClass = '';
         let subLabel: string | null = null;
 
+        // Kunde hat geantwortet — prominentes Badge
+        if (event.offer_phase === 'customer_responded') {
+          statusLabel = 'Kunde antwortete';
+          badgeClass = 'border-teal-500/50 text-teal-700 bg-teal-50 ring-1 ring-teal-300';
+        }
         // Check if archived first
-        if (event.archived_at) {
+        else if (event.archived_at) {
           statusLabel = 'Archiviert';
           statusIcon = <Archive className="h-3 w-3 mr-1" />;
           badgeClass = 'border-slate-400/50 text-slate-600 bg-slate-100';
