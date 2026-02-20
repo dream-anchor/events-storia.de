@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Send, Receipt, Check, History, ListTodo, ExternalLink } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Send, Receipt, Check, History, ListTodo, ExternalLink, ChevronDown } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EventDNACard } from "./EventDNACard";
 import { OfferBuilder } from "./OfferBuilder";
 import { CateringModules } from "./CateringModules";
-import { CalculationSummary } from "./CalculationSummary";
 import { ClientPreview } from "./ClientPreview";
 import { StaffNote } from "./StaffNote";
 import { Timeline } from "@/components/admin/shared/Timeline";
@@ -44,6 +43,7 @@ export const SmartInquiryEditor = () => {
   const [emailDraft, setEmailDraft] = useState("");
   const [localInquiry, setLocalInquiry] = useState<Partial<ExtendedInquiry>>({});
   const [menuSelection, setMenuSelection] = useState<MenuSelection>({ courses: [], drinks: [] });
+  const [timelineOpen, setTimelineOpen] = useState(false);
 
   // Fetch inquiry data
   const inquiryQuery = useOne<ExtendedInquiry>({
@@ -451,32 +451,29 @@ export const SmartInquiryEditor = () => {
             />
           )}
 
-          {/* Timeline & Activity */}
-          <div className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
+          {/* Timeline & Activity — einklappbar, default eingeklappt */}
+          <div className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setTimelineOpen(v => !v)}
+              className="w-full flex items-center justify-between p-6 cursor-pointer hover:bg-muted/30 transition-colors rounded-xl"
+            >
               <div className="flex items-center gap-2">
                 <History className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-bold tracking-tight">Timeline & Aktivitäten</h2>
               </div>
-              <Button variant="ghost" size="sm" className="text-xs text-primary">
-                Alle anzeigen
-              </Button>
-            </div>
-            <Timeline entityType="event_inquiry" entityId={id!} />
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${timelineOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {timelineOpen && (
+              <div className="px-6 pb-6">
+                <Timeline entityType="event_inquiry" entityId={id!} />
+              </div>
+            )}
           </div>
         </div>
 
         {/* Right Column - 5 columns */}
         <div className="lg:col-span-5 space-y-6">
-          {/* Cost Calculator / Calculation Summary */}
-          <CalculationSummary
-            quoteItems={quoteItems}
-            selectedPackages={selectedPackages}
-            guestCount={guestCount}
-            notes={quoteNotes}
-            onNotesChange={setQuoteNotes}
-          />
-
           {/* Client Preview */}
           <ClientPreview
             inquiryId={id!}

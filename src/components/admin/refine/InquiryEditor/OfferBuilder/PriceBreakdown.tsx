@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { calculateEventPackagePrice, isLocationPackage, getLocationPricingBreakdown } from "@/lib/eventPricing";
@@ -23,6 +22,9 @@ interface PriceBreakdownProps {
   onCourseUpdate?: (index: number, update: Partial<CourseSelection>) => void;
   /** Zusätzlicher Menü-Preis pro Person (legacy, für Paket-Modus) */
   menuPricePerPerson?: number;
+  /** Finaler Angebotspreis pro Person (Override) */
+  finalPricePerPerson?: number | null;
+  onFinalPriceChange?: (price: number | null) => void;
   disabled?: boolean;
 }
 
@@ -89,6 +91,8 @@ export function PriceBreakdown({
   onTotalChange,
   onCourseUpdate,
   menuPricePerPerson = 0,
+  finalPricePerPerson,
+  onFinalPriceChange,
   disabled = false,
 }: PriceBreakdownProps) {
   // --- Menü-Modus (kein Paket) ---
@@ -197,14 +201,6 @@ export function PriceBreakdown({
                 <span>{formatCurrency(netPerPerson)}</span>
               </div>
             )}
-
-            {/* × Gäste */}
-            {netPerPerson > 0 && guestCount > 0 && (
-              <div className="flex items-center justify-between text-xs text-muted-foreground/70">
-                <span>{formatCurrency(netPerPerson)} × {guestCount} Gäste</span>
-                <span>{formatCurrency(calculatedTotal)}</span>
-              </div>
-            )}
           </div>
         )}
 
@@ -215,21 +211,36 @@ export function PriceBreakdown({
               <span>Weinbegleitung / Person</span>
               <span>{formatCurrency(winePerPerson)}</span>
             </div>
-            {guestCount > 0 && (
-              <div className="flex items-center justify-between text-xs text-muted-foreground/70">
-                <span>{formatCurrency(winePerPerson)} × {guestCount} Gäste</span>
-                <span>{formatCurrency(winePerPerson * guestCount)}</span>
-              </div>
-            )}
           </div>
         )}
 
         <Separator className="my-1" />
 
-        {/* Gesamtpreis */}
+        {/* Pro Person — errechneter Preis */}
         <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold">Gesamtpreis</span>
-          <span className="text-lg font-bold tracking-tight">{formatCurrency(calculatedTotal)}</span>
+          <span className="text-xs text-muted-foreground">Errechnet / Person</span>
+          <span className="text-sm text-muted-foreground">{formatCurrency(netPerPerson)}</span>
+        </div>
+
+        {/* Finaler Angebotspreis pro Person — editierbar */}
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <span className="text-sm font-semibold">Angebotspreis / Person</span>
+          <div className="relative w-28 shrink-0">
+            <Input
+              type="number"
+              value={finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson : ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                onFinalPriceChange?.(val === '' ? null : parseFloat(val) || 0);
+              }}
+              placeholder={netPerPerson > 0 ? netPerPerson.toFixed(2) : '0,00'}
+              className="h-9 rounded-xl pr-6 text-right text-sm font-bold"
+              disabled={disabled}
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              €
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -301,32 +312,44 @@ export function PriceBreakdown({
         </div>
       )}
 
-      {/* Gästeanzahl */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <Users className="h-3 w-3" />
-          Gäste
-        </span>
-        <span>{guestCount}</span>
-      </div>
-
       <Separator className="my-1" />
 
-      {/* Gesamt */}
+      {/* Pro Person — errechneter Preis */}
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold">Gesamt</span>
+        <span className="text-xs text-muted-foreground">Errechnet / Person</span>
         <AnimatePresence mode="wait">
           <motion.span
-            key={grandTotal.toFixed(2)}
+            key={guestCount > 0 ? (grandTotal / guestCount).toFixed(2) : '0'}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.2 }}
-            className="text-lg font-bold tracking-tight"
+            className="text-sm text-muted-foreground"
           >
-            {formatCurrency(grandTotal)}
+            {guestCount > 0 ? formatCurrency(grandTotal / guestCount) : '—'}
           </motion.span>
         </AnimatePresence>
+      </div>
+
+      {/* Finaler Angebotspreis pro Person — editierbar */}
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <span className="text-sm font-semibold">Angebotspreis / Person</span>
+        <div className="relative w-28 shrink-0">
+          <Input
+            type="number"
+            value={finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson : ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              onFinalPriceChange?.(val === '' ? null : parseFloat(val) || 0);
+            }}
+            placeholder={guestCount > 0 ? (grandTotal / guestCount).toFixed(2) : '0,00'}
+            className="h-9 rounded-xl pr-6 text-right text-sm font-bold"
+            disabled={disabled}
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+            €
+          </span>
+        </div>
       </div>
     </div>
   );

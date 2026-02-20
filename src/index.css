@@ -382,6 +382,16 @@ All colors MUST be HSL.
   }
 }
 
+/* Number-Input Spinner entfernen — freie Eingabe ohne Pfeile */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 /* Prevent horizontal scroll on mobile */
 html, body {
   overflow-x: clip;

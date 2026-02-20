@@ -65,11 +65,6 @@ export function OptionCard({
     });
   };
 
-  const handleGuestCountChange = (val: string) => {
-    const count = parseInt(val) || 0;
-    if (count >= 0) onUpdate({ guestCount: count });
-  };
-
   const handleCourseUpdate = (index: number, update: Partial<CourseSelection>) => {
     const updated = [...option.menuSelection.courses];
     updated[index] = { ...updated[index], ...update };
@@ -188,21 +183,6 @@ export function OptionCard({
 
         {/* Body */}
         <div className="p-5 space-y-4">
-          {/* Gäste (bei menu + paket) */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              Gäste
-            </label>
-            <Input
-              type="number"
-              value={option.guestCount}
-              onChange={(e) => handleGuestCountChange(e.target.value)}
-              min={1}
-              className="h-9 rounded-xl w-32"
-              disabled={disabled}
-            />
-          </div>
-
           {/* Modus-spezifischer Content */}
           {option.offerMode === 'menu' && (
             <MenuContent
@@ -236,6 +216,8 @@ export function OptionCard({
             totalAmount={option.totalAmount}
             onTotalChange={option.offerMode === 'menu' ? (total) => onUpdate({ totalAmount: total }) : undefined}
             onCourseUpdate={option.offerMode === 'menu' ? handleCourseUpdate : undefined}
+            finalPricePerPerson={option.budgetPerPerson}
+            onFinalPriceChange={(price) => onUpdate({ budgetPerPerson: price })}
             disabled={disabled}
           />
         </div>
@@ -280,6 +262,9 @@ function MenuContent({
           onUpdateCourse={onCourseUpdate}
           onAddCourse={onCourseAdd}
           onRemoveCourse={onCourseRemove}
+          onReorderCourses={(reordered) => {
+            onUpdate({ menuSelection: { ...option.menuSelection, courses: reordered } });
+          }}
           disabled={disabled}
         />
       </div>

@@ -1,11 +1,27 @@
-import { useState } from "react";
-import { Plus, GripVertical } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Plus, GripVertical, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { DishPicker } from "./DishPicker";
 import { COURSE_ICONS } from "./types";
@@ -19,7 +35,103 @@ interface InlineCourseEditorProps {
   onUpdateCourse: (index: number, update: Partial<CourseSelection>) => void;
   onAddCourse: (courseType: CourseType, courseLabel: string) => void;
   onRemoveCourse: (index: number) => void;
+  onReorderCourses?: (courses: CourseSelection[]) => void;
   disabled?: boolean;
+}
+
+// --- Sortierbare Zeile ---
+function SortableCourseRow({
+  course,
+  idx,
+  menuItems,
+  courseConfigs,
+  onDishSelect,
+  onClear,
+  disabled,
+}: {
+  course: CourseSelection;
+  idx: number;
+  menuItems: CombinedMenuItem[];
+  courseConfigs: CourseConfig[];
+  onDishSelect: (index: number, dish: { id: string; name: string; description: string | null; source: string; price: number | null }) => void;
+  onClear: (index: number) => void;
+  disabled: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `course-${idx}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  const getFilterCategories = (courseType: string): string[] => {
+    const config = courseConfigs.find(c => c.course_type === courseType);
+    return config?.allowed_categories || [];
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-2 py-2 px-2 rounded-lg",
+        "hover:bg-muted/30 transition-colors group",
+        isDragging && "opacity-60 bg-muted/40 shadow-lg"
+      )}
+    >
+      {/* Drag Handle */}
+      {!disabled && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing touch-none shrink-0 p-0.5 rounded hover:bg-muted/50"
+          tabIndex={-1}
+        >
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-muted-foreground/60" />
+        </button>
+      )}
+      {disabled && (
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/20 shrink-0" />
+      )}
+
+      <span className="text-base w-7 text-center shrink-0">
+        {COURSE_ICONS[course.courseType as CourseType] || '🍽️'}
+      </span>
+      <span className="text-sm text-muted-foreground w-20 shrink-0 truncate">
+        {course.courseLabel}
+      </span>
+
+      {/* DishPicker */}
+      <div className="flex-1 min-w-0">
+        <DishPicker
+          value={course.itemId ? { id: course.itemId, name: course.itemName } : null}
+          onSelect={(dish) => onDishSelect(idx, dish)}
+          menuItems={menuItems}
+          filterCategories={getFilterCategories(course.courseType)}
+          placeholder={`${course.courseLabel} wählen...`}
+          disabled={disabled}
+        />
+      </div>
+
+      {/* Mülleimer direkt nach dem Dropdown */}
+      {!disabled && course.itemId && (
+        <button
+          onClick={() => onClear(idx)}
+          className="shrink-0 p-1 rounded-md hover:bg-muted/50 transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground" />
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function InlineCourseEditor({
@@ -29,13 +141,13 @@ export function InlineCourseEditor({
   onUpdateCourse,
   onAddCourse,
   onRemoveCourse,
+  onReorderCourses,
   disabled = false,
 }: InlineCourseEditorProps) {
   const handleDishSelect = (
     index: number,
     dish: { id: string; name: string; description: string | null; source: string; price: number | null }
   ) => {
-    // Voller Katalogpreis als Default (Rabatt wird am Ende ausgewiesen)
     const overridePrice = dish.price != null && dish.price > 0
       ? dish.price
       : null;
@@ -60,54 +172,59 @@ export function InlineCourseEditor({
     });
   };
 
-  // Finde passende CourseConfig für erlaubte Kategorien
-  const getFilterCategories = (courseType: string): string[] => {
-    const config = courseConfigs.find(c => c.course_type === courseType);
-    return config?.allowed_categories || [];
-  };
-
   const [addOpen, setAddOpen] = useState(false);
+
+  // --- DnD ---
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const sortableIds = courses.map((_, idx) => `course-${idx}`);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = sortableIds.indexOf(active.id as string);
+    const newIndex = sortableIds.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Array neu sortieren
+    const reordered = [...courses];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+
+    if (onReorderCourses) {
+      onReorderCourses(reordered);
+    }
+  }, [courses, sortableIds, onReorderCourses]);
 
   return (
     <div className="space-y-1">
-      {courses.map((course, idx) => (
-        <div
-          key={idx}
-          className={cn(
-            "flex items-center gap-3 py-2 px-2 rounded-lg",
-            "hover:bg-muted/30 transition-colors group"
-          )}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={sortableIds}
+          strategy={verticalListSortingStrategy}
         >
-          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-muted-foreground/60 shrink-0" />
-          <span className="text-base w-7 text-center shrink-0">
-            {COURSE_ICONS[course.courseType as CourseType] || '🍽️'}
-          </span>
-          <span className="text-sm text-muted-foreground w-24 shrink-0 truncate">
-            {course.courseLabel}
-          </span>
-          <div className="flex-1">
-            <DishPicker
-              value={course.itemId ? { id: course.itemId, name: course.itemName } : null}
-              onSelect={(dish) => handleDishSelect(idx, dish)}
-              onClear={() => handleClear(idx)}
+          {courses.map((course, idx) => (
+            <SortableCourseRow
+              key={`course-${idx}`}
+              course={course}
+              idx={idx}
               menuItems={menuItems}
-              filterCategories={getFilterCategories(course.courseType)}
-              placeholder={`${course.courseLabel} wählen...`}
+              courseConfigs={courseConfigs}
+              onDishSelect={handleDishSelect}
+              onClear={handleClear}
               disabled={disabled}
             />
-          </div>
-          {!disabled && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onRemoveCourse(idx)}
-              className="h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-            >
-              <span className="text-muted-foreground text-xs">×</span>
-            </Button>
-          )}
-        </div>
-      ))}
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {!disabled && courseConfigs.length > 0 && (
         <div className="pt-1 pl-2">

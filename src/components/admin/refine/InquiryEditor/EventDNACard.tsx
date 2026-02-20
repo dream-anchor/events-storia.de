@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Users, MapPin, User, Phone, Mail, Building2, MessageSquare, UserCircle, Flag, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, Clock, Users, MapPin, User, Phone, Mail, Building2, MessageSquare, UserCircle, Flag, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +42,7 @@ export const EventDNACard = ({
       </CardHeader>
       <CardContent className="pt-6 space-y-6">
         {/* Event Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Event Date */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground">Event-Datum</Label>
@@ -52,6 +52,21 @@ export const EventDNACard = ({
                 type="date"
                 value={inquiry.preferred_date || ''}
                 onChange={(e) => onFieldChange('preferred_date', e.target.value)}
+                disabled={isReadOnly}
+                className="pl-10 h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
+              />
+            </div>
+          </div>
+
+          {/* Time Slot */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground">Uhrzeit</Label>
+            <div className="relative">
+              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="time"
+                value={inquiry.time_slot || ''}
+                onChange={(e) => onFieldChange('time_slot', e.target.value)}
                 disabled={isReadOnly}
                 className="pl-10 h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
               />
@@ -75,7 +90,7 @@ export const EventDNACard = ({
           </div>
 
           {/* Location - Full Width */}
-          <div className="md:col-span-2 space-y-2">
+          <div className="md:col-span-3 space-y-2">
             <Label className="text-sm font-medium text-muted-foreground">Location</Label>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

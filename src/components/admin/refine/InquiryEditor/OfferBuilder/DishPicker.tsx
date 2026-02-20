@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -122,26 +122,14 @@ export function DishPicker({
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            "justify-between font-normal h-9 rounded-xl",
-            "min-w-[200px] max-w-full",
+            "justify-between font-normal h-9 rounded-xl w-full",
             !value && "text-muted-foreground"
           )}
         >
           <span className="truncate">
             {value ? value.name : placeholder}
           </span>
-          <div className="flex items-center gap-1 ml-2 shrink-0">
-            {value && onClear && (
-              <X
-                className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClear();
-                }}
-              />
-            )}
-            <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-          </div>
+          <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
         </Button>
       </PopoverTrigger>
       <PopoverContent

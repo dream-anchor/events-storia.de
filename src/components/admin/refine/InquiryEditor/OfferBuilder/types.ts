@@ -117,7 +117,7 @@ export const OFFER_MODES: OfferModeConfig[] = [
   {
     mode: 'paket',
     label: 'Paket',
-    description: 'Network Aperitivo · Business Dinner · Gesamte Location',
+    description: 'Fertigpakete aus der Datenbank wählen',
     icon: 'package',
   },
   {

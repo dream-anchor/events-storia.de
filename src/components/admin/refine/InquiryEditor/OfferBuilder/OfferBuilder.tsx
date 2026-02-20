@@ -143,6 +143,12 @@ export function OfferBuilder({
         customerName={inquiry.contact_name}
         eventDate={inquiry.preferred_date || undefined}
         guestCount={inquiry.guest_count || undefined}
+        companyName={inquiry.company_name || undefined}
+        eventType={inquiry.event_type || undefined}
+        roomSelection={inquiry.room_selection || undefined}
+        timeSlot={inquiry.time_slot || undefined}
+        activeOptions={builder.activeOptions}
+        menuItems={builder.menuItems}
       />
 
       {/* 5. Send Controls */}

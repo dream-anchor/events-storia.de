@@ -86,6 +86,8 @@ interface MultiOfferInquiry {
   preferred_date?: string;
   guest_count?: string;
   event_type?: string;
+  time_slot?: string;
+  room_selection?: string;
   message?: string;
 }
 
@@ -122,33 +124,70 @@ function isMultiOfferRequest(body: RequestBody): body is MultiOfferRequest {
 }
 
 function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferOption[]): string {
-  let context = `Kunde: ${inquiry.contact_name}${inquiry.company_name ? ` (${inquiry.company_name})` : ''}
-Event-Typ: ${inquiry.event_type || 'Feier'}
-Datum: ${inquiry.preferred_date || 'nach Absprache'}
-`;
+  const parts: string[] = [];
 
-  context += `\nAngebotene Optionen:\n`;
-  
-  for (const opt of options) {
-    context += `\n--- Option ${opt.label} ---\n`;
-    context += `Paket: ${opt.packageName}\n`;
-    context += `Gäste: ${opt.guestCount}\n`;
-    context += `Gesamtbetrag: ${opt.totalAmount.toFixed(2)} €\n`;
-    
-    if (opt.menuSelection?.courses && opt.menuSelection.courses.length > 0) {
-      context += `Menü: ${opt.menuSelection.courses.map(c => c.itemName).join(', ')}\n`;
+  parts.push(`Kunde: ${inquiry.contact_name}${inquiry.company_name ? ` (${inquiry.company_name})` : ''}`);
+
+  // Nur tatsächlich vorhandene Daten aufnehmen
+  if (inquiry.event_type) parts.push(`Event-Typ: ${inquiry.event_type}`);
+  if (inquiry.preferred_date) parts.push(`Datum: ${inquiry.preferred_date}`);
+  if (inquiry.time_slot) parts.push(`Uhrzeit: ${inquiry.time_slot} Uhr`);
+  if (inquiry.guest_count) parts.push(`Gäste: ${inquiry.guest_count}`);
+  if (inquiry.room_selection) parts.push(`Raum: ${inquiry.room_selection}`);
+
+  // Optionen — nur aufnehmen was tatsächlich konfiguriert ist
+  const hasOptions = options.length > 0;
+  const hasMenu = options.some(o => o.menuSelection?.courses?.some(c => c.itemName));
+  const hasPackage = options.some(o => o.packageName && o.packageName !== 'Individuell');
+
+  if (hasOptions) {
+    parts.push('');
+    parts.push(`Angebotene Optionen (${options.length}):`);
+
+    for (const opt of options) {
+      const label = options.length > 1 ? `Option ${opt.label}` : 'Angebot';
+      const optParts: string[] = [];
+
+      if (opt.packageName && opt.packageName !== 'Individuell') {
+        optParts.push(`Paket: ${opt.packageName}`);
+      }
+      if (opt.guestCount > 0) optParts.push(`${opt.guestCount} Gäste`);
+      if (opt.totalAmount > 0 && opt.guestCount > 0) {
+        optParts.push(`${(opt.totalAmount / opt.guestCount).toFixed(2)} € pro Person`);
+      }
+
+      parts.push(`\n--- ${label} ---`);
+      if (optParts.length > 0) parts.push(optParts.join(', '));
+
+      const courses = opt.menuSelection?.courses?.filter(c => c.itemName) || [];
+      if (courses.length > 0) {
+        parts.push('Menü:');
+        for (const c of courses) {
+          parts.push(`  ${c.courseLabel}: ${c.itemName}`);
+        }
+      }
+
+      const drinks = opt.menuSelection?.drinks?.filter(d => d.selectedChoice) || [];
+      if (drinks.length > 0) {
+        parts.push('Getränke:');
+        for (const d of drinks) {
+          parts.push(`  ${d.drinkLabel}: ${d.selectedChoice}`);
+        }
+      }
     }
-    
-    if (opt.menuSelection?.drinks && opt.menuSelection.drinks.length > 0) {
-      context += `Getränke: ${opt.menuSelection.drinks.map(d => d.selectedChoice || d.drinkLabel).join(', ')}\n`;
-    }
+  }
+
+  // Inhalts-Status für den Prompt
+  if (!hasMenu && !hasPackage) {
+    parts.push('\nHINWEIS: Es sind noch KEINE Menüs oder Pakete konfiguriert. Schreibe ein einfaches, allgemeines Anschreiben.');
   }
 
   if (inquiry.message) {
-    context += `\nKundenanmerkung: ${inquiry.message}`;
+    parts.push('');
+    parts.push(`Kundenanmerkung: ${inquiry.message}`);
   }
 
-  return context.trim();
+  return parts.join('\n');
 }
 
 function buildLegacyContext(body: LegacyRequest): string {
@@ -232,6 +271,9 @@ ${COMPANY_FOOTER}`;
     let optionCount = 0;
     let isProposal = false;
 
+    // Previous successful emails for few-shot learning
+    let previousEmails: string[] = [];
+
     if (isOfferBuilderRequest(rawBody)) {
       // New: Fetch data from DB
       const supabaseAdmin = createClient(
@@ -239,9 +281,23 @@ ${COMPANY_FOOTER}`;
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
+      // Lade die letzten 3 gesendeten E-Mails als Beispiele für den Schreibstil
+      const { data: exampleEmails } = await supabaseAdmin
+        .from('inquiry_offer_history')
+        .select('email_content')
+        .not('email_content', 'is', null)
+        .order('sent_at', { ascending: false })
+        .limit(3);
+
+      if (exampleEmails?.length) {
+        previousEmails = exampleEmails
+          .map(e => e.email_content)
+          .filter((e): e is string => !!e && e.length > 50 && e.length < 3000);
+      }
+
       const { data: inquiryData } = await supabaseAdmin
         .from('event_inquiries')
-        .select('contact_name, company_name, email, preferred_date, guest_count, event_type, message')
+        .select('contact_name, company_name, email, preferred_date, guest_count, event_type, time_slot, room_selection, message')
         .eq('id', rawBody.inquiryId)
         .single();
 
@@ -292,6 +348,8 @@ ${COMPANY_FOOTER}`;
           preferred_date: inquiryData.preferred_date,
           guest_count: inquiryData.guest_count,
           event_type: inquiryData.event_type,
+          time_slot: inquiryData.time_slot,
+          room_selection: inquiryData.room_selection,
           message: inquiryData.message,
         },
         multiOpts
@@ -308,6 +366,10 @@ ${COMPANY_FOOTER}`;
     const systemPrompt = isMultiOption
       ? `Du bist ein professioneller Mitarbeiter von STORIA München.
 
+ABSOLUTE REGEL: Du darfst NUR Informationen verwenden die in den Daten stehen.
+ERFINDE NICHTS! Kein Paketname, kein Eventtyp, kein Datum, keine Gerichte die nicht in den Daten vorkommen.
+Wenn eine Information fehlt (z.B. kein Menü konfiguriert), erwähne sie NICHT.
+
 STIL:
 - Freundlich, aber geschäftsmäßig und auf den Punkt
 - Kurz und prägnant (maximal 150-200 Wörter)
@@ -321,19 +383,30 @@ ANREDE:
 
 ${isProposal ? `STRUKTUR für Vorschlag (Proposal):
 1. Anrede: "Hallo [Name],"
-2. Kurzer Dank für die Anfrage
-3. Erwähne, dass du ${optionCount} Optionen zusammengestellt hast
-4. Liste jede Option KURZ auf (1 Zeile pro Option: Option A/B/C: Paketname, X Gäste, Betrag €)
+2. Kurzer Dank für die Anfrage — beziehe dich NUR auf tatsächlich vorhandene Daten (Datum, Uhrzeit, Gästezahl). NICHT den Event-Typ als Titel verwenden!
+${optionCount > 1
+  ? `3. Erwähne, dass du ${optionCount} Optionen zusammengestellt hast
+4. Liste jede Option KURZ auf: Paketname, Preis pro Person (NICHT Gesamtpreis!), und falls ein Menü konfiguriert ist, nenne 2-3 Highlight-Gänge (z.B. "mit Seeteufel, Pasta und Tiramisu")
 5. Hinweis: "Wählen Sie Ihren Favoriten über den folgenden Link und teilen Sie uns eventuelle Wünsche mit."
-6. Schlusssatz: Wir finalisieren das Angebot nach ihrer Rückmeldung
+6. Schlusssatz: Wir finalisieren das Angebot nach Ihrer Rückmeldung`
+  : `3. Stelle das Angebot kurz vor — NICHT "Option A" bei nur einer Option.
+4. Nenne den Preis pro Person. Falls Menügänge vorhanden sind, erwähne 2-3 Highlights (z.B. "mit Seeteufel, hausgemachter Pasta und Tiramisu").
+5. Hinweis: "Das Angebot mit allen Details finden Sie über den folgenden Link."
+6. Schlusssatz: Wir freuen uns auf Rückmeldung`}
 7. Signatur
 
-WICHTIG: Dies ist ein VORSCHLAG, KEINE finale Buchung. Kein Hinweis auf Vorauszahlung oder Zahlung!`
+WICHTIG: Dies ist ein VORSCHLAG, KEINE finale Buchung. KEIN Hinweis auf Vorauszahlung oder Zahlung!
+
+Wenn KEIN Menü oder Paket konfiguriert ist:
+- Schreibe ein einfaches, kurzes Anschreiben
+- Erwähne nur Datum, Uhrzeit, Gästezahl (sofern vorhanden)
+- "Wir haben basierend auf Ihrer Anfrage ein erstes Angebot zusammengestellt."
+- "Die Details finden Sie über den folgenden Link."`
 : `STRUKTUR für finales Angebot:
 1. Anrede: "Hallo [Name],"
 2. Bezug auf vorherige Abstimmung: "Wie besprochen haben wir Ihr Menü finalisiert."
-3. Kurze Zusammenfassung der finalen Option
-4. Hinweis: "Das finale Angebot mit Zahlungsmöglichkeit finden Sie im Anhang."
+3. Kurze Zusammenfassung der finalen Option — Preis pro Person, nicht Gesamtpreis
+4. Hinweis: "Das finale Angebot mit Zahlungsmöglichkeit finden Sie über den folgenden Link."
 5. Info zur Vorauszahlung (100% erforderlich)
 6. Schlusssatz mit Kontaktangebot
 7. Signatur`}
@@ -343,6 +416,9 @@ VERBOTEN:
 - Fettdruck oder andere Formatierung
 - Übertrieben blumige Sprache
 - Mehr als 4 kurze Absätze vor der Signatur
+- Erfundene Paketnamen, Gerichte, oder Events die nicht in den Daten stehen
+- Gesamtpreise (immer nur Preis pro Person nennen!)
+- Den Event-Typ als Titel im Text verwenden (z.B. NICHT "Ihr Network-Aperitivo" — stattdessen neutral "Ihre Veranstaltung" oder "Ihr Event")
 
 SIGNATUR (exakt so verwenden - NICHT ändern!):
 ${personalizedSignature}`
@@ -380,13 +456,13 @@ ${personalizedSignature}`;
 
     const userPrompt = isMultiOption
       ? isProposal
-        ? `Schreibe eine kurze, professionelle Vorschlags-E-Mail (max. 200 Wörter, keine Markdown-Formatierung) für diese Event-Anfrage. Der Kunde soll über einen Link seine bevorzugte Option wählen:
+        ? `Schreibe eine kurze E-Mail (max. 200 Wörter) basierend AUSSCHLIEßLICH auf diesen Daten. Verwende NUR Informationen die unten stehen — erfinde NICHTS dazu:
 
 ${context}`
-        : `Schreibe eine kurze, professionelle E-Mail für das finale Angebot (max. 200 Wörter, keine Markdown-Formatierung). Der Kunde hat bereits seine Wahl getroffen, das Menü ist finalisiert:
+        : `Schreibe eine kurze E-Mail (max. 200 Wörter) für das finale Angebot, basierend AUSSCHLIEßLICH auf diesen Daten:
 
 ${context}`
-      : `Schreibe eine kurze, professionelle Bestätigungs-E-Mail (max. 150 Wörter, keine Markdown-Formatierung) für diese Anfrage:
+      : `Schreibe eine kurze Bestätigungs-E-Mail (max. 150 Wörter) basierend AUSSCHLIEßLICH auf diesen Daten:
 
 ${context}`;
 
@@ -398,6 +474,28 @@ ${context}`;
 
     console.log('Calling Lovable AI API...');
 
+    // Messages mit Few-Shot-Examples aus vorherigen E-Mails
+    const messages: Array<{ role: string; content: string }> = [
+      { role: 'system', content: systemPrompt },
+    ];
+
+    // Vorherige E-Mails als Stil-Beispiele einfügen
+    if (previousEmails.length > 0) {
+      const examplesText = previousEmails
+        .map((e, i) => `--- Beispiel ${i + 1} ---\n${e.slice(0, 800)}`)
+        .join('\n\n');
+      messages.push({
+        role: 'user',
+        content: `Hier sind Beispiele von E-Mails die wir vorher geschrieben haben. Orientiere dich am Ton und Stil, aber NICHT am Inhalt (der Inhalt muss zu den AKTUELLEN Daten passen):\n\n${examplesText}`,
+      });
+      messages.push({
+        role: 'assistant',
+        content: 'Verstanden, ich orientiere mich am Ton und Stil dieser Beispiele für die neue E-Mail.',
+      });
+    }
+
+    messages.push({ role: 'user', content: userPrompt });
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -406,11 +504,8 @@ ${context}`;
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.5,
+        messages,
+        temperature: 0.4,
         max_tokens: 800,
       }),
     });

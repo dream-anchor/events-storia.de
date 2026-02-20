@@ -89,21 +89,6 @@ export function OptionCardGrid({
           })}
         </AnimatePresence>
 
-        {/* Add Card */}
-        {canAdd && (
-          <button
-            onClick={() => onAddOption(defaultMode)}
-            className={cn(
-              "flex flex-col items-center justify-center gap-2 min-h-[200px]",
-              "rounded-2xl border-2 border-dashed border-border/40",
-              "text-muted-foreground hover:border-primary/40 hover:text-primary/60",
-              "transition-colors cursor-pointer"
-            )}
-          >
-            <Plus className="h-8 w-8" />
-            <span className="text-sm font-medium">Weitere Option</span>
-          </button>
-        )}
       </div>
     </div>
   );

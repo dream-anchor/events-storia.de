@@ -16,6 +16,14 @@ export interface CombinedMenuItem {
   is_vegan?: boolean;
 }
 
+/** Parst "14,50 €" oder "14.50€" → 14.50 */
+function parsePriceDisplay(priceDisplay: string | null | undefined): number | null {
+  if (!priceDisplay) return null;
+  const cleaned = priceDisplay.replace(/[€\s]/g, '').replace(',', '.').trim();
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
+}
+
 interface UseCombinedMenuItemsOptions {
   includeRistorante?: boolean;
   includeCatering?: boolean;
@@ -102,14 +110,14 @@ export const useCombinedMenuItems = (options: UseCombinedMenuItemsOptions = {}) 
   const combinedItems = useMemo((): CombinedMenuItem[] => {
     const items: CombinedMenuItem[] = [...cateringItems];
 
-    // Add ristorante items
+    // Add ristorante items (price_display als Fallback wenn price null)
     if (includeRistorante && ristoranteQuery.data?.items) {
       for (const item of ristoranteQuery.data.items) {
         items.push({
           id: `ristorante_${item.id}`,
           name: item.name,
           description: item.description,
-          price: item.price,
+          price: item.price ?? parsePriceDisplay(item.price_display),
           serving_info: item.serving_info || null,
           image_url: item.image_url,
           category_name: item.category_name || 'Restaurant',

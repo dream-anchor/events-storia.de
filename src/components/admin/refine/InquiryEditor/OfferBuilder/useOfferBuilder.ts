@@ -82,6 +82,7 @@ export function useOfferBuilder({
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const isInitialLoad = useRef(true);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedJsonRef = useRef<string>('');
 
   // Refs für Props die im Load-Effect gebraucht werden (kein Re-Trigger)
   const guestCountRef = useRef(guestCount);
@@ -218,7 +219,7 @@ export function useOfferBuilder({
             offerVersion: opt.offer_version,
             createdInVersion: (opt as Record<string, unknown>).created_in_version as number | undefined,
             sortOrder: opt.sort_order || 0,
-            budgetPerPerson: null,
+            budgetPerPerson: ((opt.menu_selection as Record<string, unknown>)?.budgetPerPerson as number) ?? null,
             attachMenu: false,
             tableNote: null,
           }));
@@ -306,10 +307,14 @@ export function useOfferBuilder({
   }, [inquiryId]);
 
   // =================================================================
-  // AUTO-SAVE — 800ms Debounce (exakt aus useMultiOfferState)
+  // AUTO-SAVE — 800ms Debounce mit JSON-Vergleich (verhindert Loop)
   // =================================================================
   useEffect(() => {
     if (isLoading || isInitialLoad.current) return;
+
+    // JSON-Vergleich: Nur speichern wenn sich tatsächlich etwas geändert hat
+    const currentJson = JSON.stringify(options);
+    if (currentJson === lastSavedJsonRef.current) return;
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -338,7 +343,7 @@ export function useOfferBuilder({
               option_label: opt.optionLabel,
               offer_mode: opt.offerMode,
               guest_count: opt.guestCount,
-              menu_selection: opt.menuSelection,
+              menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson },
               total_amount: opt.totalAmount,
               stripe_payment_link_id: opt.stripePaymentLinkId,
               stripe_payment_link_url: opt.stripePaymentLinkUrl,
@@ -366,6 +371,7 @@ export function useOfferBuilder({
           version: currentVersion,
         });
 
+        lastSavedJsonRef.current = currentJson;
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       } catch (error) {
@@ -379,47 +385,77 @@ export function useOfferBuilder({
     };
   }, [options, inquiryId, currentVersion, isLoading]);
 
-  // Initial-Load Guard (exakt aus useMultiOfferState)
+  // Initial-Load Guard — setzt lastSavedJsonRef um sofortigen Save zu verhindern
   useEffect(() => {
     if (!isLoading && isInitialLoad.current) {
+      lastSavedJsonRef.current = JSON.stringify(options);
       setTimeout(() => { isInitialLoad.current = false; }, 100);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
 
   // =================================================================
   // TOTAL-AMOUNT RECALC — berechnet Preis pro Option automatisch
+  // Menü-Modus: Summe der Kurspreise (−20% Rabatt) × Gäste
+  // Paket-Modus: Paketpreis-Kalkulation
   // =================================================================
   const priceRecalcRef = useRef(false);
+  const MENU_DISCOUNT = 0.20;
 
   useEffect(() => {
-    if (isLoading || !packagesProp?.length) return;
+    if (isLoading) return;
 
     setOptions(prev => {
       let changed = false;
       const updated = prev.map(opt => {
-        // Menü-Modus: Preis wird manuell gesetzt (kein Auto-Calc)
-        if (opt.offerMode === 'menu') return opt;
+        if (opt.offerMode === 'menu') {
+          // Menü-Modus: Summe der overridePrices (−20% Rabatt) × Gäste
+          let dishSubtotal = 0;
+          for (const course of opt.menuSelection.courses) {
+            if (course.overridePrice != null && course.overridePrice > 0) {
+              dishSubtotal += course.overridePrice;
+            }
+          }
+          const winePerPerson = opt.menuSelection.winePairingPrice || 0;
+          const subtotal = dishSubtotal + winePerPerson;
+          const discount = dishSubtotal * MENU_DISCOUNT;
+          const netPerPerson = subtotal - discount;
+
+          // budgetPerPerson (manuell gesetzt) hat Vorrang
+          const effectivePerPerson = (opt.budgetPerPerson != null && opt.budgetPerPerson > 0)
+            ? opt.budgetPerPerson
+            : netPerPerson;
+          const newTotal = effectivePerPerson * opt.guestCount;
+
+          if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
+          changed = true;
+          return { ...opt, totalAmount: newTotal };
+        }
 
         // Paket-Modus: Preis aus Paket-Kalkulation
-        if (!opt.packageId) return opt;
+        if (!opt.packageId || !packagesProp?.length) return opt;
         const pkg = packagesProp.find(p => p.id === opt.packageId);
         if (!pkg) return opt;
 
         const locationPrice = calculateEventPackagePrice(
           pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
         );
-        const newTotal = locationPrice;
 
-        if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
+        if (Math.abs(opt.totalAmount - locationPrice) < 0.01) return opt;
         changed = true;
-        return { ...opt, totalAmount: newTotal };
+        return { ...opt, totalAmount: locationPrice };
       });
 
       if (!changed) return prev;
       priceRecalcRef.current = true;
       return updated;
     });
-  }, [isLoading, packagesProp, options.map(o => `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.menuSelection.winePairingPrice}`).join(',')]);
+  }, [isLoading, packagesProp, options.map(o => {
+    const courseKey = o.offerMode === 'menu'
+      ? o.menuSelection.courses.map(c => `${c.overridePrice ?? ''}`).join('|')
+      : '';
+    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.menuSelection.winePairingPrice}:${courseKey}`;
+  }).join(',')]);
 
   // =================================================================
   // AUTO-REPAIR — Korrigiert itemName (Name+Beschreibung → nur Name),
@@ -563,7 +599,7 @@ export function useOfferBuilder({
             option_label: opt.optionLabel,
             offer_mode: opt.offerMode,
             guest_count: opt.guestCount,
-            menu_selection: opt.menuSelection,
+            menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson },
             total_amount: opt.totalAmount,
             stripe_payment_link_id: opt.stripePaymentLinkId,
             stripe_payment_link_url: opt.stripePaymentLinkUrl,
@@ -644,7 +680,7 @@ export function useOfferBuilder({
   // PHASE TRANSITIONS (NEU)
   // =================================================================
 
-  /** Phase 1: Vorschlag senden (ohne Stripe) */
+  /** Phase 1: Vorschlag senden (ohne Stripe) — sendet auch die Email */
   const sendProposal = useCallback(async (emailContent: string) => {
     await saveOptions();
     const newVersion = await createNewVersion(emailContent);
@@ -660,17 +696,50 @@ export function useOfferBuilder({
 
       setOfferPhase('proposal_sent');
 
+      // Email an Kunden senden
+      const customerEmail = inquiry.email;
+      const customerName = inquiry.contact_name;
+      let emailSent = false;
+
+      if (customerEmail) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const { data: emailResult, error: emailError } = await supabase.functions.invoke(
+            'send-offer-email',
+            {
+              body: {
+                inquiryId,
+                emailContent,
+                customerEmail,
+                customerName: customerName || '',
+                senderEmail: user?.email,
+              },
+            }
+          );
+          emailSent = !emailError && emailResult?.emailSent;
+          if (emailError) console.error('Email send error:', emailError);
+        } catch (emailErr) {
+          console.error('Error invoking send-offer-email:', emailErr);
+        }
+      }
+
       await logActivity(inquiryId, 'proposal_sent', {
         version: newVersion,
         optionCount: options.filter(o => o.isActive).length,
+        emailSent,
       });
 
-      toast.success("Vorschlag gesendet");
+      toast.success(emailSent
+        ? "Vorschlag gesendet und Email zugestellt"
+        : customerEmail
+          ? "Vorschlag gespeichert — Email konnte nicht zugestellt werden"
+          : "Vorschlag gespeichert (keine E-Mail-Adresse hinterlegt)"
+      );
     } catch (error) {
       console.error("Error sending proposal:", error);
       toast.error("Fehler beim Senden des Vorschlags");
     }
-  }, [saveOptions, createNewVersion, inquiryId, options]);
+  }, [saveOptions, createNewVersion, inquiryId, options, inquiry]);
 
   /** Phase 2: Finales Angebot senden (mit Stripe Payment Links) */
   const sendFinalOffer = useCallback(async (emailContent: string) => {
@@ -729,13 +798,43 @@ export function useOfferBuilder({
 
       setOfferPhase('final_sent');
 
+      // Email an Kunden senden
+      const customerEmail = inquiry.email;
+      let emailSent = false;
+
+      if (customerEmail) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const { data: emailResult, error: emailError } = await supabase.functions.invoke(
+            'send-offer-email',
+            {
+              body: {
+                inquiryId,
+                emailContent,
+                customerEmail,
+                customerName: inquiry.contact_name || '',
+                senderEmail: user?.email,
+              },
+            }
+          );
+          emailSent = !emailError && emailResult?.emailSent;
+          if (emailError) console.error('Email send error:', emailError);
+        } catch (emailErr) {
+          console.error('Error invoking send-offer-email:', emailErr);
+        }
+      }
+
       await logActivity(inquiryId, 'final_offer_sent', {
         version: newVersion,
         optionCount: activeOpts.length,
         paymentLinksCreated: linksCreated,
+        emailSent,
       });
 
-      toast.success(`Finales Angebot gesendet (${linksCreated} Zahlungslink${linksCreated !== 1 ? 's' : ''})`);
+      toast.success(emailSent
+        ? `Finales Angebot gesendet und Email zugestellt (${linksCreated} Zahlungslink${linksCreated !== 1 ? 's' : ''})`
+        : `Finales Angebot gespeichert — Email konnte nicht zugestellt werden`
+      );
     } catch (error) {
       console.error("Error sending final offer:", error);
       toast.error("Fehler beim Senden des finalen Angebots");

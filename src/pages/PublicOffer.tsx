@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -17,8 +17,10 @@ import {
   MapPin,
   MessageSquare,
   Send,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -37,12 +39,14 @@ interface PublicInquiry {
   id: string;
   company_name: string | null;
   contact_name: string;
+  email: string | null;
   event_type: string | null;
   preferred_date: string | null;
   guest_count: string | null;
   status: string;
   offer_phase: OfferPhase;
   selected_option_id: string | null;
+  email_content: string | null;
 }
 
 interface CourseSelection {
@@ -181,6 +185,11 @@ export default function PublicOffer() {
       <main className="flex-1">
         <HeroSection inquiry={inquiry} phase={effectivePhase} />
 
+        {/* Anschreiben — immer sichtbar wenn vorhanden */}
+        {inquiry.email_content && (
+          <AnschreibenSection emailContent={inquiry.email_content} />
+        )}
+
         {effectivePhase === "proposal_sent" && (
           <ProposalView
             inquiry={inquiry}
@@ -216,6 +225,57 @@ export default function PublicOffer() {
 }
 
 // =================================================================
+// ANSCHREIBEN SECTION — persönlicher Begleittext
+// =================================================================
+
+function AnschreibenSection({ emailContent }: { emailContent: string }) {
+  // Trenne Signatur-Block ab (erkennt "Mit freundlichen Grüßen" o.ä.)
+  const signatureSeparators = [
+    "Mit freundlichen Grüßen",
+    "Herzliche Grüße",
+    "Beste Grüße",
+    "Viele Grüße",
+  ];
+
+  let bodyText = emailContent;
+  let signatureText = "";
+
+  for (const sep of signatureSeparators) {
+    const idx = emailContent.indexOf(sep);
+    if (idx !== -1) {
+      bodyText = emailContent.slice(0, idx).trimEnd();
+      signatureText = emailContent.slice(idx);
+      break;
+    }
+  }
+
+  return (
+    <section className="border-b border-border/40">
+      <div className="container mx-auto px-4 py-10 md:py-14">
+        <div className="max-w-2xl mx-auto">
+          {/* Dekorativer Strich */}
+          <div className="w-12 h-0.5 bg-primary/40 mb-8" />
+
+          {/* Fließtext */}
+          <div className="font-serif text-base md:text-lg leading-relaxed text-foreground/90 whitespace-pre-line">
+            {bodyText}
+          </div>
+
+          {/* Signatur — etwas abgesetzt */}
+          {signatureText && (
+            <div className="mt-8 pt-6 border-t border-border/30">
+              <div className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
+                {signatureText}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// =================================================================
 // HERO SECTION
 // =================================================================
 
@@ -239,7 +299,7 @@ function HeroSection({
   const badge = phaseLabels[phase];
 
   return (
-    <section className="border-b border-border">
+    <section className="border-b border-border bg-stone-50/50">
       <div className="container mx-auto px-4 py-10 md:py-14">
         <div className="flex items-center gap-3 mb-2">
           <p className="text-sm uppercase tracking-widest text-muted-foreground">
@@ -300,6 +360,8 @@ function ProposalView({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [wantsCopy, setWantsCopy] = useState(false);
+  const [copyEmail, setCopyEmail] = useState(inquiry.email || "");
 
   const handleSubmit = async () => {
     if (!selectedOptionId) return;
@@ -328,6 +390,21 @@ function ProposalView({
         body: { inquiryId: inquiry.id },
       }).catch(() => {});
 
+      // E-Mail-Kopie senden (fire-and-forget)
+      if (wantsCopy && copyEmail.trim()) {
+        const selectedOpt = options.find(o => o.id === selectedOptionId);
+        supabase.functions.invoke("send-customer-response-copy", {
+          body: {
+            inquiryId: inquiry.id,
+            customerEmail: copyEmail.trim(),
+            selectedOptionLabel: selectedOpt
+              ? `Option ${selectedOpt.option_label}: ${selectedOpt.package_name}`
+              : "Ihre Auswahl",
+            customerNotes: notes.trim() || null,
+          },
+        }).catch(() => {});
+      }
+
       // Update parent state to show ThankYouView
       onSubmitted({
         inquiry: {
@@ -350,13 +427,15 @@ function ProposalView({
     }
   };
 
+  const isSingle = options.length === 1;
+
   return (
     <section className="container mx-auto px-4 py-10 md:py-14">
       <div className="max-w-3xl mx-auto">
         <p className="text-muted-foreground mb-8">
-          Wir haben {options.length} {options.length === 1 ? "Option" : "Optionen"} für Sie
-          zusammengestellt. Bitte wählen Sie Ihren Favoriten und teilen Sie uns
-          eventuelle Wünsche mit.
+          {isSingle
+            ? "Wir haben folgenden Vorschlag für Sie zusammengestellt. Teilen Sie uns eventuelle Wünsche mit."
+            : `Wir haben ${options.length} Optionen für Sie zusammengestellt. Bitte wählen Sie Ihren Favoriten und teilen Sie uns eventuelle Wünsche mit.`}
         </p>
 
         {/* Options als Auswahl-Cards */}
@@ -367,6 +446,7 @@ function ProposalView({
               option={option}
               isSelected={selectedOptionId === option.id}
               onSelect={() => setSelectedOptionId(option.id)}
+              singleOption={isSingle}
             />
           ))}
         </div>
@@ -381,8 +461,35 @@ function ProposalView({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="z.B. Allergien, vegetarische Gäste, besondere Wünsche..."
-            className="min-h-[120px] rounded-xl resize-none"
+            className="min-h-[120px] rounded-xl resize-y"
           />
+        </div>
+
+        {/* E-Mail-Kopie */}
+        <div className="mb-6">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={wantsCopy}
+              onChange={(e) => setWantsCopy(e.target.checked)}
+              className="h-4 w-4 rounded border-border accent-primary"
+            />
+            <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <Copy className="h-3.5 w-3.5" />
+              Kopie meiner Antwort per E-Mail an mich senden
+            </span>
+          </label>
+          {wantsCopy && (
+            <div className="mt-2 ml-6">
+              <Input
+                type="email"
+                value={copyEmail}
+                onChange={(e) => setCopyEmail(e.target.value)}
+                placeholder="ihre@email.de"
+                className="max-w-sm h-10 rounded-lg"
+              />
+            </div>
+          )}
         </div>
 
         {submitError && (
@@ -411,10 +518,12 @@ function ProposalOptionCard({
   option,
   isSelected,
   onSelect,
+  singleOption,
 }: {
   option: PublicOfferOption;
   isSelected: boolean;
   onSelect: () => void;
+  singleOption: boolean;
 }) {
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
@@ -434,19 +543,23 @@ function ProposalOptionCard({
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-3">
           {/* Radio-Indicator */}
-          <div
-            className={cn(
-              "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors",
-              isSelected ? "border-primary" : "border-muted-foreground/40"
-            )}
-          >
-            {isSelected && (
-              <div className="h-2.5 w-2.5 rounded-full bg-primary" />
-            )}
-          </div>
+          {!singleOption && (
+            <div
+              className={cn(
+                "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors",
+                isSelected ? "border-primary" : "border-muted-foreground/40"
+              )}
+            >
+              {isSelected && (
+                <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+              )}
+            </div>
+          )}
           <div>
             <h3 className="font-bold text-foreground">
-              Option {option.option_label}: {option.package_name}
+              {singleOption
+                ? option.package_name
+                : `Option ${option.option_label}: ${option.package_name}`}
             </h3>
             <p className="text-xs text-muted-foreground">
               {option.guest_count} Gäste
@@ -455,31 +568,35 @@ function ProposalOptionCard({
         </div>
         <div className="text-right">
           <p className="text-xl font-bold text-primary">
-            {formatCurrency(option.total_amount)}
+            {pricePerPerson > 0
+              ? formatCurrency(pricePerPerson)
+              : formatCurrency(option.total_amount)}
           </p>
           {pricePerPerson > 0 && (
             <p className="text-xs text-muted-foreground">
-              {formatCurrency(pricePerPerson)} / Person
+              pro Person
             </p>
           )}
         </div>
       </div>
 
-      {/* Kurze Menü-Vorschau */}
+      {/* Menü-Vorschau im Speisekarten-Stil */}
       {courses.length > 0 && (
         <div className="px-6 pb-4 pt-0">
-          <div className="text-xs text-muted-foreground space-y-0.5">
-            {courses.slice(0, 4).map((c, i) => (
-              <p key={i}>
-                <span className="uppercase tracking-wide font-medium">
-                  {c.courseLabel}:
-                </span>{" "}
-                {c.itemName}
-              </p>
+          <div className="space-y-1.5">
+            {courses.slice(0, 5).map((c, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <span className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide w-20 flex-shrink-0 pt-0.5">
+                  {c.courseLabel}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {c.itemName}
+                </span>
+              </div>
             ))}
-            {courses.length > 4 && (
-              <p className="italic">
-                +{courses.length - 4} weitere Gänge
+            {courses.length > 5 && (
+              <p className="text-xs text-muted-foreground/60 italic ml-[5.25rem]">
+                +{courses.length - 5} weitere Gänge
               </p>
             )}
           </div>
@@ -517,7 +634,7 @@ function ThankYouView({
           <p className="text-muted-foreground mb-2">
             Sie haben{" "}
             <strong className="text-foreground">
-              Option {selectedOption.option_label} ({selectedOption.package_name})
+              {selectedOption.package_name}
             </strong>{" "}
             gewählt.
           </p>
@@ -622,11 +739,13 @@ function FinalOptionCard({
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-primary">
-            {formatCurrency(option.total_amount)}
+            {pricePerPerson > 0
+              ? formatCurrency(pricePerPerson)
+              : formatCurrency(option.total_amount)}
           </p>
           {pricePerPerson > 0 && (
             <p className="text-xs text-muted-foreground">
-              {formatCurrency(pricePerPerson)} pro Person
+              pro Person
             </p>
           )}
         </div>
@@ -738,6 +857,11 @@ function ConfirmationView({
     ? options.find((o) => o.id === inquiry.selected_option_id)
     : options[0];
 
+  const pricePerPerson =
+    selectedOption && selectedOption.guest_count > 0
+      ? selectedOption.total_amount / selectedOption.guest_count
+      : 0;
+
   return (
     <section className="container mx-auto px-4 py-16 md:py-20">
       <div className="max-w-lg mx-auto text-center">
@@ -751,7 +875,9 @@ function ConfirmationView({
           <p className="text-muted-foreground mb-6">
             <strong className="text-foreground">{selectedOption.package_name}</strong>
             {" "}für {selectedOption.guest_count} Gäste —{" "}
-            {formatCurrency(selectedOption.total_amount)}
+            {pricePerPerson > 0
+              ? `${formatCurrency(pricePerPerson)} pro Person`
+              : formatCurrency(selectedOption.total_amount)}
           </p>
         )}
         {inquiry.preferred_date && (
