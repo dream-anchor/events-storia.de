@@ -35,7 +35,7 @@ BEGIN
         'menu_selection', ioo.menu_selection,
         'total_amount', ioo.total_amount,
         'stripe_payment_link_url', ioo.stripe_payment_link_url,
-        'package_name', COALESCE(p.name, 'Individuelles Paket'),
+        'package_name', CASE WHEN ioo.offer_mode = 'menu' THEN 'Individuelles Menü' ELSE COALESCE(p.name, 'Individuelles Paket') END,
         'sort_order', ioo.sort_order
       ) ORDER BY ioo.sort_order)
       FROM inquiry_offer_options ioo

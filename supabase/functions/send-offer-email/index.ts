@@ -90,6 +90,7 @@ ${offerUrl}
           from: `STORIA Events <${smtpUser}>`,
           to: [customerEmail],
           subject: emailSubject,
+          content: emailBodyWithLink,
           html: htmlBody,
           replyTo: smtpUser,
         });
