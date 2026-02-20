@@ -94,6 +94,7 @@ interface MultiOfferInquiry {
 interface MultiOfferOption {
   label: string;
   packageName: string;
+  offerMode?: string;
   guestCount: number;
   totalAmount: number;
   menuSelection?: MenuSelection;
@@ -129,7 +130,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
   parts.push(`Kunde: ${inquiry.contact_name}${inquiry.company_name ? ` (${inquiry.company_name})` : ''}`);
 
   // Nur tatsächlich vorhandene Daten aufnehmen
-  if (inquiry.event_type) parts.push(`Event-Typ: ${inquiry.event_type}`);
+  if (inquiry.event_type) parts.push(`Event-Typ (nur Hintergrundinfo, NICHT im Text verwenden!): ${inquiry.event_type}`);
   if (inquiry.preferred_date) parts.push(`Datum: ${inquiry.preferred_date}`);
   if (inquiry.time_slot) parts.push(`Uhrzeit: ${inquiry.time_slot} Uhr`);
   if (inquiry.guest_count) parts.push(`Gäste: ${inquiry.guest_count}`);
@@ -138,7 +139,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
   // Optionen — nur aufnehmen was tatsächlich konfiguriert ist
   const hasOptions = options.length > 0;
   const hasMenu = options.some(o => o.menuSelection?.courses?.some(c => c.itemName));
-  const hasPackage = options.some(o => o.packageName && o.packageName !== 'Individuell');
+  const hasPackage = options.some(o => o.packageName && o.packageName !== 'Individuell' && o.offerMode !== 'menu');
 
   if (hasOptions) {
     parts.push('');
@@ -148,7 +149,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       const label = options.length > 1 ? `Option ${opt.label}` : 'Angebot';
       const optParts: string[] = [];
 
-      if (opt.packageName && opt.packageName !== 'Individuell') {
+      if (opt.packageName && opt.packageName !== 'Individuell' && opt.offerMode !== 'menu') {
         optParts.push(`Paket: ${opt.packageName}`);
       }
       if (opt.guestCount > 0) optParts.push(`${opt.guestCount} Gäste`);
@@ -308,10 +309,10 @@ ${COMPANY_FOOTER}`;
         .eq('is_active', true)
         .order('sort_order');
 
-      // Also try to get package names
+      // Also try to get package names + offer_mode
       const { data: optionsWithPkg } = await supabaseAdmin
         .from('inquiry_offer_options')
-        .select('option_label, guest_count, total_amount, menu_selection, package_id, is_active')
+        .select('option_label, guest_count, total_amount, menu_selection, package_id, offer_mode, is_active')
         .eq('inquiry_id', rawBody.inquiryId)
         .eq('is_active', true)
         .order('sort_order');
@@ -335,7 +336,8 @@ ${COMPANY_FOOTER}`;
 
       const multiOpts: MultiOfferOption[] = (optionsWithPkg || []).map(o => ({
         label: o.option_label,
-        packageName: pkgNames[o.package_id] || 'Individuell',
+        offerMode: o.offer_mode || undefined,
+        packageName: (o.offer_mode === 'menu') ? 'Individuell' : (pkgNames[o.package_id] || 'Individuell'),
         guestCount: o.guest_count,
         totalAmount: Number(o.total_amount),
         menuSelection: o.menu_selection as MenuSelection | undefined,
