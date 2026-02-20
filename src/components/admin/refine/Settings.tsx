@@ -60,7 +60,7 @@ interface TemplateRow {
   subject: string;
   content: string;
   category: string;
-  is_active: boolean;
+  is_active: boolean | null;
   sort_order: number | null;
 }
 
@@ -422,8 +422,8 @@ function TemplateManager() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Switch
-                      checked={t.is_active}
-                      onCheckedChange={() => handleToggleActive(t.id, t.is_active)}
+                      checked={t.is_active ?? false}
+                      onCheckedChange={() => handleToggleActive(t.id, t.is_active ?? false)}
                       className="scale-75"
                     />
                     <Button
@@ -488,8 +488,8 @@ function TemplateManager() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Switch
-                      checked={t.is_active}
-                      onCheckedChange={() => handleToggleActive(t.id, t.is_active)}
+                      checked={t.is_active ?? false}
+                      onCheckedChange={() => handleToggleActive(t.id, t.is_active ?? false)}
                       className="scale-75"
                     />
                     <Button
