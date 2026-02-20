@@ -35,8 +35,10 @@ export function InlineCourseEditor({
     index: number,
     dish: { id: string; name: string; description: string | null; source: string; price: number | null }
   ) => {
-    // Katalogpreis minus 20% als Default-Preis
-    const overridePrice = dish.price != null ? Math.round(dish.price * 0.8 * 100) / 100 : null;
+    // Voller Katalogpreis als Default (Rabatt wird am Ende ausgewiesen)
+    const overridePrice = dish.price != null && dish.price > 0
+      ? dish.price
+      : null;
     onUpdateCourse(index, {
       itemId: dish.id,
       itemName: dish.name,

@@ -422,6 +422,91 @@ export function useOfferBuilder({
   }, [isLoading, packagesProp, options.map(o => `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.menuSelection.winePairingPrice}`).join(',')]);
 
   // =================================================================
+  // AUTO-REPAIR — Korrigiert itemName (Name+Beschreibung → nur Name),
+  // setzt fehlende overridePrice (Katalogpreis × 0.8), fixet Legacy-IDs
+  // =================================================================
+  const menuItems = menuItemsQuery.items;
+
+  /** Finde MenuItem — bevorzugt Items mit Preis > 0 */
+  const findMenuItem = useCallback((itemId: string | null, itemName: string): CombinedMenuItem | undefined => {
+    if (!menuItems.length) return undefined;
+    const candidates: CombinedMenuItem[] = [];
+
+    // 1. Exakte ID
+    if (itemId) {
+      const exact = menuItems.find(m => m.id === itemId);
+      if (exact) candidates.push(exact);
+    }
+    // 2. Name-basiert (startsWith für lange Namen mit Beschreibung)
+    if (itemName) {
+      for (const m of menuItems) {
+        if (candidates.includes(m)) continue;
+        if (m.name === itemName || itemName.startsWith(m.name) || m.name.startsWith(itemName)) {
+          candidates.push(m);
+        }
+      }
+    }
+    if (candidates.length === 0) return undefined;
+    // Bevorzuge Preis > 0, dann Ristorante vor Catering
+    return candidates.sort((a, b) => {
+      const aPrice = (a.price && a.price > 0) ? 1 : 0;
+      const bPrice = (b.price && b.price > 0) ? 1 : 0;
+      if (aPrice !== bPrice) return bPrice - aPrice;
+      if (a.source === 'ristorante' && b.source !== 'ristorante') return -1;
+      if (b.source === 'ristorante' && a.source !== 'ristorante') return 1;
+      return 0;
+    })[0];
+  }, [menuItems]);
+
+  const hasRepaired = useRef(false);
+
+  useEffect(() => {
+    if (isLoading || menuItemsQuery.isLoading || menuItems.length === 0) return;
+    if (hasRepaired.current) return;
+    hasRepaired.current = true;
+
+    setOptions(prev => {
+      let changed = false;
+      const updated = prev.map(opt => {
+        if (opt.offerMode !== 'menu') return opt;
+        const updatedCourses = opt.menuSelection.courses.map(course => {
+          if (!course.itemId && !course.itemName) return course;
+
+          const menuItem = findMenuItem(course.itemId, course.itemName);
+          if (!menuItem) return course;
+
+          const updates: Partial<typeof course> = {};
+
+          // Fix Name+Beschreibung → nur Name
+          if (menuItem.name !== course.itemName) {
+            updates.itemName = menuItem.name;
+            updates.itemDescription = menuItem.description;
+          }
+
+          // Fix Legacy-ID → prefixed ID
+          if (menuItem.id !== course.itemId) {
+            updates.itemId = menuItem.id;
+            updates.itemSource = menuItem.source;
+          }
+
+          // Fix fehlender overridePrice (voller Katalogpreis, Rabatt wird am Ende ausgewiesen)
+          if (!(course.overridePrice != null && course.overridePrice > 0) && menuItem.price && menuItem.price > 0) {
+            updates.overridePrice = menuItem.price;
+          }
+
+          if (Object.keys(updates).length === 0) return course;
+          changed = true;
+          return { ...course, ...updates };
+        });
+        if (updatedCourses === opt.menuSelection.courses) return opt;
+        return { ...opt, menuSelection: { ...opt.menuSelection, courses: updatedCourses } };
+      });
+      return changed ? updated : prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, menuItemsQuery.isLoading, menuItems.length]);
+
+  // =================================================================
   // OPTION CRUD (migriert aus useMultiOfferState)
   // =================================================================
   const addOption = useCallback((mode: OfferMode = 'menu') => {
@@ -677,7 +762,7 @@ export function useOfferBuilder({
     customerResponse,
 
     packageConfigs,
-    menuItems: menuItemsQuery.items,
+    menuItems,
 
     isLoading: isLoading || menuItemsQuery.isLoading,
     isSaving,

@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/popover";
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -65,16 +64,29 @@ export function DishPicker({
     );
   }, [menuItems, filterCategories]);
 
-  // Gruppiere nach Kategorie (statt Source)
-  const grouped = useMemo(() => {
-    const categories = new Map<string, CombinedMenuItem[]>();
-    for (const item of filteredItems) {
+  // Suche — manuelles Substring-Matching statt cmdk Fuzzy
+  const searchFiltered = useMemo(() => {
+    if (!search.trim()) return filteredItems;
+    const q = search.toLowerCase().trim();
+    return filteredItems.filter(item =>
+      item.name.toLowerCase().includes(q) ||
+      item.category_name.toLowerCase().includes(q) ||
+      (item.description && item.description.toLowerCase().includes(q))
+    );
+  }, [filteredItems, search]);
+
+  // Gruppiere nach Source → Kategorie (Ristorante zuerst, dann Catering)
+  const sourceGroups = useMemo(() => {
+    const ristorante = new Map<string, CombinedMenuItem[]>();
+    const catering = new Map<string, CombinedMenuItem[]>();
+    for (const item of searchFiltered) {
+      const target = item.source === 'ristorante' ? ristorante : catering;
       const key = item.category_name;
-      if (!categories.has(key)) categories.set(key, []);
-      categories.get(key)!.push(item);
+      if (!target.has(key)) target.set(key, []);
+      target.get(key)!.push(item);
     }
-    return categories;
-  }, [filteredItems]);
+    return { ristorante, catering };
+  }, [searchFiltered]);
 
   const handleSelect = (item: CombinedMenuItem) => {
     onSelect({
@@ -137,7 +149,7 @@ export function DishPicker({
         align="start"
         style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
       >
-        <Command shouldFilter={true}>
+        <Command shouldFilter={false}>
           <CommandInput
             placeholder="Gericht suchen..."
             value={search}
@@ -145,64 +157,127 @@ export function DishPicker({
             className="text-sm"
           />
           <CommandList ref={listRef} className="max-h-[280px]">
-            <CommandEmpty>
-              {allowCustom && search.trim() ? (
-                <button
-                  onClick={handleCustom}
-                  className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left hover:bg-muted/50 rounded-lg transition-colors"
-                >
-                  <Plus className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-foreground">
-                    <strong>„{search}"</strong>
-                    <span className="text-muted-foreground ml-1">als Freitext</span>
-                  </span>
-                </button>
-              ) : (
-                <span className="text-muted-foreground text-sm">Kein Gericht gefunden.</span>
-              )}
-            </CommandEmpty>
-
-            {[...grouped.entries()].map(([category, items], idx) => (
-              <CommandGroup
-                key={category}
-                heading={
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
-                    {category}
-                  </span>
-                }
-              >
-                {items.map((item) => (
-                  <CommandItem
-                    key={item.id}
-                    value={`${item.name} ${item.category_name} ${item.description || ''}`}
-                    onSelect={() => handleSelect(item)}
-                    className="py-2 px-3 rounded-lg"
+            {searchFiltered.length === 0 && (
+              <div className="py-6 text-center">
+                {allowCustom && search.trim() ? (
+                  <button
+                    onClick={handleCustom}
+                    className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left hover:bg-muted/50 rounded-lg transition-colors"
                   >
-                    <Check
-                      className={cn(
-                        "mr-2 h-3.5 w-3.5 shrink-0",
-                        value?.id === item.id ? "opacity-100 text-primary" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <span className="block truncate text-sm font-medium">{item.name}</span>
-                      {item.description && (
-                        <span className="block truncate text-xs text-muted-foreground/70 mt-0.5">
-                          {item.description}
-                        </span>
-                      )}
-                    </div>
-                    {item.price != null && (
-                      <span className="text-xs font-medium text-muted-foreground ml-2 shrink-0 tabular-nums">
-                        {item.price.toFixed(2)} €
-                      </span>
-                    )}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            ))}
+                    <Plus className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-foreground">
+                      <strong>„{search}"</strong>
+                      <span className="text-muted-foreground ml-1">als Freitext</span>
+                    </span>
+                  </button>
+                ) : (
+                  <span className="text-muted-foreground text-sm">Kein Gericht gefunden.</span>
+                )}
+              </div>
+            )}
 
-            {allowCustom && search.trim() && filteredItems.length > 0 && (
+            {/* --- Ristorante Speisekarte --- */}
+            {sourceGroups.ristorante.size > 0 && (
+              <>
+                <div className="px-3 pt-3 pb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary/80">
+                    Speisekarte Restaurant
+                  </span>
+                </div>
+                {[...sourceGroups.ristorante.entries()].map(([category, items]) => (
+                  <CommandGroup
+                    key={`r_${category}`}
+                    heading={
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                        {category}
+                      </span>
+                    }
+                  >
+                    {items.map((item) => (
+                      <CommandItem
+                        key={item.id}
+                        value={item.id}
+                        onSelect={() => handleSelect(item)}
+                        className="py-2 px-3 rounded-lg"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-3.5 w-3.5 shrink-0",
+                            value?.id === item.id ? "opacity-100 text-primary" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="block truncate text-sm font-medium">{item.name}</span>
+                          {item.description && (
+                            <span className="block truncate text-xs text-muted-foreground/70 mt-0.5">
+                              {item.description}
+                            </span>
+                          )}
+                        </div>
+                        {item.price != null && item.price > 0 && (
+                          <span className="text-xs font-medium text-muted-foreground ml-2 shrink-0 tabular-nums">
+                            {item.price.toFixed(2)} €
+                          </span>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ))}
+              </>
+            )}
+
+            {/* --- Catering / Fingerfood --- */}
+            {sourceGroups.catering.size > 0 && (
+              <>
+                {sourceGroups.ristorante.size > 0 && <CommandSeparator className="my-1" />}
+                <div className="px-3 pt-3 pb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600/80">
+                    Catering / Fingerfood
+                  </span>
+                </div>
+                {[...sourceGroups.catering.entries()].map(([category, items]) => (
+                  <CommandGroup
+                    key={`c_${category}`}
+                    heading={
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                        {category}
+                      </span>
+                    }
+                  >
+                    {items.map((item) => (
+                      <CommandItem
+                        key={item.id}
+                        value={item.id}
+                        onSelect={() => handleSelect(item)}
+                        className="py-2 px-3 rounded-lg"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-3.5 w-3.5 shrink-0",
+                            value?.id === item.id ? "opacity-100 text-primary" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="block truncate text-sm font-medium">{item.name}</span>
+                          {item.description && (
+                            <span className="block truncate text-xs text-muted-foreground/70 mt-0.5">
+                              {item.description}
+                            </span>
+                          )}
+                        </div>
+                        {item.price != null && item.price > 0 && (
+                          <span className="text-xs font-medium text-muted-foreground ml-2 shrink-0 tabular-nums">
+                            {item.price.toFixed(2)} €
+                          </span>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ))}
+              </>
+            )}
+
+            {allowCustom && search.trim() && (sourceGroups.ristorante.size > 0 || sourceGroups.catering.size > 0) && (
               <>
                 <CommandSeparator />
                 <CommandGroup>

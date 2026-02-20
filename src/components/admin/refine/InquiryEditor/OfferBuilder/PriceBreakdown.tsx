@@ -35,6 +35,50 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/** Findet das beste MenuItem — bevorzugt Items mit Preis > 0 */
+function findBestMenuItem(
+  items: CombinedMenuItem[] | undefined,
+  itemId: string | null,
+  itemName: string
+): CombinedMenuItem | undefined {
+  if (!items?.length) return undefined;
+
+  // Sammle alle Kandidaten
+  const candidates: CombinedMenuItem[] = [];
+
+  // 1. Exakte ID
+  if (itemId) {
+    const exact = items.find(m => m.id === itemId);
+    if (exact) candidates.push(exact);
+  }
+
+  // 2. Name-basiert (startsWith für lange Namen die Beschreibung enthalten)
+  if (itemName) {
+    for (const m of items) {
+      if (candidates.includes(m)) continue;
+      if (
+        m.name === itemName ||
+        itemName.startsWith(m.name) ||
+        m.name.startsWith(itemName)
+      ) {
+        candidates.push(m);
+      }
+    }
+  }
+
+  if (candidates.length === 0) return undefined;
+
+  // Bevorzuge: Preis > 0, dann Ristorante vor Catering
+  return candidates.sort((a, b) => {
+    const aHasPrice = (a.price && a.price > 0) ? 1 : 0;
+    const bHasPrice = (b.price && b.price > 0) ? 1 : 0;
+    if (aHasPrice !== bHasPrice) return bHasPrice - aHasPrice;
+    if (a.source === 'ristorante' && b.source !== 'ristorante') return -1;
+    if (b.source === 'ristorante' && a.source !== 'ristorante') return 1;
+    return 0;
+  })[0];
+}
+
 export function PriceBreakdown({
   packageData,
   guestCount,
@@ -49,19 +93,23 @@ export function PriceBreakdown({
 }: PriceBreakdownProps) {
   // --- Menü-Modus (kein Paket) ---
   if (!packageData && onTotalChange !== undefined) {
+    const DISCOUNT = 0.20; // 20% interner Rabatt
+
     const dishLines = (courses || [])
       .map((c, idx) => {
         if (!c.itemId && !c.itemName) return null;
-        const menuItem = menuItems?.find(m => m.id === c.itemId);
+        const menuItem = findBestMenuItem(menuItems, c.itemId, c.itemName);
         const catalogPrice = menuItem?.price ?? null;
-        // overridePrice hat Vorrang, sonst Katalogpreis
-        const effectivePrice = c.overridePrice != null ? c.overridePrice : catalogPrice;
+        // overridePrice hat Vorrang, sonst Katalogpreis (voller Preis, ohne Rabatt)
+        const price = c.overridePrice != null && c.overridePrice > 0
+          ? c.overridePrice
+          : (catalogPrice && catalogPrice > 0 ? catalogPrice : null);
         return {
           index: idx,
           label: c.courseLabel,
           name: c.itemName,
           catalogPrice,
-          effectivePrice,
+          price,
           overridePrice: c.overridePrice,
         };
       })
@@ -70,23 +118,26 @@ export function PriceBreakdown({
         label: string;
         name: string;
         catalogPrice: number | null;
-        effectivePrice: number | null;
+        price: number | null;
         overridePrice?: number | null;
       }[];
 
-    const dishSubtotal = dishLines.reduce((sum, d) => sum + (d.effectivePrice || 0), 0);
+    const dishSubtotal = dishLines.reduce((sum, d) => sum + (d.price || 0), 0);
     const winePerPerson = winePairingPrice || 0;
-    const wineTotal = winePerPerson * guestCount;
-    const calculatedTotal = dishSubtotal * guestCount + wineTotal;
+    const subtotalPerPerson = dishSubtotal + winePerPerson;
+    const discountAmount = dishSubtotal * DISCOUNT;
+    const netPerPerson = subtotalPerPerson - discountAmount;
+    const calculatedTotal = netPerPerson * guestCount;
 
     return (
       <div className="pt-3 border-t border-border/30 space-y-2">
-        {/* Einzelgerichte mit editierbarem Preis */}
         {dishLines.length > 0 && (
           <div className="space-y-1.5">
             <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
-              Gerichte (Preis pro Person)
+              Preis pro Person
             </span>
+
+            {/* Einzelgerichte (Originalpreise, editierbar) */}
             {dishLines.map((d) => (
               <div key={d.index} className="flex items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground truncate flex-1">
@@ -95,14 +146,14 @@ export function PriceBreakdown({
                 <div className="relative w-24 shrink-0">
                   <Input
                     type="number"
-                    value={d.overridePrice != null ? d.overridePrice : (d.catalogPrice ?? '')}
+                    value={d.overridePrice != null && d.overridePrice > 0 ? d.overridePrice : (d.catalogPrice && d.catalogPrice > 0 ? d.catalogPrice : '')}
                     onChange={(e) => {
                       const val = e.target.value;
                       onCourseUpdate?.(d.index, {
                         overridePrice: val === '' ? null : parseFloat(val) || 0,
                       });
                     }}
-                    placeholder={d.catalogPrice != null ? d.catalogPrice.toFixed(2) : '0,00'}
+                    placeholder={d.catalogPrice != null && d.catalogPrice > 0 ? d.catalogPrice.toFixed(2) : '—'}
                     className="h-7 rounded-lg pr-6 text-right text-xs"
                     disabled={disabled}
                   />
@@ -112,49 +163,73 @@ export function PriceBreakdown({
                 </div>
               </div>
             ))}
-            {dishSubtotal > 0 && guestCount > 1 && (
-              <div className="flex items-center justify-between text-xs text-muted-foreground/70 pt-0.5">
-                <span>{formatCurrency(dishSubtotal)} × {guestCount} Gäste</span>
-                <span>{formatCurrency(dishSubtotal * guestCount)}</span>
+
+            {/* Weinbegleitung */}
+            {winePairingPrice != null && winePerPerson > 0 && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Weinbegleitung</span>
+                <span className="text-xs text-muted-foreground shrink-0 w-24 text-right pr-6">
+                  {formatCurrency(winePerPerson)}
+                </span>
+              </div>
+            )}
+
+            {/* Zwischensumme pro Person */}
+            {subtotalPerPerson > 0 && (
+              <div className="flex items-center justify-between text-xs pt-1 border-t border-border/20">
+                <span className="text-muted-foreground">Zwischensumme / Pers.</span>
+                <span className="font-medium">{formatCurrency(subtotalPerPerson)}</span>
+              </div>
+            )}
+
+            {/* -20% Rabatt */}
+            {discountAmount > 0 && (
+              <div className="flex items-center justify-between text-xs text-green-600">
+                <span>−{Math.round(DISCOUNT * 100)}% Rabatt</span>
+                <span>−{formatCurrency(discountAmount)}</span>
+              </div>
+            )}
+
+            {/* Netto pro Person */}
+            {netPerPerson > 0 && discountAmount > 0 && (
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="text-muted-foreground">Netto / Person</span>
+                <span>{formatCurrency(netPerPerson)}</span>
+              </div>
+            )}
+
+            {/* × Gäste */}
+            {netPerPerson > 0 && guestCount > 0 && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground/70">
+                <span>{formatCurrency(netPerPerson)} × {guestCount} Gäste</span>
+                <span>{formatCurrency(calculatedTotal)}</span>
               </div>
             )}
           </div>
         )}
 
-        {/* Weinbegleitung */}
-        {winePairingPrice != null && (
-          <div className="flex items-center justify-between text-xs text-muted-foreground/70 pt-0.5">
-            <span>🍷 Weinbegleitung × {guestCount}</span>
-            <span>{formatCurrency(wineTotal)}</span>
-          </div>
-        )}
-
-        {/* Berechneter Referenzpreis */}
-        {calculatedTotal > 0 && Math.abs((totalAmount || 0) - calculatedTotal) > 0.01 && (
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground/50">
-            <span>Berechnet</span>
-            <span>{formatCurrency(calculatedTotal)}</span>
+        {/* Weinbegleitung alleinstehend */}
+        {dishLines.length === 0 && winePairingPrice != null && winePerPerson > 0 && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Weinbegleitung / Person</span>
+              <span>{formatCurrency(winePerPerson)}</span>
+            </div>
+            {guestCount > 0 && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground/70">
+                <span>{formatCurrency(winePerPerson)} × {guestCount} Gäste</span>
+                <span>{formatCurrency(winePerPerson * guestCount)}</span>
+              </div>
+            )}
           </div>
         )}
 
         <Separator className="my-1" />
 
-        {/* Editierbarer Gesamtpreis */}
+        {/* Gesamtpreis */}
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-semibold">Gesamtpreis</span>
-          <div className="relative w-36">
-            <Input
-              type="number"
-              value={totalAmount || ''}
-              onChange={(e) => onTotalChange?.(parseFloat(e.target.value) || 0)}
-              placeholder={calculatedTotal > 0 ? calculatedTotal.toFixed(2) : '0,00'}
-              className="h-8 rounded-xl pr-8 text-right font-bold"
-              disabled={disabled}
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-              €
-            </span>
-          </div>
+          <span className="text-lg font-bold tracking-tight">{formatCurrency(calculatedTotal)}</span>
         </div>
       </div>
     );
