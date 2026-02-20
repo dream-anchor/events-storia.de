@@ -16,26 +16,30 @@ const SENDER_INFO: Record<string, { firstName: string; mobile?: string }> = {
   'info@storia.de': { firstName: 'STORIA Team' },
 };
 
-const COMPANY_FOOTER = `Speranza GmbH
+// Fallback-Signatur falls DB leer
+const DEFAULT_COMPANY_FOOTER = `Speranza GmbH
 Karlstraße 47a
 80333 München
 Deutschland
 
 Telefon: +49 89 51519696
-E-Mail: info@events-storia.de
+E-Mail: info@events-storia.de`;
 
-Vertreten durch die Geschäftsführerin:
-Agnese Lettieri
-
-Registereintrag
-Eingetragen im Handelsregister des Amtsgerichts München
-Handelsregisternummer: HRB 209637
-
-Umsatzsteuer-ID
-DE 296024880
-
-Steuernummer
-143/182/00980`;
+/** Lädt die E-Mail-Signatur aus der DB (email_templates, category='signatur') */
+async function loadCompanyFooter(supabaseAdmin: ReturnType<typeof createClient>): Promise<string> {
+  try {
+    const { data } = await supabaseAdmin
+      .from('email_templates')
+      .select('content')
+      .eq('category', 'signatur')
+      .eq('is_active', true)
+      .limit(1)
+      .single();
+    return data?.content || DEFAULT_COMPANY_FOOTER;
+  } catch {
+    return DEFAULT_COMPANY_FOOTER;
+  }
+}
 
 // Types for legacy format
 interface CourseSelection {
@@ -260,11 +264,9 @@ serve(async (req) => {
 
     const senderInfo = SENDER_INFO[senderEmail?.toLowerCase() || ''] || { firstName: 'STORIA Team', mobile: '' };
 
-    // Build personalized signature
-    const personalizedSignature = `Viele Grüße
-${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}
-
-${COMPANY_FOOTER}`;
+    // Signatur: KI erzeugt nur Grußformel + Name, Company Footer wird nachträglich angehängt
+    const shortSignature = `Viele Grüße
+${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
 
     // Build context based on request format
     let context: string;
@@ -423,7 +425,7 @@ VERBOTEN:
 - Den Event-Typ als Titel im Text verwenden (z.B. NICHT "Ihr Network-Aperitivo" — stattdessen neutral "Ihre Veranstaltung" oder "Ihr Event")
 
 SIGNATUR (exakt so verwenden - NICHT ändern!):
-${personalizedSignature}`
+${shortSignature}`
       : `Du bist ein professioneller Mitarbeiter von STORIA München.
 
 STIL:
@@ -454,7 +456,7 @@ VERBOTEN:
 - Phrasen wie "Wir freuen uns außerordentlich", "Ihr exklusives Event wird unvergesslich"
 
 SIGNATUR (exakt so verwenden - NICHT ändern!):
-${personalizedSignature}`;
+${shortSignature}`;
 
     const userPrompt = isMultiOption
       ? isProposal
@@ -534,11 +536,19 @@ ${context}`;
     const aiResponse = await response.json();
     const generatedEmail = aiResponse.choices?.[0]?.message?.content || '';
 
-    console.log('Email generated successfully, length:', generatedEmail.length);
+    // Company Footer aus DB laden und an die E-Mail anhängen
+    const footerAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    const companyFooter = await loadCompanyFooter(footerAdmin);
+    const emailWithFooter = `${generatedEmail}\n\n${companyFooter}`;
+
+    console.log('Email generated successfully, length:', emailWithFooter.length);
 
     // Return both `email` and `emailDraft` for compatibility with all callers
     return new Response(
-      JSON.stringify({ success: true, email: generatedEmail, emailDraft: generatedEmail }),
+      JSON.stringify({ success: true, email: emailWithFooter, emailDraft: emailWithFooter }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
