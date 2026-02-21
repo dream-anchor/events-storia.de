@@ -56,3 +56,6 @@ verify_jwt = true
 
 [functions.send-customer-response-copy]
 verify_jwt = false
+
+[functions.translate-menu-text]
+verify_jwt = false
