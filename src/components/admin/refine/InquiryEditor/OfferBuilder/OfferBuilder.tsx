@@ -315,9 +315,9 @@ function OfferVersionHistory({ history, inquiryId }: { history: OfferHistoryEntr
                     <div className="space-y-3">
                       {activeOpts.map((opt, i) => {
                         const courses = opt.menuSelection?.courses?.filter(c => c.itemName) || [];
-                        const drinks = opt.menuSelection?.drinks?.filter(
-                          (d: Record<string, unknown>) => d.selectedChoice || d.customDrink
-                        ) || [];
+                        const drinks = (opt.menuSelection?.drinks || []).filter(
+                          (d) => d.selectedChoice || (d as any).customDrink
+                        );
                         const ppPrice = opt.guestCount > 0
                           ? (opt.budgetPerPerson && opt.budgetPerPerson > 0
                             ? opt.budgetPerPerson
@@ -351,12 +351,12 @@ function OfferVersionHistory({ history, inquiryId }: { history: OfferHistoryEntr
                             {/* Gänge */}
                             {courses.length > 0 && (
                               <div className="space-y-1 mt-2 pt-2 border-t border-border/30">
-                                {courses.map((c: Record<string, unknown>, ci: number) => (
+                                {courses.map((c, ci) => (
                                   <div key={ci} className="flex items-baseline gap-2 text-xs">
                                     <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-16 shrink-0">
-                                      {c.courseLabel as string}
+                                      {c.courseLabel}
                                     </span>
-                                    <span className="text-foreground/70">{c.itemName as string}</span>
+                                    <span className="text-foreground/70">{c.itemName}</span>
                                   </div>
                                 ))}
                               </div>
@@ -365,15 +365,15 @@ function OfferVersionHistory({ history, inquiryId }: { history: OfferHistoryEntr
                             {/* Getränke */}
                             {drinks.length > 0 && (
                               <div className="space-y-1 mt-2 pt-2 border-t border-border/30">
-                                {drinks.map((d: Record<string, unknown>, di: number) => (
+                                {drinks.map((d, di) => (
                                   <div key={di} className="flex items-baseline gap-2 text-xs">
                                     <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-16 shrink-0">
-                                      {d.drinkLabel as string}
+                                      {d.drinkLabel}
                                     </span>
                                     <span className="text-foreground/70">
-                                      {(d.customDrink || d.selectedChoice) as string}
+                                      {(d as any).customDrink || d.selectedChoice}
                                       {d.quantityLabel && (
-                                        <span className="text-muted-foreground/50 ml-1">({d.quantityLabel as string})</span>
+                                        <span className="text-muted-foreground/50 ml-1">({d.quantityLabel})</span>
                                       )}
                                     </span>
                                   </div>

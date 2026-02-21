@@ -26,7 +26,7 @@ Telefon: +49 89 51519696
 E-Mail: info@events-storia.de`;
 
 /** Lädt die E-Mail-Signatur aus der DB (email_templates, category='signatur') */
-async function loadCompanyFooter(supabaseAdmin: ReturnType<typeof createClient>): Promise<string> {
+async function loadCompanyFooter(supabaseAdmin: any): Promise<string> {
   try {
     const { data } = await supabaseAdmin
       .from('email_templates')
@@ -35,7 +35,7 @@ async function loadCompanyFooter(supabaseAdmin: ReturnType<typeof createClient>)
       .eq('is_active', true)
       .limit(1)
       .single();
-    return data?.content || DEFAULT_COMPANY_FOOTER;
+    return (data as any)?.content || DEFAULT_COMPANY_FOOTER;
   } catch {
     return DEFAULT_COMPANY_FOOTER;
   }
