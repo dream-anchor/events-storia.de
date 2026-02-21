@@ -64,6 +64,13 @@ export const AdminLayout = ({
   const { data: pendingBookingsCount } = usePendingMenuBookingsCount();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
 
+  // Admin-Theme auf body setzen, damit Radix-Portale (Dialog, Select, etc.)
+  // die Maestro CSS-Variablen statt der Website-Variablen erben
+  useEffect(() => {
+    document.body.classList.add('admin-active');
+    return () => { document.body.classList.remove('admin-active'); };
+  }, []);
+
   // Get current user
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {

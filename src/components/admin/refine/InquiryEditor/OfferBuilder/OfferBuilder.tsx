@@ -40,9 +40,32 @@ export function OfferBuilder({
     packages,
   });
 
-  // --- Default-Modus für neue Optionen ---
-  const [defaultMode, setDefaultMode] = useState<OfferMode>("menu");
+  // --- Default-Modus: 'paket' wenn Kunde Pakete gewählt hat ---
+  const [defaultMode, setDefaultMode] = useState<OfferMode>(
+    selectedPackages.length > 0 ? "paket" : "menu"
+  );
   const [isUnlocking, setIsUnlocking] = useState(false);
+
+  // ModeSelector-Wechsel propagiert an alle bestehenden Optionen
+  const handleModeChange = useCallback((mode: OfferMode) => {
+    setDefaultMode(mode);
+    if (mode !== 'email') {
+      builder.setOptions(prev => prev.map(opt => {
+        if (opt.offerMode === mode) return opt;
+        return {
+          ...opt,
+          offerMode: mode,
+          ...(mode === 'paket' ? {
+            menuSelection: { courses: [], drinks: [] },
+            budgetPerPerson: null,
+          } : {
+            packageId: null,
+            packageName: '',
+          }),
+        };
+      }));
+    }
+  }, [builder.setOptions]);
 
   // --- E-Mail Draft (lokal, nicht im Hook) ---
   const [emailDraft, setEmailDraft] = useState(inquiry.email_draft || "");
@@ -151,7 +174,7 @@ export function OfferBuilder({
       {/* 1. Modus-Auswahl */}
       <ModeSelector
         selectedMode={defaultMode}
-        onSelect={setDefaultMode}
+        onSelect={handleModeChange}
         disabled={builder.isLocked}
       />
 

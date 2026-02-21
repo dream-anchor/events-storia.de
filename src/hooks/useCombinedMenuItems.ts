@@ -68,6 +68,7 @@ export const useCombinedMenuItems = (options: UseCombinedMenuItemsOptions = {}) 
           .from("menu_items")
           .select("id, name, description, price, serving_info, image_url, is_vegetarian, is_vegan, menu_categories!inner(name)")
           .is("deleted_at", null)
+          .is("archived_at", null)
           .order("sort_order", { ascending: true })
           .limit(500);
 

@@ -524,6 +524,14 @@ export const Settings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string } | null>(null);
 
+  // Profil bearbeiten
+  const [displayName, setDisplayName] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Passwort ändern
+  const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+
   // Business data state (would be loaded from database in production)
   const [businessData, setBusinessData] = useState<BusinessData>({
     companyName: "Storia Restaurant & Events",
@@ -568,13 +576,54 @@ export const Settings = () => {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        setCurrentUser({
-          email: user.email || "",
-          name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Benutzer",
-        });
+        const name = user.user_metadata?.full_name || user.email?.split("@")[0] || "Benutzer";
+        setCurrentUser({ email: user.email || "", name });
+        setDisplayName(name);
       }
     });
   }, []);
+
+  // Profil speichern (Anzeigename)
+  const handleSaveProfile = async () => {
+    if (!displayName.trim()) {
+      toast.error("Anzeigename darf nicht leer sein");
+      return;
+    }
+    setIsSavingProfile(true);
+    const { error } = await supabase.auth.updateUser({
+      data: { full_name: displayName.trim() },
+    });
+    if (error) {
+      toast.error("Fehler beim Speichern: " + error.message);
+    } else {
+      setCurrentUser(prev => prev ? { ...prev, name: displayName.trim() } : prev);
+      toast.success("Anzeigename gespeichert");
+    }
+    setIsSavingProfile(false);
+  };
+
+  // Passwort ändern
+  const handleChangePassword = async () => {
+    if (passwordForm.newPassword.length < 8) {
+      toast.error("Passwort muss mindestens 8 Zeichen lang sein");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error("Passwörter stimmen nicht überein");
+      return;
+    }
+    setIsSavingPassword(true);
+    const { error } = await supabase.auth.updateUser({
+      password: passwordForm.newPassword,
+    });
+    if (error) {
+      toast.error("Fehler beim Ändern: " + error.message);
+    } else {
+      setPasswordForm({ newPassword: '', confirmPassword: '' });
+      toast.success("Passwort erfolgreich geändert");
+    }
+    setIsSavingPassword(false);
+  };
 
   const handleBusinessDataChange = (field: keyof BusinessData, value: string | boolean) => {
     setBusinessData((prev) => ({ ...prev, [field]: value }));
@@ -821,6 +870,9 @@ export const Settings = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* E-Mail-Signatur */}
+            <SignatureEditor />
           </TabsContent>
 
           {/* Speisen Tab */}
@@ -984,7 +1036,6 @@ export const Settings = () => {
 
           {/* Vorlagen Tab */}
           <TabsContent value="vorlagen" className="space-y-6">
-            <SignatureEditor />
             <TemplateManager />
           </TabsContent>
 
@@ -1020,7 +1071,8 @@ export const Settings = () => {
                     <Label htmlFor="userName">Anzeigename</Label>
                     <Input
                       id="userName"
-                      value={currentUser?.name || ""}
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
                       className="h-11"
                       placeholder="Ihr Name"
                     />
@@ -1041,8 +1093,8 @@ export const Settings = () => {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button className="gap-2">
-                    <Save className="h-4 w-4" />
+                  <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="gap-2">
+                    {isSavingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Profil speichern
                   </Button>
                 </div>
@@ -1078,17 +1130,48 @@ export const Settings = () => {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Shield className="h-5 w-5 text-primary" />
-                  Sicherheit
+                  Passwort ändern
                 </CardTitle>
+                <CardDescription>
+                  Neues Passwort für Ihren Account festlegen
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button variant="outline" className="gap-2">
-                  Passwort ändern
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-                <p className="text-sm text-muted-foreground">
-                  Sie werden zur Supabase-Authentifizierung weitergeleitet, um Ihr Passwort zu ändern.
-                </p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="newPassword">Neues Passwort</Label>
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm(f => ({ ...f, newPassword: e.target.value }))}
+                      placeholder="Min. 8 Zeichen"
+                      className="h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Passwort bestätigen</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                      placeholder="Passwort wiederholen"
+                      className="h-11"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleChangePassword}
+                    disabled={isSavingPassword || !passwordForm.newPassword}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    {isSavingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                    Passwort ändern
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

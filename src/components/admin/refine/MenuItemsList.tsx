@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useCallback } from "react";
 import {
   ChefHat, Utensils, Plus, Edit, Trash2, Undo2, X,
   ChevronDown, ChevronRight, Upload, Search, Sparkles,
-  Loader2, FolderPlus, AlertTriangle, Clock,
+  Loader2, FolderPlus, AlertTriangle, Clock, Archive, ArchiveRestore,
 } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,11 @@ import {
   useRestoreMenuItem, useRestoreCategory,
   usePermanentDeleteMenuItem, usePermanentDeleteCategory,
   useMenuTrash, uploadCateringImage,
+  useArchiveMenuItem, useArchiveCategory,
+  useUnarchiveMenuItem, useUnarchiveCategory,
+  useMenuArchive,
   type TrashItem,
+  type ArchiveItem,
 } from "@/hooks/useCateringMenuMutations";
 import { useTranslateMenuText } from "@/hooks/useTranslateMenuText";
 import { toast } from "sonner";
@@ -54,6 +58,7 @@ export const MenuItemsList = () => {
   // Data
   const { data: menus, isLoading: menusLoading } = useCateringMenus();
   const trashQuery = useMenuTrash();
+  const archiveQuery = useMenuArchive();
   const ristoranteQuery = useRistoranteMenus({ menuTypes: ['food', 'drinks', 'lunch'], enabled: activeTab === 'ristorante' });
 
   // Flatten all categories from all menus
@@ -85,6 +90,7 @@ export const MenuItemsList = () => {
   // Total counts
   const totalItems = allCategories.reduce((sum, cat) => sum + cat.items.length, 0);
   const trashCount = trashQuery.data?.length || 0;
+  const archiveCount = archiveQuery.data?.length || 0;
 
   return (
     <AdminLayout activeTab="menu">
@@ -114,6 +120,13 @@ export const MenuItemsList = () => {
             <TabsTrigger value="ristorante" className="gap-2">
               <Utensils className="h-4 w-4" />
               Ristorante
+            </TabsTrigger>
+            <TabsTrigger value="archive" className="gap-2">
+              <Archive className="h-4 w-4" />
+              Archiv
+              {archiveCount > 0 && (
+                <Badge variant="secondary" className="ml-1">{archiveCount}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="trash" className="gap-2">
               <Trash2 className="h-4 w-4" />
@@ -156,6 +169,14 @@ export const MenuItemsList = () => {
           {/* ─── Ristorante Tab ─── */}
           <TabsContent value="ristorante" className="mt-4">
             <RistoranteTab ristoranteQuery={ristoranteQuery} />
+          </TabsContent>
+
+          {/* ─── Archive Tab ─── */}
+          <TabsContent value="archive" className="mt-4">
+            <ArchiveTab
+              items={archiveQuery.data || []}
+              isLoading={archiveQuery.isLoading}
+            />
           </TabsContent>
 
           {/* ─── Trash Tab ─── */}
@@ -320,6 +341,8 @@ function CateringTab({
   onAddCategory: (menuId: string) => void;
   isLoading: boolean;
 }) {
+  const archiveItemMutation = useArchiveMenuItem();
+  const archiveCategoryMutation = useArchiveCategory();
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -375,6 +398,18 @@ function CateringTab({
             category={category}
             onEditItem={(item) => onEditItem({ ...item, categoryId: category.id })}
             onDeleteItem={onDeleteItem}
+            onArchiveItem={async (id, name) => {
+              try {
+                await archiveItemMutation.mutateAsync(id);
+                toast.success(`"${name}" archiviert`);
+              } catch { toast.error("Fehler beim Archivieren"); }
+            }}
+            onArchiveCategory={async () => {
+              try {
+                await archiveCategoryMutation.mutateAsync(category.id);
+                toast.success(`"${category.name}" archiviert`);
+              } catch { toast.error("Fehler beim Archivieren"); }
+            }}
             onEditCategory={() => onEditCategory({ ...category, menuId: category.menuId })}
             onDeleteCategory={() => onDeleteCategory(category.id, category.name)}
             onAddItem={() => onAddItem(category.id)}
@@ -390,6 +425,8 @@ function CategorySection({
   category,
   onEditItem,
   onDeleteItem,
+  onArchiveItem,
+  onArchiveCategory,
   onEditCategory,
   onDeleteCategory,
   onAddItem,
@@ -397,6 +434,8 @@ function CategorySection({
   category: CateringCategory & { menuTitle?: string | null };
   onEditItem: (item: CateringMenuItem) => void;
   onDeleteItem: (id: string, name: string) => void;
+  onArchiveItem: (id: string, name: string) => void;
+  onArchiveCategory: () => void;
   onEditCategory: () => void;
   onDeleteCategory: () => void;
   onAddItem: () => void;
@@ -431,7 +470,10 @@ function CategorySection({
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEditCategory} title="Kategorie bearbeiten">
                 <Edit className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/60 hover:text-destructive" onClick={onDeleteCategory} title="Kategorie loschen">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onArchiveCategory} title="Kategorie archivieren">
+                <Archive className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/60 hover:text-destructive" onClick={onDeleteCategory} title="Kategorie löschen">
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -445,6 +487,7 @@ function CategorySection({
                 item={item}
                 onEdit={() => onEditItem(item)}
                 onDelete={() => onDeleteItem(item.id, item.name)}
+                onArchive={() => onArchiveItem(item.id, item.name)}
               />
             ))}
           </div>
@@ -465,10 +508,12 @@ function MenuItemRow({
   item,
   onEdit,
   onDelete,
+  onArchive,
 }: {
   item: CateringMenuItem;
   onEdit: () => void;
   onDelete: () => void;
+  onArchive?: () => void;
 }) {
   return (
     <div className="flex items-center justify-between px-5 py-3 hover:bg-muted/10 transition-colors group">
@@ -505,10 +550,15 @@ function MenuItemRow({
           <span className="text-sm text-muted-foreground">{item.price_display}</span>
         )}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} title="Bearbeiten">
             <Edit className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/60 hover:text-destructive" onClick={onDelete}>
+          {onArchive && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onArchive} title="Archivieren">
+              <Archive className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/60 hover:text-destructive" onClick={onDelete} title="Löschen">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -1228,9 +1278,99 @@ function TrashTab({
                   className="text-destructive/60 hover:text-destructive gap-1"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Loschen
+                  Löschen
                 </Button>
               </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Archive Tab ──────────────────────────────────────────────────
+function ArchiveTab({
+  items,
+  isLoading,
+}: {
+  items: ArchiveItem[];
+  isLoading: boolean;
+}) {
+  const unarchiveItemMutation = useUnarchiveMenuItem();
+  const unarchiveCategoryMutation = useUnarchiveCategory();
+
+  const handleUnarchive = async (item: ArchiveItem) => {
+    try {
+      if (item.type === 'item') {
+        await unarchiveItemMutation.mutateAsync(item.id);
+      } else {
+        await unarchiveCategoryMutation.mutateAsync(item.id);
+      }
+      toast.success(`"${item.name}" wiederhergestellt`);
+    } catch {
+      toast.error("Fehler beim Wiederherstellen");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+        Laden...
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <Card className="rounded-2xl border-border/40 p-12 text-center">
+        <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <p className="text-lg font-medium">Archiv ist leer</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Archivierte saisonale Speisen und Kategorien erscheinen hier
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 rounded-xl px-4 py-3">
+        <Archive className="h-4 w-4 shrink-0" />
+        <span>Archivierte Elemente bleiben dauerhaft gespeichert und können jederzeit wiederhergestellt werden</span>
+      </div>
+
+      <Card className="rounded-2xl border-border/40 shadow-sm overflow-hidden">
+        <div className="divide-y divide-border/30">
+          {items.map(item => (
+            <div key={`${item.type}-${item.id}`} className="flex items-center justify-between px-5 py-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{item.name}</span>
+                  <Badge variant={item.type === 'category' ? 'secondary' : 'outline'} className="text-xs">
+                    {item.type === 'category' ? 'Kategorie' : 'Speise'}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {item.categoryName && (
+                    <span className="text-xs text-muted-foreground">{item.categoryName}</span>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    Archiviert am {new Date(item.archivedAt).toLocaleDateString('de-DE')}
+                  </span>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleUnarchive(item)}
+                disabled={unarchiveItemMutation.isPending || unarchiveCategoryMutation.isPending}
+                className="gap-1 shrink-0"
+              >
+                <ArchiveRestore className="h-3.5 w-3.5" />
+                Wiederherstellen
+              </Button>
             </div>
           ))}
         </div>

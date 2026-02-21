@@ -445,6 +445,163 @@ export const useMenuTrash = () => {
   });
 };
 
+// Archive menu item (saisonal verstecken, kein Auto-Löschen)
+export const useArchiveMenuItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from("menu_items")
+        .update({ archived_at: new Date().toISOString() } as Record<string, unknown>)
+        .eq("id", itemId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["catering-menus"] });
+      queryClient.invalidateQueries({ queryKey: ["menu-archive"] });
+    },
+  });
+};
+
+// Unarchive menu item
+export const useUnarchiveMenuItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from("menu_items")
+        .update({ archived_at: null } as Record<string, unknown>)
+        .eq("id", itemId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["catering-menus"] });
+      queryClient.invalidateQueries({ queryKey: ["menu-archive"] });
+    },
+  });
+};
+
+// Archive category (+ Items)
+export const useArchiveCategory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (categoryId: string) => {
+      const now = new Date().toISOString();
+      await supabase
+        .from("menu_items")
+        .update({ archived_at: now } as Record<string, unknown>)
+        .eq("category_id", categoryId)
+        .is("archived_at", null);
+      const { error } = await supabase
+        .from("menu_categories")
+        .update({ archived_at: now } as Record<string, unknown>)
+        .eq("id", categoryId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["catering-menus"] });
+      queryClient.invalidateQueries({ queryKey: ["menu-archive"] });
+    },
+  });
+};
+
+// Unarchive category (+ Items)
+export const useUnarchiveCategory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (categoryId: string) => {
+      const { error } = await supabase
+        .from("menu_categories")
+        .update({ archived_at: null } as Record<string, unknown>)
+        .eq("id", categoryId);
+
+      if (error) throw error;
+
+      await supabase
+        .from("menu_items")
+        .update({ archived_at: null } as Record<string, unknown>)
+        .eq("category_id", categoryId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["catering-menus"] });
+      queryClient.invalidateQueries({ queryKey: ["menu-archive"] });
+    },
+  });
+};
+
+// Archived items query
+export interface ArchiveItem {
+  id: string;
+  type: 'item' | 'category';
+  name: string;
+  categoryName?: string;
+  archivedAt: string;
+}
+
+export const useMenuArchive = () => {
+  return useQuery({
+    queryKey: ["menu-archive"],
+    queryFn: async (): Promise<ArchiveItem[]> => {
+      const archive: ArchiveItem[] = [];
+
+      // Archived categories
+      const { data: categories } = await supabase
+        .from("menu_categories")
+        .select("id, name, archived_at")
+        .not("archived_at", "is", null)
+        .is("deleted_at", null)
+        .order("archived_at", { ascending: false });
+
+      for (const cat of categories || []) {
+        archive.push({
+          id: cat.id,
+          type: 'category',
+          name: cat.name,
+          archivedAt: cat.archived_at,
+        });
+      }
+
+      // Archived items (not in archived categories)
+      const archivedCategoryIds = (categories || []).map(c => c.id);
+      let itemsQuery = supabase
+        .from("menu_items")
+        .select("id, name, archived_at, category_id, menu_categories!inner(name)")
+        .not("archived_at", "is", null)
+        .is("deleted_at", null)
+        .order("archived_at", { ascending: false });
+
+      if (archivedCategoryIds.length > 0) {
+        for (const catId of archivedCategoryIds) {
+          itemsQuery = itemsQuery.neq("category_id", catId);
+        }
+      }
+
+      const { data: items } = await itemsQuery;
+
+      for (const item of items || []) {
+        const catData = item.menu_categories as unknown as { name: string } | null;
+        archive.push({
+          id: item.id,
+          type: 'item',
+          name: item.name,
+          categoryName: catData?.name || undefined,
+          archivedAt: item.archived_at,
+        });
+      }
+
+      return archive;
+    },
+    staleTime: 30000,
+  });
+};
+
 // Upload image to storage
 export const uploadCateringImage = async (file: File): Promise<string> => {
   const fileExt = file.name.split(".").pop();

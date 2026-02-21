@@ -247,7 +247,7 @@ export function useOfferBuilder({
 
           setOptions([{
             id: crypto.randomUUID(),
-            ...createEmptyOption('A', guestCountRef.current),
+            ...createEmptyOption('A', guestCountRef.current, customerPackageId ? 'paket' : 'menu'),
             packageId: customerPackageId,
             packageName: initialPackageName,
             totalAmount: initialTotal,
