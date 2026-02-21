@@ -384,13 +384,13 @@ export const useMenuTrash = () => {
         .order("deleted_at", { ascending: false });
 
       for (const cat of categories || []) {
-        const deletedTime = new Date(cat.deleted_at).getTime();
+        const deletedTime = new Date(cat.deleted_at!).getTime();
         const remaining = Math.max(0, Math.ceil((deletedTime + SIXTY_DAYS_MS - now) / (24 * 60 * 60 * 1000)));
         trash.push({
           id: cat.id,
           type: 'category',
           name: cat.name,
-          deletedAt: cat.deleted_at,
+          deletedAt: cat.deleted_at!,
           daysRemaining: remaining,
         });
       }
@@ -413,7 +413,7 @@ export const useMenuTrash = () => {
       const { data: items } = await itemsQuery;
 
       for (const item of items || []) {
-        const deletedTime = new Date(item.deleted_at).getTime();
+        const deletedTime = new Date(item.deleted_at!).getTime();
         const remaining = Math.max(0, Math.ceil((deletedTime + SIXTY_DAYS_MS - now) / (24 * 60 * 60 * 1000)));
         const catData = item.menu_categories as unknown as { name: string } | null;
         trash.push({
@@ -421,7 +421,7 @@ export const useMenuTrash = () => {
           type: 'item',
           name: item.name,
           categoryName: catData?.name || undefined,
-          deletedAt: item.deleted_at,
+          deletedAt: item.deleted_at!,
           daysRemaining: remaining,
         });
       }
@@ -564,7 +564,7 @@ export const useMenuArchive = () => {
           id: cat.id,
           type: 'category',
           name: cat.name,
-          archivedAt: cat.archived_at,
+          archivedAt: cat.archived_at!,
         });
       }
 
@@ -592,7 +592,7 @@ export const useMenuArchive = () => {
           type: 'item',
           name: item.name,
           categoryName: catData?.name || undefined,
-          archivedAt: item.archived_at,
+          archivedAt: item.archived_at!,
         });
       }
 
