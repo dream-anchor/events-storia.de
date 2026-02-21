@@ -904,6 +904,7 @@ export type Database = {
       menu_categories: {
         Row: {
           created_at: string | null
+          deleted_at: string | null
           description: string | null
           description_en: string | null
           id: string
@@ -914,6 +915,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           description_en?: string | null
           id?: string
@@ -924,6 +926,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           description_en?: string | null
           id?: string
@@ -947,6 +950,7 @@ export type Database = {
           allergens: string | null
           category_id: string
           created_at: string | null
+          deleted_at: string | null
           description: string | null
           description_en: string | null
           id: string
@@ -967,6 +971,7 @@ export type Database = {
           allergens?: string | null
           category_id: string
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           description_en?: string | null
           id?: string
@@ -987,6 +992,7 @@ export type Database = {
           allergens?: string | null
           category_id?: string
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           description_en?: string | null
           id?: string
@@ -1457,6 +1463,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      purge_deleted_menu_items: { Args: never; Returns: undefined }
       submit_offer_response: {
         Args: {
           p_customer_notes?: string
