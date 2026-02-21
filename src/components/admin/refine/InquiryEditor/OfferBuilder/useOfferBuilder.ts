@@ -205,12 +205,22 @@ export function useOfferBuilder({
         if (optionsError) throw optionsError;
 
         if (optionsData && optionsData.length > 0) {
-          const mappedOptions: OfferBuilderOption[] = optionsData.map((opt) => ({
+          const mappedOptions: OfferBuilderOption[] = optionsData.map((opt) => {
+            // Korrektur: Wenn packageId gesetzt aber offerMode ist 'menu' → 'paket'
+            let mode = mapLegacyMode((opt as Record<string, unknown>).offer_mode as string);
+            if (opt.package_id && mode === 'menu') {
+              mode = 'paket';
+            }
+            // Paketnamen aus packages-Prop auflösen
+            const pkgName = opt.package_id
+              ? packagesProp?.find(p => p.id === opt.package_id)?.name || ''
+              : '';
+            return {
             id: opt.id,
             packageId: opt.package_id,
-            packageName: '',
+            packageName: pkgName,
             optionLabel: opt.option_label,
-            offerMode: mapLegacyMode((opt as Record<string, unknown>).offer_mode as string),
+            offerMode: mode,
             isActive: opt.is_active ?? true,
             guestCount: opt.guest_count,
             menuSelection: (opt.menu_selection as unknown as OfferBuilderOption['menuSelection']) || { courses: [], drinks: [] },
@@ -223,7 +233,7 @@ export function useOfferBuilder({
             budgetPerPerson: ((opt.menu_selection as Record<string, unknown>)?.budgetPerPerson as number) ?? null,
             attachMenu: false,
             tableNote: null,
-          }));
+          }; });
           setOptions(mappedOptions);
           setCurrentVersion(Math.max(...mappedOptions.map(o => o.offerVersion)));
         } else {

@@ -122,6 +122,7 @@ All colors MUST be HSL.
    Diese rendern bei document.body statt innerhalb .admin-layout,
    daher brauchen sie die Maestro CSS-Vars auf body-Ebene */
 body.admin-active {
+  /* Maestro CSS-Vars überschreiben :root (Website-Theme) */
   --background: 0 0% 99%;
   --foreground: 222 47% 11%;
   --card: 0 0% 100%;
@@ -140,7 +141,29 @@ body.admin-active {
   --input: 220 13% 93%;
   --ring: 38 92% 50%;
   --radius: 1rem;
+
+  /* Typografie: Website-Body setzt font-serif 18px/1.6 — hier komplett überschreiben */
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+  font-feature-settings: normal !important;
+
+  /* Hintergrund des body selbst (sichtbar hinter Overlay) */
+  background-color: hsl(220 14% 96%);
+}
+
+/* Alle Portal-Elemente innerhalb admin-active erben Maestro-Typografie */
+body.admin-active [data-radix-popper-content-wrapper],
+body.admin-active [role="dialog"],
+body.admin-active [role="alertdialog"],
+body.admin-active [data-radix-select-content],
+body.admin-active [data-radix-popover-content],
+body.admin-active [data-radix-dropdown-menu-content],
+body.admin-active [data-radix-tooltip-content],
+body.admin-active [data-state] {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 /* Admin Maestro Design System - Premium UI Framework 2026 */
