@@ -903,6 +903,7 @@ export type Database = {
       }
       menu_categories: {
         Row: {
+          archived_at: string | null
           created_at: string | null
           deleted_at: string | null
           description: string | null
@@ -914,6 +915,7 @@ export type Database = {
           sort_order: number | null
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string | null
           deleted_at?: string | null
           description?: string | null
@@ -925,6 +927,7 @@ export type Database = {
           sort_order?: number | null
         }
         Update: {
+          archived_at?: string | null
           created_at?: string | null
           deleted_at?: string | null
           description?: string | null
@@ -948,6 +951,7 @@ export type Database = {
       menu_items: {
         Row: {
           allergens: string | null
+          archived_at: string | null
           category_id: string
           created_at: string | null
           deleted_at: string | null
@@ -969,6 +973,7 @@ export type Database = {
         }
         Insert: {
           allergens?: string | null
+          archived_at?: string | null
           category_id: string
           created_at?: string | null
           deleted_at?: string | null
@@ -990,6 +995,7 @@ export type Database = {
         }
         Update: {
           allergens?: string | null
+          archived_at?: string | null
           category_id?: string
           created_at?: string | null
           deleted_at?: string | null
