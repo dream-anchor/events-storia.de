@@ -50,11 +50,6 @@ export function OptionCard({
     [packages, option.packageId]
   );
 
-  const eventPackages = useMemo(
-    () => packages.filter(p => p.package_type === 'event'),
-    [packages]
-  );
-
   const handlePackageChange = (packageId: string) => {
     const pkg = packages.find(p => p.id === packageId);
     if (!pkg) return;
@@ -329,11 +324,6 @@ function PaketContent({
   onUpdate: (u: Partial<OfferBuilderOption>) => void;
   disabled: boolean;
 }) {
-  const eventPackages = useMemo(
-    () => packages.filter(p => p.package_type === 'event'),
-    [packages]
-  );
-
   const handleSelectPackage = (pkg: Package) => {
     onUpdate({
       packageId: pkg.id,
@@ -348,7 +338,7 @@ function PaketContent({
         Paket wählen
       </span>
       <div className="grid gap-2">
-        {eventPackages.map(pkg => {
+        {packages.map(pkg => {
           const isSelected = option.packageId === pkg.id;
           return (
             <button

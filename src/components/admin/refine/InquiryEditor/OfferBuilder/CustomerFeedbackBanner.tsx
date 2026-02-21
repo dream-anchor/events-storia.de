@@ -1,19 +1,16 @@
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { MessageSquare, CheckCircle2, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MessageSquare, CheckCircle2 } from "lucide-react";
 import type { CustomerResponse, OfferBuilderOption } from "./types";
 
 interface CustomerFeedbackBannerProps {
   response: CustomerResponse;
   options: OfferBuilderOption[];
-  onFinalize?: () => void;
 }
 
 export function CustomerFeedbackBanner({
   response,
   options,
-  onFinalize,
 }: CustomerFeedbackBannerProps) {
   const selectedOption = options.find(o => o.id === response.selectedOptionId);
   const respondedAt = response.respondedAt
@@ -36,16 +33,6 @@ export function CustomerFeedbackBanner({
             )}
           </div>
         </div>
-        {onFinalize && (
-          <Button
-            onClick={onFinalize}
-            size="sm"
-            className="rounded-xl gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
-          >
-            Angebot finalisieren
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        )}
       </div>
 
       {selectedOption && (

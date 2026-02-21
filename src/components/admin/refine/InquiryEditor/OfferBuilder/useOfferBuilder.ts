@@ -95,6 +95,7 @@ export function useOfferBuilder({
   // --- Neue State ---
   const [offerPhase, setOfferPhase] = useState<OfferPhase>('draft');
   const [customerResponse, setCustomerResponse] = useState<CustomerResponse | null>(null);
+  const [localUnlocked, setLocalUnlocked] = useState(false);
 
   // --- Menu Items (konsolidiert aus useCombinedMenuItems) ---
   const menuItemsQuery = useCombinedMenuItems();
@@ -400,7 +401,7 @@ export function useOfferBuilder({
   // Paket-Modus: Paketpreis-Kalkulation
   // =================================================================
   const priceRecalcRef = useRef(false);
-  const MENU_DISCOUNT = 0.20;
+  const MENU_DISCOUNT = 0.25;
 
   useEffect(() => {
     if (isLoading) return;
@@ -653,18 +654,51 @@ export function useOfferBuilder({
     try {
       const newVersion = currentVersion + 1;
 
+      // 1. Inquiry-Felder zurücksetzen
       await supabase
         .from("event_inquiries")
         .update({
           offer_sent_at: null,
           offer_sent_by: null,
           current_offer_version: newVersion,
+          offer_phase: 'draft',
           status: 'offer_sent',
-        })
+        } as Record<string, unknown>)
         .eq("id", inquiryId);
 
+      // 2. Options sofort mit neuer Version in DB schreiben (nicht auf Auto-Save warten)
+      const updatedOptions = options.map(o => ({ ...o, offerVersion: newVersion }));
+      await supabase
+        .from("inquiry_offer_options")
+        .delete()
+        .eq("inquiry_id", inquiryId);
+
+      for (const opt of updatedOptions) {
+        await (supabase as any)
+          .from("inquiry_offer_options")
+          .insert({
+            id: opt.id,
+            inquiry_id: inquiryId,
+            offer_version: newVersion,
+            package_id: opt.packageId,
+            option_label: opt.optionLabel,
+            offer_mode: opt.offerMode,
+            guest_count: opt.guestCount,
+            menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson },
+            total_amount: opt.totalAmount,
+            stripe_payment_link_id: opt.stripePaymentLinkId,
+            stripe_payment_link_url: opt.stripePaymentLinkUrl,
+            is_active: opt.isActive,
+            sort_order: opt.sortOrder,
+          });
+      }
+
+      // 3. Lokalen State aktualisieren
       setCurrentVersion(newVersion);
-      setOptions(prev => prev.map(o => ({ ...o, offerVersion: newVersion })));
+      setOfferPhase('draft');
+      setLocalUnlocked(true);
+      setOptions(updatedOptions);
+      lastSavedJsonRef.current = JSON.stringify(updatedOptions);
 
       await logActivity(inquiryId, 'offer_unlocked_for_revision', { newVersion });
       toast.success(`Version ${newVersion} erstellt – Angebot kann bearbeitet werden`);
@@ -674,7 +708,7 @@ export function useOfferBuilder({
       toast.error("Fehler beim Entsperren");
       return currentVersion;
     }
-  }, [currentVersion, inquiryId]);
+  }, [currentVersion, inquiryId, options]);
 
   // =================================================================
   // PHASE TRANSITIONS (NEU)
@@ -847,8 +881,8 @@ export function useOfferBuilder({
   const activeOptions = useMemo(() => options.filter(o => o.isActive), [options]);
 
   const isLocked = useMemo(() => {
-    return !!inquiry.offer_sent_at;
-  }, [inquiry.offer_sent_at]);
+    return !!inquiry.offer_sent_at && !localUnlocked;
+  }, [inquiry.offer_sent_at, localUnlocked]);
 
   // =================================================================
   // RETURN

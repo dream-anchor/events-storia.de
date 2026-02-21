@@ -97,7 +97,7 @@ export function PriceBreakdown({
 }: PriceBreakdownProps) {
   // --- Menü-Modus (kein Paket) ---
   if (!packageData && onTotalChange !== undefined) {
-    const DISCOUNT = 0.20; // 20% interner Rabatt
+    const DISCOUNT = 0.25; // 25% interner Rabatt
 
     const dishLines = (courses || [])
       .map((c, idx) => {

@@ -129,9 +129,6 @@ serve(async (req) => {
       params.append('createdDateTo', createdDateTo);
     }
 
-    // Sort by date descending
-    params.append('sort', 'voucherDate,desc');
-
     const lexofficeUrl = `https://api.lexoffice.io/v1/voucherlist?${params.toString()}`;
     logStep('Calling LexOffice API', { url: lexofficeUrl });
 

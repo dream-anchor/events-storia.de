@@ -37,6 +37,7 @@ interface EmailComposerProps {
   timeSlot?: string;
   activeOptions?: OfferBuilderOption[];
   menuItems?: CombinedMenuItem[];
+  isLocked?: boolean;
 }
 
 export function EmailComposer({
@@ -55,6 +56,7 @@ export function EmailComposer({
   timeSlot = "",
   activeOptions = [],
   menuItems = [],
+  isLocked = false,
 }: EmailComposerProps) {
   const [copied, setCopied] = useState(false);
   const [showVariables, setShowVariables] = useState(false);
@@ -233,7 +235,7 @@ export function EmailComposer({
             {/* Vorlagen-Dropdown — eine saubere Liste */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 rounded-xl gap-1 text-xs">
+                <Button variant="outline" size="sm" className="h-7 rounded-xl gap-1 text-xs" disabled={isLocked}>
                   <FileText className="h-3 w-3" />
                   Vorlage
                   <ChevronDown className="h-3 w-3" />
@@ -271,7 +273,7 @@ export function EmailComposer({
                 variant="ghost"
                 size="sm"
                 onClick={onGenerate}
-                disabled={isGenerating}
+                disabled={isGenerating || isLocked}
                 className="h-7 rounded-xl gap-1 text-xs"
               >
                 <Sparkles className="h-3 w-3" />
@@ -290,18 +292,21 @@ export function EmailComposer({
             onSelect={saveCursorPos}
             onBlur={saveCursorPos}
             onKeyUp={saveCursorPos}
+            readOnly={isLocked}
             className={cn(
               "min-h-[200px] resize-y",
               "font-sans text-sm leading-relaxed",
               "border-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0",
               "bg-transparent p-0",
-              "placeholder:text-muted-foreground/50"
+              "placeholder:text-muted-foreground/50",
+              isLocked && "opacity-60 cursor-not-allowed"
             )}
             placeholder="Vorlage wählen oder Anschreiben verfassen..."
           />
         </div>
 
         {/* Variablen — klickbar zum Einfügen an Cursor-Position */}
+        {!isLocked && (
         <div className="px-5 py-2 border-t border-border/20">
           <button
             type="button"
@@ -335,9 +340,10 @@ export function EmailComposer({
             </div>
           )}
         </div>
+        )}
 
         {/* Textbausteine */}
-        {bausteine.length > 0 && (
+        {!isLocked && bausteine.length > 0 && (
           <div className="px-5 pb-4 pt-1 border-t border-border/20">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide block mb-2">
               Textbausteine

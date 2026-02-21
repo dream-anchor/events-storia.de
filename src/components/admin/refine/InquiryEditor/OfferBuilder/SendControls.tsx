@@ -22,6 +22,7 @@ interface SendControlsProps {
   isSending: boolean;
   onSendProposal: (emailContent: string) => Promise<void>;
   onSendFinalOffer: (emailContent: string) => Promise<void>;
+  hasHistory?: boolean;
 }
 
 const PHASE_LABELS: Record<OfferPhase, string> = {
@@ -41,6 +42,7 @@ export function SendControls({
   isSending,
   onSendProposal,
   onSendFinalOffer,
+  hasHistory = false,
 }: SendControlsProps) {
   const [confirmType, setConfirmType] = useState<'proposal' | 'final' | null>(null);
 
@@ -111,7 +113,7 @@ export function SendControls({
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              {offerPhase === 'proposal_sent' ? 'Erneut senden' : 'Vorschlag senden'}
+              {offerPhase === 'proposal_sent' ? 'Erneut senden' : hasHistory ? 'Neuen Vorschlag senden' : 'Vorschlag senden'}
             </Button>
           </motion.div>
         )}

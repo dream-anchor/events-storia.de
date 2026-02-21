@@ -98,7 +98,7 @@ function SignatureEditor() {
         .select('id, content')
         .eq('category', 'signatur')
         .limit(1)
-        .single();
+        .maybeSingle();
       if (data) {
         setSignature(data.content);
         setSignatureId(data.id);
@@ -120,7 +120,7 @@ function SignatureEditor() {
         category: 'signatur',
         is_active: true,
         sort_order: 0,
-      }).select('id').single();
+      }).select('id').maybeSingle();
       if (data) setSignatureId(data.id);
     }
     setSaving(false);

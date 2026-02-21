@@ -275,7 +275,7 @@ function AnschreibenSection({ emailContent }: { emailContent: string }) {
   return (
     <section className="bg-background">
       <div className="container mx-auto px-4 py-12 md:py-16">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl">
           {/* Fließtext */}
           <div className="font-serif text-base md:text-[1.1rem] leading-[1.75] text-foreground/90 whitespace-pre-line">
             {bodyText}
@@ -458,7 +458,7 @@ function ProposalView({
   return (
     <section className="bg-secondary/30">
       <div className="container mx-auto px-4 py-12 md:py-16">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl">
           {/* Sektion-Header */}
           <div className="mb-10">
             <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/60 mb-3">
@@ -631,6 +631,9 @@ function ProposalOptionCard({
               pro Person
             </p>
           )}
+          <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
+            zzgl. gesetzl. MwSt.
+          </p>
         </div>
       </div>
 
@@ -683,19 +686,6 @@ function ProposalOptionCard({
         </div>
       )}
 
-      {/* Gesamtpreis-Footer */}
-      {pricePerPerson > 0 && option.guest_count > 0 && (
-        <div className="px-6 py-3 bg-muted/30 border-t border-border/10">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground font-sans">
-              Gesamt ({option.guest_count} Pers.)
-            </span>
-            <span className="text-sm font-sans font-semibold text-foreground/70">
-              {formatCurrencyDecimal(pricePerPerson * option.guest_count)}
-            </span>
-          </div>
-        </div>
-      )}
     </button>
   );
 }
@@ -718,8 +708,8 @@ function ThankYouView({
   return (
     <section className="bg-secondary/30">
       <div className="container mx-auto px-4 py-16 md:py-24">
-        <div className="max-w-lg mx-auto text-center">
-          <div className="h-16 w-16 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-8">
+        <div className="max-w-lg">
+          <div className="h-16 w-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-8">
             <CheckCircle2 className="h-8 w-8 text-blue-600" />
           </div>
           <h2 className="text-2xl md:text-3xl font-serif font-bold mb-4">
@@ -772,7 +762,7 @@ function FinalOfferView({
   return (
     <section className="bg-secondary/30">
       <div className="container mx-auto px-4 py-12 md:py-16">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl">
           {/* Sektion-Header */}
           <div className="mb-10">
             <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/60 mb-3">
@@ -865,6 +855,9 @@ function FinalOptionCard({
               pro Person
             </p>
           )}
+          <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
+            zzgl. gesetzl. MwSt.
+          </p>
         </div>
       </div>
 
@@ -935,19 +928,8 @@ function FinalOptionCard({
         )}
       </div>
 
-      {/* Gesamt + Payment */}
+      {/* Payment */}
       <div className="px-6 py-4 bg-muted/30 border-t border-border/10">
-        {pricePerPerson > 0 && option.guest_count > 0 && (
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-muted-foreground font-sans">
-              Gesamt ({option.guest_count} Personen)
-            </span>
-            <span className="text-base font-sans font-bold text-foreground">
-              {formatCurrencyDecimal(pricePerPerson * option.guest_count)}
-            </span>
-          </div>
-        )}
-
         {option.stripe_payment_link_url ? (
           <a
             href={option.stripe_payment_link_url}
@@ -994,8 +976,8 @@ function ConfirmationView({
   return (
     <section className="bg-secondary/30">
       <div className="container mx-auto px-4 py-16 md:py-24">
-        <div className="max-w-lg mx-auto text-center">
-          <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-8">
+        <div className="max-w-lg">
+          <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-8">
             <CheckCircle2 className="h-8 w-8 text-emerald-600" />
           </div>
           <h2 className="text-2xl md:text-3xl font-serif font-bold mb-5">
@@ -1031,17 +1013,17 @@ function ConfirmationView({
 function ContactSection() {
   return (
     <section className="border-t border-border/30">
-      <div className="container mx-auto px-4 py-12 md:py-16 text-center">
+      <div className="container mx-auto px-4 py-12 md:py-16">
         <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/60 mb-3">
           Kontakt
         </p>
         <h2 className="text-xl md:text-2xl font-serif font-bold mb-3">
           Fragen zu Ihrem Angebot?
         </h2>
-        <p className="text-muted-foreground font-sans mb-8 max-w-md mx-auto text-sm">
+        <p className="text-muted-foreground font-sans mb-8 max-w-md text-sm">
           Wir beraten Sie gerne persönlich und passen das Angebot an Ihre Wünsche an.
         </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start gap-4">
           <a href="tel:+498951519696">
             <Button variant="outline" className="gap-2 rounded-full font-sans px-6 h-11 hover:-translate-y-0.5 transition-all">
               <Phone className="h-4 w-4" />
