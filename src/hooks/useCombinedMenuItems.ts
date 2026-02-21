@@ -67,6 +67,7 @@ export const useCombinedMenuItems = (options: UseCombinedMenuItemsOptions = {}) 
         const { data, error } = await supabase
           .from("menu_items")
           .select("id, name, description, price, serving_info, image_url, is_vegetarian, is_vegan, menu_categories!inner(name)")
+          .is("deleted_at", null)
           .order("sort_order", { ascending: true })
           .limit(500);
 

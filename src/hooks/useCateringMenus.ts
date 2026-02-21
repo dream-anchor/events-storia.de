@@ -66,6 +66,7 @@ export const useCateringMenus = () => {
             .from("menu_categories")
             .select("*")
             .eq("menu_id", menu.id)
+            .is("deleted_at", null)
             .order("sort_order", { ascending: true });
 
           const categoriesWithItems = await Promise.all(
@@ -74,6 +75,7 @@ export const useCateringMenus = () => {
                 .from("menu_items")
                 .select("*")
                 .eq("category_id", category.id)
+                .is("deleted_at", null)
                 .order("sort_order", { ascending: true });
 
               return {
@@ -120,6 +122,7 @@ export const usePublishedCateringMenus = () => {
             .from("menu_categories")
             .select("*")
             .eq("menu_id", menu.id)
+            .is("deleted_at", null)
             .order("sort_order", { ascending: true });
 
           const categoriesWithItems = await Promise.all(
@@ -128,6 +131,7 @@ export const usePublishedCateringMenus = () => {
                 .from("menu_items")
                 .select("*")
                 .eq("category_id", category.id)
+                .is("deleted_at", null)
                 .order("sort_order", { ascending: true });
 
               return {
@@ -182,6 +186,7 @@ export const useCateringMenuBySlug = (slug: string | undefined) => {
         .from("menu_categories")
         .select("*")
         .eq("menu_id", menu.id)
+        .is("deleted_at", null)
         .order("sort_order", { ascending: true });
 
       const categoriesWithItems = await Promise.all(
@@ -190,6 +195,7 @@ export const useCateringMenuBySlug = (slug: string | undefined) => {
             .from("menu_items")
             .select("*")
             .eq("category_id", category.id)
+            .is("deleted_at", null)
             .order("sort_order", { ascending: true });
 
           return {

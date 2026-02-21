@@ -126,7 +126,7 @@ REGELN:
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content || '';
 
-    // Parse JSON from AI response
+    // Parse JSON from AI response (might be wrapped in markdown code block)
     let parsed: { name_translated?: string; description_translated?: string };
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
