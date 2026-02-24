@@ -807,7 +807,7 @@ export const Settings = () => {
       .select('value')
       .eq('key', 'business_data')
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data }: any) => {
         if (data?.value) {
           setBusinessData(prev => ({ ...prev, ...(data.value as any) }));
         }
