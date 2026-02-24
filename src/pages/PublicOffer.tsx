@@ -143,7 +143,7 @@ export default function PublicOffer() {
           // Slug-Lookup
           const res = await supabase.rpc(
             "get_public_offer_by_slug" as never,
-            { offer_slug: lookupValue } as never
+            { slug: lookupValue } as never
           );
           result = res.data;
           rpcError = res.error;
