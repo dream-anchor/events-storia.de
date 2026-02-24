@@ -158,6 +158,7 @@ export default function PublicOffer() {
         }
 
         if (rpcError || !result || !(result as PublicOfferData).inquiry) {
+          console.error('[PublicOffer] RPC failed:', { rpcError, result, lookupValue, isSlugRoute });
           setError(true);
         } else {
           setData(result as unknown as PublicOfferData);
