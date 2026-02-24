@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.translate-menu-text]
 verify_jwt = false
+
+[functions.list-lexoffice-vouchers]
+verify_jwt = true
