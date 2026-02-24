@@ -122,6 +122,7 @@ const App = () => {
 
                     {/* Public Offer */}
                     <Route path="/offer/:id" element={<PublicOffer />} />
+                    <Route path="/ihr-angebot/:slug" element={<PublicOffer />} />
 
                     {/* Legal */}
                     <Route path="/impressum" element={<Impressum />} />
@@ -164,6 +165,7 @@ const App = () => {
 
                     {/* Public Offer EN */}
                     <Route path="/en/offer/:id" element={<PublicOffer />} />
+                    <Route path="/en/your-offer/:slug" element={<PublicOffer />} />
 
                     {/* Legal EN */}
                     <Route path="/en/imprint" element={<Impressum />} />

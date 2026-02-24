@@ -724,12 +724,76 @@ export function useOfferBuilder({
   // PHASE TRANSITIONS (NEU)
   // =================================================================
 
-  /** Phase 1: Vorschlag senden (ohne Stripe) — sendet auch die Email */
+  /** Phase 1: Vorschlag senden (ohne Stripe) — erstellt LexOffice-Angebot + sendet Email */
   const sendProposal = useCallback(async (emailContent: string) => {
     await saveOptions();
     const newVersion = await createNewVersion(emailContent);
 
     try {
+      // 1. LexOffice-Angebot automatisch erstellen
+      const activeOpts = options.filter(o => o.isActive);
+      let lexofficeQuotationId: string | null = null;
+
+      try {
+        const lineItems = activeOpts.flatMap((opt) => {
+          const pkg = packagesProp?.find(p => p.id === opt.packageId);
+          const label = pkg?.name || opt.packageName || opt.optionLabel;
+          const pricePerPerson = pkg?.price_per_person ?? true;
+          const unitPrice = pricePerPerson && opt.guestCount > 0
+            ? opt.totalAmount / opt.guestCount
+            : opt.totalAmount;
+
+          return [{
+            name: activeOpts.length > 1 ? `Option ${opt.optionLabel}: ${label}` : label,
+            description: `${opt.guestCount} Gäste`,
+            quantity: pricePerPerson ? opt.guestCount : 1,
+            unitName: pricePerPerson ? 'Person' : 'Stück',
+            unitPrice: { currency: 'EUR', netAmount: Math.round(unitPrice * 100) / 100, taxRatePercentage: 7 },
+          }];
+        });
+
+        if (lineItems.length > 0) {
+          // MenuSelection für das erste aktive Option (für LexOffice-Intro)
+          const firstOpt = activeOpts[0];
+          const menuSelection = firstOpt?.menuSelection
+            ? { courses: firstOpt.menuSelection.courses, drinks: firstOpt.menuSelection.drinks }
+            : undefined;
+
+          const { data: quotationResult } = await supabase.functions.invoke(
+            'create-event-quotation',
+            {
+              body: {
+                eventId: inquiryId,
+                event: {
+                  contact_name: inquiry.contact_name,
+                  company_name: inquiry.company_name,
+                  email: inquiry.email,
+                  preferred_date: inquiry.preferred_date,
+                  guest_count: inquiry.guest_count,
+                  event_type: inquiry.event_type,
+                },
+                items: lineItems,
+                notes: `Angebot Version ${newVersion}`,
+                menuSelection,
+              },
+            }
+          );
+
+          if (quotationResult?.success && quotationResult.quotationId) {
+            lexofficeQuotationId = quotationResult.quotationId;
+            // LexOffice-ID in der Inquiry speichern
+            await supabase
+              .from('event_inquiries')
+              .update({ lexoffice_invoice_id: lexofficeQuotationId } as Record<string, unknown>)
+              .eq('id', inquiryId);
+          }
+        }
+      } catch (lexErr) {
+        // LexOffice-Fehler nicht blockierend — Email wird trotzdem gesendet
+        console.error('LexOffice quotation error (non-blocking):', lexErr);
+      }
+
+      // 2. Status aktualisieren
       await supabase
         .from("event_inquiries")
         .update({
@@ -740,7 +804,7 @@ export function useOfferBuilder({
 
       setOfferPhase('proposal_sent');
 
-      // Email an Kunden senden
+      // 3. Email an Kunden senden
       const customerEmail = inquiry.email;
       const customerName = inquiry.contact_name;
       let emailSent = false;
@@ -769,21 +833,26 @@ export function useOfferBuilder({
 
       await logActivity(inquiryId, 'proposal_sent', {
         version: newVersion,
-        optionCount: options.filter(o => o.isActive).length,
+        optionCount: activeOpts.length,
         emailSent,
+        lexofficeQuotationId,
       });
 
-      toast.success(emailSent
-        ? "Vorschlag gesendet und Email zugestellt"
-        : customerEmail
-          ? "Vorschlag gespeichert — Email konnte nicht zugestellt werden"
-          : "Vorschlag gespeichert (keine E-Mail-Adresse hinterlegt)"
+      const parts: string[] = [];
+      if (emailSent) parts.push('Email zugestellt');
+      else if (customerEmail) parts.push('Email konnte nicht zugestellt werden');
+      if (lexofficeQuotationId) parts.push('LexOffice-Angebot erstellt');
+
+      toast.success(
+        parts.length > 0
+          ? `Vorschlag gesendet — ${parts.join(', ')}`
+          : 'Vorschlag gespeichert (keine E-Mail-Adresse hinterlegt)'
       );
     } catch (error) {
       console.error("Error sending proposal:", error);
       toast.error("Fehler beim Senden des Vorschlags");
     }
-  }, [saveOptions, createNewVersion, inquiryId, options, inquiry]);
+  }, [saveOptions, createNewVersion, inquiryId, options, inquiry, packagesProp]);
 
   /** Phase 2: Finales Angebot senden (mit Stripe Payment Links) */
   const sendFinalOffer = useCallback(async (emailContent: string) => {

@@ -138,7 +138,7 @@ export function OptionCard({
       drinkLabel: 'Zusatzgetränk',
       selectedChoice: null,
       quantityLabel: null,
-      customDrink: '',
+      customDrink: null,
     };
     onUpdate({
       menuSelection: {

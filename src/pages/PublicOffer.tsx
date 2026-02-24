@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -17,6 +17,8 @@ import {
   MessageSquare,
   Send,
   Copy,
+  Download,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +48,7 @@ interface PublicInquiry {
   offer_phase: OfferPhase;
   selected_option_id: string | null;
   email_content: string | null;
+  lexoffice_invoice_id: string | null;
 }
 
 interface CourseSelection {
@@ -118,20 +121,41 @@ function formatCurrencyDecimal(amount: number) {
 // =================================================================
 
 export default function PublicOffer() {
-  const { id } = useParams<{ id: string }>();
+  const { id, slug } = useParams<{ id?: string; slug?: string }>();
+  const location = useLocation();
   const [data, setData] = useState<PublicOfferData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  // Slug-Route (/ihr-angebot/:slug) oder UUID-Route (/offer/:id)
+  const isSlugRoute = location.pathname.includes('/ihr-angebot/') || location.pathname.includes('/your-offer/');
+  const lookupValue = slug || id;
+
   useEffect(() => {
-    if (!id) return;
+    if (!lookupValue) return;
 
     const fetchOffer = async () => {
       try {
-        const { data: result, error: rpcError } = await supabase.rpc(
-          "get_public_offer" as never,
-          { offer_id: id } as never
-        );
+        let result;
+        let rpcError;
+
+        if (isSlugRoute) {
+          // Slug-Lookup
+          const res = await supabase.rpc(
+            "get_public_offer_by_slug" as never,
+            { offer_slug: lookupValue } as never
+          );
+          result = res.data;
+          rpcError = res.error;
+        } else {
+          // UUID-Lookup (Legacy)
+          const res = await supabase.rpc(
+            "get_public_offer" as never,
+            { offer_id: lookupValue } as never
+          );
+          result = res.data;
+          rpcError = res.error;
+        }
 
         if (rpcError || !result || !(result as PublicOfferData).inquiry) {
           setError(true);
@@ -146,7 +170,7 @@ export default function PublicOffer() {
     };
 
     fetchOffer();
-  }, [id]);
+  }, [lookupValue, isSlugRoute]);
 
   if (loading) {
     return (
@@ -195,6 +219,11 @@ export default function PublicOffer() {
       <main className="flex-1">
         <HeroSection inquiry={inquiry} phase={effectivePhase} />
 
+        {/* PDF-Download — nur wenn LexOffice-Angebot verknüpft */}
+        {inquiry.lexoffice_invoice_id && (
+          <PdfDownloadSection inquiryId={inquiry.id} />
+        )}
+
         {/* Anschreiben — immer sichtbar wenn vorhanden */}
         {inquiry.email_content && (
           <AnschreibenSection emailContent={inquiry.email_content} />
@@ -231,6 +260,68 @@ export default function PublicOffer() {
       </main>
       <OfferFooter />
     </div>
+  );
+}
+
+// =================================================================
+// PDF DOWNLOAD SECTION
+// =================================================================
+
+function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'download-public-offer-pdf',
+        { body: { inquiryId } }
+      );
+
+      if (error || data?.error) {
+        throw new Error(data?.error || 'Download fehlgeschlagen');
+      }
+
+      const link = document.createElement('a');
+      link.href = `data:application/pdf;base64,${data.pdf}`;
+      link.download = data.filename || 'STORIA_Angebot.pdf';
+      link.click();
+    } catch {
+      // Stille Fehlerbehandlung — Button bleibt sichtbar
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <section className="bg-background border-b border-border/20">
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex items-center gap-4 max-w-2xl">
+          <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center shrink-0">
+            <FileText className="h-4.5 w-4.5 text-primary/60" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-sans text-foreground/80">
+              Ihr Angebot steht auch als PDF zum Download bereit.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="rounded-full gap-2 font-sans shrink-0"
+          >
+            {isDownloading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            PDF herunterladen
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
 

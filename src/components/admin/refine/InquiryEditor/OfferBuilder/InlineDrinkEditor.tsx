@@ -26,6 +26,20 @@ function getOptionLabel(opt: DrinkOption | string): string {
   return opt.label || opt.type || '';
 }
 
+/** Häufige Zusatzgetränke für Extra-Drink-Dropdown */
+const COMMON_EXTRA_DRINKS = [
+  'Prosecco',
+  'Aperol Spritz',
+  'Hugo',
+  'Campari Soda',
+  'Negroni',
+  'Limoncello',
+  'Grappa',
+  'Espresso Martini',
+  'Gin Tonic',
+  'Spritz Veneziano',
+];
+
 export function InlineDrinkEditor({
   drinks,
   drinkConfigs,
@@ -121,6 +135,57 @@ export function InlineDrinkEditor({
           );
         }
 
+        // Extra-Drink: Dropdown mit häufigen Getränken (wenn noch kein Custom-Text)
+        if (isExtraDrink && !isCustomActive) {
+          return (
+            <div
+              key={idx}
+              className={cn(
+                "flex items-center gap-3 py-2 px-2 rounded-lg",
+                "hover:bg-muted/30 transition-colors"
+              )}
+            >
+              <span className="text-base w-7 text-center shrink-0">{icon}</span>
+              <Select
+                value={drink.selectedChoice || ''}
+                onValueChange={(val) => {
+                  if (val === '__custom__') {
+                    onUpdateDrink(idx, { selectedChoice: null, customDrink: '' });
+                  } else {
+                    onUpdateDrink(idx, { selectedChoice: val, customDrink: null });
+                  }
+                }}
+                disabled={disabled}
+              >
+                <SelectTrigger className="h-9 rounded-xl min-w-[200px]">
+                  <SelectValue placeholder="Getränk wählen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {COMMON_EXTRA_DRINKS.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__custom__">
+                    Eigene Angabe...
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {onRemoveDrink && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveDrink(idx)}
+                  className="shrink-0 h-9 w-9 rounded-xl border border-border/40 flex items-center justify-center hover:bg-destructive/10 transition-colors"
+                  title="Getränk entfernen"
+                  disabled={disabled}
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+          );
+        }
+
         // Freitext-Eingabe (Eigene Angabe oder kein Config oder Extra-Drink)
         return (
           <div
@@ -147,8 +212,8 @@ export function InlineDrinkEditor({
                 disabled={disabled}
                 autoFocus={isCustomActive && !drink.customDrink}
               />
-              {/* Zurück zum Dropdown (nur bei Config-Drinks mit Optionen) */}
-              {config?.is_choice && config.options.length > 0 && (
+              {/* Zurück zum Dropdown (Config-Drinks mit Optionen ODER Extra-Drinks) */}
+              {((config?.is_choice && config.options.length > 0) || isExtraDrink) && (
                 <button
                   type="button"
                   onClick={() => onUpdateDrink(idx, { customDrink: null, selectedChoice: null })}

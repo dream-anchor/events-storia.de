@@ -10,6 +10,7 @@ interface SendOfferEmailRequest {
   customerEmail: string;
   customerName: string;
   senderEmail?: string;
+  offerSlug?: string;
 }
 
 function escapeHtml(str: string): string {
@@ -21,6 +22,17 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#x27;');
 }
 
+/** Slug aus Name + UUID-Prefix generieren */
+function generateOfferSlug(name: string, inquiryId: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  const hash = inquiryId.replace(/-/g, '').substring(0, 4);
+  return `${slug}-${hash}`;
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
@@ -28,7 +40,7 @@ serve(async (req) => {
   }
 
   try {
-    const { inquiryId, emailContent, customerEmail, customerName, senderEmail } =
+    const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug } =
       await req.json() as SendOfferEmailRequest;
 
     if (!inquiryId || !emailContent || !customerEmail) {
@@ -39,33 +51,49 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Offer-URL generieren
-    const offerUrl = `https://events-storia.de/offer/${inquiryId}`;
+    // Slug generieren oder verwenden + in DB speichern
+    const slug = providedSlug || generateOfferSlug(customerName || 'angebot', inquiryId);
+    await supabase
+      .from('event_inquiries')
+      .update({ offer_slug: slug } as Record<string, unknown>)
+      .eq('id', inquiryId);
 
-    // Email-Body: Anschreiben + Offer-Link
-    const emailBodyWithLink = `${emailContent}
+    // Offer-URL: Hübsche Slug-URL (Fallback auf UUID)
+    const offerUrl = `https://events-storia.de/ihr-angebot/${slug}`;
 
-─────────────────────────────
-Das vollständige Angebot mit allen Details finden Sie hier:
+    // Email-Body: Offer-Link OBEN, dann Anschreiben
+    const emailBodyWithLink = `Ihr persönliches Angebot ist online bereit:
 ${offerUrl}
 
-Über diesen Link können Sie das Angebot jederzeit einsehen, Ihren Favoriten wählen und uns direkt antworten.`;
+Dort finden Sie alle Details, können Ihren Favoriten wählen und das Angebot als PDF herunterladen.
+
+─────────────────────────────
+
+${emailContent}`;
 
     const emailSubject = `Ihr Angebot von STORIA Events`;
 
-    // HTML-Version
+    // HTML-Version: CTA-Button oben
     const htmlBody = `<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="white-space: pre-wrap;">${escapeHtml(emailContent)}</div>
-  <hr style="border: none; border-top: 1px solid #ccc; margin: 24px 0;">
-  <p style="font-size: 14px; color: #555;">
-    Das vollständige Angebot mit allen Details finden Sie hier:<br>
-    <a href="${offerUrl}" style="color: #b45309; font-weight: 600;">${offerUrl}</a>
-  </p>
-  <p style="font-size: 13px; color: #777;">
-    Über diesen Link können Sie das Angebot jederzeit einsehen, Ihren Favoriten wählen und uns direkt antworten.
+  <div style="text-align: center; margin-bottom: 32px;">
+    <p style="font-size: 16px; color: #555; margin-bottom: 16px;">
+      Ihr persönliches Angebot ist online bereit:
+    </p>
+    <a href="${offerUrl}" style="display: inline-block; background-color: #b45309; color: #ffffff; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 999px; text-decoration: none; letter-spacing: 0.02em;">
+      Angebot ansehen
+    </a>
+    <p style="font-size: 13px; color: #999; margin-top: 12px;">
+      Dort können Sie alle Details einsehen, Ihren Favoriten wählen und das Angebot als PDF herunterladen.
+    </p>
+  </div>
+  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
+  <div style="white-space: pre-wrap; font-size: 15px; color: #444;">${escapeHtml(emailContent)}</div>
+  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0 16px;">
+  <p style="font-size: 12px; color: #aaa; text-align: center;">
+    <a href="${offerUrl}" style="color: #b45309;">${offerUrl}</a>
   </p>
 </body>
 </html>`;
@@ -170,11 +198,12 @@ ${offerUrl}
       metadata: {
         email_type: 'offer_email',
         offer_url: offerUrl,
+        offer_slug: slug,
       },
     });
 
     return new Response(
-      JSON.stringify({ success: true, emailSent: sent, provider, offerUrl }),
+      JSON.stringify({ success: true, emailSent: sent, provider, offerUrl, offerSlug: slug }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
