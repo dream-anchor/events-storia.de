@@ -97,9 +97,11 @@ serve(async (req) => {
       params.append('voucherType', 'salesinvoice,salescreditnote,quotation');
     }
 
-    // Status filter
+    // Status filter (Pflichtparameter laut API)
     if (voucherStatus) {
       params.append('voucherStatus', voucherStatus);
+    } else {
+      params.append('voucherStatus', 'draft,open,paid,paidoff,voided,overdue,accepted,rejected');
     }
 
     // Pagination
