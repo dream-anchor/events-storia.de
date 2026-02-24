@@ -69,18 +69,14 @@ export const useRistoranteMenus = (options: UseRistoranteMenusOptions = {}) => {
   return useQuery({
     queryKey: ['ristorante-menus', menuTypes],
     queryFn: async (): Promise<RistoranteMenusResponse> => {
-      console.log('Fetching Ristorante menus...', { menuTypes });
-      
       const { data, error } = await supabase.functions.invoke('fetch-ristorante-menus', {
         body: menuTypes ? { menuTypes } : undefined,
       });
 
       if (error) {
-        console.error('Error fetching Ristorante menus:', error);
         throw new Error(error.message || 'Failed to fetch restaurant menus');
       }
 
-      console.log('Ristorante menus response:', data);
       return data as RistoranteMenusResponse;
     },
     enabled,

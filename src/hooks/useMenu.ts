@@ -42,7 +42,6 @@ const fetchMenuById = async (menuId: string): Promise<Menu | null> => {
     .single();
 
   if (menuError || !menu) {
-    console.log(`No menu found for id: ${menuId}`);
     return null;
   }
 
@@ -121,7 +120,6 @@ export const useMenu = (menuType: MenuType) => {
         .maybeSingle();
 
       if (menuError || !menu) {
-        console.log(`No published menu found for type: ${menuType}`);
         return null;
       }
 

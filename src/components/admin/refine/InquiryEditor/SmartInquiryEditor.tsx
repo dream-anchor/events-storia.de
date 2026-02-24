@@ -95,7 +95,7 @@ export const SmartInquiryEditor = () => {
           });
         }
       } catch {
-        console.log("Could not parse inquiry JSON fields");
+        // JSON-Felder konnten nicht geparsed werden — ignorieren
       }
     }
   }, [inquiry]);

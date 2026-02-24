@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { requireAuth, AuthError } from '../_shared/auth.ts';
 
 
 
@@ -239,27 +240,13 @@ serve(async (req) => {
   }
 
   try {
+    // Auth-Check: Nur admin/staff dürfen E-Mails generieren
+    const auth = await requireAuth(req);
+
     const rawBody: RequestBody = await req.json();
 
-    console.log('Generating email, isOfferBuilder:', isOfferBuilderRequest(rawBody), 'isMultiOption:', isMultiOfferRequest(rawBody));
-
-    // Determine sender email for personalized signature
-    let senderEmail: string | undefined;
-
-    if (isOfferBuilderRequest(rawBody)) {
-      // Fetch sender from auth context (passed via Authorization header)
-      try {
-        const supabaseClient = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-          { global: { headers: { Authorization: req.headers.get('Authorization') || '' } } }
-        );
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        senderEmail = user?.email || undefined;
-      } catch { /* fallback to no sender */ }
-    } else {
-      senderEmail = 'senderEmail' in rawBody ? rawBody.senderEmail : undefined;
-    }
+    // Sender-E-Mail kommt direkt aus der Auth
+    const senderEmail = auth.email;
 
     const senderInfo = SENDER_INFO[senderEmail?.toLowerCase() || ''] || { firstName: 'STORIA Team', mobile: '' };
 
@@ -552,6 +539,12 @@ ${context}`;
     );
 
   } catch (error: unknown) {
+    if (error instanceof AuthError) {
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     console.error('Error generating email:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(

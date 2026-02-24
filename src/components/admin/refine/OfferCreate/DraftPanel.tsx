@@ -47,9 +47,8 @@ export const DraftPanel = ({
     }
   };
 
-  const handleSearchItem = (term: string) => {
-    // Could open a search modal or filter the package list
-    console.log('Search for:', term);
+  const handleSearchItem = (_term: string) => {
+    // TODO: Suche in Paketen implementieren
   };
 
   const addedPackageNames = formData.selected_packages.map(p => p.name);

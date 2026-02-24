@@ -547,23 +547,8 @@ function UserManagement() {
   const [showInviteForm, setShowInviteForm] = useState(false);
 
   const callManageUsers = async (body: Record<string, unknown>) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Nicht angemeldet');
-
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL || 'https://xobfuixbuqdalzmpqtru.supabase.co'}/functions/v1/manage-users`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhvYmZ1aXhidXFkYWx6bXBxdHJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzMyNDA1MTEsImV4cCI6MjA0ODgxNjUxMX0.mCWJv_VgCTWOcrXPOkzBwFROWG1VH2RGO5P8TLoSvZY',
-        },
-        body: JSON.stringify(body),
-      }
-    );
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Fehler');
+    const { data, error } = await supabase.functions.invoke('manage-users', { body });
+    if (error) throw new Error(error.message || 'Fehler');
     return data;
   };
 
@@ -796,8 +781,7 @@ export const Settings = () => {
   const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
   const [isSavingPassword, setIsSavingPassword] = useState(false);
 
-  // Business data — localStorage-Persistenz
-  const BUSINESS_DATA_KEY = "storia_business_data";
+  // Business data — Supabase-Persistenz (site_settings Tabelle)
   const businessDataDefaults: BusinessData = {
     companyName: "Storia Restaurant & Events",
     legalName: "Speranza GmbH",
@@ -813,15 +797,22 @@ export const Settings = () => {
     notificationEmail: "admin@storia-muenchen.de",
     enableEmailNotifications: true,
   };
-  const [businessData, setBusinessData] = useState<BusinessData>(() => {
-    try {
-      const stored = localStorage.getItem(BUSINESS_DATA_KEY);
-      return stored ? { ...businessDataDefaults, ...JSON.parse(stored) } : businessDataDefaults;
-    } catch {
-      return businessDataDefaults;
-    }
-  });
+  const [businessData, setBusinessData] = useState<BusinessData>(businessDataDefaults);
   const businessSaveRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Business Data aus Supabase laden
+  useEffect(() => {
+    supabase
+      .from('site_settings' as any)
+      .select('value')
+      .eq('key', 'business_data')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) {
+          setBusinessData(prev => ({ ...prev, ...(data.value as any) }));
+        }
+      });
+  }, []);
 
   // Fetch menu items count
   const menuItemsQuery = useList({
@@ -902,11 +893,14 @@ export const Settings = () => {
   const handleBusinessDataChange = useCallback((field: keyof BusinessData, value: string | boolean) => {
     setBusinessData((prev) => {
       const next = { ...prev, [field]: value };
-      // Debounced auto-save nach localStorage
+      // Debounced auto-save nach Supabase
       if (businessSaveRef.current) clearTimeout(businessSaveRef.current);
-      businessSaveRef.current = setTimeout(() => {
-        localStorage.setItem(BUSINESS_DATA_KEY, JSON.stringify(next));
-      }, 500);
+      businessSaveRef.current = setTimeout(async () => {
+        const { error } = await supabase
+          .from('site_settings' as any)
+          .upsert({ key: 'business_data', value: next, updated_at: new Date().toISOString() } as any, { onConflict: 'key' });
+        if (error) console.error('Failed to save business data:', error);
+      }, 800);
       return next;
     });
   }, []);

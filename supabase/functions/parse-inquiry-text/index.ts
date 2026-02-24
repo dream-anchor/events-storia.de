@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { requireAuth, AuthError } from '../_shared/auth.ts';
 
 
 
@@ -36,6 +37,9 @@ serve(async (req) => {
   }
 
   try {
+    // Auth-Check: Nur admin/staff dürfen KI-Parsing nutzen
+    await requireAuth(req);
+
     const { rawText, existingPackageNames }: ParseInquiryRequest = await req.json();
 
     if (!rawText || rawText.trim().length === 0) {
@@ -259,16 +263,22 @@ ${existingPackageNames && existingPackageNames.length > 0
     );
 
   } catch (error: unknown) {
+    if (error instanceof AuthError) {
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     console.error('Error parsing inquiry:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: errorMessage 
+      JSON.stringify({
+        success: false,
+        error: errorMessage
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
