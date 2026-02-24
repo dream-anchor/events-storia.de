@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DRINK_ICONS } from "./types";
 import type { DrinkConfig, DrinkSelection, DrinkGroupType, DrinkOption } from "./types";
@@ -16,6 +16,8 @@ interface InlineDrinkEditorProps {
   drinks: DrinkSelection[];
   drinkConfigs: DrinkConfig[];
   onUpdateDrink: (index: number, update: Partial<DrinkSelection>) => void;
+  onAddDrink?: () => void;
+  onRemoveDrink?: (index: number) => void;
   disabled?: boolean;
 }
 
@@ -28,6 +30,8 @@ export function InlineDrinkEditor({
   drinks,
   drinkConfigs,
   onUpdateDrink,
+  onAddDrink,
+  onRemoveDrink,
   disabled = false,
 }: InlineDrinkEditorProps) {
   return (
@@ -38,6 +42,7 @@ export function InlineDrinkEditor({
         );
         const icon = DRINK_ICONS[drink.drinkGroup as DrinkGroupType] || '🍷';
         const isCustomActive = drink.customDrink != null;
+        const isExtraDrink = drink.drinkGroup === 'custom';
 
         // Inklusive Getränke: nur anzeigen, nicht editierbar
         if (config?.is_included && !config?.is_choice) {
@@ -116,16 +121,18 @@ export function InlineDrinkEditor({
           );
         }
 
-        // Freitext-Eingabe (Eigene Angabe oder kein Config)
+        // Freitext-Eingabe (Eigene Angabe oder kein Config oder Extra-Drink)
         return (
           <div
             key={idx}
             className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-muted/30"
           >
             <span className="text-base w-7 text-center shrink-0">{icon}</span>
-            <span className="text-sm text-muted-foreground w-24 shrink-0 truncate">
-              {drink.drinkLabel}
-            </span>
+            {!isExtraDrink && (
+              <span className="text-sm text-muted-foreground w-24 shrink-0 truncate">
+                {drink.drinkLabel}
+              </span>
+            )}
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <Input
                 value={drink.customDrink || drink.selectedChoice || ''}
@@ -135,12 +142,12 @@ export function InlineDrinkEditor({
                     selectedChoice: null,
                   })
                 }
-                placeholder="Getränk eingeben..."
+                placeholder={isExtraDrink ? "z.B. Prosecco, Limoncello..." : "Getränk eingeben..."}
                 className="h-9 rounded-xl"
                 disabled={disabled}
                 autoFocus={isCustomActive && !drink.customDrink}
               />
-              {/* Zurück zum Dropdown (nur wenn Config mit Optionen existiert) */}
+              {/* Zurück zum Dropdown (nur bei Config-Drinks mit Optionen) */}
               {config?.is_choice && config.options.length > 0 && (
                 <button
                   type="button"
@@ -152,10 +159,34 @@ export function InlineDrinkEditor({
                   <X className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               )}
+              {/* Löschen — nur bei manuell hinzugefügten Drinks */}
+              {isExtraDrink && onRemoveDrink && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveDrink(idx)}
+                  className="shrink-0 h-9 w-9 rounded-xl border border-border/40 flex items-center justify-center hover:bg-destructive/10 transition-colors"
+                  title="Getränk entfernen"
+                  disabled={disabled}
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              )}
             </div>
           </div>
         );
       })}
+
+      {/* Getränk hinzufügen */}
+      {onAddDrink && !disabled && (
+        <button
+          type="button"
+          onClick={onAddDrink}
+          className="flex items-center gap-2 py-2 px-2 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Getränk hinzufügen
+        </button>
+      )}
     </div>
   );
 }

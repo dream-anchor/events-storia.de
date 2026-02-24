@@ -9,11 +9,12 @@ export type CourseType =
   | 'dessert' 
   | 'fingerfood';
 
-export type DrinkGroupType = 
-  | 'aperitif' 
-  | 'main_drink' 
-  | 'water' 
-  | 'coffee';
+export type DrinkGroupType =
+  | 'aperitif'
+  | 'main_drink'
+  | 'water'
+  | 'coffee'
+  | 'custom';
 
 // Extended item source type to include manual entries
 export type ItemSource = 'catering' | 'ristorante' | 'custom' | 'manual';
@@ -104,4 +105,5 @@ export const DRINK_ICONS: Record<DrinkGroupType, string> = {
   main_drink: '🍷',
   water: '💧',
   coffee: '☕',
+  custom: '🥂',
 };

@@ -132,6 +132,27 @@ export function OptionCard({
     onUpdate({ menuSelection: { ...option.menuSelection, drinks: updated } });
   };
 
+  const handleDrinkAdd = () => {
+    const newDrink: DrinkSelection = {
+      drinkGroup: 'custom',
+      drinkLabel: 'Zusatzgetränk',
+      selectedChoice: null,
+      quantityLabel: null,
+      customDrink: '',
+    };
+    onUpdate({
+      menuSelection: {
+        ...option.menuSelection,
+        drinks: [...option.menuSelection.drinks, newDrink],
+      },
+    });
+  };
+
+  const handleDrinkRemove = (index: number) => {
+    const updated = option.menuSelection.drinks.filter((_, i) => i !== index);
+    onUpdate({ menuSelection: { ...option.menuSelection, drinks: updated } });
+  };
+
   const disabled = isLocked;
 
   return (
@@ -247,6 +268,8 @@ export function OptionCard({
               onCourseAdd={handleCourseAdd}
               onCourseRemove={handleCourseRemove}
               onDrinkUpdate={handleDrinkUpdate}
+              onDrinkAdd={handleDrinkAdd}
+              onDrinkRemove={handleDrinkRemove}
               disabled={disabled}
             />
           )}
@@ -374,6 +397,8 @@ function PaketContent({
   onCourseAdd,
   onCourseRemove,
   onDrinkUpdate,
+  onDrinkAdd,
+  onDrinkRemove,
   disabled,
 }: {
   option: OfferBuilderOption;
@@ -386,6 +411,8 @@ function PaketContent({
   onCourseAdd: (type: CourseType, label: string) => void;
   onCourseRemove: (idx: number) => void;
   onDrinkUpdate: (idx: number, u: Partial<DrinkSelection>) => void;
+  onDrinkAdd: () => void;
+  onDrinkRemove: (idx: number) => void;
   disabled: boolean;
 }) {
   const handleSelectPackage = (pkg: Package) => {
@@ -466,19 +493,19 @@ function PaketContent({
           )}
 
           {/* Getränke */}
-          {option.menuSelection.drinks.length > 0 && (
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-                Getränke
-              </h4>
-              <InlineDrinkEditor
-                drinks={option.menuSelection.drinks}
-                drinkConfigs={drinkConfigs}
-                onUpdateDrink={onDrinkUpdate}
-                disabled={disabled}
-              />
-            </div>
-          )}
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+              Getränke
+            </h4>
+            <InlineDrinkEditor
+              drinks={option.menuSelection.drinks}
+              drinkConfigs={drinkConfigs}
+              onUpdateDrink={onDrinkUpdate}
+              onAddDrink={onDrinkAdd}
+              onRemoveDrink={onDrinkRemove}
+              disabled={disabled}
+            />
+          </div>
 
           {/* Lade-Hinweis */}
           {courseConfigs.length === 0 && option.menuSelection.drinks.length === 0 && (
