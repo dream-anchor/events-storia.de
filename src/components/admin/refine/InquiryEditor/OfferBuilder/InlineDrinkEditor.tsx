@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DRINK_ICONS } from "./types";
 import type { DrinkConfig, DrinkSelection, DrinkGroupType, DrinkOption } from "./types";
@@ -36,6 +37,7 @@ export function InlineDrinkEditor({
           c => c.drink_group === drink.drinkGroup
         );
         const icon = DRINK_ICONS[drink.drinkGroup as DrinkGroupType] || '🍷';
+        const isCustomActive = drink.customDrink != null;
 
         // Inklusive Getränke: nur anzeigen, nicht editierbar
         if (config?.is_included && !config?.is_choice) {
@@ -60,8 +62,8 @@ export function InlineDrinkEditor({
           );
         }
 
-        // Auswahl-Getränke: Dropdown
-        if (config?.is_choice && config.options.length > 0) {
+        // Auswahl-Getränke: Dropdown (nur wenn KEIN eigener Text aktiv ist)
+        if (config?.is_choice && config.options.length > 0 && !isCustomActive) {
           return (
             <div
               key={idx}
@@ -114,7 +116,7 @@ export function InlineDrinkEditor({
           );
         }
 
-        // Fallback: Freitext-Eingabe oder kein Config
+        // Freitext-Eingabe (Eigene Angabe oder kein Config)
         return (
           <div
             key={idx}
@@ -124,18 +126,33 @@ export function InlineDrinkEditor({
             <span className="text-sm text-muted-foreground w-24 shrink-0 truncate">
               {drink.drinkLabel}
             </span>
-            <Input
-              value={drink.customDrink || drink.selectedChoice || ''}
-              onChange={(e) =>
-                onUpdateDrink(idx, {
-                  customDrink: e.target.value,
-                  selectedChoice: null,
-                })
-              }
-              placeholder="Getränk eingeben..."
-              className="h-9 rounded-xl"
-              disabled={disabled}
-            />
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Input
+                value={drink.customDrink || drink.selectedChoice || ''}
+                onChange={(e) =>
+                  onUpdateDrink(idx, {
+                    customDrink: e.target.value,
+                    selectedChoice: null,
+                  })
+                }
+                placeholder="Getränk eingeben..."
+                className="h-9 rounded-xl"
+                disabled={disabled}
+                autoFocus={isCustomActive && !drink.customDrink}
+              />
+              {/* Zurück zum Dropdown (nur wenn Config mit Optionen existiert) */}
+              {config?.is_choice && config.options.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onUpdateDrink(idx, { customDrink: null, selectedChoice: null })}
+                  className="shrink-0 h-9 w-9 rounded-xl border border-border/40 flex items-center justify-center hover:bg-muted/50 transition-colors"
+                  title="Zurück zur Auswahl"
+                  disabled={disabled}
+                >
+                  <X className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
