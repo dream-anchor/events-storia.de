@@ -84,10 +84,12 @@ serve(async (req) => {
     // Build LexOffice API URL with query params
     const params = new URLSearchParams();
 
-    // LexOffice API akzeptiert KEINE kommaseparierten voucherType-Werte
-    // Bei 'all' → Parameter weglassen, API liefert dann alle Typen
+    // LexOffice voucherType: kommaseparierte Liste gültiger Typen
     if (voucherType && voucherType !== 'all') {
       params.append('voucherType', voucherType);
+    } else {
+      // Alle gültigen Voucher-Typen (laut API-Doku)
+      params.append('voucherType', 'salesinvoice,salescreditnote,purchaseinvoice,purchasecreditnote,invoice,creditnote,orderconfirmation,quotation');
     }
 
     // Status filter
