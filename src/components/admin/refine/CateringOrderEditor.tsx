@@ -19,6 +19,7 @@ import {
   FileText, Truck, Package, Ban, RefreshCw, AlertCircle, Activity
 } from "lucide-react";
 import { Timeline } from "@/components/admin/shared/Timeline";
+import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
 
 type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
@@ -515,6 +516,9 @@ export const CateringOrderEditor = () => {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Email Status */}
+                <EmailStatusCard entityType="catering_order" entityId={id!} />
               </div>
             </div>
           </TabsContent>

@@ -32,6 +32,7 @@ import {
 } from "@/hooks/useEventBookings";
 import { MenuComposer, MenuSelection } from "./InquiryEditor/MenuComposer";
 import { Timeline } from "@/components/admin/shared/Timeline";
+import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
 
 export const EventBookingEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -330,6 +331,9 @@ export const EventBookingEditor = () => {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Email Status */}
+                <EmailStatusCard entityType="event_booking" entityId={id!} />
 
                 {/* Internal Notes Card */}
                 <Card>

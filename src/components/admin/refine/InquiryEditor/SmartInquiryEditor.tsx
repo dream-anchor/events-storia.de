@@ -16,6 +16,7 @@ import { ClientPreview } from "./ClientPreview";
 import { StaffNote } from "./StaffNote";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { TaskManager } from "@/components/admin/shared/TaskManager";
+import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
@@ -439,6 +440,9 @@ export const SmartInquiryEditor = () => {
               />
             </CardContent>
           </Card>
+
+          {/* Email Status */}
+          <EmailStatusCard entityType="event_inquiry" entityId={id!} />
 
           {/* Staff Note */}
           <StaffNote
