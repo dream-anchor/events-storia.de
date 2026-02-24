@@ -519,6 +519,7 @@ export type Database = {
           offer_phase: string | null
           offer_sent_at: string | null
           offer_sent_by: string | null
+          offer_slug: string | null
           phone: string | null
           preferred_date: string | null
           priority: string | null
@@ -566,6 +567,7 @@ export type Database = {
           offer_phase?: string | null
           offer_sent_at?: string | null
           offer_sent_by?: string | null
+          offer_slug?: string | null
           phone?: string | null
           preferred_date?: string | null
           priority?: string | null
@@ -613,6 +615,7 @@ export type Database = {
           offer_phase?: string | null
           offer_sent_at?: string | null
           offer_sent_by?: string | null
+          offer_slug?: string | null
           phone?: string | null
           preferred_date?: string | null
           priority?: string | null
@@ -1483,6 +1486,7 @@ export type Database = {
         Returns: number
       }
       get_public_offer: { Args: { offer_id: string }; Returns: Json }
+      get_public_offer_by_slug: { Args: { slug: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
