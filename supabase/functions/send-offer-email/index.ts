@@ -135,7 +135,7 @@ serve(async (req) => {
       .update({ offer_slug: slug } as Record<string, unknown>)
       .eq('id', inquiryId);
 
-    const offerUrl = `https://events-storia.de/ihr-angebot/${slug}`;
+    const offerUrl = `https://events-storia.de/offer/${inquiryId}`;
 
     const emailBodyWithLink = `Ihr persönliches Angebot ist online bereit:
 ${offerUrl}
