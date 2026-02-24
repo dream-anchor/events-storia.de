@@ -25,8 +25,8 @@ export function getCachedAuth(): CachedAuth | null {
   try {
     const raw = sessionStorage.getItem(ADMIN_CACHE_KEY);
     if (!raw) return null;
-    // Abwärtskompatibilität: alter Cache war nur userId-String
-    if (!raw.startsWith('{')) return { userId: raw, role: 'admin' };
+    // Alter Cache-Format (nur userId) → re-auth erzwingen statt blind admin zu setzen
+    if (!raw.startsWith('{')) return null;
     return JSON.parse(raw) as CachedAuth;
   } catch {
     return null;

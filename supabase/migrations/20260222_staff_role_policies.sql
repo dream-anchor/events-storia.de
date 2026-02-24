@@ -64,10 +64,11 @@ CREATE POLICY "Staff can update catering_orders"
   USING (has_role(auth.uid(), 'staff'::app_role))
   WITH CHECK (has_role(auth.uid(), 'staff'::app_role));
 
--- E-Mail-Vorlagen: Lesen (kein Bearbeiten/Löschen)
-CREATE POLICY "Staff can view email_templates"
-  ON public.email_templates FOR SELECT
-  USING (has_role(auth.uid(), 'staff'::app_role));
+-- E-Mail-Vorlagen: Voller Zugriff (Signatur bearbeiten, Vorlagen nutzen)
+CREATE POLICY "Staff can manage email_templates"
+  ON public.email_templates FOR ALL
+  USING (has_role(auth.uid(), 'staff'::app_role))
+  WITH CHECK (has_role(auth.uid(), 'staff'::app_role));
 
 -- Event-Buchungen: Voller Zugriff
 CREATE POLICY "Staff can manage event_bookings"

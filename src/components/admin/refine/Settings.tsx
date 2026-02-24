@@ -778,8 +778,7 @@ function UserManagement() {
 export const Settings = () => {
   const { isAdmin } = usePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
-  const defaultTab = isAdmin ? "stammdaten" : "speisen";
-  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || defaultTab);
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "stammdaten");
   const [isSaving, setIsSaving] = useState(false);
 
   // Tab-Wechsel in URL speichern → Zurück-Button funktioniert
@@ -926,12 +925,10 @@ export const Settings = () => {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="bg-muted/50 p-1 h-auto flex-wrap">
-            {isAdmin && (
-              <TabsTrigger value="stammdaten" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-                <Building2 className="h-4 w-4" />
-                Stammdaten
-              </TabsTrigger>
-            )}
+            <TabsTrigger value="stammdaten" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
+              <Building2 className="h-4 w-4" />
+              Stammdaten
+            </TabsTrigger>
             <TabsTrigger value="speisen" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
               <UtensilsCrossed className="h-4 w-4" />
               Speisen
@@ -944,16 +941,14 @@ export const Settings = () => {
               <Users className="h-4 w-4" />
               Mein Konto
             </TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="vorlagen" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-                <FileText className="h-4 w-4" />
-                Vorlagen
-              </TabsTrigger>
-            )}
+            <TabsTrigger value="vorlagen" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
+              <FileText className="h-4 w-4" />
+              Vorlagen
+            </TabsTrigger>
           </TabsList>
 
-          {/* Stammdaten Tab — Admin only */}
-          {isAdmin && <TabsContent value="stammdaten" className="space-y-6">
+          {/* Stammdaten Tab */}
+          <TabsContent value="stammdaten" className="space-y-6">
             {/* Company Info */}
             <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
               <CardHeader>
@@ -1149,7 +1144,7 @@ export const Settings = () => {
 
             {/* E-Mail-Signatur */}
             <SignatureEditor />
-          </TabsContent>}
+          </TabsContent>
 
           {/* Speisen Tab */}
           <TabsContent value="speisen" className="space-y-6">
@@ -1310,12 +1305,10 @@ export const Settings = () => {
             </Card>
           </TabsContent>
 
-          {/* Vorlagen Tab — Admin only */}
-          {isAdmin && (
-            <TabsContent value="vorlagen" className="space-y-6">
-              <TemplateManager />
-            </TabsContent>
-          )}
+          {/* Vorlagen Tab */}
+          <TabsContent value="vorlagen" className="space-y-6">
+            <TemplateManager />
+          </TabsContent>
 
           {/* Nutzer Tab */}
           <TabsContent value="nutzer" className="space-y-6">

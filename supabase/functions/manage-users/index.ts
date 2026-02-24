@@ -81,8 +81,10 @@ serve(async (req) => {
       }
 
       case 'invite': {
+        const ALLOWED_ROLES = ['admin', 'staff'];
         const { email, name, role = 'staff' } = params;
         if (!email) throw new Error('E-Mail ist erforderlich');
+        if (!ALLOWED_ROLES.includes(role)) throw new Error('Ungültige Rolle');
 
         // Nutzer erstellen
         const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
@@ -113,8 +115,10 @@ serve(async (req) => {
       }
 
       case 'updateRole': {
+        const ALLOWED_ROLES = ['admin', 'staff'];
         const { userId, role } = params;
         if (!userId || !role) throw new Error('userId und role sind erforderlich');
+        if (!ALLOWED_ROLES.includes(role)) throw new Error('Ungültige Rolle');
 
         // Eigene Rolle kann nicht geändert werden
         if (userId === user.id) {

@@ -14,6 +14,15 @@ interface SendOfferEmailRequest {
   senderEmail?: string;
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -50,7 +59,7 @@ ${offerUrl}
 <html lang="de">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="white-space: pre-wrap;">${emailContent}</div>
+  <div style="white-space: pre-wrap;">${escapeHtml(emailContent)}</div>
   <hr style="border: none; border-top: 1px solid #ccc; margin: 24px 0;">
   <p style="font-size: 14px; color: #555;">
     Das vollständige Angebot mit allen Details finden Sie hier:<br>
