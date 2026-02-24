@@ -1,14 +1,92 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
-
-
 
 interface ResponseCopyRequest {
   inquiryId: string;
   customerEmail: string;
   selectedOptionLabel: string;
   customerNotes: string | null;
+}
+
+interface SendResult {
+  sent: boolean;
+  provider: string;
+  messageId: string | null;
+  errorMessage: string | null;
+}
+
+async function sendEmail(to: string[], subject: string, html: string, fromName: string): Promise<SendResult> {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  const smtpUser = Deno.env.get("SMTP_USER")?.trim();
+  const smtpPassword = Deno.env.get("SMTP_PASSWORD");
+  let sent = false;
+  let provider = "";
+  let messageId: string | null = null;
+  let errorMessage: string | null = null;
+
+  // 1) Resend (primär)
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json; charset=utf-8",
+        },
+        body: JSON.stringify({
+          from: `${fromName} <info@events-storia.de>`,
+          to,
+          subject,
+          html,
+          reply_to: 'info@events-storia.de',
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        sent = true;
+        provider = "resend";
+        messageId = data.id || null;
+        console.log(`Email sent via Resend to: ${to.join(", ")}`);
+      } else {
+        errorMessage = `Resend error: ${await res.text()}`;
+        console.error(errorMessage);
+      }
+    } catch (err) {
+      errorMessage = err instanceof Error ? err.message : "Resend error";
+      console.error("Resend exception:", errorMessage);
+    }
+  }
+
+  // 2) IONOS SMTP Fallback
+  if (!sent && smtpUser && smtpPassword) {
+    try {
+      const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
+      const client = new SMTPClient({
+        connection: {
+          hostname: Deno.env.get("SMTP_HOST") || "smtp.ionos.de",
+          port: parseInt(Deno.env.get("SMTP_PORT") || "465"),
+          tls: true,
+          auth: { username: smtpUser, password: smtpPassword },
+        },
+      });
+      await client.send({ from: `${fromName} <${smtpUser}>`, to, subject, html });
+      await client.close();
+      sent = true;
+      provider = "ionos_smtp";
+      errorMessage = null;
+      console.log(`Email sent via IONOS SMTP (fallback) to: ${to.join(", ")}`);
+    } catch (smtpErr) {
+      errorMessage = smtpErr instanceof Error ? smtpErr.message : "SMTP error";
+      console.error("SMTP fallback error:", errorMessage);
+    }
+  }
+
+  if (!sent && !resendApiKey && !smtpUser) {
+    errorMessage = "No email provider configured";
+  }
+
+  return { sent, provider, messageId, errorMessage };
 }
 
 serve(async (req) => {
@@ -57,83 +135,7 @@ info@events-storia.de`;
 </body>
 </html>`;
 
-    // Sende per Resend (primär) oder SMTP (fallback)
-    const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    const smtpUser = Deno.env.get('SMTP_USER')?.trim();
-    const smtpPassword = Deno.env.get('SMTP_PASSWORD');
-    let sent = false;
-    let provider = '';
-    let messageId: string | null = null;
-    let errorMessage: string | null = null;
-
-    // Resend (primär)
-    if (resendApiKey) {
-      try {
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json; charset=utf-8',
-          },
-          body: JSON.stringify({
-            from: 'STORIA Events <info@events-storia.de>',
-            to: customerEmail,
-            subject: emailSubject,
-            html: htmlBody,
-            text: emailBody,
-            reply_to: 'info@events-storia.de',
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          sent = true;
-          provider = 'resend';
-          messageId = data.id || null;
-          errorMessage = null;
-          console.log('Response copy sent via Resend to', customerEmail);
-        } else {
-          errorMessage = `Resend error: ${await res.text()}`;
-          console.error(errorMessage);
-        }
-      } catch (resendErr) {
-        errorMessage = resendErr instanceof Error ? resendErr.message : 'Resend error';
-        console.error('Resend exception:', errorMessage);
-      }
-    }
-
-    // SMTP Fallback
-    if (!sent && smtpUser && smtpPassword) {
-      try {
-        const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
-        const smtpHost = Deno.env.get('SMTP_HOST') || 'smtp.ionos.de';
-        const smtpPort = parseInt(Deno.env.get('SMTP_PORT') || '465');
-
-        const client = new SMTPClient({
-          connection: {
-            hostname: smtpHost,
-            port: smtpPort,
-            tls: true,
-            auth: { username: smtpUser, password: smtpPassword },
-          },
-        });
-
-        await client.send({
-          from: `STORIA Events <${smtpUser}>`,
-          to: [customerEmail],
-          subject: emailSubject,
-          html: htmlBody,
-        });
-
-        await client.close();
-        sent = true;
-        provider = 'ionos_smtp';
-        errorMessage = null;
-        console.log('Response copy sent via IONOS SMTP (fallback) to', customerEmail);
-      } catch (smtpErr) {
-        errorMessage = smtpErr instanceof Error ? smtpErr.message : 'SMTP error';
-        console.error('SMTP fallback error:', errorMessage);
-      }
-    }
+    const result = await sendEmail([customerEmail], emailSubject, htmlBody, "STORIA Events");
 
     // Email Delivery loggen
     await supabase.from('email_delivery_logs').insert({
@@ -141,10 +143,10 @@ info@events-storia.de`;
       entity_id: inquiryId,
       recipient_email: customerEmail,
       subject: emailSubject,
-      provider: provider || 'none',
-      provider_message_id: messageId,
-      status: sent ? 'sent' : 'failed',
-      error_message: errorMessage,
+      provider: result.provider || 'none',
+      provider_message_id: result.messageId,
+      status: result.sent ? 'sent' : 'failed',
+      error_message: result.errorMessage,
       sent_by: 'system',
       metadata: {
         email_type: 'customer_response_copy',
@@ -153,7 +155,7 @@ info@events-storia.de`;
     });
 
     return new Response(
-      JSON.stringify({ success: true, emailSent: sent }),
+      JSON.stringify({ success: true, emailSent: result.sent }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
