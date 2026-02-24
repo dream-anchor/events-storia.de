@@ -252,9 +252,12 @@ const EmailDeliveryEntry = ({ emailLog, isFirst, isLast }: EmailDeliveryEntryPro
   const actorName = getAdminDisplayName(emailLog.sent_by || undefined);
   const initials = emailLog.sent_by ? getAdminInitials(emailLog.sent_by) : 'SY';
   
-  const isSuccess = emailLog.status === 'sent';
-  const theme = isSuccess 
+  const isSuccess = ['sent', 'delivered', 'opened'].includes(emailLog.status);
+  const isWarning = emailLog.status === 'delayed';
+  const theme = isSuccess
     ? { bg: 'bg-green-500/10', border: 'border-green-500/30', icon: 'text-green-600' }
+    : isWarning
+    ? { bg: 'bg-amber-500/10', border: 'border-amber-500/30', icon: 'text-amber-600' }
     : { bg: 'bg-red-500/10', border: 'border-red-500/30', icon: 'text-red-600' };
 
   return (
@@ -280,7 +283,7 @@ const EmailDeliveryEntry = ({ emailLog, isFirst, isLast }: EmailDeliveryEntryPro
                   theme.bg, theme.border
                 )}>
                   <div className={theme.icon}>
-                    {isSuccess ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                    {isSuccess ? <CheckCircle2 className="h-3 w-3" /> : isWarning ? <Clock className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                   </div>
                 </div>
               </div>
@@ -332,11 +335,12 @@ const EmailDeliveryEntry = ({ emailLog, isFirst, isLast }: EmailDeliveryEntryPro
               </div>
             </div>
             <div className="flex items-center gap-1.5">
-              <Badge 
-                variant={statusInfo.variant === 'success' ? 'default' : statusInfo.variant === 'destructive' ? 'destructive' : 'secondary'} 
+              <Badge
+                variant={statusInfo.variant === 'success' ? 'default' : statusInfo.variant === 'destructive' ? 'destructive' : 'secondary'}
                 className={cn(
                   "text-xs shrink-0 font-normal",
-                  statusInfo.variant === 'success' && "bg-green-500 hover:bg-green-600"
+                  statusInfo.variant === 'success' && "bg-green-500 hover:bg-green-600",
+                  statusInfo.variant === 'warning' && "bg-amber-500 hover:bg-amber-600 text-white"
                 )}
               >
                 {statusInfo.label}

@@ -70,16 +70,52 @@ ${offerUrl}
 </body>
 </html>`;
 
-    // Sende per SMTP (primär) oder Resend (fallback)
+    // Sende per Resend (primär) oder SMTP (fallback)
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
     const smtpUser = Deno.env.get('SMTP_USER')?.trim();
     const smtpPassword = Deno.env.get('SMTP_PASSWORD');
-    const resendApiKey = Deno.env.get('RESEND_API_KEY');
     let sent = false;
     let provider = '';
     let messageId: string | null = null;
     let errorMessage: string | null = null;
 
-    if (smtpUser && smtpPassword) {
+    // Resend (primär)
+    if (resendApiKey) {
+      try {
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+          body: JSON.stringify({
+            from: 'STORIA Events <info@events-storia.de>',
+            to: customerEmail,
+            subject: emailSubject,
+            html: htmlBody,
+            text: emailBodyWithLink,
+            reply_to: 'info@events-storia.de',
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          sent = true;
+          provider = 'resend';
+          messageId = data.id || null;
+          errorMessage = null;
+          console.log('Offer email sent via Resend to', customerEmail);
+        } else {
+          errorMessage = `Resend error: ${await res.text()}`;
+          console.error(errorMessage);
+        }
+      } catch (resendErr) {
+        errorMessage = resendErr instanceof Error ? resendErr.message : 'Resend error';
+        console.error('Resend exception:', errorMessage);
+      }
+    }
+
+    // SMTP Fallback (nur wenn Resend fehlschlug)
+    if (!sent && smtpUser && smtpPassword) {
       try {
         const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
         const smtpHost = Deno.env.get('SMTP_HOST') || 'smtp.ionos.de';
@@ -106,78 +142,16 @@ ${offerUrl}
         await client.close();
         sent = true;
         provider = 'ionos_smtp';
-        console.log('Offer email sent via SMTP to', customerEmail);
+        errorMessage = null;
+        console.log('Offer email sent via IONOS SMTP (fallback) to', customerEmail);
       } catch (smtpErr) {
-        console.error('SMTP error:', smtpErr);
         errorMessage = smtpErr instanceof Error ? smtpErr.message : 'SMTP error';
+        console.error('SMTP fallback error:', errorMessage);
+      }
+    }
 
-        // Fallback auf Resend
-        if (resendApiKey) {
-          try {
-            const res = await fetch('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${resendApiKey}`,
-                'Content-Type': 'application/json; charset=utf-8',
-              },
-              body: JSON.stringify({
-                from: 'STORIA Events <info@events-storia.de>',
-                to: customerEmail,
-                subject: emailSubject,
-                html: htmlBody,
-                text: emailBodyWithLink,
-                reply_to: 'info@events-storia.de',
-              }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              sent = true;
-              provider = 'resend';
-              messageId = data.id || null;
-              errorMessage = null;
-              console.log('Offer email sent via Resend (fallback) to', customerEmail);
-            } else {
-              errorMessage = `Resend fallback error: ${await res.text()}`;
-              console.error(errorMessage);
-            }
-          } catch (resendErr) {
-            errorMessage = resendErr instanceof Error ? resendErr.message : 'Resend error';
-          }
-        }
-      }
-    } else if (resendApiKey) {
-      // Nur Resend
-      try {
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json; charset=utf-8',
-          },
-          body: JSON.stringify({
-            from: 'STORIA Events <info@events-storia.de>',
-            to: customerEmail,
-            subject: emailSubject,
-            html: htmlBody,
-            text: emailBodyWithLink,
-            reply_to: 'info@events-storia.de',
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          sent = true;
-          provider = 'resend';
-          messageId = data.id || null;
-          console.log('Offer email sent via Resend to', customerEmail);
-        } else {
-          errorMessage = `Resend error: ${await res.text()}`;
-          console.error(errorMessage);
-        }
-      } catch (resendErr) {
-        errorMessage = resendErr instanceof Error ? resendErr.message : 'Resend error';
-      }
-    } else {
-      errorMessage = 'No email provider configured (SMTP or Resend)';
+    if (!sent && !resendApiKey && !smtpUser) {
+      errorMessage = 'No email provider configured (Resend or SMTP)';
       console.warn(errorMessage);
     }
 

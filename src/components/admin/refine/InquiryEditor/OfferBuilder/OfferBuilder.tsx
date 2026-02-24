@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Loader2, AlertCircle, Plus, Clock, ChevronDown, Mail, ExternalLink, UtensilsCrossed } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -40,15 +40,20 @@ export function OfferBuilder({
     packages,
   });
 
-  // --- Default-Modus: 'paket' wenn Kunde Pakete gewählt hat ---
-  const [defaultMode, setDefaultMode] = useState<OfferMode>(
-    selectedPackages.length > 0 ? "paket" : "menu"
-  );
+  // --- Modus: abgeleitet aus Options (Single Source of Truth) ---
+  // modeOverride wird nur gesetzt, wenn der User explizit klickt (z.B. 'email')
+  const [modeOverride, setModeOverride] = useState<OfferMode | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
+
+  const defaultMode: OfferMode = useMemo(() => {
+    if (modeOverride) return modeOverride;
+    if (builder.options.length > 0) return builder.options[0].offerMode;
+    return selectedPackages.length > 0 ? 'paket' : 'menu';
+  }, [modeOverride, builder.options, selectedPackages.length]);
 
   // ModeSelector-Wechsel propagiert an alle bestehenden Optionen
   const handleModeChange = useCallback((mode: OfferMode) => {
-    setDefaultMode(mode);
+    setModeOverride(mode);
     if (mode !== 'email') {
       builder.setOptions(prev => prev.map(opt => {
         if (opt.offerMode === mode) return opt;

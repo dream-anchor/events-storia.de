@@ -140,33 +140,11 @@ info@events-storia.de`;
     let emailError: string | null = null;
 
     if (sendEmail) {
-      const smtpHost = Deno.env.get('SMTP_HOST') || 'smtp.ionos.de';
-      const smtpPort = parseInt(Deno.env.get('SMTP_PORT') || '465');
+      const resendApiKey = Deno.env.get('RESEND_API_KEY');
       const smtpUser = Deno.env.get('SMTP_USER')?.trim();
       const smtpPassword = Deno.env.get('SMTP_PASSWORD');
-      const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
-      if (smtpUser && smtpPassword) {
-        try {
-          const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
-          
-          const client = new SMTPClient({
-            connection: {
-              hostname: smtpHost,
-              port: smtpPort,
-              tls: true,
-              auth: {
-                username: smtpUser,
-                password: smtpPassword,
-              },
-            },
-          });
-
-          await client.send({
-            from: `STORIA Events <${smtpUser}>`,
-            to: [booking.customer_email],
-            subject: emailSubject,
-            html: `<!DOCTYPE html>
+      const htmlEmail = `<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
@@ -175,51 +153,10 @@ info@events-storia.de`;
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="white-space: pre-wrap;">${emailBody}</div>
 </body>
-</html>`,
-          });
+</html>`;
 
-          await client.close();
-          console.log('Email sent successfully via IONOS SMTP');
-          emailSent = true;
-          emailProvider = 'ionos_smtp';
-        } catch (smtpError) {
-          console.error('SMTP error, trying Resend fallback:', smtpError);
-          emailError = smtpError instanceof Error ? smtpError.message : 'SMTP error';
-          
-          if (resendApiKey) {
-            try {
-              const resendResponse = await fetch('https://api.resend.com/emails', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${resendApiKey}`,
-                  'Content-Type': 'application/json; charset=utf-8',
-                },
-                body: JSON.stringify({
-                  from: 'STORIA Events <info@events-storia.de>',
-                  to: booking.customer_email,
-                  subject: emailSubject,
-                  text: emailBody,
-                }),
-              });
-
-              if (!resendResponse.ok) {
-                const error = await resendResponse.text();
-                console.error('Resend error:', error);
-                emailError = `Resend error: ${error}`;
-              } else {
-                const resendData = await resendResponse.json();
-                console.log('Email sent successfully via Resend (fallback)');
-                emailSent = true;
-                emailProvider = 'resend';
-                emailMessageId = resendData.id || null;
-                emailError = null;
-              }
-            } catch (resendErr) {
-              emailError = resendErr instanceof Error ? resendErr.message : 'Resend error';
-            }
-          }
-        }
-      } else if (resendApiKey) {
+      // Resend (primär)
+      if (resendApiKey) {
         try {
           const resendResponse = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -231,27 +168,66 @@ info@events-storia.de`;
               from: 'STORIA Events <info@events-storia.de>',
               to: booking.customer_email,
               subject: emailSubject,
+              html: htmlEmail,
               text: emailBody,
+              reply_to: 'info@events-storia.de',
             }),
           });
 
-          if (!resendResponse.ok) {
-            const error = await resendResponse.text();
-            console.error('Resend error:', error);
-            emailError = `Resend error: ${error}`;
-          } else {
+          if (resendResponse.ok) {
             const resendData = await resendResponse.json();
-            console.log('Email sent successfully via Resend');
+            console.log('Email sent via Resend to', booking.customer_email);
             emailSent = true;
             emailProvider = 'resend';
             emailMessageId = resendData.id || null;
+            emailError = null;
+          } else {
+            emailError = `Resend error: ${await resendResponse.text()}`;
+            console.error(emailError);
           }
         } catch (resendErr) {
           emailError = resendErr instanceof Error ? resendErr.message : 'Resend error';
+          console.error('Resend exception:', emailError);
         }
-      } else {
-        console.warn('No email provider configured (SMTP or Resend)');
+      }
+
+      // SMTP Fallback (nur wenn Resend fehlschlug)
+      if (!emailSent && smtpUser && smtpPassword) {
+        try {
+          const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
+          const smtpHost = Deno.env.get('SMTP_HOST') || 'smtp.ionos.de';
+          const smtpPort = parseInt(Deno.env.get('SMTP_PORT') || '465');
+
+          const client = new SMTPClient({
+            connection: {
+              hostname: smtpHost,
+              port: smtpPort,
+              tls: true,
+              auth: { username: smtpUser, password: smtpPassword },
+            },
+          });
+
+          await client.send({
+            from: `STORIA Events <${smtpUser}>`,
+            to: [booking.customer_email],
+            subject: emailSubject,
+            html: htmlEmail,
+          });
+
+          await client.close();
+          console.log('Email sent via IONOS SMTP (fallback) to', booking.customer_email);
+          emailSent = true;
+          emailProvider = 'ionos_smtp';
+          emailError = null;
+        } catch (smtpError) {
+          emailError = smtpError instanceof Error ? smtpError.message : 'SMTP error';
+          console.error('SMTP fallback error:', emailError);
+        }
+      }
+
+      if (!emailSent && !resendApiKey && !smtpUser) {
         emailError = 'No email provider configured';
+        console.warn(emailError);
       }
 
       // Log email delivery to database

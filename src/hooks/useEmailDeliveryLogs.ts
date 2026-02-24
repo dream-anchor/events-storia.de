@@ -11,7 +11,7 @@ export interface EmailDeliveryLog {
   subject: string;
   provider: string; // 'ionos_smtp' | 'resend'
   provider_message_id: string | null;
-  status: string; // 'sent' | 'failed' | 'bounced'
+  status: string; // 'sent' | 'delivered' | 'opened' | 'bounced' | 'complained' | 'delayed' | 'failed'
   error_message: string | null;
   sent_by: string | null;
   sent_at: string;
@@ -58,11 +58,15 @@ export const formatProvider = (provider: string): string => {
 /**
  * Format status for display
  */
-export const formatEmailStatus = (status: string): { label: string; variant: 'default' | 'success' | 'destructive' | 'secondary' } => {
-  const statuses: Record<string, { label: string; variant: 'default' | 'success' | 'destructive' | 'secondary' }> = {
-    'sent': { label: 'Zugestellt', variant: 'success' },
-    'failed': { label: 'Fehlgeschlagen', variant: 'destructive' },
+export const formatEmailStatus = (status: string): { label: string; variant: 'default' | 'success' | 'destructive' | 'secondary' | 'warning' } => {
+  const statuses: Record<string, { label: string; variant: 'default' | 'success' | 'destructive' | 'secondary' | 'warning' }> = {
+    'sent': { label: 'Versandt', variant: 'secondary' },
+    'delivered': { label: 'Zugestellt', variant: 'success' },
+    'opened': { label: 'Geöffnet', variant: 'success' },
     'bounced': { label: 'Abgewiesen', variant: 'destructive' },
+    'complained': { label: 'Spam-Meldung', variant: 'destructive' },
+    'delayed': { label: 'Verzögert', variant: 'warning' },
+    'failed': { label: 'Fehlgeschlagen', variant: 'destructive' },
   };
   return statuses[status] || { label: status, variant: 'secondary' };
 };

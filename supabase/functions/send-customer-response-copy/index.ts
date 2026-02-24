@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 
 
@@ -24,6 +25,11 @@ serve(async (req) => {
       throw new Error('customerEmail and inquiryId are required');
     }
 
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
     const emailSubject = 'Ihre Rückmeldung zum STORIA-Angebot';
     const emailBody = `Vielen Dank für Ihre Rückmeldung!
 
@@ -43,13 +49,60 @@ Karlstraße 47a
 Tel: +49 89 51519696
 info@events-storia.de`;
 
-    // Sende per Resend (primär) oder SMTP
+    const htmlBody = `<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="white-space: pre-wrap;">${emailBody}</div>
+</body>
+</html>`;
+
+    // Sende per Resend (primär) oder SMTP (fallback)
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     const smtpUser = Deno.env.get('SMTP_USER')?.trim();
     const smtpPassword = Deno.env.get('SMTP_PASSWORD');
     let sent = false;
+    let provider = '';
+    let messageId: string | null = null;
+    let errorMessage: string | null = null;
 
-    if (smtpUser && smtpPassword) {
+    // Resend (primär)
+    if (resendApiKey) {
+      try {
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+          body: JSON.stringify({
+            from: 'STORIA Events <info@events-storia.de>',
+            to: customerEmail,
+            subject: emailSubject,
+            html: htmlBody,
+            text: emailBody,
+            reply_to: 'info@events-storia.de',
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          sent = true;
+          provider = 'resend';
+          messageId = data.id || null;
+          errorMessage = null;
+          console.log('Response copy sent via Resend to', customerEmail);
+        } else {
+          errorMessage = `Resend error: ${await res.text()}`;
+          console.error(errorMessage);
+        }
+      } catch (resendErr) {
+        errorMessage = resendErr instanceof Error ? resendErr.message : 'Resend error';
+        console.error('Resend exception:', errorMessage);
+      }
+    }
+
+    // SMTP Fallback
+    if (!sent && smtpUser && smtpPassword) {
       try {
         const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
         const smtpHost = Deno.env.get('SMTP_HOST') || 'smtp.ionos.de';
@@ -68,60 +121,36 @@ info@events-storia.de`;
           from: `STORIA Events <${smtpUser}>`,
           to: [customerEmail],
           subject: emailSubject,
-          html: `<!DOCTYPE html>
-<html lang="de">
-<head><meta charset="UTF-8"></head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="white-space: pre-wrap;">${emailBody}</div>
-</body>
-</html>`,
+          html: htmlBody,
         });
 
         await client.close();
         sent = true;
-        console.log('Response copy sent via SMTP to', customerEmail);
+        provider = 'ionos_smtp';
+        errorMessage = null;
+        console.log('Response copy sent via IONOS SMTP (fallback) to', customerEmail);
       } catch (smtpErr) {
-        console.error('SMTP error:', smtpErr);
-        // Fallback to Resend
-        if (resendApiKey) {
-          const res = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${resendApiKey}`,
-              'Content-Type': 'application/json; charset=utf-8',
-            },
-            body: JSON.stringify({
-              from: 'STORIA Events <info@events-storia.de>',
-              to: customerEmail,
-              subject: emailSubject,
-              text: emailBody,
-            }),
-          });
-          sent = res.ok;
-          if (!sent) console.error('Resend fallback error:', await res.text());
-          else console.log('Response copy sent via Resend (fallback) to', customerEmail);
-        }
+        errorMessage = smtpErr instanceof Error ? smtpErr.message : 'SMTP error';
+        console.error('SMTP fallback error:', errorMessage);
       }
-    } else if (resendApiKey) {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-        body: JSON.stringify({
-          from: 'STORIA Events <info@events-storia.de>',
-          to: customerEmail,
-          subject: emailSubject,
-          text: emailBody,
-        }),
-      });
-      sent = res.ok;
-      if (!sent) console.error('Resend error:', await res.text());
-      else console.log('Response copy sent via Resend to', customerEmail);
-    } else {
-      console.warn('No email provider configured');
     }
+
+    // Email Delivery loggen
+    await supabase.from('email_delivery_logs').insert({
+      entity_type: 'event_inquiry',
+      entity_id: inquiryId,
+      recipient_email: customerEmail,
+      subject: emailSubject,
+      provider: provider || 'none',
+      provider_message_id: messageId,
+      status: sent ? 'sent' : 'failed',
+      error_message: errorMessage,
+      sent_by: 'system',
+      metadata: {
+        email_type: 'customer_response_copy',
+        selectedOptionLabel,
+      },
+    });
 
     return new Response(
       JSON.stringify({ success: true, emailSent: sent }),

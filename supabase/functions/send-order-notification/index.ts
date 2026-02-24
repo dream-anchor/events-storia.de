@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 
@@ -315,57 +314,91 @@ Admin-Bereich: https://events-storia.de/admin
 `;
 };
 
-async function sendEmail(to: string[], subject: string, text: string, fromName: string) {
-  const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.ionos.de";
-  const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
+interface SendResult {
+  sent: boolean;
+  provider: string;
+  messageId: string | null;
+  errorMessage: string | null;
+}
+
+async function sendEmail(to: string[], subject: string, text: string, fromName: string): Promise<SendResult> {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
   const smtpUser = Deno.env.get("SMTP_USER")?.trim();
   const smtpPassword = Deno.env.get("SMTP_PASSWORD");
+  let sent = false;
+  let provider = "";
+  let messageId: string | null = null;
+  let errorMessage: string | null = null;
 
-  console.log(`SMTP_HOST: ${smtpHost}, SMTP_PORT: ${smtpPort}`);
-
-  if (!smtpUser || !smtpPassword) {
-    throw new Error("SMTP credentials not configured (SMTP_USER, SMTP_PASSWORD)");
-  }
-
-  console.log(`Sending email via IONOS SMTP (SSL) to: ${to.join(', ')}, subject: ${subject}`);
-
-  const client = new SMTPClient({
-    connection: {
-      hostname: smtpHost,
-      port: smtpPort,
-      tls: true,
-      auth: {
-        username: smtpUser,
-        password: smtpPassword,
-      },
-    },
-  });
-
-  try {
-    await client.send({
-      from: `${fromName} <${smtpUser}>`,
-      to: to,
-      subject: subject,
-      html: `<!DOCTYPE html>
+  const htmlBody = `<!DOCTYPE html>
 <html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="white-space: pre-wrap;">${text}</div>
 </body>
-</html>`,
-    });
+</html>`;
 
-    console.log("Email sent successfully via IONOS SMTP");
-  } finally {
+  // Resend (primär)
+  if (resendApiKey) {
     try {
-      await client.close();
-    } catch (closeError) {
-      console.log("Client close warning:", closeError);
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json; charset=utf-8",
+        },
+        body: JSON.stringify({
+          from: `${fromName} <info@events-storia.de>`,
+          to: to,
+          subject: subject,
+          html: htmlBody,
+          text: text,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        sent = true;
+        provider = "resend";
+        messageId = data.id || null;
+        console.log(`Email sent via Resend to: ${to.join(", ")}`);
+      } else {
+        errorMessage = `Resend error: ${await res.text()}`;
+        console.error(errorMessage);
+      }
+    } catch (resendErr) {
+      errorMessage = resendErr instanceof Error ? resendErr.message : "Resend error";
+      console.error("Resend exception:", errorMessage);
     }
   }
+
+  // SMTP Fallback
+  if (!sent && smtpUser && smtpPassword) {
+    try {
+      const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
+      const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.ionos.de";
+      const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
+
+      const client = new SMTPClient({
+        connection: { hostname: smtpHost, port: smtpPort, tls: true, auth: { username: smtpUser, password: smtpPassword } },
+      });
+
+      await client.send({ from: `${fromName} <${smtpUser}>`, to, subject, html: htmlBody });
+      await client.close();
+      sent = true;
+      provider = "ionos_smtp";
+      errorMessage = null;
+      console.log(`Email sent via IONOS SMTP (fallback) to: ${to.join(", ")}`);
+    } catch (smtpErr) {
+      errorMessage = smtpErr instanceof Error ? smtpErr.message : "SMTP error";
+      console.error("SMTP fallback error:", errorMessage);
+    }
+  }
+
+  if (!sent && !resendApiKey && !smtpUser) {
+    errorMessage = "No email provider configured";
+  }
+
+  return { sent, provider, messageId, errorMessage };
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -452,21 +485,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send customer email
     const customerEmailText = generateCustomerEmailText(data);
-    let customerEmailSent = false;
-    let customerEmailError: string | null = null;
-    
-    try {
-      await sendEmail(
-        [data.customerEmail],
-        customerSubject,
-        customerEmailText,
-        "STORIA Catering"
-      );
-      customerEmailSent = true;
-    } catch (err) {
-      customerEmailError = err instanceof Error ? err.message : 'Unknown error';
-      console.error('Customer email error:', customerEmailError);
-    }
+    const customerResult = await sendEmail(
+      [data.customerEmail],
+      customerSubject,
+      customerEmailText,
+      "STORIA Catering"
+    );
 
     // Log customer email
     await logEmailDelivery(supabase, {
@@ -475,10 +499,10 @@ const handler = async (req: Request): Promise<Response> => {
       recipient_email: data.customerEmail,
       recipient_name: data.customerName,
       subject: customerSubject,
-      provider: 'ionos_smtp',
-      provider_message_id: null,
-      status: customerEmailSent ? 'sent' : 'failed',
-      error_message: customerEmailError,
+      provider: customerResult.provider || 'none',
+      provider_message_id: customerResult.messageId,
+      status: customerResult.sent ? 'sent' : 'failed',
+      error_message: customerResult.errorMessage,
       sent_by: 'system',
       metadata: {
         order_number: data.orderNumber,
@@ -489,21 +513,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send restaurant email
     const restaurantEmailText = generateRestaurantEmailText(data);
-    let restaurantEmailSent = false;
-    let restaurantEmailError: string | null = null;
-    
-    try {
-      await sendEmail(
-        ["info@events-storia.de"],
-        restaurantSubject,
-        restaurantEmailText,
-        "STORIA Bestellsystem"
-      );
-      restaurantEmailSent = true;
-    } catch (err) {
-      restaurantEmailError = err instanceof Error ? err.message : 'Unknown error';
-      console.error('Restaurant email error:', restaurantEmailError);
-    }
+    const restaurantResult = await sendEmail(
+      ["info@events-storia.de"],
+      restaurantSubject,
+      restaurantEmailText,
+      "STORIA Bestellsystem"
+    );
 
     // Log restaurant email
     await logEmailDelivery(supabase, {
@@ -512,10 +527,10 @@ const handler = async (req: Request): Promise<Response> => {
       recipient_email: 'info@events-storia.de',
       recipient_name: 'STORIA Team',
       subject: restaurantSubject,
-      provider: 'ionos_smtp',
-      provider_message_id: null,
-      status: restaurantEmailSent ? 'sent' : 'failed',
-      error_message: restaurantEmailError,
+      provider: restaurantResult.provider || 'none',
+      provider_message_id: restaurantResult.messageId,
+      status: restaurantResult.sent ? 'sent' : 'failed',
+      error_message: restaurantResult.errorMessage,
       sent_by: 'system',
       metadata: {
         order_number: data.orderNumber,
@@ -525,7 +540,7 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     return new Response(
-      JSON.stringify({ success: true, message: "Emails sent successfully via IONOS SMTP" }),
+      JSON.stringify({ success: true, message: "Emails sent successfully" }),
       {
         status: 200,
         headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders },

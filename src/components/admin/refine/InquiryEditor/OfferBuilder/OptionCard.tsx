@@ -416,6 +416,7 @@ function PaketContent({
   disabled: boolean;
 }) {
   const handleSelectPackage = (pkg: Package) => {
+    if (option.packageId === pkg.id) return; // Bereits gewählt → nicht zurücksetzen
     onUpdate({
       packageId: pkg.id,
       packageName: pkg.name,

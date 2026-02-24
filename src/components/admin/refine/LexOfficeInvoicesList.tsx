@@ -25,6 +25,7 @@ export const LexOfficeInvoicesList = () => {
   const { isAdmin } = usePermissions();
   const [typeFilter, setTypeFilter] = useState<VoucherType>('all');
   const [statusFilter, setStatusFilter] = useState<VoucherStatus>(null);
+  const [maestroOnly, setMaestroOnly] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
@@ -36,9 +37,10 @@ export const LexOfficeInvoicesList = () => {
 
   const syncMutation = useSyncLexOfficePaymentStatus();
 
-  const vouchers = vouchersQuery.data?.content || [];
+  const allVouchers = vouchersQuery.data?.content || [];
+  const vouchers = maestroOnly ? allVouchers.filter(v => v.localOrderId) : allVouchers;
   const isLoading = vouchersQuery.isLoading;
-  const totalCount = vouchersQuery.data?.totalElements || 0;
+  const totalCount = vouchers.length;
 
   const typeFilterPills = [
     { id: 'all', label: 'Alle', value: 'all', active: typeFilter === 'all' },
@@ -243,8 +245,16 @@ export const LexOfficeInvoicesList = () => {
           </div>
         </div>
 
-        {/* Type Filter */}
-        <div className="flex flex-wrap gap-2">
+        {/* Source + Type Filter */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={maestroOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => setMaestroOnly(!maestroOnly)}
+          >
+            {maestroOnly ? "Nur Maestro" : "Alle LexOffice"}
+          </Button>
+          <div className="h-5 w-px bg-border" />
           {typeFilterPills.map((pill) => (
             <Button
               key={pill.id}

@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.list-lexoffice-vouchers]
 verify_jwt = true
+
+[functions.receive-resend-webhook]
+verify_jwt = false

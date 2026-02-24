@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { getCorsHeaders } from '../_shared/cors.ts';
 
 
@@ -14,51 +13,98 @@ interface ReminderResult {
   error?: string;
 }
 
+interface SendResult {
+  sent: boolean;
+  provider: string;
+  messageId: string | null;
+  errorMessage: string | null;
+}
+
 async function sendEmail(
   to: string[],
   subject: string,
-  html: string,
+  htmlContent: string,
   fromName: string
-): Promise<void> {
-  const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.ionos.de";
-  const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
+): Promise<SendResult> {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
   const smtpUser = Deno.env.get("SMTP_USER")?.trim();
   const smtpPassword = Deno.env.get("SMTP_PASSWORD");
+  let sent = false;
+  let provider = "";
+  let messageId: string | null = null;
+  let errorMessage: string | null = null;
 
-  if (!smtpUser || !smtpPassword) {
-    throw new Error("SMTP credentials not configured");
-  }
-
-  console.log(`Sending reminder email to: ${to.join(", ")}`);
-
-  const client = new SMTPClient({
-    connection: {
-      hostname: smtpHost,
-      port: smtpPort,
-      tls: true,
-      auth: { username: smtpUser, password: smtpPassword },
-    },
-  });
-
-  try {
-    await client.send({
-      from: `${fromName} <${smtpUser}>`,
-      to: to,
-      subject: subject,
-      html: `<!DOCTYPE html>
+  const fullHtml = `<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="UTF-8"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333;">
-  ${html}
+  ${htmlContent}
 </body>
-</html>`,
-    });
-    console.log(`Email sent successfully to ${to.join(", ")}`);
-  } finally {
-    await client.close();
+</html>`;
+
+  // Resend (primär)
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json; charset=utf-8",
+        },
+        body: JSON.stringify({
+          from: `${fromName} <info@events-storia.de>`,
+          to: to,
+          subject: subject,
+          html: fullHtml,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        sent = true;
+        provider = "resend";
+        messageId = data.id || null;
+        console.log(`Reminder sent via Resend to: ${to.join(", ")}`);
+      } else {
+        errorMessage = `Resend error: ${await res.text()}`;
+        console.error(errorMessage);
+      }
+    } catch (resendErr) {
+      errorMessage = resendErr instanceof Error ? resendErr.message : "Resend error";
+      console.error("Resend exception:", errorMessage);
+    }
   }
+
+  // SMTP Fallback
+  if (!sent && smtpUser && smtpPassword) {
+    try {
+      const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
+      const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.ionos.de";
+      const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
+
+      const client = new SMTPClient({
+        connection: { hostname: smtpHost, port: smtpPort, tls: true, auth: { username: smtpUser, password: smtpPassword } },
+      });
+
+      await client.send({ from: `${fromName} <${smtpUser}>`, to, subject, html: fullHtml });
+      await client.close();
+      sent = true;
+      provider = "ionos_smtp";
+      errorMessage = null;
+      console.log(`Reminder sent via IONOS SMTP (fallback) to: ${to.join(", ")}`);
+    } catch (smtpErr) {
+      errorMessage = smtpErr instanceof Error ? smtpErr.message : "SMTP error";
+      console.error("SMTP fallback error:", errorMessage);
+    }
+  }
+
+  if (!sent && !resendApiKey && !smtpUser) {
+    errorMessage = "No email provider configured";
+  }
+
+  return { sent, provider, messageId, errorMessage };
 }
 
+// deno-lint-ignore no-explicit-any
 async function logEmailDelivery(
   supabase: any,
   data: {
@@ -67,8 +113,10 @@ async function logEmailDelivery(
     recipient_email: string;
     recipient_name: string | null;
     subject: string;
+    provider: string;
+    provider_message_id: string | null;
     status: string;
-    error_message?: string;
+    error_message?: string | null;
   }
 ) {
   try {
@@ -78,9 +126,11 @@ async function logEmailDelivery(
       recipient_email: data.recipient_email,
       recipient_name: data.recipient_name,
       subject: data.subject,
-      provider: "ionos_smtp",
+      provider: data.provider || "none",
+      provider_message_id: data.provider_message_id,
       status: data.status,
       error_message: data.error_message || null,
+      sent_by: "system",
       metadata: { reminder: true },
     });
   } catch (error) {
@@ -161,10 +211,9 @@ serve(async (req) => {
             </div>
           `;
 
-          try {
-            await sendEmail([inquiry.email], subject, html, "STORIA Events");
+          const offerResult = await sendEmail([inquiry.email], subject, html, "STORIA Events");
 
-            // Update reminder count
+          if (offerResult.sent) {
             await supabase
               .from("event_inquiries")
               .update({
@@ -172,32 +221,27 @@ serve(async (req) => {
                 reminder_sent_at: now.toISOString(),
               })
               .eq("id", inquiry.id);
-
-            await logEmailDelivery(supabase, {
-              entity_type: "event_inquiry",
-              entity_id: inquiry.id,
-              recipient_email: inquiry.email,
-              recipient_name: inquiry.contact_name,
-              subject: subject,
-              status: "sent",
-            });
-
-            results.push({
-              type: "offer_reminder",
-              inquiryId: inquiry.id,
-              email: inquiry.email,
-              success: true,
-            });
-          } catch (error) {
-            console.error(`Failed to send offer reminder to ${inquiry.email}:`, error);
-            results.push({
-              type: "offer_reminder",
-              inquiryId: inquiry.id,
-              email: inquiry.email,
-              success: false,
-              error: error instanceof Error ? error.message : "Unknown error",
-            });
           }
+
+          await logEmailDelivery(supabase, {
+            entity_type: "event_inquiry",
+            entity_id: inquiry.id,
+            recipient_email: inquiry.email,
+            recipient_name: inquiry.contact_name,
+            subject: subject,
+            provider: offerResult.provider || "none",
+            provider_message_id: offerResult.messageId,
+            status: offerResult.sent ? "sent" : "failed",
+            error_message: offerResult.errorMessage,
+          });
+
+          results.push({
+            type: "offer_reminder",
+            inquiryId: inquiry.id,
+            email: inquiry.email,
+            success: offerResult.sent,
+            error: offerResult.errorMessage || undefined,
+          });
         }
       }
     }
@@ -240,34 +284,27 @@ serve(async (req) => {
           </div>
         `;
 
-        try {
-          await sendEmail([booking.customer_email], subject, html, "STORIA Events");
+        const menuResult = await sendEmail([booking.customer_email], subject, html, "STORIA Events");
 
-          await logEmailDelivery(supabase, {
-            entity_type: "event_booking",
-            entity_id: booking.id,
-            recipient_email: booking.customer_email,
-            recipient_name: booking.customer_name,
-            subject: subject,
-            status: "sent",
-          });
+        await logEmailDelivery(supabase, {
+          entity_type: "event_booking",
+          entity_id: booking.id,
+          recipient_email: booking.customer_email,
+          recipient_name: booking.customer_name,
+          subject: subject,
+          provider: menuResult.provider || "none",
+          provider_message_id: menuResult.messageId,
+          status: menuResult.sent ? "sent" : "failed",
+          error_message: menuResult.errorMessage,
+        });
 
-          results.push({
-            type: "menu_reminder",
-            bookingId: booking.id,
-            email: booking.customer_email,
-            success: true,
-          });
-        } catch (error) {
-          console.error(`Failed to send menu reminder to ${booking.customer_email}:`, error);
-          results.push({
-            type: "menu_reminder",
-            bookingId: booking.id,
-            email: booking.customer_email,
-            success: false,
-            error: error instanceof Error ? error.message : "Unknown error",
-          });
-        }
+        results.push({
+          type: "menu_reminder",
+          bookingId: booking.id,
+          email: booking.customer_email,
+          success: menuResult.sent,
+          error: menuResult.errorMessage || undefined,
+        });
       }
     }
 
@@ -317,34 +354,27 @@ serve(async (req) => {
           </div>
         `;
 
-        try {
-          await sendEmail([booking.customer_email], subject, html, "STORIA Events");
+        const tomorrowResult = await sendEmail([booking.customer_email], subject, html, "STORIA Events");
 
-          await logEmailDelivery(supabase, {
-            entity_type: "event_booking",
-            entity_id: booking.id,
-            recipient_email: booking.customer_email,
-            recipient_name: booking.customer_name,
-            subject: subject,
-            status: "sent",
-          });
+        await logEmailDelivery(supabase, {
+          entity_type: "event_booking",
+          entity_id: booking.id,
+          recipient_email: booking.customer_email,
+          recipient_name: booking.customer_name,
+          subject: subject,
+          provider: tomorrowResult.provider || "none",
+          provider_message_id: tomorrowResult.messageId,
+          status: tomorrowResult.sent ? "sent" : "failed",
+          error_message: tomorrowResult.errorMessage,
+        });
 
-          results.push({
-            type: "event_tomorrow",
-            bookingId: booking.id,
-            email: booking.customer_email,
-            success: true,
-          });
-        } catch (error) {
-          console.error(`Failed to send tomorrow reminder to ${booking.customer_email}:`, error);
-          results.push({
-            type: "event_tomorrow",
-            bookingId: booking.id,
-            email: booking.customer_email,
-            success: false,
-            error: error instanceof Error ? error.message : "Unknown error",
-          });
-        }
+        results.push({
+          type: "event_tomorrow",
+          bookingId: booking.id,
+          email: booking.customer_email,
+          success: tomorrowResult.sent,
+          error: tomorrowResult.errorMessage || undefined,
+        });
       }
     }
 

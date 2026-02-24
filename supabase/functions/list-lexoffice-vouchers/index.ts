@@ -167,8 +167,14 @@ serve(async (req) => {
       .select('id, lexoffice_invoice_id')
       .not('lexoffice_invoice_id', 'is', null);
 
+    // Fetch from event_bookings
+    const { data: bookings } = await supabaseAdmin
+      .from('event_bookings')
+      .select('id, lexoffice_invoice_id')
+      .not('lexoffice_invoice_id', 'is', null);
+
     // Create a map for quick lookup
-    const lexofficeIdToLocal = new Map<string, { id: string; orderNumber?: string; type: 'order' | 'inquiry' }>();
+    const lexofficeIdToLocal = new Map<string, { id: string; orderNumber?: string; type: 'order' | 'inquiry' | 'booking' }>();
 
     orders?.forEach(order => {
       if (order.lexoffice_invoice_id) {
@@ -185,6 +191,15 @@ serve(async (req) => {
         lexofficeIdToLocal.set(inquiry.lexoffice_invoice_id, {
           id: inquiry.id,
           type: 'inquiry'
+        });
+      }
+    });
+
+    bookings?.forEach(booking => {
+      if (booking.lexoffice_invoice_id) {
+        lexofficeIdToLocal.set(booking.lexoffice_invoice_id, {
+          id: booking.id,
+          type: 'booking'
         });
       }
     });
