@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Send, Receipt, Check, History, ListTodo, ExternalLink, ChevronDown } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, History, ListTodo, ExternalLink, ChevronDown } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ import { ClientPreview } from "./ClientPreview";
 import { StaffNote } from "./StaffNote";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { TaskManager } from "@/components/admin/shared/TaskManager";
-import { CreateManualInvoiceDialog } from "../CreateManualInvoiceDialog";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
@@ -27,11 +26,10 @@ import { toast } from "sonner";
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [isSending, setIsSending] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitializedRef = useRef(false);
+  const latestValuesRef = useRef<Record<string, unknown>>({});
   const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>();
   const [isDownloading, setIsDownloading] = useState(false);
   const downloadDocument = useDownloadLexOfficeDocument();
@@ -190,70 +188,48 @@ export const SmartInquiryEditor = () => {
     }
   };
 
-  // Send offer handler
-  const handleSendOffer = useCallback(async () => {
-    if (!emailDraft || !inquiry?.email) {
-      toast.error("E-Mail-Entwurf oder Empfänger fehlt");
-      return;
-    }
-    setIsSending(true);
-    try {
-      const { error } = await supabase.functions.invoke('send-quote-email', {
-        body: {
-          to: inquiry.email,
-          subject: `Ihr Angebot von Storia`,
-          html: emailDraft,
-          inquiryId: id,
-        }
-      });
-      if (error) throw error;
+  // Ref hält immer die aktuellsten Werte — performSave liest daraus
+  useEffect(() => {
+    latestValuesRef.current = {
+      localInquiry,
+      selectedPackages,
+      quoteItems,
+      quoteNotes,
+      emailDraft,
+      menuSelection,
+    };
+  }, [localInquiry, selectedPackages, quoteItems, quoteNotes, emailDraft, menuSelection]);
 
-      // Update inquiry status
-      updateInquiry({
-        resource: "events",
-        id: id!,
-        values: { status: 'offer_sent' }
-      });
-
-      toast.success("E-Mail wurde gesendet");
-    } catch (error) {
-      console.error(error);
-      toast.error("Fehler beim Senden der E-Mail");
-    } finally {
-      setIsSending(false);
-    }
-  }, [emailDraft, inquiry?.email, id, updateInquiry]);
-
-  // Auto-save function (debounced)
+  // Stabile Save-Funktion — ändert sich NIE, liest aus Ref
   const performSave = useCallback(async () => {
     if (!id || !isInitializedRef.current) return;
+    const vals = latestValuesRef.current;
     setSaveStatus('saving');
 
     updateInquiry({
       resource: "events",
       id,
       values: {
-        ...localInquiry,
-        selected_packages: selectedPackages,
-        quote_items: quoteItems,
-        quote_notes: quoteNotes,
-        email_draft: emailDraft,
-        menu_selection: menuSelection,
+        ...(vals.localInquiry as Record<string, unknown>),
+        selected_packages: vals.selectedPackages,
+        quote_items: vals.quoteItems,
+        quote_notes: vals.quoteNotes,
+        email_draft: vals.emailDraft,
+        menu_selection: vals.menuSelection,
       },
     }, {
       onSuccess: () => {
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       },
-      onError: (error) => {
+      onError: () => {
         toast.error("Fehler beim Speichern");
-        console.error(error);
         setSaveStatus('idle');
       },
     });
-  }, [id, updateInquiry, localInquiry, selectedPackages, quoteItems, quoteNotes, emailDraft, menuSelection]);
+  }, [id, updateInquiry]);
 
-  // Auto-save on any change (debounced)
+  // Auto-save: Debounce auf 1.2s, performSave ist STABIL → kein Re-Trigger
   useEffect(() => {
     if (!isInitializedRef.current) return;
 
@@ -263,7 +239,7 @@ export const SmartInquiryEditor = () => {
 
     saveTimeoutRef.current = setTimeout(() => {
       performSave();
-    }, 800);
+    }, 1200);
 
     return () => {
       if (saveTimeoutRef.current) {
@@ -287,7 +263,7 @@ export const SmartInquiryEditor = () => {
       performSave();
       toast.success("Gespeichert");
     },
-    onSendOffer: handleSendOffer,
+    onSendOffer: () => {},
     onGenerateEmail: () => {},
     onNextInquiry: () => toast.info("Tipp: Nutze ⌘K für schnelle Navigation"),
     onPreviousInquiry: () => toast.info("Tipp: Nutze ⌘K für schnelle Navigation"),
@@ -381,38 +357,6 @@ export const SmartInquiryEditor = () => {
               </Button>
             )}
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => setCreateInvoiceOpen(true)}
-            >
-              <Receipt className="h-4 w-4" />
-              <span className="hidden sm:inline">Rechnung</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">PDF</span>
-            </Button>
-
-            <Button
-              size="sm"
-              className="gap-2 bg-primary hover:bg-primary/90"
-              disabled={!emailDraft || isSending}
-              onClick={handleSendOffer}
-            >
-              {isSending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              <span className="hidden sm:inline">E-Mail senden</span>
-            </Button>
           </div>
         </div>
       </div>
@@ -504,19 +448,6 @@ export const SmartInquiryEditor = () => {
         </div>
       </div>
 
-      {/* Manual Invoice Creation Dialog */}
-      <CreateManualInvoiceDialog
-        open={createInvoiceOpen}
-        onOpenChange={setCreateInvoiceOpen}
-        prefillData={{
-          contactName: mergedInquiry.contact_name,
-          companyName: mergedInquiry.company_name || undefined,
-          email: mergedInquiry.email,
-          phone: mergedInquiry.phone || undefined,
-          eventInquiryId: id,
-        }}
-        onSuccess={() => inquiryQuery.query.refetch()}
-      />
     </AdminLayout>
   );
 };

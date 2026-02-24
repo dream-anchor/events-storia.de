@@ -68,7 +68,18 @@ export const AdminLayout = ({
   // die Maestro CSS-Variablen statt der Website-Variablen erben
   useEffect(() => {
     document.body.classList.add('admin-active');
-    return () => { document.body.classList.remove('admin-active'); };
+    // Maestro-Favicon setzen
+    const existingIcon = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
+    const prevHref = existingIcon?.href;
+    if (existingIcon) {
+      existingIcon.href = '/maestro-favicon.svg';
+      existingIcon.type = 'image/svg+xml';
+    }
+    document.title = 'StoriaMaestro';
+    return () => {
+      document.body.classList.remove('admin-active');
+      if (existingIcon && prevHref) existingIcon.href = prevHref;
+    };
   }, []);
 
   // Get current user

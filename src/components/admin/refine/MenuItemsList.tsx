@@ -1,9 +1,10 @@
 import { useMemo, useState, useRef, useCallback } from "react";
 import {
-  ChefHat, Utensils, Plus, Edit, Trash2, Undo2, X,
+  ChefHat, Utensils, Plus, Edit, Trash2, Undo2, X, ArrowLeft,
   ChevronDown, ChevronRight, Upload, Search, Sparkles,
   Loader2, FolderPlus, AlertTriangle, Clock, Archive, ArchiveRestore,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,7 @@ import { cn } from "@/lib/utils";
 
 // ─── Main Component ───────────────────────────────────────────────
 export const MenuItemsList = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("catering");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -93,14 +95,17 @@ export const MenuItemsList = () => {
   const archiveCount = archiveQuery.data?.length || 0;
 
   return (
-    <AdminLayout activeTab="menu">
+    <AdminLayout activeTab="settings">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/admin/settings?tab=speisen")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
               <ChefHat className="h-6 w-6" />
-              Speisen & Getranke
+              Speisen & Getränke
             </h1>
             <p className="text-muted-foreground">
               Catering-Katalog verwalten

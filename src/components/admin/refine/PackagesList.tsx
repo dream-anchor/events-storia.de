@@ -15,7 +15,8 @@ import {
   Package,
   Percent,
   MapPin,
-  Check
+  Check,
+  ArrowLeft
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -202,14 +203,19 @@ export const PackagesList = () => {
   };
 
   return (
-    <AdminLayout activeTab="packages">
+    <AdminLayout activeTab="settings">
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/admin/settings?tab=pakete")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
           <h1 className="text-2xl font-bold tracking-tight">Pakete & Locations</h1>
           <p className="text-muted-foreground">
             Verwalten Sie Event-Pakete und verfügbare Räumlichkeiten
           </p>
+          </div>
         </div>
 
         {/* Tabs */}

@@ -88,6 +88,7 @@ export default defineConfig(({ mode }) => ({
           rendererOptions: {
             renderAfterDocumentEvent: 'prerender-ready',
             headless: true,
+            navigationOptions: { timeout: 60000 },
           },
           postProcess(renderedRoute) {
             // Add prerendered marker for debugging

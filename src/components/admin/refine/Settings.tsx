@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +33,7 @@ import {
   Pencil,
   GripVertical,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useList } from "@refinedev/core";
 
 // Business data interface
@@ -88,11 +88,12 @@ const TEMPLATE_VARIABLES = [
 function SignatureEditor() {
   const [signature, setSignature] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [signatureId, setSignatureId] = useState<string | null>(null);
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const signatureIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchSig = async () => {
       const { data } = await supabase
         .from('email_templates')
         .select('id, content')
@@ -102,29 +103,35 @@ function SignatureEditor() {
       if (data) {
         setSignature(data.content);
         setSignatureId(data.id);
+        signatureIdRef.current = data.id;
       }
       setLoading(false);
     };
-    fetch();
+    fetchSig();
   }, []);
 
-  const handleSave = async () => {
-    setSaving(true);
-    if (signatureId) {
-      await supabase.from('email_templates').update({ content: signature }).eq('id', signatureId);
-    } else {
-      const { data } = await supabase.from('email_templates').insert({
-        name: 'E-Mail-Signatur',
-        subject: '',
-        content: signature,
-        category: 'signatur',
-        is_active: true,
-        sort_order: 0,
-      }).select('id').maybeSingle();
-      if (data) setSignatureId(data.id);
-    }
-    setSaving(false);
-    toast.success('Signatur gespeichert');
+  // Auto-save bei Änderung (debounced 1s)
+  const handleSignatureChange = (value: string) => {
+    setSignature(value);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      if (signatureIdRef.current) {
+        await supabase.from('email_templates').update({ content: value }).eq('id', signatureIdRef.current);
+      } else {
+        const { data } = await supabase.from('email_templates').insert({
+          name: 'E-Mail-Signatur',
+          subject: '',
+          content: value,
+          category: 'signatur',
+          is_active: true,
+          sort_order: 0,
+        }).select('id').maybeSingle();
+        if (data) {
+          setSignatureId(data.id);
+          signatureIdRef.current = data.id;
+        }
+      }
+    }, 1000);
   };
 
   if (loading) {
@@ -149,19 +156,13 @@ function SignatureEditor() {
       <CardContent className="space-y-4">
         <Textarea
           value={signature}
-          onChange={(e) => setSignature(e.target.value)}
+          onChange={(e) => handleSignatureChange(e.target.value)}
           placeholder={`Speranza GmbH\nKarlstraße 47a\n80333 München\nDeutschland\n\nTelefon: +49 89 51519696\nE-Mail: info@events-storia.de\n\nVertreten durch die Geschäftsführerin:\nAgnese Lettieri\n\nHandelsregisternummer: HRB 209637\nUmsatzsteuer-ID: DE 296024880`}
           className="min-h-[200px] font-mono text-sm leading-relaxed"
         />
         <p className="text-xs text-muted-foreground">
-          Tipp: Enthält typischerweise Firmenname, Adresse, Telefon, E-Mail, Geschäftsführung, HRB, USt-ID.
+          Änderungen werden automatisch gespeichert.
         </p>
-        <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={saving} className="gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Signatur speichern
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
@@ -520,8 +521,15 @@ function TemplateManager() {
 }
 
 export const Settings = () => {
-  const [activeTab, setActiveTab] = useState("stammdaten");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "stammdaten");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Tab-Wechsel in URL speichern → Zurück-Button funktioniert
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab);
+    setSearchParams({ tab }, { replace: true });
+  }, [setSearchParams]);
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string } | null>(null);
 
   // Profil bearbeiten
@@ -532,22 +540,32 @@ export const Settings = () => {
   const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
   const [isSavingPassword, setIsSavingPassword] = useState(false);
 
-  // Business data state (would be loaded from database in production)
-  const [businessData, setBusinessData] = useState<BusinessData>({
+  // Business data — localStorage-Persistenz
+  const BUSINESS_DATA_KEY = "storia_business_data";
+  const businessDataDefaults: BusinessData = {
     companyName: "Storia Restaurant & Events",
-    legalName: "Storia GmbH",
+    legalName: "Speranza GmbH",
     address: "Karlstr. 47a",
     city: "München",
     postalCode: "80333",
     phone: "089 55 06 71 50",
     email: "info@storia-muenchen.de",
     website: "https://www.events-storia.de",
-    vatId: "DE123456789",
-    registrationNumber: "HRB 123456",
+    vatId: "DE 296024880",
+    registrationNumber: "HRB 209637",
     defaultVatRate: "7",
     notificationEmail: "admin@storia-muenchen.de",
     enableEmailNotifications: true,
+  };
+  const [businessData, setBusinessData] = useState<BusinessData>(() => {
+    try {
+      const stored = localStorage.getItem(BUSINESS_DATA_KEY);
+      return stored ? { ...businessDataDefaults, ...JSON.parse(stored) } : businessDataDefaults;
+    } catch {
+      return businessDataDefaults;
+    }
   });
+  const businessSaveRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch menu items count
   const menuItemsQuery = useList({
@@ -625,17 +643,17 @@ export const Settings = () => {
     setIsSavingPassword(false);
   };
 
-  const handleBusinessDataChange = (field: keyof BusinessData, value: string | boolean) => {
-    setBusinessData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSaveBusinessData = async () => {
-    setIsSaving(true);
-    // Simulate save - in production this would save to database
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    toast.success("Stammdaten gespeichert");
-    setIsSaving(false);
-  };
+  const handleBusinessDataChange = useCallback((field: keyof BusinessData, value: string | boolean) => {
+    setBusinessData((prev) => {
+      const next = { ...prev, [field]: value };
+      // Debounced auto-save nach localStorage
+      if (businessSaveRef.current) clearTimeout(businessSaveRef.current);
+      businessSaveRef.current = setTimeout(() => {
+        localStorage.setItem(BUSINESS_DATA_KEY, JSON.stringify(next));
+      }, 500);
+      return next;
+    });
+  }, []);
 
   return (
     <AdminLayout activeTab="settings" title="Einstellungen" showCreateButton={false}>
@@ -649,7 +667,7 @@ export const Settings = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="bg-muted/50 p-1 h-auto flex-wrap">
             <TabsTrigger value="stammdaten" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
               <Building2 className="h-4 w-4" />
@@ -823,12 +841,9 @@ export const Settings = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-4">
-                  <Button onClick={handleSaveBusinessData} disabled={isSaving} className="gap-2">
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Speichern
-                  </Button>
-                </div>
+                <p className="text-xs text-muted-foreground pt-2">
+                  Änderungen werden automatisch gespeichert.
+                </p>
               </CardContent>
             </Card>
 
@@ -1073,6 +1088,11 @@ export const Settings = () => {
                       id="userName"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
+                      onBlur={() => {
+                        if (displayName.trim() && displayName !== currentUser?.name) {
+                          handleSaveProfile();
+                        }
+                      }}
                       className="h-11"
                       placeholder="Ihr Name"
                     />
@@ -1092,12 +1112,6 @@ export const Settings = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-end">
-                  <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="gap-2">
-                    {isSavingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Profil speichern
-                  </Button>
-                </div>
               </CardContent>
             </Card>
 

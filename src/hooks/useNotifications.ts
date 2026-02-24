@@ -197,10 +197,18 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     enabled: !!userEmail,
   });
 
-  // Calculate unread count
+  // Update notifications with read state (muss VOR unreadCount stehen)
+  const notifications = useMemo(() => {
+    return notificationsData.map((n) => ({
+      ...n,
+      read: readIds.has(n.id),
+    }));
+  }, [notificationsData, readIds]);
+
+  // unreadCount nutzt das Memo mit aktuellem readIds-State
   const unreadCount = useMemo(() => {
-    return notificationsData.filter((n) => !n.read && n.createdAt > lastSeen).length;
-  }, [notificationsData, lastSeen]);
+    return notifications.filter((n) => !n.read).length;
+  }, [notifications]);
 
   // Mark notification as read
   const markAsRead = useCallback((notificationId: string) => {
@@ -223,14 +231,6 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     setLastSeen(new Date());
     saveLastSeenTime(new Date());
   }, [notificationsData]);
-
-  // Update notifications with read state
-  const notifications = useMemo(() => {
-    return notificationsData.map((n) => ({
-      ...n,
-      read: readIds.has(n.id),
-    }));
-  }, [notificationsData, readIds]);
 
   // Refresh notifications
   const refresh = useCallback(() => {

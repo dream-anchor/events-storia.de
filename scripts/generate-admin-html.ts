@@ -35,6 +35,7 @@ const adminHtml = `<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>StoriaMaestro</title>
   <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="/maestro-favicon.svg" type="image/svg+xml" />
   ${cssMatches.join('\n  ')}
   ${jsMatches.join('\n  ')}
   <style>

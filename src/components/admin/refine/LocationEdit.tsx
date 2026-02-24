@@ -140,7 +140,7 @@ export const LocationEdit = () => {
 
   if (isLoading && !isCreate) {
     return (
-      <AdminLayout activeTab="packages">
+      <AdminLayout activeTab="settings">
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -149,7 +149,7 @@ export const LocationEdit = () => {
   }
 
   return (
-    <AdminLayout activeTab="packages">
+    <AdminLayout activeTab="settings">
       <div className="space-y-8 max-w-3xl">
         {/* Header */}
         <div className="flex items-center gap-4">

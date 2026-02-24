@@ -376,7 +376,7 @@ export const EventsList = () => {
   };
 
   return (
-    <AdminLayout activeTab="events">
+    <AdminLayout activeTab="events" showCreateButton={false}>
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex items-center justify-between">
