@@ -15,12 +15,14 @@ import { InvoiceStatusBadge, InvoiceTypeBadge } from "@/components/admin/shared/
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateManualInvoiceDialog } from "./CreateManualInvoiceDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type VoucherType = 'invoice' | 'quotation' | 'creditnote' | 'all';
 type VoucherStatus = 'open' | 'paid' | 'overdue' | 'voided' | 'draft' | null;
 
 export const LexOfficeInvoicesList = () => {
   const navigate = useNavigate();
+  const { isAdmin } = usePermissions();
   const [typeFilter, setTypeFilter] = useState<VoucherType>('all');
   const [statusFilter, setStatusFilter] = useState<VoucherStatus>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -232,10 +234,12 @@ export const LexOfficeInvoicesList = () => {
               )}
               Status synchronisieren
             </Button>
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Rechnung erstellen
-            </Button>
+            {isAdmin && (
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Rechnung erstellen
+              </Button>
+            )}
           </div>
         </div>
 

@@ -1,7 +1,7 @@
 import { AuthProvider } from "@refinedev/core";
 import { supabase } from "@/integrations/supabase/client";
 import { getAdminDisplayName } from "@/lib/adminDisplayNames";
-import { getCachedAdminUserId, setCachedAdminUserId, clearCachedAdmin } from "@/components/admin/AdminAuthGuard";
+import { getCachedAuth, setCachedAuth, clearCachedAdmin, type AppRole } from "@/components/admin/AdminAuthGuard";
 
 export const supabaseAuthProvider: AuthProvider = {
   login: async ({ email, password }) => {
@@ -67,7 +67,8 @@ export const supabaseAuthProvider: AuthProvider = {
       const userId = data.session.user.id;
 
       // Use shared cache — AdminAuthGuard already verified this
-      if (getCachedAdminUserId() === userId) {
+      const cached = getCachedAuth();
+      if (cached?.userId === userId) {
         return { authenticated: true };
       }
 
@@ -76,10 +77,12 @@ export const supabaseAuthProvider: AuthProvider = {
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .eq('role', 'admin');
+        .in('role', ['admin', 'staff']);
 
       if (roles && roles.length > 0) {
-        setCachedAdminUserId(userId);
+        // Speichere höchste Rolle (admin > staff)
+        const role: AppRole = roles.some(r => r.role === 'admin') ? 'admin' : 'staff';
+        setCachedAuth(userId, role);
         return { authenticated: true };
       }
     } catch (err) {
@@ -116,9 +119,10 @@ export const supabaseAuthProvider: AuthProvider = {
 
     const userId = data.session.user.id;
 
-    // If cached as admin, return immediately
-    if (getCachedAdminUserId() === userId) {
-      return ['admin'];
+    // Check cache first
+    const cached = getCachedAuth();
+    if (cached?.userId === userId) {
+      return [cached.role];
     }
 
     const { data: roles } = await supabase

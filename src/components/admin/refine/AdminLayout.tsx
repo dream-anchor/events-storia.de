@@ -11,6 +11,7 @@ import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
 import { NotificationCenter } from "../shared/NotificationCenter";
 import { supabase } from "@/integrations/supabase/client";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -63,6 +64,7 @@ export const AdminLayout = ({
   const { data: pendingOrdersCount } = usePendingOrdersCount();
   const { data: pendingBookingsCount } = usePendingMenuBookingsCount();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
+  const { isAdmin, role } = usePermissions();
 
   // Admin-Theme auf body setzen, damit Radix-Portale (Dialog, Select, etc.)
   // die Maestro CSS-Variablen statt der Website-Variablen erben
@@ -191,7 +193,9 @@ export const AdminLayout = ({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{userName}</p>
-            <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              {isAdmin ? 'Administrator' : 'Team'}
+            </p>
           </div>
           <button
             onClick={handleLogout}

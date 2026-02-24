@@ -8,23 +8,45 @@ interface AdminAuthGuardProps {
 }
 
 /**
- * Shared admin role cache — also used by refine-auth-provider
+ * Shared role cache — also used by refine-auth-provider
  * to avoid redundant DB queries on page load.
+ * Stores JSON: { userId, role }
  */
 export const ADMIN_CACHE_KEY = 'sm_admin_verified';
 
-export function getCachedAdminUserId(): string | null {
+export type AppRole = 'admin' | 'staff';
+
+interface CachedAuth {
+  userId: string;
+  role: AppRole;
+}
+
+export function getCachedAuth(): CachedAuth | null {
   try {
-    return sessionStorage.getItem(ADMIN_CACHE_KEY);
+    const raw = sessionStorage.getItem(ADMIN_CACHE_KEY);
+    if (!raw) return null;
+    // Abwärtskompatibilität: alter Cache war nur userId-String
+    if (!raw.startsWith('{')) return { userId: raw, role: 'admin' };
+    return JSON.parse(raw) as CachedAuth;
   } catch {
     return null;
   }
 }
 
-export function setCachedAdminUserId(userId: string) {
+/** @deprecated — Verwende getCachedAuth() */
+export function getCachedAdminUserId(): string | null {
+  return getCachedAuth()?.userId ?? null;
+}
+
+export function setCachedAuth(userId: string, role: AppRole) {
   try {
-    sessionStorage.setItem(ADMIN_CACHE_KEY, userId);
+    sessionStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify({ userId, role }));
   } catch { /* ignore */ }
+}
+
+/** @deprecated — Verwende setCachedAuth() */
+export function setCachedAdminUserId(userId: string) {
+  setCachedAuth(userId, 'admin');
 }
 
 export function clearCachedAdmin() {
@@ -64,17 +86,18 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
         const userId = session.user.id;
 
         // Step 2: Check sessionStorage cache
-        if (getCachedAdminUserId() === userId) {
+        const cached = getCachedAuth();
+        if (cached?.userId === userId) {
           setAuthState('authenticated');
           return;
         }
 
-        // Step 3: Single DB query for admin role — with timeout
+        // Step 3: Single DB query for admin or staff role — with timeout
         const roleCheck = supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', userId)
-          .eq('role', 'admin')
+          .in('role', ['admin', 'staff'])
           .maybeSingle();
 
         const timeout = new Promise<never>((_, reject) =>
@@ -92,7 +115,7 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
         }
 
         if (roleData) {
-          setCachedAdminUserId(userId);
+          setCachedAuth(userId, roleData.role as AppRole);
           setAuthState('authenticated');
         } else {
           clearCachedAdmin();

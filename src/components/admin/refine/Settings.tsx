@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Building2,
@@ -32,9 +33,14 @@ import {
   Trash2,
   Pencil,
   GripVertical,
+  UserPlus,
+  Ban,
+  CheckCircle2,
+  Crown,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useList } from "@refinedev/core";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // Business data interface
 interface BusinessData {
@@ -520,9 +526,260 @@ function TemplateManager() {
   );
 }
 
+// --- Nutzerverwaltung (Admin only) ---
+interface TeamUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+  is_active: boolean;
+}
+
+function UserManagement() {
+  const [users, setUsers] = useState<TeamUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'staff'>('staff');
+  const [isInviting, setIsInviting] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+
+  const callManageUsers = async (body: Record<string, unknown>) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Nicht angemeldet');
+
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL || 'https://xobfuixbuqdalzmpqtru.supabase.co'}/functions/v1/manage-users`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhvYmZ1aXhidXFkYWx6bXBxdHJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzMyNDA1MTEsImV4cCI6MjA0ODgxNjUxMX0.mCWJv_VgCTWOcrXPOkzBwFROWG1VH2RGO5P8TLoSvZY',
+        },
+        body: JSON.stringify(body),
+      }
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Fehler');
+    return data;
+  };
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const data = await callManageUsers({ action: 'list' });
+      setUsers(data);
+    } catch (err) {
+      console.error('Fehler beim Laden der Nutzer:', err);
+      toast.error('Nutzer konnten nicht geladen werden');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchUsers(); }, []);
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) {
+      toast.error('E-Mail ist erforderlich');
+      return;
+    }
+    setIsInviting(true);
+    try {
+      await callManageUsers({
+        action: 'invite',
+        email: inviteEmail.trim(),
+        name: inviteName.trim() || undefined,
+        role: inviteRole,
+      });
+      toast.success(`Einladung an ${inviteEmail} gesendet`);
+      setInviteEmail('');
+      setInviteName('');
+      setShowInviteForm(false);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Fehler beim Einladen');
+    }
+    setIsInviting(false);
+  };
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    try {
+      await callManageUsers({ action: 'updateRole', userId, role: newRole });
+      toast.success('Rolle aktualisiert');
+      fetchUsers();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Fehler');
+    }
+  };
+
+  const handleToggleActive = async (userId: string, currentlyActive: boolean) => {
+    try {
+      await callManageUsers({
+        action: currentlyActive ? 'deactivate' : 'activate',
+        userId,
+      });
+      toast.success(currentlyActive ? 'Nutzer deaktiviert' : 'Nutzer aktiviert');
+      fetchUsers();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Fehler');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Team verwalten
+            </CardTitle>
+            <CardDescription>
+              {users.length} Nutzer im System
+            </CardDescription>
+          </div>
+          <Button
+            size="sm"
+            className="gap-1.5 rounded-xl"
+            onClick={() => setShowInviteForm(!showInviteForm)}
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            Einladen
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Einladungsformular */}
+        {showInviteForm && (
+          <div className="p-4 rounded-lg bg-muted/30 border border-border/40 space-y-3">
+            <h4 className="text-sm font-medium">Neuen Nutzer einladen</h4>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1">
+                <Label className="text-xs">E-Mail *</Label>
+                <Input
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="nutzer@example.com"
+                  type="email"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Name</Label>
+                <Input
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  placeholder="Vorname Nachname"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Rolle</Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={inviteRole === 'staff' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setInviteRole('staff')}
+                    className="flex-1"
+                  >
+                    Team
+                  </Button>
+                  <Button
+                    variant={inviteRole === 'admin' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setInviteRole('admin')}
+                    className="flex-1"
+                  >
+                    Admin
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowInviteForm(false)}>
+                Abbrechen
+              </Button>
+              <Button size="sm" onClick={handleInvite} disabled={isInviting} className="gap-1.5">
+                {isInviting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+                Einladen
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Nutzerliste */}
+        <div className="space-y-1">
+          {users.map((u) => (
+            <div
+              key={u.id}
+              className={cn(
+                "flex items-center gap-3 px-3 py-3 rounded-lg transition-colors group",
+                u.is_active ? "hover:bg-muted/30" : "opacity-50 bg-muted/10"
+              )}
+            >
+              <div className="size-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                {u.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium truncate">{u.name}</span>
+                  {u.role === 'admin' && (
+                    <Crown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground truncate block">{u.email}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Badge
+                  variant={u.role === 'admin' ? 'default' : 'secondary'}
+                  className="text-[10px] px-2 py-0.5 cursor-pointer"
+                  onClick={() => handleRoleChange(u.id, u.role === 'admin' ? 'staff' : 'admin')}
+                  title="Klicken zum Ändern der Rolle"
+                >
+                  {u.role === 'admin' ? 'Admin' : 'Team'}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => handleToggleActive(u.id, u.is_active)}
+                  title={u.is_active ? 'Nutzer deaktivieren' : 'Nutzer aktivieren'}
+                >
+                  {u.is_active ? (
+                    <Ban className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-xs text-muted-foreground pt-2">
+          Klicken Sie auf die Rolle eines Nutzers, um sie zu ändern. Neue Nutzer erhalten eine E-Mail mit Zugangsdaten.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export const Settings = () => {
+  const { isAdmin } = usePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "stammdaten");
+  const defaultTab = isAdmin ? "stammdaten" : "speisen";
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || defaultTab);
   const [isSaving, setIsSaving] = useState(false);
 
   // Tab-Wechsel in URL speichern → Zurück-Button funktioniert
@@ -669,10 +926,12 @@ export const Settings = () => {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="bg-muted/50 p-1 h-auto flex-wrap">
-            <TabsTrigger value="stammdaten" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-              <Building2 className="h-4 w-4" />
-              Stammdaten
-            </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="stammdaten" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
+                <Building2 className="h-4 w-4" />
+                Stammdaten
+              </TabsTrigger>
+            )}
             <TabsTrigger value="speisen" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
               <UtensilsCrossed className="h-4 w-4" />
               Speisen
@@ -683,16 +942,18 @@ export const Settings = () => {
             </TabsTrigger>
             <TabsTrigger value="nutzer" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
               <Users className="h-4 w-4" />
-              Nutzer
+              Mein Konto
             </TabsTrigger>
-            <TabsTrigger value="vorlagen" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-              <FileText className="h-4 w-4" />
-              Vorlagen
-            </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="vorlagen" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
+                <FileText className="h-4 w-4" />
+                Vorlagen
+              </TabsTrigger>
+            )}
           </TabsList>
 
-          {/* Stammdaten Tab */}
-          <TabsContent value="stammdaten" className="space-y-6">
+          {/* Stammdaten Tab — Admin only */}
+          {isAdmin && <TabsContent value="stammdaten" className="space-y-6">
             {/* Company Info */}
             <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
               <CardHeader>
@@ -888,7 +1149,7 @@ export const Settings = () => {
 
             {/* E-Mail-Signatur */}
             <SignatureEditor />
-          </TabsContent>
+          </TabsContent>}
 
           {/* Speisen Tab */}
           <TabsContent value="speisen" className="space-y-6">
@@ -1049,13 +1310,18 @@ export const Settings = () => {
             </Card>
           </TabsContent>
 
-          {/* Vorlagen Tab */}
-          <TabsContent value="vorlagen" className="space-y-6">
-            <TemplateManager />
-          </TabsContent>
+          {/* Vorlagen Tab — Admin only */}
+          {isAdmin && (
+            <TabsContent value="vorlagen" className="space-y-6">
+              <TemplateManager />
+            </TabsContent>
+          )}
 
           {/* Nutzer Tab */}
           <TabsContent value="nutzer" className="space-y-6">
+            {/* Team-Verwaltung (Admin only) */}
+            {isAdmin && <UserManagement />}
+
             {/* Current User */}
             <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
               <CardHeader>
@@ -1075,7 +1341,7 @@ export const Settings = () => {
                   <div>
                     <h3 className="text-lg font-semibold">{currentUser?.name || "Benutzer"}</h3>
                     <p className="text-sm text-muted-foreground">{currentUser?.email}</p>
-                    <Badge className="mt-1">Administrator</Badge>
+                    <Badge className="mt-1">{isAdmin ? 'Administrator' : 'Team-Mitglied'}</Badge>
                   </div>
                 </div>
 
