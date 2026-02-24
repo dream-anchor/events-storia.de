@@ -273,6 +273,9 @@ export const LexOfficeInvoicesList = () => {
           <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
             <p className="font-medium">Fehler beim Laden</p>
             <p className="text-sm">{vouchersQuery.data.error}</p>
+            {(vouchersQuery.data as any)?.details && (
+              <p className="text-xs mt-1 opacity-70">{(vouchersQuery.data as any).details}</p>
+            )}
           </div>
         )}
       </div>

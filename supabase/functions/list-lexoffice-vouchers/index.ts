@@ -84,12 +84,17 @@ serve(async (req) => {
     // Build LexOffice API URL with query params
     const params = new URLSearchParams();
 
-    // LexOffice voucherType: kommaseparierte Liste gültiger Typen
-    if (voucherType && voucherType !== 'all') {
-      params.append('voucherType', voucherType);
+    // Frontend-Werte auf LexOffice voucherType-Werte mappen
+    const typeMap: Record<string, string> = {
+      invoice: 'salesinvoice',
+      creditnote: 'salescreditnote',
+      quotation: 'quotation',
+    };
+    if (voucherType && voucherType !== 'all' && typeMap[voucherType]) {
+      params.append('voucherType', typeMap[voucherType]);
     } else {
-      // Alle gültigen Voucher-Typen (laut API-Doku)
-      params.append('voucherType', 'salesinvoice,salescreditnote,purchaseinvoice,purchasecreditnote,invoice,creditnote,orderconfirmation,quotation');
+      // Alle relevanten Voucher-Typen
+      params.append('voucherType', 'salesinvoice,salescreditnote,quotation');
     }
 
     // Status filter
