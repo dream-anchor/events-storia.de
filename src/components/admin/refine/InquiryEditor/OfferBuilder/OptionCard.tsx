@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Trash2, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { InlineCourseEditor } from "./InlineCourseEditor";
+import { InlineDrinkEditor } from "./InlineDrinkEditor";
 import { PriceBreakdown } from "./PriceBreakdown";
 import type {
   OfferBuilderOption,
@@ -20,6 +21,8 @@ import type {
   CourseConfig,
   CourseSelection,
   CourseType,
+  DrinkConfig,
+  DrinkSelection,
 } from "./types";
 import type { Package } from "../types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
@@ -29,6 +32,7 @@ interface OptionCardProps {
   packages: Package[];
   menuItems: CombinedMenuItem[];
   courseConfigs: CourseConfig[];
+  drinkConfigs: DrinkConfig[];
   onUpdate: (updates: Partial<OfferBuilderOption>) => void;
   onRemove: () => void;
   onToggleActive: () => void;
@@ -40,6 +44,7 @@ export function OptionCard({
   packages,
   menuItems,
   courseConfigs,
+  drinkConfigs,
   onUpdate,
   onRemove,
   onToggleActive,
@@ -50,9 +55,41 @@ export function OptionCard({
     [packages, option.packageId]
   );
 
+  // --- Drink-Initialisierung aus package_drink_config ---
+  const drinksInitializedForPkg = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (
+      option.offerMode !== 'paket' ||
+      !option.packageId ||
+      drinkConfigs.length === 0 ||
+      drinksInitializedForPkg.current === option.packageId
+    ) return;
+
+    // Nur initialisieren wenn drinks noch leer
+    if (option.menuSelection.drinks.length > 0) {
+      drinksInitializedForPkg.current = option.packageId;
+      return;
+    }
+
+    drinksInitializedForPkg.current = option.packageId;
+
+    const initialDrinks: DrinkSelection[] = drinkConfigs.map(config => ({
+      drinkGroup: config.drink_group,
+      drinkLabel: config.drink_label,
+      selectedChoice: null,
+      quantityLabel: config.quantity_label,
+      customDrink: null,
+    }));
+
+    onUpdate({ menuSelection: { ...option.menuSelection, drinks: initialDrinks } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drinkConfigs, option.packageId, option.offerMode]);
+
   const handlePackageChange = (packageId: string) => {
     const pkg = packages.find(p => p.id === packageId);
     if (!pkg) return;
+    drinksInitializedForPkg.current = null;
     onUpdate({
       packageId,
       packageName: pkg.name,
@@ -87,6 +124,12 @@ export function OptionCard({
   const handleCourseRemove = (index: number) => {
     const updated = option.menuSelection.courses.filter((_, i) => i !== index);
     onUpdate({ menuSelection: { ...option.menuSelection, courses: updated } });
+  };
+
+  const handleDrinkUpdate = (index: number, update: Partial<DrinkSelection>) => {
+    const updated = [...option.menuSelection.drinks];
+    updated[index] = { ...updated[index], ...update };
+    onUpdate({ menuSelection: { ...option.menuSelection, drinks: updated } });
   };
 
   const disabled = isLocked;
@@ -196,7 +239,14 @@ export function OptionCard({
             <PaketContent
               option={option}
               packages={packages}
+              courseConfigs={courseConfigs}
+              drinkConfigs={drinkConfigs}
+              menuItems={menuItems}
               onUpdate={onUpdate}
+              onCourseUpdate={handleCourseUpdate}
+              onCourseAdd={handleCourseAdd}
+              onCourseRemove={handleCourseRemove}
+              onDrinkUpdate={handleDrinkUpdate}
               disabled={disabled}
             />
           )}
@@ -312,16 +362,30 @@ function MenuContent({
   );
 }
 
-// --- Modus: Paket (Fertige Pakete zur Auswahl) ---
+// --- Modus: Paket (Fertige Pakete zur Auswahl + Speisen/Getränke) ---
 function PaketContent({
   option,
   packages,
+  courseConfigs,
+  drinkConfigs,
+  menuItems,
   onUpdate,
+  onCourseUpdate,
+  onCourseAdd,
+  onCourseRemove,
+  onDrinkUpdate,
   disabled,
 }: {
   option: OfferBuilderOption;
   packages: Package[];
+  courseConfigs: CourseConfig[];
+  drinkConfigs: DrinkConfig[];
+  menuItems: CombinedMenuItem[];
   onUpdate: (u: Partial<OfferBuilderOption>) => void;
+  onCourseUpdate: (idx: number, u: Partial<CourseSelection>) => void;
+  onCourseAdd: (type: CourseType, label: string) => void;
+  onCourseRemove: (idx: number) => void;
+  onDrinkUpdate: (idx: number, u: Partial<DrinkSelection>) => void;
   disabled: boolean;
 }) {
   const handleSelectPackage = (pkg: Package) => {
@@ -376,6 +440,54 @@ function PaketContent({
           );
         })}
       </div>
+
+      {/* Speisen & Getränke — nach Paketauswahl */}
+      {option.packageId && (
+        <div className="space-y-4 pt-2 border-t border-border/20">
+          {/* Speisen */}
+          {courseConfigs.length > 0 && (
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                Speisen
+              </h4>
+              <InlineCourseEditor
+                courses={option.menuSelection.courses}
+                courseConfigs={courseConfigs}
+                menuItems={menuItems}
+                onUpdateCourse={onCourseUpdate}
+                onAddCourse={onCourseAdd}
+                onRemoveCourse={onCourseRemove}
+                onReorderCourses={(reordered) =>
+                  onUpdate({ menuSelection: { ...option.menuSelection, courses: reordered } })
+                }
+                disabled={disabled}
+              />
+            </div>
+          )}
+
+          {/* Getränke */}
+          {option.menuSelection.drinks.length > 0 && (
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                Getränke
+              </h4>
+              <InlineDrinkEditor
+                drinks={option.menuSelection.drinks}
+                drinkConfigs={drinkConfigs}
+                onUpdateDrink={onDrinkUpdate}
+                disabled={disabled}
+              />
+            </div>
+          )}
+
+          {/* Lade-Hinweis */}
+          {courseConfigs.length === 0 && option.menuSelection.drinks.length === 0 && (
+            <p className="text-xs text-muted-foreground animate-pulse">
+              Paket-Konfiguration wird geladen...
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

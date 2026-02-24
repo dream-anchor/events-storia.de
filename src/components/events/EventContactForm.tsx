@@ -40,7 +40,7 @@ const formSchema = z.object({
   eventType: z.string().min(1, "Bitte Event-Art wählen"),
   eventTypeOther: z.string().optional(),
   date: z.date().optional(),
-  time: z.string().optional(),
+  time: z.string().min(1, "Bitte Uhrzeit angeben"),
   message: z.string().optional(),
   newsletter: z.boolean().default(true),
   selectedPackage: z.string().optional(),

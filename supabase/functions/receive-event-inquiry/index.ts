@@ -1,11 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { getCorsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+
 
 interface EventInquiryRequest {
   companyName?: string;
@@ -182,13 +180,13 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
 }
 
 const handler = async (req: Request): Promise<Response> => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const data: EventInquiryRequest = await req.json();
-    console.log("Received event inquiry request:", JSON.stringify(data, null, 2));
 
     if (!data.contactName || !data.email) {
       return new Response(
@@ -203,6 +201,24 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Rate Limiting: Max 3 Anfragen pro E-Mail in 15 Minuten
+    const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabase
+      .from('event_inquiries')
+      .select('id', { count: 'exact', head: true })
+      .eq('email', data.email.toLowerCase().trim())
+      .gte('created_at', fifteenMinAgo);
+
+    if ((recentCount ?? 0) >= 3) {
+      return new Response(
+        JSON.stringify({ error: "Zu viele Anfragen. Bitte versuchen Sie es später erneut." }),
+        {
+          status: 429,
+          headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders },
+        }
+      );
+    }
 
     const { data: inquiry, error: insertError } = await supabase
       .from('event_inquiries')

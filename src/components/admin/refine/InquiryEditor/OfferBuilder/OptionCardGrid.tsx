@@ -73,6 +73,10 @@ export function OptionCardGrid({
                 ? (packageConfigs[option.packageId]?.courses || [])
                 : [];
 
+            const drinkConfigs = option.offerMode === 'paket' && option.packageId
+              ? (packageConfigs[option.packageId]?.drinks || [])
+              : [];
+
             return (
               <OptionCard
                 key={option.id}
@@ -80,6 +84,7 @@ export function OptionCardGrid({
                 packages={packages}
                 menuItems={menuItems}
                 courseConfigs={courseConfigs}
+                drinkConfigs={drinkConfigs}
                 onUpdate={(updates) => onUpdateOption(option.id, updates)}
                 onRemove={() => onRemoveOption(option.id)}
                 onToggleActive={() => onToggleActive(option.id)}

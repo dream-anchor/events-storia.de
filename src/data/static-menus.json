@@ -28,6 +28,8 @@
         "description_en": "Elegant bites served in glasses and bowls",
         "sort_order": 1,
         "created_at": "2025-12-05T18:09:47.713531+00:00",
+        "deleted_at": null,
+        "archived_at": null,
         "items": [
           {
             "id": "942c7f1d-6057-454a-a507-0fab12dd7899",
@@ -47,7 +49,9 @@
             "serving_info": "Ein Fingerfood-Glas pro Person",
             "serving_info_en": "One finger food glass per person",
             "min_order": "Ab 4 Personen bestellbar",
-            "min_order_en": "Minimum order: 4 persons"
+            "min_order_en": "Minimum order: 4 persons",
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "805f526a-f593-4708-9aee-d23d679a52ea",
@@ -67,7 +71,9 @@
             "serving_info": "Eine Fingerfood-Schale pro Person",
             "serving_info_en": "One finger food bowl per person",
             "min_order": "Ab 4 Personen bestellbar",
-            "min_order_en": "Minimum order: 4 persons"
+            "min_order_en": "Minimum order: 4 persons",
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "8eeab725-730f-437e-b245-951ab9c51272",
@@ -87,7 +93,9 @@
             "serving_info": "Eine Mini-Frittata pro Person",
             "serving_info_en": "One mini frittata per person",
             "min_order": "Ab 4 Personen bestellbar",
-            "min_order_en": "Minimum order: 4 persons"
+            "min_order_en": "Minimum order: 4 persons",
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "1073b0cd-2484-467a-afbb-0121cc05473a",
@@ -107,7 +115,9 @@
             "serving_info": "Eine Fingerfood-Schale pro Person",
             "serving_info_en": "One finger food bowl per person",
             "min_order": "Ab 4 Personen bestellbar",
-            "min_order_en": "Minimum order: 4 persons"
+            "min_order_en": "Minimum order: 4 persons",
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "d6bd1f79-5554-4c40-9ab1-ecc4574cb977",
@@ -127,7 +137,9 @@
             "serving_info": "Eine Fingerfood-Schale pro Person",
             "serving_info_en": "One finger food bowl per person",
             "min_order": "Ab 4 Personen bestellbar",
-            "min_order_en": "Minimum order: 4 persons"
+            "min_order_en": "Minimum order: 4 persons",
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "2f45e7f3-bf41-4d66-a48a-345e0f8e5e66",
@@ -147,7 +159,9 @@
             "serving_info": "Eine Fingerfood-Schale pro Person",
             "serving_info_en": "One finger food bowl per person",
             "min_order": "Ab 4 Personen bestellbar",
-            "min_order_en": "Minimum order: 4 persons"
+            "min_order_en": "Minimum order: 4 persons",
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "6b1a8314-3a87-49be-ba64-99aac4139c8c",
@@ -167,7 +181,9 @@
             "serving_info": "Eine Fingerfood-Schale pro Person",
             "serving_info_en": "One finger food bowl per person",
             "min_order": "Ab 4 Personen bestellbar",
-            "min_order_en": "Minimum order: 4 persons"
+            "min_order_en": "Minimum order: 4 persons",
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "8d702f8c-b19c-4180-a7eb-395a16452f2e",
@@ -187,7 +203,9 @@
             "serving_info": "Ein Fingerfood-Glas pro Person",
             "serving_info_en": "One finger food glass per person",
             "min_order": "Ab 4 Personen bestellbar",
-            "min_order_en": "Minimum order: 4 persons"
+            "min_order_en": "Minimum order: 4 persons",
+            "deleted_at": null,
+            "archived_at": null
           }
         ]
       }
@@ -222,6 +240,8 @@
         "description_en": null,
         "sort_order": 1,
         "created_at": "2026-01-28T18:53:16.921767+00:00",
+        "deleted_at": null,
+        "archived_at": null,
         "items": [
           {
             "id": "b8e2beec-87e5-4d4e-aa68-93ce87fdb236",
@@ -241,7 +261,9 @@
             "serving_info": "Ideal für 4 Personen",
             "serving_info_en": "Ideal for 4 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "a9aada04-a0ed-4e51-88e7-e5c251d2f7c2",
@@ -261,7 +283,9 @@
             "serving_info": "Platte aus 12 Spießen",
             "serving_info_en": "Platter of 12 skewers",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "8802896f-bad6-4484-a336-a79d6eed9173",
@@ -281,7 +305,9 @@
             "serving_info": "Auswahl an 16 Bruschette",
             "serving_info_en": "Selection of 16 bruschetta",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "2cf676c5-b6f5-47de-8d47-40a711bfdae6",
@@ -301,7 +327,9 @@
             "serving_info": "Ofenfrisches, gefülltes italienisches Brot",
             "serving_info_en": "Oven-fresh, filled Italian bread",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "b0e0b441-5703-4b19-9453-c4345fcd5fcf",
@@ -321,7 +349,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "18acb8d3-f854-4c33-8860-6b948b23c2fb",
@@ -341,7 +371,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "38b6808d-7c1a-46d9-94d1-be5259a4723b",
@@ -361,7 +393,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "8859d026-6924-4b74-960b-303965d79ec5",
@@ -381,7 +415,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "40eefe0d-d90b-409e-946d-a018c64397f4",
@@ -401,7 +437,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "61ce9507-cac8-4576-b8c2-c6835eed46be",
@@ -421,7 +459,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "897f745d-b1e9-4303-91d6-9306def4ca46",
@@ -441,7 +481,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           }
         ]
       }
@@ -476,6 +518,8 @@
         "description_en": null,
         "sort_order": 1,
         "created_at": "2026-01-28T18:53:16.921767+00:00",
+        "deleted_at": null,
+        "archived_at": null,
         "items": [
           {
             "id": "00356626-bbe1-449c-87de-b258cf8660e2",
@@ -495,7 +539,9 @@
             "serving_info": "Ideal für 6 Personen",
             "serving_info_en": "Ideal for 6 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "21cb3cb9-b558-42af-b78a-bd09377e9a83",
@@ -515,7 +561,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "6ecbce05-d48e-4499-a0c5-86e25b107a27",
@@ -535,7 +583,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "05125223-17fa-44b6-955b-32c583f4ccd4",
@@ -555,7 +605,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "54ac15ad-d25f-452f-83e4-20c7838d2f48",
@@ -575,7 +627,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "b05fa44d-da85-40ac-9d6a-08e27729fba9",
@@ -595,7 +649,9 @@
             "serving_info": "Ideal für 6-8 Personen",
             "serving_info_en": "Ideal for 6-8 people",
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           }
         ]
       }
@@ -630,6 +686,8 @@
         "description_en": null,
         "sort_order": 1,
         "created_at": "2026-01-28T18:53:16.921767+00:00",
+        "deleted_at": null,
+        "archived_at": null,
         "items": [
           {
             "id": "ac026c88-394d-4a6c-a32a-9159b402b4e3",
@@ -649,7 +707,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           }
         ]
       },
@@ -662,6 +722,8 @@
         "description_en": null,
         "sort_order": 2,
         "created_at": "2026-01-28T18:53:16.921767+00:00",
+        "deleted_at": null,
+        "archived_at": null,
         "items": [
           {
             "id": "908a17b5-20dc-4de7-a40d-7516a8a7b238",
@@ -681,7 +743,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "b4d66610-33c9-4179-93fa-20939e00272a",
@@ -701,7 +765,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "50d353d2-d081-4299-b382-40f5da29febd",
@@ -721,7 +787,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "d549ce55-039c-4723-9ee5-975ca04a453b",
@@ -741,7 +809,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "9f852169-7fa7-4ee3-886c-ab826e2c9e1a",
@@ -761,7 +831,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "5804ffba-bb98-40a1-9687-a28ba034164d",
@@ -781,7 +853,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "95c177da-5976-405b-8277-414e0b96cbdc",
@@ -801,7 +875,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "fa19fc1d-4b72-4169-a001-b56e3d817332",
@@ -821,7 +897,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "e5f25d37-fc01-47d0-bc6f-be1b8edcf85f",
@@ -841,7 +919,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "b6339cd0-ab66-419d-8626-d3211d4b3897",
@@ -861,7 +941,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "53a693ca-6dde-4131-aca6-15747130a2c2",
@@ -881,7 +963,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "c3f26c39-a60c-436e-8f51-92c53799686f",
@@ -901,7 +985,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "3c6b4799-2810-4495-86d5-5e231ced034c",
@@ -921,7 +1007,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "e52310bb-adde-456e-b764-6b47e8816bb1",
@@ -941,7 +1029,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "b2d2bdb8-32e7-40c9-b8af-03ceedb02d67",
@@ -961,7 +1051,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "f26fb1ac-36a7-4ec7-ad60-e6eeef09a6bb",
@@ -981,7 +1073,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "66e50458-4e05-4504-80a0-4db1d7246e8a",
@@ -1001,7 +1095,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "8d99f689-1caf-4fc1-a49b-93a41156366e",
@@ -1021,7 +1117,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "c56e1535-c531-495d-b6a0-b2bf4fe9a7d5",
@@ -1041,7 +1139,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "02642605-6121-4678-be7e-807f8b063f2b",
@@ -1061,7 +1161,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "fa402741-fc04-4d08-af0c-9d40a08cf0f7",
@@ -1081,7 +1183,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "0db4f5cb-1a46-450c-aacc-ddac2e0e2df7",
@@ -1101,7 +1205,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "03336573-bb28-4bed-9ae0-5a1de9fd8e05",
@@ -1121,7 +1227,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "322d1252-aced-4cfe-b2e8-9deb8d0a8eb7",
@@ -1141,7 +1249,9 @@
             "serving_info": null,
             "serving_info_en": null,
             "min_order": null,
-            "min_order_en": null
+            "min_order_en": null,
+            "deleted_at": null,
+            "archived_at": null
           }
         ]
       }
@@ -1176,6 +1286,8 @@
         "description_en": "Sweet temptations in a glass – perfect for your catering event",
         "sort_order": 1,
         "created_at": "2026-01-28T19:02:46.344532+00:00",
+        "deleted_at": null,
+        "archived_at": null,
         "items": [
           {
             "id": "da853c3b-b783-4d48-abef-6b2c236b9a37",
@@ -1195,7 +1307,9 @@
             "serving_info": "Ein Fingerfood-Glas pro Person",
             "serving_info_en": "One fingerfood glass per person",
             "min_order": "Ab 4 Personen bestellbar",
-            "min_order_en": "Minimum order for 4 people"
+            "min_order_en": "Minimum order for 4 people",
+            "deleted_at": null,
+            "archived_at": null
           },
           {
             "id": "7d0b82aa-24dd-4064-8370-185d8d29b91a",
@@ -1215,7 +1329,9 @@
             "serving_info": "Ein Fingerfood-Glas pro Person",
             "serving_info_en": "One fingerfood glass per person",
             "min_order": "Ab 4 Personen bestellbar",
-            "min_order_en": "Minimum order for 4 people"
+            "min_order_en": "Minimum order for 4 people",
+            "deleted_at": null,
+            "archived_at": null
           }
         ]
       }
