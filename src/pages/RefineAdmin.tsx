@@ -31,6 +31,10 @@ const resources = [
     show: "/admin/orders/:id",
   },
   {
+    name: "quotations",
+    list: "/admin/quotations",
+  },
+  {
     name: "invoices",
     list: "/admin/invoices",
   },
@@ -85,8 +89,11 @@ export const RefineAdminApp = () => {
           <Route index element={<OrdersList />} />
           <Route path=":id/edit" element={<CateringOrderEditor />} />
         </Route>
+        <Route path="quotations">
+          <Route index element={<LexOfficeInvoicesList mode="quotations" />} />
+        </Route>
         <Route path="invoices">
-          <Route index element={<LexOfficeInvoicesList />} />
+          <Route index element={<LexOfficeInvoicesList mode="invoices" />} />
         </Route>
         <Route path="menu">
           <Route index element={<MenuItemsList />} />

@@ -17,6 +17,7 @@ import {
   CalendarDays,
   UtensilsCrossed,
   FileText,
+  FileCheck,
   Settings,
   Search,
   Menu,
@@ -108,6 +109,7 @@ export const AdminLayout = ({
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
     { name: 'Events', href: '/admin/events', icon: CalendarDays, key: 'events' },
     { name: 'Catering', href: '/admin/orders', icon: UtensilsCrossed, key: 'catering' },
+    { name: 'Angebote', href: '/admin/quotations', icon: FileCheck, key: 'quotations' },
     { name: 'Rechnungen', href: '/admin/invoices', icon: FileText, key: 'invoices' },
   ];
 
