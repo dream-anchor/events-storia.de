@@ -512,6 +512,7 @@ export type Database = {
           internal_notes: string | null
           last_edited_at: string | null
           last_edited_by: string | null
+          lexoffice_invoice_id: string | null
           lexoffice_quotation_id: string | null
           menu_selection: Json | null
           message: string | null
@@ -560,6 +561,7 @@ export type Database = {
           internal_notes?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
+          lexoffice_invoice_id?: string | null
           lexoffice_quotation_id?: string | null
           menu_selection?: Json | null
           message?: string | null
@@ -608,6 +610,7 @@ export type Database = {
           internal_notes?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
+          lexoffice_invoice_id?: string | null
           lexoffice_quotation_id?: string | null
           menu_selection?: Json | null
           message?: string | null

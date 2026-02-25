@@ -1,0 +1,1 @@
+ALTER TABLE event_inquiries ADD COLUMN IF NOT EXISTS lexoffice_invoice_id TEXT;
