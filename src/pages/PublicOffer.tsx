@@ -760,7 +760,7 @@ function ProposalOptionCard({
                 {drinks.map((d, i) => (
                   <div key={i} className="flex items-baseline gap-3">
                     <span className="text-[10px] font-sans font-semibold text-primary/50 uppercase tracking-[0.15em] w-20 flex-shrink-0">
-                      {d.drinkLabel}
+                      {d.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : d.drinkLabel}
                     </span>
                     <span className="text-sm font-serif text-foreground/80">
                       {d.customDrink || d.selectedChoice}
@@ -995,7 +995,7 @@ function FinalOptionCard({
               {drinks.map((drink, i) => (
                 <div key={i}>
                   <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
-                    {drink.drinkLabel}
+                    {drink.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : drink.drinkLabel}
                   </p>
                   <p className="font-serif text-sm text-foreground">
                     {drink.customDrink || drink.selectedChoice}
@@ -1140,7 +1140,7 @@ function ContactSection() {
 
 function OfferHeader() {
   return (
-    <header className="border-b border-border/30 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+    <header className="border-b border-border/30 bg-background sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <LocalizedLink

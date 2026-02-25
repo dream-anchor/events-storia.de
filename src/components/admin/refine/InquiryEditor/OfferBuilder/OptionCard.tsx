@@ -135,7 +135,7 @@ export function OptionCard({
   const handleDrinkAdd = () => {
     const newDrink: DrinkSelection = {
       drinkGroup: 'custom',
-      drinkLabel: 'Zusatzgetränk',
+      drinkLabel: 'Getränk',
       selectedChoice: null,
       quantityLabel: null,
       customDrink: null,
