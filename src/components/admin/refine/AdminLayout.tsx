@@ -124,9 +124,7 @@ export const AdminLayout = ({
     <div className="flex flex-col h-full bg-white dark:bg-[#1a2632]">
       {/* Logo Section */}
       <div className="p-6 flex items-center gap-3">
-        <div className="bg-primary size-10 rounded-lg flex items-center justify-center text-white">
-          <CalendarDays className="h-5 w-5" />
-        </div>
+        <img src="/maestro-favicon.svg" alt="StoriaMaestro" className="size-10 rounded-lg" />
         <div>
           <h1 className="text-base font-bold leading-none">StoriaMaestro</h1>
           <p className="text-xs text-muted-foreground mt-1">Event & Catering</p>
