@@ -279,47 +279,43 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
         { body: { inquiryId } }
       );
 
-      if (error || data?.error) {
-        throw new Error(data?.error || 'Download fehlgeschlagen');
+      if (error || !data?.pdf) {
+        throw new Error(data?.error || 'PDF nicht verfügbar');
       }
 
-      const link = document.createElement('a');
-      link.href = `data:application/pdf;base64,${data.pdf}`;
-      link.download = data.filename || 'STORIA_Angebot.pdf';
-      link.click();
-    } catch {
-      // Stille Fehlerbehandlung — Button bleibt sichtbar
+      const blob = new Blob(
+        [Uint8Array.from(atob(data.pdf), c => c.charCodeAt(0))],
+        { type: 'application/pdf' }
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename || 'STORIA_Angebot.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF download failed:', err);
     } finally {
       setIsDownloading(false);
     }
   };
 
   return (
-    <section className="bg-background border-b border-border/20">
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex items-center gap-4 max-w-2xl">
-          <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center shrink-0">
-            <FileText className="h-4.5 w-4.5 text-primary/60" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-sans text-foreground/80">
-              Ihr Angebot steht auch als PDF zum Download bereit.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
+    <section className="bg-background">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl">
+          <button
             onClick={handleDownload}
             disabled={isDownloading}
-            className="rounded-full gap-2 font-sans shrink-0"
+            className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl bg-amber-700 hover:bg-amber-800 text-white font-sans font-semibold text-base shadow-[0_4px_15px_rgba(180,83,9,0.25)] hover:shadow-[0_8px_25px_rgba(180,83,9,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             {isDownloading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <Download className="h-3.5 w-3.5" />
+              <Download className="h-5 w-5" />
             )}
-            PDF herunterladen
-          </Button>
+            Angebot als PDF herunterladen
+          </button>
         </div>
       </div>
     </section>
