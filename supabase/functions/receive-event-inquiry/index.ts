@@ -16,6 +16,8 @@ interface EventInquiryRequest {
   packageId?: string;
   message?: string;
   source?: string;
+  skipInsert?: boolean;
+  existingInquiryId?: string;
 }
 
 const formatDate = (dateStr: string) => {
@@ -253,34 +255,43 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const { data: inquiry, error: insertError } = await supabase
-      .from('event_inquiries')
-      .insert({
-        company_name: data.companyName || null,
-        contact_name: data.contactName,
-        email: data.email,
-        phone: data.phone || null,
-        guest_count: data.guestCount || null,
-        event_type: data.eventType || null,
-        preferred_date: data.preferredDate || null,
-        time_slot: data.timeSlot || null,
-        selected_packages: data.packageId 
-          ? [{ id: data.packageId, name: data.eventType }]
-          : null,
-        message: data.message || null,
-        source: data.source || 'website',
-        notification_sent: false,
-        status: 'new',
-      })
-      .select()
-      .single();
+    let inquiryId: string;
 
-    if (insertError) {
-      console.error("Error inserting inquiry:", insertError);
-      throw new Error(`Database error: ${insertError.message}`);
+    if (data.skipInsert && data.existingInquiryId) {
+      // Skip DB insert — inquiry already exists (e.g. manual admin entry)
+      inquiryId = data.existingInquiryId;
+      console.log("Skipping insert, using existing inquiry:", inquiryId);
+    } else {
+      const { data: inquiry, error: insertError } = await supabase
+        .from('event_inquiries')
+        .insert({
+          company_name: data.companyName || null,
+          contact_name: data.contactName,
+          email: data.email,
+          phone: data.phone || null,
+          guest_count: data.guestCount || null,
+          event_type: data.eventType || null,
+          preferred_date: data.preferredDate || null,
+          time_slot: data.timeSlot || null,
+          selected_packages: data.packageId 
+            ? [{ id: data.packageId, name: data.eventType }]
+            : null,
+          message: data.message || null,
+          source: data.source || 'website',
+          notification_sent: false,
+          status: 'new',
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("Error inserting inquiry:", insertError);
+        throw new Error(`Database error: ${insertError.message}`);
+      }
+
+      inquiryId = inquiry.id;
+      console.log("Inquiry saved to database:", inquiryId);
     }
-
-    console.log("Inquiry saved to database:", inquiry.id);
 
     // Kunden-Bestätigung senden
     const customerEmailText = generateCustomerEmailText(data);
@@ -294,7 +305,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Kunden-Email loggen
     await supabase.from('email_delivery_logs').insert({
       entity_type: 'event_inquiry',
-      entity_id: inquiry.id,
+      entity_id: inquiryId,
       recipient_email: data.email,
       recipient_name: data.contactName,
       subject: "Ihre Event-Anfrage bei STORIA",
@@ -320,7 +331,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Restaurant-Email loggen
     await supabase.from('email_delivery_logs').insert({
       entity_type: 'event_inquiry',
-      entity_id: inquiry.id,
+      entity_id: inquiryId,
       recipient_email: 'info@events-storia.de',
       recipient_name: 'STORIA Team',
       subject: restaurantSubject,
@@ -337,13 +348,13 @@ const handler = async (req: Request): Promise<Response> => {
     await supabase
       .from('event_inquiries')
       .update({ notification_sent: emailsSent })
-      .eq('id', inquiry.id);
+      .eq('id', inquiryId);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: "Anfrage erfolgreich gesendet",
-        inquiryId: inquiry.id 
+        inquiryId: inquiryId 
       }),
       {
         status: 200,

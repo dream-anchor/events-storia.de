@@ -1,53 +1,76 @@
 
 
-## Problem
+# Plan: Grün entfernen + "Jetzt zahlen" Button in rechter Box hinzufügen
 
-Es gibt eine Lücke bei Email-Benachrichtigungen für **manuell im Admin erfasste Anfragen** (`OfferCreate`):
+## Problem 1: Grüne Elemente entfernen
 
-| Flow | Notification | Status |
-|---|---|---|
-| Event-Anfrage via Website-Formular | `receive-event-inquiry` sendet Kunden- + Restaurant-Email | ✅ OK |
-| Catering-Bestellung via Checkout | `send-order-notification` nach DB-Insert | ✅ Gerade gefixt |
-| **Manuelle Anfrage via Admin (OfferCreate)** | Direkt `.insert()` → keine Email | ❌ Lücke |
+Es gibt drei Stellen mit grüner Farbe:
 
-## Lösung
+| Datei | Element | Aktuell |
+|-------|---------|---------|
+| `StickySummary.tsx` Z.187-190 | "Lieferung kostenlos" | `text-green-600` |
+| `Checkout.tsx` Z.1670-1677 | Trust-Notice Box | `bg-green-50`, `text-green-600/700` |
+| `Checkout.tsx` Z.1649 | "Beliebt" Badge | `badgeColor="green"` |
 
-In `src/components/admin/refine/OfferCreate/index.tsx` nach dem erfolgreichen `saveInquiry()` die Edge Function `receive-event-inquiry` aufrufen, damit sowohl die **Kunden-Bestätigung** als auch die **Restaurant-Benachrichtigung** versendet werden.
+**Änderung:** Alle grünen Farben durch monochrome Grautöne ersetzen.
 
-### Konkret
+---
 
-Nach dem `.insert()` in `saveInquiry()` einen fire-and-forget Call an `receive-event-inquiry` hinzufügen mit den gleichen Daten (contactName, email, etc.). Dabei `source: 'manual_entry'` beibehalten, damit die Restaurant-Email korrekt als "Manuell erfasst" angezeigt wird.
+## Problem 2: Fehlender CTA-Button in rechter Box
 
-**Alternativ** (besser): Da die Anfrage bereits in der DB gespeichert ist und `receive-event-inquiry` selbst auch insertet, sollte stattdessen **nur der Email-Teil** getriggert werden. Dafür die `receive-event-inquiry` Edge Function so erweitern, dass sie einen `skipInsert: true` Parameter akzeptiert — oder eine eigene kleine Edge Function `send-inquiry-notification` erstellen, die nur Emails sendet.
-
-### Empfohlener Ansatz: `skipInsert`-Flag in `receive-event-inquiry`
-
-1. **`receive-event-inquiry/index.ts`**: Neuen optionalen Parameter `skipInsert` akzeptieren. Wenn `true`, den DB-Insert überspringen und nur die Emails senden.
-
-2. **`OfferCreate/index.tsx`**: Nach dem `saveInquiry()` Call:
-```typescript
-supabase.functions.invoke('receive-event-inquiry', {
-  body: {
-    contactName: formData.contact_name,
-    email: formData.email,
-    companyName: formData.company_name,
-    phone: formData.phone,
-    guestCount: formData.guest_count,
-    eventType: formData.event_type,
-    preferredDate: formData.preferred_date,
-    timeSlot: formData.preferred_time,
-    message: formData.message,
-    source: 'manual_entry',
-    skipInsert: true,
-    existingInquiryId: inquiry.id,
-  },
-}).catch(err => console.error('Notification error:', err));
+Die `StickySummary` Komponente hat einen `ctaButton` Slot (Zeile 221):
+```tsx
+{ctaButton && <div className="pt-2">{ctaButton}</div>}
 ```
 
-### Änderungen
+Aber in `Checkout.tsx` wird dieser **nicht übergeben** (Zeile 1707-1719).
+
+**Änderung:** CTA-Button als `ctaButton` Prop übergeben:
+```tsx
+<StickySummary
+  // ... andere props
+  ctaButton={
+    completedSteps.includes('payment') && (
+      <Button
+        type="submit"
+        variant="checkoutCta"
+        className="w-full h-12"
+        disabled={isSubmitting || isProcessingPayment || !formData.acceptTerms}
+      >
+        {isSubmitting || isProcessingPayment ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Wird verarbeitet...
+          </>
+        ) : (
+          <>
+            <Lock className="mr-2 h-4 w-4" />
+            Sofort kaufen
+          </>
+        )}
+      </Button>
+    )
+  }
+/>
+```
+
+Der Button erscheint erst, wenn Schritt 3 (Zahlung) abgeschlossen ist.
+
+---
+
+## Dateien
 
 | Datei | Änderung |
-|---|---|
-| `supabase/functions/receive-event-inquiry/index.ts` | `skipInsert` + `existingInquiryId` Parameter; bei `skipInsert=true` DB-Insert überspringen, nur Emails senden + Logs mit existingInquiryId |
-| `src/components/admin/refine/OfferCreate/index.tsx` | Nach `saveInquiry()` → `receive-event-inquiry` mit `skipInsert: true` aufrufen |
+|-------|----------|
+| `StickySummary.tsx` | Grün bei "Lieferung kostenlos" → neutral |
+| `Checkout.tsx` Z.1649 | `badgeColor="green"` → `badgeColor="neutral"` |
+| `Checkout.tsx` Z.1670-1677 | Trust-Notice: Grün → Neutral |
+| `Checkout.tsx` Z.1707-1719 | `ctaButton` Prop hinzufügen |
+
+---
+
+## Ergebnis
+
+1. Alle grünen Akzente entfernt → monochrome Ästhetik
+2. "Sofort kaufen" Button erscheint in der rechten Zusammenfassung, sobald alle Schritte ausgefüllt sind
 
