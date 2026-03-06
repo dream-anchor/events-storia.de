@@ -539,6 +539,44 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
+    // WhatsApp-Benachrichtigung (fire-and-forget)
+    const emailsSent = customerResult.sent && restaurantResult.sent;
+    const orderLabel = isEvent ? 'Buchung' : 'Bestellung';
+    const whatsappPayload = emailsSent
+      ? {
+          type: 'new_order' as const,
+          orderNumber: data.orderNumber,
+          customerName: data.customerName,
+          customerEmail: data.customerEmail,
+          desiredDate: data.desiredDate || undefined,
+          totalAmount: data.grandTotal || data.totalAmount || undefined,
+          entityType: isEvent ? 'event_booking' : 'catering_order',
+          entityId: entityId,
+        }
+      : {
+          type: 'email_failed' as const,
+          orderNumber: data.orderNumber,
+          customerName: data.customerName,
+          customerEmail: data.customerEmail,
+          errorDetails: [
+            customerResult.sent ? null : `Kunden-Email: ${customerResult.errorMessage}`,
+            restaurantResult.sent ? null : `Restaurant-Email: ${restaurantResult.errorMessage}`,
+          ].filter(Boolean).join('; '),
+          entityType: isEvent ? 'event_booking' : 'catering_order',
+          entityId: entityId,
+        };
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    fetch(`${supabaseUrl}/functions/v1/send-whatsapp-alert`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify(whatsappPayload),
+    }).catch(err => console.error('WhatsApp alert error:', err));
+
     return new Response(
       JSON.stringify({ success: true, message: "Emails sent successfully" }),
       {

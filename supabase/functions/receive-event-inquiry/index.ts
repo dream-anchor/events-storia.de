@@ -350,6 +350,39 @@ const handler = async (req: Request): Promise<Response> => {
       .update({ notification_sent: emailsSent })
       .eq('id', inquiryId);
 
+    // WhatsApp-Benachrichtigung (fire-and-forget)
+    const whatsappPayload = emailsSent
+      ? {
+          type: 'new_inquiry' as const,
+          customerName: data.contactName,
+          customerEmail: data.email,
+          eventType: data.eventType || undefined,
+          guestCount: data.guestCount || undefined,
+          desiredDate: data.preferredDate || undefined,
+          entityType: 'event_inquiry',
+          entityId: inquiryId,
+        }
+      : {
+          type: 'email_failed' as const,
+          customerName: data.contactName,
+          customerEmail: data.email,
+          errorDetails: [
+            customerResult.sent ? null : `Kunden-Email: ${customerResult.errorMessage}`,
+            restaurantResult.sent ? null : `Restaurant-Email: ${restaurantResult.errorMessage}`,
+          ].filter(Boolean).join('; '),
+          entityType: 'event_inquiry',
+          entityId: inquiryId,
+        };
+
+    fetch(`${supabaseUrl}/functions/v1/send-whatsapp-alert`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify(whatsappPayload),
+    }).catch(err => console.error('WhatsApp alert error:', err));
+
     return new Response(
       JSON.stringify({ 
         success: true, 
