@@ -16,6 +16,8 @@ interface EventInquiryRequest {
   packageId?: string;
   message?: string;
   source?: string;
+  skipInsert?: boolean;
+  existingInquiryId?: string;
 }
 
 const formatDate = (dateStr: string) => {
