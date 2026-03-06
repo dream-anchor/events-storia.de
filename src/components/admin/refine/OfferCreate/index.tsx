@@ -113,6 +113,28 @@ export const AdminOfferCreate = () => {
       .single();
 
     if (error) throw error;
+
+    // Fire-and-forget: Send notification emails (customer + restaurant)
+    supabase.functions.invoke('receive-event-inquiry', {
+      body: {
+        contactName: formData.contact_name,
+        email: formData.email,
+        companyName: formData.company_name || undefined,
+        phone: formData.phone || undefined,
+        guestCount: formData.guest_count || undefined,
+        eventType: formData.event_type || undefined,
+        preferredDate: formData.preferred_date || undefined,
+        timeSlot: formData.preferred_time || undefined,
+        message: formData.message || undefined,
+        source: 'manual_entry',
+        skipInsert: true,
+        existingInquiryId: data.id,
+      },
+    }).then(res => {
+      if (res.error) console.error('Notification error:', res.error);
+      else console.log('Inquiry notification sent successfully');
+    });
+
     return data;
   };
 
