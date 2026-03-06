@@ -1,76 +1,76 @@
 
 
-## Problem
+# Plan: Grün entfernen + "Jetzt zahlen" Button in rechter Box hinzufügen
 
-Der Betreiber muss **immer** informiert werden wenn:
-1. Eine neue Anfrage/Bestellung eingeht
-2. Der Email-Versand fehlschlägt
+## Problem 1: Grüne Elemente entfernen
 
-Aktuell gibt es nur Email (Resend + IONOS SMTP Fallback). Wenn beide fehlschlagen, erfährt niemand davon — die Anfrage geht verloren.
+Es gibt drei Stellen mit grüner Farbe:
 
-## Lösung: WhatsApp-Benachrichtigung als zusätzlicher Kanal
+| Datei | Element | Aktuell |
+|-------|---------|---------|
+| `StickySummary.tsx` Z.187-190 | "Lieferung kostenlos" | `text-green-600` |
+| `Checkout.tsx` Z.1670-1677 | Trust-Notice Box | `bg-green-50`, `text-green-600/700` |
+| `Checkout.tsx` Z.1649 | "Beliebt" Badge | `badgeColor="green"` |
 
-Eine neue Edge Function `send-whatsapp-alert` erstellen, die über die **WhatsApp Business API** (oder alternativ die kostenlose **WhatsApp Cloud API** von Meta) eine Nachricht an die hinterlegte Nummer `+491636033912` sendet.
+**Änderung:** Alle grünen Farben durch monochrome Grautöne ersetzen.
 
-Diese wird in zwei Szenarien aufgerufen:
-1. **Bei jeder neuen Anfrage/Bestellung** — als Bestätigung parallel zur Email
-2. **Bei Email-Fehlschlag** — als Eskalations-Alert
+---
 
-### Architektur
+## Problem 2: Fehlender CTA-Button in rechter Box
 
-```text
-Neue Bestellung/Anfrage
-        │
-        ├── Email senden (Resend → IONOS Fallback)
-        │       │
-        │       ├── Erfolg → WhatsApp: "Neue Bestellung #XYZ eingegangen ✓"
-        │       └── Fehlschlag → WhatsApp: "⚠️ EMAIL FEHLGESCHLAGEN für #XYZ!"
-        │
-        └── Alles in email_delivery_logs tracken
+Die `StickySummary` Komponente hat einen `ctaButton` Slot (Zeile 221):
+```tsx
+{ctaButton && <div className="pt-2">{ctaButton}</div>}
 ```
 
-### Konkrete Änderungen
+Aber in `Checkout.tsx` wird dieser **nicht übergeben** (Zeile 1707-1719).
+
+**Änderung:** CTA-Button als `ctaButton` Prop übergeben:
+```tsx
+<StickySummary
+  // ... andere props
+  ctaButton={
+    completedSteps.includes('payment') && (
+      <Button
+        type="submit"
+        variant="checkoutCta"
+        className="w-full h-12"
+        disabled={isSubmitting || isProcessingPayment || !formData.acceptTerms}
+      >
+        {isSubmitting || isProcessingPayment ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Wird verarbeitet...
+          </>
+        ) : (
+          <>
+            <Lock className="mr-2 h-4 w-4" />
+            Sofort kaufen
+          </>
+        )}
+      </Button>
+    )
+  }
+/>
+```
+
+Der Button erscheint erst, wenn Schritt 3 (Zahlung) abgeschlossen ist.
+
+---
+
+## Dateien
 
 | Datei | Änderung |
-|---|---|
-| `supabase/functions/send-whatsapp-alert/index.ts` | Neue Edge Function: sendet WhatsApp-Nachricht via Meta Cloud API |
-| `supabase/functions/send-order-notification/index.ts` | Nach Email-Versand → `send-whatsapp-alert` aufrufen (Erfolg oder Fehler) |
-| `supabase/functions/receive-event-inquiry/index.ts` | Nach Email-Versand → `send-whatsapp-alert` aufrufen (Erfolg oder Fehler) |
-| `supabase/config.toml` | Neue Function `send-whatsapp-alert` registrieren |
+|-------|----------|
+| `StickySummary.tsx` | Grün bei "Lieferung kostenlos" → neutral |
+| `Checkout.tsx` Z.1649 | `badgeColor="green"` → `badgeColor="neutral"` |
+| `Checkout.tsx` Z.1670-1677 | Trust-Notice: Grün → Neutral |
+| `Checkout.tsx` Z.1707-1719 | `ctaButton` Prop hinzufügen |
 
-### WhatsApp Integration
+---
 
-Die **Meta WhatsApp Business Cloud API** ist kostenlos nutzbar (nur Konversationsgebühren ~0,04€/Nachricht). Dafür benötigt:
-- Ein Meta Business Account (kostenlos)
-- Eine WhatsApp Business API Telefonnummer
-- Ein **WHATSAPP_ACCESS_TOKEN** und eine **WHATSAPP_PHONE_NUMBER_ID**
+## Ergebnis
 
-Die Edge Function sendet eine einfache Textnachricht an `+491636033912`:
-
-```
-📦 Neue Catering-Bestellung CAT-2026-0142
-Kunde: Max Mustermann
-Datum: 15.03.2026
-Summe: 450,00 €
-→ https://events-storia.de/admin
-```
-
-Bei Fehler:
-```
-⚠️ EMAIL-VERSAND FEHLGESCHLAGEN
-Bestellung: CAT-2026-0142
-Kunde: max@example.com
-Fehler: Resend + SMTP beide fehlgeschlagen
-→ Bitte sofort prüfen!
-```
-
-### Benötigte Secrets
-
-- `WHATSAPP_ACCESS_TOKEN` — aus dem Meta Developer Dashboard
-- `WHATSAPP_PHONE_NUMBER_ID` — die Absender-Nummer-ID
-- `WHATSAPP_RECIPIENT` — Empfänger-Nummer (`491636033912`)
-
-### Alternative falls WhatsApp zu aufwändig
-
-Falls die Meta API zu komplex einzurichten ist, könnte stattdessen ein einfacher **Webhook an einen bestehenden Dienst** (z.B. Callmebot WhatsApp API oder ein n8n-Workflow) verwendet werden, der die WhatsApp-Nachricht auslöst. Das wäre schneller einzurichten.
+1. Alle grünen Akzente entfernt → monochrome Ästhetik
+2. "Sofort kaufen" Button erscheint in der rechten Zusammenfassung, sobald alle Schritte ausgefüllt sind
 
