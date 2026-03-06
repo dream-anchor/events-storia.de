@@ -632,9 +632,8 @@ const Checkout = () => {
               body: { ...orderPayload, documentType: 'invoice', isPaid: true }
             });
             
-            await supabase.functions.invoke('send-order-notification', {
-              body: { ...orderPayload, paymentStatus: 'paid' }
-            });
+            // Notification already sent after DB insert — no duplicate here
+            // Only invoice creation happens in the Stripe success callback
           }
         } catch (err) {
           console.error('Error creating invoice for paid order:', err);
@@ -1091,6 +1090,43 @@ const Checkout = () => {
 
         if (error) throw error;
       }
+
+      // Send notification email for ALL payment methods (fire-and-forget)
+      const notificationPayload = {
+        orderNumber: newOrderNumber,
+        customerName: formData.name,
+        customerEmail: formData.email,
+        customerPhone: formData.phone,
+        companyName: formData.company || undefined,
+        items: orderItems,
+        subtotal: totalPrice,
+        deliveryCost: deliveryCalc?.deliveryCostGross || 0,
+        minimumOrderSurcharge: minimumOrderSurcharge,
+        distanceKm: deliveryCalc?.distanceKm || undefined,
+        grandTotal: grandTotal,
+        isPickup: formData.deliveryType === 'pickup',
+        desiredDate: formData.date || undefined,
+        desiredTime: formData.time || undefined,
+        deliveryStreet: formData.deliveryType === 'delivery' ? formData.deliveryStreet : undefined,
+        deliveryZip: formData.deliveryType === 'delivery' ? formData.deliveryZip : undefined,
+        deliveryCity: formData.deliveryType === 'delivery' ? formData.deliveryCity : undefined,
+        deliveryFloor: formData.deliveryType === 'delivery' ? formData.deliveryFloor : undefined,
+        hasElevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
+        notes: fullNotes || undefined,
+        billingAddress: billingAddress,
+        paymentMethod: paymentMethod,
+        paymentStatus: paymentMethod === 'stripe' ? 'pending' : 'pending',
+        isEventBooking: isEventBooking,
+        guestCount: eventGuestCount || undefined,
+        eventPackageName: eventItem?.name || undefined,
+      };
+
+      supabase.functions.invoke('send-order-notification', { body: notificationPayload })
+        .then(res => {
+          if (res.error) console.error('Notification error:', res.error);
+          else console.log('Order notification sent successfully');
+        })
+        .catch(err => console.error('Notification error:', err));
 
       setOrderNumber(newOrderNumber);
       
