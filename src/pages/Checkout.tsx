@@ -1129,7 +1129,46 @@ const Checkout = () => {
         .catch(err => console.error('Notification error:', err));
 
       setOrderNumber(newOrderNumber);
-      
+
+      // Sofort nach Order-Insert: Benachrichtigung senden (Anfrage/pending)
+      // Bei Stripe wird nach erfolgreicher Zahlung eine zweite Mail mit "paid" gesendet
+      const orderNotificationPayload = {
+        orderId: orderId,
+        orderNumber: newOrderNumber,
+        customerName: formData.name,
+        customerEmail: formData.email,
+        customerPhone: formData.phone,
+        companyName: formData.company || undefined,
+        billingAddress: billingAddress,
+        items: orderItems,
+        subtotal: totalPrice,
+        deliveryCost: deliveryCalc?.deliveryCostGross || 0,
+        minimumOrderSurcharge: minimumOrderSurcharge,
+        distanceKm: deliveryCalc?.distanceKm || undefined,
+        grandTotal: grandTotal,
+        isPickup: formData.deliveryType === 'pickup',
+        desiredDate: formData.date || undefined,
+        desiredTime: formData.time || undefined,
+        deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
+        deliveryFloor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : undefined,
+        hasElevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
+        notes: fullNotes || undefined,
+        paymentMethod: paymentMethod,
+        isEventBooking: isEventBooking,
+        guestCount: eventGuestCount || undefined,
+        eventPackageName: eventItem?.name || undefined,
+        eventPackageId: eventPackageId || undefined,
+        paymentStatus: paymentMethod === 'stripe' || paymentMethod === 'billie' ? 'pending' : 'pending',
+      };
+
+      try {
+        await supabase.functions.invoke('send-order-notification', {
+          body: orderNotificationPayload
+        });
+      } catch (notifErr) {
+        console.error('Initial notification error (non-blocking):', notifErr);
+      }
+
       if (paymentMethod === 'stripe' || paymentMethod === 'billie') {
         setIsProcessingPayment(true);
         

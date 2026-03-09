@@ -116,8 +116,10 @@ const generateCustomerEmailText = (data: OrderNotificationRequest): string => {
       ? 'vielen Dank für Ihre Bestellung!'
       : 'vielen Dank für Ihre Anfrage!';
     nextSteps = isPaid
-      ? 'Ihre Zahlung wurde erfolgreich verarbeitet. Wir bereiten Ihre Bestellung vor.'
-      : 'Wir melden uns innerhalb von 24 Stunden bei Ihnen.';
+      ? `Ihre Zahlung per ${data.paymentMethod === 'stripe' ? 'Kreditkarte' : 'Rechnung'} über ${formatPrice(grandTotal)} wurde erfolgreich verarbeitet. Wir bereiten Ihre Bestellung vor.`
+      : data.paymentMethod === 'stripe'
+        ? 'Sie werden jetzt zur Zahlung weitergeleitet. Nach erfolgreicher Zahlung erhalten Sie eine Bestellbestätigung.'
+        : 'Wir melden uns innerhalb von 24 Stunden bei Ihnen.';
   }
 
   let itemsList = '';
@@ -219,8 +221,10 @@ const generateRestaurantEmailText = (data: OrderNotificationRequest): string => 
   });
 
   const paymentBanner = isPaid
-    ? '✓ BEREITS BEZAHLT'
-    : '⏳ Zahlung ausstehend (Anfrage)';
+    ? `✓ BEREITS BEZAHLT (${data.paymentMethod === 'stripe' ? 'Kreditkarte' : 'Rechnung'})`
+    : data.paymentMethod === 'stripe'
+      ? '⏳ Kreditkarte — Zahlung wird verarbeitet'
+      : '⏳ Zahlung ausstehend (Anfrage)';
 
   let itemsList = '';
   for (const item of data.items) {
