@@ -628,12 +628,19 @@ const Checkout = () => {
           }
 
           if (orderPayload) {
+            // Rechnung erstellen
             await supabase.functions.invoke('create-lexoffice-invoice', {
               body: { ...orderPayload, documentType: 'invoice', isPaid: true }
             });
-            
-            // Notification already sent after DB insert — no duplicate here
-            // Only invoice creation happens in the Stripe success callback
+
+            // Jetzt Bestätigungsmail senden — erst nach erfolgreicher Zahlung
+            try {
+              await supabase.functions.invoke('send-order-notification', {
+                body: { ...orderPayload, paymentStatus: 'paid' }
+              });
+            } catch (notifErr) {
+              console.error('Post-payment notification error:', notifErr);
+            }
           }
         } catch (err) {
           console.error('Error creating invoice for paid order:', err);
@@ -1091,82 +1098,47 @@ const Checkout = () => {
         if (error) throw error;
       }
 
-      // Send notification email for ALL payment methods (fire-and-forget)
-      const notificationPayload = {
-        orderNumber: newOrderNumber,
-        customerName: formData.name,
-        customerEmail: formData.email,
-        customerPhone: formData.phone,
-        companyName: formData.company || undefined,
-        items: orderItems,
-        subtotal: totalPrice,
-        deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-        minimumOrderSurcharge: minimumOrderSurcharge,
-        distanceKm: deliveryCalc?.distanceKm || undefined,
-        grandTotal: grandTotal,
-        isPickup: formData.deliveryType === 'pickup',
-        desiredDate: formData.date || undefined,
-        desiredTime: formData.time || undefined,
-        deliveryStreet: formData.deliveryType === 'delivery' ? formData.deliveryStreet : undefined,
-        deliveryZip: formData.deliveryType === 'delivery' ? formData.deliveryZip : undefined,
-        deliveryCity: formData.deliveryType === 'delivery' ? formData.deliveryCity : undefined,
-        deliveryFloor: formData.deliveryType === 'delivery' ? formData.deliveryFloor : undefined,
-        hasElevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
-        notes: fullNotes || undefined,
-        billingAddress: billingAddress,
-        paymentMethod: paymentMethod,
-        paymentStatus: paymentMethod === 'stripe' ? 'pending' : 'pending',
-        isEventBooking: isEventBooking,
-        guestCount: eventGuestCount || undefined,
-        eventPackageName: eventItem?.name || undefined,
-      };
-
-      supabase.functions.invoke('send-order-notification', { body: notificationPayload })
-        .then(res => {
-          if (res.error) console.error('Notification error:', res.error);
-          else console.log('Order notification sent successfully');
-        })
-        .catch(err => console.error('Notification error:', err));
-
       setOrderNumber(newOrderNumber);
 
-      // Sofort nach Order-Insert: Benachrichtigung senden (Anfrage/pending)
-      // Bei Stripe wird nach erfolgreicher Zahlung eine zweite Mail mit "paid" gesendet
-      const orderNotificationPayload = {
-        orderId: orderId,
-        orderNumber: newOrderNumber,
-        customerName: formData.name,
-        customerEmail: formData.email,
-        customerPhone: formData.phone,
-        companyName: formData.company || undefined,
-        billingAddress: billingAddress,
-        items: orderItems,
-        subtotal: totalPrice,
-        deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-        minimumOrderSurcharge: minimumOrderSurcharge,
-        distanceKm: deliveryCalc?.distanceKm || undefined,
-        grandTotal: grandTotal,
-        isPickup: formData.deliveryType === 'pickup',
-        desiredDate: formData.date || undefined,
-        desiredTime: formData.time || undefined,
-        deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
-        deliveryFloor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : undefined,
-        hasElevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
-        notes: fullNotes || undefined,
-        paymentMethod: paymentMethod,
-        isEventBooking: isEventBooking,
-        guestCount: eventGuestCount || undefined,
-        eventPackageName: eventItem?.name || undefined,
-        eventPackageId: eventPackageId || undefined,
-        paymentStatus: paymentMethod === 'stripe' || paymentMethod === 'billie' ? 'pending' : 'pending',
-      };
+      // Bei Stripe/Billie: KEINE Mail jetzt senden — erst nach erfolgreicher Zahlung
+      // Bei anderen Zahlarten (Anfrage/Rechnung): Sofort senden
+      if (paymentMethod !== 'stripe' && paymentMethod !== 'billie') {
+        const notificationPayload = {
+          orderId: orderId,
+          orderNumber: newOrderNumber,
+          customerName: formData.name,
+          customerEmail: formData.email,
+          customerPhone: formData.phone,
+          companyName: formData.company || undefined,
+          billingAddress: billingAddress,
+          items: orderItems,
+          subtotal: totalPrice,
+          deliveryCost: deliveryCalc?.deliveryCostGross || 0,
+          minimumOrderSurcharge: minimumOrderSurcharge,
+          distanceKm: deliveryCalc?.distanceKm || undefined,
+          grandTotal: grandTotal,
+          isPickup: formData.deliveryType === 'pickup',
+          desiredDate: formData.date || undefined,
+          desiredTime: formData.time || undefined,
+          deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
+          deliveryFloor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : undefined,
+          hasElevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
+          notes: fullNotes || undefined,
+          paymentMethod: paymentMethod,
+          isEventBooking: isEventBooking,
+          guestCount: eventGuestCount || undefined,
+          eventPackageName: eventItem?.name || undefined,
+          eventPackageId: eventPackageId || undefined,
+          paymentStatus: 'pending',
+        };
 
-      try {
-        await supabase.functions.invoke('send-order-notification', {
-          body: orderNotificationPayload
-        });
-      } catch (notifErr) {
-        console.error('Initial notification error (non-blocking):', notifErr);
+        try {
+          await supabase.functions.invoke('send-order-notification', {
+            body: notificationPayload
+          });
+        } catch (notifErr) {
+          console.error('Notification error (non-blocking):', notifErr);
+        }
       }
 
       if (paymentMethod === 'stripe' || paymentMethod === 'billie') {
@@ -1191,6 +1163,8 @@ const Checkout = () => {
           desiredDate: formData.date || undefined,
           desiredTime: formData.time || undefined,
           deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
+          deliveryFloor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : undefined,
+          hasElevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
           notes: fullNotes || undefined,
           paymentMethod: paymentMethod,
           isEventBooking: isEventBooking,
