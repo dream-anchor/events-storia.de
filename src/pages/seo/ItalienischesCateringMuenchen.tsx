@@ -275,6 +275,23 @@ const ItalienischesCateringMuenchen = () => {
             </div>
           </section>
 
+          {/* Oder lieber direkt im Restaurant? */}
+          <section className="bg-muted/50 border rounded-xl p-8 mb-8 text-center">
+            <h2 className="text-xl font-semibold mb-3">Oder lieber italienisch im Restaurant speisen?</h2>
+            <p className="text-muted-foreground mb-4">
+              Das Ristorante STORIA ist Ihr authentisches italienisches Restaurant in M&uuml;nchen Maxvorstadt &ndash;
+              mit Steinofen-Pizza, hausgemachter Pasta und Meeresfrüchten direkt am Tisch.
+            </p>
+            <a
+              href="https://www.ristorantestoria.de/italienisches-restaurant-muenchen/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-primary hover:underline font-medium"
+            >
+              &rarr; Tisch im STORIA reservieren
+            </a>
+          </section>
+
           <CateringCTA />
         </main>
         <Footer />

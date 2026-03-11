@@ -306,6 +306,23 @@ const FirmenfeierCateringMuenchen = () => {
             </div>
           </section>
 
+          {/* Oder lieber direkt im Restaurant? */}
+          <section className="bg-muted/50 border rounded-xl p-8 mb-8 text-center">
+            <h2 className="text-xl font-semibold mb-3">Oder lieber direkt im Restaurant feiern?</h2>
+            <p className="text-muted-foreground mb-4">
+              Das Ristorante STORIA in M&uuml;nchen Maxvorstadt bietet Firmenfeiern direkt im Restaurant &ndash;
+              f&uuml;r 10 bis 180 G&auml;ste, mit pers&ouml;nlichem Service der Familie Speranza.
+            </p>
+            <a
+              href="https://www.ristorantestoria.de/firmenfeier-muenchen/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-primary hover:underline font-medium"
+            >
+              &rarr; Firmenfeier im STORIA reservieren
+            </a>
+          </section>
+
           <CateringCTA />
         </main>
         <Footer />

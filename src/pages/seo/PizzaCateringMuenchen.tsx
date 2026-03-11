@@ -273,6 +273,23 @@ const PizzaCateringMuenchen = () => {
             </div>
           </section>
 
+          {/* Oder lieber direkt im Restaurant? */}
+          <section className="bg-muted/50 border rounded-xl p-8 mb-8 text-center">
+            <h2 className="text-xl font-semibold mb-3">Lieber Pizza direkt im Restaurant genie&szlig;en?</h2>
+            <p className="text-muted-foreground mb-4">
+              Unsere neapolitanische Steinofen-Pizza schmeckt am besten frisch aus dem Ofen &ndash;
+              im Ristorante STORIA in M&uuml;nchen Maxvorstadt, t&auml;glich ge&ouml;ffnet.
+            </p>
+            <a
+              href="https://www.ristorantestoria.de/pizza-muenchen/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-primary hover:underline font-medium"
+            >
+              &rarr; Pizza im STORIA bestellen
+            </a>
+          </section>
+
           <CateringCTA />
         </main>
         <Footer />

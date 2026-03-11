@@ -301,6 +301,23 @@ const BueroCateringMuenchen = () => {
             </div>
           </section>
 
+          {/* Oder lieber direkt im Restaurant? */}
+          <section className="bg-muted/50 border rounded-xl p-8 mb-8 text-center">
+            <h2 className="text-xl font-semibold mb-3">Lieber Mittagessen direkt im Restaurant?</h2>
+            <p className="text-muted-foreground mb-4">
+              Das Ristorante STORIA in M&uuml;nchen Maxvorstadt serviert t&auml;glich ein Mittagsmen&uuml; &ndash;
+              frisch gekocht, mit wechselnden Pasta- und Pizzaspecials, ideal f&uuml;r die Mittagspause.
+            </p>
+            <a
+              href="https://www.ristorantestoria.de/lunch-muenchen-maxvorstadt/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-primary hover:underline font-medium"
+            >
+              &rarr; Mittagsmen&uuml; im STORIA entdecken
+            </a>
+          </section>
+
           <CateringCTA />
         </main>
         <Footer />
