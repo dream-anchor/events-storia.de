@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import InternalLinks from "@/components/InternalLinks";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
@@ -364,17 +365,18 @@ const CateringPreiseMuenchen = () => {
                 : "Ristorante STORIA in Munich Maxvorstadt offers events at the restaurant — atmospheric ambience, Italian cuisine and personal service for up to 180 guests."}
             </p>
             <a
-              href="https://www.ristorantestoria.de"
+              href="https://www.ristorantestoria.de/italienisches-restaurant-muenchen/"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-primary hover:underline font-medium"
             >
-              {language === "de" ? "→ Ristorante STORIA besuchen" : "→ Visit Ristorante STORIA"}
+              {language === "de" ? "→ Essen direkt im STORIA" : "→ Dine directly at STORIA"}
             </a>
           </section>
 
           <CateringCTA />
         </main>
+        <InternalLinks />
         <Footer />
       </div>
     </>

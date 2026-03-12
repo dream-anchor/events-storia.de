@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import InternalLinks from "@/components/InternalLinks";
 import ConsentGoogleMaps from "@/components/ConsentGoogleMaps";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
@@ -300,6 +301,7 @@ const Kontakt = () => {
 
         </main>
 
+        <InternalLinks />
         <Footer />
       </div>
     </>

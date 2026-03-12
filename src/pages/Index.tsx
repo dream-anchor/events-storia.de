@@ -5,6 +5,7 @@ import CateringGrid from "@/components/CateringGrid";
 import lieferungMuenchen from "@/assets/catering-lieferservice-muenchen-storia.webp";
 import CateringCTA from "@/components/CateringCTA";
 import Footer from "@/components/Footer";
+import InternalLinks from "@/components/InternalLinks";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
 import ConsentElfsightReviews from "@/components/ConsentElfsightReviews";
@@ -249,6 +250,7 @@ const Index = () => {
             </div>
           </section>
         </main>
+        <InternalLinks />
         <Footer />
       </div>
     </>

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import InternalLinks from "@/components/InternalLinks";
 import FloatingActions from "@/components/FloatingActions";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
@@ -307,6 +308,7 @@ const FAQ = () => {
           </div>
         </main>
 
+        <InternalLinks />
         <Footer />
         <FloatingActions />
       </div>

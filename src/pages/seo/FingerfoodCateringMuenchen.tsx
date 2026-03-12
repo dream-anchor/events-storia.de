@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import InternalLinks from "@/components/InternalLinks";
 import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
@@ -334,6 +335,7 @@ const FingerfoodCateringMuenchen = () => {
 
           <CateringCTA />
         </main>
+        <InternalLinks />
         <Footer />
       </div>
     </>
