@@ -6,6 +6,8 @@ import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Badge } from "@/components/ui/badge";
+import { ChefHat, Truck, Users, Clock, Leaf, MapPin } from "lucide-react";
 
 const ItalienischesCateringMuenchen = () => {
   const { t, language } = useLanguage();
@@ -18,42 +20,7 @@ const ItalienischesCateringMuenchen = () => {
     },
   ];
 
-  const faqItems =
-    language === "de"
-      ? [
-          {
-            question: "Was kostet italienisches Catering in München?",
-            answer:
-              "Die Kosten für italienisches Catering variieren je nach Menüauswahl, Personenzahl und Umfang des Services. Fingerfood beginnt ab ca. 8 € pro Person, komplette Buffets ab ca. 25 € pro Person. Kontaktieren Sie uns für ein individuelles Angebot.",
-          },
-          {
-            question: "Wie weit im Voraus sollte ich italienisches Catering bestellen?",
-            answer:
-              "Wir empfehlen eine Vorlaufzeit von mindestens 5–7 Werktagen. Für große Events oder an Feiertagen buchen Sie am besten 2–4 Wochen im Voraus.",
-          },
-          {
-            question: "Bietet STORIA auch vegetarisches und veganes Catering an?",
-            answer:
-              "Ja, wir bieten eine große Auswahl an vegetarischen Gerichten wie Parmigiana, Caprese und vegetarischer Pizza. Vegane Optionen sind auf Anfrage ebenfalls verfügbar.",
-          },
-        ]
-      : [
-          {
-            question: "How much does Italian catering cost in Munich?",
-            answer:
-              "Italian catering costs vary depending on menu selection, number of guests and scope of service. Finger food starts from approx. €8 per person, complete buffets from approx. €25 per person. Contact us for a customised quote.",
-          },
-          {
-            question: "How far in advance should I order Italian catering?",
-            answer:
-              "We recommend a lead time of at least 5–7 working days. For large events or holidays, it's best to book 2–4 weeks in advance.",
-          },
-          {
-            question: "Does STORIA also offer vegetarian and vegan catering?",
-            answer:
-              "Yes, we offer a wide selection of vegetarian dishes such as parmigiana, caprese and vegetarian pizza. Vegan options are also available on request.",
-          },
-        ];
+  const faqItems = t.seo.italienischesCatering.faq;
 
   return (
     <>
@@ -62,8 +29,8 @@ const ItalienischesCateringMuenchen = () => {
         description={t.seo.italienischesCatering.description}
         keywords={
           language === "de"
-            ? "italienisches Catering München, Catering italienisch München, italienische Küche Catering, Catering Service München"
-            : "Italian catering Munich, Italian cuisine catering, catering service Munich"
+            ? "italienisches Catering München, Catering italienisch München, italienische Küche Catering, Catering Service München, catering vegan, hausgemacht catering, bio catering"
+            : "Italian catering Munich, Italian cuisine catering, catering service Munich, vegan catering, homemade catering"
         }
       />
       <StructuredData
@@ -84,19 +51,31 @@ const ItalienischesCateringMuenchen = () => {
       <Navigation />
       <div className="min-h-screen bg-background flex flex-col">
         <main className="flex-1">
-          <section className="container mx-auto px-4 py-16 md:py-24">
-            <div className="max-w-4xl mx-auto">
-              <h1 className="text-4xl md:text-5xl font-serif font-medium mb-6 text-center">
+
+          {/* Hero Section mit Badges */}
+          <section className="relative py-20 md:py-28 bg-gradient-to-b from-primary/5 to-background">
+            <div className="container mx-auto px-4 text-center">
+              <div className="flex flex-wrap justify-center gap-2 mb-6">
+                <Badge variant="secondary" className="text-sm">Authentisch italienisch</Badge>
+                <Badge variant="secondary" className="text-sm">München & Umland</Badge>
+                <Badge variant="secondary" className="text-sm">Lieferung & Abholung</Badge>
+              </div>
+              <h1 className="text-4xl md:text-5xl font-serif font-medium mb-6">
                 {language === "de"
                   ? "Italienisches Catering in München"
                   : "Italian Catering in Munich"}
               </h1>
-              <p className="text-xl text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                 {language === "de"
                   ? "Authentische italienische Küche – frisch zubereitet und flexibel geliefert für Events, Büro und Zuhause."
                   : "Authentic Italian cuisine – freshly prepared and flexibly delivered for events, office and home."}
               </p>
+            </div>
+          </section>
 
+          {/* Main Content */}
+          <section className="container mx-auto px-4 py-16 md:py-24">
+            <div className="max-w-4xl mx-auto">
               <div className="prose prose-lg max-w-none text-muted-foreground space-y-6">
                 {language === "de" ? (
                   <>
@@ -128,18 +107,27 @@ const ItalienischesCateringMuenchen = () => {
                     </p>
 
                     <h2 className="text-2xl md:text-3xl font-serif font-medium text-foreground mt-10 mb-4">
-                      Warum STORIA Catering?
+                      Hausgemacht & frisch aus unserer Küche
                     </h2>
-                    <ul className="list-disc pl-6 space-y-2">
-                      <li>Frisch zubereitete Gerichte aus unserer Küche in der Münchner Maxvorstadt</li>
-                      <li>Authentische Rezepte aus Kampanien und Süditalien</li>
-                      <li>Flexible Menüzusammenstellung für 5 bis 200+ Gäste</li>
-                      <li>Zuverlässige Lieferung in ganz München und Umgebung</li>
-                      <li>Professionelle Beratung und individuelle Angebote</li>
-                    </ul>
+                    <p>
+                      Alle unsere Gerichte werden täglich frisch und <strong>hausgemacht</strong> in unserer Küche in der
+                      Münchner Maxvorstadt zubereitet. Wir verwenden hochwertige Zutaten, viele davon direkt aus
+                      Italien importiert – von San-Marzano-Tomaten über Fior-di-Latte-Mozzarella bis zu nativem
+                      Olivenöl aus Kampanien. Bei uns gibt es keine Fertigprodukte.
+                    </p>
 
                     <h2 className="text-2xl md:text-3xl font-serif font-medium text-foreground mt-10 mb-4">
-                      Für jeden Anlass das richtige Catering
+                      Vegetarisch, vegan & allergikerfreundlich
+                    </h2>
+                    <p>
+                      Wir bieten eine große Auswahl an <strong>vegetarischem und veganem Catering</strong>:
+                      von veganen Antipasti über Pasta mit saisonalem Gemüse bis zu Desserts ohne tierische Produkte.
+                      Auch bei Allergien und Unverträglichkeiten beraten wir Sie gerne und passen
+                      das Menü individuell an.
+                    </p>
+
+                    <h2 className="text-2xl md:text-3xl font-serif font-medium text-foreground mt-10 mb-4">
+                      Catering für jeden Anlass in München
                     </h2>
                     <p>
                       Ob{" "}
@@ -150,9 +138,16 @@ const ItalienischesCateringMuenchen = () => {
                       <LocalizedLink to="seo.weihnachtsfeier" className="underline hover:text-foreground transition-colors">
                         Weihnachtsfeier
                       </LocalizedLink>
+                      ,{" "}
+                      <LocalizedLink to="seo.bueroCatering" className="underline hover:text-foreground transition-colors">
+                        Business Lunch im Büro
+                      </LocalizedLink>
                       , Geburtstagsparty oder entspanntes Dinner mit Freunden – unser italienisches Catering
-                      passt sich Ihrem Anlass an. Wir berücksichtigen Ihre Wünsche bezüglich Personenanzahl,
-                      Budget und Speisevorlieben und erstellen Ihnen ein maßgeschneidertes Angebot.
+                      passt sich Ihrem Anlass an. Für lockere Events ist unser{" "}
+                      <LocalizedLink to="seo.pizzaCatering" className="underline hover:text-foreground transition-colors">
+                        Pizza Catering
+                      </LocalizedLink>{" "}
+                      besonders beliebt.
                     </p>
 
                     <h2 className="text-2xl md:text-3xl font-serif font-medium text-foreground mt-10 mb-4">
@@ -176,13 +171,13 @@ const ItalienischesCateringMuenchen = () => {
                       Liefergebiet & Bestellung
                     </h2>
                     <p>
-                      Wir liefern in ganz München und im Umkreis von ca. 50 km. Bestellen Sie bequem
-                      online oder{" "}
+                      Wir liefern in ganz München und im Umkreis von ca. 50 km – einschließlich Messe München/Riem.
+                      Bestellen Sie bequem online oder{" "}
                       <LocalizedLink to="contact" className="underline hover:text-foreground transition-colors">
                         kontaktieren Sie uns
                       </LocalizedLink>{" "}
-                      telefonisch für eine persönliche Beratung. Seit Jahren vertrauen Münchner Unternehmen und
-                      Privatpersonen auf unseren Catering-Service – für Momente, die in Erinnerung bleiben.
+                      telefonisch für eine persönliche Beratung. Selbstabholung in unserem Restaurant
+                      in der Karlstraße 47a ist ebenfalls jederzeit möglich.
                     </p>
                   </>
                 ) : (
@@ -214,18 +209,25 @@ const ItalienischesCateringMuenchen = () => {
                     </p>
 
                     <h2 className="text-2xl md:text-3xl font-serif font-medium text-foreground mt-10 mb-4">
-                      Why Choose STORIA Catering?
+                      Homemade & Fresh from Our Kitchen
                     </h2>
-                    <ul className="list-disc pl-6 space-y-2">
-                      <li>Freshly prepared dishes from our kitchen in Munich's Maxvorstadt</li>
-                      <li>Authentic recipes from Campania and Southern Italy</li>
-                      <li>Flexible menu composition for 5 to 200+ guests</li>
-                      <li>Reliable delivery throughout Munich and surrounding areas</li>
-                      <li>Professional consultation and individual offers</li>
-                    </ul>
+                    <p>
+                      All our dishes are freshly <strong>homemade</strong> daily in our kitchen in Munich's Maxvorstadt.
+                      We use high-quality ingredients, many imported directly from Italy – from San Marzano tomatoes
+                      to fior di latte mozzarella to native olive oil from Campania. No ready-made products.
+                    </p>
 
                     <h2 className="text-2xl md:text-3xl font-serif font-medium text-foreground mt-10 mb-4">
-                      The Right Catering for Every Occasion
+                      Vegetarian, Vegan & Allergy-Friendly
+                    </h2>
+                    <p>
+                      We offer a wide selection of <strong>vegetarian and vegan catering</strong>:
+                      from vegan antipasti to pasta with seasonal vegetables to desserts without animal products.
+                      We are also happy to advise you on allergies and intolerances and customise the menu accordingly.
+                    </p>
+
+                    <h2 className="text-2xl md:text-3xl font-serif font-medium text-foreground mt-10 mb-4">
+                      Catering for Every Occasion in Munich
                     </h2>
                     <p>
                       Whether{" "}
@@ -236,9 +238,16 @@ const ItalienischesCateringMuenchen = () => {
                       <LocalizedLink to="seo.weihnachtsfeier" className="underline hover:text-foreground transition-colors">
                         Christmas party
                       </LocalizedLink>
+                      ,{" "}
+                      <LocalizedLink to="seo.bueroCatering" className="underline hover:text-foreground transition-colors">
+                        business lunch at the office
+                      </LocalizedLink>
                       , birthday celebration or relaxed dinner with friends – our Italian catering adapts to your
-                      occasion. We consider your wishes regarding guest count, budget and food preferences and
-                      create a tailored offer for you.
+                      occasion. For casual events, our{" "}
+                      <LocalizedLink to="seo.pizzaCatering" className="underline hover:text-foreground transition-colors">
+                        pizza catering
+                      </LocalizedLink>{" "}
+                      is particularly popular.
                     </p>
 
                     <h2 className="text-2xl md:text-3xl font-serif font-medium text-foreground mt-10 mb-4">
@@ -261,13 +270,13 @@ const ItalienischesCateringMuenchen = () => {
                       Delivery Area & Ordering
                     </h2>
                     <p>
-                      We deliver throughout Munich and within a radius of approx. 50 km. Order conveniently
-                      online or{" "}
+                      We deliver throughout Munich and within a radius of approx. 50 km – including Messe München/Riem.
+                      Order conveniently online or{" "}
                       <LocalizedLink to="contact" className="underline hover:text-foreground transition-colors">
                         contact us
                       </LocalizedLink>{" "}
-                      by phone for personal consultation. For years, Munich businesses and private clients have
-                      trusted our catering service – for moments that create lasting memories.
+                      by phone for personal consultation. Self-pickup from our restaurant at
+                      Karlstraße 47a is also available at any time.
                     </p>
                   </>
                 )}
@@ -275,12 +284,79 @@ const ItalienischesCateringMuenchen = () => {
             </div>
           </section>
 
+          {/* USP Grid */}
+          <section className="py-16 md:py-20 bg-muted/30">
+            <div className="container mx-auto px-4">
+              <h2 className="text-2xl md:text-3xl font-serif font-medium text-center mb-12">
+                {language === "de" ? "Warum STORIA Catering?" : "Why Choose STORIA Catering?"}
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                {[
+                  { icon: ChefHat, title: language === "de" ? "Frisch & hausgemacht" : "Fresh & homemade", desc: language === "de" ? "Täglich frisch zubereitet in unserer Küche in der Maxvorstadt — keine Fertigprodukte." : "Freshly prepared daily in our Maxvorstadt kitchen — no ready-made products." },
+                  { icon: MapPin, title: language === "de" ? "Authentisch süditalienisch" : "Authentically Southern Italian", desc: language === "de" ? "Traditionelle Rezepte aus Kampanien mit importierten Zutaten direkt aus Italien." : "Traditional recipes from Campania with ingredients imported directly from Italy." },
+                  { icon: Users, title: language === "de" ? "5 bis 200+ Gäste" : "5 to 200+ guests", desc: language === "de" ? "Flexible Menüzusammenstellung für kleine Teams bis große Firmenfeiern." : "Flexible menu composition for small teams to large corporate events." },
+                  { icon: Truck, title: language === "de" ? "Lieferung in ganz München" : "Delivery throughout Munich", desc: language === "de" ? "Zuverlässig, pünktlich und servierfertig — auch zur Messe München/Riem." : "Reliably, on time and ready to serve — including Messe München/Riem." },
+                  { icon: Clock, title: language === "de" ? "Über 15 Jahre Erfahrung" : "Over 15 years of experience", desc: language === "de" ? "Seit über 15 Jahren vertrauen Münchner Unternehmen und Privatpersonen auf unseren Service." : "Munich businesses and private clients have trusted our service for over 15 years." },
+                  { icon: Leaf, title: language === "de" ? "Vegetarisch & vegan" : "Vegetarian & vegan", desc: language === "de" ? "Umfangreiche vegetarische und vegane Optionen — individuell zusammengestellt." : "Extensive vegetarian and vegan options — individually composed." },
+                ].map((usp, i) => (
+                  <div key={i} className="text-center p-6">
+                    <usp.icon className="h-8 w-8 mx-auto mb-4 text-primary" />
+                    <h3 className="font-medium text-lg mb-2">{usp.title}</h3>
+                    <p className="text-sm text-muted-foreground">{usp.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Perfekt für... Anlass-Section */}
+          <section className="py-16 md:py-20">
+            <div className="container mx-auto px-4">
+              <h2 className="text-2xl md:text-3xl font-serif font-medium text-center mb-12">
+                {language === "de" ? "Perfekt für Ihren Anlass" : "Perfect for Your Occasion"}
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+                {[
+                  { title: language === "de" ? "Firmenfeier" : "Corporate Event", desc: language === "de" ? "Team-Events, Jubiläen & Sommerfeste" : "Team events, anniversaries & summer parties", to: "seo.firmenfeier" as const },
+                  { title: language === "de" ? "Weihnachtsfeier" : "Christmas Party", desc: language === "de" ? "Festliche Menüs & winterliche Buffets" : "Festive menus & winter buffets", to: "seo.weihnachtsfeier" as const },
+                  { title: language === "de" ? "Büro-Catering" : "Office Catering", desc: language === "de" ? "Business Lunch & Meeting-Catering" : "Business lunch & meeting catering", to: "seo.bueroCatering" as const },
+                  { title: language === "de" ? "Pizza Catering" : "Pizza Catering", desc: language === "de" ? "Steinofen-Pizza für lockere Events" : "Stone-oven pizza for casual events", to: "seo.pizzaCatering" as const },
+                ].map((item, i) => (
+                  <LocalizedLink key={i} to={item.to} className="group block p-6 rounded-2xl border bg-card hover:shadow-lg transition-all">
+                    <h3 className="font-medium text-lg mb-2 group-hover:text-primary transition-colors">{item.title}</h3>
+                    <p className="text-sm text-muted-foreground">{item.desc}</p>
+                  </LocalizedLink>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* FAQ Section — sichtbar */}
+          <section className="py-12 md:py-16">
+            <div className="container mx-auto px-4 max-w-4xl">
+              <h2 className="text-2xl md:text-3xl font-serif font-medium mb-8 text-center">
+                {t.seo.italienischesCatering.faqTitle}
+              </h2>
+              <div className="space-y-6">
+                {faqItems.map((faq, i) => (
+                  <div key={i} className="border-b border-border pb-6">
+                    <h3 className="text-lg font-medium mb-2">{faq.question}</h3>
+                    <p className="text-muted-foreground leading-relaxed">{faq.answer}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
           {/* Oder lieber direkt im Restaurant? */}
           <section className="bg-muted/50 border rounded-xl p-8 mb-8 text-center">
-            <h2 className="text-xl font-semibold mb-3">Oder lieber italienisch im Restaurant speisen?</h2>
+            <h2 className="text-xl font-semibold mb-3">
+              {language === "de" ? "Oder lieber italienisch im Restaurant speisen?" : "Or dine Italian at the restaurant?"}
+            </h2>
             <p className="text-muted-foreground mb-4">
-              Das Ristorante STORIA ist Ihr authentisches italienisches Restaurant in M&uuml;nchen Maxvorstadt &ndash;
-              mit Steinofen-Pizza, hausgemachter Pasta und Meeresfrüchten direkt am Tisch.
+              {language === "de"
+                ? "Das Ristorante STORIA ist Ihr authentisches italienisches Restaurant in München Maxvorstadt – mit Steinofen-Pizza, hausgemachter Pasta und Meeresfrüchten direkt am Tisch."
+                : "Ristorante STORIA is your authentic Italian restaurant in Munich Maxvorstadt – with stone-oven pizza, homemade pasta and seafood right at your table."}
             </p>
             <a
               href="https://www.ristorantestoria.de/italienisches-restaurant-muenchen/"
@@ -288,7 +364,7 @@ const ItalienischesCateringMuenchen = () => {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-primary hover:underline font-medium"
             >
-              &rarr; Tisch im STORIA reservieren
+              {language === "de" ? "→ Tisch im STORIA reservieren" : "→ Reserve a table at STORIA"}
             </a>
           </section>
 
