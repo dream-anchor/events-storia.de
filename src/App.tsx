@@ -75,6 +75,8 @@ const FirmenfeierCateringMuenchen = lazy(() => import("./pages/seo/FirmenfeierCa
 const WeihnachtsfeierCateringMuenchen = lazy(() => import("./pages/seo/WeihnachtsfeierCateringMuenchen"));
 const PizzaCateringMuenchen = lazy(() => import("./pages/seo/PizzaCateringMuenchen"));
 const BueroCateringMuenchen = lazy(() => import("./pages/seo/BueroCateringMuenchen"));
+const FingerfoodCateringMuenchen = lazy(() => import("./pages/seo/FingerfoodCateringMuenchen"));
+const CateringPreiseMuenchen = lazy(() => import("./pages/seo/CateringPreiseMuenchen"));
 
 const queryClient = new QueryClient();
 
@@ -143,6 +145,8 @@ const App = () => {
                     <Route path="/weihnachtsfeier-catering-muenchen" element={<WeihnachtsfeierCateringMuenchen />} />
                     <Route path="/pizza-catering-muenchen" element={<PizzaCateringMuenchen />} />
                     <Route path="/buero-catering-muenchen" element={<BueroCateringMuenchen />} />
+                    <Route path="/fingerfood-catering-muenchen" element={<FingerfoodCateringMuenchen />} />
+                    <Route path="/catering-preise-muenchen" element={<CateringPreiseMuenchen />} />
 
                     {/* === English Routes (/en/ prefix) === */}
                     <Route path="/en" element={<Index />} />
@@ -186,6 +190,8 @@ const App = () => {
                     <Route path="/en/christmas-party-catering-munich" element={<WeihnachtsfeierCateringMuenchen />} />
                     <Route path="/en/pizza-catering-munich" element={<PizzaCateringMuenchen />} />
                     <Route path="/en/office-catering-munich" element={<BueroCateringMuenchen />} />
+                    <Route path="/en/fingerfood-catering-munich" element={<FingerfoodCateringMuenchen />} />
+                    <Route path="/en/catering-prices-munich" element={<CateringPreiseMuenchen />} />
 
                     {/* === Admin (language-neutral) === */}
                     <Route path="/admin/login" element={<AdminLogin />} />
