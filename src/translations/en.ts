@@ -424,6 +424,20 @@ export const en = {
         { question: 'Is self-pickup available?', answer: 'Yes, self-pickup is available at any time from our restaurant at Karlstraße 47a, Munich Maxvorstadt.' },
       ],
     },
+    messeCatering: {
+      title: 'Trade Fair Catering Munich | Stand Catering & Seminars – STORIA',
+      description: 'Trade fair catering in Munich: stand catering, client receptions, team lunches & after-fair dinners. STORIA — net invoicing, punctual delivery. Enquire now!',
+      faqTitle: 'Frequently Asked Questions About Trade Fair Catering',
+      faq: [
+        { question: 'How much does trade fair catering cost per person?', answer: 'Costs depend on the package: stand catering from approx. €12 p.p., client reception from approx. €18 p.p., team lunch from approx. €15 p.p. and after-fair dinner from approx. €30 p.p.' },
+        { question: 'Do you deliver directly to Messe München/Riem?', answer: 'Yes, we deliver to all major trade fair venues in Munich: Messe München/Riem, ICM, MOC, TU München and other locations in Munich and surrounding areas.' },
+        { question: 'How short-notice can I order trade fair catering?', answer: 'For standard packages, 3–5 working days are sufficient. For individual requests or larger events, we recommend at least 7–10 working days.' },
+        { question: 'Can I get a net invoice for my company?', answer: 'Yes, of course. We issue proper B2B invoices with itemised VAT — ideal for your accounting department.' },
+        { question: 'Can I change quantities at short notice?', answer: 'Yes, quantity changes are possible up to 48 hours before the event. For last-minute changes, contact us by phone or WhatsApp.' },
+        { question: 'Do you offer branding options?', answer: 'Yes, on request we design custom napkins, place cards or menu cards with your company logo — perfect for a professional appearance at your trade fair stand.' },
+        { question: 'Are there vegetarian and vegan options?', answer: 'Yes, all our packages are flexibly customisable. We offer a wide range of vegetarian and vegan Italian dishes.' },
+      ],
+    },
   },
   about: {
     title: 'STORIA CATERING - ITALIAN CUISINE FOR MUNICH',

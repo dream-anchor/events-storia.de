@@ -30,6 +30,7 @@ export type RouteKey =
   | 'seo.geburtstagCatering'
   | 'seo.partyservice'
   | 'seo.lieferservice'
+  | 'seo.messeCatering'
   | 'legal.imprint'
   | 'legal.privacy'
   | 'legal.cookies'
@@ -81,6 +82,7 @@ export const ROUTES: RouteConfig[] = [
   { key: 'seo.geburtstagCatering', de: '/geburtstag-catering-muenchen', en: '/birthday-catering-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
   { key: 'seo.partyservice', de: '/partyservice-muenchen', en: '/party-service-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
   { key: 'seo.lieferservice', de: '/catering-lieferservice-muenchen', en: '/catering-delivery-service-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
+  { key: 'seo.messeCatering', de: '/messe-catering-muenchen', en: '/trade-fair-catering-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
 
   // Checkout & Account (no prerender — dynamic/auth)
   { key: 'checkout', de: '/checkout', en: '/checkout', languages: ['de', 'en'], prerender: false },

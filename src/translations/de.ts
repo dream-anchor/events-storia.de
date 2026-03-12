@@ -424,6 +424,20 @@ export const de = {
         { question: 'Ist Selbstabholung möglich?', answer: 'Ja, Selbstabholung ist jederzeit möglich in unserem Restaurant in der Karlstraße 47a, München Maxvorstadt.' },
       ],
     },
+    messeCatering: {
+      title: 'Messe Catering München | Standcatering & Seminar – STORIA',
+      description: 'Messe-Catering in München: Standverpflegung, Kundenempfang, Team-Lunch & After-Fair-Dinner. STORIA — Netto-Rechnung, pünktliche Lieferung. Jetzt anfragen!',
+      faqTitle: 'Häufige Fragen zum Messe-Catering',
+      faq: [
+        { question: 'Was kostet Messe-Catering pro Person?', answer: 'Die Kosten hängen vom gewählten Paket ab: Standverpflegung ab ca. 12 € p.P., Kundenempfang ab ca. 18 € p.P., Team-Lunch ab ca. 15 € p.P. und After-Fair-Dinner ab ca. 30 € p.P.' },
+        { question: 'Liefern Sie direkt zur Messe München/Riem?', answer: 'Ja, wir liefern zu allen wichtigen Messestandorten in München: Messe München/Riem, ICM, MOC, TU München und weitere Locations in München und Umgebung.' },
+        { question: 'Wie kurzfristig kann ich Messe-Catering bestellen?', answer: 'Für Standard-Pakete reichen 3–5 Werktage Vorlauf. Für individuelle Anfragen oder größere Events empfehlen wir mindestens 7–10 Werktage.' },
+        { question: 'Erhalte ich eine Netto-Rechnung für mein Unternehmen?', answer: 'Ja, selbstverständlich. Wir stellen ordnungsgemäße B2B-Rechnungen mit ausgewiesener Mehrwertsteuer aus — ideal für Ihre Buchhaltung.' },
+        { question: 'Kann ich die Mengen kurzfristig ändern?', answer: 'Ja, Mengenänderungen sind bis 48 Stunden vor dem Event möglich. Bei kurzfristigen Änderungen kontaktieren Sie uns telefonisch oder per WhatsApp.' },
+        { question: 'Bieten Sie auch Branding-Optionen an?', answer: 'Ja, auf Wunsch gestalten wir individuelle Servietten, Tischkarten oder Menükarten mit Ihrem Firmenlogo — perfekt für den professionellen Auftritt am Messestand.' },
+        { question: 'Gibt es vegetarische und vegane Optionen?', answer: 'Ja, alle unsere Pakete sind flexibel anpassbar. Wir bieten eine große Auswahl an vegetarischen und veganen italienischen Gerichten.' },
+      ],
+    },
   },
   about: {
     title: 'STORIA CATERING - ITALIENISCHE KÜCHE FÜR MÜNCHEN',
