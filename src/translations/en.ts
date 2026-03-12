@@ -397,6 +397,33 @@ export const en = {
         { question: 'How many guests can you cater for a birthday?', answer: 'From 5 to 200+ guests — whether a small garden party or a large birthday celebration. For events with 50+ guests, we create customised quotes.' },
       ],
     },
+    partyservice: {
+      title: 'Party Service Munich | Order Italian Food – STORIA',
+      description: 'Italian party service in Munich: pizza, buffets, finger food & antipasti. Delivery or self-pickup. STORIA — from €8 p.p. Order now!',
+      faqTitle: 'Frequently Asked Questions About Party Service',
+      faq: [
+        { question: 'What is the difference between party service and catering?', answer: 'With party service you receive ready-made dishes for delivery or pickup — without staff. Catering additionally includes planning, setup and optional service staff.' },
+        { question: 'How much does party service cost per person?', answer: 'Finger food from approx. €8 p.p., pizza party from approx. €12 p.p., antipasti buffet from approx. €18 p.p. and complete package from approx. €25 p.p.' },
+        { question: 'Can I just order pizza?', answer: 'Yes, our pizza party is one of the most popular party service options: authentic Neapolitan stone-oven pizza in over 25 varieties.' },
+        { question: 'Is self-pickup available?', answer: 'Yes, you can pick up at any time from our restaurant at Karlstraße 47a — this saves delivery costs.' },
+        { question: 'How far in advance do I need to order?', answer: 'For small orders, 2–3 working days are sufficient. For larger events, we recommend 5–7 working days\' notice.' },
+        { question: 'Do you deliver on weekends?', answer: 'Yes, we deliver on Saturdays and Sundays too. Weekend orders should be placed by Thursday.' },
+        { question: 'Can I combine different dishes?', answer: 'Of course! Put together your desired combination of pizza, antipasti, finger food and hot dishes — completely flexible.' },
+      ],
+    },
+    lieferservice: {
+      title: 'Catering Delivery Service Munich | Pizza, Pasta & Buffets – STORIA',
+      description: 'Catering delivery service in Munich: pizza, pasta, finger food & buffets — freshly delivered. STORIA — Munich & surrounding areas. Order now!',
+      faqTitle: 'Frequently Asked Questions About Delivery Service',
+      faq: [
+        { question: 'What area do you deliver to?', answer: 'We deliver throughout Munich and the surrounding area, including Messe München/Riem, Grünwald, Pullach and other municipalities. Contact us for deliveries outside Munich.' },
+        { question: 'How much does delivery cost?', answer: 'Delivery costs depend on the distance. Within the Munich city area, we charge a flat rate. Self-pickup eliminates delivery costs.' },
+        { question: 'Is there a minimum order value?', answer: 'Yes, the minimum order value depends on the delivery zone and is listed in our online shop. A lower minimum applies for self-pickup.' },
+        { question: 'Can I also order via Lieferando or Wolt?', answer: 'Yes, for individual orders we are also available on Lieferando and Wolt. For catering orders from 5 people, we recommend our own shop.' },
+        { question: 'What are the delivery times?', answer: 'Catering orders are delivered at the agreed time. For short-notice orders, contact us by phone or WhatsApp.' },
+        { question: 'Is self-pickup available?', answer: 'Yes, self-pickup is available at any time from our restaurant at Karlstraße 47a, Munich Maxvorstadt.' },
+      ],
+    },
   },
   about: {
     title: 'STORIA CATERING - ITALIAN CUISINE FOR MUNICH',

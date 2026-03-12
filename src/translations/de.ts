@@ -397,6 +397,33 @@ export const de = {
         { question: 'Wie viele Gäste können Sie für einen Geburtstag bewirten?', answer: 'Von 5 bis 200+ Gästen — ob kleine Gartenparty oder große Geburtstagsfeier. Für Events über 50 Gäste erstellen wir individuelle Angebote.' },
       ],
     },
+    partyservice: {
+      title: 'Partyservice München | Italienisch bestellen – STORIA',
+      description: 'Italienischer Partyservice in München: Pizza, Buffets, Fingerfood & Antipasti. Lieferung oder Selbstabholung. STORIA — ab 8 € p.P. Jetzt bestellen!',
+      faqTitle: 'Häufige Fragen zum Partyservice',
+      faq: [
+        { question: 'Was ist der Unterschied zwischen Partyservice und Catering?', answer: 'Beim Partyservice erhalten Sie fertige Gerichte zur Lieferung oder Abholung — ohne Personal. Catering umfasst zusätzlich Planung, Aufbau und optional Service-Personal.' },
+        { question: 'Was kostet der Partyservice pro Person?', answer: 'Fingerfood ab ca. 8 € p.P., Pizza-Party ab ca. 12 € p.P., Antipasti-Buffet ab ca. 18 € p.P. und Komplett-Paket ab ca. 25 € p.P.' },
+        { question: 'Kann ich auch nur Pizza bestellen?', answer: 'Ja, unsere Pizza-Party ist einer der beliebtesten Partyservice-Optionen: Echte neapolitanische Steinofen-Pizza in über 25 Sorten.' },
+        { question: 'Ist Selbstabholung möglich?', answer: 'Ja, Sie können jederzeit in unserem Restaurant in der Karlstraße 47a abholen — das spart Lieferkosten.' },
+        { question: 'Wie weit im Voraus muss ich bestellen?', answer: 'Für kleine Bestellungen reichen 2–3 Werktage. Für größere Events empfehlen wir 5–7 Werktage Vorlauf.' },
+        { question: 'Liefern Sie auch am Wochenende?', answer: 'Ja, wir liefern auch samstags und sonntags. Bestellungen für das Wochenende sollten bis Donnerstag eingehen.' },
+        { question: 'Kann ich verschiedene Gerichte kombinieren?', answer: 'Natürlich! Stellen Sie Ihre Wunsch-Kombination aus Pizza, Antipasti, Fingerfood und warmen Gerichten zusammen — ganz flexibel.' },
+      ],
+    },
+    lieferservice: {
+      title: 'Catering Lieferservice München | Pizza, Pasta & Buffets – STORIA',
+      description: 'Catering Lieferservice in München: Pizza, Pasta, Fingerfood & Buffets — frisch geliefert. STORIA — München & Umland. Jetzt bestellen!',
+      faqTitle: 'Häufige Fragen zum Lieferservice',
+      faq: [
+        { question: 'In welchem Gebiet liefern Sie?', answer: 'Wir liefern in ganz München und Umgebung, einschließlich Messe München/Riem, Grünwald, Pullach und weitere Gemeinden. Kontaktieren Sie uns für Lieferungen außerhalb Münchens.' },
+        { question: 'Was kostet die Lieferung?', answer: 'Die Lieferkosten hängen von der Entfernung ab. Im Münchner Stadtgebiet berechnen wir eine Pauschale. Bei Selbstabholung entfallen die Kosten.' },
+        { question: 'Gibt es einen Mindestbestellwert?', answer: 'Ja, der Mindestbestellwert ist abhängig von der Lieferzone und in unserem Online-Shop hinterlegt. Für Selbstabholung gilt ein niedrigerer Mindestbestellwert.' },
+        { question: 'Kann ich auch über Lieferando oder Wolt bestellen?', answer: 'Ja, für Einzelbestellungen sind wir auch auf Lieferando und Wolt verfügbar. Für Catering-Bestellungen ab 5 Personen empfehlen wir unseren eigenen Shop.' },
+        { question: 'Wie sind die Lieferzeiten?', answer: 'Catering-Bestellungen werden zum vereinbarten Termin geliefert. Für kurzfristige Bestellungen kontaktieren Sie uns telefonisch oder per WhatsApp.' },
+        { question: 'Ist Selbstabholung möglich?', answer: 'Ja, Selbstabholung ist jederzeit möglich in unserem Restaurant in der Karlstraße 47a, München Maxvorstadt.' },
+      ],
+    },
   },
   about: {
     title: 'STORIA CATERING - ITALIENISCHE KÜCHE FÜR MÜNCHEN',
