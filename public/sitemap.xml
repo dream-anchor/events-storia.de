@@ -290,6 +290,42 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://events-storia.de/catering-preise-muenchen"/>
   </url>
   <url>
+    <loc>https://events-storia.de/hochzeit-catering-muenchen</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="de" href="https://events-storia.de/hochzeit-catering-muenchen"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://events-storia.de/en/wedding-catering-munich"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://events-storia.de/hochzeit-catering-muenchen"/>
+  </url>
+  <url>
+    <loc>https://events-storia.de/en/wedding-catering-munich</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="de" href="https://events-storia.de/hochzeit-catering-muenchen"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://events-storia.de/en/wedding-catering-munich"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://events-storia.de/hochzeit-catering-muenchen"/>
+  </url>
+  <url>
+    <loc>https://events-storia.de/geburtstag-catering-muenchen</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="de" href="https://events-storia.de/geburtstag-catering-muenchen"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://events-storia.de/en/birthday-catering-munich"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://events-storia.de/geburtstag-catering-muenchen"/>
+  </url>
+  <url>
+    <loc>https://events-storia.de/en/birthday-catering-munich</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="de" href="https://events-storia.de/geburtstag-catering-muenchen"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://events-storia.de/en/birthday-catering-munich"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://events-storia.de/geburtstag-catering-muenchen"/>
+  </url>
+  <url>
     <loc>https://events-storia.de/impressum</loc>
     <lastmod>2026-03-12</lastmod>
     <changefreq>yearly</changefreq>

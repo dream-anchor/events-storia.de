@@ -26,6 +26,8 @@ export type RouteKey =
   | 'seo.bueroCatering'
   | 'seo.fingerfoodCatering'
   | 'seo.cateringPreise'
+  | 'seo.hochzeitCatering'
+  | 'seo.geburtstagCatering'
   | 'legal.imprint'
   | 'legal.privacy'
   | 'legal.cookies'
@@ -73,6 +75,8 @@ export const ROUTES: RouteConfig[] = [
   { key: 'seo.bueroCatering', de: '/buero-catering-muenchen', en: '/office-catering-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
   { key: 'seo.fingerfoodCatering', de: '/fingerfood-catering-muenchen', en: '/fingerfood-catering-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
   { key: 'seo.cateringPreise', de: '/catering-preise-muenchen', en: '/catering-prices-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
+  { key: 'seo.hochzeitCatering', de: '/hochzeit-catering-muenchen', en: '/wedding-catering-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
+  { key: 'seo.geburtstagCatering', de: '/geburtstag-catering-muenchen', en: '/birthday-catering-munich', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
 
   // Checkout & Account (no prerender — dynamic/auth)
   { key: 'checkout', de: '/checkout', en: '/checkout', languages: ['de', 'en'], prerender: false },
