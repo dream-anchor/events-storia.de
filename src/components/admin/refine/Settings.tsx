@@ -95,7 +95,7 @@ function SignatureEditor() {
   const [signature, setSignature] = useState('');
   const [loading, setLoading] = useState(true);
   const [signatureId, setSignatureId] = useState<string | null>(null);
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const signatureIdRef = useRef<string | null>(null);
 
   useEffect(() => {
