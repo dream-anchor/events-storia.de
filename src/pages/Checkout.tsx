@@ -225,7 +225,7 @@ const Checkout = () => {
   const [orderNumber, setOrderNumber] = useState('');
   const [deliveryCalc, setDeliveryCalc] = useState<DeliveryCalculation | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
-  const [addressDebounce, setAddressDebounce] = useState<NodeJS.Timeout | null>(null);
+  const [addressDebounce, setAddressDebounce] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [dateTimeWarning, setDateTimeWarning] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'billie'>('stripe');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);

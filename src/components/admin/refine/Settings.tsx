@@ -95,7 +95,7 @@ function SignatureEditor() {
   const [signature, setSignature] = useState('');
   const [loading, setLoading] = useState(true);
   const [signatureId, setSignatureId] = useState<string | null>(null);
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const signatureIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -798,7 +798,7 @@ export const Settings = () => {
     enableEmailNotifications: true,
   };
   const [businessData, setBusinessData] = useState<BusinessData>(businessDataDefaults);
-  const businessSaveRef = useRef<NodeJS.Timeout | null>(null);
+  const businessSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Business Data aus Supabase laden
   useEffect(() => {
