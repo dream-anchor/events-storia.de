@@ -111,7 +111,7 @@ export const LexOfficeInvoicesList = ({ mode = 'invoices' }: LexOfficeInvoicesLi
   };
 
   const fetchPdf = useCallback(async (voucher: LexOfficeVoucher): Promise<{ url: string; filename: string } | null> => {
-    const { data, error } = await supabase.functions.invoke('get-lexoffice-document-by-id', {
+    const { data, error } = await supabase.functions.invoke('get-lexoffice-document', {
       body: { voucherId: voucher.id, voucherType: voucher.voucherType },
     });
 
