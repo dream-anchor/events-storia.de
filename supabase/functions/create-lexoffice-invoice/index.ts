@@ -280,7 +280,7 @@ serve(async (req) => {
           street: body.billingAddress.street || '',
           zip: body.billingAddress.zip || '',
           city: body.billingAddress.city || '',
-          countryCode: 'DE'
+          countryCode: mapCountryCode(body.billingAddress?.country)
         }]
       },
       emailAddresses: {
