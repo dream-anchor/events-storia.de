@@ -237,9 +237,13 @@ export const LexOfficeInvoicesList = ({ mode = 'invoices' }: LexOfficeInvoicesLi
     {
       accessorKey: "voucherStatus",
       header: "Status",
-      cell: ({ row }) => (
-        <InvoiceStatusBadge status={row.original.voucherStatus} />
-      ),
+      cell: ({ row }) => {
+        // Override with local DB payment_status for Maestro invoices
+        const effectiveStatus = row.original.localPaymentStatus === 'paid' 
+          ? 'paid' 
+          : row.original.voucherStatus;
+        return <InvoiceStatusBadge status={effectiveStatus} />;
+      },
     },
     {
       id: "actions",
