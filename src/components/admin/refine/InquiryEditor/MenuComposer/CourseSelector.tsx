@@ -45,7 +45,7 @@ export const CourseSelector = ({
       ? courseConfig.allowed_sources[0] 
       : 'all'
   );
-  const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
+  const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keyboard shortcut for global search
   useEffect(() => {

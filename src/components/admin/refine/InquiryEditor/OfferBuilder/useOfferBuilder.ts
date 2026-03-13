@@ -81,7 +81,7 @@ export function useOfferBuilder({
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const isInitialLoad = useRef(true);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedJsonRef = useRef<string>('');
 
   // Refs für Props die im Load-Effect gebraucht werden (kein Re-Trigger)

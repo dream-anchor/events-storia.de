@@ -798,7 +798,7 @@ export const Settings = () => {
     enableEmailNotifications: true,
   };
   const [businessData, setBusinessData] = useState<BusinessData>(businessDataDefaults);
-  const businessSaveRef = useRef<NodeJS.Timeout | null>(null);
+  const businessSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Business Data aus Supabase laden
   useEffect(() => {
