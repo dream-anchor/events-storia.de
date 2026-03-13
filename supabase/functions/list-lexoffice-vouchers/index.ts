@@ -27,6 +27,7 @@ interface LexOfficeVoucher {
   // Link to local order if exists
   localOrderId?: string;
   localOrderNumber?: string;
+  localPaymentStatus?: string;
 }
 
 interface VoucherListResponse {
