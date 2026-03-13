@@ -173,13 +173,13 @@ serve(async (req) => {
 
     const [{ data: orders }, { data: inquiries }, { data: bookings }] = await Promise.all([
       supabaseAdmin.from('catering_orders')
-        .select('id, order_number, lexoffice_invoice_id')
+        .select('id, order_number, lexoffice_invoice_id, payment_status')
         .not('lexoffice_invoice_id', 'is', null),
       supabaseAdmin.from('event_inquiries')
         .select('id, lexoffice_invoice_id')
         .not('lexoffice_invoice_id', 'is', null),
       supabaseAdmin.from('event_bookings')
-        .select('id, lexoffice_invoice_id')
+        .select('id, lexoffice_invoice_id, payment_status')
         .not('lexoffice_invoice_id', 'is', null),
     ]);
 
