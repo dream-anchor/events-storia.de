@@ -134,6 +134,7 @@ serve(async (req) => {
     
     // ============================================================
     // SECURITY: Verify order exists and email matches
+    // Check both catering_orders AND event_bookings tables
     // ============================================================
     if (!body.orderId) {
       logStep('Security: Missing orderId in request');
@@ -143,14 +144,43 @@ serve(async (req) => {
       );
     }
     
-    const { data: existingOrder, error: orderLookupError } = await supabase
-      .from('catering_orders')
-      .select('id, order_number, customer_email, total_amount')
-      .eq('id', body.orderId)
-      .maybeSingle();
+    // Detect if this is an event booking
+    const isEventBooking = (body.orderNumber || '').startsWith('EVT-BUCHUNG') || 
+                           (body as any).isEventBooking === true;
     
-    if (orderLookupError || !existingOrder) {
-      logStep('Security: Order not found in database', { orderId: body.orderId });
+    let existingOrder: { id: string; order_number?: string; booking_number?: string; customer_email: string; total_amount: number } | null = null;
+    
+    if (isEventBooking) {
+      const { data: eventOrder, error: eventLookupError } = await supabase
+        .from('event_bookings')
+        .select('id, booking_number, customer_email, total_amount')
+        .eq('id', body.orderId)
+        .maybeSingle();
+      
+      if (!eventLookupError && eventOrder) {
+        existingOrder = {
+          id: eventOrder.id,
+          order_number: eventOrder.booking_number,
+          customer_email: eventOrder.customer_email,
+          total_amount: eventOrder.total_amount || 0,
+        };
+      }
+    }
+    
+    if (!existingOrder) {
+      const { data: cateringOrder, error: orderLookupError } = await supabase
+        .from('catering_orders')
+        .select('id, order_number, customer_email, total_amount')
+        .eq('id', body.orderId)
+        .maybeSingle();
+      
+      if (!orderLookupError && cateringOrder) {
+        existingOrder = cateringOrder;
+      }
+    }
+    
+    if (!existingOrder) {
+      logStep('Security: Order not found in either table', { orderId: body.orderId });
       return new Response(
         JSON.stringify({ error: 'Order not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -179,10 +209,6 @@ serve(async (req) => {
     // Generate new-format order number if the old format is used
     let orderNumber = body.orderNumber;
     const isOldFormat = orderNumber.startsWith('STO-');
-    
-    // Detect if this is an event booking based on order number prefix
-    const isEventBooking = orderNumber.startsWith('EVT-BUCHUNG') || 
-                           (body as any).isEventBooking === true;
     
     if (isOldFormat) {
       // Generate new order number with correct format
@@ -533,15 +559,17 @@ serve(async (req) => {
         updateData.payment_status = 'paid';
       }
 
+      // Update the correct table based on order type
+      const tableName = isEventBooking ? 'event_bookings' : 'catering_orders';
       const { error: updateError } = await supabase
-        .from('catering_orders')
+        .from(tableName)
         .update(updateData)
         .eq('id', body.orderId);
 
       if (updateError) {
-        logStep('Failed to update order with Lexoffice IDs', { error: updateError });
+        logStep('Failed to update order with Lexoffice IDs', { error: updateError, table: tableName });
       } else {
-        logStep('Order updated with Lexoffice IDs');
+        logStep('Order updated with Lexoffice IDs', { table: tableName });
       }
     }
 

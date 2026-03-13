@@ -530,120 +530,18 @@ const Checkout = () => {
     if (paymentStatus === 'success' && orderNum) {
       const handlePaymentSuccess = async () => {
         try {
+          // Clean up cached order data from localStorage
           const cachedOrderKey = `stripe_order_${orderNum}`;
-          const cachedOrder = localStorage.getItem(cachedOrderKey);
+          localStorage.removeItem(cachedOrderKey);
           
-          let orderPayload;
-          let isEventOrder = false;
-          let tableToUpdate: 'catering_orders' | 'event_bookings' = 'catering_orders';
+          // NOTE: Payment status update, LexOffice invoice creation, and 
+          // notification emails are handled server-side by the Stripe webhook
+          // (handle-stripe-webhook). No client-side DB updates needed.
+          // The webhook uses the service role key and bypasses RLS.
           
-          if (cachedOrder) {
-            orderPayload = JSON.parse(cachedOrder);
-            isEventOrder = orderPayload.isEventBooking === true;
-            tableToUpdate = isEventOrder ? 'event_bookings' : 'catering_orders';
-            localStorage.removeItem(cachedOrderKey);
-          } else {
-            const { data: cateringData, error: cateringError } = await supabase
-              .from('catering_orders')
-              .select('*')
-              .eq('order_number', orderNum)
-              .single();
-            
-            if (!cateringError && cateringData) {
-              tableToUpdate = 'catering_orders';
-              orderPayload = {
-                orderId: cateringData.id,
-                orderNumber: orderNum,
-                customerName: cateringData.customer_name,
-                customerEmail: cateringData.customer_email,
-                customerPhone: cateringData.customer_phone,
-                companyName: cateringData.company_name || undefined,
-                billingAddress: {
-                  name: cateringData.billing_name || cateringData.customer_name,
-                  street: cateringData.billing_street || '',
-                  zip: cateringData.billing_zip || '',
-                  city: cateringData.billing_city || '',
-                  country: cateringData.billing_country || 'Deutschland'
-                },
-                items: cateringData.items as { id: string; name: string; name_en?: string; quantity: number; price: number }[],
-                subtotal: (cateringData.total_amount || 0) - (cateringData.delivery_cost || 0) - (cateringData.minimum_order_surcharge || 0),
-                deliveryCost: cateringData.delivery_cost || 0,
-                minimumOrderSurcharge: cateringData.minimum_order_surcharge || 0,
-                distanceKm: cateringData.calculated_distance_km || undefined,
-                grandTotal: cateringData.total_amount,
-                isPickup: cateringData.is_pickup || false,
-                paymentMethod: cateringData.payment_method || 'stripe',
-                desiredDate: cateringData.desired_date || undefined,
-                desiredTime: cateringData.desired_time || undefined,
-                deliveryAddress: !cateringData.is_pickup 
-                  ? `${cateringData.delivery_street || ''}, ${cateringData.delivery_zip || ''} ${cateringData.delivery_city || ''}`.trim() 
-                  : undefined,
-                deliveryFloor: cateringData.delivery_floor || undefined,
-                hasElevator: cateringData.has_elevator || false,
-                notes: cateringData.notes || undefined,
-                isEventBooking: false
-              };
-            } else {
-              const { data: eventData, error: eventError } = await supabase
-                .from('event_bookings')
-                .select('*')
-                .eq('booking_number', orderNum)
-                .single();
-              
-              if (!eventError && eventData) {
-                isEventOrder = true;
-                tableToUpdate = 'event_bookings';
-                orderPayload = {
-                  orderId: eventData.id,
-                  orderNumber: orderNum,
-                  customerName: eventData.customer_name,
-                  customerEmail: eventData.customer_email,
-                  customerPhone: eventData.phone || '',
-                  companyName: eventData.company_name || undefined,
-                  grandTotal: eventData.total_amount,
-                  paymentMethod: 'stripe',
-                  desiredDate: eventData.event_date || undefined,
-                  desiredTime: eventData.event_time || undefined,
-                  notes: eventData.internal_notes || undefined,
-                  isEventBooking: true,
-                  guestCount: eventData.guest_count,
-                  eventPackageId: eventData.package_id
-                };
-              }
-            }
-          }
-          
-          if (orderPayload) {
-            if (tableToUpdate === 'event_bookings') {
-              await supabase
-                .from('event_bookings')
-                .update({ payment_status: 'paid' })
-                .eq('booking_number', orderNum);
-            } else {
-              await supabase
-                .from('catering_orders')
-                .update({ payment_status: 'paid' })
-                .eq('order_number', orderNum);
-            }
-          }
-
-          if (orderPayload) {
-            // Rechnung erstellen
-            await supabase.functions.invoke('create-lexoffice-invoice', {
-              body: { ...orderPayload, documentType: 'invoice', isPaid: true }
-            });
-
-            // Jetzt Bestätigungsmail senden — erst nach erfolgreicher Zahlung
-            try {
-              await supabase.functions.invoke('send-order-notification', {
-                body: { ...orderPayload, paymentStatus: 'paid' }
-              });
-            } catch (notifErr) {
-              console.error('Post-payment notification error:', notifErr);
-            }
-          }
+          console.log(`[Checkout] Payment success redirect for order ${orderNum} — webhook handles processing`);
         } catch (err) {
-          console.error('Error creating invoice for paid order:', err);
+          console.error('Error in payment success handler:', err);
         }
         
         const successDataKey = `stripe_success_${orderNum}`;

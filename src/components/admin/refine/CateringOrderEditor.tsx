@@ -16,12 +16,156 @@ import { supabase } from "@/integrations/supabase/client";
 import { 
   ArrowLeft, Loader2, Save, Phone, Mail, Building2, MapPin, 
   Calendar, Clock, CreditCard, Receipt, User, BadgeCheck, 
-  FileText, Truck, Package, Ban, RefreshCw, AlertCircle, Activity
+  FileText, Truck, Package, Ban, RefreshCw, AlertCircle, Activity,
+  ExternalLink, Download, Plus
 } from "lucide-react";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
 
 type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
+
+// ─── Invoice PDF Download Button ───
+const InvoicePdfButton = ({ 
+  lexofficeInvoiceId, 
+  documentType, 
+  variant = "outline", 
+  size = "sm",
+  label = "PDF herunterladen" 
+}: { 
+  lexofficeInvoiceId: string; 
+  documentType: string;
+  variant?: "outline" | "ghost" | "default";
+  size?: "sm" | "default";
+  label?: string;
+}) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleDownload = async () => {
+    setLoading(true);
+    try {
+      const voucherType = documentType === 'invoice' ? 'invoice' : 'quotation';
+      const { data, error } = await supabase.functions.invoke('get-lexoffice-document-by-id', {
+        body: { voucherId: lexofficeInvoiceId, voucherType },
+      });
+
+      if (error || data?.error) throw new Error(data?.error || 'Download failed');
+
+      const blob = new Blob(
+        [Uint8Array.from(atob(data.pdf), c => c.charCodeAt(0))],
+        { type: 'application/pdf' }
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename || `STORIA_Rechnung.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF download error:', err);
+      toast.error("PDF konnte nicht heruntergeladen werden");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button variant={variant} size={size} onClick={handleDownload} disabled={loading}>
+      {loading ? (
+        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+      ) : (
+        <Download className="h-4 w-4 mr-1" />
+      )}
+      {label}
+    </Button>
+  );
+};
+
+// ─── Create Invoice Button ───
+const CreateInvoiceButton = ({ 
+  order, 
+  onSuccess 
+}: { 
+  order: any; 
+  onSuccess: () => void;
+}) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleCreate = async () => {
+    setLoading(true);
+    try {
+      const items = Array.isArray(order.items) ? order.items : [];
+      const payload = {
+        orderId: order.id,
+        orderNumber: order.order_number,
+        customerName: order.customer_name,
+        customerEmail: order.customer_email,
+        customerPhone: order.customer_phone || '',
+        companyName: order.company_name || undefined,
+        billingAddress: {
+          name: order.billing_name || order.company_name || order.customer_name,
+          street: order.billing_street || '',
+          zip: order.billing_zip || '',
+          city: order.billing_city || '',
+          country: order.billing_country || 'Deutschland',
+        },
+        items: items.map((item: { id: string; name: string; quantity: number; price: number }) => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        subtotal: (order.total_amount || 0) - (order.delivery_cost || 0) - (order.minimum_order_surcharge || 0),
+        deliveryCost: order.delivery_cost || 0,
+        minimumOrderSurcharge: order.minimum_order_surcharge || 0,
+        grandTotal: order.total_amount || 0,
+        isPickup: order.is_pickup || false,
+        documentType: order.payment_status === 'paid' ? 'invoice' : 'quotation',
+        isPaid: order.payment_status === 'paid',
+        desiredDate: order.desired_date || undefined,
+        desiredTime: order.desired_time || undefined,
+        deliveryAddress: !order.is_pickup && order.delivery_street
+          ? `${order.delivery_street}, ${order.delivery_zip || ''} ${order.delivery_city || ''}`.trim()
+          : undefined,
+        notes: order.notes || undefined,
+        paymentMethod: order.payment_method || 'stripe',
+        isEventBooking: false,
+      };
+
+      const { data, error } = await supabase.functions.invoke('create-lexoffice-invoice', {
+        body: payload,
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (data?.skipped) {
+        toast.info(data.reason || 'LexOffice nicht konfiguriert');
+      } else if (data?.success || data?.documentId) {
+        const docType = data.documentType === 'invoice' ? 'Rechnung' : 'Angebot';
+        toast.success(`${docType} erfolgreich erstellt`);
+        onSuccess();
+      }
+    } catch (err: any) {
+      console.error('Invoice creation error:', err);
+      toast.error(err.message || 'Fehler beim Erstellen der Rechnung');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const docLabel = order.payment_status === 'paid' ? 'Rechnung' : 'Angebot';
+
+  return (
+    <Button variant="default" size="sm" onClick={handleCreate} disabled={loading}>
+      {loading ? (
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+      ) : (
+        <Plus className="h-4 w-4 mr-2" />
+      )}
+      {docLabel} erstellen
+    </Button>
+  );
+};
 
 const statusConfig: Record<OrderStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Neu", variant: "default" },
@@ -462,36 +606,68 @@ export const CateringOrderEditor = () => {
                   </CardContent>
                 </Card>
 
-                {/* Payment */}
+                {/* Payment & Invoice */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <CreditCard className="h-4 w-4" />
-                      Zahlung
+                      Zahlung & Rechnung
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm">
-                      <span className="text-muted-foreground">Methode:</span>{" "}
-                      {order.payment_method === 'stripe' ? 'Sofortzahlung (Stripe)' : 'Rechnung'}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Status:</span>
-                      <Badge variant={order.payment_status === 'paid' ? 'default' : 'secondary'}>
-                        {order.payment_status === 'paid' ? 'Bezahlt' : 'Ausstehend'}
-                      </Badge>
-                    </div>
-                    {order.lexoffice_invoice_id && (
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
                       <p className="text-sm">
-                        <span className="text-muted-foreground">LexOffice:</span>{" "}
-                        {order.lexoffice_document_type === 'invoice' ? 'Rechnung' : 'Angebot'}
+                        <span className="text-muted-foreground">Methode:</span>{" "}
+                        {order.payment_method === 'stripe' ? 'Sofortzahlung (Stripe)' : 'Rechnung'}
                       </p>
-                    )}
-                    {order.stripe_payment_intent_id && (
-                      <p className="text-xs text-muted-foreground font-mono">
-                        PI: {order.stripe_payment_intent_id.slice(0, 20)}...
-                      </p>
-                    )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Status:</span>
+                        <Badge variant={order.payment_status === 'paid' ? 'default' : 'secondary'}>
+                          {order.payment_status === 'paid' ? 'Bezahlt' : 'Ausstehend'}
+                        </Badge>
+                      </div>
+                      {order.stripe_payment_intent_id && (
+                        <p className="text-xs text-muted-foreground font-mono">
+                          PI: {order.stripe_payment_intent_id.slice(0, 20)}...
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Invoice section */}
+                    <div className="border-t pt-4 space-y-3">
+                      {order.lexoffice_invoice_id ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Receipt className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">
+                              {order.lexoffice_document_type === 'invoice' ? 'Rechnung' : 'Angebot'} erstellt
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            <InvoicePdfButton
+                              lexofficeInvoiceId={order.lexoffice_invoice_id}
+                              documentType={order.lexoffice_document_type || 'invoice'}
+                              variant="outline"
+                              size="sm"
+                              label="PDF herunterladen"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => window.open(`https://app.lexoffice.de/permalink/${order.lexoffice_invoice_id}`, '_blank')}
+                            >
+                              <ExternalLink className="h-4 w-4 mr-1" />
+                              LexOffice
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <CreateInvoiceButton
+                          order={order}
+                          onSuccess={() => orderQuery.query.refetch()}
+                        />
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
 
