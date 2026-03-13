@@ -81,58 +81,82 @@ serve(async (req) => {
 
     logStep('Fetching voucher list', { voucherType, voucherStatus, page, size });
 
-    // Build LexOffice API URL with query params
-    const params = new URLSearchParams();
-
     // Frontend-Werte auf LexOffice voucherType-Werte mappen
     const typeMap: Record<string, string> = {
       invoice: 'salesinvoice',
       creditnote: 'salescreditnote',
       quotation: 'quotation',
     };
+
+    // LexOffice API unterstützt KEINE komma-separierten voucherType-Parameter.
+    // Bei 'all' müssen wir separate Calls pro Typ machen und mergen.
+    const typesToFetch: string[] = [];
     if (voucherType && voucherType !== 'all' && typeMap[voucherType]) {
-      params.append('voucherType', typeMap[voucherType]);
+      typesToFetch.push(typeMap[voucherType]);
     } else {
-      // Alle relevanten Voucher-Typen
-      params.append('voucherType', 'salesinvoice,salescreditnote,quotation');
+      // 'all' = Rechnungen + Gutschriften (keine Angebote)
+      typesToFetch.push('salesinvoice', 'salescreditnote');
     }
 
-    // Status filter (Pflichtparameter — 'overdue' nicht mit anderen kombinierbar)
-    if (voucherStatus) {
-      params.append('voucherStatus', voucherStatus);
-    } else {
-      params.append('voucherStatus', 'draft,open,paid,paidoff,voided,accepted,rejected');
-    }
+    // Status filter (Pflichtparameter)
+    const statusParam = voucherStatus
+      ? voucherStatus
+      : 'draft,open,paid,paidoff,voided,accepted,rejected';
 
-    // Pagination
-    params.append('page', page.toString());
-    params.append('size', size.toString());
+    // Helper: einen einzelnen LexOffice API Call machen
+    const fetchVoucherType = async (lexType: string) => {
+      const params = new URLSearchParams();
+      params.append('voucherType', lexType);
+      params.append('voucherStatus', statusParam);
+      params.append('page', page.toString());
+      params.append('size', size.toString());
+      if (createdDateFrom) params.append('createdDateFrom', createdDateFrom);
+      if (createdDateTo) params.append('createdDateTo', createdDateTo);
 
-    // Date filters
-    if (createdDateFrom) {
-      params.append('createdDateFrom', createdDateFrom);
-    }
-    if (createdDateTo) {
-      params.append('createdDateTo', createdDateTo);
-    }
+      const url = `https://api.lexoffice.io/v1/voucherlist?${params.toString()}`;
+      logStep('Calling LexOffice API', { url, lexType });
 
-    const lexofficeUrl = `https://api.lexoffice.io/v1/voucherlist?${params.toString()}`;
-    logStep('Calling LexOffice API', { url: lexofficeUrl });
+      const resp = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${lexofficeApiKey}`,
+          'Accept': 'application/json'
+        }
+      });
 
-    const response = await fetch(lexofficeUrl, {
-      headers: {
-        'Authorization': `Bearer ${lexofficeApiKey}`,
-        'Accept': 'application/json'
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        logStep('LexOffice API error', { status: resp.status, error: errorText, lexType });
+        return { content: [], totalElements: 0, totalPages: 0, number: 0, error: `${resp.status}: ${errorText}` };
       }
+
+      return await resp.json();
+    };
+
+    // Alle Typen parallel abfragen
+    const results = await Promise.all(typesToFetch.map(fetchVoucherType));
+
+    // Ergebnisse mergen
+    const allContent: any[] = [];
+    let totalElements = 0;
+    let firstError: string | undefined;
+
+    for (const result of results) {
+      if (result.error && !firstError) firstError = result.error;
+      if (result.content) allContent.push(...result.content);
+      totalElements += (result.totalElements || 0);
+    }
+
+    // Nach Datum sortieren (neueste zuerst)
+    allContent.sort((a: any, b: any) => {
+      const dateA = a.voucherDate || '';
+      const dateB = b.voucherDate || '';
+      return dateB.localeCompare(dateA);
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      logStep('LexOffice API error', { status: response.status, error: errorText });
+    if (firstError && allContent.length === 0) {
       return new Response(
         JSON.stringify({
-          error: `LexOffice API error: ${response.status}`,
-          details: errorText,
+          error: `LexOffice API error: ${firstError}`,
           content: [],
           totalPages: 0,
           totalElements: 0,
@@ -142,10 +166,15 @@ serve(async (req) => {
       );
     }
 
-    const lexofficeData = await response.json();
-    logStep('LexOffice response', {
+    const lexofficeData = {
+      content: allContent,
+      totalElements,
+      totalPages: Math.ceil(totalElements / size),
+      number: page,
+    };
+    logStep('LexOffice merged response', {
       totalElements: lexofficeData.totalElements,
-      totalPages: lexofficeData.totalPages,
+      typesQueried: typesToFetch.length,
       contentLength: lexofficeData.content?.length
     });
 
