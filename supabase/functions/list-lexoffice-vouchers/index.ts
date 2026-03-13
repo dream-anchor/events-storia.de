@@ -41,6 +41,8 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[LEXOFFICE-LIST] ${step}${detailsStr}`);
 };
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   // Handle CORS preflight
@@ -150,16 +152,117 @@ serve(async (req) => {
       return { content: allItems, totalElements };
     };
 
-    // Typen SEQUENZIELL abfragen (LexOffice Rate Limit: 2 req/s)
+    // Typen SEQUENZIELL abfragen mit Delay (LexOffice Rate Limit: 2 req/s)
     const allContent: any[] = [];
     let totalElements = 0;
     let firstError: string | undefined;
 
-    for (const lexType of typesToFetch) {
-      const result = await fetchAllPagesForType(lexType);
+    for (let i = 0; i < typesToFetch.length; i++) {
+      if (i > 0) await delay(2000); // 2s Pause zwischen Typen
+      const result = await fetchAllPagesForType(typesToFetch[i]);
       if (result.error && !firstError) firstError = result.error;
       allContent.push(...result.content);
       totalElements += result.totalElements;
+    }
+
+    // ── DB-Daten laden (parallel zur Verarbeitung) ──
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    const [{ data: orders }, { data: inquiries }, { data: bookings }] = await Promise.all([
+      supabaseAdmin.from('catering_orders')
+        .select('id, order_number, lexoffice_invoice_id')
+        .not('lexoffice_invoice_id', 'is', null),
+      supabaseAdmin.from('event_inquiries')
+        .select('id, lexoffice_invoice_id')
+        .not('lexoffice_invoice_id', 'is', null),
+      supabaseAdmin.from('event_bookings')
+        .select('id, lexoffice_invoice_id')
+        .not('lexoffice_invoice_id', 'is', null),
+    ]);
+
+    // Map: lexoffice_invoice_id → lokale Bestellung
+    const lexofficeIdToLocal = new Map<string, { id: string; orderNumber?: string; type: 'order' | 'inquiry' | 'booking' }>();
+
+    orders?.forEach(order => {
+      if (order.lexoffice_invoice_id) {
+        lexofficeIdToLocal.set(order.lexoffice_invoice_id, {
+          id: order.id, orderNumber: order.order_number, type: 'order'
+        });
+      }
+    });
+    inquiries?.forEach(inquiry => {
+      if (inquiry.lexoffice_invoice_id) {
+        lexofficeIdToLocal.set(inquiry.lexoffice_invoice_id, {
+          id: inquiry.id, type: 'inquiry'
+        });
+      }
+    });
+    bookings?.forEach(booking => {
+      if (booking.lexoffice_invoice_id) {
+        lexofficeIdToLocal.set(booking.lexoffice_invoice_id, {
+          id: booking.id, type: 'booking'
+        });
+      }
+    });
+
+    logStep('DB matching data', {
+      ordersWithLexId: orders?.length || 0,
+      inquiriesWithLexId: inquiries?.length || 0,
+      bookingsWithLexId: bookings?.length || 0,
+      dbLexOfficeIds: Array.from(lexofficeIdToLocal.keys()),
+    });
+
+    // ── Fehlende DB-Rechnungen direkt bei LexOffice abrufen ──
+    const voucherlistIds = new Set(allContent.map((item: any) => item.id));
+    const missingIds = Array.from(lexofficeIdToLocal.keys()).filter(id => !voucherlistIds.has(id));
+
+    if (missingIds.length > 0) {
+      logStep('Fetching missing invoices directly', { count: missingIds.length, ids: missingIds });
+
+      for (let i = 0; i < missingIds.length; i++) {
+        if (i > 0 || allContent.length > 0) await delay(500); // kurzer Delay pro Call
+        const lexId = missingIds[i];
+        try {
+          const resp = await fetch(`https://api.lexoffice.io/v1/invoices/${lexId}`, {
+            headers: {
+              'Authorization': `Bearer ${lexofficeApiKey}`,
+              'Accept': 'application/json'
+            }
+          });
+
+          if (!resp.ok) {
+            const errText = await resp.text();
+            logStep('Direct invoice fetch failed', { lexId, status: resp.status, error: errText });
+            continue;
+          }
+
+          const invoice = await resp.json();
+          // In voucherlist-Format konvertieren
+          const totalAmount = invoice.totalPrice?.totalGrossAmount || 0;
+          const contactName = invoice.address?.name || 'Unbekannt';
+          const contactId = invoice.address?.contactId;
+
+          allContent.push({
+            id: invoice.id,
+            voucherNumber: invoice.voucherNumber || '-',
+            voucherDate: invoice.voucherDate,
+            voucherType: 'salesinvoice',
+            voucherStatus: invoice.voucherStatus || 'open',
+            totalAmount,
+            currency: invoice.totalPrice?.currency || 'EUR',
+            contactName,
+            contactId,
+          });
+          totalElements++;
+
+          logStep('Direct invoice fetched', { lexId, voucherNumber: invoice.voucherNumber, status: invoice.voucherStatus });
+        } catch (err) {
+          logStep('Direct invoice fetch error', { lexId, error: String(err) });
+        }
+      }
     }
 
     // Nach Datum sortieren (neueste zuerst)
@@ -182,92 +285,9 @@ serve(async (req) => {
       );
     }
 
-    const lexofficeData = {
-      content: allContent,
-      totalElements,
-      totalPages: 1,
-      number: 0,
-    };
-
-    // Debug: Alle Voucher-IDs aus der API loggen
-    const apiVoucherIds = allContent.map((item: any) => item.id);
-    logStep('LexOffice merged response', {
-      totalElements,
-      typesQueried: typesToFetch.length,
-      contentLength: allContent.length,
-      sampleIds: apiVoucherIds.slice(0, 5),
-      containsTarget: apiVoucherIds.includes('6d192839-c077-4514-8645-c25d5f2248b9'),
-    });
-
-    // Get all lexoffice_invoice_ids from local database to match with vouchers
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-
-    // Fetch from catering_orders
-    const { data: orders } = await supabaseAdmin
-      .from('catering_orders')
-      .select('id, order_number, lexoffice_invoice_id')
-      .not('lexoffice_invoice_id', 'is', null);
-
-    // Fetch from event_inquiries (if they have lexoffice fields)
-    const { data: inquiries } = await supabaseAdmin
-      .from('event_inquiries')
-      .select('id, lexoffice_invoice_id')
-      .not('lexoffice_invoice_id', 'is', null);
-
-    // Fetch from event_bookings
-    const { data: bookings } = await supabaseAdmin
-      .from('event_bookings')
-      .select('id, lexoffice_invoice_id')
-      .not('lexoffice_invoice_id', 'is', null);
-
-    // Create a map for quick lookup
-    const lexofficeIdToLocal = new Map<string, { id: string; orderNumber?: string; type: 'order' | 'inquiry' | 'booking' }>();
-
-    orders?.forEach(order => {
-      if (order.lexoffice_invoice_id) {
-        lexofficeIdToLocal.set(order.lexoffice_invoice_id, {
-          id: order.id,
-          orderNumber: order.order_number,
-          type: 'order'
-        });
-      }
-    });
-
-    inquiries?.forEach(inquiry => {
-      if (inquiry.lexoffice_invoice_id) {
-        lexofficeIdToLocal.set(inquiry.lexoffice_invoice_id, {
-          id: inquiry.id,
-          type: 'inquiry'
-        });
-      }
-    });
-
-    bookings?.forEach(booking => {
-      if (booking.lexoffice_invoice_id) {
-        lexofficeIdToLocal.set(booking.lexoffice_invoice_id, {
-          id: booking.id,
-          type: 'booking'
-        });
-      }
-    });
-
-    // Debug: DB-seitige LexOffice-IDs loggen
-    const dbLexIds = Array.from(lexofficeIdToLocal.keys());
-    logStep('DB matching data', {
-      ordersWithLexId: orders?.length || 0,
-      inquiriesWithLexId: inquiries?.length || 0,
-      bookingsWithLexId: bookings?.length || 0,
-      dbLexOfficeIds: dbLexIds,
-      targetIdInDb: dbLexIds.includes('6d192839-c077-4514-8645-c25d5f2248b9'),
-    });
-
-    // Transform LexOffice vouchers to our format
-    const vouchers: LexOfficeVoucher[] = (lexofficeData.content || []).map((item: any) => {
+    // ── Vouchers transformieren ──
+    const vouchers: LexOfficeVoucher[] = allContent.map((item: any) => {
       const localMatch = lexofficeIdToLocal.get(item.id);
-
       return {
         id: item.id,
         voucherNumber: item.voucherNumber || '-',
@@ -285,14 +305,15 @@ serve(async (req) => {
 
     const result: VoucherListResponse = {
       content: vouchers,
-      totalPages: lexofficeData.totalPages || 0,
-      totalElements: lexofficeData.totalElements || 0,
-      currentPage: lexofficeData.number || page,
+      totalPages: 1,
+      totalElements: totalElements,
+      currentPage: 0,
     };
 
     logStep('Returning voucher list', {
       count: vouchers.length,
-      matchedLocal: vouchers.filter(v => v.localOrderId).length
+      matchedLocal: vouchers.filter(v => v.localOrderId).length,
+      directFetched: missingIds.length,
     });
 
     return new Response(
