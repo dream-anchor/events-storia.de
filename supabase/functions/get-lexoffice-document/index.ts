@@ -2,6 +2,36 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 3000;
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Fetch mit Retry bei Status 500 */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  label: string
+): Promise<Response> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const response = await fetch(url, options);
+
+    if (response.status !== 500 || attempt === MAX_RETRIES) {
+      if (response.status === 500) {
+        console.error(`[${label}] Alle ${MAX_RETRIES} Versuche fehlgeschlagen (500)`);
+      }
+      return response;
+    }
+
+    console.warn(`[${label}] Status 500, Versuch ${attempt}/${MAX_RETRIES} — warte ${RETRY_DELAY_MS}ms...`);
+    await sleep(RETRY_DELAY_MS);
+  }
+
+  throw new Error(`[${label}] Retry-Logik unerwartet beendet`);
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
@@ -82,10 +112,7 @@ serve(async (req) => {
         );
       }
 
-      // Check ownership (only for non-admin customer access)
       if (order.user_id !== user.id) {
-        // Allow admin/staff to bypass ownership check via RLS
-        // RLS already restricts the query, so if we got the order the user has access
         console.log(`Access granted via RLS for user ${user.id} on order ${order.id}`);
       }
 
@@ -109,23 +136,64 @@ serve(async (req) => {
       creditnote: 'credit-notes',
     };
     const endpoint = endpointMap[docType] || 'invoices';
-    const lexofficeUrl = `https://api.lexoffice.io/v1/${endpoint}/${lexofficeDocId}/document`;
 
-    console.log(`Fetching LexOffice document from: ${lexofficeUrl}`);
+    // ── 2-Step-Flow: document → documentFileId → files/{id} ──
 
-    const pdfResponse = await fetch(lexofficeUrl, {
-      headers: {
-        'Authorization': `Bearer ${lexofficeApiKey}`,
-        'Accept': 'application/pdf',
+    const renderUrl = `https://api.lexoffice.io/v1/${endpoint}/${lexofficeDocId}/document`;
+    console.log(`Step 1: Rendering document from: ${renderUrl}`);
+
+    // Step 1: Trigger document rendering → get documentFileId
+    const docResponse = await fetchWithRetry(
+      renderUrl,
+      {
+        headers: {
+          'Authorization': `Bearer ${lexofficeApiKey}`,
+          'Accept': 'application/json',
+        },
       },
-    });
+      `LexOffice /${endpoint}/document`
+    );
 
-    if (!pdfResponse.ok) {
-      const errorText = await pdfResponse.text();
-      console.error(`LexOffice API error ${pdfResponse.status}:`, errorText);
+    if (!docResponse.ok) {
+      const errorText = await docResponse.text();
+      console.error(`LexOffice /document error ${docResponse.status}:`, errorText);
       return new Response(
         JSON.stringify({ error: 'Document not available from LexOffice' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const docData = await docResponse.json();
+    const documentFileId = docData?.documentFileId;
+
+    if (!documentFileId) {
+      console.error('No documentFileId received:', JSON.stringify(docData));
+      return new Response(
+        JSON.stringify({ error: 'No documentFileId from LexOffice' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Step 2: Downloading PDF via /files/${documentFileId}`);
+
+    // Step 2: Download PDF binary via /files/{documentFileId}
+    const pdfResponse = await fetchWithRetry(
+      `https://api.lexoffice.io/v1/files/${documentFileId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${lexofficeApiKey}`,
+          'Accept': 'application/pdf',
+        },
+      },
+      'LexOffice /files'
+    );
+
+    if (!pdfResponse.ok) {
+      const errorText = await pdfResponse.text();
+      console.error(`LexOffice /files error ${pdfResponse.status}:`, errorText);
+      return new Response(
+        JSON.stringify({ error: 'PDF could not be downloaded from LexOffice' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -141,7 +209,6 @@ serve(async (req) => {
     // Generate filename
     let filename: string;
     if (orderNumber) {
-      // Order-based filename
       let docTypeLabel: string;
       if (orderNumber.startsWith('EVT-BUCHUNG')) {
         docTypeLabel = 'Bestellbestaetigung';
@@ -152,7 +219,6 @@ serve(async (req) => {
       }
       filename = `STORIA_${docTypeLabel}_${orderNumber}.pdf`;
     } else {
-      // Voucher-based filename
       const typeLabel = docType === 'invoice' ? 'Rechnung'
         : docType === 'quotation' ? 'Angebot'
         : docType === 'creditnote' ? 'Gutschrift'
