@@ -184,12 +184,12 @@ serve(async (req) => {
     ]);
 
     // Map: lexoffice_invoice_id → lokale Bestellung
-    const lexofficeIdToLocal = new Map<string, { id: string; orderNumber?: string; type: 'order' | 'inquiry' | 'booking' }>();
+    const lexofficeIdToLocal = new Map<string, { id: string; orderNumber?: string; type: 'order' | 'inquiry' | 'booking'; paymentStatus?: string }>();
 
     orders?.forEach(order => {
       if (order.lexoffice_invoice_id) {
         lexofficeIdToLocal.set(order.lexoffice_invoice_id, {
-          id: order.id, orderNumber: order.order_number, type: 'order'
+          id: order.id, orderNumber: order.order_number, type: 'order', paymentStatus: order.payment_status || undefined
         });
       }
     });
@@ -203,7 +203,7 @@ serve(async (req) => {
     bookings?.forEach(booking => {
       if (booking.lexoffice_invoice_id) {
         lexofficeIdToLocal.set(booking.lexoffice_invoice_id, {
-          id: booking.id, type: 'booking'
+          id: booking.id, type: 'booking', paymentStatus: booking.payment_status || undefined
         });
       }
     });
