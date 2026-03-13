@@ -44,7 +44,7 @@ const InvoicePdfButton = ({
     setLoading(true);
     try {
       const voucherType = documentType === 'invoice' ? 'invoice' : 'quotation';
-      const { data, error } = await supabase.functions.invoke('get-lexoffice-document-by-id', {
+      const { data, error } = await supabase.functions.invoke('get-lexoffice-document', {
         body: { voucherId: lexofficeInvoiceId, voucherType },
       });
 
