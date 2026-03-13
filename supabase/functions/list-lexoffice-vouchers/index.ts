@@ -301,6 +301,7 @@ serve(async (req) => {
         contactId: item.contactId,
         localOrderId: localMatch?.id,
         localOrderNumber: localMatch?.orderNumber,
+        localPaymentStatus: localMatch?.paymentStatus,
       };
     });
 
