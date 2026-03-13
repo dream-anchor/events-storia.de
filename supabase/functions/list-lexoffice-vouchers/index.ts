@@ -41,6 +41,8 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[LEXOFFICE-LIST] ${step}${detailsStr}`);
 };
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   // Handle CORS preflight
