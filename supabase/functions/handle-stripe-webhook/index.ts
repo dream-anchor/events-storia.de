@@ -176,6 +176,7 @@ async function handleCateringPayment(
   });
 
   // 5. Create LexOffice invoice (fire-and-forget, non-blocking)
+  let lexofficeDocumentId: string | null = null;
   const lexofficePayload = buildLexofficePayload(order, metadata);
   try {
     const lexResponse = await fetch(
@@ -192,10 +193,15 @@ async function handleCateringPayment(
 
     if (lexResponse.ok) {
       const lexResult = await lexResponse.json();
-      logStep("LexOffice invoice created", {
-        invoiceId: lexResult.documentId,
-        documentType: lexResult.documentType,
-      });
+      lexofficeDocumentId = lexResult.documentId || null;
+      if (lexofficeDocumentId) {
+        logStep("LexOffice invoice created", {
+          invoiceId: lexofficeDocumentId,
+          documentType: lexResult.documentType,
+        });
+      } else {
+        logStep("LexOffice response OK but no documentId (non-fatal)", { result: lexResult });
+      }
     } else {
       const errText = await lexResponse.text();
       logStep("LexOffice invoice failed (non-fatal)", { status: lexResponse.status, error: errText });
@@ -206,7 +212,14 @@ async function handleCateringPayment(
     });
   }
 
-  // 6. Send notification emails (fire-and-forget)
+  // 6. Fetch invoice PDF from LexOffice and email it (non-blocking)
+  if (lexofficeDocumentId) {
+    await sendInvoicePdfByEmail(lexofficeDocumentId, order);
+  } else {
+    logStep("Skipping invoice PDF email – no LexOffice document ID");
+  }
+
+  // 7. Send notification emails (fire-and-forget)
   const notificationPayload = buildNotificationPayload(order);
   try {
     const notifResponse = await fetch(
