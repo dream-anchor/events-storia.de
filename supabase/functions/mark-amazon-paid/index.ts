@@ -10,65 +10,56 @@ serve(async (req) => {
 
   const lexofficeApiKey = Deno.env.get('LEXOFFICE_API_KEY');
   
-  if (!lexofficeApiKey) {
-    return new Response(
-      JSON.stringify({ error: 'LEXOFFICE_API_KEY not configured' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
   try {
     const invoiceId = '6d192839-c077-4514-8645-c25d5f2248b9';
-    const paymentDate = '2026-03-09T00:00:00.000+01:00';
-    const paidAmount = 1017.30;
 
-    console.log(`[MARK-PAID] Marking invoice ${invoiceId} as paid`);
-    console.log(`[MARK-PAID] Amount: ${paidAmount}, Date: ${paymentDate}`);
-
-    const response = await fetch(
-      `https://api.lexoffice.io/v1/invoices/${invoiceId}/mark-as-paid`,
+    // Step 1: GET the invoice
+    console.log(`[DEBUG] GET /v1/invoices/${invoiceId}`);
+    const getRes = await fetch(
+      `https://api.lexoffice.io/v1/invoices/${invoiceId}`,
       {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${lexofficeApiKey}`,
-          'Content-Type': 'application/json',
           'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          paymentDate,
-          paidAmount
-        })
+        }
       }
     );
 
-    if (response.ok) {
-      const data = await response.json();
-      console.log('[MARK-PAID] Success:', data);
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Invoice marked as paid',
-          invoiceId,
-          data 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else {
-      const errorText = await response.text();
-      console.error('[MARK-PAID] Failed:', response.status, errorText);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          status: response.status,
-          error: errorText 
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-  } catch (error) {
-    console.error('[MARK-PAID] Error:', error);
+    const getStatus = getRes.status;
+    const getBody = await getRes.text();
+    console.log(`[DEBUG] GET status: ${getStatus}`);
+    console.log(`[DEBUG] GET body: ${getBody}`);
+
+    // Step 2: Also try quotations endpoint
+    console.log(`[DEBUG] GET /v1/quotations/${invoiceId}`);
+    const quotRes = await fetch(
+      `https://api.lexoffice.io/v1/quotations/${invoiceId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${lexofficeApiKey}`,
+          'Accept': 'application/json'
+        }
+      }
+    );
+
+    const quotStatus = quotRes.status;
+    const quotBody = await quotRes.text();
+    console.log(`[DEBUG] Quotation status: ${quotStatus}`);
+    console.log(`[DEBUG] Quotation body: ${quotBody}`);
+
     return new Response(
-      JSON.stringify({ success: false, error: String(error) }),
+      JSON.stringify({ 
+        invoice: { status: getStatus, body: JSON.parse(getBody).id ? 'found' : getBody },
+        quotation: { status: quotStatus, body: JSON.parse(quotBody).id ? 'found' : quotBody },
+        rawInvoice: JSON.parse(getBody),
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
