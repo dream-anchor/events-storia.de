@@ -332,31 +332,21 @@ export const LexOfficeInvoicesList = ({ mode = 'invoices' }: LexOfficeInvoicesLi
           </div>
         </div>
 
-        {/* Source + Type Filter */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={maestroOnly ? "default" : "outline"}
-            size="sm"
-            onClick={() => setMaestroOnly(!maestroOnly)}
-          >
-            {maestroOnly ? "Nur Maestro" : "Alle LexOffice"}
-          </Button>
-          {typeFilterPills.length > 0 && (
-            <>
-              <div className="h-5 w-px bg-border" />
-              {typeFilterPills.map((pill) => (
-                <Button
-                  key={pill.id}
-                  variant={pill.active ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleTypeFilterChange(pill.id, pill.value)}
-                >
-                  {pill.label}
-                </Button>
-              ))}
-            </>
-          )}
-        </div>
+        {/* Type Filter */}
+        {typeFilterPills.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {typeFilterPills.map((pill) => (
+              <Button
+                key={pill.id}
+                variant={pill.active ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleTypeFilterChange(pill.id, pill.value)}
+              >
+                {pill.label}
+              </Button>
+            ))}
+          </div>
+        )}
 
         <DataTable
           columns={columns}
