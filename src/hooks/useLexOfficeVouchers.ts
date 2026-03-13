@@ -13,6 +13,7 @@ export interface LexOfficeVoucher {
   contactId?: string;
   localOrderId?: string;
   localOrderNumber?: string;
+  localPaymentStatus?: string;
 }
 
 export interface VoucherFilters {

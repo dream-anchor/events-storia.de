@@ -564,45 +564,8 @@ serve(async (req) => {
     const documentId = documentData.id;
     logStep('Document created', { documentId, documentType });
 
-    // Step 4b: Mark invoice as paid in LexOffice if already paid
-    if (isInvoice && body.isPaid && documentId) {
-      try {
-        const paymentDate = new Date().toISOString().split('T')[0] + 'T00:00:00.000+01:00';
-        logStep('Marking invoice as paid', { documentId, paymentDate, paidAmount: body.grandTotal });
-
-        const markPaidResponse = await fetch(
-          `https://api.lexoffice.io/v1/invoices/${documentId}/mark-as-paid`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${lexofficeApiKey}`,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-              paymentDate,
-              paidAmount: body.grandTotal
-            })
-          }
-        );
-
-        if (markPaidResponse.ok) {
-          logStep('Invoice marked as paid successfully', { documentId });
-        } else {
-          const errText = await markPaidResponse.text();
-          logStep('Failed to mark invoice as paid (non-blocking)', {
-            documentId,
-            status: markPaidResponse.status,
-            error: errText
-          });
-        }
-      } catch (markPaidErr) {
-        logStep('Error marking invoice as paid (non-blocking)', {
-          documentId,
-          error: String(markPaidErr)
-        });
-      }
-    }
+    // Note: LexOffice Public API has no mark-as-paid endpoint.
+    // Payment status is tracked locally in our database instead.
 
     // Step 5: Update order with Lexoffice IDs and document type
     if (body.orderId) {
