@@ -348,6 +348,142 @@ async function handleEventBookingPayment(
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INVOICE PDF EMAIL (via LexOffice + Resend)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// deno-lint-ignore no-explicit-any
+async function sendInvoicePdfByEmail(documentId: string, order: any) {
+  try {
+    logStep("Fetching invoice PDF from LexOffice", { documentId });
+
+    // Step c: Fetch PDF via get-lexoffice-document-by-id
+    const pdfResponse = await fetch(
+      `${Deno.env.get("SUPABASE_URL")}/functions/v1/get-lexoffice-document-by-id`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({
+          voucherId: documentId,
+          voucherType: "invoice",
+        }),
+      }
+    );
+
+    if (!pdfResponse.ok) {
+      const errText = await pdfResponse.text();
+      logStep("Failed to fetch invoice PDF (non-fatal)", { status: pdfResponse.status, error: errText });
+      return;
+    }
+
+    const pdfResult = await pdfResponse.json();
+    const pdfBase64 = pdfResult.pdf;
+    const filename = pdfResult.filename || `STORIA_Rechnung_${order.order_number}.pdf`;
+
+    if (!pdfBase64) {
+      logStep("No PDF content in response (non-fatal)", { documentId });
+      return;
+    }
+
+    logStep("Invoice PDF fetched, sending email", { filename, pdfSize: pdfBase64.length });
+
+    // Step d: Send PDF via Resend to customer + STORIA
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      logStep("RESEND_API_KEY not configured, skipping invoice email (non-fatal)");
+      return;
+    }
+
+    const recipients = [order.customer_email, "info@events-storia.de"].filter(Boolean);
+    const subject = `Ihre Rechnung – ${order.order_number} | STORIA Events`;
+    const htmlBody = buildInvoiceEmailHtml(order);
+
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: "STORIA Events <info@events-storia.de>",
+        to: recipients,
+        subject,
+        html: htmlBody,
+        attachments: [
+          {
+            filename,
+            content: pdfBase64,
+            content_type: "application/pdf",
+          },
+        ],
+      }),
+    });
+
+    if (resendResponse.ok) {
+      const resendResult = await resendResponse.json();
+      logStep("Invoice PDF email sent successfully", {
+        messageId: resendResult.id,
+        recipients,
+      });
+    } else {
+      const errText = await resendResponse.text();
+      logStep("Invoice PDF email failed (non-fatal)", { status: resendResponse.status, error: errText });
+    }
+  } catch (err) {
+    logStep("Invoice PDF email error (non-fatal)", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+function buildInvoiceEmailHtml(order: any): string {
+  const customerName = order.customer_name || "Kunde";
+  const orderNumber = order.order_number || "";
+  const totalFormatted = formatEUR(order.total_amount || 0);
+
+  return `
+<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f7f7f7;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f7f7;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background-color:#1a1a1a;padding:24px 32px;">
+          <h1 style="color:#ffffff;margin:0;font-size:22px;">STORIA Events</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <h2 style="color:#1a1a1a;margin:0 0 16px;">Ihre Rechnung</h2>
+          <p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 16px;">
+            Guten Tag ${customerName},
+          </p>
+          <p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 16px;">
+            vielen Dank für Ihre Bestellung <strong>${orderNumber}</strong>.
+            Anbei finden Sie Ihre Rechnung über <strong>${totalFormatted}</strong> als PDF-Dokument.
+          </p>
+          <p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 24px;">
+            Bei Fragen stehen wir Ihnen jederzeit gerne zur Verfügung.
+          </p>
+          <p style="color:#333;font-size:15px;line-height:1.6;margin:0;">
+            Herzliche Grüße,<br/>
+            <strong>Ihr STORIA Events Team</strong>
+          </p>
+        </td></tr>
+        <tr><td style="background-color:#f0f0f0;padding:16px 32px;font-size:12px;color:#888;text-align:center;">
+          STORIA Events · Karlstr. 47a · 80333 München<br/>
+          info@events-storia.de · +49 89 954 574 750
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Helpers
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
