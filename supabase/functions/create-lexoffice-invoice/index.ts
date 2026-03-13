@@ -509,7 +509,10 @@ serve(async (req) => {
     if (isInvoice) {
       documentPayload.shippingConditions = {
         shippingType: body.isPickup ? 'pickup' : 'delivery',
-        shippingDate: body.desiredDate ? new Date(body.desiredDate).toISOString().split('T')[0] : today.split('T')[0]
+        shippingDate: (() => {
+          const d = body.desiredDate ? new Date(body.desiredDate + 'T12:00:00Z') : new Date();
+          return d.toISOString();
+        })()
       };
     }
 
