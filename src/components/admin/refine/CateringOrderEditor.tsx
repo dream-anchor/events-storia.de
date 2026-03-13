@@ -106,7 +106,7 @@ const CreateInvoiceButton = ({
           street: order.billing_street || '',
           zip: order.billing_zip || '',
           city: order.billing_city || '',
-          country: order.billing_country || 'Deutschland',
+          country: order.billing_country || 'DE',
         },
         items: items.map((item: { id: string; name: string; quantity: number; price: number }) => ({
           id: item.id,

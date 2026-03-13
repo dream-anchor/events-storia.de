@@ -55,6 +55,24 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
 // Round to 2 decimal places for currency values (LexOffice requires max 4 decimals)
 const roundCurrency = (value: number): number => Math.round(value * 100) / 100;
 
+// Map country name/code to ISO 3166-1 alpha-2 for LexOffice
+const mapCountryCode = (country: string | undefined): string => {
+  if (!country) return 'DE';
+  const c = country.trim().toLowerCase();
+  const map: Record<string, string> = {
+    'deutschland': 'DE', 'germany': 'DE', 'de': 'DE',
+    'österreich': 'AT', 'austria': 'AT', 'at': 'AT',
+    'schweiz': 'CH', 'switzerland': 'CH', 'ch': 'CH',
+    'united kingdom': 'GB', 'uk': 'GB', 'gb': 'GB', 'england': 'GB',
+    'frankreich': 'FR', 'france': 'FR', 'fr': 'FR',
+    'italien': 'IT', 'italy': 'IT', 'it': 'IT',
+    'niederlande': 'NL', 'netherlands': 'NL', 'nl': 'NL',
+    'spanien': 'ES', 'spain': 'ES', 'es': 'ES',
+    'usa': 'US', 'united states': 'US', 'us': 'US',
+  };
+  return map[c] || (c.length === 2 ? c.toUpperCase() : 'DE');
+};
+
 // Format date for German display (DD.MM.YYYY)
 const formatDateDE = (dateStr: string): string => {
   if (!dateStr) return '';
@@ -262,7 +280,7 @@ serve(async (req) => {
           street: body.billingAddress.street || '',
           zip: body.billingAddress.zip || '',
           city: body.billingAddress.city || '',
-          countryCode: 'DE'
+          countryCode: mapCountryCode(body.billingAddress?.country)
         }]
       },
       emailAddresses: {
@@ -504,7 +522,7 @@ serve(async (req) => {
         street: body.billingAddress.street || '',
         zip: body.billingAddress.zip || '',
         city: body.billingAddress.city || '',
-        countryCode: 'DE'
+        countryCode: mapCountryCode(body.billingAddress?.country)
       };
     }
 
