@@ -41,7 +41,7 @@ export const LexOfficeInvoicesList = ({ mode = 'invoices' }: LexOfficeInvoicesLi
     isQuotationsMode ? 'quotation' : 'all'
   );
   const [statusFilter, setStatusFilter] = useState<VoucherStatus>(null);
-  const [maestroOnly, setMaestroOnly] = useState(true);
+  const maestroOnly = true;
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
