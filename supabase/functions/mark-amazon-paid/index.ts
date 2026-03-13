@@ -9,52 +9,35 @@ serve(async (req) => {
   }
 
   const lexofficeApiKey = Deno.env.get('LEXOFFICE_API_KEY');
-  
+
   try {
     const invoiceId = '6d192839-c077-4514-8645-c25d5f2248b9';
+    const paymentDate = '2026-03-09T00:00:00.000+01:00';
+    const paidAmount = 1017.30;
 
-    // Step 1: GET the invoice
-    console.log(`[DEBUG] GET /v1/invoices/${invoiceId}`);
-    const getRes = await fetch(
-      `https://api.lexoffice.io/v1/invoices/${invoiceId}`,
+    console.log(`[MARK-PAID] POST /v1/invoices/${invoiceId}/mark-as-paid`);
+    console.log(`[MARK-PAID] Body:`, JSON.stringify({ paymentDate, paidAmount }));
+
+    const res = await fetch(
+      `https://api.lexoffice.io/v1/invoices/${invoiceId}/mark-as-paid`,
       {
-        method: 'GET',
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${lexofficeApiKey}`,
+          'Content-Type': 'application/json',
           'Accept': 'application/json'
-        }
+        },
+        body: JSON.stringify({ paymentDate, paidAmount })
       }
     );
 
-    const getStatus = getRes.status;
-    const getBody = await getRes.text();
-    console.log(`[DEBUG] GET status: ${getStatus}`);
-    console.log(`[DEBUG] GET body: ${getBody}`);
-
-    // Step 2: Also try quotations endpoint
-    console.log(`[DEBUG] GET /v1/quotations/${invoiceId}`);
-    const quotRes = await fetch(
-      `https://api.lexoffice.io/v1/quotations/${invoiceId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${lexofficeApiKey}`,
-          'Accept': 'application/json'
-        }
-      }
-    );
-
-    const quotStatus = quotRes.status;
-    const quotBody = await quotRes.text();
-    console.log(`[DEBUG] Quotation status: ${quotStatus}`);
-    console.log(`[DEBUG] Quotation body: ${quotBody}`);
+    const status = res.status;
+    const body = await res.text();
+    console.log(`[MARK-PAID] Status: ${status}`);
+    console.log(`[MARK-PAID] Body: ${body}`);
 
     return new Response(
-      JSON.stringify({ 
-        invoice: { status: getStatus, body: JSON.parse(getBody).id ? 'found' : getBody },
-        quotation: { status: quotStatus, body: JSON.parse(quotBody).id ? 'found' : quotBody },
-        rawInvoice: JSON.parse(getBody),
-      }),
+      JSON.stringify({ status, body: body ? JSON.parse(body) : null }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
