@@ -103,47 +103,63 @@ serve(async (req) => {
       ? voucherStatus
       : 'draft,open,paid,paidoff,voided,accepted,rejected';
 
-    // Helper: einen einzelnen LexOffice API Call machen
-    const fetchVoucherType = async (lexType: string) => {
-      const params = new URLSearchParams();
-      params.append('voucherType', lexType);
-      params.append('voucherStatus', statusParam);
-      params.append('page', page.toString());
-      params.append('size', size.toString());
-      if (createdDateFrom) params.append('createdDateFrom', createdDateFrom);
-      if (createdDateTo) params.append('createdDateTo', createdDateTo);
+    // Helper: ALLE Seiten eines Voucher-Typs abrufen
+    const fetchAllPagesForType = async (lexType: string): Promise<{ content: any[]; totalElements: number; error?: string }> => {
+      const allItems: any[] = [];
+      let currentPage = 0;
+      let totalElements = 0;
+      const pageSize = 250; // LexOffice max
 
-      const url = `https://api.lexoffice.io/v1/voucherlist?${params.toString()}`;
-      logStep('Calling LexOffice API', { url, lexType });
+      while (true) {
+        const params = new URLSearchParams();
+        params.append('voucherType', lexType);
+        params.append('voucherStatus', statusParam);
+        params.append('page', currentPage.toString());
+        params.append('size', pageSize.toString());
+        if (createdDateFrom) params.append('createdDateFrom', createdDateFrom);
+        if (createdDateTo) params.append('createdDateTo', createdDateTo);
 
-      const resp = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${lexofficeApiKey}`,
-          'Accept': 'application/json'
+        const url = `https://api.lexoffice.io/v1/voucherlist?${params.toString()}`;
+        logStep('Calling LexOffice API', { lexType, page: currentPage });
+
+        const resp = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${lexofficeApiKey}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!resp.ok) {
+          const errorText = await resp.text();
+          logStep('LexOffice API error', { status: resp.status, error: errorText, lexType });
+          return { content: allItems, totalElements, error: `${resp.status}: ${errorText}` };
         }
-      });
 
-      if (!resp.ok) {
-        const errorText = await resp.text();
-        logStep('LexOffice API error', { status: resp.status, error: errorText, lexType });
-        return { content: [], totalElements: 0, totalPages: 0, number: 0, error: `${resp.status}: ${errorText}` };
+        const data = await resp.json();
+        const items = data.content || [];
+        allItems.push(...items);
+        totalElements = data.totalElements || 0;
+
+        logStep(`LexOffice page result`, { lexType, page: currentPage, itemsOnPage: items.length, totalElements });
+
+        // Nächste Seite nötig?
+        if (items.length < pageSize || allItems.length >= totalElements) break;
+        currentPage++;
       }
 
-      return await resp.json();
+      return { content: allItems, totalElements };
     };
 
-    // Alle Typen parallel abfragen
-    const results = await Promise.all(typesToFetch.map(fetchVoucherType));
-
-    // Ergebnisse mergen
+    // Typen SEQUENZIELL abfragen (LexOffice Rate Limit: 2 req/s)
     const allContent: any[] = [];
     let totalElements = 0;
     let firstError: string | undefined;
 
-    for (const result of results) {
+    for (const lexType of typesToFetch) {
+      const result = await fetchAllPagesForType(lexType);
       if (result.error && !firstError) firstError = result.error;
-      if (result.content) allContent.push(...result.content);
-      totalElements += (result.totalElements || 0);
+      allContent.push(...result.content);
+      totalElements += result.totalElements;
     }
 
     // Nach Datum sortieren (neueste zuerst)
@@ -169,13 +185,18 @@ serve(async (req) => {
     const lexofficeData = {
       content: allContent,
       totalElements,
-      totalPages: Math.ceil(totalElements / size),
-      number: page,
+      totalPages: 1,
+      number: 0,
     };
+
+    // Debug: Alle Voucher-IDs aus der API loggen
+    const apiVoucherIds = allContent.map((item: any) => item.id);
     logStep('LexOffice merged response', {
-      totalElements: lexofficeData.totalElements,
+      totalElements,
       typesQueried: typesToFetch.length,
-      contentLength: lexofficeData.content?.length
+      contentLength: allContent.length,
+      sampleIds: apiVoucherIds.slice(0, 5),
+      containsTarget: apiVoucherIds.includes('6d192839-c077-4514-8645-c25d5f2248b9'),
     });
 
     // Get all lexoffice_invoice_ids from local database to match with vouchers
@@ -231,6 +252,16 @@ serve(async (req) => {
           type: 'booking'
         });
       }
+    });
+
+    // Debug: DB-seitige LexOffice-IDs loggen
+    const dbLexIds = Array.from(lexofficeIdToLocal.keys());
+    logStep('DB matching data', {
+      ordersWithLexId: orders?.length || 0,
+      inquiriesWithLexId: inquiries?.length || 0,
+      bookingsWithLexId: bookings?.length || 0,
+      dbLexOfficeIds: dbLexIds,
+      targetIdInDb: dbLexIds.includes('6d192839-c077-4514-8645-c25d5f2248b9'),
     });
 
     // Transform LexOffice vouchers to our format
