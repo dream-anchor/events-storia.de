@@ -254,6 +254,16 @@ serve(async (req) => {
       }
     });
 
+    // Debug: DB-seitige LexOffice-IDs loggen
+    const dbLexIds = Array.from(lexofficeIdToLocal.keys());
+    logStep('DB matching data', {
+      ordersWithLexId: orders?.length || 0,
+      inquiriesWithLexId: inquiries?.length || 0,
+      bookingsWithLexId: bookings?.length || 0,
+      dbLexOfficeIds: dbLexIds,
+      targetIdInDb: dbLexIds.includes('6d192839-c077-4514-8645-c25d5f2248b9'),
+    });
+
     // Transform LexOffice vouchers to our format
     const vouchers: LexOfficeVoucher[] = (lexofficeData.content || []).map((item: any) => {
       const localMatch = lexofficeIdToLocal.get(item.id);
