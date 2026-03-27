@@ -35,3 +35,19 @@ supabase gen types        # TS-Types regenerieren
 - Sekundär: Schwabing, Lehel, Isarvorstadt
 - Lokaler Kontext (Landmarks, ÖPNV) in Stadt-/Bezirksseiten
 - NAP nur aus zentraler Konfiguration
+
+## SEO Indexing Tool
+
+Google Indexing API Script zum Einreichen von URLs zur Indexierung (200/Tag kostenlos).
+Service Account JSON liegt in `scripts/service-account.json` im seo.schrittmacher.ai Repo.
+
+```bash
+# Optionen
+node scripts/request-indexing.mjs --de-only        # Nur DE-URLs aus Sitemap
+node scripts/request-indexing.mjs --priority        # Nicht-indexierte Priority-URLs
+node scripts/request-indexing.mjs --dry-run         # Preview ohne Submit
+node scripts/request-indexing.mjs --url https://events-storia.de/page/  # Einzelne URL
+```
+
+**Service Account:** `gsc-auditor-storia@evocative-shore-486623-v4.iam.gserviceaccount.com`
+Muss in GSC als **Inhaber** für `events-storia.de` eingetragen sein.
