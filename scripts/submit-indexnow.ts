@@ -9,7 +9,7 @@
 
 import { ROUTES } from '../src/config/routes';
 
-const DOMAIN = 'https://events-storia.de';
+const DOMAIN = 'https://www.events-storia.de';
 const INDEXNOW_KEY = process.env.INDEXNOW_KEY || 'f439da44854a4800a154906041c53b06';
 const INDEXNOW_ENDPOINT = 'https://api.indexnow.org/IndexNow';
 
@@ -28,7 +28,7 @@ const getAllPublicUrls = (): string[] => {
 // Submit to IndexNow API
 const submitToIndexNow = async (urls: string[]): Promise<void> => {
   const payload = {
-    host: 'events-storia.de',
+    host: 'www.events-storia.de',
     key: INDEXNOW_KEY,
     keyLocation: `${DOMAIN}/${INDEXNOW_KEY}.txt`,
     urlList: urls,

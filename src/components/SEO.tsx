@@ -27,7 +27,7 @@ const SEO = ({
   description,
   canonical,
   type = 'website',
-  image = 'https://events-storia.de/og-image.jpg',
+  image = 'https://www.events-storia.de/og-image.jpg',
   noIndex = false,
   publishedTime,
   modifiedTime,
@@ -38,7 +38,7 @@ const SEO = ({
 }: SEOProps) => {
   const { language } = useLanguage();
   const location = useLocation();
-  const baseUrl = 'https://events-storia.de';
+  const baseUrl = 'https://www.events-storia.de';
 
   const siteTitle = 'STORIA – Italienisches Catering & Events München';
   const fullTitle = title ? `${title} | STORIA München` : siteTitle;
