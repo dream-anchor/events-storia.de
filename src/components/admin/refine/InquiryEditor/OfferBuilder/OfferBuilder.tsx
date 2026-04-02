@@ -221,6 +221,7 @@ export function OfferBuilder({
           onAddOption={builder.addOption}
           defaultMode={defaultMode}
           isLocked={builder.isLocked}
+          currentVersion={builder.currentVersion}
         />
       )}
 

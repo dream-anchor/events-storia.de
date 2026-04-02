@@ -23,6 +23,7 @@ interface OptionCardGridProps {
   onAddOption: (mode?: OfferMode, copyFrom?: OfferBuilderOption) => void;
   defaultMode: OfferMode;
   isLocked: boolean;
+  currentVersion: number;
 }
 
 export function OptionCardGrid({
@@ -36,6 +37,7 @@ export function OptionCardGrid({
   onAddOption,
   defaultMode,
   isLocked,
+  currentVersion,
 }: OptionCardGridProps) {
   const canAdd = options.length < 5 && !isLocked;
   const canDuplicate = options.length < 5;
@@ -90,7 +92,7 @@ export function OptionCardGrid({
                 onRemove={() => onRemoveOption(option.id)}
                 onDuplicate={() => onAddOption(option.offerMode, option)}
                 onToggleActive={() => onToggleActive(option.id)}
-                isLocked={isLocked}
+                isLocked={isLocked && option.createdInVersion !== currentVersion}
                 canDuplicate={canDuplicate}
               />
             );
