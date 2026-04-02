@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
-import { Loader2, AlertCircle, Plus, Clock, ChevronDown, Mail, ExternalLink, UtensilsCrossed } from "lucide-react";
+import { useState, useCallback, useMemo, useRef } from "react";
+import { Loader2, AlertCircle, Plus, Clock, ChevronDown, Mail, ExternalLink, UtensilsCrossed, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -46,9 +46,11 @@ export function OfferBuilder({
   const [isUnlocking, setIsUnlocking] = useState(false);
 
   const defaultMode: OfferMode = useMemo(() => {
-    if (modeOverride) return modeOverride;
-    if (builder.options.length > 0) return builder.options[0].offerMode;
-    return selectedPackages.length > 0 ? 'paket' : 'menu';
+    const raw = modeOverride
+      ?? (builder.options.length > 0 ? builder.options[0].offerMode : null)
+      ?? (selectedPackages.length > 0 ? 'paket' : 'menu');
+    // E-Mail ist keine wählbare Konfigurationsphase mehr → auf 'menu' zurückfallen
+    return raw === 'email' ? 'menu' : raw;
   }, [modeOverride, builder.options, selectedPackages.length]);
 
   // ModeSelector-Wechsel propagiert an alle bestehenden Optionen
@@ -75,6 +77,10 @@ export function OfferBuilder({
   // --- E-Mail Draft (lokal, nicht im Hook) ---
   const [emailDraft, setEmailDraft] = useState(inquiry.email_draft || "");
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
+
+  // E-Mail-Sektion: eingeklappt wenn noch kein Draft vorhanden
+  const [emailSectionOpen, setEmailSectionOpen] = useState(!!inquiry.email_draft);
+  const emailSectionRef = useRef<HTMLDivElement>(null);
 
   // --- E-Mail generieren via Edge Function ---
   const handleGenerateEmail = useCallback(async () => {
@@ -207,25 +213,65 @@ export function OfferBuilder({
         />
       )}
 
-      {/* 4. E-Mail Composer */}
-      <EmailComposer
-        emailDraft={emailDraft}
-        onChange={setEmailDraft}
-        templates={templates}
-        isGenerating={isGeneratingEmail}
-        onGenerate={handleGenerateEmail}
-        activeOptionsCount={builder.activeOptions.length}
-        customerName={inquiry.contact_name}
-        eventDate={inquiry.preferred_date || undefined}
-        guestCount={inquiry.guest_count || undefined}
-        companyName={inquiry.company_name || undefined}
-        eventType={inquiry.event_type || undefined}
-        roomSelection={inquiry.room_selection || undefined}
-        timeSlot={inquiry.time_slot || undefined}
-        activeOptions={builder.activeOptions}
-        menuItems={builder.menuItems}
-        isLocked={builder.isLocked}
-      />
+      {/* 4. "Weiter zur E-Mail" Button — sichtbar wenn E-Mail-Sektion noch zu */}
+      {!emailSectionOpen && (
+        <div className="flex flex-col items-center gap-2 pt-2">
+          <Button
+            onClick={() => {
+              setEmailSectionOpen(true);
+              // KI-Generierung automatisch starten wenn Inhalt konfiguriert
+              if (builder.activeOptions.length > 0) {
+                handleGenerateEmail();
+              }
+              // Zum Anschreiben-Bereich scrollen (leicht verzögert)
+              setTimeout(() => {
+                emailSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 100);
+            }}
+            disabled={builder.isLocked}
+            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl h-12 text-base gap-2"
+          >
+            <Mail className="h-5 w-5" />
+            Anschreiben erstellen
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+          <button
+            onClick={() => {
+              setEmailSectionOpen(true);
+              setTimeout(() => {
+                emailSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 100);
+            }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Direkt E-Mail schreiben (ohne Konfiguration)
+          </button>
+        </div>
+      )}
+
+      {/* 4. E-Mail Composer — eingeklappt bis "Weiter" geklickt */}
+      <div ref={emailSectionRef}>
+        {emailSectionOpen && (
+          <EmailComposer
+            emailDraft={emailDraft}
+            onChange={setEmailDraft}
+            templates={templates}
+            isGenerating={isGeneratingEmail}
+            onGenerate={handleGenerateEmail}
+            activeOptionsCount={builder.activeOptions.length}
+            customerName={inquiry.contact_name}
+            eventDate={inquiry.preferred_date || undefined}
+            guestCount={inquiry.guest_count || undefined}
+            companyName={inquiry.company_name || undefined}
+            eventType={inquiry.event_type || undefined}
+            roomSelection={inquiry.room_selection || undefined}
+            timeSlot={inquiry.time_slot || undefined}
+            activeOptions={builder.activeOptions}
+            menuItems={builder.menuItems}
+            isLocked={builder.isLocked}
+          />
+        )}
+      </div>
 
       {/* 5. Send Controls */}
       <SendControls

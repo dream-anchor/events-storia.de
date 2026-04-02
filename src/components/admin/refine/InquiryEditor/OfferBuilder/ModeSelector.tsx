@@ -22,8 +22,8 @@ export function ModeSelector({ selectedMode, onSelect, disabled }: ModeSelectorP
       <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
         Angebots-Typ
       </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {OFFER_MODES.map((config) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {OFFER_MODES.filter(m => m.mode !== 'email').map((config) => {
           const Icon = MODE_ICONS[config.mode];
           const isSelected = selectedMode === config.mode;
 
