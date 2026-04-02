@@ -38,7 +38,7 @@ export function OptionCardGrid({
   isLocked,
 }: OptionCardGridProps) {
   const canAdd = options.length < 5 && !isLocked;
-  const canDuplicate = options.length < 5 && !isLocked;
+  const canDuplicate = options.length < 5;
 
   return (
     <div>

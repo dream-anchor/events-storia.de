@@ -241,7 +241,7 @@ export function OptionCard({
               size="icon"
               onClick={onDuplicate}
               className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
-              disabled={isLocked || !canDuplicate}
+              disabled={!canDuplicate}
               title={canDuplicate ? "Option duplizieren" : "Maximum erreicht (5 Optionen)"}
             >
               <Copy className="h-3.5 w-3.5" />
