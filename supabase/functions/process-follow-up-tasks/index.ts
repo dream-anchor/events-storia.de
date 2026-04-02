@@ -76,6 +76,7 @@ serve(async (req) => {
         body: JSON.stringify({
           from: "STORIA System <info@events-storia.de>",
           to: [recipientEmail],
+          bcc: recipientEmail !== "info@events-storia.de" ? ["info@events-storia.de"] : undefined,
           subject: `Erinnerung: ${task.title} — ${customerName}`,
           html,
         }),
