@@ -20,7 +20,7 @@ interface OptionCardGridProps {
   onUpdateOption: (optionId: string, updates: Partial<OfferBuilderOption>) => void;
   onRemoveOption: (optionId: string) => void;
   onToggleActive: (optionId: string) => void;
-  onAddOption: (mode?: OfferMode) => void;
+  onAddOption: (mode?: OfferMode, copyFrom?: OfferBuilderOption) => void;
   defaultMode: OfferMode;
   isLocked: boolean;
 }
@@ -38,6 +38,7 @@ export function OptionCardGrid({
   isLocked,
 }: OptionCardGridProps) {
   const canAdd = options.length < 5 && !isLocked;
+  const canDuplicate = options.length < 5 && !isLocked;
 
   return (
     <div>
@@ -87,8 +88,10 @@ export function OptionCardGrid({
                 drinkConfigs={drinkConfigs}
                 onUpdate={(updates) => onUpdateOption(option.id, updates)}
                 onRemove={() => onRemoveOption(option.id)}
+                onDuplicate={() => onAddOption(option.offerMode, option)}
                 onToggleActive={() => onToggleActive(option.id)}
                 isLocked={isLocked}
+                canDuplicate={canDuplicate}
               />
             );
           })}

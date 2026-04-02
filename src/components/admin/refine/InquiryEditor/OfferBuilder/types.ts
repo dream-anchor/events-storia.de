@@ -208,7 +208,7 @@ export interface UseOfferBuilderReturn {
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
 
   // Option CRUD
-  addOption: (mode?: OfferMode) => void;
+  addOption: (mode?: OfferMode, copyFrom?: OfferBuilderOption) => void;
   removeOption: (optionId: string) => void;
   updateOption: (optionId: string, updates: Partial<OfferBuilderOption>) => void;
   toggleOptionActive: (optionId: string) => void;

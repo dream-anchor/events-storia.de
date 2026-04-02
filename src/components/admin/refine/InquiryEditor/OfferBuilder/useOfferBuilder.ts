@@ -569,7 +569,7 @@ export function useOfferBuilder({
   // =================================================================
   // OPTION CRUD (migriert aus useMultiOfferState)
   // =================================================================
-  const addOption = useCallback((mode: OfferMode = 'menu') => {
+  const addOption = useCallback((mode: OfferMode = 'menu', copyFrom?: OfferBuilderOption) => {
     const usedLabels = options.map(o => o.optionLabel);
     const nextLabel = OPTION_LABELS.find(l => !usedLabels.includes(l));
 
@@ -578,9 +578,30 @@ export function useOfferBuilder({
       return;
     }
 
+    const base = copyFrom
+      ? {
+          packageId: copyFrom.packageId,
+          packageName: copyFrom.packageName,
+          offerMode: copyFrom.offerMode,
+          isActive: true,
+          guestCount: copyFrom.guestCount,
+          menuSelection: JSON.parse(JSON.stringify(copyFrom.menuSelection)),
+          totalAmount: copyFrom.totalAmount,
+          stripePaymentLinkId: null,
+          stripePaymentLinkUrl: null,
+          offerVersion: currentVersion,
+          sortOrder: OPTION_LABELS.indexOf(nextLabel as typeof OPTION_LABELS[number]),
+          budgetPerPerson: copyFrom.budgetPerPerson,
+          discountPercent: copyFrom.discountPercent,
+          attachMenu: copyFrom.attachMenu,
+          tableNote: copyFrom.tableNote,
+        }
+      : createEmptyOption(nextLabel, guestCount, mode);
+
     setOptions(prev => [...prev, {
       id: crypto.randomUUID(),
-      ...createEmptyOption(nextLabel, guestCount, mode),
+      ...base,
+      optionLabel: nextLabel,
       createdInVersion: currentVersion,
     }]);
   }, [options, guestCount, currentVersion]);

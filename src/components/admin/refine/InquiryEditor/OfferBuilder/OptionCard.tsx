@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Trash2, Lock } from "lucide-react";
+import { Eye, EyeOff, Trash2, Lock, Copy } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,8 +38,10 @@ interface OptionCardProps {
   drinkConfigs: DrinkConfig[];
   onUpdate: (updates: Partial<OfferBuilderOption>) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
   onToggleActive: () => void;
   isLocked: boolean;
+  canDuplicate: boolean;
 }
 
 export function OptionCard({
@@ -50,8 +52,10 @@ export function OptionCard({
   drinkConfigs,
   onUpdate,
   onRemove,
+  onDuplicate,
   onToggleActive,
   isLocked,
+  canDuplicate,
 }: OptionCardProps) {
   const selectedPackage = useMemo(
     () => packages.find(p => p.id === option.packageId),
@@ -224,6 +228,7 @@ export function OptionCard({
               onClick={onToggleActive}
               className="h-7 w-7 rounded-lg"
               disabled={isLocked}
+              title="Sichtbarkeit umschalten"
             >
               {option.isActive ? (
                 <Eye className="h-3.5 w-3.5" />
@@ -234,9 +239,20 @@ export function OptionCard({
             <Button
               variant="ghost"
               size="icon"
+              onClick={onDuplicate}
+              className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+              disabled={isLocked || !canDuplicate}
+              title={canDuplicate ? "Option duplizieren" : "Maximum erreicht (5 Optionen)"}
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onRemove}
               className="h-7 w-7 rounded-lg text-destructive/60 hover:text-destructive"
               disabled={isLocked}
+              title="Option entfernen"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
