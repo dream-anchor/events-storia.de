@@ -445,6 +445,7 @@ export const SmartInquiryEditor = () => {
           <EmailStatusCard
             entityType="event_inquiry"
             entityId={id!}
+            currentEmail={inquiry.email || undefined}
             onResend={async () => {
               if (!inquiry?.email || !inquiry?.email_draft) {
                 toast.error('Kein Anschreiben oder E-Mail-Adresse hinterlegt');

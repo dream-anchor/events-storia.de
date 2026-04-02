@@ -87,7 +87,7 @@ function buildLineItems(
           type: 'custom',
           name: `${course.courseLabel}: ${course.itemName}`,
           description: course.itemDescription || '',
-          quantity: guestCount,
+          quantity: 1,
           unitName: 'Person',
           unitPrice: {
             currency: 'EUR',
@@ -109,7 +109,7 @@ function buildLineItems(
           type: 'custom',
           name: `${course.courseLabel}: ${course.itemName}`,
           description: course.itemDescription || '',
-          quantity: guestCount,
+          quantity: 1,
           unitName: 'Person',
           unitPrice: {
             currency: 'EUR',
@@ -128,7 +128,7 @@ function buildLineItems(
         type: 'custom',
         name: ms.drinksPauschaleDescription || 'Getränkepauschale',
         description: '',
-        quantity: guestCount,
+        quantity: 1,
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
@@ -141,7 +141,7 @@ function buildLineItems(
         type: 'custom',
         name: 'Weinbegleitung zum Menü',
         description: '',
-        quantity: guestCount,
+        quantity: 1,
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
@@ -156,7 +156,7 @@ function buildLineItems(
             type: 'custom',
             name: drink.name,
             description: '',
-            quantity: guestCount,
+            quantity: 1,
             unitName: 'Person',
             unitPrice: {
               currency: 'EUR',
@@ -175,7 +175,7 @@ function buildLineItems(
         type: 'custom',
         name: 'Getränkebegleitung',
         description: drinkLabels,
-        quantity: guestCount,
+        quantity: 1,
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
@@ -183,6 +183,53 @@ function buildLineItems(
           taxRatePercentage: 19,
         },
       });
+    }
+
+    // Multiplikation: Zwischensummen + (guestCount-1) für korrekte Gesamtsumme
+    if (guestCount > 1 && items.length > 0) {
+      const foodTotal = round2(items
+        .filter(i => i.unitPrice.taxRatePercentage === 7)
+        .reduce((s, i) => s + i.unitPrice.netAmount * i.quantity, 0));
+      const drinkTotal = round2(items
+        .filter(i => i.unitPrice.taxRatePercentage === 19)
+        .reduce((s, i) => s + i.unitPrice.netAmount * i.quantity, 0));
+
+      if (foodTotal > 0) {
+        items.push({
+          type: 'custom',
+          name: 'Menü pro Person (netto)',
+          description: '',
+          quantity: 1,
+          unitName: 'Stück',
+          unitPrice: { currency: 'EUR', netAmount: foodTotal, taxRatePercentage: 7 },
+        });
+        items.push({
+          type: 'custom',
+          name: `Speisen × ${guestCount} Personen`,
+          description: '',
+          quantity: guestCount - 1,
+          unitName: 'Person',
+          unitPrice: { currency: 'EUR', netAmount: foodTotal, taxRatePercentage: 7 },
+        });
+      }
+      if (drinkTotal > 0) {
+        items.push({
+          type: 'custom',
+          name: 'Getränke pro Person (netto)',
+          description: '',
+          quantity: 1,
+          unitName: 'Stück',
+          unitPrice: { currency: 'EUR', netAmount: drinkTotal, taxRatePercentage: 19 },
+        });
+        items.push({
+          type: 'custom',
+          name: `Getränke × ${guestCount} Personen`,
+          description: '',
+          quantity: guestCount - 1,
+          unitName: 'Person',
+          unitPrice: { currency: 'EUR', netAmount: drinkTotal, taxRatePercentage: 19 },
+        });
+      }
     }
   } else {
     // Paket-Modus oder E-Mail-Modus: eine Gesamtposition

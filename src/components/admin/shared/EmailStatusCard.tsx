@@ -14,6 +14,7 @@ interface EmailStatusCardProps {
   entityType: EntityType;
   entityId: string;
   className?: string;
+  currentEmail?: string;
   onResend?: (log: EmailDeliveryLog) => Promise<void>;
 }
 
@@ -39,9 +40,9 @@ const STATUS_COLOR: Record<string, string> = {
   'failed': 'text-red-600',
 };
 
-export const EmailStatusCard = ({ entityType, entityId, className, onResend }: EmailStatusCardProps) => {
+export const EmailStatusCard = ({ entityType, entityId, className, currentEmail, onResend }: EmailStatusCardProps) => {
   const { data: emailLogs = [], isLoading } = useEmailDeliveryLogs(entityType, entityId);
-  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
 
   if (isLoading) {
     return (
@@ -90,14 +91,29 @@ export const EmailStatusCard = ({ entityType, entityId, className, onResend }: E
   return (
     <Card className={className}>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Mail className="h-4 w-4" />
             E-Mail-Verlauf
           </CardTitle>
-          <Badge variant="secondary" className="font-normal text-xs">
-            {emailLogs.length} {emailLogs.length === 1 ? 'E-Mail' : 'E-Mails'}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="font-normal text-xs">
+              {emailLogs.length} {emailLogs.length === 1 ? 'E-Mail' : 'E-Mails'}
+            </Badge>
+            {onResend && currentEmail && emailLogs.length > 0 && (
+              <button
+                onClick={async () => {
+                  setIsResending(true);
+                  try { await onResend(emailLogs[0]); } finally { setIsResending(false); }
+                }}
+                disabled={isResending}
+                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+              >
+                <RotateCcw className={cn("h-3 w-3", isResending && "animate-spin")} />
+                Erneut senden an {currentEmail}
+              </button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -142,20 +158,6 @@ export const EmailStatusCard = ({ entityType, entityId, className, onResend }: E
                       <span className="text-xs text-muted-foreground truncate">
                         {log.subject}
                       </span>
-                      {onResend && (
-                        <button
-                          onClick={async () => {
-                            setResendingId(log.id);
-                            try { await onResend(log); } finally { setResendingId(null); }
-                          }}
-                          disabled={resendingId === log.id}
-                          className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors shrink-0"
-                          title="Erneut senden"
-                        >
-                          <RotateCcw className={cn("h-3 w-3", resendingId === log.id && "animate-spin")} />
-                          Erneut senden
-                        </button>
-                      )}
                     </div>
 
                     {/* Zeile 2: Empfänger + Absender + Provider + Zeit */}
