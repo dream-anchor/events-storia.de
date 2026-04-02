@@ -1,13 +1,13 @@
 import { Save, Send, Loader2, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ContactDataCard } from "./ContactDataCard";
 import { EventDetailsCard } from "./EventDetailsCard";
 import { AISuggestionsCard } from "./AISuggestionsCard";
-import { PackageSelectorCard } from "./PackageSelectorCard";
+import { OfferBuilder } from "../InquiryEditor/OfferBuilder";
 import { DraftFormData, SuggestedPackage, SuggestedItem } from "./types";
+import type { ExtendedInquiry, Package, EmailTemplate } from "../InquiryEditor/types";
 
 interface DraftPanelProps {
   formData: DraftFormData;
@@ -19,6 +19,9 @@ interface DraftPanelProps {
   isSaving: boolean;
   isSending: boolean;
   hasExtracted: boolean;
+  draftInquiry: ExtendedInquiry | null;
+  packages: Package[];
+  templates: EmailTemplate[];
 }
 
 export const DraftPanel = ({
@@ -31,13 +34,13 @@ export const DraftPanel = ({
   isSaving,
   isSending,
   hasExtracted,
+  draftInquiry,
+  packages,
+  templates,
 }: DraftPanelProps) => {
   const handleAddPackageFromSuggestion = (packageName: string) => {
-    // This would ideally match with actual package data from the database
-    // For now, we add it as a placeholder that will be matched in the selector
     const existingNames = formData.selected_packages.map(p => p.name);
     if (!existingNames.includes(packageName)) {
-      // Add placeholder - the real price will be fetched when matched
       onFormChange({
         selected_packages: [
           ...formData.selected_packages,
@@ -48,7 +51,7 @@ export const DraftPanel = ({
   };
 
   const handleSearchItem = (_term: string) => {
-    // TODO: Suche in Paketen implementieren
+    // TODO: Suche in OfferBuilder-DishPicker öffnen
   };
 
   const addedPackageNames = formData.selected_packages.map(p => p.name);
@@ -95,19 +98,22 @@ export const DraftPanel = ({
         />
       )}
 
-      <PackageSelectorCard
-        selectedPackages={formData.selected_packages}
-        onAddPackage={(pkg) => 
-          onFormChange({ 
-            selected_packages: [...formData.selected_packages, pkg] 
-          })
-        }
-        onRemovePackage={(packageId) =>
-          onFormChange({
-            selected_packages: formData.selected_packages.filter(p => p.id !== packageId)
-          })
-        }
-      />
+      {/* OfferBuilder — ersetzt PackageSelectorCard */}
+      {draftInquiry ? (
+        <OfferBuilder
+          inquiry={draftInquiry}
+          packages={packages}
+          templates={templates}
+          onSave={async () => {}}
+        />
+      ) : (
+        <Card>
+          <CardContent className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+            <span className="text-sm text-muted-foreground">Angebots-Editor wird geladen...</span>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notes/Message */}
       <Card>
@@ -132,7 +138,7 @@ export const DraftPanel = ({
         <Button
           variant="outline"
           onClick={onSaveDraft}
-          disabled={!canSave || isSaving || isSending}
+          disabled={!canSave || isSaving || isSending || !draftInquiry}
           className="flex-1"
         >
           {isSaving ? (
@@ -149,7 +155,7 @@ export const DraftPanel = ({
         </Button>
         <Button
           onClick={onSaveAndSend}
-          disabled={!canSave || isSaving || isSending}
+          disabled={!canSave || isSaving || isSending || !draftInquiry}
           className="flex-1"
         >
           {isSending ? (
