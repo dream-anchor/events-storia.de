@@ -9,6 +9,8 @@ interface SendOfferEmailRequest {
   customerName: string;
   senderEmail?: string;
   offerSlug?: string;
+  /** LexOffice-Quotation-ID — falls vorhanden, wird PDF angehängt */
+  lexofficeQuotationId?: string | null;
 }
 
 interface SendResult {
@@ -37,7 +39,68 @@ function generateOfferSlug(name: string, inquiryId: string): string {
   return `${slug}-${hash}`;
 }
 
-async function sendEmail(to: string[], subject: string, html: string, fromName: string): Promise<SendResult> {
+/** Wartet auf das LexOffice-PDF mit Retry-Loop (Backoff). */
+async function waitForLexOfficePdf(
+  quotationId: string,
+  apiKey: string,
+  maxRetries = 5,
+  initialDelayMs = 2000,
+): Promise<Uint8Array | null> {
+  for (let i = 0; i < maxRetries; i++) {
+    const delay = initialDelayMs * Math.pow(1.5, i);
+    await new Promise(r => setTimeout(r, delay));
+
+    try {
+      // 1. Document-ID abrufen
+      const docRes = await fetch(
+        `https://api.lexoffice.io/v1/quotations/${quotationId}/document`,
+        { headers: { Authorization: `Bearer ${apiKey}` } },
+      );
+
+      if (docRes.status === 406) {
+        console.log(`PDF not ready yet (attempt ${i + 1}/${maxRetries}), retrying…`);
+        continue;
+      }
+      if (!docRes.ok) {
+        console.error(`Document endpoint returned ${docRes.status}`);
+        continue;
+      }
+
+      const docData = await docRes.json();
+      const documentFileId = docData.documentFileId;
+      if (!documentFileId) continue;
+
+      // 2. PDF-Datei abrufen
+      const fileRes = await fetch(
+        `https://api.lexoffice.io/v1/files/${documentFileId}`,
+        { headers: { Authorization: `Bearer ${apiKey}` } },
+      );
+
+      if (!fileRes.ok) {
+        console.error(`File endpoint returned ${fileRes.status}`);
+        continue;
+      }
+
+      const buffer = await fileRes.arrayBuffer();
+      console.log(`PDF fetched successfully on attempt ${i + 1}, size: ${buffer.byteLength} bytes`);
+      return new Uint8Array(buffer);
+    } catch (err) {
+      console.error(`PDF fetch attempt ${i + 1} failed:`, err);
+    }
+  }
+
+  console.warn(`PDF not available after ${maxRetries} attempts`);
+  return null;
+}
+
+async function sendEmail(
+  to: string[],
+  subject: string,
+  html: string,
+  fromName: string,
+  pdfBuffer: Uint8Array | null,
+  customerName: string,
+): Promise<SendResult> {
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   const smtpUser = Deno.env.get("SMTP_USER")?.trim();
   const smtpPassword = Deno.env.get("SMTP_PASSWORD");
@@ -49,26 +112,37 @@ async function sendEmail(to: string[], subject: string, html: string, fromName: 
   // 1) Resend (primär)
   if (resendApiKey) {
     try {
+      const payload: Record<string, unknown> = {
+        from: `${fromName} <info@events-storia.de>`,
+        to,
+        subject,
+        html,
+        reply_to: 'info@events-storia.de',
+      };
+
+      if (pdfBuffer) {
+        const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
+        const safeName = (customerName || 'Kunde').replace(/[^a-zA-ZäöüÄÖÜß0-9\s-]/g, '').trim();
+        payload.attachments = [{
+          filename: `STORIA_Angebot_${safeName}.pdf`,
+          content: base64Pdf,
+        }];
+      }
+
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${resendApiKey}`,
           "Content-Type": "application/json; charset=utf-8",
         },
-        body: JSON.stringify({
-          from: `${fromName} <info@events-storia.de>`,
-          to,
-          subject,
-          html,
-          reply_to: 'info@events-storia.de',
-        }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const data = await res.json();
         sent = true;
         provider = "resend";
         messageId = data.id || null;
-        console.log(`Email sent via Resend to: ${to.join(", ")}`);
+        console.log(`Email sent via Resend to: ${to.join(", ")} (pdf: ${!!pdfBuffer})`);
       } else {
         errorMessage = `Resend error: ${await res.text()}`;
         console.error(errorMessage);
@@ -79,7 +153,7 @@ async function sendEmail(to: string[], subject: string, html: string, fromName: 
     }
   }
 
-  // 2) IONOS SMTP Fallback
+  // 2) IONOS SMTP Fallback (ohne PDF-Anhang)
   if (!sent && smtpUser && smtpPassword) {
     try {
       const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
@@ -117,8 +191,8 @@ serve(async (req) => {
   }
 
   try {
-    const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug } =
-      await req.json() as SendOfferEmailRequest;
+    const body = await req.json() as SendOfferEmailRequest;
+    const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug, lexofficeQuotationId } = body;
 
     if (!inquiryId || !emailContent || !customerEmail) {
       throw new Error('inquiryId, emailContent and customerEmail are required');
@@ -136,15 +210,6 @@ serve(async (req) => {
       .eq('id', inquiryId);
 
     const offerUrl = `https://events-storia.de/offer/${inquiryId}`;
-
-    const emailBodyWithLink = `Ihr persönliches Angebot ist online bereit:
-${offerUrl}
-
-Dort finden Sie alle Details, können Ihren Favoriten wählen und das Angebot als PDF herunterladen.
-
-─────────────────────────────
-
-${emailContent}`;
 
     const emailSubject = `Ihr Angebot von STORIA Events`;
 
@@ -172,9 +237,25 @@ ${emailContent}`;
 </body>
 </html>`;
 
-    const result = await sendEmail([customerEmail], emailSubject, htmlBody, "STORIA Events");
+    // LexOffice-PDF abrufen (falls quotationId vorhanden)
+    let pdfBuffer: Uint8Array | null = null;
+    let hasPdf = false;
 
-    // Log email delivery
+    if (lexofficeQuotationId) {
+      const lexofficeApiKey = Deno.env.get('LEXOFFICE_API_KEY');
+      if (lexofficeApiKey) {
+        console.log(`Fetching LexOffice PDF for quotation ${lexofficeQuotationId}…`);
+        pdfBuffer = await waitForLexOfficePdf(lexofficeQuotationId, lexofficeApiKey);
+        hasPdf = !!pdfBuffer;
+        if (!hasPdf) {
+          console.warn('PDF not available — sending email without attachment');
+        }
+      }
+    }
+
+    const result = await sendEmail([customerEmail], emailSubject, htmlBody, "STORIA Events", pdfBuffer, customerName);
+
+    // Email Delivery Log
     await supabase.from('email_delivery_logs').insert({
       entity_type: 'event_inquiry',
       entity_id: inquiryId,
@@ -190,11 +271,43 @@ ${emailContent}`;
         email_type: 'offer_email',
         offer_url: offerUrl,
         offer_slug: slug,
+        has_pdf_attachment: hasPdf,
+        lexoffice_quotation_id: lexofficeQuotationId || null,
       },
     });
 
+    // Activity Log
+    await supabase.from('activity_logs').insert({
+      entity_type: 'event_inquiry',
+      entity_id: inquiryId,
+      action: result.sent ? 'offer_email_sent' : 'offer_email_failed',
+      actor_email: senderEmail || 'system',
+      metadata: {
+        recipient: customerEmail,
+        subject: emailSubject,
+        has_pdf_attachment: hasPdf,
+        lexoffice_quotation_id: lexofficeQuotationId || null,
+        resend_message_id: result.messageId,
+        provider: result.provider,
+        error: result.errorMessage,
+      },
+    });
+
+    const warnings: string[] = [];
+    if (lexofficeQuotationId && !hasPdf) {
+      warnings.push('PDF nicht verfügbar — Mail ohne Anhang versendet');
+    }
+
     return new Response(
-      JSON.stringify({ success: true, emailSent: result.sent, provider: result.provider, offerUrl, offerSlug: slug }),
+      JSON.stringify({
+        success: true,
+        emailSent: result.sent,
+        provider: result.provider,
+        offerUrl,
+        offerSlug: slug,
+        hasPdfAttachment: hasPdf,
+        warnings,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {

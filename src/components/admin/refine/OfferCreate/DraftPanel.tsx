@@ -22,6 +22,7 @@ interface DraftPanelProps {
   draftInquiry: ExtendedInquiry | null;
   packages: Package[];
   templates: EmailTemplate[];
+  onEmailContentChange: (content: string) => void;
 }
 
 export const DraftPanel = ({
@@ -37,6 +38,7 @@ export const DraftPanel = ({
   draftInquiry,
   packages,
   templates,
+  onEmailContentChange,
 }: DraftPanelProps) => {
   const handleAddPackageFromSuggestion = (packageName: string) => {
     const existingNames = formData.selected_packages.map(p => p.name);
@@ -106,6 +108,7 @@ export const DraftPanel = ({
           templates={templates}
           onSave={async () => {}}
           isCreateMode={true}
+          onEmailContentChange={onEmailContentChange}
         />
       ) : (
         <Card>

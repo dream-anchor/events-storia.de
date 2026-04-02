@@ -21,6 +21,8 @@ interface OfferBuilderProps {
   onSave: () => Promise<void>;
   /** Create-Seite: SendControls ausblenden, da eigene Buttons vorhanden */
   isCreateMode?: boolean;
+  /** Callback wenn E-Mail-Text geändert wird (für Create-Modus) */
+  onEmailContentChange?: (content: string) => void;
 }
 
 export function OfferBuilder({
@@ -29,6 +31,7 @@ export function OfferBuilder({
   templates,
   onSave,
   isCreateMode = false,
+  onEmailContentChange,
 }: OfferBuilderProps) {
   const guestCount = parseInt(inquiry.guest_count || "1") || 1;
   const selectedPackages = Array.isArray(inquiry.selected_packages)
@@ -81,6 +84,11 @@ export function OfferBuilder({
   const [emailDraft, setEmailDraft] = useState(inquiry.email_draft || "");
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
 
+  const handleEmailDraftChange = useCallback((content: string) => {
+    setEmailDraft(content);
+    onEmailContentChange?.(content);
+  }, [onEmailContentChange]);
+
   // E-Mail-Sektion: eingeklappt wenn noch kein Draft vorhanden
   const [emailSectionOpen, setEmailSectionOpen] = useState(!!inquiry.email_draft);
   const emailSectionRef = useRef<HTMLDivElement>(null);
@@ -103,7 +111,7 @@ export function OfferBuilder({
 
       if (error) throw error;
       if (data?.email) {
-        setEmailDraft(data.email);
+        handleEmailDraftChange(data.email);
         toast.success("E-Mail generiert");
       }
     } catch (err) {
@@ -257,7 +265,7 @@ export function OfferBuilder({
         {emailSectionOpen && (
           <EmailComposer
             emailDraft={emailDraft}
-            onChange={setEmailDraft}
+            onChange={handleEmailDraftChange}
             templates={templates}
             isGenerating={isGeneratingEmail}
             onGenerate={handleGenerateEmail}

@@ -743,63 +743,21 @@ export function useOfferBuilder({
     const newVersion = await createNewVersion(emailContent);
 
     try {
-      // 1. LexOffice-Angebot automatisch erstellen
       const activeOpts = options.filter(o => o.isActive);
       let lexofficeQuotationId: string | null = null;
 
+      // 1. LexOffice-Angebot automatisch erstellen
       try {
-        const lineItems = activeOpts.flatMap((opt) => {
-          const pkg = packagesProp?.find(p => p.id === opt.packageId);
-          const label = pkg?.name || opt.packageName || opt.optionLabel;
-          const pricePerPerson = pkg?.price_per_person ?? true;
-          const unitPrice = pricePerPerson && opt.guestCount > 0
-            ? opt.totalAmount / opt.guestCount
-            : opt.totalAmount;
-
-          return [{
-            name: activeOpts.length > 1 ? `Option ${opt.optionLabel}: ${label}` : label,
-            description: `${opt.guestCount} Gäste`,
-            quantity: pricePerPerson ? opt.guestCount : 1,
-            unitName: pricePerPerson ? 'Person' : 'Stück',
-            unitPrice: { currency: 'EUR', netAmount: Math.round(unitPrice * 100) / 100, taxRatePercentage: 7 },
-          }];
-        });
-
-        if (lineItems.length > 0) {
-          // MenuSelection für das erste aktive Option (für LexOffice-Intro)
-          const firstOpt = activeOpts[0];
-          const menuSelection = firstOpt?.menuSelection
-            ? { courses: firstOpt.menuSelection.courses, drinks: firstOpt.menuSelection.drinks }
-            : undefined;
-
-          const { data: quotationResult } = await supabase.functions.invoke(
-            'create-event-quotation',
-            {
-              body: {
-                eventId: inquiryId,
-                event: {
-                  contact_name: inquiry.contact_name,
-                  company_name: inquiry.company_name,
-                  email: inquiry.email,
-                  preferred_date: inquiry.preferred_date,
-                  guest_count: inquiry.guest_count,
-                  event_type: inquiry.event_type,
-                },
-                items: lineItems,
-                notes: `Angebot Version ${newVersion}`,
-                menuSelection,
-              },
-            }
-          );
-
-          if (quotationResult?.success && quotationResult.quotationId) {
-            lexofficeQuotationId = quotationResult.quotationId;
-            // LexOffice-ID in der Inquiry speichern
-            await supabase
-              .from('event_inquiries')
-              .update({ lexoffice_invoice_id: lexofficeQuotationId } as Record<string, unknown>)
-              .eq('id', inquiryId);
-          }
+        const { data: quotationResult } = await supabase.functions.invoke(
+          'create-event-quotation',
+          { body: { inquiryId } },
+        );
+        if (quotationResult?.success && quotationResult.quotationId) {
+          lexofficeQuotationId = quotationResult.quotationId;
+          await supabase
+            .from('event_inquiries')
+            .update({ lexoffice_quotation_id: lexofficeQuotationId } as Record<string, unknown>)
+            .eq('id', inquiryId);
         }
       } catch (lexErr) {
         // LexOffice-Fehler nicht blockierend — Email wird trotzdem gesendet
@@ -834,6 +792,7 @@ export function useOfferBuilder({
                 customerEmail,
                 customerName: customerName || '',
                 senderEmail: user?.email,
+                lexofficeQuotationId,
               },
             }
           );

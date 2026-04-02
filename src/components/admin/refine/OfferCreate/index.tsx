@@ -33,6 +33,7 @@ export const AdminOfferCreate = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [hasExtracted, setHasExtracted] = useState(false);
+  const [emailContent, setEmailContent] = useState("");
 
   // Draft inquiry created on mount — gives OfferBuilder a real DB ID to auto-save into
   const [draftInquiryId, setDraftInquiryId] = useState<string | null>(null);
@@ -247,6 +248,7 @@ export const AdminOfferCreate = () => {
       const inquiry = await saveInquiry('offer_sent');
 
       // 2. LexOffice Angebot erstellen (non-blocking bei Fehler)
+      let lexofficeQuotationId: string | null = null;
       const { data: lexData, error: lexError } = await supabase.functions.invoke(
         'create-event-quotation',
         { body: { inquiryId: inquiry.id } },
@@ -255,14 +257,46 @@ export const AdminOfferCreate = () => {
       if (lexError || !lexData?.success) {
         const msg = lexData?.error || lexError?.message || 'Unbekannter Fehler';
         console.error('[LexOffice] Quotation error:', msg);
-        toast.warning(`Anfrage gespeichert, aber LexOffice-Angebot fehlgeschlagen: ${msg}`);
+        toast.warning(`LexOffice-Angebot fehlgeschlagen: ${msg}`);
       } else if (lexData?.quotationId) {
-        // 3. quotation_id zurückschreiben
+        lexofficeQuotationId = lexData.quotationId;
         await supabase
           .from('event_inquiries')
-          .update({ lexoffice_quotation_id: lexData.quotationId })
+          .update({ lexoffice_quotation_id: lexofficeQuotationId })
           .eq('id', inquiry.id);
-        toast.success('Anfrage gespeichert & LexOffice-Angebot erstellt!');
+      }
+
+      // 3. E-Mail mit PDF-Anhang senden (nur wenn E-Mail-Adresse vorhanden)
+      if (formData.email && emailContent) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: emailResult, error: emailError } = await supabase.functions.invoke(
+          'send-offer-email',
+          {
+            body: {
+              inquiryId: inquiry.id,
+              emailContent,
+              customerEmail: formData.email,
+              customerName: formData.contact_name,
+              senderEmail: user?.email,
+              lexofficeQuotationId,
+            },
+          },
+        );
+
+        if (emailError || !emailResult?.emailSent) {
+          toast.warning('Anfrage gespeichert, aber E-Mail konnte nicht versendet werden');
+        } else {
+          const pdfHint = emailResult.hasPdfAttachment ? ' (mit PDF-Anhang)' : '';
+          if (emailResult.warnings?.length) {
+            toast.warning(`E-Mail gesendet${pdfHint} — ${emailResult.warnings.join(', ')}`);
+          } else {
+            toast.success(`Angebot gespeichert & E-Mail versendet${pdfHint}`);
+          }
+        }
+      } else if (!emailContent) {
+        toast.success('Angebot gespeichert — kein Anschreiben vorhanden, E-Mail nicht versendet');
+      } else {
+        toast.success('Angebot gespeichert');
       }
 
       navigate(`/admin/events/${inquiry.id}/edit`);
@@ -322,6 +356,7 @@ export const AdminOfferCreate = () => {
               draftInquiry={draftInquiry}
               packages={packages}
               templates={templates}
+              onEmailContentChange={setEmailContent}
             />
           </div>
         </div>
