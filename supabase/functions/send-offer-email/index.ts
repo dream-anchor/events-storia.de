@@ -255,6 +255,37 @@ serve(async (req) => {
 
     const result = await sendEmail([customerEmail], emailSubject, htmlBody, "STORIA Events", pdfBuffer, customerName);
 
+    // Betreiber-Benachrichtigung: Versand fehlgeschlagen
+    if (!result.sent) {
+      const ownerHtml = `
+        <h3>E-Mail-Versand fehlgeschlagen</h3>
+        <p>Die Angebots-Mail an <strong>${escapeHtml(customerEmail)}</strong>
+        (${escapeHtml(customerName || 'Unbekannt')}) konnte nicht zugestellt werden.</p>
+        <p><strong>Fehler:</strong> ${escapeHtml(result.errorMessage || 'Unbekannt')}</p>
+        <p><a href="https://events-storia.de/admin/events/${escapeHtml(inquiryId)}/edit">Im Maestro öffnen</a></p>
+      `;
+      await sendEmail(
+        ['info@events-storia.de'],
+        '⚠️ Mail-Versand fehlgeschlagen: ' + (customerName || customerEmail),
+        ownerHtml, 'STORIA System', null, '',
+      ).catch(e => console.error('Owner notification (failed) error:', e));
+    }
+
+    // Betreiber-Benachrichtigung: Mail ohne PDF-Anhang versendet
+    if (result.sent && lexofficeQuotationId && !hasPdf) {
+      const ownerHtml = `
+        <h3>Angebots-Mail ohne PDF versendet</h3>
+        <p>Mail an <strong>${escapeHtml(customerEmail)}</strong> versendet,
+        aber LexOffice-PDF konnte nicht angehängt werden.</p>
+        <p><a href="https://events-storia.de/admin/events/${escapeHtml(inquiryId)}/edit">Im Maestro öffnen</a></p>
+      `;
+      await sendEmail(
+        ['info@events-storia.de'],
+        '⚠️ Angebot ohne PDF: ' + (customerName || customerEmail),
+        ownerHtml, 'STORIA System', null, '',
+      ).catch(e => console.error('Owner notification (no-pdf) error:', e));
+    }
+
     // Email Delivery Log
     await supabase.from('email_delivery_logs').insert({
       entity_type: 'event_inquiry',
@@ -264,7 +295,7 @@ serve(async (req) => {
       subject: emailSubject,
       provider: result.provider || 'none',
       provider_message_id: result.messageId,
-      status: result.sent ? 'sent' : 'failed',
+      status: result.sent ? 'queued' : 'failed',
       error_message: result.errorMessage,
       sent_by: senderEmail || null,
       metadata: {
@@ -273,6 +304,7 @@ serve(async (req) => {
         offer_slug: slug,
         has_pdf_attachment: hasPdf,
         lexoffice_quotation_id: lexofficeQuotationId || null,
+        resend_message_id: result.messageId,
       },
     });
 

@@ -60,6 +60,7 @@ export const formatProvider = (provider: string): string => {
  */
 export const formatEmailStatus = (status: string): { label: string; variant: 'default' | 'success' | 'destructive' | 'secondary' | 'warning' } => {
   const statuses: Record<string, { label: string; variant: 'default' | 'success' | 'destructive' | 'secondary' | 'warning' }> = {
+    'queued': { label: 'Zustellung ausstehend', variant: 'warning' },
     'sent': { label: 'Versandt', variant: 'secondary' },
     'delivered': { label: 'Zugestellt', variant: 'success' },
     'opened': { label: 'Geöffnet', variant: 'success' },

@@ -16,6 +16,7 @@ interface EmailStatusCardProps {
 }
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
+  'queued': <Clock className="h-3.5 w-3.5" />,
   'sent': <Mail className="h-3.5 w-3.5" />,
   'delivered': <CheckCircle2 className="h-3.5 w-3.5" />,
   'opened': <Eye className="h-3.5 w-3.5" />,
@@ -26,6 +27,7 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
+  'queued': 'text-amber-600',
   'sent': 'text-muted-foreground',
   'delivered': 'text-green-600',
   'opened': 'text-green-600',
