@@ -19,11 +19,21 @@ interface DrinkSelectionDB {
   quantityLabel: string | null;
 }
 
+interface DrinkEinzelnItemDB {
+  id: string;
+  name: string;
+  pricePerPerson: number;
+}
+
 interface MenuSelectionDB {
   courses?: CourseSelectionDB[];
   drinks?: DrinkSelectionDB[];
   winePairingPrice?: number | null;
   budgetPerPerson?: number | null;
+  drinksMode?: 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
+  drinksPauschalePrice?: number | null;
+  drinksPauschaleDescription?: string | null;
+  drinksEinzeln?: DrinkEinzelnItemDB[];
 }
 
 interface OfferOption {
@@ -110,8 +120,54 @@ function buildLineItems(
       }
     }
 
-    // Getränke als separate Position
-    if (winePricePerPerson > 0) {
+    // Getränke: je nach drinksMode eigene Positionen
+    const drinkMode = ms.drinksMode ?? 'none';
+
+    if (drinkMode === 'pauschale' && ms.drinksPauschalePrice && ms.drinksPauschalePrice > 0) {
+      items.push({
+        type: 'custom',
+        name: ms.drinksPauschaleDescription || 'Getränkepauschale',
+        description: '',
+        quantity: guestCount,
+        unitName: 'Person',
+        unitPrice: {
+          currency: 'EUR',
+          netAmount: round2(ms.drinksPauschalePrice),
+          taxRatePercentage: 19,
+        },
+      });
+    } else if (drinkMode === 'weinbegleitung' && ms.winePairingPrice && ms.winePairingPrice > 0) {
+      items.push({
+        type: 'custom',
+        name: 'Weinbegleitung zum Menü',
+        description: '',
+        quantity: guestCount,
+        unitName: 'Person',
+        unitPrice: {
+          currency: 'EUR',
+          netAmount: round2(ms.winePairingPrice),
+          taxRatePercentage: 19,
+        },
+      });
+    } else if (drinkMode === 'einzeln' && ms.drinksEinzeln && ms.drinksEinzeln.length > 0) {
+      for (const drink of ms.drinksEinzeln) {
+        if (drink.pricePerPerson > 0) {
+          items.push({
+            type: 'custom',
+            name: drink.name,
+            description: '',
+            quantity: guestCount,
+            unitName: 'Person',
+            unitPrice: {
+              currency: 'EUR',
+              netAmount: round2(drink.pricePerPerson),
+              taxRatePercentage: 19,
+            },
+          });
+        }
+      }
+    } else if ((drinkMode === 'none' || !drinkMode) && winePricePerPerson > 0) {
+      // Fallback: Altes Verhalten (winePairingPrice direkt gesetzt ohne neuen Modus)
       const drinkLabels = (ms.drinks || [])
         .map(d => d.drinkLabel + (d.selectedChoice ? `: ${d.selectedChoice}` : ''))
         .join(', ');
