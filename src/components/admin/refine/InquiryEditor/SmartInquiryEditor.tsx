@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, History, ListTodo, ExternalLink, ChevronDown } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import { OfferBuilder } from "./OfferBuilder";
 import { CateringModules } from "./CateringModules";
 import { ClientPreview } from "./ClientPreview";
 import { StaffNote } from "./StaffNote";
-import { Timeline } from "@/components/admin/shared/Timeline";
 import { TaskManager } from "@/components/admin/shared/TaskManager";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
@@ -42,7 +41,6 @@ export const SmartInquiryEditor = () => {
   const [emailDraft, setEmailDraft] = useState("");
   const [localInquiry, setLocalInquiry] = useState<Partial<ExtendedInquiry>>({});
   const [menuSelection, setMenuSelection] = useState<MenuSelection>({ courses: [], drinks: [] });
-  const [timelineOpen, setTimelineOpen] = useState(false);
 
   // Fetch inquiry data
   const inquiryQuery = useOne<ExtendedInquiry>({
@@ -396,25 +394,6 @@ export const SmartInquiryEditor = () => {
             />
           )}
 
-          {/* Timeline & Activity — einklappbar, default eingeklappt */}
-          <div className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setTimelineOpen(v => !v)}
-              className="w-full flex items-center justify-between p-6 cursor-pointer hover:bg-muted/30 transition-colors rounded-xl"
-            >
-              <div className="flex items-center gap-2">
-                <History className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-bold tracking-tight">Timeline & Aktivitäten</h2>
-              </div>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${timelineOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {timelineOpen && (
-              <div className="px-6 pb-6">
-                <Timeline entityType="event_inquiry" entityId={id!} />
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Right Column - 5 columns */}
@@ -438,6 +417,12 @@ export const SmartInquiryEditor = () => {
                 inquiryId={id!}
                 currentUserEmail={currentUserEmail}
               />
+              <div className="mt-4 pt-4 border-t border-border/60">
+                <StaffNote
+                  note={inquiry.internal_notes || ''}
+                  onNoteChange={(note) => handleLocalFieldChange('internal_notes', note)}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -469,11 +454,6 @@ export const SmartInquiryEditor = () => {
             }}
           />
 
-          {/* Staff Note */}
-          <StaffNote
-            note={inquiry.internal_notes || ''}
-            onNoteChange={(note) => handleLocalFieldChange('internal_notes', note)}
-          />
         </div>
       </div>
 

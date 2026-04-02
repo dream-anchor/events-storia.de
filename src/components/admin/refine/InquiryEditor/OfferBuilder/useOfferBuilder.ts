@@ -75,6 +75,7 @@ export function useOfferBuilder({
 }: UseOfferBuilderProps): UseOfferBuilderReturn {
   // --- Core State (migriert aus useMultiOfferState) ---
   const [options, setOptions] = useState<OfferBuilderOption[]>([]);
+  const isDirtyRef = useRef(false);
   const [currentVersion, setCurrentVersion] = useState(1);
   const [history, setHistory] = useState<OfferHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -324,9 +325,9 @@ export function useOfferBuilder({
   useEffect(() => {
     if (isLoading || isInitialLoad.current) return;
 
-    // JSON-Vergleich: Nur speichern wenn sich tatsächlich etwas geändert hat
+    if (!isDirtyRef.current) return;
+    isDirtyRef.current = false;
     const currentJson = JSON.stringify(options);
-    if (currentJson === lastSavedJsonRef.current) return;
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -372,15 +373,6 @@ export function useOfferBuilder({
             })
             .eq("id", inquiryId);
         }
-
-        const activeOpts = options.filter(o => o.isActive);
-        await logActivity(inquiryId, 'offer_updated', {
-          optionCount: activeOpts.length,
-          summary: activeOpts.map(o =>
-            `Option ${o.optionLabel} (${o.offerMode}): ${o.packageName || 'Kein Paket'} (${o.guestCount} Gäste, ${o.totalAmount.toFixed(2)} €)`
-          ).join(', '),
-          version: currentVersion,
-        });
 
         lastSavedJsonRef.current = currentJson;
         setSaveStatus('idle');
@@ -597,6 +589,7 @@ export function useOfferBuilder({
         }
       : createEmptyOption(nextLabel, guestCount, mode);
 
+    isDirtyRef.current = true;
     setOptions(prev => [...prev, {
       id: crypto.randomUUID(),
       ...base,
@@ -606,16 +599,19 @@ export function useOfferBuilder({
   }, [options, guestCount, currentVersion]);
 
   const removeOption = useCallback((optionId: string) => {
+    isDirtyRef.current = true;
     setOptions(prev => prev.filter(o => o.id !== optionId));
   }, []);
 
   const updateOption = useCallback((optionId: string, updates: Partial<OfferBuilderOption>) => {
+    isDirtyRef.current = true;
     setOptions(prev => prev.map(o =>
       o.id === optionId ? { ...o, ...updates } : o
     ));
   }, []);
 
   const toggleOptionActive = useCallback((optionId: string) => {
+    isDirtyRef.current = true;
     setOptions(prev => prev.map(o =>
       o.id === optionId ? { ...o, isActive: !o.isActive } : o
     ));
