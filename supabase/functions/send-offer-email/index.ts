@@ -100,6 +100,7 @@ async function sendEmail(
   fromName: string,
   pdfBuffer: Uint8Array | null,
   customerName: string,
+  bcc?: string[],
 ): Promise<SendResult> {
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   const smtpUser = Deno.env.get("SMTP_USER")?.trim();
@@ -115,6 +116,7 @@ async function sendEmail(
       const payload: Record<string, unknown> = {
         from: `${fromName} <info@events-storia.de>`,
         to,
+        bcc: bcc && bcc.length > 0 ? bcc : undefined,
         subject,
         html,
         reply_to: 'info@events-storia.de',
@@ -253,7 +255,12 @@ serve(async (req) => {
       }
     }
 
-    const result = await sendEmail([customerEmail], emailSubject, htmlBody, "STORIA Events", pdfBuffer, customerName);
+    const bccList = ['info@events-storia.de'];
+    if (senderEmail && senderEmail !== 'info@events-storia.de') {
+      bccList.push(senderEmail);
+    }
+
+    const result = await sendEmail([customerEmail], emailSubject, htmlBody, "STORIA Events", pdfBuffer, customerName, bccList);
 
     // Betreiber-Benachrichtigung: Versand fehlgeschlagen
     if (!result.sent) {
