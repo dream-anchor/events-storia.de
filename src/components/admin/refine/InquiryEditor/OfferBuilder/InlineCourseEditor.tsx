@@ -116,6 +116,7 @@ function SortableCourseRow({
           onSelect={(dish) => onDishSelect(idx, dish)}
           menuItems={menuItems}
           filterCategories={getFilterCategories(course.courseType)}
+          courseType={course.courseType}
           placeholder={`${course.courseLabel} wählen...`}
           disabled={disabled}
         />

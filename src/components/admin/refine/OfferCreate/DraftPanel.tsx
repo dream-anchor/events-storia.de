@@ -1,4 +1,4 @@
-import { Save, Send, Loader2, MessageSquare } from "lucide-react";
+import { Send, Loader2, MessageSquare, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,6 +105,7 @@ export const DraftPanel = ({
           packages={packages}
           templates={templates}
           onSave={async () => {}}
+          isCreateMode={true}
         />
       ) : (
         <Card>
@@ -134,29 +135,18 @@ export const DraftPanel = ({
       </Card>
 
       {/* Action Buttons */}
-      <div className="flex gap-3 pt-2 pb-4">
-        <Button
-          variant="outline"
-          onClick={onSaveDraft}
-          disabled={!canSave || isSaving || isSending || !draftInquiry}
-          className="flex-1"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Speichern...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Speichern (Entwurf)
-            </>
-          )}
-        </Button>
+      <div className="flex gap-3 pt-2 pb-4 items-center">
+        {/* Autosave-Indikator statt "Speichern (Entwurf)" */}
+        {draftInquiry && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-1">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+            Angebot wird automatisch gespeichert
+          </div>
+        )}
         <Button
           onClick={onSaveAndSend}
           disabled={!canSave || isSaving || isSending || !draftInquiry}
-          className="flex-1"
+          className="flex-1 max-w-[220px]"
         >
           {isSending ? (
             <>

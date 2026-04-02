@@ -286,6 +286,8 @@ export function OptionCard({
             onCourseUpdate={option.offerMode === 'menu' ? handleCourseUpdate : undefined}
             finalPricePerPerson={option.budgetPerPerson}
             onFinalPriceChange={(price) => onUpdate({ budgetPerPerson: price })}
+            discountPercent={option.discountPercent}
+            onDiscountChange={(pct) => onUpdate({ discountPercent: pct })}
             disabled={disabled}
           />
         </div>

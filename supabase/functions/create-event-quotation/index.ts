@@ -148,11 +148,11 @@ function buildLineItems(
   return items;
 }
 
-function buildIntroduction(inquiry: Record<string, unknown>, ms: MenuSelectionDB | null): string {
+function buildIntroduction(inquiry: Record<string, unknown> | null, ms: MenuSelectionDB | null): string {
   const parts = [
-    `Event-Angebot für ${inquiry.preferred_date || 'nach Vereinbarung'}`,
-    `Gäste: ${inquiry.guest_count || '-'}`,
-    `Art: ${inquiry.event_type || '-'}`,
+    `Event-Angebot für ${inquiry?.preferred_date || 'nach Vereinbarung'}`,
+    `Gäste: ${inquiry?.guest_count || '-'}`,
+    `Art: ${inquiry?.event_type || '-'}`,
   ];
 
   if (ms?.courses && ms.courses.length > 0) {
@@ -209,7 +209,7 @@ serve(async (req) => {
       .select('*')
       .eq('id', inquiryId)
       .single();
-    if (inqErr) throw new Error(`Anfrage nicht gefunden: ${inqErr.message}`);
+    if (inqErr || !inquiry) throw new Error(`Anfrage nicht gefunden: ${inqErr?.message}`);
 
     // 2. Aktive Angebots-Optionen laden
     const { data: options, error: optErr } = await supabase

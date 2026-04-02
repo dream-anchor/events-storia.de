@@ -7,7 +7,9 @@ export type CourseType =
   | 'main_fish' 
   | 'main_meat' 
   | 'dessert' 
-  | 'fingerfood';
+  | 'fingerfood'
+  | 'vegetarisch'
+  | 'vegan';
 
 export type DrinkGroupType =
   | 'aperitif'
@@ -98,6 +100,8 @@ export const COURSE_ICONS: Record<CourseType, string> = {
   main_meat: '🥩',
   dessert: '🍰',
   fingerfood: '🥗',
+  vegetarisch: '🌱',
+  vegan: '🌿',
 };
 
 export const DRINK_ICONS: Record<DrinkGroupType, string> = {

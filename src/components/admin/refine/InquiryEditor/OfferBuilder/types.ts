@@ -76,6 +76,8 @@ export interface OfferBuilderOption {
   sortOrder: number;
   // Neue Felder für den OfferBuilder
   budgetPerPerson: number | null;
+  /** Rabatt-Prozentsatz (0–100, default 25) — wird in menu_selection.discountPercent gespeichert */
+  discountPercent: number;
   attachMenu: boolean;
   tableNote: string | null;
 }
@@ -137,6 +139,8 @@ export const DEFAULT_COURSE_CONFIGS: CourseConfig[] = [
   { id: 'def-main-meat', package_id: '', course_type: 'main_meat', course_label: 'Fleisch', course_label_en: 'Meat', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 5 },
   { id: 'def-dessert', package_id: '', course_type: 'dessert', course_label: 'Dessert', course_label_en: 'Dessert', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 6 },
   { id: 'def-fingerfood', package_id: '', course_type: 'fingerfood', course_label: 'Fingerfood', course_label_en: 'Finger Food', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 7 },
+  { id: 'def-vegetarisch', package_id: '', course_type: 'vegetarisch', course_label: 'Vegetarisch', course_label_en: 'Vegetarian', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 8 },
+  { id: 'def-vegan', package_id: '', course_type: 'vegan', course_label: 'Vegan', course_label_en: 'Vegan', is_required: false, allowed_sources: ['catering', 'ristorante'], allowed_categories: [], is_custom_item: false, custom_item_name: null, custom_item_name_en: null, custom_item_description: null, sort_order: 9 },
 ];
 
 /** Default-Getränkegruppen für Menü-Modus (ohne Paket-Abhängigkeit) */
@@ -167,6 +171,7 @@ export function createEmptyOption(
     offerVersion: 1,
     sortOrder: OPTION_LABELS.indexOf(label as OptionLabel),
     budgetPerPerson: null,
+    discountPercent: 25,
     attachMenu: false,
     tableNote: null,
   };

@@ -17,12 +17,27 @@ import {
 } from "@/components/ui/command";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 
+/** Welche Kategorienamen für einen Gang-Typ zuerst erscheinen sollen */
+const COURSE_PRIORITY_CATEGORIES: Record<string, string[]> = {
+  starter: ['antipasti', 'vorspeise', 'antipasto'],
+  pasta: ['pasta', 'primi', 'primo'],
+  main: ['hauptgang', 'secondo', 'secondi', 'fleisch', 'main'],
+  main_fish: ['fisch', 'fish', 'meeresfrüchte', 'pesce'],
+  main_meat: ['fleisch', 'meat', 'secondo', 'secondi'],
+  dessert: ['dessert', 'dolce', 'nachspeise', 'dolci'],
+  fingerfood: ['fingerfood', 'snack', 'bites'],
+  vegetarisch: ['vegetarisch', 'vegetarian', 'veggie', 'gemüse'],
+  vegan: ['vegan', 'vegano', 'plant'],
+};
+
 interface DishPickerProps {
   value: { id: string; name: string } | null;
   onSelect: (dish: { id: string; name: string; description: string | null; source: string; price: number | null }) => void;
   onClear?: () => void;
   menuItems: CombinedMenuItem[];
   filterCategories?: string[];
+  /** Gangtyp für kontextbezogene Sortierung (passende Kategorien erscheinen zuerst) */
+  courseType?: string;
   placeholder?: string;
   allowCustom?: boolean;
   disabled?: boolean;
@@ -34,6 +49,7 @@ export function DishPicker({
   onClear,
   menuItems,
   filterCategories,
+  courseType,
   placeholder = "Gericht wählen...",
   allowCustom = true,
   disabled = false,
@@ -75,18 +91,38 @@ export function DishPicker({
     );
   }, [filteredItems, search]);
 
+  // Prioritätskategorien für den aktuellen Gangtyp
+  const priorityCats = useMemo(() => {
+    if (!courseType) return [];
+    return (COURSE_PRIORITY_CATEGORIES[courseType] || []).map(c => c.toLowerCase());
+  }, [courseType]);
+
+  const isPriority = (categoryName: string) =>
+    priorityCats.some(p => categoryName.toLowerCase().includes(p));
+
+  // Sortierung: Prioritätskategorien zuerst, dann alphabetisch
+  const sortedItems = useMemo(() => {
+    if (priorityCats.length === 0) return searchFiltered;
+    return [...searchFiltered].sort((a, b) => {
+      const aPrio = isPriority(a.category_name) ? 0 : 1;
+      const bPrio = isPriority(b.category_name) ? 0 : 1;
+      return aPrio - bPrio;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchFiltered, priorityCats]);
+
   // Gruppiere nach Source → Kategorie (Ristorante zuerst, dann Catering)
   const sourceGroups = useMemo(() => {
     const ristorante = new Map<string, CombinedMenuItem[]>();
     const catering = new Map<string, CombinedMenuItem[]>();
-    for (const item of searchFiltered) {
+    for (const item of sortedItems) {
       const target = item.source === 'ristorante' ? ristorante : catering;
       const key = item.category_name;
       if (!target.has(key)) target.set(key, []);
       target.get(key)!.push(item);
     }
     return { ristorante, catering };
-  }, [searchFiltered]);
+  }, [sortedItems]);
 
   const handleSelect = (item: CombinedMenuItem) => {
     onSelect({

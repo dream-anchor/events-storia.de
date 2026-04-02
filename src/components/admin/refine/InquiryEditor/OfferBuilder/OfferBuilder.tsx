@@ -19,6 +19,8 @@ interface OfferBuilderProps {
   packages: Package[];
   templates: EmailTemplate[];
   onSave: () => Promise<void>;
+  /** Create-Seite: SendControls ausblenden, da eigene Buttons vorhanden */
+  isCreateMode?: boolean;
 }
 
 export function OfferBuilder({
@@ -26,6 +28,7 @@ export function OfferBuilder({
   packages,
   templates,
   onSave,
+  isCreateMode = false,
 }: OfferBuilderProps) {
   const guestCount = parseInt(inquiry.guest_count || "1") || 1;
   const selectedPackages = Array.isArray(inquiry.selected_packages)
@@ -273,8 +276,8 @@ export function OfferBuilder({
         )}
       </div>
 
-      {/* 5. Send Controls */}
-      <SendControls
+      {/* 5. Send Controls — nicht auf der Create-Seite (eigene Buttons im DraftPanel) */}
+      {!isCreateMode && <SendControls
         offerPhase={builder.offerPhase}
         emailDraft={emailDraft}
         activeOptionsCount={defaultMode === 'email' ? 1 : builder.activeOptions.length}
@@ -282,7 +285,7 @@ export function OfferBuilder({
         onSendProposal={builder.sendProposal}
         onSendFinalOffer={builder.sendFinalOffer}
         hasHistory={builder.history.length > 0}
-      />
+      />}
 
       {/* 6. Versionshistorie */}
       {builder.history.length > 0 && (

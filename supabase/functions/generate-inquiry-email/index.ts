@@ -130,7 +130,7 @@ function isMultiOfferRequest(body: RequestBody): body is MultiOfferRequest {
 function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferOption[]): string {
   const parts: string[] = [];
 
-  parts.push(`Kunde: ${inquiry.contact_name}${inquiry.company_name ? ` (${inquiry.company_name})` : ''}`);
+  parts.push(`Kunde: ${inquiry.contact_name || '(kein Name bekannt)'}${inquiry.company_name ? ` (${inquiry.company_name})` : ''}`);
 
   // Nur tatsächlich vorhandene Daten aufnehmen
   if (inquiry.event_type) parts.push(`Event-Typ (nur Hintergrundinfo, NICHT im Text verwenden!): ${inquiry.event_type}`);
@@ -369,19 +369,20 @@ STIL:
 
 ANREDE:
 - IMMER "Hallo [Vorname]," verwenden
+- Wenn kein Name bekannt ist (Kunde = "kein Name bekannt"): Schreibe nur "Hallo," ohne Namen, ohne Leerzeichen vor dem Komma
 - NIEMALS "Sehr geehrte/r" verwenden
 
 ${isProposal ? `STRUKTUR für Vorschlag (Proposal):
-1. Anrede: "Hallo [Name],"
+1. Anrede: "Hallo [Name]," (oder nur "Hallo," wenn kein Name bekannt)
 2. Kurzer Dank für die Anfrage — beziehe dich NUR auf tatsächlich vorhandene Daten (Datum, Uhrzeit, Gästezahl). NICHT den Event-Typ als Titel verwenden!
 ${optionCount > 1
   ? `3. Erwähne, dass du ${optionCount} Optionen zusammengestellt hast
 4. Liste jede Option KURZ auf: Paketname, Preis pro Person (NICHT Gesamtpreis!), und falls ein Menü konfiguriert ist, nenne 2-3 Highlight-Gänge (z.B. "mit Seeteufel, Pasta und Tiramisu")
-5. Hinweis: "Wählen Sie Ihren Favoriten über den folgenden Link und teilen Sie uns eventuelle Wünsche mit."
+5. Schreibe EXAKT diesen Satz: "Wählen Sie Ihren Favoriten über diesen Link: [ANGEBOT_LINK]" — [ANGEBOT_LINK] wird automatisch durch den echten Link ersetzt, nicht ändern!
 6. Schlusssatz: Wir finalisieren das Angebot nach Ihrer Rückmeldung`
   : `3. Stelle das Angebot kurz vor — NICHT "Option A" bei nur einer Option.
 4. Nenne den Preis pro Person. Falls Menügänge vorhanden sind, erwähne 2-3 Highlights (z.B. "mit Seeteufel, hausgemachter Pasta und Tiramisu").
-5. Hinweis: "Das Angebot mit allen Details finden Sie über den folgenden Link."
+5. Schreibe EXAKT diesen Satz: "Das Angebot mit allen Details finden Sie hier: [ANGEBOT_LINK]" — [ANGEBOT_LINK] wird automatisch durch den echten Link ersetzt, nicht ändern!
 6. Schlusssatz: Wir freuen uns auf Rückmeldung`}
 7. Signatur
 
@@ -520,7 +521,27 @@ ${context}`;
     }
 
     const aiResponse = await response.json();
-    const generatedEmail = aiResponse.choices?.[0]?.message?.content || '';
+    let generatedEmail = aiResponse.choices?.[0]?.message?.content || '';
+
+    // A3: [ANGEBOT_LINK] Placeholder durch echten Link ersetzen (nur für OfferBuilderRequest)
+    if (isOfferBuilderRequest(rawBody)) {
+      const offerUrl = `https://events-storia.de/offer/${rawBody.inquiryId}`;
+      if (generatedEmail.includes('[ANGEBOT_LINK]')) {
+        generatedEmail = generatedEmail.replaceAll('[ANGEBOT_LINK]', offerUrl);
+      } else {
+        // Fallback: URL vor der Signatur einfügen
+        const signatureMarker = '\n\nViele Grüße';
+        const sigIdx = generatedEmail.indexOf(signatureMarker);
+        if (sigIdx !== -1) {
+          generatedEmail =
+            generatedEmail.slice(0, sigIdx) +
+            `\n\n${offerUrl}` +
+            generatedEmail.slice(sigIdx);
+        } else {
+          generatedEmail += `\n\n${offerUrl}`;
+        }
+      }
+    }
 
     // Company Footer aus DB laden und an die E-Mail anhängen
     const footerAdmin = createClient(

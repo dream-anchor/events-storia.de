@@ -202,8 +202,8 @@ export const AdminOfferCreate = () => {
 
     if (error) throw error;
 
-    // Fire-and-forget: notification emails
-    supabase.functions.invoke('receive-event-inquiry', {
+    // Kunden-Benachrichtigung nur bei Entwurf (nicht bei offer_sent — Angebots-Mail folgt separat)
+    if (status === 'new') supabase.functions.invoke('receive-event-inquiry', {
       body: {
         contactName: formData.contact_name,
         email: formData.email,
@@ -223,6 +223,7 @@ export const AdminOfferCreate = () => {
     });
 
     return data;
+
   };
 
   const handleSaveDraft = async () => {

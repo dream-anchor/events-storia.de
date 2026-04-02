@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +25,9 @@ interface PriceBreakdownProps {
   /** Finaler Angebotspreis pro Person (Override) */
   finalPricePerPerson?: number | null;
   onFinalPriceChange?: (price: number | null) => void;
+  /** Rabatt in Prozent (0–100, default 25) */
+  discountPercent?: number;
+  onDiscountChange?: (percent: number) => void;
   disabled?: boolean;
 }
 
@@ -93,11 +96,13 @@ export function PriceBreakdown({
   menuPricePerPerson = 0,
   finalPricePerPerson,
   onFinalPriceChange,
+  discountPercent: discountPercentProp,
+  onDiscountChange,
   disabled = false,
 }: PriceBreakdownProps) {
   // --- Menü-Modus (kein Paket) ---
   if (!packageData && onTotalChange !== undefined) {
-    const DISCOUNT = 0.25; // 25% interner Rabatt
+    const DISCOUNT = ((discountPercentProp ?? 25) / 100);
 
     const dishLines = (courses || [])
       .map((c, idx) => {
@@ -186,13 +191,31 @@ export function PriceBreakdown({
               </div>
             )}
 
-            {/* -20% Rabatt */}
-            {discountAmount > 0 && (
-              <div className="flex items-center justify-between text-xs text-green-600">
-                <span>−{Math.round(DISCOUNT * 100)}% Rabatt</span>
-                <span>−{formatCurrency(discountAmount)}</span>
+            {/* Rabatt — editierbar */}
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1 text-green-600">
+                <span>Rabatt</span>
+                <div className="relative w-14">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={discountPercentProp ?? 25}
+                    onChange={(e) => {
+                      const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                      onDiscountChange?.(val);
+                    }}
+                    className="h-5 rounded px-1.5 pr-4 text-right text-xs text-green-600"
+                    disabled={disabled}
+                  />
+                  <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-green-600">%</span>
+                </div>
               </div>
-            )}
+              {discountAmount > 0 && (
+                <span className="text-green-600">−{formatCurrency(discountAmount)}</span>
+              )}
+            </div>
 
             {/* Netto pro Person */}
             {netPerPerson > 0 && discountAmount > 0 && (
