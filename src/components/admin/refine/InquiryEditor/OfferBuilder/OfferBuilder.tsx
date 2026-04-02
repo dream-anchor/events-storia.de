@@ -240,7 +240,6 @@ export function OfferBuilder({
                 emailSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }, 100);
             }}
-            disabled={builder.isLocked}
             className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl h-12 text-base gap-2"
           >
             <Mail className="h-5 w-5" />
