@@ -64,7 +64,7 @@ function buildLineItems(
   packageName: string | null,
 ): LexOfficeLineItem[] {
   const ms = opt.menu_selection;
-  const guestCount = opt.guest_count || 1;
+  const guestCount = parseInt(String(opt.guest_count)) || 1;
   const totalAmount = opt.total_amount || 0;
   const items: LexOfficeLineItem[] = [];
 
@@ -204,11 +204,21 @@ function buildLineItems(
   return items;
 }
 
+function formatDateDE(isoDate: string): string {
+  const d = new Date(isoDate);
+  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function buildIntroduction(inquiry: Record<string, unknown> | null, ms: MenuSelectionDB | null): string {
+  const rawDate = inquiry?.preferred_date ? String(inquiry.preferred_date) : null;
   const parts = [
-    `Event-Angebot für ${inquiry?.preferred_date || 'nach Vereinbarung'}`,
-    `Gäste: ${inquiry?.guest_count || '-'}`,
-    `Art: ${inquiry?.event_type || '-'}`,
+    `Event-Angebot für den ${rawDate ? formatDateDE(rawDate) : 'nach Vereinbarung'}`,
+    `Gäste: ${inquiry?.guest_count || '-'} Personen`,
+    `Art: ${inquiry?.event_type ? capitalize(String(inquiry.event_type)) : '-'}`,
   ];
 
   if (ms?.courses && ms.courses.length > 0) {
