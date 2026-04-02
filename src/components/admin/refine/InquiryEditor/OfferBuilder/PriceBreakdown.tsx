@@ -13,8 +13,10 @@ interface PriceBreakdownProps {
   /** Menü-Modus: Kurse mit Einzelpreisen */
   courses?: CourseSelection[];
   menuItems?: CombinedMenuItem[];
-  /** Weinbegleitung pro Person */
+  /** Getränke/Weinbegleitung pro Person */
   winePairingPrice?: number | null;
+  /** Label für die Getränke-Zeile (default: 'Getränke') */
+  drinksLabel?: string;
   /** Manueller Gesamtpreis (frei editierbar) */
   totalAmount?: number;
   onTotalChange?: (total: number) => void;
@@ -98,6 +100,7 @@ export function PriceBreakdown({
   onFinalPriceChange,
   discountPercent: discountPercentProp,
   onDiscountChange,
+  drinksLabel,
   disabled = false,
 }: PriceBreakdownProps) {
   // --- Menü-Modus (kein Paket) ---
@@ -173,10 +176,10 @@ export function PriceBreakdown({
               </div>
             ))}
 
-            {/* Weinbegleitung */}
+            {/* Getränke */}
             {winePairingPrice != null && winePerPerson > 0 && (
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">Weinbegleitung</span>
+                <span className="text-xs text-muted-foreground">{drinksLabel ?? 'Getränke'}</span>
                 <span className="text-xs text-muted-foreground shrink-0 w-24 text-right pr-6">
                   {formatCurrency(winePerPerson)}
                 </span>
@@ -227,11 +230,11 @@ export function PriceBreakdown({
           </div>
         )}
 
-        {/* Weinbegleitung alleinstehend */}
+        {/* Getränke alleinstehend (keine Gerichte) */}
         {dishLines.length === 0 && winePairingPrice != null && winePerPerson > 0 && (
           <div className="space-y-1">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Weinbegleitung / Person</span>
+              <span>{drinksLabel ?? 'Getränke'} / Person</span>
               <span>{formatCurrency(winePerPerson)}</span>
             </div>
           </div>

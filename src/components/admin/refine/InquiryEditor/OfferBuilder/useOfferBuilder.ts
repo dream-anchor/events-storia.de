@@ -428,8 +428,17 @@ export function useOfferBuilder({
               dishSubtotal += course.overridePrice;
             }
           }
-          const winePerPerson = opt.menuSelection.winePairingPrice || 0;
-          const subtotal = dishSubtotal + winePerPerson;
+          // Getränke je nach Modus
+          let drinksPerPerson = 0;
+          const drinkMode = opt.menuSelection.drinksMode ?? 'none';
+          if (drinkMode === 'weinbegleitung' || drinkMode === 'none') {
+            drinksPerPerson = opt.menuSelection.winePairingPrice || 0;
+          } else if (drinkMode === 'pauschale') {
+            drinksPerPerson = opt.menuSelection.drinksPauschalePrice || 0;
+          } else if (drinkMode === 'einzeln') {
+            drinksPerPerson = (opt.menuSelection.drinksEinzeln || []).reduce((s, d) => s + d.pricePerPerson, 0);
+          }
+          const subtotal = dishSubtotal + drinksPerPerson;
           const discount = dishSubtotal * MENU_DISCOUNT;
           const netPerPerson = subtotal - discount;
 
@@ -466,7 +475,10 @@ export function useOfferBuilder({
     const courseKey = o.offerMode === 'menu'
       ? o.menuSelection.courses.map(c => `${c.overridePrice ?? ''}`).join('|')
       : '';
-    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.menuSelection.winePairingPrice}:${courseKey}`;
+    const drinkKey = o.offerMode === 'menu'
+      ? `${o.menuSelection.drinksMode ?? 'none'}:${o.menuSelection.winePairingPrice ?? ''}:${o.menuSelection.drinksPauschalePrice ?? ''}:${(o.menuSelection.drinksEinzeln ?? []).map(d => d.pricePerPerson).join('|')}`
+      : '';
+    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${courseKey}:${drinkKey}`;
   }).join(',')]);
 
   // =================================================================

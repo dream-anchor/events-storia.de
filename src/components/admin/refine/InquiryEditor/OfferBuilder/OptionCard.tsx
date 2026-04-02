@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { InlineCourseEditor } from "./InlineCourseEditor";
 import { InlineDrinkEditor } from "./InlineDrinkEditor";
+import { DrinkSection } from "./DrinkSection";
 import { PriceBreakdown } from "./PriceBreakdown";
 import type {
   OfferBuilderOption,
@@ -23,6 +24,8 @@ import type {
   CourseType,
   DrinkConfig,
   DrinkSelection,
+  DrinkSectionMode,
+  DrinkEinzelnItem,
 } from "./types";
 import type { Package } from "../types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
@@ -280,7 +283,8 @@ export function OptionCard({
             guestCount={option.guestCount}
             courses={option.offerMode === 'menu' ? option.menuSelection.courses : undefined}
             menuItems={option.offerMode === 'menu' ? menuItems : undefined}
-            winePairingPrice={option.menuSelection.winePairingPrice}
+            winePairingPrice={option.offerMode === 'menu' ? computeDrinksPerPerson(option) : option.menuSelection.winePairingPrice}
+            drinksLabel={option.offerMode === 'menu' ? computeDrinksLabel(option) : undefined}
             totalAmount={option.totalAmount}
             onTotalChange={option.offerMode === 'menu' ? (total) => onUpdate({ totalAmount: total }) : undefined}
             onCourseUpdate={option.offerMode === 'menu' ? handleCourseUpdate : undefined}
@@ -294,6 +298,37 @@ export function OptionCard({
       </Card>
     </motion.div>
   );
+}
+
+// --- Hilfsfunktionen für Drink-Kalkulation ---
+function computeDrinksPerPerson(option: OfferBuilderOption): number | null {
+  const mode = option.menuSelection.drinksMode ?? 'none';
+  switch (mode) {
+    case 'weinbegleitung': {
+      const p = option.menuSelection.winePairingPrice ?? null;
+      return p != null && p > 0 ? p : null;
+    }
+    case 'pauschale': {
+      const p = option.menuSelection.drinksPauschalePrice ?? null;
+      return p != null && p > 0 ? p : null;
+    }
+    case 'einzeln': {
+      const sum = (option.menuSelection.drinksEinzeln ?? []).reduce((s, d) => s + d.pricePerPerson, 0);
+      return sum > 0 ? sum : null;
+    }
+    default:
+      return null;
+  }
+}
+
+function computeDrinksLabel(option: OfferBuilderOption): string | undefined {
+  const mode = option.menuSelection.drinksMode ?? 'none';
+  switch (mode) {
+    case 'weinbegleitung': return 'Weinbegleitung';
+    case 'pauschale': return option.menuSelection.drinksPauschaleDescription || 'Getränkepauschale';
+    case 'einzeln': return 'Getränke';
+    default: return undefined;
+  }
 }
 
 // --- Modus: Menü (freie Gangkonfiguration) ---
@@ -316,8 +351,6 @@ function MenuContent({
   onCourseRemove: (idx: number) => void;
   disabled: boolean;
 }) {
-  const hasWinePairing = (option.menuSelection.winePairingPrice ?? null) !== null;
-
   return (
     <div className="space-y-4">
       {/* Gänge */}
@@ -339,50 +372,17 @@ function MenuContent({
         />
       </div>
 
-      {/* Weinbegleitung */}
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={hasWinePairing}
-            onChange={(e) => {
-              onUpdate({
-                menuSelection: {
-                  ...option.menuSelection,
-                  winePairingPrice: e.target.checked ? 0 : null,
-                },
-              });
-            }}
-            disabled={disabled}
-            className="h-4 w-4 rounded border-border accent-primary"
-          />
-          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            🍷 Weinbegleitung
-          </span>
-        </label>
-        {hasWinePairing && (
-          <div className="relative ml-6 w-40">
-            <Input
-              type="number"
-              value={option.menuSelection.winePairingPrice || ''}
-              onChange={(e) =>
-                onUpdate({
-                  menuSelection: {
-                    ...option.menuSelection,
-                    winePairingPrice: parseFloat(e.target.value) || 0,
-                  },
-                })
-              }
-              placeholder="z.B. 25"
-              className="h-9 rounded-xl pr-16"
-              disabled={disabled}
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-              € / Pers.
-            </span>
-          </div>
-        )}
-      </div>
+      {/* Getränke-Sektion */}
+      <DrinkSection
+        drinksMode={option.menuSelection.drinksMode ?? 'none'}
+        drinksPauschalePrice={option.menuSelection.drinksPauschalePrice ?? null}
+        drinksPauschaleDescription={option.menuSelection.drinksPauschaleDescription ?? null}
+        winePairingPrice={option.menuSelection.winePairingPrice ?? null}
+        drinksEinzeln={option.menuSelection.drinksEinzeln ?? []}
+        menuItems={menuItems}
+        onUpdate={(update) => onUpdate({ menuSelection: { ...option.menuSelection, ...update } })}
+        disabled={disabled}
+      />
     </div>
   );
 }

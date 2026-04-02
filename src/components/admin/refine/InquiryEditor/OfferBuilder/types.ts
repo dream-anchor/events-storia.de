@@ -42,6 +42,14 @@ export type { CombinedMenuItem };
 
 export type OfferMode = 'menu' | 'paket' | 'email';
 
+export type DrinkSectionMode = 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
+
+export interface DrinkEinzelnItem {
+  id: string;
+  name: string;
+  pricePerPerson: number;
+}
+
 export type OfferPhase =
   | 'draft'
   | 'proposal_sent'
@@ -67,6 +75,10 @@ export interface OfferBuilderOption {
     courses: import('../MenuComposer/types').CourseSelection[];
     drinks: import('../MenuComposer/types').DrinkSelection[];
     winePairingPrice?: number | null;
+    drinksMode?: DrinkSectionMode;
+    drinksPauschalePrice?: number | null;
+    drinksPauschaleDescription?: string | null;
+    drinksEinzeln?: DrinkEinzelnItem[];
   };
   totalAmount: number;
   stripePaymentLinkId: string | null;
