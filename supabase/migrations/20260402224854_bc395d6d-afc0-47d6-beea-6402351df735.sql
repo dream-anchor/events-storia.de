@@ -1,0 +1,1 @@
+ALTER TABLE public.inquiry_tasks ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT false;

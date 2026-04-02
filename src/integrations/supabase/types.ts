@@ -818,6 +818,7 @@ export type Database = {
           id: string
           inquiry_id: string | null
           priority: string
+          reminder_sent: boolean | null
           status: string
           title: string
           updated_at: string
@@ -833,6 +834,7 @@ export type Database = {
           id?: string
           inquiry_id?: string | null
           priority?: string
+          reminder_sent?: boolean | null
           status?: string
           title: string
           updated_at?: string
@@ -848,6 +850,7 @@ export type Database = {
           id?: string
           inquiry_id?: string | null
           priority?: string
+          reminder_sent?: boolean | null
           status?: string
           title?: string
           updated_at?: string
