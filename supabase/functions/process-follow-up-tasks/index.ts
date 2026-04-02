@@ -49,7 +49,8 @@ serve(async (req) => {
   let failed = 0;
 
   for (const task of tasks) {
-    const inquiry = task.inquiry as { id: string; contact_name: string | null; company_name: string | null } | null;
+    const inquiryArr = task.inquiry as unknown as { id: string; contact_name: string | null; company_name: string | null }[] | null;
+    const inquiry = inquiryArr && inquiryArr.length > 0 ? inquiryArr[0] : null;
     const recipientEmail = task.assigned_to || "info@events-storia.de";
     const customerName = inquiry?.company_name || inquiry?.contact_name || "Unbekannt";
     const dueDate = task.due_date
