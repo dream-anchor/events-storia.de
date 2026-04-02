@@ -332,7 +332,6 @@ export function useOfferBuilder({
       clearTimeout(saveTimeoutRef.current);
     }
 
-    setSaveStatus('saving');
     saveTimeoutRef.current = setTimeout(async () => {
       try {
         const { data: userData } = await supabase.auth.getUser();
@@ -384,11 +383,11 @@ export function useOfferBuilder({
         });
 
         lastSavedJsonRef.current = currentJson;
-        setSaveStatus('saved');
-        setTimeout(() => setSaveStatus('idle'), 2000);
+        setSaveStatus('idle');
       } catch (error) {
         console.error("Auto-save error:", error);
         setSaveStatus('error');
+        toast.error('Speichern fehlgeschlagen');
       }
     }, 800);
 

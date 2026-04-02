@@ -442,7 +442,31 @@ export const SmartInquiryEditor = () => {
           </Card>
 
           {/* Email Status */}
-          <EmailStatusCard entityType="event_inquiry" entityId={id!} />
+          <EmailStatusCard
+            entityType="event_inquiry"
+            entityId={id!}
+            onResend={async () => {
+              if (!inquiry?.email || !inquiry?.email_draft) {
+                toast.error('Kein Anschreiben oder E-Mail-Adresse hinterlegt');
+                return;
+              }
+              const { data: result } = await supabase.functions.invoke('send-offer-email', {
+                body: {
+                  inquiryId: id,
+                  emailContent: inquiry.email_draft,
+                  customerEmail: inquiry.email,
+                  customerName: inquiry.contact_name || '',
+                  senderEmail: currentUserEmail,
+                  lexofficeQuotationId: (inquiry as any).lexoffice_quotation_id || null,
+                },
+              });
+              if (result?.emailSent) {
+                toast.success('E-Mail erneut versendet');
+              } else {
+                toast.error(`Versand fehlgeschlagen: ${result?.error || 'Unbekannter Fehler'}`);
+              }
+            }}
+          />
 
           {/* Staff Note */}
           <StaffNote

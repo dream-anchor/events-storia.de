@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef } from "react";
-import { Loader2, AlertCircle, Plus, Clock, ChevronDown, Mail, ExternalLink, UtensilsCrossed, ArrowRight } from "lucide-react";
+import { Loader2, Plus, Clock, ChevronDown, Mail, ExternalLink, UtensilsCrossed, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -185,12 +185,6 @@ export function OfferBuilder({
             </span>
           )}
         </h2>
-        {builder.saveStatus === "error" && (
-          <div className="flex items-center gap-1.5 text-xs text-destructive">
-            <AlertCircle className="h-3 w-3" />
-            <span>Speichern fehlgeschlagen</span>
-          </div>
-        )}
       </div>
 
       {/* 1. Modus-Auswahl */}

@@ -1,4 +1,5 @@
-import { Mail, Server, CheckCircle2, XCircle, Clock, Eye, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { Mail, Server, CheckCircle2, XCircle, Clock, Eye, AlertTriangle, RotateCcw } from 'lucide-react';
 import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -13,6 +14,7 @@ interface EmailStatusCardProps {
   entityType: EntityType;
   entityId: string;
   className?: string;
+  onResend?: (log: EmailDeliveryLog) => Promise<void>;
 }
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
@@ -37,8 +39,9 @@ const STATUS_COLOR: Record<string, string> = {
   'failed': 'text-red-600',
 };
 
-export const EmailStatusCard = ({ entityType, entityId, className }: EmailStatusCardProps) => {
+export const EmailStatusCard = ({ entityType, entityId, className, onResend }: EmailStatusCardProps) => {
   const { data: emailLogs = [], isLoading } = useEmailDeliveryLogs(entityType, entityId);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -139,6 +142,20 @@ export const EmailStatusCard = ({ entityType, entityId, className }: EmailStatus
                       <span className="text-xs text-muted-foreground truncate">
                         {log.subject}
                       </span>
+                      {onResend && (
+                        <button
+                          onClick={async () => {
+                            setResendingId(log.id);
+                            try { await onResend(log); } finally { setResendingId(null); }
+                          }}
+                          disabled={resendingId === log.id}
+                          className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors shrink-0"
+                          title="Erneut senden"
+                        >
+                          <RotateCcw className={cn("h-3 w-3", resendingId === log.id && "animate-spin")} />
+                          Erneut senden
+                        </button>
+                      )}
                     </div>
 
                     {/* Zeile 2: Empfänger + Absender + Provider + Zeit */}
