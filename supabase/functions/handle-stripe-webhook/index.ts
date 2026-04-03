@@ -262,7 +262,29 @@ async function handleEventOfferPayment(
 ) {
   const optionId = metadata.option_id;
   const inquiryId = metadata.inquiry_id;
-  logStep("Processing event offer payment", { optionId, inquiryId });
+  const paymentType = metadata.payment_type as 'full' | 'deposit' | undefined;
+  const totalAmount = metadata.total_amount ? parseFloat(metadata.total_amount) : null;
+  const amountPaid = session.amount_total ? session.amount_total / 100 : null;
+
+  logStep("Processing event offer payment", { optionId, inquiryId, paymentType, amountPaid });
+
+  // paid_amount + remaining_amount aktualisieren (für Anzahlungs-Flow)
+  if (inquiryId && amountPaid !== null) {
+    const updatePayment: Record<string, unknown> = {
+      paid_amount: amountPaid,
+      payment_type: paymentType || 'full',
+    };
+    if (paymentType === 'deposit' && totalAmount !== null) {
+      updatePayment.remaining_amount = totalAmount - amountPaid;
+    } else {
+      updatePayment.remaining_amount = 0;
+    }
+    await supabase
+      .from('event_inquiries')
+      .update(updatePayment)
+      .eq('id', inquiryId);
+    logStep("Paid amount updated", updatePayment);
+  }
 
   // Delegate to existing handle-offer-payment logic via internal call
   // This preserves the booking creation + LexOffice logic already built there

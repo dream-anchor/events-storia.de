@@ -880,6 +880,7 @@ function FinalOfferView({
               <FinalOptionCard
                 key={option.id}
                 option={option}
+                inquiryId={inquiry.id}
                 isSelected={inquiry.selected_option_id === option.id}
                 singleOption={displayOptions.length === 1}
               />
@@ -893,13 +894,16 @@ function FinalOfferView({
 
 function FinalOptionCard({
   option,
+  inquiryId,
   isSelected,
   singleOption,
 }: {
   option: PublicOfferOption;
+  inquiryId: string;
   isSelected: boolean;
   singleOption: boolean;
 }) {
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
   const _drinksLegacy = menu?.drinks?.filter((d) => d.selectedChoice || d.customDrink) || [];
@@ -918,6 +922,25 @@ function FinalOptionCard({
           ? menu.budgetPerPerson
           : option.total_amount / option.guest_count)
       : 0;
+
+  const totalAmount = option.total_amount;
+  const depositAmount = Math.round(totalAmount * 0.2 * 100) / 100;
+
+  const handlePayment = async (paymentType: 'full' | 'deposit') => {
+    setIsRedirecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-payment-session', {
+        body: { inquiryId, optionId: option.id, paymentType },
+      });
+      if (error || !data?.checkoutUrl) {
+        throw new Error(data?.error || 'Fehler beim Erstellen der Zahlungssitzung');
+      }
+      window.location.href = data.checkoutUrl;
+    } catch (err) {
+      setIsRedirecting(false);
+      alert(err instanceof Error ? err.message : 'Fehler bei der Zahlung');
+    }
+  };
 
   return (
     <div
@@ -1036,17 +1059,52 @@ function FinalOptionCard({
 
       {/* Payment */}
       <div className="px-6 py-4 bg-muted/30 border-t border-border/10">
-        {option.stripe_payment_link_url ? (
-          <a
-            href={option.stripe_payment_link_url}
-            target="_blank"
-            rel="noopener noreferrer"
+        {option.offer_mode === 'paket' ? (
+          /* Paket-Modus: nur Gesamtzahlung */
+          <Button
+            className="w-full h-12 gap-2 rounded-full font-sans font-semibold text-base shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all"
+            onClick={() => handlePayment('full')}
+            disabled={isRedirecting}
           >
-            <Button className="w-full h-12 gap-2 rounded-full font-sans font-semibold text-base shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all">
-              <CreditCard className="h-4 w-4" />
-              Jetzt verbindlich buchen
-            </Button>
-          </a>
+            {isRedirecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+            Jetzt zahlen — {formatCurrencyDecimal(totalAmount)}
+          </Button>
+        ) : totalAmount > 0 ? (
+          /* Menü-Modus: Komplett oder Anzahlung */
+          <div className="space-y-3">
+            <p className="text-sm font-sans font-medium text-center text-foreground/80">Wie möchten Sie zahlen?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handlePayment('full')}
+                disabled={isRedirecting}
+                className="p-4 rounded-xl border-2 border-primary text-center hover:bg-primary/5 transition-colors disabled:opacity-50"
+              >
+                {isRedirecting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                ) : (
+                  <>
+                    <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(totalAmount)}</span>
+                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">Komplett zahlen</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => handlePayment('deposit')}
+                disabled={isRedirecting}
+                className="p-4 rounded-xl border border-border text-center hover:bg-muted/50 transition-colors disabled:opacity-50"
+              >
+                {isRedirecting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                ) : (
+                  <>
+                    <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(depositAmount)}</span>
+                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">20% Anzahlung</span>
+                    <span className="text-[10px] font-sans text-muted-foreground/60 block">Rest vor dem Event</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         ) : (
           <p className="text-center text-sm text-muted-foreground font-sans py-1">
             Kontaktieren Sie uns für die Buchung.
