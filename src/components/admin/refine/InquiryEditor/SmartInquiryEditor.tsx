@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, History, ChevronDown } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { CateringModules } from "./CateringModules";
 import { ClientPreview } from "./ClientPreview";
 import { StaffNote } from "./StaffNote";
 import { TaskManager } from "@/components/admin/shared/TaskManager";
+import { Timeline } from "@/components/admin/shared/Timeline";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { InquiryPriority } from "@/types/refine";
@@ -40,6 +41,7 @@ export const SmartInquiryEditor = () => {
   const [quoteNotes, setQuoteNotes] = useState("");
   const [emailDraft, setEmailDraft] = useState("");
   const [localInquiry, setLocalInquiry] = useState<Partial<ExtendedInquiry>>({});
+  const [timelineOpen, setTimelineOpen] = useState(false);
   const [menuSelection, setMenuSelection] = useState<MenuSelection>({ courses: [], drinks: [] });
 
   // Fetch inquiry data
@@ -175,8 +177,16 @@ export const SmartInquiryEditor = () => {
         voucherId: lexofficeDocId,
         voucherType: lexofficeDocType
       });
-      if (result?.pdfUrl) {
-        window.open(result.pdfUrl, '_blank');
+      if (result?.pdf) {
+        const byteChars = atob(result.pdf);
+        const byteArray = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) {
+          byteArray[i] = byteChars.charCodeAt(i);
+        }
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
       } else {
         toast.error("PDF konnte nicht geladen werden");
       }
@@ -394,6 +404,25 @@ export const SmartInquiryEditor = () => {
             />
           )}
 
+          {/* Timeline & Aktivitäten — einklappbar, default eingeklappt */}
+          <div className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setTimelineOpen(v => !v)}
+              className="w-full flex items-center justify-between p-6 cursor-pointer hover:bg-muted/30 transition-colors rounded-xl"
+            >
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-bold tracking-tight">Timeline & Aktivitäten</h2>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${timelineOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {timelineOpen && (
+              <div className="px-6 pb-6">
+                <Timeline entityType="event_inquiry" entityId={id!} />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Column - 5 columns */}

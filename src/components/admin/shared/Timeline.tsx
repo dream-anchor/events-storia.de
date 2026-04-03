@@ -437,12 +437,16 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
   const isLoading = isLoadingActivity || isLoadingEmail;
   
   // Combine and sort all timeline items
+  const HIDDEN_ACTIONS = ['offer_updated', 'option_updated'];
+
   const combinedItems = useMemo((): TimelineItem[] => {
-    const activityItems: TimelineItem[] = activityLogs.map(log => ({
-      type: 'activity' as const,
-      data: log,
-      timestamp: log.created_at,
-    }));
+    const activityItems: TimelineItem[] = activityLogs
+      .filter(log => !HIDDEN_ACTIONS.includes(log.action))
+      .map(log => ({
+        type: 'activity' as const,
+        data: log,
+        timestamp: log.created_at,
+      }));
     
     const emailItems: TimelineItem[] = emailLogs.map(log => ({
       type: 'email' as const,

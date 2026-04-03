@@ -1031,7 +1031,7 @@ function FinalOptionCard({
           </a>
         ) : (
           <p className="text-center text-sm text-muted-foreground font-sans py-1">
-            Zahlungslink wird erstellt — wir melden uns.
+            Kontaktieren Sie uns für die Buchung.
           </p>
         )}
       </div>

@@ -146,6 +146,12 @@ export const DraftPanel = ({
             Angebot wird automatisch gespeichert
           </div>
         )}
+        {!canSave && (
+          <p className="text-xs text-destructive text-center mt-1 flex-1">
+            {!formData.contact_name?.trim() && 'Kontaktname fehlt. '}
+            {!formData.email?.trim() && 'E-Mail-Adresse fehlt.'}
+          </p>
+        )}
         <Button
           onClick={onSaveAndSend}
           disabled={!canSave || isSaving || isSending || !draftInquiry}

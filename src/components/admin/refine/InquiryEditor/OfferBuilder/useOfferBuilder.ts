@@ -947,9 +947,8 @@ export function useOfferBuilder({
   // =================================================================
   const activeOptions = useMemo(() => options.filter(o => o.isActive), [options]);
 
-  const isLocked = useMemo(() => {
-    return !!inquiry.offer_sent_at && !localUnlocked;
-  }, [inquiry.offer_sent_at, localUnlocked]);
+  // Angebote sind immer bearbeitbar
+  const isLocked = false;
 
   // =================================================================
   // RETURN
