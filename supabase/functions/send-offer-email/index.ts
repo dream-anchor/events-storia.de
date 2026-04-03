@@ -101,6 +101,7 @@ async function sendEmail(
   pdfBuffer: Uint8Array | null,
   customerName: string,
   bcc?: string[],
+  replyTo?: string,
 ): Promise<SendResult> {
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   const smtpUser = Deno.env.get("SMTP_USER")?.trim();
@@ -119,7 +120,7 @@ async function sendEmail(
         bcc: bcc && bcc.length > 0 ? bcc : undefined,
         subject,
         html,
-        reply_to: 'info@events-storia.de',
+        reply_to: replyTo || 'info@events-storia.de',
       };
 
       if (pdfBuffer) {
@@ -260,7 +261,8 @@ serve(async (req) => {
       bccList.push(senderEmail);
     }
 
-    const result = await sendEmail([customerEmail], emailSubject, htmlBody, "STORIA Events", pdfBuffer, customerName, bccList);
+    const replyToAddress = `reply+${inquiryId}@events-storia.de`;
+    const result = await sendEmail([customerEmail], emailSubject, htmlBody, "STORIA Events", pdfBuffer, customerName, bccList, replyToAddress);
 
     // Betreiber-Benachrichtigung: Versand fehlgeschlagen
     if (!result.sent) {
@@ -314,6 +316,23 @@ serve(async (req) => {
         resend_message_id: result.messageId,
       },
     });
+
+    // E-Mail in email_messages speichern (Thread-Konversation)
+    if (result.sent) {
+      const safeName = (customerName || 'Kunde').replace(/[^a-zA-ZäöüÄÖÜß0-9\s-]/g, '').trim();
+      await supabase.from('email_messages').insert({
+        inquiry_id: inquiryId,
+        direction: 'outbound',
+        from_email: 'info@events-storia.de',
+        to_email: customerEmail,
+        subject: emailSubject,
+        body_text: emailContent,
+        body_html: htmlBody,
+        attachments: hasPdf ? [{ filename: `STORIA_Angebot_${safeName}.pdf` }] : [],
+        resend_message_id: result.messageId,
+        resend_status: 'queued',
+      } as Record<string, unknown>);
+    }
 
     // Activity Log
     await supabase.from('activity_logs').insert({

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import { Loader2, Plus, Clock, ChevronDown, Mail, ExternalLink, UtensilsCrossed, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -14,6 +14,13 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { OfferMode, ExtendedInquiry, Package, EmailTemplate, OfferHistoryEntry } from "./types";
 
+export interface OfferBuilderHandle {
+  /** Scrollt zum E-Mail-Composer und öffnet ihn; generiert optional KI-Text */
+  scrollToEmail: (withGeneration?: boolean) => void;
+  /** Entsperrt den OfferBuilder für eine neue Angebotsversion */
+  triggerNewVersion: () => void;
+}
+
 interface OfferBuilderProps {
   inquiry: ExtendedInquiry;
   packages: Package[];
@@ -25,14 +32,14 @@ interface OfferBuilderProps {
   onEmailContentChange?: (content: string) => void;
 }
 
-export function OfferBuilder({
+export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(function OfferBuilder({
   inquiry,
   packages,
   templates,
   onSave,
   isCreateMode = false,
   onEmailContentChange,
-}: OfferBuilderProps) {
+}: OfferBuilderProps, ref) {
   const guestCount = parseInt(inquiry.guest_count || "1") || 1;
   const selectedPackages = Array.isArray(inquiry.selected_packages)
     ? inquiry.selected_packages
@@ -128,6 +135,22 @@ export function OfferBuilder({
     await builder.unlockForNewVersion();
     setIsUnlocking(false);
   }, [builder.unlockForNewVersion]);
+
+  // --- Exponierten Handle für Parent (SmartInquiryEditor) ---
+  useImperativeHandle(ref, () => ({
+    scrollToEmail: (withGeneration = true) => {
+      setEmailSectionOpen(true);
+      if (withGeneration && builder.activeOptions.length > 0) {
+        handleGenerateEmail();
+      }
+      setTimeout(() => {
+        emailSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    },
+    triggerNewVersion: () => {
+      handleUnlock();
+    },
+  }));
 
   // --- Loading ---
   if (builder.isLoading) {
@@ -295,7 +318,7 @@ export function OfferBuilder({
       )}
     </div>
   );
-}
+});
 
 // =================================================================
 // OFFER VERSION HISTORY

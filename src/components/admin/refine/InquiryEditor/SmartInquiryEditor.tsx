@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, History, ChevronDown } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, History, ChevronDown, Mail, Plus } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EventDNACard } from "./EventDNACard";
 import { OfferBuilder } from "./OfferBuilder";
+import type { OfferBuilderHandle } from "./OfferBuilder";
 import { CateringModules } from "./CateringModules";
 import { ClientPreview } from "./ClientPreview";
 import { StaffNote } from "./StaffNote";
 import { TaskManager } from "@/components/admin/shared/TaskManager";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
+import { ConversationThread } from "@/components/admin/shared/ConversationThread";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
@@ -48,6 +50,8 @@ export const SmartInquiryEditor = () => {
     customer_notes: string | null;
   } | null>(null);
   const [menuSelection, setMenuSelection] = useState<MenuSelection>({ courses: [], drinks: [] });
+  const offerBuilderRef = useRef<OfferBuilderHandle>(null);
+  const [selectedOptionInfo, setSelectedOptionInfo] = useState<{ optionLabel: string; packageName: string } | null>(null);
 
   // Fetch inquiry data
   const inquiryQuery = useOne<ExtendedInquiry>({
@@ -174,7 +178,24 @@ export const SmartInquiryEditor = () => {
         .order('responded_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-        .then(({ data }) => { if (data) setCustomerResponse(data as typeof customerResponse); });
+        .then(({ data }) => {
+          if (data) {
+            setCustomerResponse(data as typeof customerResponse);
+            const response = data as { selected_option_id: string | null };
+            if (response.selected_option_id) {
+              supabase.from('offer_builder_options' as never)
+                .select('option_label, package_name')
+                .eq('id', response.selected_option_id)
+                .maybeSingle()
+                .then(({ data: optData }) => {
+                  if (optData) {
+                    const opt = optData as { option_label: string; package_name: string };
+                    setSelectedOptionInfo({ optionLabel: opt.option_label, packageName: opt.package_name });
+                  }
+                });
+            }
+          }
+        });
     }
   }, []);
 
@@ -401,6 +422,7 @@ export const SmartInquiryEditor = () => {
           {/* Multi-Package Offer Section */}
           {inquiryType === 'event' ? (
             <OfferBuilder
+              ref={offerBuilderRef}
               inquiry={mergedInquiry}
               packages={packages}
               templates={templates}
@@ -471,7 +493,7 @@ export const SmartInquiryEditor = () => {
 
           {/* Kundenantwort */}
           {customerResponse && (
-            <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+            <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800/40">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   💬 Kundenantwort
@@ -480,10 +502,16 @@ export const SmartInquiryEditor = () => {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 pt-0">
+              <CardContent className="space-y-3 pt-0">
                 {customerResponse.selected_option_id && (
-                  <p className="text-sm font-medium">
-                    Gewählte Option: {customerResponse.selected_option_id}
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Gewählt: Option{' '}
+                    <strong>{selectedOptionInfo?.optionLabel ?? '…'}</strong>
+                    {selectedOptionInfo?.packageName && (
+                      <span className="text-blue-700 dark:text-blue-300 font-normal">
+                        {' '}({selectedOptionInfo.packageName})
+                      </span>
+                    )}
                   </p>
                 )}
                 {customerResponse.customer_notes && (
@@ -491,9 +519,64 @@ export const SmartInquiryEditor = () => {
                     „{customerResponse.customer_notes}"
                   </p>
                 )}
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 gap-1.5 text-xs border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950"
+                    onClick={() => offerBuilderRef.current?.scrollToEmail(true)}
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    Antwort per Mail
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 gap-1.5 text-xs"
+                    onClick={() => offerBuilderRef.current?.triggerNewVersion()}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Neues Angebot
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
+
+          {/* Konversations-Thread */}
+          <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary" />
+                E-Mail Konversation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ConversationThread
+                inquiryId={id!}
+                customerEmail={inquiry.email || undefined}
+                onSendReply={async (content) => {
+                  if (!inquiry?.email) {
+                    toast.error('Keine E-Mail-Adresse hinterlegt');
+                    return;
+                  }
+                  const { data: result } = await supabase.functions.invoke('send-offer-email', {
+                    body: {
+                      inquiryId: id,
+                      emailContent: content,
+                      customerEmail: inquiry.email,
+                      customerName: inquiry.contact_name || '',
+                      senderEmail: currentUserEmail,
+                    },
+                  });
+                  if (!result?.emailSent) {
+                    throw new Error(result?.error || 'Versand fehlgeschlagen');
+                  }
+                  toast.success('Antwort versendet');
+                }}
+              />
+            </CardContent>
+          </Card>
 
           {/* Email Status */}
           <EmailStatusCard
