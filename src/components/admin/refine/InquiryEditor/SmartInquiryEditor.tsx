@@ -42,6 +42,11 @@ export const SmartInquiryEditor = () => {
   const [emailDraft, setEmailDraft] = useState("");
   const [localInquiry, setLocalInquiry] = useState<Partial<ExtendedInquiry>>({});
   const [timelineOpen, setTimelineOpen] = useState(false);
+  const [customerResponse, setCustomerResponse] = useState<{
+    responded_at: string;
+    selected_option_id: string | null;
+    customer_notes: string | null;
+  } | null>(null);
   const [menuSelection, setMenuSelection] = useState<MenuSelection>({ courses: [], drinks: [] });
 
   // Fetch inquiry data
@@ -162,6 +167,15 @@ export const SmartInquiryEditor = () => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setCurrentUserEmail(user?.email || undefined);
     });
+    if (id) {
+      supabase.from('offer_customer_responses' as never)
+        .select('responded_at, selected_option_id, customer_notes')
+        .eq('inquiry_id', id)
+        .order('responded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => { if (data) setCustomerResponse(data as typeof customerResponse); });
+    }
   }, []);
 
   // LexOffice document handling
@@ -454,6 +468,32 @@ export const SmartInquiryEditor = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Kundenantwort */}
+          {customerResponse && (
+            <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  💬 Kundenantwort
+                  <span className="text-xs text-muted-foreground font-normal">
+                    {new Date(customerResponse.responded_at).toLocaleDateString('de-DE')}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 pt-0">
+                {customerResponse.selected_option_id && (
+                  <p className="text-sm font-medium">
+                    Gewählte Option: {customerResponse.selected_option_id}
+                  </p>
+                )}
+                {customerResponse.customer_notes && (
+                  <p className="text-sm italic text-muted-foreground">
+                    „{customerResponse.customer_notes}"
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Email Status */}
           <EmailStatusCard

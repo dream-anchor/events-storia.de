@@ -662,7 +662,16 @@ function ProposalOptionCard({
 }) {
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
-  const drinks = menu?.drinks?.filter((d) => d.selectedChoice || d.customDrink) || [];
+  const _drinksLegacy = menu?.drinks?.filter((d) => d.selectedChoice || d.customDrink) || [];
+  const _drinksEinzeln: DrinkSelection[] = ((menu as any)?.drinksEinzeln || [])
+    .filter((d: { name: string }) => d.name)
+    .map((d: { name: string }) => ({ drinkLabel: d.name, selectedChoice: null, customDrink: null, quantityLabel: null }));
+  const _drinksExtra: DrinkSelection[] = (menu as any)?.drinksMode === 'pauschale' && (menu as any)?.drinksPauschaleDescription
+    ? [{ drinkLabel: (menu as any).drinksPauschaleDescription as string, selectedChoice: null, customDrink: null, quantityLabel: null }]
+    : (menu as any)?.drinksMode === 'weinbegleitung' && (menu as any)?.winePairingPrice
+    ? [{ drinkLabel: 'Weinbegleitung', selectedChoice: null, customDrink: null, quantityLabel: null }]
+    : [];
+  const drinks: DrinkSelection[] = _drinksLegacy.length > 0 ? _drinksLegacy : [..._drinksEinzeln, ..._drinksExtra];
   const pricePerPerson =
     option.guest_count > 0
       ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
@@ -893,7 +902,16 @@ function FinalOptionCard({
 }) {
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
-  const drinks = menu?.drinks?.filter((d) => d.selectedChoice || d.customDrink) || [];
+  const _drinksLegacy = menu?.drinks?.filter((d) => d.selectedChoice || d.customDrink) || [];
+  const _drinksEinzeln: DrinkSelection[] = ((menu as any)?.drinksEinzeln || [])
+    .filter((d: { name: string }) => d.name)
+    .map((d: { name: string }) => ({ drinkLabel: d.name, selectedChoice: null, customDrink: null, quantityLabel: null }));
+  const _drinksExtra: DrinkSelection[] = (menu as any)?.drinksMode === 'pauschale' && (menu as any)?.drinksPauschaleDescription
+    ? [{ drinkLabel: (menu as any).drinksPauschaleDescription as string, selectedChoice: null, customDrink: null, quantityLabel: null }]
+    : (menu as any)?.drinksMode === 'weinbegleitung' && (menu as any)?.winePairingPrice
+    ? [{ drinkLabel: 'Weinbegleitung', selectedChoice: null, customDrink: null, quantityLabel: null }]
+    : [];
+  const drinks: DrinkSelection[] = _drinksLegacy.length > 0 ? _drinksLegacy : [..._drinksEinzeln, ..._drinksExtra];
   const pricePerPerson =
     option.guest_count > 0
       ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
