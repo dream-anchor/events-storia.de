@@ -62,8 +62,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     const raw = modeOverride
       ?? (builder.options.length > 0 ? builder.options[0].offerMode : null)
       ?? (selectedPackages.length > 0 ? 'paket' : 'menu');
-    // E-Mail ist keine wählbare Konfigurationsphase mehr → auf 'menu' zurückfallen
-    return raw === 'email' ? 'menu' : raw;
+    return raw;
   }, [modeOverride, builder.options, selectedPackages.length]);
 
   // ModeSelector-Wechsel propagiert an alle bestehenden Optionen

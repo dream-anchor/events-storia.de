@@ -10,6 +10,18 @@ import { useEmailDeliveryLogs, formatProvider, formatEmailStatus } from '@/hooks
 import { getAdminDisplayName } from '@/lib/adminDisplayNames';
 import type { EntityType } from './types';
 
+interface EmailDeliveryLog {
+  id: string;
+  recipient_email: string;
+  subject: string;
+  provider: string;
+  status: string;
+  sent_at: string;
+  error_message: string | null;
+  sent_by: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
 interface EmailStatusCardProps {
   entityType: EntityType;
   entityId: string;
