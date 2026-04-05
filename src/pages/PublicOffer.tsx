@@ -909,7 +909,7 @@ function FinalOptionCard({
   const _drinksLegacy = menu?.drinks?.filter((d) => d.selectedChoice || d.customDrink) || [];
   const _drinksEinzeln: DrinkSelection[] = ((menu as any)?.drinksEinzeln || [])
     .filter((d: { name: string }) => d.name)
-    .map((d: { name: string }) => ({ drinkLabel: d.name, selectedChoice: null, customDrink: null, quantityLabel: null }));
+    .map((d: { name: string }) => ({ drinkGroup: 'custom' as const, drinkLabel: d.name, selectedChoice: null, customDrink: null, quantityLabel: null }));
   const _drinksExtra: DrinkSelection[] = (menu as any)?.drinksMode === 'pauschale' && (menu as any)?.drinksPauschaleDescription
     ? [{ drinkLabel: (menu as any).drinksPauschaleDescription as string, selectedChoice: null, customDrink: null, quantityLabel: null }]
     : (menu as any)?.drinksMode === 'weinbegleitung' && (menu as any)?.winePairingPrice
