@@ -77,7 +77,7 @@ export const AdminOfferCreate = () => {
         .select("*")
         .eq("is_active", true)
         .order("sort_order");
-      setTemplates((data || []) as EmailTemplate[]);
+      setTemplates((data || []) as unknown as EmailTemplate[]);
     };
 
     createDraft();
