@@ -332,6 +332,62 @@ export type Database = {
         }
         Relationships: []
       }
+      email_messages: {
+        Row: {
+          attachments: Json | null
+          body_html: string | null
+          body_text: string | null
+          created_at: string | null
+          direction: string
+          from_email: string
+          id: string
+          in_reply_to: string | null
+          inquiry_id: string | null
+          resend_message_id: string | null
+          resend_status: string | null
+          subject: string | null
+          to_email: string
+        }
+        Insert: {
+          attachments?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string | null
+          direction: string
+          from_email: string
+          id?: string
+          in_reply_to?: string | null
+          inquiry_id?: string | null
+          resend_message_id?: string | null
+          resend_status?: string | null
+          subject?: string | null
+          to_email: string
+        }
+        Update: {
+          attachments?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string | null
+          direction?: string
+          from_email?: string
+          id?: string
+          in_reply_to?: string | null
+          inquiry_id?: string | null
+          resend_message_id?: string | null
+          resend_status?: string | null
+          subject?: string | null
+          to_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_messages_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_templates: {
         Row: {
           category: string
@@ -503,6 +559,7 @@ export type Database = {
           delivery_street: string | null
           delivery_time_slot: string | null
           delivery_zip: string | null
+          deposit_percent: number | null
           email: string
           email_draft: string | null
           event_type: string | null
@@ -521,11 +578,14 @@ export type Database = {
           offer_sent_at: string | null
           offer_sent_by: string | null
           offer_slug: string | null
+          paid_amount: number | null
+          payment_type: string | null
           phone: string | null
           preferred_date: string | null
           priority: string | null
           quote_items: Json | null
           quote_notes: string | null
+          remaining_amount: number | null
           reminder_count: number | null
           reminder_sent_at: string | null
           room_selection: string | null
@@ -552,6 +612,7 @@ export type Database = {
           delivery_street?: string | null
           delivery_time_slot?: string | null
           delivery_zip?: string | null
+          deposit_percent?: number | null
           email: string
           email_draft?: string | null
           event_type?: string | null
@@ -570,11 +631,14 @@ export type Database = {
           offer_sent_at?: string | null
           offer_sent_by?: string | null
           offer_slug?: string | null
+          paid_amount?: number | null
+          payment_type?: string | null
           phone?: string | null
           preferred_date?: string | null
           priority?: string | null
           quote_items?: Json | null
           quote_notes?: string | null
+          remaining_amount?: number | null
           reminder_count?: number | null
           reminder_sent_at?: string | null
           room_selection?: string | null
@@ -601,6 +665,7 @@ export type Database = {
           delivery_street?: string | null
           delivery_time_slot?: string | null
           delivery_zip?: string | null
+          deposit_percent?: number | null
           email?: string
           email_draft?: string | null
           event_type?: string | null
@@ -619,11 +684,14 @@ export type Database = {
           offer_sent_at?: string | null
           offer_sent_by?: string | null
           offer_slug?: string | null
+          paid_amount?: number | null
+          payment_type?: string | null
           phone?: string | null
           preferred_date?: string | null
           priority?: string | null
           quote_items?: Json | null
           quote_notes?: string | null
+          remaining_amount?: number | null
           reminder_count?: number | null
           reminder_sent_at?: string | null
           room_selection?: string | null
