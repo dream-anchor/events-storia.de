@@ -18,13 +18,17 @@ const INDEXNOW_ENDPOINT = 'https://api.indexnow.org/IndexNow';
 // Generate lastmod date (today's date in YYYY-MM-DD format)
 const today = new Date().toISOString().split('T')[0];
 
-// Collect all public URLs (DE + EN)
+// Ensure trailing slash (root already has one)
+const withTrailingSlash = (path: string): string =>
+  path === '/' || path.endsWith('/') ? path : `${path}/`;
+
+// Collect all public URLs (DE + EN), excluding noIndex routes
 const collectUrls = (): string[] => {
   const urls: string[] = [];
   for (const route of ROUTES) {
-    if (!route.prerender) continue;
-    urls.push(`${DOMAIN}${route.de}`);
-    const enPath = route.en === '/' ? '/en' : `/en${route.en}`;
+    if (!route.prerender || route.noIndex) continue;
+    urls.push(`${DOMAIN}${withTrailingSlash(route.de)}`);
+    const enPath = route.en === '/' ? '/en/' : `/en${route.en}/`;
     urls.push(`${DOMAIN}${enPath}`);
   }
   return urls;
@@ -35,10 +39,10 @@ const generateSitemap = (): string => {
   const urlEntries: string[] = [];
 
   for (const route of ROUTES) {
-    if (!route.prerender) continue;
+    if (!route.prerender || route.noIndex) continue;
 
-    const dePath = route.de;
-    const enPath = route.en === '/' ? '/en' : `/en${route.en}`;
+    const dePath = withTrailingSlash(route.de);
+    const enPath = route.en === '/' ? '/en/' : `/en${route.en}/`;
     const priority = (route.priority ?? 0.5).toFixed(1);
     const changefreq = route.changefreq ?? 'monthly';
 
@@ -118,7 +122,7 @@ const outputPath = resolve(process.cwd(), 'public', 'sitemap.xml');
 const sitemap = generateSitemap();
 
 writeFileSync(outputPath, sitemap, 'utf-8');
-const routeCount = ROUTES.filter(r => r.prerender).length;
+const routeCount = ROUTES.filter(r => r.prerender && !r.noIndex).length;
 console.log(`✓ Sitemap generated at: ${outputPath}`);
 console.log(`  - ${routeCount} routes × 2 languages = ${routeCount * 2} URLs`);
 console.log(`  - hreflang: de, en, x-default`);

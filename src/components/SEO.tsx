@@ -54,12 +54,17 @@ const SEO = ({
   const metaDescription = description || defaultDescription;
   const metaKeywords = keywords || defaultKeywords;
 
+  // Ensure trailing slash consistency with .htaccess (which enforces trailing slashes via 301)
+  const normalizeSlash = (path: string): string =>
+    path === '/' || path.endsWith('/') ? path : `${path}/`;
+
   // Auto-detect canonical from current path if not explicitly provided
   const effectiveCanonical = canonical ?? location.pathname;
-  const canonicalUrl = `${baseUrl}${effectiveCanonical}`;
+  const normalizedCanonical = normalizeSlash(effectiveCanonical);
+  const canonicalUrl = `${baseUrl}${normalizedCanonical}`;
 
   // Auto-detect alternateUrl from route config if not explicitly provided
-  const effectiveAlternateUrl = alternateUrl ?? (() => {
+  const rawAlternateUrl = alternateUrl ?? (() => {
     const pathOnly = location.pathname;
     if (language === 'en') {
       const enSlug = pathOnly === '/en' ? '/' : pathOnly.replace(/^\/en/, '');
@@ -71,6 +76,7 @@ const SEO = ({
       return route.en === '/' ? '/en' : `/en${route.en}`;
     }
   })();
+  const effectiveAlternateUrl = rawAlternateUrl ? normalizeSlash(rawAlternateUrl) : rawAlternateUrl;
 
   const alternateLanguage = language === 'de' ? 'en' : 'de';
   // x-default always points to DE version

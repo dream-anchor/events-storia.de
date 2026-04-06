@@ -52,6 +52,7 @@ export interface RouteConfig {
   prerender?: boolean;
   priority?: number;
   changefreq?: 'weekly' | 'monthly' | 'yearly';
+  noIndex?: boolean;
 }
 
 export const ROUTES: RouteConfig[] = [
@@ -93,15 +94,15 @@ export const ROUTES: RouteConfig[] = [
 
   // Legal pages
   { key: 'legal.imprint', de: '/impressum', en: '/imprint', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly' },
-  { key: 'legal.privacy', de: '/datenschutz', en: '/privacy', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly' },
-  { key: 'legal.cookies', de: '/cookie-richtlinie', en: '/cookie-policy', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly' },
-  { key: 'legal.termsCatering', de: '/agb-catering', en: '/catering-terms', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly' },
-  { key: 'legal.termsRestaurant', de: '/agb-restaurant', en: '/restaurant-terms', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly' },
-  { key: 'legal.termsVouchers', de: '/agb-gutscheine', en: '/voucher-terms', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly' },
-  { key: 'legal.withdrawal', de: '/widerrufsbelehrung', en: '/cancellation-policy', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly' },
-  { key: 'legal.payment', de: '/zahlungsinformationen', en: '/payment-information', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly' },
-  { key: 'legal.foodInfo', de: '/lebensmittelhinweise', en: '/food-information', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly' },
-  { key: 'legal.disclaimer', de: '/haftungsausschluss', en: '/disclaimer', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly' },
+  { key: 'legal.privacy', de: '/datenschutz', en: '/privacy', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly', noIndex: true },
+  { key: 'legal.cookies', de: '/cookie-richtlinie', en: '/cookie-policy', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly', noIndex: true },
+  { key: 'legal.termsCatering', de: '/agb-catering', en: '/catering-terms', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly', noIndex: true },
+  { key: 'legal.termsRestaurant', de: '/agb-restaurant', en: '/restaurant-terms', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly', noIndex: true },
+  { key: 'legal.termsVouchers', de: '/agb-gutscheine', en: '/voucher-terms', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly', noIndex: true },
+  { key: 'legal.withdrawal', de: '/widerrufsbelehrung', en: '/cancellation-policy', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly', noIndex: true },
+  { key: 'legal.payment', de: '/zahlungsinformationen', en: '/payment-information', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly', noIndex: true },
+  { key: 'legal.foodInfo', de: '/lebensmittelhinweise', en: '/food-information', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly', noIndex: true },
+  { key: 'legal.disclaimer', de: '/haftungsausschluss', en: '/disclaimer', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly', noIndex: true },
 ];
 
 // --- Lookup Maps (built once) ---
