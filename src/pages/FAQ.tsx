@@ -189,6 +189,10 @@ const faqCategories: FAQCategory[] = [
       {
         question: "Benötigt ihr eine Anzahlung?",
         answer: "Für größere Events oder individuelle Bestellungen kann eine Anzahlung von 30-50% erforderlich sein. Dies wird vorab mit Ihnen abgestimmt und in der Auftragsbestätigung festgehalten."
+      },
+      {
+        question: "Welche Stornobedingungen gelten für Veranstaltungen?",
+        answer: "Bei Absage oder Reduzierung der Teilnehmerzahl gelten folgende Regelungen:\n\n• Bis 30 Tage vor der Veranstaltung: kostenlose Stornierung\n• 14–30 Tage vorher: 25 % des vereinbarten Gesamtbetrags\n• 7–14 Tage vorher: 50 % des vereinbarten Gesamtbetrags\n• 2–7 Tage vorher: 80 % des vereinbarten Gesamtbetrags\n• Unter 48 Stunden / Nichterscheinen: 100 % abzüglich ersparter Aufwendungen\n\nDie verbindliche Teilnehmerzahl ist spätestens 48 Stunden vor der Veranstaltung mitzuteilen. Andernfalls gilt die bei Buchung angegebene Personenzahl.\n\nDem Kunden steht der Nachweis frei, dass ein geringerer oder kein Schaden entstanden ist (§ 309 Nr. 5b BGB)."
       }
     ]
   },

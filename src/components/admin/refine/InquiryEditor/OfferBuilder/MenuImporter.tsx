@@ -10,11 +10,13 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useRistoranteCompleteMenus, type RistoranteImportItem, type RistoranteTastingMenu } from "@/hooks/useRistoranteCompleteMenus";
+import { OPTION_LABELS } from "./types";
 import type { OfferBuilderOption } from "./types";
 
 interface MenuImporterProps {
   guestCount: number;
-  onImport: (updates: Partial<OfferBuilderOption>) => void;
+  currentOptionCount: number;
+  onImportMultiple: (options: Partial<OfferBuilderOption>[]) => void;
   disabled?: boolean;
 }
 
@@ -26,85 +28,132 @@ function formatEur(price: number) {
   }).format(price);
 }
 
-export function MenuImporter({ guestCount, onImport, disabled = false }: MenuImporterProps) {
+export function MenuImporter({ guestCount, currentOptionCount, onImportMultiple, disabled = false }: MenuImporterProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'lunch' | 'dinner'>('lunch');
 
-  // Lunch state
-  const [selectedLunchItem, setSelectedLunchItem] = useState<RistoranteImportItem | null>(null);
+  // Lunch state — Mehrfachauswahl
+  const [selectedLunchIds, setSelectedLunchIds] = useState<Set<string>>(new Set());
   const [addDrinkPaket, setAddDrinkPaket] = useState(false);
   const [drinkPaketPrice, setDrinkPaketPrice] = useState<string>('');
   const [drinkPaketDesc, setDrinkPaketDesc] = useState('Getränkepauschale');
 
-  // Dinner state
-  const [selectedTasting, setSelectedTasting] = useState<RistoranteTastingMenu | null>(null);
+  // Dinner state — Mehrfachauswahl
+  const [selectedTastingIds, setSelectedTastingIds] = useState<Set<string>>(new Set());
   const [addWinePairing, setAddWinePairing] = useState(false);
 
   const { data, isLoading, error } = useRistoranteCompleteMenus(open);
 
   const resetState = () => {
-    setSelectedLunchItem(null);
+    setSelectedLunchIds(new Set());
     setAddDrinkPaket(false);
     setDrinkPaketPrice('');
     setDrinkPaketDesc('Getränkepauschale');
-    setSelectedTasting(null);
+    setSelectedTastingIds(new Set());
     setAddWinePairing(false);
     setActiveTab('lunch');
   };
 
-  const handleImportLunch = () => {
-    if (!selectedLunchItem) return;
-
-    const basePrice = selectedLunchItem.price ?? 0;
-    const drinkPrice = addDrinkPaket && drinkPaketPrice ? parseFloat(drinkPaketPrice) : 0;
-    const pricePerPerson = basePrice + drinkPrice;
-
-    let packageName = selectedLunchItem.name;
-    if (addDrinkPaket && drinkPaketDesc) {
-      packageName += ` + ${drinkPaketDesc}`;
-    }
-
-    onImport({
-      offerMode: 'paket',
-      packageId: null,
-      packageName,
-      budgetPerPerson: pricePerPerson,
-      totalAmount: pricePerPerson * guestCount,
-      menuSelection: { courses: [], drinks: [] },
+  const toggleLunch = (id: string) => {
+    setSelectedLunchIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
     });
-
-    setOpen(false);
-    resetState();
   };
 
-  const handleImportDinner = () => {
-    if (!selectedTasting) return;
-
-    const basePrice = selectedTasting.price ?? 0;
-    const winePrice = addWinePairing && selectedTasting.winePairing?.price
-      ? selectedTasting.winePairing.price
-      : 0;
-    const pricePerPerson = basePrice + winePrice;
-
-    let packageName = selectedTasting.name;
-    if (addWinePairing && selectedTasting.winePairing) {
-      packageName += ' mit Weinbegleitung';
-    }
-
-    onImport({
-      offerMode: 'paket',
-      packageId: null,
-      packageName,
-      budgetPerPerson: pricePerPerson,
-      totalAmount: pricePerPerson * guestCount,
-      menuSelection: { courses: [], drinks: [] },
+  const toggleTasting = (id: string, menu: RistoranteTastingMenu) => {
+    setSelectedTastingIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        // Weinbegleitung deaktivieren falls keine Auswahl mehr
+        if (next.size === 0) setAddWinePairing(false);
+      } else {
+        next.add(id);
+      }
+      return next;
     });
-
-    setOpen(false);
-    resetState();
+    // Weinbegleitung nur anzeigen wenn mindestens ein Menü mit Weinbegleitung gewählt ist
+    if (!menu.winePairing) setAddWinePairing(false);
   };
 
-  const canImport = activeTab === 'lunch' ? !!selectedLunchItem : !!selectedTasting;
+  const selectedCount = activeTab === 'lunch' ? selectedLunchIds.size : selectedTastingIds.size;
+  const maxNewOptions = OPTION_LABELS.length - currentOptionCount;
+
+  // Vorschau welche Labels vergeben werden
+  const nextLabels = OPTION_LABELS
+    .slice(currentOptionCount, currentOptionCount + selectedCount)
+    .join(', ');
+
+  const handleImport = () => {
+    if (!data) return;
+
+    const results: Partial<OfferBuilderOption>[] = [];
+    const drinkPrice = addDrinkPaket && drinkPaketPrice ? parseFloat(drinkPaketPrice) || 0 : 0;
+
+    if (activeTab === 'lunch') {
+      const selectedItems = data.lunch?.packageItems.filter(item => selectedLunchIds.has(item.id)) ?? [];
+      for (const item of selectedItems) {
+        const basePrice = item.price ?? 0;
+        const pricePerPerson = basePrice + drinkPrice;
+        let packageName = item.name;
+        const menuSel: OfferBuilderOption['menuSelection'] = { courses: [], drinks: [] };
+
+        if (addDrinkPaket && drinkPaketDesc) {
+          packageName += ` + ${drinkPaketDesc}`;
+          menuSel.drinksMode = 'pauschale';
+          menuSel.drinksPauschalePrice = drinkPrice;
+          menuSel.drinksPauschaleDescription = drinkPaketDesc;
+        }
+
+        results.push({
+          offerMode: 'paket',
+          packageId: null,
+          packageName,
+          budgetPerPerson: pricePerPerson,
+          totalAmount: pricePerPerson * guestCount,
+          menuSelection: menuSel,
+        });
+      }
+    } else {
+      const selectedMenus = data.dinner?.tastingMenus.filter(m => selectedTastingIds.has(m.id)) ?? [];
+      for (const menu of selectedMenus) {
+        const basePrice = menu.price ?? 0;
+        const winePrice = addWinePairing && menu.winePairing?.price ? menu.winePairing.price : 0;
+        const pricePerPerson = basePrice + winePrice;
+        let packageName = menu.name;
+        const menuSel: OfferBuilderOption['menuSelection'] = { courses: [], drinks: [] };
+
+        if (addWinePairing && menu.winePairing) {
+          packageName += ' mit Weinbegleitung';
+          menuSel.winePairingPrice = winePrice;
+        }
+
+        results.push({
+          offerMode: 'paket',
+          packageId: null,
+          packageName,
+          budgetPerPerson: pricePerPerson,
+          totalAmount: pricePerPerson * guestCount,
+          menuSelection: menuSel,
+        });
+      }
+    }
+
+    if (results.length > 0) {
+      onImportMultiple(results.slice(0, maxNewOptions));
+      setOpen(false);
+      resetState();
+    }
+  };
+
+  const canImport = selectedCount > 0 && selectedCount <= maxNewOptions;
+
+  // Prüfe ob mindestens ein ausgewähltes Dinner-Menü Weinbegleitung hat
+  const anyTastingHasWine = data?.dinner?.tastingMenus
+    .filter(m => selectedTastingIds.has(m.id))
+    .some(m => !!m.winePairing) ?? false;
 
   return (
     <Sheet open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetState(); }}>
@@ -112,7 +161,7 @@ export function MenuImporter({ guestCount, onImport, disabled = false }: MenuImp
         <Button
           variant="outline"
           size="sm"
-          disabled={disabled}
+          disabled={disabled || maxNewOptions === 0}
           className="h-7 rounded-lg gap-1.5 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 hover:border-amber-400"
         >
           <UtensilsCrossed className="h-3.5 w-3.5" />
@@ -124,7 +173,7 @@ export function MenuImporter({ guestCount, onImport, disabled = false }: MenuImp
         <SheetHeader className="pb-4">
           <SheetTitle className="text-base font-semibold flex items-center gap-2">
             <UtensilsCrossed className="h-4 w-4 text-amber-700" />
-            Restaurant-Menü importieren
+            Restaurant-Menüs auswählen
           </SheetTitle>
         </SheetHeader>
 
@@ -165,15 +214,15 @@ export function MenuImporter({ guestCount, onImport, disabled = false }: MenuImp
               <div className="space-y-4">
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                    3-Gänge-Menü — Paket wählen
+                    3-Gänge-Menü — Mehrere wählbar
                   </p>
                   <div className="space-y-2">
                     {data.lunch.packageItems.map((item) => {
-                      const isSelected = selectedLunchItem?.id === item.id;
+                      const isSelected = selectedLunchIds.has(item.id);
                       return (
                         <button
                           key={item.id}
-                          onClick={() => setSelectedLunchItem(item)}
+                          onClick={() => toggleLunch(item.id)}
                           className={cn(
                             "w-full flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-colors",
                             isSelected
@@ -181,10 +230,17 @@ export function MenuImporter({ guestCount, onImport, disabled = false }: MenuImp
                               : "border-border/40 hover:border-border hover:bg-muted/20"
                           )}
                         >
+                          {/* Checkbox */}
                           <div className={cn(
-                            "h-4 w-4 rounded-full border-2 shrink-0 mt-0.5",
+                            "h-4 w-4 rounded border-2 shrink-0 mt-0.5 flex items-center justify-center",
                             isSelected ? "border-amber-700 bg-amber-700" : "border-muted-foreground/40"
-                          )} />
+                          )}>
+                            {isSelected && (
+                              <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 8" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M1 4l3 3 5-5" />
+                              </svg>
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium">{item.name}</div>
                             {item.description && (
@@ -232,7 +288,7 @@ export function MenuImporter({ guestCount, onImport, disabled = false }: MenuImp
                           type="number"
                           value={drinkPaketPrice}
                           onChange={(e) => setDrinkPaketPrice(e.target.value)}
-                          placeholder="z.B. 28.00"
+                          placeholder="z.B. 12.00"
                           min="0"
                           step="0.50"
                           className="w-full h-8 rounded-lg border border-border/60 px-2.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-amber-700"
@@ -242,23 +298,25 @@ export function MenuImporter({ guestCount, onImport, disabled = false }: MenuImp
                   )}
                 </div>
 
-                {/* Preisvorschau */}
-                {selectedLunchItem && (
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Preis / Person</span>
-                      <span className="font-semibold">
-                        {formatEur((selectedLunchItem.price ?? 0) + (addDrinkPaket && drinkPaketPrice ? parseFloat(drinkPaketPrice) || 0 : 0))}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm mt-1">
-                      <span className="text-muted-foreground">Gesamt ({guestCount} Pers.)</span>
-                      <span className="font-bold text-amber-800">
-                        {formatEur(((selectedLunchItem.price ?? 0) + (addDrinkPaket && drinkPaketPrice ? parseFloat(drinkPaketPrice) || 0 : 0)) * guestCount)}
-                      </span>
-                    </div>
-                  </div>
-                )}
+                {/* Preisvorschau für alle gewählten */}
+                {selectedLunchIds.size > 0 && data.lunch.packageItems
+                  .filter(i => selectedLunchIds.has(i.id))
+                  .map(item => {
+                    const price = (item.price ?? 0) + (addDrinkPaket && drinkPaketPrice ? parseFloat(drinkPaketPrice) || 0 : 0);
+                    return (
+                      <div key={item.id} className="rounded-xl bg-amber-50 border border-amber-200 p-3">
+                        <p className="text-xs font-semibold text-amber-800 mb-1 truncate">{item.name}</p>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Preis / Person</span>
+                          <span className="font-semibold">{formatEur(price)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                          <span className="text-muted-foreground">Gesamt ({guestCount} Pers.)</span>
+                          <span className="font-bold text-amber-800">{formatEur(price * guestCount)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             )}
 
@@ -267,18 +325,15 @@ export function MenuImporter({ guestCount, onImport, disabled = false }: MenuImp
               <div className="space-y-4">
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                    Degustationsmenü wählen
+                    Degustationsmenü — Mehrere wählbar
                   </p>
                   <div className="space-y-2">
                     {data.dinner.tastingMenus.map((menu) => {
-                      const isSelected = selectedTasting?.id === menu.id;
+                      const isSelected = selectedTastingIds.has(menu.id);
                       return (
                         <button
                           key={menu.id}
-                          onClick={() => {
-                            setSelectedTasting(menu);
-                            if (!menu.winePairing) setAddWinePairing(false);
-                          }}
+                          onClick={() => toggleTasting(menu.id, menu)}
                           className={cn(
                             "w-full flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-colors",
                             isSelected
@@ -286,10 +341,17 @@ export function MenuImporter({ guestCount, onImport, disabled = false }: MenuImp
                               : "border-border/40 hover:border-border hover:bg-muted/20"
                           )}
                         >
+                          {/* Checkbox */}
                           <div className={cn(
-                            "h-4 w-4 rounded-full border-2 shrink-0 mt-0.5",
+                            "h-4 w-4 rounded border-2 shrink-0 mt-0.5 flex items-center justify-center",
                             isSelected ? "border-amber-700 bg-amber-700" : "border-muted-foreground/40"
-                          )} />
+                          )}>
+                            {isSelected && (
+                              <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 8" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M1 4l3 3 5-5" />
+                              </svg>
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium">{menu.name}</div>
                             {menu.description && (
@@ -307,8 +369,8 @@ export function MenuImporter({ guestCount, onImport, disabled = false }: MenuImp
                   </div>
                 </div>
 
-                {/* Weinbegleitung */}
-                {selectedTasting?.winePairing && (
+                {/* Weinbegleitung — nur wenn mindestens ein gewähltes Menü sie hat */}
+                {anyTastingHasWine && (
                   <div className="border border-border/40 rounded-xl p-3">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -318,46 +380,53 @@ export function MenuImporter({ guestCount, onImport, disabled = false }: MenuImp
                         className="h-4 w-4 rounded accent-amber-700"
                       />
                       <Wine className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-sm font-medium">
-                        {selectedTasting.winePairing.name}
-                      </span>
-                      {selectedTasting.winePairing.price != null && (
-                        <span className="text-sm text-amber-700 ml-auto font-semibold">
-                          + {formatEur(selectedTasting.winePairing.price)} / Pers.
-                        </span>
-                      )}
+                      <span className="text-sm font-medium">Weinbegleitung hinzufügen</span>
                     </label>
                   </div>
                 )}
 
-                {/* Preisvorschau */}
-                {selectedTasting && (
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Preis / Person</span>
-                      <span className="font-semibold">
-                        {formatEur((selectedTasting.price ?? 0) + (addWinePairing && selectedTasting.winePairing?.price ? selectedTasting.winePairing.price : 0))}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm mt-1">
-                      <span className="text-muted-foreground">Gesamt ({guestCount} Pers.)</span>
-                      <span className="font-bold text-amber-800">
-                        {formatEur(((selectedTasting.price ?? 0) + (addWinePairing && selectedTasting.winePairing?.price ? selectedTasting.winePairing.price : 0)) * guestCount)}
-                      </span>
-                    </div>
-                  </div>
-                )}
+                {/* Preisvorschau für alle gewählten */}
+                {selectedTastingIds.size > 0 && data.dinner.tastingMenus
+                  .filter(m => selectedTastingIds.has(m.id))
+                  .map(menu => {
+                    const wineP = addWinePairing && menu.winePairing?.price ? menu.winePairing.price : 0;
+                    const price = (menu.price ?? 0) + wineP;
+                    return (
+                      <div key={menu.id} className="rounded-xl bg-amber-50 border border-amber-200 p-3">
+                        <p className="text-xs font-semibold text-amber-800 mb-1 truncate">{menu.name}</p>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Preis / Person</span>
+                          <span className="font-semibold">{formatEur(price)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                          <span className="text-muted-foreground">Gesamt ({guestCount} Pers.)</span>
+                          <span className="font-bold text-amber-800">{formatEur(price * guestCount)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             )}
 
-            {/* Import-Button */}
-            <div className="pt-5 mt-5 border-t border-border/40">
+            {/* Auswahl-Zusammenfassung + Import-Button */}
+            <div className="pt-5 mt-5 border-t border-border/40 space-y-3">
+              {selectedCount > 0 && (
+                <p className="text-xs text-center text-muted-foreground">
+                  {selectedCount} Menü{selectedCount > 1 ? 's' : ''} ausgewählt
+                  {nextLabels && ` → wird als Option ${nextLabels} angelegt`}
+                  {selectedCount > maxNewOptions && (
+                    <span className="text-destructive block mt-0.5">
+                      Max. {maxNewOptions} weitere Option{maxNewOptions !== 1 ? 'en' : ''} möglich
+                    </span>
+                  )}
+                </p>
+              )}
               <Button
-                onClick={activeTab === 'lunch' ? handleImportLunch : handleImportDinner}
+                onClick={handleImport}
                 disabled={!canImport}
                 className="w-full bg-amber-700 hover:bg-amber-800 text-white rounded-xl h-10 font-semibold gap-2"
               >
-                Übernehmen
+                {selectedCount > 1 ? `Alle ${selectedCount} übernehmen` : 'Übernehmen'}
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>

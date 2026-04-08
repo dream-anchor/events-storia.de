@@ -2,6 +2,7 @@ import { AnimatePresence } from "framer-motion";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OptionCard } from "./OptionCard";
+import { MenuImporter } from "./MenuImporter";
 import type {
   OfferBuilderOption,
   OfferMode,
@@ -21,9 +22,11 @@ interface OptionCardGridProps {
   onRemoveOption: (optionId: string) => void;
   onToggleActive: (optionId: string) => void;
   onAddOption: (mode?: OfferMode, copyFrom?: OfferBuilderOption) => void;
+  onImportMultiple: (partials: Partial<OfferBuilderOption>[]) => void;
   defaultMode: OfferMode;
   isLocked: boolean;
   currentVersion: number;
+  guestCount: number;
 }
 
 export function OptionCardGrid({
@@ -35,9 +38,11 @@ export function OptionCardGrid({
   onRemoveOption,
   onToggleActive,
   onAddOption,
+  onImportMultiple,
   defaultMode,
   isLocked,
   currentVersion,
+  guestCount,
 }: OptionCardGridProps) {
   const canAdd = options.length < 5 && !isLocked;
   const canDuplicate = options.length < 5;
@@ -48,15 +53,23 @@ export function OptionCardGrid({
         <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
           Angebots-Optionen
         </h3>
-        {canAdd && (
-          <button
-            onClick={() => onAddOption(defaultMode)}
-            className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Option hinzufügen
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <MenuImporter
+            guestCount={guestCount}
+            currentOptionCount={options.length}
+            onImportMultiple={onImportMultiple}
+            disabled={isLocked || options.length >= 5}
+          />
+          {canAdd && (
+            <button
+              onClick={() => onAddOption(defaultMode)}
+              className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Option hinzufügen
+            </button>
+          )}
+        </div>
       </div>
 
       <div

@@ -12,7 +12,8 @@ import { SendControls } from "./SendControls";
 import { CustomerFeedbackBanner } from "./CustomerFeedbackBanner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { OfferMode, ExtendedInquiry, Package, EmailTemplate, OfferHistoryEntry } from "./types";
+import type { OfferMode, ExtendedInquiry, Package, EmailTemplate, OfferHistoryEntry, OfferBuilderOption } from "./types";
+import { OPTION_LABELS, createEmptyOption } from "./types";
 
 export interface OfferBuilderHandle {
   /** Scrollt zum E-Mail-Composer und öffnet ihn; generiert optional KI-Text */
@@ -85,6 +86,33 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       }));
     }
   }, [builder.setOptions]);
+
+  // --- Mehrere Restaurant-Menüs als neue Optionen anlegen ---
+  const handleImportMultiple = useCallback((partials: Partial<OfferBuilderOption>[]) => {
+    const usedLabels = builder.options.map(o => o.optionLabel);
+    const available = OPTION_LABELS.filter(l => !usedLabels.includes(l));
+    const toAdd = partials.slice(0, available.length);
+
+    if (toAdd.length === 0) {
+      toast.warning('Keine freien Optionen mehr verfügbar');
+      return;
+    }
+
+    const newOptions: OfferBuilderOption[] = toAdd.map((partial, i) => ({
+      ...createEmptyOption(available[i], guestCount, 'paket'),
+      id: crypto.randomUUID(),
+      createdInVersion: builder.currentVersion,
+      ...partial,
+      optionLabel: available[i],
+    }));
+
+    builder.setOptions(prev => [...prev, ...newOptions]);
+    toast.success(
+      newOptions.length > 1
+        ? `${newOptions.length} Menüs als Optionen ${newOptions.map(o => o.optionLabel).join(', ')} angelegt`
+        : `Menü als Option ${newOptions[0].optionLabel} angelegt`
+    );
+  }, [builder.options, builder.currentVersion, builder.setOptions, guestCount]);
 
   // --- E-Mail Draft (lokal, nicht im Hook) ---
   const [emailDraft, setEmailDraft] = useState(inquiry.email_draft || "");
@@ -235,9 +263,11 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
           onRemoveOption={builder.removeOption}
           onToggleActive={builder.toggleOptionActive}
           onAddOption={builder.addOption}
+          onImportMultiple={handleImportMultiple}
           defaultMode={defaultMode}
           isLocked={builder.isLocked}
           currentVersion={builder.currentVersion}
+          guestCount={guestCount}
         />
       )}
 

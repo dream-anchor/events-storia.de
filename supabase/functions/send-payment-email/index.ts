@@ -164,6 +164,19 @@ function buildPaymentEmailHtml(opts: {
             Sie können per Kreditkarte, SEPA-Lastschrift oder – bei Firmenbuchungen – auf Rechnung über Billie bezahlen.
             Der Zahlungslink ist 72 Stunden gültig.
           </p>
+          <p style="color:#333333;font-size:15px;line-height:1.6;margin:16px 0 0;">
+            <strong>Stornobedingungen:</strong><br/>
+            Bis 30 Tage vorher: kostenlos &middot;
+            14–30 Tage: 25&nbsp;% &middot;
+            7–14 Tage: 50&nbsp;% &middot;
+            2–7 Tage: 80&nbsp;% &middot;
+            Unter 48&nbsp;Std./No-Show: 100&nbsp;% abzgl. ersparter Aufwendungen.<br/>
+            <span style="font-size:13px;color:#666666;">
+              Es steht Ihnen frei nachzuweisen, dass ein geringerer oder kein Schaden entstanden ist (§&nbsp;309 Nr.&nbsp;5b BGB).
+              Vollständige AGB:
+              <a href="https://www.events-storia.de/agb-veranstaltungen" style="color:#b45309;">events-storia.de/agb-veranstaltungen</a>
+            </span>
+          </p>
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:24px 0 0;">
             Bei Fragen stehen wir Ihnen gerne zur Verfügung:<br/>
             <a href="tel:+498995457475" style="color:#b45309;text-decoration:none;">089 954 574 750</a>

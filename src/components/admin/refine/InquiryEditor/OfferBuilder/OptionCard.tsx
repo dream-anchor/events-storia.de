@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Trash2, Lock, Copy } from "lucide-react";
+import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,6 @@ import { InlineCourseEditor } from "./InlineCourseEditor";
 import { InlineDrinkEditor } from "./InlineDrinkEditor";
 import { DrinkSection } from "./DrinkSection";
 import { PriceBreakdown } from "./PriceBreakdown";
-import { MenuImporter } from "./MenuImporter";
 import type {
   OfferBuilderOption,
   OfferMode,
@@ -376,11 +375,6 @@ function MenuContent({
           <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             Menü
           </h4>
-          <MenuImporter
-            guestCount={option.guestCount}
-            onImport={onUpdate}
-            disabled={disabled}
-          />
         </div>
         <InlineCourseEditor
           courses={option.menuSelection.courses}
@@ -450,10 +444,29 @@ function PaketContent({
     });
   };
 
+  // Importiertes Restaurant-Menü (kein DB-Paket, nur Name + Preis)
+  const isImportedMenu = !option.packageId && !!option.packageName;
+
   return (
     <div className="space-y-3">
+      {/* Importiertes Menü anzeigen */}
+      {isImportedMenu && (
+        <div className="flex items-start gap-3 p-3 rounded-xl border-2 border-amber-500 bg-amber-50">
+          <UtensilsCrossed className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-amber-900">{option.packageName}</div>
+            {option.budgetPerPerson != null && (
+              <div className="text-xs text-amber-700 font-medium mt-0.5">
+                {option.budgetPerPerson.toFixed(2).replace('.', ',')} € / Person
+                {option.guestCount > 0 && ` · ${(option.budgetPerPerson * option.guestCount).toFixed(2).replace('.', ',')} € gesamt`}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        Paket wählen
+        {isImportedMenu ? 'Oder DB-Paket wählen' : 'Paket wählen'}
       </span>
       <div className="grid gap-2">
         {packages.map(pkg => {
