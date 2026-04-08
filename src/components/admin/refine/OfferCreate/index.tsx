@@ -197,7 +197,7 @@ export const AdminOfferCreate = () => {
       email: formData.email,
       phone: formData.phone || null,
       preferred_date: formData.preferred_date || null,
-      // event_end_date: formData.event_end_date || null,  // TODO: re-enable after DB migration
+      event_end_date: formData.event_end_date || null,
       time_slot: formData.preferred_time || null,
       guest_count: formData.guest_count || null,
       event_type: formData.event_type || null,
