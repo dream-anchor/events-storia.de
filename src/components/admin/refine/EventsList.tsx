@@ -87,6 +87,7 @@ export const EventsList = () => {
   const [viewMode, setViewMode] = useState<"table" | "kanban">(
     () => (localStorage.getItem("eventsViewMode") as "table" | "kanban") || "table"
   );
+  const [paymentStatus, setPaymentStatus] = useState<Record<string, 'none' | 'pending' | 'partial' | 'complete' | 'overdue'>>({});
 
   // Save view preference
   useEffect(() => {
@@ -114,6 +115,44 @@ export const EventsList = () => {
     const archived = allEvents.filter(e => e.archived_at);
     const active = allEvents.filter(e => !e.archived_at);
     return { activeEvents: active, archivedEvents: archived };
+  }, [allEvents]);
+
+  // Batch-load payment status for all visible events
+  useEffect(() => {
+    if (!allEvents.length) return;
+    const ids = allEvents.map(e => e.id);
+    supabase
+      .from('event_payments')
+      .select('inquiry_id, status')
+      .in('inquiry_id', ids)
+      .not('status', 'in', '(cancelled,refunded)')
+      .then(({ data }) => {
+        if (!data) return;
+        const result: Record<string, 'none' | 'pending' | 'partial' | 'complete' | 'overdue'> = {};
+        for (const p of data) {
+          const cur = result[p.inquiry_id];
+          if (p.status === 'overdue') {
+            result[p.inquiry_id] = 'overdue';
+          } else if (!cur || cur === 'none') {
+            result[p.inquiry_id] = p.status === 'paid' ? 'partial' : 'pending';
+          } else if (cur === 'partial' && p.status !== 'paid') {
+            result[p.inquiry_id] = 'partial';
+          }
+        }
+        // Alle paid → complete
+        const paidCounts: Record<string, number> = {};
+        const totalCounts: Record<string, number> = {};
+        for (const p of data) {
+          totalCounts[p.inquiry_id] = (totalCounts[p.inquiry_id] || 0) + 1;
+          if (p.status === 'paid') paidCounts[p.inquiry_id] = (paidCounts[p.inquiry_id] || 0) + 1;
+        }
+        for (const id of Object.keys(totalCounts)) {
+          if (result[id] !== 'overdue' && paidCounts[id] === totalCounts[id]) {
+            result[id] = 'complete';
+          }
+        }
+        setPaymentStatus(result);
+      });
   }, [allEvents]);
 
   // Categorize events based on status (the single source of truth)
@@ -263,6 +302,17 @@ export const EventsList = () => {
           badgeClass = 'border-amber-500/50 text-amber-700 bg-amber-50';
         }
 
+        const pmt = paymentStatus[event.id];
+        const pmtBadge = pmt === 'overdue'
+          ? <span title="Zahlung überfällig" className="text-red-500">💰⚠️</span>
+          : pmt === 'complete'
+          ? <span title="Vollständig bezahlt" className="text-green-600">💰✓</span>
+          : pmt === 'partial'
+          ? <span title="Teilweise bezahlt" className="text-amber-600">💰½</span>
+          : pmt === 'pending'
+          ? <span title="Zahlung ausstehend" className="text-amber-500">💰⏳</span>
+          : null;
+
         return (
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-1.5">
@@ -272,6 +322,7 @@ export const EventsList = () => {
               </Badge>
               <PriorityIndicator priority={event.priority as InquiryPriority} />
               <AssigneeIndicator email={event.assigned_to} />
+              {pmtBadge && <span className="text-xs leading-none">{pmtBadge}</span>}
             </div>
             {subLabel && (
               <span className="text-xs text-muted-foreground ml-0.5">{subLabel}</span>

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, History, ChevronDown, Mail, Plus, CreditCard } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, History, ChevronDown, Mail, Plus } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { TaskManager } from "@/components/admin/shared/TaskManager";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
 import { ConversationThread } from "@/components/admin/shared/ConversationThread";
+import { PaymentCard } from "./PaymentCard";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
@@ -52,6 +53,7 @@ export const SmartInquiryEditor = () => {
   const [menuSelection, setMenuSelection] = useState<MenuSelection>({ courses: [], drinks: [] });
   const offerBuilderRef = useRef<OfferBuilderHandle>(null);
   const [selectedOptionInfo, setSelectedOptionInfo] = useState<{ optionLabel: string; packageName: string } | null>(null);
+  const [offerTotal, setOfferTotal] = useState<number | null>(null);
 
   // Fetch inquiry data
   const inquiryQuery = useOne<ExtendedInquiry>({
@@ -195,6 +197,18 @@ export const SmartInquiryEditor = () => {
                 });
             }
           }
+        });
+
+      // Angebotssumme aus aktiver Option laden (für Betrag-Schnellwahl)
+      supabase.from('inquiry_offer_options')
+        .select('total_amount')
+        .eq('inquiry_id', id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.total_amount) setOfferTotal(data.total_amount);
         });
     }
   }, []);
@@ -543,54 +557,12 @@ export const SmartInquiryEditor = () => {
             </Card>
           )}
 
-          {/* Zahlungsstatus */}
-          {((inquiry as any).paid_amount > 0 || (inquiry as any).payment_type) && (
-            <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-primary" />
-                  Zahlung
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {(inquiry as any).payment_type === 'deposit' ? (
-                  <>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Anzahlung erhalten</span>
-                      <span className="font-semibold text-green-600">
-                        {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format((inquiry as any).paid_amount || 0)}
-                      </span>
-                    </div>
-                    {(inquiry as any).remaining_amount > 0 && (
-                      <>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div
-                            className="bg-green-500 h-2 rounded-full transition-all"
-                            style={{
-                              width: `${Math.min(100, ((inquiry as any).paid_amount / ((inquiry as any).paid_amount + (inquiry as any).remaining_amount)) * 100)}%`
-                            }}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Restbetrag offen</span>
-                          <span className="font-medium text-amber-600">
-                            {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format((inquiry as any).remaining_amount)}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Vollständig bezahlt</span>
-                    <span className="font-semibold text-green-600">
-                      {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format((inquiry as any).paid_amount || 0)}
-                    </span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {/* Zahlungen (Anzahlung / Vorauszahlung via Stripe) */}
+          <PaymentCard
+            inquiryId={id!}
+            preferredDate={inquiry.preferred_date}
+            offerTotal={offerTotal}
+          />
 
           {/* Konversations-Thread */}
           <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">

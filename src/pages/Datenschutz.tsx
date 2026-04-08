@@ -181,10 +181,96 @@ const Datenschutz = () => {
               </p>
             </section>
 
-            {/* 8. Speicherdauer */}
+            {/* Stripe */}
             <section>
               <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
-                8. Dauer der Speicherung
+                8. Zahlungsabwicklung über Stripe
+              </h2>
+              <p>
+                Für die Abwicklung von Zahlungen nutzen wir den Dienst des Zahlungsdienstleisters{" "}
+                <strong>Stripe Payments Europe Ltd.</strong>, 1 Grand Canal Street Lower, Grand Canal Dock,
+                Dublin, D02 H210, Irland (nachfolgend „Stripe").
+              </p>
+              <p className="mt-2">
+                Wenn Sie eine Zahlung über unsere Website vornehmen, werden die von Ihnen eingegebenen
+                Zahlungsdaten (z. B. Name des Karteninhabers, Kreditkartennummer, Kontonummer,
+                Rechnungsbetrag) direkt an Stripe übermittelt und dort verarbeitet. Zu den verarbeiteten
+                Daten gehören insbesondere: Name und Adresse, Zahlungsdaten (Kreditkartennummer, IBAN),
+                E-Mail-Adresse, Transaktionsdaten sowie IP-Adresse.
+              </p>
+              <p className="mt-2">
+                <strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) sowie
+                Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an sicherer Zahlungsabwicklung).
+                Stripe ist Teilnehmer am EU-US Data Privacy Framework.
+              </p>
+              <p className="mt-2">
+                Weitere Informationen:{" "}
+                <a href="https://stripe.com/de/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  stripe.com/de/privacy
+                </a>
+              </p>
+            </section>
+
+            {/* Billie */}
+            <section>
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
+                9. Kauf auf Rechnung über Billie (Geschäftskunden)
+              </h2>
+              <p>
+                Für Geschäftskunden bieten wir die Zahlungsmethode „Kauf auf Rechnung" über den
+                Zahlungsdienstleister <strong>Billie GmbH</strong>, Charlottenstraße 4, 10969 Berlin
+                (nachfolgend „Billie") an.
+              </p>
+              <p className="mt-2">
+                Wenn Sie als Geschäftskunde diese Zahlungsmethode wählen, werden zur Durchführung einer
+                Bonitäts- und Identitätsprüfung in Echtzeit folgende Daten an Billie übermittelt:
+                Firmenname und Rechtsform, Geschäftsadresse, Name des Bestellers, E-Mail-Adresse sowie
+                Bestelldaten (Betrag, Beschreibung). Billie führt anhand dieser Daten eine automatisierte
+                Bonitätsprüfung durch. Im Falle der Annahme übernimmt Billie das vollständige Ausfallrisiko.
+              </p>
+              <p className="mt-2">
+                <strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) sowie
+                Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse des Dienstleisters an der Bonitätsprüfung).
+              </p>
+              <p className="mt-2">
+                Weitere Informationen:{" "}
+                <a href="https://www.billie.io/de/datenschutz" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  billie.io/de/datenschutz
+                </a>
+              </p>
+            </section>
+
+            {/* Resend */}
+            <section>
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
+                10. E-Mail-Versand über Resend
+              </h2>
+              <p>
+                Für den Versand transaktionsbezogener E-Mails (Angebote, Zahlungsaufforderungen,
+                Buchungsbestätigungen) nutzen wir den Dienst <strong>Resend Inc.</strong>,
+                2261 Market Street #5039, San Francisco, CA 94114, USA.
+              </p>
+              <p className="mt-2">
+                Im Rahmen des E-Mail-Versands werden Ihre E-Mail-Adresse sowie der Inhalt der jeweiligen
+                Nachricht an Resend übermittelt. Resend verarbeitet diese Daten ausschließlich zum Zweck
+                des E-Mail-Versands in unserem Auftrag. Die Datenübermittlung in die USA erfolgt auf
+                Grundlage von EU-Standardvertragsklauseln.
+              </p>
+              <p className="mt-2">
+                <strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung).
+              </p>
+              <p className="mt-2">
+                Weitere Informationen:{" "}
+                <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  resend.com/legal/privacy-policy
+                </a>
+              </p>
+            </section>
+
+            {/* 11. Speicherdauer */}
+            <section>
+              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
+                11. Dauer der Speicherung
               </h2>
               <p>
                 Personenbezogene Daten werden gelöscht, sobald der Zweck entfällt, oder 
@@ -192,10 +278,10 @@ const Datenschutz = () => {
               </p>
             </section>
 
-            {/* 9. Betroffenenrechte */}
+            {/* 12. Betroffenenrechte */}
             <section>
               <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
-                9. Betroffenenrechte (DSGVO)
+                12. Betroffenenrechte (DSGVO)
               </h2>
               <p>Nutzer haben das Recht auf:</p>
               <ul className="list-disc pl-6 mt-2 space-y-1">
@@ -209,20 +295,20 @@ const Datenschutz = () => {
               </ul>
             </section>
 
-            {/* 10. Sicherheit */}
+            {/* 13. Sicherheit */}
             <section>
               <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
-                10. Sicherheit
+                13. Sicherheit
               </h2>
               <p>
                 Wir verwenden SSL/TLS-Verschlüsselung zum Schutz der übertragenen Daten.
               </p>
             </section>
 
-            {/* 11. Aktualität */}
+            {/* 14. Aktualität */}
             <section>
               <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
-                11. Aktualität
+                14. Aktualität
               </h2>
               <p>
                 Diese Datenschutzerklärung wird regelmäßig aktualisiert.

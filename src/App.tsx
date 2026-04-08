@@ -40,6 +40,7 @@ const CookieRichtlinie = lazy(() => import("./pages/CookieRichtlinie"));
 const AGBRestaurant = lazy(() => import("./pages/AGBRestaurant"));
 const AGBGutscheine = lazy(() => import("./pages/AGBGutscheine"));
 const AGBCatering = lazy(() => import("./pages/AGBCatering"));
+const AGBVeranstaltungen = lazy(() => import("./pages/AGBVeranstaltungen"));
 const Widerrufsbelehrung = lazy(() => import("./pages/Widerrufsbelehrung"));
 const Zahlungsinformationen = lazy(() => import("./pages/Zahlungsinformationen"));
 const Lebensmittelhinweise = lazy(() => import("./pages/Lebensmittelhinweise"));
@@ -138,6 +139,7 @@ const App = () => {
                     <Route path="/agb-restaurant" element={<AGBRestaurant />} />
                     <Route path="/agb-gutscheine" element={<AGBGutscheine />} />
                     <Route path="/agb-catering" element={<AGBCatering />} />
+                    <Route path="/agb-veranstaltungen" element={<AGBVeranstaltungen />} />
                     <Route path="/widerrufsbelehrung" element={<Widerrufsbelehrung />} />
                     <Route path="/zahlungsinformationen" element={<Zahlungsinformationen />} />
                     <Route path="/lebensmittelhinweise" element={<Lebensmittelhinweise />} />

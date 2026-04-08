@@ -89,6 +89,9 @@ serve(async (req) => {
       } else if (orderType === "event" && orderNumber) {
         // ━━━ EVENT BOOKING DIRECT PAYMENT ━━━
         await handleEventBookingPayment(supabase, session, orderNumber, metadata);
+      } else if (metadata.payment_id && metadata.source === 'maestro') {
+        // ━━━ MAESTRO PAYMENT (Anzahlung / Vorauszahlung via Admin) ━━━
+        await handleMaestroPayment(supabase, stripe, session, metadata);
       } else {
         logStep("Unknown payment type, no matching metadata", { metadata });
       }
@@ -367,6 +370,89 @@ async function handleEventBookingPayment(
     description: `Stripe-Zahlung bestätigt: ${formatEUR(booking.total_amount)}`,
     metadata: { stripe_session_id: session.id },
   });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MAESTRO PAYMENT (Anzahlung / Vorauszahlung)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// deno-lint-ignore no-explicit-any
+async function handleMaestroPayment(
+  supabase: any,
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+  metadata: Record<string, string>
+) {
+  const paymentId = metadata.payment_id;
+  const inquiryId = metadata.inquiry_id;
+  const paymentType = metadata.payment_type;
+
+  logStep("Processing maestro payment", { paymentId, inquiryId, paymentType });
+
+  // Idempotenz-Check
+  const { data: existing } = await supabase
+    .from('event_payments')
+    .select('id, status')
+    .eq('id', paymentId)
+    .single();
+
+  if (existing?.status === 'paid') {
+    logStep("Maestro payment already marked as paid, skipping", { paymentId });
+    return;
+  }
+
+  // Zahlungsmethode ermitteln (card, sepa_debit, billie, ...)
+  let paidVia = 'unknown';
+  try {
+    if (session.payment_intent) {
+      const pi = await stripe.paymentIntents.retrieve(session.payment_intent as string);
+      if (pi.payment_method) {
+        const pm = await stripe.paymentMethods.retrieve(pi.payment_method as string);
+        paidVia = pm.type;
+      }
+    }
+  } catch (err) {
+    logStep("Could not retrieve payment method (non-fatal)", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // event_payments aktualisieren
+  const { error: updateError } = await supabase
+    .from('event_payments')
+    .update({
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+      paid_via: paidVia,
+      stripe_payment_intent_id: session.payment_intent as string || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', paymentId);
+
+  if (updateError) {
+    logStep("ERROR: Failed to update maestro payment", { error: updateError.message });
+    return;
+  }
+
+  logStep("Maestro payment marked as paid", { paymentId, paidVia });
+
+  // Activity Log
+  await logActivity(supabase, {
+    entity_type: 'event_inquiry',
+    entity_id: inquiryId,
+    action: `maestro_${paymentType}_paid`,
+    description: `Zahlung eingegangen: ${formatEUR((session.amount_total || 0) / 100)} via ${paidVia}`,
+    metadata: {
+      payment_id: paymentId,
+      payment_type: paymentType,
+      stripe_session_id: session.id,
+      stripe_payment_intent: session.payment_intent,
+      paid_via: paidVia,
+      amount_cents: session.amount_total,
+    },
+  });
+
+  logStep("Maestro payment processing complete", { paymentId, inquiryId });
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
