@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, parseISO, isToday, isTomorrow, differenceInDays, startOfDay, addDays } from "date-fns";
+import { format, parseISO, isToday, isTomorrow, differenceInDays, startOfDay, addDays, isBefore } from "date-fns";
 import { de } from "date-fns/locale";
 import {
   Calendar, Users, Building2, AlertTriangle, Clock, ChevronDown,
@@ -8,9 +8,7 @@ import {
 } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -23,6 +21,7 @@ interface EventInquiry {
   event_type?: string;
   guest_count?: number;
   preferred_date?: string;
+  time_slot?: string;
   status: string;
   offer_phase?: string;
   offer_sent_at?: string;
@@ -44,10 +43,16 @@ interface EventPayment {
   customer_email?: string;
 }
 
+interface OfferOption {
+  inquiry_id: string;
+  total_amount: number;
+}
+
 interface DayGroup {
   date: string;
   label: string;
   events: EventInquiry[];
+  isPast: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -85,6 +90,10 @@ function formatEUR(cents: number): string {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
 }
 
+function formatEURDirect(amount: number): string {
+  return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(amount);
+}
+
 // ─── AlarmBanner ─────────────────────────────────────────────────────────────
 
 interface Alarm {
@@ -95,27 +104,49 @@ interface Alarm {
 }
 
 const AlarmBanner = ({ alarms, onNavigate }: { alarms: Alarm[]; onNavigate: (id: string) => void }) => {
+  const [expanded, setExpanded] = useState(false);
   if (alarms.length === 0) return null;
+
+  const visible = expanded ? alarms : alarms.slice(0, 3);
+  const hiddenCount = alarms.length - 3;
+
   return (
-    <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">
-      <div className="flex items-center gap-2 text-red-700 font-semibold text-sm">
-        <AlertTriangle className="h-4 w-4" />
-        {alarms.length} {alarms.length === 1 ? "Alarm" : "Alarme"} — sofort handeln
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1.5">
+      <div className="flex items-center gap-2 text-amber-800 font-semibold text-sm mb-2">
+        <Bell className="h-4 w-4" />
+        {alarms.length} {alarms.length === 1 ? "Alarm" : "Alarme"}
       </div>
-      <div className="space-y-1">
-        {alarms.map((a, i) => (
-          <button
-            key={i}
-            onClick={() => onNavigate(a.inquiryId)}
-            className="w-full text-left flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
-          >
-            <span className="text-sm text-red-800">
-              <strong>{a.contactName}</strong> — {a.label}
-            </span>
-            <ExternalLink className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
-          </button>
-        ))}
-      </div>
+      {visible.map((a, i) => (
+        <button
+          key={i}
+          onClick={() => onNavigate(a.inquiryId)}
+          className="w-full text-left flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
+        >
+          <span className={cn(
+            "text-sm",
+            a.type === "overdue_payment" ? "text-red-700" : "text-amber-900"
+          )}>
+            <strong>{a.contactName}</strong> — {a.label}
+          </span>
+          <ExternalLink className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 ml-2" />
+        </button>
+      ))}
+      {!expanded && hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="text-xs text-amber-700 hover:underline pl-3 pt-0.5"
+        >
+          und {hiddenCount} weitere Alarme anzeigen ▾
+        </button>
+      )}
+      {expanded && hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(false)}
+          className="text-xs text-amber-700 hover:underline pl-3 pt-0.5"
+        >
+          Weniger anzeigen ▴
+        </button>
+      )}
     </div>
   );
 };
@@ -153,69 +184,86 @@ const EventCard = ({
   const { label, cls } = getStatusBadge(event);
   const eventPayments = payments.filter((p) => p.inquiry_id === event.id);
   const hasOverdue = eventPayments.some((p) => p.computed_status === "overdue");
-  const isConfirmed = event.status === "confirmed";
 
   const barColor = hasOverdue
     ? "bg-red-500"
     : event.offer_phase === "customer_responded"
     ? "bg-teal-500"
-    : isConfirmed
+    : event.status === "confirmed"
     ? "bg-green-600"
     : event.offer_sent_at
     ? "bg-emerald-400"
     : "bg-amber-400";
 
+  // Time: prefer explicit time_slot field, fall back to time in preferred_date
+  const timeStr = event.time_slot
+    ? event.time_slot.substring(0, 5)
+    : event.preferred_date && event.preferred_date.includes("T")
+    ? format(parseISO(event.preferred_date), "HH:mm")
+    : null;
+
   return (
     <button
       onClick={onClick}
-      className="w-full text-left flex items-stretch bg-white border border-border/60 rounded-xl overflow-hidden hover:shadow-md hover:border-border transition-all duration-150 group"
+      className="w-full text-left flex items-stretch bg-white border border-border/60 rounded-xl overflow-hidden hover:shadow-md hover:border-amber-200 transition-all duration-150 group"
     >
       {/* Color bar */}
       <div className={cn("w-1 flex-shrink-0", barColor)} />
 
       <div className="flex-1 px-4 py-3 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="font-semibold text-sm text-foreground truncate">{event.contact_name}</p>
-            {event.company_name && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                <Building2 className="h-3 w-3 flex-shrink-0" />
-                {event.company_name}
-              </p>
+        <div className="flex items-start gap-3">
+          {/* Zeit — groß links */}
+          {timeStr && (
+            <div className="flex-shrink-0 text-right min-w-[2.5rem]">
+              <span className="text-xl font-bold text-foreground leading-none tracking-tight">{timeStr}</span>
+              <span className="text-[10px] text-muted-foreground block leading-none mt-0.5">Uhr</span>
+            </div>
+          )}
+
+          {/* Haupt-Inhalt */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-semibold text-sm text-foreground truncate leading-tight">
+                  {event.contact_name}
+                </p>
+                {event.company_name && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                    <Building2 className="h-3 w-3 flex-shrink-0" />
+                    {event.company_name}
+                  </p>
+                )}
+              </div>
+              <Badge variant="outline" className={cn("text-xs font-medium flex-shrink-0", cls)}>
+                {label}
+              </Badge>
+            </div>
+
+            {/* Event-Typ + Gäste */}
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {event.event_type && (
+                <span className="text-xs font-medium text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                  {event.event_type}
+                </span>
+              )}
+              {event.guest_count && (
+                <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  {event.guest_count} Gäste
+                </span>
+              )}
+            </div>
+
+            {/* Payment Pills */}
+            {eventPayments.length > 0 && (
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                {eventPayments.map((p) => (
+                  <PaymentPill key={p.id} payment={p} />
+                ))}
+              </div>
             )}
           </div>
-          <Badge variant="outline" className={cn("text-xs font-medium flex-shrink-0", cls)}>
-            {label}
-          </Badge>
         </div>
-
-        <div className="flex items-center gap-3 mt-2 flex-wrap">
-          {event.event_type && (
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {event.event_type}
-            </span>
-          )}
-          {event.guest_count && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              {event.guest_count}
-            </span>
-          )}
-          {event.preferred_date && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              {format(parseISO(event.preferred_date), "dd.MM.yy", { locale: de })}
-            </span>
-          )}
-        </div>
-
-        {eventPayments.length > 0 && (
-          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-            {eventPayments.map((p) => (
-              <PaymentPill key={p.id} payment={p} />
-            ))}
-          </div>
-        )}
       </div>
     </button>
   );
@@ -228,33 +276,69 @@ const TimelineGroup = ({
   payments,
   onNavigate,
   defaultOpen,
+  alwaysOpen,
 }: {
   group: DayGroup;
   payments: EventPayment[];
   onNavigate: (id: string) => void;
   defaultOpen: boolean;
+  alwaysOpen: boolean;
 }) => {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(defaultOpen || alwaysOpen);
+
+  const isToday_ = !group.isPast && group.date !== "__no_date__" && isToday(parseISO(group.date));
+  const isTomorrow_ = !group.isPast && group.date !== "__no_date__" && isTomorrow(parseISO(group.date));
+  const isSpecial = isToday_ || isTomorrow_ || group.date === "__no_date__";
 
   return (
-    <div className="space-y-2">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 text-left group"
-      >
-        <div className="flex items-center gap-2">
-          {open ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
-          <span className="font-semibold text-sm text-foreground">{group.label}</span>
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-            {group.events.length}
-          </span>
-        </div>
-        <div className="flex-1 h-px bg-border/50" />
-      </button>
+    <div className={cn("space-y-2", group.isPast && "opacity-60")}>
+      {/* Tagesheader */}
+      <div className="flex items-center gap-3">
+        {alwaysOpen ? (
+          // Kein Toggle-Button bei Heute/Morgen/Termin offen
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "font-bold",
+              isSpecial ? "text-base text-foreground" : "text-sm text-foreground",
+            )}>
+              {group.label}
+            </span>
+            {isToday_ && (
+              <span className="text-xs font-semibold text-white bg-amber-600 px-2 py-0.5 rounded-full">
+                Heute
+              </span>
+            )}
+            {isTomorrow_ && (
+              <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                Morgen
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              {group.events.length}
+            </span>
+          </div>
+        ) : (
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="flex items-center gap-2 text-left group"
+          >
+            {open ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className="font-semibold text-sm text-foreground">{group.label}</span>
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              {group.events.length}
+            </span>
+          </button>
+        )}
+        {/* Akzentlinie */}
+        <div className={cn(
+          "flex-1 h-px",
+          isToday_ ? "bg-amber-400" : isTomorrow_ ? "bg-amber-200" : "bg-border/50"
+        )} />
+      </div>
 
       {open && (
         <div className="space-y-2 pl-4">
@@ -277,23 +361,48 @@ const TimelineGroup = ({
 const Sidebar = ({
   events,
   payments,
+  offerOptions,
   onNavigate,
 }: {
   events: EventInquiry[];
   payments: EventPayment[];
+  offerOptions: OfferOption[];
   onNavigate: (id: string) => void;
 }) => {
-  // Week stats
   const today = startOfDay(new Date());
   const weekEnd = addDays(today, 7);
+
   const thisWeekEvents = events.filter((e) => {
     if (!e.preferred_date) return false;
     const d = parseISO(e.preferred_date);
     return d >= today && d < weekEnd;
   });
+  const thisWeekIds = new Set(thisWeekEvents.map((e) => e.id));
+
   const confirmedCount = events.filter((e) => e.status === "confirmed").length;
-  const pendingOffer = events.filter((e) => e.offer_sent_at && e.status !== "confirmed" && e.status !== "declined").length;
+  const pendingOffer = events.filter(
+    (e) => e.offer_sent_at && e.status !== "confirmed" && e.status !== "declined"
+  ).length;
   const newCount = events.filter((e) => !e.offer_sent_at && !e.last_edited_at).length;
+
+  // Wochenumsatz aus Offer-Options
+  const weekRevenue = offerOptions
+    .filter((o) => thisWeekIds.has(o.inquiry_id))
+    .reduce((sum, o) => sum + (o.total_amount || 0), 0);
+
+  // Gäste diese Woche
+  const weekGuests = thisWeekEvents.reduce((sum, e) => sum + (e.guest_count || 0), 0);
+
+  // Bezahlt vs. Offen (nach Betrag)
+  const weekPayments = payments.filter((p) => thisWeekIds.has(p.inquiry_id));
+  const paidCents = weekPayments
+    .filter((p) => p.computed_status === "paid")
+    .reduce((s, p) => s + p.amount_cents, 0);
+  const openCents = weekPayments
+    .filter((p) => p.computed_status !== "paid" && p.computed_status !== "cancelled")
+    .reduce((s, p) => s + p.amount_cents, 0);
+  const totalPaymentCents = paidCents + openCents;
+  const paidPercent = totalPaymentCents > 0 ? Math.round((paidCents / totalPaymentCents) * 100) : 0;
 
   // Upcoming payments (due in next 14 days)
   const upcomingPayments = payments
@@ -310,12 +419,12 @@ const Sidebar = ({
     })
     .slice(0, 8);
 
-  // Open inquiries (no offer sent, created > 24h ago)
+  // Open inquiries without offer (> 48h)
   const openInquiries = events
     .filter((e) => {
       if (e.offer_sent_at || e.status === "declined") return false;
       const diff = differenceInDays(today, parseISO(e.created_at));
-      return diff >= 1;
+      return diff >= 2;
     })
     .sort((a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime())
     .slice(0, 6);
@@ -323,18 +432,37 @@ const Sidebar = ({
   return (
     <div className="space-y-4 w-72 flex-shrink-0">
       {/* Wochenübersicht */}
-      <Card className="border-border/60">
-        <CardHeader className="pb-3 pt-4 px-4">
+      <Card className="border-amber-200/60 bg-amber-50/30">
+        <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-amber-600" />
             Wochenübersicht
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4 space-y-2">
+        <CardContent className="px-4 pb-4 space-y-3">
+          {/* Umsatz */}
+          {weekRevenue > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Umsatz Woche</span>
+              <span className="font-bold text-amber-800">{formatEURDirect(weekRevenue)}</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Events diese Woche</span>
             <span className="font-bold text-foreground">{thisWeekEvents.length}</span>
           </div>
+
+          {weekGuests > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Gäste gesamt</span>
+              <span className="font-semibold text-foreground flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {weekGuests}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Bestätigt</span>
             <span className="font-semibold text-green-700">{confirmedCount}</span>
@@ -347,19 +475,39 @@ const Sidebar = ({
             <span className="text-muted-foreground">Neue Anfragen</span>
             <span className="font-semibold text-foreground">{newCount}</span>
           </div>
+
+          {/* Bezahlt vs. Offen Fortschrittsbalken */}
+          {totalPaymentCents > 0 && (
+            <div className="space-y-1.5 pt-1 border-t border-amber-200/60">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Bezahlt</span>
+                <span>{paidPercent}% · {formatEUR(paidCents)}</span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-500 rounded-full transition-all"
+                  style={{ width: `${paidPercent}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Offen</span>
+                <span>{formatEUR(openCents)}</span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Fälligkeiten */}
       {upcomingPayments.length > 0 && (
         <Card className="border-border/60">
-          <CardHeader className="pb-3 pt-4 px-4">
+          <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Euro className="h-4 w-4 text-muted-foreground" />
               Fälligkeiten (14 Tage)
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2">
+          <CardContent className="px-4 pb-4 space-y-1">
             {upcomingPayments.map((p) => {
               const due = p.effective_due_date ? parseISO(p.effective_due_date) : null;
               const diff = due ? differenceInDays(due, today) : null;
@@ -394,16 +542,16 @@ const Sidebar = ({
         </Card>
       )}
 
-      {/* Offene Anfragen ohne Angebot */}
+      {/* Offene Anfragen ohne Angebot (> 48h) */}
       {openInquiries.length > 0 && (
         <Card className="border-border/60">
-          <CardHeader className="pb-3 pt-4 px-4">
+          <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Inbox className="h-4 w-4 text-muted-foreground" />
               Warten auf Angebot
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2">
+          <CardContent className="px-4 pb-4 space-y-1">
             {openInquiries.map((e) => {
               const diff = differenceInDays(today, parseISO(e.created_at));
               return (
@@ -418,7 +566,10 @@ const Sidebar = ({
                       <p className="text-xs text-muted-foreground truncate">{e.event_type}</p>
                     )}
                   </div>
-                  <span className={cn("text-xs flex-shrink-0 ml-2", diff >= 3 ? "text-red-600 font-semibold" : "text-muted-foreground")}>
+                  <span className={cn(
+                    "text-xs flex-shrink-0 ml-2",
+                    diff >= 4 ? "text-red-600 font-semibold" : "text-muted-foreground"
+                  )}>
                     {diff}T offen
                   </span>
                 </button>
@@ -437,13 +588,14 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const [events, setEvents] = useState<EventInquiry[]>([]);
   const [payments, setPayments] = useState<EventPayment[]>([]);
+  const [offerOptions, setOfferOptions] = useState<OfferOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [eventsRes, paymentsRes] = await Promise.all([
+        const [eventsRes, paymentsRes, optionsRes] = await Promise.all([
           supabase
             .from("event_inquiries")
             .select("*")
@@ -454,11 +606,19 @@ export const Dashboard = () => {
             .from("event_payments_enriched" as never)
             .select("id, inquiry_id, payment_type, amount_cents, computed_status, effective_due_date, email_sent_at, contact_name, customer_email")
             .not("computed_status", "eq", "cancelled"),
+          supabase
+            .from("inquiry_offer_options" as never)
+            .select("inquiry_id, total_amount")
+            .eq("is_active", true),
         ]);
-        if (eventsRes.error) console.error("[Dashboard] events query error:", eventsRes.error);
-        if (paymentsRes.error) console.error("[Dashboard] payments query error:", paymentsRes.error);
+
+        if (eventsRes.error) console.error("[Dashboard] events:", eventsRes.error);
+        if (paymentsRes.error) console.error("[Dashboard] payments:", paymentsRes.error);
+        if (optionsRes.error) console.error("[Dashboard] offer_options:", optionsRes.error);
+
         if (eventsRes.data) setEvents(eventsRes.data as unknown as EventInquiry[]);
         if (paymentsRes.data) setPayments(paymentsRes.data as EventPayment[]);
+        if (optionsRes.data) setOfferOptions(optionsRes.data as OfferOption[]);
       } catch (err) {
         console.error("[Dashboard] load error:", err);
       } finally {
@@ -470,23 +630,24 @@ export const Dashboard = () => {
 
   const goToEvent = (id: string) => navigate(`/admin/events/${id}/edit`);
 
-  // ── Alarms ────────────────────────────────────────────────────────────────
+  // ── Alarms (Priorität: overdue → unanswered → stale ≥ 7 Tage) ─────────────
   const alarms = useMemo<Alarm[]>(() => {
     const result: Alarm[] = [];
     const today = startOfDay(new Date());
 
-    // Overdue payments
-    const overduePayments = payments.filter((p) => p.computed_status === "overdue");
-    overduePayments.forEach((p) => {
-      result.push({
-        type: "overdue_payment",
-        label: `Zahlung überfällig (${formatEUR(p.amount_cents)})`,
-        inquiryId: p.inquiry_id,
-        contactName: p.contact_name || "—",
+    // 1. Überfällige Zahlungen
+    payments
+      .filter((p) => p.computed_status === "overdue")
+      .forEach((p) => {
+        result.push({
+          type: "overdue_payment",
+          label: `Zahlung überfällig (${formatEUR(p.amount_cents)})`,
+          inquiryId: p.inquiry_id,
+          contactName: p.contact_name || "—",
+        });
       });
-    });
 
-    // Customer replied but no action (offer_phase = customer_responded)
+    // 2. Kundenantworten ohne Aktion
     events
       .filter((e) => e.offer_phase === "customer_responded")
       .forEach((e) => {
@@ -498,12 +659,12 @@ export const Dashboard = () => {
         });
       });
 
-    // Stale inquiries (> 5 days, no offer)
+    // 3. Stale Anfragen (≥ 7 Tage kein Angebot)
     events
       .filter((e) => {
         if (e.offer_sent_at || e.status === "declined") return false;
         const diff = differenceInDays(today, parseISO(e.created_at));
-        return diff >= 5;
+        return diff >= 7;
       })
       .forEach((e) => {
         const diff = differenceInDays(today, parseISO(e.created_at));
@@ -520,6 +681,7 @@ export const Dashboard = () => {
 
   // ── Timeline groups ────────────────────────────────────────────────────────
   const groups = useMemo<DayGroup[]>(() => {
+    const today = startOfDay(new Date());
     const withDate = events.filter((e) => e.preferred_date);
     const withoutDate = events.filter((e) => !e.preferred_date);
 
@@ -536,6 +698,7 @@ export const Dashboard = () => {
         date,
         label: formatDayLabel(date),
         events: evts,
+        isPast: isBefore(parseISO(date), today),
       }));
 
     if (withoutDate.length > 0) {
@@ -543,27 +706,23 @@ export const Dashboard = () => {
         date: "__no_date__",
         label: "Termin offen",
         events: withoutDate,
+        isPast: false,
       });
     }
 
     return sorted;
   }, [events]);
 
-  // Auto-open today's and tomorrow's groups (+ first group if past)
-  const autoOpenDates = useMemo(() => {
+  // Welche Gruppen immer offen / default offen --------------------------------
+  const getGroupOpenState = (group: DayGroup): { defaultOpen: boolean; alwaysOpen: boolean } => {
+    if (group.date === "__no_date__") return { defaultOpen: true, alwaysOpen: true };
+    if (group.isPast) return { defaultOpen: false, alwaysOpen: false };
     const today = startOfDay(new Date());
-    const tomorrow = addDays(today, 1);
-    const todayStr = format(today, "yyyy-MM-dd");
-    const tomorrowStr = format(tomorrow, "yyyy-MM-dd");
-    const set = new Set([todayStr, tomorrowStr, "__no_date__"]);
-    // also open the first group with future dates
-    const firstFuture = groups.find((g) => {
-      if (g.date === "__no_date__") return false;
-      return parseISO(g.date) >= today;
-    });
-    if (firstFuture) set.add(firstFuture.date);
-    return set;
-  }, [groups]);
+    const d = parseISO(group.date);
+    if (isToday(d) || isTomorrow(d)) return { defaultOpen: true, alwaysOpen: true };
+    const diff = differenceInDays(d, today);
+    return { defaultOpen: diff <= 7, alwaysOpen: false };
+  };
 
   return (
     <AdminLayout activeTab="dashboard" title="Dashboard" showCreateButton={true} createButtonText="Neue Anfrage">
@@ -579,7 +738,7 @@ export const Dashboard = () => {
         {/* AlarmBanner */}
         {!loading && <AlarmBanner alarms={alarms} onNavigate={goToEvent} />}
 
-        {/* Main layout: timeline + sidebar */}
+        {/* Main layout */}
         <div className="flex gap-6 items-start">
           {/* Timeline */}
           <div className="flex-1 min-w-0 space-y-6">
@@ -595,21 +754,30 @@ export const Dashboard = () => {
                 <p>Keine aktiven Anfragen</p>
               </div>
             ) : (
-              groups.map((group) => (
-                <TimelineGroup
-                  key={group.date}
-                  group={group}
-                  payments={payments}
-                  onNavigate={goToEvent}
-                  defaultOpen={autoOpenDates.has(group.date)}
-                />
-              ))
+              groups.map((group) => {
+                const { defaultOpen, alwaysOpen } = getGroupOpenState(group);
+                return (
+                  <TimelineGroup
+                    key={group.date}
+                    group={group}
+                    payments={payments}
+                    onNavigate={goToEvent}
+                    defaultOpen={defaultOpen}
+                    alwaysOpen={alwaysOpen}
+                  />
+                );
+              })
             )}
           </div>
 
           {/* Sidebar */}
           {!loading && (
-            <Sidebar events={events} payments={payments} onNavigate={goToEvent} />
+            <Sidebar
+              events={events}
+              payments={payments}
+              offerOptions={offerOptions}
+              onNavigate={goToEvent}
+            />
           )}
         </div>
       </div>
