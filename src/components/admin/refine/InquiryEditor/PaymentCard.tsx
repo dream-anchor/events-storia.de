@@ -175,7 +175,7 @@ function PaymentRow({
     if (!confirm('Zahlung wirklich stornieren?')) return;
     setActionLoading('cancel');
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('event_payments')
         .update({ status: 'cancelled', updated_at: new Date().toISOString() })
         .eq('id', payment.id);
