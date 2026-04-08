@@ -12,12 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from "@/integrations/supabase/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -447,21 +442,28 @@ export const Dashboard = () => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const [eventsRes, paymentsRes] = await Promise.all([
-        supabase
-          .from("events")
-          .select("*")
-          .in("status", ["new", "contacted", "offer_sent", "confirmed", "declined"])
-          .is("archived_at", null)
-          .order("preferred_date", { ascending: true, nullsFirst: false }),
-        supabase
-          .from("event_payments_enriched" as never)
-          .select("id, inquiry_id, payment_type, amount_cents, computed_status, effective_due_date, email_sent_at, contact_name, customer_email")
-          .not("computed_status", "eq", "cancelled"),
-      ]);
-      if (eventsRes.data) setEvents(eventsRes.data as EventInquiry[]);
-      if (paymentsRes.data) setPayments(paymentsRes.data as EventPayment[]);
-      setLoading(false);
+      try {
+        const [eventsRes, paymentsRes] = await Promise.all([
+          supabase
+            .from("event_inquiries")
+            .select("*")
+            .in("status", ["new", "contacted", "offer_sent", "confirmed", "declined"])
+            .is("archived_at", null)
+            .order("preferred_date", { ascending: true, nullsFirst: false }),
+          supabase
+            .from("event_payments_enriched" as never)
+            .select("id, inquiry_id, payment_type, amount_cents, computed_status, effective_due_date, email_sent_at, contact_name, customer_email")
+            .not("computed_status", "eq", "cancelled"),
+        ]);
+        if (eventsRes.error) console.error("[Dashboard] events query error:", eventsRes.error);
+        if (paymentsRes.error) console.error("[Dashboard] payments query error:", paymentsRes.error);
+        if (eventsRes.data) setEvents(eventsRes.data as EventInquiry[]);
+        if (paymentsRes.data) setPayments(paymentsRes.data as EventPayment[]);
+      } catch (err) {
+        console.error("[Dashboard] load error:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
