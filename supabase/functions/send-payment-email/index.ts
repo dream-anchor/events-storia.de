@@ -160,9 +160,9 @@ function buildPaymentEmailHtml(opts: {
               </a>
             </td></tr>
           </table>
-          <p style="color:#666666;font-size:13px;line-height:1.6;margin:0 0 8px;">
+          <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 8px;">
             Sie können per Kreditkarte, SEPA-Lastschrift oder – bei Firmenbuchungen – auf Rechnung über Billie bezahlen.
-            Der Zahlungslink ist 72 Stunden gültig. Bei nicht fristgerechter Zahlung geraten Sie automatisch in Verzug.
+            Der Zahlungslink ist 72 Stunden gültig.
           </p>
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:24px 0 0;">
             Bei Fragen stehen wir Ihnen gerne zur Verfügung:<br/>
