@@ -324,6 +324,7 @@ export function useOfferBuilder({
   // =================================================================
   useEffect(() => {
     if (isLoading || isInitialLoad.current) return;
+    if (!inquiryId) return; // Kein Save ohne gültige inquiry_id (z.B. auf /create vor Draft-Init)
 
     if (!isDirtyRef.current) return;
     isDirtyRef.current = false;
@@ -377,9 +378,10 @@ export function useOfferBuilder({
         lastSavedJsonRef.current = currentJson;
         setSaveStatus('idle');
       } catch (error) {
-        console.error("Auto-save error:", error);
+        const msg = error instanceof Error ? error.message : JSON.stringify(error);
+        console.error("Auto-save error FULL:", msg, error);
         setSaveStatus('error');
-        toast.error('Speichern fehlgeschlagen');
+        toast.error(`Speichern fehlgeschlagen: ${msg}`);
       }
     }, 800);
 

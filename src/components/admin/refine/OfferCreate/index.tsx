@@ -191,26 +191,31 @@ export const AdminOfferCreate = () => {
   const saveInquiry = async (status: 'new' | 'offer_sent') => {
     if (!draftInquiryId) throw new Error('Draft nicht initialisiert');
 
+    const updatePayload: Record<string, unknown> = {
+      contact_name: formData.contact_name,
+      company_name: formData.company_name || null,
+      email: formData.email,
+      phone: formData.phone || null,
+      preferred_date: formData.preferred_date || null,
+      // event_end_date: formData.event_end_date || null,  // TODO: re-enable after DB migration
+      time_slot: formData.preferred_time || null,
+      guest_count: formData.guest_count || null,
+      event_type: formData.event_type || null,
+      message: formData.message || null,
+      status,
+    };
+
     const { data, error } = await supabase
       .from('event_inquiries')
-      .update({
-        contact_name: formData.contact_name,
-        company_name: formData.company_name || null,
-        email: formData.email,
-        phone: formData.phone || null,
-        preferred_date: formData.preferred_date || null,
-        event_end_date: formData.event_end_date || null,
-        time_slot: formData.preferred_time || null,
-        guest_count: formData.guest_count || null,
-        event_type: formData.event_type || null,
-        message: formData.message || null,
-        status,
-      })
+      .update(updatePayload)
       .eq('id', draftInquiryId)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("saveInquiry error FULL:", JSON.stringify(error, null, 2));
+      throw new Error(error.message || JSON.stringify(error));
+    }
 
     // Kunden-Benachrichtigung nur bei Entwurf (nicht bei offer_sent — Angebots-Mail folgt separat)
     if (status === 'new') supabase.functions.invoke('receive-event-inquiry', {
@@ -310,8 +315,9 @@ export const AdminOfferCreate = () => {
 
       navigate(`/admin/events/${inquiry.id}/edit`);
     } catch (err) {
-      console.error('Save and send error:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Speichern');
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      console.error('Save and send error:', msg, err);
+      toast.error(`Fehler: ${msg}`);
     } finally {
       setIsSending(false);
     }
