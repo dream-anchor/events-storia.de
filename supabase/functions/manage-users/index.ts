@@ -178,6 +178,26 @@ serve(async (req) => {
         });
       }
 
+      case 'resetPassword': {
+        const { email, password } = params;
+        if (!email && !password) throw new Error('email und password sind erforderlich');
+
+        // Find user by email
+        const { data: { users: foundUsers } } = await adminClient.auth.admin.listUsers();
+        const targetUser = foundUsers.find(u => u.email === email);
+        if (!targetUser) throw new Error('Nutzer nicht gefunden');
+
+        // Set new password directly
+        const { error: updateError } = await adminClient.auth.admin.updateUserById(targetUser.id, {
+          password: password,
+        });
+        if (updateError) throw updateError;
+
+        return new Response(JSON.stringify({ success: true, message: 'Passwort wurde gesetzt' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       default:
         throw new Error(`Unbekannte Aktion: ${action}`);
     }
