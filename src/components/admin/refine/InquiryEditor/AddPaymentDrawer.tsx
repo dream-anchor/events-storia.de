@@ -119,13 +119,15 @@ export function AddPaymentDrawer({
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const payload: Record<string, unknown> = {
+      const payload = {
         inquiry_id: inquiryId,
-        payment_type: paymentType,
+        payment_type: paymentType as 'deposit' | 'prepayment' | 'final',
         amount_cents: amountCents,
-        status: 'draft',
+        status: 'draft' as const,
         notes: notes.trim() || null,
         created_by: user?.id || null,
+        due_date: null as string | null,
+        due_days_before_event: null as number | null,
       };
 
       if (dueType === 'date' && dueDate) {

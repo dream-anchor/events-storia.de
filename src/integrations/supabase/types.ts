@@ -713,6 +713,86 @@ export type Database = {
           },
         ]
       }
+      event_payments: {
+        Row: {
+          amount_cents: number
+          created_at: string | null
+          created_by: string | null
+          due_date: string | null
+          due_days_before_event: number | null
+          email_resend_id: string | null
+          email_sent_at: string | null
+          id: string
+          inquiry_id: string
+          lexoffice_invoice_id: string | null
+          lexoffice_invoice_number: string | null
+          notes: string | null
+          paid_at: string | null
+          paid_via: string | null
+          payment_type: string
+          reminder_sent_at: string | null
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_payment_link_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string | null
+          created_by?: string | null
+          due_date?: string | null
+          due_days_before_event?: number | null
+          email_resend_id?: string | null
+          email_sent_at?: string | null
+          id?: string
+          inquiry_id: string
+          lexoffice_invoice_id?: string | null
+          lexoffice_invoice_number?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_via?: string | null
+          payment_type: string
+          reminder_sent_at?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_payment_link_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string | null
+          created_by?: string | null
+          due_date?: string | null
+          due_days_before_event?: number | null
+          email_resend_id?: string | null
+          email_sent_at?: string | null
+          id?: string
+          inquiry_id?: string
+          lexoffice_invoice_id?: string | null
+          lexoffice_invoice_number?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_via?: string | null
+          payment_type?: string
+          reminder_sent_at?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_payment_link_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_payments_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inquiry_comments: {
         Row: {
           author_email: string
@@ -1551,7 +1631,47 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      event_payments_enriched: {
+        Row: {
+          amount_cents: number | null
+          computed_status: string | null
+          contact_name: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_email: string | null
+          due_date: string | null
+          due_days_before_event: number | null
+          effective_due_date: string | null
+          email_resend_id: string | null
+          email_sent_at: string | null
+          event_type: string | null
+          guest_count: string | null
+          id: string | null
+          inquiry_id: string | null
+          lexoffice_invoice_id: string | null
+          lexoffice_invoice_number: string | null
+          notes: string | null
+          paid_at: string | null
+          paid_via: string | null
+          payment_type: string | null
+          preferred_date: string | null
+          reminder_sent_at: string | null
+          status: string | null
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_payment_link_url: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_payments_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       generate_booking_number: { Args: never; Returns: string }
