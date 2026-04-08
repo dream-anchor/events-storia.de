@@ -161,7 +161,7 @@ export function SmartDatePicker({
     <div className={cn("space-y-2", className)}>
       {/* Quick-select chips */}
       {showQuickChips && (
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="flex flex-wrap gap-2">
           {quickDates.map((date, index) => (
             <Button
               key={index}
