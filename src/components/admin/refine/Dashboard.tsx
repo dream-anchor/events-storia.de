@@ -2,6 +2,17 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, isToday, isTomorrow, differenceInDays, startOfDay, addDays, isBefore } from "date-fns";
 import { de } from "date-fns/locale";
+
+// ─── Safe date parsing ────────────────────────────────────────────────────────
+function safeParse(dateStr: string | null | undefined): Date | null {
+  if (!dateStr) return null;
+  try {
+    const d = parseISO(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
 import {
   Calendar, Users, Building2, AlertTriangle, Clock, ChevronDown,
   ChevronRight, Bell, Euro, TrendingUp, Inbox, ExternalLink
@@ -77,13 +88,18 @@ function getStatusBadge(e: EventInquiry) {
 }
 
 function formatDayLabel(dateStr: string): string {
-  const d = parseISO(dateStr);
-  if (isToday(d)) return "Heute";
-  if (isTomorrow(d)) return "Morgen";
-  const diff = differenceInDays(d, startOfDay(new Date()));
-  if (diff < 0) return format(d, "EEEE, dd. MMMM yyyy", { locale: de });
-  if (diff < 7) return format(d, "EEEE, dd. MMMM", { locale: de });
-  return format(d, "dd. MMMM yyyy", { locale: de });
+  const d = safeParse(dateStr);
+  if (!d) return dateStr;
+  try {
+    if (isToday(d)) return "Heute";
+    if (isTomorrow(d)) return "Morgen";
+    const diff = differenceInDays(d, startOfDay(new Date()));
+    if (diff < 0) return format(d, "EEEE, dd. MMMM yyyy", { locale: de });
+    if (diff < 7) return format(d, "EEEE, dd. MMMM", { locale: de });
+    return format(d, "dd. MMMM yyyy", { locale: de });
+  } catch {
+    return dateStr;
+  }
 }
 
 function formatEUR(cents: number): string {
@@ -196,11 +212,16 @@ const EventCard = ({
     : "bg-amber-400";
 
   // Time: prefer explicit time_slot field, fall back to time in preferred_date
-  const timeStr = event.time_slot
-    ? event.time_slot.substring(0, 5)
-    : event.preferred_date && event.preferred_date.includes("T")
-    ? format(parseISO(event.preferred_date), "HH:mm")
-    : null;
+  const timeStr = (() => {
+    try {
+      if (event.time_slot) return event.time_slot.substring(0, 5);
+      if (event.preferred_date?.includes("T")) {
+        const d = safeParse(event.preferred_date);
+        return d ? format(d, "HH:mm") : null;
+      }
+      return null;
+    } catch { return null; }
+  })();
 
   return (
     <button
@@ -374,8 +395,8 @@ const Sidebar = ({
 
   const thisWeekEvents = events.filter((e) => {
     if (!e.preferred_date) return false;
-    const d = parseISO(e.preferred_date);
-    return d >= today && d < weekEnd;
+    const d = safeParse(e.preferred_date);
+    return !!d && d >= today && d < weekEnd;
   });
   const thisWeekIds = new Set(thisWeekEvents.map((e) => e.id));
 
@@ -409,13 +430,16 @@ const Sidebar = ({
     .filter((p) => {
       if (!p.effective_due_date) return false;
       if (p.computed_status === "paid" || p.computed_status === "cancelled") return false;
-      const due = parseISO(p.effective_due_date);
+      const due = safeParse(p.effective_due_date);
+      if (!due) return false;
       const diff = differenceInDays(due, today);
       return diff >= -3 && diff <= 14;
     })
     .sort((a, b) => {
-      if (!a.effective_due_date || !b.effective_due_date) return 0;
-      return parseISO(a.effective_due_date).getTime() - parseISO(b.effective_due_date).getTime();
+      const da = safeParse(a.effective_due_date);
+      const db = safeParse(b.effective_due_date);
+      if (!da || !db) return 0;
+      return da.getTime() - db.getTime();
     })
     .slice(0, 8);
 
@@ -423,10 +447,16 @@ const Sidebar = ({
   const openInquiries = events
     .filter((e) => {
       if (e.offer_sent_at || e.status === "declined") return false;
-      const diff = differenceInDays(today, parseISO(e.created_at));
-      return diff >= 2;
+      const d = safeParse(e.created_at);
+      if (!d) return false;
+      return differenceInDays(today, d) >= 2;
     })
-    .sort((a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime())
+    .sort((a, b) => {
+      const da = safeParse(a.created_at);
+      const db = safeParse(b.created_at);
+      if (!da || !db) return 0;
+      return da.getTime() - db.getTime();
+    })
     .slice(0, 6);
 
   return (
@@ -509,7 +539,7 @@ const Sidebar = ({
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-1">
             {upcomingPayments.map((p) => {
-              const due = p.effective_due_date ? parseISO(p.effective_due_date) : null;
+              const due = safeParse(p.effective_due_date);
               const diff = due ? differenceInDays(due, today) : null;
               const isOverdue = p.computed_status === "overdue";
               return (
@@ -553,7 +583,8 @@ const Sidebar = ({
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-1">
             {openInquiries.map((e) => {
-              const diff = differenceInDays(today, parseISO(e.created_at));
+              const d = safeParse(e.created_at);
+              const diff = d ? differenceInDays(today, d) : 0;
               return (
                 <button
                   key={e.id}
@@ -663,11 +694,13 @@ export const Dashboard = () => {
     events
       .filter((e) => {
         if (e.offer_sent_at || e.status === "declined") return false;
-        const diff = differenceInDays(today, parseISO(e.created_at));
-        return diff >= 7;
+        const d = safeParse(e.created_at);
+        if (!d) return false;
+        return differenceInDays(today, d) >= 7;
       })
       .forEach((e) => {
-        const diff = differenceInDays(today, parseISO(e.created_at));
+        const d = safeParse(e.created_at);
+        const diff = d ? differenceInDays(today, d) : 0;
         result.push({
           type: "stale_inquiry",
           label: `Kein Angebot seit ${diff} Tagen`,
@@ -682,24 +715,29 @@ export const Dashboard = () => {
   // ── Timeline groups ────────────────────────────────────────────────────────
   const groups = useMemo<DayGroup[]>(() => {
     const today = startOfDay(new Date());
-    const withDate = events.filter((e) => e.preferred_date);
-    const withoutDate = events.filter((e) => !e.preferred_date);
-
+    const withoutDate: EventInquiry[] = [];
     const byDate: Record<string, EventInquiry[]> = {};
-    withDate.forEach((e) => {
-      const key = e.preferred_date!.split("T")[0];
+
+    events.forEach((e) => {
+      if (!e.preferred_date) { withoutDate.push(e); return; }
+      const key = e.preferred_date.split("T")[0];
+      const d = safeParse(key);
+      if (!d) { withoutDate.push(e); return; } // ungültiges Datum → Termin offen
       if (!byDate[key]) byDate[key] = [];
       byDate[key].push(e);
     });
 
     const sorted = Object.entries(byDate)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, evts]) => ({
-        date,
-        label: formatDayLabel(date),
-        events: evts,
-        isPast: isBefore(parseISO(date), today),
-      }));
+      .map(([date, evts]) => {
+        const d = safeParse(date)!;
+        return {
+          date,
+          label: formatDayLabel(date),
+          events: evts,
+          isPast: isBefore(d, today),
+        };
+      });
 
     if (withoutDate.length > 0) {
       sorted.push({
@@ -718,7 +756,8 @@ export const Dashboard = () => {
     if (group.date === "__no_date__") return { defaultOpen: true, alwaysOpen: true };
     if (group.isPast) return { defaultOpen: false, alwaysOpen: false };
     const today = startOfDay(new Date());
-    const d = parseISO(group.date);
+    const d = safeParse(group.date);
+    if (!d) return { defaultOpen: false, alwaysOpen: false };
     if (isToday(d) || isTomorrow(d)) return { defaultOpen: true, alwaysOpen: true };
     const diff = differenceInDays(d, today);
     return { defaultOpen: diff <= 7, alwaysOpen: false };
