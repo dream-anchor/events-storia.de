@@ -65,3 +65,6 @@ verify_jwt = true
 
 [functions.receive-resend-webhook]
 verify_jwt = false
+
+[functions.receive-group-inquiry]
+verify_jwt = false

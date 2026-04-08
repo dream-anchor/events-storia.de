@@ -457,7 +457,7 @@ export const Dashboard = () => {
         ]);
         if (eventsRes.error) console.error("[Dashboard] events query error:", eventsRes.error);
         if (paymentsRes.error) console.error("[Dashboard] payments query error:", paymentsRes.error);
-        if (eventsRes.data) setEvents(eventsRes.data as EventInquiry[]);
+        if (eventsRes.data) setEvents(eventsRes.data as unknown as EventInquiry[]);
         if (paymentsRes.data) setPayments(paymentsRes.data as EventPayment[]);
       } catch (err) {
         console.error("[Dashboard] load error:", err);

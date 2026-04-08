@@ -793,6 +793,66 @@ export type Database = {
           },
         ]
       }
+      group_inquiries: {
+        Row: {
+          arrival_time: string | null
+          company_name: string | null
+          contact_name: string
+          created_at: string | null
+          email: string
+          group_size: number
+          id: string
+          internal_notes: string | null
+          language: string | null
+          message: string | null
+          phone: string | null
+          preferred_date: string | null
+          preferred_date_flexible: boolean | null
+          preferred_menu: string | null
+          source: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          arrival_time?: string | null
+          company_name?: string | null
+          contact_name: string
+          created_at?: string | null
+          email: string
+          group_size: number
+          id?: string
+          internal_notes?: string | null
+          language?: string | null
+          message?: string | null
+          phone?: string | null
+          preferred_date?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          arrival_time?: string | null
+          company_name?: string | null
+          contact_name?: string
+          created_at?: string | null
+          email?: string
+          group_size?: number
+          id?: string
+          internal_notes?: string | null
+          language?: string | null
+          message?: string | null
+          phone?: string | null
+          preferred_date?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       inquiry_comments: {
         Row: {
           author_email: string
