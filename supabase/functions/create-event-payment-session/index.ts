@@ -85,7 +85,7 @@ serve(async (req) => {
       billing_address_collection: 'required',
       success_url: `https://events-storia.de/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `https://events-storia.de/payment/cancelled?payment_id=${payment_id}`,
-      expires_at: Math.floor(Date.now() / 1000) + 72 * 60 * 60, // 72 Stunden gültig
+      expires_at: Math.floor(Date.now() / 1000) + 23 * 60 * 60, // 23 Stunden gültig (Stripe max 24h)
       metadata: {
         payment_id,
         inquiry_id: payment.inquiry_id,
