@@ -126,7 +126,7 @@ export const EventsList = () => {
       .select('inquiry_id, status')
       .in('inquiry_id', ids)
       .not('status', 'in', '(cancelled,refunded)')
-      .then(({ data }) => {
+      .then(({ data }: { data: any[] | null }) => {
         if (!data) return;
         const result: Record<string, 'none' | 'pending' | 'partial' | 'complete' | 'overdue'> = {};
         for (const p of data) {
