@@ -562,7 +562,6 @@ export type Database = {
           deposit_percent: number | null
           email: string
           email_draft: string | null
-          event_end_date: string | null
           event_type: string | null
           guest_count: string | null
           id: string
@@ -616,7 +615,6 @@ export type Database = {
           deposit_percent?: number | null
           email: string
           email_draft?: string | null
-          event_end_date?: string | null
           event_type?: string | null
           guest_count?: string | null
           id?: string
@@ -670,7 +668,6 @@ export type Database = {
           deposit_percent?: number | null
           email?: string
           email_draft?: string | null
-          event_end_date?: string | null
           event_type?: string | null
           guest_count?: string | null
           id?: string
