@@ -43,6 +43,7 @@ interface PublicInquiry {
   email: string | null;
   event_type: string | null;
   preferred_date: string | null;
+  event_end_date: string | null;
   guest_count: string | null;
   status: string;
   offer_phase: OfferPhase;
@@ -467,7 +468,9 @@ function HeroSection({
               <div className="flex items-center gap-2 bg-white/60 dark:bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 border border-white/40">
                 <Calendar className="h-3.5 w-3.5 text-primary/70" />
                 <span className="text-sm font-sans font-medium text-foreground/80">
-                  {format(parseISO(inquiry.preferred_date), "d. MMMM yyyy", { locale: de })}
+                  {inquiry.event_end_date
+                    ? `${format(parseISO(inquiry.preferred_date), "d.", { locale: de })}–${format(parseISO(inquiry.event_end_date), "d. MMMM yyyy", { locale: de })}`
+                    : format(parseISO(inquiry.preferred_date), "d. MMMM yyyy", { locale: de })}
                 </span>
               </div>
             )}
@@ -1186,7 +1189,9 @@ function ConfirmationView({
           )}
           {inquiry.preferred_date && (
             <p className="text-lg font-serif font-semibold text-foreground mb-2">
-              {format(parseISO(inquiry.preferred_date), "EEEE, d. MMMM yyyy", { locale: de })}
+              {inquiry.event_end_date
+                ? `${format(parseISO(inquiry.preferred_date), "EEEE, d. MMMM", { locale: de })} – ${format(parseISO(inquiry.event_end_date), "d. MMMM yyyy", { locale: de })}`
+                : format(parseISO(inquiry.preferred_date), "EEEE, d. MMMM yyyy", { locale: de })}
             </p>
           )}
           <p className="text-muted-foreground font-sans mt-6">

@@ -42,16 +42,31 @@ export const EventDNACard = ({
       </CardHeader>
       <CardContent className="pt-6 space-y-6">
         {/* Event Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Event Date */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Event Date (Von) */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground">Event-Datum</Label>
+            <Label className="text-sm font-medium text-muted-foreground">Von</Label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="date"
                 value={inquiry.preferred_date || ''}
                 onChange={(e) => onFieldChange('preferred_date', e.target.value)}
+                disabled={isReadOnly}
+                className="pl-10 h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
+              />
+            </div>
+          </div>
+
+          {/* Event End Date (Bis) */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground">Bis (optional)</Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="date"
+                value={inquiry.event_end_date || ''}
+                onChange={(e) => onFieldChange('event_end_date', e.target.value || null)}
                 disabled={isReadOnly}
                 className="pl-10 h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
               />
@@ -90,7 +105,7 @@ export const EventDNACard = ({
           </div>
 
           {/* Location - Full Width */}
-          <div className="md:col-span-3 space-y-2">
+          <div className="col-span-2 md:col-span-4 space-y-2">
             <Label className="text-sm font-medium text-muted-foreground">Location</Label>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

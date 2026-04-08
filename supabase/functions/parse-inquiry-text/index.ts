@@ -21,6 +21,7 @@ interface ParsedInquiry {
   email: string | null;
   phone: string | null;
   preferred_date: string | null;
+  event_end_date: string | null;
   preferred_time: string | null;
   guest_count: string | null;
   event_type: string | null;
@@ -79,6 +80,8 @@ Analysiere den Text auf folgende Schlüsselwörter und ordne sie unseren Paketen
 DATUM-ERKENNUNG:
 - Erkenne verschiedene Formate: "15. März", "15.03.2026", "März 2026", "nächsten Freitag"
 - Konvertiere zu ISO-Format (YYYY-MM-DD) wenn möglich, sonst als Freitext
+- Bei Zeiträumen: "vom 20.-24. April" → preferred_date: "2026-04-20", event_end_date: "2026-04-24"
+- Bei Einzeldatum: "am 15. Mai" → preferred_date: "2026-05-15", event_end_date: null
 
 GÄSTE-ERKENNUNG:
 - Erkenne: "40 Personen", "für 40", "ca. 40 Gäste", "30-40 Teilnehmer"
@@ -128,9 +131,13 @@ ${existingPackageNames && existingPackageNames.length > 0
               type: "string", 
               description: "Telefonnummer des Kunden" 
             },
-            preferred_date: { 
-              type: "string", 
-              description: "Gewünschtes Datum im Format YYYY-MM-DD oder als Text" 
+            preferred_date: {
+              type: "string",
+              description: "Startdatum im Format YYYY-MM-DD oder als Text. Bei Zeitraum: erstes Datum."
+            },
+            event_end_date: {
+              type: "string",
+              description: "Enddatum im Format YYYY-MM-DD — nur bei Zeiträumen ('vom 20.-24. April'). Sonst null."
             },
             preferred_time: { 
               type: "string", 

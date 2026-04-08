@@ -8,10 +8,12 @@ import { SmartDatePicker } from "@/components/ui/smart-date-picker";
 
 interface EventDetailsCardProps {
   preferredDate: string;
+  eventEndDate: string;
   preferredTime: string;
   guestCount: string;
   eventType: string;
   onPreferredDateChange: (value: string) => void;
+  onEventEndDateChange: (value: string) => void;
   onPreferredTimeChange: (value: string) => void;
   onGuestCountChange: (value: string) => void;
   onEventTypeChange: (value: string) => void;
@@ -29,27 +31,30 @@ const EVENT_TYPES = [
   { value: 'sonstiges', label: 'Sonstiges' },
 ];
 
+function toDateObj(iso: string): Date | undefined {
+  if (!iso) return undefined;
+  const d = parseISO(iso);
+  return isNaN(d.getTime()) ? undefined : d;
+}
+
 export const EventDetailsCard = ({
   preferredDate,
+  eventEndDate,
   preferredTime,
   guestCount,
   eventType,
   onPreferredDateChange,
+  onEventEndDateChange,
   onPreferredTimeChange,
   onGuestCountChange,
   onEventTypeChange,
 }: EventDetailsCardProps) => {
-  // Convert string date to Date object for SmartDatePicker — guard against invalid values
-  const dateValue = preferredDate
-    ? (() => { const d = parseISO(preferredDate); return isNaN(d.getTime()) ? undefined : d; })()
-    : undefined;
-  
-  const handleDateChange = (date: Date | undefined) => {
-    if (date) {
-      onPreferredDateChange(format(date, 'yyyy-MM-dd'));
-    } else {
-      onPreferredDateChange('');
-    }
+  const handleStartChange = (date: Date | undefined) => {
+    onPreferredDateChange(date ? format(date, 'yyyy-MM-dd') : '');
+  };
+
+  const handleEndChange = (date: Date | undefined) => {
+    onEventEndDateChange(date ? format(date, 'yyyy-MM-dd') : '');
   };
 
   return (
@@ -61,16 +66,29 @@ export const EventDetailsCard = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="space-y-1.5">
-          <Label className="text-sm">Datum</Label>
-          <SmartDatePicker
-            value={dateValue}
-            onChange={handleDateChange}
-            language="de"
-            minLeadDays={1}
-            skipSundays={true}
-            quickSelectCount={3}
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-sm">Von</Label>
+            <SmartDatePicker
+              value={toDateObj(preferredDate)}
+              onChange={handleStartChange}
+              language="de"
+              minLeadDays={1}
+              skipSundays={true}
+              quickSelectCount={3}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Bis (optional)</Label>
+            <SmartDatePicker
+              value={toDateObj(eventEndDate)}
+              onChange={handleEndChange}
+              language="de"
+              minLeadDays={1}
+              skipSundays={false}
+              showQuickChips={false}
+            />
+          </div>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="preferred_time" className="text-sm flex items-center gap-1">

@@ -9,6 +9,7 @@ export interface ExtendedInquiry extends BaseRecord {
   guest_count: string | null;
   event_type: string | null;
   preferred_date: string | null;
+  event_end_date: string | null;
   message: string | null;
   source: string | null;
   status: 'new' | 'contacted' | 'offer_sent' | 'confirmed' | 'declined';

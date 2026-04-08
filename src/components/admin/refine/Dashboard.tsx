@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, isToday, isTomorrow, differenceInDays, startOfDay, addDays, isBefore } from "date-fns";
 import { de } from "date-fns/locale";
+import { formatDateRangeDE } from "@/lib/utils";
 
 // ─── Safe date parsing ────────────────────────────────────────────────────────
 function safeParse(dateStr: string | null | undefined): Date | null {
@@ -32,6 +33,7 @@ interface EventInquiry {
   event_type?: string;
   guest_count?: number;
   preferred_date?: string;
+  event_end_date?: string;
   time_slot?: string;
   status: string;
   offer_phase?: string;
@@ -271,6 +273,12 @@ const EventCard = ({
                 <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                   <Users className="h-3 w-3" />
                   {event.guest_count} Gäste
+                </span>
+              )}
+              {event.event_end_date && event.preferred_date && (
+                <span className="text-xs font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {formatDateRangeDE(event.preferred_date, event.event_end_date)}
                 </span>
               )}
             </div>

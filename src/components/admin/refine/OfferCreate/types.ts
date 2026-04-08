@@ -15,6 +15,7 @@ export interface ParsedInquiry {
   email: string | null;
   phone: string | null;
   preferred_date: string | null;
+  event_end_date: string | null;
   preferred_time: string | null;
   guest_count: string | null;
   event_type: string | null;
@@ -29,6 +30,7 @@ export interface DraftFormData {
   email: string;
   phone: string;
   preferred_date: string;
+  event_end_date: string;
   preferred_time: string;
   guest_count: string;
   event_type: string;

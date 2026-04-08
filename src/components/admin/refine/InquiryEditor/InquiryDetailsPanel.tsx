@@ -83,6 +83,18 @@ export const InquiryDetailsPanel = ({
     }
   };
 
+  const formatDateRange = (start: string | null, end: string | null) => {
+    if (!start) return "Nicht angegeben";
+    const startFmt = formatDate(start);
+    if (!end) return startFmt;
+    try {
+      const endFmt = format(parseISO(end), "d. MMMM yyyy", { locale: de });
+      return `${startFmt} – ${endFmt}`;
+    } catch {
+      return startFmt;
+    }
+  };
+
   const handleSaveNotes = () => {
     onInternalNotesChange?.(localNotes);
     setIsEditingNotes(false);
@@ -143,7 +155,7 @@ export const InquiryDetailsPanel = ({
               <Calendar className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               <div>
                 <p className="text-xs text-muted-foreground">Wunschtermin</p>
-                <p className="text-sm font-medium">{formatDate(inquiry.preferred_date)}</p>
+                <p className="text-sm font-medium">{formatDateRange(inquiry.preferred_date, inquiry.event_end_date)}</p>
               </div>
             </div>
 

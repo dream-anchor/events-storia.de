@@ -81,10 +81,12 @@ export const DraftPanel = ({
 
       <EventDetailsCard
         preferredDate={formData.preferred_date}
+        eventEndDate={formData.event_end_date}
         preferredTime={formData.preferred_time}
         guestCount={formData.guest_count}
         eventType={formData.event_type}
         onPreferredDateChange={(v) => onFormChange({ preferred_date: v })}
+        onEventEndDateChange={(v) => onFormChange({ event_end_date: v })}
         onPreferredTimeChange={(v) => onFormChange({ preferred_time: v })}
         onGuestCountChange={(v) => onFormChange({ guest_count: v })}
         onEventTypeChange={(v) => onFormChange({ event_type: v })}
