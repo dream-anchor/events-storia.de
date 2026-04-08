@@ -16,6 +16,7 @@ import { InlineCourseEditor } from "./InlineCourseEditor";
 import { InlineDrinkEditor } from "./InlineDrinkEditor";
 import { DrinkSection } from "./DrinkSection";
 import { PriceBreakdown } from "./PriceBreakdown";
+import { MenuImporter } from "./MenuImporter";
 import type {
   OfferBuilderOption,
   OfferMode,
@@ -371,9 +372,16 @@ function MenuContent({
     <div className="space-y-4">
       {/* Gänge */}
       <div>
-        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-          Menü
-        </h4>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Menü
+          </h4>
+          <MenuImporter
+            guestCount={option.guestCount}
+            onImport={onUpdate}
+            disabled={disabled}
+          />
+        </div>
         <InlineCourseEditor
           courses={option.menuSelection.courses}
           courseConfigs={courseConfigs}
