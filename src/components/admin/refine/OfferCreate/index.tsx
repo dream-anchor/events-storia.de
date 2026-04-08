@@ -166,7 +166,12 @@ export const AdminOfferCreate = () => {
         message: parsed.original_message_summary || prev.message,
       }));
 
-      setSuggestions(parsed.suggested_packages || []);
+      setSuggestions(
+        (parsed.suggested_packages || []).map(p => ({
+          ...p,
+          matched_keywords: p.matched_keywords || [],
+        }))
+      );
       setSuggestedItems(parsed.suggested_items || []);
       setHasExtracted(true);
 

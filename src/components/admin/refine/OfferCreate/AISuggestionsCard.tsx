@@ -72,7 +72,7 @@ export const AISuggestionsCard = ({
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Erkannt: {suggestion.matched_keywords.map(k => `"${k}"`).join(', ')}
+                      Erkannt: {(suggestion.matched_keywords || []).map(k => `"${k}"`).join(', ') || '—'}
                     </p>
                   </div>
                   <Button
@@ -121,7 +121,7 @@ export const AISuggestionsCard = ({
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Erkannt: {suggestion.matched_keywords.map(k => `"${k}"`).join(', ')}
+                      Erkannt: {(suggestion.matched_keywords || []).map(k => `"${k}"`).join(', ') || '—'}
                     </p>
                   </div>
                   <Button
