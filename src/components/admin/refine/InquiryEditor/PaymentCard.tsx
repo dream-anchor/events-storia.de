@@ -298,7 +298,7 @@ export function PaymentCard({ inquiryId, preferredDate, offerTotal }: Props) {
 
   const loadPayments = useCallback(async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('event_payments_enriched')
       .select('*')
       .eq('inquiry_id', inquiryId)

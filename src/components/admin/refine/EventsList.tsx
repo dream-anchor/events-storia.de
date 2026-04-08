@@ -121,7 +121,7 @@ export const EventsList = () => {
   useEffect(() => {
     if (!allEvents.length) return;
     const ids = allEvents.map(e => e.id);
-    supabase
+    (supabase as any)
       .from('event_payments')
       .select('inquiry_id, status')
       .in('inquiry_id', ids)
