@@ -39,8 +39,10 @@ export const EventDetailsCard = ({
   onGuestCountChange,
   onEventTypeChange,
 }: EventDetailsCardProps) => {
-  // Convert string date to Date object for SmartDatePicker
-  const dateValue = preferredDate ? parseISO(preferredDate) : undefined;
+  // Convert string date to Date object for SmartDatePicker — guard against invalid values
+  const dateValue = preferredDate
+    ? (() => { const d = parseISO(preferredDate); return isNaN(d.getTime()) ? undefined : d; })()
+    : undefined;
   
   const handleDateChange = (date: Date | undefined) => {
     if (date) {

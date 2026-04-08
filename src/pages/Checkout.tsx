@@ -1685,7 +1685,7 @@ const Checkout = () => {
                         <Label>{language === 'de' ? 'Datum' : 'Date'} *</Label>
                         <div className="mt-2">
                           <SmartDatePicker
-                            value={formData.date ? parseISO(formData.date) : undefined}
+                            value={formData.date ? (() => { const d = parseISO(formData.date); return isNaN(d.getTime()) ? undefined : d; })() : undefined}
                             onChange={(date) => {
                               setFormData(prev => ({
                                 ...prev,
