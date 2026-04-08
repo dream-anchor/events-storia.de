@@ -89,30 +89,13 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
 
   // --- Mehrere Restaurant-Menüs als neue Optionen anlegen ---
   const handleImportMultiple = useCallback((partials: Partial<OfferBuilderOption>[]) => {
-    const usedLabels = builder.options.map(o => o.optionLabel);
-    const available = OPTION_LABELS.filter(l => !usedLabels.includes(l));
-    const toAdd = partials.slice(0, available.length);
-
-    if (toAdd.length === 0) {
-      toast.warning('Keine freien Optionen mehr verfügbar');
-      return;
-    }
-
-    const newOptions: OfferBuilderOption[] = toAdd.map((partial, i) => ({
-      ...createEmptyOption(available[i], guestCount, 'paket'),
-      id: crypto.randomUUID(),
-      createdInVersion: builder.currentVersion,
-      ...partial,
-      optionLabel: available[i],
-    }));
-
-    builder.setOptions(prev => [...prev, ...newOptions]);
+    builder.importOptions(partials);
     toast.success(
-      newOptions.length > 1
-        ? `${newOptions.length} Menüs als Optionen ${newOptions.map(o => o.optionLabel).join(', ')} angelegt`
-        : `Menü als Option ${newOptions[0].optionLabel} angelegt`
+      partials.length > 1
+        ? `${partials.length} Menüs importiert`
+        : 'Menü als Option angelegt'
     );
-  }, [builder.options, builder.currentVersion, builder.setOptions, guestCount]);
+  }, [builder.importOptions]);
 
   // --- E-Mail Draft (lokal, nicht im Hook) ---
   const [emailDraft, setEmailDraft] = useState(inquiry.email_draft || "");

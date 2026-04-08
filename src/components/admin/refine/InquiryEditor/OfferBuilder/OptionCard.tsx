@@ -42,6 +42,7 @@ interface OptionCardProps {
   onToggleActive: () => void;
   isLocked: boolean;
   canDuplicate: boolean;
+  canDelete: boolean;
 }
 
 export function OptionCard({
@@ -56,6 +57,7 @@ export function OptionCard({
   onToggleActive,
   isLocked,
   canDuplicate,
+  canDelete,
 }: OptionCardProps) {
   const selectedPackage = useMemo(
     () => packages.find(p => p.id === option.packageId),
@@ -251,8 +253,8 @@ export function OptionCard({
               size="icon"
               onClick={onRemove}
               className="h-7 w-7 rounded-lg text-destructive/60 hover:text-destructive"
-              disabled={isLocked}
-              title="Option entfernen"
+              disabled={isLocked || !canDelete}
+              title={!canDelete ? "Mindestens eine Option erforderlich" : "Option entfernen"}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>

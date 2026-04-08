@@ -46,6 +46,7 @@ export function OptionCardGrid({
 }: OptionCardGridProps) {
   const canAdd = options.length < 5 && !isLocked;
   const canDuplicate = options.length < 5;
+  const canDelete = options.length > 1;
 
   return (
     <div>
@@ -107,6 +108,7 @@ export function OptionCardGrid({
                 onToggleActive={() => onToggleActive(option.id)}
                 isLocked={isLocked && option.createdInVersion !== currentVersion}
                 canDuplicate={canDuplicate}
+                canDelete={canDelete}
               />
             );
           })}

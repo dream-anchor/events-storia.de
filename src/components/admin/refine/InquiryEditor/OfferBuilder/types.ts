@@ -210,6 +210,7 @@ export interface UseOfferBuilderReturn {
   // Option CRUD
   addOption: (mode?: OfferMode, copyFrom?: OfferBuilderOption) => void;
   removeOption: (optionId: string) => void;
+  importOptions: (partials: Partial<OfferBuilderOption>[]) => void;
   updateOption: (optionId: string, updates: Partial<OfferBuilderOption>) => void;
   toggleOptionActive: (optionId: string) => void;
 

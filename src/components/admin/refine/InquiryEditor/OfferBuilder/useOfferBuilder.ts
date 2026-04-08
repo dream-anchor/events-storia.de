@@ -612,8 +612,37 @@ export function useOfferBuilder({
 
   const removeOption = useCallback((optionId: string) => {
     isDirtyRef.current = true;
-    setOptions(prev => prev.filter(o => o.id !== optionId));
+    setOptions(prev => {
+      const filtered = prev.filter(o => o.id !== optionId);
+      return filtered.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
+    });
   }, []);
+
+  const importOptions = useCallback((partials: Partial<OfferBuilderOption>[]) => {
+    const isEmptyOption = (o: OfferBuilderOption) =>
+      o.offerMode === 'menu' &&
+      o.menuSelection.courses.length === 0 &&
+      !o.packageId &&
+      (!o.totalAmount || o.totalAmount === 0);
+
+    isDirtyRef.current = true;
+    setOptions(prev => {
+      const nonEmpty = prev.filter(o => !isEmptyOption(o));
+      const relabeled = nonEmpty.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
+      const available = OPTION_LABELS.slice(relabeled.length);
+      const toAdd = partials.slice(0, available.length);
+
+      const newOpts: OfferBuilderOption[] = toAdd.map((partial, i) => ({
+        ...createEmptyOption(available[i], guestCount, 'paket'),
+        id: crypto.randomUUID(),
+        createdInVersion: currentVersion,
+        ...partial,
+        optionLabel: available[i],
+      }));
+
+      return [...relabeled, ...newOpts];
+    });
+  }, [guestCount, currentVersion]);
 
   const updateOption = useCallback((optionId: string, updates: Partial<OfferBuilderOption>) => {
     isDirtyRef.current = true;
@@ -981,6 +1010,7 @@ export function useOfferBuilder({
 
     addOption,
     removeOption,
+    importOptions,
     updateOption,
     toggleOptionActive,
 
