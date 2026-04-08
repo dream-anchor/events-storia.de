@@ -169,7 +169,7 @@ export function SmartDatePicker({
               variant={isQuickDateSelected(date) ? "default" : "outline"}
               size="sm"
               className={cn(
-                "shrink-0 text-sm px-3 h-9 transition-all",
+                "text-sm px-3 h-9 transition-all",
                 isQuickDateSelected(date) && "ring-2 ring-primary/20"
               )}
               onClick={() => onChange(date)}
@@ -186,7 +186,7 @@ export function SmartDatePicker({
                   type="button"
                   variant={value && !isValueQuickDate ? "default" : "ghost"}
                   size="sm"
-                  className="shrink-0 text-sm px-3 h-9"
+                  className="text-sm px-3 h-9"
                 >
                   {value && !isValueQuickDate 
                     ? format(value, 'd. MMM', { locale })
@@ -211,7 +211,7 @@ export function SmartDatePicker({
                   type="button"
                   variant={value && !isValueQuickDate ? "default" : "ghost"}
                   size="sm"
-                  className="shrink-0 text-sm px-3 h-9"
+                  className="text-sm px-3 h-9"
                 >
                   {value && !isValueQuickDate 
                     ? format(value, 'd. MMM', { locale })
