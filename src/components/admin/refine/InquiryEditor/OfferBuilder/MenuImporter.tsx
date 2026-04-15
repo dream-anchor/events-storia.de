@@ -18,6 +18,9 @@ interface MenuImporterProps {
   currentOptionCount: number;
   onImportMultiple: (options: Partial<OfferBuilderOption>[]) => void;
   disabled?: boolean;
+  /** Kontrolliert: Sheet von außen öffnen */
+  externalOpen?: boolean;
+  onExternalOpenChange?: (open: boolean) => void;
 }
 
 function formatEur(price: number) {
@@ -28,8 +31,13 @@ function formatEur(price: number) {
   }).format(price);
 }
 
-export function MenuImporter({ guestCount, currentOptionCount, onImportMultiple, disabled = false }: MenuImporterProps) {
-  const [open, setOpen] = useState(false);
+export function MenuImporter({ guestCount, currentOptionCount, onImportMultiple, disabled = false, externalOpen, onExternalOpenChange }: MenuImporterProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen ?? internalOpen;
+  const setOpen = (v: boolean) => {
+    setInternalOpen(v);
+    onExternalOpenChange?.(v);
+  };
   const [activeTab, setActiveTab] = useState<'lunch' | 'dinner'>('lunch');
 
   // Lunch state — Mehrfachauswahl

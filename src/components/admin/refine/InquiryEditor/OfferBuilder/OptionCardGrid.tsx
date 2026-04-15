@@ -27,6 +27,8 @@ interface OptionCardGridProps {
   isLocked: boolean;
   currentVersion: number;
   guestCount: number;
+  menuImporterOpen?: boolean;
+  onMenuImporterOpenChange?: (open: boolean) => void;
 }
 
 export function OptionCardGrid({
@@ -43,6 +45,8 @@ export function OptionCardGrid({
   isLocked,
   currentVersion,
   guestCount,
+  menuImporterOpen,
+  onMenuImporterOpenChange,
 }: OptionCardGridProps) {
   const canAdd = options.length < 5 && !isLocked;
   const canDuplicate = options.length < 5;
@@ -60,6 +64,8 @@ export function OptionCardGrid({
             currentOptionCount={options.length}
             onImportMultiple={onImportMultiple}
             disabled={isLocked || options.length >= 5}
+            externalOpen={menuImporterOpen}
+            onExternalOpenChange={onMenuImporterOpenChange}
           />
           {canAdd && (
             <button

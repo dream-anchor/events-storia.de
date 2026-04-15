@@ -60,6 +60,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   // modeOverride wird nur gesetzt, wenn der User explizit klickt (z.B. 'email')
   const [modeOverride, setModeOverride] = useState<OfferMode | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [menuImporterOpen, setMenuImporterOpen] = useState(false);
 
   const defaultMode: OfferMode = useMemo(() => {
     const raw = modeOverride
@@ -236,6 +237,8 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       <ModeSelector
         selectedMode={defaultMode}
         onSelect={handleModeChange}
+        onRequestImport={() => setMenuImporterOpen(true)}
+        hasImportedMenu={builder.options.some(o => o.packageName && o.packageName.length > 0)}
         disabled={builder.isLocked}
       />
 
@@ -263,6 +266,8 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
           isLocked={builder.isLocked}
           currentVersion={builder.currentVersion}
           guestCount={guestCount}
+          menuImporterOpen={menuImporterOpen}
+          onMenuImporterOpenChange={setMenuImporterOpen}
         />
       )}
 
