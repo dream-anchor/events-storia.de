@@ -12,6 +12,7 @@ import { CommandPalette, useCommandPalette } from "./CommandPalette";
 import { NotificationCenter } from "../shared/NotificationCenter";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useTestMode } from "@/contexts/TestModeContext";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -66,6 +67,7 @@ export const AdminLayout = ({
   const { data: pendingBookingsCount } = usePendingMenuBookingsCount();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
   const { isAdmin, role } = usePermissions();
+  const { showTestData, setShowTestData } = useTestMode();
 
   // Admin-Theme auf body setzen, damit Radix-Portale (Dialog, Select, etc.)
   // die Maestro CSS-Variablen statt der Website-Variablen erben
@@ -285,6 +287,21 @@ export const AdminLayout = ({
             )}
 
             <div className="h-8 w-px bg-border hidden sm:block" />
+
+            {/* Test Mode Toggle */}
+            <button
+              onClick={() => setShowTestData(!showTestData)}
+              className={cn(
+                "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                showTestData
+                  ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+              title={showTestData ? "Testdaten werden angezeigt" : "Testdaten ausgeblendet"}
+            >
+              <span className={cn("h-2 w-2 rounded-full", showTestData ? "bg-amber-500" : "bg-neutral-300")} />
+              Test
+            </button>
 
             <NotificationCenter />
           </div>

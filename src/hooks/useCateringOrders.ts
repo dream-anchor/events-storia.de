@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useTestMode } from '@/contexts/TestModeContext';
 
 export interface CateringOrder {
   id: string;
@@ -48,14 +49,16 @@ export interface CateringOrder {
 export type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
 export const useCateringOrders = (statusFilter?: OrderStatus | 'all') => {
+  const { showTestData } = useTestMode();
   return useQuery({
-    queryKey: ['catering-orders', statusFilter],
+    queryKey: ['catering-orders', statusFilter, showTestData],
     queryFn: async () => {
       let query = supabase
         .from('catering_orders')
         .select('*')
         .order('created_at', { ascending: false });
 
+      if (!showTestData) query = query.neq('is_test', true);
       if (statusFilter && statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
       }
@@ -87,14 +90,18 @@ export const useUpdateOrderStatus = () => {
 };
 
 export const usePendingOrdersCount = () => {
+  const { showTestData } = useTestMode();
   return useQuery({
-    queryKey: ['catering-orders-pending-count'],
+    queryKey: ['catering-orders-pending-count', showTestData],
     queryFn: async () => {
-      const { count, error } = await supabase
+      let query = supabase
         .from('catering_orders')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending');
 
+      if (!showTestData) query = query.neq('is_test', true);
+
+      const { count, error } = await query;
       if (error) throw error;
       return count || 0;
     },

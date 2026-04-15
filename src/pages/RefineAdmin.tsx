@@ -8,6 +8,7 @@ import { LexOfficeInvoicesList } from "@/components/admin/refine/LexOfficeInvoic
 import { CateringOrderEditor } from "@/components/admin/refine/CateringOrderEditor";
 import { SmartInquiryEditor } from "@/components/admin/refine/InquiryEditor";
 import { AdminOfferCreate } from "@/components/admin/refine/OfferCreate";
+import { TestModeProvider } from "@/contexts/TestModeContext";
 
 const resources = [
   {
@@ -64,6 +65,7 @@ const resources = [
 
 export const RefineAdminApp = () => {
   return (
+    <TestModeProvider>
     <Refine
       dataProvider={supabaseDataProvider}
       authProvider={supabaseAuthProvider}
@@ -111,5 +113,6 @@ export const RefineAdminApp = () => {
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </Refine>
+    </TestModeProvider>
   );
 };

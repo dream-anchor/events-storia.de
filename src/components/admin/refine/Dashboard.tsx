@@ -10,6 +10,7 @@ import {
 import { AdminLayout } from "./AdminLayout";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useTestMode } from "@/contexts/TestModeContext";
 
 // ─── Safe date parsing ────────────────────────────────────────────────────────
 function safeParse(dateStr: string | null | undefined): Date | null {
@@ -351,18 +352,22 @@ export const Dashboard = () => {
   const [payments, setPayments] = useState<EventPayment[]>([]);
   const [offerOptions, setOfferOptions] = useState<OfferOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showTestData } = useTestMode();
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [eventsRes, paymentsRes, optionsRes] = await Promise.all([
-          supabase
+        let eventsQ = supabase
             .from("event_inquiries")
             .select("*")
             .in("status", ["new", "contacted", "offer_sent", "confirmed", "declined"])
             .is("archived_at", null)
-            .order("preferred_date", { ascending: true, nullsFirst: false }),
+            .order("preferred_date", { ascending: true, nullsFirst: false });
+        if (!showTestData) eventsQ = eventsQ.neq('is_test', true);
+
+        const [eventsRes, paymentsRes, optionsRes] = await Promise.all([
+          eventsQ,
           supabase
             .from("event_payments_enriched" as never)
             .select("id, inquiry_id, payment_type, amount_cents, computed_status, effective_due_date, contact_name")
@@ -383,7 +388,7 @@ export const Dashboard = () => {
       }
     };
     load();
-  }, []);
+  }, [showTestData]);
 
   const goToEvent = (id: string) => navigate(`/admin/events/${id}/edit`);
 
