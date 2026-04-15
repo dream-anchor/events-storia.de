@@ -301,7 +301,7 @@ export function DishPicker({
               </>
             )}
 
-            {allowCustom && search.trim() && (sourceGroups.ristorante.size > 0 || sourceGroups.catering.size > 0) && (
+            {allowCustom && search.trim() && (
               <>
                 <CommandSeparator />
                 <CommandGroup>
@@ -311,6 +311,19 @@ export function DishPicker({
                       <strong>„{search}"</strong>
                       <span className="text-muted-foreground ml-1">als Freitext</span>
                     </span>
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
+
+            {/* Eigenes Gericht — Hinweis wenn Suchfeld leer */}
+            {allowCustom && !search.trim() && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem className="py-2 px-3 rounded-lg text-muted-foreground cursor-default" value="__hint__">
+                    <Plus className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="text-sm italic">Name eintippen für eigenes Gericht…</span>
                   </CommandItem>
                 </CommandGroup>
               </>

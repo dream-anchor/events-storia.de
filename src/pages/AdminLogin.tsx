@@ -58,6 +58,8 @@ const AdminLogin = () => {
         }
       } else {
         toast.success("Erfolgreich angemeldet");
+        // Explicit redirect — useEffect handles it too but this is faster
+        navigate("/admin");
       }
     } catch (err) {
       toast.error("Ein Fehler ist aufgetreten");

@@ -748,6 +748,36 @@ export const AdminOfferCreate = () => {
 
   const canSave = !!(formData.contact_name.trim() && formData.email.trim());
 
+  // Scroll to top on every step change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [step]);
+
+  // Auto-save when navigating between steps
+  const goToStep = useCallback((targetStep: number) => {
+    if (draftInquiryId && formData.contact_name.trim()) {
+      supabase
+        .from('event_inquiries')
+        .update({
+          contact_name: formData.contact_name,
+          company_name: formData.company_name || null,
+          email: formData.email,
+          phone: formData.phone || null,
+          preferred_date: formData.preferred_date || null,
+          time_slot: formData.preferred_time || null,
+          guest_count: formData.guest_count || null,
+          event_type: formData.event_type || null,
+          message: formData.message || null,
+          is_test: isTest || undefined,
+        })
+        .eq('id', draftInquiryId)
+        .then(({ error }) => {
+          if (error) console.error('Auto-save on step change error:', error);
+        });
+    }
+    setStep(targetStep);
+  }, [draftInquiryId, formData, isTest]);
+
   // Can advance from step 2 only if contact_name is filled
   const canAdvanceFromStep2 = !!formData.contact_name.trim();
 
@@ -759,7 +789,7 @@ export const AdminOfferCreate = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => step > 1 ? setStep(s => s - 1) : navigate('/admin/events')}
+            onClick={() => step > 1 ? goToStep(step - 1) : navigate('/admin/events')}
             className="h-9 w-9"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -790,7 +820,7 @@ export const AdminOfferCreate = () => {
               onRawTextChange={setRawText}
               onExtract={handleExtract}
               isExtracting={isExtracting}
-              onSkipToManual={() => setStep(2)}
+              onSkipToManual={() => goToStep(2)}
               isTest={isTest}
               onIsTestChange={setIsTest}
             />
@@ -847,19 +877,19 @@ export const AdminOfferCreate = () => {
               draftInquiry={draftInquiry}
               emailContent={emailContent}
               isTest={isTest}
-              onGoToStep={setStep}
+              onGoToStep={goToStep}
             />
           )}
         </div>
 
-        {/* Sticky bottom navigation — not shown on step 4 (has its own buttons) */}
-        {step < 4 && (
+        {/* Sticky bottom navigation — hidden on step 4 (own buttons) and step 3 ("Anschreiben erstellen" replaces Weiter) */}
+        {step < 3 && (
           <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-3 z-30" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
             <div className="max-w-2xl mx-auto flex items-center gap-3">
               {step > 1 && (
                 <Button
                   variant="outline"
-                  onClick={() => setStep(s => s - 1)}
+                  onClick={() => goToStep(step - 1)}
                   className="h-12 sm:h-11 px-4"
                 >
                   <ArrowLeft className="h-4 w-4 sm:mr-1" />
@@ -868,7 +898,7 @@ export const AdminOfferCreate = () => {
               )}
               <div className="flex-1" />
               <Button
-                onClick={() => setStep(s => s + 1)}
+                onClick={() => goToStep(step + 1)}
                 disabled={step === 2 && !canAdvanceFromStep2}
                 className="h-12 sm:h-11 px-8 bg-amber-600 hover:bg-amber-700 text-white text-base sm:text-sm"
               >
