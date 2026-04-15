@@ -113,6 +113,7 @@ export type Database = {
           id: string
           internal_notes: string | null
           is_pickup: boolean | null
+          is_test: boolean | null
           items: Json
           lexoffice_contact_id: string | null
           lexoffice_credit_note_id: string | null
@@ -155,6 +156,7 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           is_pickup?: boolean | null
+          is_test?: boolean | null
           items: Json
           lexoffice_contact_id?: string | null
           lexoffice_credit_note_id?: string | null
@@ -197,6 +199,7 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           is_pickup?: boolean | null
+          is_test?: boolean | null
           items?: Json
           lexoffice_contact_id?: string | null
           lexoffice_credit_note_id?: string | null
@@ -568,6 +571,7 @@ export type Database = {
           id: string
           inquiry_type: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes: string | null
+          is_test: boolean | null
           last_edited_at: string | null
           last_edited_by: string | null
           lexoffice_invoice_id: string | null
@@ -622,6 +626,7 @@ export type Database = {
           id?: string
           inquiry_type?: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes?: string | null
+          is_test?: boolean | null
           last_edited_at?: string | null
           last_edited_by?: string | null
           lexoffice_invoice_id?: string | null
@@ -676,6 +681,7 @@ export type Database = {
           id?: string
           inquiry_type?: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes?: string | null
+          is_test?: boolean | null
           last_edited_at?: string | null
           last_edited_by?: string | null
           lexoffice_invoice_id?: string | null
