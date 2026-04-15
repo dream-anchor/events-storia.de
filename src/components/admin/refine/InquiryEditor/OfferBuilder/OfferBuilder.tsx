@@ -186,38 +186,18 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
 
   return (
     <div className="space-y-8">
-      {/* Locked-Banner — Angebot wurde versendet */}
-      {builder.isLocked && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-800/40 p-5">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="h-2 w-2 rounded-full bg-amber-500" />
-                <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                  Angebot versendet (Version {builder.currentVersion})
-                </span>
-              </div>
-              {inquiry.offer_sent_at && (
-                <p className="text-xs text-amber-600/70 dark:text-amber-400/60 ml-4">
-                  Gesendet am {format(parseISO(inquiry.offer_sent_at), "d. MMM yyyy 'um' HH:mm", { locale: de })}
-                  {inquiry.offer_sent_by && ` von ${inquiry.offer_sent_by}`}
-                </p>
-              )}
-            </div>
-            <Button
-              onClick={handleUnlock}
-              disabled={isUnlocking}
-              variant="outline"
-              className="gap-2 rounded-xl border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 shrink-0"
-            >
-              {isUnlocking ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              Neues Angebot erstellen
-            </Button>
-          </div>
+      {/* Versions-Info — zeigt letzte gesendete Version, Menü bleibt editierbar */}
+      {inquiry.offer_sent_at && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 text-xs">
+          <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+          <span className="text-emerald-700 dark:text-emerald-300">
+            Version {builder.currentVersion} gesendet
+            {inquiry.offer_sent_at && ` am ${format(parseISO(inquiry.offer_sent_at), "d. MMM yyyy", { locale: de })}`}
+          </span>
+          <span className="text-emerald-600/60 dark:text-emerald-400/40">—</span>
+          <span className="text-emerald-600/80 dark:text-emerald-400/60">
+            Änderungen werden als neue Version gespeichert
+          </span>
         </div>
       )}
 
@@ -239,7 +219,6 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         onSelect={handleModeChange}
         onRequestImport={() => setMenuImporterOpen(true)}
         hasImportedMenu={builder.options.some(o => o.packageName && o.packageName.length > 0)}
-        disabled={builder.isLocked}
       />
 
       {/* 2. Kunden-Feedback Banner (nur nach Antwort) */}
@@ -263,7 +242,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
           onAddOption={builder.addOption}
           onImportMultiple={handleImportMultiple}
           defaultMode={defaultMode}
-          isLocked={builder.isLocked}
+          isLocked={false}
           currentVersion={builder.currentVersion}
           guestCount={guestCount}
           menuImporterOpen={menuImporterOpen}
@@ -290,17 +269,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
             Anschreiben erstellen
             <ArrowRight className="h-4 w-4" />
           </Button>
-          <button
-            onClick={() => {
-              setEmailSectionOpen(true);
-              setTimeout(() => {
-                emailSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }, 100);
-            }}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Direkt E-Mail schreiben (ohne Konfiguration)
-          </button>
+
         </div>
       )}
 
