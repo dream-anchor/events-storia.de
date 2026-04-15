@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, PenLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +36,6 @@ interface DishPickerProps {
   onClear?: () => void;
   menuItems: CombinedMenuItem[];
   filterCategories?: string[];
-  /** Gangtyp für kontextbezogene Sortierung (passende Kategorien erscheinen zuerst) */
   courseType?: string;
   placeholder?: string;
   allowCustom?: boolean;
@@ -58,19 +57,15 @@ export function DishPicker({
   const [search, setSearch] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Scroll nach oben zurücksetzen beim Öffnen
   useEffect(() => {
     if (open) {
       setSearch("");
       requestAnimationFrame(() => {
-        if (listRef.current) {
-          listRef.current.scrollTop = 0;
-        }
+        if (listRef.current) listRef.current.scrollTop = 0;
       });
     }
   }, [open]);
 
-  // Filtere Items nach erlaubten Kategorien
   const filteredItems = useMemo(() => {
     if (!filterCategories || filterCategories.length === 0) return menuItems;
     return menuItems.filter(item =>
@@ -80,7 +75,6 @@ export function DishPicker({
     );
   }, [menuItems, filterCategories]);
 
-  // Suche — manuelles Substring-Matching statt cmdk Fuzzy
   const searchFiltered = useMemo(() => {
     if (!search.trim()) return filteredItems;
     const q = search.toLowerCase().trim();
@@ -91,7 +85,6 @@ export function DishPicker({
     );
   }, [filteredItems, search]);
 
-  // Prioritätskategorien für den aktuellen Gangtyp
   const priorityCats = useMemo(() => {
     if (!courseType) return [];
     return (COURSE_PRIORITY_CATEGORIES[courseType] || []).map(c => c.toLowerCase());
@@ -100,7 +93,6 @@ export function DishPicker({
   const isPriority = (categoryName: string) =>
     priorityCats.some(p => categoryName.toLowerCase().includes(p));
 
-  // Sortierung: Prioritätskategorien zuerst, dann alphabetisch
   const sortedItems = useMemo(() => {
     if (priorityCats.length === 0) return searchFiltered;
     return [...searchFiltered].sort((a, b) => {
@@ -111,7 +103,6 @@ export function DishPicker({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchFiltered, priorityCats]);
 
-  // Gruppiere nach Source → Kategorie (Ristorante zuerst, dann Catering)
   const sourceGroups = useMemo(() => {
     const ristorante = new Map<string, CombinedMenuItem[]>();
     const catering = new Map<string, CombinedMenuItem[]>();
@@ -175,34 +166,42 @@ export function DishPicker({
       >
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Gericht suchen..."
+            placeholder="Gericht suchen oder eigenen Namen eintippen..."
             value={search}
             onValueChange={setSearch}
             className="text-sm"
           />
           <CommandList ref={listRef} className="max-h-[280px]">
-            {searchFiltered.length === 0 && (
-              <div className="py-6 text-center">
-                {allowCustom && search.trim() ? (
-                  <button
-                    onClick={handleCustom}
-                    className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left hover:bg-muted/50 rounded-lg transition-colors"
-                  >
-                    <Plus className="h-4 w-4 text-primary shrink-0" />
-                    <span className="text-foreground">
-                      <strong>„{search}"</strong>
-                      <span className="text-muted-foreground ml-1">als Freitext</span>
-                    </span>
-                  </button>
-                ) : (
-                  <span className="text-muted-foreground text-sm">Kein Gericht gefunden.</span>
-                )}
+
+            {/* ═══ EIGENES GERICHT — IMMER OBEN ═══ */}
+            {allowCustom && search.trim() && (
+              <CommandGroup>
+                <CommandItem onSelect={handleCustom} className="py-2.5 px-3 rounded-lg bg-primary/5 border border-primary/10 mx-1 mt-1 mb-1">
+                  <PenLine className="mr-2 h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-medium">
+                    „{search}" <span className="font-normal text-muted-foreground">als eigenes Gericht</span>
+                  </span>
+                </CommandItem>
+              </CommandGroup>
+            )}
+            {allowCustom && !search.trim() && (
+              <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-1.5">
+                <PenLine className="h-3 w-3" />
+                Eigenen Namen eintippen für Freitext-Gericht
               </div>
             )}
 
-            {/* --- Ristorante Speisekarte --- */}
+            {/* Keine Treffer */}
+            {searchFiltered.length === 0 && search.trim() && (
+              <div className="py-3 text-center text-xs text-muted-foreground">
+                Kein passendes Gericht gefunden — oben als Freitext übernehmen.
+              </div>
+            )}
+
+            {/* ═══ SPEISEKARTE RESTAURANT ═══ */}
             {sourceGroups.ristorante.size > 0 && (
               <>
+                {search.trim() && <CommandSeparator className="my-1" />}
                 <div className="px-3 pt-3 pb-1">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-primary/80">
                     Speisekarte Restaurant
@@ -250,7 +249,7 @@ export function DishPicker({
               </>
             )}
 
-            {/* --- Catering / Fingerfood --- */}
+            {/* ═══ CATERING / FINGERFOOD ═══ */}
             {sourceGroups.catering.size > 0 && (
               <>
                 {sourceGroups.ristorante.size > 0 && <CommandSeparator className="my-1" />}
@@ -301,33 +300,6 @@ export function DishPicker({
               </>
             )}
 
-            {allowCustom && search.trim() && (
-              <>
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem onSelect={handleCustom} className="py-2 px-3 rounded-lg">
-                    <Plus className="mr-2 h-4 w-4 text-primary shrink-0" />
-                    <span className="text-sm">
-                      <strong>„{search}"</strong>
-                      <span className="text-muted-foreground ml-1">als Freitext</span>
-                    </span>
-                  </CommandItem>
-                </CommandGroup>
-              </>
-            )}
-
-            {/* Eigenes Gericht — Hinweis wenn Suchfeld leer */}
-            {allowCustom && !search.trim() && (
-              <>
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem className="py-2 px-3 rounded-lg text-muted-foreground cursor-default" value="__hint__">
-                    <Plus className="mr-2 h-4 w-4 shrink-0" />
-                    <span className="text-sm italic">Name eintippen für eigenes Gericht…</span>
-                  </CommandItem>
-                </CommandGroup>
-              </>
-            )}
           </CommandList>
         </Command>
       </PopoverContent>
