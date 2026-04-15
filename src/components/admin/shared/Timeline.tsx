@@ -33,13 +33,15 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useActivityLogs, formatActivityAction } from '@/hooks/useActivityLog';
 import { useEmailDeliveryLogs, formatProvider, formatEmailStatus, type EmailDeliveryLog } from '@/hooks/useEmailDeliveryLogs';
+import { useOfferHistory, type OfferHistoryEntry } from '@/hooks/useOfferHistory';
 import type { ActivityLog, EntityType } from './types';
 import { getAdminDisplayName, getAdminInitials } from '@/lib/adminDisplayNames';
 
 // Combined timeline entry type
 type TimelineItem = 
   | { type: 'activity'; data: ActivityLog; timestamp: string }
-  | { type: 'email'; data: EmailDeliveryLog; timestamp: string };
+  | { type: 'email'; data: EmailDeliveryLog; timestamp: string }
+  | { type: 'offer_version'; data: OfferHistoryEntry; timestamp: string };
 
 interface TimelineProps {
   entityType: EntityType;
@@ -403,6 +405,126 @@ const EmailDeliveryEntry = ({ emailLog, isFirst, isLast }: EmailDeliveryEntryPro
   );
 };
 
+// Offer Version Entry Component
+interface OfferVersionEntryProps {
+  entry: OfferHistoryEntry;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
+const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const actorName = getAdminDisplayName(entry.sent_by || undefined);
+  const initials = entry.sent_by ? getAdminInitials(entry.sent_by) : 'SY';
+  const activeOpts = (entry.options_snapshot || []).filter((o: any) => o.isActive !== false);
+  const formatEur = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(n);
+
+  return (
+    <div className="relative flex gap-3 group">
+      <div className="relative flex flex-col items-center">
+        {!isFirst && <div className="absolute top-0 w-px h-3 bg-border" />}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="relative">
+                <Avatar className="h-8 w-8 border-2 border-background shadow-sm">
+                  <AvatarFallback className="text-xs font-medium bg-amber-500/10 text-amber-600">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="absolute -bottom-0.5 -right-0.5 p-0.5 rounded-full border bg-amber-500/10 border-amber-500/30">
+                  <div className="text-amber-600"><FileText className="h-3 w-3" /></div>
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">
+              <p className="font-medium">{actorName}</p>
+              <p className="text-muted-foreground">{entry.sent_by || 'System'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        {!isLast && <div className="flex-1 w-px bg-border mt-1" />}
+      </div>
+
+      <div className={cn("flex-1 pb-4", isLast && "pb-0")}>
+        <div className="rounded-lg border p-3 transition-all hover:shadow-sm bg-amber-500/10 border-amber-500/30">
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-sm">{actorName}</span>
+                <span className="text-xs text-muted-foreground">&bull;</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs text-muted-foreground cursor-default flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDistanceToNow(parseISO(entry.sent_at), { locale: de, addSuffix: true })}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {format(parseISO(entry.sent_at), 'PPpp', { locale: de })}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+            <Badge variant="outline" className="text-xs shrink-0 font-semibold text-amber-700 border-amber-300 bg-amber-50">
+              V{entry.version}
+            </Badge>
+          </div>
+
+          <p className="text-sm text-foreground font-medium">
+            Angebot Version {entry.version} gesendet
+            {activeOpts.length > 0 && (
+              <span className="font-normal text-muted-foreground">
+                {' '}&mdash; {activeOpts.length} Option{activeOpts.length !== 1 ? 'en' : ''}
+                {activeOpts[0]?.totalAmount > 0 && `, ${formatEur(activeOpts[0].totalAmount)}`}
+              </span>
+            )}
+          </p>
+
+          {/* Expandierbarer Menü-Snapshot */}
+          {activeOpts.length > 0 && (
+            <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="mt-2 h-7 text-xs gap-1.5 -ml-2">
+                  <UtensilsCrossed className="h-3 w-3" />
+                  Menü-Details {isExpanded ? 'ausblenden' : 'anzeigen'}
+                  <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", isExpanded && "rotate-180")} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2 animate-in fade-in-0 slide-in-from-top-2">
+                <div className="space-y-2">
+                  {activeOpts.map((opt: any, i: number) => {
+                    const courses = opt.menuSelection?.courses?.filter((c: any) => c.itemName) || [];
+                    const ppPrice = opt.budgetPerPerson && opt.budgetPerPerson > 0
+                      ? opt.budgetPerPerson
+                      : opt.guestCount > 0 ? opt.totalAmount / opt.guestCount : 0;
+                    return (
+                      <div key={i} className="bg-background/60 rounded-md p-2.5 text-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-primary">{opt.optionLabel}</span>
+                          {ppPrice > 0 && <span className="font-semibold">{formatEur(ppPrice)} / Pers.</span>}
+                        </div>
+                        {courses.map((c: any, ci: number) => (
+                          <div key={ci} className="flex gap-2 text-muted-foreground">
+                            <span className="font-medium w-14 shrink-0 uppercase text-[9px] tracking-wider">{c.courseLabel}</span>
+                            <span>{c.itemName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Combined Timeline Entry
 interface TimelineEntryProps {
   item: TimelineItem;
@@ -413,6 +535,9 @@ interface TimelineEntryProps {
 const TimelineEntry = ({ item, isFirst, isLast }: TimelineEntryProps) => {
   if (item.type === 'email') {
     return <EmailDeliveryEntry emailLog={item.data} isFirst={isFirst} isLast={isLast} />;
+  }
+  if (item.type === 'offer_version') {
+    return <OfferVersionEntry entry={item.data} isFirst={isFirst} isLast={isLast} />;
   }
   return <ActivityEntry log={item.data} isFirst={isFirst} isLast={isLast} />;
 };
@@ -434,7 +559,8 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
   const { data: activityLogs = [], isLoading: isLoadingActivity } = useActivityLogs(entityType, entityId);
   const { data: emailLogs = [], isLoading: isLoadingEmail } = useEmailDeliveryLogs(entityType, entityId);
   
-  const isLoading = isLoadingActivity || isLoadingEmail;
+  const { data: offerHistory = [], isLoading: isLoadingHistory } = useOfferHistory(entityId);
+  const isLoading = isLoadingActivity || isLoadingEmail || isLoadingHistory;
   
   // Combine and sort all timeline items
   const HIDDEN_ACTIONS = ['offer_updated', 'option_updated'];
@@ -458,10 +584,18 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
         timestamp: log.sent_at,
       }));
     
-    return [...activityItems, ...emailItems].sort((a, b) => 
+    const versionItems: TimelineItem[] = offerHistory
+      .filter(h => h.sent_at)
+      .map(h => ({
+        type: 'offer_version' as const,
+        data: h,
+        timestamp: h.sent_at,
+      }));
+
+    return [...activityItems, ...emailItems, ...versionItems].sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-  }, [activityLogs, emailLogs]);
+  }, [activityLogs, emailLogs, offerHistory]);
   
   const groupedItems = useMemo(() => groupItemsByDate(combinedItems), [combinedItems]);
   const dateKeys = useMemo(() => Array.from(groupedItems.keys()), [groupedItems]);
