@@ -162,7 +162,6 @@ export function useOfferBuilder({
             }
 
 
-  return {
             return {
               id: row.id,
               package_id: row.package_id,
