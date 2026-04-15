@@ -20,6 +20,7 @@ import { Timeline } from "@/components/admin/shared/Timeline";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
 import { ConversationThread } from "@/components/admin/shared/ConversationThread";
 import { PaymentCard } from "./PaymentCard";
+import { DetailSidebar } from "./DetailSidebar";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
@@ -537,133 +538,17 @@ export const SmartInquiryEditor = () => {
         </div>
 
         {/* Right Column - 5 columns */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Client Preview */}
-          <ClientPreview
+        <div className="lg:col-span-5">
+          <DetailSidebar
             inquiryId={id!}
-            version={inquiry.current_offer_version || 1}
-          />
-
-          {/* Tasks & Follow-ups */}
-          <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <ListTodo className="h-4 w-4 text-primary" />
-                Aufgaben & Follow-ups
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TaskManager
-                inquiryId={id!}
-                currentUserEmail={currentUserEmail}
-              />
-              <div className="mt-4 pt-4 border-t border-border/60">
-                <StaffNote
-                  note={inquiry.internal_notes || ''}
-                  onNoteChange={(note) => handleLocalFieldChange('internal_notes', note)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Kundenantwort */}
-          {customerResponse && (
-            <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800/40">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  💬 Kundenantwort
-                  <span className="text-xs text-muted-foreground font-normal">
-                    {new Date(customerResponse.responded_at).toLocaleDateString('de-DE')}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                {customerResponse.selected_option_id && (
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    Gewählt: Option{' '}
-                    <strong>{selectedOptionInfo?.optionLabel ?? '…'}</strong>
-                    {selectedOptionInfo?.packageName && (
-                      <span className="text-blue-700 dark:text-blue-300 font-normal">
-                        {' '}({selectedOptionInfo.packageName})
-                      </span>
-                    )}
-                  </p>
-                )}
-                {customerResponse.customer_notes && (
-                  <p className="text-sm italic text-muted-foreground">
-                    „{customerResponse.customer_notes}"
-                  </p>
-                )}
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 gap-1.5 text-xs border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950"
-                    onClick={() => offerBuilderRef.current?.scrollToEmail(true)}
-                  >
-                    <Mail className="h-3.5 w-3.5" />
-                    Antwort per Mail
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 gap-1.5 text-xs"
-                    onClick={() => offerBuilderRef.current?.triggerNewVersion()}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Neues Angebot
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Zahlungen (Anzahlung / Vorauszahlung via Stripe) */}
-          <div data-payment-card>
-            <PaymentCard
-            inquiryId={id!}
-            preferredDate={inquiry.preferred_date}
+            inquiry={inquiry}
+            currentUserEmail={currentUserEmail}
             offerTotal={offerTotal}
-            />
-          </div>
-
-          {/* Konversations-Thread */}
-          <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Mail className="h-4 w-4 text-primary" />
-                E-Mail Konversation
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ConversationThread
-                inquiryId={id!}
-                customerEmail={inquiry.email || undefined}
-                onSendReply={async (content) => {
-                  if (!inquiry?.email) {
-                    toast.error('Keine E-Mail-Adresse hinterlegt');
-                    return;
-                  }
-                  const { data: result } = await supabase.functions.invoke('send-offer-email', {
-                    body: {
-                      inquiryId: id,
-                      emailContent: content,
-                      customerEmail: inquiry.email,
-                      customerName: inquiry.contact_name || '',
-                      senderEmail: currentUserEmail,
-                    },
-                  });
-                  if (!result?.emailSent) {
-                    throw new Error(result?.error || 'Versand fehlgeschlagen');
-                  }
-                  toast.success('Antwort versendet');
-                }}
-              />
-            </CardContent>
-          </Card>
-
-          {/* EmailStatusCard entfernt — redundant mit ConversationThread */}
-
+            customerResponse={customerResponse}
+            selectedOptionInfo={selectedOptionInfo}
+            offerBuilderRef={offerBuilderRef}
+            onFieldChange={handleLocalFieldChange}
+          />
         </div>
       </div>
 
