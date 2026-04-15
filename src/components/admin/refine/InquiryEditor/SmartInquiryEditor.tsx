@@ -385,19 +385,7 @@ export const SmartInquiryEditor = () => {
 
           {/* Header Actions */}
           <div className="flex items-center gap-2">
-            {/* Save Status */}
-            {saveStatus === 'saving' && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground mr-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Speichert...
-              </span>
-            )}
-            {saveStatus === 'saved' && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground mr-2">
-                <Check className="h-3 w-3" />
-                Gespeichert
-              </span>
-            )}
+            {/* Save Status — unsichtbar (speichert automatisch im Hintergrund) */}
 
             {/* LexOffice Document Button - Show if linked */}
             {lexofficeDocId && (

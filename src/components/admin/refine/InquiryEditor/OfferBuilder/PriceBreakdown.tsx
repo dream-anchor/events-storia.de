@@ -105,7 +105,7 @@ export function PriceBreakdown({
 }: PriceBreakdownProps) {
   // --- Menü-Modus (kein Paket) ---
   if (!packageData && onTotalChange !== undefined) {
-    const DISCOUNT = ((discountPercentProp ?? 25) / 100);
+    const DISCOUNT = ((discountPercentProp ?? 0) / 100);
 
     const dishLines = (courses || [])
       .map((c, idx) => {
@@ -194,7 +194,8 @@ export function PriceBreakdown({
               </div>
             )}
 
-            {/* Rabatt — editierbar */}
+            {/* Rabatt — nur sichtbar wenn > 0 */}
+            {(discountPercentProp ?? 0) > 0 && (<>
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1 text-green-600">
                 <span>Rabatt</span>
@@ -204,7 +205,7 @@ export function PriceBreakdown({
                     min={0}
                     max={100}
                     step={1}
-                    value={discountPercentProp ?? 25}
+                    value={discountPercentProp ?? 0}
                     onChange={(e) => {
                       const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
                       onDiscountChange?.(val);
@@ -220,7 +221,8 @@ export function PriceBreakdown({
               )}
             </div>
 
-            {/* Netto pro Person */}
+            </>)}
+            {/* Netto pro Person — nur wenn Rabatt aktiv */}
             {netPerPerson > 0 && discountAmount > 0 && (
               <div className="flex items-center justify-between text-xs font-medium">
                 <span className="text-muted-foreground">Netto / Person</span>

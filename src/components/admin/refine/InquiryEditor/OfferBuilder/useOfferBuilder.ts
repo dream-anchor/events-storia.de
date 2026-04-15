@@ -234,7 +234,7 @@ export function useOfferBuilder({
             createdInVersion: (opt as Record<string, unknown>).created_in_version as number | undefined,
             sortOrder: opt.sort_order || 0,
             budgetPerPerson: ((opt.menu_selection as Record<string, unknown>)?.budgetPerPerson as number) ?? null,
-            discountPercent: ((opt.menu_selection as Record<string, unknown>)?.discountPercent as number) ?? 25,
+            discountPercent: ((opt.menu_selection as Record<string, unknown>)?.discountPercent as number) ?? 0,
             attachMenu: false,
             tableNote: null,
           }; });

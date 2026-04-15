@@ -160,13 +160,14 @@ function SortableCourseRow({
         )}
       </div>
 
-      {/* Mülleimer direkt nach dem Dropdown */}
-      {!disabled && course.itemId && (
+      {/* Gang entfernen — immer sichtbar */}
+      {!disabled && (
         <button
-          onClick={() => onClear(idx)}
-          className="shrink-0 p-1 rounded-md hover:bg-muted/50 transition-colors"
+          onClick={() => onRemoveCourse(idx)}
+          className="shrink-0 p-1 rounded-md hover:bg-destructive/10 transition-colors"
+          title="Gang entfernen"
         >
-          <Trash2 className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground" />
+          <Trash2 className="h-3.5 w-3.5 text-muted-foreground/40 hover:text-destructive" />
         </button>
       )}
     </div>

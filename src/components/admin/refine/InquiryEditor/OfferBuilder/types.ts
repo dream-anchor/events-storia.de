@@ -183,7 +183,7 @@ export function createEmptyOption(
     offerVersion: 1,
     sortOrder: OPTION_LABELS.indexOf(label as OptionLabel),
     budgetPerPerson: null,
-    discountPercent: 25,
+    discountPercent: 0,
     attachMenu: false,
     tableNote: null,
   };
