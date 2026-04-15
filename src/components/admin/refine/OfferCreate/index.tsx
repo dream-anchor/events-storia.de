@@ -253,14 +253,27 @@ interface Step4Props {
   isSending: boolean;
   canSave: boolean;
   draftInquiry: ExtendedInquiry | null;
+  emailContent: string;
+  isTest: boolean;
+  onGoToStep: (step: number) => void;
 }
 
-const Step4Review = ({ formData, onFormChange, onSaveAndSend, onSaveDraft, isSaving, isSending, canSave, draftInquiry }: Step4Props) => (
+const Step4Review = ({ formData, onFormChange, onSaveAndSend, onSaveDraft, isSaving, isSending, canSave, draftInquiry, emailContent, isTest, onGoToStep }: Step4Props) => (
   <div className="space-y-4">
     <div>
       <h2 className="text-lg font-semibold">Zusammenfassung</h2>
       <p className="text-sm text-muted-foreground mt-1">Prüfe die Daten und sende das Angebot.</p>
     </div>
+
+    {/* Test warning */}
+    {isTest && (
+      <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+        <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+        <p className="text-sm text-amber-800">
+          Testbestellung — E-Mails gehen an <span className="font-medium">{TEST_REDIRECT_EMAIL}</span>
+        </p>
+      </div>
+    )}
 
     {/* Summary card */}
     <Card>
@@ -305,6 +318,34 @@ const Step4Review = ({ formData, onFormChange, onSaveAndSend, onSaveDraft, isSav
       </CardContent>
     </Card>
 
+    {/* Email draft preview */}
+    {emailContent ? (
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Anschreiben</CardTitle>
+            <Button variant="ghost" size="sm" className="text-xs text-amber-700" onClick={() => onGoToStep(3)}>
+              Bearbeiten
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-sm text-muted-foreground whitespace-pre-wrap bg-neutral-50 rounded-lg p-3 max-h-40 overflow-y-auto">
+            {emailContent.slice(0, 500)}{emailContent.length > 500 ? '…' : ''}
+          </div>
+        </CardContent>
+      </Card>
+    ) : (
+      <Card className="border-dashed">
+        <CardContent className="py-6 text-center">
+          <p className="text-sm text-muted-foreground mb-2">Kein Anschreiben erstellt</p>
+          <Button variant="outline" size="sm" onClick={() => onGoToStep(3)} className="text-xs">
+            Zurück zum Angebot um Anschreiben zu erstellen
+          </Button>
+        </CardContent>
+      </Card>
+    )}
+
     {/* Notes */}
     <Card>
       <CardHeader className="pb-2">
@@ -339,13 +380,13 @@ const Step4Review = ({ formData, onFormChange, onSaveAndSend, onSaveDraft, isSav
       </div>
     )}
 
-    {/* Action buttons */}
-    <div className="flex flex-col sm:flex-row gap-3">
+    {/* Action buttons — mobile-optimized */}
+    <div className="flex flex-col gap-3 pt-2">
       <Button
         onClick={onSaveAndSend}
         disabled={!canSave || isSaving || isSending || !draftInquiry}
         size="lg"
-        className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
+        className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white text-base"
       >
         {isSending ? (
           <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sende...</>
@@ -358,6 +399,7 @@ const Step4Review = ({ formData, onFormChange, onSaveAndSend, onSaveDraft, isSav
         size="lg"
         onClick={onSaveDraft}
         disabled={!canSave || isSaving || isSending}
+        className="w-full h-12"
       >
         {isSaving ? (
           <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Speichert...</>
@@ -572,7 +614,7 @@ export const AdminOfferCreate = () => {
     if (status === 'new') supabase.functions.invoke('receive-event-inquiry', {
       body: {
         contactName: formData.contact_name,
-        email: formData.email,
+        email: isTest ? TEST_REDIRECT_EMAIL : formData.email,
         companyName: formData.company_name || undefined,
         phone: formData.phone || undefined,
         guestCount: formData.guest_count || undefined,
@@ -587,6 +629,28 @@ export const AdminOfferCreate = () => {
     }).then(res => {
       if (res.error) console.error('Notification error:', res.error);
     });
+
+    // ALWAYS notify team — regardless of status (auch bei offer_sent)
+    if (status === 'offer_sent') {
+      supabase.functions.invoke('receive-event-inquiry', {
+        body: {
+          contactName: formData.contact_name,
+          email: isTest ? TEST_REDIRECT_EMAIL : formData.email,
+          companyName: formData.company_name || undefined,
+          phone: formData.phone || undefined,
+          guestCount: formData.guest_count || undefined,
+          eventType: formData.event_type || undefined,
+          preferredDate: formData.preferred_date || undefined,
+          timeSlot: formData.preferred_time || undefined,
+          message: `[Angebot erstellt] ${formData.message || ''}`.trim(),
+          source: 'manual_entry',
+          skipInsert: true,
+          existingInquiryId: data.id,
+        },
+      }).then(res => {
+        if (res.error) console.error('Notification error (offer_sent):', res.error);
+      });
+    }
 
     return data;
   };
@@ -681,7 +745,7 @@ export const AdminOfferCreate = () => {
 
   return (
     <AdminLayout activeTab="events">
-      <div className="max-w-2xl mx-auto pb-24">
+      <div className="max-w-2xl mx-auto pb-32 sm:pb-24">
         {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <Button
@@ -773,29 +837,32 @@ export const AdminOfferCreate = () => {
               isSending={isSending}
               canSave={canSave}
               draftInquiry={draftInquiry}
+              emailContent={emailContent}
+              isTest={isTest}
+              onGoToStep={setStep}
             />
           )}
         </div>
 
         {/* Sticky bottom navigation — not shown on step 4 (has its own buttons) */}
         {step < 4 && (
-          <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-3 z-30">
+          <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-3 z-30" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
             <div className="max-w-2xl mx-auto flex items-center gap-3">
               {step > 1 && (
                 <Button
                   variant="outline"
                   onClick={() => setStep(s => s - 1)}
-                  className="h-11"
+                  className="h-12 sm:h-11 px-4"
                 >
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Zurück
+                  <ArrowLeft className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Zurück</span>
                 </Button>
               )}
               <div className="flex-1" />
               <Button
                 onClick={() => setStep(s => s + 1)}
                 disabled={step === 2 && !canAdvanceFromStep2}
-                className="h-11 px-6 bg-amber-600 hover:bg-amber-700 text-white"
+                className="h-12 sm:h-11 px-8 bg-amber-600 hover:bg-amber-700 text-white text-base sm:text-sm"
               >
                 Weiter
                 <ArrowRight className="h-4 w-4 ml-1" />
