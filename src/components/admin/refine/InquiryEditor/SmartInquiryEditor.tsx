@@ -46,7 +46,6 @@ export const SmartInquiryEditor = () => {
   const [localInquiry, setLocalInquiry] = useState<Partial<ExtendedInquiry>>({});
   const [dnaOpen, setDnaOpen] = useState(false);
   const [timelineOpen, setTimelineOpen] = useState(false);
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [customerResponse, setCustomerResponse] = useState<{
     responded_at: string;
     selected_option_id: string | null;
@@ -567,18 +566,6 @@ export const SmartInquiryEditor = () => {
             </CardContent>
           </Card>
 
-          {/* Mobile: Mehr anzeigen Button */}
-          <button
-            onClick={() => setSidebarExpanded(v => !v)}
-            className="lg:hidden w-full flex items-center justify-center gap-2 py-2.5 text-sm text-muted-foreground hover:text-foreground border border-border/60 rounded-xl transition-colors"
-          >
-            <ChevronDown className={cn("h-4 w-4 transition-transform", sidebarExpanded && "rotate-180")} />
-            {sidebarExpanded ? 'Weniger anzeigen' : 'Zahlungen, E-Mails & mehr anzeigen'}
-          </button>
-
-          {/* Restliche Sidebar-Cards — auf Mobile hinter Expand */}
-          <div className={cn("space-y-6", !sidebarExpanded && "hidden lg:block")}>
-
           {/* Kundenantwort */}
           {customerResponse && (
             <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800/40">
@@ -676,8 +663,6 @@ export const SmartInquiryEditor = () => {
           </Card>
 
           {/* EmailStatusCard entfernt — redundant mit ConversationThread */}
-
-          </div>{/* Ende: Restliche Sidebar-Cards Wrapper */}
 
         </div>
       </div>
