@@ -51,8 +51,8 @@ Der Screen wo 80% der Arbeitszeit verbracht wird.
 - [x] Login-Redirect nach /admin statt auf /login bleiben
 - [x] DishPicker: Freitext-Hinweis immer sichtbar
 - [x] OfferBuilder: Preise editierbar (PriceBreakdown overridePrice)
-- [ ] ⚠️ CRITICAL: Restaurant-Menü wird in Live-Ansicht (PublicOffer) nicht angezeigt
-- [ ] ⚠️ Restaurant-Menü wird in Events-Übersicht nicht angezeigt
+- [x] ⚠️ CRITICAL FIX: OfferBuilder flushSave — Menü wird jetzt vor Step-Wechsel gespeichert
+- [x] Restaurant-Menü in Übersicht/Live-Ansicht — gleicher Bug (flushSave fehlte)
 - [x] Quick-Action-Buttons (Email, Zahlung, Preview) unter Detail-Header
 - [ ] EventDNA Card kollabierbar (Kompakt-Modus default)
 - [ ] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
