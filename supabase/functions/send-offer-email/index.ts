@@ -273,7 +273,8 @@ serve(async (req) => {
     }
 
     const replyToAddress = `reply+${inquiryId}@events-storia.de`;
-    const result = await sendEmail([customerEmail], emailSubject, htmlBody, "STORIA Events", pdfBuffer, customerName, bccList, replyToAddress);
+    const safeSubject = getSafeSubject(emailSubject, isTest);
+    const result = await sendEmail([safeCustomerEmail], safeSubject, htmlBody, "STORIA Events", pdfBuffer, customerName, bccList, replyToAddress);
 
     // Betreiber-Benachrichtigung: Versand fehlgeschlagen
     if (!result.sent) {

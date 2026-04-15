@@ -84,7 +84,8 @@ serve(async (req) => {
       paymentUrl: payment.stripe_payment_link_url,
     });
 
-    logStep("Sending via Resend", { to: payment.customer_email, subject });
+    const safeSubject = getSafeSubject(subject, isTest);
+    logStep("Sending via Resend", { to: safeEmail, subject: safeSubject });
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -94,9 +95,9 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from: 'STORIA Events <info@events-storia.de>',
-        to: [payment.customer_email],
+        to: [safeEmail],
         bcc: ['info@events-storia.de'],
-        subject,
+        subject: safeSubject,
         html,
       }),
     });
