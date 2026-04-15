@@ -25,8 +25,8 @@ Letzte Aktualisierung: 2026-04-15
 - [x] Checkbox "Als Test" im Create-Wizard (Step 1)
 - [x] Email-Safety Frontend: Test-Emails → antoine@monot.com, [TEST] Prefix
 - [x] TEST-Badge im Wizard-Header
-- [ ] DB-Migration: is_test Spalte → Lovable-Prompt in docs/lovable-prompt-test-flag.md
-- [ ] Email-Safety Edge Functions → Lovable-Prompt in docs/lovable-prompt-email-safety.md
+- [x] DB-Migration: is_test Spalte → Lovable-Migration live
+- [x] Email-Safety Edge Functions → Lovable deployed (_shared/test-safety.ts)
 - [ ] Bestehende Testdaten markieren (SQL nach Migration)
 - [ ] TEST-Badge + Toggle im Event-Detail-View
 - [ ] Bulk-Action "Als Test markieren" in Events-Liste
