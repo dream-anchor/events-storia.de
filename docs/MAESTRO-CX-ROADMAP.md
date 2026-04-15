@@ -38,10 +38,19 @@ Der Screen wo 80% der Arbeitszeit verbracht wird.
 - [x] Header: Kundenname + Avatar statt UUID
 - [x] Header: Firma, Datum, Gäste als kompakte Info-Zeile
 - [x] EmailStatusCard entfernt (redundant mit ConversationThread)
-- [ ] Quick-Action-Buttons (Email, Zahlung, Preview) unter Header
+- [x] Mobile Wizard: safe-area-inset-bottom, h-12 Buttons, pb-32
+- [x] Mobile Wizard: Zurück-Label hidden auf Mobile (nur Pfeil)
+- [x] Test-Email Bug: Team-Notification bei ALLEN Status (nicht nur 'new')
+- [x] Test-Email Bug: receive-event-inquiry auch bei offer_sent aufrufen
+- [x] Step 4: Email-Draft Preview + "Bearbeiten" Link zurück zu Step 3
+- [x] Step 4: Test-Warning Banner mit Redirect-Email-Info
+- [x] Step 4: Buttons full-width h-12 (mobile-optimiert)
+- [ ] Quick-Action-Buttons (Email, Zahlung, Preview) unter Detail-Header
 - [ ] EventDNA Card kollabierbar (Kompakt-Modus default)
 - [ ] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
-- [ ] OfferBuilder Mobile-Optimierung
+- [ ] OfferBuilder: Menü-Bezeichnungen editierbar (nicht nur Preise)
+- [ ] OfferBuilder: Eigene Gerichte als Freitext in jedem Gang
+- [ ] OfferBuilder Mobile-Optimierung (Courses, DishPicker)
 - [ ] Payment-Flow Übersicht
 - [ ] Timeline bereinigen (Autosave-Spam, WhatsApp-Fehler filtern)
 - [ ] TEST-Badge + is_test Toggle im Detail-View
