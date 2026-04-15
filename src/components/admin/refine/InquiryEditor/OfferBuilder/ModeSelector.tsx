@@ -1,14 +1,12 @@
-import { motion } from "framer-motion";
 import { ChefHat, Package, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OfferMode } from "./types";
-import { OFFER_MODES } from "./types";
 
-const MODE_ICONS: Record<OfferMode, React.ElementType> = {
-  menu: ChefHat,
-  paket: Package,
-  email: Mail,
-};
+const MODES: { mode: OfferMode; label: string; icon: React.ElementType; hint: string }[] = [
+  { mode: 'menu', label: 'Menü', icon: ChefHat, hint: 'Gänge frei zusammenstellen' },
+  { mode: 'paket', label: 'Paket', icon: Package, hint: 'Fertigpaket wählen' },
+  { mode: 'email', label: 'Nur E-Mail', icon: Mail, hint: 'Freie Nachricht' },
+];
 
 interface ModeSelectorProps {
   selectedMode: OfferMode;
@@ -19,59 +17,42 @@ interface ModeSelectorProps {
 export function ModeSelector({ selectedMode, onSelect, disabled }: ModeSelectorProps) {
   return (
     <div>
-      <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
+      <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
         Angebots-Typ
       </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {OFFER_MODES.filter(m => m.mode !== 'email').map((config) => {
-          const Icon = MODE_ICONS[config.mode];
-          const isSelected = selectedMode === config.mode;
-
+      <div className="flex gap-2">
+        {MODES.map(({ mode, label, icon: Icon, hint }) => {
+          const isSelected = selectedMode === mode;
           return (
-            <motion.button
-              key={config.mode}
-              whileHover={disabled ? undefined : { scale: 1.02 }}
-              whileTap={disabled ? undefined : { scale: 0.98 }}
-              onClick={() => !disabled && onSelect(config.mode)}
+            <button
+              key={mode}
+              onClick={() => !disabled && onSelect(mode)}
               disabled={disabled}
               className={cn(
-                "relative flex flex-col items-center gap-2 p-5 rounded-2xl border-2 transition-colors text-center",
+                "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 transition-all text-left",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isSelected
-                  ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-border/50 bg-background hover:border-border hover:bg-muted/30",
+                  ? "border-primary bg-primary/5"
+                  : "border-transparent bg-muted/30 hover:bg-muted/50",
                 disabled && "opacity-50 cursor-not-allowed"
               )}
             >
-              <div
-                className={cn(
-                  "flex items-center justify-center h-12 w-12 rounded-xl",
-                  isSelected ? "bg-primary/10 text-primary" : "bg-muted/50 text-muted-foreground"
-                )}
-              >
-                <Icon className="h-6 w-6" />
+              <Icon className={cn(
+                "h-4 w-4 shrink-0",
+                isSelected ? "text-primary" : "text-muted-foreground"
+              )} />
+              <div className="min-w-0">
+                <span className={cn(
+                  "text-sm font-semibold block",
+                  isSelected ? "text-foreground" : "text-muted-foreground"
+                )}>
+                  {label}
+                </span>
+                <span className="text-[10px] text-muted-foreground leading-tight hidden sm:block">
+                  {hint}
+                </span>
               </div>
-              <span className={cn(
-                "text-sm font-semibold",
-                isSelected ? "text-foreground" : "text-muted-foreground"
-              )}>
-                {config.label}
-              </span>
-              <span className="text-xs text-muted-foreground leading-snug">
-                {config.description}
-              </span>
-              {isSelected && (
-                <motion.div
-                  layoutId="mode-indicator"
-                  className="absolute -top-px -right-px h-5 w-5 rounded-full bg-primary flex items-center justify-center"
-                  transition={{ type: "spring", bounce: 0.3, duration: 0.4 }}
-                >
-                  <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </motion.div>
-              )}
-            </motion.button>
+            </button>
           );
         })}
       </div>

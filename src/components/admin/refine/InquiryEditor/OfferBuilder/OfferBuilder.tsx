@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Loader2, Plus, Clock, ChevronDown, Mail, ExternalLink, UtensilsCrossed, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -111,6 +111,13 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   // E-Mail-Sektion: eingeklappt wenn noch kein Draft vorhanden
   const [emailSectionOpen, setEmailSectionOpen] = useState(!!inquiry.email_draft);
   const emailSectionRef = useRef<HTMLDivElement>(null);
+
+  // Auto-open email section when email mode is selected
+  useEffect(() => {
+    if (defaultMode === 'email' && !emailSectionOpen) {
+      setEmailSectionOpen(true);
+    }
+  }, [defaultMode]);
 
   // --- E-Mail generieren via Edge Function ---
   const handleGenerateEmail = useCallback(async () => {
@@ -259,17 +266,15 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         />
       )}
 
-      {/* 4. "Weiter zur E-Mail" Button — sichtbar wenn E-Mail-Sektion noch zu */}
-      {!emailSectionOpen && (
+      {/* 4. "Weiter zur E-Mail" Button — bei Menü/Paket, wenn E-Mail-Sektion noch zu */}
+      {!emailSectionOpen && defaultMode !== 'email' && (
         <div className="flex flex-col items-center gap-2 pt-2">
           <Button
             onClick={() => {
               setEmailSectionOpen(true);
-              // KI-Generierung automatisch starten wenn Inhalt konfiguriert
               if (builder.activeOptions.length > 0) {
                 handleGenerateEmail();
               }
-              // Zum Anschreiben-Bereich scrollen (leicht verzögert)
               setTimeout(() => {
                 emailSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }, 100);
