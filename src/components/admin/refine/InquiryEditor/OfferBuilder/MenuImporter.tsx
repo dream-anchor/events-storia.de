@@ -165,17 +165,20 @@ export function MenuImporter({ guestCount, currentOptionCount, onImportMultiple,
 
   return (
     <Sheet open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetState(); }}>
-      <SheetTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={disabled || maxNewOptions === 0}
-          className="h-7 rounded-lg gap-1.5 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 hover:border-amber-400"
-        >
-          <UtensilsCrossed className="h-3.5 w-3.5" />
-          Restaurant-Menü laden
-        </Button>
-      </SheetTrigger>
+      {/* Trigger-Button nur zeigen wenn NICHT extern kontrolliert */}
+      {externalOpen === undefined && (
+        <SheetTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={disabled || maxNewOptions === 0}
+            className="h-7 rounded-lg gap-1.5 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 hover:border-amber-400"
+          >
+            <UtensilsCrossed className="h-3.5 w-3.5" />
+            Restaurant-Menü laden
+          </Button>
+        </SheetTrigger>
+      )}
 
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader className="pb-4">
