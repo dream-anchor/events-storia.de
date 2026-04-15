@@ -56,7 +56,7 @@ Letzte Aktualisierung: 2026-04-16
 - [ ] OfferBuilder Mobile-Optimierung (Courses, DishPicker)
 - [ ] Payment-Flow Übersicht
 - [x] Timeline bereinigen (WhatsApp-Fehler HIDDEN_PROVIDERS Filter)
-- [ ] Sidebar mobile-responsive (braucht Komponenten-Extraktion)
+- [x] Sidebar mobile-responsive (DetailSidebar Komponenten-Extraktion + Expand/Collapse)
 - [ ] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
 
 ## Offen
