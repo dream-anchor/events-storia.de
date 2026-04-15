@@ -36,6 +36,15 @@ serve(async (req) => {
     if (!payment.stripe_payment_link_url) throw new Error('Kein Zahlungslink vorhanden — bitte erst Stripe Session erstellen');
     if (!payment.customer_email) throw new Error('Keine E-Mail-Adresse bei der Anfrage hinterlegt');
 
+    // Check if the linked inquiry is a test
+    const { data: inquiryRow } = await supabase
+      .from('event_inquiries')
+      .select('is_test')
+      .eq('id', payment.inquiry_id)
+      .single();
+    const isTest = inquiryRow?.is_test === true;
+    const safeEmail = getSafeRecipientEmail(payment.customer_email, isTest);
+
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) throw new Error('RESEND_API_KEY nicht konfiguriert');
 

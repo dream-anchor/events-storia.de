@@ -213,6 +213,16 @@ serve(async (req) => {
       .update({ offer_slug: slug } as Record<string, unknown>)
       .eq('id', inquiryId);
 
+    // Check if this is a test inquiry
+    const { data: inquiryRow } = await supabase
+      .from('event_inquiries')
+      .select('is_test')
+      .eq('id', inquiryId)
+      .single();
+    const isTest = inquiryRow?.is_test === true;
+
+    const safeCustomerEmail = getSafeRecipientEmail(customerEmail, isTest);
+
     const offerUrl = `https://events-storia.de/offer/${inquiryId}`;
 
     const emailSubject = `Ihr Angebot von STORIA Events`;
