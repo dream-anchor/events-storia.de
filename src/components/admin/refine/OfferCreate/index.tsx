@@ -16,6 +16,15 @@ import { OfferBuilder } from "../InquiryEditor/OfferBuilder";
 import { DraftFormData, ParsedInquiry, SuggestedPackage, SuggestedItem } from "./types";
 import type { ExtendedInquiry, Package, EmailTemplate } from "../InquiryEditor/types";
 
+// ─── Email Safety ──────────────────────────────────────────────────────────────
+// Test emails are NEVER sent to real customers — only to system users
+const SYSTEM_EMAILS = [
+  "antoine@monot.com",
+  "info@ristorantestoria.de",
+  "info@events-storia.de",
+];
+const TEST_REDIRECT_EMAIL = "antoine@monot.com";
+
 // ─── Steps ────────────────────────────────────────────────────────────────────
 
 const STEPS = [
@@ -90,9 +99,11 @@ interface Step1Props {
   onExtract: () => void;
   isExtracting: boolean;
   onSkipToManual: () => void;
+  isTest: boolean;
+  onIsTestChange: (v: boolean) => void;
 }
 
-const Step1Eingang = ({ rawText, onRawTextChange, onExtract, isExtracting, onSkipToManual }: Step1Props) => (
+const Step1Eingang = ({ rawText, onRawTextChange, onExtract, isExtracting, onSkipToManual, isTest, onIsTestChange }: Step1Props) => (
   <div className="space-y-4">
     <div>
       <h2 className="text-lg font-semibold">Kunden-E-Mail einfügen</h2>
@@ -100,6 +111,27 @@ const Step1Eingang = ({ rawText, onRawTextChange, onExtract, isExtracting, onSki
         Füge die E-Mail oder Anfrage ein — die KI extrahiert automatisch alle relevanten Daten.
       </p>
     </div>
+
+    {/* Test-Mode Toggle */}
+    <button
+      type="button"
+      onClick={() => onIsTestChange(!isTest)}
+      className={cn(
+        "flex items-center gap-2 w-full px-3 py-2.5 rounded-lg border text-sm transition-colors",
+        isTest
+          ? "bg-amber-50 border-amber-300 text-amber-800"
+          : "bg-transparent border-neutral-200 text-neutral-500 hover:border-neutral-300"
+      )}
+    >
+      <div className={cn(
+        "h-4 w-4 rounded border-2 flex items-center justify-center transition-colors",
+        isTest ? "bg-amber-500 border-amber-500" : "border-neutral-300"
+      )}>
+        {isTest && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5.5L4 7.5L8 3" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>}
+      </div>
+      <span className="font-medium">Testbestellung</span>
+      {isTest && <span className="text-xs text-amber-600 ml-auto">E-Mails gehen nur an System-User</span>}
+    </button>
 
     <Textarea
       placeholder={`Kunden-E-Mail hier einfügen...
@@ -352,6 +384,7 @@ export const AdminOfferCreate = () => {
   const [hasExtracted, setHasExtracted] = useState(false);
   const [emailContent, setEmailContent] = useState("");
   const [aiSummary, setAiSummary] = useState("");
+  const [isTest, setIsTest] = useState(false);
 
   // Draft inquiry created on mount
   const [draftInquiryId, setDraftInquiryId] = useState<string | null>(null);
@@ -521,6 +554,7 @@ export const AdminOfferCreate = () => {
       event_type: formData.event_type || null,
       message: formData.message || null,
       status,
+      is_test: isTest || undefined,
     };
 
     const { data, error } = await supabase
@@ -594,14 +628,20 @@ export const AdminOfferCreate = () => {
       }
 
       if (formData.email && emailContent) {
+        // EMAIL SAFETY: Test orders NEVER reach real customers
+        const safeEmail = isTest ? TEST_REDIRECT_EMAIL : formData.email;
+        if (isTest) {
+          console.log(`[TEST MODE] Email redirected: ${formData.email} → ${safeEmail}`);
+        }
+
         const { data: { user } } = await supabase.auth.getUser();
         const { data: emailResult, error: emailError } = await supabase.functions.invoke(
           'send-offer-email',
           {
             body: {
               inquiryId: inquiry.id,
-              emailContent,
-              customerEmail: formData.email,
+              emailContent: isTest ? `[TEST] ${emailContent}` : emailContent,
+              customerEmail: safeEmail,
               customerName: formData.contact_name,
               senderEmail: user?.email,
               lexofficeQuotationId,
@@ -658,6 +698,11 @@ export const AdminOfferCreate = () => {
           <Badge variant="outline" className="text-xs text-muted-foreground flex-shrink-0">
             Entwurf
           </Badge>
+          {isTest && (
+            <Badge className="text-xs bg-amber-500 text-white flex-shrink-0">
+              TEST
+            </Badge>
+          )}
         </div>
 
         {/* Progress bar */}
@@ -674,6 +719,8 @@ export const AdminOfferCreate = () => {
               onExtract={handleExtract}
               isExtracting={isExtracting}
               onSkipToManual={() => setStep(2)}
+              isTest={isTest}
+              onIsTestChange={setIsTest}
             />
           )}
 
