@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, History, ChevronDown, Mail, Plus, Users, Calendar, Euro, Building2 } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, History, ChevronDown, ChevronUp, Mail, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2 } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ export const SmartInquiryEditor = () => {
   const [quoteNotes, setQuoteNotes] = useState("");
   const [emailDraft, setEmailDraft] = useState("");
   const [localInquiry, setLocalInquiry] = useState<Partial<ExtendedInquiry>>({});
+  const [dnaOpen, setDnaOpen] = useState(false);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [customerResponse, setCustomerResponse] = useState<{
     responded_at: string;
@@ -421,19 +422,77 @@ export const SmartInquiryEditor = () => {
         </div>
       </div>
 
+      {/* Quick Actions + TEST Badge */}
+      <div className="flex items-center gap-2 flex-wrap mb-4 -mt-2">
+        {(inquiry as any).is_test && (
+          <Badge className="bg-amber-500 text-white text-xs">
+            <TestTube2 className="h-3 w-3 mr-1" />
+            TEST
+          </Badge>
+        )}
+        <div className="flex-1" />
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs h-8"
+          onClick={() => offerBuilderRef.current?.scrollToEmail(true)}
+        >
+          <Mail className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">E-Mail</span>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs h-8"
+          onClick={() => {
+            const el = document.querySelector('[data-payment-card]');
+            el?.scrollIntoView({ behavior: 'smooth' });
+          }}
+        >
+          <CreditCard className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Zahlung</span>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs h-8"
+          onClick={() => window.open(`/public/event-offer/${id}`, '_blank')}
+        >
+          <Eye className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Vorschau</span>
+        </Button>
+      </div>
+
       {/* Main Content - 12-column grid, 7/5 split */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column - 7 columns */}
         <div className="lg:col-span-7 space-y-8">
-          {/* Event DNA Card */}
-          <EventDNACard
-            inquiry={mergedInquiry}
-            onFieldChange={handleLocalFieldChange}
-            isReadOnly={inquiry.status === 'confirmed'}
-            currentUserEmail={currentUserEmail}
-            onAssigneeChange={(email) => handleLocalFieldChange('assigned_to', email)}
-            onPriorityChange={(priority) => handleLocalFieldChange('priority', priority)}
-          />
+          {/* Event DNA Card — kollabierbar, default eingeklappt */}
+          <div className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setDnaOpen(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-xl"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-amber-600 font-bold text-xs tracking-wider">DNA</span>
+                <span className="text-sm font-semibold">Event Details</span>
+              </div>
+              {dnaOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+            </button>
+            {dnaOpen && (
+              <div className="px-2 pb-4">
+                <EventDNACard
+                  inquiry={mergedInquiry}
+                  onFieldChange={handleLocalFieldChange}
+                  isReadOnly={inquiry.status === 'confirmed'}
+                  currentUserEmail={currentUserEmail}
+                  onAssigneeChange={(email) => handleLocalFieldChange('assigned_to', email)}
+                  onPriorityChange={(priority) => handleLocalFieldChange('priority', priority)}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Multi-Package Offer Section */}
           {inquiryType === 'event' ? (
@@ -560,11 +619,13 @@ export const SmartInquiryEditor = () => {
           )}
 
           {/* Zahlungen (Anzahlung / Vorauszahlung via Stripe) */}
-          <PaymentCard
+          <div data-payment-card>
+            <PaymentCard
             inquiryId={id!}
             preferredDate={inquiry.preferred_date}
             offerTotal={offerTotal}
-          />
+            />
+          </div>
 
           {/* Konversations-Thread */}
           <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">

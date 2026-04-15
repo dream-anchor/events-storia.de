@@ -48,8 +48,8 @@ Der Screen wo 80% der Arbeitszeit verbracht wird.
 - [ ] Quick-Action-Buttons (Email, Zahlung, Preview) unter Detail-Header
 - [ ] EventDNA Card kollabierbar (Kompakt-Modus default)
 - [ ] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
-- [ ] OfferBuilder: Menü-Bezeichnungen editierbar (nicht nur Preise)
-- [ ] OfferBuilder: Eigene Gerichte als Freitext in jedem Gang
+- [x] OfferBuilder: Menü-Bezeichnungen editierbar (Pencil-Icon + Inline-Input)
+- [x] OfferBuilder: Eigene Gerichte als Freitext (DishPicker allowCustom=true, war schon da)
 - [ ] OfferBuilder Mobile-Optimierung (Courses, DishPicker)
 - [ ] Payment-Flow Übersicht
 - [ ] Timeline bereinigen (Autosave-Spam, WhatsApp-Fehler filtern)
