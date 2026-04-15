@@ -191,7 +191,7 @@ export function OptionCard({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold">Option {option.optionLabel}</span>
+                
                 <Select
                   value={option.offerMode}
                   onValueChange={(mode: string) => {
@@ -295,7 +295,8 @@ export function OptionCard({
             />
           )}
 
-          {/* Preis */}
+          {/* Preis — nur anzeigen wenn mindestens 1 Gang konfiguriert */}
+          {(option.offerMode === 'paket' || option.menuSelection.courses.some(c => c.itemName)) && (
           <PriceBreakdown
             packageData={option.offerMode === 'menu' ? undefined : selectedPackage}
             guestCount={option.guestCount}
@@ -312,6 +313,7 @@ export function OptionCard({
             onDiscountChange={(pct) => onUpdate({ discountPercent: pct })}
             disabled={disabled}
           />
+          )}
         </div>
       </Card>
     </motion.div>
