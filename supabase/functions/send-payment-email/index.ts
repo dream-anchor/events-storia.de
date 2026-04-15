@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -34,6 +35,15 @@ serve(async (req) => {
     if (error || !payment) throw new Error('Zahlung nicht gefunden');
     if (!payment.stripe_payment_link_url) throw new Error('Kein Zahlungslink vorhanden — bitte erst Stripe Session erstellen');
     if (!payment.customer_email) throw new Error('Keine E-Mail-Adresse bei der Anfrage hinterlegt');
+
+    // Check if the linked inquiry is a test
+    const { data: inquiryRow } = await supabase
+      .from('event_inquiries')
+      .select('is_test')
+      .eq('id', payment.inquiry_id)
+      .single();
+    const isTest = inquiryRow?.is_test === true;
+    const safeEmail = getSafeRecipientEmail(payment.customer_email, isTest);
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) throw new Error('RESEND_API_KEY nicht konfiguriert');
@@ -74,7 +84,8 @@ serve(async (req) => {
       paymentUrl: payment.stripe_payment_link_url,
     });
 
-    logStep("Sending via Resend", { to: payment.customer_email, subject });
+    const safeSubject = getSafeSubject(subject, isTest);
+    logStep("Sending via Resend", { to: safeEmail, subject: safeSubject });
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -84,9 +95,9 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from: 'STORIA Events <info@events-storia.de>',
-        to: [payment.customer_email],
+        to: [safeEmail],
         bcc: ['info@events-storia.de'],
-        subject,
+        subject: safeSubject,
         html,
       }),
     });

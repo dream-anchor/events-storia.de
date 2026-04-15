@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
 
 interface SendOfferEmailRequest {
   inquiryId: string;
@@ -212,6 +213,16 @@ serve(async (req) => {
       .update({ offer_slug: slug } as Record<string, unknown>)
       .eq('id', inquiryId);
 
+    // Check if this is a test inquiry
+    const { data: inquiryRow } = await supabase
+      .from('event_inquiries')
+      .select('is_test')
+      .eq('id', inquiryId)
+      .single();
+    const isTest = inquiryRow?.is_test === true;
+
+    const safeCustomerEmail = getSafeRecipientEmail(customerEmail, isTest);
+
     const offerUrl = `https://events-storia.de/offer/${inquiryId}`;
 
     const emailSubject = `Ihr Angebot von STORIA Events`;
@@ -262,7 +273,8 @@ serve(async (req) => {
     }
 
     const replyToAddress = `reply+${inquiryId}@events-storia.de`;
-    const result = await sendEmail([customerEmail], emailSubject, htmlBody, "STORIA Events", pdfBuffer, customerName, bccList, replyToAddress);
+    const safeSubject = getSafeSubject(emailSubject, isTest);
+    const result = await sendEmail([safeCustomerEmail], safeSubject, htmlBody, "STORIA Events", pdfBuffer, customerName, bccList, replyToAddress);
 
     // Betreiber-Benachrichtigung: Versand fehlgeschlagen
     if (!result.sent) {
