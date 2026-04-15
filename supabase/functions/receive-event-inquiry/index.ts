@@ -294,11 +294,21 @@ const handler = async (req: Request): Promise<Response> => {
       console.log("Inquiry saved to database:", inquiryId);
     }
 
+    // Check if this is a test inquiry
+    const { data: inquiryRow } = await supabase
+      .from('event_inquiries')
+      .select('is_test')
+      .eq('id', inquiryId)
+      .single();
+    const isTest = inquiryRow?.is_test === true;
+
     // Kunden-Bestätigung senden
     const customerEmailText = generateCustomerEmailText(data);
+    const safeEmail = getSafeRecipientEmail(data.email, isTest);
+    const safeSubject = getSafeSubject("Ihre Event-Anfrage bei STORIA", isTest);
     const customerResult = await sendEmail(
-      [data.email],
-      "Ihre Event-Anfrage bei STORIA",
+      [safeEmail],
+      safeSubject,
       customerEmailText,
       "STORIA Events"
     );
