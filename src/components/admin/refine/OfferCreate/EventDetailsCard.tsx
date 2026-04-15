@@ -70,7 +70,7 @@ export const EventDetailsCard = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-sm">Von</Label>
             <SmartDatePicker
@@ -106,7 +106,7 @@ export const EventDetailsCard = ({
             onChange={(e) => onPreferredTimeChange(e.target.value)}
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="guest_count" className="text-sm flex items-center gap-1">
               <Users className="h-3 w-3" />

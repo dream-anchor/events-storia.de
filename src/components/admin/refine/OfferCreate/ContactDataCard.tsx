@@ -33,7 +33,7 @@ export const ContactDataCard = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="contact_name" className="text-xs">Name *</Label>
             <Input
@@ -56,7 +56,7 @@ export const ContactDataCard = ({
             />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="email" className="text-xs flex items-center gap-1">
               <Mail className="h-3 w-3" />

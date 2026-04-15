@@ -278,7 +278,7 @@ const Step4Review = ({ formData, onFormChange, onSaveAndSend, onSaveDraft, isSav
     {/* Summary card */}
     <Card>
       <CardContent className="pt-5 space-y-3">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <div>
             <span className="text-muted-foreground text-xs">Kontakt</span>
             <p className="font-medium">{formData.contact_name || "—"}</p>
@@ -406,6 +406,14 @@ const Step4Review = ({ formData, onFormChange, onSaveAndSend, onSaveDraft, isSav
         ) : (
           "Nur speichern (Entwurf)"
         )}
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => onGoToStep(3)}
+        className="w-full h-11 text-muted-foreground"
+      >
+        <ArrowLeft className="h-4 w-4 mr-1" />
+        Zurück zum Angebot
       </Button>
     </div>
   </div>
