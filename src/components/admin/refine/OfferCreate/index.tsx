@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Sparkles, Loader2, Send, FileText, PenLine, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { ContactDataCard } from "./ContactDataCard";
 import { EventDetailsCard } from "./EventDetailsCard";
 import { AISuggestionsCard } from "./AISuggestionsCard";
 import { OfferBuilder } from "../InquiryEditor/OfferBuilder";
+import type { OfferBuilderHandle } from "../InquiryEditor/OfferBuilder";
 import { DraftFormData, ParsedInquiry, SuggestedPackage, SuggestedItem } from "./types";
 import type { ExtendedInquiry, Package, EmailTemplate } from "../InquiryEditor/types";
 
@@ -435,6 +436,7 @@ export const AdminOfferCreate = () => {
   const [emailContent, setEmailContent] = useState("");
   const [aiSummary, setAiSummary] = useState("");
   const [isTest, setIsTest] = useState(false);
+  const offerBuilderRef = useRef<OfferBuilderHandle>(null);
 
   // Draft inquiry created on mount
   const [draftInquiryId, setDraftInquiryId] = useState<string | null>(null);
@@ -680,6 +682,11 @@ export const AdminOfferCreate = () => {
   const handleSaveAndSend = async () => {
     setIsSending(true);
     try {
+      // Flush OfferBuilder save first — ensures menu_selection is in DB
+      offerBuilderRef.current?.flushSave();
+      // Small delay to let flushSave complete
+      await new Promise(r => setTimeout(r, 500));
+
       const inquiry = await saveInquiry('offer_sent');
 
       let lexofficeQuotationId: string | null = null;
@@ -755,6 +762,10 @@ export const AdminOfferCreate = () => {
 
   // Auto-save when navigating between steps
   const goToStep = useCallback((targetStep: number) => {
+    // Flush OfferBuilder save before navigating away from Step 3
+    if (step === 3) {
+      offerBuilderRef.current?.flushSave();
+    }
     if (draftInquiryId && formData.contact_name.trim()) {
       supabase
         .from('event_inquiries')
@@ -776,7 +787,7 @@ export const AdminOfferCreate = () => {
         });
     }
     setStep(targetStep);
-  }, [draftInquiryId, formData, isTest]);
+  }, [draftInquiryId, formData, isTest, step]);
 
   // Can advance from step 2 only if contact_name is filled
   const canAdvanceFromStep2 = !!formData.contact_name.trim();
@@ -847,6 +858,7 @@ export const AdminOfferCreate = () => {
               </div>
               {draftInquiry ? (
                 <OfferBuilder
+                  ref={offerBuilderRef}
                   inquiry={draftInquiry}
                   packages={packages}
                   templates={templates}

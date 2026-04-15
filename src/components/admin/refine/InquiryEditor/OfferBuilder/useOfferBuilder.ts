@@ -160,7 +160,53 @@ export function useOfferBuilder({
                 try { parsedOptions = JSON.parse(row.options); } catch { parsedOptions = []; }
               }
             }
-            return {
+            // Flush pending save immediately (call before unmount/navigation)
+  const flushSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    // Trigger immediate save by checking if dirty
+    const currentJson = JSON.stringify(options);
+    if (currentJson !== lastSavedJsonRef.current && !isLoading) {
+      // Fire and forget — save current state now
+      setSaveStatus('saving');
+      (async () => {
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          const currentUserEmail = userData.user?.email;
+          await supabase.from('inquiry_offer_options').delete().eq('inquiry_id', inquiryId);
+          for (const opt of options) {
+            await (supabase as any).from('inquiry_offer_options').insert({
+              id: opt.id,
+              inquiry_id: inquiryId,
+              offer_version: currentVersion,
+              package_id: opt.packageId,
+              option_label: opt.optionLabel,
+              offer_mode: opt.offerMode,
+              guest_count: opt.guestCount,
+              menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent },
+              total_amount: opt.totalAmount,
+              stripe_payment_link_id: opt.stripePaymentLinkId,
+              stripe_payment_link_url: opt.stripePaymentLinkUrl,
+              is_active: opt.isActive,
+              sort_order: opt.sortOrder,
+            });
+          }
+          if (currentUserEmail) {
+            await supabase.from('event_inquiries').update({ last_edited_by: currentUserEmail, last_edited_at: new Date().toISOString() }).eq('id', inquiryId);
+          }
+          lastSavedJsonRef.current = currentJson;
+          setSaveStatus('idle');
+        } catch (error) {
+          console.error('[OfferBuilder] flushSave error:', error);
+          setSaveStatus('idle');
+        }
+      })();
+    }
+  }, [options, inquiryId, currentVersion, isLoading]);
+
+  return {
               id: row.id,
               package_id: row.package_id,
               drink_group: row.drink_group as DrinkConfig['drink_group'],
@@ -1010,6 +1056,7 @@ export function useOfferBuilder({
     isSaving,
     saveStatus,
 
+    flushSave,
     addOption,
     removeOption,
     importOptions,

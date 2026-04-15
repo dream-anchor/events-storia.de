@@ -20,6 +20,8 @@ export interface OfferBuilderHandle {
   scrollToEmail: (withGeneration?: boolean) => void;
   /** Entsperrt den OfferBuilder für eine neue Angebotsversion */
   triggerNewVersion: () => void;
+  /** Sofort speichern — vor Navigation/Unmount aufrufen */
+  flushSave: () => void;
 }
 
 interface OfferBuilderProps {
@@ -159,6 +161,9 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     },
     triggerNewVersion: () => {
       handleUnlock();
+    },
+    flushSave: () => {
+      builder.flushSave();
     },
   }));
 
