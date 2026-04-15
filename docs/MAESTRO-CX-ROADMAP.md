@@ -53,11 +53,11 @@ Letzte Aktualisierung: 2026-04-16
 - [x] OfferBuilder: Menü-Bezeichnungen editierbar (Pencil-Icon + Inline-Input)
 - [x] OfferBuilder: Eigene Gerichte als Freitext (DishPicker allowCustom=true)
 - [x] OfferBuilder: Preise editierbar (PriceBreakdown overridePrice)
-- [ ] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
 - [ ] OfferBuilder Mobile-Optimierung (Courses, DishPicker)
 - [ ] Payment-Flow Übersicht
-- [ ] Timeline bereinigen (Autosave-Spam, WhatsApp-Fehler filtern)
-- [ ] Sidebar mobile-responsive
+- [x] Timeline bereinigen (WhatsApp-Fehler HIDDEN_PROVIDERS Filter)
+- [ ] Sidebar mobile-responsive (braucht Komponenten-Extraktion)
+- [ ] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
 
 ## Offen
 
