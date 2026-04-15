@@ -894,8 +894,8 @@ export const AdminOfferCreate = () => {
           )}
         </div>
 
-        {/* Sticky bottom navigation — hidden on step 4 (own buttons) and step 3 ("Anschreiben erstellen" replaces Weiter) */}
-        {step < 3 && (
+        {/* Sticky bottom navigation — Step 4 hat eigene Buttons */}
+        {step < 4 && (
           <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-3 z-30" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
             <div className="max-w-2xl mx-auto flex items-center gap-3">
               {step > 1 && (
@@ -914,7 +914,7 @@ export const AdminOfferCreate = () => {
                 disabled={step === 2 && !canAdvanceFromStep2}
                 className="h-12 sm:h-11 px-8 bg-amber-600 hover:bg-amber-700 text-white text-base sm:text-sm"
               >
-                Weiter
+                {step === 3 ? 'Zur Zusammenfassung' : 'Weiter'}
                 <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
