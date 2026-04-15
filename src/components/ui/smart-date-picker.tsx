@@ -1,5 +1,5 @@
 import * as React from "react";
-import { format, addDays, isWeekend, isSunday, startOfDay, isSameDay } from "date-fns";
+import { format, addDays, isWeekend, isSunday, startOfDay, isSameDay, isValid } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -104,10 +104,10 @@ export function SmartDatePicker({
   );
   
   // Check if a quick date is selected
-  const isQuickDateSelected = (date: Date) => value && isSameDay(value, date);
+  const isQuickDateSelected = (date: Date) => value && isValid(value) && isSameDay(value, date);
   
   // Check if selected date is one of the quick dates
-  const isValueQuickDate = value && quickDates.some(d => isSameDay(d, value));
+  const isValueQuickDate = value && isValid(value) && quickDates.some(d => isSameDay(d, value));
   
   // Handle date selection
   const handleSelect = (date: Date | undefined) => {
@@ -137,7 +137,7 @@ export function SmartDatePicker({
         {...props}
       >
         <CalendarDays className="h-4 w-4 shrink-0" />
-        {value ? format(value, 'PPP', { locale }) : (placeholder || defaultPlaceholder)}
+        {value && isValid(value) ? format(value, 'PPP', { locale }) : (placeholder || defaultPlaceholder)}
         <ChevronRight className="h-4 w-4 ml-auto shrink-0 opacity-50" />
       </Button>
     )
@@ -188,7 +188,7 @@ export function SmartDatePicker({
                   size="sm"
                   className="text-sm px-3 h-9"
                 >
-                  {value && !isValueQuickDate 
+                  {value && isValid(value) && !isValueQuickDate 
                     ? format(value, 'd. MMM', { locale })
                     : (language === 'de' ? 'Andere...' : 'Other...')}
                 </Button>
@@ -213,7 +213,7 @@ export function SmartDatePicker({
                   size="sm"
                   className="text-sm px-3 h-9"
                 >
-                  {value && !isValueQuickDate 
+                  {value && isValid(value) && !isValueQuickDate 
                     ? format(value, 'd. MMM', { locale })
                     : (language === 'de' ? 'Andere...' : 'Other...')}
                 </Button>

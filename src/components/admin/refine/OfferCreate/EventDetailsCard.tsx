@@ -20,6 +20,7 @@ interface EventDetailsCardProps {
 }
 
 const EVENT_TYPES = [
+  { value: 'gruppenreservierung', label: 'Gruppenreservierung' },
   { value: 'firmendinner', label: 'Firmendinner' },
   { value: 'weihnachtsfeier', label: 'Weihnachtsfeier' },
   { value: 'sommerfest', label: 'Sommerfest' },
@@ -27,7 +28,10 @@ const EVENT_TYPES = [
   { value: 'kundenabend', label: 'Kundenabend' },
   { value: 'produktpraesentation', label: 'Produktpräsentation' },
   { value: 'jubilaeum', label: 'Jubiläum' },
+  { value: 'geburtstag', label: 'Geburtstag' },
+  { value: 'hochzeit', label: 'Hochzeit' },
   { value: 'team-event', label: 'Team-Event' },
+  { value: 'catering', label: 'Catering (extern)' },
   { value: 'sonstiges', label: 'Sonstiges' },
 ];
 

@@ -1,8 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, parseISO, isToday, isTomorrow, differenceInDays, startOfDay, addDays, isBefore } from "date-fns";
+import { format, parseISO, isToday, isTomorrow, differenceInDays, startOfDay, addDays, isBefore, isAfter } from "date-fns";
 import { de } from "date-fns/locale";
 import { formatDateRangeDE } from "@/lib/utils";
+import {
+  Calendar, Users, Building2, ChevronDown, ChevronRight, Euro,
+  Inbox, Plus, AlertCircle, Clock, Check, ArrowRight
+} from "lucide-react";
+import { AdminLayout } from "./AdminLayout";
+import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 // ─── Safe date parsing ────────────────────────────────────────────────────────
 function safeParse(dateStr: string | null | undefined): Date | null {
@@ -10,22 +17,10 @@ function safeParse(dateStr: string | null | undefined): Date | null {
   try {
     const d = parseISO(dateStr);
     return isNaN(d.getTime()) ? null : d;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
-import {
-  Calendar, Users, Building2, AlertTriangle, Clock, ChevronDown,
-  ChevronRight, Bell, Euro, TrendingUp, Inbox, ExternalLink
-} from "lucide-react";
-import { AdminLayout } from "./AdminLayout";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
 interface EventInquiry {
   id: string;
   contact_name: string;
@@ -41,7 +36,6 @@ interface EventInquiry {
   last_edited_at?: string;
   created_at: string;
   archived_at?: string;
-  assigned_to?: string;
 }
 
 interface EventPayment {
@@ -51,9 +45,7 @@ interface EventPayment {
   amount_cents: number;
   computed_status: string;
   effective_due_date?: string;
-  email_sent_at?: string;
   contact_name?: string;
-  customer_email?: string;
 }
 
 interface OfferOption {
@@ -65,155 +57,91 @@ interface DayGroup {
   date: string;
   label: string;
   events: EventInquiry[];
+  isToday: boolean;
+  isTomorrow: boolean;
   isPast: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getStatusBadge(e: EventInquiry) {
-  if (e.offer_phase === "customer_responded") {
-    return { label: "Antwort erhalten", cls: "border-teal-500/50 text-teal-700 bg-teal-50 ring-1 ring-teal-300" };
-  }
-  if (e.offer_sent_at && e.status !== "confirmed" && e.status !== "declined") {
-    return { label: "Angebot gesendet", cls: "border-emerald-500/50 text-emerald-700 bg-emerald-50" };
-  }
-  if (e.last_edited_at && !e.offer_sent_at) {
-    return { label: "In Bearbeitung", cls: "border-amber-500/50 text-amber-700 bg-amber-50" };
-  }
-  if (e.status === "confirmed") {
-    return { label: "Bestätigt", cls: "border-green-600/50 text-green-700 bg-green-50" };
-  }
-  if (e.status === "declined") {
-    return { label: "Abgelehnt", cls: "border-muted-foreground/50 text-muted-foreground bg-muted" };
-  }
-  return { label: "Neu", cls: "border-amber-500/50 text-amber-700 bg-amber-50" };
-}
-
-function formatDayLabel(dateStr: string): string {
-  const d = safeParse(dateStr);
-  if (!d) return dateStr;
-  try {
-    if (isToday(d)) return "Heute";
-    if (isTomorrow(d)) return "Morgen";
-    const diff = differenceInDays(d, startOfDay(new Date()));
-    if (diff < 0) return format(d, "EEEE, dd. MMMM yyyy", { locale: de });
-    if (diff < 7) return format(d, "EEEE, dd. MMMM", { locale: de });
-    return format(d, "dd. MMMM yyyy", { locale: de });
-  } catch {
-    return dateStr;
-  }
-}
-
 function formatEUR(cents: number): string {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
 }
 
-function formatEURDirect(amount: number): string {
-  return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(amount);
+function getPaymentColor(status: string) {
+  if (status === "overdue") return "text-red-600 bg-red-50";
+  if (status === "paid") return "text-emerald-700 bg-emerald-50";
+  if (status === "sent") return "text-amber-700 bg-amber-50";
+  return "text-neutral-500 bg-neutral-100";
 }
 
-// ─── AlarmBanner ─────────────────────────────────────────────────────────────
-
-interface Alarm {
-  type: "overdue_payment" | "stale_inquiry" | "unanswered_reply";
-  label: string;
-  inquiryId: string;
-  contactName: string;
+function getBarColor(event: EventInquiry, payments: EventPayment[]) {
+  const ep = payments.filter(p => p.inquiry_id === event.id);
+  if (ep.some(p => p.computed_status === "overdue")) return "bg-red-500";
+  if (event.status === "confirmed") return "bg-emerald-500";
+  if (event.offer_sent_at) return "bg-neutral-300";
+  return "bg-amber-400";
 }
 
-const AlarmBanner = ({ alarms, onNavigate }: { alarms: Alarm[]; onNavigate: (id: string) => void }) => {
+// ─── Urgent Strip ─────────────────────────────────────────────────────────────
+
+const UrgentStrip = ({ overdueCount, overdueAmount, staleCount, onNavigate, payments }: {
+  overdueCount: number;
+  overdueAmount: number;
+  staleCount: number;
+  onNavigate: (id: string) => void;
+  payments: EventPayment[];
+}) => {
   const [expanded, setExpanded] = useState(false);
-  if (alarms.length === 0) return null;
 
-  const visible = expanded ? alarms : alarms.slice(0, 3);
-  const hiddenCount = alarms.length - 3;
+  if (overdueCount === 0 && staleCount === 0) return null;
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1.5">
-      <div className="flex items-center gap-2 text-amber-800 font-semibold text-sm mb-2">
-        <Bell className="h-4 w-4" />
-        {alarms.length} {alarms.length === 1 ? "Alarm" : "Alarme"}
-      </div>
-      {visible.map((a, i) => (
-        <button
-          key={i}
-          onClick={() => onNavigate(a.inquiryId)}
-          className="w-full text-left flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
-        >
-          <span className={cn(
-            "text-sm",
-            a.type === "overdue_payment" ? "text-red-700" : "text-amber-900"
-          )}>
-            <strong>{a.contactName}</strong> — {a.label}
-          </span>
-          <ExternalLink className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 ml-2" />
-        </button>
-      ))}
-      {!expanded && hiddenCount > 0 && (
-        <button
-          onClick={() => setExpanded(true)}
-          className="text-xs text-amber-700 hover:underline pl-3 pt-0.5"
-        >
-          und {hiddenCount} weitere Alarme anzeigen ▾
-        </button>
-      )}
-      {expanded && hiddenCount > 0 && (
-        <button
-          onClick={() => setExpanded(false)}
-          className="text-xs text-amber-700 hover:underline pl-3 pt-0.5"
-        >
-          Weniger anzeigen ▴
-        </button>
+    <div className="space-y-1">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 transition-colors text-left"
+      >
+        <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+        <span className="text-sm text-red-700 flex-1">
+          {overdueCount > 0 && <span className="font-semibold">{overdueCount} überfällige Zahlung{overdueCount > 1 ? "en" : ""}</span>}
+          {overdueCount > 0 && staleCount > 0 && " · "}
+          {staleCount > 0 && <span>{staleCount} Anfrage{staleCount > 1 ? "n" : ""} ohne Angebot</span>}
+        </span>
+        <ChevronDown className={cn("h-4 w-4 text-red-400 transition-transform", expanded && "rotate-180")} />
+      </button>
+
+      {expanded && (
+        <div className="pl-4 space-y-1">
+          {payments
+            .filter(p => p.computed_status === "overdue")
+            .slice(0, 5)
+            .map(p => (
+              <button
+                key={p.id}
+                onClick={() => onNavigate(p.inquiry_id)}
+                className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-neutral-100 text-sm transition-colors"
+              >
+                <span className="text-red-700 font-medium">{p.contact_name || "—"}</span>
+                <span className="text-red-600 text-xs">{formatEUR(p.amount_cents)}</span>
+              </button>
+            ))}
+        </div>
       )}
     </div>
   );
 };
 
-// ─── PaymentPill ─────────────────────────────────────────────────────────────
+// ─── Event Card (Clean) ───────────────────────────────────────────────────────
 
-const PaymentPill = ({ payment }: { payment: EventPayment }) => {
-  const typeLabel: Record<string, string> = { deposit: "Anz", prepayment: "Vor", final: "End" };
-  const statusColor: Record<string, string> = {
-    overdue: "bg-red-100 text-red-700 border-red-200",
-    sent: "bg-amber-100 text-amber-700 border-amber-200",
-    paid: "bg-green-100 text-green-700 border-green-200",
-    draft: "bg-gray-100 text-gray-500 border-gray-200",
-  };
-  const cls = statusColor[payment.computed_status] || statusColor.draft;
-  return (
-    <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", cls)}>
-      {typeLabel[payment.payment_type] || payment.payment_type} {formatEUR(payment.amount_cents)}
-      {payment.computed_status === "overdue" && " ⚠️"}
-    </span>
-  );
-};
-
-// ─── EventCard ────────────────────────────────────────────────────────────────
-
-const EventCard = ({
-  event,
-  payments,
-  onClick,
-}: {
+const EventCard = ({ event, payments, onClick }: {
   event: EventInquiry;
   payments: EventPayment[];
   onClick: () => void;
 }) => {
-  const { label, cls } = getStatusBadge(event);
-  const eventPayments = payments.filter((p) => p.inquiry_id === event.id);
-  const hasOverdue = eventPayments.some((p) => p.computed_status === "overdue");
+  const eventPayments = payments.filter(p => p.inquiry_id === event.id);
+  const barColor = getBarColor(event, payments);
 
-  const barColor = hasOverdue
-    ? "bg-red-500"
-    : event.offer_phase === "customer_responded"
-    ? "bg-teal-500"
-    : event.status === "confirmed"
-    ? "bg-green-600"
-    : event.offer_sent_at
-    ? "bg-emerald-400"
-    : "bg-amber-400";
-
-  // Time: prefer explicit time_slot field, fall back to time in preferred_date
   const timeStr = (() => {
     try {
       if (event.time_slot) return event.time_slot.substring(0, 5);
@@ -228,156 +156,100 @@ const EventCard = ({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left flex items-stretch bg-white border border-border/60 rounded-xl overflow-hidden hover:shadow-md hover:border-amber-200 transition-all duration-150 group"
+      className="w-full text-left flex items-stretch bg-white rounded-xl border border-neutral-200/80 overflow-hidden hover:border-neutral-300 hover:shadow-sm transition-all active:scale-[0.99] group"
     >
-      {/* Color bar */}
-      <div className={cn("w-1 flex-shrink-0", barColor)} />
-
+      <div className={cn("w-1 flex-shrink-0 rounded-l-xl", barColor)} />
       <div className="flex-1 px-4 py-3 min-w-0">
         <div className="flex items-start gap-3">
-          {/* Zeit — groß links */}
+          {/* Time */}
           {timeStr && (
-            <div className="flex-shrink-0 text-right min-w-[2.5rem]">
-              <span className="text-xl font-bold text-foreground leading-none tracking-tight">{timeStr}</span>
-              <span className="text-[10px] text-muted-foreground block leading-none mt-0.5">Uhr</span>
+            <div className="flex-shrink-0 pt-0.5">
+              <span className="text-lg font-bold text-neutral-900 tabular-nums">{timeStr}</span>
             </div>
           )}
-
-          {/* Haupt-Inhalt */}
+          {/* Content */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="font-semibold text-sm text-foreground truncate leading-tight">
-                  {event.contact_name}
-                </p>
-                {event.company_name && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                    <Building2 className="h-3 w-3 flex-shrink-0" />
-                    {event.company_name}
-                  </p>
-                )}
-              </div>
-              <Badge variant="outline" className={cn("text-xs font-medium flex-shrink-0", cls)}>
-                {label}
-              </Badge>
-            </div>
-
-            {/* Event-Typ + Gäste */}
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              {event.event_type && (
-                <span className="text-xs font-medium text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
-                  {event.event_type}
-                </span>
+            <p className="font-semibold text-sm text-neutral-900 truncate">{event.contact_name}</p>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              {event.company_name && (
+                <span className="text-xs text-neutral-500 truncate">{event.company_name}</span>
               )}
               {event.guest_count && (
-                <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {event.guest_count} Gäste
+                <span className="text-xs text-neutral-500 flex items-center gap-0.5">
+                  <Users className="h-3 w-3" />{event.guest_count}
                 </span>
               )}
-              {event.event_end_date && event.preferred_date && (
-                <span className="text-xs font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {formatDateRangeDE(event.preferred_date, event.event_end_date)}
-                </span>
+              {event.event_type && (
+                <span className="text-xs text-neutral-400">{event.event_type}</span>
               )}
             </div>
-
-            {/* Payment Pills */}
+            {/* Payments inline */}
             {eventPayments.length > 0 && (
-              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                {eventPayments.map((p) => (
-                  <PaymentPill key={p.id} payment={p} />
+              <div className="flex gap-1.5 mt-2 flex-wrap">
+                {eventPayments.map(p => (
+                  <span key={p.id} className={cn("text-xs px-2 py-0.5 rounded-full font-medium", getPaymentColor(p.computed_status))}>
+                    {formatEUR(p.amount_cents)}
+                    {p.computed_status === "overdue" && " überfällig"}
+                    {p.computed_status === "paid" && " bezahlt"}
+                  </span>
                 ))}
               </div>
             )}
           </div>
+          {/* Arrow */}
+          <ArrowRight className="h-4 w-4 text-neutral-300 group-hover:text-neutral-400 flex-shrink-0 mt-1 transition-colors" />
         </div>
       </div>
     </button>
   );
 };
 
-// ─── TimelineGroup ────────────────────────────────────────────────────────────
+// ─── Day Section ──────────────────────────────────────────────────────────────
 
-const TimelineGroup = ({
-  group,
-  payments,
-  onNavigate,
-  defaultOpen,
-  alwaysOpen,
-}: {
+const DaySection = ({ group, payments, onNavigate }: {
   group: DayGroup;
   payments: EventPayment[];
   onNavigate: (id: string) => void;
-  defaultOpen: boolean;
-  alwaysOpen: boolean;
 }) => {
-  const [open, setOpen] = useState(defaultOpen || alwaysOpen);
-
-  const isToday_ = !group.isPast && group.date !== "__no_date__" && isToday(parseISO(group.date));
-  const isTomorrow_ = !group.isPast && group.date !== "__no_date__" && isTomorrow(parseISO(group.date));
-  const isSpecial = isToday_ || isTomorrow_ || group.date === "__no_date__";
+  const alwaysOpen = group.isToday || group.isTomorrow;
+  const [open, setOpen] = useState(alwaysOpen);
 
   return (
-    <div className={cn("space-y-2", group.isPast && "opacity-60")}>
-      {/* Tagesheader */}
-      <div className="flex items-center gap-3">
+    <div className={cn(group.isPast && "opacity-40")}>
+      {/* Day header */}
+      <div className="flex items-center gap-2 mb-2">
         {alwaysOpen ? (
-          // Kein Toggle-Button bei Heute/Morgen/Termin offen
           <div className="flex items-center gap-2">
-            <span className={cn(
-              "font-bold",
-              isSpecial ? "text-base text-foreground" : "text-sm text-foreground",
-            )}>
-              {group.label}
-            </span>
-            {isToday_ && (
-              <span className="text-xs font-semibold text-white bg-amber-600 px-2 py-0.5 rounded-full">
+            <h3 className="text-sm font-bold text-neutral-900">{group.label}</h3>
+            {group.isToday && (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-white bg-neutral-900 px-2 py-0.5 rounded-full">
                 Heute
               </span>
             )}
-            {isTomorrow_ && (
-              <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+            {group.isTomorrow && (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
                 Morgen
               </span>
             )}
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {group.events.length}
-            </span>
           </div>
         ) : (
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="flex items-center gap-2 text-left group"
-          >
-            {open ? (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            )}
-            <span className="font-semibold text-sm text-foreground">{group.label}</span>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {group.events.length}
-            </span>
+          <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 group">
+            {open ? <ChevronDown className="h-3.5 w-3.5 text-neutral-400" /> : <ChevronRight className="h-3.5 w-3.5 text-neutral-400" />}
+            <h3 className="text-sm font-medium text-neutral-600 group-hover:text-neutral-900 transition-colors">{group.label}</h3>
+            <span className="text-xs text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded-full">{group.events.length}</span>
           </button>
         )}
-        {/* Akzentlinie */}
-        <div className={cn(
-          "flex-1 h-px",
-          isToday_ ? "bg-amber-400" : isTomorrow_ ? "bg-amber-200" : "bg-border/50"
-        )} />
+        <div className="flex-1 h-px bg-neutral-100" />
       </div>
 
-      {open && (
-        <div className="space-y-2 pl-4">
-          {group.events.map((e) => (
-            <EventCard
-              key={e.id}
-              event={e}
-              payments={payments}
-              onClick={() => onNavigate(e.id)}
-            />
+      {/* Events */}
+      {(open || alwaysOpen) && (
+        <div className="space-y-2 ml-1">
+          {group.events.length === 0 && alwaysOpen && (
+            <p className="text-sm text-neutral-400 py-4 text-center">Keine Events</p>
+          )}
+          {group.events.map(e => (
+            <EventCard key={e.id} event={e} payments={payments} onClick={() => onNavigate(e.id)} />
           ))}
         </div>
       )}
@@ -385,79 +257,47 @@ const TimelineGroup = ({
   );
 };
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
+// ─── Quick Stats ──────────────────────────────────────────────────────────────
 
-const Sidebar = ({
-  events,
-  payments,
-  offerOptions,
-  onNavigate,
-}: {
-  events: EventInquiry[];
-  payments: EventPayment[];
-  offerOptions: OfferOption[];
-  onNavigate: (id: string) => void;
-}) => {
+const QuickStats = ({ thisWeekCount, thisWeekGuests, paidPercent, paidAmount, totalAmount }: {
+  thisWeekCount: number;
+  thisWeekGuests: number;
+  paidPercent: number;
+  paidAmount: number;
+  totalAmount: number;
+}) => (
+  <div className="grid grid-cols-3 gap-3">
+    <div className="bg-neutral-50 rounded-xl p-3 text-center">
+      <p className="text-2xl font-bold text-neutral-900">{thisWeekCount}</p>
+      <p className="text-[11px] text-neutral-500 mt-0.5">Events diese Woche</p>
+    </div>
+    <div className="bg-neutral-50 rounded-xl p-3 text-center">
+      <p className="text-2xl font-bold text-neutral-900">{thisWeekGuests}</p>
+      <p className="text-[11px] text-neutral-500 mt-0.5">Gäste</p>
+    </div>
+    <div className="bg-neutral-50 rounded-xl p-3 text-center">
+      <p className="text-2xl font-bold text-neutral-900">{paidPercent}%</p>
+      <p className="text-[11px] text-neutral-500 mt-0.5">bezahlt</p>
+      {totalAmount > 0 && (
+        <div className="mt-1.5 h-1 bg-neutral-200 rounded-full overflow-hidden">
+          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${paidPercent}%` }} />
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+// ─── Open Inquiries (capped at 14 days) ──────────────────────────────────────
+
+const OpenInquiries = ({ events, onNavigate }: { events: EventInquiry[]; onNavigate: (id: string) => void }) => {
   const today = startOfDay(new Date());
-  const weekEnd = addDays(today, 7);
-
-  const thisWeekEvents = events.filter((e) => {
-    if (!e.preferred_date) return false;
-    const d = safeParse(e.preferred_date);
-    return !!d && d >= today && d < weekEnd;
-  });
-  const thisWeekIds = new Set(thisWeekEvents.map((e) => e.id));
-
-  const confirmedCount = events.filter((e) => e.status === "confirmed").length;
-  const pendingOffer = events.filter(
-    (e) => e.offer_sent_at && e.status !== "confirmed" && e.status !== "declined"
-  ).length;
-  const newCount = events.filter((e) => !e.offer_sent_at && !e.last_edited_at).length;
-
-  // Wochenumsatz aus Offer-Options
-  const weekRevenue = offerOptions
-    .filter((o) => thisWeekIds.has(o.inquiry_id))
-    .reduce((sum, o) => sum + (o.total_amount || 0), 0);
-
-  // Gäste diese Woche
-  const weekGuests = thisWeekEvents.reduce((sum, e) => sum + (e.guest_count || 0), 0);
-
-  // Bezahlt vs. Offen (nach Betrag)
-  const weekPayments = payments.filter((p) => thisWeekIds.has(p.inquiry_id));
-  const paidCents = weekPayments
-    .filter((p) => p.computed_status === "paid")
-    .reduce((s, p) => s + p.amount_cents, 0);
-  const openCents = weekPayments
-    .filter((p) => p.computed_status !== "paid" && p.computed_status !== "cancelled")
-    .reduce((s, p) => s + p.amount_cents, 0);
-  const totalPaymentCents = paidCents + openCents;
-  const paidPercent = totalPaymentCents > 0 ? Math.round((paidCents / totalPaymentCents) * 100) : 0;
-
-  // Upcoming payments (due in next 14 days)
-  const upcomingPayments = payments
-    .filter((p) => {
-      if (!p.effective_due_date) return false;
-      if (p.computed_status === "paid" || p.computed_status === "cancelled") return false;
-      const due = safeParse(p.effective_due_date);
-      if (!due) return false;
-      const diff = differenceInDays(due, today);
-      return diff >= -3 && diff <= 14;
-    })
-    .sort((a, b) => {
-      const da = safeParse(a.effective_due_date);
-      const db = safeParse(b.effective_due_date);
-      if (!da || !db) return 0;
-      return da.getTime() - db.getTime();
-    })
-    .slice(0, 8);
-
-  // Open inquiries without offer (> 48h)
-  const openInquiries = events
-    .filter((e) => {
-      if (e.offer_sent_at || e.status === "declined") return false;
+  const items = events
+    .filter(e => {
+      if (e.offer_sent_at || e.status === "declined" || e.status === "confirmed") return false;
       const d = safeParse(e.created_at);
       if (!d) return false;
-      return differenceInDays(today, d) >= 2;
+      const age = differenceInDays(today, d);
+      return age >= 2 && age <= 21; // 2-21 Tage — danach ist es ein toter Lead
     })
     .sort((a, b) => {
       const da = safeParse(a.created_at);
@@ -465,158 +305,40 @@ const Sidebar = ({
       if (!da || !db) return 0;
       return da.getTime() - db.getTime();
     })
-    .slice(0, 6);
+    .slice(0, 5);
+
+  if (items.length === 0) return null;
 
   return (
-    <div className="space-y-4 w-72 flex-shrink-0">
-      {/* Wochenübersicht */}
-      <Card className="border-amber-200/60 bg-amber-50/30">
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-amber-600" />
-            Wochenübersicht
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4 space-y-3">
-          {/* Umsatz */}
-          {weekRevenue > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Umsatz Woche</span>
-              <span className="font-bold text-amber-800">{formatEURDirect(weekRevenue)}</span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Events diese Woche</span>
-            <span className="font-bold text-foreground">{thisWeekEvents.length}</span>
-          </div>
-
-          {weekGuests > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Gäste gesamt</span>
-              <span className="font-semibold text-foreground flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {weekGuests}
+    <div className="bg-white rounded-xl border border-neutral-200/80 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Inbox className="h-4 w-4 text-neutral-400" />
+        <h3 className="text-sm font-semibold text-neutral-700">Warten auf Angebot</h3>
+      </div>
+      <div className="space-y-1">
+        {items.map(e => {
+          const d = safeParse(e.created_at);
+          const age = d ? differenceInDays(today, d) : 0;
+          return (
+            <button
+              key={e.id}
+              onClick={() => onNavigate(e.id)}
+              className="w-full flex items-center justify-between px-2 py-1.5 -mx-2 rounded-lg hover:bg-neutral-50 transition-colors"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-neutral-800 truncate">{e.contact_name}</p>
+                {e.event_type && <p className="text-xs text-neutral-400">{e.event_type}</p>}
+              </div>
+              <span className={cn(
+                "text-xs font-medium flex-shrink-0 ml-3",
+                age >= 7 ? "text-red-500" : "text-amber-500"
+              )}>
+                {age}T
               </span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Bestätigt</span>
-            <span className="font-semibold text-green-700">{confirmedCount}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Angebot ausstehend</span>
-            <span className="font-semibold text-amber-700">{pendingOffer}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Neue Anfragen</span>
-            <span className="font-semibold text-foreground">{newCount}</span>
-          </div>
-
-          {/* Bezahlt vs. Offen Fortschrittsbalken */}
-          {totalPaymentCents > 0 && (
-            <div className="space-y-1.5 pt-1 border-t border-amber-200/60">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Bezahlt</span>
-                <span>{paidPercent}% · {formatEUR(paidCents)}</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-green-500 rounded-full transition-all"
-                  style={{ width: `${paidPercent}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Offen</span>
-                <span>{formatEUR(openCents)}</span>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Fälligkeiten */}
-      {upcomingPayments.length > 0 && (
-        <Card className="border-border/60">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Euro className="h-4 w-4 text-muted-foreground" />
-              Fälligkeiten (14 Tage)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-1">
-            {upcomingPayments.map((p) => {
-              const due = safeParse(p.effective_due_date);
-              const diff = due ? differenceInDays(due, today) : null;
-              const isOverdue = p.computed_status === "overdue";
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => onNavigate(p.inquiry_id)}
-                  className="w-full text-left flex items-center justify-between hover:bg-muted/50 rounded-lg px-2 py-1.5 -mx-2 transition-colors"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium truncate">{p.contact_name || "—"}</p>
-                    <p className={cn("text-xs", isOverdue ? "text-red-600 font-semibold" : "text-muted-foreground")}>
-                      {isOverdue
-                        ? `Überfällig seit ${diff !== null ? Math.abs(diff) : "?"} T.`
-                        : due
-                        ? diff === 0
-                          ? "Heute fällig"
-                          : diff === 1
-                          ? "Morgen fällig"
-                          : `In ${diff} Tagen`
-                        : "—"}
-                    </p>
-                  </div>
-                  <span className="text-xs font-semibold text-foreground ml-2 flex-shrink-0">
-                    {formatEUR(p.amount_cents)}
-                  </span>
-                </button>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Offene Anfragen ohne Angebot (> 48h) */}
-      {openInquiries.length > 0 && (
-        <Card className="border-border/60">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Inbox className="h-4 w-4 text-muted-foreground" />
-              Warten auf Angebot
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-1">
-            {openInquiries.map((e) => {
-              const d = safeParse(e.created_at);
-              const diff = d ? differenceInDays(today, d) : 0;
-              return (
-                <button
-                  key={e.id}
-                  onClick={() => onNavigate(e.id)}
-                  className="w-full text-left flex items-center justify-between hover:bg-muted/50 rounded-lg px-2 py-1.5 -mx-2 transition-colors"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium truncate">{e.contact_name}</p>
-                    {e.event_type && (
-                      <p className="text-xs text-muted-foreground truncate">{e.event_type}</p>
-                    )}
-                  </div>
-                  <span className={cn(
-                    "text-xs flex-shrink-0 ml-2",
-                    diff >= 4 ? "text-red-600 font-semibold" : "text-muted-foreground"
-                  )}>
-                    {diff}T offen
-                  </span>
-                </button>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -643,17 +365,13 @@ export const Dashboard = () => {
             .order("preferred_date", { ascending: true, nullsFirst: false }),
           supabase
             .from("event_payments_enriched" as never)
-            .select("id, inquiry_id, payment_type, amount_cents, computed_status, effective_due_date, email_sent_at, contact_name, customer_email")
+            .select("id, inquiry_id, payment_type, amount_cents, computed_status, effective_due_date, contact_name")
             .not("computed_status", "eq", "cancelled"),
           supabase
             .from("inquiry_offer_options" as never)
             .select("inquiry_id, total_amount")
             .eq("is_active", true),
         ]);
-
-        if (eventsRes.error) console.error("[Dashboard] events:", eventsRes.error);
-        if (paymentsRes.error) console.error("[Dashboard] payments:", paymentsRes.error);
-        if (optionsRes.error) console.error("[Dashboard] offer_options:", optionsRes.error);
 
         if (eventsRes.data) setEvents(eventsRes.data as unknown as EventInquiry[]);
         if (paymentsRes.data) setPayments(paymentsRes.data as EventPayment[]);
@@ -669,68 +387,20 @@ export const Dashboard = () => {
 
   const goToEvent = (id: string) => navigate(`/admin/events/${id}/edit`);
 
-  // ── Alarms (Priorität: overdue → unanswered → stale ≥ 7 Tage) ─────────────
-  const alarms = useMemo<Alarm[]>(() => {
-    const result: Alarm[] = [];
-    const today = startOfDay(new Date());
-
-    // 1. Überfällige Zahlungen
-    payments
-      .filter((p) => p.computed_status === "overdue")
-      .forEach((p) => {
-        result.push({
-          type: "overdue_payment",
-          label: `Zahlung überfällig (${formatEUR(p.amount_cents)})`,
-          inquiryId: p.inquiry_id,
-          contactName: p.contact_name || "—",
-        });
-      });
-
-    // 2. Kundenantworten ohne Aktion
-    events
-      .filter((e) => e.offer_phase === "customer_responded")
-      .forEach((e) => {
-        result.push({
-          type: "unanswered_reply",
-          label: "Hat auf Angebot geantwortet — Aktion ausstehend",
-          inquiryId: e.id,
-          contactName: e.contact_name,
-        });
-      });
-
-    // 3. Stale Anfragen (≥ 7 Tage kein Angebot)
-    events
-      .filter((e) => {
-        if (e.offer_sent_at || e.status === "declined") return false;
-        const d = safeParse(e.created_at);
-        if (!d) return false;
-        return differenceInDays(today, d) >= 7;
-      })
-      .forEach((e) => {
-        const d = safeParse(e.created_at);
-        const diff = d ? differenceInDays(today, d) : 0;
-        result.push({
-          type: "stale_inquiry",
-          label: `Kein Angebot seit ${diff} Tagen`,
-          inquiryId: e.id,
-          contactName: e.contact_name,
-        });
-      });
-
-    return result;
-  }, [events, payments]);
-
-  // ── Timeline groups ────────────────────────────────────────────────────────
+  // ── Timeline groups (only future + today, max 30 days ahead) ───────────────
   const groups = useMemo<DayGroup[]>(() => {
     const today = startOfDay(new Date());
+    const cutoff = addDays(today, 30);
     const withoutDate: EventInquiry[] = [];
     const byDate: Record<string, EventInquiry[]> = {};
 
-    events.forEach((e) => {
+    events.forEach(e => {
       if (!e.preferred_date) { withoutDate.push(e); return; }
       const key = e.preferred_date.split("T")[0];
       const d = safeParse(key);
-      if (!d) { withoutDate.push(e); return; } // ungültiges Datum → Termin offen
+      if (!d) { withoutDate.push(e); return; }
+      // Only show today onward, max 30 days ahead
+      if (isBefore(d, today) || isAfter(d, cutoff)) return;
       if (!byDate[key]) byDate[key] = [];
       byDate[key].push(e);
     });
@@ -739,19 +409,51 @@ export const Dashboard = () => {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, evts]) => {
         const d = safeParse(date)!;
-        return {
-          date,
-          label: formatDayLabel(date),
-          events: evts,
-          isPast: isBefore(d, today),
-        };
+        const isT = isToday(d);
+        const isTm = isTomorrow(d);
+        let label: string;
+        try {
+          if (isT) label = format(d, "EEEE, d. MMMM", { locale: de });
+          else if (isTm) label = format(d, "EEEE, d. MMMM", { locale: de });
+          else if (differenceInDays(d, today) < 7) label = format(d, "EEEE, d. MMMM", { locale: de });
+          else label = format(d, "d. MMMM yyyy", { locale: de });
+        } catch { label = date; }
+        return { date, label, events: evts, isToday: isT, isTomorrow: isTm, isPast: false };
       });
 
+    // Ensure Today and Tomorrow always exist
+    const todayKey = format(today, "yyyy-MM-dd");
+    const tomorrowKey = format(addDays(today, 1), "yyyy-MM-dd");
+    if (!sorted.find(g => g.date === todayKey)) {
+      sorted.unshift({
+        date: todayKey,
+        label: format(today, "EEEE, d. MMMM", { locale: de }),
+        events: [],
+        isToday: true,
+        isTomorrow: false,
+        isPast: false,
+      });
+    }
+    if (!sorted.find(g => g.date === tomorrowKey)) {
+      const tm = addDays(today, 1);
+      sorted.splice(1, 0, {
+        date: tomorrowKey,
+        label: format(tm, "EEEE, d. MMMM", { locale: de }),
+        events: [],
+        isToday: false,
+        isTomorrow: true,
+        isPast: false,
+      });
+    }
+
+    // Add "Termin offen" if any
     if (withoutDate.length > 0) {
       sorted.push({
         date: "__no_date__",
         label: "Termin offen",
         events: withoutDate,
+        isToday: false,
+        isTomorrow: false,
         isPast: false,
       });
     }
@@ -759,75 +461,102 @@ export const Dashboard = () => {
     return sorted;
   }, [events]);
 
-  // Welche Gruppen immer offen / default offen --------------------------------
-  const getGroupOpenState = (group: DayGroup): { defaultOpen: boolean; alwaysOpen: boolean } => {
-    if (group.date === "__no_date__") return { defaultOpen: true, alwaysOpen: true };
-    if (group.isPast) return { defaultOpen: false, alwaysOpen: false };
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
     const today = startOfDay(new Date());
-    const d = safeParse(group.date);
-    if (!d) return { defaultOpen: false, alwaysOpen: false };
-    if (isToday(d) || isTomorrow(d)) return { defaultOpen: true, alwaysOpen: true };
-    const diff = differenceInDays(d, today);
-    return { defaultOpen: diff <= 7, alwaysOpen: false };
-  };
+    const weekEnd = addDays(today, 7);
+
+    const thisWeekEvents = events.filter(e => {
+      const d = safeParse(e.preferred_date);
+      return !!d && d >= today && d < weekEnd;
+    });
+    const thisWeekIds = new Set(thisWeekEvents.map(e => e.id));
+    const weekGuests = thisWeekEvents.reduce((s, e) => s + (e.guest_count || 0), 0);
+
+    const weekPayments = payments.filter(p => thisWeekIds.has(p.inquiry_id));
+    const paidCents = weekPayments.filter(p => p.computed_status === "paid").reduce((s, p) => s + p.amount_cents, 0);
+    const totalCents = weekPayments.filter(p => p.computed_status !== "cancelled").reduce((s, p) => s + p.amount_cents, 0);
+    const paidPercent = totalCents > 0 ? Math.round((paidCents / totalCents) * 100) : 0;
+
+    const overduePayments = payments.filter(p => p.computed_status === "overdue");
+    const overdueAmount = overduePayments.reduce((s, p) => s + p.amount_cents, 0);
+
+    const staleInquiries = events.filter(e => {
+      if (e.offer_sent_at || e.status === "declined" || e.status === "confirmed") return false;
+      const d = safeParse(e.created_at);
+      return !!d && differenceInDays(today, d) >= 7;
+    });
+
+    return {
+      thisWeekCount: thisWeekEvents.length,
+      weekGuests,
+      paidPercent,
+      paidAmount: paidCents,
+      totalAmount: totalCents,
+      overdueCount: overduePayments.length,
+      overdueAmount,
+      staleCount: staleInquiries.length,
+    };
+  }, [events, payments]);
 
   return (
-    <AdminLayout activeTab="dashboard" title="Dashboard" showCreateButton={true} createButtonText="Neue Anfrage">
-      <div className="space-y-5">
-        {/* Title */}
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Operations-Timeline</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {events.length} aktive Anfragen · {payments.filter((p) => p.computed_status === "overdue").length} überfällige Zahlungen
-          </p>
+    <AdminLayout activeTab="dashboard" title="Maestro" showCreateButton={true} createButtonText="Neue Anfrage">
+      {loading ? (
+        <div className="space-y-4 max-w-3xl">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-16 bg-neutral-100 rounded-xl animate-pulse" />
+          ))}
         </div>
+      ) : (
+        <div className="flex flex-col lg:flex-row gap-6 items-start max-w-5xl">
+          {/* Main timeline */}
+          <div className="flex-1 min-w-0 space-y-5">
+            {/* Urgent strip */}
+            <UrgentStrip
+              overdueCount={stats.overdueCount}
+              overdueAmount={stats.overdueAmount}
+              staleCount={stats.staleCount}
+              onNavigate={goToEvent}
+              payments={payments}
+            />
 
-        {/* AlarmBanner */}
-        {!loading && <AlarmBanner alarms={alarms} onNavigate={goToEvent} />}
+            {/* Quick stats — mobile only (desktop shows in sidebar) */}
+            <div className="lg:hidden">
+              <QuickStats
+                thisWeekCount={stats.thisWeekCount}
+                thisWeekGuests={stats.weekGuests}
+                paidPercent={stats.paidPercent}
+                paidAmount={stats.paidAmount}
+                totalAmount={stats.totalAmount}
+              />
+            </div>
 
-        {/* Main layout */}
-        <div className="flex gap-6 items-start">
-          {/* Timeline */}
-          <div className="flex-1 min-w-0 space-y-6">
-            {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-20 bg-muted/40 rounded-xl animate-pulse" />
-                ))}
-              </div>
-            ) : groups.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">
-                <Calendar className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p>Keine aktiven Anfragen</p>
-              </div>
-            ) : (
-              groups.map((group) => {
-                const { defaultOpen, alwaysOpen } = getGroupOpenState(group);
-                return (
-                  <TimelineGroup
-                    key={group.date}
-                    group={group}
-                    payments={payments}
-                    onNavigate={goToEvent}
-                    defaultOpen={defaultOpen}
-                    alwaysOpen={alwaysOpen}
-                  />
-                );
-              })
-            )}
+            {/* Timeline */}
+            <div className="space-y-6">
+              {groups.map(group => (
+                <DaySection
+                  key={group.date}
+                  group={group}
+                  payments={payments}
+                  onNavigate={goToEvent}
+                />
+              ))}
+            </div>
           </div>
 
-          {/* Sidebar */}
-          {!loading && (
-            <Sidebar
-              events={events}
-              payments={payments}
-              offerOptions={offerOptions}
-              onNavigate={goToEvent}
+          {/* Sidebar — desktop only */}
+          <div className="hidden lg:block w-64 flex-shrink-0 space-y-4 sticky top-20">
+            <QuickStats
+              thisWeekCount={stats.thisWeekCount}
+              thisWeekGuests={stats.weekGuests}
+              paidPercent={stats.paidPercent}
+              paidAmount={stats.paidAmount}
+              totalAmount={stats.totalAmount}
             />
-          )}
+            <OpenInquiries events={events} onNavigate={goToEvent} />
+          </div>
         </div>
-      </div>
+      )}
     </AdminLayout>
   );
 };
