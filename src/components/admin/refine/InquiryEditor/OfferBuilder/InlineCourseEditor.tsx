@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
-import { Plus, GripVertical, Trash2 } from "lucide-react";
+import { Plus, GripVertical, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -47,6 +48,7 @@ function SortableCourseRow({
   courseConfigs,
   onDishSelect,
   onClear,
+  onUpdateName,
   disabled,
 }: {
   course: CourseSelection;
@@ -55,8 +57,11 @@ function SortableCourseRow({
   courseConfigs: CourseConfig[];
   onDishSelect: (index: number, dish: { id: string; name: string; description: string | null; source: string; price: number | null }) => void;
   onClear: (index: number) => void;
+  onUpdateName: (index: number, name: string) => void;
   disabled: boolean;
 }) {
+  const [editingName, setEditingName] = useState(false);
+  const [tempName, setTempName] = useState("");
   const {
     attributes,
     listeners,
@@ -109,17 +114,50 @@ function SortableCourseRow({
         {course.courseLabel}
       </span>
 
-      {/* DishPicker */}
+      {/* DishPicker + Inline Name Edit */}
       <div className="flex-1 min-w-0">
-        <DishPicker
-          value={course.itemId ? { id: course.itemId, name: course.itemName } : null}
-          onSelect={(dish) => onDishSelect(idx, dish)}
-          menuItems={menuItems}
-          filterCategories={getFilterCategories(course.courseType)}
-          courseType={course.courseType}
-          placeholder={`${course.courseLabel} wählen...`}
-          disabled={disabled}
-        />
+        {editingName ? (
+          <Input
+            value={tempName}
+            onChange={(e) => setTempName(e.target.value)}
+            onBlur={() => {
+              if (tempName.trim()) onUpdateName(idx, tempName.trim());
+              setEditingName(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (tempName.trim()) onUpdateName(idx, tempName.trim());
+                setEditingName(false);
+              }
+              if (e.key === 'Escape') setEditingName(false);
+            }}
+            autoFocus
+            className="h-8 text-sm"
+          />
+        ) : (
+          <div className="flex items-center gap-1">
+            <div className="flex-1 min-w-0">
+              <DishPicker
+                value={course.itemId ? { id: course.itemId, name: course.itemName } : null}
+                onSelect={(dish) => onDishSelect(idx, dish)}
+                menuItems={menuItems}
+                filterCategories={getFilterCategories(course.courseType)}
+                courseType={course.courseType}
+                placeholder={`${course.courseLabel} wählen...`}
+                disabled={disabled}
+              />
+            </div>
+            {!disabled && course.itemId && course.itemName && (
+              <button
+                onClick={() => { setTempName(course.itemName); setEditingName(true); }}
+                className="shrink-0 p-1 rounded-md hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100"
+                title="Bezeichnung bearbeiten"
+              >
+                <Pencil className="h-3 w-3 text-muted-foreground/50" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Mülleimer direkt nach dem Dropdown */}
@@ -214,13 +252,14 @@ export function InlineCourseEditor({
         >
           {courses.map((course, idx) => (
             <SortableCourseRow
-              key={`course-${idx}`}
-              course={course}
-              idx={idx}
-              menuItems={menuItems}
-              courseConfigs={courseConfigs}
-              onDishSelect={handleDishSelect}
-              onClear={handleClear}
+            key={`course-${idx}`}
+            course={course}
+            idx={idx}
+            menuItems={menuItems}
+            courseConfigs={courseConfigs}
+            onDishSelect={handleDishSelect}
+            onClear={handleClear}
+            onUpdateName={(index, name) => onUpdateCourse(index, { itemName: name })}
               disabled={disabled}
             />
           ))}
