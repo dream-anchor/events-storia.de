@@ -438,6 +438,8 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
   
   // Combine and sort all timeline items
   const HIDDEN_ACTIONS = ['offer_updated', 'option_updated'];
+  // Filter out WhatsApp delivery logs (not useful for admin, often show errors)
+  const HIDDEN_PROVIDERS = ['whatsapp_meta', 'whatsapp'];
 
   const combinedItems = useMemo((): TimelineItem[] => {
     const activityItems: TimelineItem[] = activityLogs
@@ -448,11 +450,13 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
         timestamp: log.created_at,
       }));
     
-    const emailItems: TimelineItem[] = emailLogs.map(log => ({
-      type: 'email' as const,
-      data: log,
-      timestamp: log.sent_at,
-    }));
+    const emailItems: TimelineItem[] = emailLogs
+      .filter(log => !HIDDEN_PROVIDERS.includes(log.provider || ''))
+      .map(log => ({
+        type: 'email' as const,
+        data: log,
+        timestamp: log.sent_at,
+      }));
     
     return [...activityItems, ...emailItems].sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
