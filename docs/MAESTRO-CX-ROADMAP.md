@@ -55,8 +55,10 @@ Letzte Aktualisierung: 2026-04-16
 - [x] OfferBuilder: Preise editierbar (PriceBreakdown overridePrice)
 - [ ] OfferBuilder Mobile-Optimierung (Courses, DishPicker)
 - [ ] Payment-Flow Übersicht
+- [x] ModeSelector v3: Restaurant-Menü | Eigenes Menü | Paket (primär) + Nur E-Mail (Alternative)
+- [x] Restaurant-Menü öffnet direkt den Import-Dialog (keine versteckte Button-Suche)
+- [x] DetailSidebar Komponenten-Extraktion + Mobile Expand/Collapse
 - [x] Timeline bereinigen (WhatsApp-Fehler HIDDEN_PROVIDERS Filter)
-- [x] Sidebar mobile-responsive (DetailSidebar Komponenten-Extraktion + Expand/Collapse)
 - [ ] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
 
 ## Offen
