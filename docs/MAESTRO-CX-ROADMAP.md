@@ -33,16 +33,19 @@ Letzte Aktualisierung: 2026-04-15
 
 ## Offen
 
-### Sprint 3: Event-Detail/Edit CX ← NÄCHSTER SPRINT
+### Sprint 3: Event-Detail/Edit CX ← IN ARBEIT
 Der Screen wo 80% der Arbeitszeit verbracht wird.
-- [ ] Screen-Audit: Was ist verwirrend, was fehlt?
-- [ ] OfferBuilder UX-Verbesserungen (Mobile)
-- [ ] Payment-Flow Übersicht (Anzahlung/Vorauszahlung/Restzahlung)
-- [ ] Email-Composer Vereinfachung
-- [ ] Timeline/History bereinigen (Autosave-Spam filtern)
+- [x] Header: Kundenname + Avatar statt UUID
+- [x] Header: Firma, Datum, Gäste als kompakte Info-Zeile
+- [x] EmailStatusCard entfernt (redundant mit ConversationThread)
+- [ ] Quick-Action-Buttons (Email, Zahlung, Preview) unter Header
+- [ ] EventDNA Card kollabierbar (Kompakt-Modus default)
+- [ ] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
+- [ ] OfferBuilder Mobile-Optimierung
+- [ ] Payment-Flow Übersicht
+- [ ] Timeline bereinigen (Autosave-Spam, WhatsApp-Fehler filtern)
 - [ ] TEST-Badge + is_test Toggle im Detail-View
-- [ ] Mobile-Optimierung des Edit-Views
-- [ ] Interne Notizen UX
+- [ ] Sidebar mobile-responsive
 
 ### Sprint 4: Messaging-System (aus Session 03.04.)
 Resend Inbound + ConversationThread — geplant, noch nicht gebaut.
