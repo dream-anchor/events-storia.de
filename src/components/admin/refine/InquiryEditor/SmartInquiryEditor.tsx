@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, History, ChevronDown, Mail, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, History, ChevronDown, Mail, Plus, Users, Calendar, Euro, Building2 } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -360,20 +360,22 @@ export const SmartInquiryEditor = () => {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center text-white">
-                <FileText className="h-5 w-5" />
+              <div className="h-10 w-10 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 font-semibold text-sm">
+                {(inquiry.contact_name || '??').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-lg font-bold tracking-tight">
-                    Anfrage #{id?.slice(0, 8)}
+                    {inquiry.contact_name || 'Unbekannt'}
                   </h1>
                   <Badge className={statusInfo.color}>
                     {statusInfo.label}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Erstellt am {inquiry.created_at ? format(parseISO(inquiry.created_at), "dd. MMM yyyy", { locale: de }) : "Unbekannt"}
+                  {inquiry.company_name && <><Building2 className="h-3 w-3 inline mr-1" />{inquiry.company_name} · </>}
+                  {inquiry.preferred_date && <><Calendar className="h-3 w-3 inline mr-1" />{(() => { try { return format(parseISO(inquiry.preferred_date), 'dd.MM.yyyy', { locale: de }); } catch { return inquiry.preferred_date; } })()} · </>}
+                  {inquiry.guest_count && <><Users className="h-3 w-3 inline mr-1" />{inquiry.guest_count} Gäste</>}
                 </p>
               </div>
             </div>
@@ -599,33 +601,7 @@ export const SmartInquiryEditor = () => {
             </CardContent>
           </Card>
 
-          {/* Email Status */}
-          <EmailStatusCard
-            entityType="event_inquiry"
-            entityId={id!}
-            currentEmail={inquiry.email || undefined}
-            onResend={async () => {
-              if (!inquiry?.email || !inquiry?.email_draft) {
-                toast.error('Kein Anschreiben oder E-Mail-Adresse hinterlegt');
-                return;
-              }
-              const { data: result } = await supabase.functions.invoke('send-offer-email', {
-                body: {
-                  inquiryId: id,
-                  emailContent: inquiry.email_draft,
-                  customerEmail: inquiry.email,
-                  customerName: inquiry.contact_name || '',
-                  senderEmail: currentUserEmail,
-                  lexofficeQuotationId: (inquiry as any).lexoffice_quotation_id || null,
-                },
-              });
-              if (result?.emailSent) {
-                toast.success('E-Mail erneut versendet');
-              } else {
-                toast.error(`Versand fehlgeschlagen: ${result?.error || 'Unbekannter Fehler'}`);
-              }
-            }}
-          />
+          {/* EmailStatusCard entfernt — redundant mit ConversationThread */}
 
         </div>
       </div>
