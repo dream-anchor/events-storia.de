@@ -45,7 +45,15 @@ Der Screen wo 80% der Arbeitszeit verbracht wird.
 - [x] Step 4: Email-Draft Preview + "Bearbeiten" Link zurück zu Step 3
 - [x] Step 4: Test-Warning Banner mit Redirect-Email-Info
 - [x] Step 4: Buttons full-width h-12 (mobile-optimiert)
-- [ ] Quick-Action-Buttons (Email, Zahlung, Preview) unter Detail-Header
+- [x] Scroll-to-top bei Step-Wechsel
+- [x] Auto-Save in DB bei Step-Wechsel (goToStep)
+- [x] Kein Weiter-Button auf Step 3 (OfferBuilder hat eigene Nav)
+- [x] Login-Redirect nach /admin statt auf /login bleiben
+- [x] DishPicker: Freitext-Hinweis immer sichtbar
+- [x] OfferBuilder: Preise editierbar (PriceBreakdown overridePrice)
+- [ ] ⚠️ CRITICAL: Restaurant-Menü wird in Live-Ansicht (PublicOffer) nicht angezeigt
+- [ ] ⚠️ Restaurant-Menü wird in Events-Übersicht nicht angezeigt
+- [x] Quick-Action-Buttons (Email, Zahlung, Preview) unter Detail-Header
 - [ ] EventDNA Card kollabierbar (Kompakt-Modus default)
 - [ ] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
 - [x] OfferBuilder: Menü-Bezeichnungen editierbar (Pencil-Icon + Inline-Input)
