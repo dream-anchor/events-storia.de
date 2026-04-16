@@ -214,6 +214,9 @@ export interface UseOfferBuilderReturn {
   updateOption: (optionId: string, updates: Partial<OfferBuilderOption>) => void;
   toggleOptionActive: (optionId: string) => void;
 
+  // Flush pending saves
+  flushSave: () => void;
+
   // Persistence
   saveOptions: () => Promise<void>;
   createNewVersion: (emailContent: string) => Promise<number>;

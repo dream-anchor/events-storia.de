@@ -49,6 +49,7 @@ function SortableCourseRow({
   onDishSelect,
   onClear,
   onUpdateName,
+  onRemoveCourse,
   disabled,
 }: {
   course: CourseSelection;
@@ -58,6 +59,7 @@ function SortableCourseRow({
   onDishSelect: (index: number, dish: { id: string; name: string; description: string | null; source: string; price: number | null }) => void;
   onClear: (index: number) => void;
   onUpdateName: (index: number, name: string) => void;
+  onRemoveCourse: (index: number) => void;
   disabled: boolean;
 }) {
   const [editingName, setEditingName] = useState(false);
@@ -261,6 +263,7 @@ export function InlineCourseEditor({
             onDishSelect={handleDishSelect}
             onClear={handleClear}
             onUpdateName={(index, name) => onUpdateCourse(index, { itemName: name })}
+              onRemoveCourse={onRemoveCourse}
               disabled={disabled}
             />
           ))}
