@@ -88,6 +88,9 @@ export interface CateringOrder extends BaseRecord {
   notes: string | null;
   internal_notes: string | null;
   lexoffice_invoice_id: string | null;
+  reminder_sent_at: string | null;
+  last_customer_message_at: string | null;
+  last_our_reply_at: string | null;
   created_at: string;
 }
 
