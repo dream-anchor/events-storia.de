@@ -42,18 +42,18 @@ Letzte Aktualisierung: 2026-04-16
 - [x] Wizard: "Zur Zusammenfassung" statt "Weiter" auf Step 3
 - [x] Wizard: Auto-Save bei Step-Wechsel, Login-Redirect
 
-## Offen
+## Abgeschlossen
 
-### Sprint 4: Tab-Navigation + OptionCard Redesign
+### Sprint 4: Tab-Navigation + OptionCard Redesign (16.04.2026) ← ABGESCHLOSSEN
 - [x] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
 - [x] OptionCard: GETRÄNKE als kompakte Zeile ("Getränke: Keine + hinzufügen")
 - [x] Cleanup: SourcePanel, DraftPanel, DetailSidebar gelöscht (435 Zeilen)
 - [x] Cleanup: Unused imports/state nach Tab-Umstellung
 - [x] OfferBuilder Mobile-Optimierung (getestet: DishPicker, Tabs, OptionCard — alles gut)
 - [x] OptionCard: Leere Gänge löschbar via Trash-Button (Default-Gänge = DB-Daten, nicht Code)
-- [x] Payment-Flow: PaymentCard im Details-Tab + Quick-Action "Zahlung" navigiert zum Tab
+- [x] Payment-Flow: PaymentStatusStrip im Angebot-Tab mit 4 Zuständen + Navigation zu Details
 
-### Sprint 4: ABGESCHLOSSEN
+## Offen
 
 ### Sprint 5: Messaging-System
 - [ ] email_messages Tabelle (Lovable)
