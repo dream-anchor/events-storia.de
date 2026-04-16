@@ -19,6 +19,8 @@ import {
   Copy,
   Download,
   FileText,
+  Info,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -670,6 +672,11 @@ function ProposalView({
               Auswahl bestätigen
             </Button>
           </div>
+
+          {/* Stornobedingungen — unter dem Bestätigen-Button */}
+          <div className="mt-6 max-w-md">
+            <CancellationTermsAccordion />
+          </div>
         </div>
       </div>
     </section>
@@ -1141,6 +1148,9 @@ function FinalOptionCard({
             Kontaktieren Sie uns für die Buchung.
           </p>
         )}
+
+        {/* Stornobedingungen — kompakter Accordion unter Zahlungs-Button */}
+        {totalAmount > 0 && <CancellationTermsAccordion />}
       </div>
     </div>
   );
@@ -1360,6 +1370,68 @@ function PublicPaymentSection({
 
 // =================================================================
 // CONTACT SECTION
+// =================================================================
+// CANCELLATION TERMS
+// =================================================================
+function CancellationTermsAccordion() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mt-4 border-t border-border/40 pt-3">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-2 text-xs font-sans text-muted-foreground hover:text-foreground transition-colors group"
+      >
+        <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60 group-hover:text-muted-foreground" />
+        <span className="flex-1 text-left">Stornobedingungen</span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-200",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="mt-3 px-1 space-y-2 text-[11px] font-sans text-muted-foreground animate-in fade-in-0 slide-in-from-top-1 duration-200">
+          <p className="text-foreground/70">
+            Bei Rücktritt vom Vertrag berechnen wir pauschalierten Schadensersatz:
+          </p>
+          <ul className="space-y-1 pl-1">
+            <li className="flex justify-between gap-4">
+              <span>Bis 30 Tage vor Event</span>
+              <span className="font-medium text-emerald-700 dark:text-emerald-400">kostenfrei</span>
+            </li>
+            <li className="flex justify-between gap-4">
+              <span>14–30 Tage vorher</span>
+              <span className="font-medium text-foreground/80">25 %</span>
+            </li>
+            <li className="flex justify-between gap-4">
+              <span>7–14 Tage vorher</span>
+              <span className="font-medium text-foreground/80">50 %</span>
+            </li>
+            <li className="flex justify-between gap-4">
+              <span>2–7 Tage vorher</span>
+              <span className="font-medium text-foreground/80">80 %</span>
+            </li>
+            <li className="flex justify-between gap-4">
+              <span>Weniger als 48 Std. / No-Show</span>
+              <span className="font-medium text-foreground/80">100 %</span>
+            </li>
+          </ul>
+          <p className="pt-2 text-[10px] text-muted-foreground/70">
+            Bereits geleistete Anzahlungen werden verrechnet. Vollständige Bedingungen in unseren{" "}
+            <LocalizedLink to="/agb-veranstaltungen" className="underline hover:text-foreground">
+              AGB
+            </LocalizedLink>.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // =================================================================
 
 function ContactSection() {
