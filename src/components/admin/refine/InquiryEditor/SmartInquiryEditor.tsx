@@ -20,6 +20,7 @@ import { TaskManager } from "@/components/admin/shared/TaskManager";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { ConversationThread } from "@/components/admin/shared/ConversationThread";
 import { PaymentCard } from "./PaymentCard";
+import { PaymentStatusStrip } from "./PaymentStatusStrip";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
@@ -463,8 +464,12 @@ export const SmartInquiryEditor = () => {
         </TabsList>
 
         {/* Tab: Angebot */}
-        <TabsContent value="angebot" className="mt-6 space-y-8">
-
+        <TabsContent value="angebot" className="mt-6 space-y-6">
+          {/* Payment-Status Strip — kompakt, klickbar → Details-Tab */}
+          <PaymentStatusStrip
+            inquiryId={id!}
+            onNavigateToDetails={() => setActiveTab('details')}
+          />
 
           {/* Multi-Package Offer Section */}
           {inquiryType === 'event' ? (
