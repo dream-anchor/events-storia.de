@@ -63,9 +63,10 @@ Letzte Aktualisierung: 2026-04-16
 - [ ] Resend Inbound Webhook konfigurieren (Config, kein Code)
 - [ ] Test: Kunde antwortet → Thread zeigt neue Nachricht in Real-time
 
-### Sprint 6: Zahlungsoptionen PublicOffer
-- [ ] Komplett zahlen vs. 20% Anzahlung
-- [ ] Stornobedingungen auf PublicOffer + FAQ
+### Sprint 6: Zahlungsoptionen PublicOffer (16.04.2026) ← ABGESCHLOSSEN
+- [x] Komplett zahlen vs. 20% Anzahlung (bereits implementiert in FinalOptionCard)
+- [x] Stornobedingungen auf PublicOffer (CancellationTermsAccordion in ProposalView + FinalOfferView)
+- [ ] FAQ-Sektion auf events-storia.de mit Stornobedingungen (optional, Marketing-Seite)
 
 ## Offen
 
