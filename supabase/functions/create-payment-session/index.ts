@@ -38,8 +38,8 @@ serve(async (req) => {
     if (inqError || !inquiry) throw new Error('Anfrage nicht gefunden');
 
     const { data: option, error: optError } = await supabase
-      .from('offer_builder_options')
-      .select('id, option_label, package_name, total_amount, guest_count, offer_mode')
+      .from('inquiry_offer_options')
+      .select('id, option_label, total_amount, guest_count, offer_mode, menu_selection, package_id')
       .eq('id', optionId)
       .single();
 
@@ -50,9 +50,27 @@ serve(async (req) => {
       preferred_date: string | null; guest_count: string | null; deposit_percent: number | null;
     };
     const opt = option as {
-      id: string; option_label: string; package_name: string;
+      id: string; option_label: string;
       total_amount: number; guest_count: number; offer_mode: string;
+      menu_selection: Record<string, unknown> | null;
+      package_id: string | null;
     };
+
+    // Paketnamen auflösen: Override aus menu_selection > packages-Tabelle > Default
+    let packageName = 'Individuelles Angebot';
+    const nameOverride = opt.menu_selection?.packageNameOverride as string | undefined;
+    if (nameOverride) {
+      packageName = nameOverride;
+    } else if (opt.package_id) {
+      const { data: pkg } = await supabase
+        .from('packages')
+        .select('name')
+        .eq('id', opt.package_id)
+        .single();
+      if (pkg?.name) packageName = pkg.name;
+    } else if (opt.offer_mode === 'menu') {
+      packageName = 'Individuelles Menü';
+    }
 
     const totalAmount = opt.total_amount; // already total (not per person)
     const depositPercent = inq.deposit_percent ?? 20;
@@ -80,7 +98,7 @@ serve(async (req) => {
           currency: 'eur',
           product_data: {
             name: productName,
-            description: `Option ${opt.option_label} · ${opt.guest_count} Gäste · ${opt.package_name || 'Individuell'}`,
+            description: `Option ${opt.option_label} · ${opt.guest_count} Gäste · ${packageName}`,
           },
           unit_amount: amountCents,
         },
