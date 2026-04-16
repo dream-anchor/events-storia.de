@@ -894,8 +894,8 @@ export const AdminOfferCreate = () => {
           )}
         </div>
 
-        {/* Sticky bottom navigation — Step 4 hat eigene Buttons */}
-        {step < 4 && (
+        {/* Sticky bottom navigation — nur bei Step 2 und 3 (Step 1 hat eigene Action-Buttons, Step 4 hat eigene Buttons) */}
+        {step > 1 && step < 4 && (
           <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-3 z-30" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
             <div className="max-w-2xl mx-auto flex items-center gap-3">
               {step > 1 && (
