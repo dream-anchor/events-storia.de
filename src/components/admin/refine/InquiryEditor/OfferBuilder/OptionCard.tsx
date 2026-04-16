@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed } from "lucide-react";
+import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -444,9 +444,22 @@ function PaketContent({
     onUpdate({
       packageId: pkg.id,
       packageName: pkg.name,
+      // Snapshot des Paket-Preises — User kann ihn danach überschreiben
+      budgetPerPerson: pkg.price_per_person ? pkg.price : null,
       menuSelection: { courses: [], drinks: [] },
     });
   };
+
+  const handleUnselectPackage = () => {
+    onUpdate({
+      packageId: null,
+      packageName: '',
+      budgetPerPerson: null,
+      menuSelection: { courses: [], drinks: [] },
+    });
+  };
+
+  const selectedPkg = packages.find(p => p.id === option.packageId);
 
   // Importiertes Restaurant-Menü (kein DB-Paket, nur Name + Preis)
   const isImportedMenu = !option.packageId && !!option.packageName;
@@ -470,47 +483,101 @@ function PaketContent({
       )}
 
       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        {isImportedMenu ? 'Oder DB-Paket wählen' : 'Paket wählen'}
+        {isImportedMenu ? 'Oder DB-Paket wählen' : option.packageId ? 'Paket (editierbar)' : 'Paket wählen'}
       </span>
-      <div className="grid gap-2">
-        {packages.map(pkg => {
-          const isSelected = option.packageId === pkg.id;
-          return (
-            <button
-              key={pkg.id}
-              onClick={() => !disabled && handleSelectPackage(pkg)}
-              disabled={disabled}
-              className={cn(
-                "flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-colors",
-                isSelected
-                  ? "border-primary bg-primary/5"
-                  : "border-border/40 hover:border-border hover:bg-muted/20",
-                disabled && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              <div className={cn(
-                "h-4 w-4 rounded-full border-2 shrink-0 mt-0.5",
-                isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
-              )} />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold">{pkg.name}</div>
-                {pkg.description && (
-                  <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                    {pkg.description}
-                  </div>
+
+      {/* Editierbare Karte wenn Paket bereits gewählt */}
+      {option.packageId && selectedPkg ? (
+        <div className="rounded-xl border-2 border-primary bg-primary/5 p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <div className="h-4 w-4 rounded-full bg-primary shrink-0 mt-1.5" />
+            <div className="flex-1 min-w-0 space-y-2">
+              {/* Paket-Name editierbar */}
+              <Input
+                value={option.packageName}
+                onChange={(e) => onUpdate({ packageName: e.target.value })}
+                disabled={disabled}
+                placeholder="Paket-Name"
+                className="h-8 text-sm font-semibold bg-background/60 border-primary/20"
+              />
+
+              {/* Preis pro Person editierbar */}
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">Preis/Person:</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={option.budgetPerPerson ?? ''}
+                  onChange={(e) => onUpdate({ budgetPerPerson: e.target.value ? parseFloat(e.target.value) : null })}
+                  disabled={disabled}
+                  placeholder={selectedPkg.price.toFixed(2)}
+                  className="h-7 w-28 text-sm"
+                />
+                <span className="text-xs text-muted-foreground">€</span>
+                {option.guestCount > 0 && option.budgetPerPerson != null && (
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    = {(option.budgetPerPerson * option.guestCount).toFixed(2).replace('.', ',')} € gesamt
+                  </span>
                 )}
-                <div className="text-xs font-medium text-primary mt-1">
-                  {pkg.price_per_person
-                    ? `${pkg.price.toFixed(2)} € pro Person`
-                    : `${pkg.price.toFixed(2)} € pauschal`}
-                  {pkg.min_guests && ` · ab ${pkg.min_guests} Pers.`}
-                  {pkg.max_guests && ` · max. ${pkg.max_guests} Pers.`}
-                </div>
               </div>
-            </button>
-          );
-        })}
-      </div>
+
+              {/* Original-Beschreibung als Referenz */}
+              {selectedPkg.description && (
+                <div className="text-[11px] text-muted-foreground/70 italic">
+                  Original: {selectedPkg.description}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Anderes Paket wählen */}
+          <button
+            type="button"
+            onClick={handleUnselectPackage}
+            disabled={disabled}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Anderes Paket wählen
+          </button>
+        </div>
+      ) : (
+        /* Paket-Liste wenn noch nichts gewählt */
+        <div className="grid gap-2">
+          {packages.map(pkg => {
+            return (
+              <button
+                key={pkg.id}
+                onClick={() => !disabled && handleSelectPackage(pkg)}
+                disabled={disabled}
+                className={cn(
+                  "flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-colors",
+                  "border-border/40 hover:border-border hover:bg-muted/20",
+                  disabled && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <div className="h-4 w-4 rounded-full border-2 shrink-0 mt-0.5 border-muted-foreground/40" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold">{pkg.name}</div>
+                  {pkg.description && (
+                    <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                      {pkg.description}
+                    </div>
+                  )}
+                  <div className="text-xs font-medium text-primary mt-1">
+                    {pkg.price_per_person
+                      ? `${pkg.price.toFixed(2)} € pro Person`
+                      : `${pkg.price.toFixed(2)} € pauschal`}
+                    {pkg.min_guests && ` · ab ${pkg.min_guests} Pers.`}
+                    {pkg.max_guests && ` · max. ${pkg.max_guests} Pers.`}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Speisen & Getränke — nach Paketauswahl */}
       {option.packageId && (

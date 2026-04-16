@@ -214,10 +214,14 @@ export function useOfferBuilder({
             if (opt.package_id && mode === 'menu') {
               mode = 'paket';
             }
-            // Paketnamen aus packages-Prop auflösen
-            const pkgName = opt.package_id
-              ? packagesProp?.find(p => p.id === opt.package_id)?.name || ''
-              : '';
+            // Paketnamen auflösen: Override aus menu_selection > packages-Prop > leer
+            const menuSel = opt.menu_selection as Record<string, unknown> | null;
+            const nameOverride = menuSel?.packageNameOverride as string | undefined;
+            const pkgName = nameOverride
+              ? nameOverride
+              : opt.package_id
+                ? packagesProp?.find(p => p.id === opt.package_id)?.name || ''
+                : '';
             return {
             id: opt.id,
             packageId: opt.package_id,
@@ -358,7 +362,7 @@ export function useOfferBuilder({
               option_label: opt.optionLabel,
               offer_mode: opt.offerMode,
               guest_count: opt.guestCount,
-              menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent },
+              menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent, packageNameOverride: opt.packageName || null },
               total_amount: opt.totalAmount,
               stripe_payment_link_id: opt.stripePaymentLinkId,
               stripe_payment_link_url: opt.stripePaymentLinkUrl,
@@ -465,13 +469,21 @@ export function useOfferBuilder({
         const pkg = packagesProp.find(p => p.id === opt.packageId);
         if (!pkg) return opt;
 
-        const locationPrice = calculateEventPackagePrice(
-          pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
-        );
+        // budgetPerPerson (manuell überschrieben) hat Vorrang über Original-Paket-Preis
+        let newTotal: number;
+        if (opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
+          newTotal = pkg.price_per_person
+            ? opt.budgetPerPerson * opt.guestCount
+            : opt.budgetPerPerson;
+        } else {
+          newTotal = calculateEventPackagePrice(
+            pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
+          );
+        }
 
-        if (Math.abs(opt.totalAmount - locationPrice) < 0.01) return opt;
+        if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
         changed = true;
-        return { ...opt, totalAmount: locationPrice };
+        return { ...opt, totalAmount: newTotal };
       });
 
       if (!changed) return prev;
@@ -684,7 +696,7 @@ export function useOfferBuilder({
             option_label: opt.optionLabel,
             offer_mode: opt.offerMode,
             guest_count: opt.guestCount,
-            menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent },
+            menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent, packageNameOverride: opt.packageName || null },
             total_amount: opt.totalAmount,
             stripe_payment_link_id: opt.stripePaymentLinkId,
             stripe_payment_link_url: opt.stripePaymentLinkUrl,
@@ -768,7 +780,7 @@ export function useOfferBuilder({
             option_label: opt.optionLabel,
             offer_mode: opt.offerMode,
             guest_count: opt.guestCount,
-            menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent },
+            menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent, packageNameOverride: opt.packageName || null },
             total_amount: opt.totalAmount,
             stripe_payment_link_id: opt.stripePaymentLinkId,
             stripe_payment_link_url: opt.stripePaymentLinkUrl,
@@ -1017,7 +1029,7 @@ export function useOfferBuilder({
               id: opt.id, inquiry_id: inquiryId, offer_version: currentVersion,
               package_id: opt.packageId, option_label: opt.optionLabel,
               offer_mode: opt.offerMode, guest_count: opt.guestCount,
-              menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent },
+              menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent, packageNameOverride: opt.packageName || null },
               total_amount: opt.totalAmount, stripe_payment_link_id: opt.stripePaymentLinkId,
               stripe_payment_link_url: opt.stripePaymentLinkUrl,
               is_active: opt.isActive, sort_order: opt.sortOrder,
