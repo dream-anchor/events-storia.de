@@ -780,28 +780,34 @@ export function useOfferBuilder({
     setCurrentVersion(newVersion);
     setOptions(prev => prev.map(o => ({ ...o, offerVersion: newVersion })));
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const now = new Date().toISOString();
+    const { data: { user } } = await supabase.auth.getUser();
+    const now = new Date().toISOString();
 
-      await (supabase as any).from("inquiry_offer_history").insert({
-        inquiry_id: inquiryId,
-        version: newVersion,
-        sent_by: user?.email || null,
-        email_content: emailContent,
-        options_snapshot: options,
-      });
+    // History-Eintrag (Fehler weiterwerfen — ohne History kein sauberer Versand-Zustand)
+    const { error: historyErr } = await (supabase as any).from("inquiry_offer_history").insert({
+      inquiry_id: inquiryId,
+      version: newVersion,
+      sent_by: user?.email || null,
+      email_content: emailContent,
+      options_snapshot: options,
+    });
+    if (historyErr) {
+      console.error('[createNewVersion] inquiry_offer_history insert failed:', historyErr);
+      throw new Error(`History konnte nicht angelegt werden: ${historyErr.message}`);
+    }
 
-      await supabase
-        .from("event_inquiries")
-        .update({
-          current_offer_version: newVersion,
-          offer_sent_at: now,
-          offer_sent_by: user?.email || null,
-        })
-        .eq("id", inquiryId);
-    } catch (error) {
-      console.error("Error creating version history:", error);
+    // Versandzeitpunkt + Version auf Inquiry setzen (Fehler weiterwerfen)
+    const { error: updateErr } = await supabase
+      .from("event_inquiries")
+      .update({
+        current_offer_version: newVersion,
+        offer_sent_at: now,
+        offer_sent_by: user?.email || null,
+      })
+      .eq("id", inquiryId);
+    if (updateErr) {
+      console.error('[createNewVersion] event_inquiries update failed:', updateErr);
+      throw new Error(`Versandzeitpunkt konnte nicht gespeichert werden: ${updateErr.message}`);
     }
 
     return newVersion;
@@ -850,92 +856,127 @@ export function useOfferBuilder({
 
   /** Phase 1: Vorschlag senden (ohne Stripe) — erstellt LexOffice-Angebot + sendet Email */
   const sendProposal = useCallback(async (emailContent: string) => {
-    await saveOptions();
-    const newVersion = await createNewVersion(emailContent);
-
+    // Schritt 1: Lokalen Save erzwingen — wenn der fehlschlägt, wird nicht versendet
     try {
-      const activeOpts = options.filter(o => o.isActive);
-      let lexofficeQuotationId: string | null = null;
-
-      // 1. LexOffice-Angebot automatisch erstellen
-      try {
-        const { data: quotationResult } = await supabase.functions.invoke(
-          'create-event-quotation',
-          { body: { inquiryId } },
-        );
-        if (quotationResult?.success && quotationResult.quotationId) {
-          lexofficeQuotationId = quotationResult.quotationId;
-          await supabase
-            .from('event_inquiries')
-            .update({ lexoffice_quotation_id: lexofficeQuotationId } as Record<string, unknown>)
-            .eq('id', inquiryId);
-        }
-      } catch (lexErr) {
-        // LexOffice-Fehler nicht blockierend — Email wird trotzdem gesendet
-        console.error('LexOffice quotation error (non-blocking):', lexErr);
-      }
-
-      // 2. Status aktualisieren
-      await supabase
-        .from("event_inquiries")
-        .update({
-          status: 'offer_sent',
-          offer_phase: 'proposal_sent',
-        } as Record<string, unknown>)
-        .eq("id", inquiryId);
-
-      setOfferPhase('proposal_sent');
-
-      // 3. Email an Kunden senden
-      const customerEmail = inquiry.email;
-      const customerName = inquiry.contact_name;
-      let emailSent = false;
-
-      if (customerEmail) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          const { data: emailResult, error: emailError } = await supabase.functions.invoke(
-            'send-offer-email',
-            {
-              body: {
-                inquiryId,
-                emailContent,
-                customerEmail,
-                customerName: customerName || '',
-                senderEmail: user?.email,
-                lexofficeQuotationId,
-              },
-            }
-          );
-          emailSent = !emailError && emailResult?.emailSent;
-          if (emailError) console.error('Email send error:', emailError);
-        } catch (emailErr) {
-          console.error('Error invoking send-offer-email:', emailErr);
-        }
-      }
-
-      await logActivity(inquiryId, 'proposal_sent', {
-        version: newVersion,
-        optionCount: activeOpts.length,
-        emailSent,
-        lexofficeQuotationId,
-      });
-
-      const parts: string[] = [];
-      if (emailSent) parts.push('Email zugestellt');
-      else if (customerEmail) parts.push('Email konnte nicht zugestellt werden');
-      if (lexofficeQuotationId) parts.push('LexOffice-Angebot erstellt');
-
-      toast.success(
-        parts.length > 0
-          ? `Vorschlag gesendet — ${parts.join(', ')}`
-          : 'Vorschlag gespeichert (keine E-Mail-Adresse hinterlegt)'
-      );
-    } catch (error) {
-      console.error("Error sending proposal:", error);
-      toast.error("Fehler beim Senden des Vorschlags");
+      await saveOptionsToDb(inquiryId, options, currentVersion);
+    } catch (saveErr) {
+      console.error('[sendProposal] saveOptionsToDb failed:', saveErr);
+      const msg = saveErr instanceof Error ? saveErr.message : 'Unbekannter Fehler';
+      toast.error(`Vorschlag konnte nicht gesendet werden: Speichern fehlgeschlagen (${msg})`);
+      return;
     }
-  }, [saveOptions, createNewVersion, inquiryId, options, inquiry, packagesProp]);
+
+    // Schritt 2: Version anlegen + Versandzeitpunkt setzen
+    let newVersion: number;
+    try {
+      newVersion = await createNewVersion(emailContent);
+    } catch (versionErr) {
+      console.error('[sendProposal] createNewVersion failed:', versionErr);
+      const msg = versionErr instanceof Error ? versionErr.message : 'Unbekannter Fehler';
+      toast.error(`Vorschlag konnte nicht gesendet werden: ${msg}`);
+      return;
+    }
+
+    const activeOpts = options.filter(o => o.isActive);
+    let lexofficeQuotationId: string | null = null;
+
+    // Schritt 3: LexOffice-Angebot (non-blocking — Fehler wird geloggt aber unterbricht nicht)
+    try {
+      const { data: quotationResult } = await supabase.functions.invoke(
+        'create-event-quotation',
+        { body: { inquiryId } },
+      );
+      if (quotationResult?.success && quotationResult.quotationId) {
+        lexofficeQuotationId = quotationResult.quotationId;
+        const { error: lexUpdateErr } = await supabase
+          .from('event_inquiries')
+          .update({ lexoffice_quotation_id: lexofficeQuotationId } as Record<string, unknown>)
+          .eq('id', inquiryId);
+        if (lexUpdateErr) {
+          console.error('[sendProposal] LexOffice ID-Update fehlgeschlagen:', lexUpdateErr);
+        }
+      }
+    } catch (lexErr) {
+      console.error('[sendProposal] LexOffice quotation error (non-blocking):', lexErr);
+    }
+
+    // Schritt 4: Phase + Status aktualisieren
+    // Fehler hier ist kritisch — ohne Phase-Update rendert PublicOffer das Menu nicht
+    const { error: phaseErr } = await supabase
+      .from("event_inquiries")
+      .update({
+        status: 'offer_sent',
+        offer_phase: 'proposal_sent',
+      } as Record<string, unknown>)
+      .eq("id", inquiryId);
+    if (phaseErr) {
+      console.error('[sendProposal] Phase-Update fehlgeschlagen:', phaseErr);
+      toast.error(
+        `Kritischer Fehler: Phase konnte nicht auf "Vorschlag gesendet" gesetzt werden. ` +
+        `Bitte Seite neu laden und ggf. den Datensatz manuell korrigieren.`,
+        { duration: Infinity }
+      );
+      return;
+    }
+    setOfferPhase('proposal_sent');
+
+    // Schritt 5: Email an Kunden senden (ERST JETZT, nachdem State konsistent ist)
+    const customerEmail = inquiry.email;
+    const customerName = inquiry.contact_name;
+    let emailSent = false;
+    let emailErrorMessage: string | null = null;
+
+    if (customerEmail) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: emailResult, error: emailError } = await supabase.functions.invoke(
+          'send-offer-email',
+          {
+            body: {
+              inquiryId,
+              emailContent,
+              customerEmail,
+              customerName: customerName || '',
+              senderEmail: user?.email,
+              lexofficeQuotationId,
+            },
+          }
+        );
+        emailSent = !emailError && emailResult?.emailSent;
+        if (emailError) {
+          emailErrorMessage = emailError.message || 'Unbekannter Fehler';
+          console.error('[sendProposal] Email send error:', emailError);
+        }
+      } catch (emailErr) {
+        emailErrorMessage = emailErr instanceof Error ? emailErr.message : 'Unbekannter Fehler';
+        console.error('[sendProposal] Error invoking send-offer-email:', emailErr);
+      }
+    }
+
+    await logActivity(inquiryId, 'proposal_sent', {
+      version: newVersion,
+      optionCount: activeOpts.length,
+      emailSent,
+      emailErrorMessage,
+      lexofficeQuotationId,
+    });
+
+    // Klares Feedback: Phase ist gesetzt, aber Mail-Status wird sichtbar kommuniziert
+    if (emailSent) {
+      const parts: string[] = ['Email zugestellt'];
+      if (lexofficeQuotationId) parts.push('LexOffice-Angebot erstellt');
+      toast.success(`Vorschlag gesendet — ${parts.join(', ')}`);
+    } else if (customerEmail) {
+      toast.warning(
+        `Vorschlag intern gespeichert, aber Email an ${customerEmail} konnte NICHT zugestellt werden` +
+        (emailErrorMessage ? ` (${emailErrorMessage})` : '') +
+        `. Bitte Link manuell teilen oder nochmal senden.`,
+        { duration: 15000 }
+      );
+    } else {
+      toast.info('Vorschlag gespeichert (keine E-Mail-Adresse hinterlegt — Link manuell teilen)');
+    }
+  }, [inquiryId, options, currentVersion, createNewVersion, inquiry, packagesProp]);
 
   /** Phase 2: Finales Angebot senden (mit Stripe Payment Links) */
   const sendFinalOffer = useCallback(async (emailContent: string) => {
