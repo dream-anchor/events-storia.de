@@ -49,7 +49,29 @@ const Haftungsausschluss = lazy(() => import("./pages/Haftungsausschluss"));
 /** Renders frontend-only global components (cart, cookie banner, etc.) only on non-admin routes */
 const FrontendGlobals = () => {
   const location = useLocation();
+
+  // Admin-Routen: keine Frontend-Globals
   if (location.pathname.startsWith('/admin')) return null;
+
+  // Public-Offer-Routen: KEIN Warenkorb/CartPanel — der Warenkorb gehört
+  // zum Catering-Shop, nicht zum Event-Angebot. Wenn ein Kunde parallel etwas
+  // im Shop hatte, soll das hier nicht angezeigt werden (verwirrt: zeigt
+  // fremde Daten die nichts mit dem Angebot zu tun haben).
+  const isOfferRoute =
+    location.pathname.startsWith('/offer/') ||
+    location.pathname.startsWith('/ihr-angebot/') ||
+    location.pathname.startsWith('/your-offer/');
+
+  if (isOfferRoute) {
+    return (
+      <>
+        {/* Nur die wirklich globalen Elemente — kein Warenkorb */}
+        <CookieBanner />
+        <CookieSettingsButton />
+      </>
+    );
+  }
+
   return (
     <>
       <FloatingActions />
