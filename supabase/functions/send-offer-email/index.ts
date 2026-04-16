@@ -229,25 +229,64 @@ serve(async (req) => {
 
     const htmlBody = `<!DOCTYPE html>
 <html lang="de">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="text-align: center; margin-bottom: 32px;">
-    <p style="font-size: 16px; color: #555; margin-bottom: 16px;">
-      Ihr persönliches Angebot ist online bereit:
-    </p>
-    <a href="${offerUrl}" style="display: inline-block; background-color: #b45309; color: #ffffff; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 999px; text-decoration: none; letter-spacing: 0.02em;">
-      Angebot ansehen
-    </a>
-    <p style="font-size: 13px; color: #999; margin-top: 12px;">
-      Dort können Sie alle Details einsehen, Ihren Favoriten wählen und das Angebot als PDF herunterladen.
-    </p>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(emailSubject)}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #faf6f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333;">
+  <!-- Preheader (versteckt, sichtbar nur in Inbox-Preview) -->
+  <div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">
+    Ihr persönliches Angebot ist online bereit. Jetzt ansehen und buchen.
   </div>
-  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
-  <div style="white-space: pre-wrap; font-size: 15px; color: #444;">${escapeHtml(emailContent)}</div>
-  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0 16px;">
-  <p style="font-size: 12px; color: #aaa; text-align: center;">
-    <a href="${offerUrl}" style="color: #b45309;">${offerUrl}</a>
-  </p>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf6f0; padding: 32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.04);">
+
+        <!-- Header mit STORIA-Branding -->
+        <tr><td style="padding: 32px 32px 20px; text-align: center; border-bottom: 1px solid #f0ead8;">
+          <h1 style="margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 28px; font-weight: normal; color: #1a1a1a; letter-spacing: 0.08em;">STORIA</h1>
+          <p style="margin: 6px 0 0; font-size: 11px; color: #999; letter-spacing: 0.18em; text-transform: uppercase;">Catering &amp; Events &mdash; München</p>
+        </td></tr>
+
+        <!-- CTA-Bereich -->
+        <tr><td style="padding: 32px; text-align: center;">
+          <p style="margin: 0 0 20px; font-size: 16px; color: #555;">
+            Ihr persönliches Angebot ist online bereit:
+          </p>
+          <a href="${offerUrl}" style="display: inline-block; background-color: #b45309; color: #ffffff; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 999px; text-decoration: none; letter-spacing: 0.02em; box-shadow: 0 4px 12px rgba(180,83,9,0.25);">
+            Angebot ansehen
+          </a>
+          <p style="margin: 16px 0 0; font-size: 13px; color: #999;">
+            Alle Details einsehen, Favoriten wählen und bequem online buchen.
+          </p>
+        </td></tr>
+
+        <!-- Anschreiben (Admin-Text) -->
+        <tr><td style="padding: 0 32px 32px;">
+          <div style="border-top: 1px solid #e5e5e5; padding-top: 24px; white-space: pre-wrap; font-size: 15px; color: #444;">${escapeHtml(emailContent)}</div>
+        </td></tr>
+
+        <!-- Footer mit Kontakt -->
+        <tr><td style="padding: 24px 32px; background-color: #faf6f0; text-align: center; border-top: 1px solid #f0ead8;">
+          <p style="margin: 0 0 8px; font-size: 13px; color: #666;">
+            <strong>STORIA Catering &amp; Events</strong><br>
+            Karlstraße 43, 80333 München
+          </p>
+          <p style="margin: 8px 0 0; font-size: 13px;">
+            <a href="tel:+498951519696" style="color: #b45309; text-decoration: none;">089 51519696</a>
+            &nbsp;&middot;&nbsp;
+            <a href="mailto:info@events-storia.de" style="color: #b45309; text-decoration: none;">info@events-storia.de</a>
+          </p>
+          <p style="margin: 16px 0 0; font-size: 11px; color: #aaa;">
+            <a href="${offerUrl}" style="color: #aaa; word-break: break-all;">${offerUrl}</a>
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
 </body>
 </html>`;
 

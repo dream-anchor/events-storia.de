@@ -1107,22 +1107,33 @@ function FinalOptionCard({
         {option.offer_mode === 'paket' ? (
           /* Paket-Modus: nur Gesamtzahlung */
           <Button
-            className="w-full h-12 gap-2 rounded-full font-sans font-semibold text-base shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all"
+            className="w-full h-12 gap-2 rounded-full font-sans font-semibold text-base shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-80 disabled:hover:translate-y-0"
             onClick={() => handlePayment('full')}
             disabled={isRedirecting}
           >
-            {isRedirecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-            Jetzt zahlen — {formatCurrencyDecimal(totalAmount)}
+            {isRedirecting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Zahlung wird vorbereitet…
+              </>
+            ) : (
+              <>
+                <CreditCard className="h-4 w-4" />
+                Jetzt zahlen — {formatCurrencyDecimal(totalAmount)}
+              </>
+            )}
           </Button>
         ) : totalAmount > 0 ? (
           /* Menü-Modus: Komplett oder Anzahlung */
           <div className="space-y-3">
-            <p className="text-sm font-sans font-medium text-center text-foreground/80">Wie möchten Sie zahlen?</p>
+            <p className="text-sm font-sans font-medium text-center text-foreground/80">
+              {isRedirecting ? 'Zahlung wird vorbereitet…' : 'Wie möchten Sie zahlen?'}
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => handlePayment('full')}
                 disabled={isRedirecting}
-                className="p-4 rounded-xl border-2 border-primary text-center hover:bg-primary/5 transition-colors disabled:opacity-50"
+                className="p-4 rounded-xl border-2 border-primary text-center hover:bg-primary/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isRedirecting ? (
                   <Loader2 className="h-4 w-4 animate-spin mx-auto" />
@@ -1136,7 +1147,7 @@ function FinalOptionCard({
               <button
                 onClick={() => handlePayment('deposit')}
                 disabled={isRedirecting}
-                className="p-4 rounded-xl border border-border text-center hover:bg-muted/50 transition-colors disabled:opacity-50"
+                className="p-4 rounded-xl border border-border text-center hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isRedirecting ? (
                   <Loader2 className="h-4 w-4 animate-spin mx-auto" />

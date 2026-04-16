@@ -8,8 +8,9 @@ const CookieSettingsButton = () => {
   const { t } = useLanguage();
   const location = useLocation();
 
-  // Hide on admin pages
+  // Hide on admin and public offer pages
   if (location.pathname.startsWith('/admin')) return null;
+  if (location.pathname.startsWith('/offer/')) return null;
   
   // Only show if consent has been given (banner was dismissed)
   if (!consent) return null;
