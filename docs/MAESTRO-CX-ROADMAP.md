@@ -55,14 +55,21 @@ Letzte Aktualisierung: 2026-04-16
 
 ## Offen
 
-### Sprint 5: Messaging-System
-- [ ] email_messages Tabelle (Lovable)
-- [ ] ConversationThread: Inline-Antwort senden
-- [ ] Resend Inbound einrichten
+### Sprint 5: Messaging-System (16.04.2026) ← 95% abgeschlossen
+- [x] email_messages Tabelle (bereits vorhanden, via früherem Lovable)
+- [x] Ausgehende Mails in email_messages speichern (send-offer-email Zeile 332-335)
+- [x] ConversationThread: Inline-Antwort senden (⌘↵, Status-Icons, Real-time)
+- [x] Edge Function: receive-inbound-email (deployed, 3 Methoden zum Matching)
+- [ ] Resend Inbound Webhook konfigurieren (Config, kein Code)
+- [ ] Test: Kunde antwortet → Thread zeigt neue Nachricht in Real-time
 
 ### Sprint 6: Zahlungsoptionen PublicOffer
 - [ ] Komplett zahlen vs. 20% Anzahlung
 - [ ] Stornobedingungen auf PublicOffer + FAQ
+
+## Offen
+
+### Sprint 7+: Events-Liste, Catering, Kalender
 
 ## Technische Schulden
 - [ ] SourcePanel.tsx und DraftPanel.tsx löschen
