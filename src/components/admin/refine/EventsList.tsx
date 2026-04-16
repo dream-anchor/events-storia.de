@@ -39,7 +39,15 @@ const eventTypeLabels: Record<string, string> = {
   sonstiges: "Sonstiges",
 };
 
-type FilterType = 'all' | 'mine' | 'new' | 'in_progress' | 'offer_sent' | 'confirmed' | 'declined' | 'urgent' | 'archived';
+// Filter-Konzept (Option C, 16.04.2026):
+// - 'all':       alle aktiven (non-archived) — Default
+// - 'inbox':     Eingang = aktive ohne confirmed/declined (ersetzt Neu + In Bearbeitung + Angebot)
+// - 'confirmed': Bestätigte Events
+// - 'declined':  Abgelehnte Events
+// - 'archived':  Archivierte
+// - 'mine':      Mir zugewiesen (kontext-sensitiv, nur wenn >0)
+// - 'urgent':    Dringend/Hoch (kontext-sensitiv, nur wenn >0)
+type FilterType = 'all' | 'inbox' | 'confirmed' | 'declined' | 'archived' | 'mine' | 'urgent';
 
 // Priority badge component
 const PriorityIndicator = ({ priority }: { priority?: InquiryPriority }) => {
@@ -163,51 +171,37 @@ export const EventsList = () => {
       });
   }, [allEvents]);
 
-  // Categorize events based on status (the single source of truth)
-  // Status 'offer_sent' means at least one version was sent - it stays there even when editing a new version
+  // Categorize events (Option C — vereinfachtes Filter-Konzept)
   const categorizedEvents = useMemo(() => {
-    const newInquiries = activeEvents.filter(e =>
-      e.status === 'new' && !e.last_edited_at
-    );
-    const inProgress = activeEvents.filter(e =>
-      (e.last_edited_at || e.status === 'contacted') &&
-      e.status !== 'offer_sent' &&
-      e.status !== 'confirmed' &&
-      e.status !== 'declined'
-    );
-    // offer_sent = status is the source of truth (set once, stays forever unless confirmed/declined)
-    const offerSent = activeEvents.filter(e =>
-      e.status === 'offer_sent'
+    // Eingang = alles Aktive außer confirmed/declined
+    const inbox = activeEvents.filter(e =>
+      e.status !== 'confirmed' && e.status !== 'declined'
     );
     const confirmed = activeEvents.filter(e => e.status === 'confirmed');
     const declined = activeEvents.filter(e => e.status === 'declined');
 
-    // My assigned inquiries (non-archived only)
+    // Meine (kontext-sensitiv)
     const mine = activeEvents.filter(e =>
       e.assigned_to === currentUserEmail &&
       e.status !== 'confirmed' &&
       e.status !== 'declined'
     );
 
-    // Urgent/High priority (non-archived only)
+    // Dringend/Hoch (kontext-sensitiv)
     const urgent = activeEvents.filter(e =>
       (e.priority === 'urgent' || e.priority === 'high') &&
       e.status !== 'confirmed' &&
       e.status !== 'declined'
     );
 
-    return { newInquiries, inProgress, offerSent, confirmed, declined, mine, urgent };
+    return { inbox, confirmed, declined, mine, urgent };
   }, [activeEvents, currentUserEmail]);
 
   // Get filtered events based on current filter
   const filteredEvents = useMemo(() => {
     switch (currentFilter) {
-      case 'new':
-        return categorizedEvents.newInquiries;
-      case 'in_progress':
-        return categorizedEvents.inProgress;
-      case 'offer_sent':
-        return categorizedEvents.offerSent;
+      case 'inbox':
+        return categorizedEvents.inbox;
       case 'confirmed':
         return categorizedEvents.confirmed;
       case 'declined':
@@ -223,9 +217,15 @@ export const EventsList = () => {
     }
   }, [currentFilter, categorizedEvents, activeEvents, archivedEvents]);
 
-  // Filter pills with counts
+  // Filter pills mit Counts (Option C: Eingang / Bestätigt / Abgelehnt / Archiv / Alle)
   const filterPills = [
-    { id: 'all', label: `Alle (${activeEvents.length})`, value: 'all', active: currentFilter === 'all' },
+    {
+      id: 'inbox',
+      label: `Eingang (${categorizedEvents.inbox.length})`,
+      value: 'inbox',
+      active: currentFilter === 'inbox',
+    },
+    // Meine + Dringend bleiben kontext-sensitiv als Zusatzfilter
     ...(currentUserEmail && categorizedEvents.mine.length > 0 ? [{
       id: 'mine',
       label: `Meine (${categorizedEvents.mine.length})`,
@@ -240,15 +240,31 @@ export const EventsList = () => {
       active: currentFilter === 'urgent',
       icon: <AlertTriangle className="h-3 w-3 mr-1 text-destructive" />
     }] : []),
-    { id: 'new', label: `Neu (${categorizedEvents.newInquiries.length})`, value: 'new', active: currentFilter === 'new', icon: <span className="w-2 h-2 rounded-full bg-destructive/70 mr-1" /> },
-    { id: 'in_progress', label: `In Bearbeitung (${categorizedEvents.inProgress.length})`, value: 'in_progress', active: currentFilter === 'in_progress', icon: <Edit3 className="h-3 w-3 mr-1 text-amber-600" /> },
-    { id: 'offer_sent', label: `Angebot (${categorizedEvents.offerSent.length})`, value: 'offer_sent', active: currentFilter === 'offer_sent', icon: <Send className="h-3 w-3 mr-1 text-emerald-600" /> },
-    ...(categorizedEvents.confirmed.length > 0 || currentFilter === 'confirmed' ? [
-      { id: 'confirmed', label: `Bestätigt (${categorizedEvents.confirmed.length})`, value: 'confirmed', active: currentFilter === 'confirmed' }
-    ] : []),
-    ...(archivedEvents.length > 0 || currentFilter === 'archived' ? [
-      { id: 'archived', label: `Archiv (${archivedEvents.length})`, value: 'archived', active: currentFilter === 'archived', icon: <Archive className="h-3 w-3 mr-1 text-muted-foreground" /> }
-    ] : []),
+    ...(categorizedEvents.confirmed.length > 0 || currentFilter === 'confirmed' ? [{
+      id: 'confirmed',
+      label: `Bestätigt (${categorizedEvents.confirmed.length})`,
+      value: 'confirmed',
+      active: currentFilter === 'confirmed',
+    }] : []),
+    ...(categorizedEvents.declined.length > 0 || currentFilter === 'declined' ? [{
+      id: 'declined',
+      label: `Abgelehnt (${categorizedEvents.declined.length})`,
+      value: 'declined',
+      active: currentFilter === 'declined',
+    }] : []),
+    ...(archivedEvents.length > 0 || currentFilter === 'archived' ? [{
+      id: 'archived',
+      label: `Archiv (${archivedEvents.length})`,
+      value: 'archived',
+      active: currentFilter === 'archived',
+      icon: <Archive className="h-3 w-3 mr-1 text-muted-foreground" />
+    }] : []),
+    {
+      id: 'all',
+      label: `Alle (${activeEvents.length})`,
+      value: 'all',
+      active: currentFilter === 'all',
+    },
   ];
 
   const handleFilterChange = (filterId: string, value: string) => {
@@ -263,6 +279,7 @@ export const EventsList = () => {
   };
 
   const columns: ColumnDef<EventInquiry>[] = [
+    // Spalte 1: Status (bleibt wie bisher — mit allen Extras)
     {
       accessorKey: "status",
       header: "Status",
@@ -291,7 +308,6 @@ export const EventsList = () => {
           statusLabel = 'Angebot gesendet';
           statusIcon = <Send className="h-3 w-3 mr-1" />;
           badgeClass = 'border-emerald-500/50 text-emerald-700 bg-emerald-50';
-          // Use central admin display name
           if (event.offer_sent_by) {
             subLabel = `von ${getAdminDisplayName(event.offer_sent_by)}`;
           }
@@ -299,7 +315,6 @@ export const EventsList = () => {
           statusLabel = 'In Bearbeitung';
           statusIcon = <Edit3 className="h-3 w-3 mr-1" />;
           badgeClass = 'border-amber-500/50 text-amber-700 bg-amber-50';
-          // Use central admin display name
           if (event.last_edited_by) {
             subLabel = `von ${getAdminDisplayName(event.last_edited_by)}`;
           }
@@ -326,8 +341,8 @@ export const EventsList = () => {
           : null;
 
         return (
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-col gap-1 min-w-[160px]">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Badge variant="outline" className={cn("font-medium flex items-center w-fit", badgeClass)}>
                 {statusIcon}
                 {statusLabel}
@@ -343,41 +358,67 @@ export const EventsList = () => {
         );
       },
     },
+
+    // Spalte 2: Anfrage (Eingangsdatum — Events haben keine order_number)
     {
       accessorKey: "created_at",
-      header: "Eingegangen",
+      header: "Anfrage",
       cell: ({ row }) => {
         const date = row.original.created_at;
         if (!date) return <span className="text-muted-foreground">-</span>;
         return (
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span>{format(parseISO(date), "EEE, dd.MM.yy", { locale: de })}</span>
+          <div className="flex items-center gap-2 text-sm">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>{format(parseISO(date), "dd.MM.yy", { locale: de })}</span>
           </div>
         );
       },
     },
+
+    // Spalte 3: Eventdatum (VORGEZOGEN analog Orders-Liefertermin)
     {
-      accessorKey: "contact_name",
-      header: "Kontakt",
-      cell: ({ row }) => (
-        <div className="max-w-[280px]">
-          <p className="font-medium">{row.original.contact_name}</p>
-          {row.original.company_name && (
-            <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <Building2 className="h-3 w-3" />
-              {row.original.company_name}
-            </p>
-          )}
-          {row.original.message && (
-            <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2 italic flex items-start gap-1">
-              <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
-              <span className="truncate">"{row.original.message.slice(0, 80)}{row.original.message.length > 80 ? '...' : ''}"</span>
-            </p>
-          )}
-        </div>
-      ),
+      accessorKey: "preferred_date",
+      header: "Eventdatum",
+      cell: ({ row }) => {
+        const date = row.original.preferred_date;
+        if (!date) return <span className="text-muted-foreground">-</span>;
+
+        const dateObj = parseISO(date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diffDays = Math.floor((dateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        const relativeLabel =
+          diffDays === 0 ? 'Heute' :
+          diffDays === 1 ? 'Morgen' :
+          diffDays === -1 ? 'Gestern' :
+          diffDays > 0 && diffDays <= 7 ? `in ${diffDays} Tagen` :
+          diffDays > 7 && diffDays <= 30 ? `in ${diffDays} Tagen` :
+          diffDays < 0 ? `vor ${Math.abs(diffDays)} Tagen` :
+          null;
+
+        return (
+          <div className="flex items-start gap-1.5 min-w-[120px]">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
+            <div>
+              <p className="text-sm font-medium">
+                {format(dateObj, "EEE, dd.MM.yy", { locale: de })}
+              </p>
+              {relativeLabel && (
+                <p className={cn(
+                  "text-xs font-medium mt-0.5",
+                  diffDays <= 2 && diffDays >= 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+                )}>
+                  {relativeLabel}
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      },
     },
+
+    // Spalte 4: Event-Typ + Gäste
     {
       accessorKey: "event_type",
       header: "Event",
@@ -398,6 +439,64 @@ export const EventsList = () => {
         );
       },
     },
+
+    // Spalte 5: Kunde
+    {
+      accessorKey: "contact_name",
+      header: "Kunde",
+      cell: ({ row }) => (
+        <div className="max-w-[240px] min-w-[160px]">
+          <p className="font-medium text-sm">{row.original.contact_name}</p>
+          {row.original.company_name && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Building2 className="h-3 w-3" />
+              {row.original.company_name}
+            </p>
+          )}
+          {row.original.message && (
+            <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2 italic flex items-start gap-1">
+              <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+              <span className="truncate">"{row.original.message.slice(0, 80)}{row.original.message.length > 80 ? '...' : ''}"</span>
+            </p>
+          )}
+        </div>
+      ),
+    },
+
+    // Spalte 6: Kontakt (Mail + Telefon — analog Orders)
+    {
+      id: "contact",
+      header: "Kontakt",
+      cell: ({ row }) => {
+        const event = row.original;
+        return (
+          <div className="flex flex-col gap-1 min-w-[180px]">
+            {event.email && (
+              <a
+                href={`mailto:${event.email}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                <Mail className="h-3 w-3" />
+                <span className="truncate">{event.email}</span>
+              </a>
+            )}
+            {event.phone && (
+              <a
+                href={`tel:${event.phone.replace(/\s/g, '')}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                <Phone className="h-3 w-3" />
+                <span>{event.phone}</span>
+              </a>
+            )}
+          </div>
+        );
+      },
+    },
+
+    // Spalte 7: Bearbeitet (bleibt erhalten — wichtig bei Events mit langen Zyklen)
     {
       accessorKey: "last_edited_at",
       header: "Bearbeitet",
@@ -407,30 +506,12 @@ export const EventsList = () => {
           return <span className="text-xs text-muted-foreground">-</span>;
         }
         return (
-          <EditorIndicator 
+          <EditorIndicator
             editedAt={event.last_edited_at}
             compact
           />
         );
       },
-    },
-    {
-      accessorKey: "email",
-      header: "E-Mail",
-      cell: ({ row }) => (
-        <div className="space-y-1">
-          <a href={`mailto:${row.original.email}`} className="text-sm text-foreground hover:underline flex items-center gap-1">
-            <Mail className="h-3 w-3 text-muted-foreground" />
-            {row.original.email}
-          </a>
-          {row.original.phone && (
-            <a href={`tel:${row.original.phone}`} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-              <Phone className="h-3 w-3" />
-              {row.original.phone}
-            </a>
-          )}
-        </div>
-      ),
     },
   ];
 

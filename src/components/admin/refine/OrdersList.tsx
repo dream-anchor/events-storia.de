@@ -145,7 +145,50 @@ export const OrdersList = () => {
       ),
     },
 
-    // Spalte 3: Lieferung/Abholung + Adresse (oder Abholung-Label)
+    // Spalte 3: Liefertermin (VORGEZOGEN nach Bestellung)
+    {
+      accessorKey: "desired_date",
+      header: "Liefertermin",
+      cell: ({ row }) => {
+        const date = row.original.desired_date;
+        const time = row.original.desired_time;
+        if (!date) return <span className="text-muted-foreground">-</span>;
+
+        const dateObj = parseISO(date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diffDays = Math.floor((dateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        const relativeLabel =
+          diffDays === 0 ? 'Heute' :
+          diffDays === 1 ? 'Morgen' :
+          diffDays === -1 ? 'Gestern' :
+          diffDays > 0 && diffDays <= 7 ? `in ${diffDays} Tagen` :
+          null;
+
+        return (
+          <div className="flex items-start gap-1.5 min-w-[120px]">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
+            <div>
+              <p className="text-sm font-medium">
+                {format(dateObj, "EEE, dd.MM.yy", { locale: de })}
+              </p>
+              {time && <p className="text-xs text-muted-foreground">{time} Uhr</p>}
+              {relativeLabel && (
+                <p className={cn(
+                  "text-xs font-medium mt-0.5",
+                  diffDays <= 2 && diffDays >= 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+                )}>
+                  {relativeLabel}
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      },
+    },
+
+    // Spalte 4: Lieferung/Abholung + Adresse (oder Abholung-Label)
     {
       id: "delivery_address",
       header: "Lieferung / Abholung",
@@ -187,7 +230,7 @@ export const OrdersList = () => {
       },
     },
 
-    // Spalte 4: Kunde
+    // Spalte 5: Kunde
     {
       accessorKey: "customer_name",
       header: "Kunde",
@@ -201,7 +244,7 @@ export const OrdersList = () => {
       ),
     },
 
-    // Spalte 5: Kontakt (Mail + Telefon)
+    // Spalte 6: Kontakt (Mail + Telefon)
     {
       id: "contact",
       header: "Kontakt",
@@ -229,49 +272,6 @@ export const OrdersList = () => {
                 <span>{o.customer_phone}</span>
               </a>
             )}
-          </div>
-        );
-      },
-    },
-
-    // Spalte 6: Liefertermin
-    {
-      accessorKey: "desired_date",
-      header: "Termin",
-      cell: ({ row }) => {
-        const date = row.original.desired_date;
-        const time = row.original.desired_time;
-        if (!date) return <span className="text-muted-foreground">-</span>;
-
-        const dateObj = parseISO(date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const diffDays = Math.floor((dateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-        const relativeLabel =
-          diffDays === 0 ? 'Heute' :
-          diffDays === 1 ? 'Morgen' :
-          diffDays === -1 ? 'Gestern' :
-          diffDays > 0 && diffDays <= 7 ? `in ${diffDays} Tagen` :
-          null;
-
-        return (
-          <div className="flex items-start gap-1.5 min-w-[120px]">
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-            <div>
-              <p className="text-sm font-medium">
-                {format(dateObj, "EEE, dd.MM.yy", { locale: de })}
-              </p>
-              {time && <p className="text-xs text-muted-foreground">{time} Uhr</p>}
-              {relativeLabel && (
-                <p className={cn(
-                  "text-xs font-medium mt-0.5",
-                  diffDays <= 2 && diffDays >= 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
-                )}>
-                  {relativeLabel}
-                </p>
-              )}
-            </div>
           </div>
         );
       },
