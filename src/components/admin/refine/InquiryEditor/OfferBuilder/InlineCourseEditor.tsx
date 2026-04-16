@@ -49,6 +49,7 @@ function SortableCourseRow({
   onDishSelect,
   onClear,
   onUpdateName,
+  onRemoveCourse,
   disabled,
 }: {
   course: CourseSelection;
