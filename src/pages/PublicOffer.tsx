@@ -713,6 +713,13 @@ function ProposalView({
             </div>
           )}
 
+          {/* Stornobedingungen — direkt unter der Buchen-Box */}
+          {selectedOption && (
+            <div className="max-w-2xl mb-10 px-2">
+              <CancellationTermsAccordion />
+            </div>
+          )}
+
           {/* SECONDARY ACTION — Nachricht senden */}
           <div className="max-w-2xl">
             <div className="rounded-2xl border border-border/40 bg-white/40 dark:bg-white/5 backdrop-blur-sm p-6 md:p-7">
@@ -778,11 +785,6 @@ function ProposalView({
               </Button>
             </div>
           </div>
-
-          {/* Stornobedingungen */}
-          <div className="mt-8 max-w-2xl">
-            <CancellationTermsAccordion />
-          </div>
         </div>
       </div>
     </section>
@@ -806,7 +808,10 @@ function ProposalOptionCard({
 }) {
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
-  const _drinksLegacy = menu?.drinks?.filter((d) => d.selectedChoice || d.customDrink) || [];
+  // Filter: Drinks mit Inhalt ODER "inkl."-Einträge (Wasser/Kaffee) mit quantityLabel
+  const _drinksLegacy = menu?.drinks?.filter((d) =>
+    d.selectedChoice || d.customDrink || d.quantityLabel
+  ) || [];
   const _drinksEinzeln: DrinkSelection[] = ((menu as any)?.drinksEinzeln || [])
     .filter((d: { name: string }) => d.name)
     .map((d: { name: string }) => ({ drinkGroup: 'custom' as const, drinkLabel: d.name, selectedChoice: null, customDrink: null, quantityLabel: null }));
@@ -906,21 +911,28 @@ function ProposalOptionCard({
 
             {drinks.length > 0 && (
               <div className={cn("space-y-3", courses.length > 0 && "mt-6 pt-5 border-t border-border/15")}>
-                {drinks.map((d, i) => (
-                  <div key={i} className="flex items-baseline gap-4">
-                    <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
-                      {d.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : d.drinkLabel}
-                    </span>
-                    <p className="text-base font-serif text-foreground leading-snug">
-                      {d.customDrink || d.selectedChoice}
-                      {d.quantityLabel && (
-                        <span className="text-sm text-muted-foreground ml-2 font-sans">
-                          ({d.quantityLabel})
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                ))}
+                {drinks.map((d, i) => {
+                  const hasContent = d.customDrink || d.selectedChoice;
+                  return (
+                    <div key={i} className="flex items-baseline gap-4">
+                      <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
+                        {d.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : d.drinkLabel}
+                      </span>
+                      <p className="text-base font-serif text-foreground leading-snug">
+                        {hasContent ? (d.customDrink || d.selectedChoice) : (
+                          <span className="text-emerald-700 dark:text-emerald-400 font-sans text-sm font-semibold uppercase tracking-wider">
+                            inklusive
+                          </span>
+                        )}
+                        {d.quantityLabel && (
+                          <span className="text-sm text-muted-foreground ml-2 font-sans">
+                            ({d.quantityLabel})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1050,7 +1062,10 @@ function FinalOptionCard({
   const [isRedirecting, setIsRedirecting] = useState(false);
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
-  const _drinksLegacy = menu?.drinks?.filter((d) => d.selectedChoice || d.customDrink) || [];
+  // Filter: Drinks mit Inhalt ODER "inkl."-Einträge (Wasser/Kaffee) mit quantityLabel
+  const _drinksLegacy = menu?.drinks?.filter((d) =>
+    d.selectedChoice || d.customDrink || d.quantityLabel
+  ) || [];
   const _drinksEinzeln: DrinkSelection[] = ((menu as any)?.drinksEinzeln || [])
     .filter((d: { name: string }) => d.name)
     .map((d: { name: string }) => ({ drinkGroup: 'custom' as const, drinkLabel: d.name, selectedChoice: null, customDrink: null, quantityLabel: null }));
@@ -1179,21 +1194,28 @@ function FinalOptionCard({
               </h4>
             </div>
             <div className="space-y-2.5">
-              {drinks.map((drink, i) => (
-                <div key={i}>
-                  <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
-                    {drink.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : drink.drinkLabel}
-                  </p>
-                  <p className="font-serif text-sm text-foreground">
-                    {drink.customDrink || drink.selectedChoice}
-                    {drink.quantityLabel && (
-                      <span className="text-muted-foreground/50 ml-1">
-                        ({drink.quantityLabel})
-                      </span>
-                    )}
-                  </p>
-                </div>
-              ))}
+              {drinks.map((drink, i) => {
+                const hasContent = drink.customDrink || drink.selectedChoice;
+                return (
+                  <div key={i}>
+                    <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
+                      {drink.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : drink.drinkLabel}
+                    </p>
+                    <p className="font-serif text-sm text-foreground">
+                      {hasContent ? (drink.customDrink || drink.selectedChoice) : (
+                        <span className="text-emerald-700 dark:text-emerald-400 font-sans text-xs font-semibold uppercase tracking-wider">
+                          inklusive
+                        </span>
+                      )}
+                      {drink.quantityLabel && (
+                        <span className="text-muted-foreground/50 ml-1">
+                          ({drink.quantityLabel})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1504,49 +1526,55 @@ function CancellationTermsAccordion() {
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-2 text-xs font-sans text-muted-foreground hover:text-foreground transition-colors group"
+        className="w-full flex items-center gap-2 text-sm font-sans text-foreground/70 hover:text-foreground transition-colors group"
       >
-        <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60 group-hover:text-muted-foreground" />
-        <span className="flex-1 text-left">Stornobedingungen</span>
+        <Info className="h-4 w-4 shrink-0 text-primary/60 group-hover:text-primary" />
+        <span className="flex-1 text-left font-medium">Flexibel stornieren — bis 30 Tage vor dem Event kostenfrei</span>
         <ChevronDown
           className={cn(
-            "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-200",
+            "h-4 w-4 shrink-0 text-muted-foreground/60 transition-transform duration-200",
             open && "rotate-180"
           )}
         />
       </button>
 
       {open && (
-        <div className="mt-3 px-1 space-y-2 text-[11px] font-sans text-muted-foreground animate-in fade-in-0 slide-in-from-top-1 duration-200">
-          <p className="text-foreground/70">
-            Bei Rücktritt vom Vertrag berechnen wir pauschalierten Schadensersatz:
+        <div className="mt-4 px-1 space-y-3 text-sm font-sans animate-in fade-in-0 slide-in-from-top-1 duration-200">
+          <p className="text-foreground/80 leading-relaxed">
+            Pläne können sich ändern — wir verstehen das. Falls Sie Ihr Event absagen müssen,
+            gelten folgende Stornogebühren (berechnet als Anteil der gebuchten Summe):
           </p>
-          <ul className="space-y-1 pl-1">
-            <li className="flex justify-between gap-4">
-              <span>Bis 30 Tage vor Event</span>
-              <span className="font-medium text-emerald-700 dark:text-emerald-400">kostenfrei</span>
+
+          <ul className="space-y-2 pt-1">
+            <li className="flex items-baseline justify-between gap-4 py-1.5 border-b border-border/20">
+              <span className="text-foreground">Mehr als 30 Tage vor dem Event</span>
+              <span className="font-semibold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">kostenlos</span>
             </li>
-            <li className="flex justify-between gap-4">
-              <span>14–30 Tage vorher</span>
-              <span className="font-medium text-foreground/80">25 %</span>
+            <li className="flex items-baseline justify-between gap-4 py-1.5 border-b border-border/20">
+              <span className="text-foreground">15–30 Tage vor dem Event</span>
+              <span className="font-semibold text-foreground whitespace-nowrap">25 %</span>
             </li>
-            <li className="flex justify-between gap-4">
-              <span>7–14 Tage vorher</span>
-              <span className="font-medium text-foreground/80">50 %</span>
+            <li className="flex items-baseline justify-between gap-4 py-1.5 border-b border-border/20">
+              <span className="text-foreground">8–14 Tage vor dem Event</span>
+              <span className="font-semibold text-foreground whitespace-nowrap">50 %</span>
             </li>
-            <li className="flex justify-between gap-4">
-              <span>2–7 Tage vorher</span>
-              <span className="font-medium text-foreground/80">80 %</span>
+            <li className="flex items-baseline justify-between gap-4 py-1.5 border-b border-border/20">
+              <span className="text-foreground">3–7 Tage vor dem Event</span>
+              <span className="font-semibold text-foreground whitespace-nowrap">80 %</span>
             </li>
-            <li className="flex justify-between gap-4">
-              <span>Weniger als 48 Std. / No-Show</span>
-              <span className="font-medium text-foreground/80">100 %</span>
+            <li className="flex items-baseline justify-between gap-4 py-1.5">
+              <span className="text-foreground">Ab 48 Stunden vorher oder No-Show</span>
+              <span className="font-semibold text-foreground whitespace-nowrap">100 %</span>
             </li>
           </ul>
-          <p className="pt-2 text-[10px] text-muted-foreground/70">
-            Bereits geleistete Anzahlungen werden verrechnet. Vollständige Bedingungen in unseren{" "}
+
+          <p className="pt-2 text-xs text-muted-foreground leading-relaxed">
+            Maßgeblich ist der Eingang Ihrer schriftlichen Stornierung bei uns.
+            Bereits geleistete Anzahlungen werden mit der Stornogebühr verrechnet —
+            ein etwaiger Überschuss wird Ihnen zurückerstattet.
+            Vollständige Bedingungen finden Sie in unseren{" "}
             <LocalizedLink to="/agb-veranstaltungen" className="underline hover:text-foreground">
-              AGB
+              AGB für Veranstaltungen
             </LocalizedLink>.
           </p>
         </div>
