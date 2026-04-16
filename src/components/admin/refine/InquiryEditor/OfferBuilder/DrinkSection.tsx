@@ -71,34 +71,53 @@ export function DrinkSection({
 
   return (
     <div className="space-y-2">
-      {/* Header + Mode-Auswahl */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <Wine className="h-3.5 w-3.5 text-amber-600/80" />
-          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Getränke
-          </span>
+      {/* Header + Mode-Auswahl — kompakt wenn "Keine" */}
+      {drinksMode === 'none' ? (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <Wine className="h-3.5 w-3.5 text-muted-foreground/50" />
+            <span className="text-xs text-muted-foreground">
+              Getränke: Keine
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => !disabled && handleModeChange('pauschale')}
+            disabled={disabled}
+            className="text-[11px] text-primary/70 hover:text-primary transition-colors"
+          >
+            + hinzufügen
+          </button>
         </div>
-        <div className="flex items-center gap-1">
-          {MODE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => !disabled && handleModeChange(opt.value)}
-              disabled={disabled}
-              className={cn(
-                "px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors",
-                drinksMode === opt.value
-                  ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-                disabled && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+      ) : (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <Wine className="h-3.5 w-3.5 text-amber-600/80" />
+            <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Getränke
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            {MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => !disabled && handleModeChange(opt.value)}
+                disabled={disabled}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors",
+                  drinksMode === opt.value
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                  disabled && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Modus: Pauschale pro Person */}
       {drinksMode === 'pauschale' && (
