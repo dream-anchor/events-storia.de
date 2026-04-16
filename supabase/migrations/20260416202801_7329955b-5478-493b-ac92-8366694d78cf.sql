@@ -1,0 +1,2 @@
+ALTER TABLE public.event_inquiries ADD COLUMN IF NOT EXISTS venue text;
+COMMENT ON COLUMN public.event_inquiries.venue IS 'Veranstaltungsort / Location des Events (Freitext, z.B. "Ristorante Storia" oder eine Adresse).';
