@@ -22,6 +22,8 @@ import {
   FileText,
   Info,
   ChevronDown,
+  Lock,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -493,7 +495,10 @@ function HeroSection({
 }
 
 // =================================================================
-// PROPOSAL VIEW — Kunde wählt Option + schreibt Anmerkungen
+// PROPOSAL VIEW — Kunde entscheidet: Buchen (Zahlung) oder Nachricht
+// CX: Zwei klare Pfade statt generischem "Bestätigen"
+//   Primary:   Zahlung (Anzahlung 20 % oder Voll)
+//   Secondary: Nachricht (für Fragen/Änderungen)
 // =================================================================
 
 function ProposalView({
@@ -505,15 +510,48 @@ function ProposalView({
   options: PublicOfferOption[];
   onSubmitted: (data: PublicOfferData) => void;
 }) {
-  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  // Single-Option ist auto-selected — Kunde muss nichts extra auswählen
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(
+    options.length === 1 ? options[0].id : null
+  );
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPaying, setIsPaying] = useState<'full' | 'deposit' | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [wantsCopy, setWantsCopy] = useState(false);
   const [copyEmail, setCopyEmail] = useState(inquiry.email || "");
 
-  const handleSubmit = async () => {
+  const selectedOption = options.find(o => o.id === selectedOptionId) || null;
+  const totalAmount = selectedOption?.total_amount ?? 0;
+  const depositAmount = Math.round(totalAmount * 0.2 * 100) / 100;
+
+  // ACTION: Zahlung — leitet zu Stripe Checkout weiter
+  const handlePayment = async (paymentType: 'full' | 'deposit') => {
     if (!selectedOptionId) return;
+    setIsPaying(paymentType);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-payment-session', {
+        body: { inquiryId: inquiry.id, optionId: selectedOptionId, paymentType },
+      });
+      if (error || !data?.checkoutUrl) {
+        throw new Error(data?.error || 'Fehler beim Erstellen der Zahlungssitzung');
+      }
+      window.location.href = data.checkoutUrl;
+    } catch (err) {
+      setIsPaying(null);
+      toast.error(
+        err instanceof Error ? err.message : 'Fehler bei der Zahlung',
+        {
+          description: 'Bitte versuchen Sie es erneut oder kontaktieren Sie uns unter 089 51519696.',
+          duration: 6000,
+        }
+      );
+    }
+  };
+
+  // ACTION: Nachricht senden — submit_offer_response-Flow
+  const handleSendMessage = async () => {
+    if (!selectedOptionId || !notes.trim()) return;
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -523,7 +561,7 @@ function ProposalView({
         {
           p_inquiry_id: inquiry.id,
           p_selected_option_id: selectedOptionId,
-          p_customer_notes: notes.trim() || null,
+          p_customer_notes: notes.trim(),
         } as never
       );
 
@@ -534,22 +572,19 @@ function ProposalView({
         return;
       }
 
-      // Admin-Notification (fire-and-forget)
       supabase.functions.invoke("notify-customer-response", {
         body: { inquiryId: inquiry.id },
       }).catch(() => {});
 
-      // E-Mail-Kopie (fire-and-forget)
       if (wantsCopy && copyEmail.trim()) {
-        const selectedOpt = options.find(o => o.id === selectedOptionId);
         supabase.functions.invoke("send-customer-response-copy", {
           body: {
             inquiryId: inquiry.id,
             customerEmail: copyEmail.trim(),
-            selectedOptionLabel: selectedOpt
-              ? `Option ${selectedOpt.option_label}: ${selectedOpt.package_name}`
+            selectedOptionLabel: selectedOption
+              ? `Option ${selectedOption.option_label}: ${selectedOption.package_name}`
               : "Ihre Auswahl",
-            customerNotes: notes.trim() || null,
+            customerNotes: notes.trim(),
           },
         }).catch(() => {});
       }
@@ -564,7 +599,7 @@ function ProposalView({
         customer_response: {
           id: crypto.randomUUID(),
           selected_option_id: selectedOptionId,
-          customer_notes: notes.trim() || null,
+          customer_notes: notes.trim(),
           responded_at: new Date().toISOString(),
         },
       });
@@ -576,6 +611,7 @@ function ProposalView({
   };
 
   const isSingle = options.length === 1;
+  const busy = isSubmitting || isPaying !== null;
 
   return (
     <section className="bg-secondary/30">
@@ -587,20 +623,18 @@ function ProposalView({
               {isSingle ? "Unser Vorschlag" : `${options.length} Optionen`}
             </p>
             <h2 className="font-serif text-2xl md:text-3xl font-bold mb-3">
-              {isSingle
-                ? "Ihr Menü-Vorschlag"
-                : "Wählen Sie Ihren Favoriten"}
+              {isSingle ? "Ihr Angebot" : "Wählen Sie Ihren Favoriten"}
             </h2>
             <p className="text-muted-foreground font-sans text-sm md:text-base max-w-xl">
               {isSingle
-                ? "Teilen Sie uns eventuelle Wünsche oder Änderungen mit."
-                : "Wir haben verschiedene Optionen für Sie zusammengestellt. Wählen Sie Ihren Favoriten und teilen Sie uns eventuelle Wünsche mit."}
+                ? "Buchen Sie direkt über den sicheren Zahlungslink — oder schreiben Sie uns bei Fragen und Änderungen."
+                : "Wir haben verschiedene Optionen für Sie zusammengestellt. Wählen Sie Ihren Favoriten, um fortzufahren."}
             </p>
           </div>
 
           {/* Options */}
           <div className={cn(
-            "gap-6 mb-10",
+            "gap-6 mb-12",
             options.length > 1 ? "grid grid-cols-1 lg:grid-cols-2" : "max-w-2xl"
           )}>
             {options.map((option) => (
@@ -614,68 +648,139 @@ function ProposalView({
             ))}
           </div>
 
-          {/* Anmerkungen + Submit */}
+          {/* PRIMARY ACTION — Buchen über Stripe */}
+          {selectedOption && (
+            <div className="max-w-2xl mb-10">
+              <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm rounded-2xl border-2 border-primary/20 p-6 md:p-8 shadow-[0_8px_30px_rgba(139,0,0,0.08)]">
+                <div className="mb-6">
+                  <h3 className="font-serif text-xl md:text-2xl font-bold text-foreground mb-1">
+                    Jetzt verbindlich buchen
+                  </h3>
+                  <p className="text-sm text-muted-foreground font-sans">
+                    Sicher bezahlen über Stripe — Kreditkarte, Apple Pay oder SEPA
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Voll bezahlen — Primary/Dominant */}
+                  <Button
+                    onClick={() => handlePayment('full')}
+                    disabled={busy}
+                    className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all"
+                  >
+                    <span className="flex items-center gap-2 w-full justify-between">
+                      <span className="text-sm">Voll bezahlen</span>
+                      {isPaying === 'full' && <Loader2 className="h-4 w-4 animate-spin" />}
+                    </span>
+                    <span className="text-lg font-serif font-bold">
+                      {formatCurrency(totalAmount)}
+                    </span>
+                  </Button>
+
+                  {/* Anzahlung 20 % — Secondary/Alternative */}
+                  <Button
+                    onClick={() => handlePayment('deposit')}
+                    disabled={busy}
+                    variant="outline"
+                    className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all"
+                  >
+                    <span className="flex items-center gap-2 w-full justify-between">
+                      <span className="text-sm">Anzahlung 20 %</span>
+                      {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
+                    </span>
+                    <span className="text-lg font-serif font-bold text-primary">
+                      {formatCurrencyDecimal(depositAmount)}
+                    </span>
+                  </Button>
+                </div>
+
+                {/* Trust-Elemente */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-5 text-xs text-muted-foreground font-sans">
+                  <span className="flex items-center gap-1.5">
+                    <Lock className="h-3 w-3" />
+                    SSL-verschlüsselt
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="h-3 w-3" />
+                    Sichere Zahlung via Stripe
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <FileText className="h-3 w-3" />
+                    Rechnung folgt per E-Mail
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SECONDARY ACTION — Nachricht senden */}
           <div className="max-w-2xl">
-            <div className="mb-6">
-              <label className="text-sm font-sans font-medium text-foreground mb-2 block">
-                <MessageSquare className="h-4 w-4 inline mr-1.5 text-muted-foreground" />
-                Antworten Sie uns gerne direkt hier
-              </label>
+            <div className="rounded-2xl border border-border/40 bg-white/40 dark:bg-white/5 backdrop-blur-sm p-6 md:p-7">
+              <div className="mb-4">
+                <h3 className="font-serif text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-primary/70" />
+                  Noch eine Frage oder Änderung?
+                </h3>
+                <p className="text-sm text-muted-foreground font-sans">
+                  Schreiben Sie uns — z.B. Allergien, vegetarische Gäste oder Sonderwünsche. Wir melden uns mit einem angepassten Angebot.
+                </p>
+              </div>
+
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="z.B. Allergien, vegetarische Gäste, besondere Wünsche…"
-                className="min-h-[100px] rounded-xl resize-y font-sans"
+                placeholder="Ihre Nachricht an uns …"
+                className="min-h-[110px] rounded-xl resize-y font-sans text-base"
               />
-            </div>
 
-            {/* E-Mail-Kopie */}
-            <div className="mb-8">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={wantsCopy}
-                  onChange={(e) => setWantsCopy(e.target.checked)}
-                  className="h-4 w-4 rounded border-border accent-primary"
-                />
-                <span className="text-sm text-muted-foreground font-sans flex items-center gap-1.5">
-                  <Copy className="h-3.5 w-3.5" />
-                  Kopie meiner Antwort per E-Mail erhalten
-                </span>
-              </label>
-              {wantsCopy && (
-                <div className="mt-2 ml-6">
-                  <Input
-                    type="email"
-                    value={copyEmail}
-                    onChange={(e) => setCopyEmail(e.target.value)}
-                    placeholder="ihre@email.de"
-                    className="max-w-sm h-10 rounded-lg font-sans"
+              <div className="mt-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={wantsCopy}
+                    onChange={(e) => setWantsCopy(e.target.checked)}
+                    className="h-4 w-4 rounded border-border accent-primary"
                   />
-                </div>
+                  <span className="text-sm text-muted-foreground font-sans flex items-center gap-1.5">
+                    <Copy className="h-3.5 w-3.5" />
+                    Kopie der Nachricht per E-Mail erhalten
+                  </span>
+                </label>
+                {wantsCopy && (
+                  <div className="mt-2 ml-6">
+                    <Input
+                      type="email"
+                      value={copyEmail}
+                      onChange={(e) => setCopyEmail(e.target.value)}
+                      placeholder="ihre@email.de"
+                      className="max-w-sm h-10 rounded-lg font-sans"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {submitError && (
+                <p className="text-sm text-destructive mt-3 font-sans">{submitError}</p>
               )}
+
+              <Button
+                onClick={handleSendMessage}
+                disabled={!selectedOptionId || !notes.trim() || busy}
+                variant="outline"
+                className="mt-5 h-11 px-6 rounded-full font-sans font-medium gap-2 border-border/60 hover:border-primary/40 hover:bg-primary/5"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Nachricht senden
+              </Button>
             </div>
-
-            {submitError && (
-              <p className="text-sm text-destructive mb-4 font-sans">{submitError}</p>
-            )}
-
-            <Button
-              onClick={handleSubmit}
-              disabled={!selectedOptionId || isSubmitting}
-              className="h-12 px-8 rounded-full font-sans font-semibold gap-2 text-base shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all"
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              Auswahl bestätigen
-            </Button>
           </div>
 
-          {/* Stornobedingungen — unter dem Bestätigen-Button */}
-          <div className="mt-6 max-w-md">
+          {/* Stornobedingungen */}
+          <div className="mt-8 max-w-2xl">
             <CancellationTermsAccordion />
           </div>
         </div>
@@ -773,23 +878,23 @@ function ProposalOptionCard({
         </div>
       </div>
 
-      {/* Menü-Details im Speisekarten-Stil */}
+      {/* Menü-Details im Speisekarten-Stil — lesbar, wertig */}
       {(courses.length > 0 || drinks.length > 0) && (
-        <div className="px-6 pb-5">
-          <div className="border-t border-border/20 pt-4">
+        <div className="px-6 pb-6">
+          <div className="border-t border-border/20 pt-5">
             {courses.length > 0 && (
-              <div className="space-y-2.5">
+              <div className="space-y-4">
                 {courses.map((c, i) => (
-                  <div key={i} className="flex items-baseline gap-3">
-                    <span className="text-[10px] font-sans font-semibold text-primary/50 uppercase tracking-[0.15em] w-20 flex-shrink-0">
+                  <div key={i} className="flex items-baseline gap-4">
+                    <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0 pt-0.5">
                       {c.courseLabel}
                     </span>
                     <div className="flex-1">
-                      <span className="text-sm font-serif text-foreground/80">
+                      <p className="text-base md:text-lg font-serif text-foreground leading-snug">
                         {c.itemName}
-                      </span>
+                      </p>
                       {c.itemDescription && (
-                        <p className="text-xs text-muted-foreground/60 font-sans italic mt-0.5">
+                        <p className="text-sm font-sans text-foreground/70 mt-1 leading-relaxed">
                           {c.itemDescription}
                         </p>
                       )}
@@ -800,20 +905,20 @@ function ProposalOptionCard({
             )}
 
             {drinks.length > 0 && (
-              <div className={cn("space-y-2", courses.length > 0 && "mt-4 pt-3 border-t border-border/10")}>
+              <div className={cn("space-y-3", courses.length > 0 && "mt-6 pt-5 border-t border-border/15")}>
                 {drinks.map((d, i) => (
-                  <div key={i} className="flex items-baseline gap-3">
-                    <span className="text-[10px] font-sans font-semibold text-primary/50 uppercase tracking-[0.15em] w-20 flex-shrink-0">
+                  <div key={i} className="flex items-baseline gap-4">
+                    <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
                       {d.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : d.drinkLabel}
                     </span>
-                    <span className="text-sm font-serif text-foreground/80">
+                    <p className="text-base font-serif text-foreground leading-snug">
                       {d.customDrink || d.selectedChoice}
                       {d.quantityLabel && (
-                        <span className="text-muted-foreground/50 ml-1">
+                        <span className="text-sm text-muted-foreground ml-2 font-sans">
                           ({d.quantityLabel})
                         </span>
                       )}
-                    </span>
+                    </p>
                   </div>
                 ))}
               </div>
