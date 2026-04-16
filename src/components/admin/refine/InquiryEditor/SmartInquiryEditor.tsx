@@ -35,6 +35,8 @@ export const SmartInquiryEditor = () => {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitializedRef = useRef(false);
   const latestValuesRef = useRef<Record<string, unknown>>({});
+  const consecutiveSaveErrorsRef = useRef(0);
+  const errorToastShownRef = useRef(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>();
   const [isDownloading, setIsDownloading] = useState(false);
   const downloadDocument = useDownloadLexOfficeDocument();
@@ -262,6 +264,10 @@ export const SmartInquiryEditor = () => {
   // Stabile Save-Funktion — ändert sich NIE, liest aus Ref
   const performSave = useCallback(async () => {
     if (!id || !isInitializedRef.current) return;
+
+    // Retry-Stopp: nach 3 Fehlschlägen in Folge nicht mehr automatisch speichern
+    if (consecutiveSaveErrorsRef.current >= 3) return;
+
     const vals = latestValuesRef.current;
     setSaveStatus('saving');
 
@@ -280,10 +286,34 @@ export const SmartInquiryEditor = () => {
       onSuccess: () => {
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
+        consecutiveSaveErrorsRef.current = 0;
+        errorToastShownRef.current = false;
+        // Bei Erfolg den persistenten Error-Toast dismiss'en falls vorhanden
+        toast.dismiss('inquiry-save-error-permanent');
       },
-      onError: () => {
-        toast.error("Fehler beim Speichern");
+      onError: (error: unknown) => {
+        consecutiveSaveErrorsRef.current += 1;
+        // Fehler-Details extrahieren für bessere UX
+        let details = 'Unbekannter Fehler';
+        if (error && typeof error === 'object') {
+          const err = error as { message?: string; error?: string; details?: string };
+          details = err.message || err.error || err.details || JSON.stringify(error).slice(0, 150);
+        }
+        console.error('[SmartInquiryEditor] Save error:', error);
         setSaveStatus('idle');
+
+        // Nur EINMAL pro Fehler-Serie einen Toast anzeigen (kein Spam)
+        if (!errorToastShownRef.current) {
+          errorToastShownRef.current = true;
+          if (consecutiveSaveErrorsRef.current >= 3) {
+            toast.error(
+              'Speichern dauerhaft fehlgeschlagen. Seite bitte neu laden.',
+              { duration: Infinity, id: 'inquiry-save-error-permanent' }
+            );
+          } else {
+            toast.error(`Fehler beim Speichern: ${details}`, { id: 'inquiry-save-error' });
+          }
+        }
       },
     });
   }, [id, updateInquiry]);
