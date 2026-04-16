@@ -115,6 +115,8 @@ export type Database = {
           is_pickup: boolean | null
           is_test: boolean | null
           items: Json
+          last_customer_message_at: string | null
+          last_our_reply_at: string | null
           lexoffice_contact_id: string | null
           lexoffice_credit_note_id: string | null
           lexoffice_document_type: string | null
@@ -125,6 +127,7 @@ export type Database = {
           payment_method: string | null
           payment_status: string | null
           reference_number: string | null
+          reminder_sent_at: string | null
           status: string | null
           stripe_payment_intent_id: string | null
           total_amount: number | null
@@ -158,6 +161,8 @@ export type Database = {
           is_pickup?: boolean | null
           is_test?: boolean | null
           items: Json
+          last_customer_message_at?: string | null
+          last_our_reply_at?: string | null
           lexoffice_contact_id?: string | null
           lexoffice_credit_note_id?: string | null
           lexoffice_document_type?: string | null
@@ -168,6 +173,7 @@ export type Database = {
           payment_method?: string | null
           payment_status?: string | null
           reference_number?: string | null
+          reminder_sent_at?: string | null
           status?: string | null
           stripe_payment_intent_id?: string | null
           total_amount?: number | null
@@ -201,6 +207,8 @@ export type Database = {
           is_pickup?: boolean | null
           is_test?: boolean | null
           items?: Json
+          last_customer_message_at?: string | null
+          last_our_reply_at?: string | null
           lexoffice_contact_id?: string | null
           lexoffice_credit_note_id?: string | null
           lexoffice_document_type?: string | null
@@ -211,6 +219,7 @@ export type Database = {
           payment_method?: string | null
           payment_status?: string | null
           reference_number?: string | null
+          reminder_sent_at?: string | null
           status?: string | null
           stripe_payment_intent_id?: string | null
           total_amount?: number | null
