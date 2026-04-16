@@ -9,6 +9,7 @@ import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventDNACard } from "./EventDNACard";
 import { OfferBuilder } from "./OfferBuilder";
 import type { OfferBuilderHandle } from "./OfferBuilder";
@@ -452,36 +453,18 @@ export const SmartInquiryEditor = () => {
         </Button>
       </div>
 
-      {/* Main Content - 12-column grid, 7/5 split */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column - 7 columns */}
-        <div className="lg:col-span-7 space-y-8">
-          {/* Event DNA Card — kollabierbar, default eingeklappt */}
-          <div className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setDnaOpen(v => !v)}
-              className="w-full flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-xl"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-amber-600 font-bold text-xs tracking-wider">DNA</span>
-                <span className="text-sm font-semibold">Event Details</span>
-              </div>
-              {dnaOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-            </button>
-            {dnaOpen && (
-              <div className="px-2 pb-4">
-                <EventDNACard
-                  inquiry={mergedInquiry}
-                  onFieldChange={handleLocalFieldChange}
-                  isReadOnly={inquiry.status === 'confirmed'}
-                  currentUserEmail={currentUserEmail}
-                  onAssigneeChange={(email) => handleLocalFieldChange('assigned_to', email)}
-                  onPriorityChange={(priority) => handleLocalFieldChange('priority', priority)}
-                />
-              </div>
-            )}
-          </div>
+      {/* Main Content — Tab-Navigation */}
+      <Tabs defaultValue="angebot" className="w-full">
+        <TabsList className="w-full justify-start bg-muted/30 rounded-xl p-1 h-auto">
+          <TabsTrigger value="angebot" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Angebot</TabsTrigger>
+          <TabsTrigger value="kommunikation" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Kommunikation</TabsTrigger>
+          <TabsTrigger value="aufgaben" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Aufgaben</TabsTrigger>
+          <TabsTrigger value="details" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Details</TabsTrigger>
+        </TabsList>
+
+        {/* Tab: Angebot */}
+        <TabsContent value="angebot" className="mt-6 space-y-8">
+
 
           {/* Multi-Package Offer Section */}
           {inquiryType === 'event' ? (
@@ -504,41 +487,105 @@ export const SmartInquiryEditor = () => {
             />
           )}
 
-          {/* Timeline & Aktivitäten — einklappbar, default eingeklappt */}
-          <div className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setTimelineOpen(v => !v)}
-              className="w-full flex items-center justify-between p-6 cursor-pointer hover:bg-muted/30 transition-colors rounded-xl"
-            >
-              <div className="flex items-center gap-2">
-                <History className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-bold tracking-tight">Timeline & Aktivitäten</h2>
-              </div>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${timelineOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {timelineOpen && (
-              <div className="px-6 pb-6">
-                <Timeline entityType="event_inquiry" entityId={id!} />
-              </div>
-            )}
-          </div>
-        </div>
+        </TabsContent>
 
-        {/* Right Column - 5 columns */}
-        <div className="lg:col-span-5">
-          <DetailSidebar
-            inquiryId={id!}
-            inquiry={inquiry}
-            currentUserEmail={currentUserEmail}
-            offerTotal={offerTotal}
-            customerResponse={customerResponse}
-            selectedOptionInfo={selectedOptionInfo}
-            offerBuilderRef={offerBuilderRef}
+        {/* Tab: Kommunikation */}
+        <TabsContent value="kommunikation" className="mt-6">
+          <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary" />
+                E-Mail Konversation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ConversationThread
+                inquiryId={id!}
+                customerEmail={inquiry.email || undefined}
+                onSendReply={async (content) => {
+                  if (!inquiry?.email) {
+                    toast.error('Keine E-Mail-Adresse hinterlegt');
+                    return;
+                  }
+                  const { data: result } = await supabase.functions.invoke('send-offer-email', {
+                    body: {
+                      inquiryId: id,
+                      emailContent: content,
+                      customerEmail: inquiry.email,
+                      customerName: inquiry.contact_name || '',
+                      senderEmail: currentUserEmail,
+                    },
+                  });
+                  if (!result?.emailSent) {
+                    throw new Error(result?.error || 'Versand fehlgeschlagen');
+                  }
+                  toast.success('Antwort versendet');
+                }}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Aufgaben */}
+        <TabsContent value="aufgaben" className="mt-6 space-y-6">
+          <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <ListTodo className="h-4 w-4 text-primary" />
+                Aufgaben & Follow-ups
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TaskManager
+                inquiryId={id!}
+                currentUserEmail={currentUserEmail}
+              />
+            </CardContent>
+          </Card>
+          <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                Interne Notiz
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <StaffNote
+                note={inquiry.internal_notes || ''}
+                onNoteChange={(note) => handleLocalFieldChange('internal_notes', note)}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Details */}
+        <TabsContent value="details" className="mt-6 space-y-6">
+          {/* Event DNA expanded */}
+          <EventDNACard
+            inquiry={mergedInquiry}
             onFieldChange={handleLocalFieldChange}
+            isReadOnly={inquiry.status === 'confirmed'}
+            currentUserEmail={currentUserEmail}
+            onAssigneeChange={(email) => handleLocalFieldChange('assigned_to', email)}
+            onPriorityChange={(priority) => handleLocalFieldChange('priority', priority)}
           />
-        </div>
-      </div>
+          {/* Client Preview */}
+          <ClientPreview
+            inquiryId={id!}
+            version={inquiry.current_offer_version || 1}
+          />
+          {/* Zahlungen */}
+          <div data-payment-card>
+            <PaymentCard
+              inquiryId={id!}
+              preferredDate={inquiry.preferred_date}
+              offerTotal={offerTotal}
+            />
+          </div>
+          {/* Timeline */}
+          <Timeline entityType="event_inquiry" entityId={id!} />
+        </TabsContent>
+
+      </Tabs>
 
     </AdminLayout>
   );
