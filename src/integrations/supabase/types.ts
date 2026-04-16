@@ -610,6 +610,7 @@ export type Database = {
           status: string | null
           time_slot: string | null
           updated_at: string | null
+          venue: string | null
         }
         Insert: {
           archived_at?: string | null
@@ -665,6 +666,7 @@ export type Database = {
           status?: string | null
           time_slot?: string | null
           updated_at?: string | null
+          venue?: string | null
         }
         Update: {
           archived_at?: string | null
@@ -720,6 +722,7 @@ export type Database = {
           status?: string | null
           time_slot?: string | null
           updated_at?: string | null
+          venue?: string | null
         }
         Relationships: [
           {
