@@ -36,6 +36,90 @@ function mapLegacyMode(dbMode: string | null | undefined): OfferMode {
   }
 }
 
+// =================================================================
+// SAVE-HELPER (fix für Foreign-Key-Bug bei offer_customer_responses)
+//
+// Früher: DELETE all + INSERT all (scheiterte wenn der Kunde bereits
+// eine Option ausgewählt hatte, weil offer_customer_responses.selected_option_id
+// darauf referenziert).
+//
+// Jetzt: Diff-basiert mit upsert. Nur Optionen löschen die im neuen
+// State nicht mehr vorkommen UND nicht referenziert sind. Bestehende
+// IDs bleiben erhalten → Kundenauswahl bleibt intakt.
+// =================================================================
+async function saveOptionsToDb(
+  inquiryId: string,
+  options: OfferBuilderOption[],
+  currentVersion: number
+): Promise<void> {
+  // 1. Aktuelle Options in DB laden (nur IDs)
+  const { data: existingRows } = await supabase
+    .from('inquiry_offer_options')
+    .select('id')
+    .eq('inquiry_id', inquiryId);
+
+  const existingIds = new Set((existingRows || []).map(r => r.id));
+  const newIds = new Set(options.map(o => o.id));
+
+  // 2. IDs die gelöscht werden müssen (in DB, aber nicht mehr im neuen State)
+  const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
+
+  // 3. Referenzierte IDs prüfen — die NICHT löschen
+  if (idsToDelete.length > 0) {
+    const { data: referenced } = await supabase
+      .from('offer_customer_responses')
+      .select('selected_option_id')
+      .in('selected_option_id', idsToDelete);
+
+    const referencedIds = new Set(
+      (referenced || []).map(r => r.selected_option_id).filter(Boolean)
+    );
+
+    const safeToDelete = idsToDelete.filter(id => !referencedIds.has(id));
+
+    if (safeToDelete.length > 0) {
+      const { error: delErr } = await supabase
+        .from('inquiry_offer_options')
+        .delete()
+        .in('id', safeToDelete);
+      if (delErr) throw delErr;
+    }
+
+    // Wenn referenzierte Optionen "gelöscht" werden sollten: stumm überspringen.
+    // Der User kann eine vom Kunden ausgewählte Option nicht löschen —
+    // das ist ein Feature, kein Bug. Die Option bleibt in der DB.
+  }
+
+  // 4. Upsert aller aktuellen Options (neu + bestehend)
+  const rows = options.map(opt => ({
+    id: opt.id,
+    inquiry_id: inquiryId,
+    offer_version: currentVersion,
+    package_id: opt.packageId,
+    option_label: opt.optionLabel,
+    offer_mode: opt.offerMode,
+    guest_count: opt.guestCount,
+    menu_selection: {
+      ...opt.menuSelection,
+      budgetPerPerson: opt.budgetPerPerson,
+      discountPercent: opt.discountPercent,
+      packageNameOverride: opt.packageName || null,
+    },
+    total_amount: opt.totalAmount,
+    stripe_payment_link_id: opt.stripePaymentLinkId,
+    stripe_payment_link_url: opt.stripePaymentLinkUrl,
+    is_active: opt.isActive,
+    sort_order: opt.sortOrder,
+  }));
+
+  if (rows.length > 0) {
+    const { error: upsertErr } = await (supabase as any)
+      .from('inquiry_offer_options')
+      .upsert(rows, { onConflict: 'id' });
+    if (upsertErr) throw upsertErr;
+  }
+}
+
 // --- Activity Logging (migriert aus useMultiOfferState) ---
 const logActivity = async (
   entityId: string,
@@ -84,6 +168,8 @@ export function useOfferBuilder({
   const isInitialLoad = useRef(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedJsonRef = useRef<string>('');
+  const consecutiveSaveErrorsRef = useRef(0);
+  const errorToastShownRef = useRef(false);
 
   // Refs für Props die im Load-Effect gebraucht werden (kein Re-Trigger)
   const guestCountRef = useRef(guestCount);
@@ -341,35 +427,17 @@ export function useOfferBuilder({
     }
 
     saveTimeoutRef.current = setTimeout(async () => {
+      // Retry-Stopp: nach 3 Fehlschlägen in Folge nicht mehr automatisch speichern
+      if (consecutiveSaveErrorsRef.current >= 3) {
+        return;
+      }
+
       try {
         const { data: userData } = await supabase.auth.getUser();
         const currentUserEmail = userData.user?.email;
 
-        // Delete + Re-Insert Pattern (bewährt aus useMultiOfferState)
-        await supabase
-          .from("inquiry_offer_options")
-          .delete()
-          .eq("inquiry_id", inquiryId);
-
-        for (const opt of options) {
-          await (supabase as any)
-            .from("inquiry_offer_options")
-            .insert({
-              id: opt.id,
-              inquiry_id: inquiryId,
-              offer_version: currentVersion,
-              package_id: opt.packageId,
-              option_label: opt.optionLabel,
-              offer_mode: opt.offerMode,
-              guest_count: opt.guestCount,
-              menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent, packageNameOverride: opt.packageName || null },
-              total_amount: opt.totalAmount,
-              stripe_payment_link_id: opt.stripePaymentLinkId,
-              stripe_payment_link_url: opt.stripePaymentLinkUrl,
-              is_active: opt.isActive,
-              sort_order: opt.sortOrder,
-            });
-        }
+        // Diff-basiertes Save (sicher bei vom Kunden ausgewählten Optionen)
+        await saveOptionsToDb(inquiryId, options, currentVersion);
 
         if (currentUserEmail) {
           await supabase
@@ -383,11 +451,26 @@ export function useOfferBuilder({
 
         lastSavedJsonRef.current = currentJson;
         setSaveStatus('idle');
+        consecutiveSaveErrorsRef.current = 0;
+        errorToastShownRef.current = false;
       } catch (error) {
+        consecutiveSaveErrorsRef.current += 1;
         const msg = error instanceof Error ? error.message : JSON.stringify(error);
-        console.error("Auto-save error FULL:", msg, error);
+        console.error("Auto-save error:", msg, error);
         setSaveStatus('error');
-        toast.error(`Speichern fehlgeschlagen: ${msg}`);
+
+        // Nur EINMAL pro Fehler-Serie einen Toast anzeigen (kein Spam)
+        if (!errorToastShownRef.current) {
+          errorToastShownRef.current = true;
+          if (consecutiveSaveErrorsRef.current >= 3) {
+            toast.error(
+              "Speichern dauerhaft fehlgeschlagen. Seite bitte neu laden.",
+              { duration: Infinity, id: 'save-error-permanent' }
+            );
+          } else {
+            toast.error(`Speichern fehlgeschlagen: ${msg}`, { id: 'save-error' });
+          }
+        }
       }
     }, 800);
 
@@ -682,31 +765,7 @@ export function useOfferBuilder({
   const saveOptions = useCallback(async () => {
     setIsSaving(true);
     try {
-      await supabase
-        .from("inquiry_offer_options")
-        .delete()
-        .eq("inquiry_id", inquiryId);
-
-      for (const opt of options) {
-        await (supabase as any)
-          .from("inquiry_offer_options")
-          .insert({
-            id: opt.id,
-            inquiry_id: inquiryId,
-            offer_version: currentVersion,
-            package_id: opt.packageId,
-            option_label: opt.optionLabel,
-            offer_mode: opt.offerMode,
-            guest_count: opt.guestCount,
-            menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent, packageNameOverride: opt.packageName || null },
-            total_amount: opt.totalAmount,
-            stripe_payment_link_id: opt.stripePaymentLinkId,
-            stripe_payment_link_url: opt.stripePaymentLinkUrl,
-            is_active: opt.isActive,
-            sort_order: opt.sortOrder,
-          });
-      }
-
+      await saveOptionsToDb(inquiryId, options, currentVersion);
       // Still save — kein Toast (Auto-Save im Hintergrund)
     } catch (error) {
       console.error("Error saving options:", error);
@@ -764,32 +823,9 @@ export function useOfferBuilder({
         } as Record<string, unknown>)
         .eq("id", inquiryId);
 
-      // 2. Options sofort mit neuer Version in DB schreiben (nicht auf Auto-Save warten)
+      // 2. Options sofort mit neuer Version in DB schreiben
       const updatedOptions = options.map(o => ({ ...o, offerVersion: newVersion }));
-      await supabase
-        .from("inquiry_offer_options")
-        .delete()
-        .eq("inquiry_id", inquiryId);
-
-      for (const opt of updatedOptions) {
-        await (supabase as any)
-          .from("inquiry_offer_options")
-          .insert({
-            id: opt.id,
-            inquiry_id: inquiryId,
-            offer_version: newVersion,
-            package_id: opt.packageId,
-            option_label: opt.optionLabel,
-            offer_mode: opt.offerMode,
-            guest_count: opt.guestCount,
-            menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent, packageNameOverride: opt.packageName || null },
-            total_amount: opt.totalAmount,
-            stripe_payment_link_id: opt.stripePaymentLinkId,
-            stripe_payment_link_url: opt.stripePaymentLinkUrl,
-            is_active: opt.isActive,
-            sort_order: opt.sortOrder,
-          });
-      }
+      await saveOptionsToDb(inquiryId, updatedOptions, newVersion);
 
       // 3. Lokalen State aktualisieren
       setCurrentVersion(newVersion);
@@ -1025,18 +1061,7 @@ export function useOfferBuilder({
         try {
           const { data: userData } = await supabase.auth.getUser();
           const currentUserEmail = userData.user?.email;
-          await supabase.from('inquiry_offer_options').delete().eq('inquiry_id', inquiryId);
-          for (const opt of options) {
-            await (supabase as any).from('inquiry_offer_options').insert({
-              id: opt.id, inquiry_id: inquiryId, offer_version: currentVersion,
-              package_id: opt.packageId, option_label: opt.optionLabel,
-              offer_mode: opt.offerMode, guest_count: opt.guestCount,
-              menu_selection: { ...opt.menuSelection, budgetPerPerson: opt.budgetPerPerson, discountPercent: opt.discountPercent, packageNameOverride: opt.packageName || null },
-              total_amount: opt.totalAmount, stripe_payment_link_id: opt.stripePaymentLinkId,
-              stripe_payment_link_url: opt.stripePaymentLinkUrl,
-              is_active: opt.isActive, sort_order: opt.sortOrder,
-            });
-          }
+          await saveOptionsToDb(inquiryId, options, currentVersion);
           if (currentUserEmail) {
             await supabase.from('event_inquiries').update({ last_edited_by: currentUserEmail, last_edited_at: new Date().toISOString() }).eq('id', inquiryId);
           }
