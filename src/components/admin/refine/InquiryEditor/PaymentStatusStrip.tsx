@@ -31,7 +31,7 @@ export function PaymentStatusStrip({ inquiryId, onNavigateToDetails }: PaymentSt
     (async () => {
       const { data } = await supabase
         .from('event_payments')
-        .select('amount_cents, status, computed_status, stripe_payment_link_url')
+        .select('amount_cents, status, stripe_payment_link_url, due_date, paid_at')
         .eq('inquiry_id', inquiryId);
 
       if (!mounted) return;
