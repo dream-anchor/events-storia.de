@@ -1,0 +1,14 @@
+name = "storia-inbound-email"
+main = "src/index.ts"
+compatibility_date = "2026-04-16"
+compatibility_flags = ["nodejs_compat"]
+
+# Secrets werden via Wrangler gesetzt (nicht hier committen!):
+#   npx wrangler secret put SUPABASE_URL
+#   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+#   npx wrangler secret put WEBHOOK_SECRET   # optional
+
+# Observability
+[observability]
+enabled = true
+head_sampling_rate = 1

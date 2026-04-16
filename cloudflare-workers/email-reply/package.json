@@ -1,0 +1,20 @@
+{
+  "name": "storia-inbound-email",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Email Worker für STORIA Angebot-Replies → Supabase",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "logs": "wrangler tail"
+  },
+  "dependencies": {
+    "postal-mime": "^2.2.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251101.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^3.80.0"
+  }
+}

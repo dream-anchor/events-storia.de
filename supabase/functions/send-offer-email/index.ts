@@ -311,7 +311,10 @@ serve(async (req) => {
       bccList.push(senderEmail);
     }
 
-    const replyToAddress = `reply+${inquiryId}@events-storia.de`;
+    // Inbound-Replies werden über Cloudflare Email Routing (reply.monot.com)
+    // an den Worker weitergeleitet, der sie an receive-inbound-email POSTet.
+    // Siehe cloudflare-workers/email-reply/README.md
+    const replyToAddress = `reply+${inquiryId}@reply.monot.com`;
     const safeSubject = getSafeSubject(emailSubject, isTest);
     const result = await sendEmail([safeCustomerEmail], safeSubject, htmlBody, "STORIA Events", pdfBuffer, customerName, bccList, replyToAddress);
 
