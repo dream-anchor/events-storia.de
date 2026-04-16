@@ -125,15 +125,15 @@ function DrinkRow({
   const isCustomActive = drink.customDrink != null;
   const isExtraDrink = drink.drinkGroup === 'custom';
 
-  // Inklusive Getränke: nur anzeigen, nicht editierbar
+  // Inklusive Getränke: nur anzeigen, nicht editierbar (aber löschbar!)
   if (config?.is_included && !config?.is_choice) {
     return (
-      <div className="flex items-center gap-3 py-2 px-2 rounded-lg">
+      <div className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-muted/30 transition-colors">
         <span className="text-base w-7 text-center shrink-0">{icon}</span>
         <span className="text-sm text-muted-foreground w-24 shrink-0 truncate">
           {drink.drinkLabel}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1">
           <span className="text-sm">
             {config.options.map(getOptionLabel).join(', ') || 'Inklusive'}
           </span>
@@ -141,6 +141,17 @@ function DrinkRow({
             inkl.
           </Badge>
         </div>
+        {onRemoveDrink && (
+          <button
+            type="button"
+            onClick={() => onRemoveDrink(idx)}
+            className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center hover:bg-destructive/10 transition-colors"
+            title="Getränk entfernen"
+            disabled={disabled}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        )}
       </div>
     );
   }
