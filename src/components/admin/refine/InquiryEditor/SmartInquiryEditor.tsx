@@ -44,6 +44,7 @@ export const SmartInquiryEditor = () => {
   const [quoteNotes, setQuoteNotes] = useState("");
   const [emailDraft, setEmailDraft] = useState("");
   const [localInquiry, setLocalInquiry] = useState<Partial<ExtendedInquiry>>({});
+  const [activeTab, setActiveTab] = useState('angebot');
   const [customerResponse, setCustomerResponse] = useState<{
     responded_at: string;
     selected_option_id: string | null;
@@ -421,7 +422,7 @@ export const SmartInquiryEditor = () => {
           variant="outline"
           size="sm"
           className="gap-1.5 text-xs h-8"
-          onClick={() => offerBuilderRef.current?.scrollToEmail(true)}
+          onClick={() => setActiveTab('kommunikation')}
         >
           <Mail className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">E-Mail</span>
@@ -431,8 +432,11 @@ export const SmartInquiryEditor = () => {
           size="sm"
           className="gap-1.5 text-xs h-8"
           onClick={() => {
-            const el = document.querySelector('[data-payment-card]');
-            el?.scrollIntoView({ behavior: 'smooth' });
+            setActiveTab('details');
+            setTimeout(() => {
+              const el = document.querySelector('[data-payment-card]');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
           }}
         >
           <CreditCard className="h-3.5 w-3.5" />
@@ -450,7 +454,7 @@ export const SmartInquiryEditor = () => {
       </div>
 
       {/* Main Content — Tab-Navigation */}
-      <Tabs defaultValue="angebot" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start bg-muted/30 rounded-xl p-1 h-auto">
           <TabsTrigger value="angebot" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Angebot</TabsTrigger>
           <TabsTrigger value="kommunikation" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Kommunikation</TabsTrigger>
