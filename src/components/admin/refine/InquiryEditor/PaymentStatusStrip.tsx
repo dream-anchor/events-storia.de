@@ -48,7 +48,7 @@ export function PaymentStatusStrip({ inquiryId, onNavigateToDetails }: PaymentSt
         const amt = p.amount_cents || 0;
         totalCents += amt;
         if (p.stripe_payment_link_url) hasLinks = true;
-        const status = (p.computed_status || p.status) as string;
+        const status = p.status as string;
         if (status === 'paid') paidCents += amt;
         else if (status === 'overdue') overdueCents += amt;
         else openCents += amt;

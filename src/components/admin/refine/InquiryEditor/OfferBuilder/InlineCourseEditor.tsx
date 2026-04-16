@@ -262,6 +262,7 @@ export function InlineCourseEditor({
             onDishSelect={handleDishSelect}
             onClear={handleClear}
             onUpdateName={(index, name) => onUpdateCourse(index, { itemName: name })}
+              onRemoveCourse={onRemoveCourse}
               disabled={disabled}
             />
           ))}
