@@ -49,8 +49,8 @@ Letzte Aktualisierung: 2026-04-16
 - [x] OptionCard: GETRÄNKE als kompakte Zeile ("Getränke: Keine + hinzufügen")
 - [x] Cleanup: SourcePanel, DraftPanel, DetailSidebar gelöscht (435 Zeilen)
 - [x] Cleanup: Unused imports/state nach Tab-Umstellung
-- [ ] OptionCard: Leere Default-Gänge bei "Eigenes Menü" vermeiden
-- [ ] OfferBuilder Mobile-Optimierung (DishPicker auf kleinen Screens)
+- [x] OfferBuilder Mobile-Optimierung (getestet: DishPicker, Tabs, OptionCard — alles gut)
+- [x] OptionCard: Leere Gänge löschbar via Trash-Button (Default-Gänge = DB-Daten, nicht Code)
 - [ ] Payment-Flow Übersicht
 
 ### Sprint 5: Messaging-System
