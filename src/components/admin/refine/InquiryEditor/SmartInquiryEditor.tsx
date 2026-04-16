@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, History, ChevronDown, ChevronUp, Mail, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2 } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Mail, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2 } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -18,10 +18,8 @@ import { ClientPreview } from "./ClientPreview";
 import { StaffNote } from "./StaffNote";
 import { TaskManager } from "@/components/admin/shared/TaskManager";
 import { Timeline } from "@/components/admin/shared/Timeline";
-import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
 import { ConversationThread } from "@/components/admin/shared/ConversationThread";
 import { PaymentCard } from "./PaymentCard";
-import { DetailSidebar } from "./DetailSidebar";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
@@ -46,8 +44,6 @@ export const SmartInquiryEditor = () => {
   const [quoteNotes, setQuoteNotes] = useState("");
   const [emailDraft, setEmailDraft] = useState("");
   const [localInquiry, setLocalInquiry] = useState<Partial<ExtendedInquiry>>({});
-  const [dnaOpen, setDnaOpen] = useState(false);
-  const [timelineOpen, setTimelineOpen] = useState(false);
   const [customerResponse, setCustomerResponse] = useState<{
     responded_at: string;
     selected_option_id: string | null;
