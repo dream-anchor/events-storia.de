@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import {
@@ -976,7 +977,13 @@ function FinalOptionCard({
       window.location.href = data.checkoutUrl;
     } catch (err) {
       setIsRedirecting(false);
-      alert(err instanceof Error ? err.message : 'Fehler bei der Zahlung');
+      toast.error(
+        err instanceof Error ? err.message : 'Fehler bei der Zahlung',
+        {
+          description: 'Bitte versuchen Sie es erneut oder kontaktieren Sie uns unter 089 51519696.',
+          duration: 6000,
+        }
+      );
     }
   };
 

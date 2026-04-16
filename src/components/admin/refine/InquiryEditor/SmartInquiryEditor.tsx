@@ -423,34 +423,11 @@ export const SmartInquiryEditor = () => {
           variant="outline"
           size="sm"
           className="gap-1.5 text-xs h-8"
-          onClick={() => setActiveTab('kommunikation')}
-        >
-          <Mail className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">E-Mail</span>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 text-xs h-8"
-          onClick={() => {
-            setActiveTab('details');
-            setTimeout(() => {
-              const el = document.querySelector('[data-payment-card]');
-              el?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-          }}
-        >
-          <CreditCard className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Zahlung</span>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 text-xs h-8"
           onClick={() => window.open(`/offer/${id}`, '_blank')}
+          title="Öffnet das Angebot in der Kunden-Ansicht (neuer Tab)"
         >
           <Eye className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Vorschau</span>
+          <span className="hidden sm:inline">Kunden-Ansicht</span>
         </Button>
       </div>
 
