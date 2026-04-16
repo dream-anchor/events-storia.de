@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EventInquiry, InquiryStatus, InquiryPriority } from "@/types/refine";
 import { EditorIndicator } from "@/components/admin/shared/EditorIndicator";
+import { useTestMode } from "@/contexts/TestModeContext";
 import { BulkActionBar } from "@/components/admin/shared/BulkActionBar";
 import { cn } from "@/lib/utils";
 import { getAdminDisplayName, getAdminInitials } from "@/lib/adminDisplayNames";
@@ -88,6 +89,7 @@ export const EventsList = () => {
     () => (localStorage.getItem("eventsViewMode") as "table" | "kanban") || "table"
   );
   const [paymentStatus, setPaymentStatus] = useState<Record<string, 'none' | 'pending' | 'partial' | 'complete' | 'overdue'>>({});
+  const { showTestData } = useTestMode();
 
   // Save view preference
   useEffect(() => {
@@ -104,7 +106,13 @@ export const EventsList = () => {
   const eventsQuery = useList<EventInquiry>({
     resource: "events",
     pagination: { pageSize: 100 },
-    sorters: [{ field: "created_at", order: "desc" }],
+    sorters: [{ field: "preferred_date", order: "asc" }],
+    filters: showTestData
+      ? []
+      : [{ field: "is_test", operator: "ne", value: true }],
+    queryOptions: {
+      queryKey: ["events-list", showTestData] as unknown as readonly unknown[],
+    },
   });
 
   const allEvents = eventsQuery.result?.data || [];
@@ -235,8 +243,12 @@ export const EventsList = () => {
     { id: 'new', label: `Neu (${categorizedEvents.newInquiries.length})`, value: 'new', active: currentFilter === 'new', icon: <span className="w-2 h-2 rounded-full bg-destructive/70 mr-1" /> },
     { id: 'in_progress', label: `In Bearbeitung (${categorizedEvents.inProgress.length})`, value: 'in_progress', active: currentFilter === 'in_progress', icon: <Edit3 className="h-3 w-3 mr-1 text-amber-600" /> },
     { id: 'offer_sent', label: `Angebot (${categorizedEvents.offerSent.length})`, value: 'offer_sent', active: currentFilter === 'offer_sent', icon: <Send className="h-3 w-3 mr-1 text-emerald-600" /> },
-    { id: 'confirmed', label: `Bestätigt (${categorizedEvents.confirmed.length})`, value: 'confirmed', active: currentFilter === 'confirmed' },
-    { id: 'archived', label: `Archiv (${archivedEvents.length})`, value: 'archived', active: currentFilter === 'archived', icon: <Archive className="h-3 w-3 mr-1 text-muted-foreground" /> },
+    ...(categorizedEvents.confirmed.length > 0 || currentFilter === 'confirmed' ? [
+      { id: 'confirmed', label: `Bestätigt (${categorizedEvents.confirmed.length})`, value: 'confirmed', active: currentFilter === 'confirmed' }
+    ] : []),
+    ...(archivedEvents.length > 0 || currentFilter === 'archived' ? [
+      { id: 'archived', label: `Archiv (${archivedEvents.length})`, value: 'archived', active: currentFilter === 'archived', icon: <Archive className="h-3 w-3 mr-1 text-muted-foreground" /> }
+    ] : []),
   ];
 
   const handleFilterChange = (filterId: string, value: string) => {

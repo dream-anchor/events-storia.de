@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Phone, UserPlus, Archive, Trash2, Loader2, Flag, RotateCcw } from "lucide-react";
+import { X, Phone, UserPlus, Archive, Trash2, Loader2, Flag, RotateCcw, TestTube2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -140,6 +140,31 @@ export function BulkActionBar({
     }
   };
 
+  const handleBulkToggleTest = async (makeTest: boolean) => {
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from("event_inquiries")
+        .update({ is_test: makeTest })
+        .in("id", selectedIds);
+
+      if (error) throw error;
+
+      toast.success(
+        makeTest
+          ? `${count} Anfragen als Test markiert`
+          : `${count} Anfragen als „Echt“ markiert`
+      );
+      onClearSelection();
+      onActionComplete();
+    } catch (error) {
+      console.error("Bulk test toggle error:", error);
+      toast.error("Fehler beim Ändern des Test-Status");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleBulkRestore = async () => {
     setIsProcessing(true);
     try {
@@ -270,6 +295,30 @@ export function BulkActionBar({
                 Archivieren
               </Button>
             )}
+
+            {/* Test/Echt Toggle */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isProcessing}
+                  className="gap-1.5 text-muted-foreground"
+                  title="Als Test oder Echt markieren"
+                >
+                  <TestTube2 className="h-4 w-4" />
+                  Test
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => handleBulkToggleTest(true)}>
+                  🧪 Als Test markieren
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkToggleTest(false)}>
+                  ✅ Als Echt markieren
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Divider */}
