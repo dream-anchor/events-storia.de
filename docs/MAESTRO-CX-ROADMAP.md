@@ -51,7 +51,9 @@ Letzte Aktualisierung: 2026-04-16
 - [x] Cleanup: Unused imports/state nach Tab-Umstellung
 - [x] OfferBuilder Mobile-Optimierung (getestet: DishPicker, Tabs, OptionCard — alles gut)
 - [x] OptionCard: Leere Gänge löschbar via Trash-Button (Default-Gänge = DB-Daten, nicht Code)
-- [ ] Payment-Flow Übersicht
+- [x] Payment-Flow: PaymentCard im Details-Tab + Quick-Action "Zahlung" navigiert zum Tab
+
+### Sprint 4: ABGESCHLOSSEN
 
 ### Sprint 5: Messaging-System
 - [ ] email_messages Tabelle (Lovable)
