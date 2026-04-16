@@ -1,13 +1,17 @@
-# STORIA Inbound Email Worker
+# STORIA Inbound Email Worker (Vorbereitet, nicht aktiv)
+
+> **Status:** Code vorbereitet, aber **nicht deployed**. Wird erst aktiv wenn `events-storia.de` von IONOS zu Cloudflare DNS migriert wird.
+>
+> **Aktuell:** Reply-To in Angebotsmails geht an `info@events-storia.de` (IONOS-Postfach). Antworten werden manuell im Postfach bearbeitet.
 
 Cloudflare Email Worker, der eingehende Antwortmails an Angebots-Mails entgegennimmt und an die Supabase Edge Function `receive-inbound-email` weiterleitet. Dadurch werden Kunden-Replies automatisch dem richtigen Angebot in StoriaMaestro zugeordnet.
 
-## Architektur
+## Architektur (nach Migration)
 
 ```
-Kunde → Reply an reply+INQUIRY_ID@reply.monot.com
+Kunde → Reply an reply+INQUIRY_ID@reply.events-storia.de
           ↓
-Cloudflare Email Routing (MX reply.monot.com)
+Cloudflare Email Routing (MX reply.events-storia.de)
           ↓
 Cloudflare Email Worker (dieser Code)
           ↓
@@ -16,15 +20,21 @@ POST /functions/v1/receive-inbound-email (Supabase)
 email_messages Tabelle (Thread-Konversation in StoriaMaestro)
 ```
 
-**Warum eine Subdomain?** `monot.com` nutzt Google Workspace (MX auf Google). Wenn Cloudflare Email Routing für die Apex-Domain aktiviert würde, würden Google-Mails kaputtgehen. Deshalb läuft das Inbound-Routing isoliert auf `reply.monot.com`.
+**Warum eine Subdomain?** `events-storia.de` hat ein produktives IONOS-Postfach (`info@events-storia.de`). Das MX bleibt bei IONOS. Nur `reply.events-storia.de` bekommt Cloudflare-MX und routet zum Worker.
 
-## Setup (einmalig)
+## Voraussetzung: DNS-Migration
 
-### 1. DNS (Cloudflare Dashboard → monot.com → DNS)
+1. `events-storia.de` von IONOS-Nameservern (ui-dns.*) zu Cloudflare umziehen
+2. Alle bestehenden DNS-Records (A, CNAME, MX für IONOS-Postfach, SPF, DKIM) in Cloudflare übernehmen
+3. Erst dann macht dieser Worker Sinn
 
-**Wichtig:** Die bestehenden MX-Records für `monot.com` (Google Workspace) bleiben unberührt.
+Siehe `paterbrown.com` Migration als Referenz (ist 2025 gelaufen).
 
-Nur für die Subdomain `reply.monot.com` hinzufügen:
+## Setup (nach Migration, einmalig)
+
+### 1. DNS (Cloudflare Dashboard → events-storia.de → DNS)
+
+Nur für die Subdomain `reply.events-storia.de`:
 
 ```
 Type   Name    Content                        Priority  TTL
@@ -35,16 +45,14 @@ MX     reply   route3.mx.cloudflare.net       85        Auto
 TXT    reply   "v=spf1 include:_spf.mx.cloudflare.net ~all"
 ```
 
-Nach dem Hinzufügen: `dig reply.monot.com MX` sollte die 3 Cloudflare-Server zeigen.
+Die bestehenden MX-Records für `events-storia.de` (IONOS-Postfach) bleiben **unangetastet**.
 
 ### 2. Cloudflare Email Routing aktivieren
 
-Cloudflare Dashboard → monot.com → **Email Routing** → **Routing Rules** → **Catch-all address**
-
+Cloudflare Dashboard → events-storia.de → **Email Routing** → **Routing Rules** → **Catch-all**:
 - Destination: **Send to Worker**
-- Worker: `storia-inbound-email` (wird unten deployed)
-
-Das Catch-all muss auf dem Level `reply.monot.com` konfiguriert sein (falls Cloudflare das UI-seitig unterscheidet — sonst im Worker-Code).
+- Worker: `storia-inbound-email`
+- Scope: nur für `reply.events-storia.de` (nicht für die Apex)
 
 ### 3. Worker deployen
 
@@ -52,50 +60,39 @@ Das Catch-all muss auf dem Level `reply.monot.com` konfiguriert sein (falls Clou
 cd cloudflare-workers/email-reply
 npm install
 
-# Secrets setzen (Werte siehe 1Password / Supabase Dashboard)
 npx wrangler secret put SUPABASE_URL
 # → https://sovlfqncotxcjqseeawp.supabase.co
 
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 # → Service Role Key (Supabase → Settings → API)
 
-# Optional: zusätzliche Absicherung
-npx wrangler secret put WEBHOOK_SECRET
-# → irgendein random String, muss auch in receive-inbound-email als Env gesetzt sein
-
-# Deploy
 npx wrangler deploy
 ```
 
-### 4. Worker mit Email Routing verknüpfen
+### 4. Code-Anpassung aktivieren
 
-Cloudflare Dashboard → Email Routing → Routing Rules → Edit Catch-all → Worker `storia-inbound-email` auswählen.
-
-### 5. Code-Anpassung `send-offer-email`
-
-Die Edge Function muss jetzt `reply+UUID@reply.monot.com` als Reply-To setzen (statt events-storia.de). Das ist bereits in diesem Commit erledigt.
+In `supabase/functions/send-offer-email/index.ts` die Zeile
+```ts
+const replyToAddress = 'info@events-storia.de';
+```
+ändern zu
+```ts
+const replyToAddress = `reply+${inquiryId}@reply.events-storia.de`;
+```
 
 ## Testen
 
 1. Ein Test-Angebot in StoriaMaestro verschicken
-2. Die Angebotsmail im Postfach ansehen — `reply_to` sollte `reply+UUID@reply.monot.com` sein
+2. Die Angebotsmail im Postfach ansehen — `reply_to` sollte `reply+UUID@reply.events-storia.de` sein
 3. Darauf antworten (normaler "Antworten"-Button im Mail-Client)
-4. **In StoriaMaestro → Event öffnen → Kommunikation-Tab** prüfen: die Antwort sollte als neuer Thread-Eintrag erscheinen (innerhalb 1–2 Minuten)
+4. **In StoriaMaestro → Event → Kommunikation-Tab** prüfen: Antwort sollte als neuer Thread-Eintrag erscheinen (1–2 Min.)
 
 ### Debugging
 
 ```bash
-# Live-Logs ansehen
-npx wrangler tail
-
-# Test-Mail von der Kommandozeile (via Gmail / Apple Mail reicht auch)
-echo "Test-Antwort" | mail -s "Re: Angebot" reply+test-uuid@reply.monot.com
+npx wrangler tail            # Live-Logs
+dig reply.events-storia.de MX  # Sind die CF-MX-Records da?
 ```
-
-Wenn keine Mail ankommt:
-- `dig reply.monot.com MX` → sind die Cloudflare-MX-Records da?
-- Cloudflare Dashboard → Email Routing → **Activity** → zeigt eingehende Mails + ob der Worker aufgerufen wurde
-- `wrangler tail` → zeigt Worker-Logs in Echtzeit
 
 ## Limits (Cloudflare Email Workers, Free Plan)
 
@@ -107,7 +104,7 @@ Reicht für STORIA's Volumen locker aus.
 
 ## Warum kein Resend Inbound?
 
-Resend hat **kein natives Inbound** (Stand 2026). Alternativen wie Postmark oder Mailgun sind kostenpflichtig und brauchen eigenes Setup. Cloudflare Email Routing + Worker ist **kostenfrei** und sauberer, weil wir eh schon Cloudflare als DNS haben.
+Resend hat **kein natives Inbound** (Stand 2026). Alternativen wie Postmark oder Mailgun sind kostenpflichtig. Cloudflare Email Routing + Worker ist **kostenfrei** — aber eben nur auf Cloudflare-Domains.
 
 ## Dateien
 
