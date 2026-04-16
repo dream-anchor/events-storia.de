@@ -64,6 +64,19 @@ export function OptionCard({
     [packages, option.packageId]
   );
 
+  // Merged packageData mit Admin-Overrides für PriceBreakdown-Anzeige
+  const effectivePackage = useMemo(() => {
+    if (!selectedPackage) return undefined;
+    return {
+      ...selectedPackage,
+      name: option.packageName || selectedPackage.name,
+      // Override-Preis nur bei per-Person-Paketen (budgetPerPerson ist pro Person)
+      price: (option.budgetPerPerson != null && option.budgetPerPerson > 0 && selectedPackage.price_per_person)
+        ? option.budgetPerPerson
+        : selectedPackage.price,
+    };
+  }, [selectedPackage, option.packageName, option.budgetPerPerson]);
+
   // --- Drink-Initialisierung aus package_drink_config ---
   const drinksInitializedForPkg = useRef<string | null>(null);
 
@@ -298,7 +311,7 @@ export function OptionCard({
           {/* Preis — nur anzeigen wenn mindestens 1 Gang konfiguriert */}
           {(option.offerMode === 'paket' || option.menuSelection.courses.some(c => c.itemName)) && (
           <PriceBreakdown
-            packageData={option.offerMode === 'menu' ? undefined : selectedPackage}
+            packageData={option.offerMode === 'menu' ? undefined : effectivePackage}
             guestCount={option.guestCount}
             courses={option.offerMode === 'menu' ? option.menuSelection.courses : undefined}
             menuItems={option.offerMode === 'menu' ? menuItems : undefined}
