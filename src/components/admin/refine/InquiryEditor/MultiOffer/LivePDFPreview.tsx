@@ -84,6 +84,7 @@ export function LivePDFPreview({
     event_type: inquiry.event_type,
     preferred_date: inquiry.preferred_date,
     event_end_date: inquiry.event_end_date ?? null,
+    venue: (inquiry as { venue?: string | null }).venue ?? null,
     message: inquiry.message,
     source: inquiry.source,
     status: inquiry.status,
