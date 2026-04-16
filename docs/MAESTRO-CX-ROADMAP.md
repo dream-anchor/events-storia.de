@@ -45,7 +45,7 @@ Letzte Aktualisierung: 2026-04-16
 ## Offen
 
 ### Sprint 4: Tab-Navigation + OptionCard Redesign
-- [ ] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
+- [x] Tab-Navigation (Angebot | Kommunikation | Aufgaben | Details)
 - [ ] OptionCard: GETRÄNKE als collapsible Zeile
 - [ ] OptionCard: Leere Default-Gänge bei "Eigenes Menü" vermeiden
 - [ ] OfferBuilder Mobile-Optimierung (DishPicker auf kleinen Screens)
