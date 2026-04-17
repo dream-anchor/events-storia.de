@@ -149,6 +149,81 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
   }, [inquiryId, guestCount, selectedPackages]);
 
   // Auto-save options when they change (debounced)
+  // performSave wird von debounced Effect und flushSave geteilt
+  const performSave = useCallback(async () => {
+    try {
+      // Get current user for editor tracking - use email for human-readable display
+      const { data: userData } = await supabase.auth.getUser();
+      const currentUserEmail = userData.user?.email;
+
+      // Delete existing options for this inquiry
+      await supabase
+        .from("inquiry_offer_options")
+        .delete()
+        .eq("inquiry_id", inquiryId);
+
+      // Insert updated options
+      for (const opt of options) {
+        await (supabase as any)
+          .from("inquiry_offer_options")
+          .insert({
+            id: opt.id,
+            inquiry_id: inquiryId,
+            offer_version: currentVersion,
+            package_id: opt.packageId,
+            option_label: opt.optionLabel,
+            guest_count: opt.guestCount,
+            menu_selection: opt.menuSelection,
+            total_amount: opt.totalAmount,
+            stripe_payment_link_id: opt.stripePaymentLinkId,
+            stripe_payment_link_url: opt.stripePaymentLinkUrl,
+            is_active: opt.isActive,
+            sort_order: opt.sortOrder,
+          });
+      }
+
+      // Update editor tracking on the inquiry - store email for display
+      if (currentUserEmail) {
+        await supabase
+          .from("event_inquiries")
+          .update({
+            last_edited_by: currentUserEmail,
+            last_edited_at: new Date().toISOString(),
+          })
+          .eq("id", inquiryId);
+      }
+
+      // Log the activity with details about what changed
+      const activeOptions = options.filter(o => o.isActive);
+      const optionSummary = activeOptions.map(o =>
+        `Option ${o.optionLabel}: ${o.packageName || 'Kein Paket'} (${o.guestCount} Gäste, ${o.totalAmount.toFixed(2)} €)`
+      ).join(', ');
+
+      await logActivity(inquiryId, 'offer_updated', {
+        optionCount: activeOptions.length,
+        summary: optionSummary,
+        version: currentVersion,
+      });
+
+      setSaveStatus('saved');
+      // Reset to idle after 2 seconds
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (error) {
+      console.error("Auto-save error:", error);
+      setSaveStatus('idle');
+    }
+  }, [options, inquiryId, currentVersion]);
+
+  // Flush pending debounced save immediately (für Cmd+S, Unmount, Tab-Wechsel)
+  const flushSave = useCallback(async () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    setSaveStatus('saving');
+    await performSave();
+  }, [performSave]);
+
   useEffect(() => {
     // Skip auto-save during initial load
     if (isLoading || isInitialLoad.current) {
@@ -163,75 +238,39 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     // Debounce save by 800ms
     setSaveStatus('saving');
     saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        // Get current user for editor tracking - use email for human-readable display
-        const { data: userData } = await supabase.auth.getUser();
-        const currentUserEmail = userData.user?.email;
-
-        // Delete existing options for this inquiry
-        await supabase
-          .from("inquiry_offer_options")
-          .delete()
-          .eq("inquiry_id", inquiryId);
-
-        // Insert updated options
-        for (const opt of options) {
-          await (supabase as any)
-            .from("inquiry_offer_options")
-            .insert({
-              id: opt.id,
-              inquiry_id: inquiryId,
-              offer_version: currentVersion,
-              package_id: opt.packageId,
-              option_label: opt.optionLabel,
-              guest_count: opt.guestCount,
-              menu_selection: opt.menuSelection,
-              total_amount: opt.totalAmount,
-              stripe_payment_link_id: opt.stripePaymentLinkId,
-              stripe_payment_link_url: opt.stripePaymentLinkUrl,
-              is_active: opt.isActive,
-              sort_order: opt.sortOrder,
-            });
-        }
-
-        // Update editor tracking on the inquiry - store email for display
-        if (currentUserEmail) {
-          await supabase
-            .from("event_inquiries")
-            .update({
-              last_edited_by: currentUserEmail,
-              last_edited_at: new Date().toISOString(),
-            })
-            .eq("id", inquiryId);
-        }
-
-        // Log the activity with details about what changed
-        const activeOptions = options.filter(o => o.isActive);
-        const optionSummary = activeOptions.map(o => 
-          `Option ${o.optionLabel}: ${o.packageName || 'Kein Paket'} (${o.guestCount} Gäste, ${o.totalAmount.toFixed(2)} €)`
-        ).join(', ');
-        
-        await logActivity(inquiryId, 'offer_updated', {
-          optionCount: activeOptions.length,
-          summary: optionSummary,
-          version: currentVersion,
-        });
-
-        setSaveStatus('saved');
-        // Reset to idle after 2 seconds
-        setTimeout(() => setSaveStatus('idle'), 2000);
-      } catch (error) {
-        console.error("Auto-save error:", error);
-        setSaveStatus('idle');
-      }
+      await performSave();
     }, 800);
 
+    // WICHTIG: Beim Unmount/Re-Run NICHT einfach clearTimeout — das wuerde
+    // pending Änderungen verwerfen und Daten verlieren. Stattdessen: den
+    // Save SOFORT ausführen (flush) damit nichts verloren geht.
+    // (React ruft Cleanup vor dem nächsten Effect-Run ODER beim Unmount.
+    // In beiden Fällen wollen wir flush statt delete.)
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+        // Synchroner Fire-and-Forget: Save trotzdem triggern damit nichts verloren geht
+        performSave();
       }
     };
-  }, [options, inquiryId, currentVersion, isLoading]);
+  }, [options, inquiryId, currentVersion, isLoading, performSave]);
+
+  // beforeunload: bei Tab-Schließen / Page-Reload pending Save flushen
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (saveTimeoutRef.current) {
+        // Pending Save existiert — Browser soll warnen und wir flushen synchron
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+        performSave();
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [performSave]);
 
   // Mark initial load as complete after first load
   useEffect(() => {
@@ -399,7 +438,7 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
   }, [currentVersion, inquiryId]);
 
   // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren
-  useRegisterSaveStatus('multi-offer', saveStatus);
+  useRegisterSaveStatus('multi-offer', saveStatus, flushSave);
 
   return {
     options,
@@ -408,6 +447,7 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     isLoading,
     isSaving,
     saveStatus,
+    flushSave,
     addOption,
     removeOption,
     updateOption,
