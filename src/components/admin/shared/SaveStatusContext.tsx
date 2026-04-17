@@ -53,11 +53,23 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
     flush?: () => Promise<void> | void,
     errorMessage?: string
   ) => {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__savestatus_debug = (window as any).__savestatus_debug || [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__savestatus_debug.push({ action: 'register', id, status, ts: Date.now() });
+    }
     registrationsRef.current.set(id, { id, status, flush, errorMessage });
     setVersion(v => v + 1);
   }, []);
 
   const unregister = useCallback((id: string) => {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__savestatus_debug = (window as any).__savestatus_debug || [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__savestatus_debug.push({ action: 'unregister', id, ts: Date.now() });
+    }
     registrationsRef.current.delete(id);
     setVersion(v => v + 1);
   }, []);
