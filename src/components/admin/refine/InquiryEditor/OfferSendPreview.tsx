@@ -38,10 +38,11 @@ interface PreviewInquiry {
   email: string | null;
   company_name: string | null;
   email_draft: string | null;
-  
+
   offer_phase: string;
   lexoffice_quotation_id: string | null;
   is_test: boolean | null;
+  total_amount: number | null;
 }
 
 const SENDER_EMAIL = 'antoine@monot.com';
@@ -71,6 +72,7 @@ export function OfferSendPreview() {
   const [editedBody, setEditedBody] = useState<string>('');
   const [savedBody, setSavedBody] = useState<string>(''); // letzter gespeicherter Stand
   const [isSavingBody, setIsSavingBody] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const bodyInitSyncedRef = useRef(false);
 
   // Inquiry laden + Version
@@ -79,7 +81,7 @@ export function OfferSendPreview() {
     (async () => {
       const { data, error } = await supabase
         .from('event_inquiries')
-        .select('id, contact_name, email, company_name, email_draft, offer_phase, lexoffice_quotation_id, is_test')
+        .select('id, contact_name, email, company_name, email_draft, offer_phase, lexoffice_quotation_id, is_test, total_amount')
         .eq('id', id)
         .maybeSingle();
 
@@ -272,6 +274,87 @@ export function OfferSendPreview() {
       setIsSavingBody(false);
     }
   }
+
+  // KI-Regeneration: erzeugt einen neuen Email-Draft-Text basierend auf dem
+  // aktuellen Angebot (inquiry + aktive options) und schreibt ihn in
+  // event_inquiries.email_draft.
+  // B2-Strategie: Public-Offer-Seite bleibt auf der letzten versendeten Version,
+  // email_content in inquiry_offer_history wird NICHT beruehrt.
+  async function handleRegenerate() {
+    if (!inquiry) return;
+    if (isBodyDirty) {
+      const ok = window.confirm(
+        'Du hast nicht gespeicherte Änderungen im Text. Neu generieren wirft sie weg. Fortfahren?'
+      );
+      if (!ok) return;
+    }
+    setIsRegenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-inquiry-email', {
+        body: {
+          inquiryId: inquiry.id,
+          phase: sendType === 'final' ? 'final' : 'proposal',
+        },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'KI-Generierung fehlgeschlagen');
+      const newBody = data.emailDraft || data.email || '';
+      if (!newBody) throw new Error('KI lieferte leeren Text');
+
+      // Direkt in DB schreiben + lokalen State synchron halten
+      const { error: updateError } = await supabase
+        .from('event_inquiries')
+        .update({ email_draft: newBody })
+        .eq('id', inquiry.id);
+      if (updateError) throw updateError;
+
+      setEditedBody(newBody);
+      setSavedBody(newBody);
+      toast.success('E-Mail-Text neu generiert');
+    } catch (err) {
+      console.error('[OfferSendPreview] regenerate failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Neu-Generierung fehlgeschlagen');
+    } finally {
+      setIsRegenerating(false);
+    }
+  }
+
+  // Price-Mismatch-Detection: prueft ob der E-Mail-Text Euro-Betraege enthaelt
+  // die nicht mehr zum aktuellen total_amount passen.
+  // Konservativ: matcht Betraege zwischen 100 und 99999, mit deutschem
+  // Tausendertrennzeichen-Format (z.B. "1.204,25").
+  const priceMismatch = (() => {
+    if (!inquiry?.total_amount) return null;
+    const text = editedBody || '';
+    const current = Number(inquiry.total_amount);
+    if (!(current > 0)) return null;
+
+    const matches: number[] = [];
+    // Deutsch: 1.234,56 €  oder  1234,56 €  oder  123 €
+    const re = /(\d{1,3}(?:\.\d{3})*|\d+)(?:,(\d{2}))?\s*€/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const intPart = m[1].replace(/\./g, '');
+      const frac = m[2] || '00';
+      const n = Number(intPart) + Number(frac) / 100;
+      if (n >= 100 && n <= 99999) matches.push(n);
+    }
+    if (matches.length === 0) return null;
+
+    // Bei per_event: Text muss total_amount enthalten.
+    // Bei per_person: Text kann total_amount ODER total_amount/guestCount enthalten
+    //                 (wir pruefen nur ob einer der Betraege *in der Naehe* ist).
+    const tolerance = 0.5; // halber Euro, fuer Rundungsspielraum
+    const hasClose = matches.some((n) => Math.abs(n - current) < tolerance);
+    if (hasClose) return null;
+
+    // Kein passender Betrag gefunden — Mismatch.
+    const firstFound = matches[0];
+    return {
+      foundAmount: firstFound,
+      currentAmount: current,
+    };
+  })();
   const nextVersion = sendType === 'proposal' ? currentVersion + 1 : currentVersion + 1;
   const subject =
     sendType === 'proposal'
@@ -336,11 +419,52 @@ export function OfferSendPreview() {
             </div>
 
             <div className="mt-4 border-t pt-4">
-              <div className="flex items-center justify-between mb-2">
+              {priceMismatch && (
+                <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm flex items-start gap-3">
+                  <div className="flex-1">
+                    <div className="font-medium text-amber-900">E-Mail-Text ist vermutlich veraltet</div>
+                    <div className="text-amber-800/90 text-xs mt-0.5">
+                      Der Text erwähnt {priceMismatch.foundAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}  € — das aktuelle Angebot hat {priceMismatch.currentAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}  €.
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={handleRegenerate}
+                    disabled={isRegenerating}
+                    className="gap-2 h-8 text-xs bg-amber-700 hover:bg-amber-800 text-white shrink-0"
+                  >
+                    {isRegenerating ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                    Text neu generieren
+                  </Button>
+                </div>
+              )}
+              <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Inhalt
                 </div>
                 <div className="flex items-center gap-2">
+                  {!priceMismatch && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleRegenerate}
+                      disabled={isRegenerating}
+                      className="gap-2 h-7 text-xs text-muted-foreground hover:text-foreground"
+                      title="Text neu aus dem aktuellen Angebot erzeugen (KI)"
+                    >
+                      {isRegenerating ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3" />
+                      )}
+                      Neu generieren
+                    </Button>
+                  )}
                   {isBodyDirty ? (
                     <span className="text-xs text-amber-700 font-medium">Nicht gespeicherte Änderungen</span>
                   ) : savedBody.length > 0 ? (

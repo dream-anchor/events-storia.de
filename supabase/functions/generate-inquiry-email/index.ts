@@ -101,6 +101,7 @@ interface MultiOfferOption {
   guestCount: number;
   totalAmount: number;
   menuSelection?: MenuSelection;
+  pricingMode?: 'per_person' | 'per_event';
   paymentLinkUrl?: string;
 }
 
@@ -156,7 +157,13 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
         optParts.push(`Paket: ${opt.packageName}`);
       }
       if (opt.guestCount > 0) optParts.push(`${opt.guestCount} Gäste`);
-      if (opt.totalAmount > 0 && opt.guestCount > 0) {
+
+      // Preis-Darstellung je nach pricingMode:
+      //   per_event: Gesamtpreis fuer den Anlass (z.B. 5-Tage-Lieferung, Mehrtages-Catering)
+      //   per_person (default): Preis pro Person
+      if (opt.pricingMode === 'per_event' && opt.totalAmount > 0) {
+        optParts.push(`Gesamtpreis: ${opt.totalAmount.toFixed(2).replace('.', ',')} € fuer den gesamten Anlass`);
+      } else if (opt.totalAmount > 0 && opt.guestCount > 0) {
         optParts.push(`${(opt.totalAmount / opt.guestCount).toFixed(2)} € pro Person`);
       }
 
@@ -331,14 +338,18 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
       const opts = optionsData || [];
       optionCount = opts.length;
 
-      const multiOpts: MultiOfferOption[] = (optionsWithPkg || []).map(o => ({
-        label: o.option_label,
-        offerMode: o.offer_mode || undefined,
-        packageName: (o.offer_mode === 'menu') ? 'Individuell' : (pkgNames[o.package_id] || 'Individuell'),
-        guestCount: o.guest_count,
-        totalAmount: Number(o.total_amount),
-        menuSelection: o.menu_selection as MenuSelection | undefined,
-      }));
+      const multiOpts: MultiOfferOption[] = (optionsWithPkg || []).map(o => {
+        const menuSel = o.menu_selection as (MenuSelection & { pricingMode?: 'per_person' | 'per_event' }) | undefined;
+        return {
+          label: o.option_label,
+          offerMode: o.offer_mode || undefined,
+          packageName: (o.offer_mode === 'menu') ? 'Individuell' : (pkgNames[o.package_id] || 'Individuell'),
+          guestCount: o.guest_count,
+          totalAmount: Number(o.total_amount),
+          menuSelection: menuSel,
+          pricingMode: menuSel?.pricingMode || 'per_person',
+        };
+      });
 
       context = buildMultiOfferContext(
         {
@@ -436,7 +447,7 @@ STIL:
 • Kein Markdown (keine **, keine #, keine Listen mit -)
 • Keine übertriebenen Floskeln ("wunderbar", "fantastisch", "außergewöhnlich")
 • Normale E-Mail-Flüsstext in kurzen Absätzen
-• NIE Gesamtpreise — immer Preis pro Person
+• PREIS-DARSTELLUNG: Wenn in den Daten "Gesamtpreis: X € fuer den gesamten Anlass" steht — dann ist das ein per_event-Angebot (z.B. Mehrtageslieferung). IMMER den Gesamtpreis nennen, NIE in "pro Person" umrechnen. Wenn "X € pro Person" steht — normales Event mit Gastzahl, dann "pro Person" verwenden.
 
 ${isProposal ? `STRUKTUR (VORSCHLAG):
 1. Anrede (siehe Regel 1)
