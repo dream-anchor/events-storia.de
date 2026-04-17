@@ -380,33 +380,17 @@ function capitalize(s: string): string {
 }
 
 function buildIntroduction(inquiry: Record<string, unknown> | null, ms: MenuSelectionDB | null): string {
+  // Hinweis: Wir listen hier die einzelnen Speisen/Getraenke NICHT mehr auf.
+  // Seit alle Positionen als eigene Line-Items in der LexOffice-Tabelle
+  // erscheinen (per_event + per_person), waere diese Liste hier redundant und
+  // wirkt unprofessionell. Die Intro enthaelt nur noch die Event-Metadaten.
+  void ms;
   const rawDate = inquiry?.preferred_date ? String(inquiry.preferred_date) : null;
   const parts = [
     `Event-Angebot für den ${rawDate ? formatDateDE(rawDate) : 'nach Vereinbarung'}`,
     `Gäste: ${inquiry?.guest_count || '-'} Personen`,
     `Art: ${inquiry?.event_type ? capitalize(String(inquiry.event_type)) : '-'}`,
   ];
-
-  if (ms?.courses && ms.courses.length > 0) {
-    parts.push('\nIhr Menü:');
-    ms.courses
-      .filter(c => c.itemName)
-      .forEach((c, i) => {
-        let line = `${i + 1}. ${c.courseLabel}: ${c.itemName}`;
-        if (c.itemDescription) line += ` – ${c.itemDescription}`;
-        parts.push(line);
-      });
-  }
-
-  if (ms?.drinks && ms.drinks.length > 0) {
-    parts.push('\nGetränke:');
-    ms.drinks.forEach(d => {
-      let line = `• ${d.drinkLabel}`;
-      if (d.selectedChoice) line += `: ${d.selectedChoice}`;
-      if (d.quantityLabel) line += ` (${d.quantityLabel})`;
-      parts.push(line);
-    });
-  }
 
   return parts.join('\n');
 }

@@ -237,22 +237,17 @@ function buildIntroduction(
   inquiry: Record<string, unknown> | null,
   ms: MenuSelectionDB | null,
 ): string {
+  // Hinweis: Speisen/Getraenke werden hier NICHT mehr gelistet.
+  // Seit alle Positionen als eigene Line-Items in der LexOffice-Tabelle
+  // erscheinen, waere diese Liste redundant und wirkt unprofessionell.
+  // Die Intro enthaelt nur noch die Event-Metadaten.
+  void ms;
   const rawDate = inquiry?.preferred_date ? String(inquiry.preferred_date) : null;
   const parts = [
     `Event-Angebot fuer den ${rawDate ? formatDateDE(rawDate) : "nach Vereinbarung"}`,
     `Gaeste: ${inquiry?.guest_count || "-"} Personen`,
     `Art: ${inquiry?.event_type ? capitalize(String(inquiry.event_type)) : "-"}`,
   ];
-  if (ms?.courses && ms.courses.length > 0) {
-    parts.push("\nPositionen:");
-    ms.courses
-      .filter((c) => c.itemName)
-      .forEach((c, i) => {
-        let line = `${i + 1}. ${c.itemName}`;
-        if (c.itemDescription) line += ` - ${c.itemDescription}`;
-        parts.push(line);
-      });
-  }
   return parts.join("\n");
 }
 
