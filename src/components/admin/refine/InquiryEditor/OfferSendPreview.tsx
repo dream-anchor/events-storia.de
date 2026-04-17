@@ -205,6 +205,49 @@ export function OfferSendPreview() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inquiry?.lexoffice_quotation_id, pdfRetryTrigger]);
 
+  // Auto-Save: 800ms nachdem der User aufhört zu tippen, wird der Body in
+  // event_inquiries.email_draft persistiert. Kein User-Button noetig, keine
+  // Loop-Gefahr weil der Effect nur triggert wenn dirty und nach erfolgreichem
+  // Save savedBody = editedBody gesetzt wird.
+  // WICHTIG: Dieser useEffect MUSS vor den fruehen returns stehen (loading,
+  // !inquiry), sonst verletzt das die Hook-Regel "Hooks in identischer
+  // Reihenfolge bei jedem Render" und React crasht den gesamten Subtree.
+  useEffect(() => {
+    if (!inquiry) return;
+    if (!bodyInitSyncedRef.current) return; // noch im Initial-Sync
+    if (editedBody === savedBody) return; // nichts zu tun
+
+    // Debounce: vorherigen Timer verwerfen
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+    saveTimerRef.current = setTimeout(async () => {
+      const bodyToSave = editedBody; // Snapshot
+      setIsSavingBody(true);
+      try {
+        const { error } = await supabase
+          .from('event_inquiries')
+          .update({ email_draft: bodyToSave })
+          .eq('id', inquiry.id);
+        if (error) throw error;
+        setSavedBody(bodyToSave);
+      } catch (err) {
+        console.error('[OfferSendPreview] auto-save failed:', err);
+        toast.error('Speichern fehlgeschlagen — bitte Seite neu laden');
+      } finally {
+        setIsSavingBody(false);
+      }
+    }, 800);
+
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editedBody, savedBody, inquiry?.id]);
+
   // Handler: Senden
   // Strategie: Die Preview macht keinen direkten Edge-Function-Call. Stattdessen
   // navigieren wir zurueck zur Edit-Seite mit einem URL-Query-Flag, das die
@@ -216,7 +259,7 @@ export function OfferSendPreview() {
 
     // Vor Versand: unsaved changes automatisch speichern.
     // (Damit die Mail den Text sendet, den der User gerade gesehen hat.)
-    if (isBodyDirty) {
+    if (editedBody !== savedBody) {
       setIsSavingBody(true);
       try {
         const { error } = await supabase
@@ -269,46 +312,6 @@ export function OfferSendPreview() {
   const recipientEmail = inquiry.email || '(keine E-Mail hinterlegt)';
   const emailBody = editedBody;
   const isBodyDirty = editedBody !== savedBody;
-
-  // Auto-Save: 800ms nachdem der User aufhört zu tippen, wird der Body in
-  // event_inquiries.email_draft persistiert. Kein User-Button noetig, keine
-  // Loop-Gefahr weil der Effect nur triggert wenn dirty und nach erfolgreichem
-  // Save savedBody = editedBody gesetzt wird.
-  useEffect(() => {
-    if (!inquiry) return;
-    if (!bodyInitSyncedRef.current) return; // noch im Initial-Sync
-    if (editedBody === savedBody) return; // nichts zu tun
-
-    // Debounce: vorherigen Timer verwerfen
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-    }
-    saveTimerRef.current = setTimeout(async () => {
-      const bodyToSave = editedBody; // Snapshot
-      setIsSavingBody(true);
-      try {
-        const { error } = await supabase
-          .from('event_inquiries')
-          .update({ email_draft: bodyToSave })
-          .eq('id', inquiry.id);
-        if (error) throw error;
-        setSavedBody(bodyToSave);
-      } catch (err) {
-        console.error('[OfferSendPreview] auto-save failed:', err);
-        toast.error('Speichern fehlgeschlagen — bitte Seite neu laden');
-      } finally {
-        setIsSavingBody(false);
-      }
-    }, 800);
-
-    return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-        saveTimerRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editedBody, savedBody, inquiry?.id]);
 
   // KI-Regeneration: erzeugt einen neuen Email-Draft-Text basierend auf dem
   // aktuellen Angebot (inquiry + aktive options) und schreibt ihn in
