@@ -5,6 +5,7 @@ import { calculateEventPackagePrice } from "@/lib/eventPricing";
 import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { CourseConfig, DrinkConfig, DrinkOption } from "../MenuComposer/types";
+import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
 import {
   OfferBuilderOption,
   OfferPhase,
@@ -1147,6 +1148,9 @@ export function useOfferBuilder({
     }
   }, [options, inquiryId, currentVersion, isLoading]);
 
+  // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren.
+  // Das AdminLayout zeigt dann EIN Badge fuer alle aktiven Editoren.
+  useRegisterSaveStatus('offer-builder', saveStatus, flushSave);
 
   return {
     options,

@@ -27,6 +27,7 @@ import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } f
 import { MenuSelection } from "./MenuComposer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -38,6 +39,9 @@ export const SmartInquiryEditor = () => {
   const consecutiveSaveErrorsRef = useRef(0);
   const errorToastShownRef = useRef(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>();
+
+  // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren
+  useRegisterSaveStatus('smart-inquiry-editor', saveStatus);
   const [isDownloading, setIsDownloading] = useState(false);
   const downloadDocument = useDownloadLexOfficeDocument();
 
@@ -350,7 +354,7 @@ export const SmartInquiryEditor = () => {
   useEditorShortcuts({
     onSave: () => {
       performSave();
-      toast.success("Gespeichert");
+      // Toast entfernt — zentrales SaveStatusBadge im Header zeigt den Status
     },
     onSendOffer: () => {},
     onGenerateEmail: () => {},

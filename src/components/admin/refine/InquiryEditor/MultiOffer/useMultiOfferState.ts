@@ -3,6 +3,7 @@ import { OfferOption, OfferHistoryEntry, OPTION_LABELS, createEmptyOption, MenuS
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { calculateEventPackagePrice } from "@/lib/eventPricing";
+import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
 
 // Helper to log activity
 const logActivity = async (
@@ -396,6 +397,9 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
       return currentVersion;
     }
   }, [currentVersion, inquiryId]);
+
+  // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren
+  useRegisterSaveStatus('multi-offer', saveStatus);
 
   return {
     options,
