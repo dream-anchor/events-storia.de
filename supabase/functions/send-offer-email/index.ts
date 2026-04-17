@@ -12,6 +12,9 @@ interface SendOfferEmailRequest {
   offerSlug?: string;
   /** LexOffice-Quotation-ID — falls vorhanden, wird PDF angehängt */
   lexofficeQuotationId?: string | null;
+  /** Wenn true: Mail geht als Vorschau/Testmail an antoine@monot.com, unabhaengig von is_test.
+   *  DB wird dabei NICHT aktualisiert (keine Phase-Änderung, keine History). */
+  isTestPreview?: boolean;
 }
 
 interface SendResult {
@@ -196,7 +199,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json() as SendOfferEmailRequest;
-    const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug, lexofficeQuotationId } = body;
+    const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug, lexofficeQuotationId, isTestPreview } = body;
 
     if (!inquiryId || !emailContent || !customerEmail) {
       throw new Error('inquiryId, emailContent and customerEmail are required');
@@ -219,8 +222,9 @@ serve(async (req) => {
       .select('is_test')
       .eq('id', inquiryId)
       .single();
-    const isTest = inquiryRow?.is_test === true;
-
+    // isTest = entweder inquiry selbst ist Test-Flagged, oder Preview-Testmail angefordert.
+    // Letzteres geht immer an antoine@monot.com, unabhaengig vom Kunden-Email.
+    const isTest = inquiryRow?.is_test === true || isTestPreview === true;
     const safeCustomerEmail = getSafeRecipientEmail(customerEmail, isTest);
 
     const offerUrl = `https://events-storia.de/offer/${inquiryId}`;

@@ -7,6 +7,7 @@ import { Dashboard, EventsList, OrdersList, MenuItemsList, PackagesList, Package
 import { LexOfficeInvoicesList } from "@/components/admin/refine/LexOfficeInvoicesList";
 import { CateringOrderEditor } from "@/components/admin/refine/CateringOrderEditor";
 import { SmartInquiryEditor } from "@/components/admin/refine/InquiryEditor";
+import { OfferSendPreview } from "@/components/admin/refine/InquiryEditor/OfferSendPreview";
 import { AdminOfferCreate } from "@/components/admin/refine/OfferCreate";
 import { TestModeProvider } from "@/contexts/TestModeContext";
 import { SaveStatusProvider } from "@/components/admin/shared/SaveStatusContext";
@@ -84,6 +85,7 @@ export const RefineAdminApp = () => {
           <Route index element={<EventsList />} />
           <Route path="create" element={<AdminOfferCreate />} />
           <Route path=":id/edit" element={<SmartInquiryEditor />} />
+          <Route path=":id/preview" element={<OfferSendPreview />} />
         </Route>
         <Route path="bookings">
           <Route index element={<EventBookingsList />} />

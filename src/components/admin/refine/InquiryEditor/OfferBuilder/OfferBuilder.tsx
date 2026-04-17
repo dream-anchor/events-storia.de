@@ -22,6 +22,10 @@ export interface OfferBuilderHandle {
   triggerNewVersion: () => void;
   /** Sofort speichern — vor Navigation/Unmount aufrufen */
   flushSave: () => void;
+  /** Von Preview-Seite aufgerufen: Proposal-Versand direkt auslösen (ohne AlertDialog). */
+  triggerSendProposal: () => Promise<void>;
+  /** Von Preview-Seite aufgerufen: Final-Offer-Versand direkt auslösen (ohne AlertDialog). */
+  triggerSendFinalOffer: () => Promise<void>;
 }
 
 interface OfferBuilderProps {
@@ -203,6 +207,12 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     flushSave: () => {
       builder.flushSave();
     },
+    triggerSendProposal: async () => {
+      await builder.sendProposal(emailDraft);
+    },
+    triggerSendFinalOffer: async () => {
+      await builder.sendFinalOffer(emailDraft);
+    },
   }));
 
   // --- Loading ---
@@ -353,6 +363,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         hasHistory={builder.history.length > 0}
         isNewVersionAfterSend={hasLocalChangesAfterSend}
         currentVersion={builder.currentVersion}
+        inquiryId={inquiry.id}
       />}
 
       {/* Versionshistorie entfernt — wird in Timeline & Aktivitäten angezeigt */}

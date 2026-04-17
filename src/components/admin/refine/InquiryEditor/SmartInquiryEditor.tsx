@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
@@ -349,6 +349,69 @@ export const SmartInquiryEditor = () => {
       }, 100);
     }
   }, [inquiry]);
+
+  // --------------------------------------------------------------------
+  // Preview-Rueckkehr: Send-Flow triggern wenn User auf "Jetzt senden"
+  // in der Preview-Seite geklickt hat. URL-Query "?confirmed=1|test&send=proposal|final".
+  // Nach Ausfuehrung wird die URL bereinigt damit kein Re-Trigger bei Reload passiert.
+  // --------------------------------------------------------------------
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sendTriggerHandledRef = useRef(false);
+  useEffect(() => {
+    const confirmed = searchParams.get('confirmed');
+    const sendType = searchParams.get('send');
+    if (!confirmed || !sendType) return;
+    if (!inquiry || !isInitializedRef.current) return;
+    if (sendTriggerHandledRef.current) return;
+    sendTriggerHandledRef.current = true;
+
+    (async () => {
+      // Erst URL bereinigen, dann agieren (vermeidet Re-Trigger bei Rerender)
+      setSearchParams({}, { replace: true });
+
+      if (confirmed === 'test') {
+        // Testmail: direkte Edge-Function-Call mit isTestPreview, KEINE Phase-Aenderung
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const { error } = await supabase.functions.invoke('send-offer-email', {
+            body: {
+              inquiryId: inquiry.id,
+              emailContent: emailDraft || inquiry.email_draft || '',
+              customerEmail: inquiry.email || user?.email || 'antoine@monot.com',
+              customerName: inquiry.contact_name || '',
+              senderEmail: user?.email,
+              lexofficeQuotationId: inquiry.lexoffice_quotation_id,
+              isTestPreview: true,
+            },
+          });
+          if (error) throw error;
+          toast.success('Testmail an antoine@monot.com gesendet');
+        } catch (err) {
+          console.error('[SmartInquiryEditor] Test-mail failed:', err);
+          toast.error(err instanceof Error ? err.message : 'Testmail fehlgeschlagen');
+        }
+        return;
+      }
+
+      // Echter Versand — ueber OfferBuilder-Handle (nutzt bewaehrten Code-Pfad)
+      const handle = offerBuilderRef.current;
+      if (!handle) {
+        toast.error('OfferBuilder nicht bereit — bitte erneut versuchen');
+        return;
+      }
+      try {
+        if (sendType === 'final') {
+          await handle.triggerSendFinalOffer();
+        } else {
+          await handle.triggerSendProposal();
+        }
+      } catch (err) {
+        console.error('[SmartInquiryEditor] Send trigger failed:', err);
+        toast.error(err instanceof Error ? err.message : 'Versand fehlgeschlagen');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inquiry?.id, searchParams]);
 
   // Keyboard shortcuts
   useEditorShortcuts({

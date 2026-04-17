@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Send, CreditCard, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,9 @@ interface SendControlsProps {
   isNewVersionAfterSend?: boolean;
   /** Aktuelle gesendete Version, fuer Anzeige von "Version N+1" */
   currentVersion?: number;
+  /** Inquiry-ID fuer Preview-Navigation. Wenn gesetzt, oeffnet der Send-Button
+   *  die Preview-Route statt den Send direkt auszufuehren. */
+  inquiryId?: string;
 }
 
 const PHASE_LABELS: Record<OfferPhase, string> = {
@@ -49,8 +53,17 @@ export function SendControls({
   hasHistory = false,
   isNewVersionAfterSend = false,
   currentVersion = 1,
+  inquiryId,
 }: SendControlsProps) {
   const [confirmType, setConfirmType] = useState<'proposal' | 'final' | null>(null);
+  const navigate = useNavigate();
+
+  /** Navigiert zur Preview-Seite statt den Send direkt auszuloesen.
+   *  Wird nur aufgerufen wenn inquiryId gesetzt ist (Opt-in, Legacy-Pfade bleiben unveraendert). */
+  const goToPreview = (send: 'proposal' | 'final') => {
+    if (!inquiryId) return;
+    navigate(`/admin/events/${inquiryId}/preview?send=${send}`);
+  };
 
   const canSendProposal =
     (offerPhase === 'draft' || offerPhase === 'proposal_sent') &&
@@ -104,7 +117,13 @@ export function SendControls({
         {showProposal && (
           <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
             <Button
-              onClick={() => setConfirmType('proposal')}
+              onClick={() => {
+                if (inquiryId) {
+                  goToPreview('proposal');
+                } else {
+                  setConfirmType('proposal');
+                }
+              }}
               disabled={!canSendProposal || isSending}
               className={cn(
                 "h-11 rounded-xl font-semibold gap-2 px-6",
@@ -134,7 +153,13 @@ export function SendControls({
         {showFinal && (
           <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
             <Button
-              onClick={() => setConfirmType('final')}
+              onClick={() => {
+                if (inquiryId) {
+                  goToPreview('final');
+                } else {
+                  setConfirmType('final');
+                }
+              }}
               disabled={!canSendFinal || isSending}
               className={cn(
                 "h-11 rounded-xl font-semibold gap-2 px-6",
