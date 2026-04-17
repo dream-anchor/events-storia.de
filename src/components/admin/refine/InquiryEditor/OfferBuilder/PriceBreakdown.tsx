@@ -210,48 +210,9 @@ export function PriceBreakdown({
         )}
         {dishLines.length > 0 && (
           <div className="space-y-1.5">
-            <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
-              {pricingMode === 'per_event' ? 'Einzelpreise pro Position' : 'Preis pro Person'}
-            </span>
-
-            {/* Einzelgerichte (Originalpreise, editierbar) */}
-            {dishLines.map((d) => (
-              <div key={d.index} className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground truncate flex-1">
-                  {d.label}: {d.name}
-                </span>
-                {/* Menge × bei per_event mit quantity > 1 */}
-                {d.quantity > 1 && (
-                  <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-                    {d.quantity} ×
-                  </span>
-                )}
-                <div className="relative w-24 shrink-0">
-                  <Input
-                    type="number"
-                    value={d.overridePrice != null && d.overridePrice > 0 ? d.overridePrice : (d.catalogPrice && d.catalogPrice > 0 ? d.catalogPrice : '')}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      onCourseUpdate?.(d.index, {
-                        overridePrice: val === '' ? null : parseFloat(val) || 0,
-                      });
-                    }}
-                    placeholder={d.catalogPrice != null && d.catalogPrice > 0 ? d.catalogPrice.toFixed(2) : '—'}
-                    className="h-7 rounded-lg pr-6 text-right text-xs"
-                    disabled={disabled}
-                  />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                    €
-                  </span>
-                </div>
-                {/* Zeilen-Total bei per_event mit quantity > 1 */}
-                {d.quantity > 1 && d.lineTotal != null && (
-                  <span className="text-xs font-medium tabular-nums w-20 text-right shrink-0">
-                    = {formatCurrency(d.lineTotal)}
-                  </span>
-                )}
-              </div>
-            ))}
+            {/* Die Einzelposten werden jetzt direkt im MenuEditor oben gerendert
+                (InlineCourseEditor mit integriertem Preis-Input + Zeilen-Total).
+                Hier nur noch die Summen-Zeilen. */}
 
             {/* Getränke */}
             {winePairingPrice != null && winePerPerson > 0 && (

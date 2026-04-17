@@ -29,6 +29,7 @@ import { COURSE_ICONS } from "./types";
 import type { CourseConfig, CourseSelection, CourseType } from "./types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { PricingMode } from "./pricingMode";
+import { findBestMenuItem } from "./menuItemLookup";
 
 interface InlineCourseEditorProps {
   courses: CourseSelection[];
@@ -53,6 +54,7 @@ function SortableCourseRow({
   onClear,
   onUpdateName,
   onUpdateQuantity,
+  onUpdatePrice,
   onRemoveCourse,
   pricingMode,
   disabled,
@@ -65,6 +67,7 @@ function SortableCourseRow({
   onClear: (index: number) => void;
   onUpdateName: (index: number, name: string) => void;
   onUpdateQuantity: (index: number, quantity: number) => void;
+  onUpdatePrice: (index: number, price: number | null) => void;
   onRemoveCourse: (index: number) => void;
   pricingMode: PricingMode;
   disabled: boolean;
@@ -90,6 +93,18 @@ function SortableCourseRow({
     const config = courseConfigs.find(c => c.course_type === courseType);
     return config?.allowed_categories || [];
   };
+
+  // Preis-Ableitung: catalogPrice aus MenuItem, unitPrice respektiert overridePrice,
+  // lineTotal = unitPrice * quantity. formatter fuer lineTotal.
+  const menuItem = findBestMenuItem(menuItems, course.itemId, course.itemName);
+  const catalogPrice = menuItem?.price ?? null;
+  const hasOverride = course.overridePrice != null && course.overridePrice > 0;
+  const unitPrice = hasOverride
+    ? course.overridePrice!
+    : (catalogPrice && catalogPrice > 0 ? catalogPrice : null);
+  const quantity = course.quantity ?? 1;
+  const lineTotal = unitPrice != null ? unitPrice * quantity : null;
+  const fmtEUR = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
   return (
     <div
@@ -188,6 +203,31 @@ function SortableCourseRow({
           </div>
         )}
       </div>
+
+      {/* Einzelpreis (immer sichtbar) */}
+      <div className="relative w-24 shrink-0">
+        <Input
+          type="number"
+          step={0.01}
+          value={hasOverride ? course.overridePrice! : (catalogPrice && catalogPrice > 0 ? catalogPrice : '')}
+          onChange={(e) => {
+            const val = e.target.value;
+            onUpdatePrice(idx, val === '' ? null : (parseFloat(val) || 0));
+          }}
+          placeholder={catalogPrice != null && catalogPrice > 0 ? catalogPrice.toFixed(2) : '—'}
+          disabled={disabled}
+          className="h-8 rounded-lg pr-6 text-right text-sm tabular-nums"
+          title="Einzelpreis"
+        />
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">€</span>
+      </div>
+
+      {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
+      {pricingMode === 'per_event' && quantity > 1 && (
+        <span className="text-sm font-medium tabular-nums w-24 text-right shrink-0">
+          {lineTotal != null ? `= ${fmtEUR(lineTotal)}` : ''}
+        </span>
+      )}
 
       {/* Gang entfernen — immer sichtbar */}
       {!disabled && (
@@ -292,6 +332,7 @@ export function InlineCourseEditor({
             onClear={handleClear}
             onUpdateName={(index, name) => onUpdateCourse(index, { itemName: name })}
             onUpdateQuantity={(index, quantity) => onUpdateCourse(index, { quantity })}
+            onUpdatePrice={(index, overridePrice) => onUpdateCourse(index, { overridePrice })}
             pricingMode={pricingMode}
               onRemoveCourse={onRemoveCourse}
               disabled={disabled}
