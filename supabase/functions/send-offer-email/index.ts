@@ -333,20 +333,24 @@ serve(async (req) => {
 
     // --------------------------------------------------------------
     // Preview-Testmail: Empfaenger und Subject ueberschreiben.
-    //   - Primaerer Empfaenger: der eingeloggte Admin (senderEmail).
-    //   - Zusaetzlich: info@ristorantestoria.de, wenn != senderEmail.
-    //   - Subject mit "VORSCHAU – " vorne.
-    //   - Keine BCC (die waere jetzt redundant mit dem To-Feld).
+    //   Zwei fest konfigurierte Empfaenger, damit die Vorschau immer an
+    //   dieselben Stellen geht, unabhaengig davon wer im Admin eingeloggt ist:
+    //     - antoine@monot.com (Projekt-Eigentuemer)
+    //     - info@ristorantestoria.de (Restaurant-Team)
+    //   Zusaetzlich: Der eingeloggte Admin bekommt eine Kopie wenn seine
+    //   Email-Adresse nicht ohnehin schon in der Liste ist (Dedup case-insensitive).
+    //   Subject wird mit "VORSCHAU – " vorangestellt.
+    //   BCC entfaellt — alle Empfaenger stehen sichtbar im To-Feld.
     // --------------------------------------------------------------
     let previewTo: string[] | null = null;
     let previewSubject: string | null = null;
     let previewBcc: string[] | null = null;
     if (isTestPreview) {
-      const adminEmail = senderEmail?.trim() || 'antoine@monot.com';
-      const RISTORANTE_EMAIL = 'info@ristorantestoria.de';
-      const recipients = [adminEmail];
-      if (adminEmail.toLowerCase() !== RISTORANTE_EMAIL.toLowerCase()) {
-        recipients.push(RISTORANTE_EMAIL);
+      const PREVIEW_STANDARD_RECIPIENTS = ['antoine@monot.com', 'info@ristorantestoria.de'];
+      const recipients = [...PREVIEW_STANDARD_RECIPIENTS];
+      const adminEmail = senderEmail?.trim();
+      if (adminEmail && !recipients.some((r) => r.toLowerCase() === adminEmail.toLowerCase())) {
+        recipients.push(adminEmail);
       }
       previewTo = recipients;
       previewSubject = `VORSCHAU – ${emailSubject}`;
@@ -456,10 +460,16 @@ serve(async (req) => {
         success: true,
         emailSent: result.sent,
         provider: result.provider,
+        messageId: result.messageId,
+        errorMessage: result.errorMessage,
+        recipients: finalTo,
+        bcc: finalBcc,
+        subject: finalSubject,
         offerUrl,
         offerSlug: slug,
         hasPdfAttachment: hasPdf,
         warnings,
+        isTestPreview: isTestPreview === true,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );

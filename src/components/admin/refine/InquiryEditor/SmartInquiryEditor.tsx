@@ -394,7 +394,7 @@ export const SmartInquiryEditor = () => {
         // Testmail: direkte Edge-Function-Call mit isTestPreview, KEINE Phase-Aenderung
         try {
           const { data: { user } } = await supabase.auth.getUser();
-          const { error } = await supabase.functions.invoke('send-offer-email', {
+          const { data, error } = await supabase.functions.invoke('send-offer-email', {
             body: {
               inquiryId: inquiry.id,
               emailContent: emailDraft || inquiry.email_draft || '',
@@ -406,13 +406,18 @@ export const SmartInquiryEditor = () => {
             },
           });
           if (error) throw error;
-          // Empfaenger-Liste fuer den Toast nachbilden (wie in der Edge-Function)
-          const recipients: string[] = [];
-          if (user?.email) recipients.push(user.email);
-          if (!recipients.some(r => r.toLowerCase() === 'info@ristorantestoria.de')) {
-            recipients.push('info@ristorantestoria.de');
+          // Edge-Function liefert die tatsaechlichen Empfaenger in response.recipients.
+          // Wir zeigen diese Liste im Toast damit der User sieht was wirklich rausging.
+          const recipients: string[] = Array.isArray(data?.recipients) ? data.recipients : [];
+          const msgId = data?.messageId ? ` (Resend-ID ${String(data.messageId).slice(0, 8)}…)` : '';
+          if (recipients.length > 0) {
+            toast.success(`Vorschau-Mail gesendet an: ${recipients.join(', ')}${msgId}`, { duration: 8000 });
+          } else {
+            toast.success('Vorschau-Mail gesendet', { duration: 6000 });
           }
-          toast.success(`Vorschau-Mail gesendet an: ${recipients.join(', ')}`);
+          if (data && data.emailSent === false) {
+            toast.error(`Resend meldet Fehler: ${data.errorMessage || 'Unbekannt'}`, { duration: 10000 });
+          }
         } catch (err) {
           console.error('[SmartInquiryEditor] Test-mail failed:', err);
           toast.error(err instanceof Error ? err.message : 'Vorschau-Mail fehlgeschlagen');
