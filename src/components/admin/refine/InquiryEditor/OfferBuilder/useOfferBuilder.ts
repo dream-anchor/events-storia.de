@@ -1022,59 +1022,90 @@ export function useOfferBuilder({
       }
     }
 
-    const newVersion = await createNewVersion(emailContent);
-
+    // Version anlegen (Fehler wird geworfen)
+    let newVersion: number;
     try {
-      await supabase
-        .from("event_inquiries")
-        .update({
-          status: 'offer_sent',
-          offer_phase: 'final_sent',
-        } as Record<string, unknown>)
-        .eq("id", inquiryId);
+      newVersion = await createNewVersion(emailContent);
+    } catch (versionErr) {
+      console.error('[sendFinalOffer] createNewVersion failed:', versionErr);
+      const msg = versionErr instanceof Error ? versionErr.message : 'Unbekannter Fehler';
+      toast.error(`Finales Angebot konnte nicht gesendet werden: ${msg}`);
+      return;
+    }
 
-      setOfferPhase('final_sent');
-
-      // Email an Kunden senden
-      const customerEmail = inquiry.email;
-      let emailSent = false;
-
-      if (customerEmail) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          const { data: emailResult, error: emailError } = await supabase.functions.invoke(
-            'send-offer-email',
-            {
-              body: {
-                inquiryId,
-                emailContent,
-                customerEmail,
-                customerName: inquiry.contact_name || '',
-                senderEmail: user?.email,
-              },
-            }
-          );
-          emailSent = !emailError && emailResult?.emailSent;
-          if (emailError) console.error('Email send error:', emailError);
-        } catch (emailErr) {
-          console.error('Error invoking send-offer-email:', emailErr);
-        }
-      }
-
-      await logActivity(inquiryId, 'final_offer_sent', {
-        version: newVersion,
-        optionCount: activeOpts.length,
-        paymentLinksCreated: linksCreated,
-        emailSent,
-      });
-
-      toast.success(emailSent
-        ? `Finales Angebot gesendet und Email zugestellt (${linksCreated} Zahlungslink${linksCreated !== 1 ? 's' : ''})`
-        : `Finales Angebot gespeichert — Email konnte nicht zugestellt werden`
+    // Phase + Status aktualisieren — KRITISCH vor Mail-Versand
+    const { error: phaseErr } = await supabase
+      .from("event_inquiries")
+      .update({
+        status: 'offer_sent',
+        offer_phase: 'final_sent',
+      } as Record<string, unknown>)
+      .eq("id", inquiryId);
+    if (phaseErr) {
+      console.error('[sendFinalOffer] Phase-Update fehlgeschlagen:', phaseErr);
+      toast.error(
+        `Kritischer Fehler: Finale Phase konnte nicht gesetzt werden (${phaseErr.message}). ` +
+        `Bitte Seite neu laden und ggf. den Datensatz manuell korrigieren.`,
+        { duration: Infinity }
       );
-    } catch (error) {
-      console.error("Error sending final offer:", error);
-      toast.error("Fehler beim Senden des finalen Angebots");
+      return;
+    }
+    setOfferPhase('final_sent');
+
+    // Email an Kunden senden (ERST JETZT, nachdem State konsistent ist)
+    const customerEmail = inquiry.email;
+    let emailSent = false;
+    let emailErrorMessage: string | null = null;
+
+    if (customerEmail) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: emailResult, error: emailError } = await supabase.functions.invoke(
+          'send-offer-email',
+          {
+            body: {
+              inquiryId,
+              emailContent,
+              customerEmail,
+              customerName: inquiry.contact_name || '',
+              senderEmail: user?.email,
+            },
+          }
+        );
+        emailSent = !emailError && emailResult?.emailSent;
+        if (emailError) {
+          emailErrorMessage = emailError.message || 'Unbekannter Fehler';
+          console.error('[sendFinalOffer] Email send error:', emailError);
+        }
+      } catch (emailErr) {
+        emailErrorMessage = emailErr instanceof Error ? emailErr.message : 'Unbekannter Fehler';
+        console.error('[sendFinalOffer] Error invoking send-offer-email:', emailErr);
+      }
+    }
+
+    await logActivity(inquiryId, 'final_offer_sent', {
+      version: newVersion,
+      optionCount: activeOpts.length,
+      paymentLinksCreated: linksCreated,
+      emailSent,
+      emailErrorMessage,
+    });
+
+    // Klares Feedback: Phase ist gesetzt, Mail-Status wird sichtbar kommuniziert
+    if (emailSent) {
+      toast.success(
+        `Finales Angebot gesendet — Email zugestellt ` +
+        `(${linksCreated} Zahlungslink${linksCreated !== 1 ? 's' : ''})`
+      );
+    } else if (customerEmail) {
+      toast.warning(
+        `Finales Angebot intern gespeichert, aber Email an ${customerEmail} konnte NICHT zugestellt werden` +
+        (emailErrorMessage ? ` (${emailErrorMessage})` : '') +
+        `. Bitte Link manuell teilen oder Versand erneut auslösen.`,
+        { duration: 15000 }
+      );
+    } else {
+      toast.info('Finales Angebot gespeichert (keine E-Mail-Adresse hinterlegt — Link manuell teilen)');
     }
   }, [saveOptions, createNewVersion, inquiryId, options, packagesProp, inquiry]);
 
