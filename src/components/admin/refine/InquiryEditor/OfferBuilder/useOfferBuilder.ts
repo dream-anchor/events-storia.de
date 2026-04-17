@@ -6,7 +6,7 @@ import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { CourseConfig, DrinkConfig, DrinkOption, CourseSelection } from "../MenuComposer/types";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
-import { detectPricingMode, calculateTotalAmount } from "./pricingMode";
+import { detectPricingMode, calculateTotalAmount, parseQuantityPrefix } from "./pricingMode";
 import {
   OfferBuilderOption,
   OfferPhase,
@@ -37,6 +37,42 @@ function mapLegacyMode(dbMode: string | null | undefined): OfferMode {
       return 'menu';
   }
 }
+
+/**
+ * Migriert Legacy-Kurse: wenn itemName ein "N x Name"-Pattern hat und quantity noch
+ * nicht gesetzt ist, wird die Menge extrahiert und der Name bereinigt. Das wandert
+ * dann beim naechsten Save in die DB. Ohne Aenderung am DB-Schema.
+ *
+ * Wichtig: bei Legacy-Daten war overridePrice bisher der Zeilen-Gesamtpreis
+ * (z.B. 196,9 € fuer "11 x Salat"). Nach der Migration ist overridePrice der
+ * Einzelpreis (Zeilen-Total = quantity * overridePrice). Damit die Migration
+ * bedeutungserhaltend ist, teilen wir overridePrice durch quantity.
+ *
+ * Wenn quantity schon vorhanden ist, bleibt der Kurs unveraendert.
+ */
+function migrateCourseQuantities(
+  menuSelection: OfferBuilderOption['menuSelection']
+): OfferBuilderOption['menuSelection'] {
+  if (!menuSelection?.courses || menuSelection.courses.length === 0) return menuSelection;
+  const migratedCourses = menuSelection.courses.map((c) => {
+    if (c.quantity != null) return c; // schon migriert
+    const parsed = parseQuantityPrefix(c.itemName);
+    if (!parsed) return { ...c, quantity: 1 }; // kein Match -> Default 1, overridePrice unveraendert
+    // Match: Einzelpreis aus bisherigem Zeilen-Gesamtpreis ableiten
+    const oldTotal = c.overridePrice;
+    const newUnitPrice = (oldTotal != null && oldTotal > 0 && parsed.quantity > 0)
+      ? Math.round((oldTotal / parsed.quantity) * 100) / 100
+      : oldTotal;
+    return {
+      ...c,
+      itemName: parsed.cleanName,
+      quantity: parsed.quantity,
+      overridePrice: newUnitPrice,
+    };
+  });
+  return { ...menuSelection, courses: migratedCourses };
+}
+
 
 // =================================================================
 // SAVE-HELPER (fix für Foreign-Key-Bug bei offer_customer_responses)
@@ -319,7 +355,9 @@ export function useOfferBuilder({
             offerMode: mode,
             isActive: opt.is_active ?? true,
             guestCount: opt.guest_count,
-            menuSelection: (opt.menu_selection as unknown as OfferBuilderOption['menuSelection']) || { courses: [], drinks: [] },
+            menuSelection: migrateCourseQuantities(
+              (opt.menu_selection as unknown as OfferBuilderOption['menuSelection']) || { courses: [], drinks: [] }
+            ),
             totalAmount: Number(opt.total_amount),
             stripePaymentLinkId: opt.stripe_payment_link_id,
             stripePaymentLinkUrl: opt.stripe_payment_link_url,
@@ -519,11 +557,12 @@ export function useOfferBuilder({
       let changed = false;
       const updated = prev.map(opt => {
         if (opt.offerMode === 'menu') {
-          // Menü-Modus: Summe der overridePrices (−20% Rabatt) × Gäste
+          // Menue-Modus: Zeilen-Totals aus quantity * overridePrice
           let dishSubtotal = 0;
           for (const course of opt.menuSelection.courses) {
             if (course.overridePrice != null && course.overridePrice > 0) {
-              dishSubtotal += course.overridePrice;
+              const qty = course.quantity ?? 1;
+              dishSubtotal += course.overridePrice * qty;
             }
           }
           // Getränke je nach Modus

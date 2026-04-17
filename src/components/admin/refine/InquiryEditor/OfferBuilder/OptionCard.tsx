@@ -405,6 +405,7 @@ function MenuContent({
           onReorderCourses={(reordered) => {
             onUpdate({ menuSelection: { ...option.menuSelection, courses: reordered } });
           }}
+          pricingMode={option.pricingMode ?? 'per_person'}
           disabled={disabled}
         />
       </div>
@@ -613,6 +614,7 @@ function PaketContent({
                 onReorderCourses={(reordered) =>
                   onUpdate({ menuSelection: { ...option.menuSelection, courses: reordered } })
                 }
+                pricingMode={option.pricingMode ?? 'per_person'}
                 disabled={disabled}
               />
             </div>

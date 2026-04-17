@@ -28,6 +28,7 @@ import { DishPicker } from "./DishPicker";
 import { COURSE_ICONS } from "./types";
 import type { CourseConfig, CourseSelection, CourseType } from "./types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
+import type { PricingMode } from "./pricingMode";
 
 interface InlineCourseEditorProps {
   courses: CourseSelection[];
@@ -37,6 +38,8 @@ interface InlineCourseEditorProps {
   onAddCourse: (courseType: CourseType, courseLabel: string) => void;
   onRemoveCourse: (index: number) => void;
   onReorderCourses?: (courses: CourseSelection[]) => void;
+  /** Pricing-Modus der Option. Bei 'per_event' wird ein Mengen-Feld pro Zeile sichtbar. */
+  pricingMode?: PricingMode;
   disabled?: boolean;
 }
 
@@ -49,7 +52,9 @@ function SortableCourseRow({
   onDishSelect,
   onClear,
   onUpdateName,
+  onUpdateQuantity,
   onRemoveCourse,
+  pricingMode,
   disabled,
 }: {
   course: CourseSelection;
@@ -59,7 +64,9 @@ function SortableCourseRow({
   onDishSelect: (index: number, dish: { id: string; name: string; description: string | null; source: string; price: number | null }) => void;
   onClear: (index: number) => void;
   onUpdateName: (index: number, name: string) => void;
+  onUpdateQuantity: (index: number, quantity: number) => void;
   onRemoveCourse: (index: number) => void;
+  pricingMode: PricingMode;
   disabled: boolean;
 }) {
   const [editingName, setEditingName] = useState(false);
@@ -115,6 +122,26 @@ function SortableCourseRow({
       <span className="text-sm text-muted-foreground w-20 shrink-0 truncate">
         {course.courseLabel}
       </span>
+
+      {/* Menge (nur bei per_event) */}
+      {pricingMode === 'per_event' && (
+        <div className="relative w-16 shrink-0">
+          <Input
+            type="number"
+            min={1}
+            step={1}
+            value={course.quantity ?? 1}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              if (!isNaN(v) && v > 0) onUpdateQuantity(idx, v);
+            }}
+            disabled={disabled}
+            className="h-8 rounded-lg pr-5 text-right text-sm tabular-nums"
+            title="Menge"
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">×</span>
+        </div>
+      )}
 
       {/* DishPicker + Inline Name Edit */}
       <div className="flex-1 min-w-0">
@@ -184,6 +211,7 @@ export function InlineCourseEditor({
   onAddCourse,
   onRemoveCourse,
   onReorderCourses,
+  pricingMode = 'per_person',
   disabled = false,
 }: InlineCourseEditorProps) {
   const handleDishSelect = (
@@ -263,6 +291,8 @@ export function InlineCourseEditor({
             onDishSelect={handleDishSelect}
             onClear={handleClear}
             onUpdateName={(index, name) => onUpdateCourse(index, { itemName: name })}
+            onUpdateQuantity={(index, quantity) => onUpdateCourse(index, { quantity })}
+            pricingMode={pricingMode}
               onRemoveCourse={onRemoveCourse}
               disabled={disabled}
             />

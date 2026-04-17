@@ -66,8 +66,10 @@ export interface CourseSelection {
   itemDescription: string | null;
   itemSource: ItemSource;
   isCustom: boolean;
-  /** Editierbarer Preis pro Gericht (überschreibt Katalogpreis) */
+  /** Editierbarer Preis pro Position (bei quantity=1 = Preis pro Portion; bei quantity>1 = Gesamtpreis fuer diese Position) */
   overridePrice?: number | null;
+  /** Menge bei per_event-Modus. Default 1. Wird beim Laden aus 'N x Foo'-Pattern im itemName migriert. */
+  quantity?: number | null;
 }
 
 export interface DrinkSelection {

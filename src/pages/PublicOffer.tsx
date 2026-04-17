@@ -62,6 +62,8 @@ interface CourseSelection {
   courseLabel: string;
   itemName: string;
   itemDescription: string | null;
+  /** Menge bei per_event-Bestellungen. Default 1 = keine Anzeige. */
+  quantity?: number | null;
 }
 
 interface DrinkSelection {
@@ -916,7 +918,7 @@ function ProposalOptionCard({
                     </span>
                     <div className="flex-1">
                       <p className="text-base md:text-lg font-serif text-foreground leading-snug">
-                        {c.itemName}
+                        {(c.quantity ?? 1) > 1 ? `${c.quantity} × ${c.itemName}` : c.itemName}
                       </p>
                       {c.itemDescription && (
                         <p className="text-sm font-sans text-foreground/70 mt-1 leading-relaxed">
@@ -1195,7 +1197,7 @@ function FinalOptionCard({
                     {course.courseLabel}
                   </p>
                   <p className="font-serif text-base text-foreground">
-                    {course.itemName}
+                    {(course.quantity ?? 1) > 1 ? `${course.quantity} × ${course.itemName}` : course.itemName}
                   </p>
                   {course.itemDescription && (
                     <p className="text-xs font-sans text-muted-foreground/60 italic mt-0.5">

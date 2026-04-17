@@ -25,6 +25,8 @@ interface CourseSelectionDB {
   itemName: string;
   itemDescription: string | null;
   overridePrice?: number | null;
+  /** Menge (quantity); bei Zeilen-Total = quantity * overridePrice */
+  quantity?: number | null;
 }
 
 interface DrinkSelectionDB {
@@ -102,11 +104,11 @@ function buildLineItems(
   // budgetPerPerson-Override gesetzt ist, wird die Differenz proportional
   // auf Essen/Getraenke verteilt.
   if (ms?.pricingMode === "per_event") {
-    // 1. Roh-Summen aus den Positionen
+    // 1. Roh-Summen aus den Positionen (Zeilen-Total = quantity * overridePrice)
     const foodRaw = round2(
       (ms.courses || [])
         .filter((c) => c.itemName && c.overridePrice != null && c.overridePrice > 0)
-        .reduce((s, c) => s + (c.overridePrice || 0), 0),
+        .reduce((s, c) => s + (c.overridePrice || 0) * (c.quantity ?? 1), 0),
     );
     let drinksRaw = 0;
     const drinkMode = ms.drinksMode ?? "none";

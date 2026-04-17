@@ -80,6 +80,26 @@ export function deriveBudgetValue(
 }
 
 /**
+ * Parst die Menge aus einem Item-Namen nach dem Pattern "N x Name" oder "N× Name".
+ * Beispiele:
+ *   "11 x Salat mit Hähnchen" -> { quantity: 11, cleanName: "Salat mit Hähnchen" }
+ *   "7 x Kürbisrisotto"        -> { quantity: 7,  cleanName: "Kürbisrisotto" }
+ *   "Salat"                    -> null (kein Match)
+ *
+ * Wird bei Legacy-Daten einmalig beim Laden angewendet, damit wir die Menge
+ * in ein Strukturfeld migrieren statt sie im itemName-String vergraben zu lassen.
+ */
+export function parseQuantityPrefix(itemName: string): { quantity: number; cleanName: string } | null {
+  if (!itemName) return null;
+  const m = itemName.match(/^(\d+)\s*[x×]\s+(.+)$/i);
+  if (!m) return null;
+  const quantity = parseInt(m[1], 10);
+  const cleanName = m[2].trim();
+  if (!quantity || !cleanName) return null;
+  return { quantity, cleanName };
+}
+
+/**
  * Human-readable Label fuer den Modus.
  */
 export function pricingModeLabel(mode: PricingMode): string {

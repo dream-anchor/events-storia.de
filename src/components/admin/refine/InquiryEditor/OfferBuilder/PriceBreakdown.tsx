@@ -163,15 +163,19 @@ export function PriceBreakdown({
         const menuItem = findBestMenuItem(menuItems, c.itemId, c.itemName);
         const catalogPrice = menuItem?.price ?? null;
         // overridePrice hat Vorrang, sonst Katalogpreis (voller Preis, ohne Rabatt)
-        const price = c.overridePrice != null && c.overridePrice > 0
+        const unitPrice = c.overridePrice != null && c.overridePrice > 0
           ? c.overridePrice
           : (catalogPrice && catalogPrice > 0 ? catalogPrice : null);
+        const quantity = c.quantity ?? 1;
+        const lineTotal = unitPrice != null ? unitPrice * quantity : null;
         return {
           index: idx,
           label: c.courseLabel,
           name: c.itemName,
           catalogPrice,
-          price,
+          unitPrice,
+          quantity,
+          lineTotal,
           overridePrice: c.overridePrice,
         };
       })
@@ -180,11 +184,13 @@ export function PriceBreakdown({
         label: string;
         name: string;
         catalogPrice: number | null;
-        price: number | null;
+        unitPrice: number | null;
+        quantity: number;
+        lineTotal: number | null;
         overridePrice?: number | null;
       }[];
 
-    const dishSubtotal = dishLines.reduce((sum, d) => sum + (d.price || 0), 0);
+    const dishSubtotal = dishLines.reduce((sum, d) => sum + (d.lineTotal || 0), 0);
     const winePerPerson = winePairingPrice || 0;
     const subtotalPerPerson = dishSubtotal + winePerPerson;
     const discountAmount = dishSubtotal * DISCOUNT;
@@ -214,6 +220,12 @@ export function PriceBreakdown({
                 <span className="text-xs text-muted-foreground truncate flex-1">
                   {d.label}: {d.name}
                 </span>
+                {/* Menge × bei per_event mit quantity > 1 */}
+                {d.quantity > 1 && (
+                  <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                    {d.quantity} ×
+                  </span>
+                )}
                 <div className="relative w-24 shrink-0">
                   <Input
                     type="number"
@@ -232,6 +244,12 @@ export function PriceBreakdown({
                     €
                   </span>
                 </div>
+                {/* Zeilen-Total bei per_event mit quantity > 1 */}
+                {d.quantity > 1 && d.lineTotal != null && (
+                  <span className="text-xs font-medium tabular-nums w-20 text-right shrink-0">
+                    = {formatCurrency(d.lineTotal)}
+                  </span>
+                )}
               </div>
             ))}
 
