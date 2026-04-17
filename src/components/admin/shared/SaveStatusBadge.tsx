@@ -65,14 +65,8 @@ export function SaveStatusBadge() {
     );
   }
 
-  // idle: dezent, zeigt dass Auto-Save aktiv und alles gespeichert ist
-  return (
-    <div
-      className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground/70"
-      title="Alle Änderungen werden automatisch gespeichert"
-    >
-      <Check className="h-3 w-3" />
-      <span>Automatisch gespeichert</span>
-    </div>
-  );
+  // idle: unsichtbar. Das graue "Automatisch gespeichert" war optisch stoerend,
+  // weil es zwischen den gruenen "Gespeichert"-Flashes durchflackerte (Blink-Bug).
+  // Google-Docs-Prinzip: kein Indikator = alles ruhig, kein Statuswechsel.
+  return null;
 }
