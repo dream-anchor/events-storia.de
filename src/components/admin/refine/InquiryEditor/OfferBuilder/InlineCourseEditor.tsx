@@ -225,7 +225,7 @@ function SortableCourseRow({
       {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
       {pricingMode === 'per_event' && quantity > 1 && (
         <span className="text-sm font-medium tabular-nums w-24 text-right shrink-0">
-          {lineTotal != null ? `= ${fmtEUR(lineTotal)}` : ''}
+          {lineTotal != null ? fmtEUR(lineTotal) : ''}
         </span>
       )}
 

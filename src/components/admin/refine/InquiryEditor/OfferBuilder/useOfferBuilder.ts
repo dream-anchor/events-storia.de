@@ -39,38 +39,63 @@ function mapLegacyMode(dbMode: string | null | undefined): OfferMode {
 }
 
 /**
- * Migriert Legacy-Kurse: wenn itemName ein "N x Name"-Pattern hat und quantity noch
- * nicht gesetzt ist, wird die Menge extrahiert und der Name bereinigt. Das wandert
- * dann beim naechsten Save in die DB. Ohne Aenderung am DB-Schema.
+ * Migriert Legacy-Daten: wenn itemName / drink.name ein "N x Name"-Pattern hat
+ * und quantity noch nicht gesetzt ist, wird die Menge extrahiert und der Name
+ * bereinigt. Das wandert dann beim naechsten Save in die DB. Ohne Aenderung
+ * am DB-Schema.
  *
- * Wichtig: bei Legacy-Daten war overridePrice bisher der Zeilen-Gesamtpreis
- * (z.B. 196,9 € fuer "11 x Salat"). Nach der Migration ist overridePrice der
- * Einzelpreis (Zeilen-Total = quantity * overridePrice). Damit die Migration
- * bedeutungserhaltend ist, teilen wir overridePrice durch quantity.
+ * Wichtig: bei Legacy-Daten war overridePrice / pricePerPerson bisher der
+ * Zeilen-Gesamtpreis (z.B. 196,9 € fuer "11 x Salat" oder 287 € fuer "70 x Softdrink").
+ * Nach der Migration ist overridePrice / pricePerPerson der Einzelpreis
+ * (Zeilen-Total = quantity * Einzelpreis). Damit die Migration bedeutungs-
+ * erhaltend ist, teilen wir den Preis durch quantity.
  *
- * Wenn quantity schon vorhanden ist, bleibt der Kurs unveraendert.
+ * Wenn quantity schon vorhanden ist, bleibt der Eintrag unveraendert.
  */
 function migrateCourseQuantities(
   menuSelection: OfferBuilderOption['menuSelection']
 ): OfferBuilderOption['menuSelection'] {
-  if (!menuSelection?.courses || menuSelection.courses.length === 0) return menuSelection;
-  const migratedCourses = menuSelection.courses.map((c) => {
-    if (c.quantity != null) return c; // schon migriert
-    const parsed = parseQuantityPrefix(c.itemName);
-    if (!parsed) return { ...c, quantity: 1 }; // kein Match -> Default 1, overridePrice unveraendert
-    // Match: Einzelpreis aus bisherigem Zeilen-Gesamtpreis ableiten
-    const oldTotal = c.overridePrice;
-    const newUnitPrice = (oldTotal != null && oldTotal > 0 && parsed.quantity > 0)
-      ? Math.round((oldTotal / parsed.quantity) * 100) / 100
-      : oldTotal;
-    return {
-      ...c,
-      itemName: parsed.cleanName,
-      quantity: parsed.quantity,
-      overridePrice: newUnitPrice,
-    };
-  });
-  return { ...menuSelection, courses: migratedCourses };
+  if (!menuSelection) return menuSelection;
+
+  // 1. Kurse migrieren
+  const migratedCourses = menuSelection.courses?.length
+    ? menuSelection.courses.map((c) => {
+        if (c.quantity != null) return c; // schon migriert
+        const parsed = parseQuantityPrefix(c.itemName);
+        if (!parsed) return { ...c, quantity: 1 };
+        const oldTotal = c.overridePrice;
+        const newUnitPrice = (oldTotal != null && oldTotal > 0 && parsed.quantity > 0)
+          ? Math.round((oldTotal / parsed.quantity) * 100) / 100
+          : oldTotal;
+        return {
+          ...c,
+          itemName: parsed.cleanName,
+          quantity: parsed.quantity,
+          overridePrice: newUnitPrice,
+        };
+      })
+    : menuSelection.courses;
+
+  // 2. Einzeln-Getraenke migrieren (gleiche Logik, anderes Feld)
+  const migratedDrinksEinzeln = menuSelection.drinksEinzeln?.length
+    ? menuSelection.drinksEinzeln.map((d) => {
+        if (d.quantity != null) return d;
+        const parsed = parseQuantityPrefix(d.name);
+        if (!parsed) return { ...d, quantity: 1 };
+        const oldTotal = d.pricePerPerson;
+        const newUnitPrice = (oldTotal != null && oldTotal > 0 && parsed.quantity > 0)
+          ? Math.round((oldTotal / parsed.quantity) * 100) / 100
+          : oldTotal;
+        return {
+          ...d,
+          name: parsed.cleanName,
+          quantity: parsed.quantity,
+          pricePerPerson: newUnitPrice,
+        };
+      })
+    : menuSelection.drinksEinzeln;
+
+  return { ...menuSelection, courses: migratedCourses, drinksEinzeln: migratedDrinksEinzeln };
 }
 
 
@@ -568,12 +593,18 @@ export function useOfferBuilder({
           // Getränke je nach Modus
           let drinksPerPerson = 0;
           const drinkMode = opt.menuSelection.drinksMode ?? 'none';
+          const pm = opt.pricingMode ?? 'per_person';
           if (drinkMode === 'weinbegleitung' || drinkMode === 'none') {
             drinksPerPerson = opt.menuSelection.winePairingPrice || 0;
           } else if (drinkMode === 'pauschale') {
             drinksPerPerson = opt.menuSelection.drinksPauschalePrice || 0;
           } else if (drinkMode === 'einzeln') {
-            drinksPerPerson = (opt.menuSelection.drinksEinzeln || []).reduce((s, d) => s + d.pricePerPerson, 0);
+            // per_event: absolute Mengen x Einzelpreis (Zeilen-Total)
+            // per_person: einfach Summe der Einzelpreise (quantity wird nicht genutzt)
+            drinksPerPerson = (opt.menuSelection.drinksEinzeln || []).reduce((s, d) => {
+              const qty = pm === 'per_event' ? (d.quantity ?? 1) : 1;
+              return s + d.pricePerPerson * qty;
+            }, 0);
           }
           const subtotal = dishSubtotal + drinksPerPerson;
           const discount = dishSubtotal * MENU_DISCOUNT;

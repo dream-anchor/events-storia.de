@@ -419,6 +419,7 @@ function MenuContent({
         drinksEinzeln={option.menuSelection.drinksEinzeln ?? []}
         menuItems={menuItems}
         onUpdate={(update) => onUpdate({ menuSelection: { ...option.menuSelection, ...update } })}
+        pricingMode={option.pricingMode ?? 'per_person'}
         disabled={disabled}
       />
     </div>

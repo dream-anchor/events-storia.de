@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { DishPicker } from "./DishPicker";
 import type { DrinkSectionMode, DrinkEinzelnItem } from "./types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
+import type { PricingMode } from "./pricingMode";
 
 interface DrinkSectionUpdate {
   drinksMode?: DrinkSectionMode;
@@ -22,6 +23,8 @@ interface DrinkSectionProps {
   drinksEinzeln: DrinkEinzelnItem[];
   menuItems: CombinedMenuItem[];
   onUpdate: (update: DrinkSectionUpdate) => void;
+  /** Bei 'per_event' wird ein Mengen-Feld pro Getraenke-Position sichtbar. */
+  pricingMode?: PricingMode;
   disabled?: boolean;
 }
 
@@ -42,6 +45,7 @@ export function DrinkSection({
   drinksEinzeln,
   menuItems,
   onUpdate,
+  pricingMode = 'per_person',
   disabled = false,
 }: DrinkSectionProps) {
   const addPickerKey = useRef(0);
@@ -169,33 +173,63 @@ export function DrinkSection({
       {/* Modus: Einzelne Positionen */}
       {drinksMode === 'einzeln' && (
         <div className="ml-5 space-y-1.5">
-          {drinksEinzeln.map((item, idx) => (
-            <div key={item.id + idx} className="flex items-center gap-2">
-              <span className="text-sm flex-1 truncate text-foreground">{item.name}</span>
-              <div className="relative w-28 shrink-0">
-                <Input
-                  type="number"
-                  value={item.pricePerPerson > 0 ? item.pricePerPerson : ''}
-                  onChange={(e) => handleUpdateEinzeln(idx, { pricePerPerson: parseFloat(e.target.value) || 0 })}
-                  placeholder="0,00"
-                  className="h-8 rounded-xl pr-14 text-right text-xs"
-                  disabled={disabled}
-                />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                  € / Pers.
-                </span>
+          {drinksEinzeln.map((item, idx) => {
+            const quantity = item.quantity ?? 1;
+            const lineTotal = item.pricePerPerson > 0 ? item.pricePerPerson * quantity : 0;
+            const fmtEUR = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+            return (
+              <div key={item.id + idx} className="flex items-center gap-2">
+                {/* Menge (nur bei per_event) */}
+                {pricingMode === 'per_event' && (
+                  <div className="relative w-16 shrink-0">
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={quantity}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        if (!isNaN(v) && v > 0) handleUpdateEinzeln(idx, { quantity: v });
+                      }}
+                      disabled={disabled}
+                      className="h-8 rounded-lg pr-5 text-right text-sm tabular-nums"
+                      title="Menge"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">×</span>
+                  </div>
+                )}
+                <span className="text-sm flex-1 truncate text-foreground">{item.name}</span>
+                <div className="relative w-28 shrink-0">
+                  <Input
+                    type="number"
+                    value={item.pricePerPerson > 0 ? item.pricePerPerson : ''}
+                    onChange={(e) => handleUpdateEinzeln(idx, { pricePerPerson: parseFloat(e.target.value) || 0 })}
+                    placeholder="0,00"
+                    className="h-8 rounded-xl pr-14 text-right text-xs"
+                    disabled={disabled}
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                    {pricingMode === 'per_event' ? '€' : '€ / Pers.'}
+                  </span>
+                </div>
+                {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
+                {pricingMode === 'per_event' && quantity > 1 && (
+                  <span className="text-xs font-medium tabular-nums w-24 text-right shrink-0">
+                    {fmtEUR(lineTotal)}
+                  </span>
+                )}
+                {!disabled && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveEinzeln(idx)}
+                    className="shrink-0 p-1 rounded-md hover:bg-muted/50 transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-destructive" />
+                  </button>
+                )}
               </div>
-              {!disabled && (
-                <button
-                  type="button"
-                  onClick={() => handleRemoveEinzeln(idx)}
-                  className="shrink-0 p-1 rounded-md hover:bg-muted/50 transition-colors"
-                >
-                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-destructive" />
-                </button>
-              )}
-            </div>
-          ))}
+            );
+          })}
 
           {!disabled && (
             <div className="flex items-center gap-2 pt-0.5">

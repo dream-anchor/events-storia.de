@@ -47,7 +47,10 @@ export type DrinkSectionMode = 'none' | 'pauschale' | 'weinbegleitung' | 'einzel
 export interface DrinkEinzelnItem {
   id: string;
   name: string;
+  /** Einzelpreis. Bei pricingMode='per_person' = Preis pro Gast. Bei pricingMode='per_event' = Preis pro Stueck (Zeilen-Total = quantity * pricePerPerson). */
   pricePerPerson: number;
+  /** Menge bei per_event-Bestellungen. Default 1. Analog zu CourseSelection.quantity. */
+  quantity?: number | null;
 }
 
 export type OfferPhase =

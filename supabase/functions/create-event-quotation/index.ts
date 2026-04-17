@@ -25,6 +25,8 @@ interface DrinkEinzelnItemDB {
   id: string;
   name: string;
   pricePerPerson: number;
+  /** Menge bei per_event. Zeilen-Total = quantity * pricePerPerson. */
+  quantity?: number | null;
 }
 
 interface MenuSelectionDB {
@@ -86,7 +88,7 @@ function buildLineItems(
       drinksRaw = round2(
         ms.drinksEinzeln
           .filter((d) => d.pricePerPerson > 0)
-          .reduce((s, d) => s + d.pricePerPerson, 0),
+          .reduce((s, d) => s + d.pricePerPerson * (d.quantity ?? 1), 0),
       );
     } else if (drinkMode === 'pauschale' && ms.drinksPauschalePrice) {
       drinksRaw = round2(ms.drinksPauschalePrice);
