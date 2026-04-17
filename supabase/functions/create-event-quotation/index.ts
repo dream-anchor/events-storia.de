@@ -70,32 +70,77 @@ function buildLineItems(
   const totalAmount = opt.total_amount || 0;
   const items: LexOfficeLineItem[] = [];
 
-  // Pricing-Modus per_event: eine einzige Position mit Gesamtpreis, keine Multiplikation
-  // mit guestCount. Richtig für Catering-Bestellungen mit absoluten Mengen
-  // (z.B. "11 x Salat") wo der Preis nicht pro Gast skaliert.
+  // Pricing-Modus per_event: Positionen mit korrektem MwSt-Split.
+  // Essen = 7%, Getraenke = 19%. Siehe repair-quotation-pricing fuer Details.
   if (ms?.pricingMode === 'per_event') {
-    // Kurz-Beschreibung der Positionen für den Angebots-Text
-    const courseSummary = (ms.courses || [])
-      .filter(c => c.itemName)
-      .map(c => c.itemName)
+    const foodRaw = round2(
+      (ms.courses || [])
+        .filter((c) => c.itemName && c.overridePrice != null && c.overridePrice > 0)
+        .reduce((s, c) => s + (c.overridePrice || 0), 0),
+    );
+    let drinksRaw = 0;
+    const drinkMode = ms.drinksMode ?? 'none';
+    if (drinkMode === 'einzeln' && ms.drinksEinzeln) {
+      drinksRaw = round2(
+        ms.drinksEinzeln
+          .filter((d) => d.pricePerPerson > 0)
+          .reduce((s, d) => s + d.pricePerPerson, 0),
+      );
+    } else if (drinkMode === 'pauschale' && ms.drinksPauschalePrice) {
+      drinksRaw = round2(ms.drinksPauschalePrice);
+    } else if (drinkMode === 'weinbegleitung' && ms.winePairingPrice) {
+      drinksRaw = round2(ms.winePairingPrice);
+    } else if ((drinkMode === 'none' || !drinkMode) && ms.winePairingPrice) {
+      drinksRaw = round2(ms.winePairingPrice);
+    }
+
+    const rawSum = round2(foodRaw + drinksRaw);
+    let foodNet = foodRaw;
+    let drinksNet = drinksRaw;
+    if (rawSum > 0 && Math.abs(rawSum - totalAmount) > 0.01) {
+      const factor = totalAmount / rawSum;
+      foodNet = round2(foodRaw * factor);
+      drinksNet = round2(totalAmount - foodNet);
+    }
+
+    const foodSummary = (ms.courses || [])
+      .filter((c) => c.itemName)
+      .map((c) => c.itemName)
       .join(', ');
-    const itemName = opt.offer_mode === 'menu'
-      ? 'Catering-Bestellung'
-      : (packageName || 'Veranstaltungspaket');
-    items.push({
-      type: 'custom',
-      name: itemName,
-      description: courseSummary.length > 0 && courseSummary.length < 500
-        ? courseSummary
-        : '',
-      quantity: 1,
-      unitName: 'Stk',
-      unitPrice: {
-        currency: 'EUR',
-        netAmount: round2(totalAmount),
-        taxRatePercentage: 7,
-      },
-    });
+    const drinkSummary = drinkMode === 'einzeln'
+      ? (ms.drinksEinzeln || []).filter((d) => d.name).map((d) => d.name).join(', ')
+      : (ms.drinksPauschaleDescription || 'Getraenke');
+
+    if (foodNet > 0) {
+      items.push({
+        type: 'custom',
+        name: opt.offer_mode === 'menu' ? 'Catering-Bestellung (Speisen)' : (packageName || 'Speisen'),
+        description: foodSummary.length > 0 && foodSummary.length < 500 ? foodSummary : '',
+        quantity: 1,
+        unitName: 'Stk',
+        unitPrice: { currency: 'EUR', netAmount: foodNet, taxRatePercentage: 7 },
+      });
+    }
+    if (drinksNet > 0) {
+      items.push({
+        type: 'custom',
+        name: 'Getraenke',
+        description: drinkSummary.length > 0 && drinkSummary.length < 500 ? drinkSummary : '',
+        quantity: 1,
+        unitName: 'Stk',
+        unitPrice: { currency: 'EUR', netAmount: drinksNet, taxRatePercentage: 19 },
+      });
+    }
+    if (items.length === 0) {
+      items.push({
+        type: 'custom',
+        name: opt.offer_mode === 'menu' ? 'Catering-Bestellung' : (packageName || 'Veranstaltungspaket'),
+        description: foodSummary.length > 0 && foodSummary.length < 500 ? foodSummary : '',
+        quantity: 1,
+        unitName: 'Stk',
+        unitPrice: { currency: 'EUR', netAmount: round2(totalAmount), taxRatePercentage: 7 },
+      });
+    }
     return items;
   }
 
