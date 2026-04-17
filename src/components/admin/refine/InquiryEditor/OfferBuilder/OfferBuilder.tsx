@@ -358,6 +358,8 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         onSendProposal={builder.sendProposal}
         onSendFinalOffer={builder.sendFinalOffer}
         hasHistory={builder.history.length > 0}
+        isNewVersionAfterSend={hasLocalChangesAfterSend}
+        currentVersion={builder.currentVersion}
       />}
 
       {/* Versionshistorie entfernt — wird in Timeline & Aktivitäten angezeigt */}

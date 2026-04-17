@@ -23,6 +23,10 @@ interface SendControlsProps {
   onSendProposal: (emailContent: string) => Promise<void>;
   onSendFinalOffer: (emailContent: string) => Promise<void>;
   hasHistory?: boolean;
+  /** True wenn das Angebot bereits versendet wurde und jetzt lokale Änderungen vorliegen */
+  isNewVersionAfterSend?: boolean;
+  /** Aktuelle gesendete Version, fuer Anzeige von "Version N+1" */
+  currentVersion?: number;
 }
 
 const PHASE_LABELS: Record<OfferPhase, string> = {
@@ -43,6 +47,8 @@ export function SendControls({
   onSendProposal,
   onSendFinalOffer,
   hasHistory = false,
+  isNewVersionAfterSend = false,
+  currentVersion = 1,
 }: SendControlsProps) {
   const [confirmType, setConfirmType] = useState<'proposal' | 'final' | null>(null);
 
@@ -102,9 +108,9 @@ export function SendControls({
               disabled={!canSendProposal || isSending}
               className={cn(
                 "h-11 rounded-xl font-semibold gap-2 px-6",
-                "bg-gradient-to-r from-amber-500 to-amber-600",
-                "text-white hover:from-amber-600 hover:to-amber-700",
-                "shadow-[0_4px_16px_-4px_rgba(245,158,11,0.4)]",
+                isNewVersionAfterSend
+                  ? "bg-gradient-to-r from-amber-600 to-amber-700 text-white hover:from-amber-700 hover:to-amber-800 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.6)] ring-2 ring-amber-300/50 ring-offset-2"
+                  : "bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 shadow-[0_4px_16px_-4px_rgba(245,158,11,0.4)]",
                 "disabled:opacity-50 disabled:shadow-none"
               )}
             >
@@ -113,7 +119,13 @@ export function SendControls({
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              {offerPhase === 'proposal_sent' ? 'Erneut senden' : hasHistory ? 'Neuen Vorschlag senden' : 'Vorschlag senden'}
+              {isNewVersionAfterSend
+                ? `Version ${currentVersion + 1} an Kunde senden`
+                : offerPhase === 'proposal_sent'
+                  ? 'Erneut senden'
+                  : hasHistory
+                    ? 'Neuen Vorschlag senden'
+                    : 'Vorschlag senden'}
             </Button>
           </motion.div>
         )}
@@ -148,12 +160,28 @@ export function SendControls({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirmType === 'proposal' ? 'Vorschlag senden?' : 'Finales Angebot senden?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
               {confirmType === 'proposal'
-                ? `${activeOptionsCount} Option${activeOptionsCount !== 1 ? 'en' : ''} werden dem Kunden als Vorschlag geschickt. Der Kunde kann eine Option wählen und Anmerkungen machen.`
-                : `Das finale Angebot wird mit Zahlungslink an den Kunden geschickt. Stripe Payment Links werden generiert.`}
+                ? (isNewVersionAfterSend
+                    ? `Version ${currentVersion + 1} an Kunde senden?`
+                    : 'Vorschlag senden?')
+                : 'Finales Angebot senden?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                {isNewVersionAfterSend && confirmType === 'proposal' && (
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-300/60 dark:border-amber-800/40 p-3 text-sm text-amber-900 dark:text-amber-100">
+                    <div className="font-medium mb-1">Dies ist eine neue Version eines bereits versendeten Angebots.</div>
+                    <div className="text-amber-800/80 dark:text-amber-200/80">
+                      Der Kunde erhält eine erneute E-Mail mit aktualisierten Details. Die Public-Seite zeigt danach Version {currentVersion + 1}.
+                    </div>
+                  </div>
+                )}
+                <div className="text-sm">
+                  {confirmType === 'proposal'
+                    ? `${activeOptionsCount} Option${activeOptionsCount !== 1 ? 'en' : ''} werden dem Kunden als Vorschlag geschickt. Der Kunde kann eine Option wählen und Anmerkungen machen.`
+                    : `Das finale Angebot wird mit Zahlungslink an den Kunden geschickt. Stripe Payment Links werden generiert.`}
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -166,7 +194,9 @@ export function SendControls({
                   : "bg-emerald-500 hover:bg-emerald-600"
               )}
             >
-              {confirmType === 'proposal' ? 'Vorschlag senden' : 'Finales Angebot senden'}
+              {confirmType === 'proposal'
+                ? (isNewVersionAfterSend ? `Version ${currentVersion + 1} senden` : 'Vorschlag senden')
+                : 'Finales Angebot senden'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
