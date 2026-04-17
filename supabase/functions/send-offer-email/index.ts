@@ -222,9 +222,9 @@ serve(async (req) => {
       .select('is_test')
       .eq('id', inquiryId)
       .single();
-    // isTest = entweder inquiry selbst ist Test-Flagged, oder Preview-Testmail angefordert.
-    // Letzteres geht immer an antoine@monot.com, unabhaengig vom Kunden-Email.
-    const isTest = inquiryRow?.is_test === true || isTestPreview === true;
+    // isTest gilt nur fuer is_test-Inquiries. Fuer Preview-Testmails wird
+    // Empfaenger/Subject unten gesondert ueberschrieben (isTestPreview-Block).
+    const isTest = inquiryRow?.is_test === true;
     const safeCustomerEmail = getSafeRecipientEmail(customerEmail, isTest);
 
     const offerUrl = `https://events-storia.de/offer/${inquiryId}`;
@@ -330,7 +330,34 @@ serve(async (req) => {
     // (siehe cloudflare-workers/email-reply/README.md für Worker-Setup).
     const replyToAddress = 'info@events-storia.de';
     const safeSubject = getSafeSubject(emailSubject, isTest);
-    const result = await sendEmail([safeCustomerEmail], safeSubject, htmlBody, "STORIA Events", pdfBuffer, customerName, bccList, replyToAddress);
+
+    // --------------------------------------------------------------
+    // Preview-Testmail: Empfaenger und Subject ueberschreiben.
+    //   - Primaerer Empfaenger: der eingeloggte Admin (senderEmail).
+    //   - Zusaetzlich: info@ristorantestoria.de, wenn != senderEmail.
+    //   - Subject mit "VORSCHAU – " vorne.
+    //   - Keine BCC (die waere jetzt redundant mit dem To-Feld).
+    // --------------------------------------------------------------
+    let previewTo: string[] | null = null;
+    let previewSubject: string | null = null;
+    let previewBcc: string[] | null = null;
+    if (isTestPreview) {
+      const adminEmail = senderEmail?.trim() || 'antoine@monot.com';
+      const RISTORANTE_EMAIL = 'info@ristorantestoria.de';
+      const recipients = [adminEmail];
+      if (adminEmail.toLowerCase() !== RISTORANTE_EMAIL.toLowerCase()) {
+        recipients.push(RISTORANTE_EMAIL);
+      }
+      previewTo = recipients;
+      previewSubject = `VORSCHAU – ${emailSubject}`;
+      previewBcc = []; // keine BCC bei Preview
+    }
+
+    const finalTo = previewTo || [safeCustomerEmail];
+    const finalSubject = previewSubject || safeSubject;
+    const finalBcc = previewBcc !== null ? previewBcc : bccList;
+
+    const result = await sendEmail(finalTo, finalSubject, htmlBody, "STORIA Events", pdfBuffer, customerName, finalBcc, replyToAddress);
 
     // Betreiber-Benachrichtigung: Versand fehlgeschlagen
     if (!result.sent) {

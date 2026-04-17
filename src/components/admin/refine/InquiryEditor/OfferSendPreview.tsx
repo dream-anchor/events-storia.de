@@ -331,13 +331,14 @@ export function OfferSendPreview() {
               onClick={() => handleSend(true)}
               disabled={isSending || isTestSending || !emailBody}
               className="gap-2"
+              title="Sendet eine Kopie mit Betreff-Prefix 'VORSCHAU' an dich und an info@ristorantestoria.de"
             >
               {isTestSending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <TestTube2 className="h-4 w-4" />
               )}
-              Testmail an mich
+              Vorschau-Mail an mich & Ristorante
             </Button>
 
             <Button

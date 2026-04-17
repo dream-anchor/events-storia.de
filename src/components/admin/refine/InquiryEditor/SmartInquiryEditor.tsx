@@ -385,10 +385,16 @@ export const SmartInquiryEditor = () => {
             },
           });
           if (error) throw error;
-          toast.success('Testmail an antoine@monot.com gesendet');
+          // Empfaenger-Liste fuer den Toast nachbilden (wie in der Edge-Function)
+          const recipients: string[] = [];
+          if (user?.email) recipients.push(user.email);
+          if (!recipients.some(r => r.toLowerCase() === 'info@ristorantestoria.de')) {
+            recipients.push('info@ristorantestoria.de');
+          }
+          toast.success(`Vorschau-Mail gesendet an: ${recipients.join(', ')}`);
         } catch (err) {
           console.error('[SmartInquiryEditor] Test-mail failed:', err);
-          toast.error(err instanceof Error ? err.message : 'Testmail fehlgeschlagen');
+          toast.error(err instanceof Error ? err.message : 'Vorschau-Mail fehlgeschlagen');
         }
         return;
       }
