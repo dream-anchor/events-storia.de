@@ -139,12 +139,12 @@ export function SendControls({
                 <Send className="h-4 w-4" />
               )}
               {isNewVersionAfterSend
-                ? `Version ${currentVersion + 1} an Kunde senden`
+                ? `Vorschau anzeigen (Version ${currentVersion + 1})`
                 : offerPhase === 'proposal_sent'
-                  ? 'Erneut senden'
+                  ? 'Vorschau anzeigen (erneut senden)'
                   : hasHistory
-                    ? 'Neuen Vorschlag senden'
-                    : 'Vorschlag senden'}
+                    ? 'Vorschau anzeigen (neuer Vorschlag)'
+                    : 'Vorschau anzeigen'}
             </Button>
           </motion.div>
         )}
@@ -174,7 +174,7 @@ export function SendControls({
               ) : (
                 <CreditCard className="h-4 w-4" />
               )}
-              Finales Angebot senden
+              Vorschau anzeigen (finales Angebot)
             </Button>
           </motion.div>
         )}

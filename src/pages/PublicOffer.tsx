@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useSearchParams } from "react-router-dom";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -145,10 +145,25 @@ function formatCurrencyDecimal(amount: number) {
 export default function PublicOffer() {
   const { id, slug } = useParams<{ id?: string; slug?: string }>();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [data, setData] = useState<PublicOfferData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [payments, setPayments] = useState<PublicPayment[]>([]);
+
+  // Preview-Modus: wenn die Seite als iframe in der Admin-Preview angezeigt wird,
+  // wird der aktuelle email_draft via Query-Param übergeben. So sieht der Admin
+  // den Text den er gerade editiert — noch bevor er versendet wurde.
+  // Echte Kunden haben diesen Parameter nicht in ihrer URL.
+  const previewBodyRaw = searchParams.get('preview_body');
+  let previewBody: string | null = null;
+  if (previewBodyRaw) {
+    try {
+      previewBody = decodeURIComponent(previewBodyRaw);
+    } catch {
+      previewBody = null;
+    }
+  }
 
   // Slug-Route (/ihr-angebot/:slug) oder UUID-Route (/offer/:id)
   const isSlugRoute = location.pathname.includes('/ihr-angebot/') || location.pathname.includes('/your-offer/');
@@ -262,9 +277,12 @@ export default function PublicOffer() {
           <PdfDownloadSection inquiryId={inquiry.id} />
         )}
 
-        {/* Anschreiben — immer sichtbar wenn vorhanden */}
-        {inquiry.email_content && (
-          <AnschreibenSection emailContent={inquiry.email_content} />
+        {/* Anschreiben — immer sichtbar wenn vorhanden.
+            Im Preview-Modus (Admin-iframe) wird previewBody aus der URL verwendet
+            und überschreibt den gespeicherten email_content. Echte Kunden haben
+            keinen previewBody und sehen den versendeten email_content. */}
+        {(previewBody || inquiry.email_content) && (
+          <AnschreibenSection emailContent={previewBody || inquiry.email_content || ''} />
         )}
 
         {effectivePhase === "proposal_sent" && (

@@ -42,7 +42,6 @@ interface PreviewInquiry {
   offer_phase: string;
   lexoffice_quotation_id: string | null;
   is_test: boolean | null;
-  total_amount: number | null;
 }
 
 const SENDER_EMAIL = 'antoine@monot.com';
@@ -58,6 +57,8 @@ export function OfferSendPreview() {
   const [inquiry, setInquiry] = useState<PreviewInquiry | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentVersion, setCurrentVersion] = useState<number>(1);
+  const [activeTotalAmount, setActiveTotalAmount] = useState<number | null>(null);
+  const [publicOfferReloadKey, setPublicOfferReloadKey] = useState(0);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -102,6 +103,20 @@ export function OfferSendPreview() {
         .maybeSingle();
 
       if (history) setCurrentVersion((history as { version: number }).version);
+
+      // Aktive Options laden, um den aktuellen Gesamtpreis zu bestimmen.
+      // Achtung: event_inquiries hat selbst KEIN total_amount — der Preis lebt
+      // auf inquiry_offer_options.total_amount pro Option. Bei mehreren aktiven
+      // Options summieren wir sie (was typisch 1 Option pro Inquiry ist).
+      const { data: activeOpts } = await supabase
+        .from('inquiry_offer_options')
+        .select('total_amount')
+        .eq('inquiry_id', id)
+        .eq('is_active', true);
+      if (activeOpts && activeOpts.length > 0) {
+        const sum = activeOpts.reduce((acc, o) => acc + Number(o.total_amount || 0), 0);
+        setActiveTotalAmount(sum > 0 ? sum : null);
+      }
       setLoading(false);
     })();
   }, [id]);
@@ -324,9 +339,9 @@ export function OfferSendPreview() {
   // Konservativ: matcht Betraege zwischen 100 und 99999, mit deutschem
   // Tausendertrennzeichen-Format (z.B. "1.204,25").
   const priceMismatch = (() => {
-    if (!inquiry?.total_amount) return null;
+    if (!activeTotalAmount) return null;
     const text = editedBody || '';
-    const current = Number(inquiry.total_amount);
+    const current = Number(activeTotalAmount);
     if (!(current > 0)) return null;
 
     const matches: number[] = [];
@@ -360,7 +375,20 @@ export function OfferSendPreview() {
     sendType === 'proposal'
       ? `Ihr Angebot von STORIA Catering & Events${currentVersion > 0 ? ` (Version ${nextVersion})` : ''}`
       : `Ihr finales Angebot von STORIA Catering & Events`;
-  const publicOfferUrl = `/offer/${inquiry.id}`;
+  // Preview-URL fuer den Public-Offer-iframe: reicht den aktuellen editedBody
+  // als Query-Param mit, damit der iframe den AKTUELL editierten Text zeigt
+  // (nicht den zuletzt versendeten email_content). Echte Kunden haben diesen
+  // Param in ihrer URL nicht — siehe PublicOffer.tsx.
+  // Encoding-Limit: URLs sind praktisch ca. 8KB, unser Text ist typisch 500-1500
+  // Zeichen. Safety-Cap bei 6000 encoded-Zeichen, sonst fallback ohne Param.
+  const publicOfferUrl = (() => {
+    const base = `/offer/${inquiry.id}`;
+    const body = editedBody?.trim();
+    if (!body) return base;
+    const encoded = encodeURIComponent(body);
+    if (encoded.length > 6000) return base; // Text zu lang fuer URL
+    return `${base}?preview_body=${encoded}`;
+  })();
 
   const sendLabel = sendType === 'proposal'
     ? (currentVersion > 0 ? `Version ${nextVersion} an Kunde senden` : 'Vorschlag an Kunde senden')
@@ -525,6 +553,7 @@ export function OfferSendPreview() {
           </div>
           <div className="bg-muted/20">
             <iframe
+              key={publicOfferUrl}
               src={publicOfferUrl}
               title="Public Offer Preview"
               className="w-full h-[800px] border-0 bg-white"
