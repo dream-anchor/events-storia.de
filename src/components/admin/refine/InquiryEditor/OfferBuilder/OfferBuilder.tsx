@@ -108,6 +108,20 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   const [emailDraft, setEmailDraft] = useState(inquiry.email_draft || "");
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
 
+  // Initial-Sync: wenn inquiry.email_draft nach dem Mount nachgeladen wird
+  // (z.B. weil die DB-Query noch lief als die Component mountete), einmalig
+  // in den lokalen State uebernehmen. Danach gewinnt der lokale State
+  // (Auto-save wuerde sonst User-Input wegloeschen bei jedem Parent-Rerender).
+  const emailDraftInitialSyncedRef = useRef(false);
+  useEffect(() => {
+    if (emailDraftInitialSyncedRef.current) return;
+    const incoming = inquiry.email_draft;
+    if (typeof incoming === 'string' && incoming.length > 0) {
+      setEmailDraft(incoming);
+      emailDraftInitialSyncedRef.current = true;
+    }
+  }, [inquiry.email_draft]);
+
   // --- CX: Erkennung lokaler Änderungen nach Versand ---
   // Vergleicht aktuelle Options mit dem LETZTEN versendeten Snapshot
   // (aus inquiry_offer_history). Das ist robust ueber Reloads hinweg:
