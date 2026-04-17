@@ -403,6 +403,10 @@ function AnschreibenSection({ emailContent }: { emailContent: string }) {
   bodyText = bodyText
     // "Das Angebot mit allen Details finden Sie hier: https://..." (ganze Zeile)
     .replace(/^.*(?:Angebot|Details).*(?:finden|sehen|einsehen).*?https?:\/\/\S+.*$/gim, '')
+    // "... unter folgendem Link: https://..." oder "... über diesen Link: ..."
+    .replace(/^.*(?:unter|über|via)\s+(?:folgendem\s+|diesem\s+|dem\s+)?Link\s*:?.*?https?:\/\/\S+.*$/gim, '')
+    // "(Siehe Anhang ... Link: ...)" oder "(Link: ...)"
+    .replace(/\(\s*(?:Siehe\s+[^)]*?)?Link\s*:?[^)]*?https?:\/\/[^)]+\)/gi, '')
     // Reine URL-only Zeilen, die auf /offer/ oder /ihr-angebot/ zeigen
     .replace(/^\s*https?:\/\/\S*(?:\/offer\/|\/ihr-angebot\/|\/your-offer\/)\S*\s*$/gim, '');
 

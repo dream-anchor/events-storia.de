@@ -19,11 +19,12 @@
  * Datenfluss: alles kommt frisch aus der DB (event_inquiries + aktive options).
  * Deshalb ist auto-save vor Navigation Voraussetzung (ist bereits so).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Send, Mail, FileText, Globe, Loader2, TestTube2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Send, Mail, FileText, Globe, Loader2, TestTube2, RefreshCw, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { AdminLayout } from "../AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -64,6 +65,14 @@ export function OfferSendPreview() {
   const [isSending, setIsSending] = useState(false);
   const [isTestSending, setIsTestSending] = useState(false);
 
+  // Editierbarer Email-Body in der Preview.
+  // Initial aus inquiry.email_draft uebernehmen (einmalig via Ref-Guard),
+  // danach kann der User den Text hier direkt bearbeiten und speichern.
+  const [editedBody, setEditedBody] = useState<string>('');
+  const [savedBody, setSavedBody] = useState<string>(''); // letzter gespeicherter Stand
+  const [isSavingBody, setIsSavingBody] = useState(false);
+  const bodyInitSyncedRef = useRef(false);
+
   // Inquiry laden + Version
   useEffect(() => {
     if (!id) return;
@@ -102,6 +111,17 @@ export function OfferSendPreview() {
       window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     }
   }, [inquiry?.id]);
+
+  // Body-State mit DB synchronisieren (einmalig beim ersten nicht-leeren Wert).
+  useEffect(() => {
+    if (bodyInitSyncedRef.current) return;
+    const incoming = inquiry?.email_draft;
+    if (typeof incoming === 'string' && incoming.length > 0) {
+      setEditedBody(incoming);
+      setSavedBody(incoming);
+      bodyInitSyncedRef.current = true;
+    }
+  }, [inquiry?.email_draft]);
 
   // LexOffice-PDF laden — mit Retry-Loop, da LexOffice das PDF manchmal
   // erst einige Sekunden nach Finalisierung generiert. Bei jedem Fehlschlag
@@ -172,8 +192,29 @@ export function OfferSendPreview() {
   // bestehende Send-Logik (useOfferBuilder.sendProposal / sendFinalOffer) direkt
   // triggert. Damit bleibt der bewaehrte Code-Pfad unveraendert — inkl.
   // createNewVersion, Phase-Update, LexOffice-Sync etc.
-  const handleSend = (isTest: boolean) => {
+  const handleSend = async (isTest: boolean) => {
     if (!inquiry) return;
+
+    // Vor Versand: unsaved changes automatisch speichern.
+    // (Damit die Mail den Text sendet, den der User gerade gesehen hat.)
+    if (isBodyDirty) {
+      setIsSavingBody(true);
+      try {
+        const { error } = await supabase
+          .from('event_inquiries')
+          .update({ email_draft: editedBody })
+          .eq('id', inquiry.id);
+        if (error) throw error;
+        setSavedBody(editedBody);
+      } catch (err) {
+        console.error('[OfferSendPreview] auto-save before send failed:', err);
+        toast.error('Konnte Änderungen vor Versand nicht speichern. Abbruch.');
+        setIsSavingBody(false);
+        return;
+      }
+      setIsSavingBody(false);
+    }
+
     if (isTest) setIsTestSending(true); else setIsSending(true);
     const query = new URLSearchParams({
       send: sendType,
@@ -207,7 +248,30 @@ export function OfferSendPreview() {
 
   const recipientName = inquiry.contact_name || inquiry.company_name || 'Unbekannt';
   const recipientEmail = inquiry.email || '(keine E-Mail hinterlegt)';
-  const emailBody = inquiry.email_draft || '';
+  const emailBody = editedBody;
+  const isBodyDirty = editedBody !== savedBody;
+
+  // Speichert den aktuellen editierten Body zurueck in event_inquiries.email_draft.
+  // Kein Debounce: der User drueckt explizit Save, das ist sein commit-point.
+  async function handleSaveBody() {
+    if (!inquiry) return;
+    if (!isBodyDirty) return;
+    setIsSavingBody(true);
+    try {
+      const { error } = await supabase
+        .from('event_inquiries')
+        .update({ email_draft: editedBody })
+        .eq('id', inquiry.id);
+      if (error) throw error;
+      setSavedBody(editedBody);
+      toast.success('Änderungen gespeichert');
+    } catch (err) {
+      console.error('[OfferSendPreview] save body failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Speichern fehlgeschlagen');
+    } finally {
+      setIsSavingBody(false);
+    }
+  }
   const nextVersion = sendType === 'proposal' ? currentVersion + 1 : currentVersion + 1;
   const subject =
     sendType === 'proposal'
@@ -272,16 +336,42 @@ export function OfferSendPreview() {
             </div>
 
             <div className="mt-4 border-t pt-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                Inhalt
-              </div>
-              {emailBody ? (
-                <div className="prose prose-sm max-w-none whitespace-pre-wrap font-serif text-foreground/90 bg-background rounded-lg p-4 border border-border/40">
-                  {emailBody}
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Inhalt
                 </div>
-              ) : (
-                <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-900">
-                  ⚠ Kein Anschreiben vorhanden. Bitte zurück & im Editor einen Text schreiben, sonst geht die Mail ohne Text raus.
+                <div className="flex items-center gap-2">
+                  {isBodyDirty ? (
+                    <span className="text-xs text-amber-700 font-medium">Nicht gespeicherte Änderungen</span>
+                  ) : savedBody.length > 0 ? (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Check className="h-3 w-3" />
+                      Gespeichert
+                    </span>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant={isBodyDirty ? 'default' : 'outline'}
+                    onClick={handleSaveBody}
+                    disabled={!isBodyDirty || isSavingBody}
+                    className="gap-2 h-7 text-xs"
+                  >
+                    {isSavingBody ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : null}
+                    {isBodyDirty ? 'Änderungen speichern' : 'Gespeichert'}
+                  </Button>
+                </div>
+              </div>
+              <Textarea
+                value={editedBody}
+                onChange={(e) => setEditedBody(e.target.value)}
+                placeholder="Anschreiben fuer den Kunden …"
+                className="min-h-[260px] font-serif text-sm bg-background resize-y"
+              />
+              {!emailBody && (
+                <div className="mt-2 rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-900">
+                  ⚠ Kein Anschreiben vorhanden. Bitte vor dem Versand einen Text eintragen.
                 </div>
               )}
             </div>
