@@ -105,22 +105,23 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
 
   // --- CX: Erkennung lokaler Änderungen nach Versand ---
-  // Beim ersten Mount mit versendetem Angebot: Snapshot der Options machen.
-  // Sobald sich die Options ändern (via updateOption etc.): flag auf true.
-  // Das triggert die Amber-Strip und den Confirmation-Dialog vor neuem Versand.
-  const initialOptionsSnapshotRef = useRef<string | null>(null);
-  const [hasLocalChangesAfterSend, setHasLocalChangesAfterSend] = useState(false);
-  const wasInitiallySentRef = useRef(!!inquiry.offer_sent_at);
-
-  useEffect(() => {
+  // Vergleicht aktuelle Options mit dem LETZTEN versendeten Snapshot
+  // (aus inquiry_offer_history). Das ist robust ueber Reloads hinweg:
+  // solange in der DB nichts versendet wurde, bleibt die amber Strip sichtbar.
+  const hasLocalChangesAfterSend = useMemo(() => {
     // Nur wenn das Angebot bereits versendet wurde
-    if (!wasInitiallySentRef.current) return;
-    // Erst den Snapshot machen wenn Options geladen sind (nicht während isLoading)
-    if (builder.isLoading) return;
+    if (!inquiry.offer_sent_at) return false;
+    if (builder.isLoading) return false;
+    if (builder.history.length === 0) return false;
 
-    // Serialisiere nur die Felder die "semantisch" eine neue Version rechtfertigen
-    const serialized = JSON.stringify(
-      builder.options.map(o => ({
+    // Der neueste History-Eintrag enthaelt den Snapshot der zuletzt versendeten Version.
+    // history ist bereits nach version DESC sortiert im Hook ("order by version DESC").
+    const lastSent = builder.history[0];
+    if (!lastSent || !lastSent.optionsSnapshot) return false;
+
+    // Serialisiere nur die semantisch relevanten Felder
+    const serialize = (opts: OfferBuilderOption[]) => JSON.stringify(
+      opts.map(o => ({
         packageId: o.packageId,
         offerMode: o.offerMode,
         guestCount: o.guestCount,
@@ -130,16 +131,8 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       }))
     );
 
-    if (initialOptionsSnapshotRef.current === null) {
-      // Erster Mount: Snapshot merken
-      initialOptionsSnapshotRef.current = serialized;
-    } else if (initialOptionsSnapshotRef.current !== serialized) {
-      // Änderung erkannt — flip flag (nur in eine Richtung, d.h. false → true)
-      if (!hasLocalChangesAfterSend) {
-        setHasLocalChangesAfterSend(true);
-      }
-    }
-  }, [builder.options, builder.isLoading, hasLocalChangesAfterSend]);
+    return serialize(builder.options) !== serialize(lastSent.optionsSnapshot);
+  }, [inquiry.offer_sent_at, builder.options, builder.history, builder.isLoading]);
 
   const handleEmailDraftChange = useCallback((content: string) => {
     setEmailDraft(content);
