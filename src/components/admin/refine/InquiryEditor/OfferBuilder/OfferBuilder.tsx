@@ -131,25 +131,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       }))
     );
 
-    const currentSerialized = serialize(builder.options);
-    const lastSentSerialized = serialize(lastSent.optionsSnapshot);
-    const changed = currentSerialized !== lastSentSerialized;
-
-    // Debug-Logging (temporaer, wird wieder entfernt wenn Bug nachvollzogen ist)
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__cx_debug = {
-        historyVersion: lastSent.version,
-        historyLen: builder.history.length,
-        current: builder.options.map(o => ({ pkg: o.packageId?.substring(0,8), mode: o.offerMode, g: o.guestCount, t: o.totalAmount, active: o.isActive })),
-        lastSent: lastSent.optionsSnapshot.map(o => ({ pkg: o.packageId?.substring(0,8), mode: o.offerMode, g: o.guestCount, t: o.totalAmount, active: o.isActive })),
-        changed,
-        currentJSON: currentSerialized.substring(0, 500),
-        lastSentJSON: lastSentSerialized.substring(0, 500),
-      };
-    }
-
-    return changed;
+    return serialize(builder.options) !== serialize(lastSent.optionsSnapshot);
   }, [inquiry.offer_sent_at, builder.options, builder.history, builder.isLoading]);
 
   const handleEmailDraftChange = useCallback((content: string) => {
