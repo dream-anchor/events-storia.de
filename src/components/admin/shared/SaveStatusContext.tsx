@@ -53,23 +53,11 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
     flush?: () => Promise<void> | void,
     errorMessage?: string
   ) => {
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__savestatus_debug = (window as any).__savestatus_debug || [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__savestatus_debug.push({ action: 'register', id, status, ts: Date.now() });
-    }
     registrationsRef.current.set(id, { id, status, flush, errorMessage });
     setVersion(v => v + 1);
   }, []);
 
   const unregister = useCallback((id: string) => {
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__savestatus_debug = (window as any).__savestatus_debug || [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__savestatus_debug.push({ action: 'unregister', id, ts: Date.now() });
-    }
     registrationsRef.current.delete(id);
     setVersion(v => v + 1);
   }, []);
@@ -146,6 +134,10 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
  * Beispiel in einem Editor:
  *
  *   useRegisterSaveStatus('offer-builder', saveStatus, flushSave, errorMsg);
+ *
+ * Wichtig: Dieser Hook registriert EINMAL beim Mount und unregistriert beim
+ * Unmount. Status-Updates werden in-place gemacht (ohne unregister/register-Zyklus),
+ * damit der Badge nicht flackert.
  */
 export function useRegisterSaveStatus(
   id: string,
@@ -155,12 +147,29 @@ export function useRegisterSaveStatus(
 ) {
   const ctx = useContext(SaveStatusContext);
 
+  // Refs halten immer die aktuellsten Werte, damit register/unregister nur
+  // beim Mount/Unmount laufen muss
+  const statusRef = useRef(status);
+  const flushRef = useRef(flush);
+  const errorMessageRef = useRef(errorMessage);
+  statusRef.current = status;
+  flushRef.current = flush;
+  errorMessageRef.current = errorMessage;
+
+  // Initial register beim Mount + unregister beim Unmount
   useEffect(() => {
     if (!ctx) return;
-    ctx.register(id, status, flush, errorMessage);
+    ctx.register(id, statusRef.current, flushRef.current, errorMessageRef.current);
     return () => ctx.unregister(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, status, errorMessage]);
+  }, [id]);
+
+  // In-place Update bei Status/ErrorMessage-Änderungen — kein unregister/register Zyklus
+  useEffect(() => {
+    if (!ctx) return;
+    ctx.register(id, status, flushRef.current, errorMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, errorMessage]);
 }
 
 /**
