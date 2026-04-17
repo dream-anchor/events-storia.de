@@ -77,6 +77,8 @@ interface MenuSelection {
   drinks: DrinkSelection[];
   winePairingPrice?: number | null;
   budgetPerPerson?: number | null;
+  /** 'per_person' (Default): budgetPerPerson ist Preis pro Gast. 'per_event': budgetPerPerson ist Gesamtpreis fuer den ganzen Anlass. */
+  pricingMode?: 'per_person' | 'per_event';
 }
 
 interface PublicOfferOption {
@@ -836,8 +838,13 @@ function ProposalOptionCard({
     ? [{ drinkGroup: 'main_drink' as const, drinkLabel: 'Weinbegleitung', selectedChoice: null, customDrink: null, quantityLabel: null }]
     : [];
   const drinks: DrinkSelection[] = _drinksLegacy.length > 0 ? _drinksLegacy : [..._drinksEinzeln, ..._drinksExtra];
-  const pricePerPerson =
-    option.guest_count > 0
+  // Pricing-Modus respektieren: bei per_event ist budgetPerPerson der Gesamtpreis
+  // fuer den ganzen Anlass (nicht pro Gast). Dann zeigen wir statt "pro Person"
+  // den Gesamtbetrag mit Label "Gesamtpreis".
+  const isPerEvent = menu?.pricingMode === 'per_event';
+  const pricePerPerson = isPerEvent
+    ? 0
+    : option.guest_count > 0
       ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
           ? menu.budgetPerPerson
           : option.total_amount / option.guest_count)
@@ -887,11 +894,9 @@ function ProposalOptionCard({
               ? formatCurrencyDecimal(pricePerPerson)
               : formatCurrency(option.total_amount)}
           </p>
-          {pricePerPerson > 0 && (
-            <p className="text-[11px] text-muted-foreground font-sans mt-1">
-              pro Person
-            </p>
-          )}
+          <p className="text-[11px] text-muted-foreground font-sans mt-1">
+            {pricePerPerson > 0 ? 'pro Person' : 'Gesamtpreis'}
+          </p>
           <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
             zzgl. gesetzl. MwSt.
           </p>
@@ -1092,8 +1097,11 @@ function FinalOptionCard({
     ? [{ drinkGroup: 'main_drink' as const, drinkLabel: 'Weinbegleitung', selectedChoice: null, customDrink: null, quantityLabel: null }]
     : [];
   const drinks: DrinkSelection[] = _drinksLegacy.length > 0 ? _drinksLegacy : [..._drinksEinzeln, ..._drinksExtra];
-  const pricePerPerson =
-    option.guest_count > 0
+  // Pricing-Modus respektieren (siehe andere OptionCard-Variante)
+  const isPerEvent = menu?.pricingMode === 'per_event';
+  const pricePerPerson = isPerEvent
+    ? 0
+    : option.guest_count > 0
       ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
           ? menu.budgetPerPerson
           : option.total_amount / option.guest_count)
@@ -1161,11 +1169,9 @@ function FinalOptionCard({
               ? formatCurrencyDecimal(pricePerPerson)
               : formatCurrency(option.total_amount)}
           </p>
-          {pricePerPerson > 0 && (
-            <p className="text-[11px] text-muted-foreground font-sans mt-1">
-              pro Person
-            </p>
-          )}
+          <p className="text-[11px] text-muted-foreground font-sans mt-1">
+            {pricePerPerson > 0 ? 'pro Person' : 'Gesamtpreis'}
+          </p>
           <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
             zzgl. gesetzl. MwSt.
           </p>
@@ -1335,8 +1341,11 @@ function ConfirmationView({
     ? options.find((o) => o.id === inquiry.selected_option_id)
     : options[0];
 
-  const pricePerPerson =
-    selectedOption && selectedOption.guest_count > 0
+  // Pricing-Modus respektieren
+  const isPerEvent = selectedOption?.menu_selection?.pricingMode === 'per_event';
+  const pricePerPerson = isPerEvent
+    ? 0
+    : selectedOption && selectedOption.guest_count > 0
       ? (selectedOption.menu_selection?.budgetPerPerson && selectedOption.menu_selection.budgetPerPerson > 0
           ? selectedOption.menu_selection.budgetPerPerson
           : selectedOption.total_amount / selectedOption.guest_count)
@@ -1358,7 +1367,7 @@ function ConfirmationView({
               {" "}für {selectedOption.guest_count} Gäste —{" "}
               {pricePerPerson > 0
                 ? `${formatCurrencyDecimal(pricePerPerson)} pro Person`
-                : formatCurrency(selectedOption.total_amount)}
+                : `${formatCurrency(selectedOption.total_amount)} Gesamtpreis`}
             </p>
           )}
           {inquiry.preferred_date && (
