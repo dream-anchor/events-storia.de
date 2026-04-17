@@ -58,7 +58,6 @@ export function MultiOfferComposer({
     history,
     isLoading,
     isSaving,
-    saveStatus,
     addOption,
     removeOption,
     updateOption,
@@ -323,16 +322,6 @@ export function MultiOfferComposer({
             <p className="text-sm text-muted-foreground mt-1">E-Mail bearbeiten und PDF-Vorschau prüfen</p>
           </div>
           <div className="flex items-center gap-3">
-            {saveStatus === "saving" && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" /> Speichert...
-              </span>
-            )}
-            {saveStatus === "saved" && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Check className="h-3 w-3" /> Gespeichert
-              </span>
-            )}
             <Badge variant="outline" className="text-sm font-medium">Version {currentVersion}</Badge>
           </div>
         </div>
@@ -396,18 +385,6 @@ export function MultiOfferComposer({
   if (activeView === "wizard" && wizardOption) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-end gap-3">
-          {saveStatus === "saving" && (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" /> Speichert...
-            </span>
-          )}
-          {saveStatus === "saved" && (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Check className="h-3 w-3" /> Gespeichert
-            </span>
-          )}
-        </div>
         <WizardConfigurator
           option={wizardOption}
           packages={packages}
@@ -432,16 +409,6 @@ export function MultiOfferComposer({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {!isLocked && saveStatus === "saving" && (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" /> Speichert...
-            </span>
-          )}
-          {!isLocked && saveStatus === "saved" && (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Check className="h-3 w-3" /> Gespeichert
-            </span>
-          )}
           <Badge variant="outline" className="text-sm font-medium">Version {currentVersion}</Badge>
           {history.length > 0 && (
             <Button variant="ghost" size="sm" onClick={() => setShowHistory(!showHistory)} className="h-10">
