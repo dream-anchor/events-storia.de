@@ -338,6 +338,7 @@ export function OptionCard({
 // --- Hilfsfunktionen für Drink-Kalkulation ---
 function computeDrinksPerPerson(option: OfferBuilderOption): number | null {
   const mode = option.menuSelection.drinksMode ?? 'none';
+  const pm = option.pricingMode ?? 'per_person';
   switch (mode) {
     case 'weinbegleitung': {
       const p = option.menuSelection.winePairingPrice ?? null;
@@ -348,7 +349,12 @@ function computeDrinksPerPerson(option: OfferBuilderOption): number | null {
       return p != null && p > 0 ? p : null;
     }
     case 'einzeln': {
-      const sum = (option.menuSelection.drinksEinzeln ?? []).reduce((s, d) => s + d.pricePerPerson, 0);
+      // Bei per_event: Zeilen-Total = pricePerPerson * quantity.
+      // Bei per_person: einfach Summe (quantity ist dann immer 1).
+      const sum = (option.menuSelection.drinksEinzeln ?? []).reduce((s, d) => {
+        const qty = pm === 'per_event' ? (d.quantity ?? 1) : 1;
+        return s + d.pricePerPerson * qty;
+      }, 0);
       return sum > 0 ? sum : null;
     }
     default:
