@@ -81,7 +81,7 @@ export function OfferSendPreview() {
     (async () => {
       const { data, error } = await supabase
         .from('event_inquiries')
-        .select('id, contact_name, email, company_name, email_draft, offer_phase, lexoffice_quotation_id, is_test, total_amount')
+        .select('id, contact_name, email, company_name, email_draft, offer_phase, lexoffice_quotation_id, is_test')
         .eq('id', id)
         .maybeSingle();
 
