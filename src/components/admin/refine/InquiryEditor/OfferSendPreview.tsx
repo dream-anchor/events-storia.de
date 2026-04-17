@@ -37,7 +37,7 @@ interface PreviewInquiry {
   email: string | null;
   company_name: string | null;
   email_draft: string | null;
-  email_content: string | null;
+  
   offer_phase: string;
   lexoffice_quotation_id: string | null;
   is_test: boolean | null;
@@ -68,7 +68,7 @@ export function OfferSendPreview() {
     (async () => {
       const { data, error } = await supabase
         .from('event_inquiries')
-        .select('id, contact_name, email, company_name, email_draft, email_content, offer_phase, lexoffice_quotation_id, is_test')
+        .select('id, contact_name, email, company_name, email_draft, offer_phase, lexoffice_quotation_id, is_test')
         .eq('id', id)
         .maybeSingle();
 
@@ -169,7 +169,7 @@ export function OfferSendPreview() {
 
   const recipientName = inquiry.contact_name || inquiry.company_name || 'Unbekannt';
   const recipientEmail = inquiry.email || '(keine E-Mail hinterlegt)';
-  const emailBody = inquiry.email_draft || inquiry.email_content || '';
+  const emailBody = inquiry.email_draft || '';
   const nextVersion = sendType === 'proposal' ? currentVersion + 1 : currentVersion + 1;
   const subject =
     sendType === 'proposal'
