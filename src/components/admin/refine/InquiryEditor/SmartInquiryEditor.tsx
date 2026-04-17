@@ -353,7 +353,12 @@ export const SmartInquiryEditor = () => {
   // --------------------------------------------------------------------
   // Preview-Rueckkehr: Send-Flow triggern wenn User auf "Jetzt senden"
   // in der Preview-Seite geklickt hat. URL-Query "?confirmed=1|test&send=proposal|final".
-  // Nach Ausfuehrung wird die URL bereinigt damit kein Re-Trigger bei Reload passiert.
+  //
+  // Schutz gegen doppelten Trigger: Zwei Wege
+  //   (a) sendTriggerHandledRef bleibt ueber Component-Lifetime true.
+  //   (b) URL wird SYNCHRON bereinigt bevor irgendwas Asynchrones laeuft.
+  // Ausserdem: sessionStorage-Schutz damit auch nach F5 nicht nochmal
+  // gesendet wird (Ref ueberlebt Reload nicht).
   // --------------------------------------------------------------------
   const [searchParams, setSearchParams] = useSearchParams();
   const sendTriggerHandledRef = useRef(false);
@@ -363,12 +368,28 @@ export const SmartInquiryEditor = () => {
     if (!confirmed || !sendType) return;
     if (!inquiry || !isInitializedRef.current) return;
     if (sendTriggerHandledRef.current) return;
+
+    // F5-Schutz: einmal getriggerte Kombinationen werden pro Browser-Session
+    // fuer 10 Sekunden als "schon erledigt" markiert (verhindert Doppel-Versand
+    // bei F5 direkt nach Navigation, erlaubt aber spaeter erneute Vorschau).
+    const triggerKey = `send-triggered:${inquiry.id}:${sendType}:${confirmed}`;
+    const lastTrigger = sessionStorage.getItem(triggerKey);
+    if (lastTrigger && Date.now() - parseInt(lastTrigger, 10) < 10_000) {
+      // Innerhalb 10s schon ausgefuehrt — URL still saeubern und raus.
+      sendTriggerHandledRef.current = true;
+      setSearchParams({}, { replace: true });
+      return;
+    }
+
     sendTriggerHandledRef.current = true;
+    sessionStorage.setItem(triggerKey, String(Date.now()));
+
+    // URL SOFORT bereinigen — synchron, vor jedem await.
+    // Das verhindert dass bei einem Re-Render waehrend des async-Calls
+    // der Effect nochmal triggert.
+    setSearchParams({}, { replace: true });
 
     (async () => {
-      // Erst URL bereinigen, dann agieren (vermeidet Re-Trigger bei Rerender)
-      setSearchParams({}, { replace: true });
-
       if (confirmed === 'test') {
         // Testmail: direkte Edge-Function-Call mit isTestPreview, KEINE Phase-Aenderung
         try {

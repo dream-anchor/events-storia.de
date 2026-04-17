@@ -21,7 +21,7 @@
  */
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Send, Mail, FileText, Globe, Loader2, TestTube2 } from "lucide-react";
+import { ArrowLeft, Send, Mail, FileText, Globe, Loader2, TestTube2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "../AdminLayout";
@@ -59,6 +59,8 @@ export function OfferSendPreview() {
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfAttempt, setPdfAttempt] = useState(0);
+  const [pdfRetryTrigger, setPdfRetryTrigger] = useState(0);
   const [isSending, setIsSending] = useState(false);
   const [isTestSending, setIsTestSending] = useState(false);
 
@@ -93,40 +95,76 @@ export function OfferSendPreview() {
     })();
   }, [id]);
 
-  // LexOffice-PDF laden
+  // Scroll zum Seitenanfang wenn die Inquiry geladen ist (verhindert dass der
+  // iframe den Fokus greift und die Seite mitten im Content startet).
+  useEffect(() => {
+    if (inquiry) {
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    }
+  }, [inquiry?.id]);
+
+  // LexOffice-PDF laden — mit Retry-Loop, da LexOffice das PDF manchmal
+  // erst einige Sekunden nach Finalisierung generiert. Bei jedem Fehlschlag
+  // warten wir 2s, 4s, 6s und versuchen es erneut (max 4 Versuche).
+  // pdfRetryTrigger-Bumping ermoeglicht auch manuellen "Erneut versuchen"-Click.
   useEffect(() => {
     if (!inquiry?.lexoffice_quotation_id) return;
-    setPdfLoading(true);
-    setPdfError(null);
-    (async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('download-lexoffice-document', {
-          body: { voucherId: inquiry.lexoffice_quotation_id, voucherType: 'quotation' },
-        });
-        if (error || !data?.pdf) {
-          setPdfError(data?.error || 'PDF nicht verfügbar');
-          return;
+    let cancelled = false;
+
+    const fetchWithRetry = async () => {
+      const delays = [0, 2000, 4000, 6000]; // ms zwischen Versuchen
+      for (let attempt = 0; attempt < delays.length; attempt++) {
+        if (cancelled) return;
+        if (delays[attempt] > 0) {
+          await new Promise((r) => setTimeout(r, delays[attempt]));
+          if (cancelled) return;
         }
-        const bytes = Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0));
-        const blob = new Blob([bytes], { type: 'application/pdf' });
-        setPdfBlobUrl(URL.createObjectURL(blob));
-      } catch (err) {
-        console.error('[OfferSendPreview] PDF fetch failed:', err);
-        setPdfError(err instanceof Error ? err.message : 'Unbekannter Fehler');
-      } finally {
-        setPdfLoading(false);
+        setPdfLoading(true);
+        setPdfError(null);
+        setPdfAttempt(attempt + 1);
+        try {
+          const { data, error } = await supabase.functions.invoke('download-lexoffice-document', {
+            body: { voucherId: inquiry.lexoffice_quotation_id, voucherType: 'quotation' },
+          });
+          if (cancelled) return;
+          if (error || !data?.pdf) {
+            const msg = data?.error || error?.message || 'PDF nicht verfügbar';
+            if (attempt < delays.length - 1) {
+              // noch Versuche uebrig — still weiter retry
+              continue;
+            }
+            setPdfError(msg);
+            setPdfLoading(false);
+            return;
+          }
+          const bytes = Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0));
+          const blob = new Blob([bytes], { type: 'application/pdf' });
+          if (cancelled) return;
+          setPdfBlobUrl(URL.createObjectURL(blob));
+          setPdfLoading(false);
+          return;
+        } catch (err) {
+          if (cancelled) return;
+          console.warn(`[OfferSendPreview] PDF fetch attempt ${attempt + 1} failed:`, err);
+          if (attempt < delays.length - 1) continue;
+          setPdfError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+          setPdfLoading(false);
+        }
       }
-    })();
+    };
+
+    fetchWithRetry();
 
     // Cleanup Blob-URL beim Unmount
     return () => {
+      cancelled = true;
       setPdfBlobUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
       });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inquiry?.lexoffice_quotation_id]);
+  }, [inquiry?.lexoffice_quotation_id, pdfRetryTrigger]);
 
   // Handler: Senden
   // Strategie: Die Preview macht keinen direkten Edge-Function-Call. Stattdessen
@@ -178,8 +216,8 @@ export function OfferSendPreview() {
   const publicOfferUrl = `/offer/${inquiry.id}`;
 
   const sendLabel = sendType === 'proposal'
-    ? (currentVersion > 0 ? `Version ${nextVersion} senden` : 'Vorschlag senden')
-    : 'Finales Angebot senden';
+    ? (currentVersion > 0 ? `Version ${nextVersion} an Kunde senden` : 'Vorschlag an Kunde senden')
+    : 'Finales Angebot an Kunde senden';
 
   return (
     <AdminLayout activeTab="events" title="Vorschau vor Versand">
@@ -289,17 +327,39 @@ export function OfferSendPreview() {
           </div>
           <div className="bg-muted/20 min-h-[400px] flex items-center justify-center">
             {!inquiry.lexoffice_quotation_id ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">
+              <div className="p-8 text-center text-sm text-muted-foreground max-w-md">
                 Kein LexOffice-Angebot verknüpft. Bitte zurück und Angebot erstellen.
               </div>
             ) : pdfLoading ? (
-              <div className="p-8 flex items-center gap-3 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                PDF wird geladen …
+              <div className="p-8 flex flex-col items-center gap-3 text-sm text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <div className="text-center">
+                  <div>PDF wird geladen …</div>
+                  {pdfAttempt > 1 && (
+                    <div className="text-xs text-muted-foreground/70 mt-1">
+                      Versuch {pdfAttempt} von 4 — LexOffice braucht manchmal ein paar Sekunden
+                    </div>
+                  )}
+                </div>
               </div>
             ) : pdfError ? (
-              <div className="p-8 text-center text-sm text-red-900">
-                PDF konnte nicht geladen werden: {pdfError}
+              <div className="p-8 text-center text-sm max-w-md">
+                <div className="text-amber-900 mb-2 font-medium">
+                  Das LexOffice-PDF ist noch nicht verfügbar.
+                </div>
+                <div className="text-muted-foreground text-xs mb-4">
+                  LexOffice generiert das PDF beim ersten Zugriff. Das dauert
+                  normalerweise ein paar Sekunden. Technisches Detail: {pdfError}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPdfRetryTrigger((n) => n + 1)}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Erneut versuchen
+                </Button>
               </div>
             ) : pdfBlobUrl ? (
               <iframe
@@ -325,6 +385,9 @@ export function OfferSendPreview() {
             </Button>
 
             <div className="flex-1" />
+
+            {/* Visueller Trenner zwischen "Abbrechen-Zone" und "Sende-Zone" — CX-Schutz vor Tippfehlern */}
+            <div className="hidden sm:block w-px h-8 bg-border/60 mx-1" />
 
             <Button
               variant="outline"
@@ -356,7 +419,7 @@ export function OfferSendPreview() {
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              Jetzt endgültig senden: {sendLabel}
+              {sendLabel}
             </Button>
           </div>
         </div>
