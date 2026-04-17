@@ -687,8 +687,64 @@ export const AdminOfferCreate = () => {
       // Small delay to let flushSave complete
       await new Promise(r => setTimeout(r, 500));
 
+      // SCHRITT 1: Inquiry-Basis-Felder + status='offer_sent' speichern
       const inquiry = await saveInquiry('offer_sent');
 
+      // SCHRITT 2: Offer-Phase + Versand-Metadaten setzen (KRITISCH für PublicOffer)
+      // Ohne offer_phase='proposal_sent' zeigt die Public-Seite KEIN Menü und KEIN Zahlungs-Link.
+      // Das war Root Cause bei Paula Trocchia und Stephanie Alves-Quintas.
+      const { data: { user } } = await supabase.auth.getUser();
+      const now = new Date().toISOString();
+      const newVersion = 1;
+
+      // 2a: Options-Snapshot lesen für History
+      const { data: optionsSnapshot } = await supabase
+        .from('inquiry_offer_options')
+        .select('*')
+        .eq('inquiry_id', inquiry.id);
+
+      // 2b: History-Eintrag anlegen
+      const { error: historyErr } = await (supabase as any)
+        .from('inquiry_offer_history')
+        .insert({
+          inquiry_id: inquiry.id,
+          version: newVersion,
+          sent_by: user?.email || null,
+          email_content: emailContent || null,
+          options_snapshot: optionsSnapshot || [],
+        });
+      if (historyErr) {
+        console.error('[handleSaveAndSend] inquiry_offer_history insert failed:', historyErr);
+        toast.error(
+          `Kritischer Fehler: History konnte nicht angelegt werden (${historyErr.message}). ` +
+          `Bitte Seite neu laden und erneut versuchen.`,
+          { duration: Infinity }
+        );
+        return;
+      }
+
+      // 2c: Phase + Version + Versandzeitpunkt setzen
+      const { error: phaseErr } = await supabase
+        .from('event_inquiries')
+        .update({
+          offer_phase: 'proposal_sent',
+          current_offer_version: newVersion,
+          offer_sent_at: now,
+          offer_sent_by: user?.email || null,
+        } as Record<string, unknown>)
+        .eq('id', inquiry.id);
+      if (phaseErr) {
+        console.error('[handleSaveAndSend] Phase-Update fehlgeschlagen:', phaseErr);
+        toast.error(
+          `Kritischer Fehler: Angebots-Phase konnte nicht gesetzt werden (${phaseErr.message}). ` +
+          `Das Angebot ist gespeichert, aber die Public-Seite zeigt das Menü nicht. ` +
+          `Bitte Seite neu laden.`,
+          { duration: Infinity }
+        );
+        return;
+      }
+
+      // SCHRITT 3: LexOffice-Angebot (non-blocking)
       let lexofficeQuotationId: string | null = null;
       const { data: lexData, error: lexError } = await supabase.functions.invoke(
         'create-event-quotation',
@@ -706,6 +762,7 @@ export const AdminOfferCreate = () => {
           .eq('id', inquiry.id);
       }
 
+      // SCHRITT 4: Email an Kunden senden (ERST JETZT, nachdem State konsistent ist)
       if (formData.email && emailContent) {
         // EMAIL SAFETY: Test orders NEVER reach real customers
         const safeEmail = isTest ? TEST_REDIRECT_EMAIL : formData.email;
@@ -713,7 +770,6 @@ export const AdminOfferCreate = () => {
           console.log(`[TEST MODE] Email redirected: ${formData.email} → ${safeEmail}`);
         }
 
-        const { data: { user } } = await supabase.auth.getUser();
         const { data: emailResult, error: emailError } = await supabase.functions.invoke(
           'send-offer-email',
           {
@@ -728,7 +784,11 @@ export const AdminOfferCreate = () => {
           },
         );
         if (emailError || !emailResult?.emailSent) {
-          toast.warning('Anfrage gespeichert, aber E-Mail konnte nicht versendet werden');
+          toast.warning(
+            'Angebot ist gespeichert und Phase ist gesetzt, aber E-Mail konnte NICHT versendet werden. ' +
+            'Bitte Link manuell teilen oder Versand erneut auslösen.',
+            { duration: 15000 }
+          );
         } else {
           const pdfHint = emailResult.hasPdfAttachment ? ' (mit PDF-Anhang)' : '';
           if (emailResult.warnings?.length) {
