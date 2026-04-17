@@ -4,8 +4,9 @@ import { toast } from "sonner";
 import { calculateEventPackagePrice } from "@/lib/eventPricing";
 import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
-import type { CourseConfig, DrinkConfig, DrinkOption } from "../MenuComposer/types";
+import type { CourseConfig, DrinkConfig, DrinkOption, CourseSelection } from "../MenuComposer/types";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
+import { detectPricingMode, calculateTotalAmount } from "./pricingMode";
 import {
   OfferBuilderOption,
   OfferPhase,
@@ -103,6 +104,7 @@ async function saveOptionsToDb(
     menu_selection: {
       ...opt.menuSelection,
       budgetPerPerson: opt.budgetPerPerson,
+      pricingMode: opt.pricingMode ?? 'per_person',
       discountPercent: opt.discountPercent,
       packageNameOverride: opt.packageName || null,
     },
@@ -325,6 +327,7 @@ export function useOfferBuilder({
             createdInVersion: (opt as Record<string, unknown>).created_in_version as number | undefined,
             sortOrder: opt.sort_order || 0,
             budgetPerPerson: ((opt.menu_selection as Record<string, unknown>)?.budgetPerPerson as number) ?? null,
+            pricingMode: ((opt.menu_selection as Record<string, unknown>)?.pricingMode as 'per_person' | 'per_event') ?? detectPricingMode(((opt.menu_selection as Record<string, unknown>)?.courses as CourseSelection[] | undefined)),
             discountPercent: ((opt.menu_selection as Record<string, unknown>)?.discountPercent as number) ?? 0,
             attachMenu: false,
             tableNote: null,
@@ -541,7 +544,10 @@ export function useOfferBuilder({
           const effectivePerPerson = (opt.budgetPerPerson != null && opt.budgetPerPerson > 0)
             ? opt.budgetPerPerson
             : netPerPerson;
-          const newTotal = effectivePerPerson * opt.guestCount;
+          // Gesamtsumme je nach Pricing-Modus
+          const mode = opt.pricingMode ?? 'per_person';
+          const fallbackTotal = netPerPerson * opt.guestCount;
+          const newTotal = calculateTotalAmount(mode, effectivePerPerson, opt.guestCount, fallbackTotal);
 
           if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
           changed = true;
@@ -553,12 +559,19 @@ export function useOfferBuilder({
         const pkg = packagesProp.find(p => p.id === opt.packageId);
         if (!pkg) return opt;
 
-        // budgetPerPerson (manuell überschrieben) hat Vorrang über Original-Paket-Preis
+        // Pricing-Modus entscheidet:
+        //  per_event: budgetPerPerson ist bereits der Gesamtpreis
+        //  per_person: wie bisher (budgetPerPerson * guestCount oder Paket-Kalkulation)
+        const mode = opt.pricingMode ?? 'per_person';
         let newTotal: number;
         if (opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
-          newTotal = pkg.price_per_person
-            ? opt.budgetPerPerson * opt.guestCount
-            : opt.budgetPerPerson;
+          if (mode === 'per_event') {
+            newTotal = opt.budgetPerPerson;
+          } else {
+            newTotal = pkg.price_per_person
+              ? opt.budgetPerPerson * opt.guestCount
+              : opt.budgetPerPerson;
+          }
         } else {
           newTotal = calculateEventPackagePrice(
             pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person

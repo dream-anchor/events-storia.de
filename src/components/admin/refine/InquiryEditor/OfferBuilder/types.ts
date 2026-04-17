@@ -88,6 +88,15 @@ export interface OfferBuilderOption {
   sortOrder: number;
   // Neue Felder für den OfferBuilder
   budgetPerPerson: number | null;
+  /**
+   * Pricing-Modus:
+   * - 'per_person' (Default): budgetPerPerson ist Preis pro Gast, totalAmount = budgetPerPerson * guestCount
+   * - 'per_event': budgetPerPerson wird als Gesamtpreis interpretiert, totalAmount = budgetPerPerson
+   *
+   * Auto-Detection bei fehlendem Wert: 'per_event' wenn Kurse absolute Mengen haben
+   * (z.B. "11 x Salat"), sonst 'per_person'.
+   */
+  pricingMode?: 'per_person' | 'per_event';
   /** Rabatt-Prozentsatz (0–100, default 25) — wird in menu_selection.discountPercent gespeichert */
   discountPercent: number;
   attachMenu: boolean;
@@ -183,6 +192,7 @@ export function createEmptyOption(
     offerVersion: 1,
     sortOrder: OPTION_LABELS.indexOf(label as OptionLabel),
     budgetPerPerson: null,
+    pricingMode: 'per_person',
     discountPercent: 0,
     attachMenu: false,
     tableNote: null,

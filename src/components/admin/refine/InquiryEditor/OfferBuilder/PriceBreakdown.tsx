@@ -6,6 +6,7 @@ import { calculateEventPackagePrice, isLocationPackage, getLocationPricingBreakd
 import type { Package } from "../types";
 import type { CourseSelection } from "./types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
+import type { PricingMode } from "./pricingMode";
 
 interface PriceBreakdownProps {
   packageData: Package | undefined;
@@ -27,6 +28,10 @@ interface PriceBreakdownProps {
   /** Finaler Angebotspreis pro Person (Override) */
   finalPricePerPerson?: number | null;
   onFinalPriceChange?: (price: number | null) => void;
+  /** Pricing-Modus: 'per_person' (Standard) oder 'per_event' (Gesamtpreis für Anlass) */
+  pricingMode?: PricingMode;
+  /** Callback wenn der Modus umgeschaltet wird */
+  onPricingModeChange?: (mode: PricingMode) => void;
   /** Rabatt in Prozent (0–100, default 25) */
   discountPercent?: number;
   onDiscountChange?: (percent: number) => void;
@@ -40,6 +45,49 @@ function formatCurrency(amount: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+/**
+ * Kompakter Toggle zwischen 'pro Person' und 'pro Anlass'.
+ * Wird nur gerendert wenn onPricingModeChange gesetzt ist.
+ */
+function PricingModeToggle({
+  mode,
+  onChange,
+  disabled,
+}: {
+  mode: PricingMode;
+  onChange: (mode: PricingMode) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="inline-flex rounded-lg border border-border/50 bg-muted/30 p-0.5 text-xs">
+      <button
+        type="button"
+        onClick={() => onChange('per_person')}
+        disabled={disabled}
+        className={`px-2.5 py-1 rounded-md transition-colors ${
+          mode === 'per_person'
+            ? 'bg-background shadow-sm font-medium text-foreground'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        pro Person
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('per_event')}
+        disabled={disabled}
+        className={`px-2.5 py-1 rounded-md transition-colors ${
+          mode === 'per_event'
+            ? 'bg-background shadow-sm font-medium text-foreground'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        pro Anlass
+      </button>
+    </div>
+  );
 }
 
 /** Findet das beste MenuItem — bevorzugt Items mit Preis > 0 */
@@ -98,6 +146,8 @@ export function PriceBreakdown({
   menuPricePerPerson = 0,
   finalPricePerPerson,
   onFinalPriceChange,
+  pricingMode = 'per_person',
+  onPricingModeChange,
   discountPercent: discountPercentProp,
   onDiscountChange,
   drinksLabel,
@@ -143,10 +193,19 @@ export function PriceBreakdown({
 
     return (
       <div className="pt-3 border-t border-border/30 space-y-2">
+        {/* Pricing-Mode Toggle — nur wenn Handler existiert */}
+        {onPricingModeChange && (
+          <div className="flex items-center justify-between pb-2">
+            <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
+              Preis berechnen als
+            </span>
+            <PricingModeToggle mode={pricingMode} onChange={onPricingModeChange} disabled={disabled} />
+          </div>
+        )}
         {dishLines.length > 0 && (
           <div className="space-y-1.5">
             <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
-              Preis pro Person
+              {pricingMode === 'per_event' ? 'Einzelpreise pro Position' : 'Preis pro Person'}
             </span>
 
             {/* Einzelgerichte (Originalpreise, editierbar) */}
@@ -186,10 +245,12 @@ export function PriceBreakdown({
               </div>
             )}
 
-            {/* Zwischensumme pro Person */}
+            {/* Zwischensumme */}
             {subtotalPerPerson > 0 && (
               <div className="flex items-center justify-between text-xs pt-1 border-t border-border/20">
-                <span className="text-muted-foreground">Zwischensumme / Pers.</span>
+                <span className="text-muted-foreground">
+                  {pricingMode === 'per_event' ? 'Zwischensumme gesamt' : 'Zwischensumme / Pers.'}
+                </span>
                 <span className="font-medium">{formatCurrency(subtotalPerPerson)}</span>
               </div>
             )}
@@ -222,10 +283,12 @@ export function PriceBreakdown({
             </div>
 
             </>)}
-            {/* Netto pro Person — nur wenn Rabatt aktiv */}
+            {/* Netto — nur wenn Rabatt aktiv */}
             {netPerPerson > 0 && discountAmount > 0 && (
               <div className="flex items-center justify-between text-xs font-medium">
-                <span className="text-muted-foreground">Netto / Person</span>
+                <span className="text-muted-foreground">
+                  {pricingMode === 'per_event' ? 'Netto gesamt' : 'Netto / Person'}
+                </span>
                 <span>{formatCurrency(netPerPerson)}</span>
               </div>
             )}
@@ -244,15 +307,19 @@ export function PriceBreakdown({
 
         <Separator className="my-1" />
 
-        {/* Pro Person — errechneter Preis */}
+        {/* Errechneter Preis */}
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-muted-foreground">Errechnet / Person</span>
+          <span className="text-xs text-muted-foreground">
+            {pricingMode === 'per_event' ? 'Errechnet gesamt' : 'Errechnet / Person'}
+          </span>
           <span className="text-sm text-muted-foreground">{formatCurrency(netPerPerson)}</span>
         </div>
 
-        {/* Finaler Angebotspreis pro Person — editierbar */}
+        {/* Finaler Angebotspreis — editierbar */}
         <div className="flex items-center justify-between gap-3 pt-1">
-          <span className="text-sm font-semibold">Angebotspreis / Person</span>
+          <span className="text-sm font-semibold">
+            {pricingMode === 'per_event' ? 'Angebotspreis gesamt' : 'Angebotspreis / Person'}
+          </span>
           <div className="relative w-28 shrink-0">
             <Input
               type="number"
@@ -300,6 +367,15 @@ export function PriceBreakdown({
 
   return (
     <div className="pt-3 border-t border-border/30 space-y-2">
+      {/* Pricing-Mode Toggle — nur wenn Handler existiert */}
+      {onPricingModeChange && (
+        <div className="flex items-center justify-between pb-2">
+          <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
+            Preis berechnen als
+          </span>
+          <PricingModeToggle mode={pricingMode} onChange={onPricingModeChange} disabled={disabled} />
+        </div>
+      )}
       {/* Location-Preis */}
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">
@@ -342,9 +418,11 @@ export function PriceBreakdown({
 
       <Separator className="my-1" />
 
-      {/* Pro Person — errechneter Preis */}
+      {/* Errechneter Preis */}
       <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">Errechnet / Person</span>
+        <span className="text-xs text-muted-foreground">
+          {pricingMode === 'per_event' ? 'Errechnet gesamt' : 'Errechnet / Person'}
+        </span>
         <AnimatePresence mode="wait">
           <motion.span
             key={guestCount > 0 ? (grandTotal / guestCount).toFixed(2) : '0'}
@@ -354,14 +432,18 @@ export function PriceBreakdown({
             transition={{ duration: 0.2 }}
             className="text-sm text-muted-foreground"
           >
-            {guestCount > 0 ? formatCurrency(grandTotal / guestCount) : '—'}
+            {pricingMode === 'per_event'
+              ? formatCurrency(grandTotal)
+              : (guestCount > 0 ? formatCurrency(grandTotal / guestCount) : '—')}
           </motion.span>
         </AnimatePresence>
       </div>
 
-      {/* Finaler Angebotspreis pro Person — editierbar */}
+      {/* Finaler Angebotspreis — editierbar */}
       <div className="flex items-center justify-between gap-3 pt-1">
-        <span className="text-sm font-semibold">Angebotspreis / Person</span>
+        <span className="text-sm font-semibold">
+          {pricingMode === 'per_event' ? 'Angebotspreis gesamt' : 'Angebotspreis / Person'}
+        </span>
         <div className="relative w-28 shrink-0">
           <Input
             type="number"
@@ -370,7 +452,11 @@ export function PriceBreakdown({
               const val = e.target.value;
               onFinalPriceChange?.(val === '' ? null : parseFloat(val) || 0);
             }}
-            placeholder={guestCount > 0 ? (grandTotal / guestCount).toFixed(2) : '0,00'}
+            placeholder={
+              pricingMode === 'per_event'
+                ? (grandTotal > 0 ? grandTotal.toFixed(2) : '0,00')
+                : (guestCount > 0 ? (grandTotal / guestCount).toFixed(2) : '0,00')
+            }
             className="h-9 rounded-xl pr-6 text-right text-sm font-bold"
             disabled={disabled}
           />
