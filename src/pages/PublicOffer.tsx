@@ -648,8 +648,8 @@ function ProposalView({
             ))}
           </div>
 
-          {/* PRIMARY ACTION — Buchen über Stripe */}
-          {selectedOption && (
+          {/* PRIMARY ACTION — Buchen über Stripe (nur wenn Betrag kalkuliert ist) */}
+          {selectedOption && totalAmount > 0 && (
             <div className="max-w-2xl mb-10">
               <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm rounded-2xl border-2 border-primary/20 p-6 md:p-8 shadow-[0_8px_30px_rgba(139,0,0,0.08)]">
                 <div className="mb-6">
@@ -713,8 +713,8 @@ function ProposalView({
             </div>
           )}
 
-          {/* Stornobedingungen — direkt unter der Buchen-Box */}
-          {selectedOption && (
+          {/* Stornobedingungen — direkt unter der Buchen-Box (nur wenn buchbar) */}
+          {selectedOption && totalAmount > 0 && (
             <div className="max-w-2xl mb-10 px-2">
               <CancellationTermsAccordion />
             </div>
@@ -913,6 +913,8 @@ function ProposalOptionCard({
               <div className={cn("space-y-3", courses.length > 0 && "mt-6 pt-5 border-t border-border/15")}>
                 {drinks.map((d, i) => {
                   const hasContent = d.customDrink || d.selectedChoice;
+                  // quantityLabel nur zeigen wenn es keine Redundanz zu "inklusive" ist
+                  const qtyIsRedundant = d.quantityLabel && /^\s*(inklusive|inkl\.?|included)\s*$/i.test(d.quantityLabel);
                   return (
                     <div key={i} className="flex items-baseline gap-4">
                       <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
@@ -924,7 +926,7 @@ function ProposalOptionCard({
                             inklusive
                           </span>
                         )}
-                        {d.quantityLabel && (
+                        {d.quantityLabel && !qtyIsRedundant && (
                           <span className="text-sm text-muted-foreground ml-2 font-sans">
                             ({d.quantityLabel})
                           </span>
@@ -1196,6 +1198,8 @@ function FinalOptionCard({
             <div className="space-y-2.5">
               {drinks.map((drink, i) => {
                 const hasContent = drink.customDrink || drink.selectedChoice;
+                // quantityLabel nur zeigen wenn es keine Redundanz zu "inklusive" ist
+                const qtyIsRedundant = drink.quantityLabel && /^\s*(inklusive|inkl\.?|included)\s*$/i.test(drink.quantityLabel);
                 return (
                   <div key={i}>
                     <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
@@ -1207,7 +1211,7 @@ function FinalOptionCard({
                           inklusive
                         </span>
                       )}
-                      {drink.quantityLabel && (
+                      {drink.quantityLabel && !qtyIsRedundant && (
                         <span className="text-muted-foreground/50 ml-1">
                           ({drink.quantityLabel})
                         </span>
@@ -1528,7 +1532,7 @@ function CancellationTermsAccordion() {
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center gap-2 text-sm font-sans text-foreground/70 hover:text-foreground transition-colors group"
       >
-        <Info className="h-4 w-4 shrink-0 text-primary/60 group-hover:text-primary" />
+        <Info className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-300" />
         <span className="flex-1 text-left font-medium">Flexibel stornieren — bis 30 Tage vor dem Event kostenfrei</span>
         <ChevronDown
           className={cn(
