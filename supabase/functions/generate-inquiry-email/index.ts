@@ -171,11 +171,20 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
         }
       }
 
-      const drinks = opt.menuSelection?.drinks?.filter(d => d.selectedChoice) || [];
+      const drinks = opt.menuSelection?.drinks?.filter(d => d.selectedChoice || d.quantityLabel) || [];
       if (drinks.length > 0) {
         parts.push('Getränke:');
         for (const d of drinks) {
-          parts.push(`  ${d.drinkLabel}: ${d.selectedChoice}`);
+          // Inklusiv-Einträge (z.B. Wasser/Kaffee) haben kein selectedChoice, sondern quantityLabel="inklusive"
+          if (d.selectedChoice) {
+            const qty = d.quantityLabel && !/^(inklusive|inkl\.?|included)$/i.test(d.quantityLabel)
+              ? ` (${d.quantityLabel})`
+              : '';
+            parts.push(`  ${d.drinkLabel}: ${d.selectedChoice}${qty}`);
+          } else {
+            // Reine Inklusiv-Position: z.B. Wasser inklusive, Kaffee-Spezialitäten inklusive
+            parts.push(`  ${d.drinkLabel}: inklusive`);
+          }
         }
       }
     }
@@ -362,29 +371,52 @@ Wenn eine Information fehlt (z.B. kein Menü konfiguriert), erwähne sie NICHT.
 
 STIL:
 - Freundlich, aber geschäftsmäßig und auf den Punkt
-- Kurz und prägnant (maximal 150-200 Wörter)
+- Kurz und prägnant (maximal 200 Wörter)
 - Keine überschwänglichen Floskeln wie "wunderbar", "fantastisch", "herausragend"
 - KEIN Markdown (keine **, keine #, keine Listen mit -)
 - Normaler E-Mail-Fließtext mit kurzen Absätzen
 
-ANREDE:
-- IMMER "Hallo [Vorname]," verwenden
-- Wenn kein Name bekannt ist (Kunde = "kein Name bekannt"): Schreibe nur "Hallo," ohne Namen, ohne Leerzeichen vor dem Komma
+ABSATZ-REGELN (wichtig!):
+- Zwischen jedem Absatz GENAU eine Leerzeile (= zwei Newlines \n\n)
+- Niemals Absätze ohne Leerzeile aneinanderhängen
+- Jeder inhaltliche Block ist ein eigener Absatz
+
+ANREDE (WICHTIG!):
+- IMMER Sie-Form verwenden, niemals duzen
+- Format: "Liebe Frau [Nachname]," oder "Lieber Herr [Nachname],"
+- Bei unklarem Geschlecht (nur Vorname der mehrdeutig ist, oder Firmenname): "Hallo [Vorname Nachname],"
+- Wenn kein Name bekannt ist (Kunde = "kein Name bekannt"): Schreibe nur "Guten Tag," ohne Namen
+- NIEMALS "Hallo [Vorname]," bei bekanntem vollständigen Namen verwenden
 - NIEMALS "Sehr geehrte/r" verwenden
+- Den Nachnamen aus dem Feld "Kunde: [Vorname Nachname] (...)" extrahieren — also den ZWEITEN (oder letzten) Teil
+
+ABKÜRZUNGEN & RECHTSCHREIBUNG:
+- NIEMALS "inkl." schreiben — immer "inklusive" ausschreiben
+- Keine abgekürzten Floskeln ohne Kontext (z.B. "Getränke inkl." ist verboten — entweder "Getränke inklusive" oder "Getränke sind inklusive")
+- "Paket" mit einem k und einem t (nicht "Packet" oder "Pakät")
+- Korrekte deutsche Rechtschreibung, insbesondere bei Fachwörtern
+
+VOLLSTÄNDIGKEIT (sehr wichtig!):
+- ZÄHLE ALLE Menügänge vollständig auf, nicht mit "oder" kürzen:
+  FALSCH: "Vorspeise mit Vitello Tonnato oder Kräuterseitlingen"
+  RICHTIG: "als Vorspeise Vitello Tonnato oder wahlweise Kräuterseitlinge mit frischen Artischocken und grünem Spargel"
+- ZÄHLE ALLE Getränke vollständig auf, insbesondere die inklusiven Positionen:
+  "Dazu ein Aperitif Spritz, 4 × 0,1 l Wein oder Bier pro Person sowie Wasser und Kaffee-Spezialitäten inklusive."
+- Inklusiv-Getränke (Wasser, Kaffee, Aperitif) NIE auslassen — sie sind Teil der Leistung
+- Wenn Menügänge beschreibende Details haben (z.B. "Vitello Tonnato, fein geschnittenes rosa Kalbfleisch, ..."), kannst du 1-2 Details auswählen, aber den Hauptbestandteil (Vitello Tonnato) immer nennen
 
 ${isProposal ? `STRUKTUR für Vorschlag (Proposal):
-1. Anrede: "Hallo [Name]," (oder nur "Hallo," wenn kein Name bekannt)
+1. Anrede: "Liebe Frau [Nachname]," / "Lieber Herr [Nachname]," (siehe ANREDE-Regeln)
 2. Kurzer Dank für die Anfrage — beziehe dich NUR auf tatsächlich vorhandene Daten (Datum, Uhrzeit, Gästezahl). NICHT den Event-Typ als Titel verwenden!
+3. Vorstellen des Angebots mit Preis pro Person
+4. VOLLSTÄNDIGE Auflistung aller Speisen (siehe VOLLSTÄNDIGKEIT)
+5. VOLLSTÄNDIGE Auflistung aller Getränke inklusive der Inklusiv-Positionen (siehe VOLLSTÄNDIGKEIT)
 ${optionCount > 1
-  ? `3. Erwähne, dass du ${optionCount} Optionen zusammengestellt hast
-4. Liste jede Option KURZ auf: Paketname, Preis pro Person (NICHT Gesamtpreis!), und falls ein Menü konfiguriert ist, nenne 2-3 Highlight-Gänge (z.B. "mit Seeteufel, Pasta und Tiramisu")
-5. Schreibe EXAKT diesen Satz: "Wählen Sie Ihren Favoriten über diesen Link: [ANGEBOT_LINK]" — [ANGEBOT_LINK] wird automatisch durch den echten Link ersetzt, nicht ändern!
-6. Schlusssatz: Wir finalisieren das Angebot nach Ihrer Rückmeldung`
-  : `3. Stelle das Angebot kurz vor — NICHT "Option A" bei nur einer Option.
-4. Nenne den Preis pro Person. Falls Menügänge vorhanden sind, erwähne 2-3 Highlights (z.B. "mit Seeteufel, hausgemachter Pasta und Tiramisu").
-5. Schreibe EXAKT diesen Satz: "Das Angebot mit allen Details finden Sie hier: [ANGEBOT_LINK]" — [ANGEBOT_LINK] wird automatisch durch den echten Link ersetzt, nicht ändern!
-6. Schlusssatz: Wir freuen uns auf Rückmeldung`}
-7. Signatur
+  ? `6. Erwähne dass du ${optionCount} Optionen zusammengestellt hast und der Kunde seinen Favoriten über den Link wählen kann
+7. Schreibe EXAKT diesen Satz als eigenen Absatz: "Wählen Sie Ihren Favoriten über diesen Link: [ANGEBOT_LINK]" — [ANGEBOT_LINK] wird automatisch durch den echten Link ersetzt, nicht ändern!`
+  : `6. Schreibe EXAKT diesen Satz als eigenen Absatz: "Das Angebot mit allen Details finden Sie hier: [ANGEBOT_LINK]" — [ANGEBOT_LINK] wird automatisch durch den echten Link ersetzt, nicht ändern!`}
+8. Schlusssatz: "Wir freuen uns auf Ihre Rückmeldung."
+9. Signatur
 
 WICHTIG: Dies ist ein VORSCHLAG, KEINE finale Buchung. KEIN Hinweis auf Vorauszahlung oder Zahlung!
 
@@ -392,21 +424,27 @@ Wenn KEIN Menü oder Paket konfiguriert ist:
 - Schreibe ein einfaches, kurzes Anschreiben
 - Erwähne nur Datum, Uhrzeit, Gästezahl (sofern vorhanden)
 - "Wir haben basierend auf Ihrer Anfrage ein erstes Angebot zusammengestellt."
-- "Die Details finden Sie über den folgenden Link."`
+- Schreibe den Link-Satz aus der Struktur oben.`
 : `STRUKTUR für finales Angebot:
-1. Anrede: "Hallo [Name],"
-2. Bezug auf vorherige Abstimmung: "Wie besprochen haben wir Ihr Menü finalisiert."
-3. Kurze Zusammenfassung der finalen Option — Preis pro Person, nicht Gesamtpreis
-4. Hinweis: "Das finale Angebot mit Zahlungsmöglichkeit finden Sie über den folgenden Link."
-5. Info zur Vorauszahlung (100% erforderlich)
-6. Schlusssatz mit Kontaktangebot
-7. Signatur`}
+1. Anrede: "Liebe Frau [Nachname]," / "Lieber Herr [Nachname]," (siehe ANREDE-Regeln)
+2. Bezug auf vorherige Abstimmung: "wie besprochen haben wir Ihr Menü finalisiert."
+3. Zusammenfassung der finalen Option — Preis pro Person (NICHT Gesamtpreis)
+4. VOLLSTÄNDIGE Auflistung aller Speisen und Getränke (inkl. Inklusiv-Positionen)
+5. Eigener Absatz mit dem Link-Satz: "Das finale Angebot mit Zahlungsmöglichkeit finden Sie über den folgenden Link."
+6. Info zur Vorauszahlung
+7. Schlusssatz mit Kontaktangebot
+8. Signatur`}
 
 VERBOTEN:
 - "Sehr geehrte/r" als Anrede
+- "Hallo [Vorname]," bei bekannten Kunden (immer Sie-Form)
+- Duzen in jeder Form
+- "inkl." als Abkürzung (immer "inklusive" ausschreiben)
 - Fettdruck oder andere Formatierung
 - Übertrieben blumige Sprache
-- Mehr als 4 kurze Absätze vor der Signatur
+- Menü-Kurzformen wie "A oder B oder C" ohne Beschreibung — immer vollständig auflisten
+- Inklusiv-Getränke weglassen
+- Absätze ohne Leerzeile aneinander hängen
 - Erfundene Paketnamen, Gerichte, oder Events die nicht in den Daten stehen
 - Gesamtpreise (immer nur Preis pro Person nennen!)
 - Den Event-Typ als Titel im Text verwenden (z.B. NICHT "Ihr Network-Aperitivo" — stattdessen neutral "Ihre Veranstaltung" oder "Ihr Event")
@@ -417,17 +455,24 @@ ${shortSignature}`
 
 STIL:
 - Freundlich, aber geschäftsmäßig und auf den Punkt
-- Kurz und prägnant (maximal 100-150 Wörter)
+- Kurz und prägnant (maximal 150 Wörter)
 - Keine überschwänglichen Floskeln wie "wunderbar", "fantastisch", "herausragend", "Es ist uns eine große Ehre"
 - KEIN Markdown (keine **, keine #, keine Listen mit -)
-- Normaler E-Mail-Fließtext mit kurzen Absätzen
+- Normaler E-Mail-Fließtext mit kurzen Absätzen, IMMER mit Leerzeile zwischen Absätzen
 
-ANREDE:
-- IMMER "Hallo [Vorname]," verwenden (z.B. "Hallo Max," oder "Hallo Frau Müller,")
+ANREDE (WICHTIG!):
+- IMMER Sie-Form verwenden, niemals duzen
+- Format: "Liebe Frau [Nachname]," oder "Lieber Herr [Nachname],"
+- Bei unklarem Geschlecht oder nur Vorname: "Hallo [Vorname Nachname],"
+- NIEMALS "Hallo [Vorname]," bei bekanntem vollständigen Namen
 - NIEMALS "Sehr geehrte/r" verwenden
 
+ABKÜRZUNGEN:
+- NIEMALS "inkl." schreiben — immer "inklusive" ausschreiben
+- "Paket" mit einem k und einem t (nicht "Packet")
+
 STRUKTUR (genau einhalten):
-1. Anrede: "Hallo [Name],"
+1. Anrede: "Liebe Frau [Nachname]," / "Lieber Herr [Nachname],"
 2. Bestätigung der wichtigsten Fakten (Datum, Uhrzeit, Gästeanzahl, ggf. Paket) in einem Fließtext-Satz
 3. Hinweis: "Das detaillierte Angebot finden Sie im Anhang."
 4. Info zur Vorauszahlung (100% erforderlich)
@@ -436,6 +481,9 @@ STRUKTUR (genau einhalten):
 
 VERBOTEN:
 - "Sehr geehrte/r" als Anrede
+- "Hallo [Vorname]," bei bekannten Kunden
+- Duzen in jeder Form
+- "inkl." als Abkürzung
 - Aufzählungslisten
 - Fettdruck oder andere Formatierung
 - Übertrieben blumige Sprache
