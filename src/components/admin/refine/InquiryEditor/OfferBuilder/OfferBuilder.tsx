@@ -104,6 +104,43 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   const [emailDraft, setEmailDraft] = useState(inquiry.email_draft || "");
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
 
+  // --- CX: Erkennung lokaler Änderungen nach Versand ---
+  // Beim ersten Mount mit versendetem Angebot: Snapshot der Options machen.
+  // Sobald sich die Options ändern (via updateOption etc.): flag auf true.
+  // Das triggert die Amber-Strip und den Confirmation-Dialog vor neuem Versand.
+  const initialOptionsSnapshotRef = useRef<string | null>(null);
+  const [hasLocalChangesAfterSend, setHasLocalChangesAfterSend] = useState(false);
+  const wasInitiallySentRef = useRef(!!inquiry.offer_sent_at);
+
+  useEffect(() => {
+    // Nur wenn das Angebot bereits versendet wurde
+    if (!wasInitiallySentRef.current) return;
+    // Erst den Snapshot machen wenn Options geladen sind (nicht während isLoading)
+    if (builder.isLoading) return;
+
+    // Serialisiere nur die Felder die "semantisch" eine neue Version rechtfertigen
+    const serialized = JSON.stringify(
+      builder.options.map(o => ({
+        packageId: o.packageId,
+        offerMode: o.offerMode,
+        guestCount: o.guestCount,
+        totalAmount: o.totalAmount,
+        menuSelection: o.menuSelection,
+        isActive: o.isActive,
+      }))
+    );
+
+    if (initialOptionsSnapshotRef.current === null) {
+      // Erster Mount: Snapshot merken
+      initialOptionsSnapshotRef.current = serialized;
+    } else if (initialOptionsSnapshotRef.current !== serialized) {
+      // Änderung erkannt — flip flag (nur in eine Richtung, d.h. false → true)
+      if (!hasLocalChangesAfterSend) {
+        setHasLocalChangesAfterSend(true);
+      }
+    }
+  }, [builder.options, builder.isLoading, hasLocalChangesAfterSend]);
+
   const handleEmailDraftChange = useCallback((content: string) => {
     setEmailDraft(content);
     onEmailContentChange?.(content);
@@ -186,8 +223,8 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
 
   return (
     <div className="space-y-8">
-      {/* Versions-Info — zeigt letzte gesendete Version, Menü bleibt editierbar */}
-      {inquiry.offer_sent_at && (
+      {/* Versions-Info — grün wenn synchron, amber wenn lokale Änderungen */}
+      {inquiry.offer_sent_at && !hasLocalChangesAfterSend && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 text-xs">
           <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
           <span className="text-emerald-700 dark:text-emerald-300">
@@ -196,7 +233,22 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
           </span>
           <span className="text-emerald-600/60 dark:text-emerald-400/40">—</span>
           <span className="text-emerald-600/80 dark:text-emerald-400/60">
-            Änderungen werden als neue Version gespeichert
+            Synchron mit Kunde
+          </span>
+        </div>
+      )}
+
+      {inquiry.offer_sent_at && hasLocalChangesAfterSend && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-300/60 dark:border-amber-800/40 text-xs">
+          <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+          <span className="text-amber-800 dark:text-amber-200 font-medium">
+            Entwurf für Version {builder.currentVersion + 1}
+          </span>
+          <span className="text-amber-700/70 dark:text-amber-300/50">—</span>
+          <span className="text-amber-700/80 dark:text-amber-300/70">
+            Kunde sieht noch Version {builder.currentVersion}
+            {inquiry.offer_sent_at && ` vom ${format(parseISO(inquiry.offer_sent_at), "d. MMM yyyy", { locale: de })}`}
+            . Nicht vergessen: neue Version senden.
           </span>
         </div>
       )}
