@@ -30,6 +30,8 @@ interface MenuSelectionDB {
   drinks?: DrinkSelectionDB[];
   winePairingPrice?: number | null;
   budgetPerPerson?: number | null;
+  /** 'per_person' (Default) oder 'per_event' (Gesamtpreis für Anlass) */
+  pricingMode?: 'per_person' | 'per_event';
   drinksMode?: 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
   drinksPauschalePrice?: number | null;
   drinksPauschaleDescription?: string | null;
@@ -67,6 +69,35 @@ function buildLineItems(
   const guestCount = parseInt(String(opt.guest_count)) || 1;
   const totalAmount = opt.total_amount || 0;
   const items: LexOfficeLineItem[] = [];
+
+  // Pricing-Modus per_event: eine einzige Position mit Gesamtpreis, keine Multiplikation
+  // mit guestCount. Richtig für Catering-Bestellungen mit absoluten Mengen
+  // (z.B. "11 x Salat") wo der Preis nicht pro Gast skaliert.
+  if (ms?.pricingMode === 'per_event') {
+    // Kurz-Beschreibung der Positionen für den Angebots-Text
+    const courseSummary = (ms.courses || [])
+      .filter(c => c.itemName)
+      .map(c => c.itemName)
+      .join(', ');
+    const itemName = opt.offer_mode === 'menu'
+      ? 'Catering-Bestellung'
+      : (packageName || 'Veranstaltungspaket');
+    items.push({
+      type: 'custom',
+      name: itemName,
+      description: courseSummary.length > 0 && courseSummary.length < 500
+        ? courseSummary
+        : '',
+      quantity: 1,
+      unitName: 'Stk',
+      unitPrice: {
+        currency: 'EUR',
+        netAmount: round2(totalAmount),
+        taxRatePercentage: 7,
+      },
+    });
+    return items;
+  }
 
   if (opt.offer_mode === 'menu' && ms?.courses && ms.courses.length > 0) {
     const courses = ms.courses.filter(c => c.itemName);
