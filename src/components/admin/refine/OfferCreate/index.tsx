@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Sparkles, Loader2, Send, FileText, PenLine, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, Loader2, Send, FileText, PenLine, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { OfferBuilder } from "../InquiryEditor/OfferBuilder";
 import type { OfferBuilderHandle } from "../InquiryEditor/OfferBuilder";
 import { DraftFormData, ParsedInquiry, SuggestedPackage, SuggestedItem } from "./types";
 import type { ExtendedInquiry, Package, EmailTemplate } from "../InquiryEditor/types";
+import { useRegisterSaveStatus, type SaveStatus } from "@/components/admin/shared/SaveStatusContext";
 
 // ─── Email Safety ──────────────────────────────────────────────────────────────
 // Test emails are NEVER sent to real customers — only to system users
@@ -373,13 +374,7 @@ const Step4Review = ({ formData, onFormChange, onSaveAndSend, onSaveDraft, isSav
       </div>
     )}
 
-    {/* Autosave indicator */}
-    {draftInquiry && (
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-        Angebot wird automatisch gespeichert
-      </div>
-    )}
+    {/* Autosave-Hint entfernt — zentrales SaveStatusBadge im Admin-Header ist die Wahrheit */}
 
     {/* Action buttons — mobile-optimized */}
     <div className="flex flex-col gap-3 pt-2">
@@ -403,9 +398,9 @@ const Step4Review = ({ formData, onFormChange, onSaveAndSend, onSaveDraft, isSav
         className="w-full h-12"
       >
         {isSaving ? (
-          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Speichert...</>
+          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Öffne Entwurf...</>
         ) : (
-          "Nur speichern (Entwurf)"
+          <><FileText className="h-4 w-4 mr-2" /> Entwurf öffnen (ohne Mail-Versand)</>
         )}
       </Button>
       <Button
@@ -436,7 +431,10 @@ export const AdminOfferCreate = () => {
   const [emailContent, setEmailContent] = useState("");
   const [aiSummary, setAiSummary] = useState("");
   const [isTest, setIsTest] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const offerBuilderRef = useRef<OfferBuilderHandle>(null);
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialLoadRef = useRef(true);
 
   // Draft inquiry created on mount
   const [draftInquiryId, setDraftInquiryId] = useState<string | null>(null);
@@ -534,6 +532,71 @@ export const AdminOfferCreate = () => {
   const handleFormChange = useCallback((updates: Partial<DraftFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
   }, []);
+
+  // ── Auto-Save ────────────────────────────────────────────────────────────────
+  // Debounced Auto-Save: bei jeder formData-Änderung 800ms warten, dann speichern.
+  // Ersetzt den alten Nur speichern (Entwurf)-Button. Status geht über den
+  // zentralen SaveStatus-Context an das Badge im Admin-Header.
+  const performAutoSave = useCallback(async () => {
+    if (!draftInquiryId) return;
+    // Nur speichern wenn mindestens ein Feld befüllt ist (sonst leerer Draft-Flush)
+    const hasContent = formData.contact_name.trim() || formData.email.trim() || formData.message.trim();
+    if (!hasContent) {
+      setSaveStatus('idle');
+      return;
+    }
+    setSaveStatus('saving');
+    const { error } = await supabase
+      .from('event_inquiries')
+      .update({
+        contact_name: formData.contact_name,
+        company_name: formData.company_name || null,
+        email: formData.email,
+        phone: formData.phone || null,
+        preferred_date: formData.preferred_date || null,
+        time_slot: formData.preferred_time || null,
+        guest_count: formData.guest_count || null,
+        event_type: formData.event_type || null,
+        message: formData.message || null,
+        is_test: isTest || undefined,
+      })
+      .eq('id', draftInquiryId);
+    if (error) {
+      console.error('[OfferCreate] Auto-save error:', error);
+      setSaveStatus('error');
+    } else {
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }
+  }, [draftInquiryId, formData, isTest]);
+
+  // Cmd+S / Navigation-Flush
+  const flushAutoSave = useCallback(async () => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+    await performAutoSave();
+  }, [performAutoSave]);
+
+  // Auto-Save trigger: wenn formData sich ändert, 800ms warten, dann speichern
+  useEffect(() => {
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      return;
+    }
+    if (!draftInquiryId) return;
+    if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      performAutoSave();
+    }, 800);
+    return () => {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    };
+  }, [formData, isTest, draftInquiryId, performAutoSave]);
+
+  // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren
+  useRegisterSaveStatus('offer-create', saveStatus, flushAutoSave);
 
   // ── Extract ──────────────────────────────────────────────────────────────────
   const handleExtract = async () => {
@@ -668,8 +731,13 @@ export const AdminOfferCreate = () => {
   const handleSaveDraft = async () => {
     setIsSaving(true);
     try {
+      // Auto-Save ist bereits aktiv. Wir flushen jeden ausstehenden Save
+      // und navigieren dann zum vollen Editor — der User will hier vermutlich
+      // weiterarbeiten, nicht nur speichern.
+      await flushAutoSave();
+      // Falls noch kein Status auf new gesetzt ist (z.B. frischer Draft), einmal saveInquiry triggern
       const inquiry = await saveInquiry('new');
-      toast.success("Anfrage gespeichert!");
+      toast.success("Entwurf gespeichert — wechsle zum vollen Editor");
       navigate(`/admin/events/${inquiry.id}/edit`);
     } catch (err) {
       console.error('Save error:', err);
