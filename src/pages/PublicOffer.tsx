@@ -394,6 +394,21 @@ function AnschreibenSection({ emailContent }: { emailContent: string }) {
     .replace(/im folgenden Link/gi, "unten")
     .replace(/unter folgendem Link/gi, "unten");
 
+  // Redundante URL-Erwähnung entfernen — der Kunde IST auf dieser Seite,
+  // die URL zu sich selbst ist unnötig und wirkt unprofessionell
+  bodyText = bodyText
+    // "Das Angebot mit allen Details finden Sie hier: https://..." (ganze Zeile)
+    .replace(/^.*(?:Angebot|Details).*(?:finden|sehen|einsehen).*?https?:\/\/\S+.*$/gim, '')
+    // Reine URL-only Zeilen, die auf /offer/ oder /ihr-angebot/ zeigen
+    .replace(/^\s*https?:\/\/\S*(?:\/offer\/|\/ihr-angebot\/|\/your-offer\/)\S*\s*$/gim, '');
+
+  // Absätze normalisieren: 3+ aufeinanderfolgende Newlines → genau 2 (= eine Leerzeile)
+  // Das vereinheitlicht Abstände zwischen Absätzen und schluckt auch entstandene
+  // Leer-Blöcke nach dem URL-Entfernen
+  bodyText = bodyText
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
   return (
     <section className="bg-background">
       <div className="container mx-auto px-4 py-12 md:py-16">

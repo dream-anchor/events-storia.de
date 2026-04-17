@@ -227,6 +227,15 @@ serve(async (req) => {
 
     const emailSubject = `Ihr Angebot von STORIA Events`;
 
+    // Anschreiben-Text aufbereiten:
+    // 1. Redundante URL-Erwähnung entfernen (CTA-Button oben ist prominenter)
+    // 2. 3+ aufeinanderfolgende Newlines → exakt 2 (saubere Leerzeile)
+    const cleanedEmailContent = emailContent
+      .replace(/^.*(?:Angebot|Details).*(?:finden|sehen|einsehen).*?https?:\/\/\S+.*$/gim, '')
+      .replace(/^\s*https?:\/\/\S*(?:\/offer\/|\/ihr-angebot\/|\/your-offer\/)\S*\s*$/gim, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
     const htmlBody = `<!DOCTYPE html>
 <html lang="de">
 <head>
@@ -265,7 +274,7 @@ serve(async (req) => {
 
         <!-- Anschreiben (Admin-Text) -->
         <tr><td style="padding: 0 32px 32px;">
-          <div style="border-top: 1px solid #e5e5e5; padding-top: 24px; white-space: pre-wrap; font-size: 15px; color: #444;">${escapeHtml(emailContent)}</div>
+          <div style="border-top: 1px solid #e5e5e5; padding-top: 24px; white-space: pre-wrap; font-size: 15px; color: #444;">${escapeHtml(cleanedEmailContent)}</div>
         </td></tr>
 
         <!-- Footer mit Kontakt -->
@@ -381,7 +390,7 @@ serve(async (req) => {
         from_email: 'info@events-storia.de',
         to_email: customerEmail,
         subject: emailSubject,
-        body_text: emailContent,
+        body_text: cleanedEmailContent,
         body_html: htmlBody,
         attachments: hasPdf ? [{ filename: `STORIA_Angebot_${safeName}.pdf` }] : [],
         resend_message_id: result.messageId,
