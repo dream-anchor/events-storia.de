@@ -69,12 +69,14 @@ export function OfferSendPreview() {
 
   // Editierbarer Email-Body in der Preview.
   // Initial aus inquiry.email_draft uebernehmen (einmalig via Ref-Guard),
-  // danach kann der User den Text hier direkt bearbeiten und speichern.
+  // danach kann der User den Text hier direkt bearbeiten — Auto-Save
+  // (800ms Debounce) schreibt Aenderungen ohne Button-Klick in die DB.
   const [editedBody, setEditedBody] = useState<string>('');
   const [savedBody, setSavedBody] = useState<string>(''); // letzter gespeicherter Stand
   const [isSavingBody, setIsSavingBody] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const bodyInitSyncedRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Inquiry laden + Version
   useEffect(() => {
@@ -268,27 +270,45 @@ export function OfferSendPreview() {
   const emailBody = editedBody;
   const isBodyDirty = editedBody !== savedBody;
 
-  // Speichert den aktuellen editierten Body zurueck in event_inquiries.email_draft.
-  // Kein Debounce: der User drueckt explizit Save, das ist sein commit-point.
-  async function handleSaveBody() {
+  // Auto-Save: 800ms nachdem der User aufhört zu tippen, wird der Body in
+  // event_inquiries.email_draft persistiert. Kein User-Button noetig, keine
+  // Loop-Gefahr weil der Effect nur triggert wenn dirty und nach erfolgreichem
+  // Save savedBody = editedBody gesetzt wird.
+  useEffect(() => {
     if (!inquiry) return;
-    if (!isBodyDirty) return;
-    setIsSavingBody(true);
-    try {
-      const { error } = await supabase
-        .from('event_inquiries')
-        .update({ email_draft: editedBody })
-        .eq('id', inquiry.id);
-      if (error) throw error;
-      setSavedBody(editedBody);
-      toast.success('Änderungen gespeichert');
-    } catch (err) {
-      console.error('[OfferSendPreview] save body failed:', err);
-      toast.error(err instanceof Error ? err.message : 'Speichern fehlgeschlagen');
-    } finally {
-      setIsSavingBody(false);
+    if (!bodyInitSyncedRef.current) return; // noch im Initial-Sync
+    if (editedBody === savedBody) return; // nichts zu tun
+
+    // Debounce: vorherigen Timer verwerfen
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
     }
-  }
+    saveTimerRef.current = setTimeout(async () => {
+      const bodyToSave = editedBody; // Snapshot
+      setIsSavingBody(true);
+      try {
+        const { error } = await supabase
+          .from('event_inquiries')
+          .update({ email_draft: bodyToSave })
+          .eq('id', inquiry.id);
+        if (error) throw error;
+        setSavedBody(bodyToSave);
+      } catch (err) {
+        console.error('[OfferSendPreview] auto-save failed:', err);
+        toast.error('Speichern fehlgeschlagen — bitte Seite neu laden');
+      } finally {
+        setIsSavingBody(false);
+      }
+    }, 800);
+
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editedBody, savedBody, inquiry?.id]);
 
   // KI-Regeneration: erzeugt einen neuen Email-Draft-Text basierend auf dem
   // aktuellen Angebot (inquiry + aktive options) und schreibt ihn in
@@ -493,26 +513,17 @@ export function OfferSendPreview() {
                       Neu generieren
                     </Button>
                   )}
-                  {isBodyDirty ? (
-                    <span className="text-xs text-amber-700 font-medium">Nicht gespeicherte Änderungen</span>
+                  {isSavingBody ? (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Speichere…
+                    </span>
                   ) : savedBody.length > 0 ? (
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Check className="h-3 w-3" />
                       Gespeichert
                     </span>
                   ) : null}
-                  <Button
-                    size="sm"
-                    variant={isBodyDirty ? 'default' : 'outline'}
-                    onClick={handleSaveBody}
-                    disabled={!isBodyDirty || isSavingBody}
-                    className="gap-2 h-7 text-xs"
-                  >
-                    {isSavingBody ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : null}
-                    {isBodyDirty ? 'Änderungen speichern' : 'Gespeichert'}
-                  </Button>
                 </div>
               </div>
               <Textarea

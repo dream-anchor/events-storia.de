@@ -35,6 +35,11 @@ export const SmartInquiryEditor = () => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitializedRef = useRef(false);
+  // Dedizierter Ref fuer den Init-Effect (nicht verwechseln mit isInitializedRef,
+  // der den Auto-Save-Gate kontrolliert). Dieser Ref verhindert dass der
+  // lokale State nach jedem DB-Refetch neu aus inquiry ueberschrieben wird
+  // — was zu Save-Endlosschleifen und blinkendem SaveStatusBadge fuehrte.
+  const isInitializedFromDb = useRef(false);
   const latestValuesRef = useRef<Record<string, unknown>>({});
   const consecutiveSaveErrorsRef = useRef(0);
   const errorToastShownRef = useRef(false);
@@ -92,9 +97,19 @@ export const SmartInquiryEditor = () => {
   // Update mutation
   const { mutate: updateInquiry } = useUpdate();
 
-  // Initialize local state from inquiry
+  // Reset-Effect: Wenn die URL-ID wechselt (Navigation zu anderer Anfrage),
+  // muessen wir erlauben dass der lokale State aus der neuen Inquiry
+  // initialisiert wird. Muss VOR dem Init-Effect stehen.
   useEffect(() => {
-    if (inquiry) {
+    isInitializedFromDb.current = false;
+  }, [id]);
+
+  // Initialize local state from inquiry
+  // WICHTIG: nur einmal pro geladener Inquiry-ID ausfuehren. Ohne diesen
+  // Guard wird der lokale State bei jedem Refine-Refetch (nach jedem Save)
+  // ueberschrieben, was eine Auto-Save-Endlosschleife ausloest.
+  useEffect(() => {
+    if (inquiry && !isInitializedFromDb.current) {
       setLocalInquiry(inquiry);
       setQuoteNotes(inquiry.quote_notes || "");
       setEmailDraft(inquiry.email_draft || "");
@@ -116,6 +131,10 @@ export const SmartInquiryEditor = () => {
       } catch {
         // JSON-Felder konnten nicht geparsed werden — ignorieren
       }
+
+      // Markiere als initialisiert, damit kuenftige Refetches den State
+      // unveraendert lassen. Das verhindert die Auto-Save-Endlosschleife.
+      isInitializedFromDb.current = true;
     }
   }, [inquiry]);
 
