@@ -123,7 +123,7 @@ export function OfferSendPreview() {
         setPdfError(null);
         setPdfAttempt(attempt + 1);
         try {
-          const { data, error } = await supabase.functions.invoke('download-lexoffice-document', {
+          const { data, error } = await supabase.functions.invoke('get-lexoffice-document', {
             body: { voucherId: inquiry.lexoffice_quotation_id, voucherType: 'quotation' },
           });
           if (cancelled) return;
