@@ -75,74 +75,113 @@ function buildLineItems(
   const items: LexOfficeLineItem[] = [];
 
   // Pricing-Modus per_event: Positionen mit korrektem MwSt-Split.
-  // Essen = 7%, Getraenke = 19%. Siehe repair-quotation-pricing fuer Details.
+  // WICHTIG: totalAmount und alle overridePrice-/pricePerPerson-Werte sind BRUTTO
+  // (so gibt der Admin die Preise in Maestro ein). LexOffice erwartet aber
+  // netAmount in den Line-Items. Deshalb rechnen wir hier Brutto -> Netto zurueck.
+  //   Essen:    Netto = Brutto / 1.07
+  //   Getraenke: Netto = Brutto / 1.19
+  // Jede Speise / jedes Getraenk wird zu einer eigenen Line-Item-Zeile.
   if (ms?.pricingMode === 'per_event') {
-    const foodRaw = round2(
-      (ms.courses || [])
-        .filter((c) => c.itemName && c.overridePrice != null && c.overridePrice > 0)
-        .reduce((s, c) => s + (c.overridePrice || 0) * (c.quantity ?? 1), 0),
-    );
-    let drinksRaw = 0;
+    const FOOD_TAX = 7;
+    const DRINK_TAX = 19;
+    const bruttoToNet = (brutto: number, taxPct: number) => round2(brutto / (1 + taxPct / 100));
+
+    type BruttoEntry = { name: string; description: string; brutto: number; tax: 7 | 19; unitName: string };
+    const entries: BruttoEntry[] = [];
+
+    // --- Speisen: eine Zeile pro Gericht ---
+    for (const c of (ms.courses || [])) {
+      if (!c.itemName || c.overridePrice == null || c.overridePrice <= 0) continue;
+      const qty = c.quantity ?? 1;
+      const lineBrutto = round2((c.overridePrice || 0) * qty);
+      if (lineBrutto <= 0) continue;
+      // qty im Namen mitteilen damit der Kunde versteht woher die Summe kommt
+      const name = qty > 1 ? `${qty} × ${c.itemName}` : c.itemName;
+      entries.push({
+        name,
+        description: c.itemDescription || '',
+        brutto: lineBrutto,
+        tax: FOOD_TAX,
+        unitName: 'Portion',
+      });
+    }
+
+    // --- Getraenke: je nach drinksMode ---
     const drinkMode = ms.drinksMode ?? 'none';
     if (drinkMode === 'einzeln' && ms.drinksEinzeln) {
-      drinksRaw = round2(
-        ms.drinksEinzeln
-          .filter((d) => d.pricePerPerson > 0)
-          .reduce((s, d) => s + d.pricePerPerson * (d.quantity ?? 1), 0),
-      );
-    } else if (drinkMode === 'pauschale' && ms.drinksPauschalePrice) {
-      drinksRaw = round2(ms.drinksPauschalePrice);
-    } else if (drinkMode === 'weinbegleitung' && ms.winePairingPrice) {
-      drinksRaw = round2(ms.winePairingPrice);
-    } else if ((drinkMode === 'none' || !drinkMode) && ms.winePairingPrice) {
-      drinksRaw = round2(ms.winePairingPrice);
-    }
-
-    const rawSum = round2(foodRaw + drinksRaw);
-    let foodNet = foodRaw;
-    let drinksNet = drinksRaw;
-    if (rawSum > 0 && Math.abs(rawSum - totalAmount) > 0.01) {
-      const factor = totalAmount / rawSum;
-      foodNet = round2(foodRaw * factor);
-      drinksNet = round2(totalAmount - foodNet);
-    }
-
-    const foodSummary = (ms.courses || [])
-      .filter((c) => c.itemName)
-      .map((c) => c.itemName)
-      .join(', ');
-    const drinkSummary = drinkMode === 'einzeln'
-      ? (ms.drinksEinzeln || []).filter((d) => d.name).map((d) => d.name).join(', ')
-      : (ms.drinksPauschaleDescription || 'Getraenke');
-
-    if (foodNet > 0) {
-      items.push({
-        type: 'custom',
-        name: opt.offer_mode === 'menu' ? 'Catering-Bestellung (Speisen)' : (packageName || 'Speisen'),
-        description: foodSummary.length > 0 && foodSummary.length < 500 ? foodSummary : '',
-        quantity: 1,
+      for (const d of ms.drinksEinzeln) {
+        if (!d.name || d.pricePerPerson <= 0) continue;
+        const qty = d.quantity ?? 1;
+        const lineBrutto = round2(d.pricePerPerson * qty);
+        if (lineBrutto <= 0) continue;
+        const name = qty > 1 ? `${qty} × ${d.name}` : d.name;
+        entries.push({
+          name,
+          description: '',
+          brutto: lineBrutto,
+          tax: DRINK_TAX,
+          unitName: 'Stk',
+        });
+      }
+    } else if (drinkMode === 'pauschale' && ms.drinksPauschalePrice && ms.drinksPauschalePrice > 0) {
+      entries.push({
+        name: ms.drinksPauschaleDescription || 'Getränkepauschale',
+        description: '',
+        brutto: round2(ms.drinksPauschalePrice),
+        tax: DRINK_TAX,
         unitName: 'Stk',
-        unitPrice: { currency: 'EUR', netAmount: foodNet, taxRatePercentage: 7 },
+      });
+    } else if ((drinkMode === 'weinbegleitung' || drinkMode === 'none') && ms.winePairingPrice && ms.winePairingPrice > 0) {
+      entries.push({
+        name: 'Weinbegleitung',
+        description: '',
+        brutto: round2(ms.winePairingPrice),
+        tax: DRINK_TAX,
+        unitName: 'Stk',
       });
     }
-    if (drinksNet > 0) {
+
+    // --- Proportionale Korrektur falls Summe != totalAmount (Override wurde angepasst) ---
+    const entriesSum = round2(entries.reduce((s, e) => s + e.brutto, 0));
+    if (entriesSum > 0 && totalAmount > 0 && Math.abs(entriesSum - totalAmount) > 0.01) {
+      const factor = totalAmount / entriesSum;
+      for (const e of entries) {
+        e.brutto = round2(e.brutto * factor);
+      }
+      // Rundungs-Restbetrag auf letzte Zeile legen damit die Summe exakt stimmt
+      const adjSum = round2(entries.reduce((s, e) => s + e.brutto, 0));
+      const diff = round2(totalAmount - adjSum);
+      if (Math.abs(diff) > 0 && entries.length > 0) {
+        entries[entries.length - 1].brutto = round2(entries[entries.length - 1].brutto + diff);
+      }
+    }
+
+    // --- Brutto -> Netto fuer LexOffice ---
+    for (const e of entries) {
+      if (e.brutto <= 0) continue;
       items.push({
         type: 'custom',
-        name: 'Getraenke',
-        description: drinkSummary.length > 0 && drinkSummary.length < 500 ? drinkSummary : '',
+        name: e.name,
+        description: e.description,
         quantity: 1,
-        unitName: 'Stk',
-        unitPrice: { currency: 'EUR', netAmount: drinksNet, taxRatePercentage: 19 },
+        unitName: e.unitName,
+        unitPrice: {
+          currency: 'EUR',
+          netAmount: bruttoToNet(e.brutto, e.tax),
+          taxRatePercentage: e.tax,
+        },
       });
     }
+
+    // Fallback: keine Positionen erkannt — eine Sammelzeile
     if (items.length === 0) {
       items.push({
         type: 'custom',
         name: opt.offer_mode === 'menu' ? 'Catering-Bestellung' : (packageName || 'Veranstaltungspaket'),
-        description: foodSummary.length > 0 && foodSummary.length < 500 ? foodSummary : '',
+        description: '',
         quantity: 1,
         unitName: 'Stk',
-        unitPrice: { currency: 'EUR', netAmount: round2(totalAmount), taxRatePercentage: 7 },
+        unitPrice: { currency: 'EUR', netAmount: bruttoToNet(round2(totalAmount), FOOD_TAX), taxRatePercentage: FOOD_TAX },
       });
     }
     return items;

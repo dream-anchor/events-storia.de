@@ -928,7 +928,7 @@ function ProposalOptionCard({
             {pricePerPerson > 0 ? 'pro Person' : 'Gesamtpreis'}
           </p>
           <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
-            zzgl. gesetzl. MwSt.
+            inkl. gesetzl. MwSt.
           </p>
         </div>
       </div>
@@ -1209,7 +1209,7 @@ function FinalOptionCard({
             {pricePerPerson > 0 ? 'pro Person' : 'Gesamtpreis'}
           </p>
           <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
-            zzgl. gesetzl. MwSt.
+            inkl. gesetzl. MwSt.
           </p>
         </div>
       </div>

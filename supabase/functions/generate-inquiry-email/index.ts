@@ -598,21 +598,30 @@ ${context}`;
     let generatedEmail = aiResponse.choices?.[0]?.message?.content || '';
 
     // A3: [ANGEBOT_LINK] Placeholder durch echten Link ersetzen (nur für OfferBuilderRequest)
+    // Robuster Fallback: Wir pruefen ob die fertige Mail TATSAECHLICH die
+    // offerUrl enthaelt. Falls nicht, fuegen wir sie zwingend ein — auch wenn
+    // das LLM den Placeholder ignoriert oder eine "im Anhang"-Variante geschrieben hat.
     if (isOfferBuilderRequest(rawBody)) {
       const offerUrl = `https://events-storia.de/offer/${rawBody.inquiryId}`;
+      // Erst Placeholder ersetzen falls vorhanden
       if (generatedEmail.includes('[ANGEBOT_LINK]')) {
         generatedEmail = generatedEmail.replaceAll('[ANGEBOT_LINK]', offerUrl);
-      } else {
-        // Fallback: URL vor der Signatur einfügen
+      }
+      // Jetzt pruefen ob der Link wirklich drin ist (das LLM koennte ihn weggelassen haben)
+      const hasLink = generatedEmail.includes(offerUrl)
+        || /https?:\/\/events-storia\.de\/offer\//i.test(generatedEmail);
+      if (!hasLink) {
+        // Link-Satz vor der Signatur einfuegen, mit klarer Formulierung
+        const linkSentence = `\n\nDas Angebot mit allen Details finden Sie hier: ${offerUrl}`;
         const signatureMarker = '\n\nViele Grüße';
         const sigIdx = generatedEmail.indexOf(signatureMarker);
         if (sigIdx !== -1) {
           generatedEmail =
             generatedEmail.slice(0, sigIdx) +
-            `\n\n${offerUrl}` +
+            linkSentence +
             generatedEmail.slice(sigIdx);
         } else {
-          generatedEmail += `\n\n${offerUrl}`;
+          generatedEmail += linkSentence;
         }
       }
     }
