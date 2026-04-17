@@ -10,7 +10,6 @@ import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
 import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
 import { NotificationCenter } from "../shared/NotificationCenter";
-import { SaveStatusProvider } from "../shared/SaveStatusContext";
 import { SaveStatusBadge } from "../shared/SaveStatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -214,7 +213,6 @@ export const AdminLayout = ({
   );
 
   return (
-    <SaveStatusProvider>
     <div className="min-h-screen bg-[#f6f7f8] dark:bg-[#101922] admin-layout">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64 lg:border-r lg:border-border">
@@ -327,6 +325,5 @@ export const AdminLayout = ({
       {/* Command Palette */}
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
     </div>
-    </SaveStatusProvider>
   );
 };

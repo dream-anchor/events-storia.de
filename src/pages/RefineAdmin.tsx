@@ -9,6 +9,7 @@ import { CateringOrderEditor } from "@/components/admin/refine/CateringOrderEdit
 import { SmartInquiryEditor } from "@/components/admin/refine/InquiryEditor";
 import { AdminOfferCreate } from "@/components/admin/refine/OfferCreate";
 import { TestModeProvider } from "@/contexts/TestModeContext";
+import { SaveStatusProvider } from "@/components/admin/shared/SaveStatusContext";
 
 const resources = [
   {
@@ -66,6 +67,7 @@ const resources = [
 export const RefineAdminApp = () => {
   return (
     <TestModeProvider>
+    <SaveStatusProvider>
     <Refine
       dataProvider={supabaseDataProvider}
       authProvider={supabaseAuthProvider}
@@ -113,6 +115,7 @@ export const RefineAdminApp = () => {
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </Refine>
+    </SaveStatusProvider>
     </TestModeProvider>
   );
 };
