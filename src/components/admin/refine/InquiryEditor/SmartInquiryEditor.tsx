@@ -29,6 +29,7 @@ import { MenuSelection } from "./MenuComposer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
+import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -246,12 +247,18 @@ export const SmartInquiryEditor = () => {
     (inquiry?.lexoffice_quotation_id ? 'quotation' : null);
 
   const handleDownloadDocument = async () => {
-    if (!lexofficeDocId || !lexofficeDocType) return;
     setIsDownloading(true);
     try {
+      const latestDoc = id ? await fetchLatestInquiryDocument(id) : null;
+      const voucherId = latestDoc?.documentId || lexofficeDocId;
+      const voucherType = latestDoc?.documentType || lexofficeDocType;
+      if (!voucherId || !voucherType) {
+        toast.error("Kein aktuelles Dokument verknüpft");
+        return;
+      }
       const result = await downloadDocument.mutateAsync({
-        voucherId: lexofficeDocId,
-        voucherType: lexofficeDocType
+        voucherId,
+        voucherType,
       });
       if (result?.pdf) {
         const byteChars = atob(result.pdf);
