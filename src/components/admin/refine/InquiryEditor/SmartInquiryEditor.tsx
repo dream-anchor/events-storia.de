@@ -690,7 +690,7 @@ export const SmartInquiryEditor = () => {
 
         {/* Tab: Details */}
         <TabsContent value="details" className="mt-6 space-y-6">
-          {/* Event DNA expanded */}
+          {/* Event DNA + Location (slot) + Kontakt & Firma + Assignee + Originale Kundenanfrage */}
           <EventDNACard
             inquiry={mergedInquiry}
             onFieldChange={handleLocalFieldChange}
@@ -698,12 +698,13 @@ export const SmartInquiryEditor = () => {
             currentUserEmail={currentUserEmail}
             onAssigneeChange={(email) => handleLocalFieldChange('assigned_to', email)}
             onPriorityChange={(priority) => handleLocalFieldChange('priority', priority)}
-          />
-          {/* Veranstaltungsort (3-mode) */}
-          <LocationBlock
-            inquiry={mergedInquiry}
-            onFieldChange={handleLocalFieldChange}
-            isReadOnly={inquiry.status === 'confirmed'}
+            locationSlot={
+              <LocationBlock
+                inquiry={mergedInquiry}
+                onFieldChange={handleLocalFieldChange}
+                isReadOnly={inquiry.status === 'confirmed'}
+              />
+            }
           />
           {/* Client Preview */}
           <ClientPreview
