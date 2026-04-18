@@ -69,6 +69,17 @@ export const SmartInquiryEditor = () => {
   const [selectedOptionInfo, setSelectedOptionInfo] = useState<{ optionLabel: string; packageName: string } | null>(null);
   const [offerTotal, setOfferTotal] = useState<number | null>(null);
 
+  const buildPersistableInquiryValues = useCallback((source: Record<string, unknown>) => {
+    const {
+      lexoffice_quotation_id: _lexofficeQuotationId,
+      lexoffice_invoice_id: _lexofficeInvoiceId,
+      lexoffice_document_type: _lexofficeDocumentType,
+      lexoffice_contact_id: _lexofficeContactId,
+      ...persistableValues
+    } = source;
+    return persistableValues;
+  }, []);
+
   // Fetch inquiry data
   const inquiryQuery = useOne<ExtendedInquiry>({
     resource: "events",
@@ -112,7 +123,7 @@ export const SmartInquiryEditor = () => {
   // ueberschrieben, was eine Auto-Save-Endlosschleife ausloest.
   useEffect(() => {
     if (inquiry && !isInitializedFromDb.current) {
-      setLocalInquiry(inquiry);
+      setLocalInquiry(buildPersistableInquiryValues(inquiry as unknown as Record<string, unknown>) as Partial<ExtendedInquiry>);
       setQuoteNotes(inquiry.quote_notes || "");
       setEmailDraft(inquiry.email_draft || "");
 
@@ -138,7 +149,7 @@ export const SmartInquiryEditor = () => {
       // unveraendert lassen. Das verhindert die Auto-Save-Endlosschleife.
       isInitializedFromDb.current = true;
     }
-  }, [inquiry]);
+  }, [inquiry, buildPersistableInquiryValues]);
 
   // Merge local changes with inquiry
   const mergedInquiry = useMemo(() => ({
@@ -306,7 +317,7 @@ export const SmartInquiryEditor = () => {
       resource: "events",
       id,
       values: {
-        ...(vals.localInquiry as Record<string, unknown>),
+        ...buildPersistableInquiryValues(vals.localInquiry as Record<string, unknown>),
         selected_packages: vals.selectedPackages,
         quote_items: vals.quoteItems,
         quote_notes: vals.quoteNotes,
@@ -347,7 +358,7 @@ export const SmartInquiryEditor = () => {
         }
       },
     });
-  }, [id, updateInquiry]);
+  }, [buildPersistableInquiryValues, id, updateInquiry]);
 
   // Auto-save: Debounce auf 1.2s, performSave ist STABIL → kein Re-Trigger
   useEffect(() => {
