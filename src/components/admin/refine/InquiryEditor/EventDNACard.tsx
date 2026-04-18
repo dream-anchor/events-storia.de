@@ -111,6 +111,9 @@ export const EventDNACard = ({
           {/* Location moved to dedicated LocationBlock card */}
         </div>
 
+        {/* Veranstaltungsort Slot — rendered between Event-DNA grid and Kontakt */}
+        {locationSlot}
+
         {/* Contact Information Section */}
         <div className="pt-4 border-t border-border/40">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
