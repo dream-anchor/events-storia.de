@@ -6,7 +6,7 @@ import {
   resolveLocationAddress,
   resolveBillingAddress,
   formatLocationOneLine,
-} from '../_shared/address-resolver.ts';
+} from '../_shared/addressResolver.ts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

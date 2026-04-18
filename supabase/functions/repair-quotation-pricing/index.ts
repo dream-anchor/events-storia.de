@@ -6,7 +6,7 @@ import {
   resolveLocationAddress,
   resolveBillingAddress,
   formatLocationOneLine,
-} from "../_shared/address-resolver.ts";
+} from "../_shared/addressResolver.ts";
 
 /**
  * Repair-Skript fuer eine fehlerhaft erstellte LexOffice-Quotation.
@@ -381,11 +381,26 @@ serve(async (req) => {
     console.log(`[repair] Neue Quotation: ${newQuotationId}`);
 
     // 7. Inquiry-Referenz updaten
-    const { error: updErr } = await supabase
+    const { data: updatedInquiry, error: updErr } = await supabase
       .from("event_inquiries")
       .update({ lexoffice_quotation_id: newQuotationId })
-      .eq("id", inquiryId);
+      .eq("id", inquiryId)
+      .select("lexoffice_quotation_id")
+      .single();
     if (updErr) throw new Error(`Inquiry-Update: ${updErr.message}`);
+    if (!updatedInquiry) throw new Error("Inquiry-Update: keine Zeile zurückgegeben");
+
+    const { data: verifiedInquiry, error: verifyErr } = await supabase
+      .from("event_inquiries")
+      .select("lexoffice_quotation_id")
+      .eq("id", inquiryId)
+      .single();
+    if (verifyErr) throw new Error(`Inquiry-Verify: ${verifyErr.message}`);
+    if (verifiedInquiry.lexoffice_quotation_id !== newQuotationId) {
+      throw new Error(
+        `Inquiry-Verify: lexoffice_quotation_id ist ${verifiedInquiry.lexoffice_quotation_id ?? "NULL"} statt ${newQuotationId}`,
+      );
+    }
 
     // 8. Alte Quotation loeschen (nur draft, sonst manuell in LexOffice)
     let oldQuotationCleanup: "deleted" | "needs_manual" | "not_attempted" = "not_attempted";
@@ -431,7 +446,7 @@ serve(async (req) => {
     console.error("[repair] Error:", message);
     return new Response(
       JSON.stringify({ success: false, error: message }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

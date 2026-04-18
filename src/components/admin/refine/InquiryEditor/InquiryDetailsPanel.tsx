@@ -19,6 +19,7 @@ import { PrioritySelector } from "@/components/admin/shared/PrioritySelector";
 import { TaskManager } from "@/components/admin/shared/TaskManager";
 import { InquiryPriority } from "@/types/refine";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
 
 interface InquiryDetailsPanelProps {
   inquiry: ExtendedInquiry;
@@ -48,12 +49,18 @@ export const InquiryDetailsPanel = ({
     (inquiry.lexoffice_quotation_id ? 'quotation' : null);
 
   const handleDownloadDocument = async () => {
-    if (!lexofficeDocId || !lexofficeDocType) return;
     setIsDownloading(true);
     try {
+      const latestDoc = await fetchLatestInquiryDocument(inquiry.id);
+      const voucherId = latestDoc.documentId || lexofficeDocId;
+      const voucherType = latestDoc.documentType || lexofficeDocType;
+      if (!voucherId || !voucherType) {
+        toast.error("Kein aktuelles Dokument verknüpft");
+        return;
+      }
       const result = await downloadDocument.mutateAsync({
-        voucherId: lexofficeDocId,
-        voucherType: lexofficeDocType
+        voucherId,
+        voucherType,
       });
       if (result?.pdfUrl) {
         window.open(result.pdfUrl, '_blank');
