@@ -474,24 +474,40 @@ serve(async (req) => {
       throw new Error('Keine Positionen für das Angebot — Menü oder Paket konfigurieren');
     }
 
-    // 5. Einleitungstext aus erster aktiver Option
+    // 5. Adressen live auflösen (kein Snapshot)
+    const businessData = await loadBusinessData(supabase);
+    const locationAddr = resolveLocationAddress(inquiry as never, businessData);
+    const billingAddr = resolveBillingAddress(inquiry as never);
+    const locationLine = formatLocationOneLine(locationAddr);
+
+    if (!billingAddr.street || !billingAddr.postalCode || !billingAddr.city) {
+      console.warn('[create-event-quotation] Empfänger-Adresse unvollständig — nur Name wird gesetzt', {
+        inquiryId,
+        billing: billingAddr,
+      });
+    }
+
+    // 6. Einleitungstext aus erster aktiver Option (inkl. Veranstaltungsort)
     const firstOpt = options[0] as OfferOption;
     const introduction = buildIntroduction(
       inquiry as Record<string, unknown>,
       firstOpt.menu_selection,
+      locationLine,
     );
 
-    // 6. LexOffice Angebot aufbauen
+    // 7. LexOffice Angebot aufbauen — Empfänger aus resolved billing
     const quotationPayload = {
       voucherDate: new Date().toISOString(),
       expirationDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       address: {
-        name: inquiry.company_name || inquiry.contact_name,
-        supplement: inquiry.company_name ? inquiry.contact_name : undefined,
-        street: '',
-        zip: '',
-        city: '',
-        countryCode: 'DE',
+        name: billingAddr.name || inquiry.contact_name,
+        supplement: billingAddr.name && inquiry.contact_name && billingAddr.name !== inquiry.contact_name
+          ? inquiry.contact_name
+          : undefined,
+        street: billingAddr.street || '',
+        zip: billingAddr.postalCode || '',
+        city: billingAddr.city || '',
+        countryCode: billingAddr.countryCode,
       },
       lineItems,
       totalPrice: { currency: 'EUR' },
