@@ -30,7 +30,8 @@ export const EventDNACard = ({
   isReadOnly = false,
   currentUserEmail,
   onAssigneeChange,
-  onPriorityChange
+  onPriorityChange,
+  locationSlot
 }: EventDNACardProps) => {
   const [showMessage, setShowMessage] = useState(false);
 
