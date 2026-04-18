@@ -11,7 +11,7 @@ import { PrioritySelector } from "@/components/admin/shared/PrioritySelector";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry } from "./types";
 import { NominatimAutocomplete } from "./NominatimAutocomplete";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 
 interface EventDNACardProps {
   inquiry: ExtendedInquiry;
@@ -20,6 +20,8 @@ interface EventDNACardProps {
   currentUserEmail?: string;
   onAssigneeChange?: (email: string | null) => void;
   onPriorityChange?: (priority: InquiryPriority) => void;
+  /** Slot rendered between the Event-DNA grid and the "Kontakt & Firma" section. */
+  locationSlot?: ReactNode;
 }
 
 export const EventDNACard = ({
@@ -28,7 +30,8 @@ export const EventDNACard = ({
   isReadOnly = false,
   currentUserEmail,
   onAssigneeChange,
-  onPriorityChange
+  onPriorityChange,
+  locationSlot
 }: EventDNACardProps) => {
   const [showMessage, setShowMessage] = useState(false);
 
@@ -107,6 +110,9 @@ export const EventDNACard = ({
           </div>
           {/* Location moved to dedicated LocationBlock card */}
         </div>
+
+        {/* Veranstaltungsort Slot — rendered between Event-DNA grid and Kontakt */}
+        {locationSlot}
 
         {/* Contact Information Section */}
         <div className="pt-4 border-t border-border/40">
