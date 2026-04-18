@@ -41,6 +41,37 @@ export interface ExtendedInquiry extends BaseRecord {
   current_offer_version: number | null;
   last_edited_by: string | null;
   last_edited_at: string | null;
+  // Legacy venue (kept until verified)
+  venue: string | null;
+  // Location (3-mode)
+  location_type: 'storia' | 'company' | 'custom' | null;
+  location_name: string | null;
+  location_street: string | null;
+  location_postal_code: string | null;
+  location_city: string | null;
+  location_country: string | null;
+  // Company address (offer/invoice recipient)
+  company_street: string | null;
+  company_postal_code: string | null;
+  company_city: string | null;
+  company_country: string | null;
+  // Optional separate billing address
+  billing_address_different: boolean | null;
+  billing_company_name: string | null;
+  billing_street: string | null;
+  billing_postal_code: string | null;
+  billing_city: string | null;
+  billing_country: string | null;
+}
+
+export type LocationType = 'storia' | 'company' | 'custom';
+
+export interface ResolvedAddress {
+  name: string | null;
+  street: string;
+  postalCode: string;
+  city: string;
+  country: string;
 }
 
 export interface QuoteItem {
