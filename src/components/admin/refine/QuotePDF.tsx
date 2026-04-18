@@ -3,6 +3,13 @@ import { QuoteItem, EventInquiry } from "@/types/refine";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { MenuSelection, CourseSelection, DrinkSelection } from "./InquiryEditor/MenuComposer/types";
+import {
+  resolveLocationAddress,
+  resolveBillingAddress,
+  formatAddressOneLine,
+  formatAddressLines,
+  type BusinessData,
+} from "@/lib/addressResolver";
 
 // Register fonts (using system fonts as fallback)
 Font.register({
@@ -255,6 +262,7 @@ interface QuotePDFProps {
   notes: string;
   quoteNumber?: string;
   menuSelection?: MenuSelection | null;
+  businessData?: BusinessData | null;
 }
 
 // Menu Section Component
