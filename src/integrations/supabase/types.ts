@@ -562,7 +562,17 @@ export type Database = {
           assigned_at: string | null
           assigned_by: string | null
           assigned_to: string | null
+          billing_address_different: boolean | null
+          billing_city: string | null
+          billing_company_name: string | null
+          billing_country: string | null
+          billing_postal_code: string | null
+          billing_street: string | null
+          company_city: string | null
+          company_country: string | null
           company_name: string | null
+          company_postal_code: string | null
+          company_street: string | null
           contact_name: string
           converted_to_booking_id: string | null
           created_at: string
@@ -585,6 +595,12 @@ export type Database = {
           last_edited_by: string | null
           lexoffice_invoice_id: string | null
           lexoffice_quotation_id: string | null
+          location_city: string | null
+          location_country: string | null
+          location_name: string | null
+          location_postal_code: string | null
+          location_street: string | null
+          location_type: string | null
           menu_selection: Json | null
           message: string | null
           notification_sent: boolean | null
@@ -618,7 +634,17 @@ export type Database = {
           assigned_at?: string | null
           assigned_by?: string | null
           assigned_to?: string | null
+          billing_address_different?: boolean | null
+          billing_city?: string | null
+          billing_company_name?: string | null
+          billing_country?: string | null
+          billing_postal_code?: string | null
+          billing_street?: string | null
+          company_city?: string | null
+          company_country?: string | null
           company_name?: string | null
+          company_postal_code?: string | null
+          company_street?: string | null
           contact_name: string
           converted_to_booking_id?: string | null
           created_at?: string
@@ -641,6 +667,12 @@ export type Database = {
           last_edited_by?: string | null
           lexoffice_invoice_id?: string | null
           lexoffice_quotation_id?: string | null
+          location_city?: string | null
+          location_country?: string | null
+          location_name?: string | null
+          location_postal_code?: string | null
+          location_street?: string | null
+          location_type?: string | null
           menu_selection?: Json | null
           message?: string | null
           notification_sent?: boolean | null
@@ -674,7 +706,17 @@ export type Database = {
           assigned_at?: string | null
           assigned_by?: string | null
           assigned_to?: string | null
+          billing_address_different?: boolean | null
+          billing_city?: string | null
+          billing_company_name?: string | null
+          billing_country?: string | null
+          billing_postal_code?: string | null
+          billing_street?: string | null
+          company_city?: string | null
+          company_country?: string | null
           company_name?: string | null
+          company_postal_code?: string | null
+          company_street?: string | null
           contact_name?: string
           converted_to_booking_id?: string | null
           created_at?: string
@@ -697,6 +739,12 @@ export type Database = {
           last_edited_by?: string | null
           lexoffice_invoice_id?: string | null
           lexoffice_quotation_id?: string | null
+          location_city?: string | null
+          location_country?: string | null
+          location_name?: string | null
+          location_postal_code?: string | null
+          location_street?: string | null
+          location_type?: string | null
           menu_selection?: Json | null
           message?: string | null
           notification_sent?: boolean | null
