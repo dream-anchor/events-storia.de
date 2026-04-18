@@ -1,14 +1,16 @@
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Clock, Users, MapPin, User, Phone, Mail, Building2, MessageSquare, UserCircle, Flag, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, Clock, Users, User, Phone, Mail, Building2, MessageSquare, UserCircle, Flag, ChevronDown, ChevronUp, Receipt } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AssigneeSelector } from "@/components/admin/shared/AssigneeSelector";
 import { PrioritySelector } from "@/components/admin/shared/PrioritySelector";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry } from "./types";
+import { NominatimAutocomplete } from "./NominatimAutocomplete";
 import { useState } from "react";
 
 interface EventDNACardProps {
