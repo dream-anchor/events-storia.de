@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import {
+  loadBusinessData,
+  resolveLocationAddress,
+  resolveBillingAddress,
+  formatLocationOneLine,
+} from "../_shared/address-resolver.ts";
 
 /**
  * Repair-Skript fuer eine fehlerhaft erstellte LexOffice-Quotation.
@@ -236,18 +242,16 @@ function buildLineItems(
 function buildIntroduction(
   inquiry: Record<string, unknown> | null,
   ms: MenuSelectionDB | null,
+  locationLine: string | null,
 ): string {
-  // Hinweis: Speisen/Getraenke werden hier NICHT mehr gelistet.
-  // Seit alle Positionen als eigene Line-Items in der LexOffice-Tabelle
-  // erscheinen, waere diese Liste redundant und wirkt unprofessionell.
-  // Die Intro enthaelt nur noch die Event-Metadaten.
   void ms;
   const rawDate = inquiry?.preferred_date ? String(inquiry.preferred_date) : null;
   const parts = [
-    `Event-Angebot fuer den ${rawDate ? formatDateDE(rawDate) : "nach Vereinbarung"}`,
-    `Gaeste: ${inquiry?.guest_count || "-"} Personen`,
+    `Event-Angebot für den ${rawDate ? formatDateDE(rawDate) : "nach Vereinbarung"}`,
+    `Gäste: ${inquiry?.guest_count || "-"} Personen`,
     `Art: ${inquiry?.event_type ? capitalize(String(inquiry.event_type)) : "-"}`,
   ];
+  if (locationLine) parts.push(`Veranstaltungsort: ${locationLine}`);
   return parts.join("\n");
 }
 
