@@ -3,6 +3,13 @@ import { QuoteItem, EventInquiry } from "@/types/refine";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { MenuSelection, CourseSelection, DrinkSelection } from "./InquiryEditor/MenuComposer/types";
+import {
+  resolveLocationAddress,
+  resolveBillingAddress,
+  formatAddressOneLine,
+  formatAddressLines,
+  type BusinessData,
+} from "@/lib/addressResolver";
 
 // Register fonts (using system fonts as fallback)
 Font.register({
@@ -255,6 +262,7 @@ interface QuotePDFProps {
   notes: string;
   quoteNumber?: string;
   menuSelection?: MenuSelection | null;
+  businessData?: BusinessData | null;
 }
 
 // Menu Section Component
@@ -305,14 +313,24 @@ const MenuSectionView = ({ menuSelection }: { menuSelection: MenuSelection }) =>
   );
 };
 
-export const QuotePDFDocument = ({ event, items, notes, quoteNumber, menuSelection }: QuotePDFProps) => {
+export const QuotePDFDocument = ({ event, items, notes, quoteNumber, menuSelection, businessData }: QuotePDFProps) => {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const vat = subtotal * 0.07;
   const total = subtotal + vat;
   const today = format(new Date(), "dd. MMMM yyyy", { locale: de });
-  const eventDate = event.preferred_date 
+  const eventDate = event.preferred_date
     ? format(new Date(event.preferred_date), "dd. MMMM yyyy", { locale: de })
     : "Nach Vereinbarung";
+
+  // Live-Resolver: Empfänger + Veranstaltungsort
+  // event ist EventInquiry — Cast auf any, da die neuen Adressfelder dort als optional vorliegen.
+  // deno-lint-ignore no-explicit-any
+  const inquiryAny = event as any;
+  const billingAddr = resolveBillingAddress(inquiryAny);
+  const locationAddr = resolveLocationAddress(inquiryAny, businessData ?? null);
+  const recipientLines = formatAddressLines(billingAddr);
+  const locationLine = formatAddressOneLine(locationAddr);
+  const locationName = locationAddr.name;
 
   return (
     <Document>
@@ -331,38 +349,38 @@ export const QuotePDFDocument = ({ event, items, notes, quoteNumber, menuSelecti
           </View>
         </View>
 
+        {/* Empfänger-Block (links oben, aus resolved billing) */}
+        <View style={{ marginBottom: 20 }}>
+          {recipientLines.length > 0 ? (
+            recipientLines.map((line, i) => (
+              <Text key={i} style={{ fontSize: 10, color: colors.text }}>{line}</Text>
+            ))
+          ) : (
+            <Text style={{ fontSize: 10, color: colors.muted, fontStyle: 'italic' }}>
+              {event.company_name || event.contact_name}
+            </Text>
+          )}
+        </View>
+
         {/* Title */}
         <Text style={styles.title}>ANGEBOT</Text>
         {quoteNumber && (
-          <Text style={{ marginBottom: 20, color: colors.muted }}>
+          <Text style={{ marginBottom: 12, color: colors.muted }}>
             Nr. {quoteNumber} • {today}
           </Text>
         )}
 
-        {/* Client Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Kunde</Text>
-          <View style={styles.row}>
-            <Text style={styles.label}>Name:</Text>
-            <Text style={styles.value}>{event.contact_name}</Text>
+        {/* Veranstaltungsort-Zeile (live resolved) */}
+        {locationLine && (
+          <View style={{ marginBottom: 20, padding: 8, backgroundColor: colors.beige, borderRadius: 4 }}>
+            <Text style={{ fontSize: 9, color: colors.gold, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 2 }}>
+              Veranstaltungsort
+            </Text>
+            <Text style={{ fontSize: 10, color: colors.darkBrown }}>
+              {locationName ? `${locationName}, ${locationLine}` : locationLine}
+            </Text>
           </View>
-          {event.company_name && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Firma:</Text>
-              <Text style={styles.value}>{event.company_name}</Text>
-            </View>
-          )}
-          <View style={styles.row}>
-            <Text style={styles.label}>E-Mail:</Text>
-            <Text style={styles.value}>{event.email}</Text>
-          </View>
-          {event.phone && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Telefon:</Text>
-              <Text style={styles.value}>{event.phone}</Text>
-            </View>
-          )}
-        </View>
+        )}
 
         {/* Event Details */}
         <View style={styles.section}>
@@ -381,6 +399,18 @@ export const QuotePDFDocument = ({ event, items, notes, quoteNumber, menuSelecti
             <View style={styles.row}>
               <Text style={styles.label}>Art:</Text>
               <Text style={styles.value}>{event.event_type}</Text>
+            </View>
+          )}
+          {event.email && (
+            <View style={styles.row}>
+              <Text style={styles.label}>E-Mail:</Text>
+              <Text style={styles.value}>{event.email}</Text>
+            </View>
+          )}
+          {event.phone && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Telefon:</Text>
+              <Text style={styles.value}>{event.phone}</Text>
             </View>
           )}
         </View>

@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import {
+  loadBusinessData,
+  resolveLocationAddress,
+  resolveBillingAddress,
+  formatLocationOneLine,
+} from '../_shared/address-resolver.ts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -379,11 +385,12 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function buildIntroduction(inquiry: Record<string, unknown> | null, ms: MenuSelectionDB | null): string {
-  // Hinweis: Wir listen hier die einzelnen Speisen/Getraenke NICHT mehr auf.
-  // Seit alle Positionen als eigene Line-Items in der LexOffice-Tabelle
-  // erscheinen (per_event + per_person), waere diese Liste hier redundant und
-  // wirkt unprofessionell. Die Intro enthaelt nur noch die Event-Metadaten.
+function buildIntroduction(
+  inquiry: Record<string, unknown> | null,
+  ms: MenuSelectionDB | null,
+  locationLine: string | null,
+): string {
+  // Hinweis: Speisen/Getraenke werden hier NICHT mehr aufgelistet (jetzt Line-Items).
   void ms;
   const rawDate = inquiry?.preferred_date ? String(inquiry.preferred_date) : null;
   const parts = [
@@ -391,7 +398,7 @@ function buildIntroduction(inquiry: Record<string, unknown> | null, ms: MenuSele
     `Gäste: ${inquiry?.guest_count || '-'} Personen`,
     `Art: ${inquiry?.event_type ? capitalize(String(inquiry.event_type)) : '-'}`,
   ];
-
+  if (locationLine) parts.push(`Veranstaltungsort: ${locationLine}`);
   return parts.join('\n');
 }
 
@@ -467,24 +474,40 @@ serve(async (req) => {
       throw new Error('Keine Positionen für das Angebot — Menü oder Paket konfigurieren');
     }
 
-    // 5. Einleitungstext aus erster aktiver Option
+    // 5. Adressen live auflösen (kein Snapshot)
+    const businessData = await loadBusinessData(supabase);
+    const locationAddr = resolveLocationAddress(inquiry as never, businessData);
+    const billingAddr = resolveBillingAddress(inquiry as never);
+    const locationLine = formatLocationOneLine(locationAddr);
+
+    if (!billingAddr.street || !billingAddr.postalCode || !billingAddr.city) {
+      console.warn('[create-event-quotation] Empfänger-Adresse unvollständig — nur Name wird gesetzt', {
+        inquiryId,
+        billing: billingAddr,
+      });
+    }
+
+    // 6. Einleitungstext aus erster aktiver Option (inkl. Veranstaltungsort)
     const firstOpt = options[0] as OfferOption;
     const introduction = buildIntroduction(
       inquiry as Record<string, unknown>,
       firstOpt.menu_selection,
+      locationLine,
     );
 
-    // 6. LexOffice Angebot aufbauen
+    // 7. LexOffice Angebot aufbauen — Empfänger aus resolved billing
     const quotationPayload = {
       voucherDate: new Date().toISOString(),
       expirationDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       address: {
-        name: inquiry.company_name || inquiry.contact_name,
-        supplement: inquiry.company_name ? inquiry.contact_name : undefined,
-        street: '',
-        zip: '',
-        city: '',
-        countryCode: 'DE',
+        name: billingAddr.name || inquiry.contact_name,
+        supplement: billingAddr.name && inquiry.contact_name && billingAddr.name !== inquiry.contact_name
+          ? inquiry.contact_name
+          : undefined,
+        street: billingAddr.street || '',
+        zip: billingAddr.postalCode || '',
+        city: billingAddr.city || '',
+        countryCode: billingAddr.countryCode,
       },
       lineItems,
       totalPrice: { currency: 'EUR' },
