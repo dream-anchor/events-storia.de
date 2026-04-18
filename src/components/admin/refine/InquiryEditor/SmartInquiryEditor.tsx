@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventDNACard } from "./EventDNACard";
+import { LocationBlock } from "./LocationBlock";
 import { OfferBuilder } from "./OfferBuilder";
 import type { OfferBuilderHandle } from "./OfferBuilder";
 import { CateringModules } from "./CateringModules";
@@ -697,6 +698,12 @@ export const SmartInquiryEditor = () => {
             currentUserEmail={currentUserEmail}
             onAssigneeChange={(email) => handleLocalFieldChange('assigned_to', email)}
             onPriorityChange={(priority) => handleLocalFieldChange('priority', priority)}
+          />
+          {/* Veranstaltungsort (3-mode) */}
+          <LocationBlock
+            inquiry={mergedInquiry}
+            onFieldChange={handleLocalFieldChange}
+            isReadOnly={inquiry.status === 'confirmed'}
           />
           {/* Client Preview */}
           <ClientPreview

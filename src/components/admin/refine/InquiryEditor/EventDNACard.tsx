@@ -1,14 +1,16 @@
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Clock, Users, MapPin, User, Phone, Mail, Building2, MessageSquare, UserCircle, Flag, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, Clock, Users, User, Phone, Mail, Building2, MessageSquare, UserCircle, Flag, ChevronDown, ChevronUp, Receipt } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AssigneeSelector } from "@/components/admin/shared/AssigneeSelector";
 import { PrioritySelector } from "@/components/admin/shared/PrioritySelector";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry } from "./types";
+import { NominatimAutocomplete } from "./NominatimAutocomplete";
 import { useState } from "react";
 
 interface EventDNACardProps {
@@ -103,28 +105,13 @@ export const EventDNACard = ({
               />
             </div>
           </div>
-
-          {/* Location - Full Width */}
-          <div className="col-span-2 md:col-span-4 space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground">Location</Label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                value={inquiry.venue || ''}
-                onChange={(e) => onFieldChange('venue', e.target.value)}
-                disabled={isReadOnly}
-                placeholder="Veranstaltungsort oder Adresse"
-                className="pl-10 h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
-              />
-            </div>
-          </div>
+          {/* Location moved to dedicated LocationBlock card */}
         </div>
 
         {/* Contact Information Section */}
         <div className="pt-4 border-t border-border/40">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-            Kontaktinformationen
+            Kontakt & Firma
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Customer Name */}
@@ -158,24 +145,23 @@ export const EventDNACard = ({
             </div>
 
             {/* Company */}
-            {inquiry.company_name && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-muted-foreground">Firma</Label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    value={inquiry.company_name || ''}
-                    onChange={(e) => onFieldChange('company_name', e.target.value)}
-                    disabled={isReadOnly}
-                    className="pl-10 h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
-                  />
-                </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-muted-foreground">Firma</Label>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  value={inquiry.company_name || ''}
+                  onChange={(e) => onFieldChange('company_name', e.target.value || null)}
+                  disabled={isReadOnly}
+                  placeholder="optional"
+                  className="pl-10 h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
+                />
               </div>
-            )}
+            </div>
 
-            {/* Email - Full Width if no company */}
-            <div className={inquiry.company_name ? "space-y-2" : "md:col-span-2 space-y-2"}>
+            {/* Email */}
+            <div className="space-y-2">
               <Label className="text-sm font-medium text-muted-foreground">E-Mail</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -188,6 +174,147 @@ export const EventDNACard = ({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Company Address Sub-Section */}
+          <div className="mt-6 pt-4 border-t border-dashed border-border/40 space-y-3">
+            <div className="flex items-center gap-2">
+              <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Firmenadresse (für Angebot &amp; Rechnung)
+              </h4>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-muted-foreground">Straße</Label>
+              <NominatimAutocomplete
+                value={inquiry.company_street || ''}
+                onChange={(val) => onFieldChange('company_street', val || null)}
+                onSelect={(r) => {
+                  onFieldChange('company_street', r.street || null);
+                  onFieldChange('company_postal_code', r.postalCode || null);
+                  onFieldChange('company_city', r.city || null);
+                  onFieldChange('company_country', r.country || 'Deutschland');
+                }}
+                placeholder="Straße und Hausnummer"
+                disabled={isReadOnly}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-muted-foreground">PLZ</Label>
+                <Input
+                  type="text"
+                  value={inquiry.company_postal_code || ''}
+                  onChange={(e) => onFieldChange('company_postal_code', e.target.value || null)}
+                  disabled={isReadOnly}
+                  placeholder="80333"
+                  className="h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label className="text-sm font-medium text-muted-foreground">Stadt</Label>
+                <Input
+                  type="text"
+                  value={inquiry.company_city || ''}
+                  onChange={(e) => onFieldChange('company_city', e.target.value || null)}
+                  disabled={isReadOnly}
+                  placeholder="München"
+                  className="h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-muted-foreground">Land</Label>
+              <Input
+                type="text"
+                value={inquiry.company_country || 'Deutschland'}
+                onChange={(e) => onFieldChange('company_country', e.target.value || 'Deutschland')}
+                disabled={isReadOnly}
+                className="h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
+              />
+            </div>
+
+            {/* Billing Address Toggle */}
+            <div className="flex items-center gap-2 pt-2">
+              <Checkbox
+                id="billing-different"
+                checked={!!inquiry.billing_address_different}
+                onCheckedChange={(checked) =>
+                  onFieldChange('billing_address_different', checked === true)
+                }
+                disabled={isReadOnly}
+              />
+              <Label
+                htmlFor="billing-different"
+                className="text-sm font-medium cursor-pointer"
+              >
+                Abweichende Rechnungsadresse
+              </Label>
+            </div>
+
+            {/* Billing Address Fields (animated) */}
+            {inquiry.billing_address_different && (
+              <div className="pt-3 pl-6 border-l-2 border-primary/30 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-muted-foreground">Firmenname</Label>
+                  <Input
+                    type="text"
+                    value={inquiry.billing_company_name || ''}
+                    onChange={(e) => onFieldChange('billing_company_name', e.target.value || null)}
+                    disabled={isReadOnly}
+                    placeholder="z.B. Holding GmbH"
+                    className="h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-muted-foreground">Straße</Label>
+                  <NominatimAutocomplete
+                    value={inquiry.billing_street || ''}
+                    onChange={(val) => onFieldChange('billing_street', val || null)}
+                    onSelect={(r) => {
+                      onFieldChange('billing_street', r.street || null);
+                      onFieldChange('billing_postal_code', r.postalCode || null);
+                      onFieldChange('billing_city', r.city || null);
+                      onFieldChange('billing_country', r.country || 'Deutschland');
+                    }}
+                    placeholder="Straße und Hausnummer"
+                    disabled={isReadOnly}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">PLZ</Label>
+                    <Input
+                      type="text"
+                      value={inquiry.billing_postal_code || ''}
+                      onChange={(e) => onFieldChange('billing_postal_code', e.target.value || null)}
+                      disabled={isReadOnly}
+                      className="h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
+                    />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Stadt</Label>
+                    <Input
+                      type="text"
+                      value={inquiry.billing_city || ''}
+                      onChange={(e) => onFieldChange('billing_city', e.target.value || null)}
+                      disabled={isReadOnly}
+                      className="h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-muted-foreground">Land</Label>
+                  <Input
+                    type="text"
+                    value={inquiry.billing_country || 'Deutschland'}
+                    onChange={(e) => onFieldChange('billing_country', e.target.value || 'Deutschland')}
+                    disabled={isReadOnly}
+                    className="h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
