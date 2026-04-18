@@ -105,22 +105,7 @@ export const EventDNACard = ({
               />
             </div>
           </div>
-
-          {/* Location - Full Width */}
-          <div className="col-span-2 md:col-span-4 space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground">Location</Label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                value={inquiry.venue || ''}
-                onChange={(e) => onFieldChange('venue', e.target.value)}
-                disabled={isReadOnly}
-                placeholder="Veranstaltungsort oder Adresse"
-                className="pl-10 h-11 bg-muted/30 dark:bg-gray-800 border-border/60 rounded-lg"
-              />
-            </div>
-          </div>
+          {/* Location moved to dedicated LocationBlock card */}
         </div>
 
         {/* Contact Information Section */}
