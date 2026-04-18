@@ -526,6 +526,23 @@ export const AdminOfferCreate = () => {
       current_offer_version: null,
       last_edited_by: null,
       last_edited_at: null,
+      venue: null,
+      location_type: 'storia',
+      location_name: null,
+      location_street: null,
+      location_postal_code: null,
+      location_city: null,
+      location_country: 'Deutschland',
+      company_street: null,
+      company_postal_code: null,
+      company_city: null,
+      company_country: 'Deutschland',
+      billing_address_different: false,
+      billing_company_name: null,
+      billing_street: null,
+      billing_postal_code: null,
+      billing_city: null,
+      billing_country: 'Deutschland',
     };
   }, [draftInquiryId, formData]);
 
