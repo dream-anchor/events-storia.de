@@ -41,6 +41,10 @@ export interface ExtendedInquiry extends BaseRecord {
   current_offer_version: number | null;
   last_edited_by: string | null;
   last_edited_at: string | null;
+  // Payment terms (per-inquiry; defaults from site_settings.default_payment_terms)
+  deposit_percent: number | null;
+  deposit_due_days: number | null;
+  offer_validity_days: number | null;
   // Legacy venue (kept until verified)
   venue: string | null;
   // Location (3-mode)

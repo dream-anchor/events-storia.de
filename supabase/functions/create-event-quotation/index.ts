@@ -495,10 +495,38 @@ serve(async (req) => {
       locationLine,
     );
 
+    // 6b. Zahlungs-Konditionen — pro Inquiry, Fallback auf site_settings.default_payment_terms
+    const inq = inquiry as Record<string, unknown>;
+    let depositPercent = inq.deposit_percent as number | null | undefined;
+    let depositDueDays = inq.deposit_due_days as number | null | undefined;
+    let offerValidityDays = inq.offer_validity_days as number | null | undefined;
+
+    if (depositPercent == null || depositDueDays == null || offerValidityDays == null) {
+      const { data: settings } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'default_payment_terms')
+        .maybeSingle();
+      const defaults = (settings?.value || {}) as { deposit_percent?: number; deposit_due_days?: number; offer_validity_days?: number };
+      if (depositPercent == null) depositPercent = defaults.deposit_percent ?? 20;
+      if (depositDueDays == null) depositDueDays = defaults.deposit_due_days ?? 5;
+      if (offerValidityDays == null) offerValidityDays = defaults.offer_validity_days ?? 14;
+    }
+
+    // Remark dynamisch aus den drei Werten generieren
+    let remarkText: string;
+    if (depositPercent === 0) {
+      remarkText = `Zahlung vollständig bei Auftragserteilung. Dieses Angebot ist ${offerValidityDays} Tage gültig.`;
+    } else if (depositPercent === 100) {
+      remarkText = `Vorauszahlung von 100% innerhalb von ${depositDueDays} Tagen ab Rechnungsdatum. Dieses Angebot ist ${offerValidityDays} Tage gültig.`;
+    } else {
+      remarkText = `Anzahlung ${depositPercent}% innerhalb von ${depositDueDays} Tagen ab Rechnungsdatum. Restzahlung vor Veranstaltung. Dieses Angebot ist ${offerValidityDays} Tage gültig.`;
+    }
+
     // 7. LexOffice Angebot aufbauen — Empfänger aus resolved billing
     const quotationPayload = {
       voucherDate: new Date().toISOString(),
-      expirationDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      expirationDate: new Date(Date.now() + offerValidityDays * 24 * 60 * 60 * 1000).toISOString(),
       address: {
         name: billingAddr.name || inquiry.contact_name,
         supplement: billingAddr.name && inquiry.contact_name && billingAddr.name !== inquiry.contact_name
@@ -513,7 +541,7 @@ serve(async (req) => {
       totalPrice: { currency: 'EUR' },
       taxConditions: { taxType: 'net' },
       introduction,
-      remark: 'Dieses Angebot ist 14 Tage gültig. Für alle Pakete ist eine Vorauszahlung von 100% erforderlich.',
+      remark: remarkText,
     };
 
     console.log('Creating LexOffice quotation:', JSON.stringify(quotationPayload, null, 2));

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { OfferMode, ExtendedInquiry, Package, EmailTemplate, OfferHistoryEntry, OfferBuilderOption } from "./types";
 import { OPTION_LABELS, createEmptyOption } from "./types";
+import { PaymentTermsBlock } from "../PaymentTermsBlock";
 
 export interface OfferBuilderHandle {
   /** Scrollt zum E-Mail-Composer und öffnet ihn; generiert optional KI-Text */
@@ -37,6 +38,8 @@ interface OfferBuilderProps {
   isCreateMode?: boolean;
   /** Callback wenn E-Mail-Text geändert wird (für Create-Modus) */
   onEmailContentChange?: (content: string) => void;
+  /** Callback um Inquiry-Felder lokal zu ändern (Auto-Save kümmert sich um Persistenz) */
+  onFieldChange?: (field: keyof ExtendedInquiry, value: unknown) => void;
 }
 
 export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(function OfferBuilder({
@@ -46,6 +49,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   onSave,
   isCreateMode = false,
   onEmailContentChange,
+  onFieldChange,
 }: OfferBuilderProps, ref) {
   const guestCount = parseInt(inquiry.guest_count || "1") || 1;
   const selectedPackages = Array.isArray(inquiry.selected_packages)
@@ -311,7 +315,18 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         />
       )}
 
-      {/* 4. E-Mail Composer — IMMER offen (CX-Refactor: Anschreiben ist Pflichtbestandteil) */}
+      {/* 4. Zahlungs-Konditionen — pro Inquiry editierbar */}
+      {onFieldChange && (
+        <PaymentTermsBlock
+          depositPercent={inquiry.deposit_percent}
+          depositDueDays={inquiry.deposit_due_days}
+          offerValidityDays={inquiry.offer_validity_days}
+          onChange={(field, value) => onFieldChange(field, value)}
+          isReadOnly={inquiry.status === 'confirmed'}
+        />
+      )}
+
+      {/* 5. E-Mail Composer — IMMER offen (CX-Refactor: Anschreiben ist Pflichtbestandteil) */}
       <div ref={emailSectionRef}>
         <EmailComposer
           emailDraft={emailDraft}

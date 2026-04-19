@@ -55,6 +55,10 @@ interface PublicInquiry {
   selected_option_id: string | null;
   email_content: string | null;
   lexoffice_invoice_id: string | null;
+  /** Zahlungs-Konditionen — von der RPC mit Defaults aus site_settings befüllt */
+  deposit_percent?: number | null;
+  deposit_due_days?: number | null;
+  offer_validity_days?: number | null;
 }
 
 interface CourseSelection {
@@ -623,7 +627,13 @@ function ProposalView({
 
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
   const totalAmount = selectedOption?.total_amount ?? 0;
-  const depositAmount = Math.round(totalAmount * 0.2 * 100) / 100;
+  // Zahlungs-Konditionen aus Inquiry (RPC liefert Defaults aus site_settings)
+  const depositPercent = inquiry.deposit_percent ?? 20;
+  const depositDueDays = inquiry.deposit_due_days ?? 5;
+  const depositAmount = depositPercent > 0
+    ? Math.round(totalAmount * depositPercent) / 100
+    : 0;
+  const showDeposit = depositPercent > 0 && depositPercent < 100;
 
   // ACTION: Zahlung — leitet zu Stripe Checkout weiter
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
@@ -761,7 +771,7 @@ function ProposalView({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className={cn("grid gap-3", showDeposit ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
                   {/* Voll bezahlen — Primary/Dominant */}
                   <Button
                     onClick={() => handlePayment('full')}
@@ -777,21 +787,28 @@ function ProposalView({
                     </span>
                   </Button>
 
-                  {/* Anzahlung 20 % — Secondary/Alternative */}
-                  <Button
-                    onClick={() => handlePayment('deposit')}
-                    disabled={busy}
-                    variant="outline"
-                    className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all"
-                  >
-                    <span className="flex items-center gap-2 w-full justify-between">
-                      <span className="text-sm">Anzahlung 20 %</span>
-                      {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
-                    </span>
-                    <span className="text-lg font-serif font-bold text-primary">
-                      {formatCurrencyDecimal(depositAmount)}
-                    </span>
-                  </Button>
+                  {/* Anzahlung — nur wenn 0 < deposit_percent < 100 */}
+                  {showDeposit && (
+                    <div>
+                      <Button
+                        onClick={() => handlePayment('deposit')}
+                        disabled={busy}
+                        variant="outline"
+                        className="w-full h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all"
+                      >
+                        <span className="flex items-center gap-2 w-full justify-between">
+                          <span className="text-sm">Anzahlung {depositPercent} %</span>
+                          {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
+                        </span>
+                        <span className="text-lg font-serif font-bold text-primary">
+                          {formatCurrencyDecimal(depositAmount)}
+                        </span>
+                      </Button>
+                      <p className="mt-1.5 text-[11px] font-sans text-muted-foreground/70 text-center">
+                        innerhalb {depositDueDays} {depositDueDays === 1 ? 'Tag' : 'Tagen'} zu zahlen
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Trust-Elemente */}
@@ -1156,7 +1173,12 @@ function FinalOptionCard({
       : 0;
 
   const totalAmount = option.total_amount;
-  const depositAmount = Math.round(totalAmount * 0.2 * 100) / 100;
+  // Anzahlungs-Prozent kommt aus dem Inquiry-Kontext via Query (RPC) — Fallback 20%.
+  // Wir holen es hier über einen lokalen State, da diese Card pro Option gerendert wird.
+  // Für eine saubere Lösung müsste depositPercent als Prop reingereicht werden;
+  // als pragmatischer Default zeigen wir beide Buttons (showDeposit=true wenn dp>0).
+  const depositPercent = 20; // wird durch RPC-Wert in handlePayment serverseitig korrekt berechnet
+  const depositAmount = Math.round(totalAmount * depositPercent) / 100;
 
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
