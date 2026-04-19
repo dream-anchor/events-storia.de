@@ -979,7 +979,7 @@ function ProposalOptionCard({
       </div>
 
       {/* Menü-Details im Speisekarten-Stil — lesbar, wertig */}
-      {(courses.length > 0 || drinks.length > 0) && (
+      {(courses.length > 0 || drinkRows.length > 0) && (
         <div className="px-6 pb-6">
           <div className="border-t border-border/20 pt-5">
             {courses.length > 0 && (
@@ -1004,32 +1004,28 @@ function ProposalOptionCard({
               </div>
             )}
 
-            {drinks.length > 0 && (
+            {drinkRows.length > 0 && (
               <div className={cn("space-y-3", courses.length > 0 && "mt-6 pt-5 border-t border-border/15")}>
-                {drinks.map((d, i) => {
-                  const hasContent = d.customDrink || d.selectedChoice;
-                  // quantityLabel nur zeigen wenn es keine Redundanz zu "inklusive" ist
-                  const qtyIsRedundant = d.quantityLabel && /^\s*(inklusive|inkl\.?|included)\s*$/i.test(d.quantityLabel);
-                  return (
-                    <div key={i} className="flex items-baseline gap-4">
-                      <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
-                        {d.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : d.drinkLabel}
-                      </span>
+                {drinkRows.map((d, i) => (
+                  <div key={i} className="flex items-baseline gap-4">
+                    <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
+                      {d.label}
+                    </span>
+                    <div className="flex-1 flex items-baseline justify-between gap-3">
                       <p className="text-base font-serif text-foreground leading-snug">
-                        {hasContent ? (d.customDrink || d.selectedChoice) : (
-                          <span className="text-emerald-700 dark:text-emerald-400 font-sans text-sm font-semibold uppercase tracking-wider">
-                            inklusive
-                          </span>
-                        )}
-                        {d.quantityLabel && !qtyIsRedundant && (
-                          <span className="text-sm text-muted-foreground ml-2 font-sans">
-                            ({d.quantityLabel})
-                          </span>
-                        )}
+                        {d.name}
                       </p>
+                      {d.price != null && d.price > 0 && (
+                        <p className="text-sm font-sans font-semibold text-foreground whitespace-nowrap">
+                          {formatCurrencyDecimal(d.price)}
+                          {d.priceSuffix && (
+                            <span className="text-xs text-muted-foreground font-normal">{d.priceSuffix}</span>
+                          )}
+                        </p>
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
