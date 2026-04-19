@@ -1270,18 +1270,10 @@ function FinalOptionCard({
                   <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
                     {drink.label}
                   </p>
-                  <div className="flex items-baseline justify-between gap-3">
+                  <div>
                     <p className="font-serif text-sm text-foreground">
                       {drink.name}
                     </p>
-                    {drink.price != null && drink.price > 0 && (
-                      <p className="text-sm font-sans font-semibold text-foreground whitespace-nowrap">
-                        {formatCurrencyDecimal(drink.price)}
-                        {drink.priceSuffix && (
-                          <span className="text-xs text-muted-foreground font-normal">{drink.priceSuffix}</span>
-                        )}
-                      </p>
-                    )}
                   </div>
                 </div>
               ))}
