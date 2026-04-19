@@ -923,17 +923,7 @@ function ProposalOptionCard({
           ? menu.budgetPerPerson
           : option.total_amount / option.guest_count)
       : 0;
-  // Pricing-Modus respektieren: bei per_event ist budgetPerPerson der Gesamtpreis
-  // fuer den ganzen Anlass (nicht pro Gast). Dann zeigen wir statt "pro Person"
-  // den Gesamtbetrag mit Label "Gesamtpreis".
-  const isPerEvent = menu?.pricingMode === 'per_event';
-  const pricePerPerson = isPerEvent
-    ? 0
-    : option.guest_count > 0
-      ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
-          ? menu.budgetPerPerson
-          : option.total_amount / option.guest_count)
-      : 0;
+
 
   return (
     <button
