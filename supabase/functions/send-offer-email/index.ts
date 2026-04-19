@@ -445,7 +445,6 @@ serve(async (req) => {
 
     // E-Mail in email_messages speichern (Thread-Konversation)
     if (result.sent) {
-      const safeName = (customerName || 'Kunde').replace(/[^a-zA-ZäöüÄÖÜß0-9\s-]/g, '').trim();
       await supabase.from('email_messages').insert({
         inquiry_id: inquiryId,
         direction: 'outbound',
@@ -454,7 +453,7 @@ serve(async (req) => {
         subject: emailSubject,
         body_text: cleanedEmailContent,
         body_html: htmlBody,
-        attachments: hasPdf ? [{ filename: `STORIA_Angebot_${safeName}.pdf` }] : [],
+        attachments: hasPdf ? [{ filename: attachmentFilename }] : [],
         resend_message_id: result.messageId,
         resend_status: 'queued',
       } as Record<string, unknown>);
