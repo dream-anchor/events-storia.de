@@ -167,33 +167,30 @@ function buildDrinkRows(menu: MenuSelection | null): DrinkRow[] {
       .filter((d) => d?.name)
       .map((d) => {
         const qty = d.quantity ?? 1;
-        const linePrice = isPerEvent
-          ? (d.pricePerPerson || 0) * qty
-          : (d.pricePerPerson || 0);
         return {
           label: 'Getränk',
           name: qty > 1 ? `${qty} × ${d.name}` : d.name,
-          price: linePrice > 0 ? linePrice : null,
-          priceSuffix: perPersonSuffix,
+          price: null,
+          priceSuffix: '',
         };
       });
   }
 
-  if (mode === 'pauschale' && m.drinksPauschalePrice && m.drinksPauschalePrice > 0) {
+  if (mode === 'pauschale') {
     return [{
       label: 'Pauschale',
       name: m.drinksPauschaleDescription || 'Getränkepauschale',
-      price: m.drinksPauschalePrice,
-      priceSuffix: perPersonSuffix,
+      price: null,
+      priceSuffix: '',
     }];
   }
 
-  if (mode === 'weinbegleitung' && m.winePairingPrice && m.winePairingPrice > 0) {
+  if (mode === 'weinbegleitung') {
     return [{
       label: 'Begleitung',
       name: 'Weinbegleitung',
-      price: m.winePairingPrice,
-      priceSuffix: perPersonSuffix,
+      price: null,
+      priceSuffix: '',
     }];
   }
 
@@ -1011,18 +1008,10 @@ function ProposalOptionCard({
                     <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
                       {d.label}
                     </span>
-                    <div className="flex-1 flex items-baseline justify-between gap-3">
+                    <div className="flex-1">
                       <p className="text-base font-serif text-foreground leading-snug">
                         {d.name}
                       </p>
-                      {d.price != null && d.price > 0 && (
-                        <p className="text-sm font-sans font-semibold text-foreground whitespace-nowrap">
-                          {formatCurrencyDecimal(d.price)}
-                          {d.priceSuffix && (
-                            <span className="text-xs text-muted-foreground font-normal">{d.priceSuffix}</span>
-                          )}
-                        </p>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -1281,18 +1270,10 @@ function FinalOptionCard({
                   <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
                     {drink.label}
                   </p>
-                  <div className="flex items-baseline justify-between gap-3">
+                  <div>
                     <p className="font-serif text-sm text-foreground">
                       {drink.name}
                     </p>
-                    {drink.price != null && drink.price > 0 && (
-                      <p className="text-sm font-sans font-semibold text-foreground whitespace-nowrap">
-                        {formatCurrencyDecimal(drink.price)}
-                        {drink.priceSuffix && (
-                          <span className="text-xs text-muted-foreground font-normal">{drink.priceSuffix}</span>
-                        )}
-                      </p>
-                    )}
                   </div>
                 </div>
               ))}
