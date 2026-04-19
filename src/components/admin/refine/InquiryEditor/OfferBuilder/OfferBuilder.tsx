@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
-import { Loader2, Plus, Clock, ChevronDown, Mail, ExternalLink, UtensilsCrossed, ArrowRight } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -157,16 +157,9 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     onEmailContentChange?.(content);
   }, [onEmailContentChange]);
 
-  // E-Mail-Sektion: eingeklappt wenn noch kein Draft vorhanden
-  const [emailSectionOpen, setEmailSectionOpen] = useState(!!inquiry.email_draft);
+  // E-Mail-Sektion ist IMMER sichtbar (CX-Refactor: WYSIWYG-Prinzip,
+  // Edit-Seite hat alle Edit-Möglichkeiten direkt verfügbar).
   const emailSectionRef = useRef<HTMLDivElement>(null);
-
-  // Auto-open email section when email mode is selected
-  useEffect(() => {
-    if (defaultMode === 'email' && !emailSectionOpen) {
-      setEmailSectionOpen(true);
-    }
-  }, [defaultMode]);
 
   // --- E-Mail generieren via Edge Function ---
   const handleGenerateEmail = useCallback(async () => {
@@ -197,17 +190,9 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     }
   }, [inquiry.id, builder.offerPhase]);
 
-  // --- Neue Version erstellen ---
-  const handleUnlock = useCallback(async () => {
-    setIsUnlocking(true);
-    await builder.unlockForNewVersion();
-    setIsUnlocking(false);
-  }, [builder.unlockForNewVersion]);
-
   // --- Exponierten Handle für Parent (SmartInquiryEditor) ---
   useImperativeHandle(ref, () => ({
     scrollToEmail: (withGeneration = true) => {
-      setEmailSectionOpen(true);
       if (withGeneration && builder.activeOptions.length > 0) {
         handleGenerateEmail();
       }
