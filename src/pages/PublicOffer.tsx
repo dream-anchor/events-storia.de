@@ -55,6 +55,10 @@ interface PublicInquiry {
   selected_option_id: string | null;
   email_content: string | null;
   lexoffice_invoice_id: string | null;
+  /** Zahlungs-Konditionen — von der RPC mit Defaults aus site_settings befüllt */
+  deposit_percent?: number | null;
+  deposit_due_days?: number | null;
+  offer_validity_days?: number | null;
 }
 
 interface CourseSelection {

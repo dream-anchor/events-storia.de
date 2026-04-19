@@ -37,6 +37,12 @@ serve(async (req) => {
 
     if (inqError || !inquiry) throw new Error('Anfrage nicht gefunden');
 
+    // Sicherheitsnetz: deposit_percent === 0 darf nicht zu Anzahlung führen
+    const inquiryDeposit = (inquiry as { deposit_percent: number | null }).deposit_percent;
+    if (paymentType === 'deposit' && inquiryDeposit === 0) {
+      throw new Error('Anzahlung ist für dieses Angebot nicht vorgesehen');
+    }
+
     const { data: option, error: optError } = await supabase
       .from('inquiry_offer_options')
       .select('id, option_label, total_amount, guest_count, offer_mode, menu_selection, package_id')
