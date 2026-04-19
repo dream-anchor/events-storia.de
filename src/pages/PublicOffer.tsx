@@ -1008,18 +1008,10 @@ function ProposalOptionCard({
                     <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
                       {d.label}
                     </span>
-                    <div className="flex-1 flex items-baseline justify-between gap-3">
+                    <div className="flex-1">
                       <p className="text-base font-serif text-foreground leading-snug">
                         {d.name}
                       </p>
-                      {d.price != null && d.price > 0 && (
-                        <p className="text-sm font-sans font-semibold text-foreground whitespace-nowrap">
-                          {formatCurrencyDecimal(d.price)}
-                          {d.priceSuffix && (
-                            <span className="text-xs text-muted-foreground font-normal">{d.priceSuffix}</span>
-                          )}
-                        </p>
-                      )}
                     </div>
                   </div>
                 ))}
