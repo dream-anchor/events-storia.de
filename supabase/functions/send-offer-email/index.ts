@@ -15,6 +15,9 @@ interface SendOfferEmailRequest {
   /** Wenn true: Mail geht als Vorschau/Testmail an antoine@monot.com, unabhaengig von is_test.
    *  DB wird dabei NICHT aktualisiert (keine Phase-Änderung, keine History). */
   isTestPreview?: boolean;
+  /** Wenn true: nichts senden, nichts loggen — nur das gerenderte Mail-Objekt zurueckgeben.
+   *  Wird vom WYSIWYG-Preview-Screen genutzt. */
+  dryRun?: boolean;
 }
 
 interface SendResult {
@@ -199,7 +202,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json() as SendOfferEmailRequest;
-    const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug, lexofficeQuotationId, isTestPreview } = body;
+    const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug, lexofficeQuotationId, isTestPreview, dryRun } = body;
 
     if (!inquiryId || !emailContent || !customerEmail) {
       throw new Error('inquiryId, emailContent and customerEmail are required');
@@ -209,12 +212,14 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Slug generieren oder verwenden + in DB speichern
+    // Slug generieren oder verwenden + in DB speichern (nicht im dryRun)
     const slug = providedSlug || generateOfferSlug(customerName || 'angebot', inquiryId);
-    await supabase
-      .from('event_inquiries')
-      .update({ offer_slug: slug } as Record<string, unknown>)
-      .eq('id', inquiryId);
+    if (!dryRun) {
+      await supabase
+        .from('event_inquiries')
+        .update({ offer_slug: slug } as Record<string, unknown>)
+        .eq('id', inquiryId);
+    }
 
     // Check if this is a test inquiry
     const { data: inquiryRow } = await supabase
@@ -303,45 +308,44 @@ serve(async (req) => {
 </body>
 </html>`;
 
-    // LexOffice-PDF abrufen (falls quotationId vorhanden)
+    // LexOffice-PDF abrufen (falls quotationId vorhanden) — im dryRun nur Verfügbarkeitscheck (kein Wait-Loop)
     let pdfBuffer: Uint8Array | null = null;
     let hasPdf = false;
+    const safeName = (customerName || 'Kunde').replace(/[^a-zA-ZäöüÄÖÜß0-9\s-]/g, '').trim();
+    const attachmentFilename = `STORIA_Angebot_${safeName}.pdf`;
 
     if (lexofficeQuotationId) {
       const lexofficeApiKey = Deno.env.get('LEXOFFICE_API_KEY');
       if (lexofficeApiKey) {
-        console.log(`Fetching LexOffice PDF for quotation ${lexofficeQuotationId}…`);
-        pdfBuffer = await waitForLexOfficePdf(lexofficeQuotationId, lexofficeApiKey);
-        hasPdf = !!pdfBuffer;
-        if (!hasPdf) {
-          console.warn('PDF not available — sending email without attachment');
+        if (dryRun) {
+          // Nur ein schneller HEAD-artiger Check — wir wollen die Preview nicht 30s blockieren.
+          try {
+            const docRes = await fetch(
+              `https://api.lexoffice.io/v1/quotations/${lexofficeQuotationId}/document`,
+              { headers: { Authorization: `Bearer ${lexofficeApiKey}` } },
+            );
+            hasPdf = docRes.ok;
+          } catch {
+            hasPdf = false;
+          }
+        } else {
+          console.log(`Fetching LexOffice PDF for quotation ${lexofficeQuotationId}…`);
+          pdfBuffer = await waitForLexOfficePdf(lexofficeQuotationId, lexofficeApiKey);
+          hasPdf = !!pdfBuffer;
+          if (!hasPdf) {
+            console.warn('PDF not available — sending email without attachment');
+          }
         }
       }
     }
 
-    const bccList = ['info@events-storia.de'];
-    if (senderEmail && senderEmail !== 'info@events-storia.de') {
-      bccList.push(senderEmail);
-    }
+    // BCC ist abgeschaltet — Admin bekommt KEINE Kopie automatisch.
+    const bccList: string[] = [];
 
-    // Reply-To: Antworten gehen direkt an das info@-Postfach (IONOS).
-    // Zukunft: Sobald events-storia.de auf Cloudflare umgezogen ist, kann auf
-    // reply+${inquiryId}@reply.events-storia.de umgestellt werden
-    // (siehe cloudflare-workers/email-reply/README.md für Worker-Setup).
     const replyToAddress = 'info@events-storia.de';
     const safeSubject = getSafeSubject(emailSubject, isTest);
 
-    // --------------------------------------------------------------
-    // Preview-Testmail: Empfaenger und Subject ueberschreiben.
-    //   Zwei fest konfigurierte Empfaenger, damit die Vorschau immer an
-    //   dieselben Stellen geht, unabhaengig davon wer im Admin eingeloggt ist:
-    //     - antoine@monot.com (Projekt-Eigentuemer)
-    //     - info@ristorantestoria.de (Restaurant-Team)
-    //   Zusaetzlich: Der eingeloggte Admin bekommt eine Kopie wenn seine
-    //   Email-Adresse nicht ohnehin schon in der Liste ist (Dedup case-insensitive).
-    //   Subject wird mit "VORSCHAU – " vorangestellt.
-    //   BCC entfaellt — alle Empfaenger stehen sichtbar im To-Feld.
-    // --------------------------------------------------------------
+    // Preview-Testmail-Override (nur fuer echten Versand relevant)
     let previewTo: string[] | null = null;
     let previewSubject: string | null = null;
     let previewBcc: string[] | null = null;
@@ -354,14 +358,37 @@ serve(async (req) => {
       }
       previewTo = recipients;
       previewSubject = `VORSCHAU – ${emailSubject}`;
-      previewBcc = []; // keine BCC bei Preview
+      previewBcc = [];
     }
 
     const finalTo = previewTo || [safeCustomerEmail];
     const finalSubject = previewSubject || safeSubject;
     const finalBcc = previewBcc !== null ? previewBcc : bccList;
+    const fromName = "STORIA Events";
+    const fromAddress = `${fromName} <info@events-storia.de>`;
 
-    const result = await sendEmail(finalTo, finalSubject, htmlBody, "STORIA Events", pdfBuffer, customerName, finalBcc, replyToAddress);
+    // ----- DRY RUN: nur das gerenderte Mail-Objekt zurueckgeben -----
+    if (dryRun) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          preview: {
+            from: fromAddress,
+            to: finalTo,
+            bcc: finalBcc,
+            subject: finalSubject,
+            htmlBody,
+            attachment: {
+              filename: attachmentFilename,
+              available: hasPdf,
+            },
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    const result = await sendEmail(finalTo, finalSubject, htmlBody, fromName, pdfBuffer, customerName, finalBcc, replyToAddress);
 
     // Betreiber-Benachrichtigung: Versand fehlgeschlagen
     if (!result.sent) {
@@ -418,7 +445,6 @@ serve(async (req) => {
 
     // E-Mail in email_messages speichern (Thread-Konversation)
     if (result.sent) {
-      const safeName = (customerName || 'Kunde').replace(/[^a-zA-ZäöüÄÖÜß0-9\s-]/g, '').trim();
       await supabase.from('email_messages').insert({
         inquiry_id: inquiryId,
         direction: 'outbound',
@@ -427,7 +453,7 @@ serve(async (req) => {
         subject: emailSubject,
         body_text: cleanedEmailContent,
         body_html: htmlBody,
-        attachments: hasPdf ? [{ filename: `STORIA_Angebot_${safeName}.pdf` }] : [],
+        attachments: hasPdf ? [{ filename: attachmentFilename }] : [],
         resend_message_id: result.messageId,
         resend_status: 'queued',
       } as Record<string, unknown>);
