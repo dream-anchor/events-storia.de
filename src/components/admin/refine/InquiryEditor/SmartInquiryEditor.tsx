@@ -623,6 +623,7 @@ export const SmartInquiryEditor = () => {
               packages={packages}
               templates={templates}
               onSave={performSave}
+              onFieldChange={handleLocalFieldChange}
             />
           ) : (
             /* Catering inquiries use existing flow */
