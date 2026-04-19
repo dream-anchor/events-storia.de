@@ -581,6 +581,7 @@ export type Database = {
           delivery_street: string | null
           delivery_time_slot: string | null
           delivery_zip: string | null
+          deposit_due_days: number | null
           deposit_percent: number | null
           email: string
           email_draft: string | null
@@ -608,6 +609,7 @@ export type Database = {
           offer_sent_at: string | null
           offer_sent_by: string | null
           offer_slug: string | null
+          offer_validity_days: number | null
           paid_amount: number | null
           payment_type: string | null
           phone: string | null
@@ -653,6 +655,7 @@ export type Database = {
           delivery_street?: string | null
           delivery_time_slot?: string | null
           delivery_zip?: string | null
+          deposit_due_days?: number | null
           deposit_percent?: number | null
           email: string
           email_draft?: string | null
@@ -680,6 +683,7 @@ export type Database = {
           offer_sent_at?: string | null
           offer_sent_by?: string | null
           offer_slug?: string | null
+          offer_validity_days?: number | null
           paid_amount?: number | null
           payment_type?: string | null
           phone?: string | null
@@ -725,6 +729,7 @@ export type Database = {
           delivery_street?: string | null
           delivery_time_slot?: string | null
           delivery_zip?: string | null
+          deposit_due_days?: number | null
           deposit_percent?: number | null
           email?: string
           email_draft?: string | null
@@ -752,6 +757,7 @@ export type Database = {
           offer_sent_at?: string | null
           offer_sent_by?: string | null
           offer_slug?: string | null
+          offer_validity_days?: number | null
           paid_amount?: number | null
           payment_type?: string | null
           phone?: string | null
