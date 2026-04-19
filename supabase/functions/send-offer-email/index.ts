@@ -202,7 +202,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json() as SendOfferEmailRequest;
-    const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug, lexofficeQuotationId, isTestPreview } = body;
+    const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug, lexofficeQuotationId, isTestPreview, dryRun } = body;
 
     if (!inquiryId || !emailContent || !customerEmail) {
       throw new Error('inquiryId, emailContent and customerEmail are required');
@@ -212,12 +212,14 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Slug generieren oder verwenden + in DB speichern
+    // Slug generieren oder verwenden + in DB speichern (nicht im dryRun)
     const slug = providedSlug || generateOfferSlug(customerName || 'angebot', inquiryId);
-    await supabase
-      .from('event_inquiries')
-      .update({ offer_slug: slug } as Record<string, unknown>)
-      .eq('id', inquiryId);
+    if (!dryRun) {
+      await supabase
+        .from('event_inquiries')
+        .update({ offer_slug: slug } as Record<string, unknown>)
+        .eq('id', inquiryId);
+    }
 
     // Check if this is a test inquiry
     const { data: inquiryRow } = await supabase
@@ -322,10 +324,9 @@ serve(async (req) => {
       }
     }
 
-    const bccList = ['info@events-storia.de'];
-    if (senderEmail && senderEmail !== 'info@events-storia.de') {
-      bccList.push(senderEmail);
-    }
+    // BCC ist abgeschaltet — Admin bekommt KEINE Kopie automatisch.
+    // Wenn Doku/Archivierung gewuenscht: separater Worker oder Admin-eigene Anfrage.
+    const bccList: string[] = [];
 
     // Reply-To: Antworten gehen direkt an das info@-Postfach (IONOS).
     // Zukunft: Sobald events-storia.de auf Cloudflare umgezogen ist, kann auf
