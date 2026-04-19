@@ -543,6 +543,9 @@ export const AdminOfferCreate = () => {
       billing_postal_code: null,
       billing_city: null,
       billing_country: 'Deutschland',
+      deposit_percent: null,
+      deposit_due_days: null,
+      offer_validity_days: null,
     };
   }, [draftInquiryId, formData]);
 
