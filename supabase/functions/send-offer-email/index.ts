@@ -15,6 +15,9 @@ interface SendOfferEmailRequest {
   /** Wenn true: Mail geht als Vorschau/Testmail an antoine@monot.com, unabhaengig von is_test.
    *  DB wird dabei NICHT aktualisiert (keine Phase-Änderung, keine History). */
   isTestPreview?: boolean;
+  /** Wenn true: nichts senden, nichts loggen — nur das gerenderte Mail-Objekt zurueckgeben.
+   *  Wird vom WYSIWYG-Preview-Screen genutzt. */
+  dryRun?: boolean;
 }
 
 interface SendResult {
