@@ -139,6 +139,68 @@ function formatCurrencyDecimal(amount: number) {
 }
 
 // =================================================================
+// DRINK ROWS — unified renderer for all drinksMode variants
+// Mirrors logic from supabase/functions/create-event-quotation/index.ts
+// =================================================================
+
+interface DrinkRow {
+  label: string;
+  name: string;
+  price: number | null;
+  priceSuffix: string;
+}
+
+function buildDrinkRows(menu: MenuSelection | null): DrinkRow[] {
+  if (!menu) return [];
+  const m = menu as MenuSelection & {
+    drinksMode?: 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
+    drinksPauschalePrice?: number | null;
+    drinksPauschaleDescription?: string | null;
+    drinksEinzeln?: Array<{ name: string; pricePerPerson: number; quantity?: number | null }>;
+  };
+  const mode = m.drinksMode;
+  const isPerEvent = m.pricingMode === 'per_event';
+  const perPersonSuffix = isPerEvent ? '' : ' pro Person';
+
+  if (mode === 'einzeln' && Array.isArray(m.drinksEinzeln)) {
+    return m.drinksEinzeln
+      .filter((d) => d?.name)
+      .map((d) => {
+        const qty = d.quantity ?? 1;
+        const linePrice = isPerEvent
+          ? (d.pricePerPerson || 0) * qty
+          : (d.pricePerPerson || 0);
+        return {
+          label: 'Getränk',
+          name: qty > 1 ? `${qty} × ${d.name}` : d.name,
+          price: linePrice > 0 ? linePrice : null,
+          priceSuffix: perPersonSuffix,
+        };
+      });
+  }
+
+  if (mode === 'pauschale' && m.drinksPauschalePrice && m.drinksPauschalePrice > 0) {
+    return [{
+      label: 'Pauschale',
+      name: m.drinksPauschaleDescription || 'Getränkepauschale',
+      price: m.drinksPauschalePrice,
+      priceSuffix: perPersonSuffix,
+    }];
+  }
+
+  if (mode === 'weinbegleitung' && m.winePairingPrice && m.winePairingPrice > 0) {
+    return [{
+      label: 'Begleitung',
+      name: 'Weinbegleitung',
+      price: m.winePairingPrice,
+      priceSuffix: perPersonSuffix,
+    }];
+  }
+
+  return [];
+}
+
+// =================================================================
 // MAIN COMPONENT
 // =================================================================
 
