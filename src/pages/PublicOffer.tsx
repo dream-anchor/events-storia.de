@@ -1267,7 +1267,7 @@ function FinalOptionCard({
           </div>
         )}
 
-        {drinks.length > 0 && (
+        {drinkRows.length > 0 && (
           <div className={cn("border-t border-border/20 pt-5", courses.length === 0 && "mt-0")}>
             <div className="flex items-center gap-2 mb-4">
               <Wine className="h-3.5 w-3.5 text-primary/40" />
@@ -1275,36 +1275,32 @@ function FinalOptionCard({
                 Getränke
               </h4>
             </div>
-            <div className="space-y-2.5">
-              {drinks.map((drink, i) => {
-                const hasContent = drink.customDrink || drink.selectedChoice;
-                // quantityLabel nur zeigen wenn es keine Redundanz zu "inklusive" ist
-                const qtyIsRedundant = drink.quantityLabel && /^\s*(inklusive|inkl\.?|included)\s*$/i.test(drink.quantityLabel);
-                return (
-                  <div key={i}>
-                    <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
-                      {drink.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : drink.drinkLabel}
-                    </p>
+            <div className="space-y-3">
+              {drinkRows.map((drink, i) => (
+                <div key={i}>
+                  <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
+                    {drink.label}
+                  </p>
+                  <div className="flex items-baseline justify-between gap-3">
                     <p className="font-serif text-sm text-foreground">
-                      {hasContent ? (drink.customDrink || drink.selectedChoice) : (
-                        <span className="text-emerald-700 dark:text-emerald-400 font-sans text-xs font-semibold uppercase tracking-wider">
-                          inklusive
-                        </span>
-                      )}
-                      {drink.quantityLabel && !qtyIsRedundant && (
-                        <span className="text-muted-foreground/50 ml-1">
-                          ({drink.quantityLabel})
-                        </span>
-                      )}
+                      {drink.name}
                     </p>
+                    {drink.price != null && drink.price > 0 && (
+                      <p className="text-sm font-sans font-semibold text-foreground whitespace-nowrap">
+                        {formatCurrencyDecimal(drink.price)}
+                        {drink.priceSuffix && (
+                          <span className="text-xs text-muted-foreground font-normal">{drink.priceSuffix}</span>
+                        )}
+                      </p>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {courses.length === 0 && drinks.length === 0 && (
+        {courses.length === 0 && drinkRows.length === 0 && (
           <div className="border-t border-border/20 pt-5">
             <p className="text-sm text-muted-foreground font-sans italic">
               Menüdetails werden noch zusammengestellt.
