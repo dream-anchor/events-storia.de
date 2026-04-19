@@ -402,6 +402,40 @@ function buildIntroduction(
   return parts.join('\n');
 }
 
+function buildPaymentConditions(
+  depositPercent: number,
+  depositDueDays: number,
+): { paymentTermLabel: string; paymentTermDuration: number } {
+  const paymentTermDuration = Math.max(1, depositDueDays || 1);
+
+  if (depositPercent === 0) {
+    return {
+      paymentTermLabel: 'Zahlung vollständig bei Auftragserteilung',
+      paymentTermDuration,
+    };
+  }
+
+  if (depositPercent === 100) {
+    return {
+      paymentTermLabel: `Vorauszahlung 100% innerhalb von ${paymentTermDuration} Tagen ab Rechnungsdatum`,
+      paymentTermDuration,
+    };
+  }
+
+  return {
+    paymentTermLabel: `Anzahlung ${depositPercent}% innerhalb von ${paymentTermDuration} Tagen`,
+    paymentTermDuration,
+  };
+}
+
+function buildRemarkText(depositPercent: number, offerValidityDays: number): string {
+  if (depositPercent === 0) {
+    return `Dieses Angebot ist ${offerValidityDays} Tage gültig.`;
+  }
+
+  return `Restzahlung vor Veranstaltung. Dieses Angebot ist ${offerValidityDays} Tage gültig.`;
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -513,15 +547,8 @@ serve(async (req) => {
       if (offerValidityDays == null) offerValidityDays = defaults.offer_validity_days ?? 14;
     }
 
-    // Remark dynamisch aus den drei Werten generieren
-    let remarkText: string;
-    if (depositPercent === 0) {
-      remarkText = `Zahlung vollständig bei Auftragserteilung. Dieses Angebot ist ${offerValidityDays} Tage gültig.`;
-    } else if (depositPercent === 100) {
-      remarkText = `Vorauszahlung von 100% innerhalb von ${depositDueDays} Tagen ab Rechnungsdatum. Dieses Angebot ist ${offerValidityDays} Tage gültig.`;
-    } else {
-      remarkText = `Anzahlung ${depositPercent}% innerhalb von ${depositDueDays} Tagen ab Rechnungsdatum. Restzahlung vor Veranstaltung. Dieses Angebot ist ${offerValidityDays} Tage gültig.`;
-    }
+    const paymentConditions = buildPaymentConditions(depositPercent, depositDueDays);
+    const remarkText = buildRemarkText(depositPercent, offerValidityDays);
 
     // 7. LexOffice Angebot aufbauen — Empfänger aus resolved billing
     const quotationPayload = {
@@ -540,6 +567,7 @@ serve(async (req) => {
       lineItems,
       totalPrice: { currency: 'EUR' },
       taxConditions: { taxType: 'net' },
+      paymentConditions,
       introduction,
       remark: remarkText,
     };
