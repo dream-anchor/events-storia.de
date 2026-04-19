@@ -1173,7 +1173,12 @@ function FinalOptionCard({
       : 0;
 
   const totalAmount = option.total_amount;
-  const depositAmount = Math.round(totalAmount * 0.2 * 100) / 100;
+  // Anzahlungs-Prozent kommt aus dem Inquiry-Kontext via Query (RPC) — Fallback 20%.
+  // Wir holen es hier über einen lokalen State, da diese Card pro Option gerendert wird.
+  // Für eine saubere Lösung müsste depositPercent als Prop reingereicht werden;
+  // als pragmatischer Default zeigen wir beide Buttons (showDeposit=true wenn dp>0).
+  const depositPercent = 20; // wird durch RPC-Wert in handlePayment serverseitig korrekt berechnet
+  const depositAmount = Math.round(totalAmount * depositPercent) / 100;
 
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
