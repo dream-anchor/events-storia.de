@@ -167,33 +167,30 @@ function buildDrinkRows(menu: MenuSelection | null): DrinkRow[] {
       .filter((d) => d?.name)
       .map((d) => {
         const qty = d.quantity ?? 1;
-        const linePrice = isPerEvent
-          ? (d.pricePerPerson || 0) * qty
-          : (d.pricePerPerson || 0);
         return {
           label: 'Getränk',
           name: qty > 1 ? `${qty} × ${d.name}` : d.name,
-          price: linePrice > 0 ? linePrice : null,
-          priceSuffix: perPersonSuffix,
+          price: null,
+          priceSuffix: '',
         };
       });
   }
 
-  if (mode === 'pauschale' && m.drinksPauschalePrice && m.drinksPauschalePrice > 0) {
+  if (mode === 'pauschale') {
     return [{
       label: 'Pauschale',
       name: m.drinksPauschaleDescription || 'Getränkepauschale',
-      price: m.drinksPauschalePrice,
-      priceSuffix: perPersonSuffix,
+      price: null,
+      priceSuffix: '',
     }];
   }
 
-  if (mode === 'weinbegleitung' && m.winePairingPrice && m.winePairingPrice > 0) {
+  if (mode === 'weinbegleitung') {
     return [{
       label: 'Begleitung',
       name: 'Weinbegleitung',
-      price: m.winePairingPrice,
-      priceSuffix: perPersonSuffix,
+      price: null,
+      priceSuffix: '',
     }];
   }
 
