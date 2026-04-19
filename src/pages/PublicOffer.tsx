@@ -139,6 +139,68 @@ function formatCurrencyDecimal(amount: number) {
 }
 
 // =================================================================
+// DRINK ROWS — unified renderer for all drinksMode variants
+// Mirrors logic from supabase/functions/create-event-quotation/index.ts
+// =================================================================
+
+interface DrinkRow {
+  label: string;
+  name: string;
+  price: number | null;
+  priceSuffix: string;
+}
+
+function buildDrinkRows(menu: MenuSelection | null): DrinkRow[] {
+  if (!menu) return [];
+  const m = menu as MenuSelection & {
+    drinksMode?: 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
+    drinksPauschalePrice?: number | null;
+    drinksPauschaleDescription?: string | null;
+    drinksEinzeln?: Array<{ name: string; pricePerPerson: number; quantity?: number | null }>;
+  };
+  const mode = m.drinksMode;
+  const isPerEvent = m.pricingMode === 'per_event';
+  const perPersonSuffix = isPerEvent ? '' : ' pro Person';
+
+  if (mode === 'einzeln' && Array.isArray(m.drinksEinzeln)) {
+    return m.drinksEinzeln
+      .filter((d) => d?.name)
+      .map((d) => {
+        const qty = d.quantity ?? 1;
+        const linePrice = isPerEvent
+          ? (d.pricePerPerson || 0) * qty
+          : (d.pricePerPerson || 0);
+        return {
+          label: 'Getränk',
+          name: qty > 1 ? `${qty} × ${d.name}` : d.name,
+          price: linePrice > 0 ? linePrice : null,
+          priceSuffix: perPersonSuffix,
+        };
+      });
+  }
+
+  if (mode === 'pauschale' && m.drinksPauschalePrice && m.drinksPauschalePrice > 0) {
+    return [{
+      label: 'Pauschale',
+      name: m.drinksPauschaleDescription || 'Getränkepauschale',
+      price: m.drinksPauschalePrice,
+      priceSuffix: perPersonSuffix,
+    }];
+  }
+
+  if (mode === 'weinbegleitung' && m.winePairingPrice && m.winePairingPrice > 0) {
+    return [{
+      label: 'Begleitung',
+      name: 'Weinbegleitung',
+      price: m.winePairingPrice,
+      priceSuffix: perPersonSuffix,
+    }];
+  }
+
+  return [];
+}
+
+// =================================================================
 // MAIN COMPONENT
 // =================================================================
 
@@ -849,25 +911,7 @@ function ProposalOptionCard({
 }) {
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
-  // Filter: Drinks mit Inhalt ODER "inkl."-Einträge (Wasser/Kaffee) mit quantityLabel
-  const _drinksLegacy = menu?.drinks?.filter((d) =>
-    d.selectedChoice || d.customDrink || d.quantityLabel
-  ) || [];
-  const _drinksEinzeln: DrinkSelection[] = ((menu as any)?.drinksEinzeln || [])
-    .filter((d: { name: string }) => d.name)
-    .map((d: { name: string; quantity?: number | null }) => ({
-      drinkGroup: 'custom' as const,
-      drinkLabel: (d.quantity ?? 1) > 1 ? `${d.quantity} × ${d.name}` : d.name,
-      selectedChoice: null,
-      customDrink: null,
-      quantityLabel: null,
-    }));
-  const _drinksExtra: DrinkSelection[] = (menu as any)?.drinksMode === 'pauschale' && (menu as any)?.drinksPauschaleDescription
-    ? [{ drinkGroup: 'custom' as const, drinkLabel: (menu as any).drinksPauschaleDescription as string, selectedChoice: null, customDrink: null, quantityLabel: null }]
-    : (menu as any)?.drinksMode === 'weinbegleitung' && (menu as any)?.winePairingPrice
-    ? [{ drinkGroup: 'main_drink' as const, drinkLabel: 'Weinbegleitung', selectedChoice: null, customDrink: null, quantityLabel: null }]
-    : [];
-  const drinks: DrinkSelection[] = _drinksLegacy.length > 0 ? _drinksLegacy : [..._drinksEinzeln, ..._drinksExtra];
+  const drinkRows = buildDrinkRows(menu);
   // Pricing-Modus respektieren: bei per_event ist budgetPerPerson der Gesamtpreis
   // fuer den ganzen Anlass (nicht pro Gast). Dann zeigen wir statt "pro Person"
   // den Gesamtbetrag mit Label "Gesamtpreis".
@@ -879,6 +923,7 @@ function ProposalOptionCard({
           ? menu.budgetPerPerson
           : option.total_amount / option.guest_count)
       : 0;
+
 
   return (
     <button
@@ -934,7 +979,7 @@ function ProposalOptionCard({
       </div>
 
       {/* Menü-Details im Speisekarten-Stil — lesbar, wertig */}
-      {(courses.length > 0 || drinks.length > 0) && (
+      {(courses.length > 0 || drinkRows.length > 0) && (
         <div className="px-6 pb-6">
           <div className="border-t border-border/20 pt-5">
             {courses.length > 0 && (
@@ -959,32 +1004,28 @@ function ProposalOptionCard({
               </div>
             )}
 
-            {drinks.length > 0 && (
+            {drinkRows.length > 0 && (
               <div className={cn("space-y-3", courses.length > 0 && "mt-6 pt-5 border-t border-border/15")}>
-                {drinks.map((d, i) => {
-                  const hasContent = d.customDrink || d.selectedChoice;
-                  // quantityLabel nur zeigen wenn es keine Redundanz zu "inklusive" ist
-                  const qtyIsRedundant = d.quantityLabel && /^\s*(inklusive|inkl\.?|included)\s*$/i.test(d.quantityLabel);
-                  return (
-                    <div key={i} className="flex items-baseline gap-4">
-                      <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
-                        {d.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : d.drinkLabel}
-                      </span>
+                {drinkRows.map((d, i) => (
+                  <div key={i} className="flex items-baseline gap-4">
+                    <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
+                      {d.label}
+                    </span>
+                    <div className="flex-1 flex items-baseline justify-between gap-3">
                       <p className="text-base font-serif text-foreground leading-snug">
-                        {hasContent ? (d.customDrink || d.selectedChoice) : (
-                          <span className="text-emerald-700 dark:text-emerald-400 font-sans text-sm font-semibold uppercase tracking-wider">
-                            inklusive
-                          </span>
-                        )}
-                        {d.quantityLabel && !qtyIsRedundant && (
-                          <span className="text-sm text-muted-foreground ml-2 font-sans">
-                            ({d.quantityLabel})
-                          </span>
-                        )}
+                        {d.name}
                       </p>
+                      {d.price != null && d.price > 0 && (
+                        <p className="text-sm font-sans font-semibold text-foreground whitespace-nowrap">
+                          {formatCurrencyDecimal(d.price)}
+                          {d.priceSuffix && (
+                            <span className="text-xs text-muted-foreground font-normal">{d.priceSuffix}</span>
+                          )}
+                        </p>
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -1114,25 +1155,7 @@ function FinalOptionCard({
   const [isRedirecting, setIsRedirecting] = useState(false);
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
-  // Filter: Drinks mit Inhalt ODER "inkl."-Einträge (Wasser/Kaffee) mit quantityLabel
-  const _drinksLegacy = menu?.drinks?.filter((d) =>
-    d.selectedChoice || d.customDrink || d.quantityLabel
-  ) || [];
-  const _drinksEinzeln: DrinkSelection[] = ((menu as any)?.drinksEinzeln || [])
-    .filter((d: { name: string }) => d.name)
-    .map((d: { name: string; quantity?: number | null }) => ({
-      drinkGroup: 'custom' as const,
-      drinkLabel: (d.quantity ?? 1) > 1 ? `${d.quantity} × ${d.name}` : d.name,
-      selectedChoice: null,
-      customDrink: null,
-      quantityLabel: null,
-    }));
-  const _drinksExtra: DrinkSelection[] = (menu as any)?.drinksMode === 'pauschale' && (menu as any)?.drinksPauschaleDescription
-    ? [{ drinkGroup: 'custom' as const, drinkLabel: (menu as any).drinksPauschaleDescription as string, selectedChoice: null, customDrink: null, quantityLabel: null }]
-    : (menu as any)?.drinksMode === 'weinbegleitung' && (menu as any)?.winePairingPrice
-    ? [{ drinkGroup: 'main_drink' as const, drinkLabel: 'Weinbegleitung', selectedChoice: null, customDrink: null, quantityLabel: null }]
-    : [];
-  const drinks: DrinkSelection[] = _drinksLegacy.length > 0 ? _drinksLegacy : [..._drinksEinzeln, ..._drinksExtra];
+  const drinkRows = buildDrinkRows(menu);
   // Pricing-Modus respektieren (siehe andere OptionCard-Variante)
   const isPerEvent = menu?.pricingMode === 'per_event';
   const pricePerPerson = isPerEvent
@@ -1244,7 +1267,7 @@ function FinalOptionCard({
           </div>
         )}
 
-        {drinks.length > 0 && (
+        {drinkRows.length > 0 && (
           <div className={cn("border-t border-border/20 pt-5", courses.length === 0 && "mt-0")}>
             <div className="flex items-center gap-2 mb-4">
               <Wine className="h-3.5 w-3.5 text-primary/40" />
@@ -1252,36 +1275,32 @@ function FinalOptionCard({
                 Getränke
               </h4>
             </div>
-            <div className="space-y-2.5">
-              {drinks.map((drink, i) => {
-                const hasContent = drink.customDrink || drink.selectedChoice;
-                // quantityLabel nur zeigen wenn es keine Redundanz zu "inklusive" ist
-                const qtyIsRedundant = drink.quantityLabel && /^\s*(inklusive|inkl\.?|included)\s*$/i.test(drink.quantityLabel);
-                return (
-                  <div key={i}>
-                    <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
-                      {drink.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : drink.drinkLabel}
-                    </p>
+            <div className="space-y-3">
+              {drinkRows.map((drink, i) => (
+                <div key={i}>
+                  <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
+                    {drink.label}
+                  </p>
+                  <div className="flex items-baseline justify-between gap-3">
                     <p className="font-serif text-sm text-foreground">
-                      {hasContent ? (drink.customDrink || drink.selectedChoice) : (
-                        <span className="text-emerald-700 dark:text-emerald-400 font-sans text-xs font-semibold uppercase tracking-wider">
-                          inklusive
-                        </span>
-                      )}
-                      {drink.quantityLabel && !qtyIsRedundant && (
-                        <span className="text-muted-foreground/50 ml-1">
-                          ({drink.quantityLabel})
-                        </span>
-                      )}
+                      {drink.name}
                     </p>
+                    {drink.price != null && drink.price > 0 && (
+                      <p className="text-sm font-sans font-semibold text-foreground whitespace-nowrap">
+                        {formatCurrencyDecimal(drink.price)}
+                        {drink.priceSuffix && (
+                          <span className="text-xs text-muted-foreground font-normal">{drink.priceSuffix}</span>
+                        )}
+                      </p>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {courses.length === 0 && drinks.length === 0 && (
+        {courses.length === 0 && drinkRows.length === 0 && (
           <div className="border-t border-border/20 pt-5">
             <p className="text-sm text-muted-foreground font-sans italic">
               Menüdetails werden noch zusammengestellt.
