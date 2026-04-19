@@ -190,6 +190,13 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     }
   }, [inquiry.id, builder.offerPhase]);
 
+  // --- Neue Version erstellen ---
+  const handleUnlock = useCallback(async () => {
+    setIsUnlocking(true);
+    await builder.unlockForNewVersion();
+    setIsUnlocking(false);
+  }, [builder.unlockForNewVersion]);
+
   // --- Exponierten Handle für Parent (SmartInquiryEditor) ---
   useImperativeHandle(ref, () => ({
     scrollToEmail: (withGeneration = true) => {
@@ -304,51 +311,26 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         />
       )}
 
-      {/* 4. "Weiter zur E-Mail" Button — bei Menü/Paket, wenn E-Mail-Sektion noch zu */}
-      {!emailSectionOpen && defaultMode !== 'email' && (
-        <div className="flex flex-col items-center gap-2 pt-2">
-          <Button
-            onClick={() => {
-              setEmailSectionOpen(true);
-              if (builder.activeOptions.length > 0) {
-                handleGenerateEmail();
-              }
-              setTimeout(() => {
-                emailSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }, 100);
-            }}
-            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl h-12 text-base gap-2"
-          >
-            <Mail className="h-5 w-5" />
-            Anschreiben erstellen
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-
-        </div>
-      )}
-
-      {/* 4. E-Mail Composer — eingeklappt bis "Weiter" geklickt */}
+      {/* 4. E-Mail Composer — IMMER offen (CX-Refactor: Anschreiben ist Pflichtbestandteil) */}
       <div ref={emailSectionRef}>
-        {emailSectionOpen && (
-          <EmailComposer
-            emailDraft={emailDraft}
-            onChange={handleEmailDraftChange}
-            templates={templates}
-            isGenerating={isGeneratingEmail}
-            onGenerate={handleGenerateEmail}
-            activeOptionsCount={builder.activeOptions.length}
-            customerName={inquiry.contact_name}
-            eventDate={inquiry.preferred_date || undefined}
-            guestCount={inquiry.guest_count || undefined}
-            companyName={inquiry.company_name || undefined}
-            eventType={inquiry.event_type || undefined}
-            roomSelection={inquiry.room_selection || undefined}
-            timeSlot={inquiry.time_slot || undefined}
-            activeOptions={builder.activeOptions}
-            menuItems={builder.menuItems}
-            isLocked={builder.isLocked}
-          />
-        )}
+        <EmailComposer
+          emailDraft={emailDraft}
+          onChange={handleEmailDraftChange}
+          templates={templates}
+          isGenerating={isGeneratingEmail}
+          onGenerate={handleGenerateEmail}
+          activeOptionsCount={builder.activeOptions.length}
+          customerName={inquiry.contact_name}
+          eventDate={inquiry.preferred_date || undefined}
+          guestCount={inquiry.guest_count || undefined}
+          companyName={inquiry.company_name || undefined}
+          eventType={inquiry.event_type || undefined}
+          roomSelection={inquiry.room_selection || undefined}
+          timeSlot={inquiry.time_slot || undefined}
+          activeOptions={builder.activeOptions}
+          menuItems={builder.menuItems}
+          isLocked={builder.isLocked}
+        />
       </div>
 
       {/* 5. Send Controls — nicht auf der Create-Seite (eigene Buttons im DraftPanel) */}
