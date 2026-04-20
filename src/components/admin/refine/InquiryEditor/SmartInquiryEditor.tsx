@@ -469,6 +469,24 @@ export const SmartInquiryEditor = () => {
         toast.error('OfferBuilder nicht bereit — bitte erneut versuchen');
         return;
       }
+      // Sicherheitsnetz: pending Auto-Saves flushen, sonst geht der Versand
+      // mit veralteten Werten raus (z.B. emailDraft noch im Debounce).
+      try {
+        handle.flushSave?.();
+      } catch (flushErr) {
+        console.warn('[SmartInquiryEditor] flushSave before send failed:', flushErr);
+      }
+      // Bevor wir senden: pruefen ob ein Anschreiben existiert. Sonst stuerzen
+      // wir spaeter in der Edge-Function ab und der User sieht nur einen
+      // generischen Fehler. Lieber hier klar sagen.
+      const draft = (emailDraft || inquiry.email_draft || '').trim();
+      if (!draft) {
+        toast.error(
+          'Versand abgebrochen: Kein Anschreiben vorhanden. Bitte erst "KI generieren" oder eine Vorlage waehlen.',
+          { duration: 10000 },
+        );
+        return;
+      }
       try {
         if (sendType === 'final') {
           await handle.triggerSendFinalOffer();
@@ -624,6 +642,7 @@ export const SmartInquiryEditor = () => {
               templates={templates}
               onSave={performSave}
               onFieldChange={handleLocalFieldChange}
+              onEmailContentChange={setEmailDraft}
             />
           ) : (
             /* Catering inquiries use existing flow */

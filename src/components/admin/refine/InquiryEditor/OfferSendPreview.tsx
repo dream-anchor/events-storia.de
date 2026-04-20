@@ -55,6 +55,7 @@ export function OfferSendPreview() {
   const [inquiry, setInquiry] = useState<PreviewInquiry | null>(null);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<DryRunPreview | null>(null);
+  const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
@@ -109,11 +110,29 @@ export function OfferSendPreview() {
           },
         });
         if (cancelled) return;
-        if (error) throw error;
+        // Bei FunctionsHttpError liefert Supabase die JSON-Antwort der Funktion
+        // im error.context.body bzw. error.context.json mit. Wir versuchen
+        // das error-Feld der Edge-Function zu extrahieren bevor wir auf
+        // den generischen "non-2xx"-Text fallback'en.
+        if (error) {
+          let detailed: string | null = null;
+          try {
+            const ctx = (error as { context?: Response }).context;
+            if (ctx && typeof ctx.json === 'function') {
+              const cloned = ctx.clone ? ctx.clone() : ctx;
+              const body = await cloned.json().catch(() => null);
+              if (body && typeof body.error === 'string') detailed = body.error;
+            }
+          } catch {
+            // Body schon konsumiert oder nicht JSON — egal, wir nehmen error.message
+          }
+          throw new Error(detailed || error.message || 'Vorschau konnte nicht erzeugt werden');
+        }
         if (!data?.success || !data?.preview) {
           throw new Error(data?.error || 'Vorschau konnte nicht erzeugt werden');
         }
         setPreview(data.preview as DryRunPreview);
+        setPreviewWarnings(Array.isArray(data.warnings) ? data.warnings as string[] : []);
       } catch (err) {
         if (cancelled) return;
         console.error('[OfferSendPreview] dry-run failed:', err);
@@ -197,7 +216,12 @@ export function OfferSendPreview() {
 
   const sendLabel = sendType === 'proposal' ? 'Vorschlag an Kunde senden' : 'Finales Angebot an Kunde senden';
   const publicOfferUrl = `/offer/${inquiry.id}`;
-  const canSend = !!preview && !previewError;
+  // "Critical" warnings = solche die einen echten Versand blockieren wuerden
+  // (leerer Anschreiben-Text, fehlende Empfaenger-Email). PDF-Warnung ist ok.
+  const hasBlockingWarning = previewWarnings.some(
+    (w) => w.toLowerCase().includes('anschreiben') || w.toLowerCase().includes('empfaenger') || w.toLowerCase().includes('empfänger')
+  );
+  const canSend = !!preview && !previewError && !hasBlockingWarning;
 
   return (
     <AdminLayout activeTab="events" title="Vorschau vor Versand">
@@ -264,6 +288,25 @@ export function OfferSendPreview() {
 
           {preview && !previewLoading && (
             <div className="p-4 space-y-3">
+              {previewWarnings.length > 0 && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm space-y-1">
+                  <div className="font-medium text-amber-900">Hinweise vor dem Versand:</div>
+                  <ul className="list-disc list-inside text-amber-800 text-xs space-y-0.5">
+                    {previewWarnings.map((w, i) => <li key={i}>{w}</li>)}
+                  </ul>
+                  {hasBlockingWarning && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/admin/events/${inquiry.id}/edit`)}
+                      className="gap-2 mt-2"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Zurück & bearbeiten
+                    </Button>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-[100px_1fr] gap-x-4 gap-y-1.5 text-sm">
                 <span className="text-muted-foreground">Von</span>
                 <span className="font-mono">{preview.from}</span>
