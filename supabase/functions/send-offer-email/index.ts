@@ -386,9 +386,20 @@ serve(async (req) => {
 
     // ----- DRY RUN: nur das gerenderte Mail-Objekt zurueckgeben -----
     if (dryRun) {
+      const warnings: string[] = [];
+      if (!emailContent || !emailContent.trim()) {
+        warnings.push('Kein Anschreiben vorhanden — bitte zur Bearbeitung zurueck und Anschreiben erstellen oder generieren.');
+      }
+      if (!customerEmail) {
+        warnings.push('Keine Empfaenger-E-Mail vorhanden.');
+      }
+      if (lexofficeQuotationId && !hasPdf) {
+        warnings.push('LexOffice-PDF noch nicht verfuegbar — wird beim echten Versand erneut versucht.');
+      }
       return new Response(
         JSON.stringify({
           success: true,
+          warnings,
           preview: {
             from: fromAddress,
             to: finalTo,
