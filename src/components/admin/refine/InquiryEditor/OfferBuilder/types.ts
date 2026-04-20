@@ -202,6 +202,17 @@ export function createEmptyOption(
   };
 }
 
+/** Result von sendProposal — wird vom Erfolgs-Modal genutzt (Bug 3). */
+export interface SendProposalResult {
+  emailSent: boolean;
+  recipient: string | null;
+  messageId: string | null;
+  sentAt: string;
+  version: number;
+  lexofficeQuotationId: string | null;
+  errorMessage: string | null;
+}
+
 /** Return type des useOfferBuilder Hooks */
 export interface UseOfferBuilderReturn {
   // State
@@ -236,7 +247,7 @@ export interface UseOfferBuilderReturn {
   unlockForNewVersion: () => Promise<number>;
 
   // Phase-Transitions
-  sendProposal: (emailContent: string) => Promise<void>;
+  sendProposal: (emailContent: string) => Promise<SendProposalResult | void>;
   sendFinalOffer: (emailContent: string) => Promise<void>;
 
   // Computed
