@@ -35,8 +35,8 @@ export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [isInitialized, setIsInitialized] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isInitializedRef = useRef(false);
   // Dedizierter Ref fuer den Init-Effect (nicht verwechseln mit isInitializedRef,
   // der den Auto-Save-Gate kontrolliert). Dieser Ref verhindert dass der
   // lokale State nach jedem DB-Refetch neu aus inquiry ueberschrieben wird
@@ -115,6 +115,7 @@ export const SmartInquiryEditor = () => {
   // initialisiert wird. Muss VOR dem Init-Effect stehen.
   useEffect(() => {
     isInitializedFromDb.current = false;
+    setIsInitialized(false);
   }, [id]);
 
   // Initialize local state from inquiry
