@@ -23,6 +23,7 @@ import { ConversationThread } from "@/components/admin/shared/ConversationThread
 import { PaymentCard } from "./PaymentCard";
 import { PaymentStatusStrip } from "./PaymentStatusStrip";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
+import { SendSuccessDialog, type SendSuccessInfo } from "./SendSuccessDialog";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
 import { MenuSelection } from "./MenuComposer";
