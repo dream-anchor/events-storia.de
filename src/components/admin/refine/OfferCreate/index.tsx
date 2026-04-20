@@ -782,7 +782,7 @@ export const AdminOfferCreate = () => {
                   templates={templates}
                   onSave={async () => {}}
                   isCreateMode={true}
-                  onEmailContentChange={setEmailContent}
+                  onEmailContentChange={handleEmailContentChange}
                 />
               ) : (
                 <Card>
