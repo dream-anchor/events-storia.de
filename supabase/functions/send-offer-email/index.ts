@@ -290,7 +290,7 @@ serve(async (req) => {
           <p style="margin: 0 0 20px; font-size: 16px; color: #555;">
             Ihr persönliches Angebot ist online bereit:
           </p>
-          <a href="${offerUrl}" style="display: inline-block; background-color: #b45309; color: #ffffff; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 999px; text-decoration: none; letter-spacing: 0.02em; box-shadow: 0 4px 12px rgba(180,83,9,0.25);">
+          <a href="${offerUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #b45309; color: #ffffff; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 999px; text-decoration: none; letter-spacing: 0.02em; box-shadow: 0 4px 12px rgba(180,83,9,0.25);">
             Angebot ansehen
           </a>
           <p style="margin: 16px 0 0; font-size: 13px; color: #999;">
@@ -315,7 +315,7 @@ serve(async (req) => {
             <a href="mailto:info@events-storia.de" style="color: #b45309; text-decoration: none;">info@events-storia.de</a>
           </p>
           <p style="margin: 16px 0 0; font-size: 11px; color: #aaa;">
-            <a href="${offerUrl}" style="color: #aaa; word-break: break-all;">${offerUrl}</a>
+            <a href="${offerUrl}" target="_blank" rel="noopener noreferrer" style="color: #aaa; word-break: break-all;">${offerUrl}</a>
           </p>
         </td></tr>
 
