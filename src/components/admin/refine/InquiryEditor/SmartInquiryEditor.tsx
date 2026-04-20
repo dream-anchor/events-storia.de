@@ -44,6 +44,10 @@ export const SmartInquiryEditor = () => {
   // — was zu Save-Endlosschleifen und blinkendem SaveStatusBadge fuehrte.
   const isInitializedFromDb = useRef(false);
   const latestValuesRef = useRef<Record<string, unknown>>({});
+  // Snapshot der zuletzt erfolgreich gespeicherten Werte (als JSON-String).
+  // Verhindert Auto-Save-Endlosschleifen: feuert nur wenn sich der serialisierte
+  // State seit dem letzten Save tatsächlich verändert hat.
+  const lastSavedSnapshotRef = useRef<string | null>(null);
   const consecutiveSaveErrorsRef = useRef(0);
   const errorToastShownRef = useRef(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>();
@@ -150,6 +154,17 @@ export const SmartInquiryEditor = () => {
       // Markiere als initialisiert, damit kuenftige Refetches den State
       // unveraendert lassen. Das verhindert die Auto-Save-Endlosschleife.
       isInitializedFromDb.current = true;
+      // Snapshot des initial geladenen Zustands setzen — Auto-Save vergleicht
+      // gegen diesen Snapshot und feuert nur bei echten User-Änderungen.
+      const initialPersistable = buildPersistableInquiryValues(inquiry as unknown as Record<string, unknown>);
+      lastSavedSnapshotRef.current = JSON.stringify({
+        ...initialPersistable,
+        selected_packages: Array.isArray(inquiry.selected_packages) ? inquiry.selected_packages : [],
+        quote_items: Array.isArray(inquiry.quote_items) ? inquiry.quote_items : [],
+        quote_notes: inquiry.quote_notes || "",
+        email_draft: inquiry.email_draft || "",
+        menu_selection: (inquiry as any).menu_selection || { courses: [], drinks: [] },
+      });
     }
   }, [inquiry, buildPersistableInquiryValues]);
 
@@ -313,13 +328,28 @@ export const SmartInquiryEditor = () => {
     if (consecutiveSaveErrorsRef.current >= 3) return;
 
     const vals = latestValuesRef.current;
+    // Snapshot-Vergleich: Nur speichern wenn sich seit dem letzten Save
+    // wirklich etwas geändert hat. Verhindert Auto-Save-Endlosschleifen
+    // bei Refine-Refetches und unnötige PATCHes nach Mount.
+    const persistableValues = buildPersistableInquiryValues(vals.localInquiry as Record<string, unknown>);
+    const currentSnapshot = JSON.stringify({
+      ...persistableValues,
+      selected_packages: vals.selectedPackages,
+      quote_items: vals.quoteItems,
+      quote_notes: vals.quoteNotes,
+      email_draft: vals.emailDraft,
+      menu_selection: vals.menuSelection,
+    });
+    if (lastSavedSnapshotRef.current === currentSnapshot) {
+      return;
+    }
     setSaveStatus('saving');
 
     updateInquiry({
       resource: "events",
       id,
       values: {
-        ...buildPersistableInquiryValues(vals.localInquiry as Record<string, unknown>),
+        ...persistableValues,
         selected_packages: vals.selectedPackages,
         quote_items: vals.quoteItems,
         quote_notes: vals.quoteNotes,
@@ -329,6 +359,7 @@ export const SmartInquiryEditor = () => {
     }, {
       onSuccess: () => {
         setSaveStatus('saved');
+        lastSavedSnapshotRef.current = currentSnapshot;
         setTimeout(() => setSaveStatus('idle'), 2000);
         consecutiveSaveErrorsRef.current = 0;
         errorToastShownRef.current = false;
@@ -514,7 +545,17 @@ export const SmartInquiryEditor = () => {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inquiry, searchParams, isInitialized, emailDraft, setSearchParams]);
+  }, [
+    inquiry?.id,
+    inquiry?.email,
+    inquiry?.contact_name,
+    inquiry?.lexoffice_quotation_id,
+    inquiry?.email_draft,
+    searchParams,
+    isInitialized,
+    emailDraft,
+    setSearchParams,
+  ]);
 
   // Keyboard shortcuts
   useEditorShortcuts({
