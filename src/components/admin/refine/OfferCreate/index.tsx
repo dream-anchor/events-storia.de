@@ -1,9 +1,8 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Sparkles, Loader2, Send, FileText, PenLine } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, Loader2, FileText, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -12,32 +11,20 @@ import { AdminLayout } from "../AdminLayout";
 import { ContactDataCard } from "./ContactDataCard";
 import { EventDetailsCard } from "./EventDetailsCard";
 import { AISuggestionsCard } from "./AISuggestionsCard";
-import { OfferBuilder } from "../InquiryEditor/OfferBuilder";
-import type { OfferBuilderHandle } from "../InquiryEditor/OfferBuilder";
-import { OfferSendPreview } from "../InquiryEditor/OfferSendPreview";
 import { DraftFormData, ParsedInquiry, SuggestedPackage, SuggestedItem } from "./types";
-import type { ExtendedInquiry, Package, EmailTemplate } from "../InquiryEditor/types";
 import { useRegisterSaveStatus, type SaveStatus } from "@/components/admin/shared/SaveStatusContext";
 
 // ─── Email Safety ──────────────────────────────────────────────────────────────
-// Test emails are NEVER sent to real customers — only to system users
-const SYSTEM_EMAILS = [
-  "antoine@monot.com",
-  "info@ristorantestoria.de",
-  "info@events-storia.de",
-];
 const TEST_REDIRECT_EMAIL = "antoine@monot.com";
 
 // ─── Steps ────────────────────────────────────────────────────────────────────
-
+// Wizard ist auf 2 Schritte reduziert: Eingang + Kontakt/Event-Details.
+// Angebotskonfiguration, E-Mail-Entwurf, Zahlungsbedingungen, Versand laufen
+// alle auf der vollen Edit-Seite (/admin/events/:id/edit), nicht hier.
 const STEPS = [
   { id: 1, label: "Eingang", icon: FileText },
   { id: 2, label: "Kontakt & Event", icon: PenLine },
-  { id: 3, label: "Angebot", icon: Sparkles },
-  { id: 4, label: "Prüfen & Senden", icon: Send },
 ] as const;
-
-// ─── Initial form data ───────────────────────────────────────────────────────
 
 const initialFormData: DraftFormData = {
   contact_name: "",
@@ -53,11 +40,8 @@ const initialFormData: DraftFormData = {
   selected_packages: [],
 };
 
-// ─── Progress Bar ─────────────────────────────────────────────────────────────
-
 const ProgressBar = ({ currentStep }: { currentStep: number }) => (
   <div className="space-y-2">
-    {/* Bar segments */}
     <div className="flex gap-1">
       {STEPS.map((s) => (
         <div
@@ -69,7 +53,6 @@ const ProgressBar = ({ currentStep }: { currentStep: number }) => (
         />
       ))}
     </div>
-    {/* Step labels — visible on desktop, hidden on mobile */}
     <div className="hidden sm:flex justify-between">
       {STEPS.map((s) => {
         const Icon = s.icon;
@@ -87,15 +70,13 @@ const ProgressBar = ({ currentStep }: { currentStep: number }) => (
         );
       })}
     </div>
-    {/* Mobile: only current step */}
     <div className="sm:hidden flex items-center justify-center gap-1.5 text-xs font-medium text-amber-700">
       {(() => { const S = STEPS[currentStep - 1]; const Icon = S.icon; return <><Icon className="h-3 w-3" /> Schritt {S.id}: {S.label}</>; })()}
     </div>
   </div>
 );
 
-// ─── Step 1: Eingang ──────────────────────────────────────────────────────────
-
+// ─── Step 1 ───────────────────────────────────────────────────────────────────
 interface Step1Props {
   rawText: string;
   onRawTextChange: (text: string) => void;
@@ -115,7 +96,6 @@ const Step1Eingang = ({ rawText, onRawTextChange, onExtract, isExtracting, onSki
       </p>
     </div>
 
-    {/* Test-Mode Toggle */}
     <button
       type="button"
       onClick={() => onIsTestChange(!isTest)}
@@ -173,8 +153,7 @@ unser Firmenjubiläum bei Ihnen feiern..."`}
   </div>
 );
 
-// ─── Step 2: Kontakt & Event ──────────────────────────────────────────────────
-
+// ─── Step 2 ───────────────────────────────────────────────────────────────────
 interface Step2Props {
   formData: DraftFormData;
   onFormChange: (updates: Partial<DraftFormData>) => void;
@@ -189,7 +168,6 @@ const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems
 
   return (
     <div className="space-y-4">
-      {/* AI Summary banner */}
       {hasExtracted && aiSummary && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
           <div className="flex items-start gap-2">
@@ -245,10 +223,6 @@ const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems
   );
 };
 
-// ─── Step 4: Prüfen & Senden ──────────────────────────────────────────────────
-// Step 4 nutzt komplett die zentrale OfferSendPreview-Komponente
-// (gleiche WYSIWYG-Vorschau wie auf der Edit-Seite). Kein eigener Send-Code mehr.
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const AdminOfferCreate = () => {
@@ -259,21 +233,15 @@ export const AdminOfferCreate = () => {
   const [suggestions, setSuggestions] = useState<SuggestedPackage[]>([]);
   const [suggestedItems, setSuggestedItems] = useState<SuggestedItem[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isHandingOff, setIsHandingOff] = useState(false);
   const [hasExtracted, setHasExtracted] = useState(false);
-  const [emailContent, setEmailContent] = useState("");
   const [aiSummary, setAiSummary] = useState("");
   const [isTest, setIsTest] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const offerBuilderRef = useRef<OfferBuilderHandle>(null);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const emailDraftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
 
-  // Draft inquiry created on mount
   const [draftInquiryId, setDraftInquiryId] = useState<string | null>(null);
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
 
   useEffect(() => {
     const createDraft = async () => {
@@ -297,172 +265,16 @@ export const AdminOfferCreate = () => {
       setDraftInquiryId(data.id);
     };
 
-    const fetchPackages = async () => {
-      const { data } = await supabase
-        .from("packages")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order");
-      setPackages((data || []) as Package[]);
-    };
-
-    const fetchTemplates = async () => {
-      const { data } = await supabase
-        .from("email_templates")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order");
-      setTemplates((data || []) as unknown as EmailTemplate[]);
-    };
-
     createDraft();
-    fetchPackages();
-    fetchTemplates();
   }, []);
-
-  const hydrateEmailDraftFromDb = useCallback(async () => {
-    if (!draftInquiryId) return;
-
-    const { data, error } = await supabase
-      .from('event_inquiries')
-      .select('email_draft')
-      .eq('id', draftInquiryId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('[OfferCreate] email_draft hydration error:', error);
-      return;
-    }
-
-    setEmailContent(typeof data?.email_draft === 'string' ? data.email_draft : '');
-  }, [draftInquiryId]);
-
-  const persistEmailDraft = useCallback(async (content: string) => {
-    if (!draftInquiryId) return;
-
-    const { error } = await supabase
-      .from('event_inquiries')
-      .update({ email_draft: content || null })
-      .eq('id', draftInquiryId);
-
-    if (error) {
-      console.error('[OfferCreate] email_draft persist error:', error);
-    }
-  }, [draftInquiryId]);
-
-  const flushEmailDraftSave = useCallback(async () => {
-    if (emailDraftSaveTimeoutRef.current) {
-      clearTimeout(emailDraftSaveTimeoutRef.current);
-      emailDraftSaveTimeoutRef.current = null;
-    }
-
-    await persistEmailDraft(emailContent);
-  }, [emailContent, persistEmailDraft]);
-
-  const handleEmailContentChange = useCallback((content: string) => {
-    setEmailContent(content);
-
-    if (!draftInquiryId) return;
-
-    if (emailDraftSaveTimeoutRef.current) {
-      clearTimeout(emailDraftSaveTimeoutRef.current);
-    }
-
-    emailDraftSaveTimeoutRef.current = setTimeout(() => {
-      void persistEmailDraft(content);
-      emailDraftSaveTimeoutRef.current = null;
-    }, 400);
-  }, [draftInquiryId, persistEmailDraft]);
-
-  useEffect(() => {
-    if (step === 3 && draftInquiryId) {
-      void hydrateEmailDraftFromDb();
-    }
-  }, [step, draftInquiryId, hydrateEmailDraftFromDb]);
-
-  useEffect(() => {
-    return () => {
-      if (emailDraftSaveTimeoutRef.current) {
-        clearTimeout(emailDraftSaveTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Minimal ExtendedInquiry for OfferBuilder
-  const draftInquiry = useMemo((): ExtendedInquiry | null => {
-    if (!draftInquiryId) return null;
-    return {
-      id: draftInquiryId,
-      contact_name: formData.contact_name,
-      company_name: formData.company_name || null,
-      email: formData.email,
-      phone: formData.phone || null,
-      guest_count: formData.guest_count || null,
-      event_type: formData.event_type || null,
-      preferred_date: formData.preferred_date || null,
-      event_end_date: formData.event_end_date || null,
-      message: formData.message || null,
-      time_slot: formData.preferred_time || null,
-      source: "manual_entry",
-      status: "new",
-      internal_notes: null,
-      notification_sent: false,
-      created_at: new Date().toISOString(),
-      updated_at: null,
-      inquiry_type: "event",
-      room_selection: null,
-      delivery_street: null,
-      delivery_zip: null,
-      delivery_city: null,
-      delivery_time_slot: null,
-      selected_items: [],
-      selected_packages: [],
-      quote_items: [],
-      quote_notes: null,
-      email_draft: emailContent || null,
-      lexoffice_quotation_id: null,
-      lexoffice_invoice_id: null,
-      lexoffice_document_type: null,
-      lexoffice_contact_id: null,
-      offer_sent_at: null,
-      offer_sent_by: null,
-      current_offer_version: null,
-      last_edited_by: null,
-      last_edited_at: null,
-      venue: null,
-      location_type: 'storia',
-      location_name: null,
-      location_street: null,
-      location_postal_code: null,
-      location_city: null,
-      location_country: 'Deutschland',
-      company_street: null,
-      company_postal_code: null,
-      company_city: null,
-      company_country: 'Deutschland',
-      billing_address_different: false,
-      billing_company_name: null,
-      billing_street: null,
-      billing_postal_code: null,
-      billing_city: null,
-      billing_country: 'Deutschland',
-      deposit_percent: null,
-      deposit_due_days: null,
-      offer_validity_days: null,
-    };
-  }, [draftInquiryId, emailContent, formData]);
 
   const handleFormChange = useCallback((updates: Partial<DraftFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
   }, []);
 
   // ── Auto-Save ────────────────────────────────────────────────────────────────
-  // Debounced Auto-Save: bei jeder formData-Änderung 800ms warten, dann speichern.
-  // Ersetzt den alten Nur speichern (Entwurf)-Button. Status geht über den
-  // zentralen SaveStatus-Context an das Badge im Admin-Header.
   const performAutoSave = useCallback(async () => {
     if (!draftInquiryId) return;
-    // Nur speichern wenn mindestens ein Feld befüllt ist (sonst leerer Draft-Flush)
     const hasContent = formData.contact_name.trim() || formData.email.trim() || formData.message.trim();
     if (!hasContent) {
       setSaveStatus('idle');
@@ -493,7 +305,6 @@ export const AdminOfferCreate = () => {
     }
   }, [draftInquiryId, formData, isTest]);
 
-  // Cmd+S / Navigation-Flush
   const flushAutoSave = useCallback(async () => {
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
@@ -502,7 +313,6 @@ export const AdminOfferCreate = () => {
     await performAutoSave();
   }, [performAutoSave]);
 
-  // Auto-Save trigger: wenn formData sich ändert, 800ms warten, dann speichern
   useEffect(() => {
     if (isInitialLoadRef.current) {
       isInitialLoadRef.current = false;
@@ -518,7 +328,6 @@ export const AdminOfferCreate = () => {
     };
   }, [formData, isTest, draftInquiryId, performAutoSave]);
 
-  // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren
   useRegisterSaveStatus('offer-create', saveStatus, flushAutoSave);
 
   // ── Extract ──────────────────────────────────────────────────────────────────
@@ -566,68 +375,59 @@ export const AdminOfferCreate = () => {
       setHasExtracted(true);
       toast.success("Daten extrahiert!");
 
-      // Auto-advance to step 2
       setStep(2);
     } catch (err) {
       console.error('Extraction error:', err);
       toast.error(err instanceof Error ? err.message : 'Fehler bei der Analyse');
-      // On error: stay on step 1, don't crash
     } finally {
       setIsExtracting(false);
     }
   };
 
-  // ── Save ─────────────────────────────────────────────────────────────────────
-  const saveInquiry = async (status: 'new' | 'offer_sent') => {
-    if (!draftInquiryId) throw new Error('Draft nicht initialisiert');
-
-    const updatePayload: Record<string, unknown> = {
-      contact_name: formData.contact_name,
-      company_name: formData.company_name || null,
-      email: formData.email,
-      phone: formData.phone || null,
-      preferred_date: formData.preferred_date || null,
-      time_slot: formData.preferred_time || null,
-      guest_count: formData.guest_count || null,
-      event_type: formData.event_type || null,
-      message: formData.message || null,
-      status,
-      is_test: isTest || undefined,
-    };
-
-    const { data, error } = await supabase
-      .from('event_inquiries')
-      .update(updatePayload)
-      .eq('id', draftInquiryId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("saveInquiry error:", JSON.stringify(error, null, 2));
-      throw new Error(error.message || JSON.stringify(error));
+  // ── Hand-off zur vollen Edit-Seite ───────────────────────────────────────────
+  // Persistiert die Inquiry final mit status=new/offer_phase=draft, feuert die
+  // Team-Notification (wie früher saveInquiry('new')) und navigiert.
+  const handHandoffToEditor = async () => {
+    if (!draftInquiryId) {
+      toast.error('Draft nicht initialisiert');
+      return;
+    }
+    if (!formData.contact_name.trim() || !formData.email.trim()) {
+      toast.error('Kontaktname und E-Mail werden benötigt');
+      return;
     }
 
-    if (status === 'new') supabase.functions.invoke('receive-event-inquiry', {
-      body: {
-        contactName: formData.contact_name,
-        email: isTest ? TEST_REDIRECT_EMAIL : formData.email,
-        companyName: formData.company_name || undefined,
-        phone: formData.phone || undefined,
-        guestCount: formData.guest_count || undefined,
-        eventType: formData.event_type || undefined,
-        preferredDate: formData.preferred_date || undefined,
-        timeSlot: formData.preferred_time || undefined,
-        message: formData.message || undefined,
-        source: 'manual_entry',
-        skipInsert: true,
-        existingInquiryId: data.id,
-      },
-    }).then(res => {
-      if (res.error) console.error('Notification error:', res.error);
-    });
+    setIsHandingOff(true);
+    try {
+      await flushAutoSave();
 
-    // ALWAYS notify team — regardless of status (auch bei offer_sent)
-    if (status === 'offer_sent') {
+      const { data, error } = await supabase
+        .from('event_inquiries')
+        .update({
+          contact_name: formData.contact_name,
+          company_name: formData.company_name || null,
+          email: formData.email,
+          phone: formData.phone || null,
+          preferred_date: formData.preferred_date || null,
+          event_end_date: formData.event_end_date || null,
+          time_slot: formData.preferred_time || null,
+          guest_count: formData.guest_count || null,
+          event_type: formData.event_type || null,
+          message: formData.message || null,
+          status: 'new',
+          offer_phase: 'draft',
+          is_test: isTest || undefined,
+        })
+        .eq('id', draftInquiryId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[OfferCreate] Handoff update error:', error);
+        throw new Error(error.message || 'Speichern fehlgeschlagen');
+      }
+
+      // Team-Notification (asynchron, blockiert Navigation nicht)
       supabase.functions.invoke('receive-event-inquiry', {
         body: {
           contactName: formData.contact_name,
@@ -638,87 +438,38 @@ export const AdminOfferCreate = () => {
           eventType: formData.event_type || undefined,
           preferredDate: formData.preferred_date || undefined,
           timeSlot: formData.preferred_time || undefined,
-          message: `[Angebot erstellt] ${formData.message || ''}`.trim(),
+          message: formData.message || undefined,
           source: 'manual_entry',
           skipInsert: true,
           existingInquiryId: data.id,
         },
       }).then(res => {
-        if (res.error) console.error('Notification error (offer_sent):', res.error);
+        if (res.error) console.error('Notification error:', res.error);
       });
-    }
 
-    return data;
-  };
-
-  const handleSaveDraft = async () => {
-    setIsSaving(true);
-    try {
-      // Auto-Save ist bereits aktiv. Wir flushen jeden ausstehenden Save
-      // und navigieren dann zum vollen Editor — der User will hier vermutlich
-      // weiterarbeiten, nicht nur speichern.
-      await flushAutoSave();
-      // Falls noch kein Status auf new gesetzt ist (z.B. frischer Draft), einmal saveInquiry triggern
-      const inquiry = await saveInquiry('new');
-      toast.success("Entwurf gespeichert — wechsle zum vollen Editor");
-      navigate(`/admin/events/${inquiry.id}/edit`);
+      toast.success('Anfrage angelegt — wechsle zur Angebotskonfiguration');
+      navigate(`/admin/events/${data.id}/edit`);
     } catch (err) {
-      console.error('Save error:', err);
+      console.error('Handoff error:', err);
       toast.error(err instanceof Error ? err.message : 'Fehler beim Speichern');
-    } finally {
-      setIsSaving(false);
+      setIsHandingOff(false);
     }
   };
 
-  const canSave = !!(formData.contact_name.trim() && formData.email.trim());
+  const canAdvanceFromStep2 = !!formData.contact_name.trim() && !!formData.email.trim();
 
-  // Scroll to top on every step change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [step]);
 
-  // Auto-save when navigating between steps
-  const goToStep = useCallback(async (targetStep: number) => {
-    // Flush OfferBuilder save before navigating away from Step 3
-    if (step === 3) {
-      offerBuilderRef.current?.flushSave();
-      await flushEmailDraftSave();
-    }
-    if (draftInquiryId && formData.contact_name.trim()) {
-      supabase
-        .from('event_inquiries')
-        .update({
-          contact_name: formData.contact_name,
-          company_name: formData.company_name || null,
-          email: formData.email,
-          phone: formData.phone || null,
-          preferred_date: formData.preferred_date || null,
-          time_slot: formData.preferred_time || null,
-          guest_count: formData.guest_count || null,
-          event_type: formData.event_type || null,
-          message: formData.message || null,
-          is_test: isTest || undefined,
-        })
-        .eq('id', draftInquiryId)
-        .then(({ error }) => {
-          if (error) console.error('Auto-save on step change error:', error);
-        });
-    }
-    setStep(targetStep);
-  }, [draftInquiryId, flushEmailDraftSave, formData, isTest, step]);
-
-  // Can advance from step 2 only if contact_name is filled
-  const canAdvanceFromStep2 = !!formData.contact_name.trim();
-
   return (
     <AdminLayout activeTab="events">
       <div className="max-w-2xl mx-auto pb-32 sm:pb-24">
-        {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => step > 1 ? goToStep(step - 1) : navigate('/admin/events')}
+            onClick={() => step > 1 ? setStep(step - 1) : navigate('/admin/events')}
             className="h-9 w-9"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -736,12 +487,10 @@ export const AdminOfferCreate = () => {
           )}
         </div>
 
-        {/* Progress bar */}
         <div className="mb-6">
           <ProgressBar currentStep={step} />
         </div>
 
-        {/* Step content */}
         <div className="min-h-[60vh]">
           {step === 1 && (
             <Step1Eingang
@@ -749,7 +498,7 @@ export const AdminOfferCreate = () => {
               onRawTextChange={setRawText}
               onExtract={handleExtract}
               isExtracting={isExtracting}
-              onSkipToManual={() => goToStep(2)}
+              onSkipToManual={() => setStep(2)}
               isTest={isTest}
               onIsTestChange={setIsTest}
             />
@@ -765,105 +514,33 @@ export const AdminOfferCreate = () => {
               aiSummary={aiSummary}
             />
           )}
-
-          {step === 3 && (
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-lg font-semibold">Angebot erstellen</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Stelle das Menü zusammen oder wähle ein Paket.
-                </p>
-              </div>
-              {draftInquiry ? (
-                <OfferBuilder
-                  ref={offerBuilderRef}
-                  inquiry={draftInquiry}
-                  packages={packages}
-                  templates={templates}
-                  onSave={async () => {}}
-                  isCreateMode={true}
-                  onEmailContentChange={handleEmailContentChange}
-                />
-              ) : (
-                <Card>
-                  <CardContent className="flex items-center justify-center py-12">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
-                    <span className="text-sm text-muted-foreground">Angebots-Editor wird geladen...</span>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {step === 4 && (
-            <>
-              {draftInquiryId ? (
-                <OfferSendPreview
-                  inquiryId={draftInquiryId}
-                  onBack={() => goToStep(3)}
-                  onAfterSend={(inquiryId, query) => {
-                    // Wizard-Versand → Edit-Seite mit confirmed-Trigger,
-                    // gleicher Pfad wie aus dem Edit-Flow
-                    navigate(`/admin/events/${inquiryId}/edit?${query}`);
-                  }}
-                />
-              ) : (
-                <Card>
-                  <CardContent className="flex items-center justify-center py-12">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
-                    <span className="text-sm text-muted-foreground">Vorschau wird geladen...</span>
-                  </CardContent>
-                </Card>
-              )}
-            </>
-          )}
         </div>
 
-        {/* Sticky bottom navigation — Step 2 + 3 (Step 1 hat eigene Action-Buttons, Step 4 hat OfferSendPreview-Buttons) */}
-        {step > 1 && step < 4 && (
+        {/* Sticky bottom: nur Step 2 (Step 1 hat eigene Action-Buttons) */}
+        {step === 2 && (
           <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-3 z-30" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
             <div className="max-w-2xl mx-auto flex items-center gap-2 sm:gap-3">
-              {step > 1 && (
-                <Button
-                  variant="outline"
-                  onClick={() => goToStep(step - 1)}
-                  className="h-12 sm:h-11 px-4"
-                >
-                  <ArrowLeft className="h-4 w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Zurück</span>
-                </Button>
-              )}
-              <div className="flex-1" />
-              {step === 3 && (
-                <Button
-                  variant="outline"
-                  onClick={handleSaveDraft}
-                  disabled={!canSave || isSaving}
-                  className="h-12 sm:h-11 px-4"
-                  title="Inquiry als Entwurf speichern und zum vollen Editor wechseln (kein Versand)"
-                >
-                  {isSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
-                  ) : (
-                    <FileText className="h-4 w-4 sm:mr-2" />
-                  )}
-                  <span className="hidden sm:inline">Nur als Entwurf</span>
-                </Button>
-              )}
               <Button
-                onClick={() => goToStep(step + 1)}
-                disabled={(step === 2 && !canAdvanceFromStep2) || (step === 3 && !canSave)}
-                className="h-12 sm:h-11 px-8 bg-amber-600 hover:bg-amber-700 text-white text-base sm:text-sm"
+                variant="outline"
+                onClick={() => setStep(1)}
+                className="h-12 sm:h-11 px-4"
+                disabled={isHandingOff}
               >
-                {step === 3 ? (
-                  <>
-                    <Send className="h-4 w-4 mr-1.5" />
-                    Vorschau & Senden
-                  </>
+                <ArrowLeft className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Zurück</span>
+              </Button>
+              <div className="flex-1" />
+              <Button
+                onClick={handHandoffToEditor}
+                disabled={!canAdvanceFromStep2 || isHandingOff}
+                className="h-12 sm:h-11 px-6 bg-amber-600 hover:bg-amber-700 text-white text-base sm:text-sm"
+              >
+                {isHandingOff ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Lege an...</>
                 ) : (
                   <>
-                    Weiter
-                    <ArrowRight className="h-4 w-4 ml-1" />
+                    Zur Angebotskonfiguration
+                    <ArrowRight className="h-4 w-4 ml-1.5" />
                   </>
                 )}
               </Button>
