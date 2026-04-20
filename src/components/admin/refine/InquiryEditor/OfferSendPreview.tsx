@@ -46,7 +46,20 @@ interface DryRunPreview {
   attachment: { filename: string; available: boolean };
 }
 
-export function OfferSendPreview() {
+interface OfferSendPreviewProps {
+  /** When provided, uses this id instead of route params. Used by the create-wizard. */
+  inquiryId?: string;
+  /** When provided, replaces the default "Zurück & bearbeiten" navigation. */
+  onBack?: () => void;
+  /** When provided, called after the user clicks "Senden" instead of navigating to /edit. */
+  onAfterSend?: (inquiryId: string, query: string) => void;
+}
+
+export function OfferSendPreview({
+  inquiryId: embeddedInquiryId,
+  onBack,
+  onAfterSend,
+}: OfferSendPreviewProps = {}) {
   const params = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
