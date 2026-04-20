@@ -27,6 +27,8 @@ export interface OfferBuilderHandle {
   triggerSendProposal: () => Promise<void>;
   /** Von Preview-Seite aufgerufen: Final-Offer-Versand direkt auslösen (ohne AlertDialog). */
   triggerSendFinalOffer: () => Promise<void>;
+  /** True sobald Hook fertig hydriert ist (kein isLoading mehr). Verhindert Send-Race. */
+  isReady: () => boolean;
 }
 
 interface OfferBuilderProps {
@@ -235,6 +237,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     triggerSendFinalOffer: async () => {
       await builder.sendFinalOffer(emailDraft);
     },
+    isReady: () => !builder.isLoading,
   }));
 
   // --- Loading ---
