@@ -328,13 +328,28 @@ export const SmartInquiryEditor = () => {
     if (consecutiveSaveErrorsRef.current >= 3) return;
 
     const vals = latestValuesRef.current;
+    // Snapshot-Vergleich: Nur speichern wenn sich seit dem letzten Save
+    // wirklich etwas geändert hat. Verhindert Auto-Save-Endlosschleifen
+    // bei Refine-Refetches und unnötige PATCHes nach Mount.
+    const persistableValues = buildPersistableInquiryValues(vals.localInquiry as Record<string, unknown>);
+    const currentSnapshot = JSON.stringify({
+      ...persistableValues,
+      selected_packages: vals.selectedPackages,
+      quote_items: vals.quoteItems,
+      quote_notes: vals.quoteNotes,
+      email_draft: vals.emailDraft,
+      menu_selection: vals.menuSelection,
+    });
+    if (lastSavedSnapshotRef.current === currentSnapshot) {
+      return;
+    }
     setSaveStatus('saving');
 
     updateInquiry({
       resource: "events",
       id,
       values: {
-        ...buildPersistableInquiryValues(vals.localInquiry as Record<string, unknown>),
+        ...persistableValues,
         selected_packages: vals.selectedPackages,
         quote_items: vals.quoteItems,
         quote_notes: vals.quoteNotes,
@@ -344,6 +359,7 @@ export const SmartInquiryEditor = () => {
     }, {
       onSuccess: () => {
         setSaveStatus('saved');
+        lastSavedSnapshotRef.current = currentSnapshot;
         setTimeout(() => setSaveStatus('idle'), 2000);
         consecutiveSaveErrorsRef.current = 0;
         errorToastShownRef.current = false;
