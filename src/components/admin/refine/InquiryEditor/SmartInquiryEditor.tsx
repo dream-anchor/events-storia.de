@@ -74,6 +74,7 @@ export const SmartInquiryEditor = () => {
   const offerBuilderRef = useRef<OfferBuilderHandle>(null);
   const [selectedOptionInfo, setSelectedOptionInfo] = useState<{ optionLabel: string; packageName: string } | null>(null);
   const [offerTotal, setOfferTotal] = useState<number | null>(null);
+  const [sendSuccess, setSendSuccess] = useState<SendSuccessInfo | null>(null);
 
   const buildPersistableInquiryValues = useCallback((source: Record<string, unknown>) => {
     const {
