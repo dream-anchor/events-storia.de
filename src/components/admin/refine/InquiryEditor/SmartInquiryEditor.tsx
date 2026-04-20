@@ -624,6 +624,7 @@ export const SmartInquiryEditor = () => {
               templates={templates}
               onSave={performSave}
               onFieldChange={handleLocalFieldChange}
+              onEmailContentChange={setEmailDraft}
             />
           ) : (
             /* Catering inquiries use existing flow */
