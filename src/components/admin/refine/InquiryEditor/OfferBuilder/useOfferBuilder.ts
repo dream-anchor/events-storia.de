@@ -1110,6 +1110,17 @@ export function useOfferBuilder({
     } else {
       toast.info('Vorschlag gespeichert (keine E-Mail-Adresse hinterlegt — Link manuell teilen)');
     }
+
+    // Result an Caller (SmartInquiryEditor) zurueckreichen — fuer Erfolgs-Modal (Bug 3).
+    return {
+      emailSent,
+      recipient: customerEmail || null,
+      messageId: emailMessageId,
+      sentAt: new Date().toISOString(),
+      version: newVersion,
+      lexofficeQuotationId,
+      errorMessage: emailErrorMessage,
+    };
   }, [inquiryId, options, currentVersion, createNewVersion, inquiry, packagesProp]);
 
   /** Phase 2: Finales Angebot senden (mit Stripe Payment Links) */
