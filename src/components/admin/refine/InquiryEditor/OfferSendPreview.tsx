@@ -288,6 +288,25 @@ export function OfferSendPreview() {
 
           {preview && !previewLoading && (
             <div className="p-4 space-y-3">
+              {previewWarnings.length > 0 && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm space-y-1">
+                  <div className="font-medium text-amber-900">Hinweise vor dem Versand:</div>
+                  <ul className="list-disc list-inside text-amber-800 text-xs space-y-0.5">
+                    {previewWarnings.map((w, i) => <li key={i}>{w}</li>)}
+                  </ul>
+                  {hasBlockingWarning && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/admin/events/${inquiry.id}/edit`)}
+                      className="gap-2 mt-2"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Zurück & bearbeiten
+                    </Button>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-[100px_1fr] gap-x-4 gap-y-1.5 text-sm">
                 <span className="text-muted-foreground">Von</span>
                 <span className="font-mono">{preview.from}</span>
