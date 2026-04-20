@@ -1059,6 +1059,7 @@ export function useOfferBuilder({
     const customerName = inquiry.contact_name;
     let emailSent = false;
     let emailErrorMessage: string | null = null;
+    let emailMessageId: string | null = null;
 
     if (customerEmail) {
       try {
@@ -1077,6 +1078,7 @@ export function useOfferBuilder({
           }
         );
         emailSent = !emailError && emailResult?.emailSent;
+        emailMessageId = emailResult?.messageId ?? null;
         if (emailError) {
           emailErrorMessage = emailError.message || 'Unbekannter Fehler';
           console.error('[sendProposal] Email send error:', emailError);
