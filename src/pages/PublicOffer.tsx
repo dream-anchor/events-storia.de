@@ -348,7 +348,10 @@ export default function PublicOffer() {
           <AnschreibenSection emailContent={previewBody || inquiry.email_content || ''} />
         )}
 
-        {effectivePhase === "proposal_sent" && (
+        {/* ProposalView: bei proposal_sent (Kunde) ODER im Preview-Modus (Admin-iframe).
+            Im Preview ist previewBody gesetzt — der Admin sieht dann immer die Options,
+            unabhängig von offer_phase (z.B. noch 'draft'). */}
+        {(effectivePhase === "proposal_sent" || previewBody !== null) && (
           <ProposalView
             inquiry={inquiry}
             options={options}
