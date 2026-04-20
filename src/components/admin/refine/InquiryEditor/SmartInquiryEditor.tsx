@@ -855,6 +855,14 @@ export const SmartInquiryEditor = () => {
 
       </Tabs>
 
+      <SendSuccessDialog
+        open={!!sendSuccess}
+        info={sendSuccess}
+        onClose={() => setSendSuccess(null)}
+        onGoToList={() => { setSendSuccess(null); navigate('/admin/events'); }}
+        onGoToOffer={() => { setSendSuccess(null); if (inquiry?.id) window.open(`/offer/${inquiry.id}`, '_blank', 'noopener,noreferrer'); }}
+      />
+
     </AdminLayout>
   );
 };
