@@ -109,7 +109,24 @@ export function OfferSendPreview() {
           },
         });
         if (cancelled) return;
-        if (error) throw error;
+        // Bei FunctionsHttpError liefert Supabase die JSON-Antwort der Funktion
+        // im error.context.body bzw. error.context.json mit. Wir versuchen
+        // das error-Feld der Edge-Function zu extrahieren bevor wir auf
+        // den generischen "non-2xx"-Text fallback'en.
+        if (error) {
+          let detailed: string | null = null;
+          try {
+            const ctx = (error as { context?: Response }).context;
+            if (ctx && typeof ctx.json === 'function') {
+              const cloned = ctx.clone ? ctx.clone() : ctx;
+              const body = await cloned.json().catch(() => null);
+              if (body && typeof body.error === 'string') detailed = body.error;
+            }
+          } catch {
+            // Body schon konsumiert oder nicht JSON — egal, wir nehmen error.message
+          }
+          throw new Error(detailed || error.message || 'Vorschau konnte nicht erzeugt werden');
+        }
         if (!data?.success || !data?.preview) {
           throw new Error(data?.error || 'Vorschau konnte nicht erzeugt werden');
         }
