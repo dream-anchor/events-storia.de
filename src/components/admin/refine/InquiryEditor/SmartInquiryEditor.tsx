@@ -23,6 +23,7 @@ import { ConversationThread } from "@/components/admin/shared/ConversationThread
 import { PaymentCard } from "./PaymentCard";
 import { PaymentStatusStrip } from "./PaymentStatusStrip";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
+import { SendSuccessDialog, type SendSuccessInfo } from "./SendSuccessDialog";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
 import { MenuSelection } from "./MenuComposer";
@@ -73,6 +74,7 @@ export const SmartInquiryEditor = () => {
   const offerBuilderRef = useRef<OfferBuilderHandle>(null);
   const [selectedOptionInfo, setSelectedOptionInfo] = useState<{ optionLabel: string; packageName: string } | null>(null);
   const [offerTotal, setOfferTotal] = useState<number | null>(null);
+  const [sendSuccess, setSendSuccess] = useState<SendSuccessInfo | null>(null);
 
   const buildPersistableInquiryValues = useCallback((source: Record<string, unknown>) => {
     const {
@@ -508,6 +510,29 @@ export const SmartInquiryEditor = () => {
         toast.error('OfferBuilder nicht bereit — bitte erneut versuchen');
         return;
       }
+      // =================================================================
+      // RACE-CONDITION-GUARD (Bug 1): warten bis OfferBuilder hydriert ist.
+      // Wenn der Wizard mit confirmed=1 navigiert, mountet der Editor und
+      // der Hook lädt async aus der DB. Frueher feuerte der Send sofort
+      // gegen ein leeres options-Array → Angebot wurde geleert.
+      // Wir warten hier bis isReady() === true (max. 8 s).
+      // =================================================================
+      const waitForReady = async (): Promise<boolean> => {
+        const deadline = Date.now() + 8000;
+        while (Date.now() < deadline) {
+          if (offerBuilderRef.current?.isReady?.()) return true;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        return false;
+      };
+      const ready = await waitForReady();
+      if (!ready) {
+        toast.error(
+          'OfferBuilder konnte nicht rechtzeitig geladen werden. Bitte Seite neu laden und erneut versuchen.',
+          { duration: 12000 },
+        );
+        return;
+      }
       // Sicherheitsnetz: pending Auto-Saves flushen, sonst geht der Versand
       // mit veralteten Werten raus (z.B. emailDraft noch im Debounce).
       try {
@@ -528,13 +553,24 @@ export const SmartInquiryEditor = () => {
       }
       try {
         toast.loading('Angebot wird versendet …', { id: 'offer-send-progress' });
+        let result: unknown;
         if (sendType === 'final') {
           await handle.triggerSendFinalOffer();
         } else {
-          await handle.triggerSendProposal();
+          result = await handle.triggerSendProposal();
         }
         sessionStorage.setItem(triggerKey, String(Date.now()));
         toast.dismiss('offer-send-progress');
+        // Bug 3: Erfolgs-Modal mit Empfaenger / Zeit / Resend-ID
+        if (sendType !== 'final' && result && typeof result === 'object') {
+          const r = result as { emailSent?: boolean; recipient?: string | null; messageId?: string | null; sentAt?: string };
+          setSendSuccess({
+            emailSent: !!r.emailSent,
+            recipient: r.recipient ?? inquiry.email ?? null,
+            messageId: r.messageId ?? null,
+            sentAt: r.sentAt ?? new Date().toISOString(),
+          });
+        }
       } catch (err) {
         console.error('[SmartInquiryEditor] Send trigger failed:', err, {
           inquiryId: inquiry.id,
@@ -818,6 +854,14 @@ export const SmartInquiryEditor = () => {
         </TabsContent>
 
       </Tabs>
+
+      <SendSuccessDialog
+        open={!!sendSuccess}
+        info={sendSuccess}
+        onClose={() => setSendSuccess(null)}
+        onGoToList={() => { setSendSuccess(null); navigate('/admin/events'); }}
+        onGoToOffer={() => { setSendSuccess(null); if (inquiry?.id) window.open(`/offer/${inquiry.id}`, '_blank', 'noopener,noreferrer'); }}
+      />
 
     </AdminLayout>
   );

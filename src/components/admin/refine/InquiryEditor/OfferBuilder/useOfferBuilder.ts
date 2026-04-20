@@ -124,6 +124,30 @@ async function saveOptionsToDb(
   const existingIds = new Set((existingRows || []).map(r => r.id));
   const newIds = new Set(options.map(o => o.id));
 
+  // =================================================================
+  // SAFETY NET: niemals einen "leeren" Save persistieren wenn die DB
+  // bereits Optionen für diese Inquiry hat. Das wuerde bedeuten dass
+  // ein Render-Race zwischen Mount/Hydration und Send-Trigger das
+  // gesamte Angebot lautlos wegwirft (siehe Bug 1, Inquiry e2dbb511).
+  //
+  // Wir loggen den Fall sichtbar und werfen — sendProposal faengt
+  // diese Exception und zeigt dem Admin einen harten Fehler.
+  // =================================================================
+  if (options.length === 0 && existingIds.size > 0) {
+    const msg =
+      `[saveOptionsToDb] Abort: leeres options-Array, aber DB hat ${existingIds.size} Eintrag(e) ` +
+      `fuer inquiry ${inquiryId}. Kein Save ausgefuehrt.`;
+    console.error(msg, { inquiryId, existingDbIds: [...existingIds] });
+    toast.error(
+      'Speichern abgebrochen: das Angebot waere geloescht worden. ' +
+      'Bitte Seite neu laden.',
+      { id: 'save-empty-abort', duration: 12000 },
+    );
+    throw new Error(
+      'Empty options array would erase existing offer in DB — save aborted to protect data.',
+    );
+  }
+
   // 2. IDs die gelöscht werden müssen (in DB, aber nicht mehr im neuen State)
   const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
 
@@ -940,6 +964,30 @@ export function useOfferBuilder({
 
   /** Phase 1: Vorschlag senden (ohne Stripe) — erstellt LexOffice-Angebot + sendet Email */
   const sendProposal = useCallback(async (emailContent: string) => {
+    // =================================================================
+    // RACE-CONDITION-GUARD (Bug 1):
+    // Wenn der Send-Trigger zu frueh feuert (Wizard → confirmed=1 vor
+    // Hydration), ist `options` noch [] obwohl in der DB schon Eintraege
+    // existieren. Ohne Schutz wuerde saveOptionsToDb das Angebot leeren.
+    // Wir pruefen hier explizit gegen die DB und brechen mit klarem
+    // Fehler ab, statt stillschweigend Daten zu verlieren.
+    // =================================================================
+    if (options.length === 0) {
+      const { data: dbRows } = await supabase
+        .from('inquiry_offer_options')
+        .select('id')
+        .eq('inquiry_id', inquiryId);
+      if (dbRows && dbRows.length > 0) {
+        const msg = `[sendProposal] Abort: lokaler State hat 0 Optionen, DB hat ${dbRows.length}. Hydration noch nicht abgeschlossen.`;
+        console.error(msg, { inquiryId });
+        toast.error(
+          'Versand abgebrochen: Angebot wird noch geladen. Bitte 2 Sekunden warten und erneut klicken.',
+          { duration: 12000 },
+        );
+        throw new Error('OfferBuilder not yet hydrated — refusing to send empty offer.');
+      }
+    }
+
     // Schritt 1: Lokalen Save erzwingen — wenn der fehlschlägt, wird nicht versendet
     try {
       await saveOptionsToDb(inquiryId, options, currentVersion);
@@ -947,7 +995,9 @@ export function useOfferBuilder({
       console.error('[sendProposal] saveOptionsToDb failed:', saveErr);
       const msg = saveErr instanceof Error ? saveErr.message : 'Unbekannter Fehler';
       toast.error(`Vorschlag konnte nicht gesendet werden: Speichern fehlgeschlagen (${msg})`);
-      return;
+      // HART abbrechen — Exception nach oben werfen, damit der Caller
+      // (SmartInquiryEditor) den Fehler sieht und den Erfolgs-Modal NICHT zeigt.
+      throw saveErr instanceof Error ? saveErr : new Error(msg);
     }
 
     // Schritt 2: Version anlegen + Versandzeitpunkt setzen
@@ -1009,6 +1059,7 @@ export function useOfferBuilder({
     const customerName = inquiry.contact_name;
     let emailSent = false;
     let emailErrorMessage: string | null = null;
+    let emailMessageId: string | null = null;
 
     if (customerEmail) {
       try {
@@ -1027,6 +1078,7 @@ export function useOfferBuilder({
           }
         );
         emailSent = !emailError && emailResult?.emailSent;
+        emailMessageId = emailResult?.messageId ?? null;
         if (emailError) {
           emailErrorMessage = emailError.message || 'Unbekannter Fehler';
           console.error('[sendProposal] Email send error:', emailError);
@@ -1060,6 +1112,17 @@ export function useOfferBuilder({
     } else {
       toast.info('Vorschlag gespeichert (keine E-Mail-Adresse hinterlegt — Link manuell teilen)');
     }
+
+    // Result an Caller (SmartInquiryEditor) zurueckreichen — fuer Erfolgs-Modal (Bug 3).
+    return {
+      emailSent,
+      recipient: customerEmail || null,
+      messageId: emailMessageId,
+      sentAt: new Date().toISOString(),
+      version: newVersion,
+      lexofficeQuotationId,
+      errorMessage: emailErrorMessage,
+    };
   }, [inquiryId, options, currentVersion, createNewVersion, inquiry, packagesProp]);
 
   /** Phase 2: Finales Angebot senden (mit Stripe Payment Links) */

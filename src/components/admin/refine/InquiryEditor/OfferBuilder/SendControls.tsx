@@ -21,7 +21,7 @@ interface SendControlsProps {
   emailDraft: string;
   activeOptionsCount: number;
   isSending: boolean;
-  onSendProposal: (emailContent: string) => Promise<void>;
+  onSendProposal: (emailContent: string) => Promise<unknown>;
   onSendFinalOffer: (emailContent: string) => Promise<void>;
   hasHistory?: boolean;
   /** True wenn das Angebot bereits versendet wurde und jetzt lokale Änderungen vorliegen */
