@@ -726,26 +726,33 @@ export const AdminOfferCreate = () => {
           )}
 
           {step === 4 && (
-            <Step4Review
-              formData={formData}
-              onFormChange={handleFormChange}
-              onSaveAndSend={handleSaveAndSend}
-              onSaveDraft={handleSaveDraft}
-              isSaving={isSaving}
-              isSending={isSending}
-              canSave={canSave}
-              draftInquiry={draftInquiry}
-              emailContent={emailContent}
-              isTest={isTest}
-              onGoToStep={goToStep}
-            />
+            <>
+              {draftInquiryId ? (
+                <OfferSendPreview
+                  inquiryId={draftInquiryId}
+                  onBack={() => goToStep(3)}
+                  onAfterSend={(inquiryId, query) => {
+                    // Wizard-Versand → Edit-Seite mit confirmed-Trigger,
+                    // gleicher Pfad wie aus dem Edit-Flow
+                    navigate(`/admin/events/${inquiryId}/edit?${query}`);
+                  }}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="flex items-center justify-center py-12">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+                    <span className="text-sm text-muted-foreground">Vorschau wird geladen...</span>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
         </div>
 
-        {/* Sticky bottom navigation — nur bei Step 2 und 3 (Step 1 hat eigene Action-Buttons, Step 4 hat eigene Buttons) */}
+        {/* Sticky bottom navigation — Step 2 + 3 (Step 1 hat eigene Action-Buttons, Step 4 hat OfferSendPreview-Buttons) */}
         {step > 1 && step < 4 && (
           <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-3 z-30" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
-            <div className="max-w-2xl mx-auto flex items-center gap-3">
+            <div className="max-w-2xl mx-auto flex items-center gap-2 sm:gap-3">
               {step > 1 && (
                 <Button
                   variant="outline"
@@ -757,13 +764,38 @@ export const AdminOfferCreate = () => {
                 </Button>
               )}
               <div className="flex-1" />
+              {step === 3 && (
+                <Button
+                  variant="outline"
+                  onClick={handleSaveDraft}
+                  disabled={!canSave || isSaving}
+                  className="h-12 sm:h-11 px-4"
+                  title="Inquiry als Entwurf speichern und zum vollen Editor wechseln (kein Versand)"
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+                  ) : (
+                    <FileText className="h-4 w-4 sm:mr-2" />
+                  )}
+                  <span className="hidden sm:inline">Nur als Entwurf</span>
+                </Button>
+              )}
               <Button
                 onClick={() => goToStep(step + 1)}
-                disabled={step === 2 && !canAdvanceFromStep2}
+                disabled={(step === 2 && !canAdvanceFromStep2) || (step === 3 && !canSave)}
                 className="h-12 sm:h-11 px-8 bg-amber-600 hover:bg-amber-700 text-white text-base sm:text-sm"
               >
-                {step === 3 ? 'Zur Zusammenfassung' : 'Weiter'}
-                <ArrowRight className="h-4 w-4 ml-1" />
+                {step === 3 ? (
+                  <>
+                    <Send className="h-4 w-4 mr-1.5" />
+                    Vorschau & Senden
+                  </>
+                ) : (
+                  <>
+                    Weiter
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
