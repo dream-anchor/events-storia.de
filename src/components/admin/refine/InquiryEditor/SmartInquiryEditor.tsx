@@ -545,7 +545,17 @@ export const SmartInquiryEditor = () => {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inquiry, searchParams, isInitialized, emailDraft, setSearchParams]);
+  }, [
+    inquiry?.id,
+    inquiry?.email,
+    inquiry?.contact_name,
+    inquiry?.lexoffice_quotation_id,
+    inquiry?.email_draft,
+    searchParams,
+    isInitialized,
+    emailDraft,
+    setSearchParams,
+  ]);
 
   // Keyboard shortcuts
   useEditorShortcuts({
