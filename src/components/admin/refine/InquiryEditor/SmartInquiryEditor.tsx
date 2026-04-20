@@ -553,13 +553,24 @@ export const SmartInquiryEditor = () => {
       }
       try {
         toast.loading('Angebot wird versendet …', { id: 'offer-send-progress' });
+        let result: unknown;
         if (sendType === 'final') {
           await handle.triggerSendFinalOffer();
         } else {
-          await handle.triggerSendProposal();
+          result = await handle.triggerSendProposal();
         }
         sessionStorage.setItem(triggerKey, String(Date.now()));
         toast.dismiss('offer-send-progress');
+        // Bug 3: Erfolgs-Modal mit Empfaenger / Zeit / Resend-ID
+        if (sendType !== 'final' && result && typeof result === 'object') {
+          const r = result as { emailSent?: boolean; recipient?: string | null; messageId?: string | null; sentAt?: string };
+          setSendSuccess({
+            emailSent: !!r.emailSent,
+            recipient: r.recipient ?? inquiry.email ?? null,
+            messageId: r.messageId ?? null,
+            sentAt: r.sentAt ?? new Date().toISOString(),
+          });
+        }
       } catch (err) {
         console.error('[SmartInquiryEditor] Send trigger failed:', err, {
           inquiryId: inquiry.id,
