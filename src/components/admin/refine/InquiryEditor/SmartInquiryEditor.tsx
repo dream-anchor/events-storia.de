@@ -508,6 +508,29 @@ export const SmartInquiryEditor = () => {
         toast.error('OfferBuilder nicht bereit — bitte erneut versuchen');
         return;
       }
+      // =================================================================
+      // RACE-CONDITION-GUARD (Bug 1): warten bis OfferBuilder hydriert ist.
+      // Wenn der Wizard mit confirmed=1 navigiert, mountet der Editor und
+      // der Hook lädt async aus der DB. Frueher feuerte der Send sofort
+      // gegen ein leeres options-Array → Angebot wurde geleert.
+      // Wir warten hier bis isReady() === true (max. 8 s).
+      // =================================================================
+      const waitForReady = async (): Promise<boolean> => {
+        const deadline = Date.now() + 8000;
+        while (Date.now() < deadline) {
+          if (offerBuilderRef.current?.isReady?.()) return true;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        return false;
+      };
+      const ready = await waitForReady();
+      if (!ready) {
+        toast.error(
+          'OfferBuilder konnte nicht rechtzeitig geladen werden. Bitte Seite neu laden und erneut versuchen.',
+          { duration: 12000 },
+        );
+        return;
+      }
       // Sicherheitsnetz: pending Auto-Saves flushen, sonst geht der Versand
       // mit veralteten Werten raus (z.B. emailDraft noch im Debounce).
       try {
