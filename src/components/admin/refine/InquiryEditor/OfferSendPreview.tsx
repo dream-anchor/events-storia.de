@@ -258,7 +258,7 @@ export function OfferSendPreview({
   const canSend = !!preview && !previewError && !hasBlockingWarning;
 
   return (
-    <AdminLayout activeTab="events" title="Vorschau vor Versand">
+    <Wrapper>
       <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
@@ -266,7 +266,7 @@ export function OfferSendPreview({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate(`/admin/events/${inquiry.id}/edit`)}
+              onClick={handleBack}
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -311,7 +311,7 @@ export function OfferSendPreview({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate(`/admin/events/${inquiry.id}/edit`)}
+                onClick={handleBack}
                 className="gap-2"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -332,7 +332,7 @@ export function OfferSendPreview({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigate(`/admin/events/${inquiry.id}/edit`)}
+                      onClick={handleBack}
                       className="gap-2 mt-2"
                     >
                       <ArrowLeft className="h-4 w-4" />
@@ -438,7 +438,7 @@ export function OfferSendPreview({
           <div className="rounded-xl border bg-card/95 backdrop-blur shadow-lg p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <Button
               variant="outline"
-              onClick={() => navigate(`/admin/events/${inquiry.id}/edit`)}
+              onClick={handleBack}
               disabled={isSending || isTestSending}
               className="gap-2"
             >
