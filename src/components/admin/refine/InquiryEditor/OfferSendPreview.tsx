@@ -47,10 +47,20 @@ interface DryRunPreview {
 }
 
 export function OfferSendPreview() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sendType = (searchParams.get('send') as SendType) || 'proposal';
+
+  // Allow embedding via props (Wizard) — fall back to route params (standalone /admin/events/:id/preview)
+  const id = embeddedInquiryId ?? params.id;
+  const handleBack = onBack
+    ? onBack
+    : () => id && navigate(`/admin/events/${id}/edit`);
+  const handleAfterSend = onAfterSend
+    ? onAfterSend
+    : (inquiryId: string, query: string) =>
+        navigate(`/admin/events/${inquiryId}/edit?${query}`);
 
   const [inquiry, setInquiry] = useState<PreviewInquiry | null>(null);
   const [loading, setLoading] = useState(true);
