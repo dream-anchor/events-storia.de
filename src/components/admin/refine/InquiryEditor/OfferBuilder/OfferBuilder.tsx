@@ -184,6 +184,18 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       if (error) throw error;
       if (data?.email) {
         handleEmailDraftChange(data.email);
+        // Belt-and-suspenders: direkt in die DB schreiben, falls der
+        // Auto-Save-Cascade aus irgendeinem Grund nicht greift (z.B. Parent
+        // hat onEmailContentChange nicht durchgereicht). So bleibt der
+        // generierte Text auch nach Reload erhalten.
+        try {
+          await supabase
+            .from('event_inquiries')
+            .update({ email_draft: data.email } as Record<string, unknown>)
+            .eq('id', inquiry.id);
+        } catch (persistErr) {
+          console.warn('[OfferBuilder] direct email_draft persist failed:', persistErr);
+        }
         toast.success("E-Mail generiert");
       }
     } catch (err) {
@@ -192,7 +204,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     } finally {
       setIsGeneratingEmail(false);
     }
-  }, [inquiry.id, builder.offerPhase]);
+  }, [inquiry.id, builder.offerPhase, handleEmailDraftChange]);
 
   // --- Neue Version erstellen ---
   const handleUnlock = useCallback(async () => {
