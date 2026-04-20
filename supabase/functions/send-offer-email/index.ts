@@ -204,8 +204,25 @@ serve(async (req) => {
     const body = await req.json() as SendOfferEmailRequest;
     const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug, lexofficeQuotationId, isTestPreview, dryRun } = body;
 
-    if (!inquiryId || !emailContent || !customerEmail) {
-      throw new Error('inquiryId, emailContent and customerEmail are required');
+    // Im dryRun reicht es wenn die Inquiry existiert — emailContent / customerEmail
+    // duerfen leer sein. Wir liefern dann eine Vorschau mit Warnungen zurueck,
+    // damit das UI dem Admin sagen kann was noch fehlt (statt eines harten 400).
+    if (!inquiryId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'inquiryId is required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 },
+      );
+    }
+    if (!dryRun && (!emailContent || !customerEmail)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: !emailContent
+            ? 'Kein Anschreiben vorhanden. Bitte zur Bearbeitung zurueck und Anschreiben erstellen oder generieren.'
+            : 'Keine Empfaenger-E-Mail vorhanden.',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 },
+      );
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
