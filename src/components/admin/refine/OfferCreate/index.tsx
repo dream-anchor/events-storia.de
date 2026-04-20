@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Sparkles, Loader2, Send, FileText, PenLine, AlertCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, Loader2, Send, FileText, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { EventDetailsCard } from "./EventDetailsCard";
 import { AISuggestionsCard } from "./AISuggestionsCard";
 import { OfferBuilder } from "../InquiryEditor/OfferBuilder";
 import type { OfferBuilderHandle } from "../InquiryEditor/OfferBuilder";
+import { OfferSendPreview } from "../InquiryEditor/OfferSendPreview";
 import { DraftFormData, ParsedInquiry, SuggestedPackage, SuggestedItem } from "./types";
 import type { ExtendedInquiry, Package, EmailTemplate } from "../InquiryEditor/types";
 import { useRegisterSaveStatus, type SaveStatus } from "@/components/admin/shared/SaveStatusContext";
