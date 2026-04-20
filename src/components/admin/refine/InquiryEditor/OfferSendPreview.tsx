@@ -55,6 +55,7 @@ export function OfferSendPreview() {
   const [inquiry, setInquiry] = useState<PreviewInquiry | null>(null);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<DryRunPreview | null>(null);
+  const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
@@ -131,6 +132,7 @@ export function OfferSendPreview() {
           throw new Error(data?.error || 'Vorschau konnte nicht erzeugt werden');
         }
         setPreview(data.preview as DryRunPreview);
+        setPreviewWarnings(Array.isArray(data.warnings) ? data.warnings as string[] : []);
       } catch (err) {
         if (cancelled) return;
         console.error('[OfferSendPreview] dry-run failed:', err);
