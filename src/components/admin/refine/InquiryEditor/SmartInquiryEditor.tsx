@@ -37,9 +37,10 @@ export const SmartInquiryEditor = () => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [isInitialized, setIsInitialized] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Dedizierter Ref fuer den Init-Effect (nicht verwechseln mit isInitializedRef,
-  // der den Auto-Save-Gate kontrolliert). Dieser Ref verhindert dass der
-  // lokale State nach jedem DB-Refetch neu aus inquiry ueberschrieben wird
+  // Dedizierter Ref fuer den Init-Effect. Dieser Ref verhindert dass der
+  // lokale State nach jedem DB-Refetch neu aus inquiry ueberschrieben wird.
+  // Das eigentliche Auto-Save-/Send-Gate ist bewusst REAKTIV via State gelöst,
+  // damit der Send-Trigger-Effect nach der Initialisierung erneut laufen kann.
   // — was zu Save-Endlosschleifen und blinkendem SaveStatusBadge fuehrte.
   const isInitializedFromDb = useRef(false);
   const latestValuesRef = useRef<Record<string, unknown>>({});
@@ -306,7 +307,7 @@ export const SmartInquiryEditor = () => {
 
   // Stabile Save-Funktion — ändert sich NIE, liest aus Ref
   const performSave = useCallback(async () => {
-    if (!id || !isInitializedRef.current) return;
+    if (!id || !isInitialized) return;
 
     // Retry-Stopp: nach 3 Fehlschlägen in Folge nicht mehr automatisch speichern
     if (consecutiveSaveErrorsRef.current >= 3) return;
@@ -359,11 +360,11 @@ export const SmartInquiryEditor = () => {
         }
       },
     });
-  }, [buildPersistableInquiryValues, id, updateInquiry]);
+  }, [buildPersistableInquiryValues, id, isInitialized, updateInquiry]);
 
   // Auto-save: Debounce auf 1.2s, performSave ist STABIL → kein Re-Trigger
   useEffect(() => {
-    if (!isInitializedRef.current) return;
+    if (!isInitialized) return;
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -378,16 +379,17 @@ export const SmartInquiryEditor = () => {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [localInquiry, selectedPackages, quoteItems, quoteNotes, emailDraft, menuSelection, performSave]);
+  }, [localInquiry, selectedPackages, quoteItems, quoteNotes, emailDraft, menuSelection, performSave, isInitialized]);
 
   // Mark as initialized after first load
   useEffect(() => {
-    if (inquiry && !isInitializedRef.current) {
-      setTimeout(() => {
-        isInitializedRef.current = true;
+    if (inquiry && !isInitialized) {
+      const timeoutId = setTimeout(() => {
+        setIsInitialized(true);
       }, 100);
+      return () => clearTimeout(timeoutId);
     }
-  }, [inquiry]);
+  }, [inquiry, isInitialized]);
 
   // --------------------------------------------------------------------
   // Preview-Rueckkehr: Send-Flow triggern wenn User auf "Jetzt senden"
@@ -405,12 +407,12 @@ export const SmartInquiryEditor = () => {
     const confirmed = searchParams.get('confirmed');
     const sendType = searchParams.get('send');
     if (!confirmed || !sendType) return;
-    if (!inquiry || !isInitializedRef.current) return;
+    if (!inquiry || !isInitialized) return;
     if (sendTriggerHandledRef.current) return;
 
     // F5-Schutz: einmal getriggerte Kombinationen werden pro Browser-Session
-    // fuer 10 Sekunden als "schon erledigt" markiert (verhindert Doppel-Versand
-    // bei F5 direkt nach Navigation, erlaubt aber spaeter erneute Vorschau).
+    // fuer 10 Sekunden als "schon erledigt" markiert — ABER erst NACH einem
+    // erfolgreichen Versand. So blockieren wir keine kaputten Fehlversuche.
     const triggerKey = `send-triggered:${inquiry.id}:${sendType}:${confirmed}`;
     const lastTrigger = sessionStorage.getItem(triggerKey);
     if (lastTrigger && Date.now() - parseInt(lastTrigger, 10) < 10_000) {
@@ -421,12 +423,16 @@ export const SmartInquiryEditor = () => {
     }
 
     sendTriggerHandledRef.current = true;
-    sessionStorage.setItem(triggerKey, String(Date.now()));
 
     // URL SOFORT bereinigen — synchron, vor jedem await.
     // Das verhindert dass bei einem Re-Render waehrend des async-Calls
     // der Effect nochmal triggert.
     setSearchParams({}, { replace: true });
+    console.info('[SmartInquiryEditor] Send-Trigger aktiviert', {
+      confirmed,
+      sendType,
+      inquiryId: inquiry.id,
+    });
 
     (async () => {
       if (confirmed === 'test') {
@@ -454,6 +460,7 @@ export const SmartInquiryEditor = () => {
           } else {
             toast.success('Vorschau-Mail gesendet', { duration: 6000 });
           }
+          sessionStorage.setItem(triggerKey, String(Date.now()));
           if (data && data.emailSent === false) {
             toast.error(`Resend meldet Fehler: ${data.errorMessage || 'Unbekannt'}`, { duration: 10000 });
           }
@@ -489,18 +496,25 @@ export const SmartInquiryEditor = () => {
         return;
       }
       try {
+        toast.loading('Angebot wird versendet …', { id: 'offer-send-progress' });
         if (sendType === 'final') {
           await handle.triggerSendFinalOffer();
         } else {
           await handle.triggerSendProposal();
         }
+        sessionStorage.setItem(triggerKey, String(Date.now()));
+        toast.dismiss('offer-send-progress');
       } catch (err) {
-        console.error('[SmartInquiryEditor] Send trigger failed:', err);
+        console.error('[SmartInquiryEditor] Send trigger failed:', err, {
+          inquiryId: inquiry.id,
+          sendType,
+        });
+        toast.dismiss('offer-send-progress');
         toast.error(err instanceof Error ? err.message : 'Versand fehlgeschlagen');
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inquiry?.id, searchParams]);
+  }, [inquiry, searchParams, isInitialized, emailDraft, setSearchParams]);
 
   // Keyboard shortcuts
   useEditorShortcuts({
