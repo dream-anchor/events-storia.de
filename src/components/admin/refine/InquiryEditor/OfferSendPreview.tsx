@@ -204,7 +204,7 @@ export function OfferSendPreview({
     };
   }, [inquiry?.lexoffice_quotation_id]);
 
-  // Senden = zurück zur Edit-Seite mit send=… Query
+  // Senden = an Edit-Seite delegieren (oder onAfterSend-Callback im Embed)
   const handleSend = (isTest: boolean) => {
     if (!inquiry) return;
     if (isTest) setIsTestSending(true); else setIsSending(true);
@@ -213,27 +213,38 @@ export function OfferSendPreview({
       confirmed: isTest ? 'test' : '1',
     }).toString();
     setTimeout(() => {
-      navigate(`/admin/events/${inquiry.id}/edit?${query}`);
+      handleAfterSend(inquiry.id, query);
     }, 150);
   };
 
+  // Im embedded-Modus (Wizard) liefert der Caller bereits den AdminLayout-Wrapper
+  const embedded = !!embeddedInquiryId;
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
+    embedded ? (
+      <>{children}</>
+    ) : (
+      <AdminLayout activeTab="events" title="Vorschau vor Versand">
+        {children}
+      </AdminLayout>
+    );
+
   if (loading) {
     return (
-      <AdminLayout activeTab="events" title="Vorschau">
+      <Wrapper>
         <div className="flex items-center justify-center min-h-[60vh]">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </AdminLayout>
+      </Wrapper>
     );
   }
 
   if (!inquiry) {
     return (
-      <AdminLayout activeTab="events" title="Vorschau">
+      <Wrapper>
         <div className="p-8 text-center text-muted-foreground">
           Anfrage nicht gefunden.
         </div>
-      </AdminLayout>
+      </Wrapper>
     );
   }
 
