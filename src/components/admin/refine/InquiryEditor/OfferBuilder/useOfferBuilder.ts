@@ -124,6 +124,30 @@ async function saveOptionsToDb(
   const existingIds = new Set((existingRows || []).map(r => r.id));
   const newIds = new Set(options.map(o => o.id));
 
+  // =================================================================
+  // SAFETY NET: niemals einen "leeren" Save persistieren wenn die DB
+  // bereits Optionen für diese Inquiry hat. Das wuerde bedeuten dass
+  // ein Render-Race zwischen Mount/Hydration und Send-Trigger das
+  // gesamte Angebot lautlos wegwirft (siehe Bug 1, Inquiry e2dbb511).
+  //
+  // Wir loggen den Fall sichtbar und werfen — sendProposal faengt
+  // diese Exception und zeigt dem Admin einen harten Fehler.
+  // =================================================================
+  if (options.length === 0 && existingIds.size > 0) {
+    const msg =
+      `[saveOptionsToDb] Abort: leeres options-Array, aber DB hat ${existingIds.size} Eintrag(e) ` +
+      `fuer inquiry ${inquiryId}. Kein Save ausgefuehrt.`;
+    console.error(msg, { inquiryId, existingDbIds: [...existingIds] });
+    toast.error(
+      'Speichern abgebrochen: das Angebot waere geloescht worden. ' +
+      'Bitte Seite neu laden.',
+      { id: 'save-empty-abort', duration: 12000 },
+    );
+    throw new Error(
+      'Empty options array would erase existing offer in DB — save aborted to protect data.',
+    );
+  }
+
   // 2. IDs die gelöscht werden müssen (in DB, aber nicht mehr im neuen State)
   const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
 
