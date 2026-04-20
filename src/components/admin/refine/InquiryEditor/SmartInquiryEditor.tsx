@@ -44,6 +44,10 @@ export const SmartInquiryEditor = () => {
   // — was zu Save-Endlosschleifen und blinkendem SaveStatusBadge fuehrte.
   const isInitializedFromDb = useRef(false);
   const latestValuesRef = useRef<Record<string, unknown>>({});
+  // Snapshot der zuletzt erfolgreich gespeicherten Werte (als JSON-String).
+  // Verhindert Auto-Save-Endlosschleifen: feuert nur wenn sich der serialisierte
+  // State seit dem letzten Save tatsächlich verändert hat.
+  const lastSavedSnapshotRef = useRef<string | null>(null);
   const consecutiveSaveErrorsRef = useRef(0);
   const errorToastShownRef = useRef(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>();
