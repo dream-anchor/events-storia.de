@@ -260,7 +260,6 @@ export const AdminOfferCreate = () => {
   const [suggestedItems, setSuggestedItems] = useState<SuggestedItem[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSending, setIsSending] = useState(false);
   const [hasExtracted, setHasExtracted] = useState(false);
   const [emailContent, setEmailContent] = useState("");
   const [aiSummary, setAiSummary] = useState("");
@@ -268,6 +267,7 @@ export const AdminOfferCreate = () => {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const offerBuilderRef = useRef<OfferBuilderHandle>(null);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emailDraftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
 
   // Draft inquiry created on mount
@@ -283,7 +283,8 @@ export const AdminOfferCreate = () => {
           contact_name: "",
           email: "",
           source: "manual_entry",
-          status: "draft",
+          status: "new",
+          offer_phase: "draft",
           inquiry_type: "event",
         })
         .select("id")
@@ -319,6 +320,74 @@ export const AdminOfferCreate = () => {
     fetchTemplates();
   }, []);
 
+  const hydrateEmailDraftFromDb = useCallback(async () => {
+    if (!draftInquiryId) return;
+
+    const { data, error } = await supabase
+      .from('event_inquiries')
+      .select('email_draft')
+      .eq('id', draftInquiryId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[OfferCreate] email_draft hydration error:', error);
+      return;
+    }
+
+    setEmailContent(typeof data?.email_draft === 'string' ? data.email_draft : '');
+  }, [draftInquiryId]);
+
+  const persistEmailDraft = useCallback(async (content: string) => {
+    if (!draftInquiryId) return;
+
+    const { error } = await supabase
+      .from('event_inquiries')
+      .update({ email_draft: content || null })
+      .eq('id', draftInquiryId);
+
+    if (error) {
+      console.error('[OfferCreate] email_draft persist error:', error);
+    }
+  }, [draftInquiryId]);
+
+  const flushEmailDraftSave = useCallback(async () => {
+    if (emailDraftSaveTimeoutRef.current) {
+      clearTimeout(emailDraftSaveTimeoutRef.current);
+      emailDraftSaveTimeoutRef.current = null;
+    }
+
+    await persistEmailDraft(emailContent);
+  }, [emailContent, persistEmailDraft]);
+
+  const handleEmailContentChange = useCallback((content: string) => {
+    setEmailContent(content);
+
+    if (!draftInquiryId) return;
+
+    if (emailDraftSaveTimeoutRef.current) {
+      clearTimeout(emailDraftSaveTimeoutRef.current);
+    }
+
+    emailDraftSaveTimeoutRef.current = setTimeout(() => {
+      void persistEmailDraft(content);
+      emailDraftSaveTimeoutRef.current = null;
+    }, 400);
+  }, [draftInquiryId, persistEmailDraft]);
+
+  useEffect(() => {
+    if (step === 3 && draftInquiryId) {
+      void hydrateEmailDraftFromDb();
+    }
+  }, [step, draftInquiryId, hydrateEmailDraftFromDb]);
+
+  useEffect(() => {
+    return () => {
+      if (emailDraftSaveTimeoutRef.current) {
+        clearTimeout(emailDraftSaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Minimal ExtendedInquiry for OfferBuilder
   const draftInquiry = useMemo((): ExtendedInquiry | null => {
     if (!draftInquiryId) return null;
@@ -350,7 +419,7 @@ export const AdminOfferCreate = () => {
       selected_packages: [],
       quote_items: [],
       quote_notes: null,
-      email_draft: null,
+      email_draft: emailContent || null,
       lexoffice_quotation_id: null,
       lexoffice_invoice_id: null,
       lexoffice_document_type: null,
@@ -381,7 +450,7 @@ export const AdminOfferCreate = () => {
       deposit_due_days: null,
       offer_validity_days: null,
     };
-  }, [draftInquiryId, formData]);
+  }, [draftInquiryId, emailContent, formData]);
 
   const handleFormChange = useCallback((updates: Partial<DraftFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
@@ -609,10 +678,11 @@ export const AdminOfferCreate = () => {
   }, [step]);
 
   // Auto-save when navigating between steps
-  const goToStep = useCallback((targetStep: number) => {
+  const goToStep = useCallback(async (targetStep: number) => {
     // Flush OfferBuilder save before navigating away from Step 3
     if (step === 3) {
       offerBuilderRef.current?.flushSave();
+      await flushEmailDraftSave();
     }
     if (draftInquiryId && formData.contact_name.trim()) {
       supabase
@@ -635,7 +705,7 @@ export const AdminOfferCreate = () => {
         });
     }
     setStep(targetStep);
-  }, [draftInquiryId, formData, isTest, step]);
+  }, [draftInquiryId, flushEmailDraftSave, formData, isTest, step]);
 
   // Can advance from step 2 only if contact_name is filled
   const canAdvanceFromStep2 = !!formData.contact_name.trim();
@@ -712,7 +782,7 @@ export const AdminOfferCreate = () => {
                   templates={templates}
                   onSave={async () => {}}
                   isCreateMode={true}
-                  onEmailContentChange={setEmailContent}
+                  onEmailContentChange={handleEmailContentChange}
                 />
               ) : (
                 <Card>
