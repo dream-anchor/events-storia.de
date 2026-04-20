@@ -154,6 +154,17 @@ export const SmartInquiryEditor = () => {
       // Markiere als initialisiert, damit kuenftige Refetches den State
       // unveraendert lassen. Das verhindert die Auto-Save-Endlosschleife.
       isInitializedFromDb.current = true;
+      // Snapshot des initial geladenen Zustands setzen — Auto-Save vergleicht
+      // gegen diesen Snapshot und feuert nur bei echten User-Änderungen.
+      const initialPersistable = buildPersistableInquiryValues(inquiry as unknown as Record<string, unknown>);
+      lastSavedSnapshotRef.current = JSON.stringify({
+        ...initialPersistable,
+        selected_packages: Array.isArray(inquiry.selected_packages) ? inquiry.selected_packages : [],
+        quote_items: Array.isArray(inquiry.quote_items) ? inquiry.quote_items : [],
+        quote_notes: inquiry.quote_notes || "",
+        email_draft: inquiry.email_draft || "",
+        menu_selection: (inquiry as any).menu_selection || { courses: [], drinks: [] },
+      });
     }
   }, [inquiry, buildPersistableInquiryValues]);
 
