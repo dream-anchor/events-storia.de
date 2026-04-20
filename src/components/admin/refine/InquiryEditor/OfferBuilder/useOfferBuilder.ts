@@ -964,6 +964,30 @@ export function useOfferBuilder({
 
   /** Phase 1: Vorschlag senden (ohne Stripe) — erstellt LexOffice-Angebot + sendet Email */
   const sendProposal = useCallback(async (emailContent: string) => {
+    // =================================================================
+    // RACE-CONDITION-GUARD (Bug 1):
+    // Wenn der Send-Trigger zu frueh feuert (Wizard → confirmed=1 vor
+    // Hydration), ist `options` noch [] obwohl in der DB schon Eintraege
+    // existieren. Ohne Schutz wuerde saveOptionsToDb das Angebot leeren.
+    // Wir pruefen hier explizit gegen die DB und brechen mit klarem
+    // Fehler ab, statt stillschweigend Daten zu verlieren.
+    // =================================================================
+    if (options.length === 0) {
+      const { data: dbRows } = await supabase
+        .from('inquiry_offer_options')
+        .select('id')
+        .eq('inquiry_id', inquiryId);
+      if (dbRows && dbRows.length > 0) {
+        const msg = `[sendProposal] Abort: lokaler State hat 0 Optionen, DB hat ${dbRows.length}. Hydration noch nicht abgeschlossen.`;
+        console.error(msg, { inquiryId });
+        toast.error(
+          'Versand abgebrochen: Angebot wird noch geladen. Bitte 2 Sekunden warten und erneut klicken.',
+          { duration: 12000 },
+        );
+        throw new Error('OfferBuilder not yet hydrated — refusing to send empty offer.');
+      }
+    }
+
     // Schritt 1: Lokalen Save erzwingen — wenn der fehlschlägt, wird nicht versendet
     try {
       await saveOptionsToDb(inquiryId, options, currentVersion);
@@ -971,7 +995,9 @@ export function useOfferBuilder({
       console.error('[sendProposal] saveOptionsToDb failed:', saveErr);
       const msg = saveErr instanceof Error ? saveErr.message : 'Unbekannter Fehler';
       toast.error(`Vorschlag konnte nicht gesendet werden: Speichern fehlgeschlagen (${msg})`);
-      return;
+      // HART abbrechen — Exception nach oben werfen, damit der Caller
+      // (SmartInquiryEditor) den Fehler sieht und den Erfolgs-Modal NICHT zeigt.
+      throw saveErr instanceof Error ? saveErr : new Error(msg);
     }
 
     // Schritt 2: Version anlegen + Versandzeitpunkt setzen
