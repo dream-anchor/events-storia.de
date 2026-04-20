@@ -485,6 +485,6 @@ export function OfferSendPreview({
           </div>
         </div>
       </div>
-    </AdminLayout>
+    </Wrapper>
   );
 }
