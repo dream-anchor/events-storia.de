@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Sparkles, Loader2, Send, FileText, PenLine, AlertCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, Loader2, Send, FileText, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { EventDetailsCard } from "./EventDetailsCard";
 import { AISuggestionsCard } from "./AISuggestionsCard";
 import { OfferBuilder } from "../InquiryEditor/OfferBuilder";
 import type { OfferBuilderHandle } from "../InquiryEditor/OfferBuilder";
+import { OfferSendPreview } from "../InquiryEditor/OfferSendPreview";
 import { DraftFormData, ParsedInquiry, SuggestedPackage, SuggestedItem } from "./types";
 import type { ExtendedInquiry, Package, EmailTemplate } from "../InquiryEditor/types";
 import { useRegisterSaveStatus, type SaveStatus } from "@/components/admin/shared/SaveStatusContext";
@@ -245,175 +246,8 @@ const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems
 };
 
 // ─── Step 4: Prüfen & Senden ──────────────────────────────────────────────────
-
-interface Step4Props {
-  formData: DraftFormData;
-  onFormChange: (updates: Partial<DraftFormData>) => void;
-  onSaveAndSend: () => void;
-  onSaveDraft: () => void;
-  isSaving: boolean;
-  isSending: boolean;
-  canSave: boolean;
-  draftInquiry: ExtendedInquiry | null;
-  emailContent: string;
-  isTest: boolean;
-  onGoToStep: (step: number) => void;
-}
-
-const Step4Review = ({ formData, onFormChange, onSaveAndSend, onSaveDraft, isSaving, isSending, canSave, draftInquiry, emailContent, isTest, onGoToStep }: Step4Props) => (
-  <div className="space-y-4">
-    <div>
-      <h2 className="text-lg font-semibold">Zusammenfassung</h2>
-      <p className="text-sm text-muted-foreground mt-1">Prüfe die Daten und sende das Angebot.</p>
-    </div>
-
-    {/* Test warning */}
-    {isTest && (
-      <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
-        <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
-        <p className="text-sm text-amber-800">
-          Testbestellung — E-Mails gehen an <span className="font-medium">{TEST_REDIRECT_EMAIL}</span>
-        </p>
-      </div>
-    )}
-
-    {/* Summary card */}
-    <Card>
-      <CardContent className="pt-5 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-          <div>
-            <span className="text-muted-foreground text-xs">Kontakt</span>
-            <p className="font-medium">{formData.contact_name || "—"}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground text-xs">Firma</span>
-            <p className="font-medium">{formData.company_name || "—"}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground text-xs">E-Mail</span>
-            <p className="font-medium truncate">{formData.email || "—"}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground text-xs">Telefon</span>
-            <p className="font-medium">{formData.phone || "—"}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground text-xs">Datum</span>
-            <p className="font-medium">
-              {formData.preferred_date || "—"}
-              {formData.event_end_date ? ` – ${formData.event_end_date}` : ""}
-            </p>
-          </div>
-          <div>
-            <span className="text-muted-foreground text-xs">Uhrzeit</span>
-            <p className="font-medium">{formData.preferred_time || "—"}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground text-xs">Gäste</span>
-            <p className="font-medium">{formData.guest_count || "—"}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground text-xs">Event-Art</span>
-            <p className="font-medium">{formData.event_type || "—"}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    {/* Email draft preview */}
-    {emailContent ? (
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Anschreiben</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs text-amber-700" onClick={() => onGoToStep(3)}>
-              Bearbeiten
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground whitespace-pre-wrap bg-neutral-50 rounded-lg p-3 max-h-40 overflow-y-auto">
-            {emailContent.slice(0, 500)}{emailContent.length > 500 ? '…' : ''}
-          </div>
-        </CardContent>
-      </Card>
-    ) : (
-      <Card className="border-dashed">
-        <CardContent className="py-6 text-center">
-          <p className="text-sm text-muted-foreground mb-2">Kein Anschreiben erstellt</p>
-          <Button variant="outline" size="sm" onClick={() => onGoToStep(3)} className="text-xs">
-            Zurück zum Angebot um Anschreiben zu erstellen
-          </Button>
-        </CardContent>
-      </Card>
-    )}
-
-    {/* Notes */}
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Notizen / Kundenwünsche</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Textarea
-          placeholder="Besondere Wünsche, Anmerkungen des Kunden..."
-          value={formData.message}
-          onChange={(e) => onFormChange({ message: e.target.value })}
-          className="min-h-[80px]"
-        />
-      </CardContent>
-    </Card>
-
-    {/* Validation warnings */}
-    {!canSave && (
-      <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-        <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
-        <p className="text-sm text-destructive">
-          {!formData.contact_name?.trim() && "Kontaktname fehlt. "}
-          {!formData.email?.trim() && "E-Mail-Adresse fehlt."}
-        </p>
-      </div>
-    )}
-
-    {/* Autosave-Hint entfernt — zentrales SaveStatusBadge im Admin-Header ist die Wahrheit */}
-
-    {/* Action buttons — mobile-optimized */}
-    <div className="flex flex-col gap-3 pt-2">
-      <Button
-        onClick={onSaveAndSend}
-        disabled={!canSave || isSaving || isSending || !draftInquiry}
-        size="lg"
-        className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white text-base"
-      >
-        {isSending ? (
-          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sende...</>
-        ) : (
-          <><Send className="h-4 w-4 mr-2" /> Speichern & Senden</>
-        )}
-      </Button>
-      <Button
-        variant="outline"
-        size="lg"
-        onClick={onSaveDraft}
-        disabled={!canSave || isSaving || isSending}
-        className="w-full h-12"
-      >
-        {isSaving ? (
-          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Öffne Entwurf...</>
-        ) : (
-          <><FileText className="h-4 w-4 mr-2" /> Entwurf öffnen (ohne Mail-Versand)</>
-        )}
-      </Button>
-      <Button
-        variant="ghost"
-        onClick={() => onGoToStep(3)}
-        className="w-full h-11 text-muted-foreground"
-      >
-        <ArrowLeft className="h-4 w-4 mr-1" />
-        Zurück zum Angebot
-      </Button>
-    </div>
-  </div>
-);
+// Step 4 nutzt komplett die zentrale OfferSendPreview-Komponente
+// (gleiche WYSIWYG-Vorschau wie auf der Edit-Seite). Kein eigener Send-Code mehr.
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -767,140 +601,6 @@ export const AdminOfferCreate = () => {
     }
   };
 
-  const handleSaveAndSend = async () => {
-    setIsSending(true);
-    try {
-      // Flush OfferBuilder save first — ensures menu_selection is in DB
-      offerBuilderRef.current?.flushSave();
-      // Small delay to let flushSave complete
-      await new Promise(r => setTimeout(r, 500));
-
-      // SCHRITT 1: Inquiry-Basis-Felder + status='offer_sent' speichern
-      const inquiry = await saveInquiry('offer_sent');
-
-      // SCHRITT 2: Offer-Phase + Versand-Metadaten setzen (KRITISCH für PublicOffer)
-      // Ohne offer_phase='proposal_sent' zeigt die Public-Seite KEIN Menü und KEIN Zahlungs-Link.
-      // Das war Root Cause bei Paula Trocchia und Stephanie Alves-Quintas.
-      const { data: { user } } = await supabase.auth.getUser();
-      const now = new Date().toISOString();
-      const newVersion = 1;
-
-      // 2a: Options-Snapshot lesen für History
-      const { data: optionsSnapshot } = await supabase
-        .from('inquiry_offer_options')
-        .select('*')
-        .eq('inquiry_id', inquiry.id);
-
-      // 2b: History-Eintrag anlegen
-      const { error: historyErr } = await (supabase as any)
-        .from('inquiry_offer_history')
-        .insert({
-          inquiry_id: inquiry.id,
-          version: newVersion,
-          sent_by: user?.email || null,
-          email_content: emailContent || null,
-          options_snapshot: optionsSnapshot || [],
-        });
-      if (historyErr) {
-        console.error('[handleSaveAndSend] inquiry_offer_history insert failed:', historyErr);
-        toast.error(
-          `Kritischer Fehler: History konnte nicht angelegt werden (${historyErr.message}). ` +
-          `Bitte Seite neu laden und erneut versuchen.`,
-          { duration: Infinity }
-        );
-        return;
-      }
-
-      // 2c: Phase + Version + Versandzeitpunkt setzen
-      const { error: phaseErr } = await supabase
-        .from('event_inquiries')
-        .update({
-          offer_phase: 'proposal_sent',
-          current_offer_version: newVersion,
-          offer_sent_at: now,
-          offer_sent_by: user?.email || null,
-        } as Record<string, unknown>)
-        .eq('id', inquiry.id);
-      if (phaseErr) {
-        console.error('[handleSaveAndSend] Phase-Update fehlgeschlagen:', phaseErr);
-        toast.error(
-          `Kritischer Fehler: Angebots-Phase konnte nicht gesetzt werden (${phaseErr.message}). ` +
-          `Das Angebot ist gespeichert, aber die Public-Seite zeigt das Menü nicht. ` +
-          `Bitte Seite neu laden.`,
-          { duration: Infinity }
-        );
-        return;
-      }
-
-      // SCHRITT 3: LexOffice-Angebot (non-blocking)
-      let lexofficeQuotationId: string | null = null;
-      const { data: lexData, error: lexError } = await supabase.functions.invoke(
-        'create-event-quotation',
-        { body: { inquiryId: inquiry.id } },
-      );
-      if (lexError || !lexData?.success) {
-        const msg = lexData?.error || lexError?.message || 'Unbekannter Fehler';
-        console.error('[LexOffice] Quotation error:', msg);
-        toast.warning(`LexOffice-Angebot fehlgeschlagen: ${msg}`);
-      } else if (lexData?.quotationId) {
-        lexofficeQuotationId = lexData.quotationId;
-        await supabase
-          .from('event_inquiries')
-          .update({ lexoffice_quotation_id: lexofficeQuotationId })
-          .eq('id', inquiry.id);
-      }
-
-      // SCHRITT 4: Email an Kunden senden (ERST JETZT, nachdem State konsistent ist)
-      if (formData.email && emailContent) {
-        // EMAIL SAFETY: Test orders NEVER reach real customers
-        const safeEmail = isTest ? TEST_REDIRECT_EMAIL : formData.email;
-        if (isTest) {
-          console.log(`[TEST MODE] Email redirected: ${formData.email} → ${safeEmail}`);
-        }
-
-        const { data: emailResult, error: emailError } = await supabase.functions.invoke(
-          'send-offer-email',
-          {
-            body: {
-              inquiryId: inquiry.id,
-              emailContent: isTest ? `[TEST] ${emailContent}` : emailContent,
-              customerEmail: safeEmail,
-              customerName: formData.contact_name,
-              senderEmail: user?.email,
-              lexofficeQuotationId,
-            },
-          },
-        );
-        if (emailError || !emailResult?.emailSent) {
-          toast.warning(
-            'Angebot ist gespeichert und Phase ist gesetzt, aber E-Mail konnte NICHT versendet werden. ' +
-            'Bitte Link manuell teilen oder Versand erneut auslösen.',
-            { duration: 15000 }
-          );
-        } else {
-          const pdfHint = emailResult.hasPdfAttachment ? ' (mit PDF-Anhang)' : '';
-          if (emailResult.warnings?.length) {
-            toast.warning(`E-Mail gesendet${pdfHint} — ${emailResult.warnings.join(', ')}`);
-          } else {
-            toast.success(`Angebot gespeichert & E-Mail versendet${pdfHint}`);
-          }
-        }
-      } else if (!emailContent) {
-        toast.success('Angebot gespeichert — kein Anschreiben vorhanden, E-Mail nicht versendet');
-      } else {
-        toast.success('Angebot gespeichert');
-      }
-
-      navigate(`/admin/events/${inquiry.id}/edit`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      console.error('Save and send error:', msg, err);
-      toast.error(`Fehler: ${msg}`);
-    } finally {
-      setIsSending(false);
-    }
-  };
-
   const canSave = !!(formData.contact_name.trim() && formData.email.trim());
 
   // Scroll to top on every step change
@@ -1026,26 +726,33 @@ export const AdminOfferCreate = () => {
           )}
 
           {step === 4 && (
-            <Step4Review
-              formData={formData}
-              onFormChange={handleFormChange}
-              onSaveAndSend={handleSaveAndSend}
-              onSaveDraft={handleSaveDraft}
-              isSaving={isSaving}
-              isSending={isSending}
-              canSave={canSave}
-              draftInquiry={draftInquiry}
-              emailContent={emailContent}
-              isTest={isTest}
-              onGoToStep={goToStep}
-            />
+            <>
+              {draftInquiryId ? (
+                <OfferSendPreview
+                  inquiryId={draftInquiryId}
+                  onBack={() => goToStep(3)}
+                  onAfterSend={(inquiryId, query) => {
+                    // Wizard-Versand → Edit-Seite mit confirmed-Trigger,
+                    // gleicher Pfad wie aus dem Edit-Flow
+                    navigate(`/admin/events/${inquiryId}/edit?${query}`);
+                  }}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="flex items-center justify-center py-12">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+                    <span className="text-sm text-muted-foreground">Vorschau wird geladen...</span>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
         </div>
 
-        {/* Sticky bottom navigation — nur bei Step 2 und 3 (Step 1 hat eigene Action-Buttons, Step 4 hat eigene Buttons) */}
+        {/* Sticky bottom navigation — Step 2 + 3 (Step 1 hat eigene Action-Buttons, Step 4 hat OfferSendPreview-Buttons) */}
         {step > 1 && step < 4 && (
           <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-3 z-30" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
-            <div className="max-w-2xl mx-auto flex items-center gap-3">
+            <div className="max-w-2xl mx-auto flex items-center gap-2 sm:gap-3">
               {step > 1 && (
                 <Button
                   variant="outline"
@@ -1057,13 +764,38 @@ export const AdminOfferCreate = () => {
                 </Button>
               )}
               <div className="flex-1" />
+              {step === 3 && (
+                <Button
+                  variant="outline"
+                  onClick={handleSaveDraft}
+                  disabled={!canSave || isSaving}
+                  className="h-12 sm:h-11 px-4"
+                  title="Inquiry als Entwurf speichern und zum vollen Editor wechseln (kein Versand)"
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+                  ) : (
+                    <FileText className="h-4 w-4 sm:mr-2" />
+                  )}
+                  <span className="hidden sm:inline">Nur als Entwurf</span>
+                </Button>
+              )}
               <Button
                 onClick={() => goToStep(step + 1)}
-                disabled={step === 2 && !canAdvanceFromStep2}
+                disabled={(step === 2 && !canAdvanceFromStep2) || (step === 3 && !canSave)}
                 className="h-12 sm:h-11 px-8 bg-amber-600 hover:bg-amber-700 text-white text-base sm:text-sm"
               >
-                {step === 3 ? 'Zur Zusammenfassung' : 'Weiter'}
-                <ArrowRight className="h-4 w-4 ml-1" />
+                {step === 3 ? (
+                  <>
+                    <Send className="h-4 w-4 mr-1.5" />
+                    Vorschau & Senden
+                  </>
+                ) : (
+                  <>
+                    Weiter
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </>
+                )}
               </Button>
             </div>
           </div>

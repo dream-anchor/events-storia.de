@@ -46,11 +46,34 @@ interface DryRunPreview {
   attachment: { filename: string; available: boolean };
 }
 
-export function OfferSendPreview() {
-  const { id } = useParams<{ id: string }>();
+interface OfferSendPreviewProps {
+  /** When provided, uses this id instead of route params. Used by the create-wizard. */
+  inquiryId?: string;
+  /** When provided, replaces the default "Zurück & bearbeiten" navigation. */
+  onBack?: () => void;
+  /** When provided, called after the user clicks "Senden" instead of navigating to /edit. */
+  onAfterSend?: (inquiryId: string, query: string) => void;
+}
+
+export function OfferSendPreview({
+  inquiryId: embeddedInquiryId,
+  onBack,
+  onAfterSend,
+}: OfferSendPreviewProps = {}) {
+  const params = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sendType = (searchParams.get('send') as SendType) || 'proposal';
+
+  // Allow embedding via props (Wizard) — fall back to route params (standalone /admin/events/:id/preview)
+  const id = embeddedInquiryId ?? params.id;
+  const handleBack = onBack
+    ? onBack
+    : () => id && navigate(`/admin/events/${id}/edit`);
+  const handleAfterSend = onAfterSend
+    ? onAfterSend
+    : (inquiryId: string, query: string) =>
+        navigate(`/admin/events/${inquiryId}/edit?${query}`);
 
   const [inquiry, setInquiry] = useState<PreviewInquiry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -181,7 +204,7 @@ export function OfferSendPreview() {
     };
   }, [inquiry?.lexoffice_quotation_id]);
 
-  // Senden = zurück zur Edit-Seite mit send=… Query
+  // Senden = an Edit-Seite delegieren (oder onAfterSend-Callback im Embed)
   const handleSend = (isTest: boolean) => {
     if (!inquiry) return;
     if (isTest) setIsTestSending(true); else setIsSending(true);
@@ -190,27 +213,38 @@ export function OfferSendPreview() {
       confirmed: isTest ? 'test' : '1',
     }).toString();
     setTimeout(() => {
-      navigate(`/admin/events/${inquiry.id}/edit?${query}`);
+      handleAfterSend(inquiry.id, query);
     }, 150);
   };
 
+  // Im embedded-Modus (Wizard) liefert der Caller bereits den AdminLayout-Wrapper
+  const embedded = !!embeddedInquiryId;
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
+    embedded ? (
+      <>{children}</>
+    ) : (
+      <AdminLayout activeTab="events" title="Vorschau vor Versand">
+        {children}
+      </AdminLayout>
+    );
+
   if (loading) {
     return (
-      <AdminLayout activeTab="events" title="Vorschau">
+      <Wrapper>
         <div className="flex items-center justify-center min-h-[60vh]">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </AdminLayout>
+      </Wrapper>
     );
   }
 
   if (!inquiry) {
     return (
-      <AdminLayout activeTab="events" title="Vorschau">
+      <Wrapper>
         <div className="p-8 text-center text-muted-foreground">
           Anfrage nicht gefunden.
         </div>
-      </AdminLayout>
+      </Wrapper>
     );
   }
 
@@ -224,7 +258,7 @@ export function OfferSendPreview() {
   const canSend = !!preview && !previewError && !hasBlockingWarning;
 
   return (
-    <AdminLayout activeTab="events" title="Vorschau vor Versand">
+    <Wrapper>
       <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
@@ -232,7 +266,7 @@ export function OfferSendPreview() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate(`/admin/events/${inquiry.id}/edit`)}
+              onClick={handleBack}
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -277,7 +311,7 @@ export function OfferSendPreview() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate(`/admin/events/${inquiry.id}/edit`)}
+                onClick={handleBack}
                 className="gap-2"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -298,7 +332,7 @@ export function OfferSendPreview() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigate(`/admin/events/${inquiry.id}/edit`)}
+                      onClick={handleBack}
                       className="gap-2 mt-2"
                     >
                       <ArrowLeft className="h-4 w-4" />
@@ -404,7 +438,7 @@ export function OfferSendPreview() {
           <div className="rounded-xl border bg-card/95 backdrop-blur shadow-lg p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <Button
               variant="outline"
-              onClick={() => navigate(`/admin/events/${inquiry.id}/edit`)}
+              onClick={handleBack}
               disabled={isSending || isTestSending}
               className="gap-2"
             >
@@ -451,6 +485,6 @@ export function OfferSendPreview() {
           </div>
         </div>
       </div>
-    </AdminLayout>
+    </Wrapper>
   );
 }
