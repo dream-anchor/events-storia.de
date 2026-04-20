@@ -419,7 +419,7 @@ export const AdminOfferCreate = () => {
       selected_packages: [],
       quote_items: [],
       quote_notes: null,
-      email_draft: null,
+      email_draft: emailContent || null,
       lexoffice_quotation_id: null,
       lexoffice_invoice_id: null,
       lexoffice_document_type: null,
@@ -450,7 +450,7 @@ export const AdminOfferCreate = () => {
       deposit_due_days: null,
       offer_validity_days: null,
     };
-  }, [draftInquiryId, formData]);
+  }, [draftInquiryId, emailContent, formData]);
 
   const handleFormChange = useCallback((updates: Partial<DraftFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
@@ -678,10 +678,11 @@ export const AdminOfferCreate = () => {
   }, [step]);
 
   // Auto-save when navigating between steps
-  const goToStep = useCallback((targetStep: number) => {
+  const goToStep = useCallback(async (targetStep: number) => {
     // Flush OfferBuilder save before navigating away from Step 3
     if (step === 3) {
       offerBuilderRef.current?.flushSave();
+      await flushEmailDraftSave();
     }
     if (draftInquiryId && formData.contact_name.trim()) {
       supabase
@@ -704,7 +705,7 @@ export const AdminOfferCreate = () => {
         });
     }
     setStep(targetStep);
-  }, [draftInquiryId, formData, isTest, step]);
+  }, [draftInquiryId, flushEmailDraftSave, formData, isTest, step]);
 
   // Can advance from step 2 only if contact_name is filled
   const canAdvanceFromStep2 = !!formData.contact_name.trim();
