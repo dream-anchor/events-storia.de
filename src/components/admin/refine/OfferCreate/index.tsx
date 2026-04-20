@@ -260,7 +260,6 @@ export const AdminOfferCreate = () => {
   const [suggestedItems, setSuggestedItems] = useState<SuggestedItem[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSending, setIsSending] = useState(false);
   const [hasExtracted, setHasExtracted] = useState(false);
   const [emailContent, setEmailContent] = useState("");
   const [aiSummary, setAiSummary] = useState("");
@@ -268,6 +267,7 @@ export const AdminOfferCreate = () => {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const offerBuilderRef = useRef<OfferBuilderHandle>(null);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emailDraftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
 
   // Draft inquiry created on mount
@@ -283,7 +283,8 @@ export const AdminOfferCreate = () => {
           contact_name: "",
           email: "",
           source: "manual_entry",
-          status: "draft",
+          status: "new",
+          offer_phase: "draft",
           inquiry_type: "event",
         })
         .select("id")
@@ -317,6 +318,74 @@ export const AdminOfferCreate = () => {
     createDraft();
     fetchPackages();
     fetchTemplates();
+  }, []);
+
+  const hydrateEmailDraftFromDb = useCallback(async () => {
+    if (!draftInquiryId) return;
+
+    const { data, error } = await supabase
+      .from('event_inquiries')
+      .select('email_draft')
+      .eq('id', draftInquiryId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[OfferCreate] email_draft hydration error:', error);
+      return;
+    }
+
+    setEmailContent(typeof data?.email_draft === 'string' ? data.email_draft : '');
+  }, [draftInquiryId]);
+
+  const persistEmailDraft = useCallback(async (content: string) => {
+    if (!draftInquiryId) return;
+
+    const { error } = await supabase
+      .from('event_inquiries')
+      .update({ email_draft: content || null })
+      .eq('id', draftInquiryId);
+
+    if (error) {
+      console.error('[OfferCreate] email_draft persist error:', error);
+    }
+  }, [draftInquiryId]);
+
+  const flushEmailDraftSave = useCallback(async () => {
+    if (emailDraftSaveTimeoutRef.current) {
+      clearTimeout(emailDraftSaveTimeoutRef.current);
+      emailDraftSaveTimeoutRef.current = null;
+    }
+
+    await persistEmailDraft(emailContent);
+  }, [emailContent, persistEmailDraft]);
+
+  const handleEmailContentChange = useCallback((content: string) => {
+    setEmailContent(content);
+
+    if (!draftInquiryId) return;
+
+    if (emailDraftSaveTimeoutRef.current) {
+      clearTimeout(emailDraftSaveTimeoutRef.current);
+    }
+
+    emailDraftSaveTimeoutRef.current = setTimeout(() => {
+      void persistEmailDraft(content);
+      emailDraftSaveTimeoutRef.current = null;
+    }, 400);
+  }, [draftInquiryId, persistEmailDraft]);
+
+  useEffect(() => {
+    if (step === 3 && draftInquiryId) {
+      void hydrateEmailDraftFromDb();
+    }
+  }, [step, draftInquiryId, hydrateEmailDraftFromDb]);
+
+  useEffect(() => {
+    return () => {
+      if (emailDraftSaveTimeoutRef.current) {
+        clearTimeout(emailDraftSaveTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Minimal ExtendedInquiry for OfferBuilder
