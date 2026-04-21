@@ -505,12 +505,15 @@ function PaketContent({
         </div>
       )}
 
-      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        {isImportedMenu ? 'Oder Paket wählen' : option.packageId ? 'Paket (editierbar)' : 'Paket wählen'}
-      </span>
+      {/* Bug A: Bei importiertem Restaurant-Menü KEINE zusätzliche Paket-Auswahl anbieten */}
+      {!isImportedMenu && (
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          {option.packageId ? 'Paket (editierbar)' : 'Paket wählen'}
+        </span>
+      )}
 
       {/* Editierbare Karte wenn Paket bereits gewählt */}
-      {option.packageId && selectedPkg ? (
+      {isImportedMenu ? null : option.packageId && selectedPkg ? (
         <div className="rounded-xl border-2 border-primary bg-primary/5 p-3 space-y-2">
           <div className="flex items-start gap-2">
             <div className="h-4 w-4 rounded-full bg-primary shrink-0 mt-1.5" />
