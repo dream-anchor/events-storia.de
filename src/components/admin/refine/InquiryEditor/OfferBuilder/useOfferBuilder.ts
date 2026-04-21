@@ -587,15 +587,16 @@ export function useOfferBuilder({
 
   // Sync guestCount → alle Options wenn Inquiry-Gästezahl sich ändert
   useEffect(() => {
-    if (isLoading || isInitialLoad.current || guestCount <= 1) return;
+    if (isLoading || guestCount <= 1) return;
+    if (options.length === 0) return;
     setOptions(prev => {
       const anyWrong = prev.some(o => o.guestCount !== guestCount);
       if (!anyWrong) return prev;
       isDirtyRef.current = true;
       return prev.map(o => o.guestCount !== guestCount ? { ...o, guestCount } : o);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guestCount, isLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestCount, isLoading, options.length]);
 
   // =================================================================
   // TOTAL-AMOUNT RECALC — berechnet Preis pro Option automatisch
