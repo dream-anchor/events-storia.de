@@ -115,6 +115,10 @@ async function saveOptionsToDb(
   options: OfferBuilderOption[],
   currentVersion: number
 ): Promise<void> {
+  // Optionen ohne gewählten Modus werden NICHT persistiert (UX: Karte wartet
+  // auf Typ-Auswahl). Sie sind reiner In-Memory-State.
+  options = options.filter(o => o.offerMode !== 'unselected');
+
   // 1. Aktuelle Options in DB laden (nur IDs)
   const { data: existingRows } = await supabase
     .from('inquiry_offer_options')
@@ -781,7 +785,7 @@ export function useOfferBuilder({
   // =================================================================
   // OPTION CRUD (migriert aus useMultiOfferState)
   // =================================================================
-  const addOption = useCallback((mode: OfferMode = 'menu', copyFrom?: OfferBuilderOption) => {
+  const addOption = useCallback((mode?: OfferMode, copyFrom?: OfferBuilderOption) => {
     const usedLabels = options.map(o => o.optionLabel);
     const nextLabel = OPTION_LABELS.find(l => !usedLabels.includes(l));
 
@@ -808,7 +812,7 @@ export function useOfferBuilder({
           attachMenu: copyFrom.attachMenu,
           tableNote: copyFrom.tableNote,
         }
-      : createEmptyOption(nextLabel, guestCount, mode);
+      : createEmptyOption(nextLabel, guestCount, mode ?? 'unselected');
 
     isDirtyRef.current = true;
     setOptions(prev => [...prev, {
