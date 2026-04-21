@@ -42,6 +42,8 @@ interface InlineCourseEditorProps {
   /** Pricing-Modus der Option. Bei 'per_event' wird ein Mengen-Feld pro Zeile sichtbar. */
   pricingMode?: PricingMode;
   disabled?: boolean;
+  /** Paket-Modus: Preis-Input zeigt "inkl." als Default; eingegebener Wert wird als Aufpreis interpretiert. */
+  packageMode?: boolean;
 }
 
 // --- Sortierbare Zeile ---
