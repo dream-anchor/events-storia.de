@@ -1314,9 +1314,16 @@ function FinalOptionCard({
                   <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-1">
                     {course.courseLabel}
                   </p>
-                  <p className="font-serif text-base text-foreground">
-                    {(course.quantity ?? 1) > 1 ? `${course.quantity} × ${course.itemName}` : course.itemName}
-                  </p>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="font-serif text-base text-foreground">
+                      {(course.quantity ?? 1) > 1 ? `${course.quantity} × ${course.itemName}` : course.itemName}
+                    </p>
+                    {option.offer_mode === 'paket' && course.overridePrice != null && course.overridePrice > 0 && (
+                      <span className="text-xs font-sans text-muted-foreground tabular-nums shrink-0">
+                        + {formatCurrencyDecimal(course.overridePrice)}
+                      </span>
+                    )}
+                  </div>
                   {course.itemDescription && (
                     <p className="text-xs font-sans text-muted-foreground/60 italic mt-0.5">
                       {course.itemDescription}
