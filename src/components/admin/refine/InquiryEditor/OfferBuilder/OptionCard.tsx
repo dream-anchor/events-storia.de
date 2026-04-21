@@ -74,6 +74,38 @@ export function OptionCard({
     [packages, option.packageId]
   );
 
+  // --- Mode-Wechsel via Header-Dropdown: Confirm wenn Daten vorhanden ---
+  const [pendingMode, setPendingMode] = useState<OfferMode | null>(null);
+
+  const hasOptionData = useMemo(() => {
+    if (option.offerMode === 'unselected') return false;
+    return !!option.packageId
+      || !!option.packageName
+      || option.menuSelection.courses.length > 0
+      || option.menuSelection.drinks.length > 0
+      || (option.totalAmount ?? 0) > 0;
+  }, [option]);
+
+  const applyModeChange = (mode: OfferMode) => {
+    onUpdate({
+      offerMode: mode,
+      packageId: null,
+      packageName: '',
+      budgetPerPerson: null,
+      menuSelection: { courses: [], drinks: [] },
+      totalAmount: 0,
+    });
+  };
+
+  const handleModeSelectChange = (mode: OfferMode) => {
+    if (mode === option.offerMode) return;
+    if (hasOptionData) {
+      setPendingMode(mode);
+      return;
+    }
+    applyModeChange(mode);
+  };
+
   // Merged packageData mit Admin-Overrides für PriceBreakdown-Anzeige
   const effectivePackage = useMemo(() => {
     if (!selectedPackage) return undefined;
