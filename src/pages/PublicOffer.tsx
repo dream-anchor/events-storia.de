@@ -1058,6 +1058,11 @@ function ProposalOptionCard({
                         </p>
                       )}
                     </div>
+                    {option.offer_mode === 'paket' && c.overridePrice != null && c.overridePrice > 0 && (
+                      <span className="text-xs font-sans text-muted-foreground tabular-nums shrink-0">
+                        + {formatCurrencyDecimal(c.overridePrice)}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
