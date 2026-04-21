@@ -400,6 +400,17 @@ export function useOfferBuilder({
               : opt.package_id
                 ? packagesProp?.find(p => p.id === opt.package_id)?.name || ''
                 : '';
+            // Im Paket-Modus: Legacy overridePrice-Werte (Katalogpreise) auf null setzen,
+            // damit die UI sofort "inkl." zeigt. Wird erst persistiert, sobald der User aktiv editiert.
+            const migratedSelection = migrateCourseQuantities(
+              (opt.menu_selection as unknown as OfferBuilderOption['menuSelection']) || { courses: [], drinks: [] }
+            );
+            const cleanedSelection = mode === 'paket' && migratedSelection?.courses?.length
+              ? {
+                  ...migratedSelection,
+                  courses: migratedSelection.courses.map(c => ({ ...c, overridePrice: null })),
+                }
+              : migratedSelection;
             return {
             id: opt.id,
             packageId: opt.package_id,
@@ -408,9 +419,7 @@ export function useOfferBuilder({
             offerMode: mode,
             isActive: opt.is_active ?? true,
             guestCount: opt.guest_count,
-            menuSelection: migrateCourseQuantities(
-              (opt.menu_selection as unknown as OfferBuilderOption['menuSelection']) || { courses: [], drinks: [] }
-            ),
+            menuSelection: cleanedSelection,
             totalAmount: Number(opt.total_amount),
             stripePaymentLinkId: opt.stripe_payment_link_id,
             stripePaymentLinkUrl: opt.stripe_payment_link_url,
@@ -660,6 +669,15 @@ export function useOfferBuilder({
         const pkg = packagesProp.find(p => p.id === opt.packageId);
         if (!pkg) return opt;
 
+        // Paket-Modus: Aufpreise aus Gang-overridePrice (>0) summieren.
+        // Diese werden zum budgetPerPerson addiert (per_person) bzw. × Gäste (per_event-Behandlung unten).
+        let courseSurcharge = 0;
+        for (const c of opt.menuSelection.courses ?? []) {
+          if (c.overridePrice != null && c.overridePrice > 0) {
+            courseSurcharge += c.overridePrice;
+          }
+        }
+
         // Pricing-Modus entscheidet:
         //  per_event: budgetPerPerson ist bereits der Gesamtpreis
         //  per_person: wie bisher (budgetPerPerson * guestCount oder Paket-Kalkulation)
@@ -667,16 +685,16 @@ export function useOfferBuilder({
         let newTotal: number;
         if (opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
           if (mode === 'per_event') {
-            newTotal = opt.budgetPerPerson;
+            newTotal = opt.budgetPerPerson + courseSurcharge * opt.guestCount;
           } else {
             newTotal = pkg.price_per_person
-              ? opt.budgetPerPerson * opt.guestCount
-              : opt.budgetPerPerson;
+              ? (opt.budgetPerPerson + courseSurcharge) * opt.guestCount
+              : opt.budgetPerPerson + courseSurcharge * opt.guestCount;
           }
         } else {
           newTotal = calculateEventPackagePrice(
             pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
-          );
+          ) + (pkg.price_per_person ? courseSurcharge * opt.guestCount : courseSurcharge * opt.guestCount);
         }
 
         if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
@@ -691,7 +709,7 @@ export function useOfferBuilder({
       return updated;
     });
   }, [isLoading, packagesProp, options.map(o => {
-    const courseKey = o.offerMode === 'menu'
+    const courseKey = (o.offerMode === 'menu' || o.offerMode === 'paket')
       ? o.menuSelection.courses.map(c => `${c.overridePrice ?? ''}`).join('|')
       : '';
     const drinkKey = o.offerMode === 'menu'
