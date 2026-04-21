@@ -1191,7 +1191,55 @@ function ProposalOptionCard({
         </div>
       )}
 
-    </button>
+      {/* Mengen-Stepper */}
+      <div
+        className="px-6 pb-5 pt-4 border-t border-border/10 bg-muted/10 flex items-center justify-between gap-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div>
+          <p className="text-xs font-sans font-medium text-foreground/80">
+            Wie viele Gäste möchten dieses Menü?
+          </p>
+          <p className="text-[10px] font-sans text-muted-foreground mt-0.5">
+            Ergibt {formatCurrencyDecimal(quantity * perPersonPriceProp)} für diese Option
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => onQuantityChange(Math.max(0, quantity - 1))}
+            disabled={quantity <= 0}
+            className="h-9 w-9 rounded-full"
+            aria-label="Menge verringern"
+          >
+            −
+          </Button>
+          <Input
+            type="number"
+            min={0}
+            value={quantity}
+            onChange={(e) => {
+              const n = parseInt(e.target.value || '0', 10);
+              if (!isNaN(n) && n >= 0) onQuantityChange(n);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-16 h-9 text-center rounded-full font-sans font-semibold"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => onQuantityChange(quantity + 1)}
+            className="h-9 w-9 rounded-full"
+            aria-label="Menge erhöhen"
+          >
+            +
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
