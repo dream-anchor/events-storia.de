@@ -261,13 +261,11 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         </h2>
       </div>
 
-      {/* 1. Modus-Auswahl */}
-      <ModeSelector
-        selectedMode={defaultMode}
-        onSelect={handleModeChange}
-        onRequestImport={() => setMenuImporterOpen(true)}
-        hasImportedMenu={builder.options.some(o => o.packageName && o.packageName.length > 0)}
-      />
+      {/* Erklärtext: jede Option ist unabhängig */}
+      <p className="text-xs text-muted-foreground -mt-4">
+        Erstelle bis zu drei Varianten für deinen Kunden. Jede Option kann unabhängig
+        ein Restaurant-Menü, Eigenes Menü, Paket oder nur eine E-Mail sein.
+      </p>
 
       {/* 2. Kunden-Feedback Banner (nur nach Antwort) */}
       {builder.offerPhase === "customer_responded" && builder.customerResponse && (
@@ -277,26 +275,23 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         />
       )}
 
-      {/* 3. Options-Grid (nur bei Menü/Paket — E-Mail zeigt nur den Composer) */}
-      {defaultMode !== 'email' && (
-        <OptionCardGrid
-          options={builder.options}
-          packages={packages}
-          menuItems={builder.menuItems}
-          packageConfigs={builder.packageConfigs}
-          onUpdateOption={builder.updateOption}
-          onRemoveOption={builder.removeOption}
-          onToggleActive={builder.toggleOptionActive}
-          onAddOption={builder.addOption}
-          onImportMultiple={handleImportMultiple}
-          defaultMode={defaultMode}
-          isLocked={false}
-          currentVersion={builder.currentVersion}
-          guestCount={guestCount}
-          menuImporterOpen={menuImporterOpen}
-          onMenuImporterOpenChange={setMenuImporterOpen}
-        />
-      )}
+      {/* 3. Options-Grid — pro Option wird der Modus innerhalb der Karte gewählt */}
+      <OptionCardGrid
+        options={builder.options}
+        packages={packages}
+        menuItems={builder.menuItems}
+        packageConfigs={builder.packageConfigs}
+        onUpdateOption={builder.updateOption}
+        onRemoveOption={builder.removeOption}
+        onToggleActive={builder.toggleOptionActive}
+        onAddOption={builder.addOption}
+        onImportMultiple={handleImportMultiple}
+        isLocked={false}
+        currentVersion={builder.currentVersion}
+        guestCount={guestCount}
+        menuImporterOpen={menuImporterOpen}
+        onMenuImporterOpenChange={setMenuImporterOpen}
+      />
 
       {/* 4. Zahlungs-Konditionen — pro Inquiry editierbar */}
       {onFieldChange && (
@@ -335,7 +330,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       {!isCreateMode && <SendControls
         offerPhase={builder.offerPhase}
         emailDraft={emailDraft}
-        activeOptionsCount={defaultMode === 'email' ? 1 : builder.activeOptions.length}
+        activeOptionsCount={builder.activeOptions.length}
         isSending={builder.isSaving}
         onSendProposal={builder.sendProposal}
         onSendFinalOffer={builder.sendFinalOffer}
