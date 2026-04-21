@@ -743,6 +743,7 @@ function PaketContent({
                 }
                 pricingMode={option.pricingMode ?? 'per_person'}
                 disabled={disabled}
+                packageMode={true}
               />
             </div>
           )}
