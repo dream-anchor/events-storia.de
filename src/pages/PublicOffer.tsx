@@ -68,6 +68,8 @@ interface CourseSelection {
   itemDescription: string | null;
   /** Menge bei per_event-Bestellungen. Default 1 = keine Anzeige. */
   quantity?: number | null;
+  /** Im Paket-Modus optional: Aufpreis pro Person. >0 → "+ X €" anzeigen, sonst "inkl." */
+  overridePrice?: number | null;
 }
 
 interface DrinkSelection {
