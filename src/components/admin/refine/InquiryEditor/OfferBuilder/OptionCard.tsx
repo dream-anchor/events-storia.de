@@ -506,7 +506,7 @@ function PaketContent({
       )}
 
       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        {isImportedMenu ? 'Oder DB-Paket wählen' : option.packageId ? 'Paket (editierbar)' : 'Paket wählen'}
+        {isImportedMenu ? 'Oder Paket wählen' : option.packageId ? 'Paket (editierbar)' : 'Paket wählen'}
       </span>
 
       {/* Editierbare Karte wenn Paket bereits gewählt */}

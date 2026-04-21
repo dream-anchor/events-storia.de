@@ -96,6 +96,10 @@ interface PublicOfferOption {
   total_amount: number;
   stripe_payment_link_url: string | null;
   package_name: string;
+  /** Beschreibung aus packages.description — von RPC geliefert */
+  package_description?: string | null;
+  /** Liste der enthaltenen Leistungen aus packages.includes */
+  package_includes?: string[] | null;
   sort_order: number;
 }
 
@@ -196,6 +200,24 @@ function buildDrinkRows(menu: MenuSelection | null): DrinkRow[] {
       price: null,
       priceSuffix: '',
     }];
+  }
+
+  // FALLBACK: Legacy-Options ohne drinksMode, aber mit drinks[]-Array
+  // (Wizard- oder Paket-basierte Konfiguration). Jeden Eintrag IMMER rendern,
+  // unabhängig von selectedChoice/customDrink.
+  if (Array.isArray(menu.drinks) && menu.drinks.length > 0) {
+    return menu.drinks
+      .filter((d) => d && (d.drinkLabel || d.selectedChoice || d.customDrink))
+      .map((d) => {
+        const choice = d.customDrink || d.selectedChoice || '';
+        const qty = d.quantityLabel ? ` — ${d.quantityLabel}` : '';
+        return {
+          label: d.drinkLabel || 'Getränk',
+          name: choice ? `${choice}${qty}` : (d.quantityLabel || '–'),
+          price: null,
+          priceSuffix: '',
+        };
+      });
   }
 
   return [];
@@ -976,6 +998,24 @@ function ProposalOptionCard({
             <p className="text-xs text-muted-foreground font-sans mt-1">
               {option.guest_count} Gäste
             </p>
+            {/* Paket-Beschreibung + enthaltene Leistungen (nur bei DB-Paketen) */}
+            {option.package_description && (
+              <p className="text-xs text-muted-foreground/80 font-sans mt-2 leading-relaxed">
+                {option.package_description}
+              </p>
+            )}
+            {Array.isArray(option.package_includes) && option.package_includes.length > 0 && (
+              <ul className="mt-3 flex flex-wrap gap-1.5">
+                {option.package_includes.map((inc, i) => (
+                  <li
+                    key={i}
+                    className="text-[11px] font-sans px-2 py-0.5 rounded-full bg-primary/5 border border-primary/15 text-foreground/80"
+                  >
+                    {inc}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
