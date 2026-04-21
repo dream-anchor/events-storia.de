@@ -249,7 +249,12 @@ export function OfferSendPreview({
   }
 
   const sendLabel = sendType === 'proposal' ? 'Vorschlag an Kunde senden' : 'Finales Angebot an Kunde senden';
-  const publicOfferUrl = `/offer/${inquiry.id}`;
+  const publicOfferUrl = (() => {
+    const base = `/offer/${inquiry.id}`;
+    const params = new URLSearchParams();
+    params.set('preview_send', sendType);
+    return `${base}?${params.toString()}`;
+  })();
   // "Critical" warnings = solche die einen echten Versand blockieren wuerden
   // (leerer Anschreiben-Text, fehlende Empfaenger-Email). PDF-Warnung ist ok.
   const hasBlockingWarning = previewWarnings.some(
