@@ -252,7 +252,11 @@ export function OfferSendPreview({
   const publicOfferUrl = (() => {
     const base = `/offer/${inquiry.id}`;
     const params = new URLSearchParams();
-    params.set('preview_send', sendType);
+    params.set('preview_send', sendType); // IMMER setzen
+    const body = inquiry.email_draft?.trim();
+    if (body && encodeURIComponent(body).length <= 6000) {
+      params.set('preview_body', body); // nur wenn Text vorhanden und nicht zu lang
+    }
     return `${base}?${params.toString()}`;
   })();
   // "Critical" warnings = solche die einen echten Versand blockieren wuerden
