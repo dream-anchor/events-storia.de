@@ -367,6 +367,7 @@ export function InlineCourseEditor({
             pricingMode={pricingMode}
               onRemoveCourse={onRemoveCourse}
               disabled={disabled}
+              packageMode={packageMode}
             />
           ))}
         </SortableContext>
