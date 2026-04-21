@@ -90,11 +90,23 @@ export function OptionCardGrid({
         <AnimatePresence mode="popLayout">
           {options.map((option) => {
             // Menü-Modus: Default-Configs (kein Paket). Paket-Modus: Configs aus Paket.
-            const courseConfigs = option.offerMode === 'menu'
-              ? DEFAULT_COURSE_CONFIGS
-              : option.packageId
-                ? (packageConfigs[option.packageId]?.courses || [])
-                : [];
+            // Bug B: Im Paket-Modus zusätzlich alle DEFAULT-Gang-Typen verfügbar machen,
+            // damit der Betreiber frei entscheiden kann (Dessert, Antipasto, ...).
+            // Paketspezifische Configs haben Priorität (mit allowed_categories), zusätzlich
+            // werden alle DEFAULT-Typen ergänzt, die noch nicht enthalten sind.
+            let courseConfigs: CourseConfig[];
+            if (option.offerMode === 'menu') {
+              courseConfigs = DEFAULT_COURSE_CONFIGS;
+            } else if (option.packageId) {
+              const pkgConfigs = packageConfigs[option.packageId]?.courses || [];
+              const existingTypes = new Set(pkgConfigs.map(c => c.course_type));
+              const extras = DEFAULT_COURSE_CONFIGS
+                .filter(d => !existingTypes.has(d.course_type))
+                .map(d => ({ ...d, sort_order: 100 + d.sort_order }));
+              courseConfigs = [...pkgConfigs, ...extras];
+            } else {
+              courseConfigs = [];
+            }
 
             const drinkConfigs = option.offerMode === 'paket' && option.packageId
               ? (packageConfigs[option.packageId]?.drinks || [])
