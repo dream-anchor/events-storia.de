@@ -60,6 +60,7 @@ function SortableCourseRow({
   onRemoveCourse,
   pricingMode,
   disabled,
+  packageMode = false,
 }: {
   course: CourseSelection;
   idx: number;
