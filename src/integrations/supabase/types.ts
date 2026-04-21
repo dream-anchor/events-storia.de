@@ -1030,6 +1030,7 @@ export type Database = {
           offer_version: number
           option_label: string
           package_id: string | null
+          selected_quantity: number | null
           sort_order: number | null
           stripe_payment_link_id: string | null
           stripe_payment_link_url: string | null
@@ -1048,6 +1049,7 @@ export type Database = {
           offer_version?: number
           option_label?: string
           package_id?: string | null
+          selected_quantity?: number | null
           sort_order?: number | null
           stripe_payment_link_id?: string | null
           stripe_payment_link_url?: string | null
@@ -1066,6 +1068,7 @@ export type Database = {
           offer_version?: number
           option_label?: string
           package_id?: string | null
+          selected_quantity?: number | null
           sort_order?: number | null
           stripe_payment_link_id?: string | null
           stripe_payment_link_url?: string | null
