@@ -755,6 +755,7 @@ function ProposalView({
 
   const isSingle = options.length === 1;
   const busy = isSubmitting || isPaying !== null;
+  const canPay = selectedOption && totalAmount > 0;
 
   return (
     <section className="bg-secondary/30">
@@ -790,8 +791,6 @@ function ProposalView({
               />
             ))}
           </div>
-
-const canPay = selectedOption && totalAmount > 0;
 
           {/* PRIMARY ACTION — Buchen über Stripe (immer sichtbar, disabled ohne Auswahl) */}
           <div className="max-w-2xl mb-10">
