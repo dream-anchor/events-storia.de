@@ -252,6 +252,10 @@ export default function PublicOffer() {
     }
   }
 
+  // Preview-Send-Typ: 'proposal' oder 'final' — aus OfferSendPreview.tsx übergeben
+  const previewSend = searchParams.get('preview_send'); // 'proposal' | 'final' | null
+  const isPreviewMode = previewBody !== null || previewSend !== null;
+
   // Slug-Route (/ihr-angebot/:slug) oder UUID-Route (/offer/:id)
   const isSlugRoute = location.pathname.includes('/ihr-angebot/') || location.pathname.includes('/your-offer/');
   const lookupValue = slug || id;
@@ -350,8 +354,10 @@ export default function PublicOffer() {
   const phase = inquiry.offer_phase || "draft";
 
   // Legacy: offer_phase = 'draft' aber status = 'offer_sent' → wie final_sent behandeln
-  const effectivePhase: OfferPhase =
-    phase === "draft" && inquiry.status === "offer_sent" ? "final_sent" : phase;
+  // Im Preview-Modus (Admin-Vorschau) immer Angebot anzeigen, egal welche Phase
+  const effectivePhase: OfferPhase = isPreviewMode
+    ? (previewSend === 'final' ? 'final_sent' : 'proposal_sent')
+    : (phase === "draft" && inquiry.status === "offer_sent" ? "final_sent" : phase);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
