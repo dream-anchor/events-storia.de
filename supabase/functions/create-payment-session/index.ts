@@ -5,8 +5,9 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 
 interface CreatePaymentSessionRequest {
   inquiryId: string;
-  optionId: string;
+  optionId?: string;
   paymentType: 'full' | 'deposit';
+  optionQuantities?: Array<{ optionId: string; quantity: number }>;
 }
 
 serve(async (req) => {
@@ -17,16 +18,166 @@ serve(async (req) => {
 
   try {
     const body = await req.json() as CreatePaymentSessionRequest;
-    const { inquiryId, optionId, paymentType } = body;
+    const { inquiryId, optionId, paymentType, optionQuantities } = body;
 
-    if (!inquiryId || !optionId || !paymentType) {
-      throw new Error('inquiryId, optionId und paymentType sind erforderlich');
+    if (!inquiryId || !paymentType) {
+      throw new Error('inquiryId und paymentType sind erforderlich');
     }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // ============================================================
+    // NEW PATH: Multi-Option Bundling
+    // Aktiv, sobald optionQuantities vorhanden ist und mindestens
+    // ein Eintrag eine quantity > 0 hat.
+    // ============================================================
+    const hasMultiOption = Array.isArray(optionQuantities)
+      && optionQuantities.some(q => (q?.quantity ?? 0) > 0);
+
+    if (hasMultiOption) {
+      const { data: inquiry, error: inqError } = await supabase
+        .from('event_inquiries')
+        .select('id, contact_name, email, preferred_date, guest_count, deposit_percent')
+        .eq('id', inquiryId)
+        .single();
+      if (inqError || !inquiry) throw new Error('Anfrage nicht gefunden');
+
+      const inq = inquiry as {
+        id: string; contact_name: string; email: string;
+        preferred_date: string | null; guest_count: string | null;
+        deposit_percent: number | null;
+      };
+      const depositPercent = inq.deposit_percent ?? 20;
+
+      if (paymentType === 'deposit' && inq.deposit_percent === 0) {
+        throw new Error('Anzahlung ist für dieses Angebot nicht vorgesehen');
+      }
+
+      const filtered = optionQuantities!.filter(q => (q?.quantity ?? 0) > 0);
+      const optionIds = filtered.map(q => q.optionId);
+
+      const { data: options, error: optsError } = await supabase
+        .from('inquiry_offer_options')
+        .select('id, inquiry_id, option_label, total_amount, guest_count, offer_mode, menu_selection, package_id')
+        .in('id', optionIds);
+
+      if (optsError || !options || options.length !== optionIds.length) {
+        throw new Error('Eine oder mehrere Optionen wurden nicht gefunden');
+      }
+
+      // Security: alle Options müssen zur inquiryId gehören
+      const wrongInquiry = (options as Array<{ inquiry_id: string }>).find(o => o.inquiry_id !== inquiryId);
+      if (wrongInquiry) throw new Error('Ungültige Optionen für diese Anfrage');
+
+      type OptRow = {
+        id: string; option_label: string; total_amount: number; guest_count: number;
+        offer_mode: string | null;
+        menu_selection: Record<string, unknown> | null;
+        package_id: string | null;
+      };
+      const optsById = new Map<string, OptRow>();
+      (options as OptRow[]).forEach(o => optsById.set(o.id, o));
+
+      let grandTotalEur = 0;
+      const descriptionParts: string[] = [];
+
+      for (const { optionId: oid, quantity } of filtered) {
+        const opt = optsById.get(oid);
+        if (!opt) throw new Error(`Option ${oid} nicht gefunden`);
+
+        const pricingMode = (opt.menu_selection?.pricingMode as string | undefined) ?? 'per_person';
+
+        let pricePerUnitEur: number;
+        if (pricingMode === 'per_event') {
+          if (quantity !== 1) {
+            throw new Error(`Option "${opt.option_label}": pauschale Preisstellung erlaubt nur Menge 1`);
+          }
+          pricePerUnitEur = opt.total_amount;
+        } else {
+          const budgetPerPerson = Number(opt.menu_selection?.budgetPerPerson ?? 0);
+          if (budgetPerPerson > 0) {
+            pricePerUnitEur = budgetPerPerson;
+          } else if (opt.guest_count > 0) {
+            pricePerUnitEur = opt.total_amount / opt.guest_count;
+          } else {
+            throw new Error(`Option "${opt.option_label}": Preis pro Person nicht ermittelbar`);
+          }
+        }
+
+        const lineEur = pricePerUnitEur * quantity;
+        grandTotalEur += lineEur;
+        descriptionParts.push(`${opt.option_label} × ${quantity}`);
+      }
+
+      const amountEur = paymentType === 'deposit'
+        ? Math.round(grandTotalEur * depositPercent) / 100
+        : grandTotalEur;
+      const amountCents = Math.round(amountEur * 100);
+
+      const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+      if (!stripeKey) throw new Error('Stripe nicht konfiguriert');
+      const stripe = new Stripe(stripeKey, { apiVersion: '2024-06-20' });
+
+      const productName = paymentType === 'deposit'
+        ? `Anzahlung (${depositPercent}%) — Event ${inq.preferred_date || ''}`
+        : `Event-Buchung — ${inq.preferred_date || ''}`;
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        customer_email: inq.email,
+        line_items: [{
+          price_data: {
+            currency: 'eur',
+            product_data: {
+              name: productName,
+              description: descriptionParts.join(' + '),
+            },
+            unit_amount: amountCents,
+          },
+          quantity: 1,
+        }],
+        success_url: `https://events-storia.de/offer/${inquiryId}?payment=success`,
+        cancel_url: `https://events-storia.de/offer/${inquiryId}?payment=cancelled`,
+        metadata: {
+          inquiry_id: inquiryId,
+          payment_type: paymentType,
+          total_amount: String(grandTotalEur),
+          deposit_percent: String(depositPercent),
+          option_quantities: JSON.stringify(filtered),
+        },
+      });
+
+      // selected_quantity pro Option persistieren
+      for (const { optionId: oid, quantity } of filtered) {
+        await supabase
+          .from('inquiry_offer_options')
+          .update({ selected_quantity: quantity } as Record<string, unknown>)
+          .eq('id', oid);
+      }
+
+      await supabase
+        .from('event_inquiries')
+        .update({
+          payment_type: paymentType,
+          remaining_amount: paymentType === 'deposit' ? grandTotalEur - amountEur : 0,
+        } as Record<string, unknown>)
+        .eq('id', inquiryId);
+
+      return new Response(
+        JSON.stringify({ success: true, checkoutUrl: session.url, sessionId: session.id }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    // ============================================================
+    // OLD PATH (UNCHANGED): Single-Option Zahlung
+    // ============================================================
+    if (!optionId) {
+      throw new Error('optionId ist erforderlich');
+    }
 
     // Anfrage + Option laden
     const { data: inquiry, error: inqError } = await supabase
