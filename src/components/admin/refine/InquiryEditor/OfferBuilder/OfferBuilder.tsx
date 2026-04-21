@@ -65,39 +65,8 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     packages,
   });
 
-  // --- Modus: abgeleitet aus Options (Single Source of Truth) ---
-  // modeOverride wird nur gesetzt, wenn der User explizit klickt (z.B. 'email')
-  const [modeOverride, setModeOverride] = useState<OfferMode | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [menuImporterOpen, setMenuImporterOpen] = useState(false);
-
-  const defaultMode: OfferMode = useMemo(() => {
-    const raw = modeOverride
-      ?? (builder.options.length > 0 ? builder.options[0].offerMode : null)
-      ?? (selectedPackages.length > 0 ? 'paket' : 'menu');
-    return raw;
-  }, [modeOverride, builder.options, selectedPackages.length]);
-
-  // ModeSelector-Wechsel propagiert an alle bestehenden Optionen
-  const handleModeChange = useCallback((mode: OfferMode) => {
-    setModeOverride(mode);
-    if (mode !== 'email') {
-      builder.setOptions(prev => prev.map(opt => {
-        if (opt.offerMode === mode) return opt;
-        return {
-          ...opt,
-          offerMode: mode,
-          ...(mode === 'paket' ? {
-            menuSelection: { courses: [], drinks: [] },
-            budgetPerPerson: null,
-          } : {
-            packageId: null,
-            packageName: '',
-          }),
-        };
-      }));
-    }
-  }, [builder.setOptions]);
 
   // --- Mehrere Restaurant-Menüs als neue Optionen anlegen ---
   const handleImportMultiple = useCallback((partials: Partial<OfferBuilderOption>[]) => {
