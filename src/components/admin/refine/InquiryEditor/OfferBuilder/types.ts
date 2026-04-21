@@ -40,7 +40,14 @@ export type { CombinedMenuItem };
 
 // --- Neue Types ---
 
-export type OfferMode = 'menu' | 'paket' | 'email';
+/**
+ * OfferMode pro Option:
+ * - 'unselected': neue Karte ohne Modus → zeigt Typ-Auswahl-Kacheln (nur In-Memory, wird NICHT persistiert)
+ * - 'menu': Eigenes Menü (freie Gangkonfiguration) ODER importiertes Restaurant-Menü
+ * - 'paket': Fertigpaket aus DB
+ * - 'email': Nur Anschreiben, keine Menükonfiguration
+ */
+export type OfferMode = 'unselected' | 'menu' | 'paket' | 'email';
 
 export type DrinkSectionMode = 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
 
