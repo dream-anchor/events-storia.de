@@ -213,17 +213,43 @@ function SortableCourseRow({
         <Input
           type="number"
           step={0.01}
-          value={hasOverride ? course.overridePrice! : (catalogPrice && catalogPrice > 0 ? catalogPrice : '')}
+          min={0}
+          value={
+            packageMode
+              ? (hasOverride ? course.overridePrice! : '')
+              : (hasOverride ? course.overridePrice! : (catalogPrice && catalogPrice > 0 ? catalogPrice : ''))
+          }
           onChange={(e) => {
             const val = e.target.value;
-            onUpdatePrice(idx, val === '' ? null : (parseFloat(val) || 0));
+            if (val === '') {
+              onUpdatePrice(idx, null);
+              return;
+            }
+            const parsed = parseFloat(val);
+            if (isNaN(parsed) || parsed <= 0) {
+              // 0/negativ → null normalisieren
+              onUpdatePrice(idx, null);
+              return;
+            }
+            onUpdatePrice(idx, parsed);
           }}
-          placeholder={catalogPrice != null && catalogPrice > 0 ? catalogPrice.toFixed(2) : '—'}
+          placeholder={
+            packageMode
+              ? 'inkl.'
+              : (catalogPrice != null && catalogPrice > 0 ? catalogPrice.toFixed(2) : '—')
+          }
           disabled={disabled}
-          className="h-8 rounded-lg pr-6 text-right text-sm tabular-nums"
-          title="Einzelpreis"
+          className={cn(
+            "h-8 rounded-lg pr-6 text-right text-sm tabular-nums",
+            packageMode && !hasOverride && "placeholder:text-muted-foreground/60 placeholder:italic",
+            packageMode && hasOverride && "text-foreground"
+          )}
+          title={packageMode ? 'Aufpreis (optional)' : 'Einzelpreis'}
         />
         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">€</span>
+        {packageMode && hasOverride && (
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">+</span>
+        )}
       </div>
 
       {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
