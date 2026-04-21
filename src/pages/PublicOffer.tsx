@@ -658,8 +658,32 @@ function ProposalView({
   const [wantsCopy, setWantsCopy] = useState(false);
   const [copyEmail, setCopyEmail] = useState(inquiry.email || "");
 
+  // Multi-Options-Mengen: Map optionId -> Menge (initial 0 für alle)
+  const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>(
+    () => Object.fromEntries(options.map(o => [o.id, 0]))
+  );
+
+  // Pro-Person-Preis pro Option (per_event: total_amount als Pauschale)
+  const perPersonPriceFor = (opt: PublicOfferOption): number => {
+    const ms = opt.menu_selection;
+    if (ms?.pricingMode === 'per_event') return opt.total_amount;
+    const budget = ms?.budgetPerPerson;
+    if (budget && budget > 0) return budget;
+    if (opt.guest_count > 0) return opt.total_amount / opt.guest_count;
+    return 0;
+  };
+
+  const totalQuantity = Object.values(optionQuantities).reduce((s, q) => s + (q || 0), 0);
+  const multiOptionsTotal = options.reduce(
+    (sum, o) => sum + (optionQuantities[o.id] || 0) * perPersonPriceFor(o),
+    0
+  );
+  const hasQuantities = totalQuantity > 0;
+
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
-  const totalAmount = selectedOption?.total_amount ?? 0;
+  const totalAmount = hasQuantities
+    ? multiOptionsTotal
+    : (selectedOption?.total_amount ?? 0);
   // Zahlungs-Konditionen aus Inquiry (RPC liefert Defaults aus site_settings)
   const depositPercent = inquiry.deposit_percent ?? 20;
   const depositDueDays = inquiry.deposit_due_days ?? 5;
@@ -670,11 +694,20 @@ function ProposalView({
 
   // ACTION: Zahlung — leitet zu Stripe Checkout weiter
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
-    if (!selectedOptionId) return;
+    if (!hasQuantities && !selectedOptionId) return;
     setIsPaying(paymentType);
     try {
+      const body = hasQuantities
+        ? {
+            inquiryId: inquiry.id,
+            paymentType,
+            optionQuantities: Object.entries(optionQuantities)
+              .filter(([, q]) => q > 0)
+              .map(([optionId, quantity]) => ({ optionId, quantity })),
+          }
+        : { inquiryId: inquiry.id, optionId: selectedOptionId, paymentType };
       const { data, error } = await supabase.functions.invoke('create-payment-session', {
-        body: { inquiryId: inquiry.id, optionId: selectedOptionId, paymentType },
+        body,
       });
       if (error || !data?.checkoutUrl) {
         throw new Error(data?.error || 'Fehler beim Erstellen der Zahlungssitzung');
@@ -699,12 +732,19 @@ function ProposalView({
     setSubmitError(null);
 
     try {
+      const breakdownLine = hasQuantities
+        ? `Meine Aufteilung: ${options
+            .filter(o => (optionQuantities[o.id] || 0) > 0)
+            .map(o => `Option ${o.option_label} × ${optionQuantities[o.id]}`)
+            .join(', ')} (${totalQuantity} Gäste)\n\n`
+        : '';
+      const finalNotes = breakdownLine + notes.trim();
       const { data: result, error: rpcError } = await supabase.rpc(
         "submit_offer_response" as never,
         {
           p_inquiry_id: inquiry.id,
           p_selected_option_id: selectedOptionId,
-          p_customer_notes: notes.trim(),
+          p_customer_notes: finalNotes,
         } as never
       );
 
@@ -727,7 +767,7 @@ function ProposalView({
             selectedOptionLabel: selectedOption
               ? `Option ${selectedOption.option_label}: ${selectedOption.package_name}`
               : "Ihre Auswahl",
-            customerNotes: notes.trim(),
+            customerNotes: finalNotes,
           },
         }).catch(() => {});
       }
@@ -742,7 +782,7 @@ function ProposalView({
         customer_response: {
           id: crypto.randomUUID(),
           selected_option_id: selectedOptionId,
-          customer_notes: notes.trim(),
+          customer_notes: finalNotes,
           responded_at: new Date().toISOString(),
         },
       });
@@ -755,7 +795,7 @@ function ProposalView({
 
   const isSingle = options.length === 1;
   const busy = isSubmitting || isPaying !== null;
-  const canPay = selectedOption && totalAmount > 0;
+  const canPay = (hasQuantities && multiOptionsTotal > 0) || (!!selectedOption && totalAmount > 0);
 
   return (
     <section className="bg-secondary/30">
@@ -788,9 +828,39 @@ function ProposalView({
                 isSelected={selectedOptionId === option.id}
                 onSelect={() => setSelectedOptionId(option.id)}
                 singleOption={isSingle}
+                quantity={optionQuantities[option.id] || 0}
+                onQuantityChange={(q) => {
+                  const isPerEvent = option.menu_selection?.pricingMode === 'per_event';
+                  const clamped = isPerEvent ? Math.min(1, Math.max(0, q)) : Math.max(0, q);
+                  setOptionQuantities((prev) => ({ ...prev, [option.id]: clamped }));
+                }}
+                perPersonPrice={perPersonPriceFor(option)}
               />
             ))}
           </div>
+
+          {/* Live-Summary für Multi-Options-Modus */}
+          {hasQuantities && (
+            <div className="max-w-2xl mb-6 rounded-xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/70">
+                  Ihre Auswahl
+                </p>
+                <p className="text-sm font-sans text-foreground mt-1">
+                  {options
+                    .filter((o) => (optionQuantities[o.id] || 0) > 0)
+                    .map((o) => `Option ${o.option_label} × ${optionQuantities[o.id]}`)
+                    .join(' · ')}
+                </p>
+                <p className="text-xs font-sans text-muted-foreground mt-0.5">
+                  {totalQuantity} {totalQuantity === 1 ? 'Gast' : 'Gäste'} gesamt
+                </p>
+              </div>
+              <p className="text-xl font-serif font-bold text-primary whitespace-nowrap">
+                {formatCurrencyDecimal(multiOptionsTotal)}
+              </p>
+            </div>
+          )}
 
           {/* PRIMARY ACTION — Buchen über Stripe (immer sichtbar, disabled ohne Auswahl) */}
           <div className="max-w-2xl mb-10">
@@ -801,8 +871,10 @@ function ProposalView({
                 </h3>
                 <p className="text-sm text-muted-foreground font-sans">
                   {canPay
-                    ? "Sicher bezahlen über Stripe — Kreditkarte, Apple Pay oder SEPA"
-                    : "Wählen Sie oben eine Option, um zu buchen — oder schreiben Sie uns bei Fragen."}
+                    ? (hasQuantities
+                        ? `Sicher bezahlen über Stripe — für ${totalQuantity} ${totalQuantity === 1 ? 'Gast' : 'Gäste'}`
+                        : "Sicher bezahlen über Stripe — Kreditkarte, Apple Pay oder SEPA")
+                    : "Wählen Sie oben eine Option oder geben Sie Mengen an."}
                 </p>
               </div>
 
@@ -961,11 +1033,17 @@ function ProposalOptionCard({
   isSelected,
   onSelect,
   singleOption,
+  quantity,
+  onQuantityChange,
+  perPersonPrice: perPersonPriceProp,
 }: {
   option: PublicOfferOption;
   isSelected: boolean;
   onSelect: () => void;
   singleOption: boolean;
+  quantity: number;
+  onQuantityChange: (q: number) => void;
+  perPersonPrice: number;
 }) {
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
@@ -984,10 +1062,18 @@ function ProposalOptionCard({
 
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       className={cn(
-        "w-full text-left rounded-2xl overflow-hidden transition-all duration-200",
+        "w-full text-left rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
         "bg-white/70 dark:bg-white/10 backdrop-blur-sm border-2",
         "shadow-[0_4px_20px_rgba(0,0,0,0.04)]",
         isSelected
@@ -1105,7 +1191,55 @@ function ProposalOptionCard({
         </div>
       )}
 
-    </button>
+      {/* Mengen-Stepper */}
+      <div
+        className="px-6 pb-5 pt-4 border-t border-border/10 bg-muted/10 flex items-center justify-between gap-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div>
+          <p className="text-xs font-sans font-medium text-foreground/80">
+            Wie viele Gäste möchten dieses Menü?
+          </p>
+          <p className="text-[10px] font-sans text-muted-foreground mt-0.5">
+            Ergibt {formatCurrencyDecimal(quantity * perPersonPriceProp)} für diese Option
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => onQuantityChange(Math.max(0, quantity - 1))}
+            disabled={quantity <= 0}
+            className="h-9 w-9 rounded-full"
+            aria-label="Menge verringern"
+          >
+            −
+          </Button>
+          <Input
+            type="number"
+            min={0}
+            value={quantity}
+            onChange={(e) => {
+              const n = parseInt(e.target.value || '0', 10);
+              if (!isNaN(n) && n >= 0) onQuantityChange(n);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-16 h-9 text-center rounded-full font-sans font-semibold"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => onQuantityChange(quantity + 1)}
+            className="h-9 w-9 rounded-full"
+            aria-label="Menge erhöhen"
+          >
+            +
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
