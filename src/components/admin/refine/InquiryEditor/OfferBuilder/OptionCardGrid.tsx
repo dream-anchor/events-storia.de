@@ -23,7 +23,6 @@ interface OptionCardGridProps {
   onToggleActive: (optionId: string) => void;
   onAddOption: (mode?: OfferMode, copyFrom?: OfferBuilderOption) => void;
   onImportMultiple: (partials: Partial<OfferBuilderOption>[]) => void;
-  defaultMode: OfferMode;
   isLocked: boolean;
   currentVersion: number;
   guestCount: number;
@@ -41,7 +40,6 @@ export function OptionCardGrid({
   onToggleActive,
   onAddOption,
   onImportMultiple,
-  defaultMode,
   isLocked,
   currentVersion,
   guestCount,
@@ -69,7 +67,7 @@ export function OptionCardGrid({
           />
           {canAdd && (
             <button
-              onClick={() => onAddOption(defaultMode)}
+              onClick={() => onAddOption()}
               className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1"
             >
               <Plus className="h-3.5 w-3.5" />
