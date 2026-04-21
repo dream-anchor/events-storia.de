@@ -709,7 +709,7 @@ export function useOfferBuilder({
       return updated;
     });
   }, [isLoading, packagesProp, options.map(o => {
-    const courseKey = o.offerMode === 'menu'
+    const courseKey = (o.offerMode === 'menu' || o.offerMode === 'paket')
       ? o.menuSelection.courses.map(c => `${c.overridePrice ?? ''}`).join('|')
       : '';
     const drinkKey = o.offerMode === 'menu'
