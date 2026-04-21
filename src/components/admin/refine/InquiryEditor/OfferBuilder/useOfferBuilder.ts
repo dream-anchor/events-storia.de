@@ -512,7 +512,7 @@ export function useOfferBuilder({
   // AUTO-SAVE — 800ms Debounce mit JSON-Vergleich (verhindert Loop)
   // =================================================================
   useEffect(() => {
-    if (isLoading || isInitialLoad.current) return;
+    if (isLoading) return;
     if (!inquiryId) return; // Kein Save ohne gültige inquiry_id (z.B. auf /create vor Draft-Init)
 
     if (!isDirtyRef.current) return;
