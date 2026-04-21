@@ -1033,11 +1033,17 @@ function ProposalOptionCard({
   isSelected,
   onSelect,
   singleOption,
+  quantity,
+  onQuantityChange,
+  perPersonPrice: perPersonPriceProp,
 }: {
   option: PublicOfferOption;
   isSelected: boolean;
   onSelect: () => void;
   singleOption: boolean;
+  quantity: number;
+  onQuantityChange: (q: number) => void;
+  perPersonPrice: number;
 }) {
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
@@ -1056,10 +1062,18 @@ function ProposalOptionCard({
 
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       className={cn(
-        "w-full text-left rounded-2xl overflow-hidden transition-all duration-200",
+        "w-full text-left rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
         "bg-white/70 dark:bg-white/10 backdrop-blur-sm border-2",
         "shadow-[0_4px_20px_rgba(0,0,0,0.04)]",
         isSelected
