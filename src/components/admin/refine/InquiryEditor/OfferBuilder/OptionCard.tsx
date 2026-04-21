@@ -1,6 +1,6 @@
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed, RefreshCw } from "lucide-react";
+import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed, RefreshCw, ChefHat, Package as PackageIcon, Mail } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { InlineCourseEditor } from "./InlineCourseEditor";
 import { InlineDrinkEditor } from "./InlineDrinkEditor";
@@ -63,6 +73,38 @@ export function OptionCard({
     () => packages.find(p => p.id === option.packageId),
     [packages, option.packageId]
   );
+
+  // --- Mode-Wechsel via Header-Dropdown: Confirm wenn Daten vorhanden ---
+  const [pendingMode, setPendingMode] = useState<OfferMode | null>(null);
+
+  const hasOptionData = useMemo(() => {
+    if (option.offerMode === 'unselected') return false;
+    return !!option.packageId
+      || !!option.packageName
+      || option.menuSelection.courses.length > 0
+      || option.menuSelection.drinks.length > 0
+      || (option.totalAmount ?? 0) > 0;
+  }, [option]);
+
+  const applyModeChange = (mode: OfferMode) => {
+    onUpdate({
+      offerMode: mode,
+      packageId: null,
+      packageName: '',
+      budgetPerPerson: null,
+      menuSelection: { courses: [], drinks: [] },
+      totalAmount: 0,
+    });
+  };
+
+  const handleModeSelectChange = (mode: OfferMode) => {
+    if (mode === option.offerMode) return;
+    if (hasOptionData) {
+      setPendingMode(mode);
+      return;
+    }
+    applyModeChange(mode);
+  };
 
   // Merged packageData mit Admin-Overrides für PriceBreakdown-Anzeige
   const effectivePackage = useMemo(() => {
@@ -207,27 +249,16 @@ export function OptionCard({
                 
                 <Select
                   value={option.offerMode}
-                  onValueChange={(mode: string) => {
-                    const offerMode = mode as OfferMode;
-                    onUpdate({
-                      offerMode,
-                      ...(offerMode === 'paket' ? {
-                        menuSelection: { courses: [], drinks: [] },
-                        budgetPerPerson: null,
-                      } : offerMode === 'menu' ? {
-                        packageId: null,
-                        packageName: '',
-                      } : {}),
-                    });
-                  }}
-                  disabled={isLocked}
+                  onValueChange={(mode: string) => handleModeSelectChange(mode as OfferMode)}
+                  disabled={isLocked || option.offerMode === 'unselected'}
                 >
                   <SelectTrigger className="h-5 w-auto text-[10px] rounded-lg border-0 bg-muted/50 px-2 gap-1 font-medium">
-                    <SelectValue />
+                    <SelectValue placeholder="Typ wählen" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="menu">Menü</SelectItem>
                     <SelectItem value="paket">Paket</SelectItem>
+                    <SelectItem value="email">Nur E-Mail</SelectItem>
                   </SelectContent>
                 </Select>
                 {isLocked && (
@@ -276,6 +307,24 @@ export function OptionCard({
 
         {/* Body */}
         <div className="p-5 space-y-4">
+          {/* Typ-Auswahl-Kacheln (nur wenn Modus noch nicht gewählt) */}
+          {option.offerMode === 'unselected' && (
+            <ModeSelectorTiles
+              onSelect={(mode) => applyModeChange(mode)}
+              disabled={disabled}
+            />
+          )}
+
+          {/* Nur-E-Mail-Modus: Hinweis im Body */}
+          {option.offerMode === 'email' && (
+            <div className="flex items-start gap-3 p-4 rounded-xl border border-dashed border-border bg-muted/30">
+              <Mail className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="text-xs text-muted-foreground">
+                Diese Option hat keine Menükonfiguration — der Kunde erhält nur das Anschreiben weiter unten.
+              </div>
+            </div>
+          )}
+
           {/* Modus-spezifischer Content */}
           {option.offerMode === 'menu' && (
             <MenuContent
@@ -309,7 +358,7 @@ export function OptionCard({
           )}
 
           {/* Preis — nur anzeigen wenn mindestens 1 Gang konfiguriert */}
-          {(option.offerMode === 'paket' || option.menuSelection.courses.some(c => c.itemName)) && (
+          {(option.offerMode === 'paket' || (option.offerMode === 'menu' && option.menuSelection.courses.some(c => c.itemName))) && (
           <PriceBreakdown
             packageData={option.offerMode === 'menu' ? undefined : effectivePackage}
             guestCount={option.guestCount}
@@ -331,7 +380,75 @@ export function OptionCard({
           )}
         </div>
       </Card>
+
+      {/* Confirm-Dialog: Typ-Wechsel mit Datenverlust nur dieser Option */}
+      <AlertDialog open={pendingMode !== null} onOpenChange={(open) => !open && setPendingMode(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Typ wechseln?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bei Typ-Wechsel gehen Konfiguration und Preise dieser Option verloren.
+              Andere Optionen sind nicht betroffen. Fortfahren?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingMode) applyModeChange(pendingMode);
+                setPendingMode(null);
+              }}
+            >
+              Wechseln
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
+  );
+}
+
+// --- Typ-Auswahl-Kacheln (im Body einer noch nicht konfigurierten Karte) ---
+function ModeSelectorTiles({
+  onSelect,
+  disabled,
+}: {
+  onSelect: (mode: OfferMode) => void;
+  disabled: boolean;
+}) {
+  const tiles: Array<{ mode: OfferMode; icon: typeof ChefHat; label: string; hint: string }> = [
+    { mode: 'menu', icon: UtensilsCrossed, label: 'Restaurant-Menü', hint: 'Speisekarte laden & anpassen' },
+    { mode: 'menu', icon: ChefHat, label: 'Eigenes Menü', hint: 'Gänge frei zusammenstellen' },
+    { mode: 'paket', icon: PackageIcon, label: 'Paket', hint: 'Fertigpaket wählen' },
+    { mode: 'email', icon: Mail, label: 'Nur E-Mail', hint: 'ohne Menükonfiguration' },
+  ];
+
+  return (
+    <div>
+      <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
+        Typ dieser Option wählen
+      </h4>
+      <div className="grid grid-cols-2 gap-2">
+        {tiles.map(({ mode, icon: Icon, label, hint }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => !disabled && onSelect(mode)}
+            disabled={disabled}
+            className={cn(
+              "flex flex-col items-center gap-1.5 px-3 py-4 rounded-xl border-2 border-border/40 bg-muted/20 transition-all text-center",
+              "hover:border-primary hover:bg-primary/5",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              disabled && "opacity-50 cursor-not-allowed",
+            )}
+          >
+            <Icon className="h-5 w-5 text-muted-foreground" />
+            <span className="text-xs font-semibold leading-tight text-foreground">{label}</span>
+            <span className="text-[10px] text-muted-foreground leading-tight">{hint}</span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
