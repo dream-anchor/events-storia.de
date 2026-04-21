@@ -73,6 +73,7 @@ function SortableCourseRow({
   onRemoveCourse: (index: number) => void;
   pricingMode: PricingMode;
   disabled: boolean;
+  packageMode?: boolean;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
