@@ -828,9 +828,39 @@ function ProposalView({
                 isSelected={selectedOptionId === option.id}
                 onSelect={() => setSelectedOptionId(option.id)}
                 singleOption={isSingle}
+                quantity={optionQuantities[option.id] || 0}
+                onQuantityChange={(q) => {
+                  const isPerEvent = option.menu_selection?.pricingMode === 'per_event';
+                  const clamped = isPerEvent ? Math.min(1, Math.max(0, q)) : Math.max(0, q);
+                  setOptionQuantities((prev) => ({ ...prev, [option.id]: clamped }));
+                }}
+                perPersonPrice={perPersonPriceFor(option)}
               />
             ))}
           </div>
+
+          {/* Live-Summary für Multi-Options-Modus */}
+          {hasQuantities && (
+            <div className="max-w-2xl mb-6 rounded-xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/70">
+                  Ihre Auswahl
+                </p>
+                <p className="text-sm font-sans text-foreground mt-1">
+                  {options
+                    .filter((o) => (optionQuantities[o.id] || 0) > 0)
+                    .map((o) => `Option ${o.option_label} × ${optionQuantities[o.id]}`)
+                    .join(' · ')}
+                </p>
+                <p className="text-xs font-sans text-muted-foreground mt-0.5">
+                  {totalQuantity} {totalQuantity === 1 ? 'Gast' : 'Gäste'} gesamt
+                </p>
+              </div>
+              <p className="text-xl font-serif font-bold text-primary whitespace-nowrap">
+                {formatCurrencyDecimal(multiOptionsTotal)}
+              </p>
+            </div>
+          )}
 
           {/* PRIMARY ACTION — Buchen über Stripe (immer sichtbar, disabled ohne Auswahl) */}
           <div className="max-w-2xl mb-10">
@@ -841,8 +871,10 @@ function ProposalView({
                 </h3>
                 <p className="text-sm text-muted-foreground font-sans">
                   {canPay
-                    ? "Sicher bezahlen über Stripe — Kreditkarte, Apple Pay oder SEPA"
-                    : "Wählen Sie oben eine Option, um zu buchen — oder schreiben Sie uns bei Fragen."}
+                    ? (hasQuantities
+                        ? `Sicher bezahlen über Stripe — für ${totalQuantity} ${totalQuantity === 1 ? 'Gast' : 'Gäste'}`
+                        : "Sicher bezahlen über Stripe — Kreditkarte, Apple Pay oder SEPA")
+                    : "Wählen Sie oben eine Option oder geben Sie Mengen an."}
                 </p>
               </div>
 
