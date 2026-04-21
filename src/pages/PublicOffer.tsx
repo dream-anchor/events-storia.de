@@ -791,76 +791,89 @@ function ProposalView({
             ))}
           </div>
 
-          {/* PRIMARY ACTION — Buchen über Stripe (nur wenn Betrag kalkuliert ist) */}
-          {selectedOption && totalAmount > 0 && (
-            <div className="max-w-2xl mb-10">
-              <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm rounded-2xl border-2 border-primary/20 p-6 md:p-8 shadow-[0_8px_30px_rgba(139,0,0,0.08)]">
-                <div className="mb-6">
-                  <h3 className="font-serif text-xl md:text-2xl font-bold text-foreground mb-1">
-                    Jetzt verbindlich buchen
-                  </h3>
-                  <p className="text-sm text-muted-foreground font-sans">
-                    Sicher bezahlen über Stripe — Kreditkarte, Apple Pay oder SEPA
-                  </p>
-                </div>
+{/* PRIMARY ACTION — Buchen über Stripe (immer sichtbar, disabled ohne Auswahl) */}
+          const canPay = selectedOption && totalAmount > 0;
+          
+          <div className="max-w-2xl mb-10">
+            <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm rounded-2xl border-2 border-primary/20 p-6 md:p-8 shadow-[0_8px_30px_rgba(139,0,0,0.08)]">
+              <div className="mb-6">
+                <h3 className="font-serif text-xl md:text-2xl font-bold text-foreground mb-1">
+                  Jetzt verbindlich buchen
+                </h3>
+                <p className="text-sm text-muted-foreground font-sans">
+                  {canPay
+                    ? "Sicher bezahlen über Stripe — Kreditkarte, Apple Pay oder SEPA"
+                    : "Wählen Sie oben eine Option, um zu buchen — oder schreiben Sie uns bei Fragen."}
+                </p>
+              </div>
 
-                <div className={cn("grid gap-3", showDeposit ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
-                  {/* Voll bezahlen — Primary/Dominant */}
-                  <Button
-                    onClick={() => handlePayment('full')}
-                    disabled={busy}
-                    className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all"
-                  >
-                    <span className="flex items-center gap-2 w-full justify-between">
-                      <span className="text-sm">Voll bezahlen</span>
-                      {isPaying === 'full' && <Loader2 className="h-4 w-4 animate-spin" />}
-                    </span>
+              <div className={cn("grid gap-3", showDeposit ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
+                {/* Voll bezahlen — Primary/Dominant */}
+                <Button
+                  onClick={() => handlePayment('full')}
+                  disabled={busy || !canPay}
+                  className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_15px_rgba(139,0,0,0.25)]"
+                >
+                  <span className="flex items-center gap-2 w-full justify-between">
+                    <span className="text-sm">Voll bezahlen</span>
+                    {isPaying === 'full' && <Loader2 className="h-4 w-4 animate-spin" />}
+                  </span>
+                  {canPay ? (
                     <span className="text-lg font-serif font-bold">
                       {formatCurrency(totalAmount)}
                     </span>
-                  </Button>
+                  ) : (
+                    <span className="text-sm font-sans opacity-70">Option wählen</span>
+                  )}
+                </Button>
 
-                  {/* Anzahlung — nur wenn 0 < deposit_percent < 100 */}
-                  {showDeposit && (
-                    <div>
-                      <Button
-                        onClick={() => handlePayment('deposit')}
-                        disabled={busy}
-                        variant="outline"
-                        className="w-full h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all"
-                      >
-                        <span className="flex items-center gap-2 w-full justify-between">
-                          <span className="text-sm">Anzahlung {depositPercent} %</span>
-                          {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
-                        </span>
+                {/* Anzahlung — nur wenn 0 < deposit_percent < 100 */}
+                {showDeposit && (
+                  <div>
+                    <Button
+                      onClick={() => handlePayment('deposit')}
+                      disabled={busy || !canPay}
+                      variant="outline"
+                      className="w-full h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <span className="flex items-center gap-2 w-full justify-between">
+                        <span className="text-sm">Anzahlung {depositPercent} %</span>
+                        {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
+                      </span>
+                      {canPay ? (
                         <span className="text-lg font-serif font-bold text-primary">
                           {formatCurrencyDecimal(depositAmount)}
                         </span>
-                      </Button>
+                      ) : (
+                        <span className="text-sm font-sans opacity-70 text-muted-foreground">Option wählen</span>
+                      )}
+                    </Button>
+                    {canPay && (
                       <p className="mt-1.5 text-[11px] font-sans text-muted-foreground/70 text-center">
                         innerhalb {depositDueDays} {depositDueDays === 1 ? 'Tag' : 'Tagen'} zu zahlen
                       </p>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
-                {/* Trust-Elemente */}
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-5 text-xs text-muted-foreground font-sans">
-                  <span className="flex items-center gap-1.5">
-                    <Lock className="h-3 w-3" />
-                    SSL-verschlüsselt
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <ShieldCheck className="h-3 w-3" />
-                    Sichere Zahlung via Stripe
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <FileText className="h-3 w-3" />
-                    Rechnung folgt per E-Mail
-                  </span>
-                </div>
+              {/* Trust-Elemente */}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-5 text-xs text-muted-foreground font-sans">
+                <span className="flex items-center gap-1.5">
+                  <Lock className="h-3 w-3" />
+                  SSL-verschlüsselt
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="h-3 w-3" />
+                  Sichere Zahlung via Stripe
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <FileText className="h-3 w-3" />
+                  Rechnung folgt per E-Mail
+                </span>
               </div>
             </div>
+          </div>
           )}
 
           {/* Stornobedingungen — direkt unter der Buchen-Box (nur wenn buchbar) */}
