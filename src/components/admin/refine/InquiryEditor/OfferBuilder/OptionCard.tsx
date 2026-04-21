@@ -249,27 +249,16 @@ export function OptionCard({
                 
                 <Select
                   value={option.offerMode}
-                  onValueChange={(mode: string) => {
-                    const offerMode = mode as OfferMode;
-                    onUpdate({
-                      offerMode,
-                      ...(offerMode === 'paket' ? {
-                        menuSelection: { courses: [], drinks: [] },
-                        budgetPerPerson: null,
-                      } : offerMode === 'menu' ? {
-                        packageId: null,
-                        packageName: '',
-                      } : {}),
-                    });
-                  }}
-                  disabled={isLocked}
+                  onValueChange={(mode: string) => handleModeSelectChange(mode as OfferMode)}
+                  disabled={isLocked || option.offerMode === 'unselected'}
                 >
                   <SelectTrigger className="h-5 w-auto text-[10px] rounded-lg border-0 bg-muted/50 px-2 gap-1 font-medium">
-                    <SelectValue />
+                    <SelectValue placeholder="Typ wählen" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="menu">Menü</SelectItem>
                     <SelectItem value="paket">Paket</SelectItem>
+                    <SelectItem value="email">Nur E-Mail</SelectItem>
                   </SelectContent>
                 </Select>
                 {isLocked && (
