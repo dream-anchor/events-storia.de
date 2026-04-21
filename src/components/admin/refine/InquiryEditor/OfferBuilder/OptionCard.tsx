@@ -307,6 +307,24 @@ export function OptionCard({
 
         {/* Body */}
         <div className="p-5 space-y-4">
+          {/* Typ-Auswahl-Kacheln (nur wenn Modus noch nicht gewählt) */}
+          {option.offerMode === 'unselected' && (
+            <ModeSelectorTiles
+              onSelect={(mode) => applyModeChange(mode)}
+              disabled={disabled}
+            />
+          )}
+
+          {/* Nur-E-Mail-Modus: Hinweis im Body */}
+          {option.offerMode === 'email' && (
+            <div className="flex items-start gap-3 p-4 rounded-xl border border-dashed border-border bg-muted/30">
+              <Mail className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="text-xs text-muted-foreground">
+                Diese Option hat keine Menükonfiguration — der Kunde erhält nur das Anschreiben weiter unten.
+              </div>
+            </div>
+          )}
+
           {/* Modus-spezifischer Content */}
           {option.offerMode === 'menu' && (
             <MenuContent
@@ -340,7 +358,7 @@ export function OptionCard({
           )}
 
           {/* Preis — nur anzeigen wenn mindestens 1 Gang konfiguriert */}
-          {(option.offerMode === 'paket' || option.menuSelection.courses.some(c => c.itemName)) && (
+          {(option.offerMode === 'paket' || (option.offerMode === 'menu' && option.menuSelection.courses.some(c => c.itemName))) && (
           <PriceBreakdown
             packageData={option.offerMode === 'menu' ? undefined : effectivePackage}
             guestCount={option.guestCount}
