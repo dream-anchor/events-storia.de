@@ -283,6 +283,7 @@ export function InlineCourseEditor({
   onReorderCourses,
   pricingMode = 'per_person',
   disabled = false,
+  packageMode = false,
 }: InlineCourseEditorProps) {
   const handleDishSelect = (
     index: number,
