@@ -998,6 +998,24 @@ function ProposalOptionCard({
             <p className="text-xs text-muted-foreground font-sans mt-1">
               {option.guest_count} Gäste
             </p>
+            {/* Paket-Beschreibung + enthaltene Leistungen (nur bei DB-Paketen) */}
+            {option.package_description && (
+              <p className="text-xs text-muted-foreground/80 font-sans mt-2 leading-relaxed">
+                {option.package_description}
+              </p>
+            )}
+            {Array.isArray(option.package_includes) && option.package_includes.length > 0 && (
+              <ul className="mt-3 flex flex-wrap gap-1.5">
+                {option.package_includes.map((inc, i) => (
+                  <li
+                    key={i}
+                    className="text-[11px] font-sans px-2 py-0.5 rounded-full bg-primary/5 border border-primary/15 text-foreground/80"
+                  >
+                    {inc}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
