@@ -1,18 +1,17 @@
 import { useState, useCallback, useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
-import { Loader2, Mail } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { useOfferBuilder } from "./useOfferBuilder";
-import { ModeSelector } from "./ModeSelector";
 import { OptionCardGrid } from "./OptionCardGrid";
 import { EmailComposer } from "./EmailComposer";
 import { SendControls } from "./SendControls";
 import { CustomerFeedbackBanner } from "./CustomerFeedbackBanner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { OfferMode, ExtendedInquiry, Package, EmailTemplate, OfferHistoryEntry, OfferBuilderOption } from "./types";
+import type { ExtendedInquiry, Package, EmailTemplate, OfferHistoryEntry, OfferBuilderOption } from "./types";
 import { OPTION_LABELS, createEmptyOption } from "./types";
 import { PaymentTermsBlock } from "../PaymentTermsBlock";
 
