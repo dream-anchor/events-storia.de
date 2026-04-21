@@ -658,8 +658,32 @@ function ProposalView({
   const [wantsCopy, setWantsCopy] = useState(false);
   const [copyEmail, setCopyEmail] = useState(inquiry.email || "");
 
+  // Multi-Options-Mengen: Map optionId -> Menge (initial 0 für alle)
+  const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>(
+    () => Object.fromEntries(options.map(o => [o.id, 0]))
+  );
+
+  // Pro-Person-Preis pro Option (per_event: total_amount als Pauschale)
+  const perPersonPriceFor = (opt: PublicOfferOption): number => {
+    const ms = opt.menu_selection;
+    if (ms?.pricingMode === 'per_event') return opt.total_amount;
+    const budget = ms?.budgetPerPerson;
+    if (budget && budget > 0) return budget;
+    if (opt.guest_count > 0) return opt.total_amount / opt.guest_count;
+    return 0;
+  };
+
+  const totalQuantity = Object.values(optionQuantities).reduce((s, q) => s + (q || 0), 0);
+  const multiOptionsTotal = options.reduce(
+    (sum, o) => sum + (optionQuantities[o.id] || 0) * perPersonPriceFor(o),
+    0
+  );
+  const hasQuantities = totalQuantity > 0;
+
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
-  const totalAmount = selectedOption?.total_amount ?? 0;
+  const totalAmount = hasQuantities
+    ? multiOptionsTotal
+    : (selectedOption?.total_amount ?? 0);
   // Zahlungs-Konditionen aus Inquiry (RPC liefert Defaults aus site_settings)
   const depositPercent = inquiry.deposit_percent ?? 20;
   const depositDueDays = inquiry.deposit_due_days ?? 5;
@@ -670,11 +694,20 @@ function ProposalView({
 
   // ACTION: Zahlung — leitet zu Stripe Checkout weiter
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
-    if (!selectedOptionId) return;
+    if (!hasQuantities && !selectedOptionId) return;
     setIsPaying(paymentType);
     try {
+      const body = hasQuantities
+        ? {
+            inquiryId: inquiry.id,
+            paymentType,
+            optionQuantities: Object.entries(optionQuantities)
+              .filter(([, q]) => q > 0)
+              .map(([optionId, quantity]) => ({ optionId, quantity })),
+          }
+        : { inquiryId: inquiry.id, optionId: selectedOptionId, paymentType };
       const { data, error } = await supabase.functions.invoke('create-payment-session', {
-        body: { inquiryId: inquiry.id, optionId: selectedOptionId, paymentType },
+        body,
       });
       if (error || !data?.checkoutUrl) {
         throw new Error(data?.error || 'Fehler beim Erstellen der Zahlungssitzung');
