@@ -791,9 +791,9 @@ function ProposalView({
             ))}
           </div>
 
-{/* PRIMARY ACTION — Buchen über Stripe (immer sichtbar, disabled ohne Auswahl) */}
-          const canPay = selectedOption && totalAmount > 0;
-          
+const canPay = selectedOption && totalAmount > 0;
+
+          {/* PRIMARY ACTION — Buchen über Stripe (immer sichtbar, disabled ohne Auswahl) */}
           <div className="max-w-2xl mb-10">
             <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm rounded-2xl border-2 border-primary/20 p-6 md:p-8 shadow-[0_8px_30px_rgba(139,0,0,0.08)]">
               <div className="mb-6">
@@ -874,7 +874,6 @@ function ProposalView({
               </div>
             </div>
           </div>
-          )}
 
           {/* Stornobedingungen — direkt unter der Buchen-Box (nur wenn buchbar) */}
           {selectedOption && totalAmount > 0 && (
