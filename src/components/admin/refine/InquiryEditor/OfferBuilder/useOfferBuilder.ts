@@ -444,9 +444,11 @@ export function useOfferBuilder({
             }
           }
 
+          // Wenn Kunde bereits ein Paket gewählt hat → direkt im paket-Modus.
+          // Sonst startet Karte A ohne Modus (Typ-Auswahl-Kacheln werden gezeigt).
           setOptions([{
             id: crypto.randomUUID(),
-            ...createEmptyOption('A', guestCountRef.current, customerPackageId ? 'paket' : 'menu'),
+            ...createEmptyOption('A', guestCountRef.current, customerPackageId ? 'paket' : 'unselected'),
             packageId: customerPackageId,
             packageName: initialPackageName,
             totalAmount: initialTotal,
