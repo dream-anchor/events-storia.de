@@ -551,34 +551,68 @@ export const SmartInquiryEditor = () => {
         );
         return;
       }
-      try {
-        toast.loading('Angebot wird versendet …', { id: 'offer-send-progress' });
-        let result: unknown;
-        if (sendType === 'final') {
-          await handle.triggerSendFinalOffer();
-        } else {
-          result = await handle.triggerSendProposal();
+      // =================================================================
+      // RETRY-LOOP für Hydration-Race-Condition:
+      // Der OfferBuilder-Guard wirft Fehler wenn lokaler State noch leer ist.
+      // Wir retry bis zu 10x à 300ms = max 3s, danngeben wir auf.
+      // =================================================================
+      const MAX_RETRIES = 10;
+      const RETRY_DELAY_MS = 300;
+      let lastError: unknown = null;
+      let sent = false;
+
+      toast.loading('Angebot wird versendet …', { id: 'offer-send-progress' });
+
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          if (sendType === 'final') {
+            await handle.triggerSendFinalOffer();
+          } else {
+            result = await handle.triggerSendProposal();
+          }
+          sent = true;
+          break;
+        } catch (err) {
+          lastError = err;
+          const msg = err instanceof Error ? err.message : String(err);
+          const isHydrationError = /not yet hydrated|Hydration noch nicht|0 Optionen/i.test(msg);
+
+          if (!isHydrationError) {
+            // Anderer Fehler — sofort raus, nicht retry
+            throw err;
+          }
+
+          // Hydration noch nicht fertig — warten und nochmal
+          if (attempt < MAX_RETRIES - 1) {
+            await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+          }
         }
-        sessionStorage.setItem(triggerKey, String(Date.now()));
-        toast.dismiss('offer-send-progress');
-        // Bug 3: Erfolgs-Modal mit Empfaenger / Zeit / Resend-ID
-        if (sendType !== 'final' && result && typeof result === 'object') {
-          const r = result as { emailSent?: boolean; recipient?: string | null; messageId?: string | null; sentAt?: string };
-          setSendSuccess({
-            emailSent: !!r.emailSent,
-            recipient: r.recipient ?? inquiry.email ?? null,
-            messageId: r.messageId ?? null,
-            sentAt: r.sentAt ?? new Date().toISOString(),
-          });
-        }
-      } catch (err) {
-        console.error('[SmartInquiryEditor] Send trigger failed:', err, {
-          inquiryId: inquiry.id,
-          sendType,
-        });
-        toast.dismiss('offer-send-progress');
-        toast.error(err instanceof Error ? err.message : 'Versand fehlgeschlagen');
       }
+
+      if (!sent) {
+        throw lastError || new Error('Versand nach mehreren Versuchen fehlgeschlagen');
+      }
+
+      sessionStorage.setItem(triggerKey, String(Date.now()));
+      toast.dismiss('offer-send-progress');
+      // Bug 3: Erfolgs-Modal mit Empfaenger / Zeit / Resend-ID
+      if (sendType !== 'final' && result && typeof result === 'object') {
+        const r = result as { emailSent?: boolean; recipient?: string | null; messageId?: string | null; sentAt?: string };
+        setSendSuccess({
+          emailSent: !!r.emailSent,
+          recipient: r.recipient ?? inquiry.email ?? null,
+          messageId: r.messageId ?? null,
+          sentAt: r.sentAt ?? new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      console.error('[SmartInquiryEditor] Send trigger failed:', err, {
+        inquiryId: inquiry.id,
+        sendType,
+      });
+      toast.dismiss('offer-send-progress');
+      toast.error(err instanceof Error ? err.message : 'Versand fehlgeschlagen');
+    }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
