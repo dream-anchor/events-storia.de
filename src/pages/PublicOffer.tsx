@@ -732,12 +732,19 @@ function ProposalView({
     setSubmitError(null);
 
     try {
+      const breakdownLine = hasQuantities
+        ? `Meine Aufteilung: ${options
+            .filter(o => (optionQuantities[o.id] || 0) > 0)
+            .map(o => `Option ${o.option_label} × ${optionQuantities[o.id]}`)
+            .join(', ')} (${totalQuantity} Gäste)\n\n`
+        : '';
+      const finalNotes = breakdownLine + notes.trim();
       const { data: result, error: rpcError } = await supabase.rpc(
         "submit_offer_response" as never,
         {
           p_inquiry_id: inquiry.id,
           p_selected_option_id: selectedOptionId,
-          p_customer_notes: notes.trim(),
+          p_customer_notes: finalNotes,
         } as never
       );
 
@@ -760,7 +767,7 @@ function ProposalView({
             selectedOptionLabel: selectedOption
               ? `Option ${selectedOption.option_label}: ${selectedOption.package_name}`
               : "Ihre Auswahl",
-            customerNotes: notes.trim(),
+            customerNotes: finalNotes,
           },
         }).catch(() => {});
       }
@@ -775,7 +782,7 @@ function ProposalView({
         customer_response: {
           id: crypto.randomUUID(),
           selected_option_id: selectedOptionId,
-          customer_notes: notes.trim(),
+          customer_notes: finalNotes,
           responded_at: new Date().toISOString(),
         },
       });
@@ -788,7 +795,7 @@ function ProposalView({
 
   const isSingle = options.length === 1;
   const busy = isSubmitting || isPaying !== null;
-  const canPay = selectedOption && totalAmount > 0;
+  const canPay = (hasQuantities && multiOptionsTotal > 0) || (!!selectedOption && totalAmount > 0);
 
   return (
     <section className="bg-secondary/30">
