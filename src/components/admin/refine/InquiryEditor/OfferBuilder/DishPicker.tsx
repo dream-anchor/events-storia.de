@@ -68,12 +68,26 @@ export function DishPicker({
 
   const filteredItems = useMemo(() => {
     if (!filterCategories || filterCategories.length === 0) return menuItems;
-    return menuItems.filter(item =>
+    const matched = menuItems.filter(item =>
       filterCategories.some(cat =>
         item.category_name.toLowerCase().includes(cat.toLowerCase())
       )
     );
-  }, [menuItems, filterCategories]);
+    // Bug C Fallback: Wenn die paket-spezifischen Kategorien keine Treffer liefern
+    // (z.B. Paket-Config heißt "I nostri Dolci", Catering-Kategorie heißt "Desserts"),
+    // dann nach courseType-Priorität-Kategorien matchen, damit globale menu_items sichtbar bleiben.
+    if (matched.length > 0) return matched;
+    if (courseType) {
+      const priority = (COURSE_PRIORITY_CATEGORIES[courseType] || []).map(c => c.toLowerCase());
+      if (priority.length > 0) {
+        const fallback = menuItems.filter(item =>
+          priority.some(p => item.category_name.toLowerCase().includes(p))
+        );
+        if (fallback.length > 0) return fallback;
+      }
+    }
+    return matched;
+  }, [menuItems, filterCategories, courseType]);
 
   const searchFiltered = useMemo(() => {
     if (!search.trim()) return filteredItems;
