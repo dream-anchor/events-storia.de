@@ -380,7 +380,75 @@ export function OptionCard({
           )}
         </div>
       </Card>
+
+      {/* Confirm-Dialog: Typ-Wechsel mit Datenverlust nur dieser Option */}
+      <AlertDialog open={pendingMode !== null} onOpenChange={(open) => !open && setPendingMode(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Typ wechseln?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bei Typ-Wechsel gehen Konfiguration und Preise dieser Option verloren.
+              Andere Optionen sind nicht betroffen. Fortfahren?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingMode) applyModeChange(pendingMode);
+                setPendingMode(null);
+              }}
+            >
+              Wechseln
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
+  );
+}
+
+// --- Typ-Auswahl-Kacheln (im Body einer noch nicht konfigurierten Karte) ---
+function ModeSelectorTiles({
+  onSelect,
+  disabled,
+}: {
+  onSelect: (mode: OfferMode) => void;
+  disabled: boolean;
+}) {
+  const tiles: Array<{ mode: OfferMode; icon: typeof ChefHat; label: string; hint: string }> = [
+    { mode: 'menu', icon: UtensilsCrossed, label: 'Restaurant-Menü', hint: 'Speisekarte laden & anpassen' },
+    { mode: 'menu', icon: ChefHat, label: 'Eigenes Menü', hint: 'Gänge frei zusammenstellen' },
+    { mode: 'paket', icon: PackageIcon, label: 'Paket', hint: 'Fertigpaket wählen' },
+    { mode: 'email', icon: Mail, label: 'Nur E-Mail', hint: 'ohne Menükonfiguration' },
+  ];
+
+  return (
+    <div>
+      <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
+        Typ dieser Option wählen
+      </h4>
+      <div className="grid grid-cols-2 gap-2">
+        {tiles.map(({ mode, icon: Icon, label, hint }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => !disabled && onSelect(mode)}
+            disabled={disabled}
+            className={cn(
+              "flex flex-col items-center gap-1.5 px-3 py-4 rounded-xl border-2 border-border/40 bg-muted/20 transition-all text-center",
+              "hover:border-primary hover:bg-primary/5",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              disabled && "opacity-50 cursor-not-allowed",
+            )}
+          >
+            <Icon className="h-5 w-5 text-muted-foreground" />
+            <span className="text-xs font-semibold leading-tight text-foreground">{label}</span>
+            <span className="text-[10px] text-muted-foreground leading-tight">{hint}</span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
