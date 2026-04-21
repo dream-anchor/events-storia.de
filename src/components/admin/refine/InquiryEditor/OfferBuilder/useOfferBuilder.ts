@@ -400,6 +400,17 @@ export function useOfferBuilder({
               : opt.package_id
                 ? packagesProp?.find(p => p.id === opt.package_id)?.name || ''
                 : '';
+            // Im Paket-Modus: Legacy overridePrice-Werte (Katalogpreise) auf null setzen,
+            // damit die UI sofort "inkl." zeigt. Wird erst persistiert, sobald der User aktiv editiert.
+            const migratedSelection = migrateCourseQuantities(
+              (opt.menu_selection as unknown as OfferBuilderOption['menuSelection']) || { courses: [], drinks: [] }
+            );
+            const cleanedSelection = mode === 'paket' && migratedSelection?.courses?.length
+              ? {
+                  ...migratedSelection,
+                  courses: migratedSelection.courses.map(c => ({ ...c, overridePrice: null })),
+                }
+              : migratedSelection;
             return {
             id: opt.id,
             packageId: opt.package_id,
@@ -408,9 +419,7 @@ export function useOfferBuilder({
             offerMode: mode,
             isActive: opt.is_active ?? true,
             guestCount: opt.guest_count,
-            menuSelection: migrateCourseQuantities(
-              (opt.menu_selection as unknown as OfferBuilderOption['menuSelection']) || { courses: [], drinks: [] }
-            ),
+            menuSelection: cleanedSelection,
             totalAmount: Number(opt.total_amount),
             stripePaymentLinkId: opt.stripe_payment_link_id,
             stripePaymentLinkUrl: opt.stripe_payment_link_url,
