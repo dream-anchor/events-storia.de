@@ -586,6 +586,7 @@ export const EventsList = () => {
               selectedRowIds={selectedIds}
               onSelectionChange={setSelectedIds}
               getRowId={(row) => row.id}
+              defaultSorting={[{ id: "preferred_date", desc: false }]}
             />
 
             {/* Bulk Action Bar */}
