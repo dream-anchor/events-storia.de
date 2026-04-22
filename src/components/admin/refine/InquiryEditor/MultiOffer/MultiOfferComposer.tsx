@@ -30,6 +30,7 @@ import { de } from "date-fns/locale";
 import { getAdminDisplayName } from "@/lib/adminDisplayNames";
 import { useAllPackageCourseConfigs } from "@/hooks/useAllPackageCourseConfigs";
 import { OfferOption } from "./types";
+import { MenuImporter } from "../OfferBuilder/MenuImporter";
 
 type ActiveView = "overview" | "wizard" | "email";
 
@@ -59,6 +60,7 @@ export function MultiOfferComposer({
     isLoading,
     isSaving,
     addOption,
+    addImportedOptions,
     removeOption,
     updateOption,
     toggleOptionActive,
