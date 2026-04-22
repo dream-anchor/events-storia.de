@@ -192,9 +192,10 @@ export function OfferSendPreview({
             );
           }
           quotationId = quotRes.quotationId as string;
-          await supabase
-            .from('event_inquiries')
-            .update({ lexoffice_quotation_id: quotationId } as Record<string, unknown>)
+          await (supabase.from('event_inquiries') as unknown as {
+            update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
+          })
+            .update({ lexoffice_quotation_id: quotationId })
             .eq('id', inquiry.id);
           if (cancelled) return;
           setInquiry((prev) => (prev ? { ...prev, lexoffice_quotation_id: quotationId } : prev));
