@@ -469,7 +469,8 @@ export const EventsList = () => {
     // Spalte 6: Kontakt (Mail + Telefon — analog Orders)
     {
       id: "contact",
-      header: "Kontakt",
+      accessorFn: (row) => (row.email || row.phone || "").toLowerCase(),
+      header: sortableHeader<EventInquiry>("Kontakt"),
       cell: ({ row }) => {
         const event = row.original;
         return (
@@ -502,7 +503,8 @@ export const EventsList = () => {
     // Spalte 7: Bearbeitet (bleibt erhalten — wichtig bei Events mit langen Zyklen)
     {
       accessorKey: "last_edited_at",
-      header: "Bearbeitet",
+      header: sortableHeader<EventInquiry>("Bearbeitet"),
+      sortingFn: "datetime",
       cell: ({ row }) => {
         const event = row.original;
         if (!event.last_edited_at) {
