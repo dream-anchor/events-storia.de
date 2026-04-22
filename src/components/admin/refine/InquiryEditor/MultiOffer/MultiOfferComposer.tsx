@@ -30,6 +30,7 @@ import { de } from "date-fns/locale";
 import { getAdminDisplayName } from "@/lib/adminDisplayNames";
 import { useAllPackageCourseConfigs } from "@/hooks/useAllPackageCourseConfigs";
 import { OfferOption } from "./types";
+import { MenuImporter } from "../OfferBuilder/MenuImporter";
 
 type ActiveView = "overview" | "wizard" | "email";
 
@@ -59,6 +60,7 @@ export function MultiOfferComposer({
     isLoading,
     isSaving,
     addOption,
+    addImportedOptions,
     removeOption,
     updateOption,
     toggleOptionActive,
@@ -410,6 +412,14 @@ export function MultiOfferComposer({
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="text-sm font-medium">Version {currentVersion}</Badge>
+          {!isLocked && (
+            <MenuImporter
+              guestCount={guestCount}
+              currentOptionCount={options.length}
+              onImportMultiple={(imported) => addImportedOptions(imported)}
+              disabled={options.length >= 5}
+            />
+          )}
           {history.length > 0 && (
             <Button variant="ghost" size="sm" onClick={() => setShowHistory(!showHistory)} className="h-10">
               <History className="h-4 w-4 mr-1.5" /> Historie

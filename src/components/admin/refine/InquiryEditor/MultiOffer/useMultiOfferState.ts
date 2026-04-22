@@ -4,6 +4,49 @@ import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { calculateEventPackagePrice } from "@/lib/eventPricing";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
+import type { OfferBuilderOption } from "../OfferBuilder/types";
+
+// Map an imported OfferBuilderOption (from MenuImporter) into a MultiOffer OfferOption.
+// Restaurant-Komplett-Menüs werden ohne packageId importiert, Kurse als Custom-Items.
+function mapImportedToMultiOfferOption(
+  imp: Partial<OfferBuilderOption>,
+  label: string,
+  sortOrder: number,
+  version: number,
+): OfferOption {
+  const importedCourses = imp.menuSelection?.courses ?? [];
+  const importedDrinks = imp.menuSelection?.drinks ?? [];
+  return {
+    id: crypto.randomUUID(),
+    optionLabel: label,
+    packageId: imp.packageId ?? null,
+    packageName: imp.packageName ?? "",
+    isActive: true,
+    guestCount: imp.guestCount ?? 1,
+    totalAmount: imp.totalAmount ?? 0,
+    stripePaymentLinkId: null,
+    stripePaymentLinkUrl: null,
+    offerVersion: version,
+    sortOrder,
+    menuSelection: {
+      courses: importedCourses.map((c) => ({
+        courseType: c.courseType,
+        courseLabel: c.courseLabel,
+        itemId: null,
+        itemName: c.itemName,
+        itemDescription: c.itemDescription ?? null,
+        itemSource: 'manual',
+        isCustom: true,
+      })),
+      drinks: importedDrinks.map((d) => ({
+        drinkGroup: d.drinkGroup,
+        drinkLabel: d.drinkLabel,
+        selectedChoice: d.selectedChoice ?? null,
+        quantityLabel: d.quantityLabel ?? null,
+      })),
+    },
+  };
+}
 
 // Helper to log activity
 const logActivity = async (
@@ -304,6 +347,25 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     setOptions(prev => prev.filter(o => o.id !== optionId));
   }, []);
 
+  // Add multiple imported options (from Restaurant MenuImporter).
+  // Vergibt freie Labels A–E und sortiert sie ans Ende.
+  const addImportedOptions = useCallback((imported: Partial<OfferBuilderOption>[]) => {
+    setOptions(prev => {
+      const usedLabels = new Set(prev.map(o => o.optionLabel));
+      const available = OPTION_LABELS.filter(l => !usedLabels.has(l));
+      const slice = imported.slice(0, available.length);
+      if (slice.length === 0) {
+        toast.warning("Maximale Anzahl an Optionen erreicht");
+        return prev;
+      }
+      const baseSort = prev.length;
+      const newOnes = slice.map((imp, i) =>
+        mapImportedToMultiOfferOption(imp, available[i], baseSort + i, currentVersion),
+      );
+      return [...prev, ...newOnes];
+    });
+  }, [currentVersion]);
+
   // Update an option
   const updateOption = useCallback((optionId: string, updates: Partial<OfferOption>) => {
     setOptions(prev => prev.map(o => 
@@ -449,6 +511,7 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     saveStatus,
     flushSave,
     addOption,
+    addImportedOptions,
     removeOption,
     updateOption,
     toggleOptionActive,
