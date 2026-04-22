@@ -260,6 +260,22 @@ export default function PublicOffer() {
   const isSlugRoute = location.pathname.includes('/ihr-angebot/') || location.pathname.includes('/your-offer/');
   const lookupValue = slug || id;
 
+  // Stripe-Cancel: Auswahl ist via localStorage erhalten geblieben.
+  // Toast zeigen + Query-Param entfernen, damit Reload nicht erneut feuert.
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment');
+    if (paymentStatus === 'cancelled') {
+      toast.info('Zahlung abgebrochen — Ihre Auswahl wurde gespeichert.', { duration: 5000 });
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('payment');
+        window.history.replaceState({}, '', url.toString());
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     if (!lookupValue) return;
 
