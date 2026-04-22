@@ -13,7 +13,7 @@
  *
  * Route: /admin/events/:id/preview?send=proposal|final
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Send, Mail, FileText, Globe, Loader2, TestTube2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,7 @@ export function OfferSendPreview({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isTestSending, setIsTestSending] = useState(false);
+  const pdfInFlightRef = useRef<string | null>(null);
 
   // Inquiry laden
   useEffect(() => {
@@ -172,6 +173,9 @@ export function OfferSendPreview({
   // LexOffice-PDF laden (visueller Block 3)
   useEffect(() => {
     if (!inquiry) return;
+    // Guard: prevent concurrent fetches for the same inquiry (StrictMode/double-render safety)
+    if (pdfInFlightRef.current === inquiry.id) return;
+    pdfInFlightRef.current = inquiry.id;
     let cancelled = false;
     (async () => {
       setPdfLoading(true);
@@ -216,6 +220,7 @@ export function OfferSendPreview({
         setPdfError(err instanceof Error ? err.message : 'Unbekannter Fehler');
       } finally {
         if (!cancelled) setPdfLoading(false);
+        pdfInFlightRef.current = null;
       }
     })();
     return () => {
@@ -225,7 +230,7 @@ export function OfferSendPreview({
         return null;
       });
     };
-  }, [inquiry?.id, inquiry?.lexoffice_quotation_id]);
+  }, [inquiry?.id]);
 
   // Senden = an Edit-Seite delegieren (oder onAfterSend-Callback im Embed)
   const handleSend = (isTest: boolean) => {
