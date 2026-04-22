@@ -282,7 +282,7 @@ export const EventsList = () => {
     // Spalte 1: Status (bleibt wie bisher — mit allen Extras)
     {
       accessorKey: "status",
-      header: "Status",
+      header: sortableHeader<EventInquiry>("Status"),
       cell: ({ row }) => {
         const event = row.original;
         // Determine visual status based on tracking
@@ -362,7 +362,8 @@ export const EventsList = () => {
     // Spalte 2: Anfrage (Eingangsdatum — Events haben keine order_number)
     {
       accessorKey: "created_at",
-      header: "Anfrage",
+      header: sortableHeader<EventInquiry>("Anfrage"),
+      sortingFn: "datetime",
       cell: ({ row }) => {
         const date = row.original.created_at;
         if (!date) return <span className="text-muted-foreground">-</span>;
