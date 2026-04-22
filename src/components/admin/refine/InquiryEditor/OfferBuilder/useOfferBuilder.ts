@@ -153,7 +153,7 @@ async function saveOptionsToDb(
   }
 
   // 2. IDs die gelöscht werden müssen (in DB, aber nicht mehr im neuen State)
-  const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
+  const idsToDelete = [...existingIds].filter((id: any) => !newIds.has(id)) as string[];
 
   // 3. Referenzierte IDs prüfen — die NICHT löschen
   if (idsToDelete.length > 0) {
@@ -166,7 +166,7 @@ async function saveOptionsToDb(
       (referenced || []).map((r: any) => r.selected_option_id).filter(Boolean) as string[]
     );
 
-    const safeToDelete = idsToDelete.filter(id => !referencedIds.has(id));
+    const safeToDelete = idsToDelete.filter((id: string) => !referencedIds.has(id));
 
     if (safeToDelete.length > 0) {
       const { error: delErr } = await supabase
