@@ -504,45 +504,11 @@ export const SmartInquiryEditor = () => {
         return;
       }
 
-      // Echter Versand — ueber OfferBuilder-Handle (nutzt bewaehrten Code-Pfad)
-      const handle = offerBuilderRef.current;
-      if (!handle) {
-        toast.error('OfferBuilder nicht bereit — bitte erneut versuchen');
-        return;
-      }
       // =================================================================
-      // RACE-CONDITION-GUARD (Bug 1): warten bis OfferBuilder hydriert ist.
-      // Wenn der Wizard mit confirmed=1 navigiert, mountet der Editor und
-      // der Hook lädt async aus der DB. Frueher feuerte der Send sofort
-      // gegen ein leeres options-Array → Angebot wurde geleert.
-      // Wir warten hier bis isReady() === true (max. 8 s).
+      // ECHTER VERSAND — DIREKT GEGEN DIE DB (kein React-State / OfferBuilder).
+      // Die DB ist die Wahrheit. So sind wir robust gegen Tab-Navigation,
+      // Lazy-Loading und Hydration-Latenz.
       // =================================================================
-      const waitForReady = async (): Promise<boolean> => {
-        const deadline = Date.now() + 8000;
-        while (Date.now() < deadline) {
-          if (offerBuilderRef.current?.isReady?.()) return true;
-          await new Promise((r) => setTimeout(r, 100));
-        }
-        return false;
-      };
-      const ready = await waitForReady();
-      if (!ready) {
-        toast.error(
-          'OfferBuilder konnte nicht rechtzeitig geladen werden. Bitte Seite neu laden und erneut versuchen.',
-          { duration: 12000 },
-        );
-        return;
-      }
-      // Sicherheitsnetz: pending Auto-Saves flushen, sonst geht der Versand
-      // mit veralteten Werten raus (z.B. emailDraft noch im Debounce).
-      try {
-        handle.flushSave?.();
-      } catch (flushErr) {
-        console.warn('[SmartInquiryEditor] flushSave before send failed:', flushErr);
-      }
-      // Bevor wir senden: pruefen ob ein Anschreiben existiert. Sonst stuerzen
-      // wir spaeter in der Edge-Function ab und der User sieht nur einen
-      // generischen Fehler. Lieber hier klar sagen.
       const draft = (emailDraft || inquiry.email_draft || '').trim();
       if (!draft) {
         toast.error(
@@ -551,70 +517,154 @@ export const SmartInquiryEditor = () => {
         );
         return;
       }
-      // =================================================================
-      // RETRY-LOOP für Hydration-Race-Condition:
-      // Der OfferBuilder-Guard wirft Fehler wenn lokaler State noch leer ist.
-      // Wir retry bis zu 50x à 300ms = max 15s, dann geben wir auf.
-      // =================================================================
-      const MAX_RETRIES = 50;
-      const RETRY_DELAY_MS = 300;
-      let lastError: unknown = null;
-      let sent = false;
-      let result: unknown;
 
       toast.loading('Angebot wird versendet …', { id: 'offer-send-progress' });
 
+      // Options DIRECT aus DB laden — umgeht React-State-Hydration
+      const { data: dbOptions, error: optsError } = await supabase
+        .from('inquiry_offer_options')
+        .select('id, is_active, total_amount')
+        .eq('inquiry_id', inquiry.id)
+        .eq('is_active', true);
+
+      if (optsError || !dbOptions || dbOptions.length === 0) {
+        toast.dismiss('offer-send-progress');
+        toast.error('Keine aktiven Optionen in der Datenbank gefunden. Bitte Seite neu laden und erneut versuchen.');
+        return;
+      }
+
+      // Aktuelle Version aus History
+      const { data: historyRow } = await supabase
+        .from('inquiry_offer_history')
+        .select('version')
+        .eq('inquiry_id', inquiry.id)
+        .order('version', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const currentVersion = (historyRow as { version: number } | null)?.version || 0;
+      const newVersion = currentVersion + 1;
+
       try {
-        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const nowIso = new Date().toISOString();
+
+        // 1. History-Eintrag anlegen (snapshot der aktiven Options)
+        const { data: fullOptions } = await supabase
+          .from('inquiry_offer_options')
+          .select('*')
+          .eq('inquiry_id', inquiry.id)
+          .eq('is_active', true);
+        await supabase.from('inquiry_offer_history').insert({
+          inquiry_id: inquiry.id,
+          version: newVersion,
+          sent_by: user?.email || null,
+          email_content: draft,
+          options_snapshot: fullOptions as unknown,
+        } as Record<string, unknown>);
+
+        // 2. Inquiry updaten: Version, Phase, Status, Versandzeitpunkt
+        const phaseTarget = sendType === 'final' ? 'final_sent' : 'proposal_sent';
+        const { error: updErr } = await supabase
+          .from('event_inquiries')
+          .update({
+            current_offer_version: newVersion,
+            offer_sent_at: nowIso,
+            offer_sent_by: user?.email || null,
+            status: 'offer_sent',
+            offer_phase: phaseTarget,
+          } as Record<string, unknown>)
+          .eq('id', inquiry.id);
+        if (updErr) throw new Error('Phase-Update fehlgeschlagen: ' + updErr.message);
+
+        // 3. LexOffice-Quotation (non-blocking) — nur beim Proposal
+        let lexQuotationId: string | null = null;
+        if (sendType === 'proposal') {
           try {
-            if (sendType === 'final') {
-              await handle.triggerSendFinalOffer();
-            } else {
-              result = await handle.triggerSendProposal();
+            const { data: quotRes } = await supabase.functions.invoke('create-event-quotation', {
+              body: { inquiryId: inquiry.id },
+            });
+            if (quotRes?.success && quotRes.quotationId) {
+              lexQuotationId = quotRes.quotationId;
+              await supabase.from('event_inquiries')
+                .update({ lexoffice_quotation_id: lexQuotationId } as Record<string, unknown>)
+                .eq('id', inquiry.id);
             }
-            sent = true;
-            toast.dismiss('send-waiting');
-            break;
-          } catch (err) {
-            lastError = err;
-            const msg = err instanceof Error ? err.message : String(err);
-            const isHydrationError = /not yet hydrated|Hydration noch nicht|0 Optionen/i.test(msg);
+          } catch (lexErr) {
+            console.error('[Send] LexOffice error (non-blocking):', lexErr);
+          }
+        }
 
-            if (!isHydrationError) {
-              // Anderer Fehler — sofort raus, nicht retry
-              throw err;
-            }
-
-            // Nach erstem Fehlversuch: Info-Toast für den User
-            if (attempt === 1) {
-              toast.info('Angebot wird geladen, Versand gleich …', { id: 'send-waiting', duration: 15000 });
-            }
-
-            // Hydration noch nicht fertig — warten und nochmal
-            if (attempt < MAX_RETRIES - 1) {
-              await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        // 4. Stripe-Links erstellen (nur bei final)
+        if (sendType === 'final' && fullOptions) {
+          for (const opt of fullOptions as Array<Record<string, unknown>>) {
+            if (opt.stripe_payment_link_url || !opt.total_amount || Number(opt.total_amount) <= 0) continue;
+            try {
+              const { data: linkData } = await supabase.functions.invoke('create-offer-payment-link', {
+                body: {
+                  inquiryId: inquiry.id,
+                  optionId: opt.id,
+                  packageName: (opt.menu_selection as Record<string, unknown> | null)?.packageNameOverride || 'Angebot',
+                  amount: Number(opt.total_amount),
+                  customerEmail: inquiry.email || '',
+                  customerName: inquiry.contact_name || '',
+                  eventDate: inquiry.preferred_date || '',
+                  guestCount: opt.guest_count,
+                  companyName: inquiry.company_name || undefined,
+                },
+              });
+              if (linkData?.paymentLinkUrl) {
+                await supabase.from('inquiry_offer_options').update({
+                  stripe_payment_link_url: linkData.paymentLinkUrl,
+                  stripe_payment_link_id: linkData.paymentLinkId,
+                }).eq('id', opt.id as string);
+              }
+            } catch (linkErr) {
+              console.error('[Send] Stripe link error:', linkErr);
             }
           }
         }
 
-        if (!sent) {
-          throw lastError || new Error('Versand nach mehreren Versuchen fehlgeschlagen');
+        // 5. Email an Kunden senden
+        let emailSent = false;
+        let emailMessageId: string | null = null;
+        if (inquiry.email) {
+          const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-offer-email', {
+            body: {
+              inquiryId: inquiry.id,
+              emailContent: draft,
+              customerEmail: inquiry.email,
+              customerName: inquiry.contact_name || '',
+              senderEmail: user?.email,
+              lexofficeQuotationId: lexQuotationId,
+            },
+          });
+          if (emailError || !emailResult?.emailSent) {
+            toast.dismiss('offer-send-progress');
+            toast.warning('Angebot gespeichert, aber Email-Versand fehlgeschlagen. Bitte Resend-Dashboard prüfen.', { duration: 15000 });
+          } else {
+            emailSent = true;
+            emailMessageId = emailResult?.messageId ?? null;
+            toast.dismiss('offer-send-progress');
+            toast.success('Angebot erfolgreich an Kunde versendet');
+          }
+        } else {
+          toast.dismiss('offer-send-progress');
+          toast.info('Angebot gespeichert (keine E-Mail-Adresse hinterlegt)');
         }
 
         sessionStorage.setItem(triggerKey, String(Date.now()));
-        toast.dismiss('offer-send-progress');
-        // Bug 3: Erfolgs-Modal mit Empfaenger / Zeit / Resend-ID
-        if (sendType !== 'final' && result && typeof result === 'object') {
-          const r = result as { emailSent?: boolean; recipient?: string | null; messageId?: string | null; sentAt?: string };
+
+        // Erfolgs-Modal (nur Proposal — Final hat eigenen Flow)
+        if (sendType !== 'final') {
           setSendSuccess({
-            emailSent: !!r.emailSent,
-            recipient: r.recipient ?? inquiry.email ?? null,
-            messageId: r.messageId ?? null,
-            sentAt: r.sentAt ?? new Date().toISOString(),
+            emailSent,
+            recipient: inquiry.email ?? null,
+            messageId: emailMessageId,
+            sentAt: nowIso,
           });
         }
       } catch (err) {
-        console.error('[SmartInquiryEditor] Send trigger failed:', err, {
+        console.error('[SmartInquiryEditor] Direct send failed:', err, {
           inquiryId: inquiry.id,
           sendType,
         });
