@@ -11,7 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useRistoranteCompleteMenus, type RistoranteImportItem, type RistoranteTastingMenu } from "@/hooks/useRistoranteCompleteMenus";
 import { OPTION_LABELS } from "./types";
-import type { OfferBuilderOption } from "./types";
+import type { OfferBuilderOption, CourseSelection, CourseType } from "./types";
 
 interface MenuImporterProps {
   guestCount: number;
@@ -29,6 +29,71 @@ function formatEur(price: number) {
     currency: "EUR",
     minimumFractionDigits: 2,
   }).format(price);
+}
+
+/**
+ * Heuristik: Mappt einen Label-/Item-Text auf einen passenden CourseType.
+ * Dient nur der korrekten Icon-/Sortier-Anzeige im Public-Offer.
+ */
+function detectCourseType(label: string, itemName: string): CourseType {
+  const t = `${label} ${itemName}`.toLowerCase();
+  if (/dessert|dolc|tiramisu|panna cotta|sorbet|eis|gelato/.test(t)) return 'dessert';
+  if (/pasta|pizz|risott|gnocch|spaghett|tagliat|raviol|lasagn|primo/.test(t)) return 'pasta';
+  if (/fisch|fish|pesce|branzino|lachs|thunfisch|salmon/.test(t)) return 'main_fish';
+  if (/fleisch|meat|carne|rind|schwein|lamm|kalb|filet|steak/.test(t)) return 'main_meat';
+  if (/vegan/.test(t)) return 'vegan';
+  if (/veget/.test(t)) return 'vegetarisch';
+  if (/finger/.test(t)) return 'fingerfood';
+  if (/main|haupt|secondo/.test(t)) return 'main';
+  if (/anti|vorspeise|starter|insalat|salat|bruschett|carpacc/.test(t)) return 'starter';
+  return 'main';
+}
+
+const POSITION_LABELS = ['Antipasto', 'Pasta', 'Hauptgang', 'Dessert', 'Gang 5', 'Gang 6'];
+
+/**
+ * Parst eine Restaurant-Menü-Beschreibung in strukturierte CourseSelections.
+ * Akzeptiert Trennzeichen: |, Newline, • (Bullet), – (en-dash) und – Variante.
+ * Pro Teil: Optional "Label: Item" → courseLabel + itemName,
+ *   sonst Position-basierte Defaults (Antipasto / Pasta / Hauptgang / Dessert).
+ */
+function parseMenuDescription(description: string): CourseSelection[] {
+  if (!description?.trim()) return [];
+
+  // An den üblichen Trennzeichen splitten
+  const parts = description
+    .split(/[|\n•]|\s[–-]\s/g)
+    .map(p => p.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) return [];
+
+  return parts.map((part, idx) => {
+    // "Label: Item-Beschreibung" Pattern erkennen
+    const colonMatch = part.match(/^([^:]{2,30}):\s*(.+)$/);
+    let courseLabel: string;
+    let itemName: string;
+
+    if (colonMatch) {
+      courseLabel = colonMatch[1].trim();
+      itemName = colonMatch[2].trim();
+    } else {
+      courseLabel = POSITION_LABELS[idx] ?? `Gang ${idx + 1}`;
+      itemName = part;
+    }
+
+    return {
+      courseType: detectCourseType(courseLabel, itemName),
+      courseLabel,
+      itemId: null,
+      itemName,
+      itemDescription: null,
+      itemSource: 'ristorante',
+      isCustom: true,
+      overridePrice: null,
+      quantity: null,
+    } satisfies CourseSelection;
+  });
 }
 
 export function MenuImporter({ guestCount, currentOptionCount, onImportMultiple, disabled = false, externalOpen, onExternalOpenChange }: MenuImporterProps) {
@@ -106,7 +171,8 @@ export function MenuImporter({ guestCount, currentOptionCount, onImportMultiple,
         const basePrice = item.price ?? 0;
         const pricePerPerson = basePrice + drinkPrice;
         let packageName = item.name;
-        const menuSel: OfferBuilderOption['menuSelection'] = { courses: [], drinks: [] };
+        const parsedCourses = parseMenuDescription(item.description ?? '');
+        const menuSel: OfferBuilderOption['menuSelection'] = { courses: parsedCourses, drinks: [] };
 
         if (addDrinkPaket && drinkPaketDesc) {
           packageName += ` + ${drinkPaketDesc}`;
@@ -131,7 +197,8 @@ export function MenuImporter({ guestCount, currentOptionCount, onImportMultiple,
         const winePrice = addWinePairing && menu.winePairing?.price ? menu.winePairing.price : 0;
         const pricePerPerson = basePrice + winePrice;
         let packageName = menu.name;
-        const menuSel: OfferBuilderOption['menuSelection'] = { courses: [], drinks: [] };
+        const parsedCourses = parseMenuDescription(menu.description ?? '');
+        const menuSel: OfferBuilderOption['menuSelection'] = { courses: parsedCourses, drinks: [] };
 
         if (addWinePairing && menu.winePairing) {
           packageName += ' mit Weinbegleitung';

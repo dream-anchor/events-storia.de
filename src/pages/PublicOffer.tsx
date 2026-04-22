@@ -260,6 +260,22 @@ export default function PublicOffer() {
   const isSlugRoute = location.pathname.includes('/ihr-angebot/') || location.pathname.includes('/your-offer/');
   const lookupValue = slug || id;
 
+  // Stripe-Cancel: Auswahl ist via localStorage erhalten geblieben.
+  // Toast zeigen + Query-Param entfernen, damit Reload nicht erneut feuert.
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment');
+    if (paymentStatus === 'cancelled') {
+      toast.info('Zahlung abgebrochen — Ihre Auswahl wurde gespeichert.', { duration: 5000 });
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('payment');
+        window.history.replaceState({}, '', url.toString());
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     if (!lookupValue) return;
 
@@ -659,9 +675,33 @@ function ProposalView({
   const [copyEmail, setCopyEmail] = useState(inquiry.email || "");
 
   // Multi-Options-Mengen: Map optionId -> Menge (initial 0 für alle)
-  const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>(
-    () => Object.fromEntries(options.map(o => [o.id, 0]))
-  );
+  // Persistiert in localStorage, damit Stripe-Cancel die Auswahl nicht zerstört.
+  const QUANTITY_STORAGE_KEY = `storia_offer_qty_${inquiry.id}`;
+  const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>(() => {
+    const empty = Object.fromEntries(options.map(o => [o.id, 0]));
+    if (typeof window === 'undefined') return empty;
+    try {
+      const saved = window.localStorage.getItem(QUANTITY_STORAGE_KEY);
+      if (!saved) return empty;
+      const parsed = JSON.parse(saved) as Record<string, number>;
+      // Nur Keys aus aktuellem Angebot übernehmen (Stale-Schutz)
+      return Object.fromEntries(
+        options.map(o => [o.id, typeof parsed[o.id] === 'number' ? parsed[o.id] : 0])
+      );
+    } catch {
+      return empty;
+    }
+  });
+
+  // Mengen bei jeder Änderung in localStorage spiegeln
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(QUANTITY_STORAGE_KEY, JSON.stringify(optionQuantities));
+    } catch {
+      /* quota exceeded — ignorieren */
+    }
+  }, [optionQuantities, QUANTITY_STORAGE_KEY]);
 
   // Ziel-Gästezahl aus inquiry.guest_count parsen.
   // Akzeptiert: "40" → 40, "20-30" → 30 (Maximum), "ca. 25" → 25.
@@ -785,6 +825,13 @@ function ProposalView({
       supabase.functions.invoke("notify-customer-response", {
         body: { inquiryId: inquiry.id },
       }).catch(() => {});
+
+      // Auswahl aus localStorage entfernen — Submission abgeschlossen
+      try {
+        window.localStorage.removeItem(QUANTITY_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
 
       if (wantsCopy && copyEmail.trim()) {
         supabase.functions.invoke("send-customer-response-copy", {
