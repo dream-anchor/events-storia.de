@@ -925,6 +925,33 @@ export function WizardConfigurator({
         </div>
       </div>
       )}
+
+      {/* Confirm-Dialog vor Paketwechsel (P0 #2) */}
+      <AlertDialog
+        open={!!pendingPackageId}
+        onOpenChange={(open) => !open && setPendingPackageId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Paket wechseln?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Beim Wechsel des Pakets werden alle bereits ausgewählten Gänge
+              und Getränke entfernt. Möchtest du wirklich fortfahren?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingPackageId) applyPackageChange(pendingPackageId);
+                setPendingPackageId(null);
+              }}
+            >
+              Paket wechseln
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
