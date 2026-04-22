@@ -77,11 +77,18 @@ export function WizardConfigurator({
   onUpdateOption,
   onBack,
   onImportRestaurantMenus,
+  isLocked = false,
+  onFlushSave,
+  onGenerateEmail,
+  isGeneratingEmail = false,
 }: WizardConfiguratorProps) {
   const [activeStep, setActiveStep] = useState<WizardStep>(
     option.packageId ? 2 : 1
   );
   const [activeCourseIndex, setActiveCourseIndex] = useState(0);
+  const [pendingPackageId, setPendingPackageId] = useState<string | null>(null);
+  const [isFinishing, setIsFinishing] = useState(false);
+  const autoAdvancingRef = useRef(false);
 
   const selectedPackage = packages.find((p) => p.id === option.packageId);
 
@@ -250,15 +257,16 @@ export function WizardConfigurator({
     }
   }, [activeCourseIndex, courseConfigs.length]);
 
-  // Handle package change
-  const handlePackageChange = (packageId: string) => {
-    const pkg = packages.find((p) => p.id === packageId);
-    if (pkg) {
+  // Apply package change (extracted so confirm-dialog can call it)
+  const applyPackageChange = useCallback(
+    (packageId: string) => {
+      const pkg = packages.find((p) => p.id === packageId);
+      if (!pkg) return;
       const newTotal = calculateEventPackagePrice(
         pkg.id,
         pkg.price,
         option.guestCount,
-        !!pkg.price_per_person
+        !!pkg.price_per_person,
       );
       onUpdateOption({
         packageId,
@@ -267,13 +275,80 @@ export function WizardConfigurator({
         menuSelection: { courses: [], drinks: [] },
       });
       setActiveCourseIndex(0);
-    }
-  };
+    },
+    [packages, option.guestCount, onUpdateOption],
+  );
 
-  // Handle finish → back to overview
-  const handleFinish = () => {
-    onBack();
-  };
+  // Confirm-Dialog vor Paketwechsel wenn bereits Menü-Auswahl existiert
+  const requestPackageChange = useCallback(
+    (packageId: string) => {
+      if (packageId === option.packageId) return;
+      const hasSelections =
+        option.menuSelection.courses.length > 0 ||
+        option.menuSelection.drinks.length > 0;
+      if (hasSelections && option.packageId) {
+        setPendingPackageId(packageId);
+        return;
+      }
+      applyPackageChange(packageId);
+    },
+    [option.packageId, option.menuSelection, applyPackageChange],
+  );
+
+  // Gäste-Stepper im Header
+  const handleGuestCountChange = useCallback(
+    (delta: number) => {
+      const next = Math.max(1, option.guestCount + delta);
+      const minGuests = selectedPackage?.min_guests ?? 1;
+      if (next < minGuests) {
+        toast.warning(
+          `Dieses Paket erfordert mindestens ${minGuests} Gäste.`,
+        );
+        return;
+      }
+      onUpdateOption({ guestCount: next });
+    },
+    [option.guestCount, selectedPackage, onUpdateOption],
+  );
+
+  // Handle finish → flush save, then back to overview
+  const handleFinish = useCallback(async () => {
+    setIsFinishing(true);
+    try {
+      if (onFlushSave) await onFlushSave();
+    } catch (e) {
+      console.error("flushSave failed", e);
+    } finally {
+      setIsFinishing(false);
+      onBack();
+    }
+  }, [onFlushSave, onBack]);
+
+  const handleFinishAndCompose = useCallback(async () => {
+    setIsFinishing(true);
+    try {
+      if (onFlushSave) await onFlushSave();
+      onBack();
+      if (onGenerateEmail) await onGenerateEmail();
+    } catch (e) {
+      console.error("finish+compose failed", e);
+    } finally {
+      setIsFinishing(false);
+    }
+  }, [onFlushSave, onBack, onGenerateEmail]);
+
+  // Welche Pflicht-Gänge fehlen noch?
+  const missingRequiredCourses = useMemo(() => {
+    if (courseConfigs.length === 0) return [];
+    return courseConfigs
+      .filter((c) => c.is_required)
+      .filter((config) => {
+        const sels = adaptedMenuSelection.courses.filter(
+          (c) => c.courseType === config.course_type,
+        );
+        return !sels.some((s) => s.itemId || s.isCustom);
+      });
+  }, [courseConfigs, adaptedMenuSelection.courses]);
 
   // Next step label for LiveCalculation
   const getNextStepInfo = (): {
