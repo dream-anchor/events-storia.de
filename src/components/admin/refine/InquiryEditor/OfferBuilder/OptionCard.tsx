@@ -53,6 +53,7 @@ interface OptionCardProps {
   isLocked: boolean;
   canDuplicate: boolean;
   canDelete: boolean;
+  onRequestImport?: () => void;
 }
 
 export function OptionCard({
@@ -68,6 +69,7 @@ export function OptionCard({
   isLocked,
   canDuplicate,
   canDelete,
+  onRequestImport,
 }: OptionCardProps) {
   const selectedPackage = useMemo(
     () => packages.find(p => p.id === option.packageId),
