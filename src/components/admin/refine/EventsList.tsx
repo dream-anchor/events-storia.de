@@ -379,7 +379,8 @@ export const EventsList = () => {
     // Spalte 3: Eventdatum (VORGEZOGEN analog Orders-Liefertermin)
     {
       accessorKey: "preferred_date",
-      header: "Eventdatum",
+      header: sortableHeader<EventInquiry>("Eventdatum"),
+      sortingFn: "datetime",
       cell: ({ row }) => {
         const date = row.original.preferred_date;
         if (!date) return <span className="text-muted-foreground">-</span>;
@@ -422,7 +423,7 @@ export const EventsList = () => {
     // Spalte 4: Event-Typ + Gäste
     {
       accessorKey: "event_type",
-      header: "Event",
+      header: sortableHeader<EventInquiry>("Event"),
       cell: ({ row }) => {
         const type = row.original.event_type;
         return (
@@ -443,8 +444,9 @@ export const EventsList = () => {
 
     // Spalte 5: Kunde
     {
-      accessorKey: "contact_name",
-      header: "Kunde",
+      id: "customer",
+      accessorFn: (row) => (row.company_name || row.contact_name || "").toLowerCase(),
+      header: sortableHeader<EventInquiry>("Kunde"),
       cell: ({ row }) => (
         <div className="max-w-[240px] min-w-[160px]">
           <p className="font-medium text-sm">{row.original.contact_name}</p>
