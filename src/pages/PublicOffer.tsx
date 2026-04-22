@@ -866,26 +866,60 @@ function ProposalView({
             ))}
           </div>
 
-          {/* Live-Summary für Multi-Options-Modus */}
-          {hasQuantities && (
-            <div className="max-w-2xl mb-6 rounded-xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/70">
-                  Ihre Auswahl
-                </p>
-                <p className="text-sm font-sans text-foreground mt-1">
-                  {options
-                    .filter((o) => (optionQuantities[o.id] || 0) > 0)
-                    .map((o) => `Option ${o.option_label} × ${optionQuantities[o.id]}`)
-                    .join(' · ')}
-                </p>
-                <p className="text-xs font-sans text-muted-foreground mt-0.5">
-                  {totalQuantity} {totalQuantity === 1 ? 'Gast' : 'Gäste'} gesamt
+          {/* Live-Summary für Multi-Options-Modus (bei Single ausgeblendet — Menge ist fix) */}
+          {!isSingle && (
+            <div className="max-w-2xl mb-6 rounded-xl bg-primary/5 border border-primary/20 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/70">
+                    Ihre Auswahl
+                  </p>
+                  {hasQuantities ? (
+                    <>
+                      <p className="text-sm font-sans text-foreground mt-1">
+                        {options
+                          .filter((o) => (optionQuantities[o.id] || 0) > 0)
+                          .map((o) => `Option ${o.option_label} × ${optionQuantities[o.id]}`)
+                          .join(' · ')}
+                      </p>
+                      <p className="text-xs font-sans text-muted-foreground mt-0.5">
+                        {totalQuantity} {totalQuantity === 1 ? 'Gast' : 'Gäste'} verteilt
+                        {targetGuests !== null && ` von ${targetGuests}`}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-sans text-muted-foreground mt-1">
+                      Bitte verteilen Sie Ihre Gäste auf die gewünschten Optionen.
+                    </p>
+                  )}
+                </div>
+                <p className="text-xl font-serif font-bold text-primary whitespace-nowrap">
+                  {formatCurrencyDecimal(multiOptionsTotal)}
                 </p>
               </div>
-              <p className="text-xl font-serif font-bold text-primary whitespace-nowrap">
-                {formatCurrencyDecimal(multiOptionsTotal)}
-              </p>
+
+              {/* Fortschritts-Anzeige nur wenn Ziel bekannt */}
+              {targetGuests !== null && (
+                <div>
+                  <div className="h-1.5 w-full rounded-full bg-primary/10 overflow-hidden">
+                    <div
+                      className="h-full bg-primary/70 transition-all"
+                      style={{ width: `${Math.min(100, (totalQuantity / targetGuests) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs font-sans text-foreground/80">
+                    {totalQuantity < targetGuests && (
+                      <>Es fehlen noch <strong>{targetGuests - totalQuantity}</strong> {targetGuests - totalQuantity === 1 ? 'Gast' : 'Gäste'} von insgesamt <strong>{targetGuests}</strong>.</>
+                    )}
+                    {totalQuantity === targetGuests && (
+                      <>✓ Alle <strong>{targetGuests}</strong> Gäste verteilt.</>
+                    )}
+                    {totalQuantity > targetGuests && (
+                      <><strong>{totalQuantity - targetGuests}</strong> {totalQuantity - targetGuests === 1 ? 'Gast' : 'Gäste'} über der ursprünglich angefragten Menge ({targetGuests}).</>
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
