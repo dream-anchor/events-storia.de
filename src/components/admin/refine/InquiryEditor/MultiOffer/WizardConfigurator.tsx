@@ -437,36 +437,76 @@ export function WizardConfigurator({
             {option.guestCount} Gäste
           </p>
         </div>
-        <MenuImporter
-          guestCount={option.guestCount}
-          currentOptionCount={0}
-          onImportMultiple={(imported) => {
-            if (!imported || imported.length === 0) return;
-            const [first, ...rest] = imported;
-            onUpdateOption({
-              packageId: null,
-              packageName: first.packageName ?? "",
-              totalAmount: first.totalAmount ?? 0,
-              menuSelection: {
-                courses: [],
-                drinks: first.menuSelection?.drinks ?? [],
-              },
-            });
-            if (rest.length > 0) onImportRestaurantMenus?.(rest);
-            onBack();
-          }}
-        />
+        {/* Gäste-Stepper im Wizard-Header (P1 #1) */}
+        <div className="flex items-center gap-2 shrink-0">
+          {isLocked && (
+            <Badge variant="outline" className="gap-1.5 h-9 px-3">
+              <Lock className="h-3.5 w-3.5" />
+              Gesperrt
+            </Badge>
+          )}
+          <div
+            className={cn(
+              "flex items-center gap-1 rounded-xl border border-border bg-background p-1",
+              isLocked && "opacity-50 pointer-events-none",
+            )}
+            aria-label="Gäste-Anzahl"
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleGuestCountChange(-1)}
+              disabled={isLocked || option.guestCount <= 1}
+              aria-label="Gäste verringern"
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <span className="min-w-[3.5rem] text-center text-sm font-semibold tabular-nums">
+              {option.guestCount} <span className="text-xs text-muted-foreground font-normal">Gäste</span>
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleGuestCountChange(1)}
+              disabled={isLocked}
+              aria-label="Gäste erhöhen"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
+
+      {/* Min-Guests-Warnung (P1 #3) */}
+      {selectedPackage?.min_guests &&
+        option.guestCount < selectedPackage.min_guests && (
+          <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
+            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium text-foreground">
+                Mindestanzahl unterschritten
+              </p>
+              <p className="text-muted-foreground">
+                Dieses Paket erfordert mindestens{" "}
+                <strong>{selectedPackage.min_guests} Gäste</strong> — aktuell sind{" "}
+                {option.guestCount} eingestellt.
+              </p>
+            </div>
+          </div>
+        )}
 
       {/* Stepper */}
       <div className="flex gap-1 p-1 bg-muted rounded-full">
         {steps.map((s) => {
           const Icon = s.icon;
           const isActive = activeStep === s.step;
+          // P0 #9: Step 3 erfordert nun coursesComplete (war vorher nur packageId)
           const isClickable =
             s.step === 1 ||
             (s.step === 2 && !!option.packageId) ||
-            (s.step === 3 && !!option.packageId) ||
+            (s.step === 3 && !!option.packageId && coursesComplete) ||
             (s.step === 4 && coursesComplete && drinksComplete);
 
           return (
@@ -482,9 +522,16 @@ export function WizardConfigurator({
                     ? "text-muted-foreground hover:text-foreground hover:bg-background/50"
                     : "text-muted-foreground/40 cursor-not-allowed"
               )}
+              title={
+                !isClickable && s.step === 3
+                  ? "Bitte zuerst alle Pflicht-Gänge wählen"
+                  : !isClickable && s.step === 4
+                    ? "Bitte zuerst Gänge & Getränke vervollständigen"
+                    : undefined
+              }
             >
               <Icon className="h-4 w-4" />
-              <span className="hidden md:inline">{s.label}</span>
+              <span className="hidden sm:inline">{s.label}</span>
               {s.isComplete && !isActive && (
                 <Check className="h-4 w-4 text-primary" />
               )}
@@ -529,13 +576,16 @@ export function WizardConfigurator({
                       <motion.div
                         key={pkg.id}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => handlePackageChange(pkg.id)}
+                        onClick={() =>
+                          !isLocked && requestPackageChange(pkg.id)
+                        }
                         className={cn(
                           "p-4 rounded-xl border-2 cursor-pointer transition-all",
                           "hover:border-primary/50 hover:shadow-sm",
                           isSelected
                             ? "border-primary bg-primary/5"
-                            : "border-border"
+                            : "border-border",
+                          isLocked && "cursor-not-allowed opacity-60",
                         )}
                       >
                         <div className="flex items-start justify-between">
