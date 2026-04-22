@@ -10,6 +10,7 @@ import {
   SortingState,
   RowSelectionState,
   flexRender,
+  Column,
 } from "@tanstack/react-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,38 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { Search, ChevronLeft, ChevronRight, X, RefreshCw } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, X, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+
+export function sortableHeader<TData>(label: string) {
+  const HeaderCell = ({ column }: { column: Column<TData, unknown> }) => {
+    if (!column.getCanSort()) {
+      return <span>{label}</span>;
+    }
+    const sorted = column.getIsSorted();
+    return (
+      <button
+        type="button"
+        onClick={() => column.toggleSorting(sorted === "asc")}
+        className={cn(
+          "inline-flex items-center gap-1 -ml-1 px-1 py-1 rounded hover:bg-muted/60 transition-colors select-none uppercase tracking-wider text-xs font-semibold",
+          sorted ? "text-foreground" : "text-muted-foreground"
+        )}
+        aria-label={`Sortieren nach ${label}`}
+      >
+        <span>{label}</span>
+        {sorted === "asc" ? (
+          <ArrowUp className="h-3 w-3" />
+        ) : sorted === "desc" ? (
+          <ArrowDown className="h-3 w-3" />
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-40" />
+        )}
+      </button>
+    );
+  };
+  HeaderCell.displayName = `SortableHeader(${label})`;
+  return HeaderCell;
+}
 
 interface FilterPill {
   id: string;
@@ -42,6 +74,7 @@ interface DataTableProps<TData, TValue> {
   selectedRowIds?: string[];
   onSelectionChange?: (selectedIds: string[]) => void;
   getRowId?: (row: TData) => string;
+  defaultSorting?: SortingState;
 }
 
 export function DataTable<TData, TValue>({
