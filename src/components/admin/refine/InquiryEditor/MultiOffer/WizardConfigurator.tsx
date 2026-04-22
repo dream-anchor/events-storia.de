@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -61,6 +61,35 @@ export function WizardConfigurator({
   const [activeCourseIndex, setActiveCourseIndex] = useState(0);
 
   const selectedPackage = packages.find((p) => p.id === option.packageId);
+
+  // =================================================================
+  // PRICE SYNC (Bug 3): totalAmount muss IMMER aus
+  // (packagePrice, guestCount, pricePerPerson) abgeleitet sein.
+  // Ohne diesen Effect bleibt der Preis hängen wenn der Admin nur
+  // die Gästezahl ändert → DB speichert alten Wert → Public Offer
+  // zeigt alten Wert.
+  // =================================================================
+  useEffect(() => {
+    if (!selectedPackage || !option.packageId) return;
+    const expected = calculateEventPackagePrice(
+      selectedPackage.id,
+      selectedPackage.price,
+      option.guestCount,
+      !!selectedPackage.price_per_person
+    );
+    // Rundung auf 2 Dezimalstellen für stabilen Vergleich (Float-Drift)
+    const roundedExpected = Math.round(expected * 100) / 100;
+    const roundedCurrent = Math.round((option.totalAmount || 0) * 100) / 100;
+    if (roundedExpected !== roundedCurrent) {
+      onUpdateOption({ totalAmount: roundedExpected });
+    }
+  }, [
+    option.packageId,
+    option.guestCount,
+    option.totalAmount,
+    selectedPackage,
+    onUpdateOption,
+  ]);
 
   // Load menu configs for the selected package
   const { courseConfigs, drinkConfigs, isLoading: configLoading } = usePackageMenuConfig(

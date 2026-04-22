@@ -466,22 +466,22 @@ export const CourseSelector = ({
               </button>
             </div>
 
-            {/* Source Filter - only in global mode */}
-            {searchMode === 'global' && (
-              <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as typeof activeSource)}>
-                <TabsList className="h-11 w-full">
-                  <TabsTrigger value="all" className="text-xs flex-1 min-h-[44px]">Alle</TabsTrigger>
-                  <TabsTrigger value="catering" className="text-xs flex-1 min-h-[44px]">
-                    <ChefHat className="h-3 w-3 mr-1" />
-                    Catering
-                  </TabsTrigger>
-                  <TabsTrigger value="ristorante" className="text-xs flex-1 min-h-[44px]">
-                    <Utensils className="h-3 w-3 mr-1" />
-                    Restaurant
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
+            {/* Source Filter — immer sichtbar, in beiden Modi.
+                Im 'recommended'-Modus überschreibt ein expliziter Tab die
+                Paket-Voreinstellung (allowed_sources). */}
+            <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as typeof activeSource)}>
+              <TabsList className="h-11 w-full">
+                <TabsTrigger value="all" className="text-xs flex-1 min-h-[44px]">Alle</TabsTrigger>
+                <TabsTrigger value="catering" className="text-xs flex-1 min-h-[44px]">
+                  <ChefHat className="h-3 w-3 mr-1" />
+                  Catering
+                </TabsTrigger>
+                <TabsTrigger value="ristorante" className="text-xs flex-1 min-h-[44px]">
+                  <Utensils className="h-3 w-3 mr-1" />
+                  Restaurant
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
             {/* Category Info - only in recommended mode */}
             {searchMode === 'recommended' && courseConfig.allowed_categories.length > 0 && (
