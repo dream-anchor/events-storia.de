@@ -435,6 +435,24 @@ export const CourseSelector = ({
           </Button>
         </div>
 
+        {/* Source Filter — IMMER sichtbar (war früher unter Collapsible versteckt,
+            wodurch Admins keinen Zugriff auf das Restaurant-Menü hatten, sobald
+            das Paket allowed_sources=['catering'] hatte). Tab überschreibt die
+            Paket-Voreinstellung und gibt Zugriff auf den ganzen Pool. */}
+        <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as typeof activeSource)}>
+          <TabsList className="h-11 w-full">
+            <TabsTrigger value="all" className="text-xs flex-1 min-h-[44px]">Alle</TabsTrigger>
+            <TabsTrigger value="catering" className="text-xs flex-1 min-h-[44px]">
+              <ChefHat className="h-3 w-3 mr-1" />
+              Catering
+            </TabsTrigger>
+            <TabsTrigger value="ristorante" className="text-xs flex-1 min-h-[44px]">
+              <Utensils className="h-3 w-3 mr-1" />
+              Restaurant
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {/* Collapsible Filters (Progressive Disclosure) */}
         <Collapsible open={showFilters}>
           <CollapsibleContent className="space-y-3 pt-2">
