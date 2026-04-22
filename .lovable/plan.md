@@ -1,59 +1,66 @@
 
 
-# Gäste-Mengen-UI im Public Offer kontextabhängig zeigen
+# LexOffice-PDF in OfferSendPreview ergänzen — Vorschau funktionsfähig machen
 
 ## Befund
 
-Aktuell zeigt jede Option einen Mengen-Stepper „Wie viele Gäste möchten dieses Menü?" — **auch wenn nur eine Option existiert**. Das ist verwirrend: Bei nur einer Option ist die Menge bereits durch `inquiry.guest_count` definiert, der Kunde sollte einfach direkt buchen können.
+`OfferSendPreview` zeigt „Kein LexOffice-Angebot verknüpft", weil es das PDF **nur** anzeigen kann, wenn `event_inquiries.lexoffice_quotation_id` bereits gesetzt ist. Das passiert aber erst **nach** dem Klick auf „Senden" in `SmartInquiryEditor.handleSend` (Zeile 608–622: `create-event-quotation` → `update event_inquiries.lexoffice_quotation_id`).
 
-Bei mehreren Optionen fehlt umgekehrt die wichtigste Info: **wie viele Gäste muss ich noch verteilen?** Es gibt kein Ziel und keinen Fortschrittsindikator.
+Bei der Vorschau (`/admin/events/:id/preview?send=proposal`) ist die Quotation also bauartbedingt noch nicht vorhanden → Block 3 ist leer. Genau das zeigt der Screenshot.
+
+Zusätzlich: Die `MultiOfferComposer.handleSendOffer` ruft `create-event-quotation` zwar auf, **wirft aber `quotationId` weg** und persistiert sie nicht. Das ist ein zweiter Bug, der dafür sorgt, dass die Quotation auch nach „Senden" über den neuen Wizard nicht in der Inquiry verlinkt wird → spätere Vorschauen bleiben ebenfalls leer.
 
 ## Lösung
 
-### 1) Single-Option: Stepper komplett ausblenden
+### Fix 1 — Lazy-Quotation in `OfferSendPreview`
 
-Wenn `options.length === 1`, wird der Stepper-Block (`PublicOffer.tsx` ~Zeile 1194-1241) gar nicht gerendert. Die Menge wird intern automatisch auf `inquiry.guest_count` (numerisch geparst) gesetzt, sodass die Backend-Logik (`optionQuantities`-Pfad in `create-payment-session`) unverändert weiter funktioniert. Falls `guest_count` nicht parsebar ist (z.B. „20-30"), Fallback auf `option.guest_count`.
+Wenn beim Mount `inquiry.lexoffice_quotation_id` fehlt, einmalig `create-event-quotation` aufrufen, die zurückgegebene `quotationId` in `event_inquiries.lexoffice_quotation_id` schreiben, lokalen State updaten und dann (wie bisher) `get-lexoffice-document` aufrufen. Dadurch sieht der Admin in der Vorschau **exakt das PDF**, das beim Senden angehängt würde.
 
-Der gesamte Live-Summary-Block („Ihre Auswahl · X Gäste gesamt") wird ebenfalls ausgeblendet — bei einer Option ist das redundant.
+Konkret im PDF-Loading-`useEffect` (Zeile 173–205):
 
-### 2) Multi-Option: Pflichtfeld + Fortschritts-Anzeige
+1. `if (!inquiry.lexoffice_quotation_id)` → `await supabase.functions.invoke('create-event-quotation', { body: { inquiryId: inquiry.id } })`
+2. Bei Erfolg: `setInquiry(prev => ({ ...prev!, lexoffice_quotation_id: data.quotationId }))` + DB-Update
+3. Anschließend Standard-PDF-Fetch über `get-lexoffice-document`
+4. Bei Fehler: aktueller Fehler-State (`pdfError`) + zusätzlicher Hinweis „Quotation konnte nicht erstellt werden" mit Retry-Button
 
-**Ziel-Gästezahl** wird einmal aus `inquiry.guest_count` geparst (z.B. „40" → 40, „20-30" → 30 als Maximum). Falls nicht parsebar, kein hartes Ziel — dann nur Live-Summe ohne Fortschritt anzeigen.
+Damit funktioniert die Vorschau **out-of-the-box**, ohne dass der Admin vorher etwas extra klicken muss. Beim späteren echten „Senden" prüft `SmartInquiryEditor.handleSend` ohnehin, ob bereits eine `lexoffice_quotation_id` vorhanden ist (falls nein, wird sie dort weiterhin erstellt — also keine Doppel-Quotation, sofern wir den Check dort noch ergänzen, siehe Fix 3).
 
-**Live-Summary-Box** (oberhalb der Buchungs-Card) erweitert um:
-- Progress-Bar: `totalQuantity / targetGuests`
-- Status-Text:
-  - `totalQuantity < target` → „Es fehlen noch **N Gäste** von insgesamt **40**" (in subtilem Warn-Ton, aber monochrom — kein Gelb/Grün)
-  - `totalQuantity === target` → „✓ Alle 40 Gäste verteilt"
-  - `totalQuantity > target` → „**N Gäste über** der ursprünglich angefragten Menge (40)" (informativ, nicht blockierend)
+### Fix 2 — `quotationId` im MultiOfferComposer persistieren
 
-**Pflicht-Validierung im Buchen-Button**: 
-- Buttons „Voll bezahlen" / „Anzahlung" sind disabled, solange `totalQuantity === 0`
-- Wenn `target` bekannt und `totalQuantity < target`: Button bleibt klickbar, aber unter dem Button erscheint Hinweis: „Sie können auch mit Teilmenge buchen — restliche Gäste später ergänzen." Das hält den CX-Flow flüssig (kein harter Block, da Geschäftslogik Teilbuchungen erlaubt).
-- Wenn `totalQuantity === 0`: Button-Text wechselt zu „Bitte Mengen pro Option angeben"
+In `MultiOfferComposer.handleSendOffer` (Zeile 249–267): Antwort destrukturieren und persistieren — analog zu `SmartInquiryEditor`:
 
-### 3) Kontext-Hint pro Options-Card (nur Multi-Mode)
+```ts
+const { data: quotRes, error } = await supabase.functions.invoke("create-event-quotation", { ... });
+if (error) throw error;
+if (quotRes?.success && quotRes.quotationId) {
+  await supabase.from('event_inquiries')
+    .update({ lexoffice_quotation_id: quotRes.quotationId })
+    .eq('id', inquiry.id);
+}
+```
 
-Im Stepper-Block der Card der zweite Sub-Text wechselt:
-- Single-Mode: (Stepper ausgeblendet, kein Text)
-- Multi-Mode, kein Ziel: „Ergibt {preis} für diese Option" (wie bisher)
-- Multi-Mode, mit Ziel: „Ergibt {preis} · noch **{remaining}** von **{target}** zu verteilen"
+### Fix 3 — Idempotenz-Guard in `SmartInquiryEditor.handleSend`
+
+Vor dem `create-event-quotation`-Aufruf (Zeile 608) prüfen, ob `inquiry.lexoffice_quotation_id` bereits existiert (z.B. weil die Vorschau die Quotation schon angelegt hat). Wenn ja: Skip — dadurch werden keine Duplicate-Quotations in LexOffice angelegt.
+
+```ts
+if (sendType === 'proposal' && !inquiry.lexoffice_quotation_id) {
+  // wie bisher: create-event-quotation aufrufen + persistieren
+}
+```
 
 ## Geänderte Dateien
 
-- `src/pages/PublicOffer.tsx` — Logik in `ProposalView` (Auto-Quantity bei Single, Target-Parsing, Progress-Anzeige) + bedingtes Rendering im Stepper-Block der `ProposalOptionCard`. ~50 Zeilen Diff, keine neuen Komponenten nötig.
+- `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx` (~25 Zeilen: Lazy-Create im PDF-Effect + State-Update)
+- `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx` (~6 Zeilen: `quotationId` persistieren)
+- `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` (1 Zeile: Idempotenz-Guard)
 
-## Nicht geändert
-
-- `create-payment-session` Edge Function: bekommt weiterhin `optionQuantities` mit der korrekten Auto-Menge bei Single — vollständig abwärtskompatibel.
-- DB / Migrationen: keine.
-- Andere Public-Offer-Subviews (`ThankYouView`, `BookedView`): unberührt.
+Keine Änderungen an Edge Functions, DB, RLS, Migrationen.
 
 ## Verifikation
 
-1. Public Offer mit **einer Option**, `guest_count='20'`: kein Stepper sichtbar, Buttons zeigen sofort `total_amount` für 20 Gäste, Klick → Stripe-Session korrekt erstellt.
-2. Public Offer mit **mehreren Optionen**, `guest_count='40'`: Live-Bar zeigt „Es fehlen noch 40 von 40". Stepper auf Option A → 25, Option B → 10 → Bar zeigt „Es fehlen noch 5 von 40", Button aktivierbar.
-3. Aufsummiert > 40 → Hinweis „über angefragter Menge", Button bleibt klickbar.
-4. `guest_count='20-30'` (Range) → Target = 30, Progress funktioniert.
-5. `guest_count` leer/null → kein Target-Text, nur Live-Summe.
+1. Neue Inquiry → Wizard durchlaufen → „Vorschlag an Kunde senden" Vorschau-Button → Block 3 zeigt **das echte LexOffice-PDF** (statt der Leer-Meldung).
+2. Inquiry hat danach `lexoffice_quotation_id` in DB gesetzt.
+3. „Senden" klicken → kein neuer LexOffice-Beleg wird angelegt (Idempotenz), bestehende ID bleibt verknüpft.
+4. Bei LexOffice-API-Fehler (z.B. fehlende Adresse): Vorschau zeigt klare Fehlermeldung + Retry-Button, Admin kann zurück zum Editor.
 
