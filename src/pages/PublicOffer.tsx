@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useLocation, useSearchParams } from "react-router-dom";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { supabase } from "@/integrations/supabase/client";
@@ -663,6 +663,33 @@ function ProposalView({
     () => Object.fromEntries(options.map(o => [o.id, 0]))
   );
 
+  // Ziel-Gästezahl aus inquiry.guest_count parsen.
+  // Akzeptiert: "40" → 40, "20-30" → 30 (Maximum), "ca. 25" → 25.
+  // Bei nicht parsebarem Wert: null (kein hartes Ziel).
+  const targetGuests = useMemo<number | null>(() => {
+    const raw = inquiry.guest_count?.trim();
+    if (!raw) return null;
+    const matches = raw.match(/\d+/g);
+    if (!matches || matches.length === 0) return null;
+    const nums = matches.map(n => parseInt(n, 10)).filter(n => !isNaN(n) && n > 0);
+    if (nums.length === 0) return null;
+    return Math.max(...nums);
+  }, [inquiry.guest_count]);
+
+  // Single-Option: Auto-Quantity aus Target oder option.guest_count
+  useEffect(() => {
+    const isSingle = options.length === 1;
+    if (!isSingle) return;
+    const opt = options[0];
+    if (!opt) return;
+    const isPerEvent = opt.menu_selection?.pricingMode === 'per_event';
+    const auto = isPerEvent ? 1 : (targetGuests ?? opt.guest_count ?? 0);
+    setOptionQuantities(prev => {
+      if (prev[opt.id] === auto) return prev;
+      return { ...prev, [opt.id]: auto };
+    });
+  }, [options, targetGuests]);
+
   // Pro-Person-Preis pro Option (per_event: total_amount als Pauschale)
   const perPersonPriceFor = (opt: PublicOfferOption): number => {
     const ms = opt.menu_selection;
@@ -793,9 +820,12 @@ function ProposalView({
     }
   };
 
-  const isSingle = options.length === 1;
   const busy = isSubmitting || isPaying !== null;
-  const canPay = (hasQuantities && multiOptionsTotal > 0) || (!!selectedOption && totalAmount > 0);
+  const isSingle = options.length === 1;
+  // Bei Multi-Options ist eine Mengen-Eingabe Pflicht. Bei Single reicht die Auto-Menge.
+  const canPay = isSingle
+    ? (!!selectedOption && totalAmount > 0)
+    : (hasQuantities && multiOptionsTotal > 0);
 
   return (
     <section className="bg-secondary/30">
@@ -835,30 +865,70 @@ function ProposalView({
                   setOptionQuantities((prev) => ({ ...prev, [option.id]: clamped }));
                 }}
                 perPersonPrice={perPersonPriceFor(option)}
+                targetGuests={targetGuests}
+                remainingGuests={
+                  targetGuests !== null
+                    ? Math.max(0, targetGuests - totalQuantity + (optionQuantities[option.id] || 0))
+                    : null
+                }
               />
             ))}
           </div>
 
-          {/* Live-Summary für Multi-Options-Modus */}
-          {hasQuantities && (
-            <div className="max-w-2xl mb-6 rounded-xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/70">
-                  Ihre Auswahl
-                </p>
-                <p className="text-sm font-sans text-foreground mt-1">
-                  {options
-                    .filter((o) => (optionQuantities[o.id] || 0) > 0)
-                    .map((o) => `Option ${o.option_label} × ${optionQuantities[o.id]}`)
-                    .join(' · ')}
-                </p>
-                <p className="text-xs font-sans text-muted-foreground mt-0.5">
-                  {totalQuantity} {totalQuantity === 1 ? 'Gast' : 'Gäste'} gesamt
+          {/* Live-Summary für Multi-Options-Modus (bei Single ausgeblendet — Menge ist fix) */}
+          {!isSingle && (
+            <div className="max-w-2xl mb-6 rounded-xl bg-primary/5 border border-primary/20 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/70">
+                    Ihre Auswahl
+                  </p>
+                  {hasQuantities ? (
+                    <>
+                      <p className="text-sm font-sans text-foreground mt-1">
+                        {options
+                          .filter((o) => (optionQuantities[o.id] || 0) > 0)
+                          .map((o) => `Option ${o.option_label} × ${optionQuantities[o.id]}`)
+                          .join(' · ')}
+                      </p>
+                      <p className="text-xs font-sans text-muted-foreground mt-0.5">
+                        {totalQuantity} {totalQuantity === 1 ? 'Gast' : 'Gäste'} verteilt
+                        {targetGuests !== null && ` von ${targetGuests}`}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-sans text-muted-foreground mt-1">
+                      Bitte verteilen Sie Ihre Gäste auf die gewünschten Optionen.
+                    </p>
+                  )}
+                </div>
+                <p className="text-xl font-serif font-bold text-primary whitespace-nowrap">
+                  {formatCurrencyDecimal(multiOptionsTotal)}
                 </p>
               </div>
-              <p className="text-xl font-serif font-bold text-primary whitespace-nowrap">
-                {formatCurrencyDecimal(multiOptionsTotal)}
-              </p>
+
+              {/* Fortschritts-Anzeige nur wenn Ziel bekannt */}
+              {targetGuests !== null && (
+                <div>
+                  <div className="h-1.5 w-full rounded-full bg-primary/10 overflow-hidden">
+                    <div
+                      className="h-full bg-primary/70 transition-all"
+                      style={{ width: `${Math.min(100, (totalQuantity / targetGuests) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs font-sans text-foreground/80">
+                    {totalQuantity < targetGuests && (
+                      <>Es fehlen noch <strong>{targetGuests - totalQuantity}</strong> {targetGuests - totalQuantity === 1 ? 'Gast' : 'Gäste'} von insgesamt <strong>{targetGuests}</strong>.</>
+                    )}
+                    {totalQuantity === targetGuests && (
+                      <>✓ Alle <strong>{targetGuests}</strong> Gäste verteilt.</>
+                    )}
+                    {totalQuantity > targetGuests && (
+                      <><strong>{totalQuantity - targetGuests}</strong> {totalQuantity - targetGuests === 1 ? 'Gast' : 'Gäste'} über der ursprünglich angefragten Menge ({targetGuests}).</>
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -874,7 +944,9 @@ function ProposalView({
                     ? (hasQuantities
                         ? `Sicher bezahlen über Stripe — für ${totalQuantity} ${totalQuantity === 1 ? 'Gast' : 'Gäste'}`
                         : "Sicher bezahlen über Stripe — Kreditkarte, Apple Pay oder SEPA")
-                    : "Wählen Sie oben eine Option oder geben Sie Mengen an."}
+                    : (isSingle
+                        ? "Wählen Sie oben eine Option."
+                        : "Bitte Mengen pro Option angeben.")}
                 </p>
               </div>
 
@@ -943,6 +1015,13 @@ function ProposalView({
                   Rechnung folgt per E-Mail
                 </span>
               </div>
+
+              {/* Hinweis bei Teilbuchung im Multi-Mode */}
+              {!isSingle && canPay && targetGuests !== null && totalQuantity < targetGuests && (
+                <p className="mt-4 text-xs font-sans text-muted-foreground">
+                  Sie können auch mit einer Teilmenge buchen — die restlichen Gäste lassen sich später ergänzen.
+                </p>
+              )}
             </div>
           </div>
 
@@ -1036,6 +1115,8 @@ function ProposalOptionCard({
   quantity,
   onQuantityChange,
   perPersonPrice: perPersonPriceProp,
+  targetGuests,
+  remainingGuests,
 }: {
   option: PublicOfferOption;
   isSelected: boolean;
@@ -1044,6 +1125,8 @@ function ProposalOptionCard({
   quantity: number;
   onQuantityChange: (q: number) => void;
   perPersonPrice: number;
+  targetGuests: number | null;
+  remainingGuests: number | null;
 }) {
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
@@ -1191,7 +1274,9 @@ function ProposalOptionCard({
         </div>
       )}
 
-      {/* Mengen-Stepper */}
+      {/* Mengen-Stepper — nur bei Multi-Option-Modus sichtbar.
+          Bei Single-Option ist die Menge automatisch durch inquiry.guest_count gesetzt. */}
+      {!singleOption && (
       <div
         className="px-6 pb-5 pt-4 border-t border-border/10 bg-muted/10 flex items-center justify-between gap-4"
         onClick={(e) => e.stopPropagation()}
@@ -1202,6 +1287,9 @@ function ProposalOptionCard({
           </p>
           <p className="text-[10px] font-sans text-muted-foreground mt-0.5">
             Ergibt {formatCurrencyDecimal(quantity * perPersonPriceProp)} für diese Option
+            {targetGuests !== null && remainingGuests !== null && remainingGuests > 0 && (
+              <> · noch <strong>{remainingGuests}</strong> von <strong>{targetGuests}</strong> zu verteilen</>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1239,6 +1327,7 @@ function ProposalOptionCard({
           </Button>
         </div>
       </div>
+      )}
     </div>
   );
 }
