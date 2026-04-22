@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { resolveV2Event } from '../_shared/v2-lookup.ts';
 
 interface ResponseCopyRequest {
   inquiryId: string;
@@ -108,6 +109,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // Resolve v2_event (für Logging + Thread). Falls nicht gefunden, Mail trotzdem senden.
+    const event = await resolveV2Event(supabase, inquiryId);
+    const eventId = event?.id || null;
+
     const emailSubject = 'Ihre Rückmeldung zum STORIA-Angebot';
     const emailBody = `Vielen Dank für Ihre Rückmeldung!
 
@@ -139,8 +144,8 @@ info@events-storia.de`;
 
     // Email Delivery loggen
     await supabase.from('email_delivery_logs').insert({
-      entity_type: 'event_inquiry',
-      entity_id: inquiryId,
+      entity_type: eventId ? 'v2_event' : 'unknown',
+      entity_id: eventId || inquiryId,
       recipient_email: customerEmail,
       subject: emailSubject,
       provider: result.provider || 'none',
@@ -153,6 +158,22 @@ info@events-storia.de`;
         selectedOptionLabel,
       },
     });
+
+    // Thread-Eintrag in v2_event_emails (nur wenn v2_event aufgelöst wurde)
+    if (result.sent && eventId) {
+      await supabase.from('v2_event_emails').insert({
+        event_id: eventId,
+        direction: 'outbound',
+        from_email: 'info@events-storia.de',
+        to_email: customerEmail,
+        subject: emailSubject,
+        body_text: emailBody,
+        body_html: htmlBody,
+        resend_message_id: result.messageId,
+        resend_status: 'queued',
+        sent_at: new Date().toISOString(),
+      });
+    }
 
     return new Response(
       JSON.stringify({ success: true, emailSent: result.sent }),
