@@ -820,9 +820,12 @@ function ProposalView({
     }
   };
 
-  const isSingle = options.length === 1;
   const busy = isSubmitting || isPaying !== null;
-  const canPay = (hasQuantities && multiOptionsTotal > 0) || (!!selectedOption && totalAmount > 0);
+  const isSingle = options.length === 1;
+  // Bei Multi-Options ist eine Mengen-Eingabe Pflicht. Bei Single reicht die Auto-Menge.
+  const canPay = isSingle
+    ? (!!selectedOption && totalAmount > 0)
+    : (hasQuantities && multiOptionsTotal > 0);
 
   return (
     <section className="bg-secondary/30">
