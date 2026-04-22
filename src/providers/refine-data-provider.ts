@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { DataProvider } from "@refinedev/core";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 
 type SupabaseTable = 'menu_items' | 'menus' | 'menu_categories' | 'event_inquiries' | 'catering_orders' | 'customer_profiles' | 'packages' | 'email_templates' | 'locations' | 'package_locations';
 
