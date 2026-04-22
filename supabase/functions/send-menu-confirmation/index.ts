@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
+import { resolveV2Event } from '../_shared/v2-lookup.ts';
 
 
 
@@ -59,19 +60,36 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: booking, error: bookingError } = await supabase
-      .from('event_bookings')
-      .select('*, packages(*)')
-      .eq('id', bookingId)
-      .single();
-
-    if (bookingError || !booking) {
-      throw new Error('Booking not found');
+    // Resolve v2_event aus Legacy- oder v2-UUID
+    const event = await resolveV2Event(supabase, bookingId);
+    if (!event) {
+      throw new Error(`v2_event not found for ${bookingId}`);
     }
 
-    console.log('Booking found:', booking.booking_number);
+    // Customer separat laden
+    const { data: customer } = await supabase
+      .from('v2_customers')
+      .select('name, email, phone, company')
+      .eq('id', event.customer_id)
+      .single();
+    if (!customer) {
+      throw new Error(`v2_customer not found for ${event.customer_id}`);
+    }
 
-    const menuSelection = booking.menu_selection as {
+    // Package separat laden falls verlinkt
+    let packageData: { name?: string } | null = null;
+    if (event.package_id) {
+      const { data: pkg } = await supabase
+        .from('packages')
+        .select('*')
+        .eq('id', event.package_id)
+        .single();
+      packageData = pkg;
+    }
+
+    console.log('v2_event found:', event.booking_number);
+
+    const menuSelection = event.menu_selection as {
       courses: Array<{ courseLabel: string; itemName: string; itemDescription?: string }>;
       drinks: Array<{ drinkLabel: string; selectedChoice?: string; customDrink?: string }>;
     } | null;
@@ -102,24 +120,24 @@ serve(async (req) => {
       }
     }
 
-    const eventDate = new Date(booking.event_date).toLocaleDateString('de-DE', {
+    const eventDate = new Date(event.date).toLocaleDateString('de-DE', {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
       year: 'numeric',
     });
 
-    const packageName = booking.packages?.name || 'Event-Paket';
+    const packageName = packageData?.name || 'Event-Paket';
 
     const emailSubject = `Ihr Menü für ${eventDate} steht fest`;
-    const isTest = booking.is_test === true;
-    const safeRecipient = getSafeRecipientEmail(booking.customer_email, isTest);
+    const isTest = event.is_test === true;
+    const safeRecipient = getSafeRecipientEmail(customer.email, isTest);
     const safeSubject = getSafeSubject(emailSubject, isTest);
-    const emailBody = `Sehr geehrte/r ${booking.customer_name},
+    const emailBody = `Sehr geehrte/r ${customer.name},
 
 vielen Dank für Ihre Buchung des ${packageName} am ${eventDate}.
 
-Wir haben folgendes Menü für Ihre Veranstaltung mit ${booking.guest_count} Gästen zusammengestellt:
+Wir haben folgendes Menü für Ihre Veranstaltung mit ${event.guest_count} Gästen zusammengestellt:
 
 ${menuText}
 
@@ -236,10 +254,10 @@ info@events-storia.de`;
 
       // Log email delivery to database
       await logEmailDelivery(supabase, {
-        entity_type: 'event_booking',
-        entity_id: bookingId,
+        entity_type: 'v2_event',
+        entity_id: event.id,
         recipient_email: safeRecipient,
-        recipient_name: booking.customer_name,
+        recipient_name: customer.name,
         subject: safeSubject,
         provider: emailProvider || 'none',
         provider_message_id: emailMessageId,
@@ -247,21 +265,38 @@ info@events-storia.de`;
         error_message: emailError,
         sent_by: sentBy || null,
         metadata: {
-          booking_number: booking.booking_number,
+          booking_number: event.booking_number,
           email_type: 'menu_confirmation',
           package_name: packageName,
-          event_date: booking.event_date,
+          event_date: event.date,
         },
       });
+
+      // Email-Thread auch in v2_event_emails persistieren
+      if (emailSent) {
+        await supabase.from('v2_event_emails').insert({
+          event_id: event.id,
+          direction: 'outbound',
+          from_email: 'info@events-storia.de',
+          to_email: customer.email,
+          subject: emailSubject,
+          body_text: emailBody,
+          body_html: htmlEmail,
+          resend_message_id: emailMessageId,
+          resend_status: 'queued',
+          sent_at: new Date().toISOString(),
+        });
+      }
     }
 
     const { error: updateError } = await supabase
-      .from('event_bookings')
-      .update({ 
+      .from('v2_events')
+      .update({
         menu_confirmed: true,
-        status: 'ready',
+        menu_confirmed_at: new Date().toISOString(),
+        confirmation_email_sent_at: emailSent ? new Date().toISOString() : null,
       })
-      .eq('id', bookingId);
+      .eq('id', event.id);
 
     if (updateError) {
       console.error('Update error:', updateError);
@@ -271,7 +306,7 @@ info@events-storia.de`;
       JSON.stringify({ 
         success: true, 
         emailSent: emailSent,
-        bookingNumber: booking.booking_number,
+        bookingNumber: event.booking_number,
         provider: emailProvider || undefined,
       }),
       { 

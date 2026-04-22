@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { resolveV2Event } from '../_shared/v2-lookup.ts';
 
 
 
@@ -23,53 +24,47 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Anfrage + Kundenantwort laden
-    const { data: inquiry, error: inquiryError } = await supabase
-      .from("event_inquiries")
-      .select("id, company_name, contact_name, email, preferred_date, guest_count, event_type")
-      .eq("id", inquiryId)
-      .single();
-
-    if (inquiryError || !inquiry) {
-      console.error("Inquiry not found:", inquiryError);
-      return new Response(JSON.stringify({ error: "Inquiry not found" }), {
+    // Resolve v2_event aus Legacy- oder v2-UUID
+    const event = await resolveV2Event(supabase, inquiryId);
+    if (!event) {
+      return new Response(JSON.stringify({ error: "Event not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { data: response } = await supabase
-      .from("offer_customer_responses")
-      .select("selected_option_id, customer_notes, responded_at")
-      .eq("inquiry_id", inquiryId)
-      .order("responded_at", { ascending: false })
-      .limit(1)
+    // Customer separat
+    const { data: customer } = await supabase
+      .from("v2_customers")
+      .select("name, email, company")
+      .eq("id", event.customer_id)
       .single();
 
-    // Gewählte Option laden
-    let selectedOptionLabel = "Keine";
-    if (response?.selected_option_id) {
-      const { data: option } = await supabase
-        .from("inquiry_offer_options")
-        .select("option_label, package_name")
-        .eq("id", response.selected_option_id)
-        .single();
-      if (option) {
-        selectedOptionLabel = `Option ${option.option_label}${option.package_name ? ` (${option.package_name})` : ""}`;
-      }
-    }
+    // Gewählte Option direkt aus v2_offer_options
+    const { data: chosenOption } = await supabase
+      .from("v2_offer_options")
+      .select("id, label, package_name_snapshot, chosen_at, chosen_notes")
+      .eq("event_id", event.id)
+      .eq("is_chosen", true)
+      .order("chosen_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const customerName = inquiry.company_name || inquiry.contact_name || "Unbekannt";
-    const eventDate = inquiry.preferred_date || "Kein Datum";
-    const guestCount = inquiry.guest_count || "?";
-    const customerNotes = response?.customer_notes || "Keine Anmerkungen";
+    const selectedOptionLabel = chosenOption
+      ? `Option ${chosenOption.label}${chosenOption.package_name_snapshot ? ` (${chosenOption.package_name_snapshot})` : ""}`
+      : "Keine";
+    const customerNotes = chosenOption?.chosen_notes || "Keine Anmerkungen";
+
+    const customerName = customer?.company || customer?.name || "Unbekannt";
+    const eventDate = event.date || "Kein Datum";
+    const guestCount = event.guest_count || "?";
 
     const emailSubject = `Kundenantwort: ${customerName} hat Option gewählt`;
     const emailText = `Neue Kundenantwort auf Angebot
 
 Kunde: ${customerName}
-E-Mail: ${inquiry.email}
-Event: ${inquiry.event_type || "Veranstaltung"} am ${eventDate}
+E-Mail: ${customer?.email || ""}
+Event: ${event.occasion || "Veranstaltung"} am ${eventDate}
 Gäste: ${guestCount}
 
 Gewählte Option: ${selectedOptionLabel}
@@ -167,8 +162,8 @@ https://events-storia.de/admin/events/${inquiryId}/edit`;
 
     // Log in email_delivery_logs
     await supabase.from("email_delivery_logs").insert({
-      entity_type: "offer_response",
-      entity_id: inquiryId,
+      entity_type: "v2_event",
+      entity_id: event.id,
       recipient_email: notificationRecipients.join(", "),
       recipient_name: "STORIA Team",
       subject: emailSubject,
@@ -177,7 +172,11 @@ https://events-storia.de/admin/events/${inquiryId}/edit`;
       status: sent ? "sent" : "failed",
       error_message: errorMessage,
       sent_by: "system",
-      metadata: { selectedOptionLabel, customerNotes },
+      metadata: {
+        selectedOptionLabel,
+        customerNotes,
+        chosenOptionId: chosenOption?.id || null,
+      },
     });
 
     return new Response(JSON.stringify({ success: true, emailSent: sent }), {
