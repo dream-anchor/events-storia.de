@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -9,9 +9,25 @@ import {
   Check,
   ChevronRight,
   Loader2,
+  Minus,
+  Plus,
+  AlertTriangle,
+  Lock,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -30,7 +46,6 @@ import { CourseSelector } from "../MenuComposer/CourseSelector";
 import { DrinkPackageSelector } from "../MenuComposer/DrinkPackageSelector";
 import { usePackageMenuConfig } from "../MenuComposer/usePackageMenuConfig";
 import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
-import { MenuImporter } from "../OfferBuilder/MenuImporter";
 import type { OfferBuilderOption } from "../OfferBuilder/types";
 import type {
   MenuSelection,
@@ -49,6 +64,10 @@ interface WizardConfiguratorProps {
   onUpdateOption: (updates: Partial<OfferOption>) => void;
   onBack: () => void;
   onImportRestaurantMenus?: (imported: Partial<OfferBuilderOption>[]) => void;
+  isLocked?: boolean;
+  onFlushSave?: () => Promise<void>;
+  onGenerateEmail?: () => Promise<void> | void;
+  isGeneratingEmail?: boolean;
 }
 
 export function WizardConfigurator({
