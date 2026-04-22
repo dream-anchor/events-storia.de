@@ -868,7 +868,7 @@ function ProposalView({
                 targetGuests={targetGuests}
                 remainingGuests={
                   targetGuests !== null
-                    ? Math.max(0, targetGuests - totalQuantity + (optionQuantities[option.id] || 0))
+                    ? Math.max(0, targetGuests - totalQuantity)
                     : null
                 }
               />
