@@ -412,6 +412,14 @@ export function MultiOfferComposer({
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="text-sm font-medium">Version {currentVersion}</Badge>
+          {!isLocked && (
+            <MenuImporter
+              guestCount={guestCount}
+              currentOptionCount={options.length}
+              onImportMultiple={(imported) => addImportedOptions(imported)}
+              disabled={options.length >= 5}
+            />
+          )}
           {history.length > 0 && (
             <Button variant="ghost" size="sm" onClick={() => setShowHistory(!showHistory)} className="h-10">
               <History className="h-4 w-4 mr-1.5" /> Historie
