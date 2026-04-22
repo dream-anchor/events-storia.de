@@ -6,7 +6,7 @@ import { de } from "date-fns/locale";
 import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare, User, Flag, AlertTriangle, LayoutGrid, Table2, Archive } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
-import { DataTable } from "./DataTable";
+import { DataTable, sortableHeader } from "./DataTable";
 import { KanbanView } from "./KanbanView";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
