@@ -1767,6 +1767,829 @@ export type Database = {
         }
         Relationships: []
       }
+      v2_customers: {
+        Row: {
+          address_city: string | null
+          address_street: string | null
+          address_zip: string | null
+          auth_user_id: string | null
+          company: string | null
+          created_at: string
+          email: string
+          id: string
+          internal_notes: string | null
+          lexoffice_contact_id: string | null
+          merged_into_id: string | null
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address_city?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          auth_user_id?: string | null
+          company?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          internal_notes?: string | null
+          lexoffice_contact_id?: string | null
+          merged_into_id?: string | null
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address_city?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          auth_user_id?: string | null
+          company?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          internal_notes?: string | null
+          lexoffice_contact_id?: string | null
+          merged_into_id?: string | null
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_customers_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "v2_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v2_event_changelog: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          event_id: string
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          reason: string | null
+          source: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string
+          event_id: string
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          reason?: string | null
+          source?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          event_id?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          reason?: string | null
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_event_changelog_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v2_event_comments: {
+        Row: {
+          author_email: string
+          content: string
+          created_at: string
+          event_id: string
+          id: string
+          parent_id: string | null
+          source_comment_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_email: string
+          content: string
+          created_at?: string
+          event_id: string
+          id?: string
+          parent_id?: string | null
+          source_comment_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_email?: string
+          content?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          parent_id?: string | null
+          source_comment_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_event_comments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "v2_event_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v2_event_emails: {
+        Row: {
+          attachments: Json | null
+          body_html: string | null
+          body_text: string | null
+          cc_email: string | null
+          created_at: string
+          direction: Database["public"]["Enums"]["v2_email_direction"]
+          event_id: string | null
+          from_email: string
+          id: string
+          in_reply_to: string | null
+          received_at: string | null
+          resend_message_id: string | null
+          resend_status: string | null
+          sent_at: string | null
+          source_message_id: string | null
+          subject: string | null
+          to_email: string
+        }
+        Insert: {
+          attachments?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_email?: string | null
+          created_at?: string
+          direction: Database["public"]["Enums"]["v2_email_direction"]
+          event_id?: string | null
+          from_email: string
+          id?: string
+          in_reply_to?: string | null
+          received_at?: string | null
+          resend_message_id?: string | null
+          resend_status?: string | null
+          sent_at?: string | null
+          source_message_id?: string | null
+          subject?: string | null
+          to_email: string
+        }
+        Update: {
+          attachments?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_email?: string | null
+          created_at?: string
+          direction?: Database["public"]["Enums"]["v2_email_direction"]
+          event_id?: string | null
+          from_email?: string
+          id?: string
+          in_reply_to?: string | null
+          received_at?: string | null
+          resend_message_id?: string | null
+          resend_status?: string | null
+          sent_at?: string | null
+          source_message_id?: string | null
+          subject?: string | null
+          to_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_event_emails_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v2_event_offer_history: {
+        Row: {
+          created_at: string
+          email_content: string | null
+          event_id: string
+          id: string
+          options_snapshot: Json
+          pdf_url: string | null
+          sent_at: string
+          sent_by: string | null
+          source_history_id: string | null
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          email_content?: string | null
+          event_id: string
+          id?: string
+          options_snapshot: Json
+          pdf_url?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          source_history_id?: string | null
+          version: number
+        }
+        Update: {
+          created_at?: string
+          email_content?: string | null
+          event_id?: string
+          id?: string
+          options_snapshot?: Json
+          pdf_url?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          source_history_id?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_event_offer_history_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v2_event_tasks: {
+        Row: {
+          assigned_to: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          due_date: string | null
+          event_id: string | null
+          id: string
+          priority: Database["public"]["Enums"]["v2_event_priority"]
+          reminder_sent: boolean | null
+          source_task_id: string | null
+          status: Database["public"]["Enums"]["v2_task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_date?: string | null
+          event_id?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["v2_event_priority"]
+          reminder_sent?: boolean | null
+          source_task_id?: string | null
+          status?: Database["public"]["Enums"]["v2_task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_date?: string | null
+          event_id?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["v2_event_priority"]
+          reminder_sent?: boolean | null
+          source_task_id?: string | null
+          status?: Database["public"]["Enums"]["v2_task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_event_tasks_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v2_events: {
+        Row: {
+          amount_total: number | null
+          archived: boolean | null
+          archived_at: string | null
+          archived_by: string | null
+          assigned_at: string | null
+          assigned_by: string | null
+          assigned_to: string | null
+          billing_address_different: boolean | null
+          billing_city: string | null
+          billing_company_name: string | null
+          billing_country: string | null
+          billing_name: string | null
+          billing_postal_code: string | null
+          billing_street: string | null
+          booking_number: string | null
+          calculated_distance_km: number | null
+          company_city: string | null
+          company_country: string | null
+          company_name: string | null
+          company_postal_code: string | null
+          company_street: string | null
+          confirmation_email_sent_at: string | null
+          created_at: string
+          created_by: string | null
+          current_offer_version: number | null
+          customer_id: string
+          customer_notes: string | null
+          date: string | null
+          date_end: string | null
+          delivery_address: string | null
+          delivery_city: string | null
+          delivery_cost_cents: number | null
+          delivery_floor: string | null
+          delivery_street: string | null
+          delivery_zip: string | null
+          deposit_due_days: number | null
+          deposit_percent: number | null
+          email_draft: string | null
+          event_end_date: string | null
+          event_time: string | null
+          guest_count: number | null
+          has_elevator: boolean | null
+          id: string
+          internal_notes: string | null
+          invoice_lexoffice_id: string | null
+          invoice_lexoffice_number: string | null
+          is_pickup: boolean | null
+          is_test: boolean | null
+          items: Json | null
+          last_edited_at: string | null
+          last_edited_by: string | null
+          lexoffice_document_type: string | null
+          lexoffice_quotation_id: string | null
+          location: Database["public"]["Enums"]["v2_event_location"] | null
+          location_city: string | null
+          location_country: string | null
+          location_details: string | null
+          location_id: string | null
+          location_name: string | null
+          location_postal_code: string | null
+          location_street: string | null
+          location_type: string | null
+          menu_confirmed: boolean | null
+          menu_confirmed_at: string | null
+          menu_selection: Json | null
+          minimum_order_surcharge_cents: number | null
+          notification_sent: boolean | null
+          number: string | null
+          occasion: string | null
+          offer_phase: string | null
+          offer_sent_at: string | null
+          offer_sent_by: string | null
+          offer_slug: string | null
+          offer_validity_days: number | null
+          package_id: string | null
+          payment_type: string | null
+          priority: Database["public"]["Enums"]["v2_event_priority"] | null
+          quote_items: Json | null
+          quote_notes: string | null
+          reminder_count: number | null
+          reminder_sent_at: string | null
+          selected_items: Json | null
+          selected_packages: Json | null
+          service_type: Database["public"]["Enums"]["v2_event_service"] | null
+          source: Database["public"]["Enums"]["v2_event_source"]
+          source_booking_id: string | null
+          source_catering_id: string | null
+          source_inquiry_id: string | null
+          status: Database["public"]["Enums"]["v2_event_status"]
+          status_changed_at: string | null
+          time_from: string | null
+          time_to: string | null
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          amount_total?: number | null
+          archived?: boolean | null
+          archived_at?: string | null
+          archived_by?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          billing_address_different?: boolean | null
+          billing_city?: string | null
+          billing_company_name?: string | null
+          billing_country?: string | null
+          billing_name?: string | null
+          billing_postal_code?: string | null
+          billing_street?: string | null
+          booking_number?: string | null
+          calculated_distance_km?: number | null
+          company_city?: string | null
+          company_country?: string | null
+          company_name?: string | null
+          company_postal_code?: string | null
+          company_street?: string | null
+          confirmation_email_sent_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_offer_version?: number | null
+          customer_id: string
+          customer_notes?: string | null
+          date?: string | null
+          date_end?: string | null
+          delivery_address?: string | null
+          delivery_city?: string | null
+          delivery_cost_cents?: number | null
+          delivery_floor?: string | null
+          delivery_street?: string | null
+          delivery_zip?: string | null
+          deposit_due_days?: number | null
+          deposit_percent?: number | null
+          email_draft?: string | null
+          event_end_date?: string | null
+          event_time?: string | null
+          guest_count?: number | null
+          has_elevator?: boolean | null
+          id?: string
+          internal_notes?: string | null
+          invoice_lexoffice_id?: string | null
+          invoice_lexoffice_number?: string | null
+          is_pickup?: boolean | null
+          is_test?: boolean | null
+          items?: Json | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
+          lexoffice_document_type?: string | null
+          lexoffice_quotation_id?: string | null
+          location?: Database["public"]["Enums"]["v2_event_location"] | null
+          location_city?: string | null
+          location_country?: string | null
+          location_details?: string | null
+          location_id?: string | null
+          location_name?: string | null
+          location_postal_code?: string | null
+          location_street?: string | null
+          location_type?: string | null
+          menu_confirmed?: boolean | null
+          menu_confirmed_at?: string | null
+          menu_selection?: Json | null
+          minimum_order_surcharge_cents?: number | null
+          notification_sent?: boolean | null
+          number?: string | null
+          occasion?: string | null
+          offer_phase?: string | null
+          offer_sent_at?: string | null
+          offer_sent_by?: string | null
+          offer_slug?: string | null
+          offer_validity_days?: number | null
+          package_id?: string | null
+          payment_type?: string | null
+          priority?: Database["public"]["Enums"]["v2_event_priority"] | null
+          quote_items?: Json | null
+          quote_notes?: string | null
+          reminder_count?: number | null
+          reminder_sent_at?: string | null
+          selected_items?: Json | null
+          selected_packages?: Json | null
+          service_type?: Database["public"]["Enums"]["v2_event_service"] | null
+          source: Database["public"]["Enums"]["v2_event_source"]
+          source_booking_id?: string | null
+          source_catering_id?: string | null
+          source_inquiry_id?: string | null
+          status?: Database["public"]["Enums"]["v2_event_status"]
+          status_changed_at?: string | null
+          time_from?: string | null
+          time_to?: string | null
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          amount_total?: number | null
+          archived?: boolean | null
+          archived_at?: string | null
+          archived_by?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          billing_address_different?: boolean | null
+          billing_city?: string | null
+          billing_company_name?: string | null
+          billing_country?: string | null
+          billing_name?: string | null
+          billing_postal_code?: string | null
+          billing_street?: string | null
+          booking_number?: string | null
+          calculated_distance_km?: number | null
+          company_city?: string | null
+          company_country?: string | null
+          company_name?: string | null
+          company_postal_code?: string | null
+          company_street?: string | null
+          confirmation_email_sent_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_offer_version?: number | null
+          customer_id?: string
+          customer_notes?: string | null
+          date?: string | null
+          date_end?: string | null
+          delivery_address?: string | null
+          delivery_city?: string | null
+          delivery_cost_cents?: number | null
+          delivery_floor?: string | null
+          delivery_street?: string | null
+          delivery_zip?: string | null
+          deposit_due_days?: number | null
+          deposit_percent?: number | null
+          email_draft?: string | null
+          event_end_date?: string | null
+          event_time?: string | null
+          guest_count?: number | null
+          has_elevator?: boolean | null
+          id?: string
+          internal_notes?: string | null
+          invoice_lexoffice_id?: string | null
+          invoice_lexoffice_number?: string | null
+          is_pickup?: boolean | null
+          is_test?: boolean | null
+          items?: Json | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
+          lexoffice_document_type?: string | null
+          lexoffice_quotation_id?: string | null
+          location?: Database["public"]["Enums"]["v2_event_location"] | null
+          location_city?: string | null
+          location_country?: string | null
+          location_details?: string | null
+          location_id?: string | null
+          location_name?: string | null
+          location_postal_code?: string | null
+          location_street?: string | null
+          location_type?: string | null
+          menu_confirmed?: boolean | null
+          menu_confirmed_at?: string | null
+          menu_selection?: Json | null
+          minimum_order_surcharge_cents?: number | null
+          notification_sent?: boolean | null
+          number?: string | null
+          occasion?: string | null
+          offer_phase?: string | null
+          offer_sent_at?: string | null
+          offer_sent_by?: string | null
+          offer_slug?: string | null
+          offer_validity_days?: number | null
+          package_id?: string | null
+          payment_type?: string | null
+          priority?: Database["public"]["Enums"]["v2_event_priority"] | null
+          quote_items?: Json | null
+          quote_notes?: string | null
+          reminder_count?: number | null
+          reminder_sent_at?: string | null
+          selected_items?: Json | null
+          selected_packages?: Json | null
+          service_type?: Database["public"]["Enums"]["v2_event_service"] | null
+          source?: Database["public"]["Enums"]["v2_event_source"]
+          source_booking_id?: string | null
+          source_catering_id?: string | null
+          source_inquiry_id?: string | null
+          status?: Database["public"]["Enums"]["v2_event_status"]
+          status_changed_at?: string | null
+          time_from?: string | null
+          time_to?: string | null
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v2_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_events_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_events_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v2_offer_options: {
+        Row: {
+          amount_total: number
+          chosen_at: string | null
+          chosen_by_email: string | null
+          chosen_notes: string | null
+          created_at: string
+          event_id: string
+          guest_count: number
+          id: string
+          is_active: boolean | null
+          is_chosen: boolean | null
+          is_outdated: boolean | null
+          label: string
+          menu_selection: Json | null
+          offer_mode: Database["public"]["Enums"]["v2_offer_mode"] | null
+          outdated_reason: string | null
+          package_id: string | null
+          package_name_snapshot: string | null
+          sort_order: number | null
+          source_option_id: string | null
+          stripe_payment_link_id: string | null
+          stripe_payment_link_url: string | null
+          updated_at: string
+          version: number | null
+        }
+        Insert: {
+          amount_total: number
+          chosen_at?: string | null
+          chosen_by_email?: string | null
+          chosen_notes?: string | null
+          created_at?: string
+          event_id: string
+          guest_count: number
+          id?: string
+          is_active?: boolean | null
+          is_chosen?: boolean | null
+          is_outdated?: boolean | null
+          label?: string
+          menu_selection?: Json | null
+          offer_mode?: Database["public"]["Enums"]["v2_offer_mode"] | null
+          outdated_reason?: string | null
+          package_id?: string | null
+          package_name_snapshot?: string | null
+          sort_order?: number | null
+          source_option_id?: string | null
+          stripe_payment_link_id?: string | null
+          stripe_payment_link_url?: string | null
+          updated_at?: string
+          version?: number | null
+        }
+        Update: {
+          amount_total?: number
+          chosen_at?: string | null
+          chosen_by_email?: string | null
+          chosen_notes?: string | null
+          created_at?: string
+          event_id?: string
+          guest_count?: number
+          id?: string
+          is_active?: boolean | null
+          is_chosen?: boolean | null
+          is_outdated?: boolean | null
+          label?: string
+          menu_selection?: Json | null
+          offer_mode?: Database["public"]["Enums"]["v2_offer_mode"] | null
+          outdated_reason?: string | null
+          package_id?: string | null
+          package_name_snapshot?: string | null
+          sort_order?: number | null
+          source_option_id?: string | null
+          stripe_payment_link_id?: string | null
+          stripe_payment_link_url?: string | null
+          updated_at?: string
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v2_payments: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          created_by: string | null
+          due_date: string | null
+          due_days_before_event: number | null
+          email_resend_id: string | null
+          email_sent_at: string | null
+          event_id: string
+          id: string
+          lexoffice_invoice_id: string | null
+          lexoffice_invoice_number: string | null
+          notes: string | null
+          paid_at: string | null
+          paid_via: string | null
+          payment_type: Database["public"]["Enums"]["v2_payment_type"]
+          reminder_sent_at: string | null
+          source_booking_payment_id: string | null
+          source_offer_option_id: string | null
+          source_payment_id: string | null
+          status: Database["public"]["Enums"]["v2_payment_status"]
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_payment_link_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          due_days_before_event?: number | null
+          email_resend_id?: string | null
+          email_sent_at?: string | null
+          event_id: string
+          id?: string
+          lexoffice_invoice_id?: string | null
+          lexoffice_invoice_number?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_via?: string | null
+          payment_type: Database["public"]["Enums"]["v2_payment_type"]
+          reminder_sent_at?: string | null
+          source_booking_payment_id?: string | null
+          source_offer_option_id?: string | null
+          source_payment_id?: string | null
+          status?: Database["public"]["Enums"]["v2_payment_status"]
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_payment_link_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          due_days_before_event?: number | null
+          email_resend_id?: string | null
+          email_sent_at?: string | null
+          event_id?: string
+          id?: string
+          lexoffice_invoice_id?: string | null
+          lexoffice_invoice_number?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_via?: string | null
+          payment_type?: Database["public"]["Enums"]["v2_payment_type"]
+          reminder_sent_at?: string | null
+          source_booking_payment_id?: string | null
+          source_offer_option_id?: string | null
+          source_payment_id?: string | null
+          status?: Database["public"]["Enums"]["v2_payment_status"]
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_payment_link_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       event_payments_enriched: {
@@ -1810,6 +2633,51 @@ export type Database = {
           },
         ]
       }
+      v2_payments_enriched: {
+        Row: {
+          amount_cents: number | null
+          computed_status: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_email: string | null
+          customer_name: string | null
+          due_date: string | null
+          due_days_before_event: number | null
+          effective_due_date: string | null
+          email_resend_id: string | null
+          email_sent_at: string | null
+          event_date: string | null
+          event_id: string | null
+          guest_count: number | null
+          id: string | null
+          lexoffice_invoice_id: string | null
+          lexoffice_invoice_number: string | null
+          location: Database["public"]["Enums"]["v2_event_location"] | null
+          notes: string | null
+          paid_at: string | null
+          paid_via: string | null
+          payment_type: Database["public"]["Enums"]["v2_payment_type"] | null
+          reminder_sent_at: string | null
+          service_type: Database["public"]["Enums"]["v2_event_service"] | null
+          source_booking_payment_id: string | null
+          source_offer_option_id: string | null
+          source_payment_id: string | null
+          status: Database["public"]["Enums"]["v2_payment_status"] | null
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_payment_link_url: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       generate_booking_number: { Args: never; Returns: string }
@@ -1847,6 +2715,43 @@ export type Database = {
         | "valentines"
         | "special"
         | "catering"
+      v2_email_direction: "inbound" | "outbound"
+      v2_event_location: "in_house" | "external"
+      v2_event_priority: "low" | "normal" | "high" | "urgent"
+      v2_event_service: "restaurant" | "catering" | "hybrid"
+      v2_event_source:
+        | "website"
+        | "manual"
+        | "email_inbound"
+        | "phone"
+        | "catering_form"
+      v2_event_status:
+        | "inquiry"
+        | "offer_draft"
+        | "offer_sent"
+        | "offer_chosen"
+        | "paid"
+        | "completed"
+        | "offer_declined"
+        | "cancelled"
+        | "payment_failed"
+        | "no_response"
+      v2_offer_mode:
+        | "alacarte"
+        | "partial_menu"
+        | "full_menu"
+        | "package"
+        | "email"
+      v2_payment_status:
+        | "draft"
+        | "sent"
+        | "paid"
+        | "overdue"
+        | "cancelled"
+        | "refunded"
+        | "failed"
+      v2_payment_type: "deposit" | "prepayment" | "final" | "full" | "refund"
+      v2_task_status: "open" | "in_progress" | "done" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1985,6 +2890,47 @@ export const Constants = {
         "special",
         "catering",
       ],
+      v2_email_direction: ["inbound", "outbound"],
+      v2_event_location: ["in_house", "external"],
+      v2_event_priority: ["low", "normal", "high", "urgent"],
+      v2_event_service: ["restaurant", "catering", "hybrid"],
+      v2_event_source: [
+        "website",
+        "manual",
+        "email_inbound",
+        "phone",
+        "catering_form",
+      ],
+      v2_event_status: [
+        "inquiry",
+        "offer_draft",
+        "offer_sent",
+        "offer_chosen",
+        "paid",
+        "completed",
+        "offer_declined",
+        "cancelled",
+        "payment_failed",
+        "no_response",
+      ],
+      v2_offer_mode: [
+        "alacarte",
+        "partial_menu",
+        "full_menu",
+        "package",
+        "email",
+      ],
+      v2_payment_status: [
+        "draft",
+        "sent",
+        "paid",
+        "overdue",
+        "cancelled",
+        "refunded",
+        "failed",
+      ],
+      v2_payment_type: ["deposit", "prepayment", "final", "full", "refund"],
+      v2_task_status: ["open", "in_progress", "done", "cancelled"],
     },
   },
 } as const
