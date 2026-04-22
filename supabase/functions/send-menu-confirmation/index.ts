@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
 
 
 
@@ -111,6 +112,9 @@ serve(async (req) => {
     const packageName = booking.packages?.name || 'Event-Paket';
 
     const emailSubject = `Ihr Menü für ${eventDate} steht fest`;
+    const isTest = booking.is_test === true;
+    const safeRecipient = getSafeRecipientEmail(booking.customer_email, isTest);
+    const safeSubject = getSafeSubject(emailSubject, isTest);
     const emailBody = `Sehr geehrte/r ${booking.customer_name},
 
 vielen Dank für Ihre Buchung des ${packageName} am ${eventDate}.
@@ -166,8 +170,8 @@ info@events-storia.de`;
             },
             body: JSON.stringify({
               from: 'STORIA Events <info@events-storia.de>',
-              to: booking.customer_email,
-              subject: emailSubject,
+              to: safeRecipient,
+              subject: safeSubject,
               html: htmlEmail,
               text: emailBody,
               reply_to: 'info@events-storia.de',
@@ -176,7 +180,7 @@ info@events-storia.de`;
 
           if (resendResponse.ok) {
             const resendData = await resendResponse.json();
-            console.log('Email sent via Resend to', booking.customer_email);
+            console.log('Email sent via Resend to', safeRecipient);
             emailSent = true;
             emailProvider = 'resend';
             emailMessageId = resendData.id || null;
@@ -209,13 +213,13 @@ info@events-storia.de`;
 
           await client.send({
             from: `STORIA Events <${smtpUser}>`,
-            to: [booking.customer_email],
-            subject: emailSubject,
+            to: [safeRecipient],
+            subject: safeSubject,
             html: htmlEmail,
           });
 
           await client.close();
-          console.log('Email sent via IONOS SMTP (fallback) to', booking.customer_email);
+          console.log('Email sent via IONOS SMTP (fallback) to', safeRecipient);
           emailSent = true;
           emailProvider = 'ionos_smtp';
           emailError = null;
@@ -234,9 +238,9 @@ info@events-storia.de`;
       await logEmailDelivery(supabase, {
         entity_type: 'event_booking',
         entity_id: bookingId,
-        recipient_email: booking.customer_email,
+        recipient_email: safeRecipient,
         recipient_name: booking.customer_name,
-        subject: emailSubject,
+        subject: safeSubject,
         provider: emailProvider || 'none',
         provider_message_id: emailMessageId,
         status: emailSent ? 'sent' : 'failed',
