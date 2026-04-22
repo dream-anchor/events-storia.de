@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/typed-client';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface CustomerProfile {
   id: string;
