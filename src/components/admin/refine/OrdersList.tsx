@@ -192,7 +192,8 @@ export const OrdersList = () => {
     // Spalte 4: Lieferung/Abholung + Adresse (oder Abholung-Label)
     {
       id: "delivery_address",
-      header: "Lieferung / Abholung",
+      accessorFn: (row) => row.is_pickup ? "0_Abholung" : "1_Lieferung",
+      header: sortableHeader<CateringOrder>("Lieferung / Abholung"),
       cell: ({ row }) => {
         const o = row.original;
         if (o.is_pickup) {
@@ -233,8 +234,9 @@ export const OrdersList = () => {
 
     // Spalte 5: Kunde
     {
-      accessorKey: "customer_name",
-      header: "Kunde",
+      id: "customer",
+      accessorFn: (row) => (row.company_name || row.customer_name || "").toLowerCase(),
+      header: sortableHeader<CateringOrder>("Kunde"),
       cell: ({ row }) => (
         <div className="min-w-[140px]">
           <p className="font-medium text-sm">{row.original.customer_name}</p>
@@ -248,7 +250,8 @@ export const OrdersList = () => {
     // Spalte 6: Kontakt (Mail + Telefon)
     {
       id: "contact",
-      header: "Kontakt",
+      accessorFn: (row) => (row.customer_email || row.customer_phone || "").toLowerCase(),
+      header: sortableHeader<CateringOrder>("Kontakt"),
       cell: ({ row }) => {
         const o = row.original;
         return (
