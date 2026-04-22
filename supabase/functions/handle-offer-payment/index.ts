@@ -11,6 +11,8 @@ const logStep = (step: string, details?: unknown) => {
   console.log(`[HANDLE-OFFER-PAYMENT] ${step}${detailsStr}`);
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Generate booking number
 async function generateBookingNumber(supabase: any): Promise<string> {
   const currentYear = new Date().getFullYear();
@@ -30,29 +32,33 @@ async function generateBookingNumber(supabase: any): Promise<string> {
 }
 
 interface OfferOption {
-  id: string;
-  inquiry_id: string;
-  package_id: string;
-  option_label: string;
+  id: string;                         // v2_offer_options.id
+  event_id: string;
+  package_id: string | null;
+  label: string;
   guest_count: number;
   menu_selection: unknown;
-  total_amount: number;
-  stripe_payment_link_id: string;
+  amount_total: number;
+  stripe_payment_link_id: string | null;
+  source_option_id: string | null;
 }
 
-interface Inquiry {
+interface V2Event {
   id: string;
+  customer_id: string;
+  status: string;
+  date: string | null;
+  time_from: string | null;
+  event_time: string | null;
+  booking_number: string | null;
+}
+
+interface V2Customer {
+  id: string;
+  name: string;
   email: string;
-  contact_name: string;
-  company_name: string | null;
+  company: string | null;
   phone: string | null;
-  preferred_date: string | null;
-  time_slot: string | null;
-}
-
-interface EventBooking {
-  id: string;
-  booking_number: string;
 }
 
 serve(async (req) => {
@@ -88,18 +94,26 @@ serve(async (req) => {
       if (!optionId) {
         throw new Error("optionId is required");
       }
+      if (typeof optionId !== "string" || !UUID_RE.test(optionId)) {
+        return new Response(
+          JSON.stringify({ error: "optionId must be a valid UUID" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
 
       logStep("Manual payment check", { optionId, inquiryId });
 
-      // Get the option with its payment link
+      // Lookup in v2_offer_options:
+      // - new links carry v2-UUID  → matches `id`
+      // - legacy links carry old UUID → matches `source_option_id`
       const { data: option, error: optionError } = await supabaseAdmin
-        .from("inquiry_offer_options")
-        .select("*")
-        .eq("id", optionId)
-        .single();
+        .from("v2_offer_options")
+        .select("id, event_id, package_id, label, guest_count, menu_selection, amount_total, stripe_payment_link_id, source_option_id")
+        .or(`id.eq.${optionId},source_option_id.eq.${optionId}`)
+        .maybeSingle();
 
       if (optionError || !option) {
-        throw new Error("Option not found");
+        throw new Error(`v2_offer_option not found for ${optionId}`);
       }
 
       const typedOption = option as OfferOption;
@@ -167,18 +181,18 @@ serve(async (req) => {
         const optionId = metadata.option_id;
         const inquiryId = metadata.inquiry_id;
 
-        if (optionId && inquiryId) {
+        if (optionId && UUID_RE.test(optionId)) {
           logStep("Processing offer payment", { optionId, inquiryId });
 
-          // Get the option
+          // optionId from Stripe metadata may be legacy UUID → look up via source_option_id OR id
           const { data: option, error: optionError } = await supabaseAdmin
-            .from("inquiry_offer_options")
-            .select("*")
-            .eq("id", optionId)
-            .single();
+            .from("v2_offer_options")
+            .select("id, event_id, package_id, label, guest_count, menu_selection, amount_total, stripe_payment_link_id, source_option_id")
+            .or(`id.eq.${optionId},source_option_id.eq.${optionId}`)
+            .maybeSingle();
 
           if (optionError || !option) {
-            throw new Error(`Option not found: ${optionId}`);
+            throw new Error(`v2_offer_option not found: ${optionId}`);
           }
 
           const typedOption = option as OfferOption;
@@ -211,99 +225,129 @@ async function processSuccessfulPayment(
 ): Promise<{ bookingId: string; bookingNumber: string }> {
   logStep("Processing successful payment", { optionId: option.id });
 
-  // Check if booking already exists for this option
-  const { data: existingBookingData } = await supabase
-    .from("event_bookings")
-    .select("id, booking_number")
-    .eq("source_option_id", option.id)
-    .single();
+  // Idempotency: did we already create a v2_payment for this option?
+  const { data: existingPayment } = await supabase
+    .from("v2_payments")
+    .select("id, event_id")
+    .eq("source_offer_option_id", option.id)
+    .maybeSingle();
 
-  if (existingBookingData) {
-    const existingBooking = existingBookingData as EventBooking;
-    logStep("Booking already exists", existingBooking);
+  if (existingPayment) {
+    logStep("v2_payment already exists for option", existingPayment);
+    const { data: ev } = await supabase
+      .from("v2_events")
+      .select("id, booking_number")
+      .eq("id", existingPayment.event_id)
+      .single();
     return {
-      bookingId: existingBooking.id,
-      bookingNumber: existingBooking.booking_number,
+      bookingId: ev?.id ?? existingPayment.event_id,
+      bookingNumber: ev?.booking_number ?? "pending",
     };
   }
 
-  // Get inquiry details
-  const { data: inquiryData, error: inquiryError } = await supabase
-    .from("event_inquiries")
-    .select("*")
-    .eq("id", option.inquiry_id)
+  // Load v2_event
+  const { data: eventData, error: eventError } = await supabase
+    .from("v2_events")
+    .select("id, customer_id, date, time_from, event_time, booking_number, status")
+    .eq("id", option.event_id)
     .single();
 
-  if (inquiryError || !inquiryData) {
-    throw new Error(`Inquiry not found: ${option.inquiry_id}`);
+  if (eventError || !eventData) {
+    throw new Error(`v2_event not found: ${option.event_id}`);
   }
+  const ev = eventData as V2Event;
 
-  const inquiry = inquiryData as Inquiry;
+  // Load customer
+  const { data: customerData, error: customerError } = await supabase
+    .from("v2_customers")
+    .select("id, name, email, company, phone")
+    .eq("id", ev.customer_id)
+    .single();
 
-  // Generate booking number
-  const bookingNumber = await generateBookingNumber(supabase);
-  logStep("Generated booking number", { bookingNumber });
+  if (customerError || !customerData) {
+    throw new Error(`v2_customer not found: ${ev.customer_id}`);
+  }
+  const customer = customerData as V2Customer;
 
-  // Create the event booking
-  const { data: bookingData, error: bookingError } = await supabase
-    .from("event_bookings")
+  // Insert v2_payments row
+  const amountCents = Math.round(option.amount_total * 100);
+  const { data: paymentData, error: paymentError } = await supabase
+    .from("v2_payments")
     .insert({
-      booking_number: bookingNumber,
-      customer_email: inquiry.email,
-      customer_name: inquiry.contact_name,
-      company_name: inquiry.company_name,
-      phone: inquiry.phone,
-      package_id: option.package_id,
-      guest_count: option.guest_count,
-      event_date: inquiry.preferred_date,
-      event_time: inquiry.time_slot,
-      menu_selection: option.menu_selection,
-      menu_confirmed: false,
-      total_amount: option.total_amount,
-      payment_status: "paid",
+      event_id: ev.id,
+      amount_cents: amountCents,
+      payment_type: "full",
+      status: "paid",
+      stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: session.payment_intent as string,
-      stripe_payment_link_id: option.stripe_payment_link_id,
-      status: "menu_pending",
-      source_inquiry_id: option.inquiry_id,
-      source_option_id: option.id,
+      paid_at: new Date().toISOString(),
+      paid_via: "stripe_checkout",
+      source_offer_option_id: option.id,
     })
     .select()
     .single();
 
-  if (bookingError) {
-    throw new Error(`Failed to create booking: ${bookingError.message}`);
+  if (paymentError) {
+    if (paymentError.code === "23505") {
+      logStep("v2_payment unique violation (race), fetching existing");
+      const { data: retry } = await supabase
+        .from("v2_payments")
+        .select("id, event_id")
+        .eq("source_offer_option_id", option.id)
+        .single();
+      if (retry) {
+        return { bookingId: retry.event_id, bookingNumber: ev.booking_number ?? "exists" };
+      }
+    }
+    throw new Error(`Failed to create v2_payment: ${paymentError.message}`);
   }
 
-  const booking = bookingData as EventBooking;
-  logStep("Booking created", { bookingId: booking.id, bookingNumber });
+  // Promote event + assign booking number if missing
+  let bookingNumber = ev.booking_number;
+  if (!bookingNumber) {
+    bookingNumber = await generateBookingNumber(supabase);
+  }
 
-  // Update the inquiry status, offer_phase, and link to booking
   await supabase
-    .from("event_inquiries")
+    .from("v2_events")
     .update({
-      status: "confirmed",
-      offer_phase: "confirmed",
-      selected_option_id: option.id,
-      converted_to_booking_id: booking.id,
-      updated_at: new Date().toISOString(),
+      status: "paid",
+      booking_number: bookingNumber,
+      package_id: option.package_id,
+      menu_selection: option.menu_selection,
+      guest_count: option.guest_count,
+      amount_total: option.amount_total,
+      status_changed_at: new Date().toISOString(),
     })
-    .eq("id", option.inquiry_id);
+    .eq("id", ev.id);
 
-  logStep("Inquiry updated to confirmed");
+  logStep("v2_event promoted to paid", { eventId: ev.id, bookingNumber });
+
+  // Mark chosen option + deactivate siblings
+  await supabase
+    .from("v2_offer_options")
+    .update({ is_chosen: true, chosen_at: new Date().toISOString() })
+    .eq("id", option.id);
+
+  await supabase
+    .from("v2_offer_options")
+    .update({ is_active: false })
+    .eq("event_id", ev.id)
+    .neq("id", option.id);
 
   // Create LexOffice invoice for the paid booking
   try {
     logStep("Creating LexOffice invoice for event booking");
     
     const lexofficePayload = {
-      orderId: booking.id,
+      orderId: ev.id,
       orderNumber: bookingNumber,
-      customerName: inquiry.contact_name,
-      customerEmail: inquiry.email,
-      customerPhone: inquiry.phone || '',
-      companyName: inquiry.company_name || undefined,
+      customerName: customer.name,
+      customerEmail: customer.email,
+      customerPhone: customer.phone || '',
+      companyName: customer.company || undefined,
       billingAddress: {
-        name: inquiry.company_name || inquiry.contact_name,
+        name: customer.company || customer.name,
         street: '',
         zip: '',
         city: '',
@@ -311,19 +355,19 @@ async function processSuccessfulPayment(
       },
       items: [{
         id: option.package_id || 'event-package',
-        name: `Event-Paket: ${option.option_label}`,
+        name: `Event-Paket: ${option.label}`,
         quantity: option.guest_count,
-        price: option.total_amount / option.guest_count,
+        price: option.amount_total / option.guest_count,
       }],
-      subtotal: option.total_amount,
+      subtotal: option.amount_total,
       deliveryCost: 0,
       minimumOrderSurcharge: 0,
-      grandTotal: option.total_amount,
+      grandTotal: option.amount_total,
       isPickup: false,
       documentType: 'invoice' as const,
       isPaid: true,
-      desiredDate: inquiry.preferred_date || undefined,
-      desiredTime: inquiry.time_slot || undefined,
+      desiredDate: ev.date || undefined,
+      desiredTime: ev.event_time || ev.time_from || undefined,
       paymentMethod: 'stripe' as const,
       isEventBooking: true,
     };
@@ -347,20 +391,29 @@ async function processSuccessfulPayment(
         const invoiceId = lexofficeResult.invoiceId || lexofficeResult.quotationId;
         const documentType = lexofficeResult.invoiceId ? 'invoice' : 'quotation';
         
-        // Update booking with LexOffice data
+        // Central reference on v2_events
         await supabase
-          .from("event_bookings")
+          .from("v2_events")
+          .update({
+            invoice_lexoffice_id: invoiceId,
+            invoice_lexoffice_number: lexofficeResult.invoiceNumber || null,
+            lexoffice_document_type: documentType,
+          })
+          .eq("id", ev.id);
+
+        // Mirror onto the v2_payments row for payment-centric queries
+        await supabase
+          .from("v2_payments")
           .update({
             lexoffice_invoice_id: invoiceId,
-            lexoffice_document_type: documentType,
-            lexoffice_contact_id: lexofficeResult.contactId || null,
+            lexoffice_invoice_number: lexofficeResult.invoiceNumber || null,
           })
-          .eq("id", booking.id);
+          .eq("id", paymentData.id);
 
         logStep("LexOffice invoice created and linked", { 
           invoiceId, 
           documentType,
-          bookingId: booking.id 
+          eventId: ev.id 
         });
       } else if (lexofficeResult.skipped) {
         logStep("LexOffice skipped", { reason: lexofficeResult.reason });
@@ -380,7 +433,7 @@ async function processSuccessfulPayment(
   }
 
   return {
-    bookingId: booking.id,
-    bookingNumber: booking.booking_number,
+    bookingId: ev.id,
+    bookingNumber: bookingNumber || "pending",
   };
 }
