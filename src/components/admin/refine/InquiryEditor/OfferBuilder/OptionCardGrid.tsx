@@ -125,6 +125,7 @@ export function OptionCardGrid({
                 isLocked={isLocked && option.createdInVersion !== currentVersion}
                 canDuplicate={canDuplicate}
                 canDelete={canDelete}
+                onRequestImport={() => onMenuImporterOpenChange?.(true)}
               />
             );
           })}
