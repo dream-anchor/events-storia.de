@@ -30,6 +30,8 @@ import { CourseSelector } from "../MenuComposer/CourseSelector";
 import { DrinkPackageSelector } from "../MenuComposer/DrinkPackageSelector";
 import { usePackageMenuConfig } from "../MenuComposer/usePackageMenuConfig";
 import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
+import { MenuImporter } from "../OfferBuilder/MenuImporter";
+import type { OfferBuilderOption } from "../OfferBuilder/types";
 import type {
   MenuSelection,
   CourseSelection,
@@ -46,6 +48,7 @@ interface WizardConfiguratorProps {
   inquiry: ExtendedInquiry;
   onUpdateOption: (updates: Partial<OfferOption>) => void;
   onBack: () => void;
+  onImportRestaurantMenus?: (imported: Partial<OfferBuilderOption>[]) => void;
 }
 
 export function WizardConfigurator({
@@ -54,6 +57,7 @@ export function WizardConfigurator({
   inquiry,
   onUpdateOption,
   onBack,
+  onImportRestaurantMenus,
 }: WizardConfiguratorProps) {
   const [activeStep, setActiveStep] = useState<WizardStep>(
     option.packageId ? 2 : 1
