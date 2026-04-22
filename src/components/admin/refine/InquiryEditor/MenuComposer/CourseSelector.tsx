@@ -76,16 +76,16 @@ export const CourseSelector = ({
 
     // In recommended mode, apply category/source filters
     if (searchMode === 'recommended') {
-      // Filter by allowed sources — NUR wenn kein Tab explizit gewählt wurde.
-      // Sobald der Admin auf "Catering" oder "Restaurant" klickt, überschreibt
-      // der Tab-Filter (unten) die Paket-Voreinstellung. Damit kann man immer
-      // aus dem ganzen Pool wählen, auch wenn allowed_sources strikt ist.
-      if (activeSource === 'all' && courseConfig.allowed_sources.length > 0) {
-        items = items.filter(item => courseConfig.allowed_sources.includes(item.source));
-      }
+      // Source-Filter: vollständig vom Tab gesteuert.
+      // - Tab "Alle"        → keine Source-Restriktion (Admin sieht alles)
+      // - Tab "Catering"    → nur catering (siehe activeSource-Filter unten)
+      // - Tab "Restaurant"  → nur ristorante (siehe activeSource-Filter unten)
+      // allowed_sources aus dem Paket dient nur als Default-Vorauswahl des Tabs
+      // (in useState weiter oben), niemals als Hard-Filter.
 
-      // Filter by allowed categories
-      if (courseConfig.allowed_categories.length > 0) {
+      // Category-Filter NUR wenn der Admin im "Alle"-Modus ist.
+      // Sobald er bewusst eine Source wählt, will er den vollen Pool dieser Source sehen.
+      if (activeSource === 'all' && courseConfig.allowed_categories.length > 0) {
         items = items.filter(item => 
           courseConfig.allowed_categories.some(cat => 
             item.category_name.toLowerCase().includes(cat.toLowerCase()) ||
