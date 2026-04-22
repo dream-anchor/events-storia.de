@@ -3180,17 +3180,18 @@ export type Database = {
         Row: {
           amount_cents: number | null
           computed_status: string | null
-          contact_name: string | null
           created_at: string | null
           created_by: string | null
           customer_email: string | null
+          customer_name: string | null
           due_date: string | null
           due_days_before_event: number | null
           effective_due_date: string | null
           email_resend_id: string | null
           email_sent_at: string | null
+          event_date: string | null
           event_type: string | null
-          guest_count: string | null
+          guest_count: number | null
           id: string | null
           inquiry_id: string | null
           lexoffice_invoice_id: string | null
@@ -3201,6 +3202,7 @@ export type Database = {
           payment_type: string | null
           preferred_date: string | null
           reminder_sent_at: string | null
+          service_type: string | null
           status: string | null
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
@@ -3209,10 +3211,31 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "event_payments_inquiry_id_fkey"
+            foreignKeyName: "v2_payments_event_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
-            referencedRelation: "_legacy_event_inquiries"
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
         ]
