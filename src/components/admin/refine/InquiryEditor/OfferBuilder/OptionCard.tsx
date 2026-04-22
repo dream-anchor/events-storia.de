@@ -53,6 +53,7 @@ interface OptionCardProps {
   isLocked: boolean;
   canDuplicate: boolean;
   canDelete: boolean;
+  onRequestImport?: () => void;
 }
 
 export function OptionCard({
@@ -68,6 +69,7 @@ export function OptionCard({
   isLocked,
   canDuplicate,
   canDelete,
+  onRequestImport,
 }: OptionCardProps) {
   const selectedPackage = useMemo(
     () => packages.find(p => p.id === option.packageId),
@@ -311,6 +313,7 @@ export function OptionCard({
           {option.offerMode === 'unselected' && (
             <ModeSelectorTiles
               onSelect={(mode) => applyModeChange(mode)}
+              onRequestImport={onRequestImport}
               disabled={disabled}
             />
           )}
@@ -411,13 +414,15 @@ export function OptionCard({
 // --- Typ-Auswahl-Kacheln (im Body einer noch nicht konfigurierten Karte) ---
 function ModeSelectorTiles({
   onSelect,
+  onRequestImport,
   disabled,
 }: {
   onSelect: (mode: OfferMode) => void;
+  onRequestImport?: () => void;
   disabled: boolean;
 }) {
-  const tiles: Array<{ mode: OfferMode; icon: typeof ChefHat; label: string; hint: string }> = [
-    { mode: 'menu', icon: UtensilsCrossed, label: 'Restaurant-Menü', hint: 'Speisekarte laden & anpassen' },
+  const tiles: Array<{ mode: OfferMode; icon: typeof ChefHat; label: string; hint: string; triggersImport?: boolean }> = [
+    { mode: 'menu', icon: UtensilsCrossed, label: 'Restaurant-Menü', hint: 'Speisekarte laden & anpassen', triggersImport: true },
     { mode: 'menu', icon: ChefHat, label: 'Eigenes Menü', hint: 'Gänge frei zusammenstellen' },
     { mode: 'paket', icon: PackageIcon, label: 'Paket', hint: 'Fertigpaket wählen' },
     { mode: 'email', icon: Mail, label: 'Nur E-Mail', hint: 'ohne Menükonfiguration' },
@@ -429,11 +434,15 @@ function ModeSelectorTiles({
         Typ dieser Option wählen
       </h4>
       <div className="grid grid-cols-2 gap-2">
-        {tiles.map(({ mode, icon: Icon, label, hint }) => (
+        {tiles.map(({ mode, icon: Icon, label, hint, triggersImport }) => (
           <button
             key={label}
             type="button"
-            onClick={() => !disabled && onSelect(mode)}
+            onClick={() => {
+              if (disabled) return;
+              onSelect(mode);
+              if (triggersImport && onRequestImport) onRequestImport();
+            }}
             disabled={disabled}
             className={cn(
               "flex flex-col items-center gap-1.5 px-3 py-4 rounded-xl border-2 border-border/40 bg-muted/20 transition-all text-center",
