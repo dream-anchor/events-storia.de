@@ -554,9 +554,9 @@ export const SmartInquiryEditor = () => {
       // =================================================================
       // RETRY-LOOP für Hydration-Race-Condition:
       // Der OfferBuilder-Guard wirft Fehler wenn lokaler State noch leer ist.
-      // Wir retry bis zu 10x à 300ms = max 3s, danngeben wir auf.
+      // Wir retry bis zu 50x à 300ms = max 15s, dann geben wir auf.
       // =================================================================
-      const MAX_RETRIES = 10;
+      const MAX_RETRIES = 50;
       const RETRY_DELAY_MS = 300;
       let lastError: unknown = null;
       let sent = false;
@@ -573,6 +573,7 @@ export const SmartInquiryEditor = () => {
               result = await handle.triggerSendProposal();
             }
             sent = true;
+            toast.dismiss('send-waiting');
             break;
           } catch (err) {
             lastError = err;
@@ -582,6 +583,11 @@ export const SmartInquiryEditor = () => {
             if (!isHydrationError) {
               // Anderer Fehler — sofort raus, nicht retry
               throw err;
+            }
+
+            // Nach erstem Fehlversuch: Info-Toast für den User
+            if (attempt === 1) {
+              toast.info('Angebot wird geladen, Versand gleich …', { id: 'send-waiting', duration: 15000 });
             }
 
             // Hydration noch nicht fertig — warten und nochmal
