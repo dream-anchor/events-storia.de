@@ -67,6 +67,7 @@ export function MultiOfferComposer({
     saveOptions,
     createNewVersion,
     unlockForNewVersion,
+    flushSave,
   } = useMultiOfferState({ inquiryId: inquiry.id, guestCount, selectedPackages });
 
   // === VIEW STATE ===
@@ -400,6 +401,10 @@ export function MultiOfferComposer({
           onUpdateOption={(updates) => updateOption(wizardOption.id, updates)}
           onBack={handleWizardBack}
           onImportRestaurantMenus={addImportedOptions}
+          isLocked={isLocked}
+          onFlushSave={flushSave}
+          onGenerateEmail={generateEmail}
+          isGeneratingEmail={isGeneratingEmail}
         />
       </div>
     );
