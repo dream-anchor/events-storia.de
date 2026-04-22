@@ -1,81 +1,59 @@
 
 
-# Restaurant-Menü-Auswahl auch im Wizard zugänglich machen
+# Gäste-Mengen-UI im Public Offer kontextabhängig zeigen
 
 ## Befund
 
-Der `MenuImporter` (mit Lunch/Dinner/Tasting-Menüs) ist eingebunden — aber **nur in der Übersicht des MultiOfferComposers** (Kopfzeile, Zeile 416 ff.). Sobald der Admin in eine Option hineinklickt und im **Wizard** landet, gibt es keinen Zugang mehr zu diesem Sheet. Statt dessen sieht er:
+Aktuell zeigt jede Option einen Mengen-Stepper „Wie viele Gäste möchten dieses Menü?" — **auch wenn nur eine Option existiert**. Das ist verwirrend: Bei nur einer Option ist die Menge bereits durch `inquiry.guest_count` definiert, der Kunde sollte einfach direkt buchen können.
 
-- den **Source-Filter-Tab „Restaurant"** im `CourseSelector` (Schritt „Gänge") → der zeigt einzelne à-la-carte-Speisen, **nicht** die kuratierten Komplett-Menüs.
-
-Genau das ist die Beschwerde: „Restaurant Menü" im Wizard zeigt das gleiche wie „Eigenes Menü", weil es derselbe CourseSelector ist, nur mit anderem Filter.
+Bei mehreren Optionen fehlt umgekehrt die wichtigste Info: **wie viele Gäste muss ich noch verteilen?** Es gibt kein Ziel und keinen Fortschrittsindikator.
 
 ## Lösung
 
-Den `MenuImporter` auch im **Wizard-Header** ergänzen — exakt wie in der Übersicht. Logik bleibt identisch: Klick → Sheet öffnet sich → Mittagsmenü / Degustationsmenüs auswählbar → bei Bestätigung wird die **aktuelle Option überschrieben** mit dem importierten Menü (Name, Preis, ggf. Drink-Pauschale / Weinbegleitung).
+### 1) Single-Option: Stepper komplett ausblenden
 
-Wichtig — Unterschied zur Übersicht: Hier wird **eine bestehende Option** befüllt, nicht eine neue angelegt. Wenn der Nutzer mehrere Menüs gleichzeitig wählt, wird die aktuelle Option mit dem ersten Menü überschrieben und die restlichen als zusätzliche Optionen angelegt (über den bestehenden `addImportedOptions`-Pfad).
+Wenn `options.length === 1`, wird der Stepper-Block (`PublicOffer.tsx` ~Zeile 1194-1241) gar nicht gerendert. Die Menge wird intern automatisch auf `inquiry.guest_count` (numerisch geparst) gesetzt, sodass die Backend-Logik (`optionQuantities`-Pfad in `create-payment-session`) unverändert weiter funktioniert. Falls `guest_count` nicht parsebar ist (z.B. „20-30"), Fallback auf `option.guest_count`.
 
-### Umsetzung — 2 Änderungen
+Der gesamte Live-Summary-Block („Ihre Auswahl · X Gäste gesamt") wird ebenfalls ausgeblendet — bei einer Option ist das redundant.
 
-**1. `WizardConfigurator.tsx`**
+### 2) Multi-Option: Pflichtfeld + Fortschritts-Anzeige
 
-Neuer Prop `onImportRestaurantMenus` (optional). Im Header neben dem Back-Button einen `MenuImporter`-Button anzeigen:
+**Ziel-Gästezahl** wird einmal aus `inquiry.guest_count` geparst (z.B. „40" → 40, „20-30" → 30 als Maximum). Falls nicht parsebar, kein hartes Ziel — dann nur Live-Summe ohne Fortschritt anzeigen.
 
-```tsx
-<MenuImporter
-  guestCount={option.guestCount}
-  currentOptionCount={0}     // erlaube ≥1 Auswahl, Mehrfach wird oben gemanagt
-  onImportMultiple={(imported) => {
-    if (imported.length === 0) return;
-    // Erste Auswahl ersetzt aktuelle Option
-    const [first, ...rest] = imported;
-    onUpdateOption({
-      packageId: null,
-      packageName: first.packageName ?? '',
-      totalAmount: first.totalAmount ?? 0,
-      menuSelection: {
-        courses: [],
-        drinks: first.menuSelection?.drinks ?? [],
-      },
-    });
-    // Restliche als neue Optionen anlegen
-    if (rest.length > 0) onImportRestaurantMenus?.(rest);
-    onBack();   // zurück zur Übersicht, damit der User die neuen Optionen sieht
-  }}
-/>
-```
+**Live-Summary-Box** (oberhalb der Buchungs-Card) erweitert um:
+- Progress-Bar: `totalQuantity / targetGuests`
+- Status-Text:
+  - `totalQuantity < target` → „Es fehlen noch **N Gäste** von insgesamt **40**" (in subtilem Warn-Ton, aber monochrom — kein Gelb/Grün)
+  - `totalQuantity === target` → „✓ Alle 40 Gäste verteilt"
+  - `totalQuantity > target` → „**N Gäste über** der ursprünglich angefragten Menge (40)" (informativ, nicht blockierend)
 
-Außerdem: Wenn `option.packageId === null && option.packageName` gesetzt ist (= importiertes Menü), Schritte 1 und 2 (Paket-/Gang-Auswahl) **überspringen** und direkt bei Schritt 3 (Getränke) oder 4 (Zusammenfassung) starten — sonst wirkt die Option leer.
+**Pflicht-Validierung im Buchen-Button**: 
+- Buttons „Voll bezahlen" / „Anzahlung" sind disabled, solange `totalQuantity === 0`
+- Wenn `target` bekannt und `totalQuantity < target`: Button bleibt klickbar, aber unter dem Button erscheint Hinweis: „Sie können auch mit Teilmenge buchen — restliche Gäste später ergänzen." Das hält den CX-Flow flüssig (kein harter Block, da Geschäftslogik Teilbuchungen erlaubt).
+- Wenn `totalQuantity === 0`: Button-Text wechselt zu „Bitte Mengen pro Option angeben"
 
-**2. `MultiOfferComposer.tsx`**
+### 3) Kontext-Hint pro Options-Card (nur Multi-Mode)
 
-Den `addImportedOptions`-Callback an den Wizard durchreichen:
-
-```tsx
-<WizardConfigurator
-  option={wizardOption}
-  packages={packages}
-  inquiry={inquiry}
-  onUpdateOption={(updates) => updateOption(wizardOption.id, updates)}
-  onBack={handleWizardBack}
-  onImportRestaurantMenus={addImportedOptions}   // NEU
-/>
-```
-
-### Verifikation
-
-1. Build grün.
-2. Neue Option erstellen → in den Wizard gehen → oben rechts erscheint Button „Restaurant-Menü laden".
-3. Klick → Sheet zeigt Lunch/Dinner mit Komplett-Menüs (wie in der Übersicht).
-4. Eine Auswahl → Wizard schließt sich, Übersicht zeigt die Option mit korrektem Namen und Preis.
-5. Mehrere Auswahlen → erste ersetzt die aktuelle Option, weitere werden als neue Optionen (B, C, …) angelegt.
-6. Bestehender Source-Filter-Tab „Restaurant" im CourseSelector bleibt unverändert (für à-la-carte-Auswahl bei „Eigenes Menü").
+Im Stepper-Block der Card der zweite Sub-Text wechselt:
+- Single-Mode: (Stepper ausgeblendet, kein Text)
+- Multi-Mode, kein Ziel: „Ergibt {preis} für diese Option" (wie bisher)
+- Multi-Mode, mit Ziel: „Ergibt {preis} · noch **{remaining}** von **{target}** zu verteilen"
 
 ## Geänderte Dateien
 
-- `src/components/admin/refine/InquiryEditor/MultiOffer/WizardConfigurator.tsx` (~20 Zeilen: MenuImporter im Header + Prop + ggf. Step-Skip für importierte Menüs)
-- `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx` (1 Zeile: Prop weiterreichen)
+- `src/pages/PublicOffer.tsx` — Logik in `ProposalView` (Auto-Quantity bei Single, Target-Parsing, Progress-Anzeige) + bedingtes Rendering im Stepper-Block der `ProposalOptionCard`. ~50 Zeilen Diff, keine neuen Komponenten nötig.
 
-Keine DB-Migration. Keine Änderungen an `MenuImporter` selbst, an der Edge Function oder am `useMultiOfferState`-Hook (die `addImportedOptions`-Funktion existiert bereits aus dem letzten Fix).
+## Nicht geändert
+
+- `create-payment-session` Edge Function: bekommt weiterhin `optionQuantities` mit der korrekten Auto-Menge bei Single — vollständig abwärtskompatibel.
+- DB / Migrationen: keine.
+- Andere Public-Offer-Subviews (`ThankYouView`, `BookedView`): unberührt.
+
+## Verifikation
+
+1. Public Offer mit **einer Option**, `guest_count='20'`: kein Stepper sichtbar, Buttons zeigen sofort `total_amount` für 20 Gäste, Klick → Stripe-Session korrekt erstellt.
+2. Public Offer mit **mehreren Optionen**, `guest_count='40'`: Live-Bar zeigt „Es fehlen noch 40 von 40". Stepper auf Option A → 25, Option B → 10 → Bar zeigt „Es fehlen noch 5 von 40", Button aktivierbar.
+3. Aufsummiert > 40 → Hinweis „über angefragter Menge", Button bleibt klickbar.
+4. `guest_count='20-30'` (Range) → Target = 30, Progress funktioniert.
+5. `guest_count` leer/null → kein Target-Text, nur Live-Summe.
 
