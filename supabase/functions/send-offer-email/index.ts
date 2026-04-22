@@ -230,24 +230,27 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Resolve v2_event regardless of whether inquiryId is a legacy or v2 UUID
+    const event = await resolveV2Event(supabase, inquiryId);
+    if (!event) {
+      return new Response(
+        JSON.stringify({ success: false, error: `v2_event not found for ${inquiryId}` }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 },
+      );
+    }
+
     // Slug generieren oder verwenden + in DB speichern (nicht im dryRun)
     const slug = providedSlug || generateOfferSlug(customerName || 'angebot', inquiryId);
     if (!dryRun) {
       await supabase
-        .from('event_inquiries')
+        .from('v2_events')
         .update({ offer_slug: slug } as Record<string, unknown>)
-        .eq('id', inquiryId);
+        .eq('id', event.id);
     }
 
-    // Check if this is a test inquiry
-    const { data: inquiryRow } = await supabase
-      .from('event_inquiries')
-      .select('is_test')
-      .eq('id', inquiryId)
-      .single();
-    // isTest gilt nur fuer is_test-Inquiries. Fuer Preview-Testmails wird
+    // isTest kommt aus dem v2_event. Fuer Preview-Testmails wird
     // Empfaenger/Subject unten gesondert ueberschrieben (isTestPreview-Block).
-    const isTest = inquiryRow?.is_test === true;
+    const isTest = event.is_test === true;
     const safeCustomerEmail = getSafeRecipientEmail(customerEmail, isTest);
 
     const offerUrl = `https://events-storia.de/offer/${inquiryId}`;
