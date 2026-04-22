@@ -125,7 +125,7 @@ async function saveOptionsToDb(
     .select('id')
     .eq('inquiry_id', inquiryId);
 
-  const existingIds = new Set((existingRows || []).map(r => r.id));
+  const existingIds = new Set((existingRows || []).map((r: any) => r.id));
   const newIds = new Set(options.map(o => o.id));
 
   // =================================================================
@@ -163,7 +163,7 @@ async function saveOptionsToDb(
       .in('selected_option_id', idsToDelete);
 
     const referencedIds = new Set(
-      (referenced || []).map(r => r.selected_option_id).filter(Boolean)
+      (referenced || []).map((r: any) => r.selected_option_id).filter(Boolean) as string[]
     );
 
     const safeToDelete = idsToDelete.filter(id => !referencedIds.has(id));
@@ -313,7 +313,7 @@ export function useOfferBuilder({
           if (courseRes.error) throw courseRes.error;
           if (drinkRes.error) throw drinkRes.error;
 
-          const courses: CourseConfig[] = (courseRes.data || []).map(row => ({
+          const courses: CourseConfig[] = (courseRes.data || []).map((row: any) => ({
             id: row.id,
             package_id: row.package_id,
             course_type: row.course_type as CourseConfig['course_type'],
@@ -329,7 +329,7 @@ export function useOfferBuilder({
             sort_order: row.sort_order ?? 0,
           }));
 
-          const drinks: DrinkConfig[] = (drinkRes.data || []).map(row => {
+          const drinks: DrinkConfig[] = (drinkRes.data || []).map((row: any) => {
             let parsedOptions: DrinkOption[] | string[] = [];
             if (row.options) {
               if (Array.isArray(row.options)) {
@@ -386,7 +386,7 @@ export function useOfferBuilder({
         if (optionsError) throw optionsError;
 
         if (optionsData && optionsData.length > 0) {
-          const mappedOptions: OfferBuilderOption[] = optionsData.map((opt) => {
+          const mappedOptions: OfferBuilderOption[] = optionsData.map((opt: any) => {
             // Korrektur: Wenn packageId gesetzt aber offerMode ist 'menu' → 'paket'
             let mode = mapLegacyMode((opt as Record<string, unknown>).offer_mode as string);
             if (opt.package_id && mode === 'menu') {
@@ -472,7 +472,7 @@ export function useOfferBuilder({
           .order("version", { ascending: false });
 
         if (historyData) {
-          setHistory(historyData.map(h => ({
+          setHistory(historyData.map((h: any) => ({
             id: h.id,
             version: h.version,
             sentAt: h.sent_at,

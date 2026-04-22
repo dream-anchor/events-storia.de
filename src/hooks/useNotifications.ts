@@ -85,7 +85,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         .order("created_at", { ascending: false })
         .limit(10);
 
-      newInquiries?.forEach((inquiry) => {
+      newInquiries?.forEach((inquiry: any) => {
         notifications.push({
           id: `new_inquiry_${inquiry.id}`,
           type: "new_inquiry",
@@ -108,7 +108,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         .order("assigned_at", { ascending: false })
         .limit(10);
 
-      assignedInquiries?.forEach((inquiry) => {
+      assignedInquiries?.forEach((inquiry: any) => {
         if (inquiry.assigned_at) {
           notifications.push({
             id: `assigned_${inquiry.id}_${inquiry.assigned_at}`,
@@ -138,7 +138,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         .order("created_at", { ascending: false })
         .limit(20);
 
-      comments?.forEach((comment) => {
+      comments?.forEach((comment: any) => {
         // Only show if I'm assigned to the inquiry
         if (comment.inquiry?.assigned_to === userEmail) {
           notifications.push({
@@ -170,7 +170,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         .order("due_date", { ascending: true })
         .limit(10);
 
-      dueTasks?.forEach((task) => {
+      dueTasks?.forEach((task: any) => {
         if (task.due_date) {
           const isOverdue = isPast(new Date(task.due_date));
           const isDueToday = isToday(new Date(task.due_date));

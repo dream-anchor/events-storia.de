@@ -936,7 +936,7 @@ const Checkout = () => {
       const eventPackageId = eventItem?.id.replace('event-', '') || null;
       
       if (isEventBooking && eventItem) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('event_bookings')
           .insert({
             id: orderId,
@@ -958,7 +958,7 @@ const Checkout = () => {
 
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('catering_orders')
           .insert({
             id: orderId,
