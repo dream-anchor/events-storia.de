@@ -8,7 +8,6 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { OfferOption } from "./types";
 import { Package } from "../types";
-import { calculateEventPackagePrice } from "@/lib/eventPricing";
 
 interface LiveCalculationProps {
   option: OfferOption;
@@ -34,14 +33,10 @@ export function LiveCalculation({
   nextStepLabel,
   isNextDisabled,
 }: LiveCalculationProps) {
-  const total = selectedPackage
-    ? calculateEventPackagePrice(
-        selectedPackage.id,
-        selectedPackage.price,
-        option.guestCount,
-        !!selectedPackage.price_per_person
-      )
-    : 0;
+  // P0 #18: Single Source of Truth — totalAmount kommt vom State,
+  // wird durch den Price-Sync-Effect in WizardConfigurator stets aktuell
+  // gehalten. So divergieren Sidebar-Total & Summary-Total nicht mehr.
+  const total = selectedPackage ? option.totalAmount : 0;
 
   const pricePerPerson = selectedPackage?.price_per_person
     ? selectedPackage.price

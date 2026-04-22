@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -9,9 +9,25 @@ import {
   Check,
   ChevronRight,
   Loader2,
+  Minus,
+  Plus,
+  AlertTriangle,
+  Lock,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -30,7 +46,6 @@ import { CourseSelector } from "../MenuComposer/CourseSelector";
 import { DrinkPackageSelector } from "../MenuComposer/DrinkPackageSelector";
 import { usePackageMenuConfig } from "../MenuComposer/usePackageMenuConfig";
 import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
-import { MenuImporter } from "../OfferBuilder/MenuImporter";
 import type { OfferBuilderOption } from "../OfferBuilder/types";
 import type {
   MenuSelection,
@@ -49,6 +64,10 @@ interface WizardConfiguratorProps {
   onUpdateOption: (updates: Partial<OfferOption>) => void;
   onBack: () => void;
   onImportRestaurantMenus?: (imported: Partial<OfferBuilderOption>[]) => void;
+  isLocked?: boolean;
+  onFlushSave?: () => Promise<void>;
+  onGenerateEmail?: () => Promise<void> | void;
+  isGeneratingEmail?: boolean;
 }
 
 export function WizardConfigurator({
@@ -58,11 +77,18 @@ export function WizardConfigurator({
   onUpdateOption,
   onBack,
   onImportRestaurantMenus,
+  isLocked = false,
+  onFlushSave,
+  onGenerateEmail,
+  isGeneratingEmail = false,
 }: WizardConfiguratorProps) {
   const [activeStep, setActiveStep] = useState<WizardStep>(
     option.packageId ? 2 : 1
   );
   const [activeCourseIndex, setActiveCourseIndex] = useState(0);
+  const [pendingPackageId, setPendingPackageId] = useState<string | null>(null);
+  const [isFinishing, setIsFinishing] = useState(false);
+  const autoAdvancingRef = useRef(false);
 
   const selectedPackage = packages.find((p) => p.id === option.packageId);
 
@@ -231,15 +257,16 @@ export function WizardConfigurator({
     }
   }, [activeCourseIndex, courseConfigs.length]);
 
-  // Handle package change
-  const handlePackageChange = (packageId: string) => {
-    const pkg = packages.find((p) => p.id === packageId);
-    if (pkg) {
+  // Apply package change (extracted so confirm-dialog can call it)
+  const applyPackageChange = useCallback(
+    (packageId: string) => {
+      const pkg = packages.find((p) => p.id === packageId);
+      if (!pkg) return;
       const newTotal = calculateEventPackagePrice(
         pkg.id,
         pkg.price,
         option.guestCount,
-        !!pkg.price_per_person
+        !!pkg.price_per_person,
       );
       onUpdateOption({
         packageId,
@@ -248,13 +275,80 @@ export function WizardConfigurator({
         menuSelection: { courses: [], drinks: [] },
       });
       setActiveCourseIndex(0);
-    }
-  };
+    },
+    [packages, option.guestCount, onUpdateOption],
+  );
 
-  // Handle finish → back to overview
-  const handleFinish = () => {
-    onBack();
-  };
+  // Confirm-Dialog vor Paketwechsel wenn bereits Menü-Auswahl existiert
+  const requestPackageChange = useCallback(
+    (packageId: string) => {
+      if (packageId === option.packageId) return;
+      const hasSelections =
+        option.menuSelection.courses.length > 0 ||
+        option.menuSelection.drinks.length > 0;
+      if (hasSelections && option.packageId) {
+        setPendingPackageId(packageId);
+        return;
+      }
+      applyPackageChange(packageId);
+    },
+    [option.packageId, option.menuSelection, applyPackageChange],
+  );
+
+  // Gäste-Stepper im Header
+  const handleGuestCountChange = useCallback(
+    (delta: number) => {
+      const next = Math.max(1, option.guestCount + delta);
+      const minGuests = selectedPackage?.min_guests ?? 1;
+      if (next < minGuests) {
+        toast.warning(
+          `Dieses Paket erfordert mindestens ${minGuests} Gäste.`,
+        );
+        return;
+      }
+      onUpdateOption({ guestCount: next });
+    },
+    [option.guestCount, selectedPackage, onUpdateOption],
+  );
+
+  // Handle finish → flush save, then back to overview
+  const handleFinish = useCallback(async () => {
+    setIsFinishing(true);
+    try {
+      if (onFlushSave) await onFlushSave();
+    } catch (e) {
+      console.error("flushSave failed", e);
+    } finally {
+      setIsFinishing(false);
+      onBack();
+    }
+  }, [onFlushSave, onBack]);
+
+  const handleFinishAndCompose = useCallback(async () => {
+    setIsFinishing(true);
+    try {
+      if (onFlushSave) await onFlushSave();
+      onBack();
+      if (onGenerateEmail) await onGenerateEmail();
+    } catch (e) {
+      console.error("finish+compose failed", e);
+    } finally {
+      setIsFinishing(false);
+    }
+  }, [onFlushSave, onBack, onGenerateEmail]);
+
+  // Welche Pflicht-Gänge fehlen noch?
+  const missingRequiredCourses = useMemo(() => {
+    if (courseConfigs.length === 0) return [];
+    return courseConfigs
+      .filter((c) => c.is_required)
+      .filter((config) => {
+        const sels = adaptedMenuSelection.courses.filter(
+          (c) => c.courseType === config.course_type,
+        );
+        return !sels.some((s) => s.itemId || s.isCustom);
+      });
+  }, [courseConfigs, adaptedMenuSelection.courses]);
 
   // Next step label for LiveCalculation
   const getNextStepInfo = (): {
@@ -343,36 +437,76 @@ export function WizardConfigurator({
             {option.guestCount} Gäste
           </p>
         </div>
-        <MenuImporter
-          guestCount={option.guestCount}
-          currentOptionCount={0}
-          onImportMultiple={(imported) => {
-            if (!imported || imported.length === 0) return;
-            const [first, ...rest] = imported;
-            onUpdateOption({
-              packageId: null,
-              packageName: first.packageName ?? "",
-              totalAmount: first.totalAmount ?? 0,
-              menuSelection: {
-                courses: [],
-                drinks: first.menuSelection?.drinks ?? [],
-              },
-            });
-            if (rest.length > 0) onImportRestaurantMenus?.(rest);
-            onBack();
-          }}
-        />
+        {/* Gäste-Stepper im Wizard-Header (P1 #1) */}
+        <div className="flex items-center gap-2 shrink-0">
+          {isLocked && (
+            <Badge variant="outline" className="gap-1.5 h-9 px-3">
+              <Lock className="h-3.5 w-3.5" />
+              Gesperrt
+            </Badge>
+          )}
+          <div
+            className={cn(
+              "flex items-center gap-1 rounded-xl border border-border bg-background p-1",
+              isLocked && "opacity-50 pointer-events-none",
+            )}
+            aria-label="Gäste-Anzahl"
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleGuestCountChange(-1)}
+              disabled={isLocked || option.guestCount <= 1}
+              aria-label="Gäste verringern"
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <span className="min-w-[3.5rem] text-center text-sm font-semibold tabular-nums">
+              {option.guestCount} <span className="text-xs text-muted-foreground font-normal">Gäste</span>
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleGuestCountChange(1)}
+              disabled={isLocked}
+              aria-label="Gäste erhöhen"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
+
+      {/* Min-Guests-Warnung (P1 #3) */}
+      {selectedPackage?.min_guests &&
+        option.guestCount < selectedPackage.min_guests && (
+          <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
+            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium text-foreground">
+                Mindestanzahl unterschritten
+              </p>
+              <p className="text-muted-foreground">
+                Dieses Paket erfordert mindestens{" "}
+                <strong>{selectedPackage.min_guests} Gäste</strong> — aktuell sind{" "}
+                {option.guestCount} eingestellt.
+              </p>
+            </div>
+          </div>
+        )}
 
       {/* Stepper */}
       <div className="flex gap-1 p-1 bg-muted rounded-full">
         {steps.map((s) => {
           const Icon = s.icon;
           const isActive = activeStep === s.step;
+          // P0 #9: Step 3 erfordert nun coursesComplete (war vorher nur packageId)
           const isClickable =
             s.step === 1 ||
             (s.step === 2 && !!option.packageId) ||
-            (s.step === 3 && !!option.packageId) ||
+            (s.step === 3 && !!option.packageId && coursesComplete) ||
             (s.step === 4 && coursesComplete && drinksComplete);
 
           return (
@@ -388,9 +522,16 @@ export function WizardConfigurator({
                     ? "text-muted-foreground hover:text-foreground hover:bg-background/50"
                     : "text-muted-foreground/40 cursor-not-allowed"
               )}
+              title={
+                !isClickable && s.step === 3
+                  ? "Bitte zuerst alle Pflicht-Gänge wählen"
+                  : !isClickable && s.step === 4
+                    ? "Bitte zuerst Gänge & Getränke vervollständigen"
+                    : undefined
+              }
             >
               <Icon className="h-4 w-4" />
-              <span className="hidden md:inline">{s.label}</span>
+              <span className="hidden sm:inline">{s.label}</span>
               {s.isComplete && !isActive && (
                 <Check className="h-4 w-4 text-primary" />
               )}
@@ -435,13 +576,16 @@ export function WizardConfigurator({
                       <motion.div
                         key={pkg.id}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => handlePackageChange(pkg.id)}
+                        onClick={() =>
+                          !isLocked && requestPackageChange(pkg.id)
+                        }
                         className={cn(
                           "p-4 rounded-xl border-2 cursor-pointer transition-all",
                           "hover:border-primary/50 hover:shadow-sm",
                           isSelected
                             ? "border-primary bg-primary/5"
-                            : "border-border"
+                            : "border-border",
+                          isLocked && "cursor-not-allowed opacity-60",
                         )}
                       >
                         <div className="flex items-start justify-between">
@@ -508,6 +652,23 @@ export function WizardConfigurator({
                 <h4 className="text-base font-semibold text-foreground">
                   Gänge-Auswahl
                 </h4>
+
+                {/* P1 #5/#6: Banner mit fehlenden Pflicht-Gängen */}
+                {!coursesComplete && missingRequiredCourses.length > 0 && (
+                  <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-medium text-foreground">
+                        Noch fehlende Pflicht-Gänge
+                      </p>
+                      <p className="text-muted-foreground">
+                        {missingRequiredCourses
+                          .map((c) => c.course_label)
+                          .join(", ")}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Course Progress Navigation */}
                 {courseConfigs.length > 0 && (
@@ -624,6 +785,7 @@ export function WizardConfigurator({
                   <SummarySection
                     icon={<PackageIcon className="h-4 w-4" />}
                     title="Paket"
+                    onEdit={() => setActiveStep(1)}
                   >
                     <div className="flex items-center justify-between">
                       <div>
@@ -709,24 +871,42 @@ export function WizardConfigurator({
                   </SummarySection>
                 )}
 
-                {/* Finish Button */}
-                <div className="flex justify-start pt-2">
+                {/* Finish Buttons (P1 #14): primäre CTA = Anschreiben generieren */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
                   <motion.button
-                    onClick={handleFinish}
+                    onClick={handleFinishAndCompose}
+                    disabled={isFinishing || isGeneratingEmail || isLocked}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     className={cn(
-                      "h-12 px-8 rounded-xl font-semibold text-sm flex items-center gap-2",
-                      "bg-gradient-to-r from-amber-500 to-amber-600",
-                      "text-white",
+                      "h-12 px-6 rounded-xl font-semibold text-sm flex items-center gap-2",
+                      "bg-gradient-to-r from-amber-500 to-amber-600 text-white",
                       "shadow-[0_4px_20px_-4px_rgba(245,158,11,0.5)]",
                       "hover:shadow-[0_8px_30px_-4px_rgba(245,158,11,0.6)]",
-                      "transition-shadow duration-300"
+                      "transition-shadow duration-300",
+                      "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none",
                     )}
                   >
-                    <Check className="h-4 w-4" />
-                    Fertig — zurück zur Übersicht
+                    {isFinishing || isGeneratingEmail ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    Speichern & Anschreiben generieren
                   </motion.button>
+                  <Button
+                    variant="outline"
+                    onClick={handleFinish}
+                    disabled={isFinishing}
+                    className="h-12 px-5 rounded-xl gap-2"
+                  >
+                    {isFinishing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                    Nur speichern
+                  </Button>
                 </div>
               </motion.div>
             )}
@@ -745,6 +925,33 @@ export function WizardConfigurator({
         </div>
       </div>
       )}
+
+      {/* Confirm-Dialog vor Paketwechsel (P0 #2) */}
+      <AlertDialog
+        open={!!pendingPackageId}
+        onOpenChange={(open) => !open && setPendingPackageId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Paket wechseln?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Beim Wechsel des Pakets werden alle bereits ausgewählten Gänge
+              und Getränke entfernt. Möchtest du wirklich fortfahren?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingPackageId) applyPackageChange(pendingPackageId);
+                setPendingPackageId(null);
+              }}
+            >
+              Paket wechseln
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
