@@ -5,7 +5,7 @@ import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { Calendar, Package, CreditCard, Truck, MapPin, Phone, Mail, MessageCircle, CheckCircle2, AlertCircle, HandCoins } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
-import { DataTable } from "./DataTable";
+import { DataTable, sortableHeader } from "./DataTable";
 import { Badge } from "@/components/ui/badge";
 import { CateringOrder, OrderStatus } from "@/types/refine";
 import { cn } from "@/lib/utils";
@@ -88,7 +88,7 @@ export const OrdersList = () => {
     // Spalte 1: Status + Payment-Label (vertikal gestapelt)
     {
       accessorKey: "status",
-      header: "Status",
+      header: sortableHeader<CateringOrder>("Status"),
       cell: ({ row }) => {
         const o = row.original;
         const isPaid = o.payment_status === 'paid';
@@ -134,7 +134,7 @@ export const OrdersList = () => {
     // Spalte 2: Bestellnummer + Eingangsdatum
     {
       accessorKey: "order_number",
-      header: "Bestellung",
+      header: sortableHeader<CateringOrder>("Bestellung"),
       cell: ({ row }) => (
         <div>
           <p className="font-mono font-medium text-sm">{row.original.order_number}</p>
@@ -148,7 +148,8 @@ export const OrdersList = () => {
     // Spalte 3: Liefertermin (VORGEZOGEN nach Bestellung)
     {
       accessorKey: "desired_date",
-      header: "Liefertermin",
+      header: sortableHeader<CateringOrder>("Liefertermin"),
+      sortingFn: "datetime",
       cell: ({ row }) => {
         const date = row.original.desired_date;
         const time = row.original.desired_time;
@@ -191,7 +192,8 @@ export const OrdersList = () => {
     // Spalte 4: Lieferung/Abholung + Adresse (oder Abholung-Label)
     {
       id: "delivery_address",
-      header: "Lieferung / Abholung",
+      accessorFn: (row) => row.is_pickup ? "0_Abholung" : "1_Lieferung",
+      header: sortableHeader<CateringOrder>("Lieferung / Abholung"),
       cell: ({ row }) => {
         const o = row.original;
         if (o.is_pickup) {
@@ -232,8 +234,9 @@ export const OrdersList = () => {
 
     // Spalte 5: Kunde
     {
-      accessorKey: "customer_name",
-      header: "Kunde",
+      id: "customer",
+      accessorFn: (row) => (row.company_name || row.customer_name || "").toLowerCase(),
+      header: sortableHeader<CateringOrder>("Kunde"),
       cell: ({ row }) => (
         <div className="min-w-[140px]">
           <p className="font-medium text-sm">{row.original.customer_name}</p>
@@ -247,7 +250,8 @@ export const OrdersList = () => {
     // Spalte 6: Kontakt (Mail + Telefon)
     {
       id: "contact",
-      header: "Kontakt",
+      accessorFn: (row) => (row.customer_email || row.customer_phone || "").toLowerCase(),
+      header: sortableHeader<CateringOrder>("Kontakt"),
       cell: ({ row }) => {
         const o = row.original;
         return (
@@ -280,7 +284,8 @@ export const OrdersList = () => {
     // Spalte 7: Summe
     {
       accessorKey: "total_amount",
-      header: "Summe",
+      header: sortableHeader<CateringOrder>("Summe"),
+      sortingFn: "basic",
       cell: ({ row }) => (
         <p className="font-semibold text-sm whitespace-nowrap">
           {row.original.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
@@ -291,7 +296,14 @@ export const OrdersList = () => {
     // Spalte 8: Antwort-Status
     {
       id: "conversation",
-      header: "Kommunikation",
+      accessorFn: (row) => {
+        const lastCustomer = row.last_customer_message_at ? new Date(row.last_customer_message_at).getTime() : 0;
+        const lastOurs = row.last_our_reply_at ? new Date(row.last_our_reply_at).getTime() : 0;
+        if (lastCustomer > lastOurs) return "0_antwort_wartet";
+        if (lastOurs > 0) return "1_beantwortet";
+        return "2_kein_dialog";
+      },
+      header: sortableHeader<CateringOrder>("Kommunikation"),
       cell: ({ row }) => {
         const o = row.original;
         const lastCustomer = o.last_customer_message_at ? new Date(o.last_customer_message_at).getTime() : 0;
@@ -342,6 +354,7 @@ export const OrdersList = () => {
           onRowClick={handleRowClick}
           isLoading={isLoading}
           pageSize={25}
+          defaultSorting={[{ id: "desired_date", desc: false }]}
         />
       </div>
     </AdminLayout>

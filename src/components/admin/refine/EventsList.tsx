@@ -6,7 +6,7 @@ import { de } from "date-fns/locale";
 import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare, User, Flag, AlertTriangle, LayoutGrid, Table2, Archive } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
-import { DataTable } from "./DataTable";
+import { DataTable, sortableHeader } from "./DataTable";
 import { KanbanView } from "./KanbanView";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -282,7 +282,7 @@ export const EventsList = () => {
     // Spalte 1: Status (bleibt wie bisher — mit allen Extras)
     {
       accessorKey: "status",
-      header: "Status",
+      header: sortableHeader<EventInquiry>("Status"),
       cell: ({ row }) => {
         const event = row.original;
         // Determine visual status based on tracking
@@ -362,7 +362,8 @@ export const EventsList = () => {
     // Spalte 2: Anfrage (Eingangsdatum — Events haben keine order_number)
     {
       accessorKey: "created_at",
-      header: "Anfrage",
+      header: sortableHeader<EventInquiry>("Anfrage"),
+      sortingFn: "datetime",
       cell: ({ row }) => {
         const date = row.original.created_at;
         if (!date) return <span className="text-muted-foreground">-</span>;
@@ -378,7 +379,8 @@ export const EventsList = () => {
     // Spalte 3: Eventdatum (VORGEZOGEN analog Orders-Liefertermin)
     {
       accessorKey: "preferred_date",
-      header: "Eventdatum",
+      header: sortableHeader<EventInquiry>("Eventdatum"),
+      sortingFn: "datetime",
       cell: ({ row }) => {
         const date = row.original.preferred_date;
         if (!date) return <span className="text-muted-foreground">-</span>;
@@ -421,7 +423,7 @@ export const EventsList = () => {
     // Spalte 4: Event-Typ + Gäste
     {
       accessorKey: "event_type",
-      header: "Event",
+      header: sortableHeader<EventInquiry>("Event"),
       cell: ({ row }) => {
         const type = row.original.event_type;
         return (
@@ -442,8 +444,9 @@ export const EventsList = () => {
 
     // Spalte 5: Kunde
     {
-      accessorKey: "contact_name",
-      header: "Kunde",
+      id: "customer",
+      accessorFn: (row) => (row.company_name || row.contact_name || "").toLowerCase(),
+      header: sortableHeader<EventInquiry>("Kunde"),
       cell: ({ row }) => (
         <div className="max-w-[240px] min-w-[160px]">
           <p className="font-medium text-sm">{row.original.contact_name}</p>
@@ -466,7 +469,8 @@ export const EventsList = () => {
     // Spalte 6: Kontakt (Mail + Telefon — analog Orders)
     {
       id: "contact",
-      header: "Kontakt",
+      accessorFn: (row) => (row.email || row.phone || "").toLowerCase(),
+      header: sortableHeader<EventInquiry>("Kontakt"),
       cell: ({ row }) => {
         const event = row.original;
         return (
@@ -499,7 +503,8 @@ export const EventsList = () => {
     // Spalte 7: Bearbeitet (bleibt erhalten — wichtig bei Events mit langen Zyklen)
     {
       accessorKey: "last_edited_at",
-      header: "Bearbeitet",
+      header: sortableHeader<EventInquiry>("Bearbeitet"),
+      sortingFn: "datetime",
       cell: ({ row }) => {
         const event = row.original;
         if (!event.last_edited_at) {
@@ -581,6 +586,7 @@ export const EventsList = () => {
               selectedRowIds={selectedIds}
               onSelectionChange={setSelectedIds}
               getRowId={(row) => row.id}
+              defaultSorting={[{ id: "preferred_date", desc: false }]}
             />
 
             {/* Bulk Action Bar */}
