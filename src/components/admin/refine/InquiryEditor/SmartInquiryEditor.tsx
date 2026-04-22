@@ -605,7 +605,7 @@ export const SmartInquiryEditor = () => {
 
         // 4. LexOffice-Quotation (non-blocking) — nur beim Proposal
         let lexQuotationId: string | null = null;
-        if (sendType === 'proposal') {
+        if (sendType === 'proposal' && !inquiry.lexoffice_quotation_id) {
           try {
             const { data: quotRes } = await supabase.functions.invoke('create-event-quotation', {
               body: { inquiryId: inquiry.id },

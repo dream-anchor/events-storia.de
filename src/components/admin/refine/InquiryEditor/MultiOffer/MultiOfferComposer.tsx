@@ -246,7 +246,7 @@ export function MultiOfferComposer({
         }];
       });
 
-      const { error } = await supabase.functions.invoke("create-event-quotation", {
+      const { data: quotRes, error } = await supabase.functions.invoke("create-event-quotation", {
         body: {
           eventId: inquiry.id,
           event: {
@@ -265,6 +265,12 @@ export function MultiOfferComposer({
         },
       });
       if (error) throw error;
+      if (quotRes?.success && quotRes.quotationId) {
+        await supabase
+          .from("event_inquiries")
+          .update({ lexoffice_quotation_id: quotRes.quotationId } as Record<string, unknown>)
+          .eq("id", inquiry.id);
+      }
 
       const now = new Date().toISOString();
       const { data: userData } = await supabase.auth.getUser();
