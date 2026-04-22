@@ -1274,7 +1274,9 @@ function ProposalOptionCard({
         </div>
       )}
 
-      {/* Mengen-Stepper */}
+      {/* Mengen-Stepper — nur bei Multi-Option-Modus sichtbar.
+          Bei Single-Option ist die Menge automatisch durch inquiry.guest_count gesetzt. */}
+      {!singleOption && (
       <div
         className="px-6 pb-5 pt-4 border-t border-border/10 bg-muted/10 flex items-center justify-between gap-4"
         onClick={(e) => e.stopPropagation()}
@@ -1285,6 +1287,9 @@ function ProposalOptionCard({
           </p>
           <p className="text-[10px] font-sans text-muted-foreground mt-0.5">
             Ergibt {formatCurrencyDecimal(quantity * perPersonPriceProp)} für diese Option
+            {targetGuests !== null && remainingGuests !== null && remainingGuests > 0 && (
+              <> · noch <strong>{remainingGuests}</strong> von <strong>{targetGuests}</strong> zu verteilen</>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1322,6 +1327,7 @@ function ProposalOptionCard({
           </Button>
         </div>
       </div>
+      )}
     </div>
   );
 }
