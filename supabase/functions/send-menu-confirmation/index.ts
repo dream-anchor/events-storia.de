@@ -60,19 +60,36 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: booking, error: bookingError } = await supabase
-      .from('event_bookings')
-      .select('*, packages(*)')
-      .eq('id', bookingId)
-      .single();
-
-    if (bookingError || !booking) {
-      throw new Error('Booking not found');
+    // Resolve v2_event aus Legacy- oder v2-UUID
+    const event = await resolveV2Event(supabase, bookingId);
+    if (!event) {
+      throw new Error(`v2_event not found for ${bookingId}`);
     }
 
-    console.log('Booking found:', booking.booking_number);
+    // Customer separat laden
+    const { data: customer } = await supabase
+      .from('v2_customers')
+      .select('name, email, phone, company')
+      .eq('id', event.customer_id)
+      .single();
+    if (!customer) {
+      throw new Error(`v2_customer not found for ${event.customer_id}`);
+    }
 
-    const menuSelection = booking.menu_selection as {
+    // Package separat laden falls verlinkt
+    let packageData: { name?: string } | null = null;
+    if (event.package_id) {
+      const { data: pkg } = await supabase
+        .from('packages')
+        .select('*')
+        .eq('id', event.package_id)
+        .single();
+      packageData = pkg;
+    }
+
+    console.log('v2_event found:', event.booking_number);
+
+    const menuSelection = event.menu_selection as {
       courses: Array<{ courseLabel: string; itemName: string; itemDescription?: string }>;
       drinks: Array<{ drinkLabel: string; selectedChoice?: string; customDrink?: string }>;
     } | null;
@@ -103,24 +120,24 @@ serve(async (req) => {
       }
     }
 
-    const eventDate = new Date(booking.event_date).toLocaleDateString('de-DE', {
+    const eventDate = new Date(event.date).toLocaleDateString('de-DE', {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
       year: 'numeric',
     });
 
-    const packageName = booking.packages?.name || 'Event-Paket';
+    const packageName = packageData?.name || 'Event-Paket';
 
     const emailSubject = `Ihr Menü für ${eventDate} steht fest`;
-    const isTest = booking.is_test === true;
-    const safeRecipient = getSafeRecipientEmail(booking.customer_email, isTest);
+    const isTest = event.is_test === true;
+    const safeRecipient = getSafeRecipientEmail(customer.email, isTest);
     const safeSubject = getSafeSubject(emailSubject, isTest);
-    const emailBody = `Sehr geehrte/r ${booking.customer_name},
+    const emailBody = `Sehr geehrte/r ${customer.name},
 
 vielen Dank für Ihre Buchung des ${packageName} am ${eventDate}.
 
-Wir haben folgendes Menü für Ihre Veranstaltung mit ${booking.guest_count} Gästen zusammengestellt:
+Wir haben folgendes Menü für Ihre Veranstaltung mit ${event.guest_count} Gästen zusammengestellt:
 
 ${menuText}
 
