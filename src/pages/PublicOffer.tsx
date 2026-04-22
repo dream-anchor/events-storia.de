@@ -1293,6 +1293,7 @@ function ProposalOptionCard({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {(() => null)()}
           <Button
             type="button"
             variant="outline"
@@ -1307,10 +1308,14 @@ function ProposalOptionCard({
           <Input
             type="number"
             min={0}
+            max={targetGuests !== null ? quantity + (remainingGuests ?? 0) : undefined}
             value={quantity}
             onChange={(e) => {
               const n = parseInt(e.target.value || '0', 10);
-              if (!isNaN(n) && n >= 0) onQuantityChange(n);
+              if (!isNaN(n) && n >= 0) {
+                const cap = targetGuests !== null ? quantity + (remainingGuests ?? 0) : Infinity;
+                onQuantityChange(Math.min(cap, n));
+              }
             }}
             onClick={(e) => e.stopPropagation()}
             className="w-16 h-9 text-center rounded-full font-sans font-semibold"
@@ -1319,7 +1324,11 @@ function ProposalOptionCard({
             type="button"
             variant="outline"
             size="icon"
-            onClick={() => onQuantityChange(quantity + 1)}
+            onClick={() => {
+              const cap = targetGuests !== null ? quantity + (remainingGuests ?? 0) : Infinity;
+              onQuantityChange(Math.min(cap, quantity + 1));
+            }}
+            disabled={targetGuests !== null && (remainingGuests ?? 0) <= 0}
             className="h-9 w-9 rounded-full"
             aria-label="Menge erhöhen"
           >
