@@ -171,14 +171,36 @@ export function OfferSendPreview({
 
   // LexOffice-PDF laden (visueller Block 3)
   useEffect(() => {
-    if (!inquiry?.lexoffice_quotation_id) return;
+    if (!inquiry) return;
     let cancelled = false;
     (async () => {
       setPdfLoading(true);
       setPdfError(null);
       try {
+        let quotationId = inquiry.lexoffice_quotation_id;
+        // Lazy-Create: wenn noch keine Quotation existiert, eine anlegen
+        if (!quotationId) {
+          const { data: quotRes, error: quotErr } = await supabase.functions.invoke(
+            'create-event-quotation',
+            { body: { inquiryId: inquiry.id } }
+          );
+          if (quotErr || !quotRes?.success || !quotRes?.quotationId) {
+            throw new Error(
+              quotRes?.error ||
+                quotErr?.message ||
+                'LexOffice-Angebot konnte nicht erstellt werden'
+            );
+          }
+          quotationId = quotRes.quotationId as string;
+          await supabase
+            .from('event_inquiries')
+            .update({ lexoffice_quotation_id: quotationId } as Record<string, unknown>)
+            .eq('id', inquiry.id);
+          if (cancelled) return;
+          setInquiry((prev) => (prev ? { ...prev, lexoffice_quotation_id: quotationId } : prev));
+        }
         const { data, error } = await supabase.functions.invoke('get-lexoffice-document', {
-          body: { voucherId: inquiry.lexoffice_quotation_id, voucherType: 'quotation' },
+          body: { voucherId: quotationId, voucherType: 'quotation' },
         });
         if (cancelled) return;
         if (error || !data?.pdf) {
@@ -202,7 +224,7 @@ export function OfferSendPreview({
         return null;
       });
     };
-  }, [inquiry?.lexoffice_quotation_id]);
+  }, [inquiry?.id, inquiry?.lexoffice_quotation_id]);
 
   // Senden = an Edit-Seite delegieren (oder onAfterSend-Callback im Embed)
   const handleSend = (isTest: boolean) => {
