@@ -1115,6 +1115,8 @@ function ProposalOptionCard({
   quantity,
   onQuantityChange,
   perPersonPrice: perPersonPriceProp,
+  targetGuests,
+  remainingGuests,
 }: {
   option: PublicOfferOption;
   isSelected: boolean;
@@ -1123,6 +1125,8 @@ function ProposalOptionCard({
   quantity: number;
   onQuantityChange: (q: number) => void;
   perPersonPrice: number;
+  targetGuests: number | null;
+  remainingGuests: number | null;
 }) {
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
