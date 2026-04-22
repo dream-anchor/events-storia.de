@@ -313,6 +313,7 @@ export function OptionCard({
           {option.offerMode === 'unselected' && (
             <ModeSelectorTiles
               onSelect={(mode) => applyModeChange(mode)}
+              onRequestImport={onRequestImport}
               disabled={disabled}
             />
           )}
