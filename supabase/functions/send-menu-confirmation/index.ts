@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
+import { resolveV2Event } from '../_shared/v2-lookup.ts';
 
 
 
