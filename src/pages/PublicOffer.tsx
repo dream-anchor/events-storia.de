@@ -663,12 +663,10 @@ function ProposalView({
     () => Object.fromEntries(options.map(o => [o.id, 0]))
   );
 
-  const isSingle = options.length === 1;
-
   // Ziel-Gästezahl aus inquiry.guest_count parsen.
   // Akzeptiert: "40" → 40, "20-30" → 30 (Maximum), "ca. 25" → 25.
   // Bei nicht parsebarem Wert: null (kein hartes Ziel).
-  const targetGuests = React.useMemo<number | null>(() => {
+  const targetGuests = useMemo<number | null>(() => {
     const raw = inquiry.guest_count?.trim();
     if (!raw) return null;
     const matches = raw.match(/\d+/g);
@@ -679,7 +677,8 @@ function ProposalView({
   }, [inquiry.guest_count]);
 
   // Single-Option: Auto-Quantity aus Target oder option.guest_count
-  React.useEffect(() => {
+  useEffect(() => {
+    const isSingle = options.length === 1;
     if (!isSingle) return;
     const opt = options[0];
     if (!opt) return;
@@ -689,7 +688,7 @@ function ProposalView({
       if (prev[opt.id] === auto) return prev;
       return { ...prev, [opt.id]: auto };
     });
-  }, [isSingle, options, targetGuests]);
+  }, [options, targetGuests]);
 
   // Pro-Person-Preis pro Option (per_event: total_amount als Pauschale)
   const perPersonPriceFor = (opt: PublicOfferOption): number => {
