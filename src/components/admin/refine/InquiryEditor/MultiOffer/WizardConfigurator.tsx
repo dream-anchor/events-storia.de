@@ -334,7 +334,7 @@ export function WizardConfigurator({
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="text-lg font-semibold text-foreground">
             Option {option.optionLabel} konfigurieren
           </h3>
@@ -343,6 +343,25 @@ export function WizardConfigurator({
             {option.guestCount} Gäste
           </p>
         </div>
+        <MenuImporter
+          guestCount={option.guestCount}
+          currentOptionCount={0}
+          onImportMultiple={(imported) => {
+            if (!imported || imported.length === 0) return;
+            const [first, ...rest] = imported;
+            onUpdateOption({
+              packageId: null,
+              packageName: first.packageName ?? "",
+              totalAmount: first.totalAmount ?? 0,
+              menuSelection: {
+                courses: [],
+                drinks: first.menuSelection?.drinks ?? [],
+              },
+            });
+            if (rest.length > 0) onImportRestaurantMenus?.(rest);
+            onBack();
+          }}
+        />
       </div>
 
       {/* Stepper */}
