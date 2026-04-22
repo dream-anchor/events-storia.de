@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useLocation, useSearchParams } from "react-router-dom";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { supabase } from "@/integrations/supabase/client";
