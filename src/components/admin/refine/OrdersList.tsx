@@ -5,7 +5,7 @@ import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { Calendar, Package, CreditCard, Truck, MapPin, Phone, Mail, MessageCircle, CheckCircle2, AlertCircle, HandCoins } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
-import { DataTable } from "./DataTable";
+import { DataTable, sortableHeader } from "./DataTable";
 import { Badge } from "@/components/ui/badge";
 import { CateringOrder, OrderStatus } from "@/types/refine";
 import { cn } from "@/lib/utils";
@@ -88,7 +88,7 @@ export const OrdersList = () => {
     // Spalte 1: Status + Payment-Label (vertikal gestapelt)
     {
       accessorKey: "status",
-      header: "Status",
+      header: sortableHeader<CateringOrder>("Status"),
       cell: ({ row }) => {
         const o = row.original;
         const isPaid = o.payment_status === 'paid';
@@ -134,7 +134,7 @@ export const OrdersList = () => {
     // Spalte 2: Bestellnummer + Eingangsdatum
     {
       accessorKey: "order_number",
-      header: "Bestellung",
+      header: sortableHeader<CateringOrder>("Bestellung"),
       cell: ({ row }) => (
         <div>
           <p className="font-mono font-medium text-sm">{row.original.order_number}</p>
@@ -148,7 +148,8 @@ export const OrdersList = () => {
     // Spalte 3: Liefertermin (VORGEZOGEN nach Bestellung)
     {
       accessorKey: "desired_date",
-      header: "Liefertermin",
+      header: sortableHeader<CateringOrder>("Liefertermin"),
+      sortingFn: "datetime",
       cell: ({ row }) => {
         const date = row.original.desired_date;
         const time = row.original.desired_time;
