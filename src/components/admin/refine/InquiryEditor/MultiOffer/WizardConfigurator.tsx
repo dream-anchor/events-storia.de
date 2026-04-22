@@ -653,6 +653,23 @@ export function WizardConfigurator({
                   Gänge-Auswahl
                 </h4>
 
+                {/* P1 #5/#6: Banner mit fehlenden Pflicht-Gängen */}
+                {!coursesComplete && missingRequiredCourses.length > 0 && (
+                  <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-medium text-foreground">
+                        Noch fehlende Pflicht-Gänge
+                      </p>
+                      <p className="text-muted-foreground">
+                        {missingRequiredCourses
+                          .map((c) => c.course_label)
+                          .join(", ")}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Course Progress Navigation */}
                 {courseConfigs.length > 0 && (
                   <CourseProgress
