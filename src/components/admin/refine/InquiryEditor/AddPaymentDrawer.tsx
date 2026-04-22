@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 
 interface Props {

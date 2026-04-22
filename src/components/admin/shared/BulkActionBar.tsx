@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { InquiryPriority } from "@/types/refine";
 

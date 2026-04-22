@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import { AdminLayout } from "../AdminLayout";
 import { ContactDataCard } from "./ContactDataCard";
 import { EventDetailsCard } from "./EventDetailsCard";

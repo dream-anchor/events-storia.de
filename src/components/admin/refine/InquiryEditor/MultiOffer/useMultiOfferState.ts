@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { OfferOption, OfferHistoryEntry, OPTION_LABELS, createEmptyOption, MenuSelectionType } from "./types";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { calculateEventPackagePrice } from "@/lib/eventPricing";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";

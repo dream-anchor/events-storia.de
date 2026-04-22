@@ -23,7 +23,7 @@ import { EmailEditorPanel } from "./EmailEditorPanel";
 import { LivePDFPreview } from "./LivePDFPreview";
 import { useMultiOfferState } from "./useMultiOfferState";
 import { Package, ExtendedInquiry, EmailTemplate } from "../types";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
