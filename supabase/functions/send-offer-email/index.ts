@@ -455,8 +455,8 @@ serve(async (req) => {
 
     // Email Delivery Log
     await supabase.from('email_delivery_logs').insert({
-      entity_type: 'event_inquiry',
-      entity_id: inquiryId,
+      entity_type: 'v2_event',
+      entity_id: event.id,
       recipient_email: customerEmail,
       recipient_name: customerName,
       subject: emailSubject,
@@ -475,10 +475,10 @@ serve(async (req) => {
       },
     });
 
-    // E-Mail in email_messages speichern (Thread-Konversation)
+    // E-Mail in v2_event_emails speichern (Thread-Konversation)
     if (result.sent) {
-      await supabase.from('email_messages').insert({
-        inquiry_id: inquiryId,
+      await supabase.from('v2_event_emails').insert({
+        event_id: event.id,
         direction: 'outbound',
         from_email: 'info@events-storia.de',
         to_email: customerEmail,
@@ -488,13 +488,23 @@ serve(async (req) => {
         attachments: hasPdf ? [{ filename: attachmentFilename }] : [],
         resend_message_id: result.messageId,
         resend_status: 'queued',
+        sent_at: new Date().toISOString(),
       } as Record<string, unknown>);
+    }
+
+    // Promote v2_event auf 'proposal_sent' (nur bei echtem Versand, nicht im Preview)
+    if (result.sent && !isTestPreview) {
+      await supabase.from('v2_events').update({
+        offer_sent_at: new Date().toISOString(),
+        offer_sent_by: senderEmail || null,
+        offer_phase: 'proposal_sent',
+      } as Record<string, unknown>).eq('id', event.id);
     }
 
     // Activity Log
     await supabase.from('activity_logs').insert({
-      entity_type: 'event_inquiry',
-      entity_id: inquiryId,
+      entity_type: 'v2_event',
+      entity_id: event.id,
       action: result.sent ? 'offer_email_sent' : 'offer_email_failed',
       actor_email: senderEmail || 'system',
       metadata: {
