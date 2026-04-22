@@ -228,7 +228,7 @@ export const SmartInquiryEditor = () => {
 
   // Get current user email for assignee feature
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: any) => {
       setCurrentUserEmail(user?.email || undefined);
     });
     if (id) {
@@ -238,7 +238,7 @@ export const SmartInquiryEditor = () => {
         .order('responded_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-        .then(({ data }) => {
+        .then(({ data }: any) => {
           if (data) {
             setCustomerResponse(data as typeof customerResponse);
             const response = data as { selected_option_id: string | null };
@@ -247,7 +247,7 @@ export const SmartInquiryEditor = () => {
                 .select('option_label, package_name')
                 .eq('id', response.selected_option_id)
                 .maybeSingle()
-                .then(({ data: optData }) => {
+                .then(({ data: optData }: any) => {
                   if (optData) {
                     const opt = optData as { option_label: string; package_name: string };
                     setSelectedOptionInfo({ optionLabel: opt.option_label, packageName: opt.package_name });
@@ -265,7 +265,7 @@ export const SmartInquiryEditor = () => {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-        .then(({ data }) => {
+        .then(({ data }: any) => {
           if (data?.total_amount) setOfferTotal(data.total_amount);
         });
     }

@@ -119,7 +119,7 @@ export const useCustomerAuth = () => {
 
     const { data, error } = await supabase
       .from('customer_profiles')
-      .update(updates)
+      .update(updates as never)
       .eq('user_id', user.id)
       .select()
       .single();

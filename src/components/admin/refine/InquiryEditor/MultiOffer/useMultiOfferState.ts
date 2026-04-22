@@ -64,7 +64,7 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
         if (optionsError) throw optionsError;
 
         if (optionsData && optionsData.length > 0) {
-          const mappedOptions: OfferOption[] = optionsData.map((opt) => ({
+          const mappedOptions: OfferOption[] = optionsData.map((opt: any) => ({
             id: opt.id,
             packageId: opt.package_id,
             packageName: '', // Will be populated from packages data
@@ -127,7 +127,7 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
           .order("version", { ascending: false });
 
         if (historyData) {
-          setHistory(historyData.map(h => ({
+          setHistory(historyData.map((h: any) => ({
             id: h.id,
             version: h.version,
             sentAt: h.sent_at,

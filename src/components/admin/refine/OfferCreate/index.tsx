@@ -443,7 +443,7 @@ export const AdminOfferCreate = () => {
           skipInsert: true,
           existingInquiryId: data.id,
         },
-      }).then(res => {
+      }).then((res: any) => {
         if (res.error) console.error('Notification error:', res.error);
       });
 
