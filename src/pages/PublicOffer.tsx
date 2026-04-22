@@ -1009,6 +1009,13 @@ function ProposalView({
                   Rechnung folgt per E-Mail
                 </span>
               </div>
+
+              {/* Hinweis bei Teilbuchung im Multi-Mode */}
+              {!isSingle && canPay && targetGuests !== null && totalQuantity < targetGuests && (
+                <p className="mt-4 text-xs font-sans text-muted-foreground">
+                  Sie können auch mit einer Teilmenge buchen — die restlichen Gäste lassen sich später ergänzen.
+                </p>
+              )}
             </div>
           </div>
 
