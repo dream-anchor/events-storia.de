@@ -554,13 +554,13 @@ export const SmartInquiryEditor = () => {
           .select('*')
           .eq('inquiry_id', inquiry.id)
           .eq('is_active', true);
-        await supabase.from('inquiry_offer_history').insert({
+        await supabase.from('inquiry_offer_history').insert([{
           inquiry_id: inquiry.id,
           version: newVersion,
           sent_by: user?.email || null,
           email_content: draft,
           options_snapshot: fullOptions as unknown,
-        } as Record<string, unknown>);
+        }] as never);
 
         // 2. Inquiry updaten: Version, Phase, Status, Versandzeitpunkt
         const phaseTarget = sendType === 'final' ? 'final_sent' : 'proposal_sent';
