@@ -254,10 +254,10 @@ info@events-storia.de`;
 
       // Log email delivery to database
       await logEmailDelivery(supabase, {
-        entity_type: 'event_booking',
-        entity_id: bookingId,
+        entity_type: 'v2_event',
+        entity_id: event.id,
         recipient_email: safeRecipient,
-        recipient_name: booking.customer_name,
+        recipient_name: customer.name,
         subject: safeSubject,
         provider: emailProvider || 'none',
         provider_message_id: emailMessageId,
@@ -265,21 +265,38 @@ info@events-storia.de`;
         error_message: emailError,
         sent_by: sentBy || null,
         metadata: {
-          booking_number: booking.booking_number,
+          booking_number: event.booking_number,
           email_type: 'menu_confirmation',
           package_name: packageName,
-          event_date: booking.event_date,
+          event_date: event.date,
         },
       });
+
+      // Email-Thread auch in v2_event_emails persistieren
+      if (emailSent) {
+        await supabase.from('v2_event_emails').insert({
+          event_id: event.id,
+          direction: 'outbound',
+          from_email: 'info@events-storia.de',
+          to_email: customer.email,
+          subject: emailSubject,
+          body_text: emailBody,
+          body_html: htmlEmail,
+          resend_message_id: emailMessageId,
+          resend_status: 'queued',
+          sent_at: new Date().toISOString(),
+        });
+      }
     }
 
     const { error: updateError } = await supabase
-      .from('event_bookings')
-      .update({ 
+      .from('v2_events')
+      .update({
         menu_confirmed: true,
-        status: 'ready',
+        menu_confirmed_at: new Date().toISOString(),
+        confirmation_email_sent_at: emailSent ? new Date().toISOString() : null,
       })
-      .eq('id', bookingId);
+      .eq('id', event.id);
 
     if (updateError) {
       console.error('Update error:', updateError);
@@ -289,7 +306,7 @@ info@events-storia.de`;
       JSON.stringify({ 
         success: true, 
         emailSent: emailSent,
-        bookingNumber: booking.booking_number,
+        bookingNumber: event.booking_number,
         provider: emailProvider || undefined,
       }),
       { 
