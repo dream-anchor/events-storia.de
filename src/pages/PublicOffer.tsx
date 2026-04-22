@@ -804,15 +804,15 @@ function ProposalView({
           {/* Sektion-Header */}
           <div className="mb-10">
             <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/60 mb-3">
-              {isSingle ? "Unser Vorschlag" : `${options.length} Optionen`}
+              {isSingle ? "Unser Vorschlag" : "Ihr Angebot"}
             </p>
             <h2 className="font-serif text-2xl md:text-3xl font-bold mb-3">
-              {isSingle ? "Ihr Angebot" : "Wählen Sie Ihren Favoriten"}
+              {isSingle ? "Ihr Angebot" : "Ihre Auswahl"}
             </h2>
             <p className="text-muted-foreground font-sans text-sm md:text-base max-w-xl">
               {isSingle
                 ? "Buchen Sie direkt über den sicheren Zahlungslink — oder schreiben Sie uns bei Fragen und Änderungen."
-                : "Wir haben verschiedene Optionen für Sie zusammengestellt. Wählen Sie Ihren Favoriten, um fortzufahren."}
+                : "Wir haben mehrere Varianten für Sie zusammengestellt — entscheiden Sie sich für eine oder kombinieren Sie mehrere mit unterschiedlichen Mengen."}
             </p>
           </div>
 
