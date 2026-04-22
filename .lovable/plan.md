@@ -1,59 +1,71 @@
 
 
-# Mengen-Stepper im PublicOffer: korrektes "Verbleibend" + Max-Cap
+# LexOffice 429 Rate-Limit beheben — Doppel-Fetch + Retry-Logik
 
 ## Befund
 
-1. **Falsche „Verbleibend"-Anzeige (Screenshot 3):**
-   `remainingGuests` wird in `PublicOffer.tsx` Zeile 869–872 berechnet als
-   `targetGuests - totalQuantity + (eigene Quantity)`.
-   Dadurch wird die eigene Menge der Karte **wieder zur Restmenge addiert**. Bei 3/10 zeigt die Karte „noch 10 von 10 zu verteilen" statt korrekt „noch 7 von 10".
+Edge-Logs zeigen: Quotation wurde **korrekt erstellt** (`9cd7c1bf-...`), aber `get-lexoffice-document` wurde **zweimal innerhalb von ~140ms** aufgerufen. Der erste Aufruf bekam **HTTP 429 „Rate limit exceeded"** von LexOffice → Frontend zeigt „Edge Function returned a non-2xx status code".
 
-2. **Kein Max-Cap (Screenshot 1):**
-   Der `+`-Button und das Input-Feld lassen beliebige Werte zu — Kunde kann 11 Gäste auf 10 verteilen, obwohl die Anfrage 10 Personen umfasst.
+**Ursache 1 — Doppel-Aufruf in `OfferSendPreview.tsx`:**
+Der PDF-Lade-Effect (Zeile 173) hat `[inquiry?.id, inquiry?.lexoffice_quotation_id]` als Dependencies. Beim Lazy-Create wird via `setInquiry(...)` die `lexoffice_quotation_id` aktualisiert → der Effect läuft **erneut** und startet einen **zweiten parallelen Fetch**, während der erste noch läuft.
+
+**Ursache 2 — `get-lexoffice-document` retried nur bei 500:**
+Die `fetchWithRetry`-Helper in `supabase/functions/get-lexoffice-document/index.ts` (Zeile 22) prüft `response.status !== 500`. 429 wird sofort als Fehler weitergereicht.
 
 ## Lösung
 
-Beide Fixes in `src/pages/PublicOffer.tsx`. Reine Frontend-Änderung, ~10 Zeilen Diff.
+### Fix 1 — Doppel-Aufruf verhindern (Frontend)
 
-### Fix 1 — Korrekte Restmenge
-
-Zeile 869–872: die eigene Quantity **nicht** mehr addieren.
+In `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx` Effect-Dependencies auf `[inquiry?.id]` reduzieren. Der Lazy-Create-Pfad wird **innerhalb** des Effects abgehandelt (Zeile 182–202) — die `quotationId` ist als lokale Variable bereits verfügbar, der State-Update via `setInquiry` ist nur für nachgelagerte Komponenten relevant. Der Effect muss nicht erneut laufen, wenn er die Quotation gerade selbst angelegt hat.
 
 ```ts
-remainingGuests={
-  targetGuests !== null
-    ? Math.max(0, targetGuests - totalQuantity)
-    : null
-}
+}, [inquiry?.id]); // statt [inquiry?.id, inquiry?.lexoffice_quotation_id]
 ```
 
-So zeigt jede Karte konsistent dieselbe globale Restmenge — bei Summe = 3 von 10 sehen alle Karten „noch 7 von 10 zu verteilen".
+Damit fällt der zweite parallele Fetch komplett weg → kein Rate-Limit mehr durch Selbst-Konkurrenz.
 
-### Fix 2 — Max-Cap auf Stepper
+### Fix 2 — 429 in Retry-Logik aufnehmen (Edge Function)
 
-Pro Card berechnen: `maxForThisOption = targetGuests !== null ? quantity + remainingGuests : Infinity`.
-Das entspricht „aktuelle Menge + globale Restmenge" → Erhöhen ist nur möglich, solange globale Summe ≤ Ziel.
+In `supabase/functions/get-lexoffice-document/index.ts` `fetchWithRetry` (Zeile 17–35) erweitern: bei `429` UND `500` retryen. LexOffice schickt im 429-Response idR auch `Retry-After`-Header — wenn vorhanden, diesen respektieren, sonst exponentielles Backoff (3s, 6s, 9s).
 
-- `+`-Button: `disabled={targetGuests !== null && remainingGuests === 0}` und `onClick` nutzt `Math.min(maxForThisOption, quantity + 1)`
-- `Input`: `max={maxForThisOption}` und `onChange` clamped auf `Math.min(maxForThisOption, n)`
-- `pricingMode === 'per_event'`: Max bleibt 1 (wie bisher implizit), kein Cap-Konflikt
+```ts
+const isRetryable = response.status === 500 || response.status === 429;
+if (!isRetryable || attempt === MAX_RETRIES) { ... }
+const retryAfterHeader = response.headers.get('Retry-After');
+const delay = retryAfterHeader 
+  ? Math.min(parseInt(retryAfterHeader) * 1000, 10_000)
+  : RETRY_DELAY_MS * attempt; // exponentiell
+await sleep(delay);
+```
 
-### Edge Cases
+Gleichen Patch in `supabase/functions/download-public-offer-pdf/index.ts` anwenden, falls dort dieselbe Helper-Funktion existiert (für Konsistenz).
 
-- `targetGuests === null` (z.B. `guest_count` nicht parsebar, leer): kein Cap, wie bisher freie Eingabe
-- Single-Option: Stepper bleibt komplett ausgeblendet (unverändert)
-- `remainingGuests > target` (Eingabe via Tastatur): wird abgefangen durch Clamp im `onChange`
+### Fix 3 — Defensiver Guard im Effect (Frontend, kleiner Polish)
+
+Falls der Effect trotzdem doppelt feuert (z.B. React StrictMode), `useRef`-basiertes „in-flight"-Flag, das nur einen aktiven Fetch pro `inquiry.id` zulässt:
+
+```ts
+const inFlightRef = useRef<string | null>(null);
+// ...
+if (inFlightRef.current === inquiry.id) return;
+inFlightRef.current = inquiry.id;
+// am Ende (finally): inFlightRef.current = null;
+```
+
+Verhindert auch zukünftige Regressionen durch Re-Renders.
 
 ## Geänderte Dateien
 
-- `src/pages/PublicOffer.tsx` — `remainingGuests`-Formel + Stepper-Cap (`disabled`-Prop, `max`-Attr, Clamp in `onChange` und `+`-Klick). ~10 Zeilen Diff, keine Props-Änderungen, keine neuen Komponenten.
+- `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx` — Effect-Dependencies + `useRef`-Guard (~5 Zeilen)
+- `supabase/functions/get-lexoffice-document/index.ts` — `fetchWithRetry` um 429 + `Retry-After` erweitern (~8 Zeilen)
+- `supabase/functions/download-public-offer-pdf/index.ts` — gleicher Patch (falls vorhanden, ~8 Zeilen)
+
+Keine DB-Migration. Keine Änderungen an `create-event-quotation`, `MultiOfferComposer`, `SmartInquiryEditor`.
 
 ## Verifikation
 
-1. Multi-Option, `guest_count='10'`, alle Karten leer → alle zeigen „noch 10 von 10".
-2. Karte A auf 3 setzen → A zeigt „noch 7 von 10", B/C/D zeigen ebenfalls „noch 7 von 10".
-3. Karte B auf 7 setzen → Summe = 10 → alle Karten: `+`-Button disabled, Hint „✓ Alle 10 Gäste verteilt" oben.
-4. Versuch, Karte C auf 1 zu setzen → Input clamped auf 0 (Rest = 0).
-5. `guest_count` leer/unparsebar → keine Restanzeige, keine Caps (Free-Mode wie bisher).
+1. Vorschau für Inquiry **ohne** `lexoffice_quotation_id` öffnen → genau **ein** Eintrag in Edge-Logs für `get-lexoffice-document` (statt zwei).
+2. PDF wird beim ersten Versuch geladen, kein 429.
+3. Bei tatsächlichem Rate-Limit (z.B. mehrere Tabs): Function retried automatisch mit Backoff, PDF erscheint nach ~3–9s.
+4. Edge-Logs zeigen bei 429: `[LexOffice /quotations/document] Status 429, Versuch 1/3 — warte 3000ms...`
 
