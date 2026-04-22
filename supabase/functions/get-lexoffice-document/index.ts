@@ -9,7 +9,7 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Fetch mit Retry bei Status 500 */
+/** Fetch mit Retry bei Status 500 oder 429 (Rate-Limit, mit Retry-After) */
 async function fetchWithRetry(
   url: string,
   options: RequestInit,
@@ -18,15 +18,20 @@ async function fetchWithRetry(
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const response = await fetch(url, options);
 
-    if (response.status !== 500 || attempt === MAX_RETRIES) {
-      if (response.status === 500) {
-        console.error(`[${label}] Alle ${MAX_RETRIES} Versuche fehlgeschlagen (500)`);
+    const isRetryable = response.status === 500 || response.status === 429;
+    if (!isRetryable || attempt === MAX_RETRIES) {
+      if (isRetryable) {
+        console.error(`[${label}] Alle ${MAX_RETRIES} Versuche fehlgeschlagen (${response.status})`);
       }
       return response;
     }
 
-    console.warn(`[${label}] Status 500, Versuch ${attempt}/${MAX_RETRIES} — warte ${RETRY_DELAY_MS}ms...`);
-    await sleep(RETRY_DELAY_MS);
+    const retryAfterHeader = response.headers.get('Retry-After');
+    const delay = retryAfterHeader
+      ? Math.min(parseInt(retryAfterHeader, 10) * 1000, 10_000)
+      : RETRY_DELAY_MS * attempt;
+    console.warn(`[${label}] Status ${response.status}, Versuch ${attempt}/${MAX_RETRIES} — warte ${delay}ms...`);
+    await sleep(delay);
   }
 
   throw new Error(`[${label}] Retry-Logik unerwartet beendet`);
