@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.receive-group-inquiry]
 verify_jwt = false
+
+[functions.reconcile-payment-statuses]
+verify_jwt = false
