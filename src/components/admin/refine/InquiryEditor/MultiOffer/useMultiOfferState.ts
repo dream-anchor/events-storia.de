@@ -347,6 +347,25 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     setOptions(prev => prev.filter(o => o.id !== optionId));
   }, []);
 
+  // Add multiple imported options (from Restaurant MenuImporter).
+  // Vergibt freie Labels A–E und sortiert sie ans Ende.
+  const addImportedOptions = useCallback((imported: Partial<OfferBuilderOption>[]) => {
+    setOptions(prev => {
+      const usedLabels = new Set(prev.map(o => o.optionLabel));
+      const available = OPTION_LABELS.filter(l => !usedLabels.has(l));
+      const slice = imported.slice(0, available.length);
+      if (slice.length === 0) {
+        toast.warning("Maximale Anzahl an Optionen erreicht");
+        return prev;
+      }
+      const baseSort = prev.length;
+      const newOnes = slice.map((imp, i) =>
+        mapImportedToMultiOfferOption(imp, available[i], baseSort + i, currentVersion),
+      );
+      return [...prev, ...newOnes];
+    });
+  }, [currentVersion]);
+
   // Update an option
   const updateOption = useCallback((optionId: string, updates: Partial<OfferOption>) => {
     setOptions(prev => prev.map(o => 
