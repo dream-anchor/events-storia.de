@@ -785,6 +785,7 @@ export function WizardConfigurator({
                   <SummarySection
                     icon={<PackageIcon className="h-4 w-4" />}
                     title="Paket"
+                    onEdit={() => setActiveStep(1)}
                   >
                     <div className="flex items-center justify-between">
                       <div>
@@ -870,24 +871,42 @@ export function WizardConfigurator({
                   </SummarySection>
                 )}
 
-                {/* Finish Button */}
-                <div className="flex justify-start pt-2">
+                {/* Finish Buttons (P1 #14): primäre CTA = Anschreiben generieren */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
                   <motion.button
-                    onClick={handleFinish}
+                    onClick={handleFinishAndCompose}
+                    disabled={isFinishing || isGeneratingEmail || isLocked}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     className={cn(
-                      "h-12 px-8 rounded-xl font-semibold text-sm flex items-center gap-2",
-                      "bg-gradient-to-r from-amber-500 to-amber-600",
-                      "text-white",
+                      "h-12 px-6 rounded-xl font-semibold text-sm flex items-center gap-2",
+                      "bg-gradient-to-r from-amber-500 to-amber-600 text-white",
                       "shadow-[0_4px_20px_-4px_rgba(245,158,11,0.5)]",
                       "hover:shadow-[0_8px_30px_-4px_rgba(245,158,11,0.6)]",
-                      "transition-shadow duration-300"
+                      "transition-shadow duration-300",
+                      "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none",
                     )}
                   >
-                    <Check className="h-4 w-4" />
-                    Fertig — zurück zur Übersicht
+                    {isFinishing || isGeneratingEmail ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    Speichern & Anschreiben generieren
                   </motion.button>
+                  <Button
+                    variant="outline"
+                    onClick={handleFinish}
+                    disabled={isFinishing}
+                    className="h-12 px-5 rounded-xl gap-2"
+                  >
+                    {isFinishing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                    Nur speichern
+                  </Button>
                 </div>
               </motion.div>
             )}
