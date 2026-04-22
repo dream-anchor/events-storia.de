@@ -393,6 +393,7 @@ export function MultiOfferComposer({
           inquiry={inquiry}
           onUpdateOption={(updates) => updateOption(wizardOption.id, updates)}
           onBack={handleWizardBack}
+          onImportRestaurantMenus={addImportedOptions}
         />
       </div>
     );
