@@ -14,79 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      activity_logs: {
-        Row: {
-          action: string
-          actor_email: string | null
-          actor_id: string | null
-          created_at: string
-          entity_id: string
-          entity_type: string
-          id: string
-          metadata: Json | null
-          new_value: Json | null
-          old_value: Json | null
-        }
-        Insert: {
-          action: string
-          actor_email?: string | null
-          actor_id?: string | null
-          created_at?: string
-          entity_id: string
-          entity_type: string
-          id?: string
-          metadata?: Json | null
-          new_value?: Json | null
-          old_value?: Json | null
-        }
-        Update: {
-          action?: string
-          actor_email?: string | null
-          actor_id?: string | null
-          created_at?: string
-          entity_id?: string
-          entity_type?: string
-          id?: string
-          metadata?: Json | null
-          new_value?: Json | null
-          old_value?: Json | null
-        }
-        Relationships: []
-      }
-      admin_presence: {
-        Row: {
-          created_at: string
-          entity_id: string | null
-          entity_type: string | null
-          id: string
-          is_editing: boolean | null
-          last_seen: string
-          user_email: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          entity_id?: string | null
-          entity_type?: string | null
-          id?: string
-          is_editing?: boolean | null
-          last_seen?: string
-          user_email?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          entity_id?: string | null
-          entity_type?: string | null
-          id?: string
-          is_editing?: boolean | null
-          last_seen?: string
-          user_email?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      catering_orders: {
+      _legacy_catering_orders: {
         Row: {
           billing_city: string | null
           billing_country: string | null
@@ -227,7 +155,7 @@ export type Database = {
         }
         Relationships: []
       }
-      customer_profiles: {
+      _legacy_customer_profiles: {
         Row: {
           billing_city: string | null
           billing_country: string | null
@@ -293,58 +221,7 @@ export type Database = {
         }
         Relationships: []
       }
-      email_delivery_logs: {
-        Row: {
-          created_at: string
-          entity_id: string
-          entity_type: string
-          error_message: string | null
-          id: string
-          metadata: Json | null
-          provider: string
-          provider_message_id: string | null
-          recipient_email: string
-          recipient_name: string | null
-          sent_at: string
-          sent_by: string | null
-          status: string
-          subject: string
-        }
-        Insert: {
-          created_at?: string
-          entity_id: string
-          entity_type: string
-          error_message?: string | null
-          id?: string
-          metadata?: Json | null
-          provider: string
-          provider_message_id?: string | null
-          recipient_email: string
-          recipient_name?: string | null
-          sent_at?: string
-          sent_by?: string | null
-          status?: string
-          subject: string
-        }
-        Update: {
-          created_at?: string
-          entity_id?: string
-          entity_type?: string
-          error_message?: string | null
-          id?: string
-          metadata?: Json | null
-          provider?: string
-          provider_message_id?: string | null
-          recipient_email?: string
-          recipient_name?: string | null
-          sent_at?: string
-          sent_by?: string | null
-          status?: string
-          subject?: string
-        }
-        Relationships: []
-      }
-      email_messages: {
+      _legacy_email_messages: {
         Row: {
           attachments: Json | null
           body_html: string | null
@@ -395,51 +272,12 @@ export type Database = {
             foreignKeyName: "email_messages_inquiry_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
-            referencedRelation: "event_inquiries"
+            referencedRelation: "_legacy_event_inquiries"
             referencedColumns: ["id"]
           },
         ]
       }
-      email_templates: {
-        Row: {
-          category: string
-          content: string
-          content_en: string | null
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          name: string
-          sort_order: number | null
-          subject: string
-          variables: string[] | null
-        }
-        Insert: {
-          category?: string
-          content: string
-          content_en?: string | null
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          name: string
-          sort_order?: number | null
-          subject: string
-          variables?: string[] | null
-        }
-        Update: {
-          category?: string
-          content?: string
-          content_en?: string | null
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          sort_order?: number | null
-          subject?: string
-          variables?: string[] | null
-        }
-        Relationships: []
-      }
-      event_bookings: {
+      _legacy_event_bookings: {
         Row: {
           booking_number: string
           company_name: string | null
@@ -543,19 +381,19 @@ export type Database = {
             foreignKeyName: "event_bookings_source_inquiry_id_fkey"
             columns: ["source_inquiry_id"]
             isOneToOne: false
-            referencedRelation: "event_inquiries"
+            referencedRelation: "_legacy_event_inquiries"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "event_bookings_source_option_id_fkey"
             columns: ["source_option_id"]
             isOneToOne: false
-            referencedRelation: "inquiry_offer_options"
+            referencedRelation: "_legacy_inquiry_offer_options"
             referencedColumns: ["id"]
           },
         ]
       }
-      event_inquiries: {
+      _legacy_event_inquiries: {
         Row: {
           archived_at: string | null
           archived_by: string | null
@@ -783,12 +621,12 @@ export type Database = {
             foreignKeyName: "event_inquiries_converted_to_booking_id_fkey"
             columns: ["converted_to_booking_id"]
             isOneToOne: false
-            referencedRelation: "event_bookings"
+            referencedRelation: "_legacy_event_bookings"
             referencedColumns: ["id"]
           },
         ]
       }
-      event_payments: {
+      _legacy_event_payments: {
         Row: {
           amount_cents: number
           created_at: string | null
@@ -863,72 +701,12 @@ export type Database = {
             foreignKeyName: "event_payments_inquiry_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
-            referencedRelation: "event_inquiries"
+            referencedRelation: "_legacy_event_inquiries"
             referencedColumns: ["id"]
           },
         ]
       }
-      group_inquiries: {
-        Row: {
-          arrival_time: string | null
-          company_name: string | null
-          contact_name: string
-          created_at: string | null
-          email: string
-          group_size: number
-          id: string
-          internal_notes: string | null
-          language: string | null
-          message: string | null
-          phone: string | null
-          preferred_date: string | null
-          preferred_date_flexible: boolean | null
-          preferred_menu: string | null
-          source: string | null
-          status: string
-          updated_at: string | null
-        }
-        Insert: {
-          arrival_time?: string | null
-          company_name?: string | null
-          contact_name: string
-          created_at?: string | null
-          email: string
-          group_size: number
-          id?: string
-          internal_notes?: string | null
-          language?: string | null
-          message?: string | null
-          phone?: string | null
-          preferred_date?: string | null
-          preferred_date_flexible?: boolean | null
-          preferred_menu?: string | null
-          source?: string | null
-          status?: string
-          updated_at?: string | null
-        }
-        Update: {
-          arrival_time?: string | null
-          company_name?: string | null
-          contact_name?: string
-          created_at?: string | null
-          email?: string
-          group_size?: number
-          id?: string
-          internal_notes?: string | null
-          language?: string | null
-          message?: string | null
-          phone?: string | null
-          preferred_date?: string | null
-          preferred_date_flexible?: boolean | null
-          preferred_menu?: string | null
-          source?: string | null
-          status?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      inquiry_comments: {
+      _legacy_inquiry_comments: {
         Row: {
           author_email: string
           content: string
@@ -961,19 +739,19 @@ export type Database = {
             foreignKeyName: "inquiry_comments_inquiry_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
-            referencedRelation: "event_inquiries"
+            referencedRelation: "_legacy_event_inquiries"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "inquiry_comments_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
-            referencedRelation: "inquiry_comments"
+            referencedRelation: "_legacy_inquiry_comments"
             referencedColumns: ["id"]
           },
         ]
       }
-      inquiry_offer_history: {
+      _legacy_inquiry_offer_history: {
         Row: {
           created_at: string
           email_content: string | null
@@ -1012,12 +790,12 @@ export type Database = {
             foreignKeyName: "inquiry_offer_history_inquiry_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
-            referencedRelation: "event_inquiries"
+            referencedRelation: "_legacy_event_inquiries"
             referencedColumns: ["id"]
           },
         ]
       }
-      inquiry_offer_options: {
+      _legacy_inquiry_offer_options: {
         Row: {
           created_at: string
           created_in_version: number | null
@@ -1080,7 +858,7 @@ export type Database = {
             foreignKeyName: "inquiry_offer_options_inquiry_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
-            referencedRelation: "event_inquiries"
+            referencedRelation: "_legacy_event_inquiries"
             referencedColumns: ["id"]
           },
           {
@@ -1092,7 +870,7 @@ export type Database = {
           },
         ]
       }
-      inquiry_tasks: {
+      _legacy_inquiry_tasks: {
         Row: {
           assigned_to: string | null
           completed_at: string | null
@@ -1146,10 +924,280 @@ export type Database = {
             foreignKeyName: "inquiry_tasks_inquiry_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
-            referencedRelation: "event_inquiries"
+            referencedRelation: "_legacy_event_inquiries"
             referencedColumns: ["id"]
           },
         ]
+      }
+      _legacy_offer_customer_responses: {
+        Row: {
+          created_at: string | null
+          customer_notes: string | null
+          id: string
+          inquiry_id: string
+          ip_address: string | null
+          responded_at: string | null
+          selected_option_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_notes?: string | null
+          id?: string
+          inquiry_id: string
+          ip_address?: string | null
+          responded_at?: string | null
+          selected_option_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_notes?: string | null
+          id?: string
+          inquiry_id?: string
+          ip_address?: string | null
+          responded_at?: string | null
+          selected_option_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_customer_responses_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "_legacy_event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offer_customer_responses_selected_option_id_fkey"
+            columns: ["selected_option_id"]
+            isOneToOne: false
+            referencedRelation: "_legacy_inquiry_offer_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activity_logs: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          new_value: Json | null
+          old_value: Json | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Relationships: []
+      }
+      admin_presence: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          is_editing: boolean | null
+          last_seen: string
+          user_email: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_editing?: boolean | null
+          last_seen?: string
+          user_email?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_editing?: boolean | null
+          last_seen?: string
+          user_email?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      email_delivery_logs: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          provider: string
+          provider_message_id: string | null
+          recipient_email: string
+          recipient_name: string | null
+          sent_at: string
+          sent_by: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          provider: string
+          provider_message_id?: string | null
+          recipient_email: string
+          recipient_name?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          provider?: string
+          provider_message_id?: string | null
+          recipient_email?: string
+          recipient_name?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      email_templates: {
+        Row: {
+          category: string
+          content: string
+          content_en: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          sort_order: number | null
+          subject: string
+          variables: string[] | null
+        }
+        Insert: {
+          category?: string
+          content: string
+          content_en?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          sort_order?: number | null
+          subject: string
+          variables?: string[] | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          content_en?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          sort_order?: number | null
+          subject?: string
+          variables?: string[] | null
+        }
+        Relationships: []
+      }
+      group_inquiries: {
+        Row: {
+          arrival_time: string | null
+          company_name: string | null
+          contact_name: string
+          created_at: string | null
+          email: string
+          group_size: number
+          id: string
+          internal_notes: string | null
+          language: string | null
+          message: string | null
+          phone: string | null
+          preferred_date: string | null
+          preferred_date_flexible: boolean | null
+          preferred_menu: string | null
+          source: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          arrival_time?: string | null
+          company_name?: string | null
+          contact_name: string
+          created_at?: string | null
+          email: string
+          group_size: number
+          id?: string
+          internal_notes?: string | null
+          language?: string | null
+          message?: string | null
+          phone?: string | null
+          preferred_date?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          arrival_time?: string | null
+          company_name?: string | null
+          contact_name?: string
+          created_at?: string | null
+          email?: string
+          group_size?: number
+          id?: string
+          internal_notes?: string | null
+          language?: string | null
+          message?: string | null
+          phone?: string | null
+          preferred_date?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       locations: {
         Row: {
@@ -1382,54 +1430,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
-      }
-      offer_customer_responses: {
-        Row: {
-          created_at: string | null
-          customer_notes: string | null
-          id: string
-          inquiry_id: string
-          ip_address: string | null
-          responded_at: string | null
-          selected_option_id: string | null
-          user_agent: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          customer_notes?: string | null
-          id?: string
-          inquiry_id: string
-          ip_address?: string | null
-          responded_at?: string | null
-          selected_option_id?: string | null
-          user_agent?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          customer_notes?: string | null
-          id?: string
-          inquiry_id?: string
-          ip_address?: string | null
-          responded_at?: string | null
-          selected_option_id?: string | null
-          user_agent?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "offer_customer_responses_inquiry_id_fkey"
-            columns: ["inquiry_id"]
-            isOneToOne: false
-            referencedRelation: "event_inquiries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "offer_customer_responses_selected_option_id_fkey"
-            columns: ["selected_option_id"]
-            isOneToOne: false
-            referencedRelation: "inquiry_offer_options"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       order_number_sequences: {
         Row: {
@@ -1821,6 +1821,13 @@ export type Database = {
             foreignKeyName: "v2_customers_merged_into_id_fkey"
             columns: ["merged_into_id"]
             isOneToOne: false
+            referencedRelation: "customer_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_customers_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
             referencedRelation: "v2_customers"
             referencedColumns: ["id"]
           },
@@ -1861,6 +1868,27 @@ export type Database = {
           source?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "v2_event_changelog_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_changelog_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_changelog_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "v2_event_changelog_event_id_fkey"
             columns: ["event_id"]
@@ -1906,7 +1934,35 @@ export type Database = {
             foreignKeyName: "v2_event_comments_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "inquiry_comments"
             referencedColumns: ["id"]
           },
           {
@@ -1981,6 +2037,27 @@ export type Database = {
             foreignKeyName: "v2_event_emails_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_emails_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_emails_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_emails_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -2024,6 +2101,27 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "v2_event_offer_history_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_offer_history_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_offer_history_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "v2_event_offer_history_event_id_fkey"
             columns: ["event_id"]
@@ -2086,6 +2184,27 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "v2_event_tasks_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_tasks_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_tasks_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "v2_event_tasks_event_id_fkey"
             columns: ["event_id"]
@@ -2389,6 +2508,13 @@ export type Database = {
             foreignKeyName: "v2_events_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "customer_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "v2_customers"
             referencedColumns: ["id"]
           },
@@ -2489,6 +2615,27 @@ export type Database = {
             foreignKeyName: "v2_offer_options_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -2585,6 +2732,27 @@ export type Database = {
             foreignKeyName: "v2_payments_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -2592,6 +2760,422 @@ export type Database = {
       }
     }
     Views: {
+      catering_orders: {
+        Row: {
+          billing_city: string | null
+          billing_country: string | null
+          billing_name: string | null
+          billing_street: string | null
+          billing_zip: string | null
+          calculated_distance_km: number | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          company_name: string | null
+          created_at: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          delivery_address: string | null
+          delivery_city: string | null
+          delivery_cost: number | null
+          delivery_floor: string | null
+          delivery_street: string | null
+          delivery_zip: string | null
+          desired_date: string | null
+          desired_time: string | null
+          has_elevator: boolean | null
+          id: string | null
+          internal_notes: string | null
+          is_pickup: boolean | null
+          is_test: boolean | null
+          items: Json | null
+          last_customer_message_at: string | null
+          last_our_reply_at: string | null
+          lexoffice_contact_id: string | null
+          lexoffice_credit_note_id: string | null
+          lexoffice_document_type: string | null
+          lexoffice_invoice_id: string | null
+          minimum_order_surcharge: number | null
+          notes: string | null
+          order_number: string | null
+          payment_method: string | null
+          payment_status: string | null
+          reference_number: string | null
+          reminder_sent_at: string | null
+          status: string | null
+          stripe_payment_intent_id: string | null
+          total_amount: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      customer_profiles: {
+        Row: {
+          billing_city: string | null
+          billing_country: string | null
+          billing_name: string | null
+          billing_street: string | null
+          billing_zip: string | null
+          company: string | null
+          created_at: string | null
+          delivery_city: string | null
+          delivery_country: string | null
+          delivery_floor: string | null
+          delivery_street: string | null
+          delivery_zip: string | null
+          email: string | null
+          has_elevator: boolean | null
+          id: string | null
+          name: string | null
+          phone: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          billing_city?: never
+          billing_country?: never
+          billing_name?: never
+          billing_street?: never
+          billing_zip?: never
+          company?: string | null
+          created_at?: string | null
+          delivery_city?: string | null
+          delivery_country?: never
+          delivery_floor?: never
+          delivery_street?: string | null
+          delivery_zip?: string | null
+          email?: string | null
+          has_elevator?: never
+          id?: string | null
+          name?: string | null
+          phone?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          billing_city?: never
+          billing_country?: never
+          billing_name?: never
+          billing_street?: never
+          billing_zip?: never
+          company?: string | null
+          created_at?: string | null
+          delivery_city?: string | null
+          delivery_country?: never
+          delivery_floor?: never
+          delivery_street?: string | null
+          delivery_zip?: string | null
+          email?: string | null
+          has_elevator?: never
+          id?: string | null
+          name?: string | null
+          phone?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      email_messages: {
+        Row: {
+          attachments: Json | null
+          body_html: string | null
+          body_text: string | null
+          created_at: string | null
+          direction: string | null
+          from_email: string | null
+          id: string | null
+          in_reply_to: string | null
+          inquiry_id: string | null
+          resend_message_id: string | null
+          resend_status: string | null
+          subject: string | null
+          to_email: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string | null
+          direction?: never
+          from_email?: string | null
+          id?: string | null
+          in_reply_to?: string | null
+          inquiry_id?: string | null
+          resend_message_id?: string | null
+          resend_status?: string | null
+          subject?: string | null
+          to_email?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string | null
+          direction?: never
+          from_email?: string | null
+          id?: string | null
+          in_reply_to?: string | null
+          inquiry_id?: string | null
+          resend_message_id?: string | null
+          resend_status?: string | null
+          subject?: string | null
+          to_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_event_emails_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_emails_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_emails_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_emails_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_bookings: {
+        Row: {
+          booking_number: string | null
+          company_name: string | null
+          created_at: string | null
+          customer_email: string | null
+          customer_name: string | null
+          event_date: string | null
+          event_time: string | null
+          guest_count: number | null
+          id: string | null
+          internal_notes: string | null
+          lexoffice_contact_id: string | null
+          lexoffice_document_type: string | null
+          lexoffice_invoice_id: string | null
+          location_id: string | null
+          menu_confirmed: boolean | null
+          menu_selection: Json | null
+          package_id: string | null
+          payment_status: string | null
+          phone: string | null
+          source_inquiry_id: string | null
+          source_option_id: string | null
+          status: string | null
+          stripe_payment_intent_id: string | null
+          stripe_payment_link_id: string | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_events_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_events_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_inquiries: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          assigned_at: string | null
+          assigned_by: string | null
+          assigned_to: string | null
+          billing_address_different: boolean | null
+          billing_city: string | null
+          billing_company_name: string | null
+          billing_country: string | null
+          billing_postal_code: string | null
+          billing_street: string | null
+          company_city: string | null
+          company_country: string | null
+          company_name: string | null
+          company_postal_code: string | null
+          company_street: string | null
+          contact_name: string | null
+          converted_to_booking_id: string | null
+          created_at: string | null
+          current_offer_version: number | null
+          delivery_city: string | null
+          delivery_street: string | null
+          delivery_time_slot: string | null
+          delivery_zip: string | null
+          deposit_due_days: number | null
+          deposit_percent: number | null
+          email: string | null
+          email_draft: string | null
+          event_end_date: string | null
+          event_type: string | null
+          guest_count: string | null
+          id: string | null
+          inquiry_type: Database["public"]["Enums"]["inquiry_type"] | null
+          internal_notes: string | null
+          is_test: boolean | null
+          last_edited_at: string | null
+          last_edited_by: string | null
+          lexoffice_invoice_id: string | null
+          lexoffice_quotation_id: string | null
+          location_city: string | null
+          location_country: string | null
+          location_name: string | null
+          location_postal_code: string | null
+          location_street: string | null
+          location_type: string | null
+          menu_selection: Json | null
+          message: string | null
+          notification_sent: boolean | null
+          offer_phase: string | null
+          offer_sent_at: string | null
+          offer_sent_by: string | null
+          offer_slug: string | null
+          offer_validity_days: number | null
+          paid_amount: number | null
+          payment_type: string | null
+          phone: string | null
+          preferred_date: string | null
+          priority: string | null
+          quote_items: Json | null
+          quote_notes: string | null
+          remaining_amount: number | null
+          reminder_count: number | null
+          reminder_sent_at: string | null
+          room_selection: string | null
+          selected_items: Json | null
+          selected_option_id: string | null
+          selected_packages: Json | null
+          source: string | null
+          status: string | null
+          time_slot: string | null
+          updated_at: string | null
+          venue: string | null
+        }
+        Relationships: []
+      }
+      event_payments: {
+        Row: {
+          amount_cents: number | null
+          created_at: string | null
+          created_by: string | null
+          due_date: string | null
+          due_days_before_event: number | null
+          email_resend_id: string | null
+          email_sent_at: string | null
+          id: string | null
+          inquiry_id: string | null
+          lexoffice_invoice_id: string | null
+          lexoffice_invoice_number: string | null
+          notes: string | null
+          paid_at: string | null
+          paid_via: string | null
+          payment_type: string | null
+          reminder_sent_at: string | null
+          status: string | null
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_payment_link_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount_cents?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          due_date?: string | null
+          due_days_before_event?: number | null
+          email_resend_id?: string | null
+          email_sent_at?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          lexoffice_invoice_id?: string | null
+          lexoffice_invoice_number?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_via?: string | null
+          payment_type?: never
+          reminder_sent_at?: string | null
+          status?: never
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_payment_link_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount_cents?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          due_date?: string | null
+          due_days_before_event?: number | null
+          email_resend_id?: string | null
+          email_sent_at?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          lexoffice_invoice_id?: string | null
+          lexoffice_invoice_number?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_via?: string | null
+          payment_type?: never
+          reminder_sent_at?: string | null
+          status?: never
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_payment_link_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_payments_enriched: {
         Row: {
           amount_cents: number | null
@@ -2628,7 +3212,383 @@ export type Database = {
             foreignKeyName: "event_payments_inquiry_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
+            referencedRelation: "_legacy_event_inquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inquiry_comments: {
+        Row: {
+          author_email: string | null
+          content: string | null
+          created_at: string | null
+          id: string | null
+          inquiry_id: string | null
+          parent_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          author_email?: string | null
+          content?: string | null
+          created_at?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          parent_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          author_email?: string | null
+          content?: string | null
+          created_at?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          parent_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_event_comments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
             referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "inquiry_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "v2_event_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inquiry_offer_history: {
+        Row: {
+          created_at: string | null
+          email_content: string | null
+          id: string | null
+          inquiry_id: string | null
+          options_snapshot: Json | null
+          pdf_url: string | null
+          sent_at: string | null
+          sent_by: string | null
+          version: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_content?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          options_snapshot?: Json | null
+          pdf_url?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          version?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          email_content?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          options_snapshot?: Json | null
+          pdf_url?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_event_offer_history_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_offer_history_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_offer_history_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_offer_history_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inquiry_offer_options: {
+        Row: {
+          created_at: string | null
+          created_in_version: number | null
+          guest_count: number | null
+          id: string | null
+          inquiry_id: string | null
+          is_active: boolean | null
+          menu_selection: Json | null
+          offer_mode: string | null
+          offer_version: number | null
+          option_label: string | null
+          package_id: string | null
+          selected_quantity: number | null
+          sort_order: number | null
+          stripe_payment_link_id: string | null
+          stripe_payment_link_url: string | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_in_version?: number | null
+          guest_count?: number | null
+          id?: string | null
+          inquiry_id?: string | null
+          is_active?: boolean | null
+          menu_selection?: Json | null
+          offer_mode?: never
+          offer_version?: number | null
+          option_label?: string | null
+          package_id?: string | null
+          selected_quantity?: never
+          sort_order?: number | null
+          stripe_payment_link_id?: string | null
+          stripe_payment_link_url?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_in_version?: number | null
+          guest_count?: number | null
+          id?: string | null
+          inquiry_id?: string | null
+          is_active?: boolean | null
+          menu_selection?: Json | null
+          offer_mode?: never
+          offer_version?: number | null
+          option_label?: string | null
+          package_id?: string | null
+          selected_quantity?: never
+          sort_order?: number | null
+          stripe_payment_link_id?: string | null
+          stripe_payment_link_url?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inquiry_tasks: {
+        Row: {
+          assigned_to: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string | null
+          inquiry_id: string | null
+          priority: string | null
+          reminder_sent: boolean | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          priority?: never
+          reminder_sent?: boolean | null
+          status?: never
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          priority?: never
+          reminder_sent?: boolean | null
+          status?: never
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_event_tasks_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_tasks_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_tasks_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_tasks_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offer_customer_responses: {
+        Row: {
+          created_at: string | null
+          customer_notes: string | null
+          id: string | null
+          inquiry_id: string | null
+          ip_address: string | null
+          responded_at: string | null
+          selected_option_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_notes?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          ip_address?: never
+          responded_at?: string | null
+          selected_option_id?: string | null
+          user_agent?: never
+        }
+        Update: {
+          created_at?: string | null
+          customer_notes?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          ip_address?: never
+          responded_at?: string | null
+          selected_option_id?: string | null
+          user_agent?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
         ]
@@ -2669,6 +3629,27 @@ export type Database = {
           updated_at: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "v2_payments_event_id_fkey"
             columns: ["event_id"]
