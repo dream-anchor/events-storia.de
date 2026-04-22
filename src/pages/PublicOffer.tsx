@@ -938,7 +938,9 @@ function ProposalView({
                     ? (hasQuantities
                         ? `Sicher bezahlen über Stripe — für ${totalQuantity} ${totalQuantity === 1 ? 'Gast' : 'Gäste'}`
                         : "Sicher bezahlen über Stripe — Kreditkarte, Apple Pay oder SEPA")
-                    : "Wählen Sie oben eine Option oder geben Sie Mengen an."}
+                    : (isSingle
+                        ? "Wählen Sie oben eine Option."
+                        : "Bitte Mengen pro Option angeben.")}
                 </p>
               </div>
 
