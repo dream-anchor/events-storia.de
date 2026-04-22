@@ -1,122 +1,99 @@
 
 
-# Wizard-Reparatur: 3 Bugs nach Phase-2-Migration
+# Restaurant-Komplett-Menüs (Mittag/Abend) im Wizard wieder verfügbar machen
 
-## Befund (Forensik)
+## Befund
 
-Die Phase-2-Migration hat `inquiry_offer_options` von einer Tabelle in eine **VIEW** auf `v2_offer_options` umgewandelt — mit INSTEAD-OF-Triggern für Insert/Update/Delete. Drei Stellen im Code wurden dabei nicht mitgezogen.
+Es existieren **zwei** Restaurant-Datenquellen:
 
-### Bug 1 — `42P10: no unique constraint matching ON CONFLICT`
+1. **`useRistoranteMenus` / `useCombinedMenuItems`** — liefert **einzelne Speisen** (à-la-carte). Das ist, was aktuell im Wizard `CourseSelector` unter „Restaurant" gezeigt wird.
+2. **`useRistoranteCompleteMenus`** (Edge Function `fetch-ristorante-complete-menus`) — liefert die **kuratierten Komplett-Menüs**:
+   - **Mittag**: 3-Gänge-Menü-Pakete + Kursauswahl pro Gang
+   - **Abend**: Degustationsmenüs mit optionaler Weinbegleitung + à-la-carte-Kategorien
 
-`src/components/admin/refine/InquiryEditor/OfferBuilder/useOfferBuilder.ts:208-211`
+Die Komponente, die diese Komplett-Menüs als ganze Optionen importiert, heißt **`MenuImporter.tsx`** (in `OfferBuilder/`). Sie ist **nur im alten OfferBuilder** (`OptionCardGrid.tsx`) eingebunden — im neuen Wizard (`MultiOffer/WizardConfigurator.tsx`) fehlt sie. Das ist die Regression.
 
-```ts
-await supabase.from('inquiry_offer_options')
-  .upsert(rows, { onConflict: 'id' });   // ← scheitert
-```
+## Lösung
 
-`onConflict` braucht eine echte UNIQUE/PK-Constraint. Auf einer VIEW gibt es die nicht — die Trigger feuern nur auf reinem INSERT bzw. reinem UPDATE. Der Upsert-Pfad muss aufgesplittet werden in „existierende IDs → UPDATE / neue IDs → INSERT".
+Den `MenuImporter`-Button in den `MultiOffer`-Workflow integrieren — auf der **Optionen-Übersichts-Ebene**, nicht im Wizard-Inneren. Logik: Admin klickt „Restaurant-Menü importieren" → wählt Mittag-Menü(s) oder Abend-Tasting-Menü(s) aus → für jede Auswahl wird **automatisch eine neue Option** angelegt (mit korrektem Namen, Preis, Menü-Selection als Custom-Items, Weinbegleitung optional).
 
-### Bug 2 — Restaurant-Menü (Mittag/Abend) fehlt in Wizard-Auswahl
+### Umsetzung in 2 Schritten
 
-Die Restaurant-Daten kommen aus `useRistoranteMenus` und werden in `useCombinedMenuItems` geladen. **Sie sind da** — aber `CourseSelector` filtert in `recommended`-Mode nach `courseConfig.allowed_sources`. Wenn `package_course_config.allowed_sources = ['ristorante']` gesetzt ist, sind die Items vorhanden. Wenn der Admin früher per Toggle „Restaurant"-Tab wählen konnte, ging das. Heute schlägt das fehl, weil:
+**Schritt 1 — `MultiOfferComposer.tsx` (Übersichtsseite)**
 
-- `useCombinedMenuItems` prefixt IDs mit `ristorante_<uuid>`
-- `MenuItem.source` ist korrekt `'ristorante'`
-- ABER: in `WizardConfigurator.tsx:74-85` wird `menuItems` aus `allMenuItems` neu gebaut — die Items kommen durch
-- Der eigentliche Verdacht: `package_course_config.allowed_sources` für die existierenden Pakete enthält nur `['catering']` (Default), so dass Restaurant-Items rausgefiltert werden. **Vor der Migration** wurden die Restaurant-Menüs evtl. über einen anderen Weg angezeigt (Tasting-Menüs aus `fetch-ristorante-complete-menus`).
-
-→ Verifikation per DB-Query, dann zwei mögliche Fixes:
-- (a) `allowed_sources` standardmäßig `['catering','ristorante']` setzen, oder
-- (b) im `CourseSelector`-Tab „Restaurant" das `allowed_sources`-Filter überschreiben (Admin kann immer aus dem ganzen Pool wählen, Filter ist nur Voreinstellung).
-
-Empfehlung: **(b)** — keine Datenmigration nötig, gleiches UX wie früher.
-
-### Bug 3 — Preis im Public Offer nicht übernommen
-
-Drei Ketten-Probleme:
-
-1. **`useMultiOfferState.ts:81`** — beim Laden bestehender Optionen wird `packageName: ''` gesetzt (Kommentar „Will be populated from packages data") — passiert aber nirgends. Folge: `packageNameOverride` im Save ist leer, RPC fällt auf `packages.name` zurück, ok. Aber `totalAmount` wird **nicht** neu berechnet wenn der Admin Gästezahl ändert.
-2. **`WizardConfigurator.tsx:202-219`** — `totalAmount` wird ausschließlich bei `handlePackageChange` neu kalkuliert. Wenn der Admin nur `guestCount` ändert oder eine Position in `option.guestCount` setzt, bleibt `totalAmount` auf dem alten Wert hängen → DB speichert alten Preis → Public Offer zeigt alten Preis.
-3. **RPC `get_public_offer`** liest `ioo.total_amount` direkt. Was in der DB steht, wird angezeigt — also liegt die Wurzel beim Speichern (Bug 3.2).
-
-Fix: Single Source of Truth einführen — eine `useMemo`/Effect-Kombination, die `totalAmount` aus `(packagePrice, guestCount, pricePerPerson)` ableitet und bei Änderungen aktualisiert.
-
----
-
-## Plan: Reparatur in drei sauberen Schritten
-
-### Schritt 1 — DB-Forensik (read-only, vorab)
-
-```sql
--- a) allowed_sources der aktiven Pakete prüfen
-SELECT p.name, pcc.course_label, pcc.allowed_sources
-FROM packages p
-JOIN package_course_config pcc ON pcc.package_id = p.id
-WHERE p.is_active = true
-ORDER BY p.name, pcc.sort_order;
-
--- b) Letzte 5 Optionen: stimmt total_amount mit guest_count × packages.price überein?
-SELECT v.id, v.option_label, v.guest_count, v.amount_total,
-       p.name, p.price, p.price_per_person,
-       (CASE WHEN p.price_per_person THEN p.price * v.guest_count ELSE p.price END) AS expected
-FROM v2_offer_options v
-LEFT JOIN packages p ON p.id = v.package_id
-ORDER BY v.created_at DESC LIMIT 5;
-```
-
-### Schritt 2 — Bug 1 fixen (`useOfferBuilder.ts`)
-
-Den `upsert(...,{onConflict:'id'})`-Block (Zeilen ~207-212) ersetzen durch:
+Den `MenuImporter`-Button neben „Neue Option hinzufügen" platzieren. `onImportMultiple`-Callback der `MenuImporter`-API nutzen:
 
 ```ts
-const existingForUpdate = rows.filter(r => existingIds.has(r.id));
-const newForInsert = rows.filter(r => !existingIds.has(r.id));
+import { MenuImporter } from "../OfferBuilder/MenuImporter";
+import type { OfferBuilderOption } from "../OfferBuilder/types";
 
-for (const row of existingForUpdate) {
-  const { error } = await supabase
-    .from('inquiry_offer_options')
-    .update(row).eq('id', row.id);
-  if (error) throw error;
-}
-if (newForInsert.length > 0) {
-  const { error } = await supabase
-    .from('inquiry_offer_options')
-    .insert(newForInsert);
-  if (error) throw error;
+// Innerhalb MultiOfferComposer:
+<MenuImporter
+  guestCount={inquiry.guest_count_int ?? 10}
+  currentOptionCount={state.options.length}
+  onImportMultiple={(importedOptions) => {
+    // importedOptions: OfferBuilderOption[] aus MenuImporter
+    importedOptions.forEach((imp) => {
+      addOption({
+        optionLabel: nextLabel(),
+        packageId: null,                  // Restaurant-Menü = kein Paket
+        packageName: imp.title,           // z.B. "Mittagsmenü 3 Gänge"
+        guestCount: imp.guestCount,
+        totalAmount: imp.totalAmount,
+        menuSelection: imp.menuSelection, // Courses als Custom-Items
+      });
+    });
+  }}
+  disabled={state.options.length >= 5}
+/>
+```
+
+**Schritt 2 — Mapping `OfferBuilderOption` → `OfferOption` (MultiOffer-Format)**
+
+Die zwei Typen unterscheiden sich leicht. Eine kleine Adapter-Funktion in `useMultiOfferState.ts`:
+
+```ts
+function mapImportedToMultiOfferOption(imp: OfferBuilderOption): OfferOption {
+  return {
+    id: crypto.randomUUID(),
+    optionLabel: imp.optionLabel,
+    packageId: null,
+    packageName: imp.title || imp.packageName,
+    guestCount: imp.guestCount,
+    totalAmount: imp.totalAmount,
+    menuSelection: {
+      courses: imp.menuSelection?.courses?.map(c => ({
+        courseType: c.courseType,
+        courseLabel: c.courseLabel,
+        itemId: null,
+        itemName: c.itemName,
+        itemDescription: c.itemDescription || null,
+        itemSource: 'manual',
+        isCustom: true,
+        overridePrice: c.overridePrice ?? null,
+        quantity: c.quantity ?? 1,
+      })) ?? [],
+      drinks: imp.menuSelection?.drinks ?? [],
+    },
+  };
 }
 ```
 
-Die existierenden View-Trigger machen den Rest (Mapping auf `v2_offer_options`).
+### Verifikation
 
-### Schritt 3 — Bug 2 fixen (`CourseSelector.tsx`)
-
-Im Source-Tab-Filter (Zeilen ~104-107): wenn der Admin explizit einen `activeSource`-Tab wählt (z.B. „Restaurant"), den `allowed_sources`-Filter aus Zeile 79-81 **überschreiben** — nicht zusätzlich filtern. Konkret: `allowed_sources`-Filter nur greifen lassen, wenn `activeSource === 'all'`.
-
-Außerdem: alle drei Tabs („Alle", „Catering", „Restaurant") immer sichtbar machen, unabhängig von `allowed_sources.length`. `allowed_sources` ist dann nur noch die Default-Vor­auswahl, kein Hard-Filter.
-
-### Schritt 4 — Bug 3 fixen (Preis-Synchronisation)
-
-In `WizardConfigurator.tsx`: einen `useEffect` ergänzen, der bei Änderung von `option.packageId`, `option.guestCount` oder `selectedPackage.price` den `totalAmount` neu berechnet und `onUpdateOption({ totalAmount })` aufruft — aber nur, wenn der berechnete Wert vom aktuellen abweicht (kein Endlos-Loop).
-
-Zusätzlich in `useMultiOfferState.ts` beim Initial-Load der bestehenden Optionen `packageName` aus dem `packages`-Array auflösen (wird via Prop reingereicht — aktuell nicht erreichbar, deshalb `packageName: ''`). Lösung: `packageName` einfach leer lassen (RPC bevorzugt sowieso `packages.name`), aber **eine Re-Sync-Routine** beim Mount: für jede Option ohne `totalAmount` oder mit `totalAmount === 0` den Preis aus dem zugehörigen Package neu berechnen.
-
-### Schritt 5 — Verifikation
-
-1. Build muss grün sein.
-2. Im Wizard ein Paket wählen → Gäste hochstellen → Total ändert sich live → Speichern wirft keinen 42P10-Fehler.
-3. „Restaurant"-Tab in CourseSelector zeigt Speisekarten-Items (Mittag/Abend) auch bei Paketen mit `allowed_sources=['catering']`.
-4. Im PublicOffer (Slug-URL) erscheint der korrekte `total_amount` aus DB.
-5. SQL-Stichprobe nach Save: `SELECT amount_total FROM v2_offer_options WHERE event_id = '<inquiryId>'` zeigt erwarteten Preis.
-
----
+1. Build grün.
+2. Im Wizard-Übersicht erscheint Button „🍴 Restaurant-Menü importieren".
+3. Klick → Sheet öffnet sich → zeigt **Mittagsmenü** (3-Gänge-Paket + alternative Gänge) und **Degustationsmenüs** mit Weinbegleitung.
+4. Auswahl + Bestätigen → 1-N neue Optionen erscheinen in der Übersicht mit Namen wie „Degustationsmenü 5 Gänge" und korrektem Preis.
+5. Optionen lassen sich speichern (View-Trigger funktionieren bereits, Bug 1 gefixt).
+6. Public Offer zeigt die importierten Menüs korrekt an.
 
 ## Geänderte Dateien
 
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/useOfferBuilder.ts` (Bug 1, ~10 Zeilen)
-- `src/components/admin/refine/InquiryEditor/MenuComposer/CourseSelector.tsx` (Bug 2, ~5 Zeilen Filter-Logik)
-- `src/components/admin/refine/InquiryEditor/MultiOffer/WizardConfigurator.tsx` (Bug 3, +1 useEffect)
-- `src/components/admin/refine/InquiryEditor/MultiOffer/useMultiOfferState.ts` (Bug 3, Re-Sync beim Load)
+- `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx` (+10 Zeilen: MenuImporter einbinden)
+- `src/components/admin/refine/InquiryEditor/MultiOffer/useMultiOfferState.ts` (+15 Zeilen: `addImportedOptions(...)` + Mapper)
 
-Keine DB-Migration, keine RLS-Änderung, keine RPC-Änderung. Reine Frontend-Reparatur, die die bereits korrekt arbeitenden View-Trigger nutzt.
+**Nicht geändert**: `MenuImporter.tsx` selbst, die Edge Function `fetch-ristorante-complete-menus`, `useRistoranteCompleteMenus`. Die existierende, funktionierende Pipeline wird wiederverwendet.
+
+Keine DB-Migration. Keine RLS-Änderung. Reine Frontend-Reparatur, die eine bestehende, getestete Komponente in den neuen Wizard-Flow re-integriert.
 
