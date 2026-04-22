@@ -826,6 +826,13 @@ function ProposalView({
         body: { inquiryId: inquiry.id },
       }).catch(() => {});
 
+      // Auswahl aus localStorage entfernen — Submission abgeschlossen
+      try {
+        window.localStorage.removeItem(QUANTITY_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+
       if (wantsCopy && copyEmail.trim()) {
         supabase.functions.invoke("send-customer-response-copy", {
           body: {
