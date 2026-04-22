@@ -105,7 +105,7 @@ export const EventBookingsList = () => {
           </Card>
         ) : (
           <div className="space-y-3">
-            {bookings?.map((booking) => (
+            {bookings?.map((booking: import('@/hooks/useEventBookings').EventBooking) => (
               <Card key={booking.id} className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 hover:shadow-md hover:border-primary/40 transition-all">
                 <CardContent className="p-0">
                   <Link
