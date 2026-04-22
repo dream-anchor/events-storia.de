@@ -532,6 +532,7 @@ export const SmartInquiryEditor = () => {
         toast.error('Keine aktiven Optionen in der Datenbank gefunden. Bitte Seite neu laden und erneut versuchen.');
         return;
       }
+      console.log('[Send] Step 1 — loaded options from DB:', dbOptions.length);
 
       // Aktuelle Version aus History
       const { data: historyRow } = await supabase
@@ -543,40 +544,66 @@ export const SmartInquiryEditor = () => {
         .maybeSingle();
       const currentVersion = (historyRow as { version: number } | null)?.version || 0;
       const newVersion = currentVersion + 1;
+      console.log('[Send] Step 2 — version:', { currentVersion, newVersion });
 
       try {
         const { data: { user } } = await supabase.auth.getUser();
         const nowIso = new Date().toISOString();
+        console.log('[Send] Step 3 — auth user:', user?.email);
 
-        // 1. History-Eintrag anlegen (snapshot der aktiven Options)
+        // 1. Snapshot der aktiven Options laden
         const { data: fullOptions } = await supabase
           .from('inquiry_offer_options')
           .select('*')
           .eq('inquiry_id', inquiry.id)
           .eq('is_active', true);
-        await supabase.from('inquiry_offer_history').insert([{
+
+        // 2. KRITISCH: Inquiry zuerst updaten — bevor irgendeine Mail rausgeht.
+        //    Wenn das fehlschlägt, brechen wir komplett ab (sonst sieht der Kunde
+        //    eine leere Angebotsseite weil offer_phase noch 'draft' ist).
+        const phaseTarget = sendType === 'final' ? 'final_sent' : 'proposal_sent';
+        const updatePayload = {
+          current_offer_version: newVersion,
+          offer_sent_at: nowIso,
+          offer_sent_by: user?.email || null,
+          status: 'offer_sent',
+          offer_phase: phaseTarget,
+        };
+        console.log('[Send] Step 4 — updating event_inquiries:', updatePayload);
+        const { data: updData, error: updErr } = await supabase
+          .from('event_inquiries')
+          .update(updatePayload as Record<string, unknown>)
+          .eq('id', inquiry.id)
+          .select('id, offer_phase, status, current_offer_version, offer_sent_at');
+        if (updErr) {
+          console.error('[Send] Phase-Update fehlgeschlagen:', updErr);
+          toast.dismiss('offer-send-progress');
+          toast.error('Phase-Update fehlgeschlagen: ' + updErr.message + ' — Versand abgebrochen.', { duration: 15000 });
+          return;
+        }
+        if (!updData || updData.length === 0) {
+          console.error('[Send] Phase-Update returned 0 rows — RLS oder ID-Mismatch?', { inquiryId: inquiry.id });
+          toast.dismiss('offer-send-progress');
+          toast.error('Phase-Update lieferte 0 Zeilen — vermutlich Rechte-Problem. Versand abgebrochen.', { duration: 15000 });
+          return;
+        }
+        console.log('[Send] Step 4 OK — DB confirms:', updData[0]);
+
+        // 3. History-Eintrag anlegen (snapshot der aktiven Options)
+        const { error: histErr } = await supabase.from('inquiry_offer_history').insert([{
           inquiry_id: inquiry.id,
           version: newVersion,
           sent_by: user?.email || null,
           email_content: draft,
           options_snapshot: fullOptions as unknown,
         }] as never);
+        if (histErr) {
+          console.error('[Send] History-Insert fehlgeschlagen (non-blocking):', histErr);
+        } else {
+          console.log('[Send] Step 5 — history version', newVersion, 'gespeichert');
+        }
 
-        // 2. Inquiry updaten: Version, Phase, Status, Versandzeitpunkt
-        const phaseTarget = sendType === 'final' ? 'final_sent' : 'proposal_sent';
-        const { error: updErr } = await supabase
-          .from('event_inquiries')
-          .update({
-            current_offer_version: newVersion,
-            offer_sent_at: nowIso,
-            offer_sent_by: user?.email || null,
-            status: 'offer_sent',
-            offer_phase: phaseTarget,
-          } as Record<string, unknown>)
-          .eq('id', inquiry.id);
-        if (updErr) throw new Error('Phase-Update fehlgeschlagen: ' + updErr.message);
-
-        // 3. LexOffice-Quotation (non-blocking) — nur beim Proposal
+        // 4. LexOffice-Quotation (non-blocking) — nur beim Proposal
         let lexQuotationId: string | null = null;
         if (sendType === 'proposal') {
           try {
@@ -588,13 +615,14 @@ export const SmartInquiryEditor = () => {
               await supabase.from('event_inquiries')
                 .update({ lexoffice_quotation_id: lexQuotationId } as Record<string, unknown>)
                 .eq('id', inquiry.id);
+              console.log('[Send] Step 6 — LexOffice quotation:', lexQuotationId);
             }
           } catch (lexErr) {
             console.error('[Send] LexOffice error (non-blocking):', lexErr);
           }
         }
 
-        // 4. Stripe-Links erstellen (nur bei final)
+        // 5. Stripe-Links erstellen (nur bei final)
         if (sendType === 'final' && fullOptions) {
           for (const opt of fullOptions as Array<Record<string, unknown>>) {
             if (opt.stripe_payment_link_url || !opt.total_amount || Number(opt.total_amount) <= 0) continue;
