@@ -27,7 +27,7 @@ import { SendSuccessDialog, type SendSuccessInfo } from "./SendSuccessDialog";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry, Package, QuoteItem, SelectedPackage, EmailTemplate } from "./types";
 import { MenuSelection } from "./MenuComposer";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
 import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";

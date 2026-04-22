@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { calculateEventPackagePrice } from "@/lib/eventPricing";
 import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
