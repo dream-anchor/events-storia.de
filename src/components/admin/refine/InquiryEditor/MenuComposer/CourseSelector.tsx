@@ -76,16 +76,16 @@ export const CourseSelector = ({
 
     // In recommended mode, apply category/source filters
     if (searchMode === 'recommended') {
-      // Filter by allowed sources — NUR wenn kein Tab explizit gewählt wurde.
-      // Sobald der Admin auf "Catering" oder "Restaurant" klickt, überschreibt
-      // der Tab-Filter (unten) die Paket-Voreinstellung. Damit kann man immer
-      // aus dem ganzen Pool wählen, auch wenn allowed_sources strikt ist.
-      if (activeSource === 'all' && courseConfig.allowed_sources.length > 0) {
-        items = items.filter(item => courseConfig.allowed_sources.includes(item.source));
-      }
+      // Source-Filter: vollständig vom Tab gesteuert.
+      // - Tab "Alle"        → keine Source-Restriktion (Admin sieht alles)
+      // - Tab "Catering"    → nur catering (siehe activeSource-Filter unten)
+      // - Tab "Restaurant"  → nur ristorante (siehe activeSource-Filter unten)
+      // allowed_sources aus dem Paket dient nur als Default-Vorauswahl des Tabs
+      // (in useState weiter oben), niemals als Hard-Filter.
 
-      // Filter by allowed categories
-      if (courseConfig.allowed_categories.length > 0) {
+      // Category-Filter NUR wenn der Admin im "Alle"-Modus ist.
+      // Sobald er bewusst eine Source wählt, will er den vollen Pool dieser Source sehen.
+      if (activeSource === 'all' && courseConfig.allowed_categories.length > 0) {
         items = items.filter(item => 
           courseConfig.allowed_categories.some(cat => 
             item.category_name.toLowerCase().includes(cat.toLowerCase()) ||
@@ -435,6 +435,24 @@ export const CourseSelector = ({
           </Button>
         </div>
 
+        {/* Source Filter — IMMER sichtbar (war früher unter Collapsible versteckt,
+            wodurch Admins keinen Zugriff auf das Restaurant-Menü hatten, sobald
+            das Paket allowed_sources=['catering'] hatte). Tab überschreibt die
+            Paket-Voreinstellung und gibt Zugriff auf den ganzen Pool. */}
+        <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as typeof activeSource)}>
+          <TabsList className="h-11 w-full">
+            <TabsTrigger value="all" className="text-xs flex-1 min-h-[44px]">Alle</TabsTrigger>
+            <TabsTrigger value="catering" className="text-xs flex-1 min-h-[44px]">
+              <ChefHat className="h-3 w-3 mr-1" />
+              Catering
+            </TabsTrigger>
+            <TabsTrigger value="ristorante" className="text-xs flex-1 min-h-[44px]">
+              <Utensils className="h-3 w-3 mr-1" />
+              Restaurant
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {/* Collapsible Filters (Progressive Disclosure) */}
         <Collapsible open={showFilters}>
           <CollapsibleContent className="space-y-3 pt-2">
@@ -465,23 +483,6 @@ export const CourseSelector = ({
                 Alle Speisen
               </button>
             </div>
-
-            {/* Source Filter — immer sichtbar, in beiden Modi.
-                Im 'recommended'-Modus überschreibt ein expliziter Tab die
-                Paket-Voreinstellung (allowed_sources). */}
-            <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as typeof activeSource)}>
-              <TabsList className="h-11 w-full">
-                <TabsTrigger value="all" className="text-xs flex-1 min-h-[44px]">Alle</TabsTrigger>
-                <TabsTrigger value="catering" className="text-xs flex-1 min-h-[44px]">
-                  <ChefHat className="h-3 w-3 mr-1" />
-                  Catering
-                </TabsTrigger>
-                <TabsTrigger value="ristorante" className="text-xs flex-1 min-h-[44px]">
-                  <Utensils className="h-3 w-3 mr-1" />
-                  Restaurant
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
 
             {/* Category Info - only in recommended mode */}
             {searchMode === 'recommended' && courseConfig.allowed_categories.length > 0 && (
