@@ -511,6 +511,7 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     saveStatus,
     flushSave,
     addOption,
+    addImportedOptions,
     removeOption,
     updateOption,
     toggleOptionActive,
