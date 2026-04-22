@@ -284,7 +284,8 @@ export const OrdersList = () => {
     // Spalte 7: Summe
     {
       accessorKey: "total_amount",
-      header: "Summe",
+      header: sortableHeader<CateringOrder>("Summe"),
+      sortingFn: "basic",
       cell: ({ row }) => (
         <p className="font-semibold text-sm whitespace-nowrap">
           {row.original.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
@@ -295,7 +296,14 @@ export const OrdersList = () => {
     // Spalte 8: Antwort-Status
     {
       id: "conversation",
-      header: "Kommunikation",
+      accessorFn: (row) => {
+        const lastCustomer = row.last_customer_message_at ? new Date(row.last_customer_message_at).getTime() : 0;
+        const lastOurs = row.last_our_reply_at ? new Date(row.last_our_reply_at).getTime() : 0;
+        if (lastCustomer > lastOurs) return "0_antwort_wartet";
+        if (lastOurs > 0) return "1_beantwortet";
+        return "2_kein_dialog";
+      },
+      header: sortableHeader<CateringOrder>("Kommunikation"),
       cell: ({ row }) => {
         const o = row.original;
         const lastCustomer = o.last_customer_message_at ? new Date(o.last_customer_message_at).getTime() : 0;
@@ -346,6 +354,7 @@ export const OrdersList = () => {
           onRowClick={handleRowClick}
           isLoading={isLoading}
           pageSize={25}
+          defaultSorting={[{ id: "desired_date", desc: false }]}
         />
       </div>
     </AdminLayout>
