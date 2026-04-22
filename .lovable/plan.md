@@ -1,66 +1,59 @@
 
 
-# LexOffice-PDF in OfferSendPreview ergänzen — Vorschau funktionsfähig machen
+# Mengen-Stepper im PublicOffer: korrektes "Verbleibend" + Max-Cap
 
 ## Befund
 
-`OfferSendPreview` zeigt „Kein LexOffice-Angebot verknüpft", weil es das PDF **nur** anzeigen kann, wenn `event_inquiries.lexoffice_quotation_id` bereits gesetzt ist. Das passiert aber erst **nach** dem Klick auf „Senden" in `SmartInquiryEditor.handleSend` (Zeile 608–622: `create-event-quotation` → `update event_inquiries.lexoffice_quotation_id`).
+1. **Falsche „Verbleibend"-Anzeige (Screenshot 3):**
+   `remainingGuests` wird in `PublicOffer.tsx` Zeile 869–872 berechnet als
+   `targetGuests - totalQuantity + (eigene Quantity)`.
+   Dadurch wird die eigene Menge der Karte **wieder zur Restmenge addiert**. Bei 3/10 zeigt die Karte „noch 10 von 10 zu verteilen" statt korrekt „noch 7 von 10".
 
-Bei der Vorschau (`/admin/events/:id/preview?send=proposal`) ist die Quotation also bauartbedingt noch nicht vorhanden → Block 3 ist leer. Genau das zeigt der Screenshot.
-
-Zusätzlich: Die `MultiOfferComposer.handleSendOffer` ruft `create-event-quotation` zwar auf, **wirft aber `quotationId` weg** und persistiert sie nicht. Das ist ein zweiter Bug, der dafür sorgt, dass die Quotation auch nach „Senden" über den neuen Wizard nicht in der Inquiry verlinkt wird → spätere Vorschauen bleiben ebenfalls leer.
+2. **Kein Max-Cap (Screenshot 1):**
+   Der `+`-Button und das Input-Feld lassen beliebige Werte zu — Kunde kann 11 Gäste auf 10 verteilen, obwohl die Anfrage 10 Personen umfasst.
 
 ## Lösung
 
-### Fix 1 — Lazy-Quotation in `OfferSendPreview`
+Beide Fixes in `src/pages/PublicOffer.tsx`. Reine Frontend-Änderung, ~10 Zeilen Diff.
 
-Wenn beim Mount `inquiry.lexoffice_quotation_id` fehlt, einmalig `create-event-quotation` aufrufen, die zurückgegebene `quotationId` in `event_inquiries.lexoffice_quotation_id` schreiben, lokalen State updaten und dann (wie bisher) `get-lexoffice-document` aufrufen. Dadurch sieht der Admin in der Vorschau **exakt das PDF**, das beim Senden angehängt würde.
+### Fix 1 — Korrekte Restmenge
 
-Konkret im PDF-Loading-`useEffect` (Zeile 173–205):
-
-1. `if (!inquiry.lexoffice_quotation_id)` → `await supabase.functions.invoke('create-event-quotation', { body: { inquiryId: inquiry.id } })`
-2. Bei Erfolg: `setInquiry(prev => ({ ...prev!, lexoffice_quotation_id: data.quotationId }))` + DB-Update
-3. Anschließend Standard-PDF-Fetch über `get-lexoffice-document`
-4. Bei Fehler: aktueller Fehler-State (`pdfError`) + zusätzlicher Hinweis „Quotation konnte nicht erstellt werden" mit Retry-Button
-
-Damit funktioniert die Vorschau **out-of-the-box**, ohne dass der Admin vorher etwas extra klicken muss. Beim späteren echten „Senden" prüft `SmartInquiryEditor.handleSend` ohnehin, ob bereits eine `lexoffice_quotation_id` vorhanden ist (falls nein, wird sie dort weiterhin erstellt — also keine Doppel-Quotation, sofern wir den Check dort noch ergänzen, siehe Fix 3).
-
-### Fix 2 — `quotationId` im MultiOfferComposer persistieren
-
-In `MultiOfferComposer.handleSendOffer` (Zeile 249–267): Antwort destrukturieren und persistieren — analog zu `SmartInquiryEditor`:
+Zeile 869–872: die eigene Quantity **nicht** mehr addieren.
 
 ```ts
-const { data: quotRes, error } = await supabase.functions.invoke("create-event-quotation", { ... });
-if (error) throw error;
-if (quotRes?.success && quotRes.quotationId) {
-  await supabase.from('event_inquiries')
-    .update({ lexoffice_quotation_id: quotRes.quotationId })
-    .eq('id', inquiry.id);
+remainingGuests={
+  targetGuests !== null
+    ? Math.max(0, targetGuests - totalQuantity)
+    : null
 }
 ```
 
-### Fix 3 — Idempotenz-Guard in `SmartInquiryEditor.handleSend`
+So zeigt jede Karte konsistent dieselbe globale Restmenge — bei Summe = 3 von 10 sehen alle Karten „noch 7 von 10 zu verteilen".
 
-Vor dem `create-event-quotation`-Aufruf (Zeile 608) prüfen, ob `inquiry.lexoffice_quotation_id` bereits existiert (z.B. weil die Vorschau die Quotation schon angelegt hat). Wenn ja: Skip — dadurch werden keine Duplicate-Quotations in LexOffice angelegt.
+### Fix 2 — Max-Cap auf Stepper
 
-```ts
-if (sendType === 'proposal' && !inquiry.lexoffice_quotation_id) {
-  // wie bisher: create-event-quotation aufrufen + persistieren
-}
-```
+Pro Card berechnen: `maxForThisOption = targetGuests !== null ? quantity + remainingGuests : Infinity`.
+Das entspricht „aktuelle Menge + globale Restmenge" → Erhöhen ist nur möglich, solange globale Summe ≤ Ziel.
+
+- `+`-Button: `disabled={targetGuests !== null && remainingGuests === 0}` und `onClick` nutzt `Math.min(maxForThisOption, quantity + 1)`
+- `Input`: `max={maxForThisOption}` und `onChange` clamped auf `Math.min(maxForThisOption, n)`
+- `pricingMode === 'per_event'`: Max bleibt 1 (wie bisher implizit), kein Cap-Konflikt
+
+### Edge Cases
+
+- `targetGuests === null` (z.B. `guest_count` nicht parsebar, leer): kein Cap, wie bisher freie Eingabe
+- Single-Option: Stepper bleibt komplett ausgeblendet (unverändert)
+- `remainingGuests > target` (Eingabe via Tastatur): wird abgefangen durch Clamp im `onChange`
 
 ## Geänderte Dateien
 
-- `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx` (~25 Zeilen: Lazy-Create im PDF-Effect + State-Update)
-- `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx` (~6 Zeilen: `quotationId` persistieren)
-- `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` (1 Zeile: Idempotenz-Guard)
-
-Keine Änderungen an Edge Functions, DB, RLS, Migrationen.
+- `src/pages/PublicOffer.tsx` — `remainingGuests`-Formel + Stepper-Cap (`disabled`-Prop, `max`-Attr, Clamp in `onChange` und `+`-Klick). ~10 Zeilen Diff, keine Props-Änderungen, keine neuen Komponenten.
 
 ## Verifikation
 
-1. Neue Inquiry → Wizard durchlaufen → „Vorschlag an Kunde senden" Vorschau-Button → Block 3 zeigt **das echte LexOffice-PDF** (statt der Leer-Meldung).
-2. Inquiry hat danach `lexoffice_quotation_id` in DB gesetzt.
-3. „Senden" klicken → kein neuer LexOffice-Beleg wird angelegt (Idempotenz), bestehende ID bleibt verknüpft.
-4. Bei LexOffice-API-Fehler (z.B. fehlende Adresse): Vorschau zeigt klare Fehlermeldung + Retry-Button, Admin kann zurück zum Editor.
+1. Multi-Option, `guest_count='10'`, alle Karten leer → alle zeigen „noch 10 von 10".
+2. Karte A auf 3 setzen → A zeigt „noch 7 von 10", B/C/D zeigen ebenfalls „noch 7 von 10".
+3. Karte B auf 7 setzen → Summe = 10 → alle Karten: `+`-Button disabled, Hint „✓ Alle 10 Gäste verteilt" oben.
+4. Versuch, Karte C auf 1 zu setzen → Input clamped auf 0 (Rest = 0).
+5. `guest_count` leer/unparsebar → keine Restanzeige, keine Caps (Free-Mode wie bisher).
 
