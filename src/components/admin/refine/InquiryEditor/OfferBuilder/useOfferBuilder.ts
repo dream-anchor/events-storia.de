@@ -205,10 +205,27 @@ async function saveOptionsToDb(
   }));
 
   if (rows.length > 0) {
-    const { error: upsertErr } = await (supabase as any)
-      .from('inquiry_offer_options')
-      .upsert(rows, { onConflict: 'id' });
-    if (upsertErr) throw upsertErr;
+    // VIEW-kompatibel: kein UPSERT (keine UNIQUE-Constraint auf Views).
+    // Stattdessen: bestehende IDs → UPDATE, neue IDs → INSERT.
+    // Die INSTEAD-OF-Trigger der View mappen beides korrekt nach v2_offer_options.
+    const existingForUpdate = rows.filter((r) => existingIds.has(r.id));
+    const newForInsert = rows.filter((r) => !existingIds.has(r.id));
+
+    for (const row of existingForUpdate) {
+      const { id, ...updateFields } = row;
+      const { error: updErr } = await (supabase as any)
+        .from('inquiry_offer_options')
+        .update(updateFields)
+        .eq('id', id);
+      if (updErr) throw updErr;
+    }
+
+    if (newForInsert.length > 0) {
+      const { error: insErr } = await (supabase as any)
+        .from('inquiry_offer_options')
+        .insert(newForInsert);
+      if (insErr) throw insErr;
+    }
   }
 }
 

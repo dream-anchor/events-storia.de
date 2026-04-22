@@ -41,8 +41,9 @@ export const CourseSelector = ({
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [activeSource, setActiveSource] = useState<'all' | 'catering' | 'ristorante'>(
-    courseConfig.allowed_sources.length === 1 
-      ? courseConfig.allowed_sources[0] 
+    // Default-Vorauswahl aus Paket-Config; leer/mehrdeutig → 'all' (alle Quellen sichtbar)
+    courseConfig.allowed_sources.length === 1
+      ? courseConfig.allowed_sources[0]
       : 'all'
   );
   const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,8 +76,11 @@ export const CourseSelector = ({
 
     // In recommended mode, apply category/source filters
     if (searchMode === 'recommended') {
-      // Filter by allowed sources
-      if (courseConfig.allowed_sources.length > 0) {
+      // Filter by allowed sources — NUR wenn kein Tab explizit gewählt wurde.
+      // Sobald der Admin auf "Catering" oder "Restaurant" klickt, überschreibt
+      // der Tab-Filter (unten) die Paket-Voreinstellung. Damit kann man immer
+      // aus dem ganzen Pool wählen, auch wenn allowed_sources strikt ist.
+      if (activeSource === 'all' && courseConfig.allowed_sources.length > 0) {
         items = items.filter(item => courseConfig.allowed_sources.includes(item.source));
       }
 
