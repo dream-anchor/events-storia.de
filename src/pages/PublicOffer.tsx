@@ -1293,7 +1293,6 @@ function ProposalOptionCard({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {(() => null)()}
           <Button
             type="button"
             variant="outline"
