@@ -171,7 +171,8 @@ export function MenuImporter({ guestCount, currentOptionCount, onImportMultiple,
         const basePrice = item.price ?? 0;
         const pricePerPerson = basePrice + drinkPrice;
         let packageName = item.name;
-        const menuSel: OfferBuilderOption['menuSelection'] = { courses: [], drinks: [] };
+        const parsedCourses = parseMenuDescription(item.description ?? '');
+        const menuSel: OfferBuilderOption['menuSelection'] = { courses: parsedCourses, drinks: [] };
 
         if (addDrinkPaket && drinkPaketDesc) {
           packageName += ` + ${drinkPaketDesc}`;
@@ -196,7 +197,8 @@ export function MenuImporter({ guestCount, currentOptionCount, onImportMultiple,
         const winePrice = addWinePairing && menu.winePairing?.price ? menu.winePairing.price : 0;
         const pricePerPerson = basePrice + winePrice;
         let packageName = menu.name;
-        const menuSel: OfferBuilderOption['menuSelection'] = { courses: [], drinks: [] };
+        const parsedCourses = parseMenuDescription(menu.description ?? '');
+        const menuSel: OfferBuilderOption['menuSelection'] = { courses: parsedCourses, drinks: [] };
 
         if (addWinePairing && menu.winePairing) {
           packageName += ' mit Weinbegleitung';
