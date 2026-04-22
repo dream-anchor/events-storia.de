@@ -4,6 +4,49 @@ import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { calculateEventPackagePrice } from "@/lib/eventPricing";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
+import type { OfferBuilderOption } from "../OfferBuilder/types";
+
+// Map an imported OfferBuilderOption (from MenuImporter) into a MultiOffer OfferOption.
+// Restaurant-Komplett-Menüs werden ohne packageId importiert, Kurse als Custom-Items.
+function mapImportedToMultiOfferOption(
+  imp: Partial<OfferBuilderOption>,
+  label: string,
+  sortOrder: number,
+  version: number,
+): OfferOption {
+  const importedCourses = imp.menuSelection?.courses ?? [];
+  const importedDrinks = imp.menuSelection?.drinks ?? [];
+  return {
+    id: crypto.randomUUID(),
+    optionLabel: label,
+    packageId: imp.packageId ?? null,
+    packageName: imp.packageName ?? "",
+    isActive: true,
+    guestCount: imp.guestCount ?? 1,
+    totalAmount: imp.totalAmount ?? 0,
+    stripePaymentLinkId: null,
+    stripePaymentLinkUrl: null,
+    offerVersion: version,
+    sortOrder,
+    menuSelection: {
+      courses: importedCourses.map((c) => ({
+        courseType: c.courseType,
+        courseLabel: c.courseLabel,
+        itemId: null,
+        itemName: c.itemName,
+        itemDescription: c.itemDescription ?? null,
+        itemSource: 'manual',
+        isCustom: true,
+      })),
+      drinks: importedDrinks.map((d) => ({
+        drinkGroup: d.drinkGroup,
+        drinkLabel: d.drinkLabel,
+        selectedChoice: d.selectedChoice ?? null,
+        quantityLabel: d.quantityLabel ?? null,
+      })),
+    },
+  };
+}
 
 // Helper to log activity
 const logActivity = async (
