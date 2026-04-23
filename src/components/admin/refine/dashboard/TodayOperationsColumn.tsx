@@ -40,27 +40,28 @@ function kindLabel(op: DashOperation): string {
 
 function OpCard({ op }: { op: DashOperation }) {
   const navigate = useNavigate();
-  const dot = statusDot(op);
+  const pill = statusPill(op);
   const phoneClean = op.phone?.replace(/[^+\d]/g, "");
   const mapsUrl = op.address && !op.isPickup
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(op.address)}`
     : null;
 
   return (
-    <div className="bg-card rounded-2xl border border-border/60 p-4 hover:border-border transition-colors">
+    <div className="group bg-card rounded-xl px-4 py-3.5 hover:bg-muted/40 transition-colors border-b border-border/40 last:border-b-0">
       <div className="flex items-start gap-3">
         {op.time && (
           <div className="flex-shrink-0">
-            <span className="text-xl font-bold text-foreground tabular-nums leading-none">{op.time}</span>
+            <span className="text-lg font-semibold text-foreground tabular-nums leading-none">{op.time}</span>
           </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
               {kindLabel(op)}
             </span>
-            <span className={cn("h-1.5 w-1.5 rounded-full", dot.color)} />
-            <span className="text-[11px] text-muted-foreground">{dot.label}</span>
+            <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded uppercase tracking-wide", pillClass(pill.tone))}>
+              {pill.label}
+            </span>
           </div>
           <button
             onClick={() => navigate(op.navigateTo)}
