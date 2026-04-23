@@ -610,6 +610,19 @@ serve(async (req) => {
     const result = await response.json();
     console.log('LexOffice quotation created:', result);
 
+    // Quotation-ID an das Inquiry zurueckschreiben, damit PublicOffer-PDF-Download funktioniert.
+    // download-public-offer-pdf liest aktuell lexoffice_invoice_id — wir schreiben in beide Felder,
+    // damit sowohl Maestro-Liste als auch Public-PDF die ID finden.
+    if (result?.id) {
+      await supabase
+        .from('event_inquiries')
+        .update({
+          lexoffice_quotation_id: result.id,
+          lexoffice_invoice_id: result.id,
+        } as Record<string, unknown>)
+        .eq('id', inquiryId);
+    }
+
     return new Response(
       JSON.stringify({ success: true, quotationId: result.id }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
