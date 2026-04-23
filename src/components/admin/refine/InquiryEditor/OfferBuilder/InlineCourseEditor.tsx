@@ -63,6 +63,7 @@ function SortableCourseRow({
   pricingMode,
   disabled,
   packageMode = false,
+  onOpenMobileSheet,
 }: {
   course: CourseSelection;
   idx: number;
@@ -77,6 +78,7 @@ function SortableCourseRow({
   pricingMode: PricingMode;
   disabled: boolean;
   packageMode?: boolean;
+  onOpenMobileSheet?: () => void;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
