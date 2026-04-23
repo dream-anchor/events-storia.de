@@ -1,23 +1,35 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, isToday, isTomorrow, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Phone, MapPin, Truck, Calendar, Package, Users, ChevronRight, AlertTriangle } from "lucide-react";
+import { Phone, MapPin, Calendar, Package, Users, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DashOperation } from "@/hooks/useDashboardData";
 
-function statusDot(op: DashOperation): { color: string; label: string } {
+type StatusPill = { label: string; tone: "solid" | "muted" | "outline" | "destructive" };
+
+function statusPill(op: DashOperation): StatusPill {
   if (op.kind === "catering") {
-    if (op.paymentStatus === "paid") return { color: "bg-emerald-500", label: "bezahlt" };
-    if (op.status === "pending") return { color: "bg-amber-500", label: "offen" };
-    return { color: "bg-neutral-400", label: op.status };
+    if (op.paymentStatus === "paid") return { label: "Bezahlt", tone: "solid" };
+    if (op.status === "pending") return { label: "Offen", tone: "outline" };
+    return { label: op.status, tone: "muted" };
   }
   if (op.kind === "booking") {
-    if (op.menuConfirmed === false) return { color: "bg-amber-500", label: "Menü offen" };
-    if (op.paymentStatus === "paid") return { color: "bg-emerald-500", label: "bezahlt" };
-    return { color: "bg-neutral-400", label: op.status };
+    if (op.menuConfirmed === false) return { label: "Menü offen", tone: "outline" };
+    if (op.paymentStatus === "paid") return { label: "Bezahlt", tone: "solid" };
+    return { label: op.status, tone: "muted" };
   }
-  return { color: "bg-emerald-500", label: "bestätigt" };
+  return { label: "Bestätigt", tone: "solid" };
+}
+
+function pillClass(tone: StatusPill["tone"]): string {
+  switch (tone) {
+    case "solid": return "bg-foreground text-background";
+    case "outline": return "bg-transparent text-foreground border border-foreground/30";
+    case "destructive": return "bg-destructive/10 text-destructive border border-destructive/30";
+    case "muted":
+    default: return "bg-muted text-muted-foreground";
+  }
 }
 
 function kindLabel(op: DashOperation): string {
