@@ -71,12 +71,20 @@ interface LexOfficeLineItem {
 
 // ─── Line-item builder ────────────────────────────────────────────────────────
 
+const FOOD_TAX_RATE = 7;
+const DRINK_TAX_RATE = 19;
+const bruttoToNet = (brutto: number, taxPct: number) =>
+  round2(brutto / (1 + taxPct / 100));
+
 function buildLineItems(
   opt: OfferOption,
   packageName: string | null,
+  guestOverride?: number,
 ): LexOfficeLineItem[] {
   const ms = opt.menu_selection;
-  const guestCount = parseInt(String(opt.guest_count)) || 1;
+  const guestCount = guestOverride && guestOverride > 0
+    ? guestOverride
+    : (parseInt(String(opt.guest_count)) || 1);
   const totalAmount = opt.total_amount || 0;
   const items: LexOfficeLineItem[] = [];
 
@@ -88,11 +96,10 @@ function buildLineItems(
   //   Getraenke: Netto = Brutto / 1.19
   // Jede Speise / jedes Getraenk wird zu einer eigenen Line-Item-Zeile.
   if (ms?.pricingMode === 'per_event') {
-    const FOOD_TAX = 7;
-    const DRINK_TAX = 19;
-    const bruttoToNet = (brutto: number, taxPct: number) => round2(brutto / (1 + taxPct / 100));
+    const FOOD_TAX = FOOD_TAX_RATE;
+    const DRINK_TAX = DRINK_TAX_RATE;
 
-    type BruttoEntry = { name: string; description: string; brutto: number; tax: 7 | 19; unitName: string };
+    type BruttoEntry = { name: string; description: string; brutto: number; tax: number; unitName: string };
     const entries: BruttoEntry[] = [];
 
     // --- Speisen: eine Zeile pro Gericht ---
