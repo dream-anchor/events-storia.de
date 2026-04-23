@@ -310,6 +310,9 @@ export function InlineCourseEditor({
   disabled = false,
   packageMode = false,
 }: InlineCourseEditorProps) {
+  // Mobile sheet state — tap a row to edit on small screens.
+  const [sheetIndex, setSheetIndex] = useState<number | null>(null);
+
   const handleDishSelect = (
     index: number,
     dish: { id: string; name: string; description: string | null; source: string; price: number | null }
@@ -393,6 +396,7 @@ export function InlineCourseEditor({
               onRemoveCourse={onRemoveCourse}
               disabled={disabled}
               packageMode={packageMode}
+              onOpenMobileSheet={() => { haptic('tick'); setSheetIndex(idx); }}
             />
           ))}
         </SortableContext>
@@ -417,6 +421,7 @@ export function InlineCourseEditor({
                   key={config.id}
                   onClick={() => {
                     onAddCourse(config.course_type, config.course_label);
+                    haptic('select');
                     setAddOpen(false);
                   }}
                   className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted/50 transition-colors text-left"
@@ -430,6 +435,22 @@ export function InlineCourseEditor({
             </PopoverContent>
           </Popover>
         </div>
+      )}
+
+      {/* Mobile-only Bottom Sheet for editing a single course */}
+      {!disabled && (
+        <MobileCourseSheet
+          open={sheetIndex !== null}
+          onOpenChange={(o) => !o && setSheetIndex(null)}
+          course={sheetIndex != null ? courses[sheetIndex] ?? null : null}
+          index={sheetIndex}
+          menuItems={menuItems}
+          courseConfigs={courseConfigs}
+          pricingMode={pricingMode}
+          packageMode={packageMode}
+          onUpdate={onUpdateCourse}
+          onRemove={onRemoveCourse}
+        />
       )}
     </div>
   );
