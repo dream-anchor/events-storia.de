@@ -1158,34 +1158,46 @@ function ProposalView({
             </p>
           </div>
 
-          {/* Options */}
-          <div className={cn(
-            "gap-6 mb-12",
-            options.length > 1 ? "grid grid-cols-1 lg:grid-cols-2" : "max-w-2xl"
-          )}>
-            {options.map((option) => (
-              <ProposalOptionCard
-                key={option.id}
-                option={option}
-                isSelected={selectedOptionId === option.id}
-                onSelect={() => setSelectedOptionId(option.id)}
-                singleOption={isSingle}
-                quantity={optionQuantities[option.id] || 0}
-                onQuantityChange={(q) => {
-                  const isPerEvent = option.menu_selection?.pricingMode === 'per_event';
-                  const clamped = isPerEvent ? Math.min(1, Math.max(0, q)) : Math.max(0, q);
-                  setOptionQuantities((prev) => ({ ...prev, [option.id]: clamped }));
-                }}
-                perPersonPrice={perPersonPriceFor(option)}
-                targetGuests={targetGuests}
-                remainingGuests={
-                  targetGuests !== null
-                    ? Math.max(0, targetGuests - totalQuantity)
-                    : null
-                }
-              />
-            ))}
-          </div>
+          {/* Options — Mobile: Snap-Carousel mit Pill-Tabs; lg+: 2-Spalten-Grid */}
+          {options.length > 1 ? (
+            <MultiOptionCarousel
+              options={options}
+              selectedOptionId={selectedOptionId}
+              setSelectedOptionId={setSelectedOptionId}
+              optionQuantities={optionQuantities}
+              setOptionQuantities={setOptionQuantities}
+              perPersonPriceFor={perPersonPriceFor}
+              targetGuests={targetGuests}
+              totalQuantity={totalQuantity}
+              isSingle={isSingle}
+              formatOptionLabel={formatOptionLabel}
+            />
+          ) : (
+            <div className="gap-6 mb-12 max-w-2xl">
+              {options.map((option) => (
+                <ProposalOptionCard
+                  key={option.id}
+                  option={option}
+                  isSelected={selectedOptionId === option.id}
+                  onSelect={() => setSelectedOptionId(option.id)}
+                  singleOption={isSingle}
+                  quantity={optionQuantities[option.id] || 0}
+                  onQuantityChange={(q) => {
+                    const isPerEvent = option.menu_selection?.pricingMode === 'per_event';
+                    const clamped = isPerEvent ? Math.min(1, Math.max(0, q)) : Math.max(0, q);
+                    setOptionQuantities((prev) => ({ ...prev, [option.id]: clamped }));
+                  }}
+                  perPersonPrice={perPersonPriceFor(option)}
+                  targetGuests={targetGuests}
+                  remainingGuests={
+                    targetGuests !== null
+                      ? Math.max(0, targetGuests - totalQuantity)
+                      : null
+                  }
+                />
+              ))}
+            </div>
+          )}
 
           {/* Live-Summary für Multi-Options-Modus (bei Single ausgeblendet — Menge ist fix) */}
           {!isSingle && (
