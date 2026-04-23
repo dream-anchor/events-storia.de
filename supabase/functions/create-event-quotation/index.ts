@@ -223,17 +223,17 @@ function buildLineItems(
           unitName: 'Person',
           unitPrice: {
             currency: 'EUR',
-            netAmount: round2(price),
+            netAmount: bruttoToNet(price, FOOD_TAX_RATE),
             taxRatePercentage: 7,
           },
         });
       }
     } else {
       // No individual prices — distribute total evenly across courses
-      const wineTotal = winePricePerPerson * guestCount;
-      const courseTotal = totalAmount - wineTotal;
-      const pricePerCourse = courses.length > 0
-        ? round2(courseTotal / courses.length / guestCount)
+      const wineTotalBrutto = winePricePerPerson * guestCount;
+      const courseTotalBrutto = totalAmount - wineTotalBrutto;
+      const pricePerCourseNet = courses.length > 0
+        ? bruttoToNet(courseTotalBrutto / courses.length / guestCount, FOOD_TAX_RATE)
         : 0;
 
       for (const course of courses) {
@@ -245,7 +245,7 @@ function buildLineItems(
           unitName: 'Person',
           unitPrice: {
             currency: 'EUR',
-            netAmount: pricePerCourse,
+            netAmount: pricePerCourseNet,
             taxRatePercentage: 7,
           },
         });
