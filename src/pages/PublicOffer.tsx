@@ -903,10 +903,14 @@ function ProposalView({
   inquiry,
   options,
   onSubmitted,
+  isArchiveMode = false,
+  isPreviewMode = false,
 }: {
   inquiry: PublicInquiry;
   options: PublicOfferOption[];
   onSubmitted: (data: PublicOfferData) => void;
+  isArchiveMode?: boolean;
+  isPreviewMode?: boolean;
 }) {
   // Single-Option ist auto-selected — Kunde muss nichts extra auswählen
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(
