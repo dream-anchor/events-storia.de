@@ -138,18 +138,12 @@ async function saveOptionsToDb(
   // diese Exception und zeigt dem Admin einen harten Fehler.
   // =================================================================
   if (options.length === 0 && existingIds.size > 0) {
-    const msg =
-      `[saveOptionsToDb] Abort: leeres options-Array, aber DB hat ${existingIds.size} Eintrag(e) ` +
-      `fuer inquiry ${inquiryId}. Kein Save ausgefuehrt.`;
-    console.error(msg, { inquiryId, existingDbIds: [...existingIds] });
-    toast.error(
-      'Speichern abgebrochen: das Angebot waere geloescht worden. ' +
-      'Bitte Seite neu laden.',
-      { id: 'save-empty-abort', duration: 12000 },
+    console.info(
+      '[saveOptionsToDb] Skip: alle Options im "unselected"-Zustand, ' +
+      'DB-Bestand bleibt unveraendert.',
+      { inquiryId, existingDbIds: [...existingIds] },
     );
-    throw new Error(
-      'Empty options array would erase existing offer in DB — save aborted to protect data.',
-    );
+    return; // no-op, kein Toast, kein Throw
   }
 
   // 2. IDs die gelöscht werden müssen (in DB, aber nicht mehr im neuen State)
