@@ -43,8 +43,13 @@ const ADMIN_REGISTRY: Record<string, AdminInfo> = {
   },
   'info@storia.de': { 
     fullName: 'Storia Team', 
-    firstName: 'Storia Team', 
+    firstName: '', 
     initials: 'ST' 
+  },
+  'info@events-storia.de': {
+    fullName: 'Events Storia',
+    firstName: '',
+    initials: 'ES'
   },
 };
 
@@ -81,10 +86,13 @@ export function getAdminInitials(email?: string | null): string {
  * Get the first name for email signatures
  */
 export function getAdminFirstName(email?: string | null): string {
-  if (!email) return 'STORIA Team';
+  if (!email) return '';
   const info = ADMIN_REGISTRY[email.toLowerCase()];
   if (info) return info.firstName;
-  return email.split('@')[0];
+  // Service account fallback (e.g. info@…) — return empty so greeting stays neutral
+  const local = email.split('@')[0];
+  if (/^(info|kontakt|hello|admin|support|noreply|no-reply|office)$/i.test(local)) return '';
+  return local.charAt(0).toUpperCase() + local.slice(1).toLowerCase();
 }
 
 /**

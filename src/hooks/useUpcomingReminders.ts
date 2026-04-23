@@ -87,12 +87,21 @@ export function useUpcomingReminders() {
         .eq("computed_status", "sent")
         .lte("effective_due_date", todayStr);
 
+      // Active (non-archived, not declined/cancelled) inquiries — used to filter tasks/payments
+      let activeInqQ = supabase
+        .from("event_inquiries" as never)
+        .select("id, is_test, archived_at, status")
+        .is("archived_at", null);
+      if (!showTestData) activeInqQ = activeInqQ.neq("is_test", true);
+
       // Offer reminders: offer_sent 3+ days ago, no response
       const threeDaysAgo = new Date(today); threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
       let offerQ = supabase
         .from("event_inquiries" as never)
         .select("id, contact_name, email, offer_sent_at, status, reminder_count, is_test")
         .not("offer_sent_at", "is", null)
+        .is("archived_at", null)
+        .not("status", "in", "(declined,confirmed,cancelled)")
         .lte("offer_sent_at", threeDaysAgo.toISOString())
         .in("status", ["offer_sent", "contacted"])
         .or("reminder_count.is.null,reminder_count.lt.2");
@@ -110,11 +119,17 @@ export function useUpcomingReminders() {
       const [taskRes, catRes, payRes, offerRes, sentRes] = await Promise.all([
         taskQ, catQ, payQ, offerQ, sentQ,
       ]);
+      const inqRes = await activeInqQ;
+      const activeIds = new Set(((inqRes.data || []) as any[])
+        .filter(r => !["declined", "cancelled"].includes(String(r.status)))
+        .map(r => r.id));
 
       const upcoming: UpcomingReminder[] = [];
 
       const followUpCron = nextDailyAt(8);
-      ((taskRes.data || []) as any[]).forEach(t => {
+      ((taskRes.data || []) as any[])
+        .filter(t => !t.inquiry_id || activeIds.has(t.inquiry_id))
+        .forEach(t => {
         upcoming.push({
           id: `task-${t.id}`,
           scheduledAt: followUpCron,
@@ -128,6 +143,7 @@ export function useUpcomingReminders() {
 
       const hourlyCron = nextHourly();
       ((catRes.data || []) as any[]).forEach(c => {
+        if (c.status === "cancelled") return;
         upcoming.push({
           id: `cat-${c.id}`,
           scheduledAt: hourlyCron,
@@ -140,7 +156,9 @@ export function useUpcomingReminders() {
       });
 
       const overdueCron = nextDailyAt(9);
-      ((payRes.data || []) as any[]).forEach(p => {
+      ((payRes.data || []) as any[])
+        .filter(p => !p.inquiry_id || activeIds.has(p.inquiry_id))
+        .forEach(p => {
         upcoming.push({
           id: `pay-${p.id}`,
           scheduledAt: overdueCron,

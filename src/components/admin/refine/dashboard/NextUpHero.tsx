@@ -47,14 +47,26 @@ export function NextUpHero({ operations }: { operations: DashOperation[] }) {
   }, []);
 
   // Find next upcoming operation (within next ~24h, future only)
+  const horizonMs = 24 * 60 * 60_000;
   const upcoming = operations
     .map(op => ({ op, when: parseOpDateTime(op) }))
-    .filter(x => x.when.getTime() > now.getTime() - 30 * 60_000) // include 30min back (running)
+    .filter(x => {
+      const delta = x.when.getTime() - now.getTime();
+      return delta > -30 * 60_000 && delta < horizonMs; // 30min back to 24h ahead
+    })
     .sort((a, b) => a.when.getTime() - b.when.getTime());
 
   const next = upcoming[0];
 
   if (!next) {
+    // Look for the soonest future operation as a quiet preview
+    const future = operations
+      .map(op => ({ op, when: parseOpDateTime(op) }))
+      .filter(x => x.when.getTime() > now.getTime())
+      .sort((a, b) => a.when.getTime() - b.when.getTime())[0];
+    const previewLabel = future
+      ? `Nächster Termin: ${future.when.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" })} · ${future.op.time || "—"} · ${future.op.customerName}`
+      : "Zeit für Vorbereitung, Akquise oder Ruhe.";
     return (
       <section className="rounded-3xl bg-gradient-to-br from-muted/40 to-muted/10 border border-border/40 px-6 py-7 sm:px-8 sm:py-8">
         <div className="flex items-center gap-4">
@@ -64,7 +76,7 @@ export function NextUpHero({ operations }: { operations: DashOperation[] }) {
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-muted-foreground">Jetzt</p>
             <h2 className="text-lg sm:text-xl font-semibold text-foreground mt-1">Heute frei — keine offenen Termine</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Zeit für Vorbereitung, Akquise oder Ruhe.</p>
+            <p className="text-sm text-muted-foreground mt-0.5 truncate">{previewLabel}</p>
           </div>
         </div>
       </section>

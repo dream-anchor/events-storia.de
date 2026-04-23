@@ -170,10 +170,53 @@ export function TodayOperationsColumn({ operations }: { operations: DashOperatio
       </header>
 
       {grouped.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground text-sm bg-muted/30 rounded-2xl">
-          <Calendar className="h-8 w-8 mx-auto mb-2 opacity-40" />
-          Keine geplanten Lieferungen oder Events
-        </div>
+        (() => {
+          const upcoming = operations
+            .filter(op => op.date > todayKey)
+            .slice(0, 3);
+          if (upcoming.length === 0) {
+            return (
+              <div className="text-center py-12 text-muted-foreground text-sm bg-muted/30 rounded-2xl">
+                <Calendar className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                Heute frei. Auch keine Termine in Sicht.
+              </div>
+            );
+          }
+          return (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground inline-flex items-center gap-2">
+                <Calendar className="h-3.5 w-3.5 opacity-60" />
+                Heute frei · Nächste {upcoming.length} Termine
+              </p>
+              <div className="divide-y divide-border/40 bg-muted/20 rounded-2xl px-3">
+                {upcoming.map(op => {
+                  let d: Date; try { d = parseISO(op.date); } catch { d = new Date(op.date); }
+                  const label = isTomorrow(d) ? "Morgen" : format(d, "EEE, d. MMM", { locale: de });
+                  return (
+                    <button
+                      key={`${op.kind}-${op.id}`}
+                      onClick={() => window.location.assign(op.navigateTo)}
+                      className="w-full flex items-center gap-3 py-2.5 text-left min-h-[44px] min-w-0"
+                    >
+                      <span className="text-[11px] text-muted-foreground tabular-nums flex-shrink-0 w-20">{label}</span>
+                      {op.time && <span className="text-sm font-semibold text-foreground tabular-nums flex-shrink-0 w-12">{op.time}</span>}
+                      <span className="text-sm text-foreground truncate flex-1">{op.customerName}</span>
+                      {op.guestCount != null && (
+                        <span className="text-[11px] text-muted-foreground tabular-nums flex-shrink-0">{op.guestCount} P.</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setShowWeek(true)}
+                className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Woche öffnen →
+              </button>
+            </div>
+          );
+        })()
       )}
 
       {grouped.map(([date, ops]) => {

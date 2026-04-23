@@ -89,14 +89,16 @@ export function useDashboardData() {
         .from("catering_orders")
         .select("id, order_number, customer_name, customer_phone, company_name, is_pickup, desired_date, desired_time, items, total_amount, status, payment_status, delivery_street, delivery_zip, delivery_city, created_at, is_test" as never)
         .gte("desired_date", todayStr)
-        .lte("desired_date", in14Str);
+        .lte("desired_date", in14Str)
+        .neq("status", "cancelled");
       if (!showTestData) catQ = catQ.neq("is_test", true);
 
       // Catering: recent inbox (last 48h, any date)
       let catInboxQ = supabase
         .from("catering_orders")
         .select("id, order_number, customer_name, company_name, total_amount, status, created_at, is_test" as never)
-        .gte("created_at", past48.toISOString());
+        .gte("created_at", past48.toISOString())
+        .neq("status", "cancelled");
       if (!showTestData) catInboxQ = catInboxQ.neq("is_test", true);
 
       // Event bookings (next 14 days)
@@ -104,13 +106,15 @@ export function useDashboardData() {
         .from("event_bookings")
         .select("id, booking_number, customer_name, company_name, phone, guest_count, event_date, event_time, status, payment_status, menu_confirmed, total_amount, source_inquiry_id" as never)
         .gte("event_date", todayStr)
-        .lte("event_date", in14Str);
+        .lte("event_date", in14Str)
+        .not("status", "in", "(cancelled,refunded)");
 
       // Group inquiries last 48h
       const groupQ = supabase
         .from("group_inquiries")
         .select("id, contact_name, company_name, group_size, preferred_date, status, created_at")
-        .gte("created_at", past48.toISOString());
+        .gte("created_at", past48.toISOString())
+        .not("status", "in", "(declined,archived)");
 
       // Overdue payments
       const payQ = supabase
