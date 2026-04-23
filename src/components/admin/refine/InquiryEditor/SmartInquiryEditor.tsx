@@ -748,6 +748,8 @@ export const SmartInquiryEditor = () => {
     );
   }
 
+  const isOfferSent = !!(inquiry as any)?.offer_phase && (inquiry as any).offer_phase !== 'draft';
+
   return (
     <AdminLayout activeTab="events">
       {/* Sticky Header */}
@@ -784,7 +786,7 @@ export const SmartInquiryEditor = () => {
             {/* Save Status — unsichtbar (speichert automatisch im Hintergrund) */}
 
             {/* LexOffice Document Button - Show if linked */}
-            {lexofficeDocId && (
+            {isOfferSent && lexofficeDocId && (
               <Button
                 variant="outline"
                 size="sm"
@@ -816,16 +818,18 @@ export const SmartInquiryEditor = () => {
           </Badge>
         )}
         <div className="flex-1" />
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 text-xs h-8"
-          onClick={() => window.open(`/offer/${id}`, '_blank')}
-          title="Öffnet das Angebot in der Kunden-Ansicht (neuer Tab)"
-        >
-          <Eye className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Kunden-Ansicht</span>
-        </Button>
+        {isOfferSent && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs h-8"
+            onClick={() => window.open(`/offer/${id}`, '_blank')}
+            title="Öffnet das Angebot in der Kunden-Ansicht (neuer Tab)"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Kunden-Ansicht</span>
+          </Button>
+        )}
       </div>
 
       {/* Main Content — Tab-Navigation */}
