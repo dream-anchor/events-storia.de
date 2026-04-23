@@ -15,6 +15,7 @@ import { EventDNACard } from "./EventDNACard";
 import { LocationBlock } from "./LocationBlock";
 import { OfferBuilder } from "./OfferBuilder";
 import type { OfferBuilderHandle } from "./OfferBuilder";
+import { OfferHistoryList } from "./OfferHistoryList";
 import { CateringModules } from "./CateringModules";
 import { ClientPreview } from "./ClientPreview";
 import { StaffNote } from "./StaffNote";
@@ -891,6 +892,9 @@ export const SmartInquiryEditor = () => {
               onDeliveryChange={(field, value) => handleLocalFieldChange(field, value)}
             />
           )}
+
+          {/* Versionsverlauf der versendeten Angebote — bleibt für event & catering */}
+          {id && <OfferHistoryList inquiryId={id} />}
 
         </TabsContent>
 

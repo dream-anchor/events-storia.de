@@ -267,6 +267,7 @@ export default function PublicOffer() {
   const [archiveAuthorized, setArchiveAuthorized] = useState<boolean | null>(
     archiveVersionNum != null ? null : false,
   );
+  const [archiveSentAt, setArchiveSentAt] = useState<string | null>(null);
   useEffect(() => {
     if (archiveVersionNum == null) return;
     let cancelled = false;
@@ -330,6 +331,7 @@ export default function PublicOffer() {
             setLoading(false);
             return;
           }
+          setArchiveSentAt(((hist as { sent_at?: string | null }).sent_at) ?? null);
           // Inquiry-Stammdaten via RPC (für Header/Kontakt) — read-only
           const { data: live } = await supabase.rpc(
             'get_public_offer' as never,
@@ -478,6 +480,39 @@ export default function PublicOffer() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <OfferHeader />
+      {isArchiveMode && (
+        <div className="sticky top-0 z-50 bg-amber-500 text-amber-950 border-b border-amber-700/40 shadow-sm">
+          <div className="container mx-auto px-4 py-2.5 text-sm font-sans flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
+            <span className="font-semibold uppercase tracking-wide text-xs">
+              Archiv-Ansicht
+            </span>
+            <span>·</span>
+            <span>
+              Version v{archiveVersionNum}
+              {archiveSentAt && (
+                <>
+                  {' '}— versendet am{' '}
+                  {(() => {
+                    try {
+                      return new Date(archiveSentAt).toLocaleString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      });
+                    } catch {
+                      return archiveSentAt;
+                    }
+                  })()}
+                </>
+              )}
+            </span>
+            <span>·</span>
+            <span className="opacity-90">Interaktive Aktionen sind deaktiviert.</span>
+          </div>
+        </div>
+      )}
       <main className="flex-1">
         <HeroSection inquiry={inquiry} phase={effectivePhase} />
 
@@ -503,11 +538,16 @@ export default function PublicOffer() {
             Im Preview ist previewBody gesetzt — der Admin sieht dann immer die Options,
             unabhängig von offer_phase (z.B. noch 'draft'). */}
         {(effectivePhase === "proposal_sent" || previewBody !== null) && (
-          <ProposalView
-            inquiry={inquiry}
-            options={options}
-            onSubmitted={(updatedData) => setData(updatedData)}
-          />
+          <div
+            className={isArchiveMode ? "pointer-events-none opacity-70 select-none" : ""}
+            aria-disabled={isArchiveMode || undefined}
+          >
+            <ProposalView
+              inquiry={inquiry}
+              options={options}
+              onSubmitted={(updatedData) => setData(updatedData)}
+            />
+          </div>
         )}
 
         {effectivePhase === "customer_responded" && (
@@ -519,17 +559,27 @@ export default function PublicOffer() {
 
         {(effectivePhase === "final_sent" ||
           effectivePhase === "final_draft") && (
-          <FinalOfferView
-            inquiry={inquiry}
-            options={options}
-          />
+          <div
+            className={isArchiveMode ? "pointer-events-none opacity-70 select-none" : ""}
+            aria-disabled={isArchiveMode || undefined}
+          >
+            <FinalOfferView
+              inquiry={inquiry}
+              options={options}
+            />
+          </div>
         )}
 
         {(effectivePhase === "confirmed" || effectivePhase === "paid") && (
           <ConfirmationView inquiry={inquiry} options={options} />
         )}
 
-        <PublicPaymentSection payments={payments} eventDate={inquiry.preferred_date ?? undefined} />
+        <div
+          className={isArchiveMode ? "pointer-events-none opacity-70 select-none" : ""}
+          aria-disabled={isArchiveMode || undefined}
+        >
+          <PublicPaymentSection payments={payments} eventDate={inquiry.preferred_date ?? undefined} />
+        </div>
         <ContactSection />
       </main>
       <OfferFooter />
