@@ -130,8 +130,12 @@ export const EventBookingEditor = () => {
       menuSelection: menuSelection as any,
       sendEmail: true,
     }, {
-      onSuccess: () => {
-        toast.success("Menü bestätigt und E-Mail gesendet!");
+      onSuccess: (result: { ok: boolean; emailSent: boolean } | void) => {
+        if (result?.emailSent) {
+          toast.success("Menü bestätigt und E-Mail gesendet!");
+        } else {
+          toast.warning("Menü bestätigt — E-Mail-Versand fehlgeschlagen");
+        }
         navigate('/admin/bookings');
       },
       onError: () => toast.error("Fehler beim Bestätigen"),

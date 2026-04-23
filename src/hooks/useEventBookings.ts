@@ -184,16 +184,21 @@ export const useConfirmBookingMenu = () => {
       if (updateError) throw updateError;
 
       // Optionally send confirmation email
+      let emailSent = false;
       if (sendEmail) {
         const { error: emailError } = await supabase.functions.invoke('send-menu-confirmation', {
           body: { bookingId, sendEmail: true },
         });
-        
+
         if (emailError) {
           console.error('Failed to send confirmation email:', emailError);
           // Don't throw - menu was saved successfully
+        } else {
+          emailSent = true;
         }
       }
+
+      return { ok: true, emailSent };
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['event-bookings'] });

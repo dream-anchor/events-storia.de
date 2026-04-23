@@ -64,17 +64,20 @@ export function ConversationThread({ inquiryId, customerEmail, onSendReply }: Co
 
     // Real-time subscription für neue Nachrichten
     const channel = supabase
-      .channel(`email_messages:${inquiryId}`)
+      .channel(`v2_event_emails:${inquiryId}`)
       .on(
         "postgres_changes" as never,
         {
           event: "INSERT",
           schema: "public",
-          table: "email_messages",
-          filter: `inquiry_id=eq.${inquiryId}`,
+          table: "v2_event_emails",
+          filter: `event_id=eq.${inquiryId}`,
         } as never,
-        (payload: { new: EmailMessage }) => {
-          setMessages(prev => [...prev, payload.new]);
+        (payload: { new: Record<string, unknown> }) => {
+          // v2_event_emails uses event_id; map to inquiry_id for UI consistency
+          const row = payload.new as Record<string, unknown>;
+          const mapped = { ...row, inquiry_id: row.event_id } as unknown as EmailMessage;
+          setMessages(prev => [...prev, mapped]);
         }
       )
       .subscribe();
