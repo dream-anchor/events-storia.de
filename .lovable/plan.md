@@ -1,70 +1,148 @@
 
 
-# Status-Audit der offenen Punkte (vor Änderungen prüfen, nichts kaputt machen)
+# Maestro Admin: Vollständige Mobile-Tauglichkeit (Smartphone-First)
 
-Faktencheck gegen aktuellen Code- und DB-Stand. Pro Punkt: was stimmt noch, was ist erledigt, was ist offen, was ist falsch verstanden.
+## Ziel
 
-## ✅ Bereits erledigt / kein Handlungsbedarf
+Maestro fühlt sich auf dem Smartphone genauso komfortabel an wie auf dem Desktop. Kein abgeschnittener Inhalt, kein verdeckter Button, keine horizontale Scroll-Falle, jede Aktion mit Daumen erreichbar, sichere Bereiche (Notch/Home-Indicator) berücksichtigt.
 
-- **Punkt 7 (Bug C9 — sendFinalOffer Payment-Link-Loop)**: In `supabase/functions/send-offer-email/index.ts` existiert **keine** Payment-Link-Schleife mehr. Payment-Links werden separat über `create-offer-payment-link` (pro Option, einzeln) erzeugt — aufgerufen aus 3 Stellen im Frontend (`MultiOfferComposer`, `useOfferBuilder`, `SmartInquiryEditor`). Eine atomare Transaktion ist hier strukturell nicht nötig: jeder Link-Erstellungs-Call ist idempotent pro Option, Fehler werden pro Option getoastet. **Streichen.**
+## Befund (heute, mobile 375 px)
 
-## 🟡 Korrekt diagnostiziert, weiter offen
+| Bereich | Problem | Auswirkung |
+|---|---|---|
+| **DataTable** (`Events`, `Orders`, `Bookings`, `Quotations`, `Invoices`) | `<Table>` mit `min-w-[120-240px]`-Spalten ohne Wrapper → erzwingt Seiten-Scroll horizontal | Spalten verschwinden rechts, Klick-Targets unklar |
+| **Sticky Header InquiryEditor** | `-mx-6 px-6` + `flex justify-between` → bricht auf 375 px, Avatar+Name+Badge+Aktionen kollidieren | Header scrollt seitlich, „Zurück"-Pfeil knapp |
+| **Wizard** (`WizardConfigurator`) | `lg:grid-cols-12` greift erst ab 1024 px; `LiveCalculation` als 4-col-Spalte wird unter 1024 px ans Ende geschoben → Admin verliert Preisübersicht | Preis nicht sichtbar während Konfiguration |
+| **MultiOfferComposer** | `grid-cols-1 lg:grid-cols-5` mit `min-h-[calc(100vh-280px)]` → mobil eine sehr lange Säule, Kalkulationspanel weit unten | Send-Button + Kalkulation außer Sicht |
+| **Fixed-Cols ohne Breakpoint** | `grid-cols-2/3/4` in Dashboard, EventDNACard, LocationBlock, MenuItemSelector, ModeSelector, CateringModules | Tabs/Karten brechen oder werden gestaucht (Text-Overflow, Icon-only ohne Label) |
+| **AdminLayout-Header** | „Neue Anfrage"-Button und Test-Toggle `hidden sm:flex` → mobile Hauptaktion fehlt | Admin kann mobil keine neue Anfrage anlegen |
+| **OptionCard, InlineDrinkEditor** | `SelectTrigger min-w-[200px]` in flex-row → erzwingt Overflow | Dropdowns ragen über Card hinaus |
+| **PageContent Padding** | `main p-4 lg:p-6`, aber FloatingPillNav fix bottom 16 → letzte Karte unter Nav verdeckt | Cut-off der untersten Zeile |
 
-- **Punkt 2 (E2E nicht live getestet)**: bleibt offen. Stripe-Webhook, `receive-event-inquiry` und LexOffice-Rechnungserstellung wurden in der letzten Runde nur gegen Test-Inquiries (Preview-Modus) verifiziert — kein echter Zahlvorgang, kein echtes Formular mit Maus geklickt. Empfehlung unten.
-- **Punkt 3 (typed-client-Hack)**: bestätigt — aktuell **17 Files** importieren `@/integrations/supabase/typed-client` (Original-Schätzung „14" war zu niedrig). Liste:
-  ```
-  hooks/useTasks, useEventBookings, useEventInquiries, useCateringOrders,
-  useNotifications, useCloneOfferVersion
-  components/admin/refine/InquiryEditor/MultiOffer/{MultiOfferComposer,useMultiOfferState}
-  components/admin/refine/InquiryEditor/OfferBuilder/{OfferBuilder,useOfferBuilder}
-  components/admin/refine/InquiryEditor/{AddPaymentDrawer,SmartInquiryEditor}
-  components/admin/refine/{OfferCreate/index,KanbanView}
-  components/admin/shared/BulkActionBar
-  providers/refine-data-provider
-  ```
-  Grund liegt in der DB: alle 10 betroffenen „Tabellen" sind tatsächlich **VIEWS** (`pg_tables`/`information_schema` bestätigt). Solange Compat-Layer existiert, kein Risiko, **aber** TS verschluckt Tippfehler in diesen 17 Files. Aufräumen ist sinnvoll, bricht aber bei Fehlern alle Inquiry-Workflows.
-- **Punkt 8 (Bug C19 — EventBookingEditor Toast lügt)**: bestätigt. `EventBookingEditor.tsx:134` toastet `"Menü bestätigt und E-Mail gesendet!"` im `onSuccess`, ohne den Email-Status aus der `confirmMenu`-Mutation zu prüfen. Fix: Mutation muss `{ ok: boolean, emailSent: boolean }` zurückgeben, Toast-Text dann konditional.
+## Lösungs-Architektur (5 Schichten, additiv, ohne Logik-Bruch)
 
-## 🟠 Teil-richtig — präzisieren
+### Schicht 1 — Mobile-Grundlagen (App-weit, in `index.css` + `AdminLayout`)
 
-- **Punkt 4 (178+ Commits ungepusht)**: Annahme stimmt nicht 1:1. Lokale Git-History zeigt nur 3 Commits oben (`bc979d4`, `2366e70`, `c73a243`). Die „178+" stammen vermutlich aus einer alten Lovable-internen Zählung. Ungepusht sind aber tatsächlich diverse — Backup-Risiko bleibt. Aktion: einmal Push.
-- **Punkt 5 (Frontend nativ auf v2 portieren)**: korrekt diagnostiziert. **25 Edge Functions** schreiben gegen Legacy-Namen (laut Search). Funktioniert wegen INSTEAD OF Triggern (siehe `db-functions`: 21 Trigger-Funktionen sind aktiv). Migration ist eine 2–3-Tage-Aufgabe und **soll nicht jetzt im Rahmen dieses Tickets passieren** — Risiko zu hoch.
-- **Punkt 6 (v2 vereinen — eine Liste)**: Produktentscheidung, nicht Tech-Schuld. **Keine Code-Aktion ohne explizite UX-Freigabe.** Drei Listen sind heute funktional und stabil.
-- **Punkt 12 (EventBookingsList ohne sortierbare Spalten)**: korrekt — ist eine Card-Liste (`EventBookingsList.tsx`), keine Tabelle. UX-Redesign außerhalb dieses Tickets.
-- **Punkt 14 (Realtime auf Views)**: korrekt — `usePresence.ts` und `ConversationThread.tsx` nutzen `supabase.channel()`. `usePresence` läuft gegen `admin_presence` (echte Tabelle, OK). `ConversationThread` subscribed `email_messages:${inquiryId}` mit `postgres_changes` auf eine **VIEW** — Postgres `LOGICAL` Replication liefert für Views keine Events. Echtes Risiko: neue eingehende Mails erscheinen erst nach Refresh statt live.
+- **Safe-Area-Insets** überall: `pb-[env(safe-area-inset-bottom)]` für jeden fixierten Bottom-Container, `pt-[env(safe-area-inset-top)]` für Sticky Header. Verhindert Überlappung mit Home-Indicator/Notch.
+- **Body-Scroll-Lock-Patch** in Sheets/Dialogs: `overflow-anchor: none` + iOS-touch-fix.
+- **Globaler Schutz**: `body { -webkit-text-size-adjust: 100%; overflow-x: hidden; }` und `.admin-layout main { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }` damit FloatingPillNav nichts verdeckt.
+- **Touch-Targets**: alle Icon-Buttons im Admin-Theme min. 44 × 44 px (`size-11` statt `size-10` auf `< sm`).
 
-## 🟢 Niedrig-Risiko-Aufräumarbeiten (out of scope für diesen Sprint)
+### Schicht 2 — `AdminLayout` mobil-optimieren
 
-- **Punkt 9** (9 LexOffice-Zombie-Rechnungen stornieren) — manueller Backoffice-Job, kein Code.
-- **Punkt 10** (REVOKE auf `_legacy_*` nach 2 Wochen Stabilität) — DB-Migration in 2 Wochen, nicht jetzt.
-- **Punkt 11** (`_legacy_*` ins Archiv-Schema verschieben) — siehe 10.
-- **Punkt 13** (Cron-Jobs gegen v2-Views) — `process-order-reminders` schreibt in `catering_orders` (View) → läuft via UPDATE-Trigger sauber. Gleiches für `send-scheduled-reminders` und `process-follow-up-tasks`. Nominal abgedeckt durch die Trigger; ein einmaliger Trockendurchlauf wäre Bonus, ist aber kein Blocker.
+- Header bekommt **2 Reihen** auf `< sm`: Reihe 1 = Burger + Title + Notifications + Avatar. Reihe 2 = Suchfeld als Voll-Breite (heute komplett ausgeblendet).
+- **„Neue Anfrage" als FAB** mobil: `fixed bottom-20 right-4 lg:hidden` (über FloatingPillNav, mit Safe-Area). Desktop bleibt unverändert.
+- **Test-Toggle** wandert auf mobil in den Burger-Sidebar-Footer (statt versteckt).
+- Page-Padding: `px-3 sm:px-4 lg:px-6 pb-24 lg:pb-6`.
 
-## Empfehlung — was JETZT angehen, ohne Bestehendes zu brechen
+### Schicht 3 — `DataTable` Mobile-Card-Mode
 
-Streng minimal-invasiv, nichts an Geschäftslogik:
+- Neue Prop `mobileCardRender?: (row) => ReactNode` an `DataTable`. Wenn gesetzt UND `useIsMobile() === true` → render statt `<Table>` ein vertikales Stack mit Cards (rounded-2xl, alle wichtigen Felder als Key-Value-Liste, `onClick={onRowClick}`).
+- Filter-Pills: `flex flex-wrap` + horizontaler Scroll-Container bei Overflow (`scrollbar-hide overflow-x-auto`).
+- **Fallback** ohne `mobileCardRender`: Tabelle bekommt automatisch `<div className="overflow-x-auto -mx-3 px-3">…</div>` Wrapper, damit horizontaler Scroll wenigstens sauber gekapselt ist (kein Layout-Bruch der Page).
+- **`EventsList`, `OrdersList`, `EventBookingsList`, `LexOfficeInvoicesList`** bekommen jeweils einen kompakten `mobileCardRender` (Name, Datum, Status-Badge, Betrag, Chevron). Sortier-Pills bleiben oben sichtbar.
 
-1. **Bug C19 fixen** (Punkt 8): `useEventBookings`'s `confirmMenu` propagiert Email-Status. Toast in `EventBookingEditor.tsx:134` zeigt `"Menü bestätigt — E-Mail-Versand fehlgeschlagen"` als Warning, sonst Erfolg. ~10 Zeilen, isoliert.
-2. **Realtime-Lücke (Punkt 14) entschärfen**: `ConversationThread` subscribed zusätzlich `admin_presence`-Channel als Trigger oder pollt alle 30 s als Fallback. Live-Subscription auf View entfernen und stattdessen auf v2-Tabelle `v2_event_emails` umstellen — die ist real und unterstützt logical replication. Eine Datei, ~5 Zeilen.
-3. **Git-Push** (Punkt 4): einmal `git push` — kein Code, reine Hygiene.
-4. **E2E-Smoke-Test (Punkt 2)**: einmaliger Ablauf in Test-Modus mit `antoine@monot.com`:
-   - Anfrage über Public-Form → DB-Eintrag prüfen (Trigger schreibt `v2_events`)
-   - Angebot senden → Stripe Payment Link erzeugen → Test-Karte zahlen
-   - LexOffice-Rechnung wird erzeugt → in Inquiry sichtbar
-   - Edge-Function-Logs während des Laufs in `supabase--edge_function_logs` mitlesen.
-   Ergebnis dokumentieren, keine Code-Änderung außer Log-Beobachtung.
+### Schicht 4 — Inquiry-Editor + Wizard mobil
 
-**Bewusst NICHT in diesem Sprint:**
-- typed-client-Hack auflösen (Punkt 3) — riskant für 17 Files.
-- Frontend auf native v2-Tabellen portieren (Punkt 5) — separate Migrations-Phase.
-- v2-One-List-UX (Punkt 6) — Produktentscheidung offen.
-- Legacy-Cleanup (9, 10, 11) — Zeitfenster.
+- **Sticky Header `SmartInquiryEditor`** wird kompakter mobil:
+  - Reihe 1 (immer): Zurück + Avatar + Name (truncate) + Status-Badge.
+  - Reihe 2 (immer mobil, hidden sm): Meta (Firma · Datum · Gäste) als kleine Chips, scrollbar.
+  - „PDF herunterladen" als Icon-Button mobil (`sm:hidden` zeigt nur Icon).
+- **WizardConfigurator** Layout-Switch:
+  - `lg:grid-cols-12` → `md:grid-cols-12` (greift bereits ab 768 px).
+  - Mobil (`< md`): `LiveCalculation` als **sticky bottom-bar** (zusammenklappbar, zeigt Total + „Details" Toggle, der ein Bottom-Sheet öffnet mit voller Kalkulation). So bleibt der Preis immer sichtbar während der Admin Pakete/Gäste konfiguriert.
+  - Wizard-Step-Pills: `overflow-x-auto` mit Snap-Scroll, aktiver Step zentriert sich automatisch (`scrollIntoView({inline: 'center'})`).
+- **MultiOfferComposer**:
+  - Tab-Navigation zwischen „Optionen" und „Vorschau/Kalkulation" mobil (statt 5-col-Grid). Zwei Tabs: **Optionen** | **Kalkulation & Vorschau**. Desktop-Verhalten unverändert via `lg:grid-cols-5`.
+  - Send-Bar wird `fixed bottom-0` mobil mit „Versenden"-Primary-Button immer erreichbar.
+- **OfferBuilder / OptionCard**:
+  - `min-w-[200px]` an Selects entfernen → `w-full sm:min-w-[200px]`.
+  - Mode-Tile-Grid `grid-cols-2 gap-2` → bleibt, ist mobil OK.
+  - `OptionCard`-Footer (Add-Course, Trash, Mode-Select) gestapelt mobil: `flex-col sm:flex-row`.
 
-## Geänderte Dateien (nur falls Punkte 1–2 oben freigegeben)
+### Schicht 5 — Komponenten-Hotspots gefixt
 
-- `src/hooks/useEventBookings.ts` — `confirmMenu` Return-Type um `emailSent` ergänzen
-- `src/components/admin/refine/EventBookingEditor.tsx` — Toast-Text konditional
-- `src/components/admin/shared/ConversationThread.tsx` — Realtime auf `v2_event_emails` umstellen
+- `EventDNACard`, `LocationBlock`, `InquiryDetailsPanel`: `grid-cols-2/3` → `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`.
+- `Dashboard` Stat-Cards: `grid-cols-3` → `grid-cols-2 sm:grid-cols-3`.
+- `MenuItemSelector`, `CateringModules`, `PackageMenuItemsEditor`: `TabsList grid-cols-4` → `flex overflow-x-auto` mit Snap-Pills (Standard-Pattern, das wir schon im Wizard nutzen).
+- `InlineDrinkEditor`, `InlineCourseEditor`: Selects auf `w-full sm:w-auto`.
+- `OfferArchivePreview`: 3 iframe-Blöcke mobil als `Tabs` (E-Mail | Kunden-Ansicht | PDF), Desktop bleibt 3-Spalten-Stack.
+- `OfferSendPreview`: identische Behandlung wie Archive (gleiche Tab-Lösung mobil).
+- `Timeline`, `ConversationThread`: `max-w-` Klassen prüfen, Bubbles auf `max-w-[85%] sm:max-w-md`.
 
-Keine DB-Migration, keine Edge-Function-Änderung, keine Schema-Änderung.
+### Schicht 6 — Globale Patterns (neu, wiederverwendbar)
+
+Drei neue Helper unter `src/components/admin/shared/responsive/`:
+
+1. **`MobileBottomBar.tsx`** — fixed bottom Container mit Safe-Area, max 64 px, optional kollabierbar. Wird in Wizard und MultiOfferComposer eingesetzt.
+2. **`ScrollableTabs.tsx`** — Tab-List die mobil horizontal scrollt + aktiven Tab zentriert. Ersetzt alle `TabsList grid-cols-4` Vorkommen schrittweise.
+3. **`MobileCardList.tsx`** — Standard-Card für DataTable-Mobile-Mode. Konsistente Optik (Avatar/Icon links, Titel + Subline, Badge rechts, Chevron).
+
+## Risiko-Management
+
+- **Kein Logik-Bruch**: Jede Änderung ist rein CSS/Layout. Keine Hooks, keine Datenflüsse, keine Edge Functions, keine Schema-Änderung.
+- **Desktop unverändert**: Alle Anpassungen via Mobile-First-Breakpoints (`sm:`, `md:`, `lg:`). Bestehende Desktop-Klassen bleiben oder werden als `lg:`-Variante erhalten.
+- **Schritt-für-Schritt-Rollout**: Reihenfolge so, dass nach jedem Schritt alles funktional bleibt.
+- **Regression-Check** nach jeder Schicht: per Browser-Tool an 375 px (iPhone SE), 390 px (iPhone 14), 414 px (Plus), 768 px (iPad), 1024 px (Desktop) screenshoten und prüfen.
+
+## Geänderte Dateien (Übersicht)
+
+**App-weit:**
+- `src/index.css` — Safe-Area-Variablen, body overflow-x, touch-targets
+- `src/components/admin/refine/AdminLayout.tsx` — 2-row mobile header, mobile FAB, Test-Toggle in Sidebar-Footer
+
+**DataTable-Schicht:**
+- `src/components/admin/refine/DataTable.tsx` — `mobileCardRender` Prop, Overflow-Wrapper Fallback
+- `src/components/admin/refine/EventsList.tsx`
+- `src/components/admin/refine/OrdersList.tsx`
+- `src/components/admin/refine/EventBookingsList.tsx`
+- `src/components/admin/refine/LexOfficeInvoicesList.tsx`
+- `src/components/admin/refine/PackagesList.tsx`
+- `src/components/admin/refine/MenuItemsList.tsx`
+
+**Editor / Wizard:**
+- `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` — kompakter Sticky-Header mobil
+- `src/components/admin/refine/InquiryEditor/MultiOffer/WizardConfigurator.tsx` — `md:grid-cols-12`, sticky Calculation-Bar
+- `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx` — mobile Tabs, fixed Send-Bar
+- `src/components/admin/refine/InquiryEditor/MultiOffer/LiveCalculation.tsx` — kollabierbare Mobile-Variante
+- `src/components/admin/refine/InquiryEditor/OfferBuilder/OptionCard.tsx` — Footer stapelt, Selects full-width
+- `src/components/admin/refine/InquiryEditor/OfferBuilder/InlineDrinkEditor.tsx`
+- `src/components/admin/refine/InquiryEditor/OfferBuilder/InlineCourseEditor.tsx`
+- `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx` — 3-Block→Tabs mobil
+- `src/components/admin/refine/InquiryEditor/OfferArchivePreview.tsx` — gleich
+
+**Form-Cards mit fixen Grids:**
+- `src/components/admin/refine/InquiryEditor/EventDNACard.tsx`
+- `src/components/admin/refine/InquiryEditor/LocationBlock.tsx`
+- `src/components/admin/refine/InquiryEditor/InquiryDetailsPanel.tsx`
+- `src/components/admin/refine/InquiryEditor/CateringModules.tsx`
+- `src/components/admin/refine/InquiryEditor/MenuItemSelector.tsx`
+- `src/components/admin/refine/InquiryEditor/OfferBuilder/ModeSelector.tsx`
+- `src/components/admin/refine/Dashboard.tsx`
+- `src/components/admin/refine/PackageMenuItemsEditor.tsx`
+- `src/components/admin/refine/CateringOrderEditor.tsx`
+- `src/components/admin/refine/EventBookingEditor.tsx`
+- `src/components/admin/refine/CreateManualInvoiceDialog.tsx`
+
+**Neue Helper:**
+- `src/components/admin/shared/responsive/MobileBottomBar.tsx`
+- `src/components/admin/shared/responsive/ScrollableTabs.tsx`
+- `src/components/admin/shared/responsive/MobileCardList.tsx`
+
+Keine DB-Migration, keine Edge-Function-Änderung. Etwa 25 Dateien, ausschließlich Layout/CSS, additive Patterns.
+
+## Verifikation (nach Implementierung)
+
+Per Browser-Tool an Viewports **375 / 390 / 414 / 768 / 1024 / 1366** screenshoten und prüfen:
+
+1. **AdminLayout**: Burger öffnet Sidebar, Suche erreichbar, FAB sichtbar, kein horizontaler Scroll auf der Seite.
+2. **EventsList mobil**: Card-Liste statt Tabelle, alle Felder lesbar, Klick öffnet Editor.
+3. **SmartInquiryEditor mobil**: Header zweireihig, „Zurück" + Avatar + Name + Status, kein Overflow.
+4. **Wizard mobil (Step 2 Konfigurator)**: Pakete als 1-col-Stack, Step-Pills horizontal scrollbar, Preis-Bar fixed unten.
+5. **MultiOfferComposer mobil**: Tab-Switch zwischen Optionen und Kalkulation, Send-Button immer sichtbar fixed-bottom über FloatingPillNav.
+6. **OfferSendPreview mobil**: 3 Blöcke als Tabs, jeder iframe füllt Viewport-Breite.
+7. **CommandPalette mobil**: füllt Viewport, Suche fokussiert, ESC schließt.
+8. **CateringModules / MenuItemSelector mobil**: Tab-Pills horizontal scrollbar, kein Text-Truncate.
+9. **Dialoge** (CreateManualInvoice, ResponsiveDialog): nutzt bereits Drawer auf mobil — verifizieren, dass Inhalt scrollt und Submit-Button nicht verdeckt ist (`pb-[env(safe-area-inset-bottom)]`).
+10. **PublicOffer** (Kunden-Seite, falls auch Admin sie nutzt): unverändert, da bereits responsive — nur kontrollieren, kein Regress.
 
