@@ -15,7 +15,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Send, Mail, FileText, Globe, Loader2, TestTube2 } from "lucide-react";
+import { ArrowLeft, Send, Mail, FileText, Globe, Loader2, TestTube2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -170,67 +170,62 @@ export function OfferSendPreview({
     };
   }, [inquiry?.id, inquiry?.lexoffice_quotation_id]);
 
-  // LexOffice-PDF laden (visueller Block 3)
+  // LexOffice-PDF wird NICHT mehr automatisch geladen (Auto-Fetch erzeugte ungewollt
+  // eine Quotation in LexOffice). Stattdessen Button-getriggert via loadLexofficePdf().
+  // Cleanup der Blob-URL beim Unmount/Wechsel
   useEffect(() => {
+    return () => {
+      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+    };
+  }, [pdfBlobUrl]);
+
+  const loadLexofficePdf = async () => {
     if (!inquiry) return;
-    // Guard: prevent concurrent fetches for the same inquiry (StrictMode/double-render safety)
     if (pdfInFlightRef.current === inquiry.id) return;
     pdfInFlightRef.current = inquiry.id;
-    let cancelled = false;
-    (async () => {
-      setPdfLoading(true);
-      setPdfError(null);
-      try {
-        let quotationId = inquiry.lexoffice_quotation_id;
-        // Lazy-Create: wenn noch keine Quotation existiert, eine anlegen
-        if (!quotationId) {
-          const { data: quotRes, error: quotErr } = await supabase.functions.invoke(
-            'create-event-quotation',
-            { body: { inquiryId: inquiry.id } }
+    setPdfLoading(true);
+    setPdfError(null);
+    try {
+      let quotationId = inquiry.lexoffice_quotation_id;
+      if (!quotationId) {
+        const { data: quotRes, error: quotErr } = await supabase.functions.invoke(
+          'create-event-quotation',
+          { body: { inquiryId: inquiry.id } }
+        );
+        if (quotErr || !quotRes?.success || !quotRes?.quotationId) {
+          throw new Error(
+            quotRes?.error ||
+              quotErr?.message ||
+              'LexOffice-Angebot konnte nicht erstellt werden'
           );
-          if (quotErr || !quotRes?.success || !quotRes?.quotationId) {
-            throw new Error(
-              quotRes?.error ||
-                quotErr?.message ||
-                'LexOffice-Angebot konnte nicht erstellt werden'
-            );
-          }
-          quotationId = quotRes.quotationId as string;
-          await (supabase.from('event_inquiries') as unknown as {
-            update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
-          })
-            .update({ lexoffice_quotation_id: quotationId })
-            .eq('id', inquiry.id);
-          if (cancelled) return;
-          setInquiry((prev) => (prev ? { ...prev, lexoffice_quotation_id: quotationId } : prev));
         }
-        const { data, error } = await supabase.functions.invoke('get-lexoffice-document', {
-          body: { voucherId: quotationId, voucherType: 'quotation' },
-        });
-        if (cancelled) return;
-        if (error || !data?.pdf) {
-          throw new Error(data?.error || error?.message || 'PDF nicht verfügbar');
-        }
-        const bytes = Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0));
-        const blob = new Blob([bytes], { type: 'application/pdf' });
-        if (cancelled) return;
-        setPdfBlobUrl(URL.createObjectURL(blob));
-      } catch (err) {
-        if (cancelled) return;
-        setPdfError(err instanceof Error ? err.message : 'Unbekannter Fehler');
-      } finally {
-        if (!cancelled) setPdfLoading(false);
-        pdfInFlightRef.current = null;
+        quotationId = quotRes.quotationId as string;
+        await (supabase.from('event_inquiries') as unknown as {
+          update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
+        })
+          .update({ lexoffice_quotation_id: quotationId })
+          .eq('id', inquiry.id);
+        setInquiry((prev) => (prev ? { ...prev, lexoffice_quotation_id: quotationId } : prev));
       }
-    })();
-    return () => {
-      cancelled = true;
+      const { data, error } = await supabase.functions.invoke('get-lexoffice-document', {
+        body: { voucherId: quotationId, voucherType: 'quotation' },
+      });
+      if (error || !data?.pdf) {
+        throw new Error(data?.error || error?.message || 'PDF nicht verfügbar');
+      }
+      const bytes = Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: 'application/pdf' });
       setPdfBlobUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
-        return null;
+        return URL.createObjectURL(blob);
       });
-    };
-  }, [inquiry?.id]);
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+    } finally {
+      setPdfLoading(false);
+      pdfInFlightRef.current = null;
+    }
+  };
 
   // Senden = an Edit-Seite delegieren (oder onAfterSend-Callback im Embed)
   const handleSend = (isTest: boolean) => {
@@ -442,23 +437,45 @@ export function OfferSendPreview({
 
         {/* Block 3: LexOffice-PDF */}
         <section className="rounded-xl border bg-card overflow-hidden">
-          <div className="bg-muted/50 px-4 py-3 border-b flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold">3. LexOffice-Angebot (PDF)</h2>
+          <div className="bg-muted/50 px-4 py-3 border-b flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold">3. LexOffice-Angebot (PDF)</h2>
+            </div>
+            {pdfBlobUrl && !pdfLoading && (
+              <button
+                type="button"
+                onClick={loadLexofficePdf}
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                <RefreshCw className="h-3 w-3" />
+                PDF neu laden
+              </button>
+            )}
           </div>
           <div className="bg-muted/20 min-h-[400px] flex items-center justify-center">
-            {!inquiry.lexoffice_quotation_id ? (
-              <div className="p-8 text-center text-sm text-muted-foreground max-w-md">
-                Kein LexOffice-Angebot verknüpft. Bitte zurück und Angebot erstellen.
-              </div>
-            ) : pdfLoading ? (
-              <div className="p-8 flex items-center gap-3 text-sm text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                PDF wird geladen…
+            {pdfLoading ? (
+              <div className="p-8 flex flex-col items-center gap-3 text-sm text-muted-foreground text-center max-w-md">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <div>
+                  <div className="font-medium">PDF wird erstellt und geladen…</div>
+                  {!inquiry.lexoffice_quotation_id && (
+                    <div className="text-xs mt-1">
+                      Es wird ein neues Angebot in LexOffice angelegt.
+                    </div>
+                  )}
+                </div>
               </div>
             ) : pdfError ? (
-              <div className="p-8 text-center text-sm max-w-md text-muted-foreground">
-                PDF nicht verfügbar: {pdfError}
+              <div className="p-8 flex flex-col items-center gap-3 text-center max-w-md">
+                <div className="text-sm text-destructive font-medium">
+                  PDF konnte nicht geladen werden
+                </div>
+                <div className="text-xs text-muted-foreground">{pdfError}</div>
+                <Button variant="outline" size="sm" onClick={loadLexofficePdf} className="gap-2 mt-2">
+                  <RefreshCw className="h-4 w-4" />
+                  Erneut versuchen
+                </Button>
               </div>
             ) : pdfBlobUrl ? (
               <iframe
@@ -466,7 +483,29 @@ export function OfferSendPreview({
                 title="LexOffice Quotation PDF"
                 className="w-full h-[900px] border-0 bg-white"
               />
-            ) : null}
+            ) : (
+              <div className="p-8 flex flex-col items-center gap-4 text-center max-w-md">
+                <FileText className="h-10 w-10 text-muted-foreground/60" />
+                <div className="space-y-1">
+                  <div className="font-medium text-sm">
+                    {inquiry.lexoffice_quotation_id
+                      ? 'LexOffice-PDF noch nicht geladen'
+                      : 'Noch kein LexOffice-Angebot erstellt'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {inquiry.lexoffice_quotation_id
+                      ? 'Klicke unten, um das vorhandene PDF aus LexOffice abzurufen.'
+                      : 'Erstellt das LexOffice-Angebot und lädt das PDF zur Vorschau. Aktion erst nach finaler Menü-Auswahl ausführen.'}
+                  </p>
+                </div>
+                <Button onClick={loadLexofficePdf} className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  {inquiry.lexoffice_quotation_id
+                    ? 'Vorhandenes LexOffice-PDF laden'
+                    : 'PDF generieren'}
+                </Button>
+              </div>
+            )}
           </div>
         </section>
 
