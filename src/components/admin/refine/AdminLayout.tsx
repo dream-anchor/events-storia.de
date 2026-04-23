@@ -202,18 +202,18 @@ export const AdminLayout = ({
           className={cn(
             "lg:hidden mb-3 w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
             showTestData
-              ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+              ? "bg-foreground text-background hover:bg-foreground/90"
               : "text-muted-foreground bg-muted/50 hover:bg-muted"
           )}
         >
           <span className="flex items-center gap-2">
-            <span className={cn("h-2 w-2 rounded-full", showTestData ? "bg-amber-500" : "bg-neutral-300")} />
+            <span className={cn("h-2 w-2 rounded-full", showTestData ? "bg-background" : "bg-muted-foreground/40")} />
             Testdaten anzeigen
           </span>
           <span className="text-xs uppercase tracking-wider">{showTestData ? "An" : "Aus"}</span>
         </button>
         <div className="flex items-center gap-3 px-2">
-          <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+          <div className="size-8 rounded-full bg-muted text-foreground flex items-center justify-center font-bold text-sm">
             {userName.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
