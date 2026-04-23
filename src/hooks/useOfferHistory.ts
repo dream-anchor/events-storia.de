@@ -1,24 +1,40 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Snapshot eines Eintrags in `inquiry_offer_options` zum Zeitpunkt des Versands.
+ * Spiegelt 1:1 die DB-Spalten — wir speichern beim Senden den vollen Row-Snapshot
+ * (siehe SmartInquiryEditor.tsx: handleSend → fullOptions).
+ */
+export interface OfferOptionSnapshot {
+  id: string;
+  inquiry_id: string;
+  option_label: string;
+  offer_mode: string | null;
+  package_id: string | null;
+  guest_count: number;
+  selected_quantity: number | null;
+  total_amount: number;
+  menu_selection: Record<string, unknown> | null;
+  stripe_payment_link_url: string | null;
+  stripe_payment_link_id: string | null;
+  is_active: boolean | null;
+  sort_order: number | null;
+  offer_version: number | null;
+  created_in_version: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export interface OfferHistoryEntry {
   id: string;
+  inquiry_id: string;
   version: number;
   sent_at: string;
   sent_by: string | null;
   email_content: string | null;
   pdf_url: string | null;
-  options_snapshot: {
-    optionLabel: string;
-    offerMode: string;
-    guestCount: number;
-    totalAmount: number;
-    budgetPerPerson: number | null;
-    menuSelection?: {
-      courses?: { courseLabel: string; itemName: string }[];
-      drinks?: { drinkLabel: string; selectedChoice: string | null }[];
-    };
-  }[];
+  options_snapshot: OfferOptionSnapshot[];
 }
 
 export function useOfferHistory(inquiryId: string) {
@@ -35,5 +51,25 @@ export function useOfferHistory(inquiryId: string) {
       return (data || []) as unknown as OfferHistoryEntry[];
     },
     enabled: !!inquiryId,
+  });
+}
+
+/**
+ * Lädt einen einzelnen History-Eintrag (für die Archiv-Detail-Seite).
+ */
+export function useOfferHistoryVersion(inquiryId: string, version: number | null) {
+  return useQuery({
+    queryKey: ["offer-history", inquiryId, version],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inquiry_offer_history" as never)
+        .select("*")
+        .eq("inquiry_id", inquiryId)
+        .eq("version", version!)
+        .maybeSingle();
+      if (error) throw error;
+      return (data || null) as unknown as OfferHistoryEntry | null;
+    },
+    enabled: !!inquiryId && version != null && !Number.isNaN(version),
   });
 }
