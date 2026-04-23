@@ -600,7 +600,7 @@ export default function PublicOffer() {
  * Multi-Option: erst ab Phase customer_responded freigegeben.
  */
 function isCustomerSelectionComplete(
-  options: OfferOption[],
+  options: PublicOfferOption[],
   phase: OfferPhase,
 ): boolean {
   if (options.length <= 1) return true;
@@ -615,7 +615,7 @@ function PdfDownloadGate({
   isArchiveMode,
 }: {
   inquiryId: string;
-  options: OfferOption[];
+  options: PublicOfferOption[];
   phase: OfferPhase;
   isArchiveMode: boolean;
 }) {
