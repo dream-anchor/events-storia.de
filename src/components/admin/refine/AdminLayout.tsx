@@ -153,14 +153,20 @@ export const AdminLayout = ({
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 active
-                  ? "bg-primary/10 text-primary"
+                  ? "bg-foreground text-background"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <Icon className="h-5 w-5" />
               <span>{item.name}</span>
               {badgeCount > 0 && (
-                <Badge variant="secondary" className="ml-auto h-5 min-w-[20px] px-1.5 text-xs font-bold">
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "ml-auto h-5 min-w-[20px] px-1.5 text-xs font-bold",
+                    active && "bg-background/20 text-background border-transparent"
+                  )}
+                >
                   {badgeCount}
                 </Badge>
               )}
@@ -179,7 +185,7 @@ export const AdminLayout = ({
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
             location.pathname.includes('/admin/settings')
-              ? "bg-primary/10 text-primary"
+              ? "bg-foreground text-background"
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
           )}
         >
