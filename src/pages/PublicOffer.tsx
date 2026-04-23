@@ -523,8 +523,9 @@ export default function PublicOffer() {
           <PdfDownloadGate
             inquiryId={inquiry.id}
             options={options}
-            phase={effectivePhase}
+            phase={isPreviewMode ? ((inquiry.offer_phase as OfferPhase) || 'draft') : effectivePhase}
             isArchiveMode={isArchiveMode}
+            isPreviewMode={isPreviewMode}
           />
         )}
 
@@ -603,7 +604,8 @@ function isCustomerSelectionComplete(
   options: PublicOfferOption[],
   phase: OfferPhase,
 ): boolean {
-  if (options.length <= 1) return true;
+  if (options.length === 1) return true;
+  if (options.length === 0) return false;
   return ['customer_responded', 'final_draft', 'final_sent', 'confirmed', 'paid']
     .includes(phase);
 }
@@ -613,11 +615,13 @@ function PdfDownloadGate({
   options,
   phase,
   isArchiveMode,
+  isPreviewMode,
 }: {
   inquiryId: string;
   options: PublicOfferOption[];
   phase: OfferPhase;
   isArchiveMode: boolean;
+  isPreviewMode?: boolean;
 }) {
   // Archiv-Modus: finalisierte alte Versionen → Download immer sichtbar.
   if (isArchiveMode) {
@@ -652,6 +656,11 @@ function PdfDownloadGate({
                 Auswahl bestätigst, steht hier dein persönliches Angebots-PDF zum
                 Download bereit.
               </p>
+              {isPreviewMode && (
+                <p className="mt-2 text-xs italic text-neutral-500">
+                  Vorschau-Hinweis: Auch in der Live-Ansicht wird der Download erst freigegeben, sobald der Kunde seine Auswahl bestätigt.
+                </p>
+              )}
               <Button
                 type="button"
                 variant="outline"
