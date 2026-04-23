@@ -457,7 +457,7 @@ serve(async (req) => {
   }
 
   try {
-    const { inquiryId } = await req.json();
+    const { inquiryId, useSelectedQuantity } = await req.json();
     if (!inquiryId) throw new Error('inquiryId fehlt');
 
     const lexofficeApiKey = Deno.env.get('LEXOFFICE_API_KEY');
@@ -479,19 +479,26 @@ serve(async (req) => {
     // 2. Aktive Angebots-Optionen laden
     const { data: options, error: optErr } = await supabase
       .from('inquiry_offer_options')
-      .select('offer_mode, total_amount, guest_count, package_id, menu_selection')
+      .select('offer_mode, total_amount, guest_count, selected_quantity, package_id, menu_selection')
       .eq('inquiry_id', inquiryId)
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
     if (optErr) throw new Error(`Optionen nicht geladen: ${optErr.message}`);
 
-    if (!options || options.length === 0) {
+    let workingOptions = options || [];
+    if (useSelectedQuantity) {
+      workingOptions = workingOptions.filter(
+        (o: { selected_quantity?: number | null }) => (o.selected_quantity ?? 0) > 0,
+      );
+    }
+
+    if (workingOptions.length === 0) {
       throw new Error('Keine aktiven Angebots-Optionen gefunden');
     }
 
     // 3. Paketnamen für alle package_ids auflösen
     const packageIds = [...new Set(
-      options.map((o: OfferOption) => o.package_id).filter(Boolean)
+      workingOptions.map((o: OfferOption) => o.package_id).filter(Boolean)
     )] as string[];
 
     const packageNameMap: Record<string, string> = {};
@@ -507,9 +514,10 @@ serve(async (req) => {
 
     // 4. Line-Items aus allen aktiven Optionen bauen
     const lineItems: LexOfficeLineItem[] = [];
-    for (const opt of options as OfferOption[]) {
+    for (const opt of workingOptions as Array<OfferOption & { selected_quantity?: number | null }>) {
       const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
-      lineItems.push(...buildLineItems(opt, pkgName));
+      const guestOverride = useSelectedQuantity ? (opt.selected_quantity ?? 0) : undefined;
+      lineItems.push(...buildLineItems(opt, pkgName, guestOverride));
     }
 
     if (lineItems.length === 0) {
@@ -530,7 +538,7 @@ serve(async (req) => {
     }
 
     // 6. Einleitungstext aus erster aktiver Option (inkl. Veranstaltungsort)
-    const firstOpt = options[0] as OfferOption;
+    const firstOpt = workingOptions[0] as OfferOption;
     const introduction = buildIntroduction(
       inquiry as Record<string, unknown>,
       firstOpt.menu_selection,
