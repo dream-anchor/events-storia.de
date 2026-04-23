@@ -1028,6 +1028,7 @@ function ProposalView({
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     if (!hasQuantities && !selectedOptionId) return;
     setIsPaying(paymentType);
+    haptic('select');
     try {
       const body = hasQuantities
         ? {
