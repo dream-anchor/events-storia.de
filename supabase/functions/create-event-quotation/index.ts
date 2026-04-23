@@ -168,7 +168,7 @@ function buildLineItems(
       }
     }
 
-    // --- Brutto -> Netto fuer LexOffice ---
+    // --- Brutto direkt als grossAmount fuer LexOffice ---
     for (const e of entries) {
       if (e.brutto <= 0) continue;
       items.push({
@@ -179,7 +179,7 @@ function buildLineItems(
         unitName: e.unitName,
         unitPrice: {
           currency: 'EUR',
-          netAmount: bruttoToNet(e.brutto, e.tax),
+          grossAmount: e.brutto,
           taxRatePercentage: e.tax,
         },
       });
@@ -193,7 +193,7 @@ function buildLineItems(
         description: '',
         quantity: 1,
         unitName: 'Stk',
-        unitPrice: { currency: 'EUR', netAmount: bruttoToNet(round2(totalAmount), FOOD_TAX), taxRatePercentage: FOOD_TAX },
+        unitPrice: { currency: 'EUR', grossAmount: round2(totalAmount), taxRatePercentage: FOOD_TAX },
       });
     }
     return items;
