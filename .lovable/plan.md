@@ -1,97 +1,70 @@
 
 
-# OptionCard-Dropdown: vierten Eintrag „Restaurant-Menü laden" ergänzen
+# Status-Audit der offenen Punkte (vor Änderungen prüfen, nichts kaputt machen)
 
-## Befund
+Faktencheck gegen aktuellen Code- und DB-Stand. Pro Punkt: was stimmt noch, was ist erledigt, was ist offen, was ist falsch verstanden.
 
-In `OptionCard.tsx` zeigen die Tile-Auswahl (Zeile 414–462) und das Header-Dropdown (Zeile 252–265) unterschiedlich viele Optionen:
+## ✅ Bereits erledigt / kein Handlungsbedarf
 
-| | Restaurant-Menü | Eigenes Menü | Paket | Nur E-Mail |
-|---|:-:|:-:|:-:|:-:|
-| Tiles (leere Karte) | ✓ | ✓ | ✓ | ✓ |
-| Dropdown (bestehende Karte) | – | ✓ (als „Menü") | ✓ | ✓ |
+- **Punkt 7 (Bug C9 — sendFinalOffer Payment-Link-Loop)**: In `supabase/functions/send-offer-email/index.ts` existiert **keine** Payment-Link-Schleife mehr. Payment-Links werden separat über `create-offer-payment-link` (pro Option, einzeln) erzeugt — aufgerufen aus 3 Stellen im Frontend (`MultiOfferComposer`, `useOfferBuilder`, `SmartInquiryEditor`). Eine atomare Transaktion ist hier strukturell nicht nötig: jeder Link-Erstellungs-Call ist idempotent pro Option, Fehler werden pro Option getoastet. **Streichen.**
 
-Grund: Der Datentyp `OfferMode` kennt nur `menu | paket | email | unselected`. „Restaurant-Menü" und „Eigenes Menü" sind beide `mode = 'menu'` — sie unterscheiden sich nur darin, dass „Restaurant-Menü" zusätzlich den Import-Dialog öffnet (`onRequestImport()`). Im Dropdown wurde dieser Shortcut schlicht vergessen.
+## 🟡 Korrekt diagnostiziert, weiter offen
 
-CX-Auswirkung: Wer eine bestehende Variante umbauen möchte („mach aus diesem Eigenen Menü ein Restaurant-Menü"), muss heute den Umweg über den separaten „Restaurant-Menü laden"-Button im Body gehen — nicht offensichtlich, inkonsistent zur initialen Auswahl.
+- **Punkt 2 (E2E nicht live getestet)**: bleibt offen. Stripe-Webhook, `receive-event-inquiry` und LexOffice-Rechnungserstellung wurden in der letzten Runde nur gegen Test-Inquiries (Preview-Modus) verifiziert — kein echter Zahlvorgang, kein echtes Formular mit Maus geklickt. Empfehlung unten.
+- **Punkt 3 (typed-client-Hack)**: bestätigt — aktuell **17 Files** importieren `@/integrations/supabase/typed-client` (Original-Schätzung „14" war zu niedrig). Liste:
+  ```
+  hooks/useTasks, useEventBookings, useEventInquiries, useCateringOrders,
+  useNotifications, useCloneOfferVersion
+  components/admin/refine/InquiryEditor/MultiOffer/{MultiOfferComposer,useMultiOfferState}
+  components/admin/refine/InquiryEditor/OfferBuilder/{OfferBuilder,useOfferBuilder}
+  components/admin/refine/InquiryEditor/{AddPaymentDrawer,SmartInquiryEditor}
+  components/admin/refine/{OfferCreate/index,KanbanView}
+  components/admin/shared/BulkActionBar
+  providers/refine-data-provider
+  ```
+  Grund liegt in der DB: alle 10 betroffenen „Tabellen" sind tatsächlich **VIEWS** (`pg_tables`/`information_schema` bestätigt). Solange Compat-Layer existiert, kein Risiko, **aber** TS verschluckt Tippfehler in diesen 17 Files. Aufräumen ist sinnvoll, bricht aber bei Fehlern alle Inquiry-Workflows.
+- **Punkt 8 (Bug C19 — EventBookingEditor Toast lügt)**: bestätigt. `EventBookingEditor.tsx:134` toastet `"Menü bestätigt und E-Mail gesendet!"` im `onSuccess`, ohne den Email-Status aus der `confirmMenu`-Mutation zu prüfen. Fix: Mutation muss `{ ok: boolean, emailSent: boolean }` zurückgeben, Toast-Text dann konditional.
 
-## Lösung
+## 🟠 Teil-richtig — präzisieren
 
-**Eine Datei**, präzise Änderung in `src/components/admin/refine/InquiryEditor/OfferBuilder/OptionCard.tsx`:
+- **Punkt 4 (178+ Commits ungepusht)**: Annahme stimmt nicht 1:1. Lokale Git-History zeigt nur 3 Commits oben (`bc979d4`, `2366e70`, `c73a243`). Die „178+" stammen vermutlich aus einer alten Lovable-internen Zählung. Ungepusht sind aber tatsächlich diverse — Backup-Risiko bleibt. Aktion: einmal Push.
+- **Punkt 5 (Frontend nativ auf v2 portieren)**: korrekt diagnostiziert. **25 Edge Functions** schreiben gegen Legacy-Namen (laut Search). Funktioniert wegen INSTEAD OF Triggern (siehe `db-functions`: 21 Trigger-Funktionen sind aktiv). Migration ist eine 2–3-Tage-Aufgabe und **soll nicht jetzt im Rahmen dieses Tickets passieren** — Risiko zu hoch.
+- **Punkt 6 (v2 vereinen — eine Liste)**: Produktentscheidung, nicht Tech-Schuld. **Keine Code-Aktion ohne explizite UX-Freigabe.** Drei Listen sind heute funktional und stabil.
+- **Punkt 12 (EventBookingsList ohne sortierbare Spalten)**: korrekt — ist eine Card-Liste (`EventBookingsList.tsx`), keine Tabelle. UX-Redesign außerhalb dieses Tickets.
+- **Punkt 14 (Realtime auf Views)**: korrekt — `usePresence.ts` und `ConversationThread.tsx` nutzen `supabase.channel()`. `usePresence` läuft gegen `admin_presence` (echte Tabelle, OK). `ConversationThread` subscribed `email_messages:${inquiryId}` mit `postgres_changes` auf eine **VIEW** — Postgres `LOGICAL` Replication liefert für Views keine Events. Echtes Risiko: neue eingehende Mails erscheinen erst nach Refresh statt live.
 
-### 1. Dropdown ergänzen (Zeile 260–264)
+## 🟢 Niedrig-Risiko-Aufräumarbeiten (out of scope für diesen Sprint)
 
-Neuer erster Eintrag mit Sentinel-Wert `__import` und Icon-Hint, plus Trennlinie zur Abgrenzung der „echten" Modi:
+- **Punkt 9** (9 LexOffice-Zombie-Rechnungen stornieren) — manueller Backoffice-Job, kein Code.
+- **Punkt 10** (REVOKE auf `_legacy_*` nach 2 Wochen Stabilität) — DB-Migration in 2 Wochen, nicht jetzt.
+- **Punkt 11** (`_legacy_*` ins Archiv-Schema verschieben) — siehe 10.
+- **Punkt 13** (Cron-Jobs gegen v2-Views) — `process-order-reminders` schreibt in `catering_orders` (View) → läuft via UPDATE-Trigger sauber. Gleiches für `send-scheduled-reminders` und `process-follow-up-tasks`. Nominal abgedeckt durch die Trigger; ein einmaliger Trockendurchlauf wäre Bonus, ist aber kein Blocker.
 
-```tsx
-<SelectContent>
-  <SelectItem value="__import">
-    <span className="flex items-center gap-2">
-      <UtensilsCrossed className="h-3 w-3" />
-      Restaurant-Menü laden …
-    </span>
-  </SelectItem>
-  <SelectSeparator />
-  <SelectItem value="menu">Eigenes Menü</SelectItem>
-  <SelectItem value="paket">Paket</SelectItem>
-  <SelectItem value="email">Nur E-Mail</SelectItem>
-</SelectContent>
-```
+## Empfehlung — was JETZT angehen, ohne Bestehendes zu brechen
 
-Konsequente Umbenennung: der bestehende `menu`-Eintrag heißt jetzt **„Eigenes Menü"** (statt nur „Menü") — passt 1:1 zur Tile-Sprache.
+Streng minimal-invasiv, nichts an Geschäftslogik:
 
-### 2. Handler-Branch (Zeile 102–109)
+1. **Bug C19 fixen** (Punkt 8): `useEventBookings`'s `confirmMenu` propagiert Email-Status. Toast in `EventBookingEditor.tsx:134` zeigt `"Menü bestätigt — E-Mail-Versand fehlgeschlagen"` als Warning, sonst Erfolg. ~10 Zeilen, isoliert.
+2. **Realtime-Lücke (Punkt 14) entschärfen**: `ConversationThread` subscribed zusätzlich `admin_presence`-Channel als Trigger oder pollt alle 30 s als Fallback. Live-Subscription auf View entfernen und stattdessen auf v2-Tabelle `v2_event_emails` umstellen — die ist real und unterstützt logical replication. Eine Datei, ~5 Zeilen.
+3. **Git-Push** (Punkt 4): einmal `git push` — kein Code, reine Hygiene.
+4. **E2E-Smoke-Test (Punkt 2)**: einmaliger Ablauf in Test-Modus mit `antoine@monot.com`:
+   - Anfrage über Public-Form → DB-Eintrag prüfen (Trigger schreibt `v2_events`)
+   - Angebot senden → Stripe Payment Link erzeugen → Test-Karte zahlen
+   - LexOffice-Rechnung wird erzeugt → in Inquiry sichtbar
+   - Edge-Function-Logs während des Laufs in `supabase--edge_function_logs` mitlesen.
+   Ergebnis dokumentieren, keine Code-Änderung außer Log-Beobachtung.
 
-`handleModeSelectChange` bekommt einen neuen Pfad für den Sentinel-Wert. Der Modus wird auf `menu` gesetzt UND `onRequestImport()` aufgerufen — exakt das gleiche Verhalten wie beim Klick auf die „Restaurant-Menü"-Tile.
+**Bewusst NICHT in diesem Sprint:**
+- typed-client-Hack auflösen (Punkt 3) — riskant für 17 Files.
+- Frontend auf native v2-Tabellen portieren (Punkt 5) — separate Migrations-Phase.
+- v2-One-List-UX (Punkt 6) — Produktentscheidung offen.
+- Legacy-Cleanup (9, 10, 11) — Zeitfenster.
 
-```tsx
-const handleModeSelectChange = (value: string) => {
-  if (value === '__import') {
-    if (option.offerMode !== 'menu') {
-      if (hasOptionData) { setPendingMode('menu'); /* nach Bestätigung Import */ return; }
-      applyModeChange('menu');
-    }
-    onRequestImport?.();
-    return;
-  }
-  const mode = value as OfferMode;
-  if (mode === option.offerMode) return;
-  if (hasOptionData) { setPendingMode(mode); return; }
-  applyModeChange(mode);
-};
-```
+## Geänderte Dateien (nur falls Punkte 1–2 oben freigegeben)
 
-`onValueChange` bleibt: `(value) => handleModeSelectChange(value)` — kein Cast mehr, weil der Sentinel kein gültiger `OfferMode` ist.
+- `src/hooks/useEventBookings.ts` — `confirmMenu` Return-Type um `emailSent` ergänzen
+- `src/components/admin/refine/EventBookingEditor.tsx` — Toast-Text konditional
+- `src/components/admin/shared/ConversationThread.tsx` — Realtime auf `v2_event_emails` umstellen
 
-### 3. Selektierte Anzeige im Trigger
-
-Wenn `option.offerMode === 'menu'` kann das aktuell ausgewählte Item entweder „Restaurant-Menü" (Import wurde genutzt → `option.packageName && !option.packageId`) oder „Eigenes Menü" sein. Damit der `SelectTrigger` korrekt anzeigt, setzen wir den `value`-Prop des `Select` dynamisch:
-
-```tsx
-const dropdownValue =
-  option.offerMode === 'menu' && !!option.packageName && !option.packageId
-    ? '__import'
-    : option.offerMode;
-```
-
-Das `__import`-Item zeigt im Trigger dann „Restaurant-Menü laden …" — der Admin sieht sofort, in welchem Sub-Modus die Karte ist. Beim erneuten Klick auf den Eintrag öffnet sich der Import-Dialog wieder (z. B. um ein anderes Restaurant-Menü zu laden).
-
-### 4. Kein Bestätigungs-Dialog-Bug
-
-`hasOptionData` ist `true` sobald Gänge/Pakete/Inhalte existieren. Wechsel von „Eigenes Menü" → „Restaurant-Menü" innerhalb von `mode='menu'` würde technisch keine Daten verwerfen (gleicher Mode), trotzdem führt der Import meist zur Ersetzung — wir lösen den Confirm-Dialog **nur** aus, wenn der echte Mode wechselt (`option.offerMode !== 'menu'`). Innerhalb von `menu` öffnet sich direkt der Import-Sheet; eine bewusste Doppel-Aktion (Karte wegwerfen) macht der Admin über das Trash-Icon, nicht über das Mode-Dropdown.
-
-## Geänderte Datei
-
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/OptionCard.tsx` (~15 Zeilen Diff: SelectContent, handleModeSelectChange, dropdownValue-Helper, ggf. `SelectSeparator`-Import aus shadcn/ui)
-
-Keine Schema-, Type- oder Backend-Änderung. `OfferMode` bleibt unangetastet.
-
-## Verifikation
-
-1. **Leere Karte (offerMode='unselected'):** Tiles unverändert sichtbar — 4 Optionen wie vorher.
-2. **Bestehende Karte mit Eigenem Menü:** Dropdown öffnet → 4 Einträge sichtbar (Restaurant-Menü laden / Eigenes Menü / Paket / Nur E-Mail). Trigger zeigt „Eigenes Menü".
-3. **Klick auf „Restaurant-Menü laden …" im Dropdown:** Modus bleibt `menu`, Import-Sheet öffnet sich, Admin wählt z. B. „Tasting Menu Auriga" → Karte zeigt importierte Gänge, Trigger schaltet auf „Restaurant-Menü laden …".
-4. **Bestehende Karte mit importiertem Restaurant-Menü:** Trigger zeigt „Restaurant-Menü laden …" statt „Eigenes Menü". Klick darauf → Sheet öffnet sich erneut, neues Menü kann geladen werden.
-5. **Wechsel Restaurant-Menü → Paket:** Confirm-Dialog erscheint (echter Mode-Wechsel + bestehende Daten), Admin bestätigt → Karte ist auf Paket umgestellt.
-6. **Wechsel Eigenes Menü → Nur E-Mail:** Confirm-Dialog wie bisher.
+Keine DB-Migration, keine Edge-Function-Änderung, keine Schema-Änderung.
 
