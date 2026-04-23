@@ -30,42 +30,48 @@ export function OutboxColumn() {
   }, {});
 
   return (
-    <div className="space-y-5">
-      <header className="flex items-center justify-between">
+    <div className="space-y-6">
+      <header className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Geht raus</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Automatisch · nächste 24h</p>
+          <h2 className="text-base font-semibold text-foreground">Automatik</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {upcoming.length > 0
+              ? `${upcoming.length} geplant in 24h`
+              : "Keine geplanten Aktionen"}
+          </p>
         </div>
-        <span className="text-xs font-semibold text-muted-foreground bg-muted px-2 py-1 rounded-full">
-          {upcoming.length}
-        </span>
+        {upcoming.length > 0 && (
+          <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">
+            {upcoming.length}
+          </span>
+        )}
       </header>
 
       {isLoading && <div className="h-32 bg-muted/40 rounded-2xl animate-pulse" />}
 
       {!isLoading && upcoming.length === 0 && (
-        <div className="text-center py-10 text-sm text-muted-foreground bg-muted/30 rounded-2xl">
-          <Bell className="h-8 w-8 mx-auto mb-2 opacity-40" />
+        <div className="text-center py-10 text-sm text-muted-foreground">
+          <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
           Keine geplanten Erinnerungen
         </div>
       )}
 
       {Object.entries(grouped).map(([label, items]) => (
-        <section key={label} className="bg-card rounded-2xl border border-border/60 p-4">
-          <div className="flex items-center gap-2 mb-3">
+        <section key={label}>
+          <div className="flex items-center gap-2 mb-2">
             <Send className="h-3.5 w-3.5 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground capitalize">{label}</h3>
-            <span className="ml-auto text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-              {items.length} geplant
+            <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+              {items.length}
             </span>
           </div>
-          <div className="space-y-1">
+          <div className="divide-y divide-border/40">
             {items.map(r => (
               <button
                 key={r.id}
                 onClick={() => r.navigateTo && navigate(r.navigateTo)}
                 disabled={!r.navigateTo}
-                className="w-full flex items-center gap-2 px-2 py-1.5 -mx-2 rounded-lg hover:bg-muted/60 transition-colors text-left disabled:cursor-default"
+                className="w-full flex items-center gap-3 px-2 py-3 -mx-2 rounded-lg hover:bg-muted/60 transition-colors text-left disabled:cursor-default min-h-[44px]"
               >
                 <span className="text-muted-foreground flex-shrink-0">{kindIcon(r.kind)}</span>
                 <div className="min-w-0 flex-1">
@@ -81,11 +87,11 @@ export function OutboxColumn() {
       {/* History toggle */}
       <button
         onClick={() => setShowHistory(v => !v)}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors min-h-[44px]"
       >
         <History className="h-3.5 w-3.5" />
         <span>Bereits raus (letzte 7 Tage)</span>
-        <span className="ml-auto inline-flex items-center gap-1">
+        <span className="ml-auto inline-flex items-center gap-1 tabular-nums">
           {recent.length}
           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showHistory && "rotate-180")} />
         </span>
@@ -98,9 +104,9 @@ export function OutboxColumn() {
           ) : (
             recent.map(r => (
               <div key={r.id} className="flex items-center gap-2 px-2 py-1.5 text-xs">
-                <Check className="h-3 w-3 text-emerald-600 flex-shrink-0" />
+                <Check className="h-3 w-3 text-foreground/60 flex-shrink-0" />
                 <span className="text-foreground truncate flex-1">{r.subject}</span>
-                <span className="text-muted-foreground flex-shrink-0">
+                <span className="text-muted-foreground flex-shrink-0 tabular-nums">
                   {new Date(r.sentAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}
                 </span>
               </div>
