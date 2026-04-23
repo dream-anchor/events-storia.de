@@ -9,25 +9,11 @@ export function useOperationActions() {
 
   const completeOperation = useMutation({
     mutationFn: async ({ id, kind }: { id: string; kind: OperationKind }) => {
-      if (kind === "catering") {
-        const { error } = await supabase
-          .from("catering_orders")
-          .update({ status: "completed" })
-          .eq("id", id);
-        if (error) throw error;
-      } else if (kind === "booking") {
-        const { error } = await supabase
-          .from("event_bookings")
-          .update({ status: "completed" })
-          .eq("id", id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("event_inquiries")
-          .update({ status: "completed" })
-          .eq("id", id);
-        if (error) throw error;
-      }
+      const table = kind === "catering" ? "catering_orders" : kind === "booking" ? "event_bookings" : "event_inquiries";
+      const { error } = await (supabase.from(table as never) as unknown as { update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<{ error: unknown }> } })
+        .update({ status: "completed" })
+        .eq("id", id);
+      if (error) throw error as Error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dashboard-data"] });
@@ -44,31 +30,21 @@ export function useOperationActions() {
       // id format from useUpcomingReminders: "task-<id>", "cat-<id>", "pay-<id>", "offer-<id>"
       const [prefix, ...rest] = id.split("-");
       const realId = rest.join("-");
+      const updater = (table: string, payload: Record<string, unknown>) =>
+        (supabase.from(table as never) as unknown as { update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<{ error: unknown }> } })
+          .update(payload).eq("id", realId);
       if (prefix === "task") {
-        const { error } = await supabase
-          .from("inquiry_tasks" as never)
-          .update({ reminder_sent: true })
-          .eq("id", realId);
-        if (error) throw error;
+        const { error } = await updater("inquiry_tasks", { reminder_sent: true });
+        if (error) throw error as Error;
       } else if (prefix === "cat") {
-        const { error } = await supabase
-          .from("catering_orders")
-          .update({ reminder_sent_at: new Date().toISOString() })
-          .eq("id", realId);
-        if (error) throw error;
+        const { error } = await updater("catering_orders", { reminder_sent_at: new Date().toISOString() });
+        if (error) throw error as Error;
       } else if (prefix === "offer") {
-        // Bump reminder_count to suppress
-        const { data: row } = await supabase
-          .from("event_inquiries" as never)
-          .select("reminder_count")
-          .eq("id", realId)
-          .single();
-        const cnt = ((row as { reminder_count?: number } | null)?.reminder_count ?? 0) + 1;
-        const { error } = await supabase
-          .from("event_inquiries" as never)
-          .update({ reminder_count: cnt, reminder_sent_at: new Date().toISOString() })
-          .eq("id", realId);
-        if (error) throw error;
+        const { data: row } = await (supabase.from("event_inquiries" as never) as unknown as { select: (c: string) => { eq: (c: string, v: string) => { single: () => Promise<{ data: { reminder_count?: number } | null }> } } })
+          .select("reminder_count").eq("id", realId).single();
+        const cnt = (row?.reminder_count ?? 0) + 1;
+        const { error } = await updater("event_inquiries", { reminder_count: cnt, reminder_sent_at: new Date().toISOString() });
+        if (error) throw error as Error;
       } else {
         throw new Error("Diese Erinnerung kann nicht übersprungen werden");
       }
