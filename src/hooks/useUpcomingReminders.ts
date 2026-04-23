@@ -62,9 +62,11 @@ export function useUpcomingReminders() {
       // Inquiry tasks due in next 24-36h (cron runs daily 08:00)
       const taskQ = supabase
         .from("inquiry_tasks" as never)
-        .select("id, title, due_date, inquiry_id, reminder_sent, status")
+        .select("id, title, due_date, inquiry_id, reminder_sent, status, event_inquiries!inner(archived_at, status)")
         .eq("reminder_sent", false)
         .neq("status", "completed")
+        .is("event_inquiries.archived_at", null)
+        .not("event_inquiries.status", "in", "(declined,confirmed,cancelled)")
         .lte("due_date", in48.toISOString())
         .order("due_date", { ascending: true });
 
@@ -76,15 +78,18 @@ export function useUpcomingReminders() {
         .select("id, customer_name, desired_date, desired_time, status, reminder_sent_at, is_test")
         .eq("desired_date", in2Str)
         .is("reminder_sent_at", null)
-        .in("status", ["confirmed", "pending"]);
+        .in("status", ["confirmed", "pending"])
+        .is("cancelled_at", null);
       if (!showTestData) catQ = catQ.neq("is_test", true);
 
       // Payments becoming overdue (cron 09:00 daily)
       const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
       const payQ = supabase
         .from("event_payments_enriched" as never)
-        .select("id, inquiry_id, customer_name, amount_cents, computed_status, effective_due_date")
+        .select("id, inquiry_id, customer_name, amount_cents, computed_status, effective_due_date, event_inquiries!inner(archived_at, status)")
         .eq("computed_status", "sent")
+        .is("event_inquiries.archived_at", null)
+        .not("event_inquiries.status", "in", "(declined,cancelled)")
         .lte("effective_due_date", todayStr);
 
       // Offer reminders: offer_sent 3+ days ago, no response
@@ -93,6 +98,8 @@ export function useUpcomingReminders() {
         .from("event_inquiries" as never)
         .select("id, contact_name, email, offer_sent_at, status, reminder_count, is_test")
         .not("offer_sent_at", "is", null)
+        .is("archived_at", null)
+        .not("status", "in", "(declined,confirmed,cancelled)")
         .lte("offer_sent_at", threeDaysAgo.toISOString())
         .in("status", ["offer_sent", "contacted"])
         .or("reminder_count.is.null,reminder_count.lt.2");
