@@ -115,47 +115,67 @@ function SortableCourseRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-2 py-2 px-2 rounded-lg",
+        // Mobile: 2-Zeilen-Layout (Header-Reihe + Picker/Preis-Reihe)
+        // sm+: ursprüngliches einzeiliges Layout
+        "flex flex-col sm:flex-row sm:items-center gap-2 py-2 px-2 rounded-lg",
         "hover:bg-muted/30 transition-colors group",
         isDragging && "opacity-60 bg-muted/40 shadow-lg"
       )}
     >
-      {/* Drag Handle */}
-      {!disabled && (
-        <button
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing touch-none shrink-0 p-0.5 rounded hover:bg-muted/50"
-          tabIndex={-1}
-        >
-          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-muted-foreground/60" />
-        </button>
-      )}
-      {disabled && (
-        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/20 shrink-0" />
-      )}
+      {/* Header-Zeile (Mobile: full-width, sm+: inline) */}
+      <div className="flex items-center gap-2 sm:contents">
+        {/* Drag Handle — größerer Tap-Target auf Mobile */}
+        {!disabled && (
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing touch-none shrink-0 p-2 sm:p-0.5 -m-1 sm:m-0 rounded hover:bg-muted/50"
+            tabIndex={-1}
+            aria-label="Gang verschieben"
+          >
+            <GripVertical className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground/60" />
+          </button>
+        )}
+        {disabled && (
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/20 shrink-0" />
+        )}
 
-      <span className="text-base w-7 text-center shrink-0">
-        {COURSE_ICONS[course.courseType as CourseType] || '🍽️'}
-      </span>
-      <span className="text-sm text-muted-foreground w-20 shrink-0 truncate">
-        {course.courseLabel}
-      </span>
+        <span className="text-base w-7 text-center shrink-0">
+          {COURSE_ICONS[course.courseType as CourseType] || '🍽️'}
+        </span>
+        {/* Voller Gang-Name auf Mobile sichtbar */}
+        <span className="text-sm font-medium sm:font-normal text-foreground sm:text-muted-foreground sm:w-20 shrink-0 sm:truncate flex-1 sm:flex-initial">
+          {course.courseLabel}
+        </span>
+
+        {/* Trash auf Mobile direkt in der Header-Reihe; auf sm+ wandert er ans Zeilenende */}
+        {!disabled && (
+          <button
+            onClick={() => onRemoveCourse(idx)}
+            className="sm:hidden shrink-0 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 transition-colors"
+            title="Gang entfernen"
+            aria-label="Gang entfernen"
+          >
+            <Trash2 className="h-4 w-4 text-muted-foreground/60 hover:text-destructive" />
+          </button>
+        )}
+      </div>
 
       {/* Menge (nur bei per_event) */}
       {pricingMode === 'per_event' && (
-        <div className="relative w-16 shrink-0">
+        <div className="relative w-16 shrink-0 order-2 sm:order-none">
           <Input
             type="number"
             min={1}
             step={1}
+            inputMode="numeric"
             value={course.quantity ?? 1}
             onChange={(e) => {
               const v = parseInt(e.target.value, 10);
               if (!isNaN(v) && v > 0) onUpdateQuantity(idx, v);
             }}
             disabled={disabled}
-            className="h-8 rounded-lg pr-5 text-right text-sm tabular-nums"
+            className="h-10 sm:h-8 rounded-lg pr-5 text-right text-sm tabular-nums"
             title="Menge"
           />
           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">×</span>
@@ -163,7 +183,7 @@ function SortableCourseRow({
       )}
 
       {/* DishPicker + Inline Name Edit */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 order-3 sm:order-none w-full sm:w-auto">
         {editingName ? (
           <Input
             value={tempName}
@@ -180,7 +200,7 @@ function SortableCourseRow({
               if (e.key === 'Escape') setEditingName(false);
             }}
             autoFocus
-            className="h-8 text-sm"
+            className="h-10 sm:h-8 text-base sm:text-sm"
           />
         ) : (
           <div className="flex items-center gap-1">
@@ -198,10 +218,11 @@ function SortableCourseRow({
             {!disabled && course.itemId && course.itemName && (
               <button
                 onClick={() => { setTempName(course.itemName); setEditingName(true); }}
-                className="shrink-0 p-1 rounded-md hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100"
+                className="shrink-0 h-9 w-9 sm:h-auto sm:w-auto sm:p-1 inline-flex items-center justify-center rounded-md hover:bg-muted/50 transition-colors sm:opacity-0 sm:group-hover:opacity-100"
                 title="Bezeichnung bearbeiten"
+                aria-label="Bezeichnung bearbeiten"
               >
-                <Pencil className="h-3 w-3 text-muted-foreground/50" />
+                <Pencil className="h-4 w-4 sm:h-3 sm:w-3 text-muted-foreground/60" />
               </button>
             )}
           </div>
@@ -209,11 +230,12 @@ function SortableCourseRow({
       </div>
 
       {/* Einzelpreis (immer sichtbar) */}
-      <div className="relative w-24 shrink-0">
+      <div className="relative w-24 shrink-0 order-4 sm:order-none">
         <Input
           type="number"
           step={0.01}
           min={0}
+          inputMode="decimal"
           value={
             packageMode
               ? (hasOverride ? course.overridePrice! : '')
@@ -240,7 +262,7 @@ function SortableCourseRow({
           }
           disabled={disabled}
           className={cn(
-            "h-8 rounded-lg pr-6 text-right text-sm tabular-nums",
+            "h-10 sm:h-8 rounded-lg pr-6 text-right text-sm tabular-nums",
             packageMode && !hasOverride && "placeholder:text-muted-foreground/60 placeholder:italic",
             packageMode && hasOverride && "text-foreground"
           )}
@@ -254,17 +276,18 @@ function SortableCourseRow({
 
       {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
       {pricingMode === 'per_event' && quantity > 1 && (
-        <span className="text-sm font-medium tabular-nums w-24 text-right shrink-0">
+        <span className="text-sm font-medium tabular-nums w-24 text-right shrink-0 order-5 sm:order-none">
           {lineTotal != null ? fmtEUR(lineTotal) : ''}
         </span>
       )}
 
-      {/* Gang entfernen — immer sichtbar */}
+      {/* Gang entfernen — auf sm+ am Zeilenende; auf Mobile bereits in der Header-Reihe */}
       {!disabled && (
         <button
           onClick={() => onRemoveCourse(idx)}
-          className="shrink-0 p-1 rounded-md hover:bg-destructive/10 transition-colors"
+          className="hidden sm:inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-md hover:bg-destructive/10 transition-colors"
           title="Gang entfernen"
+          aria-label="Gang entfernen"
         >
           <Trash2 className="h-3.5 w-3.5 text-muted-foreground/40 hover:text-destructive" />
         </button>

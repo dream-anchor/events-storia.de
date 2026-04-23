@@ -274,7 +274,7 @@ export function OptionCard({
                   onValueChange={handleModeSelectChange}
                   disabled={isLocked || option.offerMode === 'unselected'}
                 >
-                  <SelectTrigger className="h-5 w-auto text-[10px] rounded-lg border-0 bg-muted/50 px-2 gap-1 font-medium">
+                  <SelectTrigger className="h-8 sm:h-5 w-auto text-xs sm:text-[10px] rounded-lg border-0 bg-muted/50 px-2.5 sm:px-2 gap-1 font-medium">
                     <SelectValue placeholder="Typ wählen" />
                   </SelectTrigger>
                   <SelectContent>
@@ -301,35 +301,35 @@ export function OptionCard({
               variant="ghost"
               size="icon"
               onClick={onToggleActive}
-              className="h-7 w-7 rounded-lg"
+              className="h-11 w-11 sm:h-7 sm:w-7 rounded-lg"
               disabled={isLocked}
               title="Sichtbarkeit umschalten"
             >
               {option.isActive ? (
-                <Eye className="h-3.5 w-3.5" />
+                <Eye className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
               ) : (
-                <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                <EyeOff className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
               )}
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={onDuplicate}
-              className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+              className="h-11 w-11 sm:h-7 sm:w-7 rounded-lg text-muted-foreground hover:text-foreground"
               disabled={!canDuplicate}
               title={canDuplicate ? "Option duplizieren" : "Maximum erreicht (5 Optionen)"}
             >
-              <Copy className="h-3.5 w-3.5" />
+              <Copy className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={onRemove}
-              className="h-7 w-7 rounded-lg text-destructive/60 hover:text-destructive"
+              className="h-11 w-11 sm:h-7 sm:w-7 rounded-lg text-destructive/60 hover:text-destructive"
               disabled={isLocked || !canDelete}
               title={!canDelete ? "Mindestens eine Option erforderlich" : "Option entfernen"}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </Button>
           </div>
         </div>
