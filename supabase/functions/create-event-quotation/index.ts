@@ -64,17 +64,19 @@ interface LexOfficeLineItem {
   unitName: string;
   unitPrice: {
     currency: 'EUR';
-    netAmount: number;
+    grossAmount: number;
     taxRatePercentage: number;
   };
 }
 
 // ─── Line-item builder ────────────────────────────────────────────────────────
+// WICHTIG: Maestro-Admin gibt IMMER Brutto-Preise ein. LexOffice unterstuetzt
+// nativ Brutto-Eingabe via taxConditions.taxType='gross' + unitPrice.grossAmount.
+// LexOffice rechnet die enthaltene MwSt automatisch heraus. Keine manuelle
+// Brutto->Netto-Konvertierung mehr noetig (vermeidet Cent-Rundungsfehler).
 
 const FOOD_TAX_RATE = 7;
 const DRINK_TAX_RATE = 19;
-const bruttoToNet = (brutto: number, taxPct: number) =>
-  round2(brutto / (1 + taxPct / 100));
 
 function buildLineItems(
   opt: OfferOption,
