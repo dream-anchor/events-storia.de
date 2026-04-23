@@ -24,11 +24,14 @@ import {
   ChevronDown,
   Lock,
   ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { haptic } from "@/lib/haptics";
 
 // --- Types ---
 
