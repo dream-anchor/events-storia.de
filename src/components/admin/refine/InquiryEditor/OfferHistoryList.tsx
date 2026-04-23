@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useOfferHistory, type OfferHistoryEntry, type OfferOptionSnapshot } from "@/hooks/useOfferHistory";
 import { useCloneOfferVersion } from "@/hooks/useCloneOfferVersion";
-import { adminDisplayName } from "@/lib/adminDisplayNames";
+import { getAdminDisplayName } from "@/lib/adminDisplayNames";
 
 function formatEur(amount: number) {
   return new Intl.NumberFormat("de-DE", {
@@ -153,7 +153,7 @@ export function OfferHistoryList({ inquiryId }: OfferHistoryListProps) {
                     </span>
                     {entry.sent_by && (
                       <span className="text-xs text-muted-foreground">
-                        · {adminDisplayName(entry.sent_by)}
+                        · {getAdminDisplayName(entry.sent_by)}
                       </span>
                     )}
                   </div>
