@@ -291,6 +291,12 @@ export function AddPaymentDrawer({
                     Rest {restCents > 0 ? `(${formatEUR(restCents)})` : ''}
                   </button>
                 </div>
+                {amountCents > 0 && restCents < 0 && (
+                  <p className="flex items-start gap-1.5 text-orange-700 bg-orange-50 border border-orange-200 rounded-md px-2 py-1.5 mt-1">
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                    <span>Betrag übersteigt die Restschuld um <strong>{formatEUR(Math.abs(restCents))}</strong>.</span>
+                  </p>
+                )}
               </div>
             )}
           </div>
