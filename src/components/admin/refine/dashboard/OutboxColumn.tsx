@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send, Bell, Mail, Truck, CreditCard, ListTodo, ChevronDown, History, Check, X } from "lucide-react";
+import { Send, Bell, Mail, Truck, CreditCard, ListTodo, ChevronDown, History, Check, X, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUpcomingReminders, type UpcomingReminder } from "@/hooks/useUpcomingReminders";
 import { useOperationActions } from "@/hooks/useOperationActions";
@@ -15,21 +15,51 @@ function kindIcon(kind: UpcomingReminder["kind"]) {
   }
 }
 
+function kindGroupLabel(kind: UpcomingReminder["kind"]): string {
+  switch (kind) {
+    case "follow_up_task": return "Follow-ups";
+    case "catering_customer_reminder": return "Liefererinnerungen";
+    case "catering_kitchen": return "Küche";
+    case "payment_overdue": return "Zahlungserinnerungen";
+    case "offer_reminder": return "Angebotserinnerungen";
+  }
+}
+
+function initials(name: string | null): string {
+  if (!name) return "—";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "—";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export function OutboxColumn() {
   const navigate = useNavigate();
   const { data, isLoading } = useUpcomingReminders();
   const [showHistory, setShowHistory] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const { skipReminder } = useOperationActions();
 
   const upcoming = data?.upcoming || [];
   const recent = data?.recent || [];
 
-  // Group by scheduledLabel
-  const grouped = upcoming.reduce<Record<string, UpcomingReminder[]>>((acc, r) => {
-    if (!acc[r.scheduledLabel]) acc[r.scheduledLabel] = [];
-    acc[r.scheduledLabel].push(r);
+  // Group by kind + scheduledLabel — produces compact stacks like
+  // "Angebotserinnerungen · 8 Empfänger · Fr 10:00"
+  const stacks = upcoming.reduce<Record<string, { kind: UpcomingReminder["kind"]; label: string; items: UpcomingReminder[] }>>((acc, r) => {
+    const key = `${r.kind}__${r.scheduledLabel}`;
+    if (!acc[key]) acc[key] = { kind: r.kind, label: r.scheduledLabel, items: [] };
+    acc[key].items.push(r);
     return acc;
   }, {});
+  const stackEntries = Object.entries(stacks);
+
+  const toggle = (key: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -58,42 +88,77 @@ export function OutboxColumn() {
         </div>
       )}
 
-      {Object.entries(grouped).map(([label, items]) => (
-        <section key={label}>
-          <div className="flex items-center gap-2 mb-2">
-            <Send className="h-3.5 w-3.5 text-muted-foreground" />
-            <h3 className="text-sm font-semibold text-foreground capitalize">{label}</h3>
-            <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
-              {items.length}
-            </span>
-          </div>
-          <div className="divide-y divide-border/40">
-            {items.map(r => (
-              <div key={r.id} className="group flex items-center gap-2 px-2 -mx-2 rounded-lg hover:bg-muted/60 transition-colors min-h-[44px]">
+      {stackEntries.length > 0 && (
+        <div className="divide-y divide-border/40">
+          {stackEntries.map(([key, stack]) => {
+            const isOpen = expanded.has(key);
+            const single = stack.items.length === 1;
+            return (
+              <section key={key} className="py-1">
                 <button
-                  onClick={() => r.navigateTo && navigate(r.navigateTo)}
-                  disabled={!r.navigateTo}
-                  className="flex items-center gap-3 flex-1 py-3 text-left disabled:cursor-default"
+                  onClick={() => !single && toggle(key)}
+                  disabled={single}
+                  className={cn(
+                    "w-full flex items-center gap-3 py-3 px-2 -mx-2 rounded-lg text-left transition-colors min-h-[44px] min-w-0",
+                    !single && "hover:bg-muted/60 cursor-pointer",
+                    single && "cursor-default"
+                  )}
                 >
-                  <span className="text-muted-foreground flex-shrink-0">{kindIcon(r.kind)}</span>
+                  <span className="text-muted-foreground flex-shrink-0">{kindIcon(stack.kind)}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-foreground truncate">{r.title}</p>
-                    {r.recipient && <p className="text-[11px] text-muted-foreground truncate">an {r.recipient}</p>}
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {kindGroupLabel(stack.kind)}
+                      {!single && <span className="text-muted-foreground font-normal"> · {stack.items.length} Empfänger</span>}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {single ? (stack.items[0].recipient ? `an ${stack.items[0].recipient} · ${stack.label}` : stack.label) : stack.label}
+                    </p>
                   </div>
+                  {!single && (
+                    <ChevronRight className={cn("h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform", isOpen && "rotate-90")} />
+                  )}
+                  {single && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); skipReminder.mutate({ kind: stack.items[0].kind, id: stack.items[0].id }); }}
+                      disabled={skipReminder.isPending}
+                      title="Heute überspringen"
+                      className="flex-shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </button>
-                <button
-                  onClick={() => skipReminder.mutate({ kind: r.kind, id: r.id })}
-                  disabled={skipReminder.isPending}
-                  title="Heute überspringen"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
+                {!single && isOpen && (
+                  <div className="pl-7 pr-2 pb-2 divide-y divide-border/40">
+                    {stack.items.map(r => (
+                      <div key={r.id} className="group flex items-center gap-2 min-h-[44px] min-w-0">
+                        <span className="flex-shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-full bg-muted text-[10px] font-semibold text-foreground tabular-nums">
+                          {initials(r.recipient)}
+                        </span>
+                        <button
+                          onClick={() => r.navigateTo && navigate(r.navigateTo)}
+                          disabled={!r.navigateTo}
+                          className="flex-1 min-w-0 py-2 text-left disabled:cursor-default"
+                        >
+                          <p className="text-sm text-foreground truncate">{r.recipient || r.title}</p>
+                        </button>
+                        <button
+                          onClick={() => skipReminder.mutate({ kind: r.kind, id: r.id })}
+                          disabled={skipReminder.isPending}
+                          title="Heute überspringen"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      )}
 
       {/* History toggle */}
       <button
