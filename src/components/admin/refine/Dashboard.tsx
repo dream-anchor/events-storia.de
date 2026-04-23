@@ -1,12 +1,15 @@
-import { useState } from "react";
-import { Calendar, Inbox as InboxIcon, Send, BarChart3, Loader2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Calendar, Inbox as InboxIcon, Send, BarChart3 } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { cn } from "@/lib/utils";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { getAdminFirstName } from "@/lib/adminDisplayNames";
 import { TodayOperationsColumn } from "./dashboard/TodayOperationsColumn";
 import { InboxColumn } from "./dashboard/InboxColumn";
 import { OutboxColumn } from "./dashboard/OutboxColumn";
 import { WeekHeatmap } from "./dashboard/WeekHeatmap";
+import { NextUpHero } from "./dashboard/NextUpHero";
 
 type MobileTab = "today" | "inbox" | "outbox" | "week";
 
@@ -17,12 +20,39 @@ const TABS: Array<{ id: MobileTab; label: string; icon: React.ComponentType<{ cl
   { id: "week", label: "Woche", icon: BarChart3 },
 ];
 
-export const Dashboard = () => {
-  const { data, isLoading } = useDashboardData();
-  const [tab, setTab] = useState<MobileTab>("today");
+function greetingFor(hour: number): string {
+  if (hour < 5) return "Gute Nacht";
+  if (hour < 11) return "Guten Morgen";
+  if (hour < 18) return "Hallo";
+  return "Guten Abend";
+}
 
-  const today = new Date();
-  const dateLabel = today.toLocaleDateString("de-DE", {
+function ColumnSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <div className="h-5 w-32 bg-muted rounded animate-pulse" />
+        <div className="h-3 w-48 bg-muted/60 rounded animate-pulse" />
+      </div>
+      {[0, 1, 2].map(i => (
+        <div key={i} className="h-20 bg-muted/40 rounded-xl animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+export const Dashboard = () => {
+  const { data, isLoading, dataUpdatedAt } = useDashboardData();
+  const { user } = useAdminAuth();
+  const [tab, setTab] = useState<MobileTab>("today");
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const dateLabel = now.toLocaleDateString("de-DE", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -36,81 +66,128 @@ export const Dashboard = () => {
   const weekStats = data?.weekStats || { eventsCount: 0, cateringCount: 0, guestsCount: 0, revenueCents: 0, paidCents: 0 };
   const nextWeek = data?.nextWeek || { count: 0, guests: 0, risks: 0 };
 
-  // Filter today operations for "today" tab on mobile
-  const todayKey = (() => {
+  const todayKey = useMemo(() => {
     const t = new Date(); t.setHours(0, 0, 0, 0);
     const y = t.getFullYear(), m = String(t.getMonth() + 1).padStart(2, "0"), d = String(t.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
-  })();
+  }, []);
+
+  const todayOps = operations.filter(o => o.date === todayKey);
+  const decisionsCount = inbox.length + overdue.length;
+  const firstName = getAdminFirstName(user?.email || null);
+  const greeting = greetingFor(now.getHours());
+
+  const lastUpdateLabel = useMemo(() => {
+    if (!dataUpdatedAt) return null;
+    const sec = Math.max(0, Math.floor((now.getTime() - dataUpdatedAt) / 1000));
+    if (sec < 5) return "gerade eben";
+    if (sec < 60) return `vor ${sec}s`;
+    const min = Math.floor(sec / 60);
+    return `vor ${min} Min`;
+  }, [dataUpdatedAt, now]);
 
   return (
     <AdminLayout activeTab="dashboard" title="Maestro" showCreateButton={true} createButtonText="Neue Anfrage">
-      {/* Top header strip */}
-      <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+      {/* Header */}
+      <div className="mb-6 flex items-end justify-between flex-wrap gap-3">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-muted-foreground">Pinnwand</p>
-          <h1 className="text-2xl font-bold text-foreground capitalize mt-0.5">{dateLabel}</h1>
+          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-muted-foreground">Pinnwand · {dateLabel}</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground mt-1">
+            {greeting}{firstName && firstName !== "STORIA Team" ? `, ${firstName}` : ""}.
+          </h1>
+          {!isLoading && (
+            <p className="text-sm text-muted-foreground mt-1">
+              <span className="text-foreground font-medium tabular-nums">{todayOps.length}</span> Termin{todayOps.length === 1 ? "" : "e"} heute
+              {decisionsCount > 0 && (
+                <> · <span className="text-foreground font-medium tabular-nums">{decisionsCount}</span> Entscheidung{decisionsCount === 1 ? "" : "en"} wartet</>
+              )}
+            </p>
+          )}
         </div>
-        {isLoading && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Lädt …
+        {!isLoading && lastUpdateLabel && (
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-foreground/40 opacity-60" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-foreground" />
+            </span>
+            <span className="tabular-nums">Live · {lastUpdateLabel}</span>
           </div>
         )}
       </div>
 
-      {/* Mobile tab bar */}
-      <div className="lg:hidden -mx-4 mb-5 sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border/60">
-        <div className="flex">
-          {TABS.map(t => {
-            const Icon = t.icon;
-            const active = tab === t.id;
-            const badge =
-              t.id === "today" ? operations.filter(o => o.date === todayKey).length :
-              t.id === "inbox" ? inbox.length + overdue.length :
-              t.id === "outbox" ? undefined :
-              undefined;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={cn(
-                  "flex-1 flex flex-col items-center gap-1 py-3 px-2 text-[11px] font-medium transition-colors relative",
-                  active ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                <span className="relative">
-                  <Icon className="h-4 w-4" />
-                  {badge != null && badge > 0 && (
-                    <span className="absolute -top-1.5 -right-2 bg-foreground text-background text-[9px] font-bold rounded-full px-1 min-w-[14px] h-[14px] flex items-center justify-center">
-                      {badge > 9 ? "9+" : badge}
+      {/* Skeleton */}
+      {isLoading && (
+        <div className="space-y-6">
+          <div className="h-32 rounded-3xl bg-muted/40 animate-pulse" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <ColumnSkeleton />
+            <ColumnSkeleton />
+            <ColumnSkeleton />
+          </div>
+        </div>
+      )}
+
+      {!isLoading && (
+        <>
+          {/* Hero "Now" card */}
+          <div className="mb-6">
+            <NextUpHero operations={operations} />
+          </div>
+
+          {/* Mobile tab bar */}
+          <div className="lg:hidden -mx-4 mb-5 sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border/60">
+            <div className="flex">
+              {TABS.map(t => {
+                const Icon = t.icon;
+                const active = tab === t.id;
+                const badge =
+                  t.id === "today" ? todayOps.length :
+                  t.id === "inbox" ? inbox.length + overdue.length :
+                  undefined;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setTab(t.id)}
+                    className={cn(
+                      "flex-1 flex flex-col items-center gap-1 py-3 px-2 text-[11px] font-medium transition-colors relative min-h-[44px]",
+                      active ? "text-foreground" : "text-muted-foreground"
+                    )}
+                  >
+                    <span className="relative">
+                      <Icon className="h-4 w-4" />
+                      {badge != null && badge > 0 && (
+                        <span className="absolute -top-1.5 -right-2 bg-foreground text-background text-[9px] font-bold rounded-full px-1 min-w-[14px] h-[14px] flex items-center justify-center tabular-nums">
+                          {badge > 9 ? "9+" : badge}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </span>
-                {t.label}
-                {active && <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-foreground rounded-full" />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                    {t.label}
+                    {active && <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-foreground rounded-full" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-      {/* Desktop: Triptych + Week */}
-      <div className="hidden lg:block space-y-6">
-        <div className="grid grid-cols-3 gap-6">
-          <TodayOperationsColumn operations={operations} />
-          <InboxColumn inbox={inbox} stale={stale} overduePayments={overdue} />
-          <OutboxColumn />
-        </div>
-        <WeekHeatmap byDay={byDay} weekStats={weekStats} nextWeek={nextWeek} />
-      </div>
+          {/* Desktop: Triptych + Week */}
+          <div className="hidden lg:block space-y-8">
+            <div className="grid grid-cols-3 gap-8">
+              <TodayOperationsColumn operations={operations} />
+              <InboxColumn inbox={inbox} stale={stale} overduePayments={overdue} />
+              <OutboxColumn />
+            </div>
+            <WeekHeatmap byDay={byDay} weekStats={weekStats} nextWeek={nextWeek} />
+          </div>
 
-      {/* Mobile: One tab at a time */}
-      <div className="lg:hidden">
-        {tab === "today" && <TodayOperationsColumn operations={operations} />}
-        {tab === "inbox" && <InboxColumn inbox={inbox} stale={stale} overduePayments={overdue} />}
-        {tab === "outbox" && <OutboxColumn />}
-        {tab === "week" && <WeekHeatmap byDay={byDay} weekStats={weekStats} nextWeek={nextWeek} />}
-      </div>
+          {/* Mobile: One tab at a time */}
+          <div className="lg:hidden">
+            {tab === "today" && <TodayOperationsColumn operations={operations} />}
+            {tab === "inbox" && <InboxColumn inbox={inbox} stale={stale} overduePayments={overdue} />}
+            {tab === "outbox" && <OutboxColumn />}
+            {tab === "week" && <WeekHeatmap byDay={byDay} weekStats={weekStats} nextWeek={nextWeek} />}
+          </div>
+        </>
+      )}
     </AdminLayout>
   );
 };
