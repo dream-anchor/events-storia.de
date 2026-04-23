@@ -1,16 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { format, parseISO, isToday, isTomorrow, differenceInDays, startOfDay, addDays, isBefore, isAfter } from "date-fns";
-import { de } from "date-fns/locale";
-import { formatDateRangeDE } from "@/lib/utils";
-import {
-  Calendar, Users, Building2, ChevronDown, ChevronRight, Euro,
-  Inbox, Plus, AlertCircle, Clock, Check, ArrowRight
-} from "lucide-react";
+import { useState } from "react";
+import { Calendar, Inbox as InboxIcon, Send, BarChart3 } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { useTestMode } from "@/contexts/TestModeContext";
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { TodayOperationsColumn } from "./dashboard/TodayOperationsColumn";
+import { InboxColumn } from "./dashboard/InboxColumn";
+import { OutboxColumn } from "./dashboard/OutboxColumn";
+import { WeekHeatmap } from "./dashboard/WeekHeatmap";
 
 // ─── Safe date parsing ────────────────────────────────────────────────────────
 function safeParse(dateStr: string | null | undefined): Date | null {
