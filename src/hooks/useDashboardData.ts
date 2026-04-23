@@ -237,6 +237,8 @@ export function useDashboardData() {
         const created = new Date(e.created_at);
         if (created < past48) return;
         if (e.status === "declined" || e.status === "confirmed") return;
+        const hours = Math.max(0, Math.floor((today.getTime() + 24*3600_000 - created.getTime()) / 3600_000));
+        const hoursSinceCreated = Math.max(0, Math.floor((Date.now() - created.getTime()) / 3600_000));
         inbox.push({
           id: e.id,
           kind: "inquiry",
@@ -246,6 +248,8 @@ export function useDashboardData() {
           ageDays: diffDays(today, created),
           isStale: false,
           navigateTo: `/admin/events/${e.id}/edit`,
+          unanswered: !repliedSet.has(e.id),
+          hoursSince: hoursSinceCreated,
         });
       });
       cateringInbox.forEach((c: any) => {
