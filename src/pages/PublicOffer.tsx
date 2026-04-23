@@ -381,10 +381,17 @@ export default function PublicOffer() {
       <main className="flex-1">
         <HeroSection inquiry={inquiry} phase={effectivePhase} />
 
-        {/* PDF-Download — nur wenn LexOffice-Angebot verknüpft */}
+        {/* PDF-Download — nur wenn LexOffice-Angebot verknüpft.
+            Bei Multi-Option-Angeboten wird das verbindliche PDF erst
+            nach Kunden-Auswahl (selected_quantity > 0) erzeugt. */}
         {inquiry.lexoffice_invoice_id && (
+          options.length <= 1 ||
+          options.some((o) => (o.selected_quantity ?? 0) > 0)
+        ) ? (
           <PdfDownloadSection inquiryId={inquiry.id} />
-        )}
+        ) : inquiry.lexoffice_invoice_id == null && options.length > 1 ? (
+          <PdfPendingNotice />
+        ) : null}
 
         {/* Anschreiben — immer sichtbar wenn vorhanden.
             Im Preview-Modus (Admin-iframe) wird previewBody aus der URL verwendet
