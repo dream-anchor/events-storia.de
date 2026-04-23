@@ -815,7 +815,7 @@ function ProposalView({
       const breakdownLine = hasQuantities
         ? `Meine Aufteilung: ${options
             .filter(o => (optionQuantities[o.id] || 0) > 0)
-            .map(o => `Option ${o.option_label} × ${optionQuantities[o.id]}`)
+            .map(o => `${formatOptionLabel(o)} × ${optionQuantities[o.id]}`)
             .join(', ')} (${totalQuantity} Gäste)\n\n`
         : '';
       const finalNotes = breakdownLine + notes.trim();
