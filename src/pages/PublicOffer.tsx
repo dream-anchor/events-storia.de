@@ -594,6 +594,82 @@ export default function PublicOffer() {
 // PDF DOWNLOAD SECTION
 // =================================================================
 
+/**
+ * Bestimmt, ob die Kunden-Auswahl als finalisiert gilt.
+ * Single-Option-Angebote benötigen keine Auswahl → immer true.
+ * Multi-Option: erst ab Phase customer_responded freigegeben.
+ */
+function isCustomerSelectionComplete(
+  options: OfferOption[],
+  phase: OfferPhase,
+): boolean {
+  if (options.length <= 1) return true;
+  return ['customer_responded', 'final_draft', 'final_sent', 'confirmed', 'paid']
+    .includes(phase);
+}
+
+function PdfDownloadGate({
+  inquiryId,
+  options,
+  phase,
+  isArchiveMode,
+}: {
+  inquiryId: string;
+  options: OfferOption[];
+  phase: OfferPhase;
+  isArchiveMode: boolean;
+}) {
+  // Archiv-Modus: finalisierte alte Versionen → Download immer sichtbar.
+  if (isArchiveMode) {
+    return <PdfDownloadSection inquiryId={inquiryId} />;
+  }
+
+  if (isCustomerSelectionComplete(options, phase)) {
+    return <PdfDownloadSection inquiryId={inquiryId} />;
+  }
+
+  const handleScrollToSelection = () => {
+    document.getElementById('proposal-view')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  };
+
+  return (
+    <section className="border-b border-neutral-200 bg-neutral-50">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 sm:p-6 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral-100">
+              <Lock className="h-5 w-5 text-neutral-600" aria-hidden="true" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-semibold text-neutral-900">
+                Angebots-PDF nach Auswahl verfügbar
+              </h3>
+              <p className="mt-1 text-sm leading-relaxed text-neutral-600">
+                Bitte wähle zuerst deine bevorzugte Option unten aus. Sobald du deine
+                Auswahl bestätigst, steht hier dein persönliches Angebots-PDF zum
+                Download bereit.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleScrollToSelection}
+                className="mt-4 min-h-[44px] gap-2"
+              >
+                <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                Zur Auswahl
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
   const [isDownloading, setIsDownloading] = useState(false);
 
