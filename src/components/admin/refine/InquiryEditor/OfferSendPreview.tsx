@@ -170,67 +170,62 @@ export function OfferSendPreview({
     };
   }, [inquiry?.id, inquiry?.lexoffice_quotation_id]);
 
-  // LexOffice-PDF laden (visueller Block 3)
+  // LexOffice-PDF wird NICHT mehr automatisch geladen (Auto-Fetch erzeugte ungewollt
+  // eine Quotation in LexOffice). Stattdessen Button-getriggert via loadLexofficePdf().
+  // Cleanup der Blob-URL beim Unmount/Wechsel
   useEffect(() => {
+    return () => {
+      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+    };
+  }, [pdfBlobUrl]);
+
+  const loadLexofficePdf = async () => {
     if (!inquiry) return;
-    // Guard: prevent concurrent fetches for the same inquiry (StrictMode/double-render safety)
     if (pdfInFlightRef.current === inquiry.id) return;
     pdfInFlightRef.current = inquiry.id;
-    let cancelled = false;
-    (async () => {
-      setPdfLoading(true);
-      setPdfError(null);
-      try {
-        let quotationId = inquiry.lexoffice_quotation_id;
-        // Lazy-Create: wenn noch keine Quotation existiert, eine anlegen
-        if (!quotationId) {
-          const { data: quotRes, error: quotErr } = await supabase.functions.invoke(
-            'create-event-quotation',
-            { body: { inquiryId: inquiry.id } }
+    setPdfLoading(true);
+    setPdfError(null);
+    try {
+      let quotationId = inquiry.lexoffice_quotation_id;
+      if (!quotationId) {
+        const { data: quotRes, error: quotErr } = await supabase.functions.invoke(
+          'create-event-quotation',
+          { body: { inquiryId: inquiry.id } }
+        );
+        if (quotErr || !quotRes?.success || !quotRes?.quotationId) {
+          throw new Error(
+            quotRes?.error ||
+              quotErr?.message ||
+              'LexOffice-Angebot konnte nicht erstellt werden'
           );
-          if (quotErr || !quotRes?.success || !quotRes?.quotationId) {
-            throw new Error(
-              quotRes?.error ||
-                quotErr?.message ||
-                'LexOffice-Angebot konnte nicht erstellt werden'
-            );
-          }
-          quotationId = quotRes.quotationId as string;
-          await (supabase.from('event_inquiries') as unknown as {
-            update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
-          })
-            .update({ lexoffice_quotation_id: quotationId })
-            .eq('id', inquiry.id);
-          if (cancelled) return;
-          setInquiry((prev) => (prev ? { ...prev, lexoffice_quotation_id: quotationId } : prev));
         }
-        const { data, error } = await supabase.functions.invoke('get-lexoffice-document', {
-          body: { voucherId: quotationId, voucherType: 'quotation' },
-        });
-        if (cancelled) return;
-        if (error || !data?.pdf) {
-          throw new Error(data?.error || error?.message || 'PDF nicht verfügbar');
-        }
-        const bytes = Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0));
-        const blob = new Blob([bytes], { type: 'application/pdf' });
-        if (cancelled) return;
-        setPdfBlobUrl(URL.createObjectURL(blob));
-      } catch (err) {
-        if (cancelled) return;
-        setPdfError(err instanceof Error ? err.message : 'Unbekannter Fehler');
-      } finally {
-        if (!cancelled) setPdfLoading(false);
-        pdfInFlightRef.current = null;
+        quotationId = quotRes.quotationId as string;
+        await (supabase.from('event_inquiries') as unknown as {
+          update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
+        })
+          .update({ lexoffice_quotation_id: quotationId })
+          .eq('id', inquiry.id);
+        setInquiry((prev) => (prev ? { ...prev, lexoffice_quotation_id: quotationId } : prev));
       }
-    })();
-    return () => {
-      cancelled = true;
+      const { data, error } = await supabase.functions.invoke('get-lexoffice-document', {
+        body: { voucherId: quotationId, voucherType: 'quotation' },
+      });
+      if (error || !data?.pdf) {
+        throw new Error(data?.error || error?.message || 'PDF nicht verfügbar');
+      }
+      const bytes = Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: 'application/pdf' });
       setPdfBlobUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
-        return null;
+        return URL.createObjectURL(blob);
       });
-    };
-  }, [inquiry?.id]);
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+    } finally {
+      setPdfLoading(false);
+      pdfInFlightRef.current = null;
+    }
+  };
 
   // Senden = an Edit-Seite delegieren (oder onAfterSend-Callback im Embed)
   const handleSend = (isTest: boolean) => {
