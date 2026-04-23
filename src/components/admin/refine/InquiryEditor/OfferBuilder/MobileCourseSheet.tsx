@@ -48,6 +48,28 @@ export function MobileCourseSheet({
     setDraft(course);
   }, [course, open]);
 
+  // Keyboard-aware: when an input gains focus inside the sheet,
+  // scroll it into view above the on-screen keyboard.
+  useEffect(() => {
+    if (!open) return;
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      const tag = t.tagName;
+      if (tag !== "INPUT" && tag !== "TEXTAREA") return;
+      // Defer until the virtual keyboard has actually opened.
+      window.setTimeout(() => {
+        try {
+          t.scrollIntoView({ block: "center", behavior: "smooth" });
+        } catch {
+          /* ignore */
+        }
+      }, 250);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, [open]);
+
   if (!course || index == null || !draft) return null;
 
   const config = courseConfigs.find((c) => c.course_type === course.courseType);

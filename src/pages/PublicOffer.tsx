@@ -1142,6 +1142,15 @@ function ProposalView({
 
   return (
     <section className="bg-secondary/30">
+      {/* MOBILE STICKY PROGRESS — 3 steps: Read → Choose → Book. lg:hidden. */}
+      {!isArchiveMode && !isPreviewMode && (
+        <MobileProgressStrip
+          step={
+            canPay ? 3 : selectedOptionId ? 2 : 1
+          }
+          isSingle={isSingle}
+        />
+      )}
       <div className="container mx-auto px-4 py-12 md:py-16 pb-32 lg:pb-16">
         <div className="max-w-4xl">
           {/* Sektion-Header */}
@@ -1612,6 +1621,54 @@ function MultiOptionCarousel({
 // =================================================================
 // MOBILE STICKY BOOKING BAR
 // =================================================================
+function MobileProgressStrip({ step, isSingle }: { step: 1 | 2 | 3; isSingle: boolean }) {
+  const labels = isSingle
+    ? ["Angebot lesen", "Menge prüfen", "Buchen"]
+    : ["Optionen ansehen", "Variante wählen", "Buchen"];
+  return (
+    <div className="lg:hidden sticky top-0 z-30 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-neutral-200">
+      <div className="px-4 pt-2 pb-2.5">
+        <div className="flex items-center gap-2">
+          {[1, 2, 3].map((n, i) => {
+            const active = step >= n;
+            const current = step === n;
+            return (
+              <div key={n} className="flex items-center gap-2 flex-1 min-w-0">
+                <div
+                  className={cn(
+                    "shrink-0 h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-semibold tabular-nums transition-colors",
+                    active
+                      ? "bg-neutral-900 text-white"
+                      : "bg-neutral-200 text-neutral-500"
+                  )}
+                >
+                  {step > n ? "✓" : n}
+                </div>
+                <span
+                  className={cn(
+                    "text-[11px] font-sans truncate transition-colors",
+                    current ? "text-neutral-900 font-semibold" : active ? "text-neutral-700" : "text-neutral-400"
+                  )}
+                >
+                  {labels[i]}
+                </span>
+                {i < 2 && (
+                  <div
+                    className={cn(
+                      "h-px flex-1 transition-colors",
+                      step > n ? "bg-neutral-900" : "bg-neutral-200"
+                    )}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MobileStickyBookingBar({
   canPay,
   busy,
