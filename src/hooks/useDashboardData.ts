@@ -29,6 +29,8 @@ export interface DashInbox {
   ageDays: number;
   isStale: boolean;
   navigateTo: string;
+  unanswered?: boolean;
+  hoursSince?: number;
 }
 
 export interface DashboardData {
