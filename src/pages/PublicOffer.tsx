@@ -945,10 +945,10 @@ function ProposalView({
                   </p>
                   {hasQuantities ? (
                     <>
-                      <p className="text-sm font-sans text-foreground mt-1">
+                      <p className="text-sm font-sans text-foreground mt-1 truncate" title={options.filter((o) => (optionQuantities[o.id] || 0) > 0).map((o) => `${formatOptionLabel(o)} × ${optionQuantities[o.id]}`).join(' · ')}>
                         {options
                           .filter((o) => (optionQuantities[o.id] || 0) > 0)
-                          .map((o) => `Option ${o.option_label} × ${optionQuantities[o.id]}`)
+                          .map((o) => `${formatOptionLabel(o)} × ${optionQuantities[o.id]}`)
                           .join(' · ')}
                       </p>
                       <p className="text-xs font-sans text-muted-foreground mt-0.5">
