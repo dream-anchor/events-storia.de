@@ -64,17 +64,19 @@ interface LexOfficeLineItem {
   unitName: string;
   unitPrice: {
     currency: 'EUR';
-    netAmount: number;
+    grossAmount: number;
     taxRatePercentage: number;
   };
 }
 
 // ─── Line-item builder ────────────────────────────────────────────────────────
+// WICHTIG: Maestro-Admin gibt IMMER Brutto-Preise ein. LexOffice unterstuetzt
+// nativ Brutto-Eingabe via taxConditions.taxType='gross' + unitPrice.grossAmount.
+// LexOffice rechnet die enthaltene MwSt automatisch heraus. Keine manuelle
+// Brutto->Netto-Konvertierung mehr noetig (vermeidet Cent-Rundungsfehler).
 
 const FOOD_TAX_RATE = 7;
 const DRINK_TAX_RATE = 19;
-const bruttoToNet = (brutto: number, taxPct: number) =>
-  round2(brutto / (1 + taxPct / 100));
 
 function buildLineItems(
   opt: OfferOption,
@@ -89,12 +91,9 @@ function buildLineItems(
   const items: LexOfficeLineItem[] = [];
 
   // Pricing-Modus per_event: Positionen mit korrektem MwSt-Split.
-  // WICHTIG: totalAmount und alle overridePrice-/pricePerPerson-Werte sind BRUTTO
-  // (so gibt der Admin die Preise in Maestro ein). LexOffice erwartet aber
-  // netAmount in den Line-Items. Deshalb rechnen wir hier Brutto -> Netto zurueck.
-  //   Essen:    Netto = Brutto / 1.07
-  //   Getraenke: Netto = Brutto / 1.19
-  // Jede Speise / jedes Getraenk wird zu einer eigenen Line-Item-Zeile.
+  // Alle overridePrice-/pricePerPerson-Werte sind BRUTTO. Wir geben sie
+  // direkt als grossAmount an LexOffice; LexOffice rechnet enthaltene MwSt
+  // heraus (7% Speisen / 19% Getraenke). Jede Speise/Getraenk = eine Zeile.
   if (ms?.pricingMode === 'per_event') {
     const FOOD_TAX = FOOD_TAX_RATE;
     const DRINK_TAX = DRINK_TAX_RATE;
@@ -169,7 +168,7 @@ function buildLineItems(
       }
     }
 
-    // --- Brutto -> Netto fuer LexOffice ---
+    // --- Brutto direkt als grossAmount fuer LexOffice ---
     for (const e of entries) {
       if (e.brutto <= 0) continue;
       items.push({
@@ -180,7 +179,7 @@ function buildLineItems(
         unitName: e.unitName,
         unitPrice: {
           currency: 'EUR',
-          netAmount: bruttoToNet(e.brutto, e.tax),
+          grossAmount: e.brutto,
           taxRatePercentage: e.tax,
         },
       });
@@ -194,7 +193,7 @@ function buildLineItems(
         description: '',
         quantity: 1,
         unitName: 'Stk',
-        unitPrice: { currency: 'EUR', netAmount: bruttoToNet(round2(totalAmount), FOOD_TAX), taxRatePercentage: FOOD_TAX },
+        unitPrice: { currency: 'EUR', grossAmount: round2(totalAmount), taxRatePercentage: FOOD_TAX },
       });
     }
     return items;
@@ -223,17 +222,17 @@ function buildLineItems(
           unitName: 'Person',
           unitPrice: {
             currency: 'EUR',
-            netAmount: bruttoToNet(price, FOOD_TAX_RATE),
+            grossAmount: price,
             taxRatePercentage: 7,
           },
         });
       }
     } else {
-      // No individual prices — distribute total evenly across courses
+      // No individual prices — distribute total evenly across courses (Brutto)
       const wineTotalBrutto = winePricePerPerson * guestCount;
       const courseTotalBrutto = totalAmount - wineTotalBrutto;
-      const pricePerCourseNet = courses.length > 0
-        ? bruttoToNet(courseTotalBrutto / courses.length / guestCount, FOOD_TAX_RATE)
+      const pricePerCourseGross = courses.length > 0
+        ? round2(courseTotalBrutto / courses.length / guestCount)
         : 0;
 
       for (const course of courses) {
@@ -245,7 +244,7 @@ function buildLineItems(
           unitName: 'Person',
           unitPrice: {
             currency: 'EUR',
-            netAmount: pricePerCourseNet,
+            grossAmount: pricePerCourseGross,
             taxRatePercentage: 7,
           },
         });
@@ -264,7 +263,7 @@ function buildLineItems(
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
-          netAmount: bruttoToNet(ms.drinksPauschalePrice, DRINK_TAX_RATE),
+          grossAmount: ms.drinksPauschalePrice,
           taxRatePercentage: 19,
         },
       });
@@ -277,7 +276,7 @@ function buildLineItems(
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
-          netAmount: bruttoToNet(ms.winePairingPrice, DRINK_TAX_RATE),
+          grossAmount: ms.winePairingPrice,
           taxRatePercentage: 19,
         },
       });
@@ -292,7 +291,7 @@ function buildLineItems(
             unitName: 'Person',
             unitPrice: {
               currency: 'EUR',
-              netAmount: bruttoToNet(drink.pricePerPerson, DRINK_TAX_RATE),
+              grossAmount: drink.pricePerPerson,
               taxRatePercentage: 19,
             },
           });
@@ -311,29 +310,29 @@ function buildLineItems(
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
-          netAmount: bruttoToNet(winePricePerPerson, DRINK_TAX_RATE),
+          grossAmount: winePricePerPerson,
           taxRatePercentage: 19,
         },
       });
     }
 
-    // Multiplikation: Zwischensummen + (guestCount-1) für korrekte Gesamtsumme
+    // Multiplikation: Zwischensummen + (guestCount-1) für korrekte Gesamtsumme (Brutto)
     if (guestCount > 1 && items.length > 0) {
       const foodTotal = round2(items
         .filter(i => i.unitPrice.taxRatePercentage === 7)
-        .reduce((s, i) => s + i.unitPrice.netAmount * i.quantity, 0));
+        .reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0));
       const drinkTotal = round2(items
         .filter(i => i.unitPrice.taxRatePercentage === 19)
-        .reduce((s, i) => s + i.unitPrice.netAmount * i.quantity, 0));
+        .reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0));
 
       if (foodTotal > 0) {
         items.push({
           type: 'custom',
-          name: 'Menü pro Person (netto)',
+          name: 'Menü pro Person (brutto)',
           description: '',
           quantity: 1,
           unitName: 'Stück',
-          unitPrice: { currency: 'EUR', netAmount: foodTotal, taxRatePercentage: 7 },
+          unitPrice: { currency: 'EUR', grossAmount: foodTotal, taxRatePercentage: 7 },
         });
         items.push({
           type: 'custom',
@@ -341,17 +340,17 @@ function buildLineItems(
           description: '',
           quantity: guestCount - 1,
           unitName: 'Person',
-          unitPrice: { currency: 'EUR', netAmount: foodTotal, taxRatePercentage: 7 },
+          unitPrice: { currency: 'EUR', grossAmount: foodTotal, taxRatePercentage: 7 },
         });
       }
       if (drinkTotal > 0) {
         items.push({
           type: 'custom',
-          name: 'Getränke pro Person (netto)',
+          name: 'Getränke pro Person (brutto)',
           description: '',
           quantity: 1,
           unitName: 'Stück',
-          unitPrice: { currency: 'EUR', netAmount: drinkTotal, taxRatePercentage: 19 },
+          unitPrice: { currency: 'EUR', grossAmount: drinkTotal, taxRatePercentage: 19 },
         });
         items.push({
           type: 'custom',
@@ -359,14 +358,14 @@ function buildLineItems(
           description: '',
           quantity: guestCount - 1,
           unitName: 'Person',
-          unitPrice: { currency: 'EUR', netAmount: drinkTotal, taxRatePercentage: 19 },
+          unitPrice: { currency: 'EUR', grossAmount: drinkTotal, taxRatePercentage: 19 },
         });
       }
     }
   } else {
     // Paket-Modus oder E-Mail-Modus: eine Gesamtposition
-    // totalAmount ist BRUTTO (Maestro-Eingabe). Pro-Person-Preis brutto -> netto fuer LexOffice.
-    const unitPriceBrutto = guestCount > 0 ? totalAmount / guestCount : 0;
+    // totalAmount ist BRUTTO (Maestro-Eingabe) — direkt als grossAmount durchreichen.
+    const unitPriceBrutto = guestCount > 0 ? round2(totalAmount / guestCount) : 0;
     items.push({
       type: 'custom',
       name: packageName || 'Veranstaltungspaket',
@@ -375,7 +374,7 @@ function buildLineItems(
       unitName: 'Person',
       unitPrice: {
         currency: 'EUR',
-        netAmount: bruttoToNet(unitPriceBrutto, FOOD_TAX_RATE),
+        grossAmount: unitPriceBrutto,
         taxRatePercentage: 7,
       },
     });
@@ -582,7 +581,7 @@ serve(async (req) => {
       },
       lineItems,
       totalPrice: { currency: 'EUR' },
-      taxConditions: { taxType: 'net' },
+      taxConditions: { taxType: 'gross' },
       paymentConditions,
       introduction,
       remark: remarkText,

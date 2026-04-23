@@ -163,6 +163,9 @@ serve(async (req) => {
     }
 
     // Step 2: Build line items
+    // Maestro-Admin gibt IMMER Brutto-Preise ein (z.B. 69 € Paket inkl. MwSt).
+    // LexOffice unterstuetzt Brutto nativ via taxType='gross' + grossAmount —
+    // rechnet die enthaltene MwSt automatisch heraus. Keine Konvertierung noetig.
     const lineItems = body.items.map(item => ({
       type: 'custom',
       name: item.name,
@@ -171,7 +174,7 @@ serve(async (req) => {
       unitName: 'Stück',
       unitPrice: {
         currency: 'EUR',
-        netAmount: roundCurrency(item.unitPrice / (1 + item.taxRate / 100)),
+        grossAmount: roundCurrency(item.unitPrice),
         taxRatePercentage: item.taxRate
       }
     }));
@@ -187,7 +190,7 @@ serve(async (req) => {
       voucherDate: today,
       lineItems,
       totalPrice: { currency: 'EUR' },
-      taxConditions: { taxType: 'net' },
+      taxConditions: { taxType: 'gross' },
       title: isInvoice ? 'Rechnung' : 'Angebot',
       introduction: body.introduction || `Sehr geehrte Damen und Herren,\n\nvielen Dank für Ihre Anfrage. Anbei erhalten Sie ${isInvoice ? 'unsere Rechnung' : 'unser Angebot'}.`,
       remark: body.remark || (isInvoice

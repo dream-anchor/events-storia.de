@@ -78,7 +78,7 @@ interface LexOfficeLineItem {
   unitName: string;
   unitPrice: {
     currency: "EUR";
-    netAmount: number;
+    grossAmount: number;
     taxRatePercentage: number;
   };
 }
@@ -112,13 +112,11 @@ function buildLineItems(
   // budgetPerPerson-Override gesetzt ist, wird die Differenz proportional
   // auf Essen/Getraenke verteilt.
   if (ms?.pricingMode === "per_event") {
-    // WICHTIG: totalAmount und alle overridePrice-/pricePerPerson-Werte sind BRUTTO
-    // (Admin gibt in Maestro immer Brutto-Preise ein). LexOffice erwartet netAmount.
-    // Deshalb: Brutto -> Netto zurueckrechnen (/1.07 fuer Essen, /1.19 fuer Getraenke).
-    // Jede Speise / jedes Getraenk wird zu einer eigenen Line-Item-Zeile.
+    // Maestro-Admin gibt IMMER Brutto-Preise ein. LexOffice unterstuetzt Brutto
+    // nativ via taxConditions.taxType='gross' + unitPrice.grossAmount und rechnet
+    // die enthaltene MwSt heraus. Keine manuelle Konvertierung mehr noetig.
     const FOOD_TAX = 7;
     const DRINK_TAX = 19;
-    const bruttoToNet = (brutto: number, taxPct: number) => round2(brutto / (1 + taxPct / 100));
 
     type BruttoEntry = { name: string; description: string; brutto: number; tax: 7 | 19; unitName: string };
     const entries: BruttoEntry[] = [];
@@ -188,7 +186,7 @@ function buildLineItems(
       }
     }
 
-    // Brutto -> Netto fuer LexOffice
+    // Brutto direkt als grossAmount fuer LexOffice
     for (const e of entries) {
       if (e.brutto <= 0) continue;
       items.push({
@@ -199,7 +197,7 @@ function buildLineItems(
         unitName: e.unitName,
         unitPrice: {
           currency: "EUR",
-          netAmount: bruttoToNet(e.brutto, e.tax),
+          grossAmount: e.brutto,
           taxRatePercentage: e.tax,
         },
       });
@@ -214,7 +212,7 @@ function buildLineItems(
         unitName: "Stk",
         unitPrice: {
           currency: "EUR",
-          netAmount: bruttoToNet(round2(totalAmount), FOOD_TAX),
+          grossAmount: round2(totalAmount),
           taxRatePercentage: FOOD_TAX,
         },
       });
@@ -222,8 +220,8 @@ function buildLineItems(
     return items;
   }
 
-  // per_person-Fallback: Paket/E-Mail-Modus = eine Gesamtposition
-  const unitPrice = guestCount > 0 ? round2(totalAmount / guestCount) : 0;
+  // per_person-Fallback: Paket/E-Mail-Modus = eine Gesamtposition (Brutto)
+  const unitPriceBrutto = guestCount > 0 ? round2(totalAmount / guestCount) : 0;
   items.push({
     type: "custom",
     name: packageName || "Veranstaltungspaket",
@@ -232,7 +230,7 @@ function buildLineItems(
     unitName: "Person",
     unitPrice: {
       currency: "EUR",
-      netAmount: unitPrice,
+      grossAmount: unitPriceBrutto,
       taxRatePercentage: 7,
     },
   });
@@ -313,9 +311,9 @@ serve(async (req) => {
     }
     if (lineItems.length === 0) throw new Error("Keine Positionen generiert");
 
-    // Summen-Check
+    // Summen-Check (Brutto)
     const optionsTotal = (options as OfferOption[]).reduce((s, o) => s + (o.total_amount || 0), 0);
-    const lineItemsTotal = lineItems.reduce((s, i) => s + i.unitPrice.netAmount * i.quantity, 0);
+    const lineItemsTotal = lineItems.reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0);
     console.log(`[repair] options_total=${optionsTotal}, line_items_total=${lineItemsTotal}`);
 
     // 5. Adressen live auflösen (kein Snapshot)
@@ -355,7 +353,7 @@ serve(async (req) => {
       },
       lineItems,
       totalPrice: { currency: "EUR" },
-      taxConditions: { taxType: "net" },
+      taxConditions: { taxType: "gross" },
       introduction,
       remark: "Dieses Angebot ist 14 Tage gültig. Für alle Pakete ist eine Vorauszahlung von 100% erforderlich.",
     };
