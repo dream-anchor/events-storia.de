@@ -1408,7 +1408,125 @@ function ProposalView({
           </div>
         </div>
       </div>
+
+      {/* MOBILE STICKY BOOKING BAR — fixed bottom, nur < lg, mit Safe-Area */}
+      <MobileStickyBookingBar
+        canPay={canPay}
+        busy={busy}
+        totalAmount={totalAmount}
+        depositAmount={depositAmount}
+        depositPercent={depositPercent}
+        showDeposit={showDeposit}
+        isPaying={isPaying}
+        onPay={handlePayment}
+        isSingle={isSingle}
+        hasQuantities={hasQuantities}
+        totalQuantity={totalQuantity}
+        isArchiveMode={isArchiveMode}
+        isPreviewMode={isPreviewMode}
+      />
     </section>
+  );
+}
+
+// =================================================================
+// MOBILE STICKY BOOKING BAR
+// =================================================================
+function MobileStickyBookingBar({
+  canPay,
+  busy,
+  totalAmount,
+  depositAmount,
+  depositPercent,
+  showDeposit,
+  isPaying,
+  onPay,
+  isSingle,
+  hasQuantities,
+  totalQuantity,
+  isArchiveMode,
+  isPreviewMode,
+}: {
+  canPay: boolean;
+  busy: boolean;
+  totalAmount: number;
+  depositAmount: number;
+  depositPercent: number;
+  showDeposit: boolean;
+  isPaying: 'full' | 'deposit' | null;
+  onPay: (type: 'full' | 'deposit') => void;
+  isSingle: boolean;
+  hasQuantities: boolean;
+  totalQuantity: number;
+  isArchiveMode: boolean;
+  isPreviewMode: boolean;
+}) {
+  // Im Archiv-Modus komplett verstecken — nur Lese-Ansicht.
+  if (isArchiveMode) return null;
+
+  return (
+    <div
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-40 lg:hidden",
+        "border-t border-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85",
+        "shadow-[0_-8px_30px_rgba(0,0,0,0.08)]",
+        "px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]"
+      )}
+      role="region"
+      aria-label="Buchen"
+    >
+      {isPreviewMode && (
+        <p className="mb-1.5 text-[10px] italic text-neutral-500 text-center">
+          Vorschau — nur Anzeige
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-sans uppercase tracking-wider text-neutral-500">
+            {canPay
+              ? (hasQuantities
+                  ? `${totalQuantity} ${totalQuantity === 1 ? 'Gast' : 'Gäste'} · Gesamt`
+                  : 'Gesamt')
+              : (isSingle ? 'Bitte oben Option wählen' : 'Mengen oben angeben')}
+          </p>
+          <p className="font-serif text-lg font-bold text-neutral-900 tabular-nums truncate">
+            {canPay ? formatCurrency(totalAmount) : '—'}
+          </p>
+        </div>
+
+        {showDeposit && canPay && (
+          <Button
+            onClick={() => onPay('deposit')}
+            disabled={busy || isPreviewMode}
+            variant="outline"
+            className="h-12 px-3 rounded-xl flex flex-col items-center justify-center gap-0 border-primary/30"
+          >
+            <span className="text-[10px] uppercase tracking-wider font-sans leading-none">
+              {depositPercent}%
+            </span>
+            <span className="text-xs font-semibold tabular-nums leading-tight">
+              {formatCurrencyDecimal(depositAmount)}
+            </span>
+            {isPaying === 'deposit' && (
+              <Loader2 className="h-3 w-3 animate-spin absolute" />
+            )}
+          </Button>
+        )}
+
+        <Button
+          onClick={() => onPay('full')}
+          disabled={busy || !canPay || isPreviewMode}
+          className="h-12 px-5 rounded-xl font-sans font-semibold shadow-[0_4px_15px_rgba(139,0,0,0.25)] flex items-center gap-2"
+        >
+          {isPaying === 'full' ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Lock className="h-4 w-4" />
+          )}
+          Buchen
+        </Button>
+      </div>
+    </div>
   );
 }
 
