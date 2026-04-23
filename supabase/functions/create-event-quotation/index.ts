@@ -316,23 +316,23 @@ function buildLineItems(
       });
     }
 
-    // Multiplikation: Zwischensummen + (guestCount-1) für korrekte Gesamtsumme
+    // Multiplikation: Zwischensummen + (guestCount-1) für korrekte Gesamtsumme (Brutto)
     if (guestCount > 1 && items.length > 0) {
       const foodTotal = round2(items
         .filter(i => i.unitPrice.taxRatePercentage === 7)
-        .reduce((s, i) => s + i.unitPrice.netAmount * i.quantity, 0));
+        .reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0));
       const drinkTotal = round2(items
         .filter(i => i.unitPrice.taxRatePercentage === 19)
-        .reduce((s, i) => s + i.unitPrice.netAmount * i.quantity, 0));
+        .reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0));
 
       if (foodTotal > 0) {
         items.push({
           type: 'custom',
-          name: 'Menü pro Person (netto)',
+          name: 'Menü pro Person (brutto)',
           description: '',
           quantity: 1,
           unitName: 'Stück',
-          unitPrice: { currency: 'EUR', netAmount: foodTotal, taxRatePercentage: 7 },
+          unitPrice: { currency: 'EUR', grossAmount: foodTotal, taxRatePercentage: 7 },
         });
         items.push({
           type: 'custom',
@@ -340,17 +340,17 @@ function buildLineItems(
           description: '',
           quantity: guestCount - 1,
           unitName: 'Person',
-          unitPrice: { currency: 'EUR', netAmount: foodTotal, taxRatePercentage: 7 },
+          unitPrice: { currency: 'EUR', grossAmount: foodTotal, taxRatePercentage: 7 },
         });
       }
       if (drinkTotal > 0) {
         items.push({
           type: 'custom',
-          name: 'Getränke pro Person (netto)',
+          name: 'Getränke pro Person (brutto)',
           description: '',
           quantity: 1,
           unitName: 'Stück',
-          unitPrice: { currency: 'EUR', netAmount: drinkTotal, taxRatePercentage: 19 },
+          unitPrice: { currency: 'EUR', grossAmount: drinkTotal, taxRatePercentage: 19 },
         });
         items.push({
           type: 'custom',
@@ -358,14 +358,14 @@ function buildLineItems(
           description: '',
           quantity: guestCount - 1,
           unitName: 'Person',
-          unitPrice: { currency: 'EUR', netAmount: drinkTotal, taxRatePercentage: 19 },
+          unitPrice: { currency: 'EUR', grossAmount: drinkTotal, taxRatePercentage: 19 },
         });
       }
     }
   } else {
     // Paket-Modus oder E-Mail-Modus: eine Gesamtposition
-    // totalAmount ist BRUTTO (Maestro-Eingabe). Pro-Person-Preis brutto -> netto fuer LexOffice.
-    const unitPriceBrutto = guestCount > 0 ? totalAmount / guestCount : 0;
+    // totalAmount ist BRUTTO (Maestro-Eingabe) — direkt als grossAmount durchreichen.
+    const unitPriceBrutto = guestCount > 0 ? round2(totalAmount / guestCount) : 0;
     items.push({
       type: 'custom',
       name: packageName || 'Veranstaltungspaket',
@@ -374,7 +374,7 @@ function buildLineItems(
       unitName: 'Person',
       unitPrice: {
         currency: 'EUR',
-        netAmount: bruttoToNet(unitPriceBrutto, FOOD_TAX_RATE),
+        grossAmount: unitPriceBrutto,
         taxRatePercentage: 7,
       },
     });
