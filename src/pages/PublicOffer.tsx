@@ -258,6 +258,37 @@ export default function PublicOffer() {
   const previewSend = searchParams.get('preview_send'); // 'proposal' | 'final' | null
   const isPreviewMode = previewBody !== null || previewSend !== null;
 
+  // ARCHIV-MODUS: ?archive_version=N (nur für authentifizierte Admins).
+  // Lädt den Snapshot aus inquiry_offer_history statt der Live-Options und
+  // rendert die Seite als read-only. Unauthenticated User → Param wird
+  // ignoriert → normaler Live-Modus greift, Kunde sieht nichts Falsches.
+  const archiveVersionRaw = searchParams.get('archive_version');
+  const archiveVersionNum = archiveVersionRaw ? parseInt(archiveVersionRaw, 10) : null;
+  const [archiveAuthorized, setArchiveAuthorized] = useState<boolean | null>(
+    archiveVersionNum != null ? null : false,
+  );
+  useEffect(() => {
+    if (archiveVersionNum == null) return;
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (cancelled) return;
+      if (!user) {
+        setArchiveAuthorized(false);
+        return;
+      }
+      const { data: roleRow } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .in('role', ['admin', 'staff'])
+        .maybeSingle();
+      if (!cancelled) setArchiveAuthorized(!!roleRow);
+    })();
+    return () => { cancelled = true; };
+  }, [archiveVersionNum]);
+  const isArchiveMode = archiveVersionNum != null && archiveAuthorized === true;
+
   // Slug-Route (/ihr-angebot/:slug) oder UUID-Route (/offer/:id)
   const isSlugRoute = location.pathname.includes('/ihr-angebot/') || location.pathname.includes('/your-offer/');
   const lookupValue = slug || id;
@@ -280,9 +311,76 @@ export default function PublicOffer() {
 
   useEffect(() => {
     if (!lookupValue) return;
+    // Archiv-Modus: warten bis Auth-Check abgeschlossen ist
+    if (archiveVersionNum != null && archiveAuthorized === null) return;
 
     const fetchOffer = async () => {
       try {
+        // ARCHIV-PFAD: Snapshot statt Live-Options
+        if (isArchiveMode && id) {
+          const { data: hist, error: histErr } = await supabase
+            .from('inquiry_offer_history' as never)
+            .select('options_snapshot, email_content, sent_at')
+            .eq('inquiry_id', id)
+            .eq('version', archiveVersionNum!)
+            .maybeSingle();
+          if (histErr || !hist) {
+            console.error('[PublicOffer Archive] history not found', { histErr });
+            setError(true);
+            setLoading(false);
+            return;
+          }
+          // Inquiry-Stammdaten via RPC (für Header/Kontakt) — read-only
+          const { data: live } = await supabase.rpc(
+            'get_public_offer' as never,
+            { offer_id: id } as never,
+          );
+          const liveData = live as unknown as PublicOfferData | null;
+          const snapshotOpts = ((hist as { options_snapshot: unknown[] }).options_snapshot || [])
+            .filter((o: unknown) => {
+              const oo = o as { is_active?: boolean; isActive?: boolean };
+              return oo.is_active !== false && oo.isActive !== false;
+            })
+            .map((o: unknown) => {
+              const oo = o as Record<string, unknown>;
+              return {
+                id: String(oo.id ?? ''),
+                option_label: String(oo.option_label ?? oo.optionLabel ?? ''),
+                offer_mode: String(oo.offer_mode ?? oo.offerMode ?? 'menu'),
+                guest_count: Number(oo.guest_count ?? oo.guestCount ?? 0),
+                menu_selection: (oo.menu_selection ?? oo.menuSelection ?? null) as MenuSelection | null,
+                total_amount: Number(oo.total_amount ?? oo.totalAmount ?? 0),
+                stripe_payment_link_url: null,
+                package_name:
+                  (oo.menu_selection as { packageNameOverride?: string } | null)?.packageNameOverride ||
+                  `Option ${oo.option_label ?? ''}`,
+                sort_order: Number(oo.sort_order ?? 0),
+                selected_quantity: (oo.selected_quantity ?? null) as number | null,
+              } as PublicOfferOption;
+            });
+          setData({
+            inquiry: (liveData?.inquiry as PublicInquiry) || ({
+              id: id,
+              company_name: null,
+              contact_name: '',
+              email: null,
+              event_type: null,
+              preferred_date: null,
+              event_end_date: null,
+              guest_count: null,
+              status: 'archived',
+              offer_phase: 'proposal_sent',
+              selected_option_id: null,
+              email_content: (hist as { email_content: string | null }).email_content,
+              lexoffice_invoice_id: null,
+            } as PublicInquiry),
+            options: snapshotOpts,
+            customer_response: null,
+          });
+          setLoading(false);
+          return;
+        }
+
         let result;
         let rpcError;
 
@@ -318,7 +416,7 @@ export default function PublicOffer() {
     };
 
     fetchOffer();
-  }, [lookupValue, isSlugRoute]);
+  }, [lookupValue, isSlugRoute, isArchiveMode, archiveVersionNum, archiveAuthorized, id]);
 
   // Load payments separately (anon access, only public fields)
   useEffect(() => {
