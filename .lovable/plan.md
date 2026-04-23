@@ -1,155 +1,132 @@
 
 
-# Dashboard Audit — CX & Visual Design (2026 State-of-the-Art)
+# Dashboard UX/UI Audit — Findings & Fixes
 
-## Status Quo
+## Audit (Stand des Screenshots `/admin`)
 
-Das Dashboard ist **funktional vollständig** (Triptychon, Wochen-Heatmap, Outbox), wirkt aber wie ein **klassisches B2B-Tool 2022**, nicht wie ein 2026-Cockpit. Drei strukturelle Brüche:
+### 🔴 Funktionale Defekte
+1. **Archivierte Datensätze tauchen weiter auf.** Nur `useDashboardData` filtert `event_inquiries.archived_at IS NULL`. **`useUpcomingReminders` filtert es nicht** → archivierte Anfragen produzieren weiterhin „Angebotserinnerungen". Auch stornierte Catering-Bestellungen (`status='cancelled'`) und declined Events laufen durch.
+2. **Hero zeigt etwas in 7 Tagen als „Als nächstes".** „Mimmo · Do., 30. Apr · 17:00" — heute ist Mittwoch 23.4. Hero soll **nur 0–24h** zeigen, sonst ruhiger Empty-State.
+3. **„Hallo, info."** — Name-Mapping greift nicht für `info@…`. Sollte den Vornamen aus `adminDisplayNames` ziehen oder neutral „Hallo." bleiben.
+4. **Header sagt „0 Termine heute"** während Hero-Karte gleichzeitig groß einen Termin zeigt → Widerspruch.
 
-### CX-Befunde
-1. **Kein "Jetzt-Moment"**: Beim Öffnen sieht der Betreiber drei gleichgewichtete Spalten — aber nicht **die nächste Aktion in den nächsten 2h** (z.B. „In 47 Min: Lieferung Müller, 25 P., Schwabing"). Das ist die wichtigste Information eines Operations-Cockpits.
-2. **Keine Hierarchie der Dringlichkeit**: Überfällige Zahlungen, stale Anfragen, Outbox-Reminder konkurrieren visuell. Der Betreiber muss selbst priorisieren statt geleitet zu werden.
-3. **Kein Kontext zum eigenen Bestand**: KPIs der Woche stehen unten, ohne Trend (Vor-Woche, Vor-Monat). Kein „Auslastung 78%, +12% vs. letzte Woche".
-4. **Outbox ist passiv**: User sieht „3 Mails gehen heute 18:00 raus" — kann aber nicht mit einem Klick *eine einzelne abbrechen oder verschieben*.
-5. **„Heute läuft" enthält +7 Tage** trotz des Namens. Verwirrend.
-6. **Keine Realtime-Indikatoren**: Kein „aktualisiert vor 12 Sek", kein dezenter Live-Pulse, kein Toast bei neuem Eingang.
-7. **Direktaktionen fehlen**: Anrufen ✓, Navigieren ✓ — aber kein „Erledigt" auf Karte (im Plan vorgesehen, nicht umgesetzt), kein „Snooze 2h", kein Bulk-Mark.
+### 🟠 Hierarchie & Informationsdichte
+5. **8 fast identische „Angebotserinnerung an …"-Zeilen** in der Automatik-Spalte. Keine Gruppierung, keine Dedup, kein Empfänger-Avatar — visuelles Rauschen. Linear/Cron würden gleichartige Reminder zu einem ausklappbaren Stapel falten.
+6. **Posteingang besteht aus 2 Bereichen** (Überfällige Zahlungen + Neue Eingänge) — der zweite ist leer und wirkt verlassen. Bei 0 Eingängen sollte er kollabieren und Energie auf den überfälligen Block lenken.
+7. **„Heute"-Spalte = große leere Karte.** Verschwendet die wertvollste Spalte. Besser: Empty-State mit den nächsten 3 anstehenden Tagen als Mini-Vorschau + CTA „Woche planen".
+8. **Spaltenbreiten gleich** trotz unterschiedlicher Wichtigkeit. Outbox ist gerade Hauptkonsument der Bildschirmbreite, gehört aber visuell zurückgenommen.
 
-### Grafik-/Design-Befunde
-1. **Monochrom-Verstoß** (Memory-Regel): Bunte Status-Dots (`bg-emerald-500`, `bg-amber-500`, `text-amber-600`, `text-emerald-600` in mehreren Komponenten). Erlaubt sind nur Neutral-Grays + Akzent-Rot für Überfälliges.
-2. **Typografische Flachheit**: Alle H2 sind `text-sm uppercase tracking-wider` — kein typografischer Anker, kein Display-Weight. 2026-Standard (Linear, Vercel, Cron) nutzt **größere, ruhigere Headlines** mit klarer Hierarchie.
-3. **Border-Inflation**: Jede Sektion hat `border border-border/60 rounded-2xl p-4` — ergibt **Card-on-Card-on-Card**. State-of-the-Art ist *eine* Container-Ebene + interne Trennung über Whitespace und 1-px-Lines.
-4. **Status-Dots als Mini-Kreise** statt als typisierte Pills mit Klartext. Linear/Notion zeigen **Text-Status** („Confirmed", „Awaiting payment") statt Farbpunkten.
-5. **Wochen-Heatmap = Mini-Bar-Chart** ohne klickbare Tageskarten. Kein Hover-Detail, keine Drill-Through, keine Vergleichslinie zum Schnitt.
-6. **„Geht raus" Header zeigt** die `scheduledLabel` ohne Symbol-Anker (Tageszeit). Schwer überfliegbar.
-7. **Kein dunkler Akzent für „Now"**: Heute-Tag in Heatmap nutzt nur subtiles `border-foreground` — verschwindet visuell.
-8. **Loading = Spinner**, kein Skeleton (Inkonsistent zum bereits ausgerollten OfferBuilder-Skeleton).
-9. **Tap-/Hover-Targets** in Inbox-Listen sind ~28 px hoch — unter dem Apple-/Material-Standard von 44 px für Touch.
+### 🟡 Grafik / Style
+9. **Monochrom-Verstoß:** Orange/Gelb-Logo links oben, dezente farbige Pillen — Memory-Regel verlangt strikt monochrom (Akzent nur destructive-rot).
+10. **Right-Cut:** „Domenico Sp" wird abgeschnitten. Ellipsis fehlt korrekt; Container braucht `min-w-0`.
+11. **Overdue-Block ist ein roter Block.** Wirkt alarmistisch ohne Aktion. Sollte als kompakte Liste mit „Erinnern" / „Öffnen" pro Zeile rendern.
+12. **„Live · vor 14s"** rechts oben isoliert vom Header → besser inline neben „Pinnwand · Donnerstag".
+13. **„Neue Eingänge 0"** als Sektionsheader mit `0`-Counter ist visuell schwer wie ein voller Block. Bei 0 entweder kollabieren oder als 1-Zeilen-Hint.
+14. **Section-Header ohne Aktion**: jede Spalte braucht eine sekundäre Aktion oben rechts (z. B. „Alle Termine", „Alle Anfragen", „Alle Reminder").
 
----
-
-## Vision: 2026 Operations Cockpit
-
-Inspiriert von Linear Inbox, Cron, Vercel Observability, Apple Wallet-Stacks. **Eine Pinnwand, die in 5 Sekunden die nächste richtige Aktion zeigt.**
-
-```text
-┌──────────────────────────────────────────────────────────────────────────┐
-│  Pinnwand · Mittwoch                                       Live · 0:12s  │
-│  Guten Morgen, Antoine. 3 Termine heute · 1 Entscheidung wartet.        │
-├──────────────────────────────────────────────────────────────────────────┤
-│  ▌ JETZT  In 47 Min                                          [Hero-Card]│
-│  ▌ 12:00 · Lieferung Müller GmbH · 25 P. · Schwabing                    │
-│  ▌ Adresse  ·  Anrufen  ·  Erledigt  ·  Verschieben                     │
-├─────────────┬────────────────────────────┬───────────────────────────────┤
-│ HEUTE (3)   │ POSTEINGANG (5)            │ AUTOMATIK (4 in 24h)          │
-│ Linear-Liste│ + 2 stale  · + 2 überf.   │ Inline pro Card abbrechbar    │
-└─────────────┴────────────────────────────┴───────────────────────────────┘
-┌──────────────────────────────────────────────────────────────────────────┐
-│ Diese Woche · 23.–29. April                              78% Auslastung │
-│ ▆▃▂▅█▆▁  Mi Do Fr Sa So Mo Di     +12% vs. Vor-Woche · 11.300€ · 71% bz│
-│ Nächste Woche →   3 Termine · 45 Gäste · ⚠ 1 Risiko (Menü offen)        │
-└──────────────────────────────────────────────────────────────────────────┘
-```
+### 🔵 Interaktion & 2026-Standards
+15. **Kein Keyboard-Shortcut-Hint** (`⌘K`, `j/k` Navigation in Listen) — Linear-Standard.
+16. **Kein Empty-State-Wert.** „Keine geplanten Lieferungen oder Events" sagt nichts; zeige stattdessen die nächste anstehende Operation als „Übermorgen 17:00 · Mimmo · 107 P." Vorschau-Karte.
+17. **Kein „Snooze"-Stack** im Outbox: Skip ist ein einsamer X-Button. Besser Dropdown: Überspringen / In 1h / Sofort senden.
 
 ---
 
-## Konkrete Änderungen
+## Plan: Korrekturen & Premium-Refresh
 
-### Welle 1 — Hierarchie & Klartext (½ Tag)
+### Welle A — Datenintegrität (P0, sofort)
 
-**1.1 „Jetzt"-Hero-Card oben (NEU)**
-Über den drei Spalten: eine **breite Hero-Karte**, die *die nächste anstehende Operation* zeigt (nächste 0–4h). Mit großer Uhrzeit, „in 47 Min", Customer, Direktaktionen.
-Wenn nichts ansteht: „Heute frei. Nächster Termin: morgen 12:00 …" als ruhige Variante.
-Datei: `src/components/admin/refine/dashboard/NextUpHero.tsx` (neu) + `Dashboard.tsx`.
+**A.1 Archivierte/Stornierte/Declined konsequent filtern**
+- `useUpcomingReminders.ts`:
+  - `offerQ`: `.is("archived_at", null)` ergänzen, Status `declined`/`confirmed` ausschließen.
+  - `taskQ`: Inquiry-Join, archivierte Inquiry-Tasks ausschließen.
+  - `catQ`: `status` darf nicht `cancelled` sein.
+  - `payQ`: nicht-archivierte Inquiry erforderlich (Filter via `inquiry_id IN (…)` aus geladenen Inquiries).
+- `useDashboardData.ts`:
+  - Catering-Operations + Catering-Inbox: `.neq("status", "cancelled")`.
+  - Event-Bookings: `.not("status", "in", "(cancelled,refunded)")`.
+  - Group-Inquiries: `.not("status", "in", "(declined,archived)")` falls Spalte vorhanden.
 
-**1.2 Personalisierte Begrüßung + Live-Indikator**
-Header-Strip wird: „Guten Morgen, {Antoine}. {n} Termine heute · {m} Entscheidungen warten." + dezenter Live-Pulse-Punkt mit „aktualisiert vor 0:12 s".
-Datei: `Dashboard.tsx` (+ kleiner Hook für „seconds since last fetch").
+**A.2 Hero auf echtes „Jetzt-Fenster" begrenzen**
+- `NextUpHero.tsx`: nur Operationen anzeigen, deren Datum **heute oder morgen** und Zeit innerhalb der nächsten 24h ist. Andernfalls Empty-Hero („Heute frei. Nächster Termin am 30. Apr.") in zurückhaltender Variante.
 
-**1.3 „Heute läuft" → echtes Heute (mit Tab „+7 Tage")**
-Default zeigt nur heute. Subtiler Toggle „+7 Tage" oben rechts der Spalte.
-Datei: `TodayOperationsColumn.tsx`.
+**A.3 Header-/Hero-Konsistenz**
+- Wenn Hero einen Termin zeigt, darf Header nicht „0 Termine heute" sagen. Header zählt: `todayOps.length` für „Termine heute" + getrennte Zeile „Diese Woche: N Termine, davon nächster in X" wenn heute leer.
 
-**1.4 Monochrom-Cleanup**
-Alle `emerald-*`, `amber-*` raus. Stattdessen:
-- Status als typografische Pill mit Klartext (kein Farbpunkt): „Bezahlt" `bg-foreground text-background`, „Offen" `bg-muted text-foreground`, „Menü offen" `bg-foreground/10 text-foreground` mit Outline.
-- Akzentrot (`text-destructive`) **nur** für Überfälliges.
-Dateien: alle drei Spalten + Heatmap.
-
----
-
-### Welle 2 — Direktaktionen & Predictive Power (½ Tag)
-
-**2.1 Swipe-/Hover-Aktionen pro Operation-Card**
-Desktop-Hover: drei Inline-Buttons rechts (Erledigt · Verschieben · Notiz).
-Mobile: Swipe-left → Erledigt; Swipe-right → Snooze 2h.
-Setzt `status='completed'` bzw. neuen Reminder. Datei: `TodayOperationsColumn.tsx` + neue `useOperationActions.ts`.
-
-**2.2 Outbox: einzelne Reminder pausieren / sofort senden**
-Pro Reminder-Zeile: kleines Menü „Heute überspringen · Sofort senden · Verschieben". Schreibt in `inquiry_tasks.snoozed_until` bzw. triggert Send-Funktion.
-Datei: `OutboxColumn.tsx` + Edge-Function-Aufruf bestehender Routen (keine neue Function).
-
-**2.3 Inbox: 1-Klick-Trennung „Heute beantworten / Später"**
-Jede Inbox-Zeile bekommt ein „Heute"-Toggle, das die Anfrage zu einer „Heute-zu-erledigen"-Liste hinzufügt (gespeichert in `inquiry_tasks` als persönlicher Task).
-Datei: `InboxColumn.tsx`.
+**A.4 Begrüßung repariert**
+- `getAdminFirstName('info@events-storia.de')` → fällt zurück auf neutralen Begriff (z. B. „Hallo." ohne Name) statt „Hallo, info.".
+- Ergänzung in `adminDisplayNames.ts`: Mapping für `info@events-storia.de` → kein Vorname (Service-Account), Header zeigt nur Begrüßung.
 
 ---
 
-### Welle 3 — Visual Polish & Datendichte (½ Tag)
+### Welle B — Hierarchie & Klartext (P1)
 
-**3.1 Wochen-Heatmap → Sparkline + klickbare Tageskarten**
-- Tagestiles werden klickbar → springen zur gefilterten Tagesansicht.
-- Trend-Linie: aktuelle Woche vs. 4-Wochen-Schnitt (graue Vergleichslinie).
-- KPI-Strip: „78% Auslastung · +12% vs. Vor-Woche · 11.300€ · 71% bezahlt".
-- „Heute"-Tag mit fetter Foreground-Bar statt nur Border.
-Datei: `WeekHeatmap.tsx`.
+**B.1 Outbox: Reminder-Stack pro Empfänger/Kind**
+- Identische Reminder-Typen mit gleichem Crontag werden gestapelt: „Angebotserinnerungen · 8 Empfänger · Fr 10:00" mit Aufklappen.
+- Empfänger-Initialen-Avatar (Mono) statt Mail-Icon pro Zeile.
+- Skip-Button → Dropdown (Überspringen heute · Verschieben 24h · Sofort senden).
 
-**3.2 Skeleton statt Spinner**
-Drei-Spalten-Skeleton beim ersten Laden. Datei: `Dashboard.tsx`.
+**B.2 Posteingang verschlanken**
+- Wenn `inbox.length === 0`: Sektion „Neue Eingänge" wird zu 1-Zeilen-Hint („Keine neuen Anfragen seit 48h").
+- Überfällige Zahlungen werden zur Liste mit pro Zeile: Avatar · Name · Betrag · Tage · `Erinnern` / `Öffnen`.
 
-**3.3 Border-Diät**
-- Spalten-Container haben **keinen** Outer-Border mehr — nur Whitespace + interne 1-px-Trennlinien.
-- Operation-Cards: kein Border, sondern nur `bg-card` + `hover:bg-muted/40` + 1-px Bottom-Divider.
-Effekt: ruhigere, modernere Optik (Linear-Stil).
+**B.3 Heute-Spalte: produktiver Empty-State**
+- Bei `todayOps.length === 0`: zeige Mini-Vorschau der nächsten 3 Operationen (mit Datum) + Link „Woche öffnen".
 
-**3.4 Typografische Anker**
-- Spalten-H2: `text-base font-semibold` (kein uppercase) + kleine Caption darunter.
-- Datums-H1: `text-3xl font-bold tracking-tight` (statt 2xl).
-- Tabular-Nums überall für Zeiten und Geldbeträge bereits ✓.
+**B.4 Spaltengewichtung Desktop**
+- Grid: `grid-cols-12` mit Heute=4, Posteingang=4, Automatik=4 (gleich) → bei Outbox-Stack-Reduktion bleibt visuelle Gleichgewichtung.
 
-**3.5 Tap-Targets ≥ 44 px**
-Inbox-Buttons, Outbox-Items, Tab-Buttons auf min. 44 px Höhe (Mobile-Standard, Memory-Regel).
+---
 
-**3.6 Realtime via Supabase Channel (optional, ½ Tag extra)**
-Statt 60-s-Poll → `postgres_changes`-Channel auf `event_inquiries`, `catering_orders`. Toast „Neue Anfrage von Müller" + Badge-Bump in Echtzeit.
-Datei: `useDashboardData.ts`.
+### Welle C — Visuelles Premium-Polish (P2)
+
+**C.1 Monochrom-Cleanup im Layout**
+- Sidebar-Logo: Mono-Variante (kein Orange-Tile) bzw. neutralisierte Hintergrund-Pille.
+- Aktiver Sidebar-Tab: `bg-foreground text-background`, kein Orange.
+
+**C.2 Truncation & Min-Width**
+- Outbox-Items: Container bekommt `min-w-0`, Titel `truncate`, Empfänger-Caption `truncate`.
+
+**C.3 Header-Komposition**
+- „Pinnwand · {Tag, Datum} · Live · vor 0:14s" als ein typografischer Strip → keine schwebende Live-Pille rechts mehr.
+
+**C.4 Section-Header mit sekundärer Action**
+- Jede Spalte: H2 + kleine Caption + ghost-Link rechts (`Alle anzeigen →`) für Tiefe.
+
+**C.5 Status-Pills typografisch**
+- Hero-Pille „LIEFERUNG" wird zu `bg-foreground text-background uppercase tracking-wider text-[10px] px-2 py-0.5 rounded-full`. Personenanzahl bekommt `tabular-nums`.
+
+**C.6 Skeleton-Konsistenz**
+- Hero-Skeleton matched die finale Form (96px Höhe, gleiche Padding) — verhindert Layout-Shift.
 
 ---
 
 ## Geänderte Dateien
 
-| Datei | Welle | Aufgabe |
+| Datei | Welle | Änderung |
 |---|---|---|
-| `src/components/admin/refine/dashboard/NextUpHero.tsx` | 1 | **Neu** — „Jetzt"-Hero-Card |
-| `src/components/admin/refine/Dashboard.tsx` | 1, 3 | Header personalisiert, Hero einbinden, Skeleton, Typografie |
-| `src/components/admin/refine/dashboard/TodayOperationsColumn.tsx` | 1, 2, 3 | Echtes „Heute" + Toggle, Hover-Actions, Border-Diät, Mono-Status |
-| `src/components/admin/refine/dashboard/InboxColumn.tsx` | 1, 2, 3 | „Heute"-Toggle, Mono, Tap-Targets |
-| `src/components/admin/refine/dashboard/OutboxColumn.tsx` | 1, 2, 3 | Pause/Sofort-Send pro Reminder, Mono, Tageszeit-Icons |
-| `src/components/admin/refine/dashboard/WeekHeatmap.tsx` | 3 | Sparkline, Klickbarkeit, Vergleich, Mono, „Heute"-Hervorhebung |
-| `src/hooks/useOperationActions.ts` | 2 | **Neu** — Erledigt/Snooze-Mutations |
-| `src/hooks/useDashboardData.ts` | 3 (opt) | Optional: Realtime-Channel |
+| `src/hooks/useUpcomingReminders.ts` | A.1 | Archived/Cancelled/Declined Filter |
+| `src/hooks/useDashboardData.ts` | A.1 | Cancelled/Refunded ausschließen |
+| `src/components/admin/refine/dashboard/NextUpHero.tsx` | A.2 | 0–24h-Fenster, ruhiger Empty-State |
+| `src/components/admin/refine/Dashboard.tsx` | A.3, A.4, C.3 | Header-Konsistenz, Begrüßungs-Fallback, Strip-Layout |
+| `src/lib/adminDisplayNames.ts` | A.4 | `info@events-storia.de` → neutral |
+| `src/components/admin/refine/dashboard/OutboxColumn.tsx` | B.1, C.2 | Stack-Gruppierung, Skip-Dropdown, Truncation |
+| `src/components/admin/refine/dashboard/InboxColumn.tsx` | B.2 | Empty-State, Overdue-Liste mit Aktionen |
+| `src/components/admin/refine/dashboard/TodayOperationsColumn.tsx` | B.3 | Empty-State Mini-Vorschau |
+| `src/components/admin/refine/AdminLayout.tsx` (falls Sidebar) | C.1 | Mono-Logo, Mono-Active-Tab |
+| `src/hooks/useOperationActions.ts` | B.1 | Erweiterung: snoozeReminder (24h) |
 
-**Keine** DB-Änderung. **Keine** neuen Edge-Functions. **Keine** Cron-Änderungen.
+**Keine** DB-Änderungen. **Keine** Edge-Function-Änderungen.
 
 ---
 
 ## Erwartetes Ergebnis
 
-Beim Öffnen von `/admin` sieht der Betreiber sofort:
-1. **Was als nächstes passiert** (Hero-Card, große Uhrzeit, ein-Tap-Aktionen)
-2. **Wer ihn heute braucht** (gefiltertes Heute, klare Status-Pills, keine Farbverwirrung)
-3. **Was das System ohne ihn tut** — und kann es **mit einem Klick steuern**
-4. **Wie die Woche läuft im Vergleich** (Trend statt absolute Zahl)
+- Archivierte Anfragen verschwinden vollständig aus Hero, Inbox, Outbox.
+- Hero zeigt nur noch echte „Jetzt"-Termine (0–24h); ansonsten ruhiger, ehrlicher Empty-State.
+- Outbox kollabiert 8 redundante Reminder-Zeilen zu einem Stack — Bildschirm wirkt aufgeräumt.
+- Begrüßung passt; Header und Hero widersprechen sich nicht mehr.
+- Sidebar + Tabs sind monochrom, konsistent mit Memory-Regel.
+- Spaltenformate, Truncation und Section-Aktionen entsprechen Linear-/Vercel-Standard 2026.
 
-**Empfehlung:** Welle 1 zuerst (höchster Wahrnehmungs-ROI), Welle 2 als Operations-Power-Up, Welle 3 als Polish. Realtime-Channel optional als Schluss.
+**Reihenfolge:** Welle A (P0) zuerst — kritische Datenfehler. Dann B (Hierarchie) und C (Polish).
 
