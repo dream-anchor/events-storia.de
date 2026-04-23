@@ -240,11 +240,19 @@ export const AdminOfferCreate = () => {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
+  const savedToIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isCreatingDraftRef = useRef(false);
 
   const [draftInquiryId, setDraftInquiryId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const createDraft = async () => {
+  // B1-Fix: Draft NICHT mehr beim Mount erzeugen — erst wenn der User Inhalte
+  // eingibt (Lazy-Create im Auto-Save). Verhindert "Empty-Draft-Leak" wenn
+  // der User die Seite öffnet und sofort wieder schließt.
+  const ensureDraft = useCallback(async (): Promise<string | null> => {
+    if (draftInquiryId) return draftInquiryId;
+    if (isCreatingDraftRef.current) return null;
+    isCreatingDraftRef.current = true;
+    try {
       const { data, error } = await supabase
         .from("event_inquiries")
         .insert({
@@ -260,12 +268,21 @@ export const AdminOfferCreate = () => {
       if (error) {
         console.error("[AdminOfferCreate] Draft creation error:", error);
         toast.error("Fehler beim Initialisieren des Formulars");
-        return;
+        return null;
       }
       setDraftInquiryId(data.id);
-    };
+      return data.id;
+    } finally {
+      isCreatingDraftRef.current = false;
+    }
+  }, [draftInquiryId]);
 
-    createDraft();
+  // Cleanup: beim Unmount alle Timeouts killen — kein "state update on unmounted"
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+      if (savedToIdleTimeoutRef.current) clearTimeout(savedToIdleTimeoutRef.current);
+    };
   }, []);
 
   const handleFormChange = useCallback((updates: Partial<DraftFormData>) => {
@@ -274,12 +291,14 @@ export const AdminOfferCreate = () => {
 
   // ── Auto-Save ────────────────────────────────────────────────────────────────
   const performAutoSave = useCallback(async () => {
-    if (!draftInquiryId) return;
     const hasContent = formData.contact_name.trim() || formData.email.trim() || formData.message.trim();
     if (!hasContent) {
       setSaveStatus('idle');
       return;
     }
+    // B1-Fix: Draft erst hier (lazy) anlegen — sobald wirklich Inhalte da sind.
+    const id = await ensureDraft();
+    if (!id) return;
     setSaveStatus('saving');
     const { error } = await supabase
       .from('event_inquiries')
@@ -289,21 +308,26 @@ export const AdminOfferCreate = () => {
         email: formData.email,
         phone: formData.phone || null,
         preferred_date: formData.preferred_date || null,
+        // B2-Fix: event_end_date war im Auto-Save vergessen — bei mehrtägigen
+        // Events ging das End-Datum verloren wenn der User vor Step 2 schließt.
+        event_end_date: formData.event_end_date || null,
         time_slot: formData.preferred_time || null,
         guest_count: formData.guest_count || null,
         event_type: formData.event_type || null,
         message: formData.message || null,
         is_test: isTest || undefined,
       })
-      .eq('id', draftInquiryId);
+      .eq('id', id);
     if (error) {
       console.error('[OfferCreate] Auto-save error:', error);
       setSaveStatus('error');
     } else {
       setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000);
+      // B3-Fix: Timeout in Ref tracken, damit Cleanup beim Unmount funktioniert.
+      if (savedToIdleTimeoutRef.current) clearTimeout(savedToIdleTimeoutRef.current);
+      savedToIdleTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 2000);
     }
-  }, [draftInquiryId, formData, isTest]);
+  }, [ensureDraft, formData, isTest]);
 
   const flushAutoSave = useCallback(async () => {
     if (autoSaveTimeoutRef.current) {
@@ -318,7 +342,6 @@ export const AdminOfferCreate = () => {
       isInitialLoadRef.current = false;
       return;
     }
-    if (!draftInquiryId) return;
     if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
     autoSaveTimeoutRef.current = setTimeout(() => {
       performAutoSave();
@@ -326,7 +349,7 @@ export const AdminOfferCreate = () => {
     return () => {
       if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
     };
-  }, [formData, isTest, draftInquiryId, performAutoSave]);
+  }, [formData, isTest, performAutoSave]);
 
   useRegisterSaveStatus('offer-create', saveStatus, flushAutoSave);
 

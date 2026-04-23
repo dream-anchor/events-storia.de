@@ -89,6 +89,13 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const isInitialLoad = useRef(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // B7-Fix: Mutex für performSave verhindert Race-Conditions.
+  // Wenn ein Save bereits läuft und ein neuer angefordert wird, queuen wir ihn
+  // in pendingSaveRef. Nach dem Save-Ende prüfen wir, ob ein neuer pending ist
+  // und führen ihn dann einmalig aus. So kann nie ein DELETE die Inserts eines
+  // parallelen Saves überschreiben.
+  const isSavingRef = useRef(false);
+  const pendingSaveRef = useRef(false);
 
   // Load existing options from database
   useEffect(() => {
@@ -194,6 +201,12 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
   // Auto-save options when they change (debounced)
   // performSave wird von debounced Effect und flushSave geteilt
   const performSave = useCallback(async () => {
+    // B7-Fix: wenn schon ein Save läuft, nur als pending markieren.
+    if (isSavingRef.current) {
+      pendingSaveRef.current = true;
+      return;
+    }
+    isSavingRef.current = true;
     try {
       // Get current user for editor tracking - use email for human-readable display
       const { data: userData } = await supabase.auth.getUser();
@@ -254,6 +267,14 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
     } catch (error) {
       console.error("Auto-save error:", error);
       setSaveStatus('idle');
+    } finally {
+      isSavingRef.current = false;
+      // Wenn während des Saves weitere Änderungen kamen → einmal nachziehen.
+      if (pendingSaveRef.current) {
+        pendingSaveRef.current = false;
+        // Mikrotask, damit der State-Update aus setSaveStatus durch ist
+        queueMicrotask(() => { void performSave(); });
+      }
     }
   }, [options, inquiryId, currentVersion]);
 
