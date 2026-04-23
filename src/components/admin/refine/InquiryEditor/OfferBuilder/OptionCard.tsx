@@ -8,6 +8,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -99,7 +100,20 @@ export function OptionCard({
     });
   };
 
-  const handleModeSelectChange = (mode: OfferMode) => {
+  const handleModeSelectChange = (value: string) => {
+    // Sentinel: Restaurant-Menü laden (Mode bleibt 'menu', öffnet Import-Sheet)
+    if (value === '__import') {
+      if (option.offerMode !== 'menu') {
+        if (hasOptionData) {
+          setPendingMode('menu');
+          return;
+        }
+        applyModeChange('menu');
+      }
+      onRequestImport?.();
+      return;
+    }
+    const mode = value as OfferMode;
     if (mode === option.offerMode) return;
     if (hasOptionData) {
       setPendingMode(mode);
@@ -107,6 +121,12 @@ export function OptionCard({
     }
     applyModeChange(mode);
   };
+
+  // Trigger zeigt 'Restaurant-Menü laden …' wenn ein importiertes Restaurant-Menü aktiv ist
+  const dropdownValue =
+    option.offerMode === 'menu' && !!option.packageName && !option.packageId
+      ? '__import'
+      : option.offerMode;
 
   // Merged packageData mit Admin-Overrides für PriceBreakdown-Anzeige
   const effectivePackage = useMemo(() => {
@@ -250,15 +270,22 @@ export function OptionCard({
               <div className="flex items-center gap-2">
                 
                 <Select
-                  value={option.offerMode}
-                  onValueChange={(mode: string) => handleModeSelectChange(mode as OfferMode)}
+                  value={dropdownValue}
+                  onValueChange={handleModeSelectChange}
                   disabled={isLocked || option.offerMode === 'unselected'}
                 >
                   <SelectTrigger className="h-5 w-auto text-[10px] rounded-lg border-0 bg-muted/50 px-2 gap-1 font-medium">
                     <SelectValue placeholder="Typ wählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="menu">Menü</SelectItem>
+                    <SelectItem value="__import">
+                      <span className="flex items-center gap-2">
+                        <UtensilsCrossed className="h-3 w-3" />
+                        Restaurant-Menü laden …
+                      </span>
+                    </SelectItem>
+                    <SelectSeparator />
+                    <SelectItem value="menu">Eigenes Menü</SelectItem>
                     <SelectItem value="paket">Paket</SelectItem>
                     <SelectItem value="email">Nur E-Mail</SelectItem>
                   </SelectContent>
