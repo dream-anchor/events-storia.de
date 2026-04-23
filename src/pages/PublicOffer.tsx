@@ -103,6 +103,8 @@ interface PublicOfferOption {
   /** Liste der enthaltenen Leistungen aus packages.includes */
   package_includes?: string[] | null;
   sort_order: number;
+  /** Vom Kunden gewählte Menge (bei Multi-Option). Steuert ob das verbindliche PDF schon erzeugt wurde. */
+  selected_quantity?: number | null;
 }
 
 interface CustomerResponseData {
