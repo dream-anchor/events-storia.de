@@ -581,7 +581,7 @@ serve(async (req) => {
       },
       lineItems,
       totalPrice: { currency: 'EUR' },
-      taxConditions: { taxType: 'net' },
+      taxConditions: { taxType: 'gross' },
       paymentConditions,
       introduction,
       remark: remarkText,
