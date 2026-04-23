@@ -588,6 +588,63 @@ export const EventsList = () => {
               onSelectionChange={setSelectedIds}
               getRowId={(row) => row.id}
               defaultSorting={[{ id: "preferred_date", desc: false }]}
+              mobileCardRender={(event) => {
+                const dateStr = event.preferred_date
+                  ? format(parseISO(event.preferred_date), "EEE dd.MM.yy", { locale: de })
+                  : "—";
+                let statusLabel = "Neu";
+                let statusClass = "border-amber-500/50 text-amber-700 bg-amber-50";
+                if (event.offer_phase === 'customer_responded') {
+                  statusLabel = 'Kunde antwortete';
+                  statusClass = 'border-teal-500/50 text-teal-700 bg-teal-50';
+                } else if (event.archived_at) {
+                  statusLabel = 'Archiviert';
+                  statusClass = 'border-slate-400/50 text-slate-600 bg-slate-100';
+                } else if (event.offer_sent_at && event.status !== 'confirmed' && event.status !== 'declined') {
+                  statusLabel = 'Angebot gesendet';
+                  statusClass = 'border-emerald-500/50 text-emerald-700 bg-emerald-50';
+                } else if (event.status === 'confirmed') {
+                  statusLabel = 'Bestätigt';
+                  statusClass = 'border-foreground/50 text-foreground bg-muted';
+                } else if (event.status === 'declined') {
+                  statusLabel = 'Abgelehnt';
+                  statusClass = 'border-muted-foreground/50 text-muted-foreground bg-muted';
+                } else if (event.last_edited_at) {
+                  statusLabel = 'In Bearbeitung';
+                  statusClass = 'border-amber-500/50 text-amber-700 bg-amber-50';
+                }
+                return (
+                  <MobileCardItem
+                    onClick={() => handleRowClick(event)}
+                    title={event.contact_name || "—"}
+                    subtitle={event.company_name || event.email || ""}
+                    meta={
+                      <span className="flex items-center gap-2 flex-wrap">
+                        <Calendar className="h-3 w-3" />
+                        {dateStr}
+                        {event.guest_count && (
+                          <>
+                            <span>·</span>
+                            <Users className="h-3 w-3" />
+                            {event.guest_count}
+                          </>
+                        )}
+                        {event.event_type && (
+                          <>
+                            <span>·</span>
+                            <span>{eventTypeLabels[event.event_type] || event.event_type}</span>
+                          </>
+                        )}
+                      </span>
+                    }
+                    trailing={
+                      <Badge variant="outline" className={cn("text-[10px]", statusClass)}>
+                        {statusLabel}
+                      </Badge>
+                    }
+                  />
+                );
+              }}
             />
 
             {/* Bulk Action Bar */}
