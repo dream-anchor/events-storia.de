@@ -61,7 +61,7 @@ serve(async (req) => {
 
       const { data: options, error: optsError } = await supabase
         .from('inquiry_offer_options')
-        .select('id, inquiry_id, option_label, total_amount, guest_count, offer_mode, menu_selection, package_id')
+        .select('id, inquiry_id, option_label, total_amount, guest_count, offer_mode, menu_selection, package_id, packages(name)')
         .in('id', optionIds);
 
       if (optsError || !options || options.length !== optionIds.length) {
@@ -77,6 +77,7 @@ serve(async (req) => {
         offer_mode: string | null;
         menu_selection: Record<string, unknown> | null;
         package_id: string | null;
+        packages: { name: string | null } | null;
       };
       const optsById = new Map<string, OptRow>();
       (options as OptRow[]).forEach(o => optsById.set(o.id, o));
@@ -109,7 +110,15 @@ serve(async (req) => {
 
         const lineEur = pricePerUnitEur * quantity;
         grandTotalEur += lineEur;
-        descriptionParts.push(`${opt.option_label} × ${quantity}`);
+
+        const overrideName = (opt.menu_selection?.packageNameOverride as string | undefined)?.trim();
+        const pkgName = opt.packages?.name?.trim();
+        const isCustom = opt.offer_mode === 'menu'
+          || !pkgName
+          || pkgName === 'Individuelles Paket'
+          || pkgName === 'Individuelles Menü';
+        const displayName = overrideName || (isCustom ? `Menü ${opt.option_label}` : pkgName!);
+        descriptionParts.push(`${displayName} × ${quantity}`);
       }
 
       const amountEur = paymentType === 'deposit'
