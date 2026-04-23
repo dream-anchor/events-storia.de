@@ -74,6 +74,17 @@ export const Dashboard = () => {
 
   const todayOps = operations.filter(o => o.date === todayKey);
   const decisionsCount = inbox.length + overdue.length;
+  // Hero shows the next operation within 24h — count it for header consistency
+  const heroOpCount = useMemo(() => {
+    const horizon = now.getTime() + 24 * 60 * 60_000;
+    return operations.filter(op => {
+      const [y, m, d] = op.date.split("-").map(Number);
+      const [hh, mm] = (op.time || "12:00").split(":").map(Number);
+      const t = new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0).getTime();
+      return t > now.getTime() - 30 * 60_000 && t < horizon;
+    }).length;
+  }, [operations, now]);
+  const visibleTodayCount = Math.max(todayOps.length, heroOpCount);
   const firstName = getAdminFirstName(user?.email || null);
   const greeting = greetingFor(now.getHours());
 
@@ -91,28 +102,30 @@ export const Dashboard = () => {
       {/* Header */}
       <div className="mb-6 flex items-end justify-between flex-wrap gap-3">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-muted-foreground">Pinnwand · {dateLabel}</p>
+          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-muted-foreground inline-flex items-center gap-2">
+            <span>Pinnwand · {dateLabel}</span>
+            {!isLoading && lastUpdateLabel && (
+              <span className="inline-flex items-center gap-1.5 normal-case tracking-normal text-muted-foreground/80">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-foreground/40 opacity-60" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-foreground" />
+                </span>
+                <span className="tabular-nums">Live · {lastUpdateLabel}</span>
+              </span>
+            )}
+          </p>
           <h1 className="text-3xl font-bold tracking-tight text-foreground mt-1">
-            {greeting}{firstName && firstName !== "STORIA Team" ? `, ${firstName}` : ""}.
+            {greeting}{firstName ? `, ${firstName}` : ""}.
           </h1>
           {!isLoading && (
             <p className="text-sm text-muted-foreground mt-1">
-              <span className="text-foreground font-medium tabular-nums">{todayOps.length}</span> Termin{todayOps.length === 1 ? "" : "e"} heute
+              <span className="text-foreground font-medium tabular-nums">{visibleTodayCount}</span> Termin{visibleTodayCount === 1 ? "" : "e"} heute
               {decisionsCount > 0 && (
                 <> · <span className="text-foreground font-medium tabular-nums">{decisionsCount}</span> Entscheidung{decisionsCount === 1 ? "" : "en"} wartet</>
               )}
             </p>
           )}
         </div>
-        {!isLoading && lastUpdateLabel && (
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-foreground/40 opacity-60" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-foreground" />
-            </span>
-            <span className="tabular-nums">Live · {lastUpdateLabel}</span>
-          </div>
-        )}
       </div>
 
       {/* Skeleton */}
