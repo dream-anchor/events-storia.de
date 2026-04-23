@@ -234,43 +234,24 @@ export function MultiOfferComposer({
 
       const newVersion = await createNewVersion(emailDraft);
 
-      const lineItems = activeOptions.flatMap((opt) => {
-        const pkg = packages.find((p) => p.id === opt.packageId);
-        if (!pkg) return [];
-        return [{
-          type: "custom",
-          name: `Option ${opt.optionLabel}: ${pkg.name}`,
-          description: `${opt.guestCount} Gäste`,
-          quantity: pkg.price_per_person ? opt.guestCount : 1,
-          unitName: pkg.price_per_person ? "Person" : "Stück",
-          unitPrice: { currency: "EUR", netAmount: pkg.price, taxRatePercentage: 7 },
-        }];
-      });
-
-      const { data: quotRes, error } = await supabase.functions.invoke("create-event-quotation", {
-        body: {
-          eventId: inquiry.id,
-          event: {
-            contact_name: inquiry.contact_name,
-            company_name: inquiry.company_name,
-            email: inquiry.email,
-            phone: inquiry.phone,
-            preferred_date: inquiry.preferred_date,
-            guest_count: inquiry.guest_count,
-            event_type: inquiry.event_type,
-          },
-          items: lineItems,
-          notes: `Angebot Version ${newVersion}`,
-          emailBody: emailDraft,
-          options: activeOptions,
-        },
-      });
-      if (error) throw error;
-      if (quotRes?.success && quotRes.quotationId) {
-        await supabase
-          .from("event_inquiries")
-          .update({ lexoffice_quotation_id: quotRes.quotationId } as Record<string, unknown>)
-          .eq("id", inquiry.id);
+      // LexOffice-Quotation NUR bei genau einer aktiven Option erzeugen.
+      // Bei Multi-Option (Kunde wählt aus) wird das verbindliche Angebot
+      // erst nach der Kunden-Auswahl in create-payment-session erzeugt —
+      // sonst würden alle Optionen zur Gesamtsumme aufaddiert.
+      if (activeOptions.length === 1) {
+        const { data: quotRes, error } = await supabase.functions.invoke("create-event-quotation", {
+          body: { inquiryId: inquiry.id },
+        });
+        if (error) throw error;
+        if (quotRes?.success && quotRes.quotationId) {
+          await supabase
+            .from("event_inquiries")
+            .update({
+              lexoffice_quotation_id: quotRes.quotationId,
+              lexoffice_invoice_id: quotRes.quotationId,
+            } as Record<string, unknown>)
+            .eq("id", inquiry.id);
+        }
       }
 
       const now = new Date().toISOString();

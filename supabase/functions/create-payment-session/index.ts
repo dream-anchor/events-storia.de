@@ -175,6 +175,16 @@ serve(async (req) => {
         } as Record<string, unknown>)
         .eq('id', inquiryId);
 
+      // Verbindliches LexOffice-Angebot erst JETZT mit den finalen Mengen erzeugen.
+      // Fehler nicht hochbubbeln — Stripe-Checkout darf nicht blockiert werden.
+      try {
+        await supabase.functions.invoke('create-event-quotation', {
+          body: { inquiryId, useSelectedQuantity: true },
+        });
+      } catch (quotErr) {
+        console.error('create-event-quotation (selected) failed:', quotErr);
+      }
+
       return new Response(
         JSON.stringify({ success: true, checkoutUrl: session.url, sessionId: session.id }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }

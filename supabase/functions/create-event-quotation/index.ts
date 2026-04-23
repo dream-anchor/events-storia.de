@@ -71,12 +71,20 @@ interface LexOfficeLineItem {
 
 // ─── Line-item builder ────────────────────────────────────────────────────────
 
+const FOOD_TAX_RATE = 7;
+const DRINK_TAX_RATE = 19;
+const bruttoToNet = (brutto: number, taxPct: number) =>
+  round2(brutto / (1 + taxPct / 100));
+
 function buildLineItems(
   opt: OfferOption,
   packageName: string | null,
+  guestOverride?: number,
 ): LexOfficeLineItem[] {
   const ms = opt.menu_selection;
-  const guestCount = parseInt(String(opt.guest_count)) || 1;
+  const guestCount = guestOverride && guestOverride > 0
+    ? guestOverride
+    : (parseInt(String(opt.guest_count)) || 1);
   const totalAmount = opt.total_amount || 0;
   const items: LexOfficeLineItem[] = [];
 
@@ -88,11 +96,10 @@ function buildLineItems(
   //   Getraenke: Netto = Brutto / 1.19
   // Jede Speise / jedes Getraenk wird zu einer eigenen Line-Item-Zeile.
   if (ms?.pricingMode === 'per_event') {
-    const FOOD_TAX = 7;
-    const DRINK_TAX = 19;
-    const bruttoToNet = (brutto: number, taxPct: number) => round2(brutto / (1 + taxPct / 100));
+    const FOOD_TAX = FOOD_TAX_RATE;
+    const DRINK_TAX = DRINK_TAX_RATE;
 
-    type BruttoEntry = { name: string; description: string; brutto: number; tax: 7 | 19; unitName: string };
+    type BruttoEntry = { name: string; description: string; brutto: number; tax: number; unitName: string };
     const entries: BruttoEntry[] = [];
 
     // --- Speisen: eine Zeile pro Gericht ---
@@ -216,17 +223,17 @@ function buildLineItems(
           unitName: 'Person',
           unitPrice: {
             currency: 'EUR',
-            netAmount: round2(price),
+            netAmount: bruttoToNet(price, FOOD_TAX_RATE),
             taxRatePercentage: 7,
           },
         });
       }
     } else {
       // No individual prices — distribute total evenly across courses
-      const wineTotal = winePricePerPerson * guestCount;
-      const courseTotal = totalAmount - wineTotal;
-      const pricePerCourse = courses.length > 0
-        ? round2(courseTotal / courses.length / guestCount)
+      const wineTotalBrutto = winePricePerPerson * guestCount;
+      const courseTotalBrutto = totalAmount - wineTotalBrutto;
+      const pricePerCourseNet = courses.length > 0
+        ? bruttoToNet(courseTotalBrutto / courses.length / guestCount, FOOD_TAX_RATE)
         : 0;
 
       for (const course of courses) {
@@ -238,7 +245,7 @@ function buildLineItems(
           unitName: 'Person',
           unitPrice: {
             currency: 'EUR',
-            netAmount: pricePerCourse,
+            netAmount: pricePerCourseNet,
             taxRatePercentage: 7,
           },
         });
@@ -257,7 +264,7 @@ function buildLineItems(
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
-          netAmount: round2(ms.drinksPauschalePrice),
+          netAmount: bruttoToNet(ms.drinksPauschalePrice, DRINK_TAX_RATE),
           taxRatePercentage: 19,
         },
       });
@@ -270,7 +277,7 @@ function buildLineItems(
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
-          netAmount: round2(ms.winePairingPrice),
+          netAmount: bruttoToNet(ms.winePairingPrice, DRINK_TAX_RATE),
           taxRatePercentage: 19,
         },
       });
@@ -285,7 +292,7 @@ function buildLineItems(
             unitName: 'Person',
             unitPrice: {
               currency: 'EUR',
-              netAmount: round2(drink.pricePerPerson),
+              netAmount: bruttoToNet(drink.pricePerPerson, DRINK_TAX_RATE),
               taxRatePercentage: 19,
             },
           });
@@ -304,7 +311,7 @@ function buildLineItems(
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
-          netAmount: round2(winePricePerPerson),
+          netAmount: bruttoToNet(winePricePerPerson, DRINK_TAX_RATE),
           taxRatePercentage: 19,
         },
       });
@@ -358,7 +365,8 @@ function buildLineItems(
     }
   } else {
     // Paket-Modus oder E-Mail-Modus: eine Gesamtposition
-    const unitPrice = guestCount > 0 ? round2(totalAmount / guestCount) : 0;
+    // totalAmount ist BRUTTO (Maestro-Eingabe). Pro-Person-Preis brutto -> netto fuer LexOffice.
+    const unitPriceBrutto = guestCount > 0 ? totalAmount / guestCount : 0;
     items.push({
       type: 'custom',
       name: packageName || 'Veranstaltungspaket',
@@ -367,7 +375,7 @@ function buildLineItems(
       unitName: 'Person',
       unitPrice: {
         currency: 'EUR',
-        netAmount: unitPrice,
+        netAmount: bruttoToNet(unitPriceBrutto, FOOD_TAX_RATE),
         taxRatePercentage: 7,
       },
     });
@@ -449,7 +457,7 @@ serve(async (req) => {
   }
 
   try {
-    const { inquiryId } = await req.json();
+    const { inquiryId, useSelectedQuantity } = await req.json();
     if (!inquiryId) throw new Error('inquiryId fehlt');
 
     const lexofficeApiKey = Deno.env.get('LEXOFFICE_API_KEY');
@@ -471,19 +479,26 @@ serve(async (req) => {
     // 2. Aktive Angebots-Optionen laden
     const { data: options, error: optErr } = await supabase
       .from('inquiry_offer_options')
-      .select('offer_mode, total_amount, guest_count, package_id, menu_selection')
+      .select('offer_mode, total_amount, guest_count, selected_quantity, package_id, menu_selection')
       .eq('inquiry_id', inquiryId)
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
     if (optErr) throw new Error(`Optionen nicht geladen: ${optErr.message}`);
 
-    if (!options || options.length === 0) {
+    let workingOptions = options || [];
+    if (useSelectedQuantity) {
+      workingOptions = workingOptions.filter(
+        (o: { selected_quantity?: number | null }) => (o.selected_quantity ?? 0) > 0,
+      );
+    }
+
+    if (workingOptions.length === 0) {
       throw new Error('Keine aktiven Angebots-Optionen gefunden');
     }
 
     // 3. Paketnamen für alle package_ids auflösen
     const packageIds = [...new Set(
-      options.map((o: OfferOption) => o.package_id).filter(Boolean)
+      workingOptions.map((o: OfferOption) => o.package_id).filter(Boolean)
     )] as string[];
 
     const packageNameMap: Record<string, string> = {};
@@ -499,9 +514,10 @@ serve(async (req) => {
 
     // 4. Line-Items aus allen aktiven Optionen bauen
     const lineItems: LexOfficeLineItem[] = [];
-    for (const opt of options as OfferOption[]) {
+    for (const opt of workingOptions as Array<OfferOption & { selected_quantity?: number | null }>) {
       const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
-      lineItems.push(...buildLineItems(opt, pkgName));
+      const guestOverride = useSelectedQuantity ? (opt.selected_quantity ?? 0) : undefined;
+      lineItems.push(...buildLineItems(opt, pkgName, guestOverride));
     }
 
     if (lineItems.length === 0) {
@@ -522,7 +538,7 @@ serve(async (req) => {
     }
 
     // 6. Einleitungstext aus erster aktiver Option (inkl. Veranstaltungsort)
-    const firstOpt = options[0] as OfferOption;
+    const firstOpt = workingOptions[0] as OfferOption;
     const introduction = buildIntroduction(
       inquiry as Record<string, unknown>,
       firstOpt.menu_selection,
@@ -593,6 +609,19 @@ serve(async (req) => {
 
     const result = await response.json();
     console.log('LexOffice quotation created:', result);
+
+    // Quotation-ID an das Inquiry zurueckschreiben, damit PublicOffer-PDF-Download funktioniert.
+    // download-public-offer-pdf liest aktuell lexoffice_invoice_id — wir schreiben in beide Felder,
+    // damit sowohl Maestro-Liste als auch Public-PDF die ID finden.
+    if (result?.id) {
+      await supabase
+        .from('event_inquiries')
+        .update({
+          lexoffice_quotation_id: result.id,
+          lexoffice_invoice_id: result.id,
+        } as Record<string, unknown>)
+        .eq('id', inquiryId);
+    }
 
     return new Response(
       JSON.stringify({ success: true, quotationId: result.id }),

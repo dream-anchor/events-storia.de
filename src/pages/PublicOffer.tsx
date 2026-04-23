@@ -103,6 +103,8 @@ interface PublicOfferOption {
   /** Liste der enthaltenen Leistungen aus packages.includes */
   package_includes?: string[] | null;
   sort_order: number;
+  /** Vom Kunden gewählte Menge (bei Multi-Option). Steuert ob das verbindliche PDF schon erzeugt wurde. */
+  selected_quantity?: number | null;
 }
 
 interface CustomerResponseData {
@@ -381,10 +383,15 @@ export default function PublicOffer() {
       <main className="flex-1">
         <HeroSection inquiry={inquiry} phase={effectivePhase} />
 
-        {/* PDF-Download — nur wenn LexOffice-Angebot verknüpft */}
-        {inquiry.lexoffice_invoice_id && (
-          <PdfDownloadSection inquiryId={inquiry.id} />
-        )}
+        {/* PDF-Download — nur wenn LexOffice-Angebot verknüpft.
+            Bei Multi-Option-Angeboten wird das verbindliche PDF erst nach
+            Kunden-Auswahl (selected_quantity > 0) erzeugt — vorher wäre die
+            Summe falsch (alle Optionen × Gäste statt nur die gewählte Menge). */}
+        {inquiry.lexoffice_invoice_id &&
+          (options.length <= 1 ||
+            options.some((o) => (o.selected_quantity ?? 0) > 0)) && (
+            <PdfDownloadSection inquiryId={inquiry.id} />
+          )}
 
         {/* Anschreiben — immer sichtbar wenn vorhanden.
             Im Preview-Modus (Admin-iframe) wird previewBody aus der URL verwendet
