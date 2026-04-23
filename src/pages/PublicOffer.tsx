@@ -1142,6 +1142,15 @@ function ProposalView({
 
   return (
     <section className="bg-secondary/30">
+      {/* MOBILE STICKY PROGRESS — 3 steps: Read → Choose → Book. lg:hidden. */}
+      {!isArchiveMode && !isPreviewMode && (
+        <MobileProgressStrip
+          step={
+            canPay ? 3 : selectedOptionId ? 2 : 1
+          }
+          isSingle={isSingle}
+        />
+      )}
       <div className="container mx-auto px-4 py-12 md:py-16 pb-32 lg:pb-16">
         <div className="max-w-4xl">
           {/* Sektion-Header */}
