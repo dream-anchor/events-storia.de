@@ -1445,6 +1445,170 @@ function ProposalView({
 }
 
 // =================================================================
+// MULTI-OPTION CAROUSEL (Mobile snap + Desktop grid)
+// =================================================================
+function MultiOptionCarousel({
+  options,
+  selectedOptionId,
+  setSelectedOptionId,
+  optionQuantities,
+  setOptionQuantities,
+  perPersonPriceFor,
+  targetGuests,
+  totalQuantity,
+  isSingle,
+  formatOptionLabel,
+}: {
+  options: PublicOfferOption[];
+  selectedOptionId: string | null;
+  setSelectedOptionId: (id: string) => void;
+  optionQuantities: Record<string, number>;
+  setOptionQuantities: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  perPersonPriceFor: (opt: PublicOfferOption) => number;
+  targetGuests: number | null;
+  totalQuantity: number;
+  isSingle: boolean;
+  formatOptionLabel: (o: PublicOfferOption) => string;
+}) {
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  // Sync active card on horizontal scroll (mobile only).
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const w = el.clientWidth;
+        if (!w) return;
+        const idx = Math.round(el.scrollLeft / w);
+        setActiveIdx(idx);
+      });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  const scrollTo = (idx: number) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollTo({ left: idx * el.clientWidth, behavior: "smooth" });
+    haptic("select");
+  };
+
+  return (
+    <div className="mb-12">
+      {/* Pill-Tabs (mobile only) */}
+      <div className="lg:hidden mb-3 flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
+        {options.map((o, i) => {
+          const qty = optionQuantities[o.id] || 0;
+          const isActive = i === activeIdx;
+          return (
+            <button
+              key={o.id}
+              onClick={() => scrollTo(i)}
+              className={cn(
+                "snap-start shrink-0 rounded-full border px-3.5 py-2 text-xs font-sans transition-all whitespace-nowrap",
+                isActive
+                  ? "bg-foreground text-background border-foreground shadow-sm"
+                  : "bg-background text-foreground border-border/60 hover:border-foreground/40",
+              )}
+              aria-current={isActive ? "true" : undefined}
+            >
+              <span className="font-semibold">Option {o.option_label}</span>
+              {qty > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-primary text-primary-foreground text-[10px] font-semibold px-1">
+                  {qty}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Mobile snap-scroll container; lg+: grid */}
+      <div
+        ref={scrollerRef}
+        className={cn(
+          // Mobile: horizontal snap scroller (one card per viewport)
+          "flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pb-2",
+          // Desktop: revert to plain grid; disable scroll-snap
+          "lg:grid lg:grid-cols-2 lg:gap-6 lg:overflow-visible lg:mx-0 lg:px-0 lg:pb-0",
+        )}
+      >
+        {options.map((option) => (
+          <div
+            key={option.id}
+            className="snap-center shrink-0 w-[88vw] max-w-[480px] lg:w-auto lg:max-w-none"
+          >
+            <ProposalOptionCard
+              option={option}
+              isSelected={selectedOptionId === option.id}
+              onSelect={() => {
+                setSelectedOptionId(option.id);
+                haptic("tick");
+              }}
+              singleOption={isSingle}
+              quantity={optionQuantities[option.id] || 0}
+              onQuantityChange={(q) => {
+                const isPerEvent = option.menu_selection?.pricingMode === "per_event";
+                const clamped = isPerEvent ? Math.min(1, Math.max(0, q)) : Math.max(0, q);
+                setOptionQuantities((prev) => ({ ...prev, [option.id]: clamped }));
+              }}
+              perPersonPrice={perPersonPriceFor(option)}
+              targetGuests={targetGuests}
+              remainingGuests={
+                targetGuests !== null ? Math.max(0, targetGuests - totalQuantity) : null
+              }
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination dots + arrows (mobile only) */}
+      {options.length > 1 && (
+        <div className="lg:hidden mt-3 flex items-center justify-center gap-3">
+          <button
+            onClick={() => activeIdx > 0 && scrollTo(activeIdx - 1)}
+            disabled={activeIdx === 0}
+            className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border/60 disabled:opacity-30"
+            aria-label="Vorherige Option"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="flex gap-1.5">
+            {options.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => scrollTo(i)}
+                aria-label={`Option ${i + 1} anzeigen`}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  i === activeIdx ? "w-6 bg-foreground" : "w-1.5 bg-foreground/25",
+                )}
+              />
+            ))}
+          </div>
+          <button
+            onClick={() => activeIdx < options.length - 1 && scrollTo(activeIdx + 1)}
+            disabled={activeIdx >= options.length - 1}
+            className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border/60 disabled:opacity-30"
+            aria-label="Nächste Option"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =================================================================
 // MOBILE STICKY BOOKING BAR
 // =================================================================
 function MobileStickyBookingBar({
