@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Plus, GripVertical, Trash2, Pencil } from "lucide-react";
+import { Plus, GripVertical, Trash2, Pencil, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,6 +30,8 @@ import type { CourseConfig, CourseSelection, CourseType } from "./types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { PricingMode } from "./pricingMode";
 import { findBestMenuItem } from "./menuItemLookup";
+import { MobileCourseSheet } from "./MobileCourseSheet";
+import { haptic } from "@/lib/haptics";
 
 interface InlineCourseEditorProps {
   courses: CourseSelection[];
@@ -61,6 +63,7 @@ function SortableCourseRow({
   pricingMode,
   disabled,
   packageMode = false,
+  onOpenMobileSheet,
 }: {
   course: CourseSelection;
   idx: number;
@@ -75,6 +78,7 @@ function SortableCourseRow({
   pricingMode: PricingMode;
   disabled: boolean;
   packageMode?: boolean;
+  onOpenMobileSheet?: () => void;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
@@ -148,15 +152,25 @@ function SortableCourseRow({
           {course.courseLabel}
         </span>
 
-        {/* Trash auf Mobile direkt in der Header-Reihe; auf sm+ wandert er ans Zeilenende */}
+        {/* Mobile-only Edit + Trash in der Header-Reihe; sm+: Trash am Zeilenende */}
+        {!disabled && onOpenMobileSheet && (
+          <button
+            onClick={onOpenMobileSheet}
+            className="sm:hidden shrink-0 h-11 w-11 inline-flex items-center justify-center rounded-md hover:bg-muted/60 transition-colors"
+            title="Gang bearbeiten"
+            aria-label="Gang bearbeiten"
+          >
+            <Edit3 className="h-5 w-5 text-muted-foreground/70" />
+          </button>
+        )}
         {!disabled && (
           <button
             onClick={() => onRemoveCourse(idx)}
-            className="sm:hidden shrink-0 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 transition-colors"
+            className="sm:hidden shrink-0 h-11 w-11 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 transition-colors"
             title="Gang entfernen"
             aria-label="Gang entfernen"
           >
-            <Trash2 className="h-4 w-4 text-muted-foreground/60 hover:text-destructive" />
+            <Trash2 className="h-5 w-5 text-muted-foreground/60 hover:text-destructive" />
           </button>
         )}
       </div>
@@ -308,6 +322,9 @@ export function InlineCourseEditor({
   disabled = false,
   packageMode = false,
 }: InlineCourseEditorProps) {
+  // Mobile sheet state — tap a row to edit on small screens.
+  const [sheetIndex, setSheetIndex] = useState<number | null>(null);
+
   const handleDishSelect = (
     index: number,
     dish: { id: string; name: string; description: string | null; source: string; price: number | null }
@@ -391,6 +408,7 @@ export function InlineCourseEditor({
               onRemoveCourse={onRemoveCourse}
               disabled={disabled}
               packageMode={packageMode}
+              onOpenMobileSheet={() => { haptic('tick'); setSheetIndex(idx); }}
             />
           ))}
         </SortableContext>
@@ -415,6 +433,7 @@ export function InlineCourseEditor({
                   key={config.id}
                   onClick={() => {
                     onAddCourse(config.course_type, config.course_label);
+                    haptic('select');
                     setAddOpen(false);
                   }}
                   className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted/50 transition-colors text-left"
@@ -428,6 +447,22 @@ export function InlineCourseEditor({
             </PopoverContent>
           </Popover>
         </div>
+      )}
+
+      {/* Mobile-only Bottom Sheet for editing a single course */}
+      {!disabled && (
+        <MobileCourseSheet
+          open={sheetIndex !== null}
+          onOpenChange={(o) => !o && setSheetIndex(null)}
+          course={sheetIndex != null ? courses[sheetIndex] ?? null : null}
+          index={sheetIndex}
+          menuItems={menuItems}
+          courseConfigs={courseConfigs}
+          pricingMode={pricingMode}
+          packageMode={packageMode}
+          onUpdate={onUpdateCourse}
+          onRemove={onRemoveCourse}
+        />
       )}
     </div>
   );
