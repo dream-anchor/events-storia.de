@@ -114,8 +114,19 @@ export function AddPaymentDrawer({
 
   async function handleSubmit() {
     if (amountCents <= 0) {
-      toast.error('Bitte einen gültigen Betrag eingeben');
+      toast.error('Betrag muss größer als 0 € sein');
       return;
+    }
+    if (dueType === 'date' && !dueDate) {
+      toast.error('Bitte ein Fälligkeitsdatum wählen');
+      return;
+    }
+    if (dueType === 'days') {
+      const days = parseInt(dueDays, 10);
+      if (!dueDays || isNaN(days) || days < 0) {
+        toast.error('Bitte gültige Tage vor Event eingeben');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -140,8 +151,10 @@ export function AddPaymentDrawer({
         if (!isNaN(days) && days >= 0) {
           payload.due_days_before_event = days;
         }
+      } else if (dueType === 'immediate') {
+        // Sofort fällig → due_date = heute, damit Reminder-Logik & Status sauber laufen
+        payload.due_date = format(new Date(), 'yyyy-MM-dd');
       }
-      // dueType === 'immediate' → kein due_date, kein due_days
 
       const { data: newPayment, error: insertError } = await supabase
         .from('event_payments')
