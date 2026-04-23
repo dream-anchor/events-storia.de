@@ -113,25 +113,48 @@ function OpCard({ op }: { op: DashOperation }) {
 }
 
 export function TodayOperationsColumn({ operations }: { operations: DashOperation[] }) {
+  const [showWeek, setShowWeek] = useState(false);
+
+  const todayKey = useMemo(() => {
+    const t = new Date();
+    const y = t.getFullYear(), m = String(t.getMonth() + 1).padStart(2, "0"), d = String(t.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  const filtered = useMemo(
+    () => (showWeek ? operations : operations.filter(op => op.date === todayKey)),
+    [operations, showWeek, todayKey]
+  );
+
+  const todayCount = useMemo(
+    () => operations.filter(op => op.date === todayKey).length,
+    [operations, todayKey]
+  );
+
   const grouped = useMemo(() => {
     const map: Record<string, DashOperation[]> = {};
-    operations.forEach(op => {
+    filtered.forEach(op => {
       if (!map[op.date]) map[op.date] = [];
       map[op.date].push(op);
     });
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
-  }, [operations]);
+  }, [filtered]);
 
   return (
     <div className="space-y-5">
-      <header className="flex items-center justify-between">
+      <header className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Heute läuft</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Operations · nächste 7 Tage</p>
+          <h2 className="text-base font-semibold text-foreground">Heute</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {showWeek ? "Operations · nächste 7 Tage" : `${todayCount} Termin${todayCount === 1 ? "" : "e"} heute`}
+          </p>
         </div>
-        <span className="text-xs font-semibold text-muted-foreground bg-muted px-2 py-1 rounded-full">
-          {operations.length}
-        </span>
+        <button
+          onClick={() => setShowWeek(v => !v)}
+          className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1 rounded-md hover:bg-muted"
+        >
+          {showWeek ? "Nur heute" : "+7 Tage"}
+        </button>
       </header>
 
       {grouped.length === 0 && (
