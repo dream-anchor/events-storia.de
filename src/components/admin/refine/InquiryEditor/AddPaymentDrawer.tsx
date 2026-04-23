@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { addDays, format } from "date-fns";
 import { de } from "date-fns/locale";
-import { CalendarIcon, X } from "lucide-react";
+import { CalendarIcon, X, AlertTriangle, FlaskConical } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -32,14 +32,16 @@ interface Props {
   offerTotal?: number | null;
   paidSoFar: number; // Cent
   onPaymentCreated: () => void;
+  isTest?: boolean;
 }
 
-type PaymentType = 'deposit' | 'prepayment';
+type PaymentType = 'deposit' | 'prepayment' | 'final';
 type DueType = 'date' | 'days' | 'immediate';
 
 const typeLabels: Record<PaymentType, string> = {
   deposit: 'Anzahlung',
   prepayment: 'Vorauszahlung',
+  final: 'Endabrechnung',
 };
 
 function parseCentsFromInput(input: string): number {
@@ -61,6 +63,7 @@ export function AddPaymentDrawer({
   offerTotal,
   paidSoFar,
   onPaymentCreated,
+  isTest = false,
 }: Props) {
   const [paymentType, setPaymentType] = useState<PaymentType>('deposit');
   const [amountInput, setAmountInput] = useState('');
