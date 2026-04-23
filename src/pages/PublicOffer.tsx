@@ -267,6 +267,7 @@ export default function PublicOffer() {
   const [archiveAuthorized, setArchiveAuthorized] = useState<boolean | null>(
     archiveVersionNum != null ? null : false,
   );
+  const [archiveSentAt, setArchiveSentAt] = useState<string | null>(null);
   useEffect(() => {
     if (archiveVersionNum == null) return;
     let cancelled = false;
