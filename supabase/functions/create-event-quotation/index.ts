@@ -263,7 +263,7 @@ function buildLineItems(
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
-          netAmount: bruttoToNet(ms.drinksPauschalePrice, DRINK_TAX_RATE),
+          grossAmount: ms.drinksPauschalePrice,
           taxRatePercentage: 19,
         },
       });
@@ -276,7 +276,7 @@ function buildLineItems(
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
-          netAmount: bruttoToNet(ms.winePairingPrice, DRINK_TAX_RATE),
+          grossAmount: ms.winePairingPrice,
           taxRatePercentage: 19,
         },
       });
@@ -291,7 +291,7 @@ function buildLineItems(
             unitName: 'Person',
             unitPrice: {
               currency: 'EUR',
-              netAmount: bruttoToNet(drink.pricePerPerson, DRINK_TAX_RATE),
+              grossAmount: drink.pricePerPerson,
               taxRatePercentage: 19,
             },
           });
@@ -310,7 +310,7 @@ function buildLineItems(
         unitName: 'Person',
         unitPrice: {
           currency: 'EUR',
-          netAmount: bruttoToNet(winePricePerPerson, DRINK_TAX_RATE),
+          grossAmount: winePricePerPerson,
           taxRatePercentage: 19,
         },
       });
