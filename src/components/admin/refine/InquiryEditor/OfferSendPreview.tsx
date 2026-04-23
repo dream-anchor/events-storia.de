@@ -437,23 +437,45 @@ export function OfferSendPreview({
 
         {/* Block 3: LexOffice-PDF */}
         <section className="rounded-xl border bg-card overflow-hidden">
-          <div className="bg-muted/50 px-4 py-3 border-b flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold">3. LexOffice-Angebot (PDF)</h2>
+          <div className="bg-muted/50 px-4 py-3 border-b flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold">3. LexOffice-Angebot (PDF)</h2>
+            </div>
+            {pdfBlobUrl && !pdfLoading && (
+              <button
+                type="button"
+                onClick={loadLexofficePdf}
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                <RefreshCw className="h-3 w-3" />
+                PDF neu laden
+              </button>
+            )}
           </div>
           <div className="bg-muted/20 min-h-[400px] flex items-center justify-center">
-            {!inquiry.lexoffice_quotation_id ? (
-              <div className="p-8 text-center text-sm text-muted-foreground max-w-md">
-                Kein LexOffice-Angebot verknüpft. Bitte zurück und Angebot erstellen.
-              </div>
-            ) : pdfLoading ? (
-              <div className="p-8 flex items-center gap-3 text-sm text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                PDF wird geladen…
+            {pdfLoading ? (
+              <div className="p-8 flex flex-col items-center gap-3 text-sm text-muted-foreground text-center max-w-md">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <div>
+                  <div className="font-medium">PDF wird erstellt und geladen…</div>
+                  {!inquiry.lexoffice_quotation_id && (
+                    <div className="text-xs mt-1">
+                      Es wird ein neues Angebot in LexOffice angelegt.
+                    </div>
+                  )}
+                </div>
               </div>
             ) : pdfError ? (
-              <div className="p-8 text-center text-sm max-w-md text-muted-foreground">
-                PDF nicht verfügbar: {pdfError}
+              <div className="p-8 flex flex-col items-center gap-3 text-center max-w-md">
+                <div className="text-sm text-destructive font-medium">
+                  PDF konnte nicht geladen werden
+                </div>
+                <div className="text-xs text-muted-foreground">{pdfError}</div>
+                <Button variant="outline" size="sm" onClick={loadLexofficePdf} className="gap-2 mt-2">
+                  <RefreshCw className="h-4 w-4" />
+                  Erneut versuchen
+                </Button>
               </div>
             ) : pdfBlobUrl ? (
               <iframe
@@ -461,7 +483,29 @@ export function OfferSendPreview({
                 title="LexOffice Quotation PDF"
                 className="w-full h-[900px] border-0 bg-white"
               />
-            ) : null}
+            ) : (
+              <div className="p-8 flex flex-col items-center gap-4 text-center max-w-md">
+                <FileText className="h-10 w-10 text-muted-foreground/60" />
+                <div className="space-y-1">
+                  <div className="font-medium text-sm">
+                    {inquiry.lexoffice_quotation_id
+                      ? 'LexOffice-PDF noch nicht geladen'
+                      : 'Noch kein LexOffice-Angebot erstellt'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {inquiry.lexoffice_quotation_id
+                      ? 'Klicke unten, um das vorhandene PDF aus LexOffice abzurufen.'
+                      : 'Erstellt das LexOffice-Angebot und lädt das PDF zur Vorschau. Aktion erst nach finaler Menü-Auswahl ausführen.'}
+                  </p>
+                </div>
+                <Button onClick={loadLexofficePdf} className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  {inquiry.lexoffice_quotation_id
+                    ? 'Vorhandenes LexOffice-PDF laden'
+                    : 'PDF generieren'}
+                </Button>
+              </div>
+            )}
           </div>
         </section>
 
