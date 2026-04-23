@@ -152,15 +152,25 @@ function SortableCourseRow({
           {course.courseLabel}
         </span>
 
-        {/* Trash auf Mobile direkt in der Header-Reihe; auf sm+ wandert er ans Zeilenende */}
+        {/* Mobile-only Edit + Trash in der Header-Reihe; sm+: Trash am Zeilenende */}
+        {!disabled && onOpenMobileSheet && (
+          <button
+            onClick={onOpenMobileSheet}
+            className="sm:hidden shrink-0 h-11 w-11 inline-flex items-center justify-center rounded-md hover:bg-muted/60 transition-colors"
+            title="Gang bearbeiten"
+            aria-label="Gang bearbeiten"
+          >
+            <Edit3 className="h-5 w-5 text-muted-foreground/70" />
+          </button>
+        )}
         {!disabled && (
           <button
             onClick={() => onRemoveCourse(idx)}
-            className="sm:hidden shrink-0 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 transition-colors"
+            className="sm:hidden shrink-0 h-11 w-11 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 transition-colors"
             title="Gang entfernen"
             aria-label="Gang entfernen"
           >
-            <Trash2 className="h-4 w-4 text-muted-foreground/60 hover:text-destructive" />
+            <Trash2 className="h-5 w-5 text-muted-foreground/60 hover:text-destructive" />
           </button>
         )}
       </div>
