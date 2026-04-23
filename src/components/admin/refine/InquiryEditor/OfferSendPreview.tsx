@@ -15,7 +15,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Send, Mail, FileText, Globe, Loader2, TestTube2 } from "lucide-react";
+import { ArrowLeft, Send, Mail, FileText, Globe, Loader2, TestTube2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
