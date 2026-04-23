@@ -1,23 +1,35 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, isToday, isTomorrow, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Phone, MapPin, Truck, Calendar, Package, Users, ChevronRight, AlertTriangle } from "lucide-react";
+import { Phone, MapPin, Calendar, Package, Users, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DashOperation } from "@/hooks/useDashboardData";
 
-function statusDot(op: DashOperation): { color: string; label: string } {
+type StatusPill = { label: string; tone: "solid" | "muted" | "outline" | "destructive" };
+
+function statusPill(op: DashOperation): StatusPill {
   if (op.kind === "catering") {
-    if (op.paymentStatus === "paid") return { color: "bg-emerald-500", label: "bezahlt" };
-    if (op.status === "pending") return { color: "bg-amber-500", label: "offen" };
-    return { color: "bg-neutral-400", label: op.status };
+    if (op.paymentStatus === "paid") return { label: "Bezahlt", tone: "solid" };
+    if (op.status === "pending") return { label: "Offen", tone: "outline" };
+    return { label: op.status, tone: "muted" };
   }
   if (op.kind === "booking") {
-    if (op.menuConfirmed === false) return { color: "bg-amber-500", label: "Menü offen" };
-    if (op.paymentStatus === "paid") return { color: "bg-emerald-500", label: "bezahlt" };
-    return { color: "bg-neutral-400", label: op.status };
+    if (op.menuConfirmed === false) return { label: "Menü offen", tone: "outline" };
+    if (op.paymentStatus === "paid") return { label: "Bezahlt", tone: "solid" };
+    return { label: op.status, tone: "muted" };
   }
-  return { color: "bg-emerald-500", label: "bestätigt" };
+  return { label: "Bestätigt", tone: "solid" };
+}
+
+function pillClass(tone: StatusPill["tone"]): string {
+  switch (tone) {
+    case "solid": return "bg-foreground text-background";
+    case "outline": return "bg-transparent text-foreground border border-foreground/30";
+    case "destructive": return "bg-destructive/10 text-destructive border border-destructive/30";
+    case "muted":
+    default: return "bg-muted text-muted-foreground";
+  }
 }
 
 function kindLabel(op: DashOperation): string {
@@ -28,27 +40,28 @@ function kindLabel(op: DashOperation): string {
 
 function OpCard({ op }: { op: DashOperation }) {
   const navigate = useNavigate();
-  const dot = statusDot(op);
+  const pill = statusPill(op);
   const phoneClean = op.phone?.replace(/[^+\d]/g, "");
   const mapsUrl = op.address && !op.isPickup
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(op.address)}`
     : null;
 
   return (
-    <div className="bg-card rounded-2xl border border-border/60 p-4 hover:border-border transition-colors">
+    <div className="group bg-card rounded-xl px-4 py-3.5 hover:bg-muted/40 transition-colors border-b border-border/40 last:border-b-0">
       <div className="flex items-start gap-3">
         {op.time && (
           <div className="flex-shrink-0">
-            <span className="text-xl font-bold text-foreground tabular-nums leading-none">{op.time}</span>
+            <span className="text-lg font-semibold text-foreground tabular-nums leading-none">{op.time}</span>
           </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
               {kindLabel(op)}
             </span>
-            <span className={cn("h-1.5 w-1.5 rounded-full", dot.color)} />
-            <span className="text-[11px] text-muted-foreground">{dot.label}</span>
+            <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded uppercase tracking-wide", pillClass(pill.tone))}>
+              {pill.label}
+            </span>
           </div>
           <button
             onClick={() => navigate(op.navigateTo)}
@@ -100,25 +113,48 @@ function OpCard({ op }: { op: DashOperation }) {
 }
 
 export function TodayOperationsColumn({ operations }: { operations: DashOperation[] }) {
+  const [showWeek, setShowWeek] = useState(false);
+
+  const todayKey = useMemo(() => {
+    const t = new Date();
+    const y = t.getFullYear(), m = String(t.getMonth() + 1).padStart(2, "0"), d = String(t.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  const filtered = useMemo(
+    () => (showWeek ? operations : operations.filter(op => op.date === todayKey)),
+    [operations, showWeek, todayKey]
+  );
+
+  const todayCount = useMemo(
+    () => operations.filter(op => op.date === todayKey).length,
+    [operations, todayKey]
+  );
+
   const grouped = useMemo(() => {
     const map: Record<string, DashOperation[]> = {};
-    operations.forEach(op => {
+    filtered.forEach(op => {
       if (!map[op.date]) map[op.date] = [];
       map[op.date].push(op);
     });
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
-  }, [operations]);
+  }, [filtered]);
 
   return (
     <div className="space-y-5">
-      <header className="flex items-center justify-between">
+      <header className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Heute läuft</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Operations · nächste 7 Tage</p>
+          <h2 className="text-base font-semibold text-foreground">Heute</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {showWeek ? "Operations · nächste 7 Tage" : `${todayCount} Termin${todayCount === 1 ? "" : "e"} heute`}
+          </p>
         </div>
-        <span className="text-xs font-semibold text-muted-foreground bg-muted px-2 py-1 rounded-full">
-          {operations.length}
-        </span>
+        <button
+          onClick={() => setShowWeek(v => !v)}
+          className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1 rounded-md hover:bg-muted"
+        >
+          {showWeek ? "Nur heute" : "+7 Tage"}
+        </button>
       </header>
 
       {grouped.length === 0 && (

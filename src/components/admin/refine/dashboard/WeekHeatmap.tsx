@@ -24,10 +24,10 @@ export function WeekHeatmap({
   const paidPct = total > 0 ? Math.round((weekStats.paidCents / total) * 100) : 0;
 
   return (
-    <section className="bg-card rounded-2xl border border-border/60 p-5">
+    <section className="bg-card rounded-2xl border border-border/60 p-5 sm:p-6">
       <header className="flex items-end justify-between flex-wrap gap-3 mb-5">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Diese Woche</h2>
+          <h2 className="text-base font-semibold text-foreground">Diese Woche</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             {week.length > 0 && (
               <>
@@ -96,7 +96,7 @@ export function WeekHeatmap({
           <span className="font-bold text-foreground">{nextWeek.guests}</span> Gäste
         </span>
         {nextWeek.risks > 0 && (
-          <span className="ml-auto text-amber-600 font-medium">
+          <span className="ml-auto text-foreground font-medium inline-flex items-center gap-1">
             ⚠ {nextWeek.risks} Buchung{nextWeek.risks > 1 ? "en" : ""} ohne Menüfreigabe
           </span>
         )}
