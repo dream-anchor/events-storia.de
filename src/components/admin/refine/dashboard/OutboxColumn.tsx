@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send, Bell, Mail, Truck, CreditCard, ListTodo, ChevronDown, History, Check } from "lucide-react";
+import { Send, Bell, Mail, Truck, CreditCard, ListTodo, ChevronDown, History, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUpcomingReminders, type UpcomingReminder } from "@/hooks/useUpcomingReminders";
+import { useOperationActions } from "@/hooks/useOperationActions";
 
 function kindIcon(kind: UpcomingReminder["kind"]) {
   switch (kind) {
@@ -18,6 +19,7 @@ export function OutboxColumn() {
   const navigate = useNavigate();
   const { data, isLoading } = useUpcomingReminders();
   const [showHistory, setShowHistory] = useState(false);
+  const { skipReminder } = useOperationActions();
 
   const upcoming = data?.upcoming || [];
   const recent = data?.recent || [];
@@ -67,18 +69,27 @@ export function OutboxColumn() {
           </div>
           <div className="divide-y divide-border/40">
             {items.map(r => (
-              <button
-                key={r.id}
-                onClick={() => r.navigateTo && navigate(r.navigateTo)}
-                disabled={!r.navigateTo}
-                className="w-full flex items-center gap-3 px-2 py-3 -mx-2 rounded-lg hover:bg-muted/60 transition-colors text-left disabled:cursor-default min-h-[44px]"
-              >
-                <span className="text-muted-foreground flex-shrink-0">{kindIcon(r.kind)}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-foreground truncate">{r.title}</p>
-                  {r.recipient && <p className="text-[11px] text-muted-foreground truncate">an {r.recipient}</p>}
-                </div>
-              </button>
+              <div key={r.id} className="group flex items-center gap-2 px-2 -mx-2 rounded-lg hover:bg-muted/60 transition-colors min-h-[44px]">
+                <button
+                  onClick={() => r.navigateTo && navigate(r.navigateTo)}
+                  disabled={!r.navigateTo}
+                  className="flex items-center gap-3 flex-1 py-3 text-left disabled:cursor-default"
+                >
+                  <span className="text-muted-foreground flex-shrink-0">{kindIcon(r.kind)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-foreground truncate">{r.title}</p>
+                    {r.recipient && <p className="text-[11px] text-muted-foreground truncate">an {r.recipient}</p>}
+                  </div>
+                </button>
+                <button
+                  onClick={() => skipReminder.mutate({ kind: r.kind, id: r.id })}
+                  disabled={skipReminder.isPending}
+                  title="Heute überspringen"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ))}
           </div>
         </section>

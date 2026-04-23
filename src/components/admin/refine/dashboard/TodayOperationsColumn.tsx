@@ -5,6 +5,8 @@ import { de } from "date-fns/locale";
 import { Phone, MapPin, Calendar, Package, Users, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DashOperation } from "@/hooks/useDashboardData";
+import { useOperationActions } from "@/hooks/useOperationActions";
+import { Check } from "lucide-react";
 
 type StatusPill = { label: string; tone: "solid" | "muted" | "outline" | "destructive" };
 
@@ -40,6 +42,7 @@ function kindLabel(op: DashOperation): string {
 
 function OpCard({ op }: { op: DashOperation }) {
   const navigate = useNavigate();
+  const { completeOperation } = useOperationActions();
   const pill = statusPill(op);
   const phoneClean = op.phone?.replace(/[^+\d]/g, "");
   const mapsUrl = op.address && !op.isPickup
@@ -106,6 +109,15 @@ function OpCard({ op }: { op: DashOperation }) {
         </div>
         <button onClick={() => navigate(op.navigateTo)} className="flex-shrink-0 p-1 -mr-1 text-muted-foreground hover:text-foreground">
           <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="mt-2 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); completeOperation.mutate({ id: op.id, kind: op.kind }); }}
+          disabled={completeOperation.isPending}
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground bg-transparent hover:bg-muted px-2 py-1 rounded-md min-h-[32px] disabled:opacity-40"
+        >
+          <Check className="h-3 w-3" /> Erledigt
         </button>
       </div>
     </div>
