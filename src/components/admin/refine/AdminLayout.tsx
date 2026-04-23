@@ -190,6 +190,22 @@ export const AdminLayout = ({
 
       {/* User Profile Section */}
       <div className="p-4 border-t border-border">
+        {/* Test Mode Toggle (mobile sidebar footer) */}
+        <button
+          onClick={() => setShowTestData(!showTestData)}
+          className={cn(
+            "lg:hidden mb-3 w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+            showTestData
+              ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+              : "text-muted-foreground bg-muted/50 hover:bg-muted"
+          )}
+        >
+          <span className="flex items-center gap-2">
+            <span className={cn("h-2 w-2 rounded-full", showTestData ? "bg-amber-500" : "bg-neutral-300")} />
+            Testdaten anzeigen
+          </span>
+          <span className="text-xs uppercase tracking-wider">{showTestData ? "An" : "Aus"}</span>
+        </button>
         <div className="flex items-center gap-3 px-2">
           <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
             {userName.charAt(0).toUpperCase()}
@@ -246,12 +262,13 @@ export const AdminLayout = ({
       {/* Main Content Area */}
       <div className="lg:pl-64">
         {/* Header Bar */}
-        <header className="sticky top-0 z-40 h-16 flex items-center gap-4 border-b border-border bg-white dark:bg-[#1a2632] px-4 lg:px-8">
+        <header className="sticky top-0 z-40 flex flex-col border-b border-border bg-white dark:bg-[#1a2632] pt-[env(safe-area-inset-top,0px)]">
+          <div className="h-14 sm:h-16 flex items-center gap-3 px-3 sm:px-4 lg:px-8">
           {/* Mobile menu button */}
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden h-11 w-11"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -259,7 +276,7 @@ export const AdminLayout = ({
 
           {/* Title & Search */}
           <div className="flex items-center gap-6 flex-1">
-            <h2 className="text-xl font-bold tracking-tight hidden sm:block">{title}</h2>
+            <h2 className="text-base sm:text-xl font-bold tracking-tight truncate">{title}</h2>
 
             {showSearch && (
               <div className="relative w-64 hidden md:block">
@@ -276,7 +293,7 @@ export const AdminLayout = ({
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {showCreateButton && (
               <Button
                 onClick={onCreateClick || (() => window.location.href = '/admin/events/create')}
@@ -308,10 +325,27 @@ export const AdminLayout = ({
 
             <NotificationCenter />
           </div>
+          </div>
+
+          {/* Mobile search row */}
+          {showSearch && (
+            <div className="md:hidden px-3 pb-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Suche..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setCommandOpen(true)}
+                  className="pl-10 h-10 bg-muted/50 border-0 focus-visible:ring-2 focus-visible:ring-primary/50"
+                />
+              </div>
+            </div>
+          )}
         </header>
 
         {/* Page Content */}
-        <main className="p-4 lg:p-6">
+        <main className="px-3 sm:px-4 lg:px-6 py-4 lg:py-6">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -321,6 +355,18 @@ export const AdminLayout = ({
           </motion.div>
         </main>
       </div>
+
+      {/* Mobile FAB: New Inquiry */}
+      {showCreateButton && (
+        <Button
+          onClick={onCreateClick || (() => window.location.href = '/admin/events/create')}
+          className="lg:hidden fixed right-4 z-40 h-14 w-14 rounded-full shadow-lg p-0"
+          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+          aria-label={createButtonText}
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      )}
 
       {/* Command Palette */}
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
