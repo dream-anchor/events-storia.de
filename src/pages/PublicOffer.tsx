@@ -677,6 +677,19 @@ function ProposalView({
   // Multi-Options-Mengen: Map optionId -> Menge (initial 0 für alle)
   // Persistiert in localStorage, damit Stripe-Cancel die Auswahl nicht zerstört.
   const QUANTITY_STORAGE_KEY = `storia_offer_qty_${inquiry.id}`;
+
+  // Sprechender Menü-/Paket-Name für Summary, Submit-Notes etc.
+  // Bei Custom-Menüs Fallback auf "Menü A/B/C" statt "Option A".
+  const formatOptionLabel = (o: PublicOfferOption): string => {
+    const name = o.package_name?.trim();
+    const isCustom =
+      o.offer_mode === 'menu' ||
+      !name ||
+      name === 'Individuelles Paket' ||
+      name === 'Individuelles Menü';
+    return isCustom ? `Menü ${o.option_label}` : name!;
+  };
+
   const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>(() => {
     const empty = Object.fromEntries(options.map(o => [o.id, 0]));
     if (typeof window === 'undefined') return empty;
