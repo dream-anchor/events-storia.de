@@ -105,7 +105,19 @@ export function InboxColumn({
           <div className="flex items-center gap-2 mb-2">
             <Inbox className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">Neue Eingänge</h3>
-            <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">{inbox.length}</span>
+            {(() => {
+              const unansweredCount = inbox.filter(i => i.kind === "inquiry" && i.unanswered).length;
+              return (
+                <>
+                  {unansweredCount > 0 && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-foreground text-background">
+                      {unansweredCount} unbeantwortet
+                    </span>
+                  )}
+                  <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">{inbox.length}</span>
+                </>
+              );
+            })()}
           </div>
           <div className="divide-y divide-border/40">
             {inbox.slice(0, 8).map(i => (
@@ -116,11 +128,23 @@ export function InboxColumn({
               >
                 <KindIcon kind={i.kind} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground truncate">{i.customerName}</p>
+                  <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
+                    {i.customerName}
+                    {i.kind === "inquiry" && i.unanswered && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-1 py-px rounded bg-foreground text-background flex-shrink-0">
+                        NEU
+                      </span>
+                    )}
+                  </p>
                   {i.subtitle && <p className="text-[11px] text-muted-foreground truncate">{i.subtitle}</p>}
                 </div>
-                <span className="text-[11px] text-muted-foreground flex-shrink-0 tabular-nums">
-                  {i.ageDays === 0 ? "heute" : `${i.ageDays}T`}
+                <span className={cn(
+                  "text-[11px] flex-shrink-0 tabular-nums",
+                  i.kind === "inquiry" && i.unanswered ? "text-foreground font-semibold" : "text-muted-foreground"
+                )}>
+                  {i.hoursSince != null && i.hoursSince < 24
+                    ? `${i.hoursSince}h`
+                    : i.ageDays === 0 ? "heute" : `${i.ageDays}T`}
                 </span>
               </button>
             ))}

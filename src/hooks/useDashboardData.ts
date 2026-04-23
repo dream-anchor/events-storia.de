@@ -29,6 +29,8 @@ export interface DashInbox {
   ageDays: number;
   isStale: boolean;
   navigateTo: string;
+  unanswered?: boolean;
+  hoursSince?: number;
 }
 
 export interface DashboardData {
@@ -132,6 +134,20 @@ export function useDashboardData() {
       const groups = (groupRes.data || []) as any[];
       const payments = (payRes.data || []) as any[];
 
+      // ── Replies map: which inquiry_ids have at least one outbound mail (last 14d) ──
+      const recentInqIds = inquiries
+        .filter((e: any) => new Date(e.created_at) >= past48 || (e.preferred_date && String(e.preferred_date).split("T")[0] >= todayStr))
+        .map((e: any) => e.id);
+      const repliedSet = new Set<string>();
+      if (recentInqIds.length > 0) {
+        const { data: replyRows } = await supabase
+          .from("email_messages" as never)
+          .select("inquiry_id")
+          .in("inquiry_id", recentInqIds)
+          .eq("direction", "outbound");
+        ((replyRows || []) as any[]).forEach(r => r.inquiry_id && repliedSet.add(r.inquiry_id));
+      }
+
       // ── Operations: today + next 7 days ──
       const operations: DashOperation[] = [];
       const in7 = new Date(today); in7.setDate(in7.getDate() + 7);
@@ -221,6 +237,8 @@ export function useDashboardData() {
         const created = new Date(e.created_at);
         if (created < past48) return;
         if (e.status === "declined" || e.status === "confirmed") return;
+        const hours = Math.max(0, Math.floor((today.getTime() + 24*3600_000 - created.getTime()) / 3600_000));
+        const hoursSinceCreated = Math.max(0, Math.floor((Date.now() - created.getTime()) / 3600_000));
         inbox.push({
           id: e.id,
           kind: "inquiry",
@@ -230,6 +248,8 @@ export function useDashboardData() {
           ageDays: diffDays(today, created),
           isStale: false,
           navigateTo: `/admin/events/${e.id}/edit`,
+          unanswered: !repliedSet.has(e.id),
+          hoursSince: hoursSinceCreated,
         });
       });
       cateringInbox.forEach((c: any) => {
