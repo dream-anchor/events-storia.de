@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Plus, GripVertical, Trash2, Pencil } from "lucide-react";
+import { Plus, GripVertical, Trash2, Pencil, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,6 +30,8 @@ import type { CourseConfig, CourseSelection, CourseType } from "./types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { PricingMode } from "./pricingMode";
 import { findBestMenuItem } from "./menuItemLookup";
+import { MobileCourseSheet } from "./MobileCourseSheet";
+import { haptic } from "@/lib/haptics";
 
 interface InlineCourseEditorProps {
   courses: CourseSelection[];
