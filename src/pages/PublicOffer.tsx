@@ -331,6 +331,7 @@ export default function PublicOffer() {
             setLoading(false);
             return;
           }
+          setArchiveSentAt(((hist as { sent_at?: string | null }).sent_at) ?? null);
           // Inquiry-Stammdaten via RPC (für Header/Kontakt) — read-only
           const { data: live } = await supabase.rpc(
             'get_public_offer' as never,
