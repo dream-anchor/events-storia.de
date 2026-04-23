@@ -134,6 +134,20 @@ export function useDashboardData() {
       const groups = (groupRes.data || []) as any[];
       const payments = (payRes.data || []) as any[];
 
+      // ── Replies map: which inquiry_ids have at least one outbound mail (last 14d) ──
+      const recentInqIds = inquiries
+        .filter((e: any) => new Date(e.created_at) >= past48 || (e.preferred_date && String(e.preferred_date).split("T")[0] >= todayStr))
+        .map((e: any) => e.id);
+      const repliedSet = new Set<string>();
+      if (recentInqIds.length > 0) {
+        const { data: replyRows } = await supabase
+          .from("email_messages" as never)
+          .select("inquiry_id")
+          .in("inquiry_id", recentInqIds)
+          .eq("direction", "outbound");
+        ((replyRows || []) as any[]).forEach(r => r.inquiry_id && repliedSet.add(r.inquiry_id));
+      }
+
       // ── Operations: today + next 7 days ──
       const operations: DashOperation[] = [];
       const in7 = new Date(today); in7.setDate(in7.getDate() + 7);
