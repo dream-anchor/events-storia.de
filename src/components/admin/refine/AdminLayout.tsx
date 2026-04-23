@@ -318,12 +318,12 @@ export const AdminLayout = ({
               className={cn(
                 "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
                 showTestData
-                  ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                  ? "bg-foreground text-background hover:bg-foreground/90"
                   : "text-muted-foreground hover:bg-muted"
               )}
               title={showTestData ? "Testdaten werden angezeigt" : "Testdaten ausgeblendet"}
             >
-              <span className={cn("h-2 w-2 rounded-full", showTestData ? "bg-amber-500" : "bg-neutral-300")} />
+              <span className={cn("h-2 w-2 rounded-full", showTestData ? "bg-background" : "bg-muted-foreground/40")} />
               Test
             </button>
 
