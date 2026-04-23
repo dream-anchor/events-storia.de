@@ -516,15 +516,17 @@ export default function PublicOffer() {
       <main className="flex-1">
         <HeroSection inquiry={inquiry} phase={effectivePhase} />
 
-        {/* PDF-Download — nur wenn LexOffice-Angebot verknüpft.
-            Bei Multi-Option-Angeboten wird das verbindliche PDF erst nach
-            Kunden-Auswahl (selected_quantity > 0) erzeugt — vorher wäre die
-            Summe falsch (alle Optionen × Gäste statt nur die gewählte Menge). */}
-        {inquiry.lexoffice_invoice_id &&
-          (options.length <= 1 ||
-            options.some((o) => (o.selected_quantity ?? 0) > 0)) && (
-            <PdfDownloadSection inquiryId={inquiry.id} />
-          )}
+        {/* PDF-Download — Gating: bei Multi-Option-Angeboten erst nach
+            offizieller Kunden-Antwort (offer_phase >= customer_responded).
+            Vorher: erklärender Hinweis statt Button (CX-Führung). */}
+        {inquiry.lexoffice_invoice_id && (
+          <PdfDownloadGate
+            inquiryId={inquiry.id}
+            options={options}
+            phase={effectivePhase}
+            isArchiveMode={isArchiveMode}
+          />
+        )}
 
         {/* Anschreiben — immer sichtbar wenn vorhanden.
             Im Preview-Modus (Admin-iframe) wird previewBody aus der URL verwendet
@@ -539,6 +541,7 @@ export default function PublicOffer() {
             unabhängig von offer_phase (z.B. noch 'draft'). */}
         {(effectivePhase === "proposal_sent" || previewBody !== null) && (
           <div
+            id="proposal-view"
             className={isArchiveMode ? "pointer-events-none opacity-70 select-none" : ""}
             aria-disabled={isArchiveMode || undefined}
           >
