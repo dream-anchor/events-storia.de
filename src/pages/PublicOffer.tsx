@@ -523,8 +523,9 @@ export default function PublicOffer() {
           <PdfDownloadGate
             inquiryId={inquiry.id}
             options={options}
-            phase={effectivePhase}
+            phase={isPreviewMode ? ((inquiry.offer_phase as OfferPhase) || 'draft') : effectivePhase}
             isArchiveMode={isArchiveMode}
+            isPreviewMode={isPreviewMode}
           />
         )}
 
