@@ -428,6 +428,42 @@ body.admin-active [data-state] {
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .bottom-safe {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Hide scrollbar utility for horizontal scroll-snap pill rows */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Mobile-first: ensure admin main never hides last row behind floating nav */
+@media (max-width: 1023px) {
+  .admin-layout main {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* iOS smooth scrolling inside dialogs/sheets */
+[role="dialog"], [role="alertdialog"] {
+  -webkit-overflow-scrolling: touch;
+  overflow-anchor: none;
 }
 
 /* Number-Input Spinner entfernen — freie Eingabe ohne Pfeile */
