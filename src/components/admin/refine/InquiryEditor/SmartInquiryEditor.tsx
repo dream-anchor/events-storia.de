@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { EventDNACard } from "./EventDNACard";
 import { LocationBlock } from "./LocationBlock";
 import { OfferBuilder } from "./OfferBuilder";
@@ -753,26 +754,26 @@ export const SmartInquiryEditor = () => {
   return (
     <AdminLayout activeTab="events">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-40 -mx-6 px-6 py-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-border/40 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/admin/events')}>
+      <div className="sticky top-0 z-40 -mx-3 sm:-mx-4 lg:-mx-6 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-border/40 mb-4 sm:mb-6">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+            <Button variant="ghost" size="icon" className="shrink-0 h-10 w-10" onClick={() => navigate('/admin/events')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 font-semibold text-sm">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 font-semibold text-sm shrink-0">
                 {(inquiry.contact_name || '??').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg font-bold tracking-tight">
+                  <h1 className="text-base sm:text-lg font-bold tracking-tight truncate max-w-[160px] sm:max-w-none">
                     {inquiry.contact_name || 'Unbekannt'}
                   </h1>
-                  <Badge className={statusInfo.color}>
+                  <Badge className={cn("text-[10px] sm:text-xs", statusInfo.color)}>
                     {statusInfo.label}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground hidden sm:block truncate">
                   {inquiry.company_name && <><Building2 className="h-3 w-3 inline mr-1" />{inquiry.company_name} · </>}
                   {inquiry.preferred_date && <><Calendar className="h-3 w-3 inline mr-1" />{(() => { try { return format(parseISO(inquiry.preferred_date), 'dd.MM.yyyy', { locale: de }); } catch { return inquiry.preferred_date; } })()} · </>}
                   {inquiry.guest_count && <><Users className="h-3 w-3 inline mr-1" />{inquiry.guest_count} Gäste</>}
@@ -782,7 +783,7 @@ export const SmartInquiryEditor = () => {
           </div>
 
           {/* Header Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Save Status — unsichtbar (speichert automatisch im Hintergrund) */}
 
             {/* LexOffice Document Button - Show if linked */}
@@ -790,7 +791,7 @@ export const SmartInquiryEditor = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-950"
+                className="gap-2 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-950 px-2 sm:px-3"
                 onClick={handleDownloadDocument}
                 disabled={isDownloading}
               >
@@ -806,6 +807,25 @@ export const SmartInquiryEditor = () => {
             )}
 
           </div>
+        </div>
+
+        {/* Mobile meta chips row */}
+        <div className="sm:hidden mt-2 flex gap-2 overflow-x-auto scrollbar-hide -mx-3 px-3 text-[11px] text-muted-foreground">
+          {inquiry.company_name && (
+            <span className="inline-flex items-center gap-1 whitespace-nowrap bg-muted/60 rounded-full px-2 py-1">
+              <Building2 className="h-3 w-3" />{inquiry.company_name}
+            </span>
+          )}
+          {inquiry.preferred_date && (
+            <span className="inline-flex items-center gap-1 whitespace-nowrap bg-muted/60 rounded-full px-2 py-1">
+              <Calendar className="h-3 w-3" />{(() => { try { return format(parseISO(inquiry.preferred_date), 'dd.MM.yyyy', { locale: de }); } catch { return inquiry.preferred_date; } })()}
+            </span>
+          )}
+          {inquiry.guest_count && (
+            <span className="inline-flex items-center gap-1 whitespace-nowrap bg-muted/60 rounded-full px-2 py-1">
+              <Users className="h-3 w-3" />{inquiry.guest_count} Gäste
+            </span>
+          )}
         </div>
       </div>
 
@@ -834,7 +854,7 @@ export const SmartInquiryEditor = () => {
 
       {/* Main Content — Tab-Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full justify-start bg-muted/30 rounded-xl p-1 h-auto">
+        <TabsList className="w-full justify-start bg-muted/30 rounded-xl p-1 h-auto overflow-x-auto scrollbar-hide flex sm:grid-cols-none">
           <TabsTrigger value="angebot" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Angebot</TabsTrigger>
           <TabsTrigger value="kommunikation" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Kommunikation</TabsTrigger>
           <TabsTrigger value="aufgaben" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Aufgaben</TabsTrigger>

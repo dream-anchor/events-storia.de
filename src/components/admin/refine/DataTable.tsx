@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Search, ChevronLeft, ChevronRight, X, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function sortableHeader<TData>(label: string) {
   const HeaderCell = ({ column }: { column: Column<TData, unknown> }) => {
@@ -75,6 +76,8 @@ interface DataTableProps<TData, TValue> {
   onSelectionChange?: (selectedIds: string[]) => void;
   getRowId?: (row: TData) => string;
   defaultSorting?: SortingState;
+  /** Optional renderer to display each row as a card on mobile (< lg). */
+  mobileCardRender?: (row: TData) => React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -93,7 +96,9 @@ export function DataTable<TData, TValue>({
   onSelectionChange,
   getRowId,
   defaultSorting = [],
+  mobileCardRender,
 }: DataTableProps<TData, TValue>) {
+  const isMobile = useIsMobile();
   const [sorting, setSorting] = useState<SortingState>(defaultSorting);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -219,13 +224,13 @@ export function DataTable<TData, TValue>({
 
       {/* Filter Pills */}
       {filterPills.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0 sm:flex-wrap">
           {filterPills.map((pill) => (
             <button
               key={pill.id}
               onClick={() => onFilterChange?.(pill.id, pill.value)}
               className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border",
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border whitespace-nowrap shrink-0",
                 pill.active
                   ? "bg-primary text-primary-foreground border-primary shadow-sm"
                   : "bg-white dark:bg-gray-800 text-muted-foreground border-border/60 hover:border-primary/50 hover:text-foreground"
@@ -237,8 +242,28 @@ export function DataTable<TData, TValue>({
         </div>
       )}
 
-      {/* Table */}
+      {/* Mobile card list (when renderer provided) */}
+      {isMobile && mobileCardRender ? (
+        <div className="flex flex-col gap-2">
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Laden...
+            </div>
+          ) : table.getRowModel().rows?.length ? (
+            table.getRowModel().rows.map((row) => (
+              <div key={row.id}>{mobileCardRender(row.original)}</div>
+            ))
+          ) : (
+            <div className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 py-12 text-center text-muted-foreground">
+              Keine Ergebnisse gefunden.
+            </div>
+          )}
+        </div>
+      ) : (
+      /* Table */
       <div className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -291,16 +316,18 @@ export function DataTable<TData, TValue>({
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
+      )}
 
       {/* Pagination */}
-      <div className="flex items-center justify-between gap-4 pt-2">
-        <p className="text-sm text-muted-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+        <p className="text-xs sm:text-sm text-muted-foreground">
           Zeige {table.getState().pagination.pageIndex * pageSize + 1} bis{" "}
           {Math.min((table.getState().pagination.pageIndex + 1) * pageSize, data.length)} von{" "}
           {data.length} Einträgen
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-end sm:self-auto">
           <Button
             variant="outline"
             size="sm"

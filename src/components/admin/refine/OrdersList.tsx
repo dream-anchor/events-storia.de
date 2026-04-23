@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { CateringOrder, OrderStatus } from "@/types/refine";
 import { cn } from "@/lib/utils";
 import { useState, useMemo } from "react";
+import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 
 /**
  * Filter-Konzept (Senior CX Review 16.04.2026):
@@ -355,6 +356,53 @@ export const OrdersList = () => {
           isLoading={isLoading}
           pageSize={25}
           defaultSorting={[{ id: "desired_date", desc: false }]}
+          mobileCardRender={(o) => {
+            const isPaid = o.payment_status === 'paid';
+            const isCashOnPickup = o.payment_method === 'cash' && o.is_pickup;
+            const dateStr = o.desired_date ? format(parseISO(o.desired_date), "EEE dd.MM.yy", { locale: de }) : "—";
+            return (
+              <MobileCardItem
+                onClick={() => handleRowClick(o)}
+                title={
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono">{o.order_number}</span>
+                  </span>
+                }
+                subtitle={
+                  <span>
+                    {o.customer_name}{o.company_name ? ` · ${o.company_name}` : ""}
+                  </span>
+                }
+                meta={
+                  <span className="flex items-center gap-2">
+                    <Calendar className="h-3 w-3" />
+                    {dateStr}{o.desired_time ? ` · ${o.desired_time}` : ""}
+                    <span className="mx-1">·</span>
+                    {o.is_pickup ? <Package className="h-3 w-3" /> : <Truck className="h-3 w-3" />}
+                    {o.is_pickup ? "Abholung" : "Lieferung"}
+                  </span>
+                }
+                trailing={
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="font-semibold text-sm whitespace-nowrap">
+                      {o.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px]",
+                        isPaid ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                        isCashOnPickup ? "bg-amber-50 text-amber-700 border-amber-200" :
+                        "bg-rose-50 text-rose-700 border-rose-200"
+                      )}
+                    >
+                      {isPaid ? "Bezahlt" : isCashOnPickup ? "Cash@Pickup" : "Unbezahlt"}
+                    </Badge>
+                  </div>
+                }
+              />
+            );
+          }}
         />
       </div>
     </AdminLayout>
