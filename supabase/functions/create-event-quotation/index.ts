@@ -365,7 +365,8 @@ function buildLineItems(
     }
   } else {
     // Paket-Modus oder E-Mail-Modus: eine Gesamtposition
-    const unitPrice = guestCount > 0 ? round2(totalAmount / guestCount) : 0;
+    // totalAmount ist BRUTTO (Maestro-Eingabe). Pro-Person-Preis brutto -> netto fuer LexOffice.
+    const unitPriceBrutto = guestCount > 0 ? totalAmount / guestCount : 0;
     items.push({
       type: 'custom',
       name: packageName || 'Veranstaltungspaket',
@@ -374,7 +375,7 @@ function buildLineItems(
       unitName: 'Person',
       unitPrice: {
         currency: 'EUR',
-        netAmount: unitPrice,
+        netAmount: bruttoToNet(unitPriceBrutto, FOOD_TAX_RATE),
         taxRatePercentage: 7,
       },
     });
