@@ -43,8 +43,13 @@ const ADMIN_REGISTRY: Record<string, AdminInfo> = {
   },
   'info@storia.de': { 
     fullName: 'Storia Team', 
-    firstName: 'Storia Team', 
+    firstName: '', 
     initials: 'ST' 
+  },
+  'info@events-storia.de': {
+    fullName: 'Events Storia',
+    firstName: '',
+    initials: 'ES'
   },
 };
 
