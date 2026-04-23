@@ -91,12 +91,9 @@ function buildLineItems(
   const items: LexOfficeLineItem[] = [];
 
   // Pricing-Modus per_event: Positionen mit korrektem MwSt-Split.
-  // WICHTIG: totalAmount und alle overridePrice-/pricePerPerson-Werte sind BRUTTO
-  // (so gibt der Admin die Preise in Maestro ein). LexOffice erwartet aber
-  // netAmount in den Line-Items. Deshalb rechnen wir hier Brutto -> Netto zurueck.
-  //   Essen:    Netto = Brutto / 1.07
-  //   Getraenke: Netto = Brutto / 1.19
-  // Jede Speise / jedes Getraenk wird zu einer eigenen Line-Item-Zeile.
+  // Alle overridePrice-/pricePerPerson-Werte sind BRUTTO. Wir geben sie
+  // direkt als grossAmount an LexOffice; LexOffice rechnet enthaltene MwSt
+  // heraus (7% Speisen / 19% Getraenke). Jede Speise/Getraenk = eine Zeile.
   if (ms?.pricingMode === 'per_event') {
     const FOOD_TAX = FOOD_TAX_RATE;
     const DRINK_TAX = DRINK_TAX_RATE;
