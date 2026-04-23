@@ -416,7 +416,9 @@ const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) =
   const [isExpanded, setIsExpanded] = useState(false);
   const actorName = getAdminDisplayName(entry.sent_by || undefined);
   const initials = entry.sent_by ? getAdminInitials(entry.sent_by) : 'SY';
-  const activeOpts = (entry.options_snapshot || []).filter((o: any) => o.isActive !== false);
+  const activeOpts = (entry.options_snapshot || []).filter(
+    (o: any) => o.is_active !== false && o.isActive !== false,
+  );
   const formatEur = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(n);
 
   return (
@@ -478,7 +480,11 @@ const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) =
             {activeOpts.length > 0 && (
               <span className="font-normal text-muted-foreground">
                 {' '}&mdash; {activeOpts.length} Option{activeOpts.length !== 1 ? 'en' : ''}
-                {activeOpts[0]?.totalAmount > 0 && `, ${formatEur(activeOpts[0].totalAmount)}`}
+                {(() => {
+                  const first: any = activeOpts[0];
+                  const total = first?.total_amount ?? first?.totalAmount ?? 0;
+                  return total > 0 ? `, ${formatEur(total)}` : null;
+                })()}
               </span>
             )}
           </p>
@@ -496,14 +502,17 @@ const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) =
               <CollapsibleContent className="mt-2 animate-in fade-in-0 slide-in-from-top-2">
                 <div className="space-y-2">
                   {activeOpts.map((opt: any, i: number) => {
-                    const courses = opt.menuSelection?.courses?.filter((c: any) => c.itemName) || [];
-                    const ppPrice = opt.budgetPerPerson && opt.budgetPerPerson > 0
-                      ? opt.budgetPerPerson
-                      : opt.guestCount > 0 ? opt.totalAmount / opt.guestCount : 0;
+                    const menu = opt.menu_selection ?? opt.menuSelection ?? {};
+                    const courses = (menu.courses || []).filter((c: any) => c.itemName);
+                    const total = opt.total_amount ?? opt.totalAmount ?? 0;
+                    const guests = opt.guest_count ?? opt.guestCount ?? 0;
+                    const budget = menu.budgetPerPerson ?? opt.budgetPerPerson ?? 0;
+                    const ppPrice = budget > 0 ? budget : guests > 0 ? total / guests : 0;
+                    const label = opt.option_label ?? opt.optionLabel ?? '';
                     return (
                       <div key={i} className="bg-background/60 rounded-md p-2.5 text-xs">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-primary">{opt.optionLabel}</span>
+                          <span className="font-bold text-primary">{label}</span>
                           {ppPrice > 0 && <span className="font-semibold">{formatEur(ppPrice)} / Pers.</span>}
                         </div>
                         {courses.map((c: any, ci: number) => (
