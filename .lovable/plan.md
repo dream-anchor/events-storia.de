@@ -1,110 +1,84 @@
 
 
-# PDF-Download-Gating: Erst nach vollständiger Kunden-Auswahl
+# Fix: PDF-Gating im Admin-Preview spiegelt jetzt strikt die Kundensicht
 
-## Problem heute
+## Root Cause
 
-Aktuell ist der PDF-Download in `PublicOffer.tsx` (Zeile 523–527) freigegeben, sobald **mindestens eine** Option `selected_quantity > 0` hat:
-
-```tsx
-options.length <= 1 || options.some((o) => (o.selected_quantity ?? 0) > 0)
-```
-
-Schwächen:
-- Bei mehreren Optionsgruppen (Hauptangebot A/B/C + ggf. Zusatz wie Kinder-Menü oder Getränke-Upgrade) reicht eine Teil-Auswahl — Kunde lädt unvollständiges PDF.
-- Kein UI-Feedback **warum** der Button (un)sichtbar ist → CX-Lücke ("Wo ist mein PDF?").
-- Im Single-Option-Fall (nur ein Angebot) wird sofort freigegeben — auch korrekt, da nichts zu wählen ist.
-
-## Ziel
-
-PDF-Download wird **erst** sichtbar/aktiv, wenn der Kunde seine Auswahl im PublicOffer **vollständig** getroffen und abgesendet hat (`offer_phase = customer_responded` oder weiter). Vorher: erklärender Hinweis statt Button. Ausnahme bleibt: Single-Option-Angebote (nichts zu wählen) — Download sofort verfügbar.
-
-## Lösung in 3 Schritten
-
-### Schritt 1 — Auswahl-Vollständigkeit als zentrale Funktion
-
-Neue reine Helper-Funktion in `PublicOffer.tsx`:
+Im Admin-Preview (`?preview=1&send=proposal|final`) wird `effectivePhase` künstlich gesetzt:
 
 ```ts
-function isCustomerSelectionComplete(
-  options: OfferOption[],
-  phase: OfferPhase,
-): boolean {
-  // Single-Option oder gar keine Optionen → keine Wahl nötig
-  if (options.length <= 1) return true;
-  // Kunde hat noch nicht geantwortet → unvollständig
-  if (phase === 'proposal_sent' || phase === 'draft') return false;
-  // Ab customer_responded gilt Auswahl als finalisiert
+const effectivePhase = isPreviewMode
+  ? (previewSend === 'final' ? 'final_sent' : 'proposal_sent')
+  : (...)
+```
+
+Zwei Lecks daraus:
+
+1. **Preview mit `send=final`**: `effectivePhase = 'final_sent'` → in Allowlist → Gate öffnet. Auch wenn das echte `offer_phase` der Inquiry noch `proposal_sent` ist und der Kunde NICHTS ausgewählt hat.
+2. **Preview mit `send=proposal` + Edge-Case `options.length === 1`** (oder `0`, weil im Preview manchmal leer geladen): Single-Option-Bypass `options.length <= 1 → true` öffnet das Gate ebenfalls.
+
+Beide Fälle widersprechen dem Wunsch "Preview = 1:1 Kundensicht".
+
+## Lösung
+
+### Änderung 1 — Preview-Modus respektiert echte DB-Phase fürs Gating
+
+Das Gating darf NICHT auf `effectivePhase` laufen, sondern muss im Preview-Modus die **echte** `inquiry.offer_phase` aus der DB nehmen. Nur Anzeige-Logik (HeroSection, ProposalView etc.) nutzt weiterhin `effectivePhase` für die Layout-Vorschau.
+
+```ts
+// Im PdfDownloadGate-Aufruf:
+phase={isPreviewMode ? (inquiry.offer_phase || 'draft') : effectivePhase}
+```
+
+### Änderung 2 — Single-Option-Bypass nur, wenn Optionen wirklich vorhanden
+
+`options.length <= 1` ist trügerisch wenn `options.length === 0` (z. B. unvollständig geladen, Preview-Race-Condition). Verschärfung:
+
+```ts
+function isCustomerSelectionComplete(options, phase): boolean {
+  // Echtes Single-Option-Angebot: genau 1 Option vorhanden → Auto-Pass.
+  if (options.length === 1) return true;
+  // 0 Optionen → unsicher, lieber sperren.
+  if (options.length === 0) return false;
+  // Multi-Option → Phase muss echte Kunden-Antwort signalisieren.
   return ['customer_responded', 'final_draft', 'final_sent', 'confirmed', 'paid']
     .includes(phase);
 }
 ```
 
-**Warum phase-basiert statt nur `selected_quantity`?**
-- `selected_quantity > 0` ist ein technisches Detail aus der DB; `customer_responded` ist die **fachliche** Bestätigung "Kunde hat ausgewählt + abgesendet".
-- Verhindert auch, dass eine Admin-seitige Vorbelegung (z.B. Default-Quantity) den Download fälschlich freigibt.
+### Änderung 3 — Gate-Hinweis im Preview-Modus mit Admin-Kontext
 
-### Schritt 2 — Bedingte Anzeige + Hinweis-Box
+Damit Admins im Preview verstehen, warum der Button fehlt, ergänzt die Hinweis-Card im Preview-Modus eine kleine Sub-Zeile:
 
-Render-Block (Zeile 523–527) wird ersetzt durch eine Komponente `<PdfDownloadGate>`, die **drei Zustände** kennt:
+> *„Vorschau-Hinweis: Auch in der Live-Ansicht wird der Download erst freigegeben, sobald der Kunde seine Auswahl bestätigt."*
 
-```text
-┌────────────────────────────────────────────────────────┐
-│ State A — Selection Complete (oder Single-Option)      │
-│ → vollwertiger Download-Button (wie heute)             │
-├────────────────────────────────────────────────────────┤
-│ State B — Multi-Option, noch nicht abgesendet          │
-│ → graue Info-Card mit Lock-Icon:                       │
-│    "Bitte wähle zuerst deine bevorzugte Option         │
-│     unten aus. Sobald du deine Auswahl bestätigst,     │
-│     steht hier dein persönliches Angebots-PDF zum      │
-│     Download bereit."                                  │
-│   + Smooth-Scroll-Link zu ProposalView                 │
-├────────────────────────────────────────────────────────┤
-│ State C — Kein lexoffice_invoice_id                    │
-│ → Komponente rendert nichts (wie heute)                │
-└────────────────────────────────────────────────────────┘
-```
+(Nur sichtbar wenn `isPreviewMode === true`.)
 
-State B ist der **CX-Mehrwert**: Statt eines verschwundenen Buttons bekommt der Kunde aktive Führung zur nächsten Aktion.
+## Verhaltens-Matrix nach Fix
 
-### Schritt 3 — Konsistenz mit Archiv-Modus
+| Szenario | Admin-Preview send=proposal | Admin-Preview send=final | Echter Kunde proposal_sent | Echter Kunde final_sent / customer_responded |
+|---|---|---|---|---|
+| 1 Option | Download ✓ | Download ✓ | Download ✓ | Download ✓ |
+| 2+ Optionen, keine Wahl | Gate (mit Preview-Hinweis) | Gate (mit Preview-Hinweis) | Gate | Download ✓ |
+| 0 Optionen geladen | Gate | Gate | Gate | Gate |
 
-`isArchiveMode` (alte Versionen): PDF-Download bleibt sichtbar (Archive haben immer eine finalisierte Version), aber Hinweis-Card entfällt — Archive sind read-only. Pointer-events bleiben aktiv für den Download-Button selbst (Read-Action erlaubt, nur Mutationen sind disabled).
+Konsistenz mit `isArchiveMode`: bleibt unverändert (Archiv = immer Download sichtbar, da finalisiert).
 
-## Ablauf aus Kundensicht (CX-Flow)
+## Geänderte Datei
 
-```text
-1. Kunde öffnet PublicOffer-Link (Multi-Option-Angebot)
-   → Sieht Hero, Anschreiben, Optionen
-   → STATT Download: Hinweis-Card "Wähle zuerst..." mit Pfeil ↓
-2. Kunde wählt Option B im ProposalView, schreibt ggf. Anmerkung
-3. Kunde klickt "Auswahl absenden"
-   → ThankYouView erscheint
-   → offer_phase wechselt zu customer_responded
-   → Hinweis-Card verschwindet, Download-Button erscheint oben
-4. Kunde lädt sein verbindliches PDF (mit korrekten Beträgen
-   nur für die gewählte Option)
-```
+- **`src/pages/PublicOffer.tsx`** — 3 kleine Änderungen, ~25 LOC:
+  - `PdfDownloadGate`-Aufruf: `phase={isPreviewMode ? inquiry.offer_phase || 'draft' : effectivePhase}` und neuer Prop `isPreviewMode`.
+  - `isCustomerSelectionComplete`: Single-Option-Branch verschärft (genau `=== 1`, nicht `<= 1`).
+  - `PdfDownloadGate`: optionale Preview-Hinweis-Sub-Zeile.
 
-## Geänderte Dateien
+Keine DB-, RPC- oder Edge-Function-Änderungen.
 
-- **`src/pages/PublicOffer.tsx`** — neue Helper-Funktion `isCustomerSelectionComplete`, neue Komponente `PdfDownloadGate` (wrapper um bestehendes `PdfDownloadSection`), Render-Block angepasst. Ca. 60 Zeilen Diff, keine Breaking Changes.
+## Akzeptanzkriterien (Live-Test im Preview)
 
-Keine DB-, Edge-Function- oder Type-Änderungen. Bestehende `download-public-offer-pdf` Edge-Function bleibt unverändert.
-
-## Akzeptanzkriterien (manueller Live-Test)
-
-1. **Single-Option-Angebot**: Download sofort sichtbar nach `proposal_sent`.
-2. **Multi-Option, vor Auswahl**: Hinweis-Card sichtbar, kein Download-Button, Smooth-Scroll-Link funktioniert.
-3. **Multi-Option, nach Absenden**: Hinweis-Card weg, Download-Button erscheint, PDF enthält nur gewählte Option.
-4. **Archiv-Modus alter Version**: Download sichtbar (read-only), keine Hinweis-Card.
-5. **Mobile (414px)**: Hinweis-Card lesbar, Button-Tap-Area ≥ 44px.
-
-## Technische Details
-
-- Phase-Mapping nutzt das bestehende `effectivePhase` (bereits berechnet in PublicOffer).
-- Smooth-Scroll via `document.getElementById('proposal-view')?.scrollIntoView({ behavior: 'smooth' })` — neue ID auf `<ProposalView>`-Wrapper.
-- Hinweis-Card folgt monochromer Aesthetic (neutral-100 Background, neutral-700 Text, Lock-Icon aus lucide-react), kein Amber/Gelb.
-- Keine neuen Dependencies.
+1. Admin-Preview, `send=proposal`, 2+ Optionen, `offer_phase=proposal_sent` → Hinweis-Card mit Preview-Sub-Zeile, **kein** Download-Button.
+2. Admin-Preview, `send=final`, 2+ Optionen, echte `offer_phase=proposal_sent` → ebenfalls Hinweis-Card (Fix der Hauptlücke).
+3. Admin-Preview, `send=final`, echte `offer_phase=final_sent` → Download sichtbar (Kunde hat geantwortet, Admin hat final gesendet).
+4. Echter Kunden-Link, Multi-Option, vor Auswahl → Hinweis-Card ohne Preview-Sub-Zeile.
+5. Echter Kunden-Link, nach Auswahl → Download-Button.
+6. Single-Option-Angebot → Download immer sichtbar.
 
