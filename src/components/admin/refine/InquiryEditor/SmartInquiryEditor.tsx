@@ -750,7 +750,6 @@ export const SmartInquiryEditor = () => {
 
   return (
     <AdminLayout activeTab="events">
-      {(() => null)()}
       {/* Sticky Header */}
       <div className="sticky top-0 z-40 -mx-6 px-6 py-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-border/40 mb-6">
         <div className="flex items-center justify-between">
