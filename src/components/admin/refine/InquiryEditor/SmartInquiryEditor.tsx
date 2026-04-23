@@ -748,6 +748,8 @@ export const SmartInquiryEditor = () => {
     );
   }
 
+  const isOfferSent = !!(inquiry as any)?.offer_phase && (inquiry as any).offer_phase !== 'draft';
+
   return (
     <AdminLayout activeTab="events">
       {/* Sticky Header */}
