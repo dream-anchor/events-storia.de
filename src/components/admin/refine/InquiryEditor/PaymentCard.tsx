@@ -38,6 +38,7 @@ interface Props {
   inquiryId: string;
   preferredDate?: string | null;
   offerTotal?: number | null;
+  isTest?: boolean;
 }
 
 const typeLabels: Record<string, string> = {
@@ -291,7 +292,7 @@ function PaymentRow({
   );
 }
 
-export function PaymentCard({ inquiryId, preferredDate, offerTotal }: Props) {
+export function PaymentCard({ inquiryId, preferredDate, offerTotal, isTest = false }: Props) {
   const [payments, setPayments] = useState<EventPayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddDrawer, setShowAddDrawer] = useState(false);
@@ -394,6 +395,7 @@ export function PaymentCard({ inquiryId, preferredDate, offerTotal }: Props) {
         offerTotal={offerTotal}
         paidSoFar={paidTotal}
         onPaymentCreated={loadPayments}
+        isTest={isTest}
       />
     </>
   );
