@@ -991,6 +991,7 @@ export const SmartInquiryEditor = () => {
               inquiryId={id!}
               preferredDate={inquiry.preferred_date}
               offerTotal={offerTotal}
+              isTest={!!inquiry.is_test}
             />
           </div>
           {/* Timeline */}

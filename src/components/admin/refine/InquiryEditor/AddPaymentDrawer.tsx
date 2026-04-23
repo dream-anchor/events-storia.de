@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { addDays, format } from "date-fns";
 import { de } from "date-fns/locale";
-import { CalendarIcon, X } from "lucide-react";
+import { CalendarIcon, X, AlertTriangle, FlaskConical } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -32,14 +32,16 @@ interface Props {
   offerTotal?: number | null;
   paidSoFar: number; // Cent
   onPaymentCreated: () => void;
+  isTest?: boolean;
 }
 
-type PaymentType = 'deposit' | 'prepayment';
+type PaymentType = 'deposit' | 'prepayment' | 'final';
 type DueType = 'date' | 'days' | 'immediate';
 
 const typeLabels: Record<PaymentType, string> = {
   deposit: 'Anzahlung',
   prepayment: 'Vorauszahlung',
+  final: 'Endabrechnung',
 };
 
 function parseCentsFromInput(input: string): number {
@@ -61,6 +63,7 @@ export function AddPaymentDrawer({
   offerTotal,
   paidSoFar,
   onPaymentCreated,
+  isTest = false,
 }: Props) {
   const [paymentType, setPaymentType] = useState<PaymentType>('deposit');
   const [amountInput, setAmountInput] = useState('');
@@ -111,8 +114,19 @@ export function AddPaymentDrawer({
 
   async function handleSubmit() {
     if (amountCents <= 0) {
-      toast.error('Bitte einen gültigen Betrag eingeben');
+      toast.error('Betrag muss größer als 0 € sein');
       return;
+    }
+    if (dueType === 'date' && !dueDate) {
+      toast.error('Bitte ein Fälligkeitsdatum wählen');
+      return;
+    }
+    if (dueType === 'days') {
+      const days = parseInt(dueDays, 10);
+      if (!dueDays || isNaN(days) || days < 0) {
+        toast.error('Bitte gültige Tage vor Event eingeben');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -137,8 +151,10 @@ export function AddPaymentDrawer({
         if (!isNaN(days) && days >= 0) {
           payload.due_days_before_event = days;
         }
+      } else if (dueType === 'immediate') {
+        // Sofort fällig → due_date = heute, damit Reminder-Logik & Status sauber laufen
+        payload.due_date = format(new Date(), 'yyyy-MM-dd');
       }
-      // dueType === 'immediate' → kein due_date, kein due_days
 
       const { data: newPayment, error: insertError } = await supabase
         .from('event_payments')
@@ -189,31 +205,45 @@ export function AddPaymentDrawer({
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <SheetTitle>Zahlung anlegen</SheetTitle>
+            <div className="flex items-center gap-2">
+              <SheetTitle>Zahlung anlegen</SheetTitle>
+              {isTest && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-700">
+                  <FlaskConical className="h-3 w-3" />
+                  Test
+                </span>
+              )}
+            </div>
             <Button size="icon" variant="ghost" onClick={onClose} className="h-8 w-8">
               <X className="h-4 w-4" />
             </Button>
           </div>
+          {isTest && (
+            <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-md px-2 py-1.5 mt-2 flex items-start gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+              <span>Test-Anfrage: E-Mail wird an die interne Test-Adresse umgeleitet, nicht an den Kunden.</span>
+            </p>
+          )}
         </SheetHeader>
 
         <div className="space-y-5">
           {/* Typ */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Typ</Label>
-            <div className="flex gap-2">
-              {(['deposit', 'prepayment'] as PaymentType[]).map(t => (
+            <div className="grid grid-cols-3 gap-2">
+              {(['deposit', 'prepayment', 'final'] as PaymentType[]).map(t => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setPaymentType(t)}
                   className={cn(
-                    'flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors',
+                    'px-2 py-2 rounded-lg border text-xs font-medium transition-colors',
                     paymentType === t
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border text-muted-foreground hover:border-primary/50'
                   )}
                 >
-                  {t === 'deposit' ? '💰' : '📋'} {typeLabels[t]}
+                  {t === 'deposit' ? '💰' : t === 'prepayment' ? '📋' : '🧾'} {typeLabels[t]}
                 </button>
               ))}
             </div>
@@ -261,6 +291,12 @@ export function AddPaymentDrawer({
                     Rest {restCents > 0 ? `(${formatEUR(restCents)})` : ''}
                   </button>
                 </div>
+                {amountCents > 0 && restCents < 0 && (
+                  <p className="flex items-start gap-1.5 text-orange-700 bg-orange-50 border border-orange-200 rounded-md px-2 py-1.5 mt-1">
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                    <span>Betrag übersteigt die Restschuld um <strong>{formatEUR(Math.abs(restCents))}</strong>.</span>
+                  </p>
+                )}
               </div>
             )}
           </div>
