@@ -62,11 +62,9 @@ export function useUpcomingReminders() {
       // Inquiry tasks due in next 24-36h (cron runs daily 08:00)
       const taskQ = supabase
         .from("inquiry_tasks" as never)
-        .select("id, title, due_date, inquiry_id, reminder_sent, status, event_inquiries!inner(archived_at, status)")
+        .select("id, title, due_date, inquiry_id, reminder_sent, status")
         .eq("reminder_sent", false)
         .neq("status", "completed")
-        .is("event_inquiries.archived_at", null)
-        .not("event_inquiries.status", "in", "(declined,confirmed,cancelled)")
         .lte("due_date", in48.toISOString())
         .order("due_date", { ascending: true });
 
@@ -78,19 +76,23 @@ export function useUpcomingReminders() {
         .select("id, customer_name, desired_date, desired_time, status, reminder_sent_at, is_test")
         .eq("desired_date", in2Str)
         .is("reminder_sent_at", null)
-        .in("status", ["confirmed", "pending"])
-        .is("cancelled_at", null);
+        .in("status", ["confirmed", "pending"]);
       if (!showTestData) catQ = catQ.neq("is_test", true);
 
       // Payments becoming overdue (cron 09:00 daily)
       const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
       const payQ = supabase
         .from("event_payments_enriched" as never)
-        .select("id, inquiry_id, customer_name, amount_cents, computed_status, effective_due_date, event_inquiries!inner(archived_at, status)")
+        .select("id, inquiry_id, customer_name, amount_cents, computed_status, effective_due_date")
         .eq("computed_status", "sent")
-        .is("event_inquiries.archived_at", null)
-        .not("event_inquiries.status", "in", "(declined,cancelled)")
         .lte("effective_due_date", todayStr);
+
+      // Active (non-archived, not declined/cancelled) inquiries — used to filter tasks/payments
+      let activeInqQ = supabase
+        .from("event_inquiries" as never)
+        .select("id, is_test, archived_at, status")
+        .is("archived_at", null);
+      if (!showTestData) activeInqQ = activeInqQ.neq("is_test", true);
 
       // Offer reminders: offer_sent 3+ days ago, no response
       const threeDaysAgo = new Date(today); threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
@@ -117,11 +119,17 @@ export function useUpcomingReminders() {
       const [taskRes, catRes, payRes, offerRes, sentRes] = await Promise.all([
         taskQ, catQ, payQ, offerQ, sentQ,
       ]);
+      const inqRes = await activeInqQ;
+      const activeIds = new Set(((inqRes.data || []) as any[])
+        .filter(r => !["declined", "cancelled"].includes(String(r.status)))
+        .map(r => r.id));
 
       const upcoming: UpcomingReminder[] = [];
 
       const followUpCron = nextDailyAt(8);
-      ((taskRes.data || []) as any[]).forEach(t => {
+      ((taskRes.data || []) as any[])
+        .filter(t => !t.inquiry_id || activeIds.has(t.inquiry_id))
+        .forEach(t => {
         upcoming.push({
           id: `task-${t.id}`,
           scheduledAt: followUpCron,
@@ -135,6 +143,7 @@ export function useUpcomingReminders() {
 
       const hourlyCron = nextHourly();
       ((catRes.data || []) as any[]).forEach(c => {
+        if (c.status === "cancelled") return;
         upcoming.push({
           id: `cat-${c.id}`,
           scheduledAt: hourlyCron,
@@ -147,7 +156,9 @@ export function useUpcomingReminders() {
       });
 
       const overdueCron = nextDailyAt(9);
-      ((payRes.data || []) as any[]).forEach(p => {
+      ((payRes.data || []) as any[])
+        .filter(p => !p.inquiry_id || activeIds.has(p.inquiry_id))
+        .forEach(p => {
         upcoming.push({
           id: `pay-${p.id}`,
           scheduledAt: overdueCron,
