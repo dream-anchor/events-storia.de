@@ -550,6 +550,8 @@ export default function PublicOffer() {
               inquiry={inquiry}
               options={options}
               onSubmitted={(updatedData) => setData(updatedData)}
+              isArchiveMode={isArchiveMode}
+              isPreviewMode={isPreviewMode}
             />
           </div>
         )}
