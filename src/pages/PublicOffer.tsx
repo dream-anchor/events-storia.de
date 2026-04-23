@@ -1138,7 +1138,7 @@ function ProposalView({
 
   return (
     <section className="bg-secondary/30">
-      <div className="container mx-auto px-4 py-12 md:py-16">
+      <div className="container mx-auto px-4 py-12 md:py-16 pb-32 lg:pb-16">
         <div className="max-w-4xl">
           {/* Sektion-Header */}
           <div className="mb-10">
