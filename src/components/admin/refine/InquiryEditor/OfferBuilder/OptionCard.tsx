@@ -274,7 +274,7 @@ export function OptionCard({
                   onValueChange={handleModeSelectChange}
                   disabled={isLocked || option.offerMode === 'unselected'}
                 >
-                  <SelectTrigger className="h-5 w-auto text-[10px] rounded-lg border-0 bg-muted/50 px-2 gap-1 font-medium">
+                  <SelectTrigger className="h-8 sm:h-5 w-auto text-xs sm:text-[10px] rounded-lg border-0 bg-muted/50 px-2.5 sm:px-2 gap-1 font-medium">
                     <SelectValue placeholder="Typ wählen" />
                   </SelectTrigger>
                   <SelectContent>
