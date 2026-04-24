@@ -33,6 +33,10 @@ export interface OfferHistoryEntry {
   sent_at: string;
   sent_by: string | null;
   email_content: string | null;
+  /** Vollständiges HTML der versendeten Mail (Logo, Header, Buttons …).
+   *  Wird seit April 2026 von `send-offer-email` archiviert.
+   *  Alt-Versionen können `null` sein → Frontend fällt auf email_content zurück. */
+  email_html: string | null;
   pdf_url: string | null;
   options_snapshot: OfferOptionSnapshot[];
 }

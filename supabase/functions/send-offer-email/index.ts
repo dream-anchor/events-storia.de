@@ -499,6 +499,35 @@ serve(async (req) => {
         offer_sent_by: senderEmail || null,
         offer_phase: 'proposal_sent',
       } as Record<string, unknown>).eq('id', event.id);
+
+      // Archiviere das tatsächlich versendete HTML in der höchsten History-Version
+      // dieser Inquiry (vom Frontend kurz vorher angelegt). Damit zeigt die
+      // Archiv-Detail-Ansicht (OfferArchivePreview) später 1:1 das Mail-HTML,
+      // das der Kunde im Postfach gesehen hat — inkl. Logo, Header, Buttons.
+      try {
+        const { data: latestVersion } = await supabase
+          .from('v2_event_offer_history')
+          .select('id, version')
+          .eq('event_id', event.id)
+          .order('version', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (latestVersion?.id) {
+          const { error: histUpdErr } = await supabase
+            .from('v2_event_offer_history')
+            .update({ email_html: htmlBody } as Record<string, unknown>)
+            .eq('id', latestVersion.id);
+          if (histUpdErr) {
+            console.error('[send-offer-email] email_html archive update failed:', histUpdErr);
+          } else {
+            console.log(`[send-offer-email] email_html archived for v${latestVersion.version}`);
+          }
+        } else {
+          console.warn('[send-offer-email] No history row found to archive email_html');
+        }
+      } catch (e) {
+        console.error('[send-offer-email] email_html archive exception (non-blocking):', e);
+      }
     }
 
     // Activity Log
