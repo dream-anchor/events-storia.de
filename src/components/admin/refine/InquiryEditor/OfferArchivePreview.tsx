@@ -18,6 +18,7 @@
  */
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import DOMPurify from "dompurify";
 import {
   ArrowLeft,
   Mail,
@@ -104,6 +105,24 @@ export function OfferArchivePreview() {
 
   const publicArchiveUrl = `/offer/${id}?archive_version=${versionNum}`;
 
+  // Wähle die beste Quelle für die Mail-Anzeige:
+  //   1) email_html (1:1 wie versendet — seit April 2026 archiviert)
+  //   2) Fallback: email_content im Plain-Text-Layout (für Alt-Versionen)
+  const sanitizedEmailHtml = entry.email_html
+    ? DOMPurify.sanitize(entry.email_html, { WHOLE_DOCUMENT: true, ADD_TAGS: ["style"] })
+    : null;
+
+  const fallbackPlainTextDoc = entry.email_content
+    ? `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+             padding:24px;color:#1f2937;line-height:1.6;font-size:14px;
+             white-space:pre-wrap;background:#fff;}
+      </style></head><body>${entry.email_content
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</body></html>`
+    : null;
+
+  const iframeSrc = sanitizedEmailHtml ?? fallbackPlainTextDoc;
+
   return (
     <AdminLayout activeTab="events" title={`Archiv · v${versionNum}`}>
       <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
@@ -160,15 +179,20 @@ export function OfferArchivePreview() {
           <div className="bg-muted/50 px-4 py-3 border-b flex items-center gap-2">
             <Mail className="h-4 w-4 text-muted-foreground" />
             <h2 className="font-semibold">1. E-Mail an den Kunden</h2>
+            {!entry.email_html && entry.email_content && (
+              <Badge variant="outline" className="ml-auto text-[10px] font-normal">
+                Plain-Text-Archiv (vor HTML-Archivierung)
+              </Badge>
+            )}
           </div>
           <div className="p-4 space-y-3">
-            {entry.email_content ? (
+            {iframeSrc ? (
               <>
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                   Inhalt (1:1 wie der Kunde sie damals erhalten hat)
                 </div>
                 <iframe
-                  srcDoc={entry.email_content}
+                  srcDoc={iframeSrc}
                   title={`Email Archiv v${versionNum}`}
                   sandbox="allow-same-origin"
                   className="w-full h-[600px] border rounded-lg bg-white"
