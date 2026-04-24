@@ -1,0 +1,1 @@
+UPDATE inquiry_offer_options SET total_amount = 19747.50 WHERE id = '0f7f0fc2-25fb-45f2-a8f2-685d833c3ca6';
