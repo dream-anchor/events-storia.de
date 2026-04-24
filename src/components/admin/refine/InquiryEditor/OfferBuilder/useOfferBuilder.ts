@@ -620,11 +620,11 @@ export function useOfferBuilder({
 
   // =================================================================
   // TOTAL-AMOUNT RECALC — berechnet Preis pro Option automatisch
-  // Menü-Modus: Summe der Kurspreise (−20% Rabatt) × Gäste
+  // Menü-Modus: Summe der Kurspreise × Gäste (KEIN automatischer Rabatt —
+  // Preise sind Brutto-Endpreise; Rabatte nur via discountPercent-Slider)
   // Paket-Modus: Paketpreis-Kalkulation
   // =================================================================
   const priceRecalcRef = useRef(false);
-  const MENU_DISCOUNT = 0.25;
 
   useEffect(() => {
     if (isLoading) return;
@@ -658,8 +658,7 @@ export function useOfferBuilder({
             }, 0);
           }
           const subtotal = dishSubtotal + drinksPerPerson;
-          const discount = dishSubtotal * MENU_DISCOUNT;
-          const netPerPerson = subtotal - discount;
+          const netPerPerson = subtotal;
 
           // budgetPerPerson (manuell gesetzt) hat Vorrang
           const effectivePerPerson = (opt.budgetPerPerson != null && opt.budgetPerPerson > 0)
