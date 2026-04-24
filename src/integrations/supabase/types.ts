@@ -2067,6 +2067,7 @@ export type Database = {
         Row: {
           created_at: string
           email_content: string | null
+          email_html: string | null
           event_id: string
           id: string
           options_snapshot: Json
@@ -2079,6 +2080,7 @@ export type Database = {
         Insert: {
           created_at?: string
           email_content?: string | null
+          email_html?: string | null
           event_id: string
           id?: string
           options_snapshot: Json
@@ -2091,6 +2093,7 @@ export type Database = {
         Update: {
           created_at?: string
           email_content?: string | null
+          email_html?: string | null
           event_id?: string
           id?: string
           options_snapshot?: Json
@@ -3317,6 +3320,7 @@ export type Database = {
         Row: {
           created_at: string | null
           email_content: string | null
+          email_html: string | null
           id: string | null
           inquiry_id: string | null
           options_snapshot: Json | null
@@ -3328,6 +3332,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           email_content?: string | null
+          email_html?: string | null
           id?: string | null
           inquiry_id?: string | null
           options_snapshot?: Json | null
@@ -3339,6 +3344,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           email_content?: string | null
+          email_html?: string | null
           id?: string | null
           inquiry_id?: string | null
           options_snapshot?: Json | null
