@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
@@ -161,6 +162,10 @@ export function ConversationThread({ inquiryId, customerEmail, onSendReply }: Co
 
 function MessageBubble({ message }: { message: EmailMessage }) {
   const [expanded, setExpanded] = useState(false);
+  const hasHtml = !!(message.body_html && message.body_html.trim().length > 0);
+  const [viewMode, setViewMode] = useState<"html" | "text">(hasHtml ? "html" : "text");
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [iframeHeight, setIframeHeight] = useState<number>(300);
   const isOutbound = message.direction === "outbound";
   const sentAt = message.created_at
     ? format(parseISO(message.created_at), "dd. MMM, HH:mm", { locale: de })
@@ -171,6 +176,22 @@ function MessageBubble({ message }: { message: EmailMessage }) {
   const StatusIcon = statusCfg.icon;
 
   const preview = (message.body_text || "").slice(0, 120).replace(/\n/g, " ");
+
+  const sanitizedHtml = hasHtml
+    ? DOMPurify.sanitize(message.body_html as string, { WHOLE_DOCUMENT: true, ADD_TAGS: ["style"] })
+    : "";
+
+  const handleIframeLoad = () => {
+    try {
+      const doc = iframeRef.current?.contentDocument;
+      if (doc?.body) {
+        const h = Math.min(doc.body.scrollHeight + 20, 800);
+        setIframeHeight(Math.max(h, 200));
+      }
+    } catch {
+      // ignore cross-origin (shouldn't happen with srcDoc)
+    }
+  };
 
   return (
     <div className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
@@ -191,6 +212,35 @@ function MessageBubble({ message }: { message: EmailMessage }) {
           {isOutbound && (
             <StatusIcon className={`h-3 w-3 ${statusCfg.color} opacity-80`} />
           )}
+          {expanded && hasHtml && (
+            <div
+              className="ml-auto flex items-center gap-0.5 rounded-full bg-background/20 p-0.5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode("html")}
+                className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
+                  viewMode === "html"
+                    ? "bg-background text-foreground font-semibold"
+                    : "opacity-70 hover:opacity-100"
+                }`}
+              >
+                Original
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("text")}
+                className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
+                  viewMode === "text"
+                    ? "bg-background text-foreground font-semibold"
+                    : "opacity-70 hover:opacity-100"
+                }`}
+              >
+                Text
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Betreff (falls vorhanden und vom Standard abweichend) */}
@@ -199,9 +249,27 @@ function MessageBubble({ message }: { message: EmailMessage }) {
         )}
 
         {/* Vorschau / Volltext */}
-        <p className={`text-sm leading-relaxed ${!expanded ? "line-clamp-3" : "whitespace-pre-wrap"}`}>
-          {expanded ? (message.body_text || "") : preview}
-        </p>
+        {!expanded ? (
+          <p className="text-sm leading-relaxed line-clamp-3">{preview}</p>
+        ) : viewMode === "html" && hasHtml ? (
+          <div
+            className="mt-1 rounded-lg overflow-hidden bg-white border border-black/10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <iframe
+              ref={iframeRef}
+              srcDoc={sanitizedHtml}
+              title={`E-Mail ${message.id}`}
+              sandbox="allow-same-origin"
+              onLoad={handleIframeLoad}
+              style={{ width: "100%", height: `${iframeHeight}px`, border: 0, display: "block" }}
+            />
+          </div>
+        ) : (
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            {message.body_text || ""}
+          </p>
+        )}
 
         {/* Anhänge */}
         {message.attachments && message.attachments.length > 0 && (
@@ -219,7 +287,7 @@ function MessageBubble({ message }: { message: EmailMessage }) {
           </div>
         )}
 
-        {(message.body_text || "").length > 120 && (
+        {((message.body_text || "").length > 120 || hasHtml) && (
           <p className="text-[10px] opacity-50 mt-1">
             {expanded ? "Weniger anzeigen" : "Mehr anzeigen"}
           </p>
