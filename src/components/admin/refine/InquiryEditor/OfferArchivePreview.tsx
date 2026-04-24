@@ -106,10 +106,12 @@ export function OfferArchivePreview() {
   const publicArchiveUrl = `/offer/${id}?archive_version=${versionNum}`;
 
   // Wähle die beste Quelle für die Mail-Anzeige:
-  //   1) email_html (1:1 wie versendet — seit April 2026 archiviert)
-  //   2) Fallback: email_content im Plain-Text-Layout (für Alt-Versionen)
-  const sanitizedEmailHtml = entry.email_html
-    ? DOMPurify.sanitize(entry.email_html, { WHOLE_DOCUMENT: true, ADD_TAGS: ["style"] })
+  //   1) delivered_email_html aus dem Mailverlauf (tatsächlich an den Kunden versendet)
+  //   2) email_html aus dem Angebots-Archiv
+  //   3) Fallback: email_content im Plain-Text-Layout (nur wenn kein HTML existiert)
+  const archivedEmailHtml = entry.delivered_email_html || entry.email_html;
+  const sanitizedEmailHtml = archivedEmailHtml
+    ? DOMPurify.sanitize(archivedEmailHtml, { WHOLE_DOCUMENT: true, ADD_TAGS: ["style"] })
     : null;
 
   const fallbackPlainTextDoc = entry.email_content
@@ -179,7 +181,7 @@ export function OfferArchivePreview() {
           <div className="bg-muted/50 px-4 py-3 border-b flex items-center gap-2">
             <Mail className="h-4 w-4 text-muted-foreground" />
             <h2 className="font-semibold">1. E-Mail an den Kunden</h2>
-            {!entry.email_html && entry.email_content && (
+            {!archivedEmailHtml && entry.email_content && (
               <Badge variant="outline" className="ml-auto text-[10px] font-normal">
                 Plain-Text-Archiv (vor HTML-Archivierung)
               </Badge>
