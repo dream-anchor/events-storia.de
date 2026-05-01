@@ -1,39 +1,85 @@
-# Fix: Archiv-Ansicht, LexOffice-PDF-Vorschau, monochromer Download-Button
 
-## 1. Archiv zeigt Original-Mail (1:1)
+# Mobile Selektions- und Bulk-Action-Konzept
 
-**Problem:** `useOfferHistoryVersion` sucht in `v2_event_emails` per Zeitfenster, findet aber nichts wegen UUID-Mismatch. `email_html` ist in der DB vorhanden, wird aber übergangen.
+## Problem
 
-**Fix `src/hooks/useOfferHistory.ts`:**
-- Den gesamten `v2_event_emails`-Lookup (Zeilen 82–110) entfernen.
-- `email_html` direkt aus dem Query-Ergebnis verwenden — es kommt bereits aus `inquiry_offer_history`.
-- `delivered_email_html` als Feld entfernen (nicht mehr nötig, war die Lookup-Quelle).
+Auf dem Handy rendert die `DataTable` eine vereinfachte `mobileCardRender`-Ansicht, die die Checkbox-Spalte komplett überspringt. Dadurch fehlt jede Möglichkeit, Anfragen auszuwählen und Bulk-Aktionen (Archivieren, Zuweisen, Priorität etc.) auszuführen. Die `BulkActionBar` ist ebenfalls nur für Desktop optimiert (horizontale Button-Reihe).
 
-**Fix `src/components/admin/refine/InquiryEditor/OfferArchivePreview.tsx`:**
-- Priorität vereinfachen: `email_html` → Plain-Text-Fallback.
-- `delivered_email_html`-Referenz entfernen.
-- Iframe-Höhe dynamisch per `onLoad` an `contentDocument.body.scrollHeight` anpassen.
+## Konzept: Native App-Feeling
 
-## 2. LexOffice-PDF in Vorschau wieder auto-laden
+### 1. Selektionsmodus per Long-Press (wie iOS/Android)
 
-**Fix `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx`:**
-- Neuen `useEffect` hinzufügen, der `loadLexofficePdf()` automatisch aufruft, **nur wenn** `inquiry.lexoffice_quotation_id` bereits gesetzt ist.
-- Kein Auto-Create — nur vorhandene PDFs werden geladen.
+- **Aktivierung**: Long-Press (600ms) auf eine Karte aktiviert den Selektionsmodus
+- **Im Selektionsmodus**: Jede Karte zeigt links eine animierte Checkbox. Tap auf eine Karte selektiert/deselektiert (statt Navigation)
+- **Header**: "X ausgewahlt" mit "Alle auswahlen" und "Abbrechen" Buttons
+- **Deaktivierung**: "Abbrechen" oder wenn Selektion auf 0 fallt
 
-## 3. PDF-Download-Button monochrom restylen
+### 2. Mobile-optimierte Bulk-Action-Bar
 
-**Fix `src/pages/PublicOffer.tsx` (`PdfDownloadSection`):**
-- Container: `max-w-3xl`, weiße Card mit `border-neutral-200`, `rounded-2xl`, `bg-neutral-50`.
-- Button: `border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50`, kein Schatten, kein Translate-Effekt.
-- Touch-Target `min-h-[44px]` beibehalten.
+- Statt der breiten Desktop-Leiste: ein kompaktes Bottom-Sheet mit Icon-Grid
+- Icons fur: Kontaktiert, Zuweisen, Prioritat, Archivieren, Test-Toggle
+- Responsive Layout: 2x3 Grid statt horizontaler Button-Reihe
+- Nutzt `MobileBottomBar` fur safe-area und z-index
 
-## Sicherheit (Live-System)
-- Keine DB-Migrationen, keine Edge-Function-Änderungen.
-- Keine automatische LexOffice-Quotation-Erstellung.
-- Reine UI- und Read-Path-Anpassungen.
+### 3. Alternative: Einfacher Checkbox-Modus (empfohlen)
 
-## Geänderte Dateien
-- `src/hooks/useOfferHistory.ts`
-- `src/components/admin/refine/InquiryEditor/OfferArchivePreview.tsx`
-- `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx`
-- `src/pages/PublicOffer.tsx`
+Da Long-Press technisch aufwendiger ist und Accessibility-Probleme hat, empfehle ich die einfachere Variante:
+
+- **Toggle-Button** oben neben der Suche: "Auswahlen" Icon-Button
+- Aktiviert Selektionsmodus: Checkboxen erscheinen links in jeder Karte
+- Tap auf Karte = Toggle Checkbox (nicht Navigation)
+- Bottom-Bar zeigt Bulk-Aktionen als scrollbare Pill-Reihe
+
+---
+
+## Technische Umsetzung
+
+### Datei: `src/components/admin/refine/DataTable.tsx`
+
+1. Neuer State `mobileSelectionMode` (boolean)
+2. Im Mobile-Bereich (Zeile 246-261): Toggle-Button "Auswahlen" in der Toolbar
+3. Wenn `mobileSelectionMode` aktiv: Jede Karte wird in einen Wrapper gerendert mit Checkbox links
+4. Tap auf Karte im Selektionsmodus togglet `row.toggleSelected()` statt `onRowClick`
+
+### Datei: `src/components/admin/shared/BulkActionBar.tsx`
+
+1. `useIsMobile()` Hook einbauen
+2. Auf Mobile: statt horizontaler Buttons ein kompaktes Bottom-Sheet-Layout
+3. Scrollbare Icon-Pill-Reihe: Kontaktiert | Zuweisen | Prioritat | Archivieren | Test
+4. Safe-area padding via `pb-[calc(...env(safe-area-inset-bottom))]`
+
+### Datei: `src/components/admin/shared/responsive/MobileCardList.tsx`
+
+1. Neue Prop `selectable` + `selected` + `onToggleSelect` fur `MobileCardItem`
+2. Wenn `selectable`: Checkbox-Circle links, kein Chevron, onClick togglet Selektion
+
+### Datei: `src/components/admin/refine/EventsList.tsx`
+
+1. `mobileCardRender` muss keine Anderungen brauchen -- die Selektionslogik wird im DataTable-Wrapper gehandhabt
+
+---
+
+## UX-Flow (Mobile)
+
+```text
+[Normal]                    [Selektionsmodus]
++--------------------+      +--------------------+
+| [Suche] [Auswahlen]|      | 3 ausgewahlt  [X]  |
++--------------------+      +--------------------+
+| Eingang | Alle |...|      | Eingang | Alle |...|
++--------------------+      +--------------------+
+| > Mueller, 20.05   |      | [x] Mueller, 20.05 |
+| > Schmidt, 25.05   |      | [ ] Schmidt, 25.05  |
+| > Weber, 01.06     |      | [x] Weber, 01.06    |
++--------------------+      +--------------------+
+                             | Kontaktiert|Zuweisen|
+                             | Archiv|Prio|Test    |
+                             +--------------------+
+```
+
+## Ergebnis
+
+- Alle Desktop-Funktionen auch auf Mobile verfugbar
+- App-artiges Erlebnis mit klarem Selektionsmodus
+- Bulk-Aktionen (Archivieren, Zuweisen, Prioritat etc.) mobil nutzbar
+- Kein "verstecktes" Feature -- sichtbarer "Auswahlen"-Button

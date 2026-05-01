@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { Search, ChevronLeft, ChevronRight, X, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, X, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, CheckSquare } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export function sortableHeader<TData>(label: string) {
@@ -103,6 +103,7 @@ export function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [mobileSelectionMode, setMobileSelectionMode] = useState(false);
 
   // Sync external selection with internal state
   useEffect(() => {
@@ -199,26 +200,75 @@ export function DataTable<TData, TValue>({
   return (
     <div className="space-y-4">
       {/* Search and Filter Bar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={searchPlaceholder}
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="pl-10 h-10 bg-white dark:bg-gray-900 border-border/60 rounded-lg focus-visible:ring-primary/20"
-          />
-        </div>
-        {onRefresh && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="h-10 w-10 border-border/60"
-          >
-            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-          </Button>
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        {isMobile && mobileSelectionMode && enableSelection ? (
+          <div className="flex items-center justify-between gap-2 w-full">
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="font-mono text-sm">
+                {Object.keys(rowSelection).filter(k => rowSelection[k]).length} ausgewählt
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-8"
+                onClick={() => {
+                  const allSelected: RowSelectionState = {};
+                  table.getRowModel().rows.forEach((r) => {
+                    allSelected[r.index] = true;
+                  });
+                  handleRowSelectionChange(allSelected);
+                }}
+              >
+                Alle
+              </Button>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-8 gap-1"
+              onClick={() => {
+                setMobileSelectionMode(false);
+                handleRowSelectionChange({});
+              }}
+            >
+              <X className="h-3.5 w-3.5" />
+              Abbrechen
+            </Button>
+          </div>
+        ) : (
+          <div className="flex gap-2 items-center w-full sm:w-auto">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={searchPlaceholder}
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="pl-10 h-10 bg-white dark:bg-gray-900 border-border/60 rounded-lg focus-visible:ring-primary/20"
+              />
+            </div>
+            {isMobile && enableSelection && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setMobileSelectionMode(true)}
+                className="h-10 w-10 border-border/60 shrink-0"
+                title="Auswählen"
+              >
+                <CheckSquare className="h-4 w-4" />
+              </Button>
+            )}
+            {onRefresh && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onRefresh}
+                disabled={isLoading}
+                className="h-10 w-10 border-border/60 shrink-0"
+              >
+                <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -252,7 +302,32 @@ export function DataTable<TData, TValue>({
             </div>
           ) : table.getRowModel().rows?.length ? (
             table.getRowModel().rows.map((row) => (
-              <div key={row.id}>{mobileCardRender(row.original)}</div>
+              mobileSelectionMode && enableSelection ? (
+                <div
+                  key={row.id}
+                  className={cn(
+                    "flex items-start gap-3 rounded-2xl border p-3 transition-all cursor-pointer",
+                    row.getIsSelected()
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-border/60 bg-white dark:bg-gray-900"
+                  )}
+                  onClick={() => row.toggleSelected(!row.getIsSelected())}
+                >
+                  <div className="pt-1 shrink-0">
+                    <Checkbox
+                      checked={row.getIsSelected()}
+                      onCheckedChange={(value) => row.toggleSelected(!!value)}
+                      aria-label="Zeile auswählen"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {mobileCardRender(row.original)}
+                  </div>
+                </div>
+              ) : (
+                <div key={row.id}>{mobileCardRender(row.original)}</div>
+              )
             ))
           ) : (
             <div className="rounded-xl border border-border/60 bg-white dark:bg-gray-900 py-12 text-center text-muted-foreground">

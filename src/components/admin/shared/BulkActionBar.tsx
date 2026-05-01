@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Phone, UserPlus, Archive, Trash2, Loader2, Flag, RotateCcw, TestTube2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +40,8 @@ export function BulkActionBar({
   const count = selectedIds.length;
 
   if (count === 0) return null;
+
+  const isMobile = useIsMobile();
 
   const handleBulkStatusChange = async (status: string) => {
     setIsProcessing(true);
@@ -188,6 +191,115 @@ export function BulkActionBar({
       setIsProcessing(false);
     }
   };
+
+  if (isMobile) {
+    return (
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 40 }}
+          className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
+        >
+          <div className="px-3 pt-3 space-y-3">
+            {/* Header row */}
+            <div className="flex items-center justify-between">
+              <Badge variant="secondary" className="font-mono">
+                {count} ausgewählt
+              </Badge>
+              {isProcessing ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : (
+                <Button variant="ghost" size="icon" onClick={onClearSelection} className="h-8 w-8">
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            {/* Scrollable action pills */}
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-3 px-3 pb-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkStatusChange("contacted")}
+                disabled={isProcessing}
+                className="gap-1.5 shrink-0 rounded-full text-xs h-9"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                Kontaktiert
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isProcessing} className="gap-1.5 shrink-0 rounded-full text-xs h-9">
+                    <UserPlus className="h-3.5 w-3.5" />
+                    Zuweisen
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {TEAM_MEMBERS.map((member) => (
+                    <DropdownMenuItem key={member.email} onClick={() => handleBulkAssign(member.email, member.name)}>
+                      {member.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isProcessing} className="gap-1.5 shrink-0 rounded-full text-xs h-9">
+                    <Flag className="h-3.5 w-3.5" />
+                    Priorität
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => handleBulkPriority("urgent")}>🔴 Dringend</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleBulkPriority("high")}>🟠 Hoch</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleBulkPriority("normal")}>⚪ Normal</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {showRestoreAction ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkRestore}
+                  disabled={isProcessing}
+                  className="gap-1.5 shrink-0 rounded-full text-xs h-9 text-emerald-600"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Wiederherstellen
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkArchive}
+                  disabled={isProcessing}
+                  className="gap-1.5 shrink-0 rounded-full text-xs h-9"
+                >
+                  <Archive className="h-3.5 w-3.5" />
+                  Archivieren
+                </Button>
+              )}
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isProcessing} className="gap-1.5 shrink-0 rounded-full text-xs h-9">
+                    <TestTube2 className="h-3.5 w-3.5" />
+                    Test
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => handleBulkToggleTest(true)}>🧪 Als Test markieren</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleBulkToggleTest(false)}>✅ Als Echt markieren</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
 
   return (
     <AnimatePresence>
