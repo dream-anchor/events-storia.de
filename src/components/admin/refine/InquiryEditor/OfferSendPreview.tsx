@@ -172,12 +172,20 @@ export function OfferSendPreview({
 
   // LexOffice-PDF wird NICHT mehr automatisch geladen (Auto-Fetch erzeugte ungewollt
   // eine Quotation in LexOffice). Stattdessen Button-getriggert via loadLexofficePdf().
+  // AUSNAHME: Wenn bereits eine lexoffice_quotation_id existiert, laden wir automatisch.
   // Cleanup der Blob-URL beim Unmount/Wechsel
   useEffect(() => {
     return () => {
       if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
     };
   }, [pdfBlobUrl]);
+
+  // Auto-load PDF wenn bereits eine Quotation existiert (kein Auto-Create)
+  useEffect(() => {
+    if (inquiry?.lexoffice_quotation_id && !pdfBlobUrl && !pdfLoading && !pdfError) {
+      loadLexofficePdf();
+    }
+  }, [inquiry?.lexoffice_quotation_id]);
 
   const loadLexofficePdf = async () => {
     if (!inquiry) return;
