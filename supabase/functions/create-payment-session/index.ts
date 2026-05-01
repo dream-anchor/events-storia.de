@@ -108,23 +108,41 @@ serve(async (req) => {
         const pricingMode = (opt.menu_selection?.pricingMode as string | undefined) ?? 'per_person';
 
         let pricePerUnitEur: number;
+        // Equipment & Staff sind Fixkosten — nicht pro Person skalieren
+        const ms = opt.menu_selection;
+        const equipStaffFixed = (
+          ((ms?.equipment as Array<{name:string;pricePerUnit:number;quantity:number}>) || [])
+            .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
+            .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0)
+          +
+          ((ms?.staff as Array<{name:string;pricePerUnit:number;quantity:number}>) || [])
+            .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
+            .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0)
+        );
+
         if (pricingMode === 'per_event') {
           if (quantity !== 1) {
             throw new Error(`Option "${opt.option_label}": pauschale Preisstellung erlaubt nur Menge 1`);
           }
-          pricePerUnitEur = opt.total_amount;
+          pricePerUnitEur = opt.total_amount; // per_event: totalAmount enthält alles, quantity=1
         } else {
-          const budgetPerPerson = Number(opt.menu_selection?.budgetPerPerson ?? 0);
+          // per_person: Equipment/Staff-Fixkosten vom totalAmount abziehen,
+          // nur den Personenanteil pro Gast berechnen, Fixkosten einmalig addieren
+          const budgetPerPerson = Number(ms?.budgetPerPerson ?? 0);
           if (budgetPerPerson > 0) {
             pricePerUnitEur = budgetPerPerson;
           } else if (opt.guest_count > 0) {
-            pricePerUnitEur = opt.total_amount / opt.guest_count;
+            // totalAmount minus Fixkosten = skalierbarer Anteil
+            pricePerUnitEur = (opt.total_amount - equipStaffFixed) / opt.guest_count;
           } else {
             throw new Error(`Option "${opt.option_label}": Preis pro Person nicht ermittelbar`);
           }
         }
 
-        const lineEur = pricePerUnitEur * quantity;
+        // Personenkosten × gewählte Menge + einmalige Fixkosten
+        const lineEur = pricingMode === 'per_event'
+          ? pricePerUnitEur
+          : (pricePerUnitEur * quantity) + equipStaffFixed;
         grandTotalEur += lineEur;
 
         const overrideName = (opt.menu_selection?.packageNameOverride as string | undefined)?.trim();
