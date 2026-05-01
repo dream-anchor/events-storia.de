@@ -96,6 +96,7 @@ export const formatActivityAction = (log: ActivityLog): string => {
     'payment_received': () => 'Zahlung eingegangen',
     'booking_created': () => 'Buchung erstellt',
     'menu_confirmed': () => 'Menü bestätigt',
+    'offline_booking_confirmed': () => 'Verbindlich gebucht (ohne Online-Zahlung)',
     'created': () => 'Anfrage eingegangen',
     'updated': () => 'Daten aktualisiert',
     'package_selected': (l) => {
@@ -131,6 +132,7 @@ export const getActivityIcon = (action: string): string => {
     'payment_received': 'CreditCard',
     'booking_created': 'CalendarCheck',
     'menu_confirmed': 'UtensilsCrossed',
+    'offline_booking_confirmed': 'CalendarCheck',
     'created': 'Plus',
     'updated': 'Pencil',
   };
