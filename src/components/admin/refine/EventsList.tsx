@@ -526,7 +526,7 @@ export const EventsList = () => {
   };
 
   return (
-    <AdminLayout activeTab="events" showCreateButton={false}>
+    <AdminLayout activeTab="events" showCreateButton={selectedIds.length === 0}>
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex items-center justify-between">
@@ -544,25 +544,17 @@ export const EventsList = () => {
               onValueChange={(value) => value && setViewMode(value as "table" | "kanban")}
               className="bg-muted/50 rounded-lg p-1"
             >
-              <ToggleGroupItem
-                value="table"
-                aria-label="Tabellenansicht"
-                className="h-8 px-3 data-[state=on]:bg-white dark:data-[state=on]:bg-gray-800 data-[state=on]:shadow-sm rounded-md"
-              >
-                <Table2 className="h-4 w-4 mr-1.5" />
-                Tabelle
+              <ToggleGroupItem value="table" aria-label="Tabellenansicht" className="h-8 px-2 sm:px-3 data-[state=on]:bg-white dark:data-[state=on]:bg-gray-800 data-[state=on]:shadow-sm rounded-md">
+                <Table2 className="h-4 w-4 sm:mr-1.5" />
+                <span className="hidden sm:inline">Tabelle</span>
               </ToggleGroupItem>
-              <ToggleGroupItem
-                value="kanban"
-                aria-label="Kanban-Ansicht"
-                className="h-8 px-3 data-[state=on]:bg-white dark:data-[state=on]:bg-gray-800 data-[state=on]:shadow-sm rounded-md"
-              >
-                <LayoutGrid className="h-4 w-4 mr-1.5" />
-                Kanban
+              <ToggleGroupItem value="kanban" aria-label="Kanban-Ansicht" className="h-8 px-2 sm:px-3 data-[state=on]:bg-white dark:data-[state=on]:bg-gray-800 data-[state=on]:shadow-sm rounded-md">
+                <LayoutGrid className="h-4 w-4 sm:mr-1.5" />
+                <span className="hidden sm:inline">Kanban</span>
               </ToggleGroupItem>
             </ToggleGroup>
 
-            <Button asChild className="shadow-sm">
+            <Button asChild className="shadow-sm hidden sm:flex">
               <Link to="/admin/events/create">
                 <Plus className="h-4 w-4 mr-2" />
                 Neue Anfrage
