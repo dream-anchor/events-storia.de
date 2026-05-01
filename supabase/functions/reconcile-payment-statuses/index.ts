@@ -1,25 +1,15 @@
 /**
  * reconcile-payment-statuses
  *
- * AKUT-SCHUTZ gegen Bug in handle-offer-payment (silent status
- * update failure).
+ * Sicherheitsnetz: Prüft ob v2_payments mit status='paid' korrekt
+ * in v2_events reflektiert werden. Korrigiert stille Failures aus
+ * handle-offer-payment / handle-stripe-webhook.
  *
- * Diese Function schreibt ABSICHTLICH auf Legacy-Tabellen
- * (event_inquiries, event_bookings), weil sie vor der geplanten
- * Datenmodell-Migration auf v2_*-Tabellen existiert.
- *
- * ABLAUFDATUM: Wird in Phase 3 der Datenmodell-Migration (siehe
- * docs/maestro/NEW-DATAMODEL.md) durch das atomare Umschalten von
- * handle-offer-payment auf v2_*-Tabellen ersetzt.
- *
- * NACH MIGRATION: Cron-Definition und diese Function komplett
- * löschen — nicht nur deaktivieren, sondern entfernen. Sonst
- * laufen minütliche Fehler auf die dann read-only gewordenen
- * Legacy-Tabellen.
+ * Verwendet ausschließlich v2_*-Tabellen (keine Legacy-Views).
  */
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 const log = (step: string, details?: unknown) => {
@@ -48,80 +38,67 @@ serve(async (req) => {
 
     const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-    // a) Lade Bookings der letzten 48h, bei denen bezahlt wurde
-    //    oder eine Stripe payment_intent_id vorhanden ist
-    const { data: bookings, error: bookingsError } = await supabase
-      .from("event_bookings")
+    // a) Lade v2_payments der letzten 48h mit status='paid'
+    const { data: payments, error: paymentsError } = await supabase
+      .from("v2_payments")
       .select(
-        "id, booking_number, payment_status, stripe_payment_intent_id, source_inquiry_id, created_at"
+        "id, event_id, status, payment_type, stripe_payment_intent_id, paid_at, created_at"
       )
       .gte("created_at", since)
-      .or("payment_status.eq.paid,stripe_payment_intent_id.not.is.null");
+      .or("status.eq.paid,stripe_payment_intent_id.not.is.null");
 
-    if (bookingsError) {
-      log("Failed to load bookings", bookingsError);
-      throw bookingsError;
+    if (paymentsError) {
+      log("Failed to load payments", paymentsError);
+      throw paymentsError;
     }
 
-    log("Bookings loaded", { count: bookings?.length ?? 0 });
+    log("Payments loaded", { count: payments?.length ?? 0 });
 
-    for (const booking of bookings ?? []) {
+    for (const payment of payments ?? []) {
       checked++;
       try {
-        if (!booking.source_inquiry_id) {
-          log("Skip booking without source_inquiry_id", {
-            bookingId: booking.id,
-          });
+        if (!payment.event_id) {
+          log("Skip payment without event_id", { paymentId: payment.id });
           continue;
         }
 
-        // Nur Zahlungserfolg behandeln
         const paid =
-          booking.payment_status === "paid" ||
-          !!booking.stripe_payment_intent_id;
+          payment.status === "paid" ||
+          !!payment.stripe_payment_intent_id;
         if (!paid) continue;
 
-        // b) Verknüpfte Inquiry laden (inkl. is_test, da event_bookings
-        //    selbst kein is_test-Feld hat)
-        const { data: inquiry, error: inquiryError } = await supabase
-          .from("event_inquiries")
+        const { data: evt, error: evtError } = await supabase
+          .from("v2_events")
           .select("id, status, offer_phase, is_test")
-          .eq("id", booking.source_inquiry_id)
+          .eq("id", payment.event_id)
           .maybeSingle();
 
-        if (inquiryError) throw inquiryError;
-        if (!inquiry) {
-          log("Inquiry not found", {
-            bookingId: booking.id,
-            inquiryId: booking.source_inquiry_id,
-          });
+        if (evtError) throw evtError;
+        if (!evt) {
+          log("Event not found", { paymentId: payment.id, eventId: payment.event_id });
           continue;
         }
 
-        // d) Test-Bookings ignorieren
-        if (inquiry.is_test === true) continue;
+        if (evt.is_test === true) continue;
 
-        // 5) Idempotenz: bereits konsistent → nichts tun
         if (
-          inquiry.status === "confirmed" &&
-          inquiry.offer_phase === "confirmed"
+          (evt.status === "paid" || evt.status === "completed") &&
+          (evt.offer_phase === "confirmed" || evt.offer_phase === "paid")
         ) {
           continue;
         }
 
-        const previousStatus = inquiry.status ?? "null";
-        const previousPhase = inquiry.offer_phase ?? "null";
+        const previousStatus = evt.status ?? "null";
+        const previousPhase = evt.offer_phase ?? "null";
 
-        // c) Inquiry auf 'confirmed' setzen
         const { error: updateError } = await supabase
-          .from("event_inquiries")
+          .from("v2_events")
           .update({
-            status: "confirmed",
+            status: "paid",
             offer_phase: "confirmed",
-            converted_to_booking_id: booking.id,
             updated_at: new Date().toISOString(),
-          })
-          .eq("id", inquiry.id);
+          } as any)
+          .eq("id", evt.id);
 
         if (updateError) throw updateError;
 
@@ -130,7 +107,7 @@ serve(async (req) => {
           .from("activity_logs")
           .insert({
             entity_type: "event_inquiry",
-            entity_id: inquiry.id,
+            entity_id: evt.id,
             action: "status_reconciled_by_cron",
             actor_email: "system@reconcile-payment-statuses",
             old_value: {
@@ -138,13 +115,13 @@ serve(async (req) => {
               offer_phase: previousPhase,
             },
             new_value: {
-              status: "confirmed",
+              status: "paid",
               offer_phase: "confirmed",
             },
             metadata: {
               message: `Status reconciled by cron (was: ${previousStatus})`,
-              booking_id: booking.id,
-              booking_number: booking.booking_number,
+              payment_id: payment.id,
+              payment_type: payment.payment_type,
               source: "reconcile-payment-statuses",
             },
           });
@@ -152,22 +129,22 @@ serve(async (req) => {
         if (logError) {
           // Reconciliation hat geklappt – Logging-Fehler nur protokollieren
           log("activity_logs insert failed (non-fatal)", {
-            bookingId: booking.id,
+            paymentId: payment.id,
             error: logError.message,
           });
         }
 
         reconciled++;
-        log("Reconciled inquiry", {
-          inquiryId: inquiry.id,
-          bookingId: booking.id,
+        log("Reconciled event", {
+          eventId: evt.id,
+          paymentId: payment.id,
           previousStatus,
           previousPhase,
         });
       } catch (err) {
         errors++;
-        log("Error processing booking (continuing)", {
-          bookingId: booking.id,
+        log("Error processing payment (continuing)", {
+          paymentId: payment.id,
           error: err instanceof Error ? err.message : String(err),
         });
       }
