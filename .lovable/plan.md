@@ -1,46 +1,48 @@
 
-# Zahlungsmodalitäten — Lücken schließen
+# Audit: Zahlungsmodalitäten — End-to-End
 
-## Problem
+## Ergebnis-Übersicht
 
-Die Spalten `payment_method` und `invoice_due_days` wurden versehentlich nur auf `_legacy_event_inquiries` angelegt. Die aktive Tabelle `v2_events` hat diese Spalten nicht, die View `event_inquiries` gibt sie nicht aus, und der Update-Trigger propagiert sie nicht. Dadurch:
+| Ebene | Status | Details |
+|---|---|---|
+| DB-Spalten `v2_events` | OK | `payment_method` (default `deposit_online`) und `invoice_due_days` vorhanden |
+| View `event_inquiries` | OK | Beide Felder werden korrekt exponiert |
+| Update-Trigger | OK | `payment_method` und `invoice_due_days` werden nach `v2_events` geschrieben |
+| Insert-Trigger | OK | Neue Inquiries übernehmen beide Felder |
+| Admin-UI `PaymentTermsBlock` | OK | 4 Kacheln, konditionsabhängige Felder, Defaults aus `site_settings` |
+| Admin-UI `OfferBuilder` | OK | Leitet `payment_method` und `invoice_due_days` korrekt durch |
+| Typen `ExtendedInquiry` | OK | `payment_method` und `invoice_due_days` vorhanden |
+| **RPC `get_public_offer`** | **KRITISCH** | Gibt `payment_method` und `invoice_due_days` **nicht** zurück — Kunde bekommt immer `null` |
+| PublicOffer Frontend | OK | `isStripePayment`-Logik, "Verbindlich buchen"-Button, Trust-Elemente korrekt |
+| `handleConfirmBooking` | OK | Ruft `confirm_offline_booking` RPC auf |
+| `confirm_offline_booking` RPC | OK | Setzt Status, validiert Zahlungsart, existiert in DB |
+| Edge Function Guard | OK | `create-payment-session` blockiert `on_site`/`invoice_after` mit 400-Fehler |
+| MobileStickyBookingBar | OK | `onConfirmBooking` → `handleConfirmBooking` korrekt verdrahtet |
 
-1. Admin speichert die Zahlungsart → Daten gehen ins Leere
-2. Kunden-Seite (PublicOffer) bekommt immer den Default `deposit_online`
-3. "Verbindlich buchen"-Button für Offline-Zahlungen hat keinen Backend-Flow
+## Kritische Lücke
 
-## Schritt 1 — Datenbank-Migration
+### RPC `get_public_offer` — fehlt `payment_method` + `invoice_due_days`
 
-- `ALTER TABLE v2_events ADD COLUMN payment_method text DEFAULT 'deposit_online'`
-- `ALTER TABLE v2_events ADD COLUMN invoice_due_days integer DEFAULT NULL`
-- View `event_inquiries` neu erstellen mit `ev.payment_method` und `ev.invoice_due_days`
-- Update-Trigger `event_inquiries_update_trigger` erweitern: `payment_method` und `invoice_due_days` nach `v2_events` durchschreiben
-- Insert-Trigger `event_inquiries_insert_trigger` erweitern: neue Felder bei Anlage übernehmen
-- RPC `get_public_offer` ist bereits aktualisiert (Zeile 34-35), liest aber aus der View — funktioniert automatisch nach View-Update
+Die RPC-Funktion in der Datenbank ist noch die alte Version. Sie gibt die beiden neuen Felder nicht an den Kunden weiter. Dadurch:
 
-## Schritt 2 — "Verbindlich buchen"-Flow (Backend)
+- Der Kunde sieht **immer** den Stripe-Zahlungsflow (Fallback auf `deposit_online`)
+- "Vor Ort" und "Rechnung" werden auf der Kundenseite nie angezeigt
+- Der "Verbindlich buchen"-Button erscheint nie
 
-Für `on_site` und `invoice_after` gibt es keinen Stripe-Checkout. Stattdessen:
+**Ursache:** Die vorherige Migration (`20260501193500`) hat die RPC-Funktion zwar als Datei angelegt, sie wurde aber in der Live-DB nicht übernommen (die Datenbank zeigt die alte Funktionsdefinition ohne die beiden Felder).
 
-- Neuer RPC `confirm_offline_booking(p_inquiry_id uuid, p_selected_option_id uuid)`:
-  - Setzt `offer_phase = 'confirmed'` und `status = 'confirmed'`
-  - Erstellt Activity-Log-Eintrag
-  - Gibt `{success: true}` zurück
-- PublicOffer ruft diesen RPC auf statt Stripe
+## Fix
 
-## Schritt 3 — PublicOffer Frontend anpassen
+Eine einzige Migration:
 
-- `handleConfirmBooking()` Funktion: ruft `confirm_offline_booking` RPC auf
-- Nach Erfolg: Confirmation-State anzeigen (wie nach Zahlung)
-- Bestehende `isStripePayment`-Logik ist bereits korrekt implementiert
+- `CREATE OR REPLACE FUNCTION get_public_offer(...)` — ergänzt um:
+  - `'payment_method', COALESCE(ei.payment_method, 'deposit_online')`
+  - `'invoice_due_days', COALESCE(ei.invoice_due_days, 14)`
 
-## Schritt 4 — Edge Function Guard verifizieren
+Keine Frontend-Änderungen nötig — der Code liest die Felder bereits korrekt.
 
-- `create-payment-session` blockiert bereits `on_site`/`invoice_after` — nur prüfen ob es nach DB-Fix korrekt die Daten liest
+## Sekundäre Beobachtungen (nicht blockierend)
 
-## Dateien
-
-| Datei | Änderung |
-|---|---|
-| Migration (neu) | v2_events Spalten, View, Trigger, RPC |
-| `src/pages/PublicOffer.tsx` | `handleConfirmBooking` mit RPC-Aufruf |
+1. **Bestätigungs-E-Mail**: Nach "Verbindlich buchen" wird `notify-customer-response` aufgerufen, aber es gibt keine dedizierte E-Mail-Vorlage für Offline-Buchungsbestätigungen. Der Kunde erhält aktuell keine automatische Bestätigung per E-Mail.
+2. **Activity-Log**: Der `confirm_offline_booking` RPC erstellt keinen Activity-Log-Eintrag. Für CRM-Transparenz wäre ein automatischer Log sinnvoll.
+3. **Bestehende Inquiries**: Alle existierenden Inquiries haben `payment_method = 'deposit_online'` (korrekt als Default).
