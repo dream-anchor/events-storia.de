@@ -355,6 +355,20 @@ export function EmailComposer({
           />
         </div>
 
+        {/* Mobile: Prominent KI button below textarea — always accessible even when header is behind sticky nav */}
+        {!isLocked && !emailDraft && (
+          <div className="sm:hidden px-5 pb-3">
+            <Button
+              onClick={onGenerate}
+              disabled={isGenerating}
+              className="w-full h-11 rounded-xl gap-2 text-sm font-semibold bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 shadow-[0_4px_16px_-4px_rgba(245,158,11,0.4)]"
+            >
+              <Sparkles className="h-4 w-4" />
+              {isGenerating ? "Generiert..." : "Anschreiben mit KI generieren"}
+            </Button>
+          </div>
+        )}
+
         {/* Variablen — klickbar zum Einfügen an Cursor-Position */}
         {!isLocked && (
         <div className="px-5 py-2 border-t border-border/20">
