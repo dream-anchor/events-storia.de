@@ -186,7 +186,7 @@ https://events-storia.de/admin/events/${inquiryId}/edit`;
     if (isOfflineBooking && customer?.email) {
       const paymentInfo = paymentMethod === 'on_site'
         ? 'Zahlung bequem vor Ort am Tag der Veranstaltung.'
-        : 'Sie erhalten die Rechnung nach der Veranstaltung per E-Mail.';
+        : `Die Rechnung wird Ihnen in Kürze per E-Mail zugestellt. Zahlungsziel: ${event.invoice_due_days ?? 14} Tage nach der Veranstaltung.`;
 
       const customerEmailText = `STORIA · EVENTS & CATERING
 
@@ -312,7 +312,53 @@ events-storia.de
       });
     }
 
-    return new Response(JSON.stringify({ success: true, emailSent: sent }), {
+    // --- Automatische LexOffice-Rechnung bei invoice_after ---
+    let invoiceResult: { success: boolean; quotationId?: string; error?: string } | null = null;
+    if (paymentMethod === 'invoice_after') {
+      try {
+        console.log(`[notify-customer-response] Creating LexOffice invoice for inquiry ${inquiryId} (invoice_after)`);
+        const invoiceRes = await fetch(
+          `${supabaseUrl}/functions/v1/create-event-quotation`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              inquiryId,
+              useSelectedQuantity: true,
+              forceDocumentType: 'invoice',
+            }),
+          },
+        );
+        invoiceResult = await invoiceRes.json();
+        console.log('[notify-customer-response] Invoice creation result:', JSON.stringify(invoiceResult));
+
+        // Log activity
+        await supabase.from("activity_logs").insert({
+          entity_type: "event_inquiry",
+          entity_id: event.id,
+          action: "lexoffice_invoice_created",
+          new_value: { invoice_id: invoiceResult?.quotationId, payment_method: 'invoice_after' },
+          metadata: { triggered_by: 'auto_offline_booking' },
+        });
+      } catch (invoiceErr) {
+        const errMsg = invoiceErr instanceof Error ? invoiceErr.message : 'Unknown invoice error';
+        console.error('[notify-customer-response] Auto invoice creation failed:', errMsg);
+
+        // Log failure but don't block the response
+        await supabase.from("activity_logs").insert({
+          entity_type: "event_inquiry",
+          entity_id: event.id,
+          action: "lexoffice_invoice_failed",
+          new_value: { error: errMsg, payment_method: 'invoice_after' },
+          metadata: { triggered_by: 'auto_offline_booking' },
+        });
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, emailSent: sent, invoiceResult }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

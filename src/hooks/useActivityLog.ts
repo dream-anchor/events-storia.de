@@ -97,6 +97,8 @@ export const formatActivityAction = (log: ActivityLog): string => {
     'booking_created': () => 'Buchung erstellt',
     'menu_confirmed': () => 'Menü bestätigt',
     'offline_booking_confirmed': () => 'Verbindlich gebucht (ohne Online-Zahlung)',
+    'lexoffice_invoice_created': () => 'Rechnung automatisch erstellt (LexOffice)',
+    'lexoffice_invoice_failed': () => 'Rechnungserstellung fehlgeschlagen',
     'created': () => 'Anfrage eingegangen',
     'updated': () => 'Daten aktualisiert',
     'package_selected': (l) => {
@@ -133,6 +135,8 @@ export const getActivityIcon = (action: string): string => {
     'booking_created': 'CalendarCheck',
     'menu_confirmed': 'UtensilsCrossed',
     'offline_booking_confirmed': 'CalendarCheck',
+    'lexoffice_invoice_created': 'FileText',
+    'lexoffice_invoice_failed': 'AlertTriangle',
     'created': 'Plus',
     'updated': 'Pencil',
   };

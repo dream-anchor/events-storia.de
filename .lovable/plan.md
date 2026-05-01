@@ -1,48 +1,52 @@
 
-# Fix: Offline-Buchung — E-Mail an Kunden + Activity-Log
+# Automatische Rechnungsstellung bei "Rechnung nach Event"
 
-## Problem
+## Logik
 
-1. **Keine Bestätigungs-E-Mail an Kunden**: Nach "Verbindlich buchen" (on_site / invoice_after) wird nur das Admin-Team per `notify-customer-response` informiert. Der Kunde erhält keine Bestätigung.
-2. **Kein Activity-Log**: Der `confirm_offline_booking` RPC schreibt keinen Eintrag in `activity_logs` — die Buchung erscheint nicht in der CRM-Timeline.
+Bei `invoice_after` soll nach der verbindlichen Buchung automatisch:
+1. Eine LexOffice **Rechnung** (nicht Angebot) erstellt werden
+2. Das Zahlungsziel = Event-Datum + `invoice_due_days` Tage
+3. Die Rechnung wird sofort finalisiert und an den Kunden verschickt
 
-## Lösung
+## Technische Umsetzung
 
-### 1. Kunden-Bestätigungs-E-Mail nach Offline-Buchung
+### 1. `create-event-quotation` erweitern — auch Rechnungen unterstützen
 
-**Edge Function `notify-customer-response` erweitern** — zusätzlich zur Admin-Mail wird eine zweite E-Mail direkt an den Kunden gesendet mit:
+Neuer optionaler Parameter: `forceDocumentType: 'invoice'`
 
-- Betreff: "Ihre Buchung bei STORIA ist bestätigt"
-- Inhalt: Zusammenfassung (Eventdatum, Gästeanzahl, gewählte Option, Zahlungsinformation je nach `payment_method`)
-- Für `on_site`: "Zahlung bequem vor Ort"
-- Für `invoice_after`: "Rechnung wird Ihnen nach dem Event zugestellt"
+Wenn gesetzt:
+- API-Endpoint: `lexoffice.io/v1/invoices?finalize=true` statt `quotations`
+- `paymentConditions`: `{ paymentTermLabel: "Zahlbar innerhalb von X Tagen nach der Veranstaltung", paymentTermDuration: invoice_due_days }`
+- `shippingConditions` hinzufügen (Pflicht bei LexOffice-Rechnungen): `{ shippingType: "service", shippingDate: event_date }`
+- `taxConditions.taxType` bleibt `gross`
+- DB-Update: `lexoffice_invoice_id` und `lexoffice_document_type = 'invoice'` setzen
 
-Die Kunden-E-Mail wird separat in `email_delivery_logs` geloggt.
+### 2. `notify-customer-response` erweitern — automatische Rechnungserstellung
 
-### 2. Activity-Log bei Offline-Buchung
+Nach der Bestätigungs-E-Mail an den Kunden, wenn `payment_method === 'invoice_after'`:
+- Edge Function `create-event-quotation` intern aufrufen mit `forceDocumentType: 'invoice'`
+- Ergebnis loggen (Activity Log + email_delivery_logs)
+- Fehler abfangen, aber Buchungsbestätigung nicht blockieren (fire-and-forget mit Logging)
 
-**`confirm_offline_booking` RPC erweitern** — nach erfolgreicher Statusänderung wird ein Eintrag in `activity_logs` geschrieben:
+### 3. Kunden-Bestätigungs-E-Mail anpassen
 
-```
-action: 'offline_booking_confirmed'
-entity_type: 'event_inquiry'
-entity_id: p_inquiry_id
-new_value: { payment_method, selected_option_id }
-metadata: { triggered_by: 'customer' }
-```
+Text bei `invoice_after` ändern von:
+> "Sie erhalten die Rechnung nach der Veranstaltung per E-Mail."
 
-### 3. Activity-Log Formatierung
-
-`useActivityLog.ts` wird um den neuen Action-Typ `offline_booking_confirmed` ergänzt:
-- Anzeige: "Verbindlich gebucht (ohne Online-Zahlung)"
-- Icon: `CalendarCheck`
+zu:
+> "Die Rechnung wurde Ihnen per E-Mail zugestellt. Zahlungsziel: X Tage nach der Veranstaltung."
 
 ## Technische Schritte
 
 | # | Aufgabe | Typ |
 |---|---------|-----|
-| 1 | Migration: `confirm_offline_booking` RPC um Activity-Log-Insert erweitern | DB Migration |
-| 2 | `notify-customer-response/index.ts` um Kunden-E-Mail erweitern | Edge Function |
-| 3 | `useActivityLog.ts` — neuen Action-Typ `offline_booking_confirmed` hinzufügen | Frontend |
+| 1 | `create-event-quotation/index.ts` — `forceDocumentType: 'invoice'` Support + passende Payment Conditions | Edge Function |
+| 2 | `notify-customer-response/index.ts` — nach Offline-Booking bei `invoice_after` automatisch `create-event-quotation` mit `forceDocumentType: 'invoice'` aufrufen | Edge Function |
+| 3 | Kunden-Bestätigungs-E-Mail Text für `invoice_after` anpassen | Edge Function |
+| 4 | Beide Edge Functions deployen und testen | Deploy |
 
-Keine neuen Tabellen, keine neuen Edge Functions, keine Breaking Changes.
+## Hinweise
+
+- Bei `on_site` wird **keine** Rechnung erstellt — nur die Buchungsbestätigung
+- Die LexOffice-Rechnung wird mit `finalize=true` erstellt und damit direkt als PDF verfügbar
+- Die `lexoffice_invoice_id` wird am Event gespeichert, damit sie im Admin-Panel sichtbar ist
