@@ -10,6 +10,8 @@ import {
 import { AdminLayout } from "./AdminLayout";
 import { DataTable } from "./DataTable";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 import {
   Dialog,
   DialogContent,
@@ -362,6 +364,43 @@ export const LexOfficeInvoicesList = ({ mode = 'invoices' }: LexOfficeInvoicesLi
           onRowClick={handleRowClick}
           isLoading={isLoading}
           pageSize={20}
+          mobileCardRender={(v) => {
+            const effectiveStatus = v.localPaymentStatus === 'paid' ? 'paid' : v.voucherStatus;
+            const dateStr = v.voucherDate
+              ? format(parseISO(v.voucherDate), "dd.MM.yy", { locale: de })
+              : "—";
+            return (
+              <MobileCardItem
+                onClick={() => handleRowClick(v)}
+                title={
+                  <span className="font-mono">{v.voucherNumber || "—"}</span>
+                }
+                subtitle={v.contactName || "—"}
+                meta={
+                  <span className="flex items-center gap-2 text-xs">
+                    {dateStr}
+                    {v.localOrderNumber && (
+                      <>
+                        <span>·</span>
+                        <span className="flex items-center gap-1">
+                          <Link2 className="h-3 w-3" />
+                          {v.localOrderNumber}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                }
+                trailing={
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="font-semibold text-sm whitespace-nowrap">
+                      {v.totalAmount?.toLocaleString('de-DE', { style: 'currency', currency: v.currency || 'EUR' })}
+                    </span>
+                    <InvoiceStatusBadge status={effectiveStatus} />
+                  </div>
+                }
+              />
+            );
+          }}
         />
 
         {vouchersQuery.data?.error && (
