@@ -92,6 +92,8 @@ interface MenuSelection {
   budgetPerPerson?: number | null;
   /** 'per_person' (Default): budgetPerPerson ist Preis pro Gast. 'per_event': budgetPerPerson ist Gesamtpreis fuer den ganzen Anlass. */
   pricingMode?: 'per_person' | 'per_event';
+  equipment?: Array<{ id: string; name: string; pricePerUnit: number; quantity: number }>;
+  staff?: Array<{ id: string; name: string; pricePerUnit: number; quantity: number }>;
 }
 
 interface PublicOfferOption {
