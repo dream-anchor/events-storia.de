@@ -29,6 +29,22 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // GUARD: Zahlungsart prüfen — bei "Vor Ort" und "Rechnung" keine Stripe-Session erlauben
+    {
+      const { data: pmCheck } = await supabase
+        .from('event_inquiries')
+        .select('payment_method')
+        .eq('id', inquiryId)
+        .single();
+      const pm = (pmCheck as { payment_method: string | null } | null)?.payment_method || 'deposit_online';
+      if (pm === 'on_site' || pm === 'invoice_after') {
+        return new Response(
+          JSON.stringify({ error: `Zahlungsart "${pm === 'on_site' ? 'Vor Ort' : 'Rechnung'}" — keine Online-Zahlung vorgesehen.` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
     // ============================================================
     // NEW PATH: Multi-Option Bundling
     // Aktiv, sobald optionQuantities vorhanden ist und mindestens
