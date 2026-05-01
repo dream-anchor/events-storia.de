@@ -2269,6 +2269,7 @@ export type Database = {
           has_elevator: boolean | null
           id: string
           internal_notes: string | null
+          invoice_due_days: number | null
           invoice_lexoffice_id: string | null
           invoice_lexoffice_number: string | null
           is_pickup: boolean | null
@@ -2300,6 +2301,7 @@ export type Database = {
           offer_slug: string | null
           offer_validity_days: number | null
           package_id: string | null
+          payment_method: string | null
           payment_type: string | null
           priority: Database["public"]["Enums"]["v2_event_priority"] | null
           quote_items: Json | null
@@ -2365,6 +2367,7 @@ export type Database = {
           has_elevator?: boolean | null
           id?: string
           internal_notes?: string | null
+          invoice_due_days?: number | null
           invoice_lexoffice_id?: string | null
           invoice_lexoffice_number?: string | null
           is_pickup?: boolean | null
@@ -2396,6 +2399,7 @@ export type Database = {
           offer_slug?: string | null
           offer_validity_days?: number | null
           package_id?: string | null
+          payment_method?: string | null
           payment_type?: string | null
           priority?: Database["public"]["Enums"]["v2_event_priority"] | null
           quote_items?: Json | null
@@ -2461,6 +2465,7 @@ export type Database = {
           has_elevator?: boolean | null
           id?: string
           internal_notes?: string | null
+          invoice_due_days?: number | null
           invoice_lexoffice_id?: string | null
           invoice_lexoffice_number?: string | null
           is_pickup?: boolean | null
@@ -2492,6 +2497,7 @@ export type Database = {
           offer_slug?: string | null
           offer_validity_days?: number | null
           package_id?: string | null
+          payment_method?: string | null
           payment_type?: string | null
           priority?: Database["public"]["Enums"]["v2_event_priority"] | null
           quote_items?: Json | null
@@ -3043,6 +3049,7 @@ export type Database = {
           id: string | null
           inquiry_type: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes: string | null
+          invoice_due_days: number | null
           is_test: boolean | null
           last_edited_at: string | null
           last_edited_by: string | null
@@ -3063,6 +3070,7 @@ export type Database = {
           offer_slug: string | null
           offer_validity_days: number | null
           paid_amount: number | null
+          payment_method: string | null
           payment_type: string | null
           phone: string | null
           preferred_date: string | null
@@ -3696,6 +3704,10 @@ export type Database = {
       }
     }
     Functions: {
+      confirm_offline_booking: {
+        Args: { p_inquiry_id: string; p_selected_option_id: string }
+        Returns: Json
+      }
       generate_booking_number: { Args: never; Returns: string }
       get_next_order_number: {
         Args: { p_prefix: string; p_year: number }
