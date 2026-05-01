@@ -376,6 +376,21 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
       context = buildLegacyContext(rawBody);
     }
 
+    // Payment method instruction for AI
+    const paymentInstruction = (() => {
+      switch (paymentMethod) {
+        case 'on_site':
+          return 'Erwähne, dass die Zahlung bequem vor Ort am Tag der Veranstaltung erfolgt. KEINE Anzahlung oder Vorauszahlung erwähnen.';
+        case 'invoice_after':
+          return 'Erwähne, dass die Rechnung nach der Veranstaltung zugestellt wird. KEINE Anzahlung oder Vorauszahlung erwähnen.';
+        case 'prepayment_online':
+          return 'Erwähne, dass der Gesamtbetrag vorab online bezahlt wird.';
+        case 'deposit_online':
+        default:
+          return 'Erwähne, dass eine Anzahlung vorab online fällig wird.';
+      }
+    })();
+
     // Build system prompt
     const systemPrompt = isMultiOption
       ? `Du bist ein professioneller Mitarbeiter von STORIA München.
@@ -474,8 +489,8 @@ Bei leerem Angebot (keine Menü/Paket-Konfig): kurzer allgemeiner Text mit Datum
 2. "wie besprochen haben wir Ihr Menü finalisiert."
 3. Zusammenfassung der finalen Option — Preis pro Person
 4. ALLE Speisen und Getränke (inkl. Inklusiv-Positionen) auflisten
-5. Eigener Absatz: "Das finale Angebot mit Zahlungsmöglichkeit finden Sie über den folgenden Link."
-6. Info zur Vorauszahlung
+5. Eigener Absatz: "Das finale Angebot finden Sie über den folgenden Link: [ANGEBOT_LINK]"
+6. Zahlungshinweis: ${paymentInstruction}
 7. Schlusssatz mit Kontaktangebot
 8. Signatur`}
 
@@ -505,7 +520,7 @@ STRUKTUR (genau einhalten):
 1. Anrede: "Liebe Frau [Nachname]," / "Lieber Herr [Nachname],"
 2. Bestätigung der wichtigsten Fakten (Datum, Uhrzeit, Gästeanzahl, ggf. Paket) in einem Fließtext-Satz
 3. Hinweis: "Das detaillierte Angebot finden Sie im Anhang."
-4. Info zur Vorauszahlung (100% erforderlich)
+4. Zahlungshinweis: ${paymentInstruction}
 5. Schlusssatz mit Kontaktangebot
 6. Signatur
 
