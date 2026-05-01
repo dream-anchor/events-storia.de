@@ -2168,6 +2168,8 @@ function FinalOfferView({
                 inquiryId={inquiry.id}
                 isSelected={inquiry.selected_option_id === option.id}
                 singleOption={displayOptions.length === 1}
+                paymentMethod={inquiry.payment_method || 'deposit_online'}
+                invoiceDueDays={inquiry.invoice_due_days ?? 14}
               />
             ))}
           </div>
@@ -2182,12 +2184,17 @@ function FinalOptionCard({
   inquiryId,
   isSelected,
   singleOption,
+  paymentMethod,
+  invoiceDueDays,
 }: {
   option: PublicOfferOption;
   inquiryId: string;
   isSelected: boolean;
   singleOption: boolean;
+  paymentMethod: string;
+  invoiceDueDays: number;
 }) {
+  const isStripePayment = paymentMethod === 'deposit_online' || paymentMethod === 'prepayment_online';
   const [isRedirecting, setIsRedirecting] = useState(false);
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
@@ -2351,7 +2358,25 @@ function FinalOptionCard({
 
       {/* Payment */}
       <div className="px-6 py-4 bg-muted/30 border-t border-border/10">
-        {option.offer_mode === 'paket' ? (
+        {!isStripePayment ? (
+          /* VOR-ORT / RECHNUNG — Bestätigung ohne Stripe */
+          totalAmount > 0 ? (
+            <div className="text-center space-y-2">
+              <p className="text-sm font-sans font-medium text-foreground/80">
+                {paymentMethod === 'on_site'
+                  ? 'Zahlung erfolgt vor Ort beim Event'
+                  : `Rechnung nach dem Event — zahlbar innerhalb ${invoiceDueDays} Tagen`}
+              </p>
+              <p className="text-lg font-serif font-bold text-primary">
+                {formatCurrencyDecimal(totalAmount)}
+              </p>
+            </div>
+          ) : (
+            <p className="text-center text-sm text-muted-foreground font-sans py-1">
+              Kontaktieren Sie uns für die Buchung.
+            </p>
+          )
+        ) : option.offer_mode === 'paket' ? (
           /* Paket-Modus: nur Gesamtzahlung */
           <Button
             className="w-full h-12 gap-2 rounded-full font-sans font-semibold text-base shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-80 disabled:hover:translate-y-0"
