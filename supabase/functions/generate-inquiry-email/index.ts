@@ -275,6 +275,7 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     let isMultiOption = false;
     let optionCount = 0;
     let isProposal = false;
+    let paymentMethod = 'deposit_online';
 
     // Previous successful emails for few-shot learning
     let previousEmails: string[] = [];
