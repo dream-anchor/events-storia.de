@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Users } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -924,6 +925,37 @@ export function WizardConfigurator({
           />
         </div>
       </div>
+      )}
+
+      {/* Mobile Sticky Footer — lg:hidden */}
+      {(!isDataLoading || activeStep === 1) && (
+        <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              {selectedPackage ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-bold text-lg tracking-tight">
+                    {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(option.totalAmount)}
+                  </span>
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    {option.guestCount}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-sm text-muted-foreground">Paket wählen</span>
+              )}
+            </div>
+            <Button
+              onClick={nextStepInfo.action}
+              disabled={nextStepInfo.disabled}
+              className="shrink-0 h-11 px-5 rounded-xl gap-2 font-semibold"
+            >
+              {nextStepInfo.label}
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Confirm-Dialog vor Paketwechsel (P0 #2) */}
