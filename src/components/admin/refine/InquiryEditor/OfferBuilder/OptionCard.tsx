@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { InlineCourseEditor } from "./InlineCourseEditor";
 import { InlineDrinkEditor } from "./InlineDrinkEditor";
 import { DrinkSection } from "./DrinkSection";
+import { InlineServiceEditor } from "./InlineServiceEditor";
 import { PriceBreakdown } from "./PriceBreakdown";
 import type {
   OfferBuilderOption,
@@ -352,6 +353,24 @@ export function OptionCard({
               <div className="text-xs text-muted-foreground">
                 Diese Option hat keine Menükonfiguration — der Kunde erhält nur das Anschreiben weiter unten.
               </div>
+            </div>
+          )}
+
+          {/* Equipment & Personal — in allen Modi verfügbar */}
+          {(option.offerMode === 'menu' || option.offerMode === 'paket' || option.offerMode === 'email') && (
+            <div className="space-y-4">
+              <InlineServiceEditor
+                items={option.menuSelection.equipment ?? []}
+                sectionType="equipment"
+                onUpdate={(items) => onUpdate({ menuSelection: { ...option.menuSelection, equipment: items } })}
+                disabled={disabled}
+              />
+              <InlineServiceEditor
+                items={option.menuSelection.staff ?? []}
+                sectionType="staff"
+                onUpdate={(items) => onUpdate({ menuSelection: { ...option.menuSelection, staff: items } })}
+                disabled={disabled}
+              />
             </div>
           )}
 
