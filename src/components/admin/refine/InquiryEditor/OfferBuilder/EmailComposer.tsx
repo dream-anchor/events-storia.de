@@ -223,15 +223,16 @@ export function EmailComposer({
     <div className="space-y-3">
       <Card className="rounded-2xl border-border/30 shadow-sm overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border/30">
-          <div className="flex items-center gap-2">
+        <div className="px-5 py-3 border-b border-border/30 space-y-2">
+          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
             <div className="h-2.5 w-2.5 rounded-full bg-primary" />
             <span className="text-sm font-medium">Anschreiben</span>
             <Badge variant="outline" className="text-[10px] h-5">
               {activeOptionsCount} Option{activeOptionsCount !== 1 ? "en" : ""} aktiv
             </Badge>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="hidden sm:flex items-center gap-1.5">
             {/* Vorlagen-Dropdown — eine saubere Liste */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -280,6 +281,55 @@ export function EmailComposer({
                 {isGenerating ? "Generiert..." : "KI generieren"}
               </Button>
             </motion.div>
+          </div>
+          </div>
+
+          {/* Mobile action row */}
+          <div className="flex sm:hidden items-center gap-1.5">
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1">
+              <Button
+                onClick={onGenerate}
+                disabled={isGenerating || isLocked}
+                size="sm"
+                className="w-full h-9 rounded-xl gap-1.5 text-xs bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 shadow-sm"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {isGenerating ? "Generiert..." : "✨ KI generieren"}
+              </Button>
+            </motion.div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 rounded-xl gap-1 text-xs shrink-0" disabled={isLocked}>
+                  <FileText className="h-3 w-3" />
+                  Vorlage
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72 max-h-96 overflow-y-auto p-1 z-50">
+                {dbVorlagen.map((t) => (
+                  <DropdownMenuItem
+                    key={t.id}
+                    onClick={() => applyDbTemplate(t)}
+                    className="py-2 px-3 rounded-lg cursor-pointer"
+                  >
+                    <span className="text-[13px] font-sans">{t.name}</span>
+                  </DropdownMenuItem>
+                ))}
+                {dbVorlagen.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    Keine Vorlagen vorhanden
+                  </div>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleCopy}
+              className="h-9 w-9 rounded-lg shrink-0"
+              disabled={!emailDraft}
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+            </Button>
           </div>
         </div>
 
