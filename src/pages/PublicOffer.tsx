@@ -1538,7 +1538,7 @@ function ProposalView({
         isPaying={isPaying}
         onPay={handlePayment}
         onConfirmBooking={handleSendMessage}
-replace with handleConfirmBooking
+        onConfirmBooking={handleConfirmBooking}
         isSubmitting={isSubmitting}
         paymentMethod={paymentMethod}
         isSingle={isSingle}
