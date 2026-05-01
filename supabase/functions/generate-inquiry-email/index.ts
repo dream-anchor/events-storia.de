@@ -303,7 +303,7 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
 
       const { data: inquiryData } = await supabaseAdmin
         .from('event_inquiries')
-        .select('contact_name, company_name, email, preferred_date, guest_count, event_type, time_slot, room_selection, message')
+        .select('contact_name, company_name, email, preferred_date, guest_count, event_type, time_slot, room_selection, message, payment_method')
         .eq('id', rawBody.inquiryId)
         .single();
 
