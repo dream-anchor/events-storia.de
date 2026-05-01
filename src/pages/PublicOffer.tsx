@@ -717,13 +717,13 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
   };
 
   return (
-    <section className="bg-background">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl">
+    <section className="border-b border-neutral-200 bg-neutral-50">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 sm:p-6 shadow-sm">
           <button
             onClick={handleDownload}
             disabled={isDownloading}
-            className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl bg-amber-700 hover:bg-amber-800 text-white font-sans font-semibold text-base shadow-[0_4px_15px_rgba(180,83,9,0.25)] hover:shadow-[0_8px_25px_rgba(180,83,9,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            className="flex items-center gap-2.5 min-h-[44px] py-2.5 px-5 rounded-xl border border-neutral-300 bg-white text-neutral-900 font-medium text-sm hover:bg-neutral-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isDownloading ? (
               <Loader2 className="h-5 w-5 animate-spin" />

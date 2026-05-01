@@ -106,10 +106,9 @@ export function OfferArchivePreview() {
   const publicArchiveUrl = `/offer/${id}?archive_version=${versionNum}`;
 
   // Wähle die beste Quelle für die Mail-Anzeige:
-  //   1) delivered_email_html aus dem Mailverlauf (tatsächlich an den Kunden versendet)
-  //   2) email_html aus dem Angebots-Archiv
-  //   3) Fallback: email_content im Plain-Text-Layout (nur wenn kein HTML existiert)
-  const archivedEmailHtml = entry.delivered_email_html || entry.email_html;
+  //   1) email_html aus dem Angebots-Archiv (1:1 wie versendet)
+  //   2) Fallback: email_content im Plain-Text-Layout (nur wenn kein HTML existiert)
+  const archivedEmailHtml = entry.email_html;
   const sanitizedEmailHtml = archivedEmailHtml
     ? DOMPurify.sanitize(archivedEmailHtml, { WHOLE_DOCUMENT: true, ADD_TAGS: ["style"] })
     : null;
@@ -197,7 +196,21 @@ export function OfferArchivePreview() {
                   srcDoc={iframeSrc}
                   title={`Email Archiv v${versionNum}`}
                   sandbox="allow-same-origin"
-                  className="w-full h-[600px] border rounded-lg bg-white"
+                  className="w-full border rounded-lg bg-white"
+                  style={{ minHeight: 400 }}
+                  onLoad={(e) => {
+                    const iframe = e.currentTarget;
+                    try {
+                      const h = iframe.contentDocument?.body?.scrollHeight;
+                      if (h && h > 100) {
+                        iframe.style.height = `${h + 40}px`;
+                      } else {
+                        iframe.style.height = '600px';
+                      }
+                    } catch {
+                      iframe.style.height = '600px';
+                    }
+                  }}
                 />
                 <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
                   <FileText className="h-3 w-3" />
