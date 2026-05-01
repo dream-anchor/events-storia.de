@@ -407,6 +407,8 @@ export function OptionCard({
             discountPercent={option.discountPercent}
             onDiscountChange={(pct) => onUpdate({ discountPercent: pct })}
             disabled={disabled}
+            equipment={option.menuSelection.equipment}
+            staff={option.menuSelection.staff}
           />
           )}
 
