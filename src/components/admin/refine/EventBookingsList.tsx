@@ -110,46 +110,46 @@ export const EventBookingsList = () => {
                 <CardContent className="p-0">
                   <Link
                     to={`/admin/bookings/${booking.id}/edit`}
-                    className="flex items-center justify-between p-4"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3 sm:gap-4"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4">
                       {/* Status Icon */}
-                      <div className={`
-                        w-12 h-12 rounded-full flex items-center justify-center
+                      <div className={cn(
+                        "size-9 sm:size-12 rounded-full flex items-center justify-center shrink-0",
                         ${booking.menu_confirmed 
                           ? 'bg-primary/10 text-primary' 
                           : 'bg-muted text-muted-foreground'}
-                      `}>
+                      )}>
                         {booking.menu_confirmed 
-                          ? <CheckCircle2 className="h-6 w-6" />
-                          : <ChefHat className="h-6 w-6" />}
+                          ? <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6" />
+                          : <ChefHat className="h-5 w-5 sm:h-6 sm:w-6" />}
                       </div>
 
                       {/* Booking Info */}
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-base text-muted-foreground">
+                          <span className="font-mono text-sm sm:text-base text-muted-foreground">
                             {booking.booking_number}
                           </span>
                           {getStatusBadge(booking)}
                         </div>
-                        <p className="font-medium text-lg">
+                        <p className="font-medium text-base sm:text-lg">
                           {booking.company_name || booking.customer_name}
                         </p>
-                        <p className="text-base text-muted-foreground">
+                        <p className="text-sm sm:text-base text-muted-foreground">
                           {getPackageName(booking.package_id)}
                         </p>
                       </div>
                     </div>
 
                     {/* Right Side: Date & Details */}
-                    <div className="text-right">
-                      <div className="flex items-center gap-2 text-base text-muted-foreground justify-end mb-1">
+                    <div className="sm:text-right pl-12 sm:pl-0">
+                      <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground sm:justify-end mb-1">
                         <Calendar className="h-4 w-4" />
                         {booking.event_date && format(parseISO(booking.event_date), "dd.MM.yyyy", { locale: de })}
                         {booking.event_time && `, ${booking.event_time}`}
                       </div>
-                      <div className="flex items-center gap-4 text-base">
+                      <div className="flex items-center gap-3 sm:gap-4 text-sm sm:text-base">
                         <span className="flex items-center gap-1 text-muted-foreground">
                           <Users className="h-4 w-4" />
                           {booking.guest_count} Gäste
@@ -163,7 +163,7 @@ export const EventBookingsList = () => {
                       </div>
                       
                       {!booking.menu_confirmed && (
-                        <Button size="sm" variant="outline" className="mt-2">
+                        <Button size="sm" variant="outline" className="mt-2 w-full sm:w-auto">
                           Menü festlegen
                         </Button>
                       )}
