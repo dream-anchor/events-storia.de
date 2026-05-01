@@ -12,6 +12,8 @@ import {
   User,
   Clock,
   ChefHat,
+  Pencil,
+  FileEdit,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -400,12 +402,16 @@ export function MultiOfferComposer({
         <div>
           <h3 className="text-lg font-semibold text-foreground">Multi-Paket-Angebot</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            {isLocked ? "Dieses Angebot wurde versendet und ist schreibgeschützt" : "Erstellen Sie bis zu 5 Optionen mit unterschiedlichen Paketen"}
+            {isLocked
+              ? "Zum Bearbeiten auf den Button unten klicken"
+              : hasBeenSentBefore
+                ? "Passen Sie das Angebot an und senden Sie es erneut"
+                : "Erstellen Sie bis zu 5 Optionen mit unterschiedlichen Paketen"}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="text-sm font-medium">Version {currentVersion}</Badge>
-          {!isLocked && (
+          {!isLocked && !hasBeenSentBefore && (
             <MenuImporter
               guestCount={guestCount}
               currentOptionCount={options.length}
@@ -423,25 +429,56 @@ export function MultiOfferComposer({
 
       {/* Locked Banner */}
       {isLocked && (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-2xl border border-border bg-muted/50">
-          <div className="flex items-center justify-between px-5 py-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center">
-                <Lock className="h-5 w-5 text-muted-foreground" />
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-2xl border border-border bg-muted/30">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-5 py-5">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-xl bg-neutral-100 flex items-center justify-center shrink-0">
+                <Lock className="h-5 w-5 text-neutral-400" />
               </div>
               <div>
-                <span className="font-medium text-foreground">Angebot v{inquiry.current_offer_version || currentVersion} versendet</span>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                <span className="font-medium text-foreground">Angebot wurde versendet</span>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">v{inquiry.current_offer_version || currentVersion}</Badge>
                   <span className="flex items-center gap-1"><User className="h-3 w-3" /> {getAdminDisplayName(inquiry.offer_sent_by)}</span>
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {inquiry.offer_sent_at ? format(parseISO(inquiry.offer_sent_at), "dd.MM.yy 'um' HH:mm", { locale: de }) : "-"}</span>
                 </div>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={async () => { setIsUnlocking(true); await unlockForNewVersion(); setIsUnlocking(false); setLocalUnlocked(true); }} disabled={isUnlocking} className="h-10 px-4 rounded-xl gap-2">
-              {isUnlocking ? (<><Loader2 className="h-4 w-4 animate-spin" /> Entsperre...</>) : (<><Unlock className="h-4 w-4" /> Neues Angebot erstellen</>)}
-            </Button>
+            <motion.button
+              onClick={async () => { setIsUnlocking(true); await unlockForNewVersion(); setIsUnlocking(false); setLocalUnlocked(true); }}
+              disabled={isUnlocking}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={cn(
+                "w-full sm:w-auto h-12 px-6 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap shrink-0",
+                "bg-gradient-to-r from-amber-500 to-amber-600 text-white",
+                "shadow-[0_4px_20px_-4px_rgba(245,158,11,0.5)]",
+                "hover:shadow-[0_8px_30px_-4px_rgba(245,158,11,0.6)]",
+                "transition-shadow duration-300",
+                "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+              )}
+            >
+              {isUnlocking ? (<><Loader2 className="h-4 w-4 animate-spin" /> Wird entsperrt…</>) : (<><Pencil className="h-4 w-4" /> Angebot bearbeiten</>)}
+            </motion.button>
           </div>
-          <div className="px-5 pb-4 text-sm text-muted-foreground">Die gesendete Konfiguration ist schreibgeschützt. Für Änderungen erstellen Sie ein neues Angebot.</div>
+          <div className="px-5 pb-4 text-xs text-muted-foreground">Änderungen werden automatisch als neue Version gespeichert.</div>
+        </motion.div>
+      )}
+
+      {/* Draft Banner — shown after unlocking a previously sent offer */}
+      {!isLocked && hasBeenSentBefore && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-5 py-3">
+          <FileEdit className="h-4 w-4 text-neutral-500 shrink-0" />
+          <span className="text-sm text-foreground font-medium">Version {currentVersion} — Entwurf</span>
+          <span className="text-xs text-muted-foreground">Änderungen sind noch nicht gesendet</span>
+          <div className="ml-auto">
+            <MenuImporter
+              guestCount={guestCount}
+              currentOptionCount={options.length}
+              onImportMultiple={(imported) => addImportedOptions(imported)}
+              disabled={options.length >= 5}
+            />
+          </div>
         </motion.div>
       )}
 
