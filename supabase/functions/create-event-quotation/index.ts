@@ -456,7 +456,7 @@ serve(async (req) => {
   }
 
   try {
-    const { inquiryId, useSelectedQuantity } = await req.json();
+    const { inquiryId, useSelectedQuantity, forceDocumentType } = await req.json();
     if (!inquiryId) throw new Error('inquiryId fehlt');
 
     const lexofficeApiKey = Deno.env.get('LEXOFFICE_API_KEY');
@@ -546,6 +546,9 @@ serve(async (req) => {
 
     // 6b. Zahlungs-Konditionen — pro Inquiry, Fallback auf site_settings.default_payment_terms
     const inq = inquiry as Record<string, unknown>;
+    const isInvoiceMode = forceDocumentType === 'invoice';
+    const paymentMethod = inq.payment_method as string | null;
+    const invoiceDueDays = (inq.invoice_due_days as number | null) ?? 14;
     let depositPercent = inq.deposit_percent as number | null | undefined;
     let depositDueDays = inq.deposit_due_days as number | null | undefined;
     let offerValidityDays = inq.offer_validity_days as number | null | undefined;
@@ -562,23 +565,33 @@ serve(async (req) => {
       if (offerValidityDays == null) offerValidityDays = defaults.offer_validity_days ?? 14;
     }
 
-    const paymentConditions = buildPaymentConditions(depositPercent, depositDueDays);
-    const remarkText = buildRemarkText(depositPercent, offerValidityDays);
+    // For invoice mode (invoice_after), use invoice-specific payment conditions
+    const paymentConditions = isInvoiceMode
+      ? {
+          paymentTermLabel: `Zahlbar innerhalb von ${invoiceDueDays} Tagen nach der Veranstaltung`,
+          paymentTermDuration: invoiceDueDays,
+        }
+      : buildPaymentConditions(depositPercent, depositDueDays);
 
-    // 7. LexOffice Angebot aufbauen — Empfänger aus resolved billing
-    const quotationPayload = {
+    const remarkText = isInvoiceMode
+      ? `Vielen Dank für Ihre Buchung. Das Zahlungsziel beträgt ${invoiceDueDays} Tage nach dem Veranstaltungsdatum.`
+      : buildRemarkText(depositPercent, offerValidityDays);
+
+    // 7. LexOffice Dokument aufbauen — Empfänger aus resolved billing
+    const addressBlock = {
+      name: billingAddr.name || inquiry.contact_name,
+      supplement: billingAddr.name && inquiry.contact_name && billingAddr.name !== inquiry.contact_name
+        ? inquiry.contact_name
+        : undefined,
+      street: billingAddr.street || '',
+      zip: billingAddr.postalCode || '',
+      city: billingAddr.city || '',
+      countryCode: billingAddr.countryCode,
+    };
+
+    const documentPayload: Record<string, unknown> = {
       voucherDate: new Date().toISOString(),
-      expirationDate: new Date(Date.now() + offerValidityDays * 24 * 60 * 60 * 1000).toISOString(),
-      address: {
-        name: billingAddr.name || inquiry.contact_name,
-        supplement: billingAddr.name && inquiry.contact_name && billingAddr.name !== inquiry.contact_name
-          ? inquiry.contact_name
-          : undefined,
-        street: billingAddr.street || '',
-        zip: billingAddr.postalCode || '',
-        city: billingAddr.city || '',
-        countryCode: billingAddr.countryCode,
-      },
+      address: addressBlock,
       lineItems,
       totalPrice: { currency: 'EUR' },
       taxConditions: { taxType: 'gross' },
@@ -587,17 +600,32 @@ serve(async (req) => {
       remark: remarkText,
     };
 
-    console.log('Creating LexOffice quotation:', JSON.stringify(quotationPayload, null, 2));
+    if (isInvoiceMode) {
+      // LexOffice invoices require shippingConditions
+      const eventDate = inq.preferred_date as string | null;
+      documentPayload.shippingConditions = {
+        shippingType: 'service',
+        shippingDate: eventDate
+          ? new Date(eventDate + 'T12:00:00Z').toISOString()
+          : new Date().toISOString(),
+      };
+    } else {
+      // Quotations need expirationDate
+      documentPayload.expirationDate = new Date(Date.now() + offerValidityDays * 24 * 60 * 60 * 1000).toISOString();
+    }
+
+    const endpoint = isInvoiceMode ? 'invoices' : 'quotations';
+    console.log(`Creating LexOffice ${endpoint}:`, JSON.stringify(documentPayload, null, 2));
 
     // 7. LexOffice API
-    const response = await fetch('https://api.lexoffice.io/v1/quotations?finalize=true', {
+    const response = await fetch(`https://api.lexoffice.io/v1/${endpoint}?finalize=true`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${lexofficeApiKey}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify(quotationPayload),
+      body: JSON.stringify(documentPayload),
     });
 
     if (!response.ok) {
@@ -607,23 +635,26 @@ serve(async (req) => {
     }
 
     const result = await response.json();
-    console.log('LexOffice quotation created:', result);
+    console.log(`LexOffice ${endpoint} created:`, result);
 
-    // Quotation-ID an das Inquiry zurueckschreiben, damit PublicOffer-PDF-Download funktioniert.
-    // download-public-offer-pdf liest aktuell lexoffice_invoice_id — wir schreiben in beide Felder,
-    // damit sowohl Maestro-Liste als auch Public-PDF die ID finden.
+    // Document-ID an das Inquiry zurueckschreiben
     if (result?.id) {
+      const updateFields: Record<string, unknown> = {
+        lexoffice_invoice_id: result.id,
+      };
+      if (isInvoiceMode) {
+        // For invoices, don't set quotation_id — it's not a quotation
+      } else {
+        updateFields.lexoffice_quotation_id = result.id;
+      }
       await supabase
         .from('event_inquiries')
-        .update({
-          lexoffice_quotation_id: result.id,
-          lexoffice_invoice_id: result.id,
-        } as Record<string, unknown>)
+        .update(updateFields)
         .eq('id', inquiryId);
     }
 
     return new Response(
-      JSON.stringify({ success: true, quotationId: result.id }),
+      JSON.stringify({ success: true, quotationId: result.id, documentType: endpoint }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
 
