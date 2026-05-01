@@ -1,25 +1,39 @@
-## Umsetzung: Archivierte Mails als Original-HTML anzeigen
+# Fix: Archiv-Ansicht, LexOffice-PDF-Vorschau, monochromer Download-Button
 
-### Änderungen
+## 1. Archiv zeigt Original-Mail (1:1)
 
-**1. Dependencies**
-- `dompurify` + `@types/dompurify` zu `package.json` hinzufügen
+**Problem:** `useOfferHistoryVersion` sucht in `v2_event_emails` per Zeitfenster, findet aber nichts wegen UUID-Mismatch. `email_html` ist in der DB vorhanden, wird aber übergangen.
 
-**2. `src/components/admin/shared/ConversationThread.tsx`**
-`MessageBubble` erweitern:
-- State `viewMode: 'html' | 'text'` (Default `'html'` falls `body_html` vorhanden, sonst `'text'`)
-- **Kollabiert:** unverändert Plain-Text-Preview (3 Zeilen)
-- **Expandiert:**
-  - Toggle-Pill „Original / Text" oben rechts (nur wenn `body_html` vorhanden)
-  - Bei `viewMode='html'`: weißer Container mit `<iframe sandbox="allow-same-origin" srcDoc={DOMPurify.sanitize(body_html)} />`
-  - Iframe-Höhe dynamisch via `onLoad` → `contentDocument.body.scrollHeight` (max 800px, dann scrollbar)
-  - Bei `viewMode='text'`: aktuelles `<p>`-Rendering mit `body_text`
-- Outbound-Bubbles: HTML-Iframe in weißem Container statt direkt auf `bg-primary`
+**Fix `src/hooks/useOfferHistory.ts`:**
+- Den gesamten `v2_event_emails`-Lookup (Zeilen 82–110) entfernen.
+- `email_html` direkt aus dem Query-Ergebnis verwenden — es kommt bereits aus `inquiry_offer_history`.
+- `delivered_email_html` als Feld entfernen (nicht mehr nötig, war die Lookup-Quelle).
 
-### Was unverändert bleibt
-- Real-Time-Subscription, Send-Logik, Edge Functions, DB-Schema
-- Plain-Text-Preview im kollabierten Zustand
-- `OfferArchivePreview` (nutzt bereits Iframe-srcDoc)
+**Fix `src/components/admin/refine/InquiryEditor/OfferArchivePreview.tsx`:**
+- Priorität vereinfachen: `email_html` → Plain-Text-Fallback.
+- `delivered_email_html`-Referenz entfernen.
+- Iframe-Höhe dynamisch per `onLoad` an `contentDocument.body.scrollHeight` anpassen.
 
-### Erwartetes Ergebnis
-Klick auf archivierte Mail in Maestro → expandiert → zeigt **exakt das HTML**, das der Kunde im Postfach sah (Logo, Header, Tabellen, Buttons, Styling). Sandbox verhindert CSS-Leaks ins Maestro-UI. DOMPurify schützt vor schädlichem HTML aus Inbound-Mails. Toggle erlaubt jederzeit Wechsel auf Plain-Text.
+## 2. LexOffice-PDF in Vorschau wieder auto-laden
+
+**Fix `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx`:**
+- Neuen `useEffect` hinzufügen, der `loadLexofficePdf()` automatisch aufruft, **nur wenn** `inquiry.lexoffice_quotation_id` bereits gesetzt ist.
+- Kein Auto-Create — nur vorhandene PDFs werden geladen.
+
+## 3. PDF-Download-Button monochrom restylen
+
+**Fix `src/pages/PublicOffer.tsx` (`PdfDownloadSection`):**
+- Container: `max-w-3xl`, weiße Card mit `border-neutral-200`, `rounded-2xl`, `bg-neutral-50`.
+- Button: `border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50`, kein Schatten, kein Translate-Effekt.
+- Touch-Target `min-h-[44px]` beibehalten.
+
+## Sicherheit (Live-System)
+- Keine DB-Migrationen, keine Edge-Function-Änderungen.
+- Keine automatische LexOffice-Quotation-Erstellung.
+- Reine UI- und Read-Path-Anpassungen.
+
+## Geänderte Dateien
+- `src/hooks/useOfferHistory.ts`
+- `src/components/admin/refine/InquiryEditor/OfferArchivePreview.tsx`
+- `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx`
+- `src/pages/PublicOffer.tsx`
