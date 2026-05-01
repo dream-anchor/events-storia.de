@@ -323,6 +323,8 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
           depositPercent={inquiry.deposit_percent}
           depositDueDays={inquiry.deposit_due_days}
           offerValidityDays={inquiry.offer_validity_days}
+          paymentMethod={inquiry.payment_method}
+          invoiceDueDays={inquiry.invoice_due_days}
           onChange={(field, value) => onFieldChange(field, value)}
           isReadOnly={inquiry.status === 'confirmed'}
         />
