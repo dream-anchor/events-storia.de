@@ -218,6 +218,7 @@ Event: ${event.occasion || 'Veranstaltung'}
 Datum: ${eventDate}
 Gästeanzahl: ${guestCount}
 Gewählte Option: ${selectedOptionLabel}
+${serviceLines ? `\n${serviceLines.trim()}\n` : ''}
 
 Zahlung: ${paymentInfo}
 
