@@ -35,6 +35,13 @@ interface DrinkEinzelnItemDB {
   quantity?: number | null;
 }
 
+interface EquipmentItemDB {
+  id: string;
+  name: string;
+  pricePerUnit: number;
+  quantity: number;
+}
+
 interface MenuSelectionDB {
   courses?: CourseSelectionDB[];
   drinks?: DrinkSelectionDB[];
@@ -46,6 +53,8 @@ interface MenuSelectionDB {
   drinksPauschalePrice?: number | null;
   drinksPauschaleDescription?: string | null;
   drinksEinzeln?: DrinkEinzelnItemDB[];
+  equipment?: EquipmentItemDB[];
+  staff?: EquipmentItemDB[];
 }
 
 interface OfferOption {
