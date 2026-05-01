@@ -62,6 +62,8 @@ interface PublicInquiry {
   deposit_percent?: number | null;
   deposit_due_days?: number | null;
   offer_validity_days?: number | null;
+  payment_method?: string | null;
+  invoice_due_days?: number | null;
 }
 
 interface CourseSelection {
