@@ -356,24 +356,6 @@ export function OptionCard({
             </div>
           )}
 
-          {/* Equipment & Personal — in allen Modi verfügbar */}
-          {(option.offerMode === 'menu' || option.offerMode === 'paket' || option.offerMode === 'email') && (
-            <div className="space-y-4">
-              <InlineServiceEditor
-                items={option.menuSelection.equipment ?? []}
-                sectionType="equipment"
-                onUpdate={(items) => onUpdate({ menuSelection: { ...option.menuSelection, equipment: items } })}
-                disabled={disabled}
-              />
-              <InlineServiceEditor
-                items={option.menuSelection.staff ?? []}
-                sectionType="staff"
-                onUpdate={(items) => onUpdate({ menuSelection: { ...option.menuSelection, staff: items } })}
-                disabled={disabled}
-              />
-            </div>
-          )}
-
           {/* Modus-spezifischer Content */}
           {option.offerMode === 'menu' && (
             <MenuContent
@@ -426,6 +408,24 @@ export function OptionCard({
             onDiscountChange={(pct) => onUpdate({ discountPercent: pct })}
             disabled={disabled}
           />
+          )}
+
+          {/* Equipment & Personal — in allen Modi verfügbar */}
+          {(option.offerMode === 'menu' || option.offerMode === 'paket' || option.offerMode === 'email') && (
+            <div className="space-y-4">
+              <InlineServiceEditor
+                items={option.menuSelection.equipment ?? []}
+                sectionType="equipment"
+                onUpdate={(items) => onUpdate({ menuSelection: { ...option.menuSelection, equipment: items } })}
+                disabled={disabled}
+              />
+              <InlineServiceEditor
+                items={option.menuSelection.staff ?? []}
+                sectionType="staff"
+                onUpdate={(items) => onUpdate({ menuSelection: { ...option.menuSelection, staff: items } })}
+                disabled={disabled}
+              />
+            </div>
           )}
         </div>
       </Card>
