@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { useEventBookings, BookingStatus } from "@/hooks/useEventBookings";
 import { useList } from "@refinedev/core";
 
@@ -116,9 +117,9 @@ export const EventBookingsList = () => {
                       {/* Status Icon */}
                       <div className={cn(
                         "size-9 sm:size-12 rounded-full flex items-center justify-center shrink-0",
-                        ${booking.menu_confirmed 
-                          ? 'bg-primary/10 text-primary' 
-                          : 'bg-muted text-muted-foreground'}
+                        booking.menu_confirmed 
+                          ? "bg-primary/10 text-primary" 
+                          : "bg-muted text-muted-foreground"
                       )}>
                         {booking.menu_confirmed 
                           ? <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6" />
