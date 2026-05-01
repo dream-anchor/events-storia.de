@@ -1537,7 +1537,6 @@ function ProposalView({
         showDeposit={showDeposit}
         isPaying={isPaying}
         onPay={handlePayment}
-        onConfirmBooking={handleSendMessage}
         onConfirmBooking={handleConfirmBooking}
         isSubmitting={isSubmitting}
         paymentMethod={paymentMethod}
