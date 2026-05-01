@@ -1063,6 +1063,57 @@ function ProposalView({
     }
   };
 
+  // ACTION: Verbindlich buchen — für on_site / invoice_after (kein Stripe)
+  const handleConfirmBooking = async () => {
+    const optId = selectedOptionId;
+    if (!optId || !canPay) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    haptic('select');
+    try {
+      const { data: result, error: rpcError } = await supabase.rpc(
+        "confirm_offline_booking" as never,
+        {
+          p_inquiry_id: inquiry.id,
+          p_selected_option_id: optId,
+        } as never
+      );
+      const res = result as unknown as { success: boolean; error?: string };
+      if (rpcError || !res?.success) {
+        setSubmitError(res?.error || "Fehler beim Buchen");
+        toast.error(res?.error || "Fehler beim Buchen");
+        return;
+      }
+
+      // Notify admin about booking
+      supabase.functions.invoke("notify-customer-response", {
+        body: { inquiryId: inquiry.id },
+      }).catch(() => {});
+
+      try { window.localStorage.removeItem(QUANTITY_STORAGE_KEY); } catch { /* ignore */ }
+
+      onSubmitted({
+        inquiry: {
+          ...inquiry,
+          offer_phase: "confirmed",
+          selected_option_id: optId,
+        },
+        options,
+        customer_response: {
+          id: crypto.randomUUID(),
+          selected_option_id: optId,
+          customer_notes: paymentMethod === 'on_site' ? 'Verbindlich gebucht — Zahlung vor Ort' : `Verbindlich gebucht — Rechnung nach Event`,
+          responded_at: new Date().toISOString(),
+        },
+      });
+    } catch {
+      setSubmitError("Netzwerkfehler — bitte versuchen Sie es erneut");
+      toast.error("Netzwerkfehler — bitte versuchen Sie es erneut");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // ACTION: Nachricht senden — submit_offer_response-Flow
   const handleSendMessage = async () => {
     if (!selectedOptionId || !notes.trim()) return;
@@ -1348,7 +1399,7 @@ function ProposalView({
                 /* VOR-ORT / RECHNUNG — kein Stripe, nur Bestätigung */
                 <div className="grid gap-3 grid-cols-1">
                   <Button
-                    onClick={handleSendMessage}
+                    onClick={handleConfirmBooking}
                     disabled={busy || !canPay}
                     className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                   >
@@ -1487,6 +1538,7 @@ function ProposalView({
         isPaying={isPaying}
         onPay={handlePayment}
         onConfirmBooking={handleSendMessage}
+replace with handleConfirmBooking
         isSubmitting={isSubmitting}
         paymentMethod={paymentMethod}
         isSingle={isSingle}
