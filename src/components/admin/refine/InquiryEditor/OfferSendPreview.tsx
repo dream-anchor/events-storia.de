@@ -546,7 +546,8 @@ export function OfferSendPreview({
               ) : (
                 <TestTube2 className="h-4 w-4" />
               )}
-              Vorschau-Mail an mich & Ristorante
+              <span className="hidden sm:inline">Vorschau-Mail an mich & Ristorante</span>
+              <span className="sm:hidden">Vorschau</span>
             </Button>
 
             <Button
