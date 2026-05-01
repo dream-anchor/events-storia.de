@@ -855,12 +855,16 @@ export const SmartInquiryEditor = () => {
 
       {/* Main Content — Tab-Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full justify-start bg-muted/30 rounded-xl p-1 h-auto overflow-x-auto scrollbar-hide flex sm:grid-cols-none">
+        <div className="relative">
+        <TabsList className="w-full justify-start bg-muted/30 rounded-xl p-1 h-auto overflow-x-auto scrollbar-hide flex">
           <TabsTrigger value="angebot" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Angebot</TabsTrigger>
           <TabsTrigger value="kommunikation" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Kommunikation</TabsTrigger>
           <TabsTrigger value="aufgaben" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Aufgaben</TabsTrigger>
           <TabsTrigger value="details" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Details</TabsTrigger>
         </TabsList>
+        {/* Mobile scroll hint — gradient fade on right edge */}
+        <div className="sm:hidden pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent rounded-r-xl" />
+        </div>
 
         {/* Tab: Angebot */}
         <TabsContent value="angebot" className="mt-6 space-y-6">
