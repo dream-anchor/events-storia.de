@@ -12,6 +12,7 @@ import type {
   CourseSelection,
   DrinkSelection,
   MenuItem,
+  EquipmentItem,
 } from '../MenuComposer/types';
 
 export type {
@@ -24,6 +25,7 @@ export type {
   CourseSelection,
   DrinkSelection,
   MenuItem,
+  EquipmentItem,
 };
 
 export { COURSE_ICONS, DRINK_ICONS } from '../MenuComposer/types';
@@ -89,6 +91,8 @@ export interface OfferBuilderOption {
     drinksPauschalePrice?: number | null;
     drinksPauschaleDescription?: string | null;
     drinksEinzeln?: DrinkEinzelnItem[];
+    equipment?: EquipmentItem[];
+    staff?: EquipmentItem[];
   };
   totalAmount: number;
   stripePaymentLinkId: string | null;

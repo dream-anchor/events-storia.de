@@ -1,52 +1,75 @@
 
-# Automatische Rechnungsstellung bei "Rechnung nach Event"
+## Equipment & Personal im OfferBuilder
 
-## Logik
+Zwei neue Sektionen unterhalb der Getränke in jeder Angebotsoption (Menu, Paket, Email-Modus). Der Admin gibt manuell Zeilen ein (Name, Preis, Menge). Beide erscheinen als eigene Positionen auf dem LexOffice-Angebot/Rechnung mit 19% MwSt.
 
-Bei `invoice_after` soll nach der verbindlichen Buchung automatisch:
-1. Eine LexOffice **Rechnung** (nicht Angebot) erstellt werden
-2. Das Zahlungsziel = Event-Datum + `invoice_due_days` Tage
-3. Die Rechnung wird sofort finalisiert und an den Kunden verschickt
+---
 
-## Technische Umsetzung
+### 1. Datenmodell erweitern (kein DB-Change nötig)
 
-### 1. `create-event-quotation` erweitern — auch Rechnungen unterstützen
+`menu_selection` (JSONB) wird um zwei Arrays erweitert:
 
-Neuer optionaler Parameter: `forceDocumentType: 'invoice'`
+```typescript
+interface EquipmentItem {
+  id: string;
+  name: string;
+  pricePerUnit: number;  // Brutto
+  quantity: number;
+}
+```
 
-Wenn gesetzt:
-- API-Endpoint: `lexoffice.io/v1/invoices?finalize=true` statt `quotations`
-- `paymentConditions`: `{ paymentTermLabel: "Zahlbar innerhalb von X Tagen nach der Veranstaltung", paymentTermDuration: invoice_due_days }`
-- `shippingConditions` hinzufügen (Pflicht bei LexOffice-Rechnungen): `{ shippingType: "service", shippingDate: event_date }`
-- `taxConditions.taxType` bleibt `gross`
-- DB-Update: `lexoffice_invoice_id` und `lexoffice_document_type = 'invoice'` setzen
+Neue Felder in `OfferBuilderOption.menuSelection`:
+- `equipment: EquipmentItem[]`
+- `staff: EquipmentItem[]` (gleiche Struktur)
 
-### 2. `notify-customer-response` erweitern — automatische Rechnungserstellung
+Kein DB-Migrations nötig — alles lebt im bestehenden JSONB-Feld `menu_selection`.
 
-Nach der Bestätigungs-E-Mail an den Kunden, wenn `payment_method === 'invoice_after'`:
-- Edge Function `create-event-quotation` intern aufrufen mit `forceDocumentType: 'invoice'`
-- Ergebnis loggen (Activity Log + email_delivery_logs)
-- Fehler abfangen, aber Buchungsbestätigung nicht blockieren (fire-and-forget mit Logging)
+### 2. Type-System aktualisieren
 
-### 3. Kunden-Bestätigungs-E-Mail anpassen
+**MenuComposer/types.ts**: `EquipmentItem` Interface + Export.
 
-Text bei `invoice_after` ändern von:
-> "Sie erhalten die Rechnung nach der Veranstaltung per E-Mail."
+**OfferBuilder/types.ts**: `menuSelection` um `equipment?` und `staff?` erweitern.
 
-zu:
-> "Die Rechnung wurde Ihnen per E-Mail zugestellt. Zahlungsziel: X Tage nach der Veranstaltung."
+### 3. Neue UI-Komponente: `InlineServiceEditor`
 
-## Technische Schritte
+Wiederverwendbare Komponente für beide Sektionen (Equipment + Personal). Gleiche Inline-Edit-UX wie `DrinkSection` im Einzeln-Modus:
+- Zeile: Name (Freitext) | Preis (€) | Menge (Zahl) | Löschen-Button
+- "+" Button zum Hinzufügen neuer Zeilen
+- Sektionsheader: "Equipment" bzw. "Personal" mit Icon (Wrench / Users)
 
-| # | Aufgabe | Typ |
-|---|---------|-----|
-| 1 | `create-event-quotation/index.ts` — `forceDocumentType: 'invoice'` Support + passende Payment Conditions | Edge Function |
-| 2 | `notify-customer-response/index.ts` — nach Offline-Booking bei `invoice_after` automatisch `create-event-quotation` mit `forceDocumentType: 'invoice'` aufrufen | Edge Function |
-| 3 | Kunden-Bestätigungs-E-Mail Text für `invoice_after` anpassen | Edge Function |
-| 4 | Beide Edge Functions deployen und testen | Deploy |
+### 4. OptionCard.tsx: Sektionen einbinden
 
-## Hinweise
+In `MenuContent` und `PaketContent` nach der DrinkSection:
+1. Equipment-Sektion (`InlineServiceEditor`)
+2. Personal-Sektion (`InlineServiceEditor`)
 
-- Bei `on_site` wird **keine** Rechnung erstellt — nur die Buchungsbestätigung
-- Die LexOffice-Rechnung wird mit `finalize=true` erstellt und damit direkt als PDF verfügbar
-- Die `lexoffice_invoice_id` wird am Event gespeichert, damit sie im Admin-Panel sichtbar ist
+Im Email-Modus ebenfalls verfügbar (Equipment/Personal können auch ohne Menü relevant sein).
+
+### 5. PriceBreakdown.tsx: Positionen anzeigen
+
+Equipment- und Personal-Summen separat im Preisüberblick auflisten.
+
+### 6. LexOffice Edge Function: Positionen als Rechnungszeilen
+
+**create-event-quotation/index.ts**: In `buildLineItems()`:
+- Equipment-Array → je eine Zeile mit 19% MwSt, `unitName: 'Stk'`
+- Staff-Array → je eine Zeile mit 19% MwSt, `unitName: 'Stk'`
+
+Gilt für beide Modi (`per_person` und `per_event`).
+
+### 7. Total-Berechnung
+
+Equipment- und Personal-Summen fließen in `totalAmount` ein. Die Berechnung im `useOfferBuilder` Hook wird entsprechend erweitert.
+
+---
+
+### Dateien die geändert werden
+
+| Datei | Änderung |
+|---|---|
+| `src/components/admin/refine/InquiryEditor/MenuComposer/types.ts` | `EquipmentItem` Interface |
+| `src/components/admin/refine/InquiryEditor/OfferBuilder/types.ts` | menuSelection erweitern |
+| `src/components/admin/refine/InquiryEditor/OfferBuilder/InlineServiceEditor.tsx` | **Neu** — wiederverwendbare Komponente |
+| `src/components/admin/refine/InquiryEditor/OfferBuilder/OptionCard.tsx` | Equipment/Personal Sektionen einbinden |
+| `src/components/admin/refine/InquiryEditor/OfferBuilder/PriceBreakdown.tsx` | Summen anzeigen |
+| `supabase/functions/create-event-quotation/index.ts` | LexOffice-Zeilen für Equipment/Personal |

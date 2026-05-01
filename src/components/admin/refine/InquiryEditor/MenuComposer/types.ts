@@ -113,3 +113,11 @@ export const DRINK_ICONS: Record<DrinkGroupType, string> = {
   coffee: '☕',
   custom: '🥂',
 };
+
+/** Generisches Item für Equipment und Personal */
+export interface EquipmentItem {
+  id: string;
+  name: string;
+  pricePerUnit: number; // Brutto
+  quantity: number;
+}

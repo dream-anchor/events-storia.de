@@ -35,6 +35,13 @@ interface DrinkEinzelnItemDB {
   quantity?: number | null;
 }
 
+interface EquipmentItemDB {
+  id: string;
+  name: string;
+  pricePerUnit: number;
+  quantity: number;
+}
+
 interface MenuSelectionDB {
   courses?: CourseSelectionDB[];
   drinks?: DrinkSelectionDB[];
@@ -46,6 +53,8 @@ interface MenuSelectionDB {
   drinksPauschalePrice?: number | null;
   drinksPauschaleDescription?: string | null;
   drinksEinzeln?: DrinkEinzelnItemDB[];
+  equipment?: EquipmentItemDB[];
+  staff?: EquipmentItemDB[];
 }
 
 interface OfferOption {
@@ -151,6 +160,22 @@ function buildLineItems(
         tax: DRINK_TAX,
         unitName: 'Stk',
       });
+    }
+
+    // --- Equipment: 19% MwSt ---
+    for (const eq of (ms.equipment || [])) {
+      if (!eq.name || eq.pricePerUnit <= 0 || eq.quantity <= 0) continue;
+      const lineBrutto = round2(eq.pricePerUnit * eq.quantity);
+      const name = eq.quantity > 1 ? `${eq.quantity} × ${eq.name}` : eq.name;
+      entries.push({ name, description: '', brutto: lineBrutto, tax: DRINK_TAX, unitName: 'Stk' });
+    }
+
+    // --- Personal: 19% MwSt ---
+    for (const st of (ms.staff || [])) {
+      if (!st.name || st.pricePerUnit <= 0 || st.quantity <= 0) continue;
+      const lineBrutto = round2(st.pricePerUnit * st.quantity);
+      const name = st.quantity > 1 ? `${st.quantity} × ${st.name}` : st.name;
+      entries.push({ name, description: '', brutto: lineBrutto, tax: DRINK_TAX, unitName: 'Stk' });
     }
 
     // --- Proportionale Korrektur falls Summe != totalAmount (Override wurde angepasst) ---
@@ -313,6 +338,32 @@ function buildLineItems(
           grossAmount: winePricePerPerson,
           taxRatePercentage: 19,
         },
+      });
+    }
+
+    // --- Equipment (19% MwSt, als Fixposition nicht pro Person) ---
+    for (const eq of (ms.equipment || [])) {
+      if (!eq.name || eq.pricePerUnit <= 0 || eq.quantity <= 0) continue;
+      items.push({
+        type: 'custom',
+        name: eq.name,
+        description: '',
+        quantity: eq.quantity,
+        unitName: 'Stk',
+        unitPrice: { currency: 'EUR', grossAmount: round2(eq.pricePerUnit), taxRatePercentage: 19 },
+      });
+    }
+
+    // --- Personal (19% MwSt, als Fixposition nicht pro Person) ---
+    for (const st of (ms.staff || [])) {
+      if (!st.name || st.pricePerUnit <= 0 || st.quantity <= 0) continue;
+      items.push({
+        type: 'custom',
+        name: st.name,
+        description: '',
+        quantity: st.quantity,
+        unitName: 'Stk',
+        unitPrice: { currency: 'EUR', grossAmount: round2(st.pricePerUnit), taxRatePercentage: 19 },
       });
     }
 
