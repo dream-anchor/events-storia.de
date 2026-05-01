@@ -239,31 +239,37 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     <div className="space-y-8">
       {/* Versions-Info — grün wenn synchron, amber wenn lokale Änderungen */}
       {inquiry.offer_sent_at && !hasLocalChangesAfterSend && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 text-xs">
-          <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-          <span className="text-emerald-700 dark:text-emerald-300">
-            Version {builder.currentVersion} gesendet
-            {inquiry.offer_sent_at && ` am ${format(parseISO(inquiry.offer_sent_at), "d. MMM yyyy", { locale: de })}`}
-          </span>
-          <span className="text-emerald-600/60 dark:text-emerald-400/40">—</span>
-          <span className="text-emerald-600/80 dark:text-emerald-400/60">
-            Synchron mit Kunde
-          </span>
+        <div className="rounded-xl bg-neutral-50 border border-border/40 px-4 py-3 space-y-1">
+          <div className="flex items-center gap-2 text-xs">
+            <div className="h-1.5 w-1.5 rounded-full bg-neutral-400 shrink-0" />
+            <span className="text-neutral-600 font-medium">
+              Version {builder.currentVersion} gesendet
+              {inquiry.offer_sent_at && ` am ${format(parseISO(inquiry.offer_sent_at), "d. MMM yyyy", { locale: de })}`}
+            </span>
+            <span className="text-neutral-400">—</span>
+            <span className="text-neutral-500">
+              Synchron mit Kunde
+            </span>
+          </div>
+          <p className="text-[11px] text-neutral-500 leading-relaxed pl-4">
+            ✏️ Zum Bearbeiten einfach Optionen, Preise oder Menü unten anpassen. Änderungen werden automatisch als neue Version gespeichert.
+          </p>
         </div>
       )}
 
       {inquiry.offer_sent_at && hasLocalChangesAfterSend && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-300/60 dark:border-amber-800/40 text-xs">
-          <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-          <span className="text-amber-800 dark:text-amber-200 font-medium">
-            Entwurf für Version {builder.currentVersion + 1}
-          </span>
-          <span className="text-amber-700/70 dark:text-amber-300/50">—</span>
-          <span className="text-amber-700/80 dark:text-amber-300/70">
-            Kunde sieht noch Version {builder.currentVersion}
+        <div className="rounded-xl bg-amber-50 border border-amber-200/60 px-4 py-3 space-y-1">
+          <div className="flex items-center gap-2 text-xs">
+            <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+            <span className="text-amber-800 font-medium">
+              Entwurf — Version {builder.currentVersion + 1}
+            </span>
+          </div>
+          <p className="text-[11px] text-amber-700/80 leading-relaxed pl-4">
+            Du hast Änderungen vorgenommen. Der Kunde sieht noch Version {builder.currentVersion}
             {inquiry.offer_sent_at && ` vom ${format(parseISO(inquiry.offer_sent_at), "d. MMM yyyy", { locale: de })}`}
-            . Nicht vergessen: neue Version senden.
-          </span>
+            . Klicke unten auf „Vorschau anzeigen" um die neue Version zu senden.
+          </p>
         </div>
       )}
 

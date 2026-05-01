@@ -1,44 +1,47 @@
 
-# Angebot bearbeiten — Idiotensichere UX
+## Problem-Analyse
 
-## Was sich ändert
+Ich habe die App auf 390px (iPhone) überprüft und folgende Probleme gefunden:
 
-Das gesperrte Banner (Zeilen 425-446 in `MultiOfferComposer.tsx`) wird komplett überarbeitet, damit Nicht-Computer-Nutzer sofort verstehen, was zu tun ist.
+### 1. "KI generieren" Button nicht sichtbar auf Mobile
+Der Button existiert im DOM, ist aber im Header des "Anschreiben"-Bereichs (`EmailComposer.tsx`) zusammen mit "Vorlage"-Dropdown, Copy-Button und dem Badge in einer Zeile — bei 390px Breite wird er abgeschnitten/überlappt.
 
-### Vorher (aktuell)
-- Kleines Lock-Icon, technischer Text: *"Angebot v3 versendet"*
-- Kleiner Button rechts: *"Neues Angebot erstellen"*
-- Erklärtext unten: *"Die gesendete Konfiguration ist schreibgeschützt..."*
-- Problem: Nutzer versteht nicht, dass "Neues Angebot" = "einfach bearbeiten" bedeutet
+### 2. "Angebot bearbeiten" Button fehlt komplett
+Die Änderung wurde in `MultiOfferComposer.tsx` gemacht — aber die App verwendet `OfferBuilder.tsx` für die Angebotsbearbeitung. Der OfferBuilder hat `isLocked={false}` hardcoded (Zeile 307) und zeigt keinen "Angebot bearbeiten" CTA. Das alte Lock-System greift hier nicht.
 
-### Nachher (neu)
-- Grosser, auffälliger Banner mit klarer Botschaft
-- **Haupttext**: *"Angebot wurde versendet"* mit Datum und Person
-- **Grosser, prominenter Button**: *"✏️ Angebot bearbeiten"* (volle Breite auf Mobile)
-- **Einfacher Hilfetext**: *"Änderungen werden automatisch als neue Version gespeichert"*
-- Nach dem Klick: Dezentes Info-Banner oben: *"Version 3 — Entwurf (Änderungen noch nicht gesendet)"*
+Die gute Nachricht: Das Angebot IST editierbar (nicht gesperrt). Der Benutzer kann Optionen, Preise und Menüs direkt ändern. Es fehlt nur die klare visuelle Kommunikation.
 
-## Technische Umsetzung
+### 3. Tab "Details" ist auf Mobile abgeschnitten
+Die Tab-Leiste zeigt nur 3 von 4 Tabs ("Angebot", "Kommunikation", "Aufgaben") — "Details" ist nicht sichtbar ohne horizontales Scrollen, und es gibt keinen visuellen Hinweis dafür.
 
-### Datei: `src/components/admin/refine/InquiryEditor/MultiOffer/MultiOfferComposer.tsx`
+---
 
-1. **Locked Banner** (Zeilen 425-446) ersetzen:
-   - Button-Text: `"Neues Angebot erstellen"` → `"Angebot bearbeiten"`
-   - Icon: `Unlock` → `Pencil` (lucide-react)
-   - Button-Stil: Outline → Primär-CTA (amber gradient, volle Breite auf Mobile)
-   - Hilfetext vereinfachen zu einem einzigen, verständlichen Satz
-   - Auf Mobile: Button unter dem Text, volle Breite
+## Geplante Änderungen
 
-2. **Entwurf-Banner** nach Entsperrung hinzufügen:
-   - Wenn `!isLocked && hasBeenSentBefore`: Zeige dezentes Banner *"Version X — Entwurf"*
-   - Farbe: Blau/Info-Ton (neutral, kein Grün/Gelb per Design-Regeln)
-   - Text: *"Änderungen sind noch nicht gesendet"*
+### A. EmailComposer.tsx — Mobile-Layout für Buttons
+- Header auf Mobile in 2 Zeilen aufteilen: Titel+Badge oben, Buttons unten
+- "KI generieren" als prominenten Button darstellen (nicht `ghost`, sondern `default` mit Sparkles-Icon)
+- Auf Mobile volle Breite oder zumindest gut sichtbar
 
-3. **Beschreibungstext** im Header (Zeile 403) anpassen:
-   - Locked: *"Angebot wurde versendet — zum Bearbeiten auf den Button klicken"*
-   - Unlocked nach Sent: *"Entwurf — Änderungen sind noch nicht gesendet"*
+### B. OfferBuilder.tsx — Versioning-Banner verbessern  
+- Der grüne "Version X gesendet — Synchron mit Kunde" Banner wird ergänzt um einen klaren Hinweis: "Zum Bearbeiten einfach Optionen, Preise oder Menü anpassen. Änderungen werden automatisch als neue Version gespeichert."
+- Der amber "Entwurf für Version X" Banner bleibt und zeigt klar an, dass der Kunde die Änderungen noch nicht sieht
 
-### Memory aktualisieren
-- `mem://business/offer-immutability-and-versioning-principle` — "Angebot bearbeiten" statt "Neues Angebot erstellen" als UX-Sprache
+### C. EmailComposer.tsx — "KI generieren" Button größer und prominenter auf Mobile
+- Auf Mobile: separater, volle-Breite CTA-Button unter dem Textarea wenn noch kein Email-Draft vorhanden
+- Amber/Primary Gradient wie die anderen CTAs
 
-Keine Datenbank-Änderungen nötig. Nur UI-Text und Styling in einer Datei.
+### D. Tab-Liste mobile Scroll-Hinweis
+- Gradient-Fade am rechten Rand der Tab-Leiste hinzufügen, um anzuzeigen dass mehr Tabs vorhanden sind
+
+---
+
+## Technische Details
+
+| Datei | Änderung |
+|-------|----------|
+| `src/components/admin/refine/InquiryEditor/OfferBuilder/EmailComposer.tsx` | Mobile-responsive Header, prominenter KI-Button |
+| `src/components/admin/refine/InquiryEditor/OfferBuilder/OfferBuilder.tsx` | Versioning-Banner mit Bearbeitungshinweis |
+| `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` | Tab-Scroll-Indikator |
+
+Keine Datenbankänderungen erforderlich.
