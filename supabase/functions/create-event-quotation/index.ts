@@ -162,6 +162,22 @@ function buildLineItems(
       });
     }
 
+    // --- Equipment: 19% MwSt ---
+    for (const eq of (ms.equipment || [])) {
+      if (!eq.name || eq.pricePerUnit <= 0 || eq.quantity <= 0) continue;
+      const lineBrutto = round2(eq.pricePerUnit * eq.quantity);
+      const name = eq.quantity > 1 ? `${eq.quantity} × ${eq.name}` : eq.name;
+      entries.push({ name, description: '', brutto: lineBrutto, tax: DRINK_TAX, unitName: 'Stk' });
+    }
+
+    // --- Personal: 19% MwSt ---
+    for (const st of (ms.staff || [])) {
+      if (!st.name || st.pricePerUnit <= 0 || st.quantity <= 0) continue;
+      const lineBrutto = round2(st.pricePerUnit * st.quantity);
+      const name = st.quantity > 1 ? `${st.quantity} × ${st.name}` : st.name;
+      entries.push({ name, description: '', brutto: lineBrutto, tax: DRINK_TAX, unitName: 'Stk' });
+    }
+
     // --- Proportionale Korrektur falls Summe != totalAmount (Override wurde angepasst) ---
     const entriesSum = round2(entries.reduce((s, e) => s + e.brutto, 0));
     if (entriesSum > 0 && totalAmount > 0 && Math.abs(entriesSum - totalAmount) > 0.01) {
