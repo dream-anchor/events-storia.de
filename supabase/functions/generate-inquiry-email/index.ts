@@ -194,6 +194,23 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
           }
         }
       }
+
+      // Equipment & Staff context for AI
+      const equipment = (opt.menuSelection as any)?.equipment?.filter((e: any) => e.name && e.pricePerUnit > 0 && e.quantity > 0) || [];
+      if (equipment.length > 0) {
+        parts.push('Ausstattung:');
+        for (const e of equipment) {
+          parts.push(`  ${e.name}: ${e.quantity}x ${Number(e.pricePerUnit).toFixed(2).replace('.', ',')} €`);
+        }
+      }
+
+      const staff = (opt.menuSelection as any)?.staff?.filter((e: any) => e.name && e.pricePerUnit > 0 && e.quantity > 0) || [];
+      if (staff.length > 0) {
+        parts.push('Personal:');
+        for (const e of staff) {
+          parts.push(`  ${e.name}: ${e.quantity}x ${Number(e.pricePerUnit).toFixed(2).replace('.', ',')} €`);
+        }
+      }
     }
   }
 

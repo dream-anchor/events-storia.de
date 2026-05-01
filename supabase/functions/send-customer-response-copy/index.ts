@@ -113,14 +113,37 @@ serve(async (req) => {
     const event = await resolveV2Event(supabase, inquiryId);
     const eventId = event?.id || null;
 
+    // Fetch selected option details (equipment/staff)
+    let serviceDetails = '';
+    {
+      const { data: selectedOpt } = await supabase
+        .from('inquiry_offer_options')
+        .select('menu_selection')
+        .eq('inquiry_id', inquiryId)
+        .eq('option_label', selectedOptionLabel)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+
+      const ms = selectedOpt?.menu_selection as any;
+      const equip = (ms?.equipment || []).filter((e: any) => e.name && e.pricePerUnit > 0 && e.quantity > 0);
+      const staff = (ms?.staff || []).filter((e: any) => e.name && e.pricePerUnit > 0 && e.quantity > 0);
+
+      if (equip.length > 0 || staff.length > 0) {
+        const lines: string[] = ['\nGebuchte Leistungen:'];
+        for (const e of equip) lines.push(`  Ausstattung: ${e.name} (${e.quantity}x)`);
+        for (const e of staff) lines.push(`  Personal: ${e.name} (${e.quantity}x)`);
+        serviceDetails = lines.join('\n');
+      }
+    }
+
     const emailSubject = 'Ihre Rückmeldung zum STORIA-Angebot';
     const emailBody = `Vielen Dank für Ihre Rückmeldung!
 
 Sie haben folgenden Vorschlag ausgewählt:
 ${selectedOptionLabel}
-
-${customerNotes ? `Ihre Anmerkungen:\n${customerNotes}\n` : ''}
-Wir melden uns in Kürze mit dem finalen Angebot bei Ihnen.
+${serviceDetails}
+${customerNotes ? `\nIhre Anmerkungen:\n${customerNotes}\n` : '\n'}Wir melden uns in Kürze mit dem finalen Angebot bei Ihnen.
 
 Bei Fragen erreichen Sie uns jederzeit:
 Domenico Speranza – 0163 6033912
