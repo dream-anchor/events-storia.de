@@ -716,8 +716,6 @@ export function useOfferBuilder({
           ) + (pkg.price_per_person ? courseSurcharge * opt.guestCount : courseSurcharge * opt.guestCount);
         }
 
-        if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
-
         // Equipment & Staff: Fixkosten addieren (nicht pro Person)
         const equipTotal = (opt.menuSelection.equipment || [])
           .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
