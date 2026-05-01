@@ -45,6 +45,8 @@ export interface ExtendedInquiry extends BaseRecord {
   deposit_percent: number | null;
   deposit_due_days: number | null;
   offer_validity_days: number | null;
+  payment_method: string | null;
+  invoice_due_days: number | null;
   // Legacy venue (kept until verified)
   venue: string | null;
   // Location (3-mode)
