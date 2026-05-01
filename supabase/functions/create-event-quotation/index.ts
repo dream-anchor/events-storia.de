@@ -341,6 +341,32 @@ function buildLineItems(
       });
     }
 
+    // --- Equipment (19% MwSt, als Fixposition nicht pro Person) ---
+    for (const eq of (ms.equipment || [])) {
+      if (!eq.name || eq.pricePerUnit <= 0 || eq.quantity <= 0) continue;
+      items.push({
+        type: 'custom',
+        name: eq.name,
+        description: '',
+        quantity: eq.quantity,
+        unitName: 'Stk',
+        unitPrice: { currency: 'EUR', grossAmount: round2(eq.pricePerUnit), taxRatePercentage: 19 },
+      });
+    }
+
+    // --- Personal (19% MwSt, als Fixposition nicht pro Person) ---
+    for (const st of (ms.staff || [])) {
+      if (!st.name || st.pricePerUnit <= 0 || st.quantity <= 0) continue;
+      items.push({
+        type: 'custom',
+        name: st.name,
+        description: '',
+        quantity: st.quantity,
+        unitName: 'Stk',
+        unitPrice: { currency: 'EUR', grossAmount: round2(st.pricePerUnit), taxRatePercentage: 19 },
+      });
+    }
+
     // Multiplikation: Zwischensummen + (guestCount-1) für korrekte Gesamtsumme (Brutto)
     if (guestCount > 1 && items.length > 0) {
       const foodTotal = round2(items
