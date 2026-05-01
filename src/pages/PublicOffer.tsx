@@ -92,6 +92,8 @@ interface MenuSelection {
   budgetPerPerson?: number | null;
   /** 'per_person' (Default): budgetPerPerson ist Preis pro Gast. 'per_event': budgetPerPerson ist Gesamtpreis fuer den ganzen Anlass. */
   pricingMode?: 'per_person' | 'per_event';
+  equipment?: Array<{ id: string; name: string; pricePerUnit: number; quantity: number }>;
+  staff?: Array<{ id: string; name: string; pricePerUnit: number; quantity: number }>;
 }
 
 interface PublicOfferOption {
@@ -2007,7 +2009,7 @@ function ProposalOptionCard({
       </div>
 
       {/* Menü-Details im Speisekarten-Stil — lesbar, wertig */}
-      {(courses.length > 0 || drinkRows.length > 0) && (
+      {(courses.length > 0 || drinkRows.length > 0 || (menu?.equipment?.length ?? 0) > 0 || (menu?.staff?.length ?? 0) > 0) && (
         <div className="px-6 pb-6">
           <div className="border-t border-border/20 pt-5">
             {courses.length > 0 && (
@@ -2049,6 +2051,44 @@ function ProposalOptionCard({
                         {d.name}
                       </p>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Equipment */}
+            {menu?.equipment && menu.equipment.filter(e => e.name).length > 0 && (
+              <div className={cn("space-y-3", (courses.length > 0 || drinkRows.length > 0) && "mt-6 pt-5 border-t border-border/15")}>
+                <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em]">
+                  Equipment
+                </span>
+                {menu.equipment.filter(e => e.name).map((eq, i) => (
+                  <div key={i} className="flex items-baseline gap-4">
+                    <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
+                      {eq.quantity > 1 ? `${eq.quantity}×` : ''}
+                    </span>
+                    <p className="text-base font-serif text-foreground leading-snug flex-1">
+                      {eq.quantity > 1 ? `${eq.quantity} × ${eq.name}` : eq.name}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Personal */}
+            {menu?.staff && menu.staff.filter(s => s.name).length > 0 && (
+              <div className={cn("space-y-3", (courses.length > 0 || drinkRows.length > 0 || (menu?.equipment?.length ?? 0) > 0) && "mt-6 pt-5 border-t border-border/15")}>
+                <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em]">
+                  Personal
+                </span>
+                {menu.staff.filter(s => s.name).map((st, i) => (
+                  <div key={i} className="flex items-baseline gap-4">
+                    <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
+                      {st.quantity > 1 ? `${st.quantity}×` : ''}
+                    </span>
+                    <p className="text-base font-serif text-foreground leading-snug flex-1">
+                      {st.quantity > 1 ? `${st.quantity} × ${st.name}` : st.name}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -2392,6 +2432,47 @@ function FinalOptionCard({
                       {drink.name}
                     </p>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+
+        {/* Equipment */}
+        {menu?.equipment && menu.equipment.filter(e => e.name).length > 0 && (
+          <div className="border-t border-border/20 pt-5">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-[10px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/50">
+                🔧 Equipment
+              </span>
+            </div>
+            <div className="space-y-3">
+              {menu.equipment.filter(e => e.name).map((eq, i) => (
+                <div key={i}>
+                  <p className="font-serif text-sm text-foreground">
+                    {eq.quantity > 1 ? `${eq.quantity} × ${eq.name}` : eq.name}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Personal */}
+        {menu?.staff && menu.staff.filter(s => s.name).length > 0 && (
+          <div className="border-t border-border/20 pt-5">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-[10px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/50">
+                👤 Personal
+              </span>
+            </div>
+            <div className="space-y-3">
+              {menu.staff.filter(s => s.name).map((st, i) => (
+                <div key={i}>
+                  <p className="font-serif text-sm text-foreground">
+                    {st.quantity > 1 ? `${st.quantity} × ${st.name}` : st.name}
+                  </p>
                 </div>
               ))}
             </div>
