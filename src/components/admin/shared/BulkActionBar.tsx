@@ -36,12 +36,11 @@ export function BulkActionBar({
   showRestoreAction = false,
 }: BulkActionBarProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const isMobile = useIsMobile();
 
   const count = selectedIds.length;
 
   if (count === 0) return null;
-
-  const isMobile = useIsMobile();
 
   const handleBulkStatusChange = async (status: string) => {
     setIsProcessing(true);
