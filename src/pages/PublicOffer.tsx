@@ -1021,10 +1021,13 @@ function ProposalView({
   // Zahlungs-Konditionen aus Inquiry (RPC liefert Defaults aus site_settings)
   const depositPercent = inquiry.deposit_percent ?? 20;
   const depositDueDays = inquiry.deposit_due_days ?? 5;
+  const paymentMethod = (inquiry.payment_method || 'deposit_online') as string;
+  const invoiceDueDays = inquiry.invoice_due_days ?? 14;
+  const isStripePayment = paymentMethod === 'deposit_online' || paymentMethod === 'prepayment_online';
   const depositAmount = depositPercent > 0
     ? Math.round(totalAmount * depositPercent) / 100
     : 0;
-  const showDeposit = depositPercent > 0 && depositPercent < 100;
+  const showDeposit = isStripePayment && depositPercent > 0 && depositPercent < 100;
 
   // ACTION: Zahlung — leitet zu Stripe Checkout weiter
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
@@ -1268,7 +1271,7 @@ function ProposalView({
             </div>
           )}
 
-          {/* PRIMARY ACTION — Buchen über Stripe (immer sichtbar, disabled ohne Auswahl) */}
+          {/* PRIMARY ACTION — Buchen */}
           <div className="max-w-2xl mb-10">
             <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm rounded-2xl border-2 border-primary/20 p-6 md:p-8 shadow-[0_8px_30px_rgba(139,0,0,0.08)]">
               <div className="mb-6">
@@ -1276,65 +1279,93 @@ function ProposalView({
                   Jetzt verbindlich buchen
                 </h3>
                 <p className="text-sm text-muted-foreground font-sans">
-                  {canPay
-                    ? (hasQuantities
-                        ? `Sicher bezahlen über Stripe — für ${totalQuantity} ${totalQuantity === 1 ? 'Gast' : 'Gäste'}`
-                        : "Sicher bezahlen über Stripe — Kreditkarte, Apple Pay oder SEPA")
-                    : (isSingle
+                  {!canPay
+                    ? (isSingle
                         ? "Wählen Sie oben eine Option."
-                        : "Bitte Mengen pro Option angeben.")}
+                        : "Bitte Mengen pro Option angeben.")
+                    : isStripePayment
+                      ? (hasQuantities
+                          ? `Sicher bezahlen über Stripe — für ${totalQuantity} ${totalQuantity === 1 ? 'Gast' : 'Gäste'}`
+                          : "Sicher bezahlen über Stripe — Kreditkarte, Apple Pay oder SEPA")
+                      : paymentMethod === 'on_site'
+                        ? "Zahlung erfolgt vor Ort beim Event."
+                        : `Rechnung wird nach dem Event zugestellt — zahlbar innerhalb ${invoiceDueDays} Tagen.`}
                 </p>
               </div>
 
-              <div className={cn("grid gap-3", showDeposit ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
-                {/* Voll bezahlen — Primary/Dominant */}
-                <Button
-                  onClick={() => handlePayment('full')}
-                  disabled={busy || !canPay}
-                  className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_15px_rgba(139,0,0,0.25)]"
-                >
-                  <span className="flex items-center gap-2 w-full justify-between">
-                    <span className="text-sm">Voll bezahlen</span>
-                    {isPaying === 'full' && <Loader2 className="h-4 w-4 animate-spin" />}
-                  </span>
-                  {canPay ? (
-                    <span className="text-lg font-serif font-bold">
-                      {formatCurrency(totalAmount)}
+              {isStripePayment ? (
+                /* STRIPE-Zahlungsmodus */
+                <div className={cn("grid gap-3", showDeposit ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
+                  {/* Voll bezahlen — Primary/Dominant */}
+                  <Button
+                    onClick={() => handlePayment('full')}
+                    disabled={busy || !canPay}
+                    className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_15px_rgba(139,0,0,0.25)]"
+                  >
+                    <span className="flex items-center gap-2 w-full justify-between">
+                      <span className="text-sm">Voll bezahlen</span>
+                      {isPaying === 'full' && <Loader2 className="h-4 w-4 animate-spin" />}
                     </span>
-                  ) : (
-                    <span className="text-sm font-sans opacity-70">Option wählen</span>
-                  )}
-                </Button>
-
-                {/* Anzahlung — nur wenn 0 < deposit_percent < 100 */}
-                {showDeposit && (
-                  <div>
-                    <Button
-                      onClick={() => handlePayment('deposit')}
-                      disabled={busy || !canPay}
-                      variant="outline"
-                      className="w-full h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      <span className="flex items-center gap-2 w-full justify-between">
-                        <span className="text-sm">Anzahlung {depositPercent} %</span>
-                        {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {canPay ? (
+                      <span className="text-lg font-serif font-bold">
+                        {formatCurrency(totalAmount)}
                       </span>
-                      {canPay ? (
-                        <span className="text-lg font-serif font-bold text-primary">
-                          {formatCurrencyDecimal(depositAmount)}
-                        </span>
-                      ) : (
-                        <span className="text-sm font-sans opacity-70 text-muted-foreground">Option wählen</span>
-                      )}
-                    </Button>
-                    {canPay && (
-                      <p className="mt-1.5 text-[11px] font-sans text-muted-foreground/70 text-center">
-                        innerhalb {depositDueDays} {depositDueDays === 1 ? 'Tag' : 'Tagen'} zu zahlen
-                      </p>
+                    ) : (
+                      <span className="text-sm font-sans opacity-70">Option wählen</span>
                     )}
-                  </div>
-                )}
-              </div>
+                  </Button>
+
+                  {/* Anzahlung — nur wenn 0 < deposit_percent < 100 */}
+                  {showDeposit && (
+                    <div>
+                      <Button
+                        onClick={() => handlePayment('deposit')}
+                        disabled={busy || !canPay}
+                        variant="outline"
+                        className="w-full h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <span className="flex items-center gap-2 w-full justify-between">
+                          <span className="text-sm">Anzahlung {depositPercent} %</span>
+                          {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
+                        </span>
+                        {canPay ? (
+                          <span className="text-lg font-serif font-bold text-primary">
+                            {formatCurrencyDecimal(depositAmount)}
+                          </span>
+                        ) : (
+                          <span className="text-sm font-sans opacity-70 text-muted-foreground">Option wählen</span>
+                        )}
+                      </Button>
+                      {canPay && (
+                        <p className="mt-1.5 text-[11px] font-sans text-muted-foreground/70 text-center">
+                          innerhalb {depositDueDays} {depositDueDays === 1 ? 'Tag' : 'Tagen'} zu zahlen
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* VOR-ORT / RECHNUNG — kein Stripe, nur Bestätigung */
+                <div className="grid gap-3 grid-cols-1">
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={busy || !canPay}
+                    className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                  >
+                    <span className="flex items-center gap-2 w-full justify-between">
+                      <span className="text-sm">
+                        {paymentMethod === 'on_site' ? 'Verbindlich buchen — Zahlung vor Ort' : 'Verbindlich buchen — Rechnung nach Event'}
+                      </span>
+                      {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                    </span>
+                    {canPay && (
+                      <span className="text-lg font-serif font-bold">
+                        {formatCurrency(totalAmount)}
+                      </span>
+                    )}
+                  </Button>
+                </div>
+              )}
 
               {/* Trust-Elemente */}
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-5 text-xs text-muted-foreground font-sans">
@@ -1342,14 +1373,23 @@ function ProposalView({
                   <Lock className="h-3 w-3" />
                   SSL-verschlüsselt
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="h-3 w-3" />
-                  Sichere Zahlung via Stripe
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <FileText className="h-3 w-3" />
-                  Rechnung folgt per E-Mail
-                </span>
+                {isStripePayment ? (
+                  <>
+                    <span className="flex items-center gap-1.5">
+                      <ShieldCheck className="h-3 w-3" />
+                      Sichere Zahlung via Stripe
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <FileText className="h-3 w-3" />
+                      Rechnung folgt per E-Mail
+                    </span>
+                  </>
+                ) : (
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="h-3 w-3" />
+                    {paymentMethod === 'on_site' ? 'Zahlung vor Ort beim Event' : `Rechnung zahlbar innerhalb ${invoiceDueDays} Tagen`}
+                  </span>
+                )}
               </div>
 
               {/* Hinweis bei Teilbuchung im Multi-Mode */}
@@ -1446,6 +1486,9 @@ function ProposalView({
         showDeposit={showDeposit}
         isPaying={isPaying}
         onPay={handlePayment}
+        onConfirmBooking={handleSendMessage}
+        isSubmitting={isSubmitting}
+        paymentMethod={paymentMethod}
         isSingle={isSingle}
         hasQuantities={hasQuantities}
         totalQuantity={totalQuantity}
@@ -1680,6 +1723,9 @@ function MobileStickyBookingBar({
   showDeposit,
   isPaying,
   onPay,
+  onConfirmBooking,
+  isSubmitting,
+  paymentMethod,
   isSingle,
   hasQuantities,
   totalQuantity,
@@ -1694,12 +1740,16 @@ function MobileStickyBookingBar({
   showDeposit: boolean;
   isPaying: 'full' | 'deposit' | null;
   onPay: (type: 'full' | 'deposit') => void;
+  onConfirmBooking: () => void;
+  isSubmitting: boolean;
+  paymentMethod: string;
   isSingle: boolean;
   hasQuantities: boolean;
   totalQuantity: number;
   isArchiveMode: boolean;
   isPreviewMode: boolean;
 }) {
+  const isStripePayment = paymentMethod === 'deposit_online' || paymentMethod === 'prepayment_online';
   // Im Archiv-Modus komplett verstecken — nur Lese-Ansicht.
   if (isArchiveMode) return null;
 
@@ -1733,37 +1783,53 @@ function MobileStickyBookingBar({
           </p>
         </div>
 
-        {showDeposit && canPay && (
-          <Button
-            onClick={() => onPay('deposit')}
-            disabled={busy || isPreviewMode}
-            variant="outline"
-            className="h-12 px-3 rounded-xl flex flex-col items-center justify-center gap-0 border-primary/30"
-          >
-            <span className="text-[10px] uppercase tracking-wider font-sans leading-none">
-              {depositPercent}%
-            </span>
-            <span className="text-xs font-semibold tabular-nums leading-tight">
-              {formatCurrencyDecimal(depositAmount)}
-            </span>
-            {isPaying === 'deposit' && (
-              <Loader2 className="h-3 w-3 animate-spin absolute" />
+        {isStripePayment ? (
+          <>
+            {showDeposit && canPay && (
+              <Button
+                onClick={() => onPay('deposit')}
+                disabled={busy || isPreviewMode}
+                variant="outline"
+                className="h-12 px-3 rounded-xl flex flex-col items-center justify-center gap-0 border-primary/30"
+              >
+                <span className="text-[10px] uppercase tracking-wider font-sans leading-none">
+                  {depositPercent}%
+                </span>
+                <span className="text-xs font-semibold tabular-nums leading-tight">
+                  {formatCurrencyDecimal(depositAmount)}
+                </span>
+                {isPaying === 'deposit' && (
+                  <Loader2 className="h-3 w-3 animate-spin absolute" />
+                )}
+              </Button>
             )}
+            <Button
+              onClick={() => onPay('full')}
+              disabled={busy || !canPay || isPreviewMode}
+              className="h-12 px-5 rounded-xl font-sans font-semibold shadow-[0_4px_15px_rgba(139,0,0,0.25)] flex items-center gap-2"
+            >
+              {isPaying === 'full' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+              Buchen
+            </Button>
+          </>
+        ) : (
+          <Button
+            onClick={onConfirmBooking}
+            disabled={busy || !canPay || isPreviewMode}
+            className="h-12 px-5 rounded-xl font-sans font-semibold shadow-[0_4px_15px_rgba(139,0,0,0.25)] flex items-center gap-2"
+          >
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Lock className="h-4 w-4" />
+            )}
+            {paymentMethod === 'on_site' ? 'Buchen' : 'Buchen'}
           </Button>
         )}
-
-        <Button
-          onClick={() => onPay('full')}
-          disabled={busy || !canPay || isPreviewMode}
-          className="h-12 px-5 rounded-xl font-sans font-semibold shadow-[0_4px_15px_rgba(139,0,0,0.25)] flex items-center gap-2"
-        >
-          {isPaying === 'full' ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Lock className="h-4 w-4" />
-          )}
-          Buchen
-        </Button>
       </div>
     </div>
   );
