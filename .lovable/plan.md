@@ -1,48 +1,48 @@
 
-# Audit: Zahlungsmodalitäten — End-to-End
+# Fix: Offline-Buchung — E-Mail an Kunden + Activity-Log
 
-## Ergebnis-Übersicht
+## Problem
 
-| Ebene | Status | Details |
-|---|---|---|
-| DB-Spalten `v2_events` | OK | `payment_method` (default `deposit_online`) und `invoice_due_days` vorhanden |
-| View `event_inquiries` | OK | Beide Felder werden korrekt exponiert |
-| Update-Trigger | OK | `payment_method` und `invoice_due_days` werden nach `v2_events` geschrieben |
-| Insert-Trigger | OK | Neue Inquiries übernehmen beide Felder |
-| Admin-UI `PaymentTermsBlock` | OK | 4 Kacheln, konditionsabhängige Felder, Defaults aus `site_settings` |
-| Admin-UI `OfferBuilder` | OK | Leitet `payment_method` und `invoice_due_days` korrekt durch |
-| Typen `ExtendedInquiry` | OK | `payment_method` und `invoice_due_days` vorhanden |
-| **RPC `get_public_offer`** | **KRITISCH** | Gibt `payment_method` und `invoice_due_days` **nicht** zurück — Kunde bekommt immer `null` |
-| PublicOffer Frontend | OK | `isStripePayment`-Logik, "Verbindlich buchen"-Button, Trust-Elemente korrekt |
-| `handleConfirmBooking` | OK | Ruft `confirm_offline_booking` RPC auf |
-| `confirm_offline_booking` RPC | OK | Setzt Status, validiert Zahlungsart, existiert in DB |
-| Edge Function Guard | OK | `create-payment-session` blockiert `on_site`/`invoice_after` mit 400-Fehler |
-| MobileStickyBookingBar | OK | `onConfirmBooking` → `handleConfirmBooking` korrekt verdrahtet |
+1. **Keine Bestätigungs-E-Mail an Kunden**: Nach "Verbindlich buchen" (on_site / invoice_after) wird nur das Admin-Team per `notify-customer-response` informiert. Der Kunde erhält keine Bestätigung.
+2. **Kein Activity-Log**: Der `confirm_offline_booking` RPC schreibt keinen Eintrag in `activity_logs` — die Buchung erscheint nicht in der CRM-Timeline.
 
-## Kritische Lücke
+## Lösung
 
-### RPC `get_public_offer` — fehlt `payment_method` + `invoice_due_days`
+### 1. Kunden-Bestätigungs-E-Mail nach Offline-Buchung
 
-Die RPC-Funktion in der Datenbank ist noch die alte Version. Sie gibt die beiden neuen Felder nicht an den Kunden weiter. Dadurch:
+**Edge Function `notify-customer-response` erweitern** — zusätzlich zur Admin-Mail wird eine zweite E-Mail direkt an den Kunden gesendet mit:
 
-- Der Kunde sieht **immer** den Stripe-Zahlungsflow (Fallback auf `deposit_online`)
-- "Vor Ort" und "Rechnung" werden auf der Kundenseite nie angezeigt
-- Der "Verbindlich buchen"-Button erscheint nie
+- Betreff: "Ihre Buchung bei STORIA ist bestätigt"
+- Inhalt: Zusammenfassung (Eventdatum, Gästeanzahl, gewählte Option, Zahlungsinformation je nach `payment_method`)
+- Für `on_site`: "Zahlung bequem vor Ort"
+- Für `invoice_after`: "Rechnung wird Ihnen nach dem Event zugestellt"
 
-**Ursache:** Die vorherige Migration (`20260501193500`) hat die RPC-Funktion zwar als Datei angelegt, sie wurde aber in der Live-DB nicht übernommen (die Datenbank zeigt die alte Funktionsdefinition ohne die beiden Felder).
+Die Kunden-E-Mail wird separat in `email_delivery_logs` geloggt.
 
-## Fix
+### 2. Activity-Log bei Offline-Buchung
 
-Eine einzige Migration:
+**`confirm_offline_booking` RPC erweitern** — nach erfolgreicher Statusänderung wird ein Eintrag in `activity_logs` geschrieben:
 
-- `CREATE OR REPLACE FUNCTION get_public_offer(...)` — ergänzt um:
-  - `'payment_method', COALESCE(ei.payment_method, 'deposit_online')`
-  - `'invoice_due_days', COALESCE(ei.invoice_due_days, 14)`
+```
+action: 'offline_booking_confirmed'
+entity_type: 'event_inquiry'
+entity_id: p_inquiry_id
+new_value: { payment_method, selected_option_id }
+metadata: { triggered_by: 'customer' }
+```
 
-Keine Frontend-Änderungen nötig — der Code liest die Felder bereits korrekt.
+### 3. Activity-Log Formatierung
 
-## Sekundäre Beobachtungen (nicht blockierend)
+`useActivityLog.ts` wird um den neuen Action-Typ `offline_booking_confirmed` ergänzt:
+- Anzeige: "Verbindlich gebucht (ohne Online-Zahlung)"
+- Icon: `CalendarCheck`
 
-1. **Bestätigungs-E-Mail**: Nach "Verbindlich buchen" wird `notify-customer-response` aufgerufen, aber es gibt keine dedizierte E-Mail-Vorlage für Offline-Buchungsbestätigungen. Der Kunde erhält aktuell keine automatische Bestätigung per E-Mail.
-2. **Activity-Log**: Der `confirm_offline_booking` RPC erstellt keinen Activity-Log-Eintrag. Für CRM-Transparenz wäre ein automatischer Log sinnvoll.
-3. **Bestehende Inquiries**: Alle existierenden Inquiries haben `payment_method = 'deposit_online'` (korrekt als Default).
+## Technische Schritte
+
+| # | Aufgabe | Typ |
+|---|---------|-----|
+| 1 | Migration: `confirm_offline_booking` RPC um Activity-Log-Insert erweitern | DB Migration |
+| 2 | `notify-customer-response/index.ts` um Kunden-E-Mail erweitern | Edge Function |
+| 3 | `useActivityLog.ts` — neuen Action-Typ `offline_booking_confirmed` hinzufügen | Frontend |
+
+Keine neuen Tabellen, keine neuen Edge Functions, keine Breaking Changes.
