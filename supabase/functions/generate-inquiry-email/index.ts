@@ -275,6 +275,7 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     let isMultiOption = false;
     let optionCount = 0;
     let isProposal = false;
+    let paymentMethod = 'deposit_online';
 
     // Previous successful emails for few-shot learning
     let previousEmails: string[] = [];
@@ -302,7 +303,7 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
 
       const { data: inquiryData } = await supabaseAdmin
         .from('event_inquiries')
-        .select('contact_name, company_name, email, preferred_date, guest_count, event_type, time_slot, room_selection, message')
+        .select('contact_name, company_name, email, preferred_date, guest_count, event_type, time_slot, room_selection, message, payment_method')
         .eq('id', rawBody.inquiryId)
         .single();
 
@@ -332,6 +333,9 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
       }
 
       if (!inquiryData) throw new Error('Inquiry not found');
+
+      // Payment method for AI context
+      paymentMethod = (inquiryData as any).payment_method || 'deposit_online';
 
       isMultiOption = true;
       isProposal = rawBody.phase === 'proposal';
@@ -364,6 +368,17 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
         },
         multiOpts
       );
+
+      // Append payment method to context
+      {
+      const pmLabels: Record<string, string> = {
+        'deposit_online': 'Anzahlung online',
+        'prepayment_online': 'Vorauszahlung online (100%)',
+        'on_site': 'Zahlung vor Ort',
+        'invoice_after': 'Rechnung nach Event',
+      };
+      context += `\nZahlungsart: ${pmLabels[paymentMethod] || paymentMethod}`;
+      }
     } else if (isMultiOfferRequest(rawBody)) {
       isMultiOption = true;
       optionCount = rawBody.options.length;
@@ -371,6 +386,21 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     } else {
       context = buildLegacyContext(rawBody);
     }
+
+    // Payment method instruction for AI
+    const paymentInstruction = (() => {
+      switch (paymentMethod) {
+        case 'on_site':
+          return 'Erwähne, dass die Zahlung bequem vor Ort am Tag der Veranstaltung erfolgt. KEINE Anzahlung oder Vorauszahlung erwähnen.';
+        case 'invoice_after':
+          return 'Erwähne, dass die Rechnung nach der Veranstaltung zugestellt wird. KEINE Anzahlung oder Vorauszahlung erwähnen.';
+        case 'prepayment_online':
+          return 'Erwähne, dass der Gesamtbetrag vorab online bezahlt wird.';
+        case 'deposit_online':
+        default:
+          return 'Erwähne, dass eine Anzahlung vorab online fällig wird.';
+      }
+    })();
 
     // Build system prompt
     const systemPrompt = isMultiOption
@@ -470,8 +500,8 @@ Bei leerem Angebot (keine Menü/Paket-Konfig): kurzer allgemeiner Text mit Datum
 2. "wie besprochen haben wir Ihr Menü finalisiert."
 3. Zusammenfassung der finalen Option — Preis pro Person
 4. ALLE Speisen und Getränke (inkl. Inklusiv-Positionen) auflisten
-5. Eigener Absatz: "Das finale Angebot mit Zahlungsmöglichkeit finden Sie über den folgenden Link."
-6. Info zur Vorauszahlung
+5. Eigener Absatz: "Das finale Angebot finden Sie über den folgenden Link: [ANGEBOT_LINK]"
+6. Zahlungshinweis: ${paymentInstruction}
 7. Schlusssatz mit Kontaktangebot
 8. Signatur`}
 
@@ -501,7 +531,7 @@ STRUKTUR (genau einhalten):
 1. Anrede: "Liebe Frau [Nachname]," / "Lieber Herr [Nachname],"
 2. Bestätigung der wichtigsten Fakten (Datum, Uhrzeit, Gästeanzahl, ggf. Paket) in einem Fließtext-Satz
 3. Hinweis: "Das detaillierte Angebot finden Sie im Anhang."
-4. Info zur Vorauszahlung (100% erforderlich)
+4. Zahlungshinweis: ${paymentInstruction}
 5. Schlusssatz mit Kontaktangebot
 6. Signatur
 
