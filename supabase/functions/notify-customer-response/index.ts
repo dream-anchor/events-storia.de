@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { resolveV2Event } from '../_shared/v2-lookup.ts';
-
+import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
 
 
 serve(async (req) => {
@@ -58,6 +58,9 @@ serve(async (req) => {
     const customerName = customer?.company || customer?.name || "Unbekannt";
     const eventDate = event.date || "Kein Datum";
     const guestCount = event.guest_count || "?";
+    const paymentMethod = event.payment_method || 'deposit_online';
+    const isOfflineBooking = paymentMethod === 'on_site' || paymentMethod === 'invoice_after';
+    const isTest = event.is_test === true;
 
     const emailSubject = `Kundenantwort: ${customerName} hat Option gewählt`;
     const emailText = `Neue Kundenantwort auf Angebot
@@ -178,6 +181,136 @@ https://events-storia.de/admin/events/${inquiryId}/edit`;
         chosenOptionId: chosenOption?.id || null,
       },
     });
+
+    // --- Kunden-Bestätigungs-E-Mail bei Offline-Buchung ---
+    if (isOfflineBooking && customer?.email) {
+      const paymentInfo = paymentMethod === 'on_site'
+        ? 'Zahlung bequem vor Ort am Tag der Veranstaltung.'
+        : 'Sie erhalten die Rechnung nach der Veranstaltung per E-Mail.';
+
+      const customerEmailText = `STORIA · EVENTS & CATERING
+
+Guten Tag ${customer.name || 'geschätzter Gast'},
+
+vielen Dank für Ihre verbindliche Buchung!
+
+Wir freuen uns, Ihre Veranstaltung begleiten zu dürfen.
+
+
+IHRE BUCHUNG
+
+Event: ${event.occasion || 'Veranstaltung'}
+Datum: ${eventDate}
+Gästeanzahl: ${guestCount}
+Gewählte Option: ${selectedOptionLabel}
+
+Zahlung: ${paymentInfo}
+
+
+Bei Fragen erreichen Sie uns unter:
+Tel: +49 89 51519696
+E-Mail: info@events-storia.de
+
+Wir freuen uns auf Ihre Veranstaltung!
+
+STORIA · Ristorante
+Karlstraße 47a
+80333 München
+
+events-storia.de
+`;
+
+      const customerHtmlBody = `<!DOCTYPE html>
+<html lang="de"><head><meta charset="UTF-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="white-space: pre-wrap;">${customerEmailText}</div>
+</body></html>`;
+
+      const safeCustomerEmail = getSafeRecipientEmail(customer.email, isTest);
+      const safeCustomerSubject = getSafeSubject('Ihre Buchung bei STORIA ist bestätigt', isTest);
+
+      // Send customer confirmation (Resend primary, SMTP fallback)
+      let custSent = false;
+      let custProvider = '';
+      let custMessageId: string | null = null;
+      let custError: string | null = null;
+
+      if (resendApiKey) {
+        try {
+          const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${resendApiKey}`,
+              "Content-Type": "application/json; charset=utf-8",
+            },
+            body: JSON.stringify({
+              from: "STORIA Events <info@events-storia.de>",
+              to: [safeCustomerEmail],
+              subject: safeCustomerSubject,
+              html: customerHtmlBody,
+              text: customerEmailText,
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            custSent = true;
+            custProvider = "resend";
+            custMessageId = data.id || null;
+            console.log("Customer confirmation sent via Resend to:", safeCustomerEmail);
+          } else {
+            custError = `Resend error: ${await res.text()}`;
+            console.error("Customer email Resend error:", custError);
+          }
+        } catch (e) {
+          custError = e instanceof Error ? e.message : "Resend error";
+          console.error("Customer email Resend exception:", custError);
+        }
+      }
+
+      if (!custSent && smtpUser && smtpPassword) {
+        try {
+          const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
+          const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.ionos.de";
+          const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
+          const client = new SMTPClient({
+            connection: { hostname: smtpHost, port: smtpPort, tls: true, auth: { username: smtpUser, password: smtpPassword } },
+          });
+          await client.send({
+            from: `STORIA Events <${smtpUser}>`,
+            to: [safeCustomerEmail],
+            subject: safeCustomerSubject,
+            html: customerHtmlBody,
+          });
+          await client.close();
+          custSent = true;
+          custProvider = "ionos_smtp";
+          custError = null;
+          console.log("Customer confirmation sent via IONOS SMTP to:", safeCustomerEmail);
+        } catch (e) {
+          custError = e instanceof Error ? e.message : "SMTP error";
+          console.error("Customer email SMTP error:", custError);
+        }
+      }
+
+      // Log customer confirmation email
+      await supabase.from("email_delivery_logs").insert({
+        entity_type: "v2_event",
+        entity_id: event.id,
+        recipient_email: customer.email,
+        recipient_name: customer.name || customer.company || "Kunde",
+        subject: "Ihre Buchung bei STORIA ist bestätigt",
+        provider: custProvider || "none",
+        provider_message_id: custMessageId,
+        status: custSent ? "sent" : "failed",
+        error_message: custError,
+        sent_by: "system",
+        metadata: {
+          email_type: "offline_booking_confirmation_customer",
+          payment_method: paymentMethod,
+          selectedOptionLabel,
+        },
+      });
+    }
 
     return new Response(JSON.stringify({ success: true, emailSent: sent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
