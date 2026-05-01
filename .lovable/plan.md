@@ -1,85 +1,112 @@
 
-# Mobile Selektions- und Bulk-Action-Konzept
+# Mobile Feature-Parität: Vollständiges Konzept
 
-## Problem
-
-Auf dem Handy rendert die `DataTable` eine vereinfachte `mobileCardRender`-Ansicht, die die Checkbox-Spalte komplett überspringt. Dadurch fehlt jede Möglichkeit, Anfragen auszuwählen und Bulk-Aktionen (Archivieren, Zuweisen, Priorität etc.) auszuführen. Die `BulkActionBar` ist ebenfalls nur für Desktop optimiert (horizontale Button-Reihe).
-
-## Konzept: Native App-Feeling
-
-### 1. Selektionsmodus per Long-Press (wie iOS/Android)
-
-- **Aktivierung**: Long-Press (600ms) auf eine Karte aktiviert den Selektionsmodus
-- **Im Selektionsmodus**: Jede Karte zeigt links eine animierte Checkbox. Tap auf eine Karte selektiert/deselektiert (statt Navigation)
-- **Header**: "X ausgewahlt" mit "Alle auswahlen" und "Abbrechen" Buttons
-- **Deaktivierung**: "Abbrechen" oder wenn Selektion auf 0 fallt
-
-### 2. Mobile-optimierte Bulk-Action-Bar
-
-- Statt der breiten Desktop-Leiste: ein kompaktes Bottom-Sheet mit Icon-Grid
-- Icons fur: Kontaktiert, Zuweisen, Prioritat, Archivieren, Test-Toggle
-- Responsive Layout: 2x3 Grid statt horizontaler Button-Reihe
-- Nutzt `MobileBottomBar` fur safe-area und z-index
-
-### 3. Alternative: Einfacher Checkbox-Modus (empfohlen)
-
-Da Long-Press technisch aufwendiger ist und Accessibility-Probleme hat, empfehle ich die einfachere Variante:
-
-- **Toggle-Button** oben neben der Suche: "Auswahlen" Icon-Button
-- Aktiviert Selektionsmodus: Checkboxen erscheinen links in jeder Karte
-- Tap auf Karte = Toggle Checkbox (nicht Navigation)
-- Bottom-Bar zeigt Bulk-Aktionen als scrollbare Pill-Reihe
+Systematisches Audit aller 12 Admin-Seiten auf einem 390px Viewport. Jede fehlende Funktionalität ist dokumentiert mit konkreter Lösung.
 
 ---
 
-## Technische Umsetzung
+## Seiten-Status im Überblick
 
-### Datei: `src/components/admin/refine/DataTable.tsx`
-
-1. Neuer State `mobileSelectionMode` (boolean)
-2. Im Mobile-Bereich (Zeile 246-261): Toggle-Button "Auswahlen" in der Toolbar
-3. Wenn `mobileSelectionMode` aktiv: Jede Karte wird in einen Wrapper gerendert mit Checkbox links
-4. Tap auf Karte im Selektionsmodus togglet `row.toggleSelected()` statt `onRowClick`
-
-### Datei: `src/components/admin/shared/BulkActionBar.tsx`
-
-1. `useIsMobile()` Hook einbauen
-2. Auf Mobile: statt horizontaler Buttons ein kompaktes Bottom-Sheet-Layout
-3. Scrollbare Icon-Pill-Reihe: Kontaktiert | Zuweisen | Prioritat | Archivieren | Test
-4. Safe-area padding via `pb-[calc(...env(safe-area-inset-bottom))]`
-
-### Datei: `src/components/admin/shared/responsive/MobileCardList.tsx`
-
-1. Neue Prop `selectable` + `selected` + `onToggleSelect` fur `MobileCardItem`
-2. Wenn `selectable`: Checkbox-Circle links, kein Chevron, onClick togglet Selektion
-
-### Datei: `src/components/admin/refine/EventsList.tsx`
-
-1. `mobileCardRender` muss keine Anderungen brauchen -- die Selektionslogik wird im DataTable-Wrapper gehandhabt
+| Seite | Status | Probleme |
+|-------|--------|----------|
+| Dashboard | OK | -- |
+| EventsList | OK | Header-Buttons overflow, FAB vs. BulkActionBar Collision |
+| SmartInquiryEditor | OK | Kleinere Label-Probleme |
+| WizardConfigurator | KRITISCH | LiveCalculation komplett unsichtbar |
+| EventBookingsList | PROBLEM | Layout bricht auf 390px |
+| LexOffice-Listen | PROBLEM | Kein mobileCardRender, Tabelle scrollt horizontal |
+| OrdersList | OK | (hat mobileCardRender, keine Selection — aber Desktop auch nicht) |
+| CateringOrderEditor | OK | Responsives Grid vorhanden |
+| EventBookingEditor | OK | Responsives Grid vorhanden |
+| OfferSendPreview | OK | Sticky-Footer funktioniert mit flex-col auf Mobile |
+| PackagesList | OK | Grid-Layout passt sich an |
+| MenuItemsList | OK | Englischer Name hidden auf Mobile — gewollt |
+| Settings | OK | Einfaches Layout |
 
 ---
 
-## UX-Flow (Mobile)
+## Priorität 1 — Kritische Lücken
 
-```text
-[Normal]                    [Selektionsmodus]
-+--------------------+      +--------------------+
-| [Suche] [Auswahlen]|      | 3 ausgewahlt  [X]  |
-+--------------------+      +--------------------+
-| Eingang | Alle |...|      | Eingang | Alle |...|
-+--------------------+      +--------------------+
-| > Mueller, 20.05   |      | [x] Mueller, 20.05 |
-| > Schmidt, 25.05   |      | [ ] Schmidt, 25.05  |
-| > Weber, 01.06     |      | [x] Weber, 01.06    |
-+--------------------+      +--------------------+
-                             | Kontaktiert|Zuweisen|
-                             | Archiv|Prio|Test    |
-                             +--------------------+
-```
+### A) WizardConfigurator: LiveCalculation fehlt auf Mobile
+**Datei**: `src/components/admin/refine/InquiryEditor/MultiOffer/WizardConfigurator.tsx`
 
-## Ergebnis
+Die gesamte rechte Sidebar (Preis-Kalkulation, Gänge-Zusammenfassung, „Weiter"-Button) ist `hidden lg:block` und damit auf Mobile komplett unsichtbar. Ohne den „Weiter"-Button kann der User den Wizard nicht durchklicken.
 
-- Alle Desktop-Funktionen auch auf Mobile verfugbar
-- App-artiges Erlebnis mit klarem Selektionsmodus
-- Bulk-Aktionen (Archivieren, Zuweisen, Prioritat etc.) mobil nutzbar
-- Kein "verstecktes" Feature -- sichtbarer "Auswahlen"-Button
+**Lösung**: Mobile Sticky-Footer-Bar unter dem Wizard-Content:
+- Zeile 1: Kompakte Preis-Anzeige (z.B. „€ 2.450 · 50 Gäste")
+- Zeile 2: CTA-Button (gleicher `onNextStep`/`nextStepLabel` wie LiveCalculation)
+- Nur auf `lg:hidden` sichtbar, damit Desktop unverändert bleibt
+- Verwendet `MobileBottomBar` für Safe-Area und z-index
+- Optional: Tap auf Preis expandiert ein Sheet mit voller Kalkulation
+
+### B) EventBookingsList: Responsives Card-Layout
+**Datei**: `src/components/admin/refine/EventBookingsList.tsx`
+
+Aktuell `flex items-center justify-between` mit 48px Status-Icons und `text-lg`/`text-base` Schrift. Auf 390px bricht das Layout — die rechte Spalte (Datum, Gäste, Betrag, „Menü festlegen"-Button) wird gequetscht.
+
+**Lösung**:
+- Status-Icons: 48px → 36px auf Mobile (per `size-9 sm:size-12`)
+- Schrift: `text-lg` → `text-base sm:text-lg`, `text-base` → `text-sm sm:text-base`
+- Layout: `flex-col sm:flex-row` statt `justify-between` — rechte Infos unterhalb auf Mobile
+- „Menü festlegen"-Button: volle Breite auf Mobile
+
+---
+
+## Priorität 2 — Wichtige UX-Verbesserungen
+
+### C) LexOffice-Listen: Mobile Cards statt Tabelle
+**Datei**: `src/components/admin/refine/LexOfficeInvoicesList.tsx`
+
+Die `DataTable` hat keinen `mobileCardRender` — auf 390px zeigt sie die volle Tabelle mit horizontalem Scroll. Spalten werden abgeschnitten, Interaktion ist schwierig.
+
+**Lösung**: `mobileCardRender` mit `MobileCardItem` ergänzen:
+- Title: Dokumentnummer (z.B. „AG-2024-0045")
+- Subtitle: Kundenname
+- Meta: Datum
+- Trailing: Betrag + Status-Badge (Entwurf/Offen/Bezahlt/Überfällig)
+
+### D) FAB vs. BulkActionBar Collision
+**Datei**: `src/components/admin/refine/AdminLayout.tsx`
+
+Der FAB „Neue Anfrage" (`fixed right-4 bottom-[1rem]`) überlappt mit der BulkActionBar wenn Selektion aktiv ist. Beide sind fixed am unteren Bildschirmrand.
+
+**Lösung**: FAB erhalt eine optionale Prop `hideFab` oder wird per CSS/State ausgeblendet wenn BulkActionBar sichtbar ist. Konkret: `EventsList` leitet `selectedIds.length > 0` als `showCreateButton={selectedIds.length === 0}` weiter.
+
+### E) EventsList Header: View-Toggle compact
+**Datei**: `src/components/admin/refine/EventsList.tsx`
+
+Das View-Toggle (Tabelle/Kanban) mit Text-Labels + „Neue Anfrage"-Button nimmt auf 390px die gesamte Header-Breite ein und erzwingt Zeilenumbruch.
+
+**Lösung**:
+- Toggle: Text-Labels `hidden sm:inline` — nur Icons auf Mobile
+- „Neue Anfrage"-Button: bereits `hidden sm:flex` + FAB vorhanden — kein Handlungsbedarf
+- Gesamten Header-Bereich `flex-wrap` auf Mobile
+
+---
+
+## Priorität 3 — Polish
+
+### F) SmartInquiryEditor: Button-Labels auf Mobile
+**Datei**: `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx`
+
+„Kunden-Ansicht" und „LexOffice PDF" zeigen auf Mobile nur Icons ohne Text — nicht sofort erkennbar.
+
+**Lösung**: Bereits `title`-Attribute vorhanden. Keine Anderung notwendig — das ist akzeptabler Mobile-Kompromiss. Optional: kurze Labels als zweite Zeile unter dem Icon.
+
+### G) OfferSendPreview: Button-Text Overflow
+**Datei**: `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx`
+
+„Vorschau-Mail an mich & Ristorante" ist ein langer Button-Text. Auf Mobile werden die 3 Buttons vertikal gestapelt (`flex-col`), was funktioniert, aber viel vertikalen Platz braucht.
+
+**Lösung**: Button-Text kürzen auf Mobile: `<span class="sm:hidden">Vorschau</span><span class="hidden sm:inline">Vorschau-Mail an mich & Ristorante</span>`
+
+---
+
+## Umsetzungsreihenfolge
+
+1. **A** — WizardConfigurator Mobile-Footer (kritisch, blockiert Workflow)
+2. **B** — EventBookingsList responsive Layout
+3. **D** — FAB-Collision Fix (1 Zeile)
+4. **E** — EventsList Header compact
+5. **C** — LexOffice Mobile Cards
+6. **G** — OfferSendPreview Button-Text
