@@ -402,13 +402,12 @@ export function MultiOfferComposer({
         <div>
           <h3 className="text-lg font-semibold text-foreground">Multi-Paket-Angebot</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            {isLocked ? "Dieses Angebot wurde versendet und ist schreibgeschützt" : "Erstellen Sie bis zu 5 Optionen mit unterschiedlichen Paketen"}
+            {isLocked
+              ? "Zum Bearbeiten auf den Button unten klicken"
+              : hasBeenSentBefore
+                ? "Passen Sie das Angebot an und senden Sie es erneut"
+                : "Erstellen Sie bis zu 5 Optionen mit unterschiedlichen Paketen"}
           </p>
-          {!isLocked && hasBeenSentBefore && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Passen Sie das Angebot an und senden Sie es erneut
-            </p>
-          )}
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="text-sm font-medium">Version {currentVersion}</Badge>
