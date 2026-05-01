@@ -2064,18 +2064,15 @@ function ProposalOptionCard({
                   Equipment
                 </span>
                 {menu.equipment.filter(e => e.name).map((eq, i) => (
-                  <div key={i} className="flex items-baseline gap-4">
-                    <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
-                      {eq.quantity > 1 ? `${eq.quantity}×` : ''}
-                    </span>
-                    <p className="text-base font-serif text-foreground leading-snug flex-1 flex items-baseline justify-between gap-2">
+                  <div key={i} className="flex items-baseline justify-between gap-2">
+                    <p className="text-base font-serif text-foreground leading-snug flex-1">
                       <span>{eq.quantity > 1 ? `${eq.quantity} × ${eq.name}` : eq.name}</span>
-                      {eq.pricePerUnit > 0 && (
-                        <span className="text-sm text-muted-foreground tabular-nums shrink-0">
-                          {(eq.pricePerUnit * eq.quantity).toFixed(2)} €
-                        </span>
-                      )}
                     </p>
+                    {eq.pricePerUnit > 0 && (
+                      <span className="text-sm text-muted-foreground tabular-nums shrink-0">
+                        {(eq.pricePerUnit * eq.quantity).toFixed(2)} €
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -2088,18 +2085,15 @@ function ProposalOptionCard({
                   Personal
                 </span>
                 {menu.staff.filter(s => s.name).map((st, i) => (
-                  <div key={i} className="flex items-baseline gap-4">
-                    <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
-                      {st.quantity > 1 ? `${st.quantity}×` : ''}
-                    </span>
-                    <p className="text-base font-serif text-foreground leading-snug flex-1 flex items-baseline justify-between gap-2">
+                  <div key={i} className="flex items-baseline justify-between gap-2">
+                    <p className="text-base font-serif text-foreground leading-snug flex-1">
                       <span>{st.quantity > 1 ? `${st.quantity} × ${st.name}` : st.name}</span>
-                      {st.pricePerUnit > 0 && (
-                        <span className="text-sm text-muted-foreground tabular-nums shrink-0">
-                          {(st.pricePerUnit * st.quantity).toFixed(2)} €
-                        </span>
-                      )}
                     </p>
+                    {st.pricePerUnit > 0 && (
+                      <span className="text-sm text-muted-foreground tabular-nums shrink-0">
+                        {(st.pricePerUnit * st.quantity).toFixed(2)} €
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
