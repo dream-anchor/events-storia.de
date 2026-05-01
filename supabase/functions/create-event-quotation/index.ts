@@ -179,22 +179,37 @@ function buildLineItems(
     }
 
     // --- Proportionale Korrektur falls Summe != totalAmount (Override wurde angepasst) ---
-    const entriesSum = round2(entries.reduce((s, e) => s + e.brutto, 0));
-    if (entriesSum > 0 && totalAmount > 0 && Math.abs(entriesSum - totalAmount) > 0.01) {
-      const factor = totalAmount / entriesSum;
-      for (const e of entries) {
-        e.brutto = round2(e.brutto * factor);
-      }
-      // Rundungs-Restbetrag auf letzte Zeile legen damit die Summe exakt stimmt
-      const adjSum = round2(entries.reduce((s, e) => s + e.brutto, 0));
-      const diff = round2(totalAmount - adjSum);
-      if (Math.abs(diff) > 0 && entries.length > 0) {
-        entries[entries.length - 1].brutto = round2(entries[entries.length - 1].brutto + diff);
+    // Equipment/Staff sind Fixkosten — von proportionaler Korrektur ausnehmen
+    const fixedEntries: BruttoEntry[] = [];
+    const scalableEntries: BruttoEntry[] = [];
+    for (const e of entries) {
+      // Equipment/Staff haben unitName 'Stk' und tax 19 — aber einfacher: prüfe ob name ein Equipment/Staff-Name ist
+      // Besser: tagge sie direkt. Wir nutzen ein einfaches Kriterium: unitName === 'Stk'
+      if (e.unitName === 'Stk') {
+        fixedEntries.push(e);
+      } else {
+        scalableEntries.push(e);
       }
     }
+    const fixedSum = round2(fixedEntries.reduce((s, e) => s + e.brutto, 0));
+    const scalableSum = round2(scalableEntries.reduce((s, e) => s + e.brutto, 0));
+    const adjustedTarget = round2(totalAmount - fixedSum);
+    if (scalableSum > 0 && adjustedTarget > 0 && Math.abs(scalableSum - adjustedTarget) > 0.01) {
+      const factor = adjustedTarget / scalableSum;
+      for (const e of scalableEntries) {
+        e.brutto = round2(e.brutto * factor);
+      }
+      const adjSum = round2(scalableEntries.reduce((s, e) => s + e.brutto, 0));
+      const diff = round2(adjustedTarget - adjSum);
+      if (Math.abs(diff) > 0 && scalableEntries.length > 0) {
+        scalableEntries[scalableEntries.length - 1].brutto = round2(scalableEntries[scalableEntries.length - 1].brutto + diff);
+      }
+    }
+    // Wieder zusammenführen
+    const allEntries = [...scalableEntries, ...fixedEntries];
 
     // --- Brutto direkt als grossAmount fuer LexOffice ---
-    for (const e of entries) {
+    for (const e of allEntries) {
       if (e.brutto <= 0) continue;
       items.push({
         type: 'custom',
@@ -369,10 +384,12 @@ function buildLineItems(
 
     // Multiplikation: Zwischensummen + (guestCount-1) für korrekte Gesamtsumme (Brutto)
     if (guestCount > 1 && items.length > 0) {
-      const foodTotal = round2(items
+      // Equipment/Staff (unitName 'Stk') sind Fixpositionen — NICHT mit Gästezahl multiplizieren
+      const perPersonItems = items.filter(i => i.unitName !== 'Stk');
+      const foodTotal = round2(perPersonItems
         .filter(i => i.unitPrice.taxRatePercentage === 7)
         .reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0));
-      const drinkTotal = round2(items
+      const drinkTotal = round2(perPersonItems
         .filter(i => i.unitPrice.taxRatePercentage === 19)
         .reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0));
 
@@ -416,7 +433,13 @@ function buildLineItems(
   } else {
     // Paket-Modus oder E-Mail-Modus: eine Gesamtposition
     // totalAmount ist BRUTTO (Maestro-Eingabe) — direkt als grossAmount durchreichen.
-    const unitPriceBrutto = guestCount > 0 ? round2(totalAmount / guestCount) : 0;
+    // Equipment/Staff-Kosten vom Gesamtpreis abziehen für die Pro-Person-Berechnung
+    const equipStaffTotal = round2(
+      ((ms?.equipment || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0)) +
+      ((ms?.staff || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0))
+    );
+    const packageTotal = round2(totalAmount - equipStaffTotal);
+    const unitPriceBrutto = guestCount > 0 ? round2(packageTotal / guestCount) : 0;
     items.push({
       type: 'custom',
       name: packageName || 'Veranstaltungspaket',
@@ -429,6 +452,32 @@ function buildLineItems(
         taxRatePercentage: 7,
       },
     });
+
+    // --- Equipment (19% MwSt, Fixposition) ---
+    for (const eq of (ms?.equipment || [])) {
+      if (!eq.name || eq.pricePerUnit <= 0 || eq.quantity <= 0) continue;
+      items.push({
+        type: 'custom',
+        name: eq.name,
+        description: '',
+        quantity: eq.quantity,
+        unitName: 'Stk',
+        unitPrice: { currency: 'EUR', grossAmount: round2(eq.pricePerUnit), taxRatePercentage: 19 },
+      });
+    }
+
+    // --- Personal (19% MwSt, Fixposition) ---
+    for (const st of (ms?.staff || [])) {
+      if (!st.name || st.pricePerUnit <= 0 || st.quantity <= 0) continue;
+      items.push({
+        type: 'custom',
+        name: st.name,
+        description: '',
+        quantity: st.quantity,
+        unitName: 'Stk',
+        unitPrice: { currency: 'EUR', grossAmount: round2(st.pricePerUnit), taxRatePercentage: 19 },
+      });
+    }
   }
 
   return items;

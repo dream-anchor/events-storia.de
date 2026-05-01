@@ -43,7 +43,7 @@ serve(async (req) => {
     // Gewählte Option direkt aus v2_offer_options
     const { data: chosenOption } = await supabase
       .from("v2_offer_options")
-      .select("id, label, package_name_snapshot, chosen_at, chosen_notes")
+      .select("id, label, package_name_snapshot, chosen_at, chosen_notes, menu_selection")
       .eq("event_id", event.id)
       .eq("is_chosen", true)
       .order("chosen_at", { ascending: false })
@@ -54,6 +54,21 @@ serve(async (req) => {
       ? `Option ${chosenOption.label}${chosenOption.package_name_snapshot ? ` (${chosenOption.package_name_snapshot})` : ""}`
       : "Keine";
     const customerNotes = chosenOption?.chosen_notes || "Keine Anmerkungen";
+
+    // Equipment & Staff aus menu_selection extrahieren
+    const ms = (chosenOption?.menu_selection || {}) as Record<string, unknown>;
+    const equipItems = (Array.isArray(ms.equipment) ? ms.equipment : []) as Array<{ name: string; pricePerUnit: number; quantity: number }>;
+    const staffItems = (Array.isArray(ms.staff) ? ms.staff : []) as Array<{ name: string; pricePerUnit: number; quantity: number }>;
+    const validEquip = equipItems.filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0);
+    const validStaff = staffItems.filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0);
+
+    let serviceLines = '';
+    if (validEquip.length > 0) {
+      serviceLines += '\nEquipment:\n' + validEquip.map(e => `  ${e.quantity > 1 ? `${e.quantity} × ` : ''}${e.name} — ${(e.pricePerUnit * e.quantity).toFixed(2)} €`).join('\n');
+    }
+    if (validStaff.length > 0) {
+      serviceLines += '\nPersonal:\n' + validStaff.map(s => `  ${s.quantity > 1 ? `${s.quantity} × ` : ''}${s.name} — ${(s.pricePerUnit * s.quantity).toFixed(2)} €`).join('\n');
+    }
 
     const customerName = customer?.company || customer?.name || "Unbekannt";
     const eventDate = event.date || "Kein Datum";
@@ -71,7 +86,7 @@ Event: ${event.occasion || "Veranstaltung"} am ${eventDate}
 Gäste: ${guestCount}
 
 Gewählte Option: ${selectedOptionLabel}
-Anmerkungen: ${customerNotes}
+Anmerkungen: ${customerNotes}${serviceLines}
 
 → Angebot jetzt finalisieren:
 https://events-storia.de/admin/events/${inquiryId}/edit`;
@@ -203,6 +218,7 @@ Event: ${event.occasion || 'Veranstaltung'}
 Datum: ${eventDate}
 Gästeanzahl: ${guestCount}
 Gewählte Option: ${selectedOptionLabel}
+${serviceLines ? `\n${serviceLines.trim()}\n` : ''}
 
 Zahlung: ${paymentInfo}
 

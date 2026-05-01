@@ -667,7 +667,16 @@ export function useOfferBuilder({
           // Gesamtsumme je nach Pricing-Modus
           const mode = opt.pricingMode ?? 'per_person';
           const fallbackTotal = netPerPerson * opt.guestCount;
-          const newTotal = calculateTotalAmount(mode, effectivePerPerson, opt.guestCount, fallbackTotal);
+          let newTotal = calculateTotalAmount(mode, effectivePerPerson, opt.guestCount, fallbackTotal);
+
+          // Equipment & Staff: Fixkosten addieren (nicht pro Person)
+          const equipTotal = (opt.menuSelection.equipment || [])
+            .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
+            .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
+          const staffTotal = (opt.menuSelection.staff || [])
+            .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
+            .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
+          newTotal += equipTotal + staffTotal;
 
           if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
           changed = true;
@@ -708,6 +717,17 @@ export function useOfferBuilder({
         }
 
         if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
+
+        // Equipment & Staff: Fixkosten addieren (nicht pro Person)
+        const equipTotal = (opt.menuSelection.equipment || [])
+          .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
+          .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
+        const staffTotal = (opt.menuSelection.staff || [])
+          .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
+          .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
+        newTotal += equipTotal + staffTotal;
+
+        if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
         changed = true;
         return { ...opt, totalAmount: newTotal };
       });
@@ -725,7 +745,9 @@ export function useOfferBuilder({
     const drinkKey = o.offerMode === 'menu'
       ? `${o.menuSelection.drinksMode ?? 'none'}:${o.menuSelection.winePairingPrice ?? ''}:${o.menuSelection.drinksPauschalePrice ?? ''}:${(o.menuSelection.drinksEinzeln ?? []).map(d => d.pricePerPerson).join('|')}`
       : '';
-    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${courseKey}:${drinkKey}`;
+    const equipKey = (o.menuSelection.equipment ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
+    const staffKey = (o.menuSelection.staff ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
+    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${courseKey}:${drinkKey}:${equipKey}:${staffKey}`;
   }).join(',')]);
 
   // =================================================================

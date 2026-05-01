@@ -90,7 +90,7 @@ export function InlineServiceEditor({
                 value={item.name}
                 onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
                 placeholder={config.placeholder}
-                className="h-8 text-xs flex-1 min-w-0"
+                className={cn("h-8 text-xs flex-1 min-w-0", !item.name && (item.pricePerUnit > 0 || item.quantity > 1) && "border-destructive/50 focus-visible:ring-destructive/30")}
                 disabled={disabled}
               />
               {/* Menge */}

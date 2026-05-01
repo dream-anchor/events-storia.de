@@ -7,6 +7,7 @@ import type { Package } from "../types";
 import type { CourseSelection } from "./types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { PricingMode } from "./pricingMode";
+import type { EquipmentItem } from "./types";
 
 interface PriceBreakdownProps {
   packageData: Package | undefined;
@@ -36,6 +37,10 @@ interface PriceBreakdownProps {
   discountPercent?: number;
   onDiscountChange?: (percent: number) => void;
   disabled?: boolean;
+  /** Equipment-Items (Fixkosten) */
+  equipment?: EquipmentItem[];
+  /** Personal-Items (Fixkosten) */
+  staff?: EquipmentItem[];
 }
 
 function formatCurrency(amount: number): string {
@@ -152,6 +157,8 @@ export function PriceBreakdown({
   onDiscountChange,
   drinksLabel,
   disabled = false,
+  equipment,
+  staff,
 }: PriceBreakdownProps) {
   // --- Menü-Modus (kein Paket) ---
   if (!packageData && onTotalChange !== undefined) {
@@ -196,6 +203,10 @@ export function PriceBreakdown({
     const discountAmount = dishSubtotal * DISCOUNT;
     const netPerPerson = subtotalPerPerson - discountAmount;
     const calculatedTotal = netPerPerson * guestCount;
+
+    // Equipment & Staff Summen
+    const equipSum = (equipment || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
+    const staffSum = (staff || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
 
     return (
       <div className="pt-3 border-t border-border/30 space-y-2">
@@ -285,6 +296,24 @@ export function PriceBreakdown({
         )}
 
         <Separator className="my-1" />
+
+        {/* Equipment */}
+        {equipSum > 0 && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Equipment</span>
+            <span className="text-muted-foreground">{formatCurrency(equipSum)}</span>
+          </div>
+        )}
+
+        {/* Personal */}
+        {staffSum > 0 && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Personal</span>
+            <span className="text-muted-foreground">{formatCurrency(staffSum)}</span>
+          </div>
+        )}
+
+        {(equipSum > 0 || staffSum > 0) && <Separator className="my-1" />}
 
         {/* Errechneter Preis */}
         <div className="flex items-center justify-between gap-3">

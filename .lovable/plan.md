@@ -1,75 +1,85 @@
 
-## Equipment & Personal im OfferBuilder
+# Fix: Alle Audit-Probleme beheben
 
-Zwei neue Sektionen unterhalb der Getränke in jeder Angebotsoption (Menu, Paket, Email-Modus). Der Admin gibt manuell Zeilen ein (Name, Preis, Menge). Beide erscheinen als eigene Positionen auf dem LexOffice-Angebot/Rechnung mit 19% MwSt.
+## Kritische Fehler
+
+### 1. LexOffice Multiplikations-Bug (per_person Modus)
+**Datei:** `supabase/functions/create-event-quotation/index.ts`
+
+In der `per_person`-Logik (Zeile 370-414) filtert `drinkTotal` nach `taxRatePercentage === 19`, was Equipment und Staff einschließt. Diese werden dann mit `guestCount - 1` multipliziert, obwohl sie Fixpositionen sind.
+
+**Fix:** Equipment/Staff-Items vor der Multiplikation herausfiltern. Dazu `unitName === 'Stk'` als Ausschlusskriterium nutzen (Getränke haben `unitName: 'Person'`). Equipment/Staff-Items bleiben als separate Fixpositionen stehen und werden nicht multipliziert.
+
+### 2. Fehlende Equipment/Staff in Paket/Email-Modus
+**Datei:** `supabase/functions/create-event-quotation/index.ts`
+
+Der `else`-Block (Zeile 416-432) für Paket/Email-Modus erzeugt nur eine Gesamtposition. Equipment und Staff werden ignoriert.
+
+**Fix:** Nach der Gesamtposition im Paket/Email-Block ebenfalls Equipment- und Staff-Zeilen als separate Positionen anfügen (identisch zur Menu-Logik, Zeile 344-368).
+
+### 3. Falsche Gesamtberechnung im Admin-UI
+**Datei:** `src/components/admin/refine/InquiryEditor/OfferBuilder/useOfferBuilder.ts`
+
+Die `totalAmount`-Berechnung (ab Zeile 640) berücksichtigt weder `equipment` noch `staff`. Beide Summen fehlen.
+
+**Fix:** Equipment- und Staff-Summen berechnen (`sum of pricePerUnit * quantity`) und zum `newTotal` addieren — in beiden Modi (menu und paket). Diese Summen in die dependency-keys (Zeile 721-729) aufnehmen, damit Preisänderungen den Recalc triggern.
+
+### 4. Proportionale Korrektur skaliert Fixkosten
+**Datei:** `supabase/functions/create-event-quotation/index.ts`
+
+Im `per_event`-Block (Zeile 181-194) wird ein `factor` berechnet und auf alle Einträge angewendet — auch Equipment/Staff. Das verfälscht Fixkosten.
+
+**Fix:** Equipment/Staff-Einträge vor der proportionalen Korrektur separieren, Faktor nur auf Speisen/Getränke anwenden, dann die Fixpositionen wieder anfügen.
+
+## Mittlere Fehler
+
+### 5. PriceBreakdown ohne Equipment/Staff-Kosten
+**Datei:** `src/components/admin/refine/InquiryEditor/OfferBuilder/PriceBreakdown.tsx`
+
+Equipment- und Staff-Summen werden nicht angezeigt.
+
+**Fix:** Zwei neue Zeilen im Preisüberblick: "Equipment" und "Personal" mit jeweiliger Summe (nur sichtbar wenn > 0).
+
+### 6. Bestätigungsmail ohne Equipment/Staff
+**Datei:** `supabase/functions/notify-customer-response/index.ts`
+
+Die Kunden-Bestätigungsmail listet gebuchtes Equipment/Personal nicht auf.
+
+**Fix:** Equipment- und Staff-Items aus `menu_selection` lesen und als Auflistung in die E-Mail einfügen.
+
+### 7. PublicOffer: Preise fehlen, Emojis statt Icons
+**Datei:** `src/pages/PublicOffer.tsx`
+
+Equipment/Staff zeigen nur Namen+Mengen, keine Kosten. Außerdem Emojis (🔧👤) statt Lucide-Icons.
+
+**Fix:** Preise pro Zeile anzeigen (Menge x Preis = Summe). Emojis durch Lucide `Wrench`/`Users` Icons ersetzen.
+
+## Kleinere Probleme
+
+### 8. Leere-Namen-Validierung
+**Datei:** `src/components/admin/refine/InquiryEditor/OfferBuilder/InlineServiceEditor.tsx`
+
+Leere Namen werden akzeptiert.
+
+**Fix:** Visuelles Feedback (roter Rahmen) bei leerem Namen wenn Preis > 0 oder Menge > 1.
+
+### 9. Fragile Typisierung Activity-Log
+**Datei:** `src/hooks/useActivityLog.ts`
+
+Neue Action-Types nicht typisiert.
+
+**Fix:** `offline_booking_confirmed` und andere neue Actions zum Union-Type hinzufügen.
 
 ---
 
-### 1. Datenmodell erweitern (kein DB-Change nötig)
-
-`menu_selection` (JSONB) wird um zwei Arrays erweitert:
-
-```typescript
-interface EquipmentItem {
-  id: string;
-  name: string;
-  pricePerUnit: number;  // Brutto
-  quantity: number;
-}
-```
-
-Neue Felder in `OfferBuilderOption.menuSelection`:
-- `equipment: EquipmentItem[]`
-- `staff: EquipmentItem[]` (gleiche Struktur)
-
-Kein DB-Migrations nötig — alles lebt im bestehenden JSONB-Feld `menu_selection`.
-
-### 2. Type-System aktualisieren
-
-**MenuComposer/types.ts**: `EquipmentItem` Interface + Export.
-
-**OfferBuilder/types.ts**: `menuSelection` um `equipment?` und `staff?` erweitern.
-
-### 3. Neue UI-Komponente: `InlineServiceEditor`
-
-Wiederverwendbare Komponente für beide Sektionen (Equipment + Personal). Gleiche Inline-Edit-UX wie `DrinkSection` im Einzeln-Modus:
-- Zeile: Name (Freitext) | Preis (€) | Menge (Zahl) | Löschen-Button
-- "+" Button zum Hinzufügen neuer Zeilen
-- Sektionsheader: "Equipment" bzw. "Personal" mit Icon (Wrench / Users)
-
-### 4. OptionCard.tsx: Sektionen einbinden
-
-In `MenuContent` und `PaketContent` nach der DrinkSection:
-1. Equipment-Sektion (`InlineServiceEditor`)
-2. Personal-Sektion (`InlineServiceEditor`)
-
-Im Email-Modus ebenfalls verfügbar (Equipment/Personal können auch ohne Menü relevant sein).
-
-### 5. PriceBreakdown.tsx: Positionen anzeigen
-
-Equipment- und Personal-Summen separat im Preisüberblick auflisten.
-
-### 6. LexOffice Edge Function: Positionen als Rechnungszeilen
-
-**create-event-quotation/index.ts**: In `buildLineItems()`:
-- Equipment-Array → je eine Zeile mit 19% MwSt, `unitName: 'Stk'`
-- Staff-Array → je eine Zeile mit 19% MwSt, `unitName: 'Stk'`
-
-Gilt für beide Modi (`per_person` und `per_event`).
-
-### 7. Total-Berechnung
-
-Equipment- und Personal-Summen fließen in `totalAmount` ein. Die Berechnung im `useOfferBuilder` Hook wird entsprechend erweitert.
-
----
-
-### Dateien die geändert werden
+## Betroffene Dateien
 
 | Datei | Änderung |
 |---|---|
-| `src/components/admin/refine/InquiryEditor/MenuComposer/types.ts` | `EquipmentItem` Interface |
-| `src/components/admin/refine/InquiryEditor/OfferBuilder/types.ts` | menuSelection erweitern |
-| `src/components/admin/refine/InquiryEditor/OfferBuilder/InlineServiceEditor.tsx` | **Neu** — wiederverwendbare Komponente |
-| `src/components/admin/refine/InquiryEditor/OfferBuilder/OptionCard.tsx` | Equipment/Personal Sektionen einbinden |
-| `src/components/admin/refine/InquiryEditor/OfferBuilder/PriceBreakdown.tsx` | Summen anzeigen |
-| `supabase/functions/create-event-quotation/index.ts` | LexOffice-Zeilen für Equipment/Personal |
+| `supabase/functions/create-event-quotation/index.ts` | Bugs 1, 2, 4 |
+| `src/components/admin/refine/InquiryEditor/OfferBuilder/useOfferBuilder.ts` | Bug 3 |
+| `src/components/admin/refine/InquiryEditor/OfferBuilder/PriceBreakdown.tsx` | Bug 5 |
+| `supabase/functions/notify-customer-response/index.ts` | Bug 6 |
+| `src/pages/PublicOffer.tsx` | Bug 7 |
+| `src/components/admin/refine/InquiryEditor/OfferBuilder/InlineServiceEditor.tsx` | Bug 8 |
+| `src/hooks/useActivityLog.ts` | Bug 9 |
