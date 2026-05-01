@@ -334,6 +334,9 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
 
       if (!inquiryData) throw new Error('Inquiry not found');
 
+      // Payment method for AI context
+      paymentMethod = (inquiryData as any).payment_method || 'deposit_online';
+
       isMultiOption = true;
       isProposal = rawBody.phase === 'proposal';
       const opts = optionsData || [];
