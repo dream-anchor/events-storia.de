@@ -368,6 +368,17 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
         },
         multiOpts
       );
+
+      // Append payment method to context
+      {
+      const pmLabels: Record<string, string> = {
+        'deposit_online': 'Anzahlung online',
+        'prepayment_online': 'Vorauszahlung online (100%)',
+        'on_site': 'Zahlung vor Ort',
+        'invoice_after': 'Rechnung nach Event',
+      };
+      context += `\nZahlungsart: ${pmLabels[paymentMethod] || paymentMethod}`;
+      }
     } else if (isMultiOfferRequest(rawBody)) {
       isMultiOption = true;
       optionCount = rawBody.options.length;
