@@ -429,6 +429,7 @@ export type Database = {
           id: string
           inquiry_type: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes: string | null
+          invoice_due_days: number | null
           is_test: boolean | null
           last_edited_at: string | null
           last_edited_by: string | null
@@ -449,6 +450,7 @@ export type Database = {
           offer_slug: string | null
           offer_validity_days: number | null
           paid_amount: number | null
+          payment_method: string | null
           payment_type: string | null
           phone: string | null
           preferred_date: string | null
@@ -503,6 +505,7 @@ export type Database = {
           id?: string
           inquiry_type?: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes?: string | null
+          invoice_due_days?: number | null
           is_test?: boolean | null
           last_edited_at?: string | null
           last_edited_by?: string | null
@@ -523,6 +526,7 @@ export type Database = {
           offer_slug?: string | null
           offer_validity_days?: number | null
           paid_amount?: number | null
+          payment_method?: string | null
           payment_type?: string | null
           phone?: string | null
           preferred_date?: string | null
@@ -577,6 +581,7 @@ export type Database = {
           id?: string
           inquiry_type?: Database["public"]["Enums"]["inquiry_type"] | null
           internal_notes?: string | null
+          invoice_due_days?: number | null
           is_test?: boolean | null
           last_edited_at?: string | null
           last_edited_by?: string | null
@@ -597,6 +602,7 @@ export type Database = {
           offer_slug?: string | null
           offer_validity_days?: number | null
           paid_amount?: number | null
+          payment_method?: string | null
           payment_type?: string | null
           phone?: string | null
           preferred_date?: string | null

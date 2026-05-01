@@ -1,47 +1,39 @@
 
-## Problem-Analyse
+# Zahlungsart pro Anfrage — 4 Optionen
 
-Ich habe die App auf 390px (iPhone) überprüft und folgende Probleme gefunden:
+## Was sich ändert
 
-### 1. "KI generieren" Button nicht sichtbar auf Mobile
-Der Button existiert im DOM, ist aber im Header des "Anschreiben"-Bereichs (`EmailComposer.tsx`) zusammen mit "Vorlage"-Dropdown, Copy-Button und dem Badge in einer Zeile — bei 390px Breite wird er abgeschnitten/überlappt.
+Aktuell gibt es im `PaymentTermsBlock` nur numerische Felder (Anzahlung %, Frist, Gültigkeit). Es fehlt die Auswahl **wie** bezahlt wird. Wir fügen ein neues Feld `payment_method` zur Inquiry hinzu mit 4 klar verständlichen Optionen:
 
-### 2. "Angebot bearbeiten" Button fehlt komplett
-Die Änderung wurde in `MultiOfferComposer.tsx` gemacht — aber die App verwendet `OfferBuilder.tsx` für die Angebotsbearbeitung. Der OfferBuilder hat `isLocked={false}` hardcoded (Zeile 307) und zeigt keinen "Angebot bearbeiten" CTA. Das alte Lock-System greift hier nicht.
+| Zahlungsart | Beschreibung | Verhalten |
+|---|---|---|
+| **Anzahlung + Online** | Teilzahlung vorab per Stripe, Rest vor Event | Deposit-Felder aktiv (%, Frist) |
+| **Vorauszahlung Online** | 100 % vorab per Stripe | Deposit = 100 %, Frist-Feld aktiv |
+| **Vor Ort bezahlen** | Zahlung während des Events | Deposit-Felder ausgeblendet |
+| **Rechnung im Nachgang** | Rechnung nach dem Event | Deposit-Felder ausgeblendet, Zahlungsfrist-Feld sichtbar |
 
-Die gute Nachricht: Das Angebot IST editierbar (nicht gesperrt). Der Benutzer kann Optionen, Preise und Menüs direkt ändern. Es fehlt nur die klare visuelle Kommunikation.
+## Technische Umsetzung
 
-### 3. Tab "Details" ist auf Mobile abgeschnitten
-Die Tab-Leiste zeigt nur 3 von 4 Tabs ("Angebot", "Kommunikation", "Aufgaben") — "Details" ist nicht sichtbar ohne horizontales Scrollen, und es gibt keinen visuellen Hinweis dafür.
+### 1. Datenbank-Migration
+- Neue Spalte `payment_method` (text, nullable, default `'deposit_online'`) auf der Inquiries-Tabelle
+- Erlaubte Werte: `deposit_online`, `prepayment_online`, `on_site`, `invoice_after`
 
----
+### 2. PaymentTermsBlock erweitern
+- Oben im Block: 4 große, klar beschriftete Radio-Kacheln (Icons + Text) zur Auswahl der Zahlungsart
+- Darunter: bedingte Felder je nach Auswahl
+  - `deposit_online`: Anzahlung %, Frist, Gültigkeit (wie bisher)
+  - `prepayment_online`: Nur Frist + Gültigkeit (Anzahlung fix 100 %)
+  - `on_site`: Nur Gültigkeit
+  - `invoice_after`: Zahlungsfrist (neues Feld `invoice_due_days`) + Gültigkeit
 
-## Geplante Änderungen
+### 3. Types aktualisieren
+- `ExtendedInquiry` um `payment_method` erweitern
+- Neues Feld `invoice_due_days` (nullable number) für Rechnungsfrist
 
-### A. EmailComposer.tsx — Mobile-Layout für Buttons
-- Header auf Mobile in 2 Zeilen aufteilen: Titel+Badge oben, Buttons unten
-- "KI generieren" als prominenten Button darstellen (nicht `ghost`, sondern `default` mit Sparkles-Icon)
-- Auf Mobile volle Breite oder zumindest gut sichtbar
+### 4. OfferBuilder / Public Offer
+- Zahlungsart im Angebot und in der Kunden-Ansicht anzeigen
+- Bei "Vor Ort" und "Rechnung": kein Stripe Payment Link generieren
 
-### B. OfferBuilder.tsx — Versioning-Banner verbessern  
-- Der grüne "Version X gesendet — Synchron mit Kunde" Banner wird ergänzt um einen klaren Hinweis: "Zum Bearbeiten einfach Optionen, Preise oder Menü anpassen. Änderungen werden automatisch als neue Version gespeichert."
-- Der amber "Entwurf für Version X" Banner bleibt und zeigt klar an, dass der Kunde die Änderungen noch nicht sieht
+## UX-Design
 
-### C. EmailComposer.tsx — "KI generieren" Button größer und prominenter auf Mobile
-- Auf Mobile: separater, volle-Breite CTA-Button unter dem Textarea wenn noch kein Email-Draft vorhanden
-- Amber/Primary Gradient wie die anderen CTAs
-
-### D. Tab-Liste mobile Scroll-Hinweis
-- Gradient-Fade am rechten Rand der Tab-Leiste hinzufügen, um anzuzeigen dass mehr Tabs vorhanden sind
-
----
-
-## Technische Details
-
-| Datei | Änderung |
-|-------|----------|
-| `src/components/admin/refine/InquiryEditor/OfferBuilder/EmailComposer.tsx` | Mobile-responsive Header, prominenter KI-Button |
-| `src/components/admin/refine/InquiryEditor/OfferBuilder/OfferBuilder.tsx` | Versioning-Banner mit Bearbeitungshinweis |
-| `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` | Tab-Scroll-Indikator |
-
-Keine Datenbankänderungen erforderlich.
+Die 4 Kacheln werden prominent im PaymentTermsBlock dargestellt — große Touch-Targets, verständliche Beschreibung, passendes Icon pro Option. Die Detail-Felder darunter passen sich dynamisch an die gewählte Zahlungsart an (kein unnötiges UI).
