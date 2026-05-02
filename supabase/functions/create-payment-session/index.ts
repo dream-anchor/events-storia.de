@@ -184,6 +184,7 @@ serve(async (req) => {
         }],
         success_url: `https://events-storia.de/offer/${inquiryId}?payment=success`,
         cancel_url: `https://events-storia.de/offer/${inquiryId}?payment=cancelled`,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
         metadata: {
           inquiry_id: inquiryId,
           payment_type: paymentType,
@@ -316,6 +317,7 @@ serve(async (req) => {
       }],
       success_url: `https://events-storia.de/offer/${inquiryId}?payment=success`,
       cancel_url: `https://events-storia.de/offer/${inquiryId}?payment=cancelled`,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
       metadata: {
         inquiry_id: inquiryId,
         option_id: optionId,
