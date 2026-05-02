@@ -86,6 +86,9 @@ serve(async (req) => {
       } else if (metadata.option_id && metadata.inquiry_id) {
         // ━━━ EVENT OFFER PAYMENT ━━━
         await handleEventOfferPayment(supabase, stripe, session, metadata);
+      } else if (metadata.option_quantities && metadata.inquiry_id) {
+        // ━━━ MULTI-OPTION EVENT PAYMENT (create-payment-session) ━━━
+        await handleMultiOptionPayment(supabase, stripe, session, metadata);
       } else if (orderType === "event" && orderNumber) {
         // ━━━ EVENT BOOKING DIRECT PAYMENT ━━━
         await handleEventBookingPayment(supabase, session, orderNumber, metadata);
@@ -453,6 +456,173 @@ async function handleMaestroPayment(
   });
 
   logStep("Maestro payment processing complete", { paymentId, inquiryId });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MULTI-OPTION EVENT PAYMENT (from create-payment-session)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// deno-lint-ignore no-explicit-any
+async function handleMultiOptionPayment(
+  supabase: any,
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+  metadata: Record<string, string>
+) {
+  const inquiryId = metadata.inquiry_id;
+  const paymentType = (metadata.payment_type || 'full') as 'full' | 'deposit';
+  const totalAmount = metadata.total_amount ? parseFloat(metadata.total_amount) : null;
+  const depositPercent = metadata.deposit_percent ? parseFloat(metadata.deposit_percent) : 20;
+  const amountPaid = session.amount_total ? session.amount_total / 100 : null;
+
+  let optionQuantities: Array<{ optionId: string; quantity: number }> = [];
+  try {
+    optionQuantities = JSON.parse(metadata.option_quantities);
+  } catch {
+    logStep("ERROR: Could not parse option_quantities", { raw: metadata.option_quantities });
+    return;
+  }
+
+  logStep("Processing multi-option payment", {
+    inquiryId, paymentType, amountPaid, totalAmount, options: optionQuantities.length,
+  });
+
+  // Idempotenz: Prüfe ob bereits ein v2_payment für diese Inquiry+Session existiert
+  const { data: existingPayment } = await supabase
+    .from("v2_payments")
+    .select("id")
+    .eq("event_id", inquiryId)
+    .eq("stripe_checkout_session_id", session.id)
+    .maybeSingle();
+
+  if (existingPayment) {
+    logStep("Multi-option payment already processed (idempotent skip)", { paymentId: existingPayment.id });
+    return;
+  }
+
+  // paid_amount + remaining_amount auf event_inquiries aktualisieren
+  if (amountPaid !== null) {
+    const updatePayment: Record<string, unknown> = {
+      paid_amount: amountPaid,
+      payment_type: paymentType,
+    };
+    if (paymentType === 'deposit' && totalAmount !== null) {
+      updatePayment.remaining_amount = totalAmount - amountPaid;
+    } else {
+      updatePayment.remaining_amount = 0;
+    }
+    await supabase
+      .from('event_inquiries')
+      .update(updatePayment)
+      .eq('id', inquiryId);
+    logStep("Paid amount updated on inquiry", updatePayment);
+  }
+
+  // offer_phase → confirmed, status → confirmed
+  await supabase
+    .from('event_inquiries')
+    .update({
+      offer_phase: 'confirmed',
+      status: 'confirmed',
+      updated_at: new Date().toISOString(),
+    } as Record<string, unknown>)
+    .eq('id', inquiryId);
+
+  // v2_payments-Eintrag anlegen
+  const amountCents = amountPaid ? Math.round(amountPaid * 100) : (session.amount_total || 0);
+
+  // Zahlungsmethode ermitteln
+  let paidVia = 'stripe_checkout';
+  try {
+    if (session.payment_intent) {
+      const pi = await stripe.paymentIntents.retrieve(session.payment_intent as string);
+      if (pi.payment_method) {
+        const pm = await stripe.paymentMethods.retrieve(pi.payment_method as string);
+        paidVia = pm.type || 'stripe_checkout';
+      }
+    }
+  } catch { /* non-fatal */ }
+
+  const { error: paymentInsertError } = await supabase
+    .from('v2_payments')
+    .insert({
+      event_id: inquiryId,
+      amount_cents: amountCents,
+      payment_type: paymentType,
+      status: 'paid',
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: (session.payment_intent as string) || null,
+      paid_at: new Date().toISOString(),
+      paid_via: paidVia,
+    });
+
+  if (paymentInsertError) {
+    logStep("v2_payments insert error", { error: paymentInsertError.message });
+  }
+
+  // Booking-Nummer generieren falls nötig
+  const { data: ev } = await supabase
+    .from('v2_events')
+    .select('id, booking_number')
+    .eq('id', inquiryId)
+    .maybeSingle();
+
+  if (ev && !ev.booking_number) {
+    const currentYear = new Date().getFullYear();
+    const { data: nextNum } = await supabase.rpc('get_next_order_number', {
+      p_prefix: 'EVT', p_year: currentYear,
+    });
+    const bookingNumber = `EVT-${currentYear}-${String(nextNum || 9999).padStart(4, '0')}`;
+    await supabase.from('v2_events').update({
+      booking_number: bookingNumber,
+      status: 'paid',
+      offer_phase: 'confirmed',
+      updated_at: new Date().toISOString(),
+    } as Record<string, unknown>).eq('id', inquiryId);
+    logStep("Booking number generated", { bookingNumber });
+  }
+
+  // LexOffice-Rechnung triggern (non-blocking)
+  try {
+    const lexResp = await fetch(
+      `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-manual-invoice`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({ inquiryId, useSelectedQuantity: true }),
+      }
+    );
+    if (lexResp.ok) {
+      logStep("LexOffice invoice triggered for multi-option", { inquiryId });
+    } else {
+      logStep("LexOffice invoice failed (non-fatal)", { status: lexResp.status });
+    }
+  } catch (err) {
+    logStep("LexOffice invoice error (non-fatal)", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // Activity Log
+  await logActivity(supabase, {
+    entity_type: 'event_inquiry',
+    entity_id: inquiryId,
+    action: `multi_option_${paymentType}_paid`,
+    description: `Multi-Option Zahlung eingegangen: ${formatEUR(amountPaid || 0)} (${optionQuantities.length} Optionen)`,
+    metadata: {
+      payment_type: paymentType,
+      stripe_session_id: session.id,
+      stripe_payment_intent: session.payment_intent,
+      paid_via: paidVia,
+      amount_cents: session.amount_total,
+      option_quantities: optionQuantities,
+    },
+  });
+
+  logStep("Multi-option payment processing complete", { inquiryId });
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
