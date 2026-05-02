@@ -339,7 +339,7 @@ export default function PublicOffer() {
               setData({
                 inquiry: parsed.inquiry as PublicInquiry,
                 options: (parsed as unknown as PublicOfferData).options,
-                customerResponse: (parsed as unknown as PublicOfferData).customerResponse,
+                customer_response: (parsed as unknown as PublicOfferData).customer_response,
               });
             }
           } catch { /* ignore polling errors */ }
