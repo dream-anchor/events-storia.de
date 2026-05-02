@@ -1,121 +1,106 @@
 
-# Deep-Dive Audit — Mai 2026
+# Deep-Dive Audit -- Mai 2026
 
-## Rolle: Senior CX Experte + Senior UI/UX Experte
+## Status-Zusammenfassung
 
----
-
-## KRITISCH (Umsatzverlust-Risiko)
-
-### 1. Multi-Option-Zahlung wird im Webhook nicht verarbeitet
-
-**Schweregrad:** KRITISCH — Geld wird eingezogen, Buchung wird nie erstellt.
-
-`create-payment-session` (Multi-Option-Pfad, Zeile 187-192) setzt Stripe-Metadata:
-```
-{ inquiry_id, payment_type, option_quantities, total_amount, deposit_percent }
-```
-
-`handle-stripe-webhook` (Zeile 86) prüft:
-```
-metadata.option_id && metadata.inquiry_id
-```
-
-**`option_id` ist im Multi-Option-Pfad nicht gesetzt** — der Webhook loggt "Unknown payment type" und die Zahlung bleibt unverarbeitet. Kein Booking, kein LexOffice, kein Status-Update.
-
-**Fix:** Neuen Branch in `handle-stripe-webhook` hinzufügen:
-```
-} else if (metadata.option_quantities && metadata.inquiry_id) {
-  await handleMultiOptionPayment(supabase, stripe, session, metadata);
-}
-```
-Neue Funktion `handleMultiOptionPayment`: paid_amount/remaining_amount setzen, v2_payments anlegen, offer_phase → confirmed, LexOffice-Rechnung triggern.
+| Bereich | Funktioniert | Probleme | Risiko |
+|---------|:---:|:---:|:---:|
+| PublicOffer Refactoring | Ja (336 Zeilen Orchestrator) | ProposalView 1.333 Zeilen | Mittel |
+| Single-Option Stripe-Zahlung | Ja | -- | -- |
+| Multi-Option Stripe-Zahlung | Teilweise | **Bug P1** | Hoch |
+| Offline-Buchung (on_site/invoice) | Ja (Single + Multi) | -- | -- |
+| Stripe Webhook Routing | Ja (5 Pfade) | -- | -- |
+| LexOffice Integration | Ja | Edge-to-Edge HTTP | Mittel |
+| Offer Lifecycle (Phasen) | Ja | -- | -- |
+| Archiv-Modus | Ja | -- | -- |
+| Stripe Session Expiry | Ja (1h) | -- | -- |
+| Payment Success Polling | Ja | -- | -- |
+| Security (Linter) | -- | **79 Findings** | Hoch |
 
 ---
 
-## MITTEL (Funktionslücken)
+## P1 -- Kritische Bugs (Funktion betroffen)
 
-### 2. Offline-Buchung (Vor Ort / Rechnung) ignoriert Multi-Option-Mengen
+### Bug 1: Multi-Option Webhook setzt `selected_quantity` NICHT
+**Wo:** `handle-stripe-webhook` > `handleMultiOptionPayment()` (Zeile 646-806)
+**Problem:** Nach erfolgreicher Stripe-Zahlung werden die `v2_offer_options` Zeilen NICHT mit `is_chosen=true` und `selected_quantity` aktualisiert. Im Gegensatz dazu:
+- `confirm_offline_booking_multi` (SQL) setzt `is_chosen`, `chosen_at`, `selected_quantity` korrekt
+- `create-payment-session` setzt `selected_quantity` VOR Stripe-Checkout (Zeile 197-203)
 
-`confirm_offline_booking` (SQL-Funktion) akzeptiert nur `p_selected_option_id` — keinen Mechanismus für mehrere Optionen mit unterschiedlichen Mengen. Kunden mit `payment_method = 'on_site'` und Multi-Option-Angeboten können nicht korrekt buchen.
+**Auswirkung:** Nach Stripe-Zahlung im Multi-Option-Flow fehlen die gewählten Mengen auf den Optionen. LexOffice-Rechnungen und Admin-Dashboard zeigen keine Zuordnung. Die `create-manual-invoice` Edge Function (Zeile 775) liest `useSelectedQuantity: true` -- bekommt aber ggf. die Pre-Checkout-Werte, nicht die endgultigen.
 
-**Fix:** Entweder `confirm_offline_booking` um `p_option_quantities jsonb` erweitern oder im PublicOffer die Multi-Option-Auswahl als einzelne zusammengefasste Option persistieren.
+**Fix:** In `handleMultiOptionPayment` nach Zeile 700 die `optionQuantities` durchiterieren und `v2_offer_options` mit `is_chosen`, `chosen_at`, `selected_quantity` updaten + nicht gewählte deaktivieren.
 
-### 3. `payment=success` wird nicht im Frontend behandelt
-
-Nach erfolgreicher Stripe-Zahlung leitet Stripe zu `?payment=success` weiter. Im `useEffect` (Zeile 307-319) wird nur `payment=cancelled` behandelt. Der Erfolgsfall zeigt keinen Toast — der Kunde sieht die Seite ohne Feedback, bis der Webhook durchgelaufen ist (1-10 Sekunden Latenz). Falls der Webhook fehlschlägt (Bug 1), sieht der Kunde ewig den alten Status.
-
-**Fix:** `payment=success` ebenfalls behandeln: Toast "Zahlung erfolgreich — Ihre Buchung wird bestätigt" + Polling auf offer_phase-Änderung.
-
-### 4. Kein Stripe Session Expiry Handling
-
-`create-payment-session` setzt kein `expires_at` auf der Stripe Checkout Session. Standard-Ablauf ist 24h. Falls ein Kunde die Session nicht abschließt und 20h später zurückkehrt, funktioniert der Link noch — aber die Preise könnten sich geändert haben. Kein kritisches Problem, aber CX-Risiko.
-
-**Empfehlung:** `expires_at: Math.floor(Date.now() / 1000) + 3600` (1h) setzen.
+### Bug 2: `get_public_offer` liefert `event_end_date` nicht
+**Wo:** SQL-Funktion `get_public_offer` + `HeroSection.tsx`, `ConfirmationView.tsx`
+**Problem:** Die RPC-Funktion baut das JSON ohne `event_end_date`. Frontend-Code referenziert es (types.ts Zeile 22, HeroSection Zeile 56-57) -- Wert ist immer `null`.
+**Auswirkung:** Mehrtägige Events zeigen nur das Startdatum, nie den Enddatum-Range.
+**Fix:** `event_end_date` in `get_public_offer` hinzufügen (`ei.event_end_date` bzw. aus `v2_events`).
 
 ---
 
-## NIEDRIG (Technische Schulden + CX-Optimierung)
+## P2 -- Mittlere Probleme
 
-### 5. PublicOffer.tsx — 3.002 Zeilen Monolith
+### Problem 3: ProposalView ist 1.333 Zeilen
+**Wo:** `src/pages/public-offer/ProposalView.tsx`
+**Problem:** Der Refactor hat `PublicOffer.tsx` entlastet (336 Zeilen), aber die gesamte Interaktionslogik (Mengen-Handling, 3 Action-Handler, Carousel, Optionskarten, Summary, CTA-Bereich, Mobile-Progress) lebt in einer einzigen Datei.
+**Risiko:** Wartbarkeit, Re-Render-Performance bei Mengenänderungen (alle Karten re-rendern).
+**Fix:** Extrahieren in `OptionCard.tsx`, `MultiOptionCarousel.tsx`, `PaymentActions.tsx`, `useOfferActions.ts` Hook.
 
-7 useEffects, 17 catch-Blöcke, 5 Phasen in einer Datei. Wartbarkeit ist eingeschränkt, Debugging komplex. Empfehlung: In Subkomponenten aufteilen (ProposalView, ResponseView, PaymentView, ConfirmedView).
+### Problem 4: `handle-offer-payment` Edge Function existiert noch
+**Wo:** `supabase/functions/handle-offer-payment/`
+**Problem:** Die Logik wurde inline in `handle-stripe-webhook` verschoben, aber die alte Funktion existiert noch als Deployment. Toter Code, potenzielle Verwirrung.
+**Fix:** Verzeichnis löschen.
 
-### 6. Security Definer Views (3 ERRORS im Linter)
+### Problem 5: LexOffice via Edge-to-Edge HTTP im Webhook
+**Wo:** `handle-stripe-webhook` Zeilen 188-198 (Catering), 463-473 (Single-Option), 767-777 (Multi-Option)
+**Problem:** 3 verschiedene Stellen rufen LexOffice-Erstellung über interne HTTP-Calls auf. Zwar non-fatal, aber:
+- Cold-Start-Overhead (3 verschiedene Functions)
+- Keine Retry-Logik bei transientem Fehler
+- Inkonsistente Payloads (Catering vs. Event vs. Multi-Option)
+**Risiko:** Gelegentlich fehlende Rechnungen bei Timeouts.
 
-Die 3 Compatibility-Views (`event_inquiries`, `event_bookings`, `catering_orders`) sind SECURITY DEFINER. Das ist **gewollt** als v1→v2 Adapter. Kann als "akzeptiertes Risiko" im Security Memory dokumentiert werden.
+### Problem 6: 79 Security-Linter-Findings
+**Aufschlüsselung:**
+- 3x SECURITY DEFINER View (ERROR) -- die Compatibility-Views. Dokumentiert und akzeptiert.
+- 1x Extension in Public (WARN)
+- ~9x RLS Policy Always True (WARN) -- betrifft `packages`, `menu_items` etc. (public catalog, intentional)
+- 1x Public Bucket Allows Listing
+- ~20x Public can execute SECURITY DEFINER Function -- betrifft `get_public_offer`, `get_public_offer_by_slug`, `confirm_offline_booking*`, `submit_offer_response` etc.
+- ~24x Authenticated can execute SECURITY DEFINER Function
 
-### 7. 10+ USING(true) RLS Policies
+Die Public-SECURITY-DEFINER-Warnungen für `get_public_offer` und `confirm_offline_booking` sind by design (anonymer Kundenzugriff). ABER: `get_next_order_number`, `catering_orders_insert_trigger`, `generate_booking_number` etc. sollten NICHT public-executable sein.
 
-Betrifft hauptsächlich: `packages`, `menu_items`, `email_messages`, `activity_logs`. Teilweise gewollt (öffentliche Pakete, Admin-only Tabellen mit service_role). Sollte systematisch dokumentiert werden — welche sind absichtlich offen, welche versehentlich.
-
-### 8. `handleEventOfferPayment` ruft `handle-offer-payment` per HTTP auf
-
-Edge Function → Edge Function HTTP-Call (Zeile 295-305) ist fragil: Timeout-Risiken, doppelte Cold-Starts, kein Retry. Besser: Shared-Logic inline oder als importierte Funktion.
+**Fix:** `REVOKE EXECUTE ON FUNCTION ... FROM anon;` für alle internen Trigger-/Helper-Funktionen.
 
 ---
 
-## Verifiziert & funktional
+## P3 -- Potenzielle Risiken (noch kein Bug, aber absehbar)
 
-| Bereich | Status |
-|---------|--------|
-| Equipment/Staff Persistenz & Klonung | OK |
-| LexOffice VAT-Splitting (7%/19%) | OK |
-| AI-Anschreiben mit Equipment/Staff | OK |
-| Kundenbestätigung-Emails | OK |
-| PriceBreakdown Admin | OK |
-| PublicOffer Equipment/Staff Anzeige | OK |
-| Idempotenz in handle-offer-payment | OK (source_offer_option_id Check + 23505 Guard) |
-| Stripe Webhook Signatur-Verifikation | OK |
-| Race-Condition-Schutz submit_offer_response | OK (FOR UPDATE SKIP LOCKED) |
-| Security-Härtung (REVOKE EXECUTE) | OK (Migration angewendet) |
-| reconcile-payment-statuses auf v2-Tabellen | OK |
-| Offline-Buchung (Einzeloption) | OK |
-| Catering-Bestellflow | OK |
-| Maestro Payment Flow | OK |
+### Risiko 7: Deposit-Flow ohne Restzahlungs-Tracking
+**Wo:** Multi-Option + Single-Option Stripe-Pfad
+**Problem:** Bei `paymentType === 'deposit'` wird `remaining_amount` gesetzt, aber es gibt keinen automatischen Workflow, der die Restzahlung vor dem Event einfordert. Das `send-scheduled-reminders` System ist vorhanden, aber die Verknüpfung zwischen `remaining_amount > 0` und automatischer Zahlungserinnerung fehlt.
+**Risiko:** Kunden zahlen Anzahlung, aber Restbetrag wird vergessen.
+
+### Risiko 8: Race Condition bei parallelen Stripe-Webhooks
+**Wo:** `handleMultiOptionPayment` Idempotenz-Check (Zeile 671-681)
+**Problem:** Prüft auf `stripe_checkout_session_id` -- gut. Aber die `event_inquiries.update` (Zeile 702-709) hat keinen `FOR UPDATE SKIP LOCKED` wie `submit_offer_response`. Bei extrem schnellen Retries könnte der Status doppelt geschrieben werden. In der Praxis unwahrscheinlich wegen Stripes 5s-Retry-Delay.
+
+### Risiko 9: localStorage-Abhängigkeit für Mengen
+**Wo:** `ProposalView.tsx` Zeile 63-101
+**Problem:** Mengen werden in `localStorage` persistiert, um Stripe-Cancel-Redirect zu überleben. Aber:
+- Private Browsing / Safari löscht localStorage aggressiver
+- Wenn Kunde auf anderem Gerät öffnet, fehlen die Mengen
+- `create-payment-session` speichert `selected_quantity` VOR Checkout -- bei Cancel und erneutem Versuch mit geänderten Mengen werden die alten DB-Werte nicht bereinigt.
 
 ---
 
 ## Empfohlene Reihenfolge
 
-1. **Bug 1** (kritisch) — Multi-Option Webhook sofort fixen
-2. **Bug 3** — payment=success Toast + Polling
-3. **Bug 2** — Offline-Buchung Multi-Option
-4. **Bug 4** — Session Expiry
-5. Security Memory updaten (Bugs 6+7 dokumentieren)
-6. PublicOffer Refactoring (optional, kein Funktionsfehler)
+1. **Bug 1** (P1): Multi-Option Webhook `selected_quantity` + `is_chosen` setzen
+2. **Bug 2** (P1): `event_end_date` in `get_public_offer` aufnehmen
+3. **Problem 6** (Security): `REVOKE EXECUTE` auf interne Funktionen
+4. **Problem 4** (Cleanup): `handle-offer-payment` Verzeichnis entfernen
+5. **Problem 3** (Refactor): ProposalView aufteilen (optional, Wartbarkeit)
 
-## Umsetzungsstatus
-
-| # | Problem | Status |
-|---|---------|--------|
-| 1 | Multi-Option Webhook nicht verarbeitet | ✅ Behoben — `handleMultiOptionPayment` in handle-stripe-webhook |
-| 2 | Offline-Buchung ignoriert Multi-Option | ✅ Behoben — `confirm_offline_booking_multi` SQL + Frontend |
-| 3 | payment=success nicht behandelt | ✅ Behoben — Toast + Polling in PublicOffer |
-| 4 | Stripe Session Expiry | ✅ Behoben — `expires_at: 1h` auf beiden Pfaden |
-| 5 | PublicOffer Monolith | ⏳ Architektur-Schulden, kein Funktionsfehler |
-| 6 | Security Definer Views | ✅ Dokumentiert in Security Memory |
-| 7 | USING(true) RLS Policies | ✅ Dokumentiert in Security Memory |
-| 8 | Edge→Edge HTTP-Call | ⏳ Architektur-Schulden, kein Funktionsfehler |
-| 5 | PublicOffer Monolith | ✅ Refactored — 11 Module in src/pages/public-offer/, Orchestrator ~250 Zeilen |
-| 8 | Edge→Edge HTTP-Call | ✅ Behoben — `processEventOfferPaymentInline` direkt in handle-stripe-webhook |
+Soll ich mit der Umsetzung beginnen?
