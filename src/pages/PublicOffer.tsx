@@ -316,6 +316,37 @@ export default function PublicOffer() {
         /* ignore */
       }
     }
+    if (paymentStatus === 'success') {
+      toast.success('Zahlung erfolgreich — Ihre Buchung wird bestätigt.', { duration: 8000 });
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('payment');
+        window.history.replaceState({}, '', url.toString());
+      } catch { /* ignore */ }
+      // Poll für offer_phase-Update (Webhook braucht 1-10s)
+      if (lookupValue) {
+        let attempts = 0;
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          if (attempts > 15) { clearInterval(pollInterval); return; }
+          try {
+            const rpcName = slug ? 'get_public_offer_by_slug' : 'get_public_offer';
+            const rpcArg = slug ? { slug: lookupValue } : { offer_id: lookupValue };
+            const { data: fresh } = await supabase.rpc(rpcName as never, rpcArg as never);
+            const parsed = fresh as { inquiry?: { offer_phase?: string } } | null;
+            if (parsed?.inquiry?.offer_phase === 'confirmed' || parsed?.inquiry?.offer_phase === 'paid') {
+              clearInterval(pollInterval);
+              setData({
+                inquiry: parsed.inquiry as PublicInquiry,
+                options: (parsed as unknown as PublicOfferData).options,
+                customerResponse: (parsed as unknown as PublicOfferData).customerResponse,
+              });
+            }
+          } catch { /* ignore polling errors */ }
+        }, 2000) as unknown as ReturnType<typeof setTimeout>;
+        return () => clearInterval(pollInterval);
+      }
+    }
   }, [searchParams]);
 
   useEffect(() => {
