@@ -708,6 +708,44 @@ async function handleMultiOptionPayment(
     } as Record<string, unknown>)
     .eq('id', inquiryId);
 
+  // Mark chosen options with selected_quantity + deactivate non-chosen
+  const chosenIds: string[] = [];
+  for (const { optionId: oid, quantity } of optionQuantities) {
+    if (quantity > 0) {
+      chosenIds.push(oid);
+      await supabase
+        .from('v2_offer_options')
+        .update({
+          is_chosen: true,
+          chosen_at: new Date().toISOString(),
+          selected_quantity: quantity,
+        })
+        .eq('id', oid)
+        .eq('event_id', inquiryId);
+    }
+  }
+
+  // Deactivate non-chosen options
+  if (chosenIds.length > 0) {
+    const { data: allOpts } = await supabase
+      .from('v2_offer_options')
+      .select('id')
+      .eq('event_id', inquiryId);
+    if (allOpts) {
+      const deactivateIds = (allOpts as Array<{ id: string }>)
+        .map(o => o.id)
+        .filter(id => !chosenIds.includes(id));
+      for (const did of deactivateIds) {
+        await supabase
+          .from('v2_offer_options')
+          .update({ is_active: false })
+          .eq('id', did);
+      }
+    }
+  }
+
+  logStep("Multi-option: marked chosen options", { chosenIds, optionQuantities });
+
   // v2_payments-Eintrag anlegen
   const amountCents = amountPaid ? Math.round(amountPaid * 100) : (session.amount_total || 0);
 
