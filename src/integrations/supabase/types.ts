@@ -3708,6 +3708,10 @@ export type Database = {
         Args: { p_inquiry_id: string; p_selected_option_id: string }
         Returns: Json
       }
+      confirm_offline_booking_multi: {
+        Args: { p_inquiry_id: string; p_option_quantities: Json }
+        Returns: Json
+      }
       generate_booking_number: { Args: never; Returns: string }
       get_next_order_number: {
         Args: { p_prefix: string; p_year: number }
