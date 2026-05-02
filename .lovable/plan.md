@@ -1,78 +1,108 @@
 
-# Deep-Dive Audit — Gesamtergebnis
+# Deep-Dive Audit — Mai 2026
 
-## Status: Alle Kernfunktionen operativ
-
-Die folgenden Bereiche wurden geprüft und funktionieren korrekt:
-
-| Bereich | Status | Details |
-|---------|--------|---------|
-| Equipment/Staff im OfferBuilder | OK | Wird korrekt persistiert, geladen, geklont |
-| Equipment/Staff im Paket-Modus | OK | Early-Return Bug ist behoben, Preise korrekt |
-| PriceBreakdown (Admin) | OK | Equipment/Staff Summen werden angezeigt |
-| PublicOffer (Kunden-Ansicht) | OK | Equipment/Staff mit Preisen, Lucide Icons |
-| LexOffice Quotation (per_event) | OK | Equipment/Staff als Fixposten, korrekte MwSt (19%) |
-| LexOffice Quotation (per_person/paket) | OK | Equipment/Staff separat, nicht pro-Person multipliziert |
-| LexOffice proportionale Skalierung | OK | Fixkosten ausgenommen |
-| AI-Anschreiben (generate-inquiry-email) | OK | Equipment/Staff im Kontext |
-| Admin-Benachrichtigung (notify-customer-response) | OK | Equipment/Staff in E-Mail |
-| Kundenkopie (send-customer-response-copy) | OK | Equipment/Staff in E-Mail |
-| PDF-Download | OK | LexOffice-PDF enthält alle Positionen |
-| Offer Cloning | OK | Deep-Clone via JSON.parse/stringify |
-| InlineServiceEditor Validierung | OK | Leere Namen markiert |
-| Stripe Payment Links | OK | totalAmount enthält Equipment/Staff |
+## Rolle: Senior CX Experte + Senior UI/UX Experte
 
 ---
 
-## Gefundene Probleme
+## KRITISCH (Umsatzverlust-Risiko)
 
-### 1. UI-Bug: Doppelte Mengen-Anzeige im PublicOffer (Minor)
+### 1. Multi-Option-Zahlung wird im Webhook nicht verarbeitet
 
-**Datei:** `src/pages/PublicOffer.tsx`, Zeilen 2061-2080
+**Schweregrad:** KRITISCH — Geld wird eingezogen, Buchung wird nie erstellt.
 
-In der "Proposal Sent"-Ansicht wird die Menge sowohl im linken Label ("2×") als auch im Haupttext ("2 × DJ-Equipment") angezeigt. Das ergibt visuell:
-
+`create-payment-session` (Multi-Option-Pfad, Zeile 187-192) setzt Stripe-Metadata:
 ```
-2×    2 × DJ-Equipment    120,00 €
+{ inquiry_id, payment_type, option_quantities, total_amount, deposit_percent }
 ```
 
-**Fix:** Das linke `<span>` mit der redundanten Menge entfernen — die Menge steht bereits im Haupttext.
+`handle-stripe-webhook` (Zeile 86) prüft:
+```
+metadata.option_id && metadata.inquiry_id
+```
+
+**`option_id` ist im Multi-Option-Pfad nicht gesetzt** — der Webhook loggt "Unknown payment type" und die Zahlung bleibt unverarbeitet. Kein Booking, kein LexOffice, kein Status-Update.
+
+**Fix:** Neuen Branch in `handle-stripe-webhook` hinzufügen:
+```
+} else if (metadata.option_quantities && metadata.inquiry_id) {
+  await handleMultiOptionPayment(supabase, stripe, session, metadata);
+}
+```
+Neue Funktion `handleMultiOptionPayment`: paid_amount/remaining_amount setzen, v2_payments anlegen, offer_phase → confirmed, LexOffice-Rechnung triggern.
 
 ---
 
-### 2. Architektur: PublicOffer.tsx ist ein 3.008-Zeilen-Monolith
+## MITTEL (Funktionslücken)
 
-`PublicOffer.tsx` enthält alle Ansichten (Proposal, Response, Final, Payment, Confirmed) in einer einzigen Datei. Das erschwert:
-- Wartbarkeit und Debugging
-- Code-Reviews
-- Parallelarbeit
+### 2. Offline-Buchung (Vor Ort / Rechnung) ignoriert Multi-Option-Mengen
 
-**Empfehlung:** Aufteilen in Sub-Komponenten:
-- `PublicOfferProposal.tsx`
-- `PublicOfferResponse.tsx`
-- `PublicOfferPayment.tsx`
-- `PublicOfferConfirmed.tsx`
+`confirm_offline_booking` (SQL-Funktion) akzeptiert nur `p_selected_option_id` — keinen Mechanismus für mehrere Optionen mit unterschiedlichen Mengen. Kunden mit `payment_method = 'on_site'` und Multi-Option-Angeboten können nicht korrekt buchen.
 
-*Kein funktionaler Bug — rein technische Schulden.*
+**Fix:** Entweder `confirm_offline_booking` um `p_option_quantities jsonb` erweitern oder im PublicOffer die Multi-Option-Auswahl als einzelne zusammengefasste Option persistieren.
 
----
+### 3. `payment=success` wird nicht im Frontend behandelt
 
-### 3. Security: 77 Linter-Warnungen (3 ERROR, 74 WARN)
+Nach erfolgreicher Stripe-Zahlung leitet Stripe zu `?payment=success` weiter. Im `useEffect` (Zeile 307-319) wird nur `payment=cancelled` behandelt. Der Erfolgsfall zeigt keinen Toast — der Kunde sieht die Seite ohne Feedback, bis der Webhook durchgelaufen ist (1-10 Sekunden Latenz). Falls der Webhook fehlschlägt (Bug 1), sieht der Kunde ewig den alten Status.
 
-**3 ERRORS:** Security Definer Views — Views die mit Creator-Rechten statt User-Rechten ausgeführt werden. Dies ist gewollt für die Compatibility-Views (`event_inquiries`, `event_bookings`, `catering_orders`), da diese als Adapter zwischen v1 und v2 Schema dienen.
+**Fix:** `payment=success` ebenfalls behandeln: Toast "Zahlung erfolgreich — Ihre Buchung wird bestätigt" + Polling auf offer_phase-Änderung.
 
-**Zahlreiche WARN:** `USING (true)` RLS-Policies auf mehreren Tabellen. Diese sind teilweise gewollt (z.B. öffentliche Paketdaten, Menü-Items für Kunden-Ansicht), sollten aber systematisch überprüft werden.
+### 4. Kein Stripe Session Expiry Handling
+
+`create-payment-session` setzt kein `expires_at` auf der Stripe Checkout Session. Standard-Ablauf ist 24h. Falls ein Kunde die Session nicht abschließt und 20h später zurückkehrt, funktioniert der Link noch — aber die Preise könnten sich geändert haben. Kein kritisches Problem, aber CX-Risiko.
+
+**Empfehlung:** `expires_at: Math.floor(Date.now() / 1000) + 3600` (1h) setzen.
 
 ---
 
-### 4. Code-Qualität: `font-serif` (Playfair Display) in PublicOffer
+## NIEDRIG (Technische Schulden + CX-Optimierung)
 
-30 Stellen verwenden `font-serif`. Dies ist **kein Bug** — die Konfiguration in `tailwind.config.ts` mappt `font-serif` auf Playfair Display für die elegante Kundenansicht. Die Admin-Seiten verwenden korrekt Inter (`font-sans`).
+### 5. PublicOffer.tsx — 3.002 Zeilen Monolith
+
+7 useEffects, 17 catch-Blöcke, 5 Phasen in einer Datei. Wartbarkeit ist eingeschränkt, Debugging komplex. Empfehlung: In Subkomponenten aufteilen (ProposalView, ResponseView, PaymentView, ConfirmedView).
+
+### 6. Security Definer Views (3 ERRORS im Linter)
+
+Die 3 Compatibility-Views (`event_inquiries`, `event_bookings`, `catering_orders`) sind SECURITY DEFINER. Das ist **gewollt** als v1→v2 Adapter. Kann als "akzeptiertes Risiko" im Security Memory dokumentiert werden.
+
+### 7. 10+ USING(true) RLS Policies
+
+Betrifft hauptsächlich: `packages`, `menu_items`, `email_messages`, `activity_logs`. Teilweise gewollt (öffentliche Pakete, Admin-only Tabellen mit service_role). Sollte systematisch dokumentiert werden — welche sind absichtlich offen, welche versehentlich.
+
+### 8. `handleEventOfferPayment` ruft `handle-offer-payment` per HTTP auf
+
+Edge Function → Edge Function HTTP-Call (Zeile 295-305) ist fragil: Timeout-Risiken, doppelte Cold-Starts, kein Retry. Besser: Shared-Logic inline oder als importierte Funktion.
 
 ---
 
-## Fazit
+## Verifiziert & funktional
 
-**Keine kritischen oder blockierenden Bugs gefunden.** Alle Equipment/Staff-Features funktionieren durchgängig in allen Modi und Integrationen. Die einzige sichtbare UI-Korrektur ist die doppelte Mengen-Anzeige (5-Minuten-Fix).
+| Bereich | Status |
+|---------|--------|
+| Equipment/Staff Persistenz & Klonung | OK |
+| LexOffice VAT-Splitting (7%/19%) | OK |
+| AI-Anschreiben mit Equipment/Staff | OK |
+| Kundenbestätigung-Emails | OK |
+| PriceBreakdown Admin | OK |
+| PublicOffer Equipment/Staff Anzeige | OK |
+| Idempotenz in handle-offer-payment | OK (source_offer_option_id Check + 23505 Guard) |
+| Stripe Webhook Signatur-Verifikation | OK |
+| Race-Condition-Schutz submit_offer_response | OK (FOR UPDATE SKIP LOCKED) |
+| Security-Härtung (REVOKE EXECUTE) | OK (Migration angewendet) |
+| reconcile-payment-statuses auf v2-Tabellen | OK |
+| Offline-Buchung (Einzeloption) | OK |
+| Catering-Bestellflow | OK |
+| Maestro Payment Flow | OK |
 
-Soll ich den doppelten Mengen-Bug sofort beheben?
+---
+
+## Empfohlene Reihenfolge
+
+1. **Bug 1** (kritisch) — Multi-Option Webhook sofort fixen
+2. **Bug 3** — payment=success Toast + Polling
+3. **Bug 2** — Offline-Buchung Multi-Option
+4. **Bug 4** — Session Expiry
+5. Security Memory updaten (Bugs 6+7 dokumentieren)
+6. PublicOffer Refactoring (optional, kein Funktionsfehler)
+
+Soll ich mit Fix 1 beginnen?
