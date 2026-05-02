@@ -1099,8 +1099,54 @@ function ProposalView({
 
   // ACTION: Verbindlich buchen — für on_site / invoice_after (kein Stripe)
   const handleConfirmBooking = async () => {
+    if (!canPay) return;
+    // Multi-Option: confirm_offline_booking_multi verwenden
+    if (hasQuantities) {
+      const quantities = Object.entries(optionQuantities)
+        .filter(([, q]) => q > 0)
+        .map(([optionId, quantity]) => ({ optionId, quantity }));
+      if (quantities.length === 0) return;
+      setIsSubmitting(true);
+      setSubmitError(null);
+      haptic('select');
+      try {
+        const { data: result, error: rpcError } = await supabase.rpc(
+          "confirm_offline_booking_multi" as never,
+          {
+            p_inquiry_id: inquiry.id,
+            p_option_quantities: quantities,
+          } as never
+        );
+        const res = result as unknown as { success: boolean; error?: string };
+        if (rpcError || !res?.success) {
+          setSubmitError(res?.error || "Fehler beim Buchen");
+          toast.error(res?.error || "Fehler beim Buchen");
+          return;
+        }
+        supabase.functions.invoke("notify-customer-response", {
+          body: { inquiryId: inquiry.id },
+        }).catch(() => {});
+        try { window.localStorage.removeItem(QUANTITY_STORAGE_KEY); } catch { /* ignore */ }
+        onSubmitted({
+          inquiry: { ...inquiry, offer_phase: "confirmed" },
+          options,
+          customer_response: {
+            id: crypto.randomUUID(),
+            selected_option_id: quantities[0].optionId,
+            customer_notes: paymentMethod === 'on_site' ? 'Verbindlich gebucht — Zahlung vor Ort' : 'Verbindlich gebucht — Rechnung nach Event',
+            responded_at: new Date().toISOString(),
+          },
+        });
+      } catch {
+        setSubmitError("Netzwerkfehler — bitte versuchen Sie es erneut");
+        toast.error("Netzwerkfehler — bitte versuchen Sie es erneut");
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
     const optId = selectedOptionId;
-    if (!optId || !canPay) return;
+    if (!optId) return;
     setIsSubmitting(true);
     setSubmitError(null);
     haptic('select');
