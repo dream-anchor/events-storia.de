@@ -117,3 +117,5 @@ Edge Function → Edge Function HTTP-Call (Zeile 295-305) ist fragil: Timeout-Ri
 | 6 | Security Definer Views | ✅ Dokumentiert in Security Memory |
 | 7 | USING(true) RLS Policies | ✅ Dokumentiert in Security Memory |
 | 8 | Edge→Edge HTTP-Call | ⏳ Architektur-Schulden, kein Funktionsfehler |
+| 5 | PublicOffer Monolith | ✅ Refactored — 11 Module in src/pages/public-offer/, Orchestrator ~250 Zeilen |
+| 8 | Edge→Edge HTTP-Call | ✅ Behoben — `processEventOfferPaymentInline` direkt in handle-stripe-webhook |
