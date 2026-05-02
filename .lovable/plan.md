@@ -105,4 +105,15 @@ Edge Function → Edge Function HTTP-Call (Zeile 295-305) ist fragil: Timeout-Ri
 5. Security Memory updaten (Bugs 6+7 dokumentieren)
 6. PublicOffer Refactoring (optional, kein Funktionsfehler)
 
-Soll ich mit Fix 1 beginnen?
+## Umsetzungsstatus
+
+| # | Problem | Status |
+|---|---------|--------|
+| 1 | Multi-Option Webhook nicht verarbeitet | ✅ Behoben — `handleMultiOptionPayment` in handle-stripe-webhook |
+| 2 | Offline-Buchung ignoriert Multi-Option | ✅ Behoben — `confirm_offline_booking_multi` SQL + Frontend |
+| 3 | payment=success nicht behandelt | ✅ Behoben — Toast + Polling in PublicOffer |
+| 4 | Stripe Session Expiry | ✅ Behoben — `expires_at: 1h` auf beiden Pfaden |
+| 5 | PublicOffer Monolith | ⏳ Architektur-Schulden, kein Funktionsfehler |
+| 6 | Security Definer Views | ✅ Dokumentiert in Security Memory |
+| 7 | USING(true) RLS Policies | ✅ Dokumentiert in Security Memory |
+| 8 | Edge→Edge HTTP-Call | ⏳ Architektur-Schulden, kein Funktionsfehler |
