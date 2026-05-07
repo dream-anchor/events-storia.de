@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { trackEvent } from '@/lib/analytics';
 import { LocalizedLink } from '@/components/LocalizedLink';
 import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import { cn } from '@/lib/utils';
@@ -233,6 +234,18 @@ const Checkout = () => {
   const [newsletterSignup, setNewsletterSignup] = useState(true);
   const [chafingDishQuantity, setChafingDishQuantity] = useState(0);
   const [termsError, setTermsError] = useState(false);
+
+  // GA4: begin_checkout — einmalig beim ersten Laden der Checkout-Seite mit Artikeln
+  const beginCheckoutFired = useRef(false);
+  useEffect(() => {
+    if (beginCheckoutFired.current || items.length === 0) return;
+    beginCheckoutFired.current = true;
+    trackEvent("begin_checkout", {
+      value: totalPrice,
+      currency: "EUR",
+      num_items: items.length,
+    });
+  }, [items, totalPrice]);
 
   // Save for Later feature (DSGVO-compliant opt-in)
   const SAVED_CUSTOMER_KEY = 'storia-saved-customer';
@@ -936,7 +949,7 @@ const Checkout = () => {
       const eventPackageId = eventItem?.id.replace('event-', '') || null;
       
       if (isEventBooking && eventItem) {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('event_bookings')
           .insert({
             id: orderId,
@@ -958,7 +971,7 @@ const Checkout = () => {
 
         if (error) throw error;
       } else {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('catering_orders')
           .insert({
             id: orderId,
