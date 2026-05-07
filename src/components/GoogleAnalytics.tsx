@@ -19,8 +19,10 @@ const GoogleAnalytics = () => {
   const { language } = useLanguage();
   const hasStatisticsConsent = hasConsent("statistics");
 
-  // Global click delegation — Tel- und WhatsApp-Links sitewide
+  // Global click delegation — Tel- und WhatsApp-Links sitewide (nur mit Consent)
   useEffect(() => {
+    if (!hasStatisticsConsent) return;
+
     const handleClick = (e: MouseEvent) => {
       const anchor = (e.target as Element).closest("a");
       if (!anchor) return;
@@ -36,7 +38,7 @@ const GoogleAnalytics = () => {
 
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
-  }, []);
+  }, [hasStatisticsConsent]);
 
   // SPA-Pageview bei Route-Wechsel (nur mit Consent)
   useEffect(() => {

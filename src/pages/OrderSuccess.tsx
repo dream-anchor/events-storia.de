@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import Header from '@/components/Header';
@@ -65,8 +65,10 @@ const OrderSuccess = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // GA4 purchase event — einmalig nach erfolgreicher Bestellung
+  const purchaseFired = useRef(false);
   useEffect(() => {
-    if (!orderNumber || !orderDetails) return;
+    if (purchaseFired.current || !orderNumber || !orderDetails) return;
+    purchaseFired.current = true;
     trackEvent("purchase", {
       transaction_id: orderNumber,
       value: orderDetails.grandTotal,
@@ -75,10 +77,9 @@ const OrderSuccess = () => {
         item_name: item.name,
         price: item.price,
         quantity: item.quantity,
-      })) as unknown as object,
+      })),
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderNumber]);
+  }, [orderNumber, orderDetails]);
 
   // Redirect if already logged in
   useEffect(() => {
