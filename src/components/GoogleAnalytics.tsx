@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useCookieConsent } from "@/contexts/CookieConsentContext";
 import { useLocation } from "react-router-dom";
 import { trackEvent } from "@/lib/analytics";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * Google Analytics 4 — Consent-gated Pageview Tracking + Global Click Delegation
@@ -15,6 +16,7 @@ const GA_MEASUREMENT_ID = "G-P7H48RC2W1";
 const GoogleAnalytics = () => {
   const { hasConsent } = useCookieConsent();
   const location = useLocation();
+  const { language } = useLanguage();
   const hasStatisticsConsent = hasConsent("statistics");
 
   // Global click delegation — Tel- und WhatsApp-Links sitewide
@@ -42,8 +44,9 @@ const GoogleAnalytics = () => {
 
     window.gtag("config", GA_MEASUREMENT_ID, {
       page_location: window.location.href,
+      language,
     });
-  }, [hasStatisticsConsent, location.pathname]);
+  }, [hasStatisticsConsent, location.pathname, language]);
 
   return null;
 };
