@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, Lock, ArrowRight, Home, ShoppingBag, Truck, MapPin, CalendarDays, CreditCard, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { trackEvent } from '@/lib/analytics';
 
 interface OrderItem {
   name: string;
@@ -62,6 +63,22 @@ const OrderSuccess = () => {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // GA4 purchase event — einmalig nach erfolgreicher Bestellung
+  useEffect(() => {
+    if (!orderNumber || !orderDetails) return;
+    trackEvent("purchase", {
+      transaction_id: orderNumber,
+      value: orderDetails.grandTotal,
+      currency: "EUR",
+      items: orderDetails.items.map(item => ({
+        item_name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      })) as unknown as object,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderNumber]);
 
   // Redirect if already logged in
   useEffect(() => {

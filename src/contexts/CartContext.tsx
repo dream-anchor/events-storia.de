@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useLanguage } from './LanguageContext';
 import { toast } from 'sonner';
+import { trackEvent } from '@/lib/analytics';
 
 export interface CartItem {
   id: string;
@@ -100,12 +101,26 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     // Set last added item for animation (no toast)
     const itemName = language === 'en' && item.name_en ? item.name_en : item.name;
     setLastAddedItem({ name: itemName, quantity });
-
-    // Reset after 2.5 seconds
     setTimeout(() => setLastAddedItem(null), 2500);
+
+    trackEvent("add_to_cart", {
+      item_id: item.id,
+      item_name: item.name,
+      price: item.price,
+      quantity,
+    });
   };
 
   const removeFromCart = (id: string) => {
+    const item = items.find(i => i.id === id);
+    if (item) {
+      trackEvent("remove_from_cart", {
+        item_id: item.id,
+        item_name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      });
+    }
     setItems(prev => prev.filter(i => i.id !== id));
   };
 

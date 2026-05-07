@@ -13,6 +13,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { AdminAuthGuard } from "./components/admin/AdminAuthGuard";
 import FloatingActions from "./components/FloatingActions";
+import GoogleAnalytics from "./components/GoogleAnalytics";
 import CookieBanner from "./components/CookieBanner";
 import CookieSettingsButton from "./components/CookieSettingsButton";
 import ScrollToTop from "./components/ScrollToTop";
@@ -66,6 +67,7 @@ const FrontendGlobals = () => {
     return (
       <>
         {/* Nur die wirklich globalen Elemente — kein Warenkorb */}
+        <GoogleAnalytics />
         <CookieBanner />
         <CookieSettingsButton />
       </>
@@ -74,6 +76,7 @@ const FrontendGlobals = () => {
 
   return (
     <>
+      <GoogleAnalytics />
       <FloatingActions />
       <CartButton />
       <StickyCartPanel />
