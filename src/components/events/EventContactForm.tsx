@@ -110,8 +110,9 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
           eventType: data.eventType === 'sonstiges' && data.eventTypeOther
             ? data.eventTypeOther
             : data.eventType,
-          preferredDate: data.date ? format(data.date, 'yyyy-MM-dd') : undefined,
+          preferredDate: data.date ? data.date.toISOString().split('T')[0] : undefined,
           timeSlot: data.time || undefined,
+          packageId: data.selectedPackage || undefined,
           message: data.message || undefined,
           source: data.selectedPackage ? `website_package_${data.selectedPackage}` : 'website_contact_form',
         }
