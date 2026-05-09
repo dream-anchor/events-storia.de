@@ -374,7 +374,10 @@ function MailRow({
   >([]);
   const [loadedAttachments, setLoadedAttachments] = useState(false);
 
-  const isOutbound = email.source === "outbound";
+  const src = email.source as string;
+  const isOutboundResend = src === "outbound";
+  const isOutboundManual = src === "outbound_manual";
+  const isOutbound = isOutboundResend || isOutboundManual;
   const isDeletedOnServer = email.imap_status === "deleted_on_server";
   const isMoved = email.imap_status === "moved";
 
@@ -519,15 +522,17 @@ function MailRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-sm">
             <span className="font-semibold truncate">
-              {isOutbound
+              {isOutboundResend
                 ? "Maestro → Kunde"
-                : email.from_name || email.from_email || "Unbekannt"}
+                : isOutboundManual
+                  ? "Manuell gesendet"
+                  : email.from_name || email.from_email || "Unbekannt"}
             </span>
             {!isOutbound && email.from_name && email.from_email && (
               <span className="text-xs text-muted-foreground truncate">{email.from_email}</span>
             )}
             <Badge variant="outline" className="ml-auto rounded-full text-[10px] uppercase tracking-wide">
-              {isOutbound ? "Gesendet" : "Eingehend"}
+              {isOutboundResend ? "Gesendet" : isOutboundManual ? "Manuell" : "Eingehend"}
             </Badge>
           </div>
           <div className="text-sm text-foreground/80 truncate mt-0.5">
@@ -545,6 +550,9 @@ function MailRow({
             )}
             {email.is_excluded && <span className="text-destructive">· entfernt</span>}
             {email.is_hidden && <span>· ausgeblendet</span>}
+            {isOutboundManual && (
+              <span className="italic">· manuell aus Mailclient gesendet</span>
+            )}
           </div>
         </div>
         <DropdownMenu>

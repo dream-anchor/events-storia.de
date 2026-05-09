@@ -1488,6 +1488,7 @@ export type Database = {
       imap_sync_state: {
         Row: {
           folder_name: string
+          imap_folder_path: string | null
           last_error: string | null
           last_error_at: string | null
           last_full_reconcile_at: string | null
@@ -1496,6 +1497,7 @@ export type Database = {
         }
         Insert: {
           folder_name: string
+          imap_folder_path?: string | null
           last_error?: string | null
           last_error_at?: string | null
           last_full_reconcile_at?: string | null
@@ -1504,6 +1506,7 @@ export type Database = {
         }
         Update: {
           folder_name?: string
+          imap_folder_path?: string | null
           last_error?: string | null
           last_error_at?: string | null
           last_full_reconcile_at?: string | null
@@ -1521,6 +1524,7 @@ export type Database = {
           created_at: string
           date_received: string
           date_sent: string | null
+          direction: string
           from_email: string
           from_name: string | null
           has_attachments: boolean
@@ -1561,6 +1565,7 @@ export type Database = {
           created_at?: string
           date_received: string
           date_sent?: string | null
+          direction?: string
           from_email: string
           from_name?: string | null
           has_attachments?: boolean
@@ -1601,6 +1606,7 @@ export type Database = {
           created_at?: string
           date_received?: string
           date_sent?: string | null
+          direction?: string
           from_email?: string
           from_name?: string | null
           has_attachments?: boolean

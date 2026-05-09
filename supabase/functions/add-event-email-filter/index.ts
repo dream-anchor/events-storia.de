@@ -28,7 +28,14 @@ async function backfill(
   let query = supabase.from("inbox_emails").select("id");
 
   if (filterType === "from_email") {
-    query = query.ilike("from_email", filterValue);
+    // Symmetrisch: inbound matched über from_email,
+    // outbound_manual matched, wenn filterValue in to_emails ODER cc_emails liegt.
+    const v = filterValue.toLowerCase();
+    query = query.or(
+      `and(direction.eq.inbound,from_email.ilike.${v}),` +
+      `and(direction.eq.outbound_manual,to_emails.cs.{${v}}),` +
+      `and(direction.eq.outbound_manual,cc_emails.cs.{${v}})`,
+    );
   } else if (filterType === "subject_contains") {
     query = query.ilike("subject", `%${filterValue}%`);
   } else if (filterType === "thread_root") {
