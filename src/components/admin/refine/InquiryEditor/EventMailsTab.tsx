@@ -374,8 +374,9 @@ function MailRow({
   >([]);
   const [loadedAttachments, setLoadedAttachments] = useState(false);
 
-  const isOutboundResend = email.source === "outbound";
-  const isOutboundManual = email.source === "outbound_manual";
+  const src = email.source as string;
+  const isOutboundResend = src === "outbound";
+  const isOutboundManual = src === "outbound_manual";
   const isOutbound = isOutboundResend || isOutboundManual;
   const isDeletedOnServer = email.imap_status === "deleted_on_server";
   const isMoved = email.imap_status === "moved";
