@@ -24,6 +24,22 @@ const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
 const LARGE_MAIL_BYTES = 200 * 1024;
 const BUCKET = "email-attachments";
 
+// Eigene Outbound-Adressen — Mails von diesen Absendern sind Kopien
+// unserer eigenen Outbound-Mails und gehören nicht in den Posteingang.
+const OWN_OUTBOUND_EMAILS = new Set<string>([
+  "info@events-storia.de",
+]);
+const OWN_OUTBOUND_DOMAIN_SUFFIXES = [
+  "@reply.events-storia.de",
+];
+
+function isOwnOutbound(fromEmail: string | null | undefined): boolean {
+  if (!fromEmail) return false;
+  const lower = fromEmail.toLowerCase();
+  if (OWN_OUTBOUND_EMAILS.has(lower)) return true;
+  return OWN_OUTBOUND_DOMAIN_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+}
+
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false },
 });
@@ -137,13 +153,17 @@ async function findByMessageId(
   }
 }
 
-async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: number }> {
-  const state = await getSyncState("INBOX");
+async function phaseA(
+  client: ImapFlow,
+  folder: string,
+): Promise<{ folder: string; processed: number; skippedOwn: number; maxUid: number }> {
+  const state = await getSyncState(folder);
   const lastUid = Number(state.last_uid || 0);
   let processed = 0;
+  let skippedOwn = 0;
   let maxUid = lastUid;
 
-  const lock = await client.getMailboxLock("INBOX");
+  const lock = await client.getMailboxLock(folder);
   try {
     const range = `${lastUid + 1}:*`;
     const uids: number[] = [];
@@ -195,8 +215,19 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
         const messageId =
           stripBrackets(parsed.messageId) ||
           stripBrackets(env?.messageId) ||
-          `imap-${IMAP_USER}-INBOX-${uid}`;
+          `imap-${IMAP_USER}-${folder}-${uid}`;
         const fromArr = addrList(parsed.from);
+        // Eigene Outbound-Kopien überspringen (nicht in inbox_emails inserten),
+        // aber UID-Pointer hochsetzen, damit wir sie nicht erneut anfassen.
+        if (isOwnOutbound(fromArr[0]?.email)) {
+          skippedOwn += 1;
+          maxUid = Math.max(maxUid, uid);
+          await supabase
+            .from("imap_sync_state")
+            .update({ last_uid: maxUid, last_sync_at: new Date().toISOString() })
+            .eq("folder_name", folder);
+          continue;
+        }
         const toArr = addrList(parsed.to);
         const ccArr = addrList(parsed.cc);
         const replyToArr = addrList(parsed.replyTo);
@@ -220,7 +251,7 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
               raw_mime: rawMime,
               raw_size_bytes: rawSize,
               imap_uid: uid,
-              imap_folder: "INBOX",
+              imap_folder: folder,
               imap_status: "present",
               from_email: fromArr[0]?.email ?? null,
               from_name: fromArr[0]?.name ?? null,
@@ -239,7 +270,7 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
                 ? new Date(meta.internalDate as any).toISOString()
                 : new Date().toISOString(),
               status_history: [
-                { status: "present", folder: "INBOX", at: new Date().toISOString() },
+                { status: "present", folder, at: new Date().toISOString() },
               ],
             },
             { onConflict: "message_id", ignoreDuplicates: true },
@@ -313,7 +344,7 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
         await supabase
           .from("imap_sync_state")
           .update({ last_uid: maxUid, last_sync_at: new Date().toISOString() })
-          .eq("folder_name", "INBOX");
+          .eq("folder_name", folder);
       } catch (e) {
         console.error(`Mail UID ${uid} failed:`, e);
         maxUid = Math.max(maxUid, uid);
@@ -327,15 +358,15 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
     await supabase
       .from("imap_sync_state")
       .update({ last_uid: maxUid, last_sync_at: new Date().toISOString(), last_error: null })
-      .eq("folder_name", "INBOX");
+      .eq("folder_name", folder);
   } else {
     await supabase
       .from("imap_sync_state")
       .update({ last_sync_at: new Date().toISOString() })
-      .eq("folder_name", "INBOX");
+      .eq("folder_name", folder);
   }
 
-  return { processed, maxUid };
+  return { folder, processed, skippedOwn, maxUid };
 }
 
 async function phaseB(client: ImapFlow): Promise<{ moved: number; deleted: number } | null> {
@@ -468,13 +499,49 @@ Deno.serve(async (req) => {
       );
     }
 
-    const a = await phaseA(client);
+    // Alle INBOX-Folder erkennen — KI-Mail-Assistent (IONOS) sortiert in Subfolder.
+    const list = await client.list();
+    const inboxFolders = new Set<string>(["INBOX"]);
+    for (const mb of list) {
+      const p = mb.path;
+      if (!p) continue;
+      if (p === "INBOX" || p.startsWith("INBOX/") || p.startsWith("INBOX.")) {
+        const lower = p.toLowerCase();
+        if (
+          lower.includes("trash") ||
+          lower.includes("papierkorb") ||
+          lower.includes("archiv") ||
+          lower.includes("archive") ||
+          lower.includes("sent") ||
+          lower.includes("gesendet") ||
+          lower.includes("drafts") ||
+          lower.includes("entwürfe") ||
+          lower.includes("entwurf") ||
+          lower.includes("spam") ||
+          lower.includes("junk")
+        ) continue;
+        inboxFolders.add(p);
+      }
+    }
+
+    const phaseAResults: any[] = [];
+    for (const f of inboxFolders) {
+      try {
+        const r = await phaseA(client, f);
+        phaseAResults.push(r);
+      } catch (e) {
+        const msg = (e as Error).message ?? String(e);
+        console.error(`phaseA(${f}) failed:`, msg);
+        try { await setSyncError(f, msg); } catch (_) { /* ignore */ }
+        phaseAResults.push({ folder: f, error: msg });
+      }
+    }
     const b = await phaseB(client);
 
     return new Response(
       JSON.stringify({
         ok: true,
-        phaseA: a,
+        phaseA: phaseAResults,
         phaseB: b,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
