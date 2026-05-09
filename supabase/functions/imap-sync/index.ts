@@ -19,7 +19,7 @@ const IMAP_PORT = parseInt(Deno.env.get("IMAP_PORT") ?? "993");
 const IMAP_USER = Deno.env.get("IMAP_USER")!;
 const IMAP_PASSWORD = Deno.env.get("IMAP_PASSWORD")!;
 
-const MAX_PER_RUN = 1;
+const MAX_PER_RUN = 5;
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
 const LARGE_MAIL_BYTES = 200 * 1024;
 const BUCKET = "email-attachments";
