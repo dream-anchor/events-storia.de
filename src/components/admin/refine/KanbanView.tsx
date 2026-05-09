@@ -2,7 +2,15 @@ import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, differenceInDays, differenceInHours } from "date-fns";
 import { de } from "date-fns/locale";
-import { ChevronDown, ChevronRight, Archive } from "lucide-react";
+import { ChevronDown, ChevronRight, Archive, MoreVertical, ArrowRightLeft } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { EventInquiry, InquiryStatus } from "@/types/refine";
 import { supabase } from "@/integrations/supabase/typed-client";
@@ -157,30 +165,29 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
       const event = events.find((ev) => ev.id === eventId);
       if (!event) return;
 
-      let newStatus: InquiryStatus;
-      switch (targetColumn) {
-        case "lead": newStatus = "new"; break;
-        case "proposal": newStatus = "contacted"; break;
-        case "pending": newStatus = "offer_sent"; break;
-        case "won": newStatus = "confirmed"; break;
-        case "lost": newStatus = "declined"; break;
-        case "closed": newStatus = "cancelled"; break;
-        default: return;
-      }
+      await applyStatusChange(event, targetColumn);
+    },
+    [events]
+  );
 
+  const applyStatusChange = useCallback(
+    async (event: EventInquiry, targetColumn: ColumnId) => {
+      const map: Record<ColumnId, InquiryStatus> = {
+        lead: "new",
+        proposal: "contacted",
+        pending: "offer_sent",
+        won: "confirmed",
+        lost: "declined",
+        closed: "cancelled",
+      };
+      const newStatus = map[targetColumn];
       if (event.status === newStatus) return;
-
       try {
         const { error } = await supabase
           .from("event_inquiries")
-          .update({
-            status: newStatus,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", eventId);
-
+          .update({ status: newStatus, updated_at: new Date().toISOString() })
+          .eq("id", event.id);
         if (error) throw error;
-
         const allCols = [...PIPELINE_COLUMNS, ...ARCHIVE_COLUMNS];
         toast.success(
           `Status geändert zu „${allCols.find((c) => c.id === targetColumn)?.title}"`
@@ -191,7 +198,7 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
         toast.error("Fehler beim Aktualisieren des Status");
       }
     },
-    [events, onRefresh]
+    [onRefresh]
   );
 
   const handleArchiveCard = useCallback(
@@ -277,6 +284,7 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
                 onDragEnd={handleDragEnd}
                 onClick={() => navigate(`/admin/events/${event.id}/edit`)}
                 onArchive={() => handleArchiveCard(event.id)}
+                onMoveToColumn={(col) => applyStatusChange(event, col)}
               />
             ))
           )}
@@ -342,9 +350,18 @@ interface KanbanCardProps {
   onDragEnd: () => void;
   onClick: () => void;
   onArchive: () => void;
+  onMoveToColumn: (col: ColumnId) => void;
 }
 
-function KanbanCard({ event, isDragging, onDragStart, onDragEnd, onClick, onArchive }: KanbanCardProps) {
+function KanbanCard({
+  event,
+  isDragging,
+  onDragStart,
+  onDragEnd,
+  onClick,
+  onArchive,
+  onMoveToColumn,
+}: KanbanCardProps) {
   const action = getInquiryActionState(event);
   const inactivity = getInactivityLabel(event);
   const rawCompany = event.company_name?.trim() ?? "";
@@ -353,6 +370,18 @@ function KanbanCard({ event, isDragging, onDragStart, onDragEnd, onClick, onArch
     (!isPlaceholderCompany && rawCompany) ||
     event.contact_name?.trim() ||
     "Unbenannte Anfrage";
+
+  const currentColumn = (() => {
+    switch (event.status) {
+      case "new": return "lead" as ColumnId;
+      case "contacted": return "proposal" as ColumnId;
+      case "offer_sent": return "pending" as ColumnId;
+      case "confirmed": return "won" as ColumnId;
+      case "declined": return "lost" as ColumnId;
+      case "cancelled": return "closed" as ColumnId;
+      default: return "lead" as ColumnId;
+    }
+  })();
 
   return (
     <div
@@ -368,24 +397,62 @@ function KanbanCard({ event, isDragging, onDragStart, onDragEnd, onClick, onArch
       )}
       title={action.label}
     >
-      {/* Archive hover action */}
-      <button
-        type="button"
-        draggable={false}
+      {/* Card actions menu — always visible (touch-friendly) */}
+      <div
+        className="absolute top-1 right-1"
         onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          onArchive();
-        }}
-        className="absolute top-1.5 right-1.5 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity"
-        title="Archivieren"
-        aria-label="Archivieren"
+        onClick={(e) => e.stopPropagation()}
       >
-        <Archive className="h-3.5 w-3.5" />
-      </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              draggable={false}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-60 group-hover:opacity-100 transition-opacity"
+              title="Aktionen"
+              aria-label="Aktionen"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel className="flex items-center gap-2 text-xs">
+              <ArrowRightLeft className="h-3.5 w-3.5" /> Status ändern
+            </DropdownMenuLabel>
+            {PIPELINE_COLUMNS.map((c) => (
+              <DropdownMenuItem
+                key={c.id}
+                disabled={c.id === currentColumn}
+                onSelect={() => onMoveToColumn(c.id)}
+              >
+                {c.title}
+                {c.id === currentColumn && (
+                  <span className="ml-auto text-[10px] text-slate-400">aktuell</span>
+                )}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            {ARCHIVE_COLUMNS.map((c) => (
+              <DropdownMenuItem
+                key={c.id}
+                disabled={c.id === currentColumn}
+                onSelect={() => onMoveToColumn(c.id)}
+                className="text-slate-500"
+              >
+                Als {c.title.toLowerCase()} markieren
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onArchive} className="text-slate-700">
+              <Archive className="h-3.5 w-3.5 mr-2" />
+              Archivieren
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {/* Row 1: dot + name + date */}
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-2 min-w-0 pr-7">
         <span className={cn("w-2 h-2 rounded-full flex-shrink-0", action.dotClass)} />
         <h3 className="font-semibold text-slate-800 text-[13px] truncate flex-1 min-w-0">
           {title}
