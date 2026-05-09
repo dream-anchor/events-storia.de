@@ -740,6 +740,7 @@ Deno.serve(async (req) => {
     const list = await client.list();
     const inboxFolders = new Set<string>(["INBOX"]);
     let sentFolderPath: string | null = null;
+    let draftsFolderPath: string | null = null;
     const SENT_NAME_CANDIDATES = [
       "Sent",
       "INBOX.Sent",
@@ -753,12 +754,23 @@ Deno.serve(async (req) => {
       "Sent Items",
       "INBOX.Sent Items",
     ];
+    const DRAFTS_NAME_CANDIDATES = [
+      "Drafts",
+      "INBOX.Drafts",
+      "INBOX/Drafts",
+      "Entwürfe",
+      "INBOX.Entwürfe",
+      "INBOX/Entwürfe",
+      "Entwurf",
+    ];
     // 1. Pass: \Sent specialUse hat Vorrang
     for (const mb of list) {
       const su = (mb as any).specialUse;
       if (su === "\\Sent" && mb.path) {
         sentFolderPath = mb.path;
-        break;
+      }
+      if (su === "\\Drafts" && mb.path) {
+        draftsFolderPath = mb.path;
       }
     }
     // 2. Pass: Namens-Match
@@ -771,12 +783,22 @@ Deno.serve(async (req) => {
         }
       }
     }
+    if (!draftsFolderPath) {
+      for (const mb of list) {
+        if (!mb.path) continue;
+        if (DRAFTS_NAME_CANDIDATES.includes(mb.path)) {
+          draftsFolderPath = mb.path;
+          break;
+        }
+      }
+    }
 
     for (const mb of list) {
       const p = mb.path;
       if (!p) continue;
       // Sent nicht doppelt im inbox-Pool
       if (sentFolderPath && p === sentFolderPath) continue;
+      if (draftsFolderPath && p === draftsFolderPath) continue;
       if (p === "INBOX" || p.startsWith("INBOX/") || p.startsWith("INBOX.")) {
         const lower = p.toLowerCase();
         if (
@@ -824,6 +846,21 @@ Deno.serve(async (req) => {
       }
     } else {
       phaseAResults.push({ folder: "SENT", error: "Sent-Folder nicht gefunden" });
+    }
+
+    // DRAFTS-Folder synchen (full-list, da Drafts veränderlich sind)
+    if (draftsFolderPath) {
+      try {
+        const r = await phaseDrafts(client, draftsFolderPath);
+        phaseAResults.push(r);
+      } catch (e) {
+        const msg = (e as Error).message ?? String(e);
+        console.error(`phaseDrafts(${draftsFolderPath}) failed:`, msg);
+        try { await setSyncError("DRAFTS", msg); } catch (_) { /* ignore */ }
+        phaseAResults.push({ folder: `DRAFTS(${draftsFolderPath})`, error: msg });
+      }
+    } else {
+      phaseAResults.push({ folder: "DRAFTS", error: "Drafts-Folder nicht gefunden" });
     }
 
     const b = await phaseB(client);
