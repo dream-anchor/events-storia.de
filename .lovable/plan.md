@@ -1,81 +1,58 @@
-## Zwei Fixes in einem Patch
+## 1. Archiv-Ansicht (`/admin/events/:id/archive/:v`) als E-Mail-Programm
 
-### 1. Heuristik komplett entfernen
-Wie besprochen — Buchstaben-Match ist unzuverlässig (z.B. `pdabelstein` ≠ "Domenico", aber das `p` steht für Preeti). Stattdessen:
+**Ziel:** Block „1. E-Mail an den Kunden" zeigt einen vollständigen Mail-Header (Von / An / CC / BCC / Betreff / Datum) wie in einem Mailclient. Der gelbe „Als neues Angebot kopieren"-Button wandert vom oberen Banner an das Ende der Seite (Footer-Aktion).
 
-- **Keine** automatische Mismatch-Erkennung.
-- **Bestätigungs-Dialog** vor jedem Angebots-Versand mit klar lesbarem Empfänger-Block.
+### Änderungen
 
-### 2. Formular-Fehler "Fehler beim Senden" — Root Cause: CORS
+**`src/hooks/useOfferHistory.ts` — `useOfferHistoryVersion`**
+- Analog zu `useOfferHistory`: zusätzlich `email_messages` für die Inquiry holen und nach nächster Sendezeit (±5 min, bevorzugt Subject „Angebot/Offer") matchen.
+- Liefert zusätzlich: `recipient_email`, `cc_email`, `bcc_email`, `subject`, `from_email`.
+- `OfferHistoryEntry`-Interface um `subject` und `from_email` erweitern.
 
-**Diagnose** (verifiziert per direkter Edge-Function-Test):
-- Edge Function `receive-event-inquiry` antwortet erfolgreich mit Status 200, Inquiry wird in DB angelegt.
-- ABER: `supabase/functions/_shared/cors.ts` erlaubt als `Access-Control-Allow-Origin` ausschließlich `events-storia.de`, `www.events-storia.de` und `localhost:*`.
-- Preview-URLs (`*.lovableproject.com`, `*.lovable.app`, `id-preview--*.lovable.app`) sind **nicht** in der Whitelist.
-- Browser blockiert die Response → der Client sieht einen Fehler → roter Toast `"Fehler beim Senden"`.
-- Auf der Live-Domain `https://events-storia.de` funktioniert das Formular weiterhin.
+**`src/components/admin/refine/InquiryEditor/OfferArchivePreview.tsx`**
+- Oberes Banner schlanker: nur „Zurück zum Angebot" + Archiv-Badge + „Gesendet am … von …" + Schreibgeschützt-Hinweis. **Kein** Kopieren-Button mehr im Banner.
+- Block „1. E-Mail an den Kunden" bekommt **vor** dem iframe ein Mail-Header-Panel:
 
-**Fix**: `supabase/functions/_shared/cors.ts` erweitern, sodass folgende Origins erlaubt sind:
-- `https://events-storia.de`, `https://www.events-storia.de` (unverändert)
-- `http://localhost:*` (unverändert)
-- `https://*.lovableproject.com` (Preview)
-- `https://*.lovable.app` (Preview & sandbox)
-- `https://*.sandbox.lovable.dev` (interne Sandboxes)
+```text
+Von:      Storia Catering & Events <info@events-storia.de>
+An:       Max Mustermann <max@firma.de>
+CC:       — (falls vorhanden)
+BCC:      info@events-storia.de (falls vorhanden)
+Betreff:  Ihr Angebot von Storia · v2
+Datum:    08.05.2026 um 12:23
+```
 
-Implementierung als Regex-Whitelist, damit Subdomain-Wildcards sauber matchen — kein generisches `*` (das würde Sicherheit aushöhlen).
+- Stil: zweispaltiges Grid `grid-cols-[80px_1fr]`, Labels in `text-muted-foreground uppercase tracking-wide text-[11px]`, Werte in `font-mono text-sm`. Fehlende Felder dezent als `—` oder ausblenden.
+- Iframe-Inhalt bleibt unverändert darunter.
+- Neuer Footer-Bereich am Seitenende (unter Block 3): primärer Button „Als neues Angebot kopieren" rechtsbündig, links kurzer Hinweistext. Bestätigungsdialog bleibt wie bisher.
 
-Diese Änderung wirkt automatisch für **alle** Edge Functions, die `getCorsHeaders` benutzen, also auch andere Formulare (Catering, Kontakt, Package-Inquiry).
+**Out-of-scope:** kein DB-Schema, keine Edge-Function-Änderung. Falls `from_email` nicht im email_messages-Log steht, wird statisch `info@events-storia.de` angezeigt (offizielle Absenderadresse laut Memory).
 
-## Plan im Detail
+---
 
-### Datei A: `src/components/admin/refine/InquiryEditor/SendConfirmDialog.tsx` (neu)
-Wiederverwendbare Komponente:
-- Props: `open`, `onConfirm`, `onCancel`, `recipientName`, `recipientEmail`, `subject`, `activeOptionsCount`, `versionLabel` (z.B. "Erstversand" / "Version 2").
-- Layout (Light-Mode, rounded-2xl, monochrome):
-  ```
-  Angebot wirklich senden?
-  ─────────────────────────
-  An:        Preeti
-             pdabelstein@simscale.com
-  Betreff:   Ihr Angebot von Storia · Firmenfeier
-  Versand:   Erstversand · 2 Optionen aktiv (A, B)
-  ─────────────────────────
-  [Abbrechen]            [Senden bestätigen]
-  ```
-- Basiert auf `AlertDialog` aus `@/components/ui/alert-dialog`.
-- Empfänger-Block in `font-mono text-sm` für gute Lesbarkeit der E-Mail-Adresse.
+## 2. Public Offer: Anzahlung respektiert gewählten Betrag (100 €)
 
-### Datei B: `src/components/admin/refine/InquiryEditor/OfferBuilder/SendControls.tsx`
-- State `confirmOpen` einführen.
-- `handleSendProposal` / `handleSendFinalOffer` öffnen den Dialog statt direkt zu senden.
-- Erst nach `onConfirm` den eigentlichen Send-Call ausführen.
-- Empfänger-Daten aus `inquiry` durchreichen.
+**Bug:** `src/pages/PublicOffer.tsx` enthält zwei inline-Komponenten (`ProposalView` Zeile 546, `FinalOfferView` Zeile 1066) die hart `Math.round(totalAmount * 0.2 * 100) / 100` rechnen und „Anzahlung 20 %" anzeigen. Die RPC `get_public_offer` liefert seit 09.05. bereits `deposit_amount`, `deposit_percent`, `deposit_due_days`, `payment_method` — diese werden aber ignoriert. (Die separaten Dateien unter `src/pages/public-offer/ProposalView.tsx` machen es bereits richtig, sind aber nicht eingebunden.)
 
-### Datei C: Preview-Send-Stelle
-Suche & Anpassung: dort wo `triggerSendProposal` / `triggerSendFinalOffer` via OfferBuilderHandle aus der Public-Offer-Preview-Seite aufgerufen wird → gleichen `<SendConfirmDialog>` einbauen. (Alternativ: Logik komplett im OfferBuilder kapseln, sodass Aufrufe von außen den Dialog automatisch durchlaufen — bevorzugt, weniger Duplizierung.)
+### Änderungen
 
-### Datei D: `supabase/functions/_shared/cors.ts`
-- Whitelist als Array von Regex-Patterns:
-  ```ts
-  const ALLOWED_ORIGIN_PATTERNS = [
-    /^https:\/\/(www\.)?events-storia\.de$/,
-    /^http:\/\/localhost:\d+$/,
-    /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
-    /^https:\/\/[a-z0-9-]+\.lovable\.app$/,
-    /^https:\/\/[a-z0-9-]+\.sandbox\.lovable\.dev$/,
-  ];
-  ```
-- `isAllowed` matched gegen alle Patterns.
-- Fallback bleibt: `events-storia.de` als Default-Origin, falls Origin nicht erlaubt.
+**`src/pages/PublicOffer.tsx`**
+- `PublicInquiry` Interface um Felder erweitern: `deposit_amount: number | null`, `deposit_percent: number | null`, `deposit_due_days: number | null`, `payment_method: string | null`.
+- Helper `computeDeposit(inquiry, totalAmount)` einführen (analog `public-offer/ProposalView.tsx` Zeilen 152–165):
+  - Wenn `deposit_amount > 0` → fixer Betrag (gecappt auf totalAmount)
+  - Sonst Prozentsatz (Default 20 wenn null) → `totalAmount * percent / 100`
+  - Anzeige nur wenn `< totalAmount` und `> 0`.
+- In `ProposalView` (Zeile 568) und `FinalOfferView` (Zeile 1158) den hardcoded `* 0.2` durch `computeDeposit(...)` ersetzen.
+- Label „Anzahlung 20 %" (Zeilen 740 und 1356) dynamisch:
+  - Fixer Betrag → einfach „Anzahlung"
+  - Prozent → „Anzahlung X %"
+- Kommentar Zeile 542 entsprechend anpassen.
 
-### Out-of-Scope
-- Keine DB-Änderungen.
-- Kein Eingriff in Resend/SMTP-Logik.
-- Kein Auto-Korrigieren der E-Mail-Adresse.
-- Keine Server-seitige Pflicht-Bestätigung — Dialog ist UI-only.
+**Verifikation:** Inquiry `78680730-…` per `read_query` prüfen (`deposit_amount`, `deposit_percent`), dann Public-Offer-URL im Preview testen → muss 100 € statt 20 % anzeigen.
 
-## Risiken & Verifikation
+---
 
-- CORS-Regex muss keine Schreibfehler haben → mit zwei manuellen Tests verifizieren (Preview-Domain + Live-Domain).
-- Nach Deploy der Edge Function im Preview-Browser nochmal das Event-Formular absenden → Toast muss jetzt "Vielen Dank!" zeigen.
-- Bestätigungs-Dialog: einmal in Edit-Modus, einmal aus Preview-Seite testen.
+## Out of scope
+- Keine Migrations.
+- Keine Änderungen an `send-offer-email` oder anderen Edge-Functions.
+- Keine Refactor von PublicOffer.tsx zu den separaten `public-offer/*View.tsx`-Dateien (eigenes Ticket).
