@@ -7,7 +7,6 @@ import { useOfferBuilder } from "./useOfferBuilder";
 import { OptionCardGrid } from "./OptionCardGrid";
 import { EmailComposer } from "./EmailComposer";
 import { SendControls } from "./SendControls";
-import { CustomerFeedbackBanner } from "./CustomerFeedbackBanner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ExtendedInquiry, Package, EmailTemplate, OfferHistoryEntry, OfferBuilderOption } from "./types";
