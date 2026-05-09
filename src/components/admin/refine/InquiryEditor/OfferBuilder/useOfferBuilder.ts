@@ -762,7 +762,7 @@ export function useOfferBuilder({
       : '';
     const equipKey = (o.menuSelection.equipment ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
     const staffKey = (o.menuSelection.staff ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
-    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.discountPercent ?? 0}:${courseKey}:${drinkKey}:${equipKey}:${staffKey}`;
+    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.discountPercent ?? 0}:${o.discountAmount ?? 0}:${courseKey}:${drinkKey}:${equipKey}:${staffKey}`;
   }).join(',')]);
 
   // =================================================================
