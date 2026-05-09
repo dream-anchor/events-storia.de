@@ -712,7 +712,9 @@ export function useOfferBuilder({
         //  per_person: wie bisher (budgetPerPerson * guestCount oder Paket-Kalkulation)
         const mode = opt.pricingMode ?? 'per_person';
         const discountPct = Math.min(100, Math.max(0, opt.discountPercent ?? 0));
-        const discountFactor = 1 - discountPct / 100;
+        const discountEur = Math.max(0, opt.discountAmount ?? 0);
+        const computeDiscount = (base: number) =>
+          discountEur > 0 ? Math.min(discountEur, base) : base * (discountPct / 100);
         let newTotal: number;
         if (opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
           if (mode === 'per_event') {
@@ -723,13 +725,12 @@ export function useOfferBuilder({
               : opt.budgetPerPerson + courseSurcharge * opt.guestCount;
           }
           // Rabatt auch auf Override anwenden (analog Menü-Modus)
-          newTotal = newTotal * discountFactor;
+          newTotal = newTotal - computeDiscount(newTotal);
         } else {
           const baseTotal = calculateEventPackagePrice(
             pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
           ) + (pkg.price_per_person ? courseSurcharge * opt.guestCount : courseSurcharge * opt.guestCount);
-          // Rabatt nur anwenden, wenn kein manueller Preis-Override gesetzt ist
-          newTotal = baseTotal * discountFactor;
+          newTotal = baseTotal - computeDiscount(baseTotal);
         }
 
         // Equipment & Staff: Fixkosten addieren (nicht pro Person)
