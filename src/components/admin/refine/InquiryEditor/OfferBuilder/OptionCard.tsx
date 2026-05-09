@@ -365,6 +365,25 @@ export function OptionCard({
           </div>
         </div>
 
+        {/* Kundennotiz (nur wenn diese Option vom Kunden gewählt wurde) */}
+        {isCustomerChoice && customerNotes && (
+          <div className="px-5 py-2 border-b border-border/30 bg-muted/10">
+            <button
+              type="button"
+              onClick={() => setNotesOpen((v) => !v)}
+              className="flex items-center gap-1.5 text-xs font-medium text-foreground/80 hover:text-foreground"
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", notesOpen && "rotate-180")} />
+              Anmerkung des Kunden
+            </button>
+            {notesOpen && (
+              <p className="mt-2 text-sm whitespace-pre-wrap text-muted-foreground bg-muted/40 rounded-xl p-3">
+                {customerNotes}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Body */}
         <div className="p-5 space-y-4">
           {/* Typ-Auswahl-Kacheln (nur wenn Modus noch nicht gewählt) */}
