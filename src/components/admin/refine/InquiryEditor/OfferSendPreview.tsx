@@ -19,6 +19,16 @@ import { ArrowLeft, Send, Mail, FileText, Globe, Loader2, TestTube2, RefreshCw }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { AdminLayout } from "../AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -86,6 +96,7 @@ export function OfferSendPreview({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isTestSending, setIsTestSending] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const pdfInFlightRef = useRef<string | null>(null);
 
   // Inquiry laden
