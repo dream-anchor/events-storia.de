@@ -291,6 +291,20 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
           } catch (e) {
             console.error("match invoke failed:", (e as Error).message);
           }
+
+          // KI-Mapping-Vorschlag (fire-and-forget, blockiert Sync nicht)
+          try {
+            void fetch(`${SUPABASE_URL}/functions/v1/suggest-email-mapping`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${SERVICE_ROLE}`,
+              },
+              body: JSON.stringify({ email_id: inserted.id }),
+            });
+          } catch (e) {
+            console.error("suggest invoke failed:", (e as Error).message);
+          }
         }
 
         processed += 1;
