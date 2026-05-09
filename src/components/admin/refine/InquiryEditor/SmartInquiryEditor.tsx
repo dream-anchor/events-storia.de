@@ -22,6 +22,7 @@ import { StaffNote } from "./StaffNote";
 import { TaskManager } from "@/components/admin/shared/TaskManager";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { MailClient } from "@/components/admin/shared/MailClient";
+import EventMailsTab from "./EventMailsTab";
 import { PaymentCard } from "./PaymentCard";
 import { PaymentStatusStrip } from "./PaymentStatusStrip";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
@@ -870,6 +871,7 @@ export const SmartInquiryEditor = () => {
         <TabsList className="w-full justify-start bg-muted/30 rounded-xl p-1 h-auto overflow-x-auto scrollbar-hide flex">
           <TabsTrigger value="angebot" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Angebot</TabsTrigger>
           <TabsTrigger value="kommunikation" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Kommunikation</TabsTrigger>
+          <TabsTrigger value="mails" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Mails</TabsTrigger>
           <TabsTrigger value="aufgaben" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Aufgaben</TabsTrigger>
           <TabsTrigger value="details" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Details</TabsTrigger>
         </TabsList>
@@ -957,6 +959,18 @@ export const SmartInquiryEditor = () => {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tab: Mails (Posteingang-Verknüpfungen + Filter) */}
+        <TabsContent value="mails" className="mt-6">
+          {id && (
+            <EventMailsTab
+              eventId={id}
+              contactEmail={inquiry.email || null}
+              contactName={inquiry.contact_name || null}
+              eventName={inquiry.event_type || inquiry.company_name || null}
+            />
+          )}
         </TabsContent>
 
         {/* Tab: Aufgaben */}
