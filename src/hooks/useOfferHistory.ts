@@ -39,20 +39,56 @@ export interface OfferHistoryEntry {
   email_html: string | null;
   pdf_url: string | null;
   options_snapshot: OfferOptionSnapshot[];
+  /** E-Mail-Adresse, an die diese Version verschickt wurde.
+   *  Wird über das nächstgelegene outbound-Mail-Log (±5 min) ermittelt. */
+  recipient_email?: string | null;
 }
 
 export function useOfferHistory(inquiryId: string) {
   return useQuery({
     queryKey: ["offer-history", inquiryId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inquiry_offer_history" as never)
-        .select("*")
-        .eq("inquiry_id", inquiryId)
-        .order("version", { ascending: false });
+      const [historyRes, mailsRes] = await Promise.all([
+        supabase
+          .from("inquiry_offer_history" as never)
+          .select("*")
+          .eq("inquiry_id", inquiryId)
+          .order("version", { ascending: false }),
+        supabase
+          .from("email_messages" as never)
+          .select("to_email, created_at, subject")
+          .eq("inquiry_id", inquiryId)
+          .eq("direction", "outbound")
+          .order("created_at", { ascending: false }),
+      ]);
 
-      if (error) throw error;
-      return (data || []) as unknown as OfferHistoryEntry[];
+      if (historyRes.error) throw historyRes.error;
+      const history = (historyRes.data || []) as unknown as OfferHistoryEntry[];
+      const mails = ((mailsRes.data as unknown) as Array<{
+        to_email: string;
+        created_at: string;
+        subject: string | null;
+      }>) || [];
+
+      // Bevorzugt offer-bezogene Mails (Subject enthält "Angebot" oder "Offer"),
+      // matche per nächstgelegener Sendezeit (Toleranz: ±5 Minuten).
+      const offerMails = mails.filter((m) =>
+        /angebot|offer/i.test(m.subject || ""),
+      );
+      const pool = offerMails.length > 0 ? offerMails : mails;
+
+      return history.map((entry) => {
+        if (!pool.length) return entry;
+        const target = new Date(entry.sent_at).getTime();
+        let best: { to_email: string; diff: number } | null = null;
+        for (const m of pool) {
+          const diff = Math.abs(new Date(m.created_at).getTime() - target);
+          if (!best || diff < best.diff) best = { to_email: m.to_email, diff };
+        }
+        const recipient_email =
+          best && best.diff <= 5 * 60 * 1000 ? best.to_email : null;
+        return { ...entry, recipient_email };
+      });
     },
     enabled: !!inquiryId,
   });

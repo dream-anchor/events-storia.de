@@ -158,6 +158,16 @@ export function OfferHistoryList({ inquiryId }: OfferHistoryListProps) {
                     )}
                   </div>
 
+                  {entry.recipient_email && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Mail className="h-3 w-3" />
+                      <span>An:</span>
+                      <span className="font-mono text-foreground/80 break-all">
+                        {entry.recipient_email}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="text-xs text-muted-foreground">
                     {opts.length === 0 ? (
                       <span>Keine Optionen archiviert</span>
