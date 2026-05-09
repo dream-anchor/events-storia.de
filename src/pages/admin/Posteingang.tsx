@@ -238,14 +238,39 @@ export default function Posteingang() {
               {openCount ?? 0} nicht zugeordnete Nachricht{(openCount ?? 0) === 1 ? "" : "en"}
             </p>
           </div>
-          <div className="text-xs text-muted-foreground hidden md:block">
+          <div className="flex items-center gap-2">
+            {tab === "open" && (
+              <>
+                <Button
+                  size="sm"
+                  variant={onlySuggestions ? "default" : "outline"}
+                  className="rounded-full"
+                  onClick={() => setOnlySuggestions((v) => !v)}
+                >
+                  <Sparkles className="h-4 w-4 mr-1.5" />
+                  Nur Vorschläge
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={runBulkSuggest}
+                  disabled={bulkBusy}
+                >
+                  <RefreshCw className={cn("h-4 w-4 mr-1.5", bulkBusy && "animate-spin")} />
+                  Vorschläge generieren
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="text-xs text-muted-foreground hidden md:block">
             Tastatur: <kbd className="px-1.5 py-0.5 bg-muted rounded">j</kbd>/
             <kbd className="px-1.5 py-0.5 bg-muted rounded">k</kbd> Navigation ·{" "}
             <kbd className="px-1.5 py-0.5 bg-muted rounded">e</kbd> Zuordnen ·{" "}
             <kbd className="px-1.5 py-0.5 bg-muted rounded">n</kbd> Neu ·{" "}
             <kbd className="px-1.5 py-0.5 bg-muted rounded">i</kbd> Ignorieren
           </div>
-        </div>
 
       <div className="flex gap-1 border-b">
         <TabBtn active={tab === "open"} onClick={() => setTab("open")}>
