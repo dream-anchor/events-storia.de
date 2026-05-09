@@ -42,6 +42,12 @@ export interface OfferHistoryEntry {
   /** E-Mail-Adresse, an die diese Version verschickt wurde.
    *  Wird über das nächstgelegene outbound-Mail-Log (±5 min) ermittelt. */
   recipient_email?: string | null;
+  /** CC-Empfaenger (Komma-separierte Liste) der versendeten Mail. */
+  cc_email?: string | null;
+  /** BCC-Empfaenger (Komma-separierte Liste) der versendeten Mail.
+   *  Seit Mai 2026 wird `info@events-storia.de` standardmaessig als
+   *  Archiv-BCC mitgesendet. */
+  bcc_email?: string | null;
 }
 
 export function useOfferHistory(inquiryId: string) {
@@ -56,7 +62,7 @@ export function useOfferHistory(inquiryId: string) {
           .order("version", { ascending: false }),
         supabase
           .from("email_messages" as never)
-          .select("to_email, created_at, subject")
+          .select("to_email, cc_email, bcc_email, created_at, subject")
           .eq("inquiry_id", inquiryId)
           .eq("direction", "outbound")
           .order("created_at", { ascending: false }),
@@ -66,6 +72,8 @@ export function useOfferHistory(inquiryId: string) {
       const history = (historyRes.data || []) as unknown as OfferHistoryEntry[];
       const mails = ((mailsRes.data as unknown) as Array<{
         to_email: string;
+        cc_email: string | null;
+        bcc_email: string | null;
         created_at: string;
         subject: string | null;
       }>) || [];
@@ -80,14 +88,29 @@ export function useOfferHistory(inquiryId: string) {
       return history.map((entry) => {
         if (!pool.length) return entry;
         const target = new Date(entry.sent_at).getTime();
-        let best: { to_email: string; diff: number } | null = null;
+        let best: {
+          to_email: string;
+          cc_email: string | null;
+          bcc_email: string | null;
+          diff: number;
+        } | null = null;
         for (const m of pool) {
           const diff = Math.abs(new Date(m.created_at).getTime() - target);
-          if (!best || diff < best.diff) best = { to_email: m.to_email, diff };
+          if (!best || diff < best.diff)
+            best = {
+              to_email: m.to_email,
+              cc_email: m.cc_email,
+              bcc_email: m.bcc_email,
+              diff,
+            };
         }
-        const recipient_email =
-          best && best.diff <= 5 * 60 * 1000 ? best.to_email : null;
-        return { ...entry, recipient_email };
+        const matched = best && best.diff <= 5 * 60 * 1000 ? best : null;
+        return {
+          ...entry,
+          recipient_email: matched?.to_email ?? null,
+          cc_email: matched?.cc_email ?? null,
+          bcc_email: matched?.bcc_email ?? null,
+        };
       });
     },
     enabled: !!inquiryId,
