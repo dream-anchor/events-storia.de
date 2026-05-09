@@ -113,6 +113,8 @@ export interface OfferBuilderOption {
   pricingMode?: 'per_person' | 'per_event';
   /** Rabatt-Prozentsatz (0–100, default 25) — wird in menu_selection.discountPercent gespeichert */
   discountPercent: number;
+  /** Rabatt als fester €-Betrag — wenn > 0, hat Vorrang vor discountPercent */
+  discountAmount: number;
   attachMenu: boolean;
   tableNote: string | null;
 }
@@ -208,6 +210,7 @@ export function createEmptyOption(
     budgetPerPerson: null,
     pricingMode: 'per_person',
     discountPercent: 0,
+    discountAmount: 0,
     attachMenu: false,
     tableNote: null,
   };

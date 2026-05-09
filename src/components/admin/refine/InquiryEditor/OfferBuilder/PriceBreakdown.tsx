@@ -36,6 +36,9 @@ interface PriceBreakdownProps {
   /** Rabatt in Prozent (0–100, default 25) */
   discountPercent?: number;
   onDiscountChange?: (percent: number) => void;
+  /** Rabatt als fester €-Betrag (Vorrang vor Prozent wenn > 0) */
+  discountAmount?: number;
+  onDiscountAmountChange?: (amount: number) => void;
   disabled?: boolean;
   /** Equipment-Items (Fixkosten) */
   equipment?: EquipmentItem[];
@@ -91,6 +94,93 @@ function PricingModeToggle({
       >
         pro Anlass
       </button>
+    </div>
+  );
+}
+
+/**
+ * Rabatt-Eingabe mit %/€-Toggle (analog Anzahlung).
+ * Wert wird in `discountPercent` ODER `discountAmount` gespeichert.
+ * Modus = 'amount' wenn discountAmount > 0, sonst 'percent'.
+ */
+function DiscountInput({
+  percent,
+  amount,
+  onPercentChange,
+  onAmountChange,
+  disabled,
+  tone = 'muted',
+}: {
+  percent: number;
+  amount: number;
+  onPercentChange: (v: number) => void;
+  onAmountChange: (v: number) => void;
+  disabled?: boolean;
+  tone?: 'muted' | 'green';
+}) {
+  const mode: 'percent' | 'amount' = amount > 0 ? 'amount' : 'percent';
+  const toneClass = tone === 'green' ? 'text-green-600' : 'text-muted-foreground';
+  const setMode = (m: 'percent' | 'amount') => {
+    if (m === 'percent') onAmountChange(0);
+    else onPercentChange(0);
+  };
+  return (
+    <div className={`flex items-center gap-1 ${toneClass}`}>
+      <span>Rabatt</span>
+      <div className="relative w-16">
+        {mode === 'percent' ? (
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={percent || ''}
+            placeholder="0"
+            onChange={(e) => {
+              const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+              onPercentChange(val);
+            }}
+            className={`h-5 rounded px-1.5 pr-5 text-right text-xs ${toneClass}`}
+            disabled={disabled}
+          />
+        ) : (
+          <Input
+            type="number"
+            min={0}
+            step={1}
+            value={amount || ''}
+            placeholder="0"
+            onChange={(e) => {
+              const val = Math.max(0, parseFloat(e.target.value) || 0);
+              onAmountChange(val);
+            }}
+            className={`h-5 rounded px-1.5 pr-5 text-right text-xs ${toneClass}`}
+            disabled={disabled}
+          />
+        )}
+      </div>
+      <div className="inline-flex rounded border border-border/50 bg-muted/30 p-0.5 text-[10px] leading-none">
+        <button
+          type="button"
+          onClick={() => setMode('percent')}
+          disabled={disabled}
+          className={`px-1.5 py-0.5 rounded transition-colors ${
+            mode === 'percent' ? 'bg-background shadow-sm font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          %
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('amount')}
+          disabled={disabled}
+          className={`px-1.5 py-0.5 rounded transition-colors ${
+            mode === 'amount' ? 'bg-background shadow-sm font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          €
+        </button>
+      </div>
     </div>
   );
 }
@@ -155,6 +245,8 @@ export function PriceBreakdown({
   onPricingModeChange,
   discountPercent: discountPercentProp,
   onDiscountChange,
+  discountAmount: discountAmountProp,
+  onDiscountAmountChange,
   drinksLabel,
   disabled = false,
   equipment,
@@ -162,7 +254,9 @@ export function PriceBreakdown({
 }: PriceBreakdownProps) {
   // --- Menü-Modus (kein Paket) ---
   if (!packageData && onTotalChange !== undefined) {
-    const DISCOUNT = ((discountPercentProp ?? 0) / 100);
+    const discountPctVal = Math.min(100, Math.max(0, discountPercentProp ?? 0));
+    const discountEurVal = Math.max(0, discountAmountProp ?? 0);
+    const discountMode: 'percent' | 'amount' = discountEurVal > 0 ? 'amount' : 'percent';
 
     const dishLines = (courses || [])
       .map((c, idx) => {
@@ -200,7 +294,13 @@ export function PriceBreakdown({
     const dishSubtotal = dishLines.reduce((sum, d) => sum + (d.lineTotal || 0), 0);
     const winePerPerson = winePairingPrice || 0;
     const subtotalPerPerson = dishSubtotal + winePerPerson;
-    const discountAmount = dishSubtotal * DISCOUNT;
+    const guestsForDiv = Math.max(1, guestCount);
+    // Rabatt: €-Betrag hat Vorrang, gilt auf Total → pro Person dividieren.
+    // Prozent: gilt auf dishSubtotal pro Person.
+    const discountAmountTotal = discountMode === 'amount'
+      ? Math.min(discountEurVal, subtotalPerPerson * guestsForDiv)
+      : dishSubtotal * (discountPctVal / 100) * guestsForDiv;
+    const discountAmount = discountAmountTotal / guestsForDiv;
     const netPerPerson = subtotalPerPerson - discountAmount;
     const calculatedTotal = netPerPerson * guestCount;
 
@@ -246,33 +346,21 @@ export function PriceBreakdown({
             )}
 
             {/* Rabatt — nur sichtbar wenn > 0 */}
-            {(discountPercentProp ?? 0) > 0 && (<>
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1 text-green-600">
-                <span>Rabatt</span>
-                <div className="relative w-14">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={discountPercentProp ?? 0}
-                    onChange={(e) => {
-                      const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                      onDiscountChange?.(val);
-                    }}
-                    className="h-5 rounded px-1.5 pr-4 text-right text-xs text-green-600"
-                    disabled={disabled}
-                  />
-                  <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-green-600">%</span>
-                </div>
+            {((discountPercentProp ?? 0) > 0 || (discountAmountProp ?? 0) > 0) && (
+              <div className="flex items-center justify-between text-xs">
+                <DiscountInput
+                  percent={discountPctVal}
+                  amount={discountEurVal}
+                  onPercentChange={(v) => onDiscountChange?.(v)}
+                  onAmountChange={(v) => onDiscountAmountChange?.(v)}
+                  disabled={disabled}
+                  tone="green"
+                />
+                {discountAmount > 0 && (
+                  <span className="text-green-600">−{formatCurrency(discountAmount)}</span>
+                )}
               </div>
-              {discountAmount > 0 && (
-                <span className="text-green-600">−{formatCurrency(discountAmount)}</span>
-              )}
-            </div>
-
-            </>)}
+            )}
             {/* Netto — nur wenn Rabatt aktiv */}
             {netPerPerson > 0 && discountAmount > 0 && (
               <div className="flex items-center justify-between text-xs font-medium">
@@ -387,8 +475,11 @@ export function PriceBreakdown({
   // Wenn kein finaler Override (finalPricePerPerson) gesetzt ist, fließt der
   // Rabatt ueber den Recalc-Effect in totalAmount; hier zeigen wir die
   // Aufstellung transparent an.
-  const pkgDiscountPct = discountPercentProp ?? 0;
-  const pkgDiscountAmount = grandTotal * (pkgDiscountPct / 100);
+  const pkgDiscountPct = Math.min(100, Math.max(0, discountPercentProp ?? 0));
+  const pkgDiscountEur = Math.max(0, discountAmountProp ?? 0);
+  const pkgDiscountAmount = pkgDiscountEur > 0
+    ? Math.min(pkgDiscountEur, grandTotal)
+    : grandTotal * (pkgDiscountPct / 100);
   const pkgNetTotal = grandTotal - pkgDiscountAmount;
 
   return (
@@ -444,29 +535,16 @@ export function PriceBreakdown({
 
       <Separator className="my-1" />
 
-      {/* Rabatt — frei eingebbar, 0–100 % */}
+      {/* Rabatt — % oder € (Toggle) */}
       {onDiscountChange && (
         <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <span>Rabatt</span>
-            <div className="relative w-14">
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                step={1}
-                value={pkgDiscountPct || ''}
-                placeholder="0"
-                onChange={(e) => {
-                  const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                  onDiscountChange?.(val);
-                }}
-                className="h-5 rounded px-1.5 pr-4 text-right text-xs"
-                disabled={disabled}
-              />
-              <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">%</span>
-            </div>
-          </div>
+          <DiscountInput
+            percent={pkgDiscountPct}
+            amount={pkgDiscountEur}
+            onPercentChange={(v) => onDiscountChange?.(v)}
+            onAmountChange={(v) => onDiscountAmountChange?.(v)}
+            disabled={disabled}
+          />
           {pkgDiscountAmount > 0 && (
             <span className="text-muted-foreground">−{formatCurrency(pkgDiscountAmount)}</span>
           )}

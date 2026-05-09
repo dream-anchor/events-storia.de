@@ -189,6 +189,7 @@ async function saveOptionsToDb(
       budgetPerPerson: opt.budgetPerPerson,
       pricingMode: opt.pricingMode ?? 'per_person',
       discountPercent: opt.discountPercent,
+      discountAmount: opt.discountAmount ?? 0,
       packageNameOverride: opt.packageName || null,
     },
     total_amount: opt.totalAmount,
@@ -440,6 +441,7 @@ export function useOfferBuilder({
             budgetPerPerson: ((opt.menu_selection as Record<string, unknown>)?.budgetPerPerson as number) ?? null,
             pricingMode: ((opt.menu_selection as Record<string, unknown>)?.pricingMode as 'per_person' | 'per_event') ?? detectPricingMode(((opt.menu_selection as Record<string, unknown>)?.courses as CourseSelection[] | undefined)),
             discountPercent: ((opt.menu_selection as Record<string, unknown>)?.discountPercent as number) ?? 0,
+            discountAmount: ((opt.menu_selection as Record<string, unknown>)?.discountAmount as number) ?? 0,
             attachMenu: false,
             tableNote: null,
           }; });
@@ -663,13 +665,18 @@ export function useOfferBuilder({
           // budgetPerPerson (manuell gesetzt) hat Vorrang. Wenn nicht gesetzt,
           // wird der eingegebene Rabatt auf den errechneten Preis angewendet.
           const discountPct = Math.min(100, Math.max(0, opt.discountPercent ?? 0));
-          const discountFactor = 1 - discountPct / 100;
+          // €-Rabatt hat Vorrang, sonst Prozent
+          const discountEur = Math.max(0, opt.discountAmount ?? 0);
+          const computeDiscount = (base: number) =>
+            discountEur > 0 ? Math.min(discountEur, base) : base * (discountPct / 100);
+          const guestsForDiv = Math.max(1, opt.guestCount);
+          const perPersonDiscount = (base: number) => computeDiscount(base * guestsForDiv) / guestsForDiv;
           const effectivePerPerson = (opt.budgetPerPerson != null && opt.budgetPerPerson > 0)
             ? opt.budgetPerPerson
-            : netPerPerson * discountFactor;
+            : netPerPerson - perPersonDiscount(netPerPerson);
           // Gesamtsumme je nach Pricing-Modus
           const mode = opt.pricingMode ?? 'per_person';
-          const fallbackTotal = netPerPerson * discountFactor * opt.guestCount;
+          const fallbackTotal = netPerPerson * opt.guestCount - computeDiscount(netPerPerson * opt.guestCount);
           let newTotal = calculateTotalAmount(mode, effectivePerPerson, opt.guestCount, fallbackTotal);
 
           // Equipment & Staff: Fixkosten addieren (nicht pro Person)
@@ -705,7 +712,9 @@ export function useOfferBuilder({
         //  per_person: wie bisher (budgetPerPerson * guestCount oder Paket-Kalkulation)
         const mode = opt.pricingMode ?? 'per_person';
         const discountPct = Math.min(100, Math.max(0, opt.discountPercent ?? 0));
-        const discountFactor = 1 - discountPct / 100;
+        const discountEur = Math.max(0, opt.discountAmount ?? 0);
+        const computeDiscount = (base: number) =>
+          discountEur > 0 ? Math.min(discountEur, base) : base * (discountPct / 100);
         let newTotal: number;
         if (opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
           if (mode === 'per_event') {
@@ -716,13 +725,12 @@ export function useOfferBuilder({
               : opt.budgetPerPerson + courseSurcharge * opt.guestCount;
           }
           // Rabatt auch auf Override anwenden (analog Menü-Modus)
-          newTotal = newTotal * discountFactor;
+          newTotal = newTotal - computeDiscount(newTotal);
         } else {
           const baseTotal = calculateEventPackagePrice(
             pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
           ) + (pkg.price_per_person ? courseSurcharge * opt.guestCount : courseSurcharge * opt.guestCount);
-          // Rabatt nur anwenden, wenn kein manueller Preis-Override gesetzt ist
-          newTotal = baseTotal * discountFactor;
+          newTotal = baseTotal - computeDiscount(baseTotal);
         }
 
         // Equipment & Staff: Fixkosten addieren (nicht pro Person)
@@ -754,7 +762,7 @@ export function useOfferBuilder({
       : '';
     const equipKey = (o.menuSelection.equipment ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
     const staffKey = (o.menuSelection.staff ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
-    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.discountPercent ?? 0}:${courseKey}:${drinkKey}:${equipKey}:${staffKey}`;
+    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.discountPercent ?? 0}:${o.discountAmount ?? 0}:${courseKey}:${drinkKey}:${equipKey}:${staffKey}`;
   }).join(',')]);
 
   // =================================================================
@@ -869,6 +877,7 @@ export function useOfferBuilder({
           sortOrder: OPTION_LABELS.indexOf(nextLabel as typeof OPTION_LABELS[number]),
           budgetPerPerson: copyFrom.budgetPerPerson,
           discountPercent: copyFrom.discountPercent,
+          discountAmount: copyFrom.discountAmount ?? 0,
           attachMenu: copyFrom.attachMenu,
           tableNote: copyFrom.tableNote,
         }

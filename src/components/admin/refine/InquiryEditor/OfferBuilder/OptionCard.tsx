@@ -409,6 +409,8 @@ export function OptionCard({
             onPricingModeChange={(mode) => onUpdate({ pricingMode: mode })}
             discountPercent={option.discountPercent}
             onDiscountChange={(pct) => onUpdate({ discountPercent: pct })}
+            discountAmount={option.discountAmount}
+            onDiscountAmountChange={(amt) => onUpdate({ discountAmount: amt })}
             disabled={disabled}
             equipment={option.menuSelection.equipment}
             staff={option.menuSelection.staff}
