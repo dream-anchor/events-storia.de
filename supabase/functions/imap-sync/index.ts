@@ -24,6 +24,22 @@ const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
 const LARGE_MAIL_BYTES = 200 * 1024;
 const BUCKET = "email-attachments";
 
+// Eigene Outbound-Adressen — Mails von diesen Absendern sind Kopien
+// unserer eigenen Outbound-Mails und gehören nicht in den Posteingang.
+const OWN_OUTBOUND_EMAILS = new Set<string>([
+  "info@events-storia.de",
+]);
+const OWN_OUTBOUND_DOMAIN_SUFFIXES = [
+  "@reply.events-storia.de",
+];
+
+function isOwnOutbound(fromEmail: string | null | undefined): boolean {
+  if (!fromEmail) return false;
+  const lower = fromEmail.toLowerCase();
+  if (OWN_OUTBOUND_EMAILS.has(lower)) return true;
+  return OWN_OUTBOUND_DOMAIN_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+}
+
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false },
 });
