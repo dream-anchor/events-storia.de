@@ -40,6 +40,26 @@ function isOwnOutbound(fromEmail: string | null | undefined): boolean {
   return OWN_OUTBOUND_DOMAIN_SUFFIXES.some((suffix) => lower.endsWith(suffix));
 }
 
+/**
+ * Prüft, ob eine Message-ID bereits als Maestro-Outbound in v2_event_emails archiviert ist.
+ * Wird genutzt, um Sent-Mails (Apple Mail) und INBOX-Kopien eigener Mails zu deduplizieren.
+ */
+async function existsInOutboundArchive(messageId: string | null | undefined): Promise<boolean> {
+  if (!messageId) return false;
+  const cleaned = messageId.replace(/^<|>$/g, "").trim();
+  if (!cleaned) return false;
+  // resend_message_id (Maestro hat via Resend gesendet)
+  const { data: r1 } = await supabase
+    .from("v2_event_emails")
+    .select("id")
+    .eq("resend_message_id", cleaned)
+    .limit(1)
+    .maybeSingle();
+  if (r1) return true;
+  // source_message_id (UUID-Form, falls so verlinkt)
+  return false;
+}
+
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false },
 });
