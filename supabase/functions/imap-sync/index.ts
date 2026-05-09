@@ -253,6 +253,30 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
           await uploadAttachments(inserted.id, attachments);
         }
 
+        // Sender-Blocklist Check: Wenn Absender geblockt, sofort verstecken
+        if (inserted?.id && fromArr[0]?.email) {
+          try {
+            const fromLower = fromArr[0].email.toLowerCase();
+            const { data: blocked } = await supabase
+              .from("email_sender_blocklist")
+              .select("from_email")
+              .eq("from_email", fromLower)
+              .maybeSingle();
+            if (blocked) {
+              await supabase
+                .from("inbox_emails")
+                .update({
+                  is_hidden: true,
+                  hidden_reason: "sender_blocklisted",
+                  hidden_at: new Date().toISOString(),
+                })
+                .eq("id", inserted.id);
+            }
+          } catch (e) {
+            console.error("blocklist check failed:", (e as Error).message);
+          }
+        }
+
         // Match gegen Event-Filter (fire-and-forget, Fehler dürfen Sync nicht blocken)
         if (inserted?.id) {
           try {
