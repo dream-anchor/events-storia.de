@@ -18,6 +18,12 @@ export type UnassignedEmail = {
   imap_folder: string;
   is_hidden: boolean;
   hidden_reason: string | null;
+  suggested_event_id: string | null;
+  suggestion_category: "match" | "new_inquiry" | "irrelevant" | "unclear" | null;
+  suggestion_confidence: "high" | "medium" | "low" | null;
+  suggestion_reasoning: string | null;
+  suggestion_method: "heuristic" | "llm" | null;
+  suggestion_generated_at: string | null;
 };
 
 export function useUnassignedInboxCount() {
@@ -41,7 +47,7 @@ export function useUnassignedInbox() {
       const { data, error } = await supabase
         .from("unassigned_inbox_emails" as any)
         .select(
-          "id, message_id, from_email, from_name, subject, body_text, body_html, date_received, date_sent, has_attachments, attachment_count, imap_status, imap_folder, is_hidden, hidden_reason"
+          "id, message_id, from_email, from_name, subject, body_text, body_html, date_received, date_sent, has_attachments, attachment_count, imap_status, imap_folder, is_hidden, hidden_reason, suggested_event_id, suggestion_category, suggestion_confidence, suggestion_reasoning, suggestion_method, suggestion_generated_at"
         )
         .order("date_received", { ascending: false })
         .limit(500);
@@ -77,7 +83,7 @@ export function useHiddenInbox() {
       const { data, error } = await supabase
         .from("inbox_emails")
         .select(
-          "id, message_id, from_email, from_name, subject, body_text, body_html, date_received, date_sent, has_attachments, attachment_count, imap_status, imap_folder, is_hidden, hidden_reason"
+          "id, message_id, from_email, from_name, subject, body_text, body_html, date_received, date_sent, has_attachments, attachment_count, imap_status, imap_folder, is_hidden, hidden_reason, suggested_event_id, suggestion_category, suggestion_confidence, suggestion_reasoning, suggestion_method, suggestion_generated_at"
         )
         .eq("is_hidden", true)
         .order("date_received", { ascending: false })
