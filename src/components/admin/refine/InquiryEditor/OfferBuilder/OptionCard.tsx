@@ -132,13 +132,16 @@ export function OptionCard({
   // Merged packageData mit Admin-Overrides für PriceBreakdown-Anzeige
   const effectivePackage = useMemo(() => {
     if (!selectedPackage) return undefined;
+    const hasOverride = option.budgetPerPerson != null && option.budgetPerPerson > 0;
     return {
       ...selectedPackage,
       name: option.packageName || selectedPackage.name,
-      // Override-Preis nur bei per-Person-Paketen (budgetPerPerson ist pro Person)
-      price: (option.budgetPerPerson != null && option.budgetPerPerson > 0 && selectedPackage.price_per_person)
-        ? option.budgetPerPerson
-        : selectedPackage.price,
+      // Override ersetzt den Katalogpreis vollständig — unabhängig vom Pakettyp.
+      // - per_person: Override = Preis pro Gast → wird in PriceBreakdown × guests gerechnet.
+      // - flat:        Override = Gesamtpreis → wird unverändert übernommen.
+      price: hasOverride ? option.budgetPerPerson! : selectedPackage.price,
+      // Hinweis für PriceBreakdown: kein calculateEventPackagePrice / Tier-Breakdown verwenden.
+      __priceOverridden: hasOverride,
     };
   }, [selectedPackage, option.packageName, option.budgetPerPerson]);
 
