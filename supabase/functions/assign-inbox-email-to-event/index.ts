@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
 
     const { data: email, error: emailErr } = await admin
       .from("inbox_emails")
-      .select("id, from_email, from_name")
+      .select("id, from_email, from_name, subject, body_text, suggested_event_id, suggestion_category, suggestion_generated_at")
       .eq("id", email_id)
       .maybeSingle();
     if (emailErr) throw emailErr;
@@ -214,6 +214,8 @@ Deno.serve(async (req) => {
     }
 
     const linked = await backfillFilter(event_id, filterId, email.from_email);
+
+    await writeFeedback(email, event_id, "match");
 
     return new Response(
       JSON.stringify({ ok: true, event_id, filter_id: filterId, linked_count: linked }),
