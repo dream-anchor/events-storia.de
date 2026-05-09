@@ -696,12 +696,30 @@ serve(async (req) => {
       }
     }
 
-    // 4. Line-Items aus allen aktiven Optionen bauen
+    // 4. Line-Items aus allen aktiven Optionen bauen.
+    //    Bei mehreren Varianten ohne Kundenauswahl: erste Variante als parent,
+    //    weitere als `subItems[].alternative=true` (Lex-API "OR"-Position).
+    //    So wird die Summe der Quotation NICHT aufaddiert.
+    //    WICHTIG: Pursue (Angebot → Rechnung) wird von Lex mit 406 abgelehnt,
+    //    solange alternative/optional Items enthalten sind. Daher nur im
+    //    reinen Angebots-Modus (kein forceDocumentType, keine Auswahl).
+    const isInvoiceOrOrder = forceDocumentType === 'invoice' || forceDocumentType === 'order';
+    const useAlternatives = !useSelectedQuantity && !isInvoiceOrOrder && workingOptions.length > 1;
     const lineItems: LexOfficeLineItem[] = [];
-    for (const opt of workingOptions as Array<OfferOption & { selected_quantity?: number | null }>) {
-      const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
-      const guestOverride = useSelectedQuantity ? (opt.selected_quantity ?? 0) : undefined;
-      lineItems.push(...buildLineItems(opt, pkgName, guestOverride));
+    if (useAlternatives) {
+      const variants: LexOfficeLineItem[] = (workingOptions as OfferOption[]).map((opt) => {
+        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
+        return buildVariantLineItem(opt, pkgName);
+      });
+      const parent = variants[0];
+      parent.subItems = variants.slice(1).map((v) => ({ ...v, alternative: true }));
+      lineItems.push(parent);
+    } else {
+      for (const opt of workingOptions as Array<OfferOption & { selected_quantity?: number | null }>) {
+        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
+        const guestOverride = useSelectedQuantity ? (opt.selected_quantity ?? 0) : undefined;
+        lineItems.push(...buildLineItems(opt, pkgName, guestOverride));
+      }
     }
 
     if (lineItems.length === 0) {
