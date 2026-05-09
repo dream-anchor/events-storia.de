@@ -649,7 +649,7 @@ export const EventsList = () => {
           </>
         ) : (
           <KanbanView
-            events={allEvents}
+            events={activeEvents}
             onRefresh={() => eventsQuery.query.refetch()}
           />
         )}
