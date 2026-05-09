@@ -598,7 +598,8 @@ function ProposalView({
 
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
   const totalAmount = selectedOption?.total_amount ?? 0;
-  const depositAmount = Math.round(totalAmount * 0.2 * 100) / 100;
+  const deposit = computeDeposit(inquiry, totalAmount);
+  const depositAmount = deposit.amount;
 
   // ACTION: Zahlung — leitet zu Stripe Checkout weiter
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
@@ -770,7 +771,7 @@ function ProposalView({
                     className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all"
                   >
                     <span className="flex items-center gap-2 w-full justify-between">
-                      <span className="text-sm">Anzahlung 20 %</span>
+                      <span className="text-sm">{deposit.label}</span>
                       {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
                     </span>
                     <span className="text-lg font-serif font-bold text-primary">
