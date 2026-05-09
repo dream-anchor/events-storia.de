@@ -76,6 +76,10 @@ interface LexOfficeLineItem {
     grossAmount: number;
     taxRatePercentage: number;
   };
+  /** Nur fuer parent-LineItems: Alternativpositionen (Lex-API: alternative=true). */
+  subItems?: LexOfficeLineItem[];
+  /** Nur fuer subItems gueltig; muss true sein, sonst von API abgelehnt. */
+  alternative?: boolean;
 }
 
 // ─── Line-item builder ────────────────────────────────────────────────────────
