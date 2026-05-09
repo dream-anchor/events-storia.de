@@ -1,6 +1,9 @@
 import { useMemo, useEffect, useRef, useState } from "react";
+import { formatDistanceToNow, parseISO } from "date-fns";
+import { de } from "date-fns/locale";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed, RefreshCw, ChefHat, Package as PackageIcon, Mail } from "lucide-react";
+import { ChevronDown, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +59,9 @@ interface OptionCardProps {
   canDuplicate: boolean;
   canDelete: boolean;
   onRequestImport?: () => void;
+  isCustomerChoice?: boolean;
+  customerNotes?: string | null;
+  respondedAt?: string | null;
 }
 
 export function OptionCard({
@@ -72,6 +78,9 @@ export function OptionCard({
   canDuplicate,
   canDelete,
   onRequestImport,
+  isCustomerChoice = false,
+  customerNotes = null,
+  respondedAt = null,
 }: OptionCardProps) {
   const selectedPackage = useMemo(
     () => packages.find(p => p.id === option.packageId),
