@@ -1,54 +1,81 @@
-## Karten-Titel + Archivieren im Kanban
+## Zwei Fixes in einem Patch
 
-### 1. Karten-Titel: nie „Private/privat"
+### 1. Heuristik komplett entfernen
+Wie besprochen — Buchstaben-Match ist unzuverlässig (z.B. `pdabelstein` ≠ "Domenico", aber das `p` steht für Preeti). Stattdessen:
 
-**Problem:** Im Kanban (und potentiell anderswo) erscheint „Private" oder „privat" als Karten-Titel, obwohl das nur ein Platzhalter für „keine Firma" ist.
+- **Keine** automatische Mismatch-Erkennung.
+- **Bestätigungs-Dialog** vor jedem Angebots-Versand mit klar lesbarem Empfänger-Block.
 
-**Fix in `KanbanView.tsx` `KanbanCard`:**
+### 2. Formular-Fehler "Fehler beim Senden" — Root Cause: CORS
 
-```ts
-const rawCompany = event.company_name?.trim() ?? "";
-const isPlaceholder = /^(private|privat)$/i.test(rawCompany);
-const title =
-  (!isPlaceholder && rawCompany) ||
-  event.contact_name?.trim() ||
-  "Unbenannte Anfrage";
-```
+**Diagnose** (verifiziert per direkter Edge-Function-Test):
+- Edge Function `receive-event-inquiry` antwortet erfolgreich mit Status 200, Inquiry wird in DB angelegt.
+- ABER: `supabase/functions/_shared/cors.ts` erlaubt als `Access-Control-Allow-Origin` ausschließlich `events-storia.de`, `www.events-storia.de` und `localhost:*`.
+- Preview-URLs (`*.lovableproject.com`, `*.lovable.app`, `id-preview--*.lovable.app`) sind **nicht** in der Whitelist.
+- Browser blockiert die Response → der Client sieht einen Fehler → roter Toast `"Fehler beim Senden"`.
+- Auf der Live-Domain `https://events-storia.de` funktioniert das Formular weiterhin.
 
-So zeigt die Karte bei `company_name = "Private"` automatisch den `contact_name` (z. B. „Jonathan Starke" statt „Private"). Falls beides leer ist → „Unbenannte Anfrage".
+**Fix**: `supabase/functions/_shared/cors.ts` erweitern, sodass folgende Origins erlaubt sind:
+- `https://events-storia.de`, `https://www.events-storia.de` (unverändert)
+- `http://localhost:*` (unverändert)
+- `https://*.lovableproject.com` (Preview)
+- `https://*.lovable.app` (Preview & sandbox)
+- `https://*.sandbox.lovable.dev` (interne Sandboxes)
 
-Scope bewusst klein: nur die Kanban-Karte. Tabelle und andere Stellen bleiben unverändert; falls dort auch erwünscht, in Folge-Iteration.
+Implementierung als Regex-Whitelist, damit Subdomain-Wildcards sauber matchen — kein generisches `*` (das würde Sicherheit aushöhlen).
 
-### 2. Archivieren im Kanban
+Diese Änderung wirkt automatisch für **alle** Edge Functions, die `getCorsHeaders` benutzen, also auch andere Formulare (Catering, Kontakt, Package-Inquiry).
 
-**UX:** Hover-Action oben rechts auf jeder Karte. Klein, unauffällig im Ruhezustand, sichtbar bei Hover. Identische Server-Logik wie Bulk-Archiv (`archived_at = now()`, `archived_by = user.email`).
+## Plan im Detail
 
-```text
-┌─────────────────────────────────────┐
-│ 🔴 Martin Uhlig            13.05.26 [📦] │  ← Archiv-Icon erscheint bei Hover
-│    20 Gäste · 2.400 €      AM · 2d  │
-└─────────────────────────────────────┘
-```
+### Datei A: `src/components/admin/refine/InquiryEditor/SendConfirmDialog.tsx` (neu)
+Wiederverwendbare Komponente:
+- Props: `open`, `onConfirm`, `onCancel`, `recipientName`, `recipientEmail`, `subject`, `activeOptionsCount`, `versionLabel` (z.B. "Erstversand" / "Version 2").
+- Layout (Light-Mode, rounded-2xl, monochrome):
+  ```
+  Angebot wirklich senden?
+  ─────────────────────────
+  An:        Preeti
+             pdabelstein@simscale.com
+  Betreff:   Ihr Angebot von Storia · Firmenfeier
+  Versand:   Erstversand · 2 Optionen aktiv (A, B)
+  ─────────────────────────
+  [Abbrechen]            [Senden bestätigen]
+  ```
+- Basiert auf `AlertDialog` aus `@/components/ui/alert-dialog`.
+- Empfänger-Block in `font-mono text-sm` für gute Lesbarkeit der E-Mail-Adresse.
 
-- Icon: `Archive` aus `lucide-react`, 14 px, `text-slate-400 hover:text-slate-700`
-- Position: absolut top-right der Karte (überlagert nicht das Datum, da Datum links davon bleibt — wir verschieben das Datum ggf. nicht, sondern legen den Icon-Button via `opacity-0 group-hover:opacity-100` darüber in einer eigenen Zeile-Ecke)
-- `onClick`: `e.stopPropagation()` (sonst würde Card-Click zur Detail-Seite navigieren), dann Update + Toast + `onRefresh()`
-- Confirm-Dialog: nicht nötig (Archiv ist reversibel — Wiederherstellen-Aktion existiert in der Tabelle im „Archiv"-Tab)
-- Drag-Handler: Icon-Button bekommt `draggable={false}` und `onMouseDown` stoppt Propagation, damit der Karten-Drag nicht startet
+### Datei B: `src/components/admin/refine/InquiryEditor/OfferBuilder/SendControls.tsx`
+- State `confirmOpen` einführen.
+- `handleSendProposal` / `handleSendFinalOffer` öffnen den Dialog statt direkt zu senden.
+- Erst nach `onConfirm` den eigentlichen Send-Call ausführen.
+- Empfänger-Daten aus `inquiry` durchreichen.
 
-**Implementierung:**
+### Datei C: Preview-Send-Stelle
+Suche & Anpassung: dort wo `triggerSendProposal` / `triggerSendFinalOffer` via OfferBuilderHandle aus der Public-Offer-Preview-Seite aufgerufen wird → gleichen `<SendConfirmDialog>` einbauen. (Alternativ: Logik komplett im OfferBuilder kapseln, sodass Aufrufe von außen den Dialog automatisch durchlaufen — bevorzugt, weniger Duplizierung.)
 
-In `KanbanView.tsx`:
-- Neuer Handler `handleArchiveCard(eventId)` — analog zum BulkArchive
-- `KanbanCard`-Props erweitern um `onArchive`
-- Icon-Button in der Karte ergänzen (mit `group-hover:opacity-100`-Pattern, das der Container bereits über `group` haben muss)
+### Datei D: `supabase/functions/_shared/cors.ts`
+- Whitelist als Array von Regex-Patterns:
+  ```ts
+  const ALLOWED_ORIGIN_PATTERNS = [
+    /^https:\/\/(www\.)?events-storia\.de$/,
+    /^http:\/\/localhost:\d+$/,
+    /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
+    /^https:\/\/[a-z0-9-]+\.lovable\.app$/,
+    /^https:\/\/[a-z0-9-]+\.sandbox\.lovable\.dev$/,
+  ];
+  ```
+- `isAllowed` matched gegen alle Patterns.
+- Fallback bleibt: `events-storia.de` als Default-Origin, falls Origin nicht erlaubt.
 
-**Geänderte Datei:** ausschließlich `src/components/admin/refine/KanbanView.tsx`. Keine DB-Änderung, kein neuer Helper.
+### Out-of-Scope
+- Keine DB-Änderungen.
+- Kein Eingriff in Resend/SMTP-Logik.
+- Kein Auto-Korrigieren der E-Mail-Adresse.
+- Keine Server-seitige Pflicht-Bestätigung — Dialog ist UI-only.
 
-### Smoke-Test
-1. „Jonathan Starke" / „Private" wird im Kanban als „Jonathan Starke" angezeigt
-2. „privat" (Lukas Russo) wird als „Lukas Russo" angezeigt
-3. Hover über Karte → Archiv-Icon erscheint top-right
-4. Klick auf Icon → Karte verschwindet, Toast „Anfrage archiviert", Karte taucht im Tabellen-Tab „Archiv" auf
-5. Klick auf Icon löst NICHT die Navigation zur Detail-Seite aus
-6. Drag-Start startet nicht beim Klick auf das Archiv-Icon
+## Risiken & Verifikation
+
+- CORS-Regex muss keine Schreibfehler haben → mit zwei manuellen Tests verifizieren (Preview-Domain + Live-Domain).
+- Nach Deploy der Edge Function im Preview-Browser nochmal das Event-Formular absenden → Toast muss jetzt "Vielen Dank!" zeigen.
+- Bestätigungs-Dialog: einmal in Edit-Modus, einmal aus Preview-Seite testen.
