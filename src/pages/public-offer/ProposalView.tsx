@@ -717,6 +717,7 @@ export function ProposalView({
         totalAmount={totalAmount}
         depositAmount={depositAmount}
         depositPercent={depositPercent}
+        isFixedDeposit={isFixedDeposit}
         showDeposit={showDeposit}
         isPaying={isPaying}
         onPay={handlePayment}
