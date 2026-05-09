@@ -366,6 +366,9 @@ function MailRow({
   onChanged: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<null | "remove" | "archive">(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
   const [attachments, setAttachments] = useState<
     { id: string; filename: string; size_bytes: number | null; storage_path: string; mime_type: string | null }[]
   >([]);
@@ -442,32 +445,60 @@ function MailRow({
       toast.info("Versendete Mails können nicht entfernt werden.");
       return;
     }
-    // Mark as excluded to keep filter intact
-    const { error } = await supabase
-      .from("event_email_links")
-      .update({ is_excluded: true, excluded_at: new Date().toISOString() })
-      .eq("event_id", eventId)
-      .eq("email_id", email.id);
+    setBusy(true);
+    const { error } = await supabase.functions.invoke("remove-email-from-event", {
+      body: { event_id: eventId, email_id: email.id, reason: reason.trim() || null },
+    });
+    setBusy(false);
     if (error) toast.error(error.message);
     else {
       toast.success("Mail aus Event entfernt.");
+      setConfirmAction(null);
+      setReason("");
       onChanged();
     }
   };
 
   const archiveGlobally = async () => {
     if (isOutbound) return;
-    const { error } = await supabase.functions.invoke("ignore-inbox-email", {
-      body: { email_id: email.id, ignore_sender: false, reason: "archived_in_maestro" },
+    setBusy(true);
+    const { error } = await supabase.functions.invoke("archive-email-globally", {
+      body: { email_id: email.id, reason: reason.trim() || "archived_in_maestro" },
     });
+    setBusy(false);
     if (error) toast.error(error.message);
     else {
       toast.success("In Maestro archiviert.");
+      setConfirmAction(null);
+      setReason("");
+      onChanged();
+    }
+  };
+
+  const restoreToEvent = async () => {
+    const { error } = await supabase.functions.invoke("restore-email-to-event", {
+      body: { event_id: eventId, email_id: email.id },
+    });
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Mail wiederhergestellt.");
+      onChanged();
+    }
+  };
+
+  const unarchiveGlobally = async () => {
+    const { error } = await supabase.functions.invoke("unarchive-email-globally", {
+      body: { email_id: email.id },
+    });
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Mail wieder eingeblendet.");
       onChanged();
     }
   };
 
   return (
+    <>
     <div
       className={cn(
         "rounded-2xl border bg-white transition-shadow",
@@ -523,16 +554,28 @@ function MailRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="rounded-xl">
-            {!isOutbound && (
-              <DropdownMenuItem onClick={removeFromEvent}>
+            {!isOutbound && !email.is_excluded && (
+              <DropdownMenuItem onClick={() => setConfirmAction("remove")}>
                 <Trash2 className="h-4 w-4 mr-2" />
                 Aus diesem Event entfernen
               </DropdownMenuItem>
             )}
-            {!isOutbound && (
-              <DropdownMenuItem onClick={archiveGlobally}>
+            {!isOutbound && email.is_excluded && (
+              <DropdownMenuItem onClick={restoreToEvent}>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                In Event wiederherstellen
+              </DropdownMenuItem>
+            )}
+            {!isOutbound && !email.is_hidden && (
+              <DropdownMenuItem onClick={() => setConfirmAction("archive")}>
                 <Archive className="h-4 w-4 mr-2" />
                 In Maestro archivieren
+              </DropdownMenuItem>
+            )}
+            {!isOutbound && email.is_hidden && (
+              <DropdownMenuItem onClick={unarchiveGlobally}>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Aus Archiv wiederherstellen
               </DropdownMenuItem>
             )}
             {!isOutbound && <DropdownMenuSeparator />}
@@ -600,5 +643,59 @@ function MailRow({
         </div>
       )}
     </div>
+
+    <Dialog
+      open={confirmAction !== null}
+      onOpenChange={(o) => {
+        if (!o) {
+          setConfirmAction(null);
+          setReason("");
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            {confirmAction === "remove"
+              ? "Mail aus Event entfernen"
+              : "In Maestro archivieren"}
+          </DialogTitle>
+          <DialogDescription>
+            {confirmAction === "remove"
+              ? "Diese Mail wird aus dem Verlauf dieses Events entfernt. Sie bleibt in Maestro für andere Events und im Archiv erhalten."
+              : "Diese Mail wird in allen Event-Verläufen verborgen. Sie bleibt in der Datenbank gespeichert und kann jederzeit wieder eingeblendet werden."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Grund (optional)</Label>
+          <Textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="z. B. falsche Zuordnung"
+            className="rounded-xl"
+            rows={3}
+          />
+        </div>
+        <DialogFooter>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setConfirmAction(null);
+              setReason("");
+            }}
+            disabled={busy}
+          >
+            Abbrechen
+          </Button>
+          <Button
+            onClick={confirmAction === "remove" ? removeFromEvent : archiveGlobally}
+            disabled={busy}
+          >
+            Bestätigen
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
