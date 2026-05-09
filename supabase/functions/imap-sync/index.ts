@@ -19,9 +19,9 @@ const IMAP_PORT = parseInt(Deno.env.get("IMAP_PORT") ?? "993");
 const IMAP_USER = Deno.env.get("IMAP_USER")!;
 const IMAP_PASSWORD = Deno.env.get("IMAP_PASSWORD")!;
 
-const MAX_PER_RUN = 10;
+const MAX_PER_RUN = 3;
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
-const LARGE_MAIL_BYTES = 10 * 1024 * 1024;
+const LARGE_MAIL_BYTES = 2 * 1024 * 1024;
 const BUCKET = "email-attachments";
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -169,7 +169,7 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
         const isLarge = rawSize > LARGE_MAIL_BYTES;
         const parsed = await simpleParser(sourceBuf, {
           skipImageLinks: true,
-          skipHtmlToText: false,
+          skipHtmlToText: true,
           skipTextToHtml: true,
         });
 
