@@ -870,7 +870,7 @@ export const SmartInquiryEditor = () => {
         <div className="relative">
         <TabsList className="w-full justify-start bg-muted/30 rounded-xl p-1 h-auto overflow-x-auto scrollbar-hide flex">
           <TabsTrigger value="angebot" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Angebot</TabsTrigger>
-          <TabsTrigger value="nachrichten" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Nachrichten</TabsTrigger>
+          <TabsTrigger value="mails" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Mails</TabsTrigger>
           <TabsTrigger value="aufgaben" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Aufgaben</TabsTrigger>
           <TabsTrigger value="details" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Details</TabsTrigger>
         </TabsList>
@@ -914,79 +914,16 @@ export const SmartInquiryEditor = () => {
 
         </TabsContent>
 
-        {/* Tab: Nachrichten (Konversation + Posteingang) */}
-        <TabsContent value="nachrichten" className="mt-6">
-          <Tabs defaultValue="konversation" className="w-full">
-            <TabsList className="bg-muted/30 rounded-xl p-1 h-auto">
-              <TabsTrigger value="konversation" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm gap-2">
-                <Mail className="h-3.5 w-3.5" /> Konversation
-              </TabsTrigger>
-              <TabsTrigger value="posteingang" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                Posteingang
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="konversation" className="mt-4">
-              <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-primary" />
-                    E-Mail Konversation
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <MailClient
-                    inquiryId={id!}
-                    customerEmail={inquiry.email || undefined}
-                    onSendReply={async ({ to, cc, bcc, subject, html, text }) => {
-                      const recipient = to || inquiry?.email;
-                      if (!recipient) {
-                        toast.error('Keine E-Mail-Adresse hinterlegt');
-                        return;
-                      }
-                      const { guardRecipientEmail } = await import('@/lib/operatorEmailGuard');
-                      if (!guardRecipientEmail(recipient)) {
-                        toast.warning(
-                          `Versand abgebrochen: ${recipient} ist eine Betreiber-Adresse.`,
-                          { duration: 10000 }
-                        );
-                        return;
-                      }
-                      const { data: result } = await supabase.functions.invoke('send-offer-email', {
-                        body: {
-                          inquiryId: id,
-                          emailContent: text,
-                          emailHtml: html,
-                          emailSubject: subject,
-                          cc,
-                          bcc,
-                          customerEmail: recipient,
-                          customerName: inquiry.contact_name || '',
-                          senderEmail: currentUserEmail,
-                          confirmedOperatorOverride: true,
-                        },
-                      });
-                      if (!result?.emailSent) {
-                        throw new Error(result?.error || 'Versand fehlgeschlagen');
-                      }
-                      toast.success('Antwort versendet');
-                    }}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="posteingang" className="mt-4">
-              {id && (
-                <EventMailsTab
-                  eventId={id}
-                  contactEmail={inquiry.email || null}
-                  contactName={inquiry.contact_name || null}
-                  eventName={inquiry.event_type || inquiry.company_name || null}
-                />
-              )}
-            </TabsContent>
-          </Tabs>
+        {/* Tab: Mails — einheitliche Timeline (inbound + outbound) mit Filter-Verwaltung */}
+        <TabsContent value="mails" className="mt-6">
+          {id && (
+            <EventMailsTab
+              eventId={id}
+              contactEmail={inquiry.email || null}
+              contactName={inquiry.contact_name || null}
+              eventName={inquiry.event_type || inquiry.company_name || null}
+            />
+          )}
         </TabsContent>
 
         {/* Tab: Aufgaben */}
