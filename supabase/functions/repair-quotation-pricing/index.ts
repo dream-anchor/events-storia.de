@@ -100,6 +100,69 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+// ─── Alternativ-Varianten (Multi-Option-Angebote) ─────────────────────────
+// Lexware-API: subItems[].alternative=true rendert als "OR"-Position. Bei
+// mehreren aktiven Optionen: erste als parent, restliche als Alternative.
+
+const FOOD_TAX_RATE = 7;
+const DRINK_TAX_RATE = 19;
+
+function formatEUR(n: number): string {
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+  }).format(n);
+}
+
+function labelForMode(offerMode: string): string {
+  if (offerMode === "menu") return "Catering-Bestellung";
+  return "Veranstaltungspaket";
+}
+
+function deriveTaxRate(items: LexOfficeLineItem[]): number {
+  if (items.length === 0) return FOOD_TAX_RATE;
+  const sumByRate: Record<number, number> = {};
+  for (const i of items) {
+    const r = i.unitPrice.taxRatePercentage;
+    sumByRate[r] = (sumByRate[r] || 0) + i.unitPrice.grossAmount * i.quantity;
+  }
+  const rates = Object.keys(sumByRate);
+  if (rates.length === 1) return Number(rates[0]);
+  return (sumByRate[DRINK_TAX_RATE] || 0) > (sumByRate[FOOD_TAX_RATE] || 0)
+    ? DRINK_TAX_RATE
+    : FOOD_TAX_RATE;
+}
+
+function buildVariantLineItem(
+  opt: OfferOption,
+  packageName: string | null,
+): LexOfficeLineItem {
+  const detailItems = buildLineItems(opt, packageName);
+  const total = round2(
+    detailItems.reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0),
+  );
+  const description = detailItems
+    .map((i) => {
+      const lineTotal = round2(i.unitPrice.grossAmount * i.quantity);
+      const qty = i.quantity > 1 ? `${i.quantity} × ` : "";
+      return `- ${qty}${i.name}: ${formatEUR(lineTotal)}`;
+    })
+    .join("\n");
+  const taxRate = deriveTaxRate(detailItems);
+  return {
+    type: "custom",
+    name: packageName || labelForMode(opt.offer_mode),
+    description,
+    quantity: 1,
+    unitName: "Pauschale",
+    unitPrice: {
+      currency: "EUR",
+      grossAmount: total > 0 ? total : round2(opt.total_amount || 0),
+      taxRatePercentage: taxRate,
+    },
+  };
+}
+
 function buildLineItems(
   opt: OfferOption,
   packageName: string | null,
