@@ -19,9 +19,9 @@ const IMAP_PORT = parseInt(Deno.env.get("IMAP_PORT") ?? "993");
 const IMAP_USER = Deno.env.get("IMAP_USER")!;
 const IMAP_PASSWORD = Deno.env.get("IMAP_PASSWORD")!;
 
-const MAX_PER_RUN = 10;
+const MAX_PER_RUN = 5;
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
-const LARGE_MAIL_BYTES = 10 * 1024 * 1024;
+const LARGE_MAIL_BYTES = 200 * 1024;
 const BUCKET = "email-attachments";
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -155,27 +155,46 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
 
     for (const uid of slice) {
       try {
-        const msg = await client.fetchOne(
+        // Erst envelope + size, um große Mails schlank zu speichern
+        const meta = await client.fetchOne(
           String(uid),
-          { source: true, flags: true, internalDate: true, envelope: true },
+          { uid: true, flags: true, internalDate: true, envelope: true, size: true },
           { uid: true },
         );
-        if (!msg || !msg.source) {
-          maxUid = Math.max(maxUid, uid);
-          continue;
-        }
-        const sourceBuf: Uint8Array = msg.source as Uint8Array;
-        const rawSize = sourceBuf.length;
+        if (!meta) { maxUid = Math.max(maxUid, uid); continue; }
+        const rawSize = Number(meta.size ?? 0);
         const isLarge = rawSize > LARGE_MAIL_BYTES;
-        const parsed = await simpleParser(sourceBuf, {
-          skipImageLinks: true,
-          skipHtmlToText: false,
-          skipTextToHtml: true,
-        });
+
+        let parsed: any = {};
+        let sourceBuf: Uint8Array | null = null;
+        if (!isLarge) {
+          const full = await client.fetchOne(
+            String(uid),
+            { source: true },
+            { uid: true },
+          );
+          sourceBuf = (full?.source as Uint8Array) ?? null;
+          if (sourceBuf) {
+            parsed = await simpleParser(sourceBuf, {
+              skipImageLinks: true,
+              skipHtmlToText: true,
+              skipTextToHtml: true,
+            });
+          }
+        }
+        // Fallback: envelope-basierte Felder, falls kein Body geparsed wurde
+        const env = meta.envelope ?? {};
+        if (!parsed.from && env.from) parsed.from = env.from;
+        if (!parsed.to && env.to) parsed.to = env.to;
+        if (!parsed.cc && env.cc) parsed.cc = env.cc;
+        if (!parsed.subject && env.subject) parsed.subject = env.subject;
+        if (!parsed.messageId && env.messageId) parsed.messageId = env.messageId;
+        if (!parsed.date && env.date) parsed.date = env.date;
+        if (!parsed.inReplyTo && env.inReplyTo) parsed.inReplyTo = env.inReplyTo;
 
         const messageId =
           stripBrackets(parsed.messageId) ||
-          stripBrackets(msg.envelope?.messageId) ||
+          stripBrackets(env?.messageId) ||
           `imap-${IMAP_USER}-INBOX-${uid}`;
         const fromArr = addrList(parsed.from);
         const toArr = addrList(parsed.to);
@@ -187,9 +206,8 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
             : [parsed.references]
           : [];
 
-        const rawMime = isLarge
-          ? new TextDecoder("utf-8", { fatal: false }).decode(sourceBuf.slice(0, 256 * 1024)) +
-            "\n\n[... truncated, raw too large ...]"
+        const rawMime = !sourceBuf
+          ? `[skipped: ${rawSize} bytes — too large for inline parsing]`
           : new TextDecoder("utf-8", { fatal: false }).decode(sourceBuf);
 
         const attachments = isLarge ? [] : parsed.attachments ?? [];
@@ -217,8 +235,8 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
               has_attachments: (parsed.attachments?.length ?? 0) > 0,
               attachment_count: parsed.attachments?.length ?? 0,
               date_sent: parsed.date ? new Date(parsed.date).toISOString() : null,
-              date_received: msg.internalDate
-                ? new Date(msg.internalDate as any).toISOString()
+              date_received: meta.internalDate
+                ? new Date(meta.internalDate as any).toISOString()
                 : new Date().toISOString(),
               status_history: [
                 { status: "present", folder: "INBOX", at: new Date().toISOString() },
