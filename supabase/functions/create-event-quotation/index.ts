@@ -492,6 +492,79 @@ function formatDateDE(isoDate: string): string {
   return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
 }
 
+// ─── Alternativ-Varianten (Multi-Option-Angebote) ─────────────────────────────
+// Lexware-API erlaubt `subItems[].alternative=true` als „OR"-Position. Bei
+// mehreren aktiven Angebots-Optionen ohne Kundenauswahl wird die erste Option
+// zum parent, die restlichen zu Alternative-Sub-Items.
+
+function formatEUR(n: number): string {
+  return new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(n);
+}
+
+function labelForMode(offerMode: string): string {
+  if (offerMode === 'menu') return 'Catering-Bestellung';
+  return 'Veranstaltungspaket';
+}
+
+/**
+ * Steuersatz aus den Detail-Items einer Variante ableiten.
+ * - alle Items selber Satz → diesen verwenden
+ * - gemischt → dominierender Satz nach Brutto-Anteil
+ * - leer (Fallback) → 7 % (Catering-Standard)
+ */
+function deriveTaxRate(items: LexOfficeLineItem[]): number {
+  if (items.length === 0) return FOOD_TAX_RATE;
+  const sumByRate: Record<number, number> = {};
+  for (const i of items) {
+    const r = i.unitPrice.taxRatePercentage;
+    sumByRate[r] = (sumByRate[r] || 0) + i.unitPrice.grossAmount * i.quantity;
+  }
+  const rates = Object.keys(sumByRate);
+  if (rates.length === 1) return Number(rates[0]);
+  return (sumByRate[DRINK_TAX_RATE] || 0) > (sumByRate[FOOD_TAX_RATE] || 0)
+    ? DRINK_TAX_RATE
+    : FOOD_TAX_RATE;
+}
+
+/**
+ * Konsolidiert eine Angebots-Option zu einer einzigen LexOffice-LineItem.
+ * Detail-Items wandern in `description`; Brutto-Gesamt und Steuersatz werden
+ * aus den Detail-Items abgeleitet (kein Hardcoding).
+ */
+function buildVariantLineItem(
+  opt: OfferOption,
+  packageName: string | null,
+  guestOverride?: number,
+): LexOfficeLineItem {
+  const detailItems = buildLineItems(opt, packageName, guestOverride);
+  const total = round2(
+    detailItems.reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0),
+  );
+  const description = detailItems
+    .map((i) => {
+      const lineTotal = round2(i.unitPrice.grossAmount * i.quantity);
+      const qty = i.quantity > 1 ? `${i.quantity} × ` : '';
+      return `- ${qty}${i.name}: ${formatEUR(lineTotal)}`;
+    })
+    .join('\n');
+  const taxRate = deriveTaxRate(detailItems);
+  return {
+    type: 'custom',
+    name: packageName || labelForMode(opt.offer_mode),
+    description,
+    quantity: 1,
+    unitName: 'Pauschale',
+    unitPrice: {
+      currency: 'EUR',
+      grossAmount: total > 0 ? total : round2(opt.total_amount || 0),
+      taxRatePercentage: taxRate,
+    },
+  };
+}
+
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
