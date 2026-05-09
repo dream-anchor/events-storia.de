@@ -715,6 +715,8 @@ export function useOfferBuilder({
               ? (opt.budgetPerPerson + courseSurcharge) * opt.guestCount
               : opt.budgetPerPerson + courseSurcharge * opt.guestCount;
           }
+          // Rabatt auch auf Override anwenden (analog Menü-Modus)
+          newTotal = newTotal * discountFactor;
         } else {
           const baseTotal = calculateEventPackagePrice(
             pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
