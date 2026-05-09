@@ -1118,6 +1118,24 @@ export function useOfferBuilder({
 
     if (customerEmail) {
       try {
+        const { guardRecipientEmail } = await import('@/lib/operatorEmailGuard');
+        if (!guardRecipientEmail(customerEmail)) {
+          toast.warning(
+            `Versand abgebrochen: Empfänger ${customerEmail} ist eine Betreiber-Adresse. ` +
+            `Bitte Kunden-Adresse in der Anfrage korrigieren.`,
+            { duration: 12000 }
+          );
+          emailErrorMessage = 'OPERATOR_EMAIL_BLOCKED';
+          return {
+            emailSent: false,
+            recipient: customerEmail,
+            messageId: null,
+            sentAt: new Date().toISOString(),
+            version: newVersion,
+            lexofficeQuotationId,
+            errorMessage: emailErrorMessage,
+          };
+        }
         const { data: { user } } = await supabase.auth.getUser();
         const { data: emailResult, error: emailError } = await supabase.functions.invoke(
           'send-offer-email',
@@ -1129,6 +1147,7 @@ export function useOfferBuilder({
               customerName: customerName || '',
               senderEmail: user?.email,
               lexofficeQuotationId,
+              confirmedOperatorOverride: true,
             },
           }
         );
@@ -1261,6 +1280,15 @@ export function useOfferBuilder({
 
     if (customerEmail) {
       try {
+        const { guardRecipientEmail } = await import('@/lib/operatorEmailGuard');
+        if (!guardRecipientEmail(customerEmail)) {
+          toast.warning(
+            `Versand abgebrochen: Empfänger ${customerEmail} ist eine Betreiber-Adresse. ` +
+            `Bitte Kunden-Adresse in der Anfrage korrigieren.`,
+            { duration: 12000 }
+          );
+          return;
+        }
         const { data: { user } } = await supabase.auth.getUser();
         const { data: emailResult, error: emailError } = await supabase.functions.invoke(
           'send-offer-email',
@@ -1271,6 +1299,7 @@ export function useOfferBuilder({
               customerEmail,
               customerName: inquiry.contact_name || '',
               senderEmail: user?.email,
+              confirmedOperatorOverride: true,
             },
           }
         );
