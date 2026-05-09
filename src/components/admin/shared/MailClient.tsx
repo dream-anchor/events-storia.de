@@ -9,19 +9,27 @@ import {
   Conversation,
   ConversationHeader,
   Avatar,
-  MessageInput,
 } from "@chatscope/chat-ui-kit-react";
 import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
-import { Loader2, Mail, Paperclip, ArrowDownLeft, ArrowUpRight, FileText } from "lucide-react";
+import { Loader2, Mail, Paperclip, ArrowDownLeft, ArrowUpRight, FileText, Reply } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useMailThread, type MailThreadItem } from "@/hooks/useMailThread";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { MailComposer } from "./MailComposer";
 
 interface MailClientProps {
   inquiryId: string;
   customerEmail?: string;
-  onSendReply?: (content: string) => Promise<void>;
+  onSendReply?: (payload: {
+    to: string;
+    cc?: string;
+    bcc?: string;
+    subject: string;
+    html: string;
+    text: string;
+  }) => Promise<void>;
 }
 
 function getInitials(emailOrName: string): string {
@@ -120,6 +128,7 @@ export function MailClient({ inquiryId, customerEmail, onSendReply }: MailClient
   const { items, isLoading } = useMailThread(inquiryId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [isReplying, setIsReplying] = useState(false);
   const isMobile = useIsMobile();
 
   // Default-Auswahl: jüngste Mail
@@ -131,17 +140,12 @@ export function MailClient({ inquiryId, customerEmail, onSendReply }: MailClient
 
   const selected = items.find(i => i.id === selectedId) || null;
 
-  const handleSend = async (innerHtml: string) => {
+  const handleSend = async (payload: { to: string; cc?: string; bcc?: string; subject: string; html: string; text: string }) => {
     if (!onSendReply) return;
-    const text = innerHtml
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/p>/gi, "\n")
-      .replace(/<[^>]+>/g, "")
-      .trim();
-    if (!text) return;
     setIsSending(true);
     try {
-      await onSendReply(text);
+      await onSendReply(payload);
+      setIsReplying(false);
     } catch {
       toast.error("Versand fehlgeschlagen");
     } finally {
@@ -226,13 +230,21 @@ export function MailClient({ inquiryId, customerEmail, onSendReply }: MailClient
               </ConversationHeader>
               <MailReadingPane item={selected} />
               {onSendReply && (
-                <div className="border-t border-border/60">
-                  <MessageInput
-                    placeholder="Antwort schreiben…"
-                    attachButton={false}
-                    onSend={(innerHtml) => handleSend(innerHtml)}
-                    sendDisabled={isSending}
-                  />
+                <div className="border-t border-border/60 bg-muted/10 p-3">
+                  {isReplying ? (
+                    <MailComposer
+                      defaultTo={selected.direction === "outbound" ? (selected.to_email || customerEmail || "") : (selected.from_email || customerEmail || "")}
+                      defaultSubject={(selected.subject || "").startsWith("Re:") ? (selected.subject || "") : `Re: ${selected.subject || ""}`}
+                      isSending={isSending}
+                      onSend={handleSend}
+                      onCancel={() => setIsReplying(false)}
+                    />
+                  ) : (
+                    <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsReplying(true)}>
+                      <Reply className="h-4 w-4" />
+                      Antworten
+                    </Button>
+                  )}
                 </div>
               )}
             </>
