@@ -1,4 +1,3 @@
-import { differenceInHours, parseISO } from "date-fns";
 import type { EventInquiry } from "@/types/refine";
 
 export type ActionState = "respond" | "in_progress" | "won" | "done";
@@ -29,9 +28,6 @@ export interface ActionStateMeta {
 export function getInquiryActionState(event: EventInquiry): ActionStateMeta {
   const archived = !!event.archived_at;
   const customerResponded = event.offer_phase === "customer_responded";
-  const hoursSinceCreated = event.created_at
-    ? differenceInHours(new Date(), parseISO(event.created_at))
-    : 0;
 
   // 1. RESPOND — highest priority, requires immediate human action
   if (!archived && customerResponded) {
