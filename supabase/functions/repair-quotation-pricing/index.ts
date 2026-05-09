@@ -81,6 +81,10 @@ interface LexOfficeLineItem {
     grossAmount: number;
     taxRatePercentage: number;
   };
+  /** Nur fuer parent-LineItems: Alternativpositionen (Lex-API: alternative=true). */
+  subItems?: LexOfficeLineItem[];
+  /** Nur fuer subItems gueltig; muss true sein, sonst von API abgelehnt. */
+  alternative?: boolean;
 }
 
 function round2(n: number): number {
