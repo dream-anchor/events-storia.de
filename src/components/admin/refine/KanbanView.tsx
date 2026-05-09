@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, differenceInDays, differenceInHours } from "date-fns";
 import { de } from "date-fns/locale";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EventInquiry, InquiryStatus } from "@/types/refine";
 import { supabase } from "@/integrations/supabase/typed-client";
@@ -194,6 +194,28 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
     [events, onRefresh]
   );
 
+  const handleArchiveCard = useCallback(
+    async (eventId: string) => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error } = await supabase
+          .from("event_inquiries")
+          .update({
+            archived_at: new Date().toISOString(),
+            archived_by: user?.email || null,
+          })
+          .eq("id", eventId);
+        if (error) throw error;
+        toast.success("Anfrage archiviert");
+        onRefresh();
+      } catch (error) {
+        console.error("Archive error:", error);
+        toast.error("Fehler beim Archivieren");
+      }
+    },
+    [onRefresh]
+  );
+
   const renderColumn = (column: { id: ColumnId; title: string }) => {
     const { items, totalSum, actionCounts } = columnData[column.id];
     const isDragOver = dragOverColumn === column.id;
@@ -254,6 +276,7 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
                 onDragStart={(e) => handleDragStart(e, event.id)}
                 onDragEnd={handleDragEnd}
                 onClick={() => navigate(`/admin/events/${event.id}/edit`)}
+                onArchive={() => handleArchiveCard(event.id)}
               />
             ))
           )}
@@ -318,12 +341,18 @@ interface KanbanCardProps {
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onClick: () => void;
+  onArchive: () => void;
 }
 
-function KanbanCard({ event, isDragging, onDragStart, onDragEnd, onClick }: KanbanCardProps) {
+function KanbanCard({ event, isDragging, onDragStart, onDragEnd, onClick, onArchive }: KanbanCardProps) {
   const action = getInquiryActionState(event);
   const inactivity = getInactivityLabel(event);
-  const title = event.company_name || event.contact_name || "Unbenannte Anfrage";
+  const rawCompany = event.company_name?.trim() ?? "";
+  const isPlaceholderCompany = /^(private|privat)$/i.test(rawCompany);
+  const title =
+    (!isPlaceholderCompany && rawCompany) ||
+    event.contact_name?.trim() ||
+    "Unbenannte Anfrage";
 
   return (
     <div
@@ -332,13 +361,29 @@ function KanbanCard({ event, isDragging, onDragStart, onDragEnd, onClick }: Kanb
       onDragEnd={onDragEnd}
       onClick={onClick}
       className={cn(
-        "bg-white p-3 rounded-xl border border-slate-200 border-l-[3px]",
+        "group relative bg-white p-3 rounded-xl border border-slate-200 border-l-[3px]",
         action.borderClass,
         "hover:shadow-sm hover:border-primary/40 transition-all cursor-grab active:cursor-grabbing",
         isDragging && "opacity-40 scale-[0.98] shadow-md"
       )}
       title={action.label}
     >
+      {/* Archive hover action */}
+      <button
+        type="button"
+        draggable={false}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onArchive();
+        }}
+        className="absolute top-1.5 right-1.5 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Archivieren"
+        aria-label="Archivieren"
+      >
+        <Archive className="h-3.5 w-3.5" />
+      </button>
+
       {/* Row 1: dot + name + date */}
       <div className="flex items-center gap-2 min-w-0">
         <span className={cn("w-2 h-2 rounded-full flex-shrink-0", action.dotClass)} />
