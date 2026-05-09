@@ -1,48 +1,41 @@
-## Problem
-Angebote wurden in der Vergangenheit versehentlich an `info@events-storia.de`, `info@ristorantestoria.de` oder ähnliche Betreiber-Adressen geschickt — statt an den Kunden. Aktuell prüft weder das UI noch die Edge Function, ob der `customerEmail` gleich einer eigenen Domain ist.
+## Ziel
+Bei Zahlungsart "Anzahlung + Online" soll der Admin wählen können, ob die Anzahlung als **Prozentsatz** (z. B. 20 %) **oder als fester Eurobetrag** (z. B. 500 €) eingetragen wird.
 
-## Lösung: Mehrstufiger Schutz
+## UI (PaymentTermsBlock)
+- Im Block nur wenn Methode = `deposit_online`: Toggle (zwei kleine Pills/Tabs) **Prozent** | **Fester Betrag**.
+- Je nach Auswahl wird genau **ein** Eingabefeld gezeigt:
+  - Prozent: bestehendes Feld `deposit_percent` (1–99 %).
+  - Fester Betrag: neues Feld `deposit_amount` in Euro (min 1).
+- Anzeige des Hinweistexts darunter passt sich an, z. B.
+  „Anzahlung 500 € innerhalb 5 Tagen, Restzahlung vor Veranstaltung."
+- Defaults aus `site_settings.default_payment_terms` bleiben für Prozent; bei Wechsel auf "Fester Betrag" wird `deposit_percent` auf `null` gesetzt und umgekehrt — so ist immer eindeutig, welcher Modus gilt.
 
-### 1. Zentrale Blocklist (neu)
-Neue Datei `src/lib/operatorEmailGuard.ts` mit:
-- Liste der Betreiber-Domains: `events-storia.de`, `ristorantestoria.de`, `storia-events.de` (+ www-Varianten)
-- Liste konkreter Adressen: `info@`, `kontakt@`, `office@`, `events@`, `catering@`, `noreply@`, `bestellung@`
-- Funktion `checkOperatorEmail(email): { isOperator: boolean; reason: string }`
-- Domain-Match case-insensitive, trimmt Whitespace
+## Datenmodell
+- Neue Spalte `event_inquiries.deposit_amount NUMERIC(10,2) NULL` (Brutto, EUR).
+- Regel: Genau eines von `deposit_percent` / `deposit_amount` ist gesetzt. Kein DB-CHECK (Konformität mit Memory zu Validation-Triggern wäre Overkill — Regel wird im UI/Backend erzwungen).
 
-### 2. Frontend-Validierung (Hard Block)
-Vor jedem `supabase.functions.invoke('send-offer-email', …)` Aufruf in:
-- `SmartInquiryEditor.tsx` (3 Call-Sites: Z. 477, 661, 923)
-- `OfferBuilder/useOfferBuilder.ts` (2 Call-Sites: Z. 1123 = sendProposal, Z. 1266 = sendFinalOffer)
+## Backend / Folgewirkung
+- `supabase/functions/create-payment-session`: Falls `deposit_amount` gesetzt ist, wird dieser fixe Betrag (gedeckelt auf Total) als Stripe-Session-Amount verwendet, statt `total * percent`. Produkttitel: `Anzahlung 500 € — Event …`. `remaining_amount = total - deposit_amount`.
+- `supabase/functions/create-event-quotation` (LexOffice Anschreiben/Bemerkung): Wenn fester Betrag → Text „Anzahlung 500 € innerhalb X Tagen", sonst wie bisher Prozent.
+- `ProposalView` / `FinalOfferView` (Public Offer): Anzahlungs-Button zeigt entweder „Anzahlung 20 %" oder „Anzahlung 500 €". Logik `showDeposit` bleibt analog (deposit > 0 und < total).
+- `useOfferHistory` / E-Mail-Versand: keine Änderung nötig (Konditionen-Text wird neu generiert).
 
-→ `checkOperatorEmail(customerEmail)` aufrufen. Bei Treffer:
-- **Bestätigungs-Dialog** (AlertDialog, nicht nur Toast) mit klarer Warnung:
-  > „Die Empfänger-Adresse **{email}** gehört zum Betreiber, nicht zum Kunden. Soll das Angebot wirklich an diese Adresse gehen?"
-- Buttons: „Abbrechen" (default) / „Trotzdem senden" (destructive variant, requires explicit confirm)
-- Ohne Bestätigung: Versand wird hart abgebrochen.
+## Geltungsbereich
+- Nur die Anzahlungs-Variante. „Vorauszahlung", „Vor Ort", „Rechnung" bleiben unverändert.
+- Keine Änderung an `site_settings`-Defaults — Defaults bleiben prozentbasiert.
 
-### 3. Backend-Guard (Defense in Depth)
-In `supabase/functions/send-offer-email/index.ts` direkt nach dem Body-Parse:
-- Gleiche Prüfung serverseitig
-- Wenn Operator-Adresse UND kein neues Flag `confirmedOperatorOverride: true` im Body → 400 zurückgeben mit `{ error: 'OPERATOR_EMAIL_BLOCKED', message: ... }`
-- Versand-Versuch wird in `email_send_log` mit Status `blocked_operator_recipient` geloggt (Audit-Trail)
+## Technische Punkte
+- Migration: `ALTER TABLE event_inquiries ADD COLUMN deposit_amount NUMERIC(10,2);` plus Update der `public_offer`-RPC, falls sie deposit-Felder zurückgibt.
+- TypeScript-Typen werden nach Migration automatisch regeneriert.
+- `ProposalView` `depositAmount`-Berechnung wird umgestellt: `inquiry.deposit_amount ?? Math.round(total * percent)/100`.
+- `ReturnType<typeof setTimeout>` ist hier nicht relevant.
 
-### 4. Visueller Hinweis im OfferSendPreview
-- Wenn `customerEmail` = Operator-Adresse → roter Warn-Banner über dem Preview („⚠️ Achtung: Empfänger ist Betreiber-Adresse")
-- Sende-Button bekommt `disabled` + Tooltip-Hinweis bis Override gesetzt ist
-
-### 5. Inquiry-Erfassung absichern
-Im `EventContactForm` und ähnlichen öffentlichen Formularen — falls jemand info@events-storia.de als Kontakt-Email einträgt, soll das eingehend nicht blockiert (Inquiries sind ok), aber beim späteren Angebotsversand greift Schritt 2.
-
-## Technische Details
-- Keine Änderungen an Datenbank-Schema nötig
-- `email_send_log.status` neuer Wert `blocked_operator_recipient` (Free-Text, kein Enum)
-- Test-Modus (`isTest: true`) bleibt unangetastet — dort darf an `info@` gesendet werden weil das Test-Routing eh überschreibt
-
-## Out of Scope
-- Kein Re-Routing automatisch auf andere Adresse — wir wollen explizite Admin-Entscheidung
-- Keine Migration historischer Sendungen
-
-## Dateien (geschätzt)
-- Neu: `src/lib/operatorEmailGuard.ts`
-- Edit: `SmartInquiryEditor.tsx`, `useOfferBuilder.ts`, `OfferSendPreview.tsx`, `supabase/functions/send-offer-email/index.ts`
+## Betroffene Dateien
+- `supabase/migrations/<neu>.sql`
+- `src/components/admin/refine/InquiryEditor/PaymentTermsBlock.tsx`
+- `src/components/admin/refine/InquiryEditor/OfferBuilder/OfferBuilder.tsx` (Props durchreichen)
+- `src/components/admin/refine/InquiryEditor/types.ts`
+- `src/pages/public-offer/types.ts`, `ProposalView.tsx`, `FinalOfferView.tsx`
+- `supabase/functions/create-payment-session/index.ts`
+- `supabase/functions/create-event-quotation/index.ts`
+- evtl. RPC-Migration für `get_public_offer`

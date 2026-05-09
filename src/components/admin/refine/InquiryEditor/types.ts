@@ -43,6 +43,7 @@ export interface ExtendedInquiry extends BaseRecord {
   last_edited_at: string | null;
   // Payment terms (per-inquiry; defaults from site_settings.default_payment_terms)
   deposit_percent: number | null;
+  deposit_amount: number | null;
   deposit_due_days: number | null;
   offer_validity_days: number | null;
   payment_method: string | null;

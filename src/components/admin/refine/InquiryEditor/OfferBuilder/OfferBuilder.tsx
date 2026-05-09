@@ -321,6 +321,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       {onFieldChange && (
         <PaymentTermsBlock
           depositPercent={inquiry.deposit_percent}
+          depositAmount={inquiry.deposit_amount}
           depositDueDays={inquiry.deposit_due_days}
           offerValidityDays={inquiry.offer_validity_days}
           paymentMethod={inquiry.payment_method}

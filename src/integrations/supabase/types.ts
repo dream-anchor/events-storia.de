@@ -2263,6 +2263,7 @@ export type Database = {
           delivery_floor: string | null
           delivery_street: string | null
           delivery_zip: string | null
+          deposit_amount: number | null
           deposit_due_days: number | null
           deposit_percent: number | null
           email_draft: string | null
@@ -2361,6 +2362,7 @@ export type Database = {
           delivery_floor?: string | null
           delivery_street?: string | null
           delivery_zip?: string | null
+          deposit_amount?: number | null
           deposit_due_days?: number | null
           deposit_percent?: number | null
           email_draft?: string | null
@@ -2459,6 +2461,7 @@ export type Database = {
           delivery_floor?: string | null
           delivery_street?: string | null
           delivery_zip?: string | null
+          deposit_amount?: number | null
           deposit_due_days?: number | null
           deposit_percent?: number | null
           email_draft?: string | null
@@ -3048,6 +3051,7 @@ export type Database = {
           delivery_street: string | null
           delivery_time_slot: string | null
           delivery_zip: string | null
+          deposit_amount: number | null
           deposit_due_days: number | null
           deposit_percent: number | null
           email: string | null

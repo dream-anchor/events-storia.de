@@ -9,6 +9,7 @@ export type PaymentMethodType = 'deposit_online' | 'prepayment_online' | 'on_sit
 
 interface PaymentTermsBlockProps {
   depositPercent: number | null | undefined;
+  depositAmount: number | null | undefined;
   depositDueDays: number | null | undefined;
   offerValidityDays: number | null | undefined;
   paymentMethod: string | null | undefined;
@@ -62,6 +63,7 @@ const PAYMENT_METHODS: {
  */
 export function PaymentTermsBlock({
   depositPercent,
+  depositAmount,
   depositDueDays,
   offerValidityDays,
   paymentMethod,
@@ -114,6 +116,10 @@ export function PaymentTermsBlock({
   const ov = offerValidityDays ?? defaults.offer_validity_days;
   const invDays = invoiceDueDays ?? defaults.invoice_due_days;
 
+  // Anzahlungs-Modus: 'percent' (Default) oder 'amount' (fester Eurobetrag)
+  const depositMode: 'percent' | 'amount' = depositAmount != null && depositAmount > 0 ? 'amount' : 'percent';
+  const da = depositAmount ?? 0;
+
   const handleNumber = useCallback((field: string, raw: string, min: number, max?: number) => {
     if (raw === "") return;
     let n = parseInt(raw, 10);
@@ -129,10 +135,26 @@ export function PaymentTermsBlock({
     // Auto-set deposit_percent based on method
     if (m === 'prepayment_online') {
       onChange("deposit_percent", 100);
+      onChange("deposit_amount", 0);
     } else if (m === 'deposit_online' && dp === 100) {
       onChange("deposit_percent", defaults.deposit_percent);
     }
   }, [isReadOnly, onChange, dp, defaults.deposit_percent]);
+
+  const handleDepositModeChange = useCallback((mode: 'percent' | 'amount') => {
+    if (isReadOnly) return;
+    if (mode === 'percent') {
+      onChange("deposit_amount", 0);
+      if (depositPercent == null || depositPercent === 0) {
+        onChange("deposit_percent", defaults.deposit_percent);
+      }
+    } else {
+      onChange("deposit_percent", 0);
+      if (depositAmount == null || depositAmount === 0) {
+        onChange("deposit_amount", 100);
+      }
+    }
+  }, [isReadOnly, onChange, depositPercent, depositAmount, defaults.deposit_percent]);
 
   // Welche Felder je nach Methode sichtbar?
   const showDeposit = method === 'deposit_online';
@@ -143,7 +165,9 @@ export function PaymentTermsBlock({
   const summaryText = (() => {
     switch (method) {
       case 'deposit_online':
-        return `Anzahlung ${dp} % innerhalb ${dd} Tage, Restzahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`;
+        return depositMode === 'amount'
+          ? `Anzahlung ${da.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € innerhalb ${dd} Tage, Restzahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`
+          : `Anzahlung ${dp} % innerhalb ${dd} Tage, Restzahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`;
       case 'prepayment_online':
         return `Vorauszahlung 100 % innerhalb ${dd} Tage per Stripe. Angebot ${ov} Tage gültig.`;
       case 'on_site':
@@ -195,24 +219,73 @@ export function PaymentTermsBlock({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {showDeposit && (
           <div className="space-y-1.5">
-            <Label htmlFor="deposit-percent" className="text-xs text-muted-foreground">
-              Anzahlung
-            </Label>
-            <div className="relative">
-              <Input
-                id="deposit-percent"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={99}
-                step={1}
-                value={dp}
-                disabled={isReadOnly}
-                onChange={(e) => handleNumber("deposit_percent", e.target.value, 1, 99)}
-                className="pr-8"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="deposit-value" className="text-xs text-muted-foreground">
+                Anzahlung
+              </Label>
+              <div className="inline-flex rounded-lg border border-border/60 bg-background p-0.5">
+                <button
+                  type="button"
+                  disabled={isReadOnly}
+                  onClick={() => handleDepositModeChange('percent')}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px] font-semibold rounded-md transition-colors",
+                    depositMode === 'percent' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  %
+                </button>
+                <button
+                  type="button"
+                  disabled={isReadOnly}
+                  onClick={() => handleDepositModeChange('amount')}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px] font-semibold rounded-md transition-colors",
+                    depositMode === 'amount' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  €
+                </button>
+              </div>
             </div>
+            {depositMode === 'percent' ? (
+              <div className="relative">
+                <Input
+                  id="deposit-value"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={99}
+                  step={1}
+                  value={dp}
+                  disabled={isReadOnly}
+                  onChange={(e) => handleNumber("deposit_percent", e.target.value, 1, 99)}
+                  className="pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+              </div>
+            ) : (
+              <div className="relative">
+                <Input
+                  id="deposit-value"
+                  type="number"
+                  inputMode="decimal"
+                  min={1}
+                  step={1}
+                  value={da || ''}
+                  disabled={isReadOnly}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') return;
+                    const n = parseFloat(raw.replace(',', '.'));
+                    if (isNaN(n) || n < 0) return;
+                    onChange("deposit_amount", n);
+                  }}
+                  className="pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+              </div>
+            )}
           </div>
         )}
 

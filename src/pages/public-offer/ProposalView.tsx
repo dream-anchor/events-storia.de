@@ -150,14 +150,19 @@ export function ProposalView({
     : (selectedOption?.total_amount ?? 0);
   // Zahlungs-Konditionen aus Inquiry (RPC liefert Defaults aus site_settings)
   const depositPercent = inquiry.deposit_percent ?? 20;
+  const fixedDepositAmount = inquiry.deposit_amount ?? null;
   const depositDueDays = inquiry.deposit_due_days ?? 5;
   const paymentMethod = (inquiry.payment_method || 'deposit_online') as string;
   const invoiceDueDays = inquiry.invoice_due_days ?? 14;
   const isStripePayment = paymentMethod === 'deposit_online' || paymentMethod === 'prepayment_online';
-  const depositAmount = depositPercent > 0
-    ? Math.round(totalAmount * depositPercent) / 100
-    : 0;
-  const showDeposit = isStripePayment && depositPercent > 0 && depositPercent < 100;
+  const isFixedDeposit = fixedDepositAmount != null && fixedDepositAmount > 0;
+  const depositAmount = isFixedDeposit
+    ? Math.min(fixedDepositAmount as number, totalAmount)
+    : (depositPercent > 0 ? Math.round(totalAmount * depositPercent) / 100 : 0);
+  const showDeposit = isStripePayment
+    && depositAmount > 0
+    && depositAmount < totalAmount
+    && (isFixedDeposit || depositPercent < 100);
 
   // ACTION: Zahlung — leitet zu Stripe Checkout weiter
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
@@ -552,7 +557,9 @@ export function ProposalView({
                         className="w-full h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <span className="flex items-center gap-2 w-full justify-between">
-                          <span className="text-sm">Anzahlung {depositPercent} %</span>
+                          <span className="text-sm">
+                            Anzahlung {isFixedDeposit ? formatCurrencyDecimal(depositAmount) : `${depositPercent} %`}
+                          </span>
                           {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
                         </span>
                         {canPay ? (
@@ -710,6 +717,7 @@ export function ProposalView({
         totalAmount={totalAmount}
         depositAmount={depositAmount}
         depositPercent={depositPercent}
+        isFixedDeposit={isFixedDeposit}
         showDeposit={showDeposit}
         isPaying={isPaying}
         onPay={handlePayment}
@@ -943,6 +951,7 @@ function MobileStickyBookingBar({
   totalAmount,
   depositAmount,
   depositPercent,
+  isFixedDeposit,
   showDeposit,
   isPaying,
   onPay,
@@ -960,6 +969,7 @@ function MobileStickyBookingBar({
   totalAmount: number;
   depositAmount: number;
   depositPercent: number;
+  isFixedDeposit: boolean;
   showDeposit: boolean;
   isPaying: 'full' | 'deposit' | null;
   onPay: (type: 'full' | 'deposit') => void;
@@ -1016,7 +1026,7 @@ function MobileStickyBookingBar({
                 className="h-12 px-3 rounded-xl flex flex-col items-center justify-center gap-0 border-primary/30"
               >
                 <span className="text-[10px] uppercase tracking-wider font-sans leading-none">
-                  {depositPercent}%
+                  {isFixedDeposit ? 'Anzahl.' : `${depositPercent}%`}
                 </span>
                 <span className="text-xs font-semibold tabular-nums leading-tight">
                   {formatCurrencyDecimal(depositAmount)}

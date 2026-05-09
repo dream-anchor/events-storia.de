@@ -55,6 +55,8 @@ export function FinalOfferView({
                 singleOption={displayOptions.length === 1}
                 paymentMethod={inquiry.payment_method || 'deposit_online'}
                 invoiceDueDays={inquiry.invoice_due_days ?? 14}
+                depositPercent={inquiry.deposit_percent ?? 20}
+                depositAmount={inquiry.deposit_amount ?? null}
               />
             ))}
           </div>
@@ -71,6 +73,8 @@ function FinalOptionCard({
   singleOption,
   paymentMethod,
   invoiceDueDays,
+  depositPercent,
+  depositAmount: fixedDepositAmount,
 }: {
   option: PublicOfferOption;
   inquiryId: string;
@@ -78,6 +82,8 @@ function FinalOptionCard({
   singleOption: boolean;
   paymentMethod: string;
   invoiceDueDays: number;
+  depositPercent: number;
+  depositAmount: number | null;
 }) {
   const isStripePayment = paymentMethod === 'deposit_online' || paymentMethod === 'prepayment_online';
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -94,8 +100,10 @@ function FinalOptionCard({
       : 0;
 
   const totalAmount = option.total_amount;
-  const depositPercent = 20;
-  const depositAmount = Math.round(totalAmount * depositPercent) / 100;
+  const isFixedDeposit = fixedDepositAmount != null && fixedDepositAmount > 0;
+  const depositAmount = isFixedDeposit
+    ? Math.min(fixedDepositAmount as number, totalAmount)
+    : Math.round(totalAmount * depositPercent) / 100;
 
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
@@ -355,7 +363,9 @@ function FinalOptionCard({
                 ) : (
                   <>
                     <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(depositAmount)}</span>
-                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">20% Anzahlung</span>
+                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">
+                      {isFixedDeposit ? 'Anzahlung' : `${depositPercent}% Anzahlung`}
+                    </span>
                     <span className="text-[10px] font-sans text-muted-foreground/60 block">Rest vor dem Event</span>
                   </>
                 )}
