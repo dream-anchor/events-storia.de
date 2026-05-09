@@ -56,7 +56,7 @@ serve(async (req) => {
     if (hasMultiOption) {
       const { data: inquiry, error: inqError } = await supabase
         .from('event_inquiries')
-        .select('id, contact_name, email, preferred_date, guest_count, deposit_percent')
+        .select('id, contact_name, email, preferred_date, guest_count, deposit_percent, deposit_amount')
         .eq('id', inquiryId)
         .single();
       if (inqError || !inquiry) throw new Error('Anfrage nicht gefunden');
@@ -65,10 +65,13 @@ serve(async (req) => {
         id: string; contact_name: string; email: string;
         preferred_date: string | null; guest_count: string | null;
         deposit_percent: number | null;
+        deposit_amount: number | null;
       };
       const depositPercent = inq.deposit_percent ?? 20;
+      const fixedDeposit = inq.deposit_amount;
+      const isFixedDeposit = fixedDeposit != null && fixedDeposit > 0;
 
-      if (paymentType === 'deposit' && inq.deposit_percent === 0) {
+      if (paymentType === 'deposit' && !isFixedDeposit && inq.deposit_percent === 0) {
         throw new Error('Anzahlung ist für dieses Angebot nicht vorgesehen');
       }
 
@@ -156,7 +159,9 @@ serve(async (req) => {
       }
 
       const amountEur = paymentType === 'deposit'
-        ? Math.round(grandTotalEur * depositPercent) / 100
+        ? (isFixedDeposit
+            ? Math.min(fixedDeposit as number, grandTotalEur)
+            : Math.round(grandTotalEur * depositPercent) / 100)
         : grandTotalEur;
       const amountCents = Math.round(amountEur * 100);
 
@@ -164,8 +169,11 @@ serve(async (req) => {
       if (!stripeKey) throw new Error('Stripe nicht konfiguriert');
       const stripe = new Stripe(stripeKey, { apiVersion: '2024-06-20' });
 
+      const depositLabel = isFixedDeposit
+        ? `${(fixedDeposit as number).toFixed(2)} €`
+        : `${depositPercent}%`;
       const productName = paymentType === 'deposit'
-        ? `Anzahlung (${depositPercent}%) — Event ${inq.preferred_date || ''}`
+        ? `Anzahlung (${depositLabel}) — Event ${inq.preferred_date || ''}`
         : `Event-Buchung — ${inq.preferred_date || ''}`;
 
       const session = await stripe.checkout.sessions.create({
@@ -190,6 +198,7 @@ serve(async (req) => {
           payment_type: paymentType,
           total_amount: String(grandTotalEur),
           deposit_percent: String(depositPercent),
+          deposit_amount: isFixedDeposit ? String(fixedDeposit) : '',
           option_quantities: JSON.stringify(filtered),
         },
       });
