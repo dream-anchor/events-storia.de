@@ -1150,6 +1150,27 @@ export type Database = {
         }
         Relationships: []
       }
+      email_sender_blocklist: {
+        Row: {
+          blocked_at: string
+          blocked_by: string | null
+          from_email: string
+          reason: string | null
+        }
+        Insert: {
+          blocked_at?: string
+          blocked_by?: string | null
+          from_email: string
+          reason?: string | null
+        }
+        Update: {
+          blocked_at?: string
+          blocked_by?: string | null
+          from_email?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       email_templates: {
         Row: {
           category: string
