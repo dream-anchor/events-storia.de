@@ -392,8 +392,11 @@ serve(async (req) => {
       }
     }
 
-    // BCC ist abgeschaltet — Admin bekommt KEINE Kopie automatisch.
-    const bccList: string[] = [];
+    // Archiv-BCC: Bei jedem regulaeren Kunden-Versand wird info@events-storia.de
+    // als BCC mitgesendet, damit das Buero ein Archiv aller versendeten Angebote
+    // hat. Bei Test-Inquiries (is_test) wird kein BCC gesetzt.
+    const ARCHIVE_BCC = 'info@events-storia.de';
+    const bccList: string[] = event.is_test ? [] : [ARCHIVE_BCC];
 
     const replyToAddress = 'info@events-storia.de';
     const safeSubject = getSafeSubject(emailSubject, isTest);
@@ -514,6 +517,7 @@ serve(async (req) => {
         direction: 'outbound',
         from_email: 'info@events-storia.de',
         to_email: customerEmail,
+        bcc_email: finalBcc.length > 0 ? finalBcc.join(', ') : null,
         subject: emailSubject,
         body_text: cleanedEmailContent,
         body_html: htmlBody,
