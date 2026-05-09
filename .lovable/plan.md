@@ -1,72 +1,75 @@
+## Problem
 
-## Ziel
+Beim Paket „Gesamte Location" (Pauschal-Paket, `price_per_person = false`) trägst du oben **1.000 €** ein. Das soll der **Gesamtpreis** sein. Tatsächlich passiert aber:
 
-In jedem Angebot — egal ob Paket, Menü oder E-Mail — sollen **Preise, Mengen und Rabatte** frei editierbar sein. Aktuell ist das nur im Menü-Modus vollständig möglich; im Paket-Modus fehlen mehrere Stellschrauben.
+1. Feld ist mit „**Preis/Person:**" beschriftet → falsche Erwartungshaltung.
+2. Anzeige rechnet `1.000 × 20 Gäste = 20.000,00 € gesamt` → falsch bei Pauschalen.
+3. Preisaufstellung unten zeigt zusätzlich den Katalogpreis **8.500 €** + Tier-Breakdown → widersprüchlich.
+4. `useOfferBuilder.ts` (Zeile 715) multipliziert bei `pricingMode='per_person'` ebenfalls `budgetPerPerson × guestCount` → falscher Versand-Total.
 
-## Status-Analyse (was es schon gibt)
+Der Bug liegt darin, dass das Feld in **allen** Fällen wie ein Per-Person-Wert behandelt wird, obwohl das Paket pauschal abgerechnet wird.
 
-| Funktion | Menü-Modus | Paket-Modus | E-Mail-Modus |
+## Logik (zukünftig korrekt)
+
+Das Eingabefeld **respektiert den Pakettyp**:
+
+| Pakettyp | Feld-Label | Bedeutung des Wertes | Total-Berechnung |
 |---|---|---|---|
-| Anzahl Personen | ✅ | ✅ | ✅ |
-| Einzelpreis pro Gang | ✅ override | ❌ fix aus Paket-DB | — |
-| Menge pro Gang | ✅ | ⚠️ teils | — |
-| Paketpreis manuell | — | ❌ nur Katalog | — |
-| Rabatt-Feld (%) | ✅ | ❌ fehlt | ❌ fehlt |
-| Equipment/Personal-Preise | ✅ | ✅ | ✅ |
-| Finaler Angebotspreis (Override) | ✅ | ✅ | ✅ |
+| `price_per_person = true` (z. B. Network-Aperitivo) | „Preis/Person" | Preis pro Gast | `Wert × Gäste` |
+| `price_per_person = false` (z. B. Gesamte Location) | „Gesamtpreis" | Gesamtpreis für den Anlass | `Wert` (keine Multiplikation) |
 
-Die `discountPercent`-Logik existiert bereits im Datenmodell (`types.ts` + `useOfferBuilder.ts` Zeile 191/442/862) und wird beim Versand mitgespeichert. Sie ist aber UI-seitig nur im Menü-Modus erreichbar.
+Sobald ein Override gesetzt ist, **ersetzt er den Katalog vollständig** — Tier-Breakdown („Basis bis 70 Gäste …") und 8.500 €-Anzeige verschwinden.
 
-## Was umgesetzt wird
+## Änderungen
 
-### 1. Rabatt-Feld in allen Modi
-- Rabatt-Eingabe (0–100 %) zusätzlich im **Paket-Modus** und **E-Mail-Modus** anzeigen.
-- Verhalten identisch zum Menü-Modus: erscheint mit „+ Rabatt"-Button, wenn 0; Eingabe inline, grün dargestellt; Abzug erscheint in der Preisaufstellung sowie beim errechneten Gesamtpreis.
-- Wert wandert wie gehabt nach `menu_selection.discountPercent` → Versionierung bleibt erhalten.
+**1. `OptionCard.tsx` (Zeile 704–723) — Eingabefeld**
+- Label dynamisch: `selectedPkg.price_per_person ? 'Preis/Person:' : 'Gesamtpreis:'`.
+- Hinweis-Text rechts dynamisch:
+  - per-Person: `= {Wert × Gäste} € gesamt`
+  - Pauschal: `= {Wert / Gäste} € pro Person` (rein informativ, klein, grau)
+- Placeholder bleibt der Katalogpreis.
 
-### 2. Paketpreis manuell anpassen
-Im `PriceBreakdown` (Paket-Modus) wird die heute fixe Zeile „{Paket} ({Gäste} × X €)" zu einer editierbaren Zeile:
-- Inline-Input für **Preis pro Person** (oder Gesamt, je nach `pricing_type` des Pakets).
-- Override wird in `option.budgetPerPerson` / `option.totalAmount` gespeichert (bestehende Felder, kein Migrationsbedarf).
-- Katalogpreis bleibt sichtbar als Placeholder/Hint.
-- Reset-Button („auf Katalogpreis zurücksetzen") wenn Override gesetzt ist.
+**2. `OptionCard.tsx` — `effectivePackage` (Zeile 132–143)**
+- Override unabhängig von `price_per_person` anwenden.
+- Markierung `__priceOverridden: true` setzen, damit `PriceBreakdown` weiß: kein Tier, kein Katalog.
+- `price` wird auf den Override gesetzt; `price_per_person` bleibt unverändert (damit die Multiplikations-Logik in `PriceBreakdown` weiterhin korrekt entscheidet).
 
-### 3. Paket-Inhalte (enthaltene Menü-Items) editierbar
-Im Paket-Modus werden enthaltene Speisen aus `package_menu_items` gerendert. Diese werden auf den **gleichen `InlineCourseEditor`** umgestellt, der im Menü-Modus läuft:
-- Einzelpreis pro Item editierbar (override, kein DB-Schreibvorgang am Paket selbst).
-- Menge pro Item editierbar.
-- Item entfernen / hinzufügen wie im Menü-Modus.
-- Originalpaket bleibt unangetastet — Overrides liegen pro Option in `menu_selection`.
+**3. `PriceBreakdown.tsx` (Paket-Modus, Zeile 363–420)**
+- Wenn `__priceOverridden`:
+  - Kein Aufruf von `calculateEventPackagePrice`. Stattdessen:
+    - per-Person: `locationTotal = override × guestCount`, Anzeige `({Gäste} × {override})`.
+    - Pauschal: `locationTotal = override`, Anzeige nur Paket-Name + Total.
+  - Tier-Breakdown wird **nicht** gerendert.
+- Ohne Override: Verhalten unverändert.
 
-### 4. Konsistenz & Anzeige
-- Preisaufstellung im Paket-Modus erweitert um Zeilen: Zwischensumme, Rabatt, Netto (analog Menü-Modus).
-- Versandte Angebote bleiben **immutable** (bestehende Versionierung greift unverändert).
-- AI-Cover-Letter-Prompts müssen Rabatt-Hinweis im Paket-Modus aufnehmen, sonst entsteht Inkonsistenz im Anschreiben → kleiner Patch in `useOfferBuilder.ts` Cover-Letter-Generierung.
+**4. `useOfferBuilder.ts` (Zeile 705–722) — Total-Berechnung**
+- Wenn `budgetPerPerson` gesetzt **und** Paket `price_per_person = false`:
+  - `newTotal = budgetPerPerson + courseSurcharge × guestCount` (Pauschale, keine Multiplikation am Override).
+- Wenn `budgetPerPerson` gesetzt **und** Paket `price_per_person = true`:
+  - Verhalten wie heute (`budgetPerPerson × guestCount + …`).
+- Bei `pricingMode='per_event'`: Override ist sowieso schon der Gesamtpreis (heute korrekt).
+- Cache-Key (Zeile 755) bleibt unverändert.
 
-### 5. Speichern / Laden
-- Hydration in `useOfferBuilder.ts` Zeile ~442: `discountPercent` wird bereits aus `menu_selection` gelesen → keine Änderung nötig.
-- Neue Override-Felder für Paket-Items: in `menu_selection.packageItemOverrides` (jsonb-Map `item_id → { price?, quantity? }`) speichern.
+**5. Datenmodell — keine Änderung**
+- Keine Migration. `budgetPerPerson` bleibt als Spaltenname (semantisch jetzt „Override-Wert", nicht zwingend per Person). Umbenennung wäre invasiv und versendete Angebote sollen unverändert bleiben.
 
-## Was NICHT geändert wird
+## Smoke-Test
 
-- Paket-Stammdaten (`packages`, `package_menu_items`) bleiben unverändert — Overrides sind angebotsspezifisch.
-- Bestehende Angebote (versendet) werden nicht migriert; alte Versionen bleiben sichtbar wie gespeichert.
-- Keine DB-Migration nötig — alles passt in `menu_selection` (jsonb).
+1. **Pauschal-Paket „Gesamte Location"**, 20 Gäste, Override `1000` →
+   - Label = „Gesamtpreis"; Hinweis = „= 50,00 € pro Person".
+   - Aufstellung: nur „Gesamte Location — 1.000,00 €". Kein 8.500 €, kein Tier.
+   - Errechnet gesamt = 1.000 €. Versendetes `totalAmount` = 1.000 €.
+2. **Per-Person-Paket „Network-Aperitivo"**, 20 Gäste, Override `45` →
+   - Label = „Preis/Person"; Hinweis = „= 900,00 € gesamt".
+   - Aufstellung: „Network-Aperitivo (20 × 45,00 €) — 900,00 €".
+3. Override leeren (Pauschal) → Tier + Katalog 8.500 € kehren zurück.
+4. Rabatt 10 % auf Pauschal-Override 1.000 € → Netto 900 €.
+5. Bestehende versendete Angebote → unverändert (immutable).
 
-## Technische Details (für später)
+## Risiko
 
-**Dateien, die angefasst werden:**
-- `OfferBuilder/PriceBreakdown.tsx` — Rabatt-UI in beiden Branches; editierbare Paketpreis-Zeile
-- `OfferBuilder/OptionCard.tsx` — `discountPercent` & `onDiscountChange` an Paket-Branch durchreichen (bereits vorhanden, nur Bedingung erweitern)
-- `OfferBuilder/types.ts` — `packageItemOverrides`-Map ergänzen
-- `OfferBuilder/useOfferBuilder.ts` — Persistenz der neuen Overrides; AI-Prompt-Hinweis
-- `OfferBuilder/InlineCourseEditor.tsx` — auch im Paket-Modus mit Paket-Items rendern (bereits parametrisiert, nur Wiring)
-
-**Risiko:** sehr gering. Keine Edge-Function-Änderung, keine DB-Migration, keine Mail-Triggers — rein UI/State.
-
-## Smoke-Test (nach Implementierung)
-
-1. Paket-Angebot anlegen → Paketpreis manuell überschreiben → speichern → neu laden → Override bleibt.
-2. Paket-Angebot → Rabatt 10 % eingeben → Preisaufstellung zeigt Rabatt-Zeile, Netto, korrekten Gesamtpreis.
-3. Paket-Item-Preis editieren → Versand → Kunde sieht editierten Preis im PublicOffer.
-4. Bestehendes versendetes Angebot öffnen → unverändert (immutable).
+Gering, da:
+- Keine DB-Migration, kein neues Feld.
+- Versendete Angebote sind eingefroren.
+- Änderungen rein in 3 Dateien, gut testbar mit den 5 Schritten oben.
+- Wichtig: Punkt 4 (`useOfferBuilder.ts`) ist **die** kritische Stelle — falsche Logik dort verändert den tatsächlich gespeicherten/versendeten Total. Wird mit Smoke-Test 1 verifiziert.
