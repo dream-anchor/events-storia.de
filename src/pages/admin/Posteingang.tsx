@@ -427,17 +427,20 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
 function MailDetail({
   email,
   tab,
+  suggestedEvent,
   onAssign,
   onCreate,
   onIgnore,
 }: {
   email: UnassignedEmail;
   tab: Tab;
+  suggestedEvent: SuggestedEventInfo | null;
   onAssign: () => void;
   onCreate: () => void;
   onIgnore: () => void;
 }) {
   const qc = useQueryClient();
+  const [accepting, setAccepting] = useState(false);
   const sanitizedHtml = useMemo(() => {
     if (!email.body_html) return null;
     return email.body_html.replace(
@@ -456,6 +459,54 @@ function MailDetail({
       qc.invalidateQueries({ queryKey: ["hidden-inbox"] });
       qc.invalidateQueries({ queryKey: ["unassigned-inbox"] });
       qc.invalidateQueries({ queryKey: ["unassigned-inbox-count"] });
+    }
+  };
+
+  const acceptSuggestion = async () => {
+    if (!email.suggestion_category) return;
+    setAccepting(true);
+    try {
+      if (email.suggestion_category === "match" && email.suggested_event_id) {
+        const { data, error } = await supabase.functions.invoke("assign-inbox-email-to-event", {
+          body: {
+            email_id: email.id,
+            event_id: email.suggested_event_id,
+            create_filter: true,
+          },
+        });
+        if (error) throw error;
+        if (data?.warning === "multiple_open_events") {
+          // Fall back to single-link to avoid cross-contamination
+          const { error: e2 } = await supabase.functions.invoke("assign-inbox-email-to-event", {
+            body: {
+              email_id: email.id,
+              event_id: email.suggested_event_id,
+              create_filter: false,
+            },
+          });
+          if (e2) throw e2;
+        }
+        toast.success("Mail dem Event zugeordnet.");
+      } else if (email.suggestion_category === "irrelevant") {
+        const { error } = await supabase.functions.invoke("ignore-inbox-email", {
+          body: { email_id: email.id, ignore_sender: false },
+        });
+        if (error) throw error;
+        toast.success("Mail ignoriert.");
+      } else if (email.suggestion_category === "new_inquiry") {
+        onCreate();
+        return;
+      } else {
+        onAssign();
+        return;
+      }
+      qc.invalidateQueries({ queryKey: ["unassigned-inbox"] });
+      qc.invalidateQueries({ queryKey: ["unassigned-inbox-count"] });
+      qc.invalidateQueries({ queryKey: ["hidden-inbox"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setAccepting(false);
     }
   };
 
@@ -497,6 +548,55 @@ function MailDetail({
             <span>
               Ignoriert{email.hidden_reason ? ` (${email.hidden_reason})` : ""}.
             </span>
+          </div>
+        )}
+
+        {tab === "open" && email.suggestion_category && (
+          <div className="rounded-xl border bg-muted/30 p-3 mt-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <Sparkles className="h-3.5 w-3.5" />
+              Vorschlag {email.suggestion_method === "llm" ? "(KI-analysiert)" : "(automatisch erkannt)"}
+              {email.suggestion_confidence && (
+                <Badge variant="outline" className="text-[10px] uppercase ml-auto">
+                  {email.suggestion_confidence}
+                </Badge>
+              )}
+            </div>
+            <div className="text-sm">
+              {email.suggestion_category === "match" && suggestedEvent && (
+                <p>
+                  Diese Mail gehört vermutlich zu{" "}
+                  <strong>{suggestedEvent.customer_name ?? "Event"}</strong>
+                  {suggestedEvent.date ? ` (${format(new Date(suggestedEvent.date), "dd.MM.yyyy", { locale: de })})` : ""}
+                  {suggestedEvent.occasion ? ` · ${suggestedEvent.occasion}` : ""}.
+                </p>
+              )}
+              {email.suggestion_category === "new_inquiry" && (
+                <p>Diese Mail wirkt wie eine neue Eventanfrage.</p>
+              )}
+              {email.suggestion_category === "irrelevant" && (
+                <p>Diese Mail wirkt wie Spam, Werbung oder Lieferantenkommunikation.</p>
+              )}
+              {email.suggestion_category === "unclear" && (
+                <p>Keine eindeutige Zuordnung möglich.</p>
+              )}
+              {email.suggestion_reasoning && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Begründung: {email.suggestion_reasoning}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button
+                size="sm"
+                onClick={acceptSuggestion}
+                disabled={accepting}
+                className="rounded-full"
+              >
+                <Check className="h-4 w-4 mr-1.5" />
+                Vorschlag annehmen
+              </Button>
+            </div>
           </div>
         )}
 
