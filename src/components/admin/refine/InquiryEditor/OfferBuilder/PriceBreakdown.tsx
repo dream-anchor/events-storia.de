@@ -406,7 +406,7 @@ export function PriceBreakdown({
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">
           {packageData.name}
-          {packageData.price_per_person && (
+          {packageData.price_per_person && guestCount > 0 && (
             <span className="text-xs ml-1">
               ({guestCount} × {formatCurrency(packageData.price)})
             </span>
