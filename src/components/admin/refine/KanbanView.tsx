@@ -1,66 +1,35 @@
 import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, parseISO, differenceInHours, differenceInDays } from "date-fns";
+import { format, parseISO, differenceInDays, differenceInHours } from "date-fns";
 import { de } from "date-fns/locale";
-import {
-  Calendar,
-  Users,
-  Clock,
-  GripVertical,
-  ChevronDown,
-  ChevronRight,
-} from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EventInquiry, InquiryStatus } from "@/types/refine";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { getAdminInitials } from "@/lib/adminDisplayNames";
+import { getInquiryActionState, type ActionState } from "@/lib/inquiryActionState";
 
 interface KanbanViewProps {
   events: EventInquiry[];
   onRefresh: () => void;
 }
 
-const COLUMNS = [
-  {
-    id: "lead",
-    title: "Lead",
-    dotColor: "bg-blue-500",
-    badgeClass: "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
-  },
-  {
-    id: "proposal",
-    title: "Proposal",
-    dotColor: "bg-amber-500",
-    badgeClass: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
-  },
-  {
-    id: "pending",
-    title: "Pending",
-    dotColor: "bg-purple-500",
-    badgeClass: "bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400",
-  },
-  {
-    id: "won",
-    title: "Won",
-    dotColor: "bg-emerald-500",
-    badgeClass: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
-  },
-  {
-    id: "lost",
-    title: "Lost",
-    dotColor: "bg-red-500",
-    badgeClass: "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400",
-  },
-  {
-    id: "closed",
-    title: "Closed",
-    dotColor: "bg-slate-400",
-    badgeClass: "bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400",
-  },
+const PIPELINE_COLUMNS = [
+  { id: "lead", title: "Neu" },
+  { id: "proposal", title: "In Bearbeitung" },
+  { id: "pending", title: "Angebot raus" },
+  { id: "won", title: "Gebucht" },
 ] as const;
 
-type ColumnId = (typeof COLUMNS)[number]["id"];
+const ARCHIVE_COLUMNS = [
+  { id: "lost", title: "Abgelehnt" },
+  { id: "closed", title: "Abgesagt" },
+] as const;
+
+type ColumnId =
+  | (typeof PIPELINE_COLUMNS)[number]["id"]
+  | (typeof ARCHIVE_COLUMNS)[number]["id"];
 
 function getColumnFromStatus(event: EventInquiry): ColumnId {
   switch (event.status) {
@@ -81,40 +50,6 @@ function getColumnFromStatus(event: EventInquiry): ColumnId {
   }
 }
 
-function getBadgeLabel(event: EventInquiry, columnId: ColumnId): { label: string; class: string } {
-  // Kunde hat geantwortet — höchste Priorität-Badge
-  if (event.offer_phase === 'customer_responded') {
-    return { label: 'Kunde antwortete', class: 'bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400 ring-1 ring-teal-300' };
-  }
-
-  const isUrgent = event.priority === 'urgent' ||
-    (event.status === 'new' && event.created_at && differenceInHours(new Date(), parseISO(event.created_at)) > 48);
-
-  if (isUrgent) {
-    return { label: 'Dringend', class: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' };
-  }
-  if (event.priority === 'high') {
-    return { label: 'Hot Lead', class: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400' };
-  }
-
-  switch (columnId) {
-    case 'lead':
-      return { label: 'Neu', class: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400' };
-    case 'proposal':
-      return { label: 'In Bearbeitung', class: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' };
-    case 'pending':
-      return { label: 'Angebot versendet', class: 'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400' };
-    case 'won':
-      return { label: 'Gebucht', class: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' };
-    case 'lost':
-      return { label: 'Abgesagt', class: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' };
-    case 'closed':
-      return { label: 'Abgeschlossen', class: 'bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400' };
-    default:
-      return { label: 'Anfrage', class: 'bg-slate-100 text-slate-600' };
-  }
-}
-
 function getInactivityLabel(event: EventInquiry): string | null {
   const lastActivity = event.updated_at || event.created_at;
   if (!lastActivity) return null;
@@ -123,12 +58,10 @@ function getInactivityLabel(event: EventInquiry): string | null {
   const days = differenceInDays(new Date(), parseISO(lastActivity));
 
   if (days > 0) {
-    return `Inaktiv seit ${days} ${days === 1 ? 'Tag' : 'Tagen'}`;
+    return `${days}${days === 1 ? "d" : "d"}`;
   }
-  if (hours > 1) {
-    return `Inaktiv seit ${hours} Std.`;
-  }
-  return 'Zuletzt: Gerade eben';
+  if (hours > 1) return `${hours}h`;
+  return null;
 }
 
 function formatCurrency(amount: number) {
@@ -142,41 +75,52 @@ function formatCurrency(amount: number) {
 
 export function KanbanView({ events, onRefresh }: KanbanViewProps) {
   const navigate = useNavigate();
-  const [collapsedColumns, setCollapsedColumns] = useState<Set<ColumnId>>(new Set());
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [dragOverColumn, setDragOverColumn] = useState<ColumnId | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const columnData = useMemo(() => {
-    const data: Record<ColumnId, { items: EventInquiry[]; totalSum: number; totalGuests: number }> = {
-      lead: { items: [], totalSum: 0, totalGuests: 0 },
-      proposal: { items: [], totalSum: 0, totalGuests: 0 },
-      pending: { items: [], totalSum: 0, totalGuests: 0 },
-      won: { items: [], totalSum: 0, totalGuests: 0 },
-      lost: { items: [], totalSum: 0, totalGuests: 0 },
-      closed: { items: [], totalSum: 0, totalGuests: 0 },
+    const data: Record<
+      ColumnId,
+      {
+        items: EventInquiry[];
+        totalSum: number;
+        totalGuests: number;
+        actionCounts: Record<ActionState, number>;
+      }
+    > = {
+      lead: emptyBucket(),
+      proposal: emptyBucket(),
+      pending: emptyBucket(),
+      won: emptyBucket(),
+      lost: emptyBucket(),
+      closed: emptyBucket(),
     };
 
     events.forEach((event) => {
       const columnId = getColumnFromStatus(event);
       data[columnId].items.push(event);
       data[columnId].totalSum += event.total_amount || 0;
-      data[columnId].totalGuests += parseInt(String(event.guest_count || '0'), 10) || 0;
+      data[columnId].totalGuests += parseInt(String(event.guest_count || "0"), 10) || 0;
+      const action = getInquiryActionState(event).state;
+      data[columnId].actionCounts[action] += 1;
+    });
+
+    // Sort each column: respond first, then in_progress, then by date desc
+    const order: Record<ActionState, number> = { respond: 0, in_progress: 1, won: 2, done: 3 };
+    Object.values(data).forEach((bucket) => {
+      bucket.items.sort((a, b) => {
+        const aOrder = order[getInquiryActionState(a).state];
+        const bOrder = order[getInquiryActionState(b).state];
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        const aTime = a.updated_at || a.created_at || "";
+        const bTime = b.updated_at || b.created_at || "";
+        return bTime.localeCompare(aTime);
+      });
     });
 
     return data;
   }, [events]);
-
-  const toggleCollapsed = (columnId: ColumnId) => {
-    setCollapsedColumns((prev) => {
-      const next = new Set(prev);
-      if (next.has(columnId)) {
-        next.delete(columnId);
-      } else {
-        next.add(columnId);
-      }
-      return next;
-    });
-  };
 
   // Drag handlers
   const handleDragStart = useCallback(
@@ -237,7 +181,10 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
 
         if (error) throw error;
 
-        toast.success(`Status geändert zu "${COLUMNS.find((c) => c.id === targetColumn)?.title}"`);
+        const allCols = [...PIPELINE_COLUMNS, ...ARCHIVE_COLUMNS];
+        toast.success(
+          `Status geändert zu „${allCols.find((c) => c.id === targetColumn)?.title}"`
+        );
         onRefresh();
       } catch (error) {
         console.error("Status update error:", error);
@@ -247,106 +194,136 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
     [events, onRefresh]
   );
 
+  const renderColumn = (column: { id: ColumnId; title: string }) => {
+    const { items, totalSum, actionCounts } = columnData[column.id];
+    const isDragOver = dragOverColumn === column.id;
+    return (
+      <div
+        key={column.id}
+        className={cn(
+          "flex flex-col rounded-2xl border border-slate-200 bg-slate-50/60 transition-all min-w-0",
+          isDragOver && "ring-2 ring-primary border-primary bg-primary/5"
+        )}
+        onDragOver={(e) => handleDragOver(e, column.id)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, column.id)}
+      >
+        {/* Column Header */}
+        <div className="px-4 pt-4 pb-3 border-b border-slate-200/70">
+          <div className="flex items-center justify-between mb-1.5">
+            <h2 className="font-semibold text-slate-700 text-sm">{column.title}</h2>
+            <span className="text-[11px] font-semibold text-slate-400 tabular-nums">
+              {items.length}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-[10px] text-slate-400">
+            {actionCounts.respond > 0 && (
+              <span className="flex items-center gap-1 text-red-600 font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                {actionCounts.respond}
+              </span>
+            )}
+            {actionCounts.in_progress > 0 && (
+              <span className="flex items-center gap-1 text-amber-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                {actionCounts.in_progress}
+              </span>
+            )}
+            {actionCounts.won > 0 && (
+              <span className="flex items-center gap-1 text-emerald-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                {actionCounts.won}
+              </span>
+            )}
+            <span className="ml-auto tabular-nums">{formatCurrency(totalSum)}</span>
+          </div>
+        </div>
+
+        {/* Cards */}
+        <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)]">
+          {items.length === 0 ? (
+            <div className="border-2 border-dashed border-slate-200 rounded-xl py-8 flex items-center justify-center text-[11px] text-slate-400 uppercase tracking-wider">
+              Hierher ziehen
+            </div>
+          ) : (
+            items.map((event) => (
+              <KanbanCard
+                key={event.id}
+                event={event}
+                isDragging={draggingId === event.id}
+                onDragStart={(e) => handleDragStart(e, event.id)}
+                onDragEnd={handleDragEnd}
+                onClick={() => navigate(`/admin/events/${event.id}/edit`)}
+              />
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const archiveCount =
+    columnData.lost.items.length + columnData.closed.items.length;
+
   return (
-    <div className="space-y-6">
-      {COLUMNS.map((column) => {
-        const { items, totalSum, totalGuests } = columnData[column.id];
-        const isCollapsed = collapsedColumns.has(column.id);
-        const isDragOver = dragOverColumn === column.id;
+    <div className="space-y-4">
+      {/* Pipeline: 4 columns horizontal */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {PIPELINE_COLUMNS.map(renderColumn)}
+      </div>
 
-        return (
-          <section
-            key={column.id}
-            className={cn(
-              "rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-all",
-              isDragOver && "ring-2 ring-primary border-primary"
+      {/* Archive footer (collapsed by default) */}
+      <div className="rounded-2xl border border-slate-200 bg-white">
+        <button
+          onClick={() => setArchiveOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors rounded-2xl"
+        >
+          <div className="flex items-center gap-2.5">
+            {archiveOpen ? (
+              <ChevronDown className="h-4 w-4 text-slate-400" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-slate-400" />
             )}
-            onDragOver={(e) => handleDragOver(e, column.id)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, column.id)}
-          >
-            {/* Section Header */}
-            <button
-              onClick={() => toggleCollapsed(column.id)}
-              className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors rounded-2xl"
-            >
-              <div className="flex items-center gap-3">
-                {isCollapsed ? (
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                )}
-                <div className={cn("w-2.5 h-2.5 rounded-full", column.dotColor)} />
-                <h2 className="font-bold text-slate-700 dark:text-slate-200 uppercase text-xs tracking-widest">
-                  {column.title}
-                </h2>
-                <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 text-[11px] px-2.5 py-0.5 rounded-full font-bold">
-                  {items.length}
-                </span>
-              </div>
-              <div className="text-[11px] font-medium text-slate-400 flex items-center gap-3">
-                <span>{formatCurrency(totalSum)} Summe</span>
-                <span className="w-1 h-1 rounded-full bg-slate-300" />
-                <span>{totalGuests} Gäste</span>
-              </div>
-            </button>
-
-            {/* Cards Grid */}
-            {!isCollapsed && (
-              <div className="px-6 pb-5">
-                {items.length === 0 ? (
-                  <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl py-6 flex flex-col items-center justify-center text-slate-400 gap-2">
-                    <GripVertical className="h-5 w-5" />
-                    <span className="text-xs font-medium uppercase tracking-widest">Hierher ziehen</span>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {items.map((event) => (
-                      <KanbanCard
-                        key={event.id}
-                        event={event}
-                        columnId={column.id}
-                        isDragging={draggingId === event.id}
-                        onDragStart={(e) => handleDragStart(e, event.id)}
-                        onDragEnd={handleDragEnd}
-                        onClick={() => navigate(`/admin/events/${event.id}/edit`)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-        );
-      })}
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+              Abgelehnt & Abgesagt
+            </span>
+            <span className="bg-slate-100 text-slate-500 text-[11px] px-2 py-0.5 rounded-full font-semibold tabular-nums">
+              {archiveCount}
+            </span>
+          </div>
+        </button>
+        {archiveOpen && (
+          <div className="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {ARCHIVE_COLUMNS.map(renderColumn)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// Kanban Card Component
+function emptyBucket() {
+  return {
+    items: [] as EventInquiry[],
+    totalSum: 0,
+    totalGuests: 0,
+    actionCounts: { respond: 0, in_progress: 0, won: 0, done: 0 } as Record<ActionState, number>,
+  };
+}
+
+// Compact Kanban Card
 interface KanbanCardProps {
   event: EventInquiry;
-  columnId: ColumnId;
   isDragging: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onClick: () => void;
 }
 
-function KanbanCard({
-  event,
-  columnId,
-  isDragging,
-  onDragStart,
-  onDragEnd,
-  onClick,
-}: KanbanCardProps) {
-  const badge = getBadgeLabel(event, columnId);
-  const inactivityLabel = getInactivityLabel(event);
-
-  const isUrgent = event.priority === 'urgent' ||
-    (event.status === 'new' && event.created_at && differenceInHours(new Date(), parseISO(event.created_at)) > 48);
-  const hasCustomerResponse = event.offer_phase === 'customer_responded';
+function KanbanCard({ event, isDragging, onDragStart, onDragEnd, onClick }: KanbanCardProps) {
+  const action = getInquiryActionState(event);
+  const inactivity = getInactivityLabel(event);
+  const title = event.company_name || event.contact_name || "Unbenannte Anfrage";
 
   return (
     <div
@@ -355,66 +332,46 @@ function KanbanCard({
       onDragEnd={onDragEnd}
       onClick={onClick}
       className={cn(
-        "bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700",
-        "hover:shadow-md hover:border-primary/40 transition-all group cursor-grab active:cursor-grabbing",
-        isDragging && "opacity-50 rotate-1 scale-105 shadow-lg",
-        hasCustomerResponse && "border-l-4 border-l-teal-500 bg-teal-50/30 dark:bg-teal-900/10",
-        isUrgent && !hasCustomerResponse && "border-l-4 border-l-red-500"
+        "bg-white p-3 rounded-xl border border-slate-200 border-l-[3px]",
+        action.borderClass,
+        "hover:shadow-sm hover:border-primary/40 transition-all cursor-grab active:cursor-grabbing",
+        isDragging && "opacity-40 scale-[0.98] shadow-md"
       )}
+      title={action.label}
     >
-      {/* Header with badge */}
-      <div className="flex justify-between items-start mb-3">
-        <span className={cn(
-          "text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider",
-          badge.class
-        )}>
-          {badge.label}
-        </span>
-        <GripVertical className="h-4 w-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
-      </div>
-
-      {/* Title */}
-      <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-2 line-clamp-2 text-sm">
-        {event.company_name || event.contact_name || 'Unbenannte Anfrage'}
-      </h3>
-
-      {/* Event Details */}
-      <div className="space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+      {/* Row 1: dot + name + date */}
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={cn("w-2 h-2 rounded-full flex-shrink-0", action.dotClass)} />
+        <h3 className="font-semibold text-slate-800 text-[13px] truncate flex-1 min-w-0">
+          {title}
+        </h3>
         {event.preferred_date && (
-          <div className="flex items-center gap-2">
-            <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
-            <span>{format(parseISO(event.preferred_date), "d. MMM yyyy", { locale: de })}</span>
-          </div>
+          <span className="text-[11px] text-slate-500 tabular-nums flex-shrink-0">
+            {format(parseISO(event.preferred_date), "d. MMM", { locale: de })}
+          </span>
         )}
-        <div className="flex items-center justify-between">
-          {event.guest_count ? (
-            <div className="flex items-center gap-2">
-              <Users className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>{event.guest_count} Gäste</span>
-            </div>
-          ) : <span />}
-          {event.total_amount ? (
-            <span className="text-primary font-bold">{formatCurrency(event.total_amount)}</span>
-          ) : null}
-        </div>
       </div>
 
-      {/* Footer */}
-      <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
-        {inactivityLabel ? (
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 italic">
-            <Clock className="h-3 w-3 flex-shrink-0" />
-            <span>{inactivityLabel}</span>
-          </div>
-        ) : <span />}
-        {event.assigned_to && (
-          <div
-            className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-800 bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary ml-auto"
-            title={event.assigned_to}
-          >
-            {getAdminInitials(event.assigned_to)}
-          </div>
-        )}
+      {/* Row 2: meta */}
+      <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-500">
+        {event.guest_count ? <span>{event.guest_count} Gäste</span> : null}
+        {event.guest_count && event.total_amount ? <span className="text-slate-300">·</span> : null}
+        {event.total_amount ? (
+          <span className="font-semibold text-slate-700 tabular-nums">
+            {formatCurrency(event.total_amount)}
+          </span>
+        ) : null}
+        <span className="ml-auto flex items-center gap-1.5">
+          {inactivity && <span className="text-slate-400 tabular-nums">{inactivity}</span>}
+          {event.assigned_to && (
+            <span
+              className="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center text-[9px] font-bold text-primary"
+              title={event.assigned_to}
+            >
+              {getAdminInitials(event.assigned_to)}
+            </span>
+          )}
+        </span>
       </div>
     </div>
   );
