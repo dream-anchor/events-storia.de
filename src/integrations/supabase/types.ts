@@ -1055,6 +1055,50 @@ export type Database = {
         }
         Relationships: []
       }
+      email_attachments: {
+        Row: {
+          content_id: string | null
+          created_at: string
+          email_id: string
+          filename: string
+          id: string
+          is_inline: boolean
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+        }
+        Insert: {
+          content_id?: string | null
+          created_at?: string
+          email_id: string
+          filename: string
+          id?: string
+          is_inline?: boolean
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+        }
+        Update: {
+          content_id?: string | null
+          created_at?: string
+          email_id?: string
+          filename?: string
+          id?: string
+          is_inline?: boolean
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_attachments_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_delivery_logs: {
         Row: {
           created_at: string
@@ -1145,6 +1189,150 @@ export type Database = {
         }
         Relationships: []
       }
+      event_email_filters: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_id: string
+          filter_type: string
+          filter_value: string
+          id: string
+          is_active: boolean
+          label: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          filter_type: string
+          filter_value: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          filter_type?: string
+          filter_value?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_email_filters_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_filters_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_filters_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_filters_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_email_links: {
+        Row: {
+          created_at: string
+          email_id: string
+          event_id: string
+          excluded_at: string | null
+          excluded_by: string | null
+          excluded_reason: string | null
+          id: string
+          is_excluded: boolean
+          link_source: string
+          matched_filter_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email_id: string
+          event_id: string
+          excluded_at?: string | null
+          excluded_by?: string | null
+          excluded_reason?: string | null
+          id?: string
+          is_excluded?: boolean
+          link_source: string
+          matched_filter_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email_id?: string
+          event_id?: string
+          excluded_at?: string | null
+          excluded_by?: string | null
+          excluded_reason?: string | null
+          id?: string
+          is_excluded?: boolean
+          link_source?: string
+          matched_filter_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_email_links_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_links_matched_filter_id_fkey"
+            columns: ["matched_filter_id"]
+            isOneToOne: false
+            referencedRelation: "event_email_filters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_inquiries: {
         Row: {
           arrival_time: string | null
@@ -1202,6 +1390,129 @@ export type Database = {
           source?: string | null
           status?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      imap_sync_state: {
+        Row: {
+          folder_name: string
+          last_error: string | null
+          last_error_at: string | null
+          last_full_reconcile_at: string | null
+          last_sync_at: string | null
+          last_uid: number
+        }
+        Insert: {
+          folder_name: string
+          last_error?: string | null
+          last_error_at?: string | null
+          last_full_reconcile_at?: string | null
+          last_sync_at?: string | null
+          last_uid?: number
+        }
+        Update: {
+          folder_name?: string
+          last_error?: string | null
+          last_error_at?: string | null
+          last_full_reconcile_at?: string | null
+          last_sync_at?: string | null
+          last_uid?: number
+        }
+        Relationships: []
+      }
+      inbox_emails: {
+        Row: {
+          attachment_count: number
+          body_html: string | null
+          body_text: string | null
+          cc_emails: string[]
+          created_at: string
+          date_received: string
+          date_sent: string | null
+          from_email: string
+          from_name: string | null
+          has_attachments: boolean
+          hidden_at: string | null
+          hidden_by: string | null
+          hidden_reason: string | null
+          id: string
+          imap_folder: string
+          imap_status: string
+          imap_uid: number
+          in_reply_to: string | null
+          is_hidden: boolean
+          message_id: string
+          raw_mime: string
+          raw_size_bytes: number
+          references_headers: string[] | null
+          reply_to_email: string | null
+          status_changed_at: string | null
+          status_history: Json
+          subject: string | null
+          to_emails: string[]
+          updated_at: string
+        }
+        Insert: {
+          attachment_count?: number
+          body_html?: string | null
+          body_text?: string | null
+          cc_emails?: string[]
+          created_at?: string
+          date_received: string
+          date_sent?: string | null
+          from_email: string
+          from_name?: string | null
+          has_attachments?: boolean
+          hidden_at?: string | null
+          hidden_by?: string | null
+          hidden_reason?: string | null
+          id?: string
+          imap_folder?: string
+          imap_status?: string
+          imap_uid: number
+          in_reply_to?: string | null
+          is_hidden?: boolean
+          message_id: string
+          raw_mime: string
+          raw_size_bytes: number
+          references_headers?: string[] | null
+          reply_to_email?: string | null
+          status_changed_at?: string | null
+          status_history?: Json
+          subject?: string | null
+          to_emails?: string[]
+          updated_at?: string
+        }
+        Update: {
+          attachment_count?: number
+          body_html?: string | null
+          body_text?: string | null
+          cc_emails?: string[]
+          created_at?: string
+          date_received?: string
+          date_sent?: string | null
+          from_email?: string
+          from_name?: string | null
+          has_attachments?: boolean
+          hidden_at?: string | null
+          hidden_by?: string | null
+          hidden_reason?: string | null
+          id?: string
+          imap_folder?: string
+          imap_status?: string
+          imap_uid?: number
+          in_reply_to?: string | null
+          is_hidden?: boolean
+          message_id?: string
+          raw_mime?: string
+          raw_size_bytes?: number
+          references_headers?: string[] | null
+          reply_to_email?: string | null
+          status_changed_at?: string | null
+          status_history?: Json
+          subject?: string | null
+          to_emails?: string[]
+          updated_at?: string
         }
         Relationships: []
       }
@@ -3748,6 +4059,8 @@ export type Database = {
         Returns: boolean
       }
       purge_deleted_menu_items: { Args: never; Returns: undefined }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       submit_offer_response: {
         Args: {
           p_customer_notes?: string
