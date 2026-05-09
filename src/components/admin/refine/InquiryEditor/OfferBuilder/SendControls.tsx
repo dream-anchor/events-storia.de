@@ -31,6 +31,10 @@ interface SendControlsProps {
   /** Inquiry-ID fuer Preview-Navigation. Wenn gesetzt, oeffnet der Send-Button
    *  die Preview-Route statt den Send direkt auszufuehren. */
   inquiryId?: string;
+  /** Empfänger-Name (für Bestätigungs-Dialog) */
+  recipientName?: string | null;
+  /** Empfänger-E-Mail (für Bestätigungs-Dialog) */
+  recipientEmail?: string | null;
 }
 
 const PHASE_LABELS: Record<OfferPhase, string> = {
@@ -54,6 +58,8 @@ export function SendControls({
   isNewVersionAfterSend = false,
   currentVersion = 1,
   inquiryId,
+  recipientName,
+  recipientEmail,
 }: SendControlsProps) {
   const [confirmType, setConfirmType] = useState<'proposal' | 'final' | null>(null);
   const navigate = useNavigate();
