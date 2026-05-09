@@ -1,4 +1,3 @@
-import { differenceInHours, parseISO } from "date-fns";
 import type { EventInquiry } from "@/types/refine";
 
 export type ActionState = "respond" | "in_progress" | "won" | "done";
@@ -29,9 +28,6 @@ export interface ActionStateMeta {
 export function getInquiryActionState(event: EventInquiry): ActionStateMeta {
   const archived = !!event.archived_at;
   const customerResponded = event.offer_phase === "customer_responded";
-  const hoursSinceCreated = event.created_at
-    ? differenceInHours(new Date(), parseISO(event.created_at))
-    : 0;
 
   // 1. RESPOND — highest priority, requires immediate human action
   if (!archived && customerResponded) {
@@ -44,10 +40,10 @@ export function getInquiryActionState(event: EventInquiry): ActionStateMeta {
       chipClass: "bg-red-50 text-red-700 ring-1 ring-red-200",
     };
   }
-  if (!archived && event.status === "new" && hoursSinceCreated > 24) {
+  if (!archived && event.status === "new") {
     return {
       state: "respond",
-      label: "Antworten",
+      label: "Neu",
       dotClass: "bg-red-500",
       borderClass: "border-l-red-500",
       textClass: "text-red-700",
@@ -101,8 +97,7 @@ export function getInquiryActionState(event: EventInquiry): ActionStateMeta {
 
   // 4. IN PROGRESS — everything else (new ≤ 24h, contacted, offer_sent without response)
   let label = "In Bearbeitung";
-  if (event.status === "new") label = "Neu";
-  else if (event.status === "offer_sent") label = "Angebot offen";
+  if (event.status === "offer_sent") label = "Angebot offen";
   else if (event.status === "contacted") label = "In Bearbeitung";
 
   return {

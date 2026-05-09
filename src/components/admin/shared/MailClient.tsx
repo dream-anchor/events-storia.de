@@ -174,7 +174,7 @@ export function MailClient({ inquiryId, customerEmail, onSendReply }: MailClient
       <MainContainer responsive>
         <Sidebar position="left" scrollable style={{ minWidth: isMobile ? "100%" : 320, maxWidth: isMobile ? "100%" : 360 }}>
           <ConversationList>
-            {items.map((item) => {
+            {[...items].reverse().map((item) => {
               const isOutbound = item.direction === "outbound";
               const senderLabel = isOutbound ? "STORIA" : (item.from_email || "Kunde");
               const time = format(parseISO(item.created_at), "dd.MM. HH:mm", { locale: de });

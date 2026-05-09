@@ -116,7 +116,7 @@ export const EventsList = () => {
   const eventsQuery = useList<EventInquiry>({
     resource: "events",
     pagination: { pageSize: 100 },
-    sorters: [{ field: "preferred_date", order: "asc" }],
+    sorters: [{ field: "created_at", order: "desc" }],
     filters: showTestData
       ? []
       : [{ field: "is_test", operator: "ne", value: true }],
@@ -588,7 +588,7 @@ export const EventsList = () => {
               selectedRowIds={selectedIds}
               onSelectionChange={setSelectedIds}
               getRowId={(row) => row.id}
-              defaultSorting={[{ id: "preferred_date", desc: false }]}
+              defaultSorting={[{ id: "created_at", desc: true }]}
               mobileCardRender={(event) => {
                 const dateStr = event.preferred_date
                   ? format(parseISO(event.preferred_date), "EEE dd.MM.yy", { locale: de })

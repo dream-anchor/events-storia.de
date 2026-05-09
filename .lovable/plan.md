@@ -1,86 +1,45 @@
-## 1. Kommunikations-Tab als Mailprogramm + Kundenrückmeldung integrieren
+## 1. Neue Anfragen: rot statt orange + immer ganz oben
 
-### Problem
-Wenn der Kunde im öffentlichen Angebot eine Option wählt (Anmerkung/Auswahl), erscheint das nur unter „Angebot" als blaues Hinweis-Karten-UI (`offer_customer_responses`). Im Tab „Kommunikation" sieht man die Antwort gar nicht — dort liegen ausschließlich Zeilen aus `email_messages`. Außerdem ist die jetzige Chat-Bubble-Optik (orange Sprechblasen) keine Mailprogramm-Ansicht.
+### Root Cause
+In `src/lib/inquiryActionState.ts` (Zeile 47) bekommt `status === "new"` nur dann den Zustand `respond` (rot), wenn die Anfrage **älter als 24 h** ist. In den ersten 24 h fällt sie in den Default-Bucket `in_progress` (orange). Das erklärt:
 
-### Lösung
+- **Farbe orange** statt rot bei der frisch eingegangenen Flavia-Anfrage.
+- **Position weiter unten**: In `KanbanView.tsx` (Zeile 118) sortiert die Spalte zuerst nach `ActionState` (`respond=0` vor `in_progress=1`), dann nach Zeit. Eine frische „Neu"-Anfrage in `in_progress` landet unter allen `respond`-Karten.
 
-**Library:** [`@chatscope/chat-ui-kit-react`](https://chatscope.io/) — etablierte React-Library mit Mailprogramm-tauglichen Bausteinen (`MainContainer`, `Sidebar`, `ConversationList`, `Conversation`, `ChatContainer`, `ConversationHeader`, `MessageList`, `Message`, `MessageInput`). MIT-Lizenz, ~100k Wochen-Downloads, gepflegt.
+### Fix
 
-Falls die Library aus irgendeinem Grund nicht installierbar ist (sehr selten), Fallback: `react-resizable-panels` (in shadcn schon enthalten) + manuelles Master-/Detail-Layout.
+**a) `src/lib/inquiryActionState.ts`**
+- Den Block für „> 24 h" entfernen. Stattdessen: **jede Anfrage mit `status === "new"` (und nicht archiviert) ist immer `respond` / rot** mit Label „Neu".
+- Damit ist der bisherige `in_progress`-Default für `status === "new"` (Zeilen 103–104) tot — entfernen, falls leer; übrige In-Progress-Labels bleiben (`offer_sent`, `contacted`).
 
-**Neue Komponente:** `src/components/admin/shared/MailClient.tsx` ersetzt das aktuelle `ConversationThread`-Layout. Drei Spalten:
+**b) Sortierung — keine Änderung nötig**
+- `KanbanView.tsx` sortiert innerhalb desselben States bereits nach `updated_at || created_at` **descending** (Zeile 124–126). Sobald alle „Neu" im `respond`-Bucket sind, landet die jüngste automatisch oben.
 
-```text
-┌────────────┬───────────────────────────────────────────┐
-│ Sidebar    │  Reading Pane                              │
-│ (Threads)  │                                            │
-│            │  Header: Betreff · Von · An · Datum        │
-│ Posteingang│  ──────────────────────────────────────── │
-│ • Mail 1   │  HTML-Inhalt (sanitized) oder Plain-Text  │
-│ • Mail 2   │  Anhänge (Chips)                           │
-│ • Antwort  │  Status-Badge (Versendet / Geöffnet / ..)  │
-│ • …        │                                            │
-│            │  ──────────────────────────────────────── │
-│            │  MessageInput unten (Antwort schreiben)    │
-└────────────┴───────────────────────────────────────────┘
-```
+**c) `src/components/admin/refine/EventsList.tsx` (Liste)**
+- Aktueller Default-Sort: `preferred_date asc` (Eventdatum, Zeilen 119 und 591). Damit erscheinen frische Anfragen mit weit entferntem Eventdatum mittig/unten.
+- Default-Sort umstellen auf `created_at desc` → neueste Anfragen ganz oben. Anwender kann weiterhin per Spaltenklick anders sortieren.
+- Anpassung an beiden Stellen: `sorters: [{ field: "created_at", order: "desc" }]` und `defaultSorting={[{ id: "created_at", desc: true }]}`.
 
-- Linke Sidebar: chronologische Liste aller Thread-Items, gemischter Quelle (siehe unten). Item zeigt Sender-Avatar (Initialen), Betreff/Vorschau, Zeit, Inbound/Outbound-Pfeil, ungelesen-Punkt.
-- Rechtes Reading-Pane: nur ausgewählte Mail. HTML wird via `DOMPurify` sanitized in einem Iframe (`sandbox="allow-same-origin"`) gerendert — wie bisher in `OfferArchivePreview`.
-- `MessageInput` unten zum direkten Antworten (verwendet weiter `send-offer-email` mit Operator-Guard, identisch zu heute).
-- Auf Mobile (≤768 px): Sidebar wird zur Drawer-Liste, Reading-Pane Vollbild — `useIsMobile`-Hook + `Sheet` von shadcn.
+---
 
-**Datenquellen-Merge:**
+## 2. Mailprogramm: Sortierung neu → alt
 
-`useMailThread(inquiryId)` Hook fasst zwei Tabellen zusammen, sortiert nach `created_at` ASC:
+### Fix
+- `src/components/admin/shared/MailClient.tsx`: Sidebar-Liste in **umgekehrter Reihenfolge** rendern (`[...items].reverse().map(...)`), so dass die jüngste Nachricht oben steht.
+- Default-Auswahl bleibt die jüngste Nachricht (in `useEffect` heute `items[items.length - 1]`) — passt weiterhin.
+- Reading-Pane bleibt unverändert (zeigt eine einzelne Mail).
+- `useMailThread`-Hook bleibt unverändert (intern weiter ASC sortiert; nur die Anzeige wird umgedreht). Das ist bewusst, damit „Default = neueste" einfach `at(-1)` bleibt.
 
-1. `email_messages` (wie heute) — direction = `inbound`/`outbound`, Subject, Body (HTML/Plain), Attachments, Resend-Status.
-2. `offer_customer_responses` — Mapped als virtuelles Inbound-Item:
-   - `kind: "form_response"`
-   - `subject: "Kundenrückmeldung: Option X gewählt"`
-   - `body_html`: gerenderte Karte mit gewählter Option, Optionslabel/Paketname, optionale Anmerkung, Versand-Zeitstempel (visuell ähnlich der jetzigen blauen Karte aus Tab „Angebot", aber im Reading-Pane)
-   - `from_email`: Kunden-E-Mail aus `event_inquiries.email`
-   - `to_email`: `info@events-storia.de`
-   - Sidebar-Vorschau: „Hat Option A gewählt — Anmerkung: …"
+---
 
-**Realtime:** Der bestehende `postgres_changes`-Subscribe auf `v2_event_emails` bleibt; zusätzlich Subscribe auf `offer_customer_responses` (filter `inquiry_id`).
-
-**Aufruf-Site:** `SmartInquiryEditor.tsx` Tab `kommunikation` ersetzt `<ConversationThread …>` durch `<MailClient inquiryId={id} customerEmail={inquiry.email} onSendReply={…} />`. Die Kunden-Antwort-Karte unter Tab „Angebot" bleibt unverändert (informativer Quick-View dort).
-
-### Files
+## Geänderte Dateien
 
 | Datei | Änderung |
 |---|---|
-| `package.json` | + `@chatscope/chat-ui-kit-react`, `@chatscope/chat-ui-kit-styles` |
-| `src/components/admin/shared/MailClient.tsx` | NEU |
-| `src/hooks/useMailThread.ts` | NEU — merged Source aus `email_messages` + `offer_customer_responses` |
-| `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` | ConversationThread → MailClient |
-| `src/components/admin/shared/ConversationThread.tsx` | bleibt vorerst (für andere Stellen falls genutzt), wird aber von MailClient ersetzt im Inquiry-Editor |
-
----
-
-## 2. Anzahlungs-Toggle (% / €) — Audit aller Touchpoints
-
-Audit-Ergebnis nach Durchsicht aller relevanten Pfade — kein Code-Change nötig, nur Bestätigung:
-
-| Touchpoint | Datei | % | € (Fix) | Status |
-|---|---|---|---|---|
-| Maestro Editor | `PaymentTermsBlock.tsx` | ✓ | ✓ (Toggle „depositMode") | OK |
-| Public Offer | `PublicOffer.tsx` (`computeDeposit`) | ✓ | ✓ | OK (heute gefixt) |
-| Public Offer (separate Files, ungenutzt) | `public-offer/{Proposal,FinalOffer}View.tsx` | ✓ | ✓ | OK |
-| Stripe-Checkout | `create-payment-session/index.ts` | ✓ | ✓ (`Math.min(fixedDeposit, total)`) | OK |
-| Stripe-Maestro-Checkout | `create-event-payment-session/index.ts` | n/a | n/a | uses pre-computed `amount_cents` — OK |
-| Stripe-Webhook | `handle-stripe-webhook/index.ts` | ✓ | ✓ (uses `session.amount_total`) | OK |
-| LexOffice-Quotation | `create-event-quotation/index.ts` | ✓ | ✓ (`paymentTermLabel` mit `fixedDepositAmount.toFixed(2)`) | OK |
-| AI-Anschreiben | `generate-inquiry-email/index.ts` | n/a | n/a | nennt nur "Anzahlung online", keine konkrete Zahl — OK |
-| Internes Notify | `notify-customer-response/index.ts` | n/a | n/a | erwähnt Anzahlung nicht — OK |
-
-**Ergebnis:** Beide Modi werden überall korrekt berücksichtigt. Es gibt **keinen** verbleibenden 20-%-Hardcode in customer-facing Flows. Damit ist Item 2 nur eine Bestätigung — kein Code-Change.
-
----
+| `src/lib/inquiryActionState.ts` | `status === "new"` immer `respond` (rot), 24-h-Schwelle entfernen |
+| `src/components/admin/refine/EventsList.tsx` | Default-Sort `created_at desc` |
+| `src/components/admin/shared/MailClient.tsx` | Sidebar-Liste neu → alt |
 
 ## Out of scope
-- Volltext-Suche im Mail-Client (späteres Ticket).
-- Mail-Threading nach `in_reply_to` (heute reicht chronologische Liste; bei Bedarf später Gruppierung).
-- Migration der bestehenden `ConversationThread`-Komponente an anderen Stellen (`OrdersList.tsx`) — nur `SmartInquiryEditor` umstellen.
+- Andere Listen (Dashboard-Inbox-Column) — die nutzen schon eigene Sortierung.
+- Visuelle Anpassung der Farbtöne — Bestand bleibt (rot/orange/grün/grau wie heute, monochromer Modus erlaubt rot für Action-Required).
