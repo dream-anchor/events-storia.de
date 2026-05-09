@@ -1,62 +1,109 @@
-## Ziel
+## Problem
 
-Das Rabatt-Feld in der Preisaufstellung soll — analog zur Anzahlung — zwischen **% und €** umschaltbar sein. Aktuell akzeptiert es nur Prozent.
+Bei drei Paket-Varianten als Optionen werden in der Lex-Office-Quotation aktuell alle drei aufaddiert (z. B. 3 × 1.000 € = 3.000 €). Korrekt wäre: Eine Hauptposition + zwei **Alternativpositionen**, sodass die Summe nur die gewählte Variante enthält.
 
-## Aktueller Stand
+## Lösung: Lexware-API „Alternativposition"
 
-- Datenmodell: `OfferBuilderOption.discountPercent: number` (in `types.ts` Zeile 115). Persistiert in `menu_selection.discountPercent`.
-- UI: Input mit fixem `%` in `PriceBreakdown.tsx` (Menü-Modus Zeile 248–275, Paket-Modus Zeile 437–464).
-- Berechnung in `useOfferBuilder.ts` (Zeile 665, 707, 718): `discountFactor = 1 - discountPercent/100`, wirkt auf Subtotal/Total.
-- Anzahlung verwendet bereits Pattern aus `PaymentTermsBlock.tsx` (Zeile 120, 144, 230–246): zwei Felder (`depositPercent` + `depositAmount`), Toggle leitet aus `amount > 0` ab.
+Die Public-API unterstützt das in der Web-UI bekannte „OR"-Konzept direkt:
 
-## Lösung — gleiches Pattern wie Anzahlung
+- `subItems[]` mit `alternative: true` → Alternativposition unter einer Hauptposition; nicht in Gesamtsumme
+- `optional: true` auf Top-Level → optionale Position, nicht in Gesamtsumme
 
-### 1. Datenmodell (`types.ts`)
-- Neues Feld: `discountAmount: number` (€-Betrag, default 0).
-- Bestehendes `discountPercent` bleibt.
-- Hydration in `useOfferBuilder.ts` Zeile 442 ergänzen: `discountAmount` aus `menu_selection` lesen.
-- Persistenz Zeile 191: `discountAmount` mitspeichern.
-- Versendete Angebote: bleiben unverändert (kein Migration). Alte Angebote ohne `discountAmount` rendern korrekt (= 0 → Prozent-Modus).
+Quelle: `developers.lexware.io/docs/#quotations-endpoint-quotations-properties` — `alternative` ist „currently only valid for subitems, and mandatory to be true in that case". Wichtig: Pursue Angebot → Rechnung wird mit 406 abgelehnt, solange alternative/optionale Items enthalten sind. Daher wird die Branch-Logik nur dann eingesetzt, wenn der Kunde noch nicht gewählt hat.
 
-### 2. Berechnung (`useOfferBuilder.ts`)
-Helper `getDiscountAmount(opt, baseTotal)`:
-- Wenn `discountAmount > 0` → return `min(discountAmount, baseTotal)` (€-Modus, deckelt auf 100%).
-- Sonst → return `baseTotal × discountPercent / 100`.
+## Mapping
 
-Anwenden an drei Stellen:
-- Menü-Modus (Zeile 665): `netPerPerson = subtotal − getDiscountAmount(opt, subtotal × guests) / guests`. (€-Rabatt wird auf Total angewandt, daher Division durch guestCount für die Pro-Person-Sicht.)
-- Paket-Modus mit Override (Zeile 718): `newTotal = newTotal − getDiscountAmount(opt, newTotal)`.
-- Paket-Modus ohne Override (Zeile 723): analog.
+```text
+LineItem A (parent, top-level)        ← Variante A („Paket A: Gesamte Location")
+  └─ subItem B (alternative: true)    ← Variante B
+  └─ subItem C (alternative: true)    ← Variante C
+```
 
-Cache-Key (Zeile 757) erweitern um `discountAmount`.
+Pro Variante eine **konsolidierte** Position (Name = Paketname, Description = Aufschlüsselung der Detail-Items als Text, Preis = `total_amount` brutto). Detail-Items wandern in `description`, nicht als Top-Level-Zeilen.
 
-### 3. UI (`PriceBreakdown.tsx`)
-Im Rabatt-Block (beide Branches: Menü + Paket):
-- Modus aus props ableiten: `discountMode = (discountAmount ?? 0) > 0 ? 'amount' : 'percent'`.
-- Toggle-Pill `% | €` (analog `PriceBreakdown.PricingModeToggle`, gleiche Optik wie Anzahlung).
-- Input wertet je nach Modus `discountPercent` (0–100) oder `discountAmount` (€).
-- Anzeige `−{formatCurrency(absoluteAmount)}` rechts bleibt gleich.
-- Beim Modus-Wechsel: das nicht-aktive Feld auf `0` setzen (wie Anzahlung).
+## Branch-Logik in `create-event-quotation/index.ts`
 
-### 4. Props (`PriceBreakdown` Interface)
-- Neu: `discountAmount?: number`, `onDiscountAmountChange?: (amount: number) => void`.
-- `OptionCard.tsx` Zeile 407–408: beide Werte + Handler durchreichen.
+```text
+options = aktive inquiry_offer_options (sort_order)
 
-## Was nicht geändert wird
+if useSelectedQuantity OR forceDocumentType in {'invoice','order'}:
+  → Kunde hat gewählt: nur Optionen mit selected_quantity > 0
+  → KEINE alternative/optional Flags (bisheriges Verhalten, Pursue funktioniert)
+else if options.length === 1:
+  → bisheriges Verhalten
+else:
+  → options[0]   = parent line item (mit subItems[])
+  → options[1..] = subItems mit alternative:true
+```
 
-- Datenbank-Schema (alles in `menu_selection` jsonb).
-- Anschreiben/Cover-Letter-Prompt: bekommt €-Wert wie bisher (Endtotal ist korrekt).
-- Versendete Angebote (immutable).
-- Anderes Verhalten von Pakettypen, Override-Logik, etc.
+## Konsolidierte Variant-Position
+
+```ts
+function buildVariantLineItem(opt, packageName, guestOverride): LineItem {
+  const detailItems = buildLineItems(opt, packageName, guestOverride);
+  const description = detailItems
+    .map(i => `- ${i.name}: ${formatEUR(i.unitPrice.grossAmount * i.quantity)}`)
+    .join('\n');
+  const total = round2(detailItems.reduce(
+    (s, i) => s + i.unitPrice.grossAmount * i.quantity, 0));
+
+  // Steuersatz aus den Detail-Items ableiten (nicht hardcoden):
+  // - Wenn alle Detail-Items denselben Satz haben → diesen verwenden
+  // - Wenn gemischt → gewichteter Durchschnitt → auf nächsten gültigen
+  //   Lex-Satz mappen (7 oder 19); fällt der Mix wirklich dazwischen,
+  //   wird der dominierende Satz (höchster brutto-Anteil) gewählt.
+  // Fallback (keine Detail-Items): 7 % (Catering-Standard).
+  const taxRate = deriveTaxRate(detailItems);
+
+  return {
+    type: 'custom',
+    name: packageName || labelForMode(opt.offer_mode),
+    description,
+    quantity: 1,
+    unitName: 'Pauschale',
+    unitPrice: { currency: 'EUR', grossAmount: total, taxRatePercentage: taxRate },
+  };
+}
+
+function deriveTaxRate(items: LineItem[]): 7 | 19 {
+  if (items.length === 0) return 7;
+  const rates = new Set(items.map(i => i.unitPrice.taxRatePercentage));
+  if (rates.size === 1) return [...rates][0] as 7 | 19;
+  // gemischt: dominierender Satz nach Brutto-Anteil
+  const sumByRate: Record<number, number> = {};
+  for (const i of items) {
+    const r = i.unitPrice.taxRatePercentage;
+    sumByRate[r] = (sumByRate[r] || 0) + i.unitPrice.grossAmount * i.quantity;
+  }
+  return (sumByRate[19] || 0) > (sumByRate[7] || 0) ? 19 : 7;
+}
+```
+
+Hinweis: Eine korrektere Lösung wäre, die Variante in **zwei** parent-LineItems zu splitten (Speisen 7 % + Getränke 19 %) und beide als gemeinsamen Block zu behandeln. Da die Lex-API `alternative` aber nur auf Sub-Item-Ebene erlaubt und ein Parent immer **eine** Position ist, bleibt die dominierende Steuer-Heuristik der pragmatische Weg. Der Brutto-Gesamtbetrag ist exakt korrekt; nur der MwSt-Ausweis im PDF kann bei stark gemischten Varianten leicht abweichen.
+
+## Geänderte Dateien (beide!)
+
+### 1. `supabase/functions/create-event-quotation/index.ts`
+- Neue Funktionen `buildVariantLineItem` und `deriveTaxRate`.
+- Branch in der lineItems-Schleife (≈ Zeile 622–632): Bei `> 1` aktiven Optionen ohne Kundenauswahl `parent.subItems` mit `alternative: true` füllen.
+
+### 2. `supabase/functions/repair-quotation-pricing/index.ts` — **Pflicht, identische Änderung**
+- Dieselbe `buildVariantLineItem` + `deriveTaxRate` einbauen.
+- Dieselbe Multi-Option-Branch in der lineItems-Schleife (≈ Zeile 250–260).
+- Da das Repair-Skript die Quotation komplett neu erstellt, muss es die neue Branch ebenfalls beherrschen — sonst erzeugt der nächste Repair-Run wieder die fehlerhafte 3.000-€-Summe.
+
+Keine Änderungen an DB-Schema, UI/Maestro oder Public-Offer-Flow.
 
 ## Smoke-Test
 
-1. Paket-Modus, Override 1.000 €, Rabatt-Toggle auf `€`, Wert `100` → Netto 900 €.
-2. Toggle auf `%`, Wert `10` → Netto 900 € (gleiches Ergebnis).
-3. Menü-Modus, Subtotal/Pers. 50 €, 10 Gäste, Rabatt `€` 50 → Total 450 € (statt 500).
-4. Bestehendes Angebot mit `discountPercent: 10` öffnen → zeigt `%`-Modus mit 10.
-5. Rabatt 0 → kein Rabatt-Block sichtbar (heutiges Verhalten).
+1. Anfrage mit 3 aktiven Optionen (A: 1.000 €, B: 400 €, C: 200 €) → „Angebot PDF" → Lex-Quotation: 1 Hauptposition (1.000 €) + 2 Alternativen, Gesamtsumme = 1.000 €.
+2. Kunde wählt B → erneut „Angebot PDF" → klassisch eine Position (400 €), keine Alternativen, Pursue zu Rechnung möglich.
+3. Single-Option-Anfrage → unverändert.
+4. Multi-Option mit gemischter Variante (Speisen 7 % + Getränke 19 %) → Steuersatz folgt dem Brutto-dominierenden Satz, Gesamt-Brutto stimmt aufs Cent.
+5. `repair-quotation-pricing` auf eine Multi-Option-Anfrage anwenden → produziert dieselbe Alternativ-Struktur wie `create-event-quotation`.
 
-## Risiko
+## Out-of-Scope (bewusst nicht enthalten)
 
-Gering. Reine Erweiterung (ein neues optionales jsonb-Feld), Toggle-Pattern existiert bereits 1:1 in der Anzahlung.
+- `is_recommended` / `primary_option_id` (eigenes UX-Thema).
+- PDF-Layout-Tuning der Klammerpreise — erst nach echtem PDF-Test entscheiden.
+- Pursue-Branch-Logik — bereits korrekt im Plan.
