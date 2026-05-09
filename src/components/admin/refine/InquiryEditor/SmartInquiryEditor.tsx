@@ -21,7 +21,7 @@ import { ClientPreview } from "./ClientPreview";
 import { StaffNote } from "./StaffNote";
 import { TaskManager } from "@/components/admin/shared/TaskManager";
 import { Timeline } from "@/components/admin/shared/Timeline";
-import { ConversationThread } from "@/components/admin/shared/ConversationThread";
+import { MailClient } from "@/components/admin/shared/MailClient";
 import { PaymentCard } from "./PaymentCard";
 import { PaymentStatusStrip } from "./PaymentStatusStrip";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
@@ -923,7 +923,7 @@ export const SmartInquiryEditor = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ConversationThread
+              <MailClient
                 inquiryId={id!}
                 customerEmail={inquiry.email || undefined}
                 onSendReply={async (content) => {
