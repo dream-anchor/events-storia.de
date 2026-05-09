@@ -22,6 +22,9 @@ type Email = {
   message_id: string | null;
   in_reply_to: string | null;
   references_headers: string[] | null;
+  direction: string | null;
+  to_emails: string[] | null;
+  cc_emails: string[] | null;
 };
 
 type Filter = {
@@ -35,11 +38,22 @@ type Filter = {
 function emailMatches(email: Email, filter: Filter): boolean {
   const v = (filter.filter_value || "").trim();
   if (!v) return false;
+  const vLower = v.toLowerCase();
   switch (filter.filter_type) {
-    case "from_email":
-      return (email.from_email || "").toLowerCase() === v.toLowerCase();
+    case "from_email": {
+      // Symmetrisch: bei outbound_manual matched ein Empfänger,
+      // bei inbound der Absender.
+      if (email.direction === "outbound_manual") {
+        const recipients = [
+          ...(email.to_emails ?? []),
+          ...(email.cc_emails ?? []),
+        ].map((e) => (e || "").toLowerCase());
+        return recipients.includes(vLower);
+      }
+      return (email.from_email || "").toLowerCase() === vLower;
+    }
     case "subject_contains":
-      return (email.subject || "").toLowerCase().includes(v.toLowerCase());
+      return (email.subject || "").toLowerCase().includes(vLower);
     case "thread_root":
       return (
         email.message_id === v ||
@@ -55,7 +69,7 @@ async function matchEmail(emailId: string) {
   const { data: email, error: emailErr } = await supabase
     .from("inbox_emails")
     .select(
-      "id, from_email, subject, message_id, in_reply_to, references_headers",
+      "id, from_email, subject, message_id, in_reply_to, references_headers, direction, to_emails, cc_emails",
     )
     .eq("id", emailId)
     .maybeSingle();
