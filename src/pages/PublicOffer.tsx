@@ -56,6 +56,10 @@ interface PublicInquiry {
   selected_option_id: string | null;
   email_content: string | null;
   lexoffice_invoice_id: string | null;
+  deposit_amount?: number | null;
+  deposit_percent?: number | null;
+  deposit_due_days?: number | null;
+  payment_method?: string | null;
 }
 
 interface CourseSelection {
@@ -137,6 +141,35 @@ function formatCurrencyDecimal(amount: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+/**
+ * Berechnet die Anzahlung (deposit) auf Basis des Inquiry-Settings:
+ *   - deposit_amount > 0  → fixer Eurobetrag (gecappt auf totalAmount)
+ *   - sonst Prozentsatz   → totalAmount * deposit_percent / 100
+ * Liefert {amount, label, show}. show=false wenn 0 oder ≥ totalAmount.
+ */
+function computeDeposit(
+  inquiry: Pick<PublicInquiry, "deposit_amount" | "deposit_percent">,
+  totalAmount: number,
+): { amount: number; label: string; show: boolean } {
+  const fixed = inquiry.deposit_amount && inquiry.deposit_amount > 0 ? inquiry.deposit_amount : null;
+  if (fixed != null) {
+    const amount = Math.min(fixed, totalAmount);
+    return {
+      amount: Math.round(amount * 100) / 100,
+      label: "Anzahlung",
+      show: amount > 0 && amount < totalAmount,
+    };
+  }
+  const pct = inquiry.deposit_percent ?? 20;
+  if (pct <= 0) return { amount: 0, label: "Anzahlung", show: false };
+  const amount = Math.round(totalAmount * pct) / 100;
+  return {
+    amount,
+    label: `Anzahlung ${pct} %`,
+    show: amount > 0 && amount < totalAmount,
+  };
 }
 
 // =================================================================
@@ -565,7 +598,8 @@ function ProposalView({
 
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
   const totalAmount = selectedOption?.total_amount ?? 0;
-  const depositAmount = Math.round(totalAmount * 0.2 * 100) / 100;
+  const deposit = computeDeposit(inquiry, totalAmount);
+  const depositAmount = deposit.amount;
 
   // ACTION: Zahlung — leitet zu Stripe Checkout weiter
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
@@ -737,7 +771,7 @@ function ProposalView({
                     className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all"
                   >
                     <span className="flex items-center gap-2 w-full justify-between">
-                      <span className="text-sm">Anzahlung 20 %</span>
+                      <span className="text-sm">{deposit.label}</span>
                       {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
                     </span>
                     <span className="text-lg font-serif font-bold text-primary">
@@ -1100,6 +1134,7 @@ function FinalOfferView({
                 key={option.id}
                 option={option}
                 inquiryId={inquiry.id}
+                inquiry={inquiry}
                 isSelected={inquiry.selected_option_id === option.id}
                 singleOption={displayOptions.length === 1}
               />
@@ -1114,11 +1149,13 @@ function FinalOfferView({
 function FinalOptionCard({
   option,
   inquiryId,
+  inquiry,
   isSelected,
   singleOption,
 }: {
   option: PublicOfferOption;
   inquiryId: string;
+  inquiry: PublicInquiry;
   isSelected: boolean;
   singleOption: boolean;
 }) {
@@ -1155,7 +1192,8 @@ function FinalOptionCard({
       : 0;
 
   const totalAmount = option.total_amount;
-  const depositAmount = Math.round(totalAmount * 0.2 * 100) / 100;
+  const deposit = computeDeposit(inquiry, totalAmount);
+  const depositAmount = deposit.amount;
 
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
@@ -1353,7 +1391,7 @@ function FinalOptionCard({
                 ) : (
                   <>
                     <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(depositAmount)}</span>
-                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">20% Anzahlung</span>
+                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">{deposit.label}</span>
                     <span className="text-[10px] font-sans text-muted-foreground/60 block">Rest vor dem Event</span>
                   </>
                 )}

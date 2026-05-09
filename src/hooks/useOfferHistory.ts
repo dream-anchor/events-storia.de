@@ -48,6 +48,10 @@ export interface OfferHistoryEntry {
    *  Seit Mai 2026 wird `info@events-storia.de` standardmaessig als
    *  Archiv-BCC mitgesendet. */
   bcc_email?: string | null;
+  /** Betreff der versendeten Mail (aus email_messages-Log). */
+  subject?: string | null;
+  /** Absender-Adresse (aus email_messages-Log). */
+  from_email?: string | null;
 }
 
 export function useOfferHistory(inquiryId: string) {
@@ -124,16 +128,49 @@ export function useOfferHistoryVersion(inquiryId: string, version: number | null
   return useQuery({
     queryKey: ["offer-history", inquiryId, version],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inquiry_offer_history" as never)
-        .select("*")
-        .eq("inquiry_id", inquiryId)
-        .eq("version", version!)
-        .maybeSingle();
-      if (error) throw error;
+      const [histRes, mailsRes] = await Promise.all([
+        supabase
+          .from("inquiry_offer_history" as never)
+          .select("*")
+          .eq("inquiry_id", inquiryId)
+          .eq("version", version!)
+          .maybeSingle(),
+        supabase
+          .from("email_messages" as never)
+          .select("to_email, cc_email, bcc_email, from_email, subject, created_at")
+          .eq("inquiry_id", inquiryId)
+          .eq("direction", "outbound")
+          .order("created_at", { ascending: false }),
+      ]);
+      if (histRes.error) throw histRes.error;
+      const entry = (histRes.data || null) as unknown as OfferHistoryEntry | null;
+      if (!entry) return null;
 
-      const entry = (data || null) as unknown as OfferHistoryEntry | null;
-      return entry;
+      const mails = ((mailsRes.data as unknown) as Array<{
+        to_email: string;
+        cc_email: string | null;
+        bcc_email: string | null;
+        from_email: string | null;
+        subject: string | null;
+        created_at: string;
+      }>) || [];
+      const offerMails = mails.filter((m) => /angebot|offer/i.test(m.subject || ""));
+      const pool = offerMails.length > 0 ? offerMails : mails;
+      const target = new Date(entry.sent_at).getTime();
+      let best: typeof pool[number] & { diff: number } | null = null;
+      for (const m of pool) {
+        const diff = Math.abs(new Date(m.created_at).getTime() - target);
+        if (!best || diff < best.diff) best = { ...m, diff };
+      }
+      const matched = best && best.diff <= 5 * 60 * 1000 ? best : null;
+      return {
+        ...entry,
+        recipient_email: matched?.to_email ?? null,
+        cc_email: matched?.cc_email ?? null,
+        bcc_email: matched?.bcc_email ?? null,
+        subject: matched?.subject ?? null,
+        from_email: matched?.from_email ?? null,
+      } as OfferHistoryEntry;
     },
     enabled: !!inquiryId && version != null && !Number.isNaN(version),
   });
