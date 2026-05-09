@@ -363,7 +363,9 @@ function FinalOptionCard({
                 ) : (
                   <>
                     <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(depositAmount)}</span>
-                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">20% Anzahlung</span>
+                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">
+                      {isFixedDeposit ? 'Anzahlung' : `${depositPercent}% Anzahlung`}
+                    </span>
                     <span className="text-[10px] font-sans text-muted-foreground/60 block">Rest vor dem Event</span>
                   </>
                 )}
