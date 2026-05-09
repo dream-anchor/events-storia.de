@@ -665,13 +665,18 @@ export function useOfferBuilder({
           // budgetPerPerson (manuell gesetzt) hat Vorrang. Wenn nicht gesetzt,
           // wird der eingegebene Rabatt auf den errechneten Preis angewendet.
           const discountPct = Math.min(100, Math.max(0, opt.discountPercent ?? 0));
-          const discountFactor = 1 - discountPct / 100;
+          // €-Rabatt hat Vorrang, sonst Prozent
+          const discountEur = Math.max(0, opt.discountAmount ?? 0);
+          const computeDiscount = (base: number) =>
+            discountEur > 0 ? Math.min(discountEur, base) : base * (discountPct / 100);
+          const guestsForDiv = Math.max(1, opt.guestCount);
+          const perPersonDiscount = (base: number) => computeDiscount(base * guestsForDiv) / guestsForDiv;
           const effectivePerPerson = (opt.budgetPerPerson != null && opt.budgetPerPerson > 0)
             ? opt.budgetPerPerson
-            : netPerPerson * discountFactor;
+            : netPerPerson - perPersonDiscount(netPerPerson);
           // Gesamtsumme je nach Pricing-Modus
           const mode = opt.pricingMode ?? 'per_person';
-          const fallbackTotal = netPerPerson * discountFactor * opt.guestCount;
+          const fallbackTotal = netPerPerson * opt.guestCount - computeDiscount(netPerPerson * opt.guestCount);
           let newTotal = calculateTotalAmount(mode, effectivePerPerson, opt.guestCount, fallbackTotal);
 
           // Equipment & Staff: Fixkosten addieren (nicht pro Person)
