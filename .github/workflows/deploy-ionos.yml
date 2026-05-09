@@ -18,11 +18,16 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen-lockfile || bun install
 
       - name: Build project
-        run: npm run build      # erzeugt ./dist
+        run: bun run build      # erzeugt ./dist
 
       - name: Deploy via SFTP to IONOS
         uses: wlixcc/SFTP-Deploy-Action@v1.2.6
