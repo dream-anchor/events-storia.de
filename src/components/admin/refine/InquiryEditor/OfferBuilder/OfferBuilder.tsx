@@ -306,6 +306,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         guestCount={guestCount}
         menuImporterOpen={menuImporterOpen}
         onMenuImporterOpenChange={setMenuImporterOpen}
+        customerResponse={builder.offerPhase === "customer_responded" ? builder.customerResponse : null}
       />
 
       {/* 4. Zahlungs-Konditionen — pro Inquiry editierbar */}
