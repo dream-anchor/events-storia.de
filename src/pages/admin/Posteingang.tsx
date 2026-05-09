@@ -83,19 +83,106 @@ function nameFromEmail(email: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+type SuggestedEventInfo = {
+  id: string;
+  date: string | null;
+  occasion: string | null;
+  guest_count: number | null;
+  customer_name: string | null;
+};
+
+function useSuggestedEvents(ids: string[]) {
+  const key = [...new Set(ids)].sort().join(",");
+  return useQuery({
+    queryKey: ["suggested-events", key],
+    enabled: ids.length > 0,
+    queryFn: async (): Promise<Record<string, SuggestedEventInfo>> => {
+      const unique = [...new Set(ids)];
+      const { data } = await supabase
+        .from("v2_events")
+        .select("id, date, occasion, guest_count, v2_customers(name)")
+        .in("id", unique);
+      const map: Record<string, SuggestedEventInfo> = {};
+      for (const r of data ?? []) {
+        map[(r as any).id] = {
+          id: (r as any).id,
+          date: (r as any).date,
+          occasion: (r as any).occasion,
+          guest_count: (r as any).guest_count,
+          customer_name: (r as any).v2_customers?.name ?? null,
+        };
+      }
+      return map;
+    },
+  });
+}
+
+function suggestionBadgeClasses(
+  category: string | null,
+  confidence: string | null,
+): string {
+  if (category === "match") {
+    if (confidence === "high") return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    if (confidence === "medium") return "bg-amber-100 text-amber-800 border-amber-200";
+    return "bg-muted text-muted-foreground";
+  }
+  if (category === "new_inquiry") return "bg-blue-100 text-blue-800 border-blue-200";
+  if (category === "irrelevant") return "bg-red-50 text-red-700 border-red-200 opacity-80";
+  return "bg-muted text-muted-foreground";
+}
+
 export default function Posteingang() {
   const [tab, setTab] = useState<Tab>("open");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [ignoreOpen, setIgnoreOpen] = useState(false);
+  const [onlySuggestions, setOnlySuggestions] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const qcOuter = useQueryClient();
 
   const open = useUnassignedInbox();
   const hidden = useHiddenInbox();
   const blocklist = useBlocklist();
   const { data: openCount } = useUnassignedInboxCount();
 
-  const list: UnassignedEmail[] = tab === "open" ? open.data ?? [] : tab === "hidden" ? hidden.data ?? [] : [];
+  const rawList: UnassignedEmail[] =
+    tab === "open" ? open.data ?? [] : tab === "hidden" ? hidden.data ?? [] : [];
+
+  const list = useMemo(() => {
+    const filtered = onlySuggestions
+      ? rawList.filter((e) => !!e.suggestion_category)
+      : rawList;
+    const confRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    return [...filtered].sort((a, b) => {
+      const ar = a.suggestion_category ? confRank[a.suggestion_confidence ?? "low"] ?? 3 : 4;
+      const br = b.suggestion_category ? confRank[b.suggestion_confidence ?? "low"] ?? 3 : 4;
+      if (ar !== br) return ar - br;
+      return new Date(b.date_received).getTime() - new Date(a.date_received).getTime();
+    });
+  }, [rawList, onlySuggestions]);
+
+  const suggestedIds = useMemo(
+    () => list.map((e) => e.suggested_event_id).filter((x): x is string => !!x),
+    [list],
+  );
+  const { data: suggestedEvents } = useSuggestedEvents(suggestedIds);
+
+  const runBulkSuggest = async () => {
+    setBulkBusy(true);
+    const { data, error } = await supabase.functions.invoke("bulk-suggest-mappings", {
+      body: {},
+    });
+    setBulkBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(
+      `${data?.processed ?? 0} Mails analysiert, ${data?.with_suggestion ?? 0} Vorschläge generiert${data?.remaining ? ` (${data.remaining} weitere offen)` : ""}.`,
+    );
+    qcOuter.invalidateQueries({ queryKey: ["unassigned-inbox"] });
+  };
 
   const selected = useMemo(() => list.find((e) => e.id === selectedId) ?? null, [list, selectedId]);
 
