@@ -345,6 +345,14 @@ export const EventsList = () => {
         return (
           <div className="flex flex-col gap-1 min-w-[160px]">
             <div className="flex items-center gap-1.5 flex-wrap">
+              <span
+                className={cn(
+                  "w-2 h-2 rounded-full flex-shrink-0",
+                  getInquiryActionState(event).dotClass
+                )}
+                title={getInquiryActionState(event).label}
+                aria-label={getInquiryActionState(event).label}
+              />
               <Badge variant="outline" className={cn("font-medium flex items-center w-fit", badgeClass)}>
                 {statusIcon}
                 {statusLabel}
