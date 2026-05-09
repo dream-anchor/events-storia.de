@@ -98,6 +98,93 @@ function PricingModeToggle({
   );
 }
 
+/**
+ * Rabatt-Eingabe mit %/€-Toggle (analog Anzahlung).
+ * Wert wird in `discountPercent` ODER `discountAmount` gespeichert.
+ * Modus = 'amount' wenn discountAmount > 0, sonst 'percent'.
+ */
+function DiscountInput({
+  percent,
+  amount,
+  onPercentChange,
+  onAmountChange,
+  disabled,
+  tone = 'muted',
+}: {
+  percent: number;
+  amount: number;
+  onPercentChange: (v: number) => void;
+  onAmountChange: (v: number) => void;
+  disabled?: boolean;
+  tone?: 'muted' | 'green';
+}) {
+  const mode: 'percent' | 'amount' = amount > 0 ? 'amount' : 'percent';
+  const toneClass = tone === 'green' ? 'text-green-600' : 'text-muted-foreground';
+  const setMode = (m: 'percent' | 'amount') => {
+    if (m === 'percent') onAmountChange(0);
+    else onPercentChange(0);
+  };
+  return (
+    <div className={`flex items-center gap-1 ${toneClass}`}>
+      <span>Rabatt</span>
+      <div className="relative w-16">
+        {mode === 'percent' ? (
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={percent || ''}
+            placeholder="0"
+            onChange={(e) => {
+              const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+              onPercentChange(val);
+            }}
+            className={`h-5 rounded px-1.5 pr-5 text-right text-xs ${toneClass}`}
+            disabled={disabled}
+          />
+        ) : (
+          <Input
+            type="number"
+            min={0}
+            step={1}
+            value={amount || ''}
+            placeholder="0"
+            onChange={(e) => {
+              const val = Math.max(0, parseFloat(e.target.value) || 0);
+              onAmountChange(val);
+            }}
+            className={`h-5 rounded px-1.5 pr-5 text-right text-xs ${toneClass}`}
+            disabled={disabled}
+          />
+        )}
+      </div>
+      <div className="inline-flex rounded border border-border/50 bg-muted/30 p-0.5 text-[10px] leading-none">
+        <button
+          type="button"
+          onClick={() => setMode('percent')}
+          disabled={disabled}
+          className={`px-1.5 py-0.5 rounded transition-colors ${
+            mode === 'percent' ? 'bg-background shadow-sm font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          %
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('amount')}
+          disabled={disabled}
+          className={`px-1.5 py-0.5 rounded transition-colors ${
+            mode === 'amount' ? 'bg-background shadow-sm font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          €
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Findet das beste MenuItem — bevorzugt Items mit Preis > 0 */
 function findBestMenuItem(
   items: CombinedMenuItem[] | undefined,
