@@ -1,69 +1,72 @@
 
-# Deploy-Stau auflösen — Sicherer Pfad
+## Ziel
 
-## Entscheidung
+In jedem Angebot — egal ob Paket, Menü oder E-Mail — sollen **Preise, Mengen und Rabatte** frei editierbar sein. Aktuell ist das nur im Menü-Modus vollständig möglich; im Paket-Modus fehlen mehrere Stellschrauben.
 
-**Wir deployen jetzt — kontrolliert und in einem Schwung.** Begründung:
+## Status-Analyse (was es schon gibt)
 
-1. **Stillstand ist gefährlicher als Deploy.** Auf der Live-Site fehlt seit 2 Wochen u.a. der Operator-E-Mail-Schutz, GA4-DSGVO-Fix und der `packageId`-Fix für das EventContactForm. Jeder Tag ohne Deploy = anhaltendes Risiko für Fehlversand und Tracking-Lücken.
-2. **DB & Edge Functions sind ohnehin schon live.** Frontend nachzuziehen schließt einen Drift, statt einen neuen aufzureißen.
-3. **Rollback ist trivial.** Lovable-History + Git-Revert geben uns 1-Klick-Sicherheit.
-4. **Workflow-Fix ist verifiziert.** `bun install` + `bun run build` ist Standard auf Lovable-Projekten und wird in der Sandbox bei jeder Änderung durchlaufen.
+| Funktion | Menü-Modus | Paket-Modus | E-Mail-Modus |
+|---|---|---|---|
+| Anzahl Personen | ✅ | ✅ | ✅ |
+| Einzelpreis pro Gang | ✅ override | ❌ fix aus Paket-DB | — |
+| Menge pro Gang | ✅ | ⚠️ teils | — |
+| Paketpreis manuell | — | ❌ nur Katalog | — |
+| Rabatt-Feld (%) | ✅ | ❌ fehlt | ❌ fehlt |
+| Equipment/Personal-Preise | ✅ | ✅ | ✅ |
+| Finaler Angebotspreis (Override) | ✅ | ✅ | ✅ |
 
-## Vorgehen
+Die `discountPercent`-Logik existiert bereits im Datenmodell (`types.ts` + `useOfferBuilder.ts` Zeile 191/442/862) und wird beim Versand mitgespeichert. Sie ist aber UI-seitig nur im Menü-Modus erreichbar.
 
-### Schritt 1 — No-Op-Commit erstellen (Build-Mode)
-Eine harmlose Änderung in `.github/workflows/deploy-ionos.yml`: ein Kommentar-Header mit Datum + Hinweis auf den Workflow-Switch. Das ist:
-- Keine Logik-Änderung
-- Triggert den Workflow auf `main`
-- Lässt sich später nicht „kaputt machen"
+## Was umgesetzt wird
 
-### Schritt 2 — Build-Verifikation
-Lovable-Sandbox baut bei jeder Änderung automatisch via `bun run build`. Wenn der Build hier durchläuft (was er tut, sonst hätte der Preview Fehler), läuft er auch in GitHub Actions identisch durch.
+### 1. Rabatt-Feld in allen Modi
+- Rabatt-Eingabe (0–100 %) zusätzlich im **Paket-Modus** und **E-Mail-Modus** anzeigen.
+- Verhalten identisch zum Menü-Modus: erscheint mit „+ Rabatt"-Button, wenn 0; Eingabe inline, grün dargestellt; Abzug erscheint in der Preisaufstellung sowie beim errechneten Gesamtpreis.
+- Wert wandert wie gehabt nach `menu_selection.discountPercent` → Versionierung bleibt erhalten.
 
-### Schritt 3 — Deploy beobachten
-Nach Push:
-- GitHub Actions Run prüfen: `bun install` → `bun run build` → SFTP-Upload
-- Erwartete Dauer: 2–3 Minuten
-- Bei grün: Live-Site hat alle 36 Features
+### 2. Paketpreis manuell anpassen
+Im `PriceBreakdown` (Paket-Modus) wird die heute fixe Zeile „{Paket} ({Gäste} × X €)" zu einer editierbaren Zeile:
+- Inline-Input für **Preis pro Person** (oder Gesamt, je nach `pricing_type` des Pakets).
+- Override wird in `option.budgetPerPerson` / `option.totalAmount` gespeichert (bestehende Felder, kein Migrationsbedarf).
+- Katalogpreis bleibt sichtbar als Placeholder/Hint.
+- Reset-Button („auf Katalogpreis zurücksetzen") wenn Override gesetzt ist.
 
-### Schritt 4 — Smoke-Test auf Live (manuell durch dich)
-Drei Klicks reichen, um 90 % aller Probleme zu fangen:
-1. **events-storia.de Startseite** — lädt, Hero sichtbar, kein Console-Error
-2. **events-storia.de/checkout** — Warenkorb-Flow funktioniert (GA4 darf hier nicht crashen)
-3. **events-storia.de/admin** — Login-Maske erscheint, eine Anfrage öffnen, Editor lädt
+### 3. Paket-Inhalte (enthaltene Menü-Items) editierbar
+Im Paket-Modus werden enthaltene Speisen aus `package_menu_items` gerendert. Diese werden auf den **gleichen `InlineCourseEditor`** umgestellt, der im Menü-Modus läuft:
+- Einzelpreis pro Item editierbar (override, kein DB-Schreibvorgang am Paket selbst).
+- Menge pro Item editierbar.
+- Item entfernen / hinzufügen wie im Menü-Modus.
+- Originalpaket bleibt unangetastet — Overrides liegen pro Option in `menu_selection`.
 
-### Schritt 5 — Rollback-Plan (falls etwas bricht)
+### 4. Konsistenz & Anzeige
+- Preisaufstellung im Paket-Modus erweitert um Zeilen: Zwischensumme, Rabatt, Netto (analog Menü-Modus).
+- Versandte Angebote bleiben **immutable** (bestehende Versionierung greift unverändert).
+- AI-Cover-Letter-Prompts müssen Rabatt-Hinweis im Paket-Modus aufnehmen, sonst entsteht Inkonsistenz im Anschreiben → kleiner Patch in `useOfferBuilder.ts` Cover-Letter-Generierung.
 
-| Symptom | Reaktion |
-|---|---|
-| White-Screen auf events-storia.de | Lovable-History → Version vor dem Deploy auswählen, Re-Deploy |
-| Admin-Editor crasht | Gleicher Pfad — History-Rollback |
-| Einzelne neue Funktion buggy, Rest läuft | Live lassen, Bug gezielt fixen, neuer Commit |
-| Deploy-Workflow scheitert | Logs in GitHub Actions ansehen — meist Lockfile-Problem, dann `bun install` ohne `--frozen-lockfile` |
+### 5. Speichern / Laden
+- Hydration in `useOfferBuilder.ts` Zeile ~442: `discountPercent` wird bereits aus `menu_selection` gelesen → keine Änderung nötig.
+- Neue Override-Felder für Paket-Items: in `menu_selection.packageItemOverrides` (jsonb-Map `item_id → { price?, quantity? }`) speichern.
 
-## Was NICHT angefasst wird
+## Was NICHT geändert wird
 
-- ❌ Keine Code-Änderungen an Features (nur Workflow-Kommentar)
-- ❌ Keine neuen Migrationen
-- ❌ Kein Edge-Function-Re-Deploy (schon aktuell)
-- ❌ Kein Massen-Refactor
+- Paket-Stammdaten (`packages`, `package_menu_items`) bleiben unverändert — Overrides sind angebotsspezifisch.
+- Bestehende Angebote (versendet) werden nicht migriert; alte Versionen bleiben sichtbar wie gespeichert.
+- Keine DB-Migration nötig — alles passt in `menu_selection` (jsonb).
 
-## Technische Punkte
+## Technische Details (für später)
 
-**Datei zu ändern:** `.github/workflows/deploy-ionos.yml`
-**Änderung:** Header-Kommentar oben einfügen, z. B.:
-```yaml
-# Deploy-Workflow — bun-basiert seit 09.05.2026
-# Trigger: push to main → SFTP zu IONOS (events-storia.de)
-```
+**Dateien, die angefasst werden:**
+- `OfferBuilder/PriceBreakdown.tsx` — Rabatt-UI in beiden Branches; editierbare Paketpreis-Zeile
+- `OfferBuilder/OptionCard.tsx` — `discountPercent` & `onDiscountChange` an Paket-Branch durchreichen (bereits vorhanden, nur Bedingung erweitern)
+- `OfferBuilder/types.ts` — `packageItemOverrides`-Map ergänzen
+- `OfferBuilder/useOfferBuilder.ts` — Persistenz der neuen Overrides; AI-Prompt-Hinweis
+- `OfferBuilder/InlineCourseEditor.tsx` — auch im Paket-Modus mit Paket-Items rendern (bereits parametrisiert, nur Wiring)
 
-**Erwartetes Build-Ergebnis:** `dist/` mit aktuellem `main`-Stand inkl. aller 36 nicht-deployten Feature-Commits.
+**Risiko:** sehr gering. Keine Edge-Function-Änderung, keine DB-Migration, keine Mail-Triggers — rein UI/State.
 
-**Risiko-Level:** Niedrig. Das ist die schonendste mögliche Aktion, um den Workflow zu triggern.
+## Smoke-Test (nach Implementierung)
 
-## Alternativen, die ich verworfen habe
-
-- **„Cherry-Pick einzelne Commits"** — 36 Commits einzeln zu deployen ist 36× das Risiko, mit dem Vorteil von Granularität, die du laut deiner Aussage gar nicht beurteilen kannst. Verworfen.
-- **„Zurück zum 24.04.-Stand auf main"** — Würde DB/Frontend-Drift maximieren statt schließen. Verworfen.
-- **„Manuell Deploy ohne Workflow"** — Möglich (SFTP-Direkt-Upload), aber außerhalb des automatisierten Pfads. Schafft eine Sonderprozedur, die niemand sonst nachvollziehen kann. Verworfen.
+1. Paket-Angebot anlegen → Paketpreis manuell überschreiben → speichern → neu laden → Override bleibt.
+2. Paket-Angebot → Rabatt 10 % eingeben → Preisaufstellung zeigt Rabatt-Zeile, Netto, korrekten Gesamtpreis.
+3. Paket-Item-Preis editieren → Versand → Kunde sieht editierten Preis im PublicOffer.
+4. Bestehendes versendetes Angebot öffnen → unverändert (immutable).

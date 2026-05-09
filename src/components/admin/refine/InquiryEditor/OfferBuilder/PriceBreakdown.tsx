@@ -373,6 +373,14 @@ export function PriceBreakdown({
   const isLocation = isLocationPackage(packageData.id, packageData.price);
   const locationBreakdown = isLocation ? getLocationPricingBreakdown(guestCount) : null;
 
+  // Rabatt-Berechnung (Paket-Modus) — analog zum Menü-Modus rein visuell.
+  // Wenn kein finaler Override (finalPricePerPerson) gesetzt ist, fließt der
+  // Rabatt ueber den Recalc-Effect in totalAmount; hier zeigen wir die
+  // Aufstellung transparent an.
+  const pkgDiscountPct = discountPercentProp ?? 0;
+  const pkgDiscountAmount = grandTotal * (pkgDiscountPct / 100);
+  const pkgNetTotal = grandTotal - pkgDiscountAmount;
+
   return (
     <div className="pt-3 border-t border-border/30 space-y-2">
       {/* Pricing-Mode Toggle — nur wenn Handler existiert */}
@@ -426,6 +434,49 @@ export function PriceBreakdown({
 
       <Separator className="my-1" />
 
+      {/* Rabatt — frei eingebbar, 0–100 % */}
+      {onDiscountChange && (
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <span>Rabatt</span>
+            <div className="relative w-14">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={pkgDiscountPct || ''}
+                placeholder="0"
+                onChange={(e) => {
+                  const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                  onDiscountChange?.(val);
+                }}
+                className="h-5 rounded px-1.5 pr-4 text-right text-xs"
+                disabled={disabled}
+              />
+              <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">%</span>
+            </div>
+          </div>
+          {pkgDiscountAmount > 0 && (
+            <span className="text-muted-foreground">−{formatCurrency(pkgDiscountAmount)}</span>
+          )}
+        </div>
+      )}
+
+      {/* Netto — nur wenn Rabatt aktiv */}
+      {pkgDiscountAmount > 0 && (
+        <div className="flex items-center justify-between text-xs font-medium">
+          <span className="text-muted-foreground">
+            {pricingMode === 'per_event' ? 'Netto gesamt' : 'Netto / Person'}
+          </span>
+          <span>
+            {pricingMode === 'per_event'
+              ? formatCurrency(pkgNetTotal)
+              : (guestCount > 0 ? formatCurrency(pkgNetTotal / guestCount) : '—')}
+          </span>
+        </div>
+      )}
+
       {/* Errechneter Preis */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
@@ -433,7 +484,7 @@ export function PriceBreakdown({
         </span>
         <AnimatePresence mode="wait">
           <motion.span
-            key={guestCount > 0 ? (grandTotal / guestCount).toFixed(2) : '0'}
+            key={guestCount > 0 ? (pkgNetTotal / guestCount).toFixed(2) : '0'}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
@@ -441,8 +492,8 @@ export function PriceBreakdown({
             className="text-sm text-muted-foreground"
           >
             {pricingMode === 'per_event'
-              ? formatCurrency(grandTotal)
-              : (guestCount > 0 ? formatCurrency(grandTotal / guestCount) : '—')}
+              ? formatCurrency(pkgNetTotal)
+              : (guestCount > 0 ? formatCurrency(pkgNetTotal / guestCount) : '—')}
           </motion.span>
         </AnimatePresence>
       </div>
@@ -462,8 +513,8 @@ export function PriceBreakdown({
             }}
             placeholder={
               pricingMode === 'per_event'
-                ? (grandTotal > 0 ? grandTotal.toFixed(2) : '0,00')
-                : (guestCount > 0 ? (grandTotal / guestCount).toFixed(2) : '0,00')
+                ? (pkgNetTotal > 0 ? pkgNetTotal.toFixed(2) : '0,00')
+                : (guestCount > 0 ? (pkgNetTotal / guestCount).toFixed(2) : '0,00')
             }
             className="h-9 rounded-xl pr-6 text-right text-sm font-bold"
             disabled={disabled}

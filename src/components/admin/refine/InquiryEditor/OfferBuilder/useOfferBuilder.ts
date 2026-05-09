@@ -660,13 +660,16 @@ export function useOfferBuilder({
           const subtotal = dishSubtotal + drinksPerPerson;
           const netPerPerson = subtotal;
 
-          // budgetPerPerson (manuell gesetzt) hat Vorrang
+          // budgetPerPerson (manuell gesetzt) hat Vorrang. Wenn nicht gesetzt,
+          // wird der eingegebene Rabatt auf den errechneten Preis angewendet.
+          const discountPct = Math.min(100, Math.max(0, opt.discountPercent ?? 0));
+          const discountFactor = 1 - discountPct / 100;
           const effectivePerPerson = (opt.budgetPerPerson != null && opt.budgetPerPerson > 0)
             ? opt.budgetPerPerson
-            : netPerPerson;
+            : netPerPerson * discountFactor;
           // Gesamtsumme je nach Pricing-Modus
           const mode = opt.pricingMode ?? 'per_person';
-          const fallbackTotal = netPerPerson * opt.guestCount;
+          const fallbackTotal = netPerPerson * discountFactor * opt.guestCount;
           let newTotal = calculateTotalAmount(mode, effectivePerPerson, opt.guestCount, fallbackTotal);
 
           // Equipment & Staff: Fixkosten addieren (nicht pro Person)
@@ -701,6 +704,8 @@ export function useOfferBuilder({
         //  per_event: budgetPerPerson ist bereits der Gesamtpreis
         //  per_person: wie bisher (budgetPerPerson * guestCount oder Paket-Kalkulation)
         const mode = opt.pricingMode ?? 'per_person';
+        const discountPct = Math.min(100, Math.max(0, opt.discountPercent ?? 0));
+        const discountFactor = 1 - discountPct / 100;
         let newTotal: number;
         if (opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
           if (mode === 'per_event') {
@@ -711,9 +716,11 @@ export function useOfferBuilder({
               : opt.budgetPerPerson + courseSurcharge * opt.guestCount;
           }
         } else {
-          newTotal = calculateEventPackagePrice(
+          const baseTotal = calculateEventPackagePrice(
             pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
           ) + (pkg.price_per_person ? courseSurcharge * opt.guestCount : courseSurcharge * opt.guestCount);
+          // Rabatt nur anwenden, wenn kein manueller Preis-Override gesetzt ist
+          newTotal = baseTotal * discountFactor;
         }
 
         // Equipment & Staff: Fixkosten addieren (nicht pro Person)
@@ -745,7 +752,7 @@ export function useOfferBuilder({
       : '';
     const equipKey = (o.menuSelection.equipment ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
     const staffKey = (o.menuSelection.staff ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
-    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${courseKey}:${drinkKey}:${equipKey}:${staffKey}`;
+    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.discountPercent ?? 0}:${courseKey}:${drinkKey}:${equipKey}:${staffKey}`;
   }).join(',')]);
 
   // =================================================================
