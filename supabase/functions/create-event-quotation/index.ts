@@ -512,8 +512,16 @@ function buildIntroduction(
 function buildPaymentConditions(
   depositPercent: number,
   depositDueDays: number,
+  fixedDepositAmount?: number | null,
 ): { paymentTermLabel: string; paymentTermDuration: number } {
   const paymentTermDuration = Math.max(1, depositDueDays || 1);
+
+  if (fixedDepositAmount != null && fixedDepositAmount > 0) {
+    return {
+      paymentTermLabel: `Anzahlung ${fixedDepositAmount.toFixed(2)} € innerhalb von ${paymentTermDuration} Tagen`,
+      paymentTermDuration,
+    };
+  }
 
   if (depositPercent === 0) {
     return {
@@ -650,6 +658,7 @@ serve(async (req) => {
     const paymentMethod = inq.payment_method as string | null;
     const invoiceDueDays = (inq.invoice_due_days as number | null) ?? 14;
     let depositPercent = inq.deposit_percent as number | null | undefined;
+    const fixedDepositAmount = inq.deposit_amount as number | null | undefined;
     let depositDueDays = inq.deposit_due_days as number | null | undefined;
     let offerValidityDays = inq.offer_validity_days as number | null | undefined;
 
@@ -671,7 +680,7 @@ serve(async (req) => {
           paymentTermLabel: `Zahlbar innerhalb von ${invoiceDueDays} Tagen nach der Veranstaltung`,
           paymentTermDuration: invoiceDueDays,
         }
-      : buildPaymentConditions(depositPercent, depositDueDays);
+      : buildPaymentConditions(depositPercent, depositDueDays, fixedDepositAmount);
 
     const remarkText = isInvoiceMode
       ? `Vielen Dank für Ihre Buchung. Das Zahlungsziel beträgt ${invoiceDueDays} Tage nach dem Veranstaltungsdatum.`
