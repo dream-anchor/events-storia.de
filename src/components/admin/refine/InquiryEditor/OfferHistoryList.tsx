@@ -168,6 +168,26 @@ export function OfferHistoryList({ inquiryId }: OfferHistoryListProps) {
                     </div>
                   )}
 
+                  {entry.cc_email && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Mail className="h-3 w-3 opacity-60" />
+                      <span>CC:</span>
+                      <span className="font-mono text-foreground/80 break-all">
+                        {entry.cc_email}
+                      </span>
+                    </div>
+                  )}
+
+                  {entry.bcc_email && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Mail className="h-3 w-3 opacity-60" />
+                      <span>BCC:</span>
+                      <span className="font-mono text-foreground/80 break-all">
+                        {entry.bcc_email}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="text-xs text-muted-foreground">
                     {opts.length === 0 ? (
                       <span>Keine Optionen archiviert</span>
