@@ -173,17 +173,25 @@ async function findByMessageId(
   }
 }
 
+/**
+ * @param stateName  Kanonischer Name in imap_sync_state (z.B. 'INBOX' oder 'SENT')
+ * @param folderPath Tatsächlicher IMAP-Pfad (z.B. 'INBOX', 'Sent', 'Gesendete Objekte', 'INBOX.Sent')
+ * @param direction  'inbound' für INBOX-style, 'outbound_manual' für SENT
+ */
 async function phaseA(
   client: ImapFlow,
-  folder: string,
-): Promise<{ folder: string; processed: number; skippedOwn: number; maxUid: number }> {
-  const state = await getSyncState(folder);
+  stateName: string,
+  folderPath: string,
+  direction: "inbound" | "outbound_manual",
+): Promise<{ folder: string; processed: number; skippedOwn: number; skippedDup: number; maxUid: number }> {
+  const state = await getSyncState(stateName);
   const lastUid = Number(state.last_uid || 0);
   let processed = 0;
   let skippedOwn = 0;
+  let skippedDup = 0;
   let maxUid = lastUid;
 
-  const lock = await client.getMailboxLock(folder);
+  const lock = await client.getMailboxLock(folderPath);
   try {
     const range = `${lastUid + 1}:*`;
     const uids: number[] = [];
@@ -235,18 +243,44 @@ async function phaseA(
         const messageId =
           stripBrackets(parsed.messageId) ||
           stripBrackets(env?.messageId) ||
-          `imap-${IMAP_USER}-${folder}-${uid}`;
+          `imap-${IMAP_USER}-${stateName}-${uid}`;
         const fromArr = addrList(parsed.from);
-        // Eigene Outbound-Kopien überspringen (nicht in inbox_emails inserten),
-        // aber UID-Pointer hochsetzen, damit wir sie nicht erneut anfassen.
-        if (isOwnOutbound(fromArr[0]?.email)) {
-          skippedOwn += 1;
-          maxUid = Math.max(maxUid, uid);
-          await supabase
-            .from("imap_sync_state")
-            .update({ last_uid: maxUid, last_sync_at: new Date().toISOString() })
-            .eq("folder_name", folder);
-          continue;
+
+        // ── Duplikat- und Own-Outbound-Logik ──────────────────────────────
+        // SENT-Folder: alle Mails sind "outbound_manual". Wenn die Message-ID
+        //              bereits via v2_event_emails archiviert ist, ist es eine
+        //              Maestro-eigene Mail (Resend) — überspringen.
+        // INBOX-Folder: Mails mit from=info@events-storia.de sind in 99% der
+        //              Fälle IONOS-Kopien eigener Outbound-Mails. Wenn auch
+        //              die Message-ID in v2_event_emails liegt → skip.
+        //              Wenn nicht → suspicious (gefälschter Header?) →
+        //              speichern, aber sofort verstecken.
+        let suspiciousOwnFrom = false;
+        if (direction === "outbound_manual") {
+          if (await existsInOutboundArchive(messageId)) {
+            skippedDup += 1;
+            maxUid = Math.max(maxUid, uid);
+            await supabase
+              .from("imap_sync_state")
+              .update({ last_uid: maxUid, last_sync_at: new Date().toISOString() })
+              .eq("folder_name", stateName);
+            continue;
+          }
+        } else {
+          // INBOX-style
+          if (isOwnOutbound(fromArr[0]?.email)) {
+            if (await existsInOutboundArchive(messageId)) {
+              skippedOwn += 1;
+              maxUid = Math.max(maxUid, uid);
+              await supabase
+                .from("imap_sync_state")
+                .update({ last_uid: maxUid, last_sync_at: new Date().toISOString() })
+                .eq("folder_name", stateName);
+              continue;
+            }
+            // unbekannte Mail mit Maestro-Absender → verdächtig, speichern + verstecken
+            suspiciousOwnFrom = true;
+          }
         }
         const toArr = addrList(parsed.to);
         const ccArr = addrList(parsed.cc);
@@ -271,7 +305,8 @@ async function phaseA(
               raw_mime: rawMime,
               raw_size_bytes: rawSize,
               imap_uid: uid,
-              imap_folder: folder,
+              imap_folder: folderPath,
+              direction,
               imap_status: "present",
               from_email: fromArr[0]?.email ?? null,
               from_name: fromArr[0]?.name ?? null,
@@ -289,8 +324,11 @@ async function phaseA(
               date_received: meta.internalDate
                 ? new Date(meta.internalDate as any).toISOString()
                 : new Date().toISOString(),
+              is_hidden: suspiciousOwnFrom ? true : false,
+              hidden_reason: suspiciousOwnFrom ? "suspicious_own_from" : null,
+              hidden_at: suspiciousOwnFrom ? new Date().toISOString() : null,
               status_history: [
-                { status: "present", folder, at: new Date().toISOString() },
+                { status: "present", folder: folderPath, at: new Date().toISOString() },
               ],
             },
             { onConflict: "message_id", ignoreDuplicates: true },
@@ -304,8 +342,8 @@ async function phaseA(
           await uploadAttachments(inserted.id, attachments);
         }
 
-        // Sender-Blocklist Check: Wenn Absender geblockt, sofort verstecken
-        if (inserted?.id && fromArr[0]?.email) {
+        // Sender-Blocklist Check: nur für inbound (outbound_manual ist eigener Versand)
+        if (direction === "inbound" && inserted?.id && fromArr[0]?.email) {
           try {
             const fromLower = fromArr[0].email.toLowerCase();
             const { data: blocked } = await supabase
@@ -364,7 +402,7 @@ async function phaseA(
         await supabase
           .from("imap_sync_state")
           .update({ last_uid: maxUid, last_sync_at: new Date().toISOString() })
-          .eq("folder_name", folder);
+          .eq("folder_name", stateName);
       } catch (e) {
         console.error(`Mail UID ${uid} failed:`, e);
         maxUid = Math.max(maxUid, uid);
@@ -377,16 +415,24 @@ async function phaseA(
   if (maxUid > lastUid) {
     await supabase
       .from("imap_sync_state")
-      .update({ last_uid: maxUid, last_sync_at: new Date().toISOString(), last_error: null })
-      .eq("folder_name", folder);
+      .update({
+        last_uid: maxUid,
+        last_sync_at: new Date().toISOString(),
+        last_error: null,
+        imap_folder_path: folderPath,
+      })
+      .eq("folder_name", stateName);
   } else {
     await supabase
       .from("imap_sync_state")
-      .update({ last_sync_at: new Date().toISOString() })
-      .eq("folder_name", folder);
+      .update({
+        last_sync_at: new Date().toISOString(),
+        imap_folder_path: folderPath,
+      })
+      .eq("folder_name", stateName);
   }
 
-  return { folder, processed, skippedOwn, maxUid };
+  return { folder: `${stateName}(${folderPath})`, processed, skippedOwn, skippedDup, maxUid };
 }
 
 async function phaseB(client: ImapFlow): Promise<{ moved: number; deleted: number } | null> {
