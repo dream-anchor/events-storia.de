@@ -1106,6 +1106,63 @@ export type Database = {
           },
         ]
       }
+      email_classification_feedback: {
+        Row: {
+          actual_category: string | null
+          actual_event_id: string | null
+          body_excerpt: string | null
+          created_at: string
+          email_id: string | null
+          from_email: string
+          id: string
+          subject: string | null
+          suggested_category: string | null
+          suggested_event_id: string | null
+          was_correct: boolean | null
+        }
+        Insert: {
+          actual_category?: string | null
+          actual_event_id?: string | null
+          body_excerpt?: string | null
+          created_at?: string
+          email_id?: string | null
+          from_email: string
+          id?: string
+          subject?: string | null
+          suggested_category?: string | null
+          suggested_event_id?: string | null
+          was_correct?: boolean | null
+        }
+        Update: {
+          actual_category?: string | null
+          actual_event_id?: string | null
+          body_excerpt?: string | null
+          created_at?: string
+          email_id?: string | null
+          from_email?: string
+          id?: string
+          subject?: string | null
+          suggested_category?: string | null
+          suggested_event_id?: string | null
+          was_correct?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_classification_feedback_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_classification_feedback_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "unassigned_inbox_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_delivery_logs: {
         Row: {
           created_at: string
@@ -1484,6 +1541,15 @@ export type Database = {
           status_changed_at: string | null
           status_history: Json
           subject: string | null
+          suggested_event_id: string | null
+          suggestion_accepted_at: string | null
+          suggestion_actual_event_id: string | null
+          suggestion_category: string | null
+          suggestion_confidence: string | null
+          suggestion_generated_at: string | null
+          suggestion_method: string | null
+          suggestion_overridden_at: string | null
+          suggestion_reasoning: string | null
           to_emails: string[]
           updated_at: string
         }
@@ -1515,6 +1581,15 @@ export type Database = {
           status_changed_at?: string | null
           status_history?: Json
           subject?: string | null
+          suggested_event_id?: string | null
+          suggestion_accepted_at?: string | null
+          suggestion_actual_event_id?: string | null
+          suggestion_category?: string | null
+          suggestion_confidence?: string | null
+          suggestion_generated_at?: string | null
+          suggestion_method?: string | null
+          suggestion_overridden_at?: string | null
+          suggestion_reasoning?: string | null
           to_emails?: string[]
           updated_at?: string
         }
@@ -1546,10 +1621,76 @@ export type Database = {
           status_changed_at?: string | null
           status_history?: Json
           subject?: string | null
+          suggested_event_id?: string | null
+          suggestion_accepted_at?: string | null
+          suggestion_actual_event_id?: string | null
+          suggestion_category?: string | null
+          suggestion_confidence?: string | null
+          suggestion_generated_at?: string | null
+          suggestion_method?: string | null
+          suggestion_overridden_at?: string | null
+          suggestion_reasoning?: string | null
           to_emails?: string[]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "inbox_emails_suggested_event_id_fkey"
+            columns: ["suggested_event_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_emails_suggested_event_id_fkey"
+            columns: ["suggested_event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_emails_suggested_event_id_fkey"
+            columns: ["suggested_event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_emails_suggested_event_id_fkey"
+            columns: ["suggested_event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_emails_suggestion_actual_event_id_fkey"
+            columns: ["suggestion_actual_event_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_emails_suggestion_actual_event_id_fkey"
+            columns: ["suggestion_actual_event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_emails_suggestion_actual_event_id_fkey"
+            columns: ["suggestion_actual_event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_emails_suggestion_actual_event_id_fkey"
+            columns: ["suggestion_actual_event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       locations: {
         Row: {
