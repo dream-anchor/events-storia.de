@@ -77,21 +77,8 @@ async function uploadAttachments(emailId: string, attachments: any[]) {
   for (const att of attachments) {
     try {
       const filename = sanitizeFilename(att.filename || "attachment.bin");
-      const { data: row, error: rowErr } = await supabase
-        .from("email_attachments")
-        .insert({
-          email_id: emailId,
-          filename: att.filename || "attachment.bin",
-          mime_type: att.contentType || "application/octet-stream",
-          size_bytes: att.size ?? (att.content?.length ?? 0),
-          is_inline: !!att.related,
-          content_id: stripBrackets(att.contentId),
-        })
-        .select("id")
-        .single();
-      if (rowErr) throw rowErr;
-
-      const path = `emails/${emailId}/${row.id}-${filename}`;
+      const attId = crypto.randomUUID();
+      const path = `emails/${emailId}/${attId}-${filename}`;
       const buf: Uint8Array =
         att.content instanceof Uint8Array
           ? att.content
@@ -103,10 +90,17 @@ async function uploadAttachments(emailId: string, attachments: any[]) {
           upsert: false,
         });
       if (upErr) throw upErr;
-      await supabase
-        .from("email_attachments")
-        .update({ storage_path: path })
-        .eq("id", row.id);
+      const { error: rowErr } = await supabase.from("email_attachments").insert({
+        id: attId,
+        email_id: emailId,
+        filename: att.filename || "attachment.bin",
+        mime_type: att.contentType || "application/octet-stream",
+        size_bytes: att.size ?? buf.length,
+        is_inline: !!att.related,
+        content_id: stripBrackets(att.contentId),
+        storage_path: path,
+      });
+      if (rowErr) throw rowErr;
     } catch (e) {
       console.error("Attachment failed:", e);
     }
