@@ -90,6 +90,33 @@ Deno.serve(async (req) => {
       affected = count ?? 1;
     }
 
+    // Feedback-Loop
+    if ((email as any).suggestion_generated_at) {
+      try {
+        await admin.from("email_classification_feedback").insert({
+          email_id: email.id,
+          from_email: email.from_email,
+          subject: (email as any).subject ?? null,
+          body_excerpt: ((email as any).body_text ?? "").slice(0, 500),
+          suggested_event_id: (email as any).suggested_event_id ?? null,
+          suggested_category: (email as any).suggestion_category ?? null,
+          actual_event_id: null,
+          actual_category: "irrelevant",
+        });
+        const wasAccepted = (email as any).suggestion_category === "irrelevant";
+        await admin
+          .from("inbox_emails")
+          .update({
+            suggestion_accepted_at: wasAccepted ? new Date().toISOString() : null,
+            suggestion_overridden_at: !wasAccepted ? new Date().toISOString() : null,
+            suggestion_actual_event_id: null,
+          })
+          .eq("id", email.id);
+      } catch (fe) {
+        console.error("feedback write failed", fe);
+      }
+    }
+
     return json({ ok: true, hidden: true, sender_blocked: senderBlocked, affected_emails: affected });
   } catch (e) {
     return err((e as Error).message || "Internal error", 500);
