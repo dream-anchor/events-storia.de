@@ -324,6 +324,27 @@ export default function Posteingang() {
                     <div className="text-sm text-foreground/80 truncate">
                       {email.subject || <span className="italic text-muted-foreground">(kein Betreff)</span>}
                     </div>
+                    {email.suggestion_category && (
+                      <div className="mt-1">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border",
+                            suggestionBadgeClasses(email.suggestion_category, email.suggestion_confidence),
+                          )}
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          {email.suggestion_category === "match" &&
+                            `→ ${suggestedEvents?.[email.suggested_event_id ?? ""]?.customer_name ?? "Event"}${
+                              suggestedEvents?.[email.suggested_event_id ?? ""]?.date
+                                ? ` · ${format(new Date(suggestedEvents![email.suggested_event_id!].date!), "dd.MM.yy", { locale: de })}`
+                                : ""
+                            }`}
+                          {email.suggestion_category === "new_inquiry" && "+ Neue Anfrage?"}
+                          {email.suggestion_category === "irrelevant" && "✕ Vermutlich irrelevant"}
+                          {email.suggestion_category === "unclear" && "? Unklar"}
+                        </span>
+                      </div>
+                    )}
                     <div className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-2">
                       {email.has_attachments && <Paperclip className="h-3 w-3" />}
                       <span className="truncate">{email.body_text?.slice(0, 100)}</span>
@@ -345,6 +366,11 @@ export default function Posteingang() {
               <MailDetail
                 email={selected}
                 tab={tab}
+                suggestedEvent={
+                  selected.suggested_event_id
+                    ? suggestedEvents?.[selected.suggested_event_id] ?? null
+                    : null
+                }
                 onAssign={() => setAssignOpen(true)}
                 onCreate={() => setCreateOpen(true)}
                 onIgnore={() => setIgnoreOpen(true)}
