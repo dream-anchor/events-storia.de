@@ -11,6 +11,7 @@ import { OfferSendPreview } from "@/components/admin/refine/InquiryEditor/OfferS
 import { OfferArchivePreview } from "@/components/admin/refine/InquiryEditor/OfferArchivePreview";
 import { AdminOfferCreate } from "@/components/admin/refine/OfferCreate";
 import { UnifiedInquiriesList } from "@/components/admin/refine/UnifiedInquiriesList";
+import Posteingang from "@/pages/admin/Posteingang";
 import { TestModeProvider } from "@/contexts/TestModeContext";
 import { SaveStatusProvider } from "@/components/admin/shared/SaveStatusContext";
 
@@ -28,6 +29,10 @@ const resources = [
   {
     name: "inquiries",
     list: "/admin/inquiries",
+  },
+  {
+    name: "posteingang",
+    list: "/admin/posteingang",
   },
   {
     name: "bookings",
@@ -88,6 +93,7 @@ export const RefineAdminApp = () => {
       <Routes>
         <Route index element={<Dashboard />} />
         <Route path="inquiries" element={<UnifiedInquiriesList />} />
+        <Route path="posteingang" element={<Posteingang />} />
         <Route path="events">
           <Route index element={<EventsList />} />
           <Route path="create" element={<AdminOfferCreate />} />

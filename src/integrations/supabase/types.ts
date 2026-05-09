@@ -1097,6 +1097,13 @@ export type Database = {
             referencedRelation: "inbox_emails"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "email_attachments_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "unassigned_inbox_emails"
+            referencedColumns: ["id"]
+          },
         ]
       }
       email_delivery_logs: {
@@ -1315,6 +1322,13 @@ export type Database = {
             columns: ["email_id"]
             isOneToOne: false
             referencedRelation: "inbox_emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_links_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "unassigned_inbox_emails"
             referencedColumns: ["id"]
           },
           {
@@ -3980,6 +3994,102 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      unassigned_inbox_emails: {
+        Row: {
+          attachment_count: number | null
+          body_html: string | null
+          body_text: string | null
+          cc_emails: string[] | null
+          created_at: string | null
+          date_received: string | null
+          date_sent: string | null
+          from_email: string | null
+          from_name: string | null
+          has_attachments: boolean | null
+          hidden_at: string | null
+          hidden_by: string | null
+          hidden_reason: string | null
+          id: string | null
+          imap_folder: string | null
+          imap_status: string | null
+          imap_uid: number | null
+          in_reply_to: string | null
+          is_hidden: boolean | null
+          message_id: string | null
+          raw_mime: string | null
+          raw_size_bytes: number | null
+          references_headers: string[] | null
+          reply_to_email: string | null
+          status_changed_at: string | null
+          status_history: Json | null
+          subject: string | null
+          to_emails: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          attachment_count?: number | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_emails?: string[] | null
+          created_at?: string | null
+          date_received?: string | null
+          date_sent?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          has_attachments?: boolean | null
+          hidden_at?: string | null
+          hidden_by?: string | null
+          hidden_reason?: string | null
+          id?: string | null
+          imap_folder?: string | null
+          imap_status?: string | null
+          imap_uid?: number | null
+          in_reply_to?: string | null
+          is_hidden?: boolean | null
+          message_id?: string | null
+          raw_mime?: string | null
+          raw_size_bytes?: number | null
+          references_headers?: string[] | null
+          reply_to_email?: string | null
+          status_changed_at?: string | null
+          status_history?: Json | null
+          subject?: string | null
+          to_emails?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          attachment_count?: number | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_emails?: string[] | null
+          created_at?: string | null
+          date_received?: string | null
+          date_sent?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          has_attachments?: boolean | null
+          hidden_at?: string | null
+          hidden_by?: string | null
+          hidden_reason?: string | null
+          id?: string | null
+          imap_folder?: string | null
+          imap_status?: string | null
+          imap_uid?: number | null
+          in_reply_to?: string | null
+          is_hidden?: boolean | null
+          message_id?: string | null
+          raw_mime?: string | null
+          raw_size_bytes?: number | null
+          references_headers?: string[] | null
+          reply_to_email?: string | null
+          status_changed_at?: string | null
+          status_history?: Json | null
+          subject?: string | null
+          to_emails?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       v2_payments_enriched: {
         Row: {
