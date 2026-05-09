@@ -19,6 +19,16 @@ import { ArrowLeft, Send, Mail, FileText, Globe, Loader2, TestTube2, RefreshCw }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { AdminLayout } from "../AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -86,6 +96,7 @@ export function OfferSendPreview({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isTestSending, setIsTestSending] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const pdfInFlightRef = useRef<string | null>(null);
 
   // Inquiry laden
@@ -569,7 +580,7 @@ export function OfferSendPreview({
             </Button>
 
             <Button
-              onClick={() => handleSend(false)}
+              onClick={() => setConfirmOpen(true)}
               disabled={isSending || isTestSending || !canSend}
               className={cn(
                 "gap-2 font-semibold",
@@ -587,6 +598,56 @@ export function OfferSendPreview({
             </Button>
           </div>
         </div>
+
+        {/* Bestätigungs-Dialog vor finalem Versand */}
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {sendType === 'final' ? 'Finales Angebot senden?' : 'Vorschlag an Kunde senden?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                    <div className="grid grid-cols-[70px_1fr] gap-x-3 gap-y-1">
+                      <span className="text-muted-foreground">An</span>
+                      <span className="font-medium">{inquiry.contact_name || '—'}</span>
+                      <span className="text-muted-foreground">E-Mail</span>
+                      <span className="font-mono text-xs break-all">
+                        {(preview?.to?.[0]) || inquiry.email || '—'}
+                      </span>
+                      {preview?.subject && (
+                        <>
+                          <span className="text-muted-foreground">Betreff</span>
+                          <span className="text-xs">{preview.subject}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Bitte prüfe den Empfänger sorgfältig — das Angebot wird unwiderruflich an diese Adresse gesendet.
+                    </div>
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setConfirmOpen(false);
+                  handleSend(false);
+                }}
+                className={cn(
+                  sendType === 'final'
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-amber-600 hover:bg-amber-700"
+                )}
+              >
+                Senden bestätigen
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Wrapper>
   );

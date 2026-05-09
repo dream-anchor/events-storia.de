@@ -31,6 +31,10 @@ interface SendControlsProps {
   /** Inquiry-ID fuer Preview-Navigation. Wenn gesetzt, oeffnet der Send-Button
    *  die Preview-Route statt den Send direkt auszufuehren. */
   inquiryId?: string;
+  /** Empfänger-Name (für Bestätigungs-Dialog) */
+  recipientName?: string | null;
+  /** Empfänger-E-Mail (für Bestätigungs-Dialog) */
+  recipientEmail?: string | null;
 }
 
 const PHASE_LABELS: Record<OfferPhase, string> = {
@@ -54,6 +58,8 @@ export function SendControls({
   isNewVersionAfterSend = false,
   currentVersion = 1,
   inquiryId,
+  recipientName,
+  recipientEmail,
 }: SendControlsProps) {
   const [confirmType, setConfirmType] = useState<'proposal' | 'final' | null>(null);
   const navigate = useNavigate();
@@ -193,6 +199,19 @@ export function SendControls({
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
+                {(recipientName || recipientEmail) && (
+                  <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                    <div className="grid grid-cols-[60px_1fr] gap-x-3 gap-y-1">
+                      <span className="text-muted-foreground">An</span>
+                      <span className="font-medium">{recipientName || '—'}</span>
+                      <span className="text-muted-foreground">E-Mail</span>
+                      <span className="font-mono text-xs break-all">{recipientEmail || '—'}</span>
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Bitte prüfe den Empfänger sorgfältig — das Angebot wird unwiderruflich an diese Adresse gesendet.
+                    </div>
+                  </div>
+                )}
                 {isNewVersionAfterSend && confirmType === 'proposal' && (
                   <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-300/60 dark:border-amber-800/40 p-3 text-sm text-amber-900 dark:text-amber-100">
                     <div className="font-medium mb-1">Dies ist eine neue Version eines bereits versendeten Angebots.</div>
