@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     // 1. Read inbox email
     const { data: email, error: eErr } = await admin
       .from("inbox_emails")
-      .select("id, from_email, from_name, subject")
+      .select("id, from_email, from_name, subject, body_text, suggested_event_id, suggestion_category, suggestion_generated_at")
       .eq("id", email_id)
       .single();
     if (eErr || !email) return err("Email not found", 404);
@@ -173,6 +173,33 @@ Deno.serve(async (req) => {
         );
       if (linkErr) return err(`Link failed: ${linkErr.message}`, 500);
       linkedCount = 1;
+    }
+
+    // Feedback-Loop: Vorschlag vs. tatsächliche Aktion festhalten
+    if (email.suggestion_generated_at) {
+      try {
+        await admin.from("email_classification_feedback").insert({
+          email_id: email.id,
+          from_email: email.from_email,
+          subject: email.subject ?? null,
+          body_excerpt: ((email as any).body_text ?? "").slice(0, 500),
+          suggested_event_id: (email as any).suggested_event_id ?? null,
+          suggested_category: (email as any).suggestion_category ?? null,
+          actual_event_id: eventId,
+          actual_category: "new_inquiry",
+        });
+        const wasAccepted = (email as any).suggestion_category === "new_inquiry";
+        await admin
+          .from("inbox_emails")
+          .update({
+            suggestion_accepted_at: wasAccepted ? new Date().toISOString() : null,
+            suggestion_overridden_at: !wasAccepted ? new Date().toISOString() : null,
+            suggestion_actual_event_id: eventId,
+          })
+          .eq("id", email.id);
+      } catch (fe) {
+        console.error("feedback write failed", fe);
+      }
     }
 
     return json({

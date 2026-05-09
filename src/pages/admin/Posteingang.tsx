@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { format, formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   Mail,
   Inbox as InboxIcon,
@@ -15,6 +15,9 @@ import {
   Search,
   AlertTriangle,
   EyeOff,
+  Sparkles,
+  RefreshCw,
+  Check,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -80,19 +83,106 @@ function nameFromEmail(email: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+type SuggestedEventInfo = {
+  id: string;
+  date: string | null;
+  occasion: string | null;
+  guest_count: number | null;
+  customer_name: string | null;
+};
+
+function useSuggestedEvents(ids: string[]) {
+  const key = [...new Set(ids)].sort().join(",");
+  return useQuery({
+    queryKey: ["suggested-events", key],
+    enabled: ids.length > 0,
+    queryFn: async (): Promise<Record<string, SuggestedEventInfo>> => {
+      const unique = [...new Set(ids)];
+      const { data } = await supabase
+        .from("v2_events")
+        .select("id, date, occasion, guest_count, v2_customers(name)")
+        .in("id", unique);
+      const map: Record<string, SuggestedEventInfo> = {};
+      for (const r of data ?? []) {
+        map[(r as any).id] = {
+          id: (r as any).id,
+          date: (r as any).date,
+          occasion: (r as any).occasion,
+          guest_count: (r as any).guest_count,
+          customer_name: (r as any).v2_customers?.name ?? null,
+        };
+      }
+      return map;
+    },
+  });
+}
+
+function suggestionBadgeClasses(
+  category: string | null,
+  confidence: string | null,
+): string {
+  if (category === "match") {
+    if (confidence === "high") return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    if (confidence === "medium") return "bg-amber-100 text-amber-800 border-amber-200";
+    return "bg-muted text-muted-foreground";
+  }
+  if (category === "new_inquiry") return "bg-blue-100 text-blue-800 border-blue-200";
+  if (category === "irrelevant") return "bg-red-50 text-red-700 border-red-200 opacity-80";
+  return "bg-muted text-muted-foreground";
+}
+
 export default function Posteingang() {
   const [tab, setTab] = useState<Tab>("open");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [ignoreOpen, setIgnoreOpen] = useState(false);
+  const [onlySuggestions, setOnlySuggestions] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const qcOuter = useQueryClient();
 
   const open = useUnassignedInbox();
   const hidden = useHiddenInbox();
   const blocklist = useBlocklist();
   const { data: openCount } = useUnassignedInboxCount();
 
-  const list: UnassignedEmail[] = tab === "open" ? open.data ?? [] : tab === "hidden" ? hidden.data ?? [] : [];
+  const rawList: UnassignedEmail[] =
+    tab === "open" ? open.data ?? [] : tab === "hidden" ? hidden.data ?? [] : [];
+
+  const list = useMemo(() => {
+    const filtered = onlySuggestions
+      ? rawList.filter((e) => !!e.suggestion_category)
+      : rawList;
+    const confRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    return [...filtered].sort((a, b) => {
+      const ar = a.suggestion_category ? confRank[a.suggestion_confidence ?? "low"] ?? 3 : 4;
+      const br = b.suggestion_category ? confRank[b.suggestion_confidence ?? "low"] ?? 3 : 4;
+      if (ar !== br) return ar - br;
+      return new Date(b.date_received).getTime() - new Date(a.date_received).getTime();
+    });
+  }, [rawList, onlySuggestions]);
+
+  const suggestedIds = useMemo(
+    () => list.map((e) => e.suggested_event_id).filter((x): x is string => !!x),
+    [list],
+  );
+  const { data: suggestedEvents } = useSuggestedEvents(suggestedIds);
+
+  const runBulkSuggest = async () => {
+    setBulkBusy(true);
+    const { data, error } = await supabase.functions.invoke("bulk-suggest-mappings", {
+      body: {},
+    });
+    setBulkBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(
+      `${data?.processed ?? 0} Mails analysiert, ${data?.with_suggestion ?? 0} Vorschläge generiert${data?.remaining ? ` (${data.remaining} weitere offen)` : ""}.`,
+    );
+    qcOuter.invalidateQueries({ queryKey: ["unassigned-inbox"] });
+  };
 
   const selected = useMemo(() => list.find((e) => e.id === selectedId) ?? null, [list, selectedId]);
 
@@ -148,14 +238,39 @@ export default function Posteingang() {
               {openCount ?? 0} nicht zugeordnete Nachricht{(openCount ?? 0) === 1 ? "" : "en"}
             </p>
           </div>
-          <div className="text-xs text-muted-foreground hidden md:block">
+          <div className="flex items-center gap-2">
+            {tab === "open" && (
+              <>
+                <Button
+                  size="sm"
+                  variant={onlySuggestions ? "default" : "outline"}
+                  className="rounded-full"
+                  onClick={() => setOnlySuggestions((v) => !v)}
+                >
+                  <Sparkles className="h-4 w-4 mr-1.5" />
+                  Nur Vorschläge
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={runBulkSuggest}
+                  disabled={bulkBusy}
+                >
+                  <RefreshCw className={cn("h-4 w-4 mr-1.5", bulkBusy && "animate-spin")} />
+                  Vorschläge generieren
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="text-xs text-muted-foreground hidden md:block">
             Tastatur: <kbd className="px-1.5 py-0.5 bg-muted rounded">j</kbd>/
             <kbd className="px-1.5 py-0.5 bg-muted rounded">k</kbd> Navigation ·{" "}
             <kbd className="px-1.5 py-0.5 bg-muted rounded">e</kbd> Zuordnen ·{" "}
             <kbd className="px-1.5 py-0.5 bg-muted rounded">n</kbd> Neu ·{" "}
             <kbd className="px-1.5 py-0.5 bg-muted rounded">i</kbd> Ignorieren
           </div>
-        </div>
 
       <div className="flex gap-1 border-b">
         <TabBtn active={tab === "open"} onClick={() => setTab("open")}>
@@ -209,6 +324,27 @@ export default function Posteingang() {
                     <div className="text-sm text-foreground/80 truncate">
                       {email.subject || <span className="italic text-muted-foreground">(kein Betreff)</span>}
                     </div>
+                    {email.suggestion_category && (
+                      <div className="mt-1">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border",
+                            suggestionBadgeClasses(email.suggestion_category, email.suggestion_confidence),
+                          )}
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          {email.suggestion_category === "match" &&
+                            `→ ${suggestedEvents?.[email.suggested_event_id ?? ""]?.customer_name ?? "Event"}${
+                              suggestedEvents?.[email.suggested_event_id ?? ""]?.date
+                                ? ` · ${format(new Date(suggestedEvents![email.suggested_event_id!].date!), "dd.MM.yy", { locale: de })}`
+                                : ""
+                            }`}
+                          {email.suggestion_category === "new_inquiry" && "+ Neue Anfrage?"}
+                          {email.suggestion_category === "irrelevant" && "✕ Vermutlich irrelevant"}
+                          {email.suggestion_category === "unclear" && "? Unklar"}
+                        </span>
+                      </div>
+                    )}
                     <div className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-2">
                       {email.has_attachments && <Paperclip className="h-3 w-3" />}
                       <span className="truncate">{email.body_text?.slice(0, 100)}</span>
@@ -230,6 +366,11 @@ export default function Posteingang() {
               <MailDetail
                 email={selected}
                 tab={tab}
+                suggestedEvent={
+                  selected.suggested_event_id
+                    ? suggestedEvents?.[selected.suggested_event_id] ?? null
+                    : null
+                }
                 onAssign={() => setAssignOpen(true)}
                 onCreate={() => setCreateOpen(true)}
                 onIgnore={() => setIgnoreOpen(true)}
@@ -286,17 +427,20 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
 function MailDetail({
   email,
   tab,
+  suggestedEvent,
   onAssign,
   onCreate,
   onIgnore,
 }: {
   email: UnassignedEmail;
   tab: Tab;
+  suggestedEvent: SuggestedEventInfo | null;
   onAssign: () => void;
   onCreate: () => void;
   onIgnore: () => void;
 }) {
   const qc = useQueryClient();
+  const [accepting, setAccepting] = useState(false);
   const sanitizedHtml = useMemo(() => {
     if (!email.body_html) return null;
     return email.body_html.replace(
@@ -315,6 +459,54 @@ function MailDetail({
       qc.invalidateQueries({ queryKey: ["hidden-inbox"] });
       qc.invalidateQueries({ queryKey: ["unassigned-inbox"] });
       qc.invalidateQueries({ queryKey: ["unassigned-inbox-count"] });
+    }
+  };
+
+  const acceptSuggestion = async () => {
+    if (!email.suggestion_category) return;
+    setAccepting(true);
+    try {
+      if (email.suggestion_category === "match" && email.suggested_event_id) {
+        const { data, error } = await supabase.functions.invoke("assign-inbox-email-to-event", {
+          body: {
+            email_id: email.id,
+            event_id: email.suggested_event_id,
+            create_filter: true,
+          },
+        });
+        if (error) throw error;
+        if (data?.warning === "multiple_open_events") {
+          // Fall back to single-link to avoid cross-contamination
+          const { error: e2 } = await supabase.functions.invoke("assign-inbox-email-to-event", {
+            body: {
+              email_id: email.id,
+              event_id: email.suggested_event_id,
+              create_filter: false,
+            },
+          });
+          if (e2) throw e2;
+        }
+        toast.success("Mail dem Event zugeordnet.");
+      } else if (email.suggestion_category === "irrelevant") {
+        const { error } = await supabase.functions.invoke("ignore-inbox-email", {
+          body: { email_id: email.id, ignore_sender: false },
+        });
+        if (error) throw error;
+        toast.success("Mail ignoriert.");
+      } else if (email.suggestion_category === "new_inquiry") {
+        onCreate();
+        return;
+      } else {
+        onAssign();
+        return;
+      }
+      qc.invalidateQueries({ queryKey: ["unassigned-inbox"] });
+      qc.invalidateQueries({ queryKey: ["unassigned-inbox-count"] });
+      qc.invalidateQueries({ queryKey: ["hidden-inbox"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setAccepting(false);
     }
   };
 
@@ -356,6 +548,55 @@ function MailDetail({
             <span>
               Ignoriert{email.hidden_reason ? ` (${email.hidden_reason})` : ""}.
             </span>
+          </div>
+        )}
+
+        {tab === "open" && email.suggestion_category && (
+          <div className="rounded-xl border bg-muted/30 p-3 mt-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <Sparkles className="h-3.5 w-3.5" />
+              Vorschlag {email.suggestion_method === "llm" ? "(KI-analysiert)" : "(automatisch erkannt)"}
+              {email.suggestion_confidence && (
+                <Badge variant="outline" className="text-[10px] uppercase ml-auto">
+                  {email.suggestion_confidence}
+                </Badge>
+              )}
+            </div>
+            <div className="text-sm">
+              {email.suggestion_category === "match" && suggestedEvent && (
+                <p>
+                  Diese Mail gehört vermutlich zu{" "}
+                  <strong>{suggestedEvent.customer_name ?? "Event"}</strong>
+                  {suggestedEvent.date ? ` (${format(new Date(suggestedEvent.date), "dd.MM.yyyy", { locale: de })})` : ""}
+                  {suggestedEvent.occasion ? ` · ${suggestedEvent.occasion}` : ""}.
+                </p>
+              )}
+              {email.suggestion_category === "new_inquiry" && (
+                <p>Diese Mail wirkt wie eine neue Eventanfrage.</p>
+              )}
+              {email.suggestion_category === "irrelevant" && (
+                <p>Diese Mail wirkt wie Spam, Werbung oder Lieferantenkommunikation.</p>
+              )}
+              {email.suggestion_category === "unclear" && (
+                <p>Keine eindeutige Zuordnung möglich.</p>
+              )}
+              {email.suggestion_reasoning && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Begründung: {email.suggestion_reasoning}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button
+                size="sm"
+                onClick={acceptSuggestion}
+                disabled={accepting}
+                className="rounded-full"
+              >
+                <Check className="h-4 w-4 mr-1.5" />
+                Vorschlag annehmen
+              </Button>
+            </div>
           </div>
         )}
 

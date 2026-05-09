@@ -88,6 +88,34 @@ async function backfillFilter(eventId: string, filterId: string, fromEmail: stri
   return inserted;
 }
 
+async function writeFeedback(email: any, actualEventId: string | null, actualCategory: string) {
+  if (!email?.suggestion_generated_at) return;
+  try {
+    await admin.from("email_classification_feedback").insert({
+      email_id: email.id,
+      from_email: email.from_email,
+      subject: email.subject ?? null,
+      body_excerpt: (email.body_text ?? "").slice(0, 500),
+      suggested_event_id: email.suggested_event_id ?? null,
+      suggested_category: email.suggestion_category ?? null,
+      actual_event_id: actualEventId,
+      actual_category: actualCategory,
+    });
+    const wasAccepted =
+      email.suggested_event_id === actualEventId && email.suggestion_category === actualCategory;
+    await admin
+      .from("inbox_emails")
+      .update({
+        suggestion_accepted_at: wasAccepted ? new Date().toISOString() : null,
+        suggestion_overridden_at: !wasAccepted ? new Date().toISOString() : null,
+        suggestion_actual_event_id: actualEventId,
+      })
+      .eq("id", email.id);
+  } catch (e) {
+    console.error("writeFeedback failed:", (e as Error).message);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
@@ -104,7 +132,7 @@ Deno.serve(async (req) => {
 
     const { data: email, error: emailErr } = await admin
       .from("inbox_emails")
-      .select("id, from_email, from_name")
+      .select("id, from_email, from_name, subject, body_text, suggested_event_id, suggestion_category, suggestion_generated_at")
       .eq("id", email_id)
       .maybeSingle();
     if (emailErr) throw emailErr;
@@ -144,11 +172,13 @@ Deno.serve(async (req) => {
           is_excluded: false,
         });
       }
+      await writeFeedback(email, event_id, "match");
       return new Response(
         JSON.stringify({ ok: true, event_id, linked_count: 1, filter_id: null }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+    // (manual single link feedback handled below right before return)
 
     // ----- Modus A: Auto-Filter -----
     if (!email.from_email) {
@@ -214,6 +244,8 @@ Deno.serve(async (req) => {
     }
 
     const linked = await backfillFilter(event_id, filterId, email.from_email);
+
+    await writeFeedback(email, event_id, "match");
 
     return new Response(
       JSON.stringify({ ok: true, event_id, filter_id: filterId, linked_count: linked }),
