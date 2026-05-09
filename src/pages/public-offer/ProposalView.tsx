@@ -557,7 +557,9 @@ export function ProposalView({
                         className="w-full h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <span className="flex items-center gap-2 w-full justify-between">
-                          <span className="text-sm">Anzahlung {depositPercent} %</span>
+                          <span className="text-sm">
+                            Anzahlung {isFixedDeposit ? formatCurrencyDecimal(depositAmount) : `${depositPercent} %`}
+                          </span>
                           {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
                         </span>
                         {canPay ? (
