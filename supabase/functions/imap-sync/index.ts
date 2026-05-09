@@ -436,10 +436,10 @@ Deno.serve(async (req) => {
               path: mb.path,
               flags: Array.from(mb.flags || []),
               specialUse: mb.specialUse,
-              messages: (status as any).messages,
-              uidNext: (status as any).uidNext,
-              uidValidity: (status as any).uidValidity,
-              latest,
+              messages: Number((status as any).messages ?? 0),
+              uidNext: Number((status as any).uidNext ?? 0),
+              uidValidity: String((status as any).uidValidity ?? ""),
+              latest: latest.map((l) => ({ ...l, uid: Number(l.uid) })),
             });
           } finally {
             lock.release();
