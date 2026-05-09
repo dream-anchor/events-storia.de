@@ -18,6 +18,7 @@ import { BulkActionBar } from "@/components/admin/shared/BulkActionBar";
 import { cn } from "@/lib/utils";
 import { getAdminDisplayName, getAdminInitials } from "@/lib/adminDisplayNames";
 import { supabase } from "@/integrations/supabase/client";
+import { getInquiryActionState } from "@/lib/inquiryActionState";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 
 const statusConfig: Record<InquiryStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
