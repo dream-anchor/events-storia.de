@@ -167,7 +167,9 @@ export function PriceBreakdown({
 }: PriceBreakdownProps) {
   // --- Menü-Modus (kein Paket) ---
   if (!packageData && onTotalChange !== undefined) {
-    const DISCOUNT = ((discountPercentProp ?? 0) / 100);
+    const discountPctVal = Math.min(100, Math.max(0, discountPercentProp ?? 0));
+    const discountEurVal = Math.max(0, discountAmountProp ?? 0);
+    const discountMode: 'percent' | 'amount' = discountEurVal > 0 ? 'amount' : 'percent';
 
     const dishLines = (courses || [])
       .map((c, idx) => {
@@ -205,7 +207,13 @@ export function PriceBreakdown({
     const dishSubtotal = dishLines.reduce((sum, d) => sum + (d.lineTotal || 0), 0);
     const winePerPerson = winePairingPrice || 0;
     const subtotalPerPerson = dishSubtotal + winePerPerson;
-    const discountAmount = dishSubtotal * DISCOUNT;
+    const guestsForDiv = Math.max(1, guestCount);
+    // Rabatt: €-Betrag hat Vorrang, gilt auf Total → pro Person dividieren.
+    // Prozent: gilt auf dishSubtotal pro Person.
+    const discountAmountTotal = discountMode === 'amount'
+      ? Math.min(discountEurVal, subtotalPerPerson * guestsForDiv)
+      : dishSubtotal * (discountPctVal / 100) * guestsForDiv;
+    const discountAmount = discountAmountTotal / guestsForDiv;
     const netPerPerson = subtotalPerPerson - discountAmount;
     const calculatedTotal = netPerPerson * guestCount;
 
