@@ -565,12 +565,48 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Alle INBOX-Folder erkennen — KI-Mail-Assistent (IONOS) sortiert in Subfolder.
+    // Alle Folder erkennen — KI-Mail-Assistent (IONOS) sortiert in Subfolder.
+    // Sent wird per specialUse=\Sent oder Namensheuristik gefunden.
     const list = await client.list();
     const inboxFolders = new Set<string>(["INBOX"]);
+    let sentFolderPath: string | null = null;
+    const SENT_NAME_CANDIDATES = [
+      "Sent",
+      "INBOX.Sent",
+      "INBOX/Sent",
+      "Gesendete Objekte",
+      "INBOX.Gesendete Objekte",
+      "INBOX/Gesendete Objekte",
+      "Gesendet",
+      "INBOX.Gesendet",
+      "INBOX/Gesendet",
+      "Sent Items",
+      "INBOX.Sent Items",
+    ];
+    // 1. Pass: \Sent specialUse hat Vorrang
+    for (const mb of list) {
+      const su = (mb as any).specialUse;
+      if (su === "\\Sent" && mb.path) {
+        sentFolderPath = mb.path;
+        break;
+      }
+    }
+    // 2. Pass: Namens-Match
+    if (!sentFolderPath) {
+      for (const mb of list) {
+        if (!mb.path) continue;
+        if (SENT_NAME_CANDIDATES.includes(mb.path)) {
+          sentFolderPath = mb.path;
+          break;
+        }
+      }
+    }
+
     for (const mb of list) {
       const p = mb.path;
       if (!p) continue;
+      // Sent nicht doppelt im inbox-Pool
+      if (sentFolderPath && p === sentFolderPath) continue;
       if (p === "INBOX" || p.startsWith("INBOX/") || p.startsWith("INBOX.")) {
         const lower = p.toLowerCase();
         if (
@@ -593,7 +629,9 @@ Deno.serve(async (req) => {
     const phaseAResults: any[] = [];
     for (const f of inboxFolders) {
       try {
-        const r = await phaseA(client, f);
+        // INBOX-Folder: kanonisch eigener stateName = Pfad (für Subfolder),
+        //              Pfad = tatsächlicher Mailbox-Path, direction = inbound
+        const r = await phaseA(client, f, f, "inbound");
         phaseAResults.push(r);
       } catch (e) {
         const msg = (e as Error).message ?? String(e);
@@ -602,6 +640,22 @@ Deno.serve(async (req) => {
         phaseAResults.push({ folder: f, error: msg });
       }
     }
+
+    // SENT-Folder synchen (kanonischer State-Name 'SENT')
+    if (sentFolderPath) {
+      try {
+        const r = await phaseA(client, "SENT", sentFolderPath, "outbound_manual");
+        phaseAResults.push(r);
+      } catch (e) {
+        const msg = (e as Error).message ?? String(e);
+        console.error(`phaseA(SENT/${sentFolderPath}) failed:`, msg);
+        try { await setSyncError("SENT", msg); } catch (_) { /* ignore */ }
+        phaseAResults.push({ folder: `SENT(${sentFolderPath})`, error: msg });
+      }
+    } else {
+      phaseAResults.push({ folder: "SENT", error: "Sent-Folder nicht gefunden" });
+    }
+
     const b = await phaseB(client);
 
     return new Response(
