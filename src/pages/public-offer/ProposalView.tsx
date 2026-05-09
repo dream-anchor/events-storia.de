@@ -150,14 +150,19 @@ export function ProposalView({
     : (selectedOption?.total_amount ?? 0);
   // Zahlungs-Konditionen aus Inquiry (RPC liefert Defaults aus site_settings)
   const depositPercent = inquiry.deposit_percent ?? 20;
+  const fixedDepositAmount = inquiry.deposit_amount ?? null;
   const depositDueDays = inquiry.deposit_due_days ?? 5;
   const paymentMethod = (inquiry.payment_method || 'deposit_online') as string;
   const invoiceDueDays = inquiry.invoice_due_days ?? 14;
   const isStripePayment = paymentMethod === 'deposit_online' || paymentMethod === 'prepayment_online';
-  const depositAmount = depositPercent > 0
-    ? Math.round(totalAmount * depositPercent) / 100
-    : 0;
-  const showDeposit = isStripePayment && depositPercent > 0 && depositPercent < 100;
+  const isFixedDeposit = fixedDepositAmount != null && fixedDepositAmount > 0;
+  const depositAmount = isFixedDeposit
+    ? Math.min(fixedDepositAmount as number, totalAmount)
+    : (depositPercent > 0 ? Math.round(totalAmount * depositPercent) / 100 : 0);
+  const showDeposit = isStripePayment
+    && depositAmount > 0
+    && depositAmount < totalAmount
+    && (isFixedDeposit || depositPercent < 100);
 
   // ACTION: Zahlung — leitet zu Stripe Checkout weiter
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
