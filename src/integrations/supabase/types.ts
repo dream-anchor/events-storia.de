@@ -1983,6 +1983,7 @@ export type Database = {
       v2_event_emails: {
         Row: {
           attachments: Json | null
+          bcc_email: string | null
           body_html: string | null
           body_text: string | null
           cc_email: string | null
@@ -2002,6 +2003,7 @@ export type Database = {
         }
         Insert: {
           attachments?: Json | null
+          bcc_email?: string | null
           body_html?: string | null
           body_text?: string | null
           cc_email?: string | null
@@ -2021,6 +2023,7 @@ export type Database = {
         }
         Update: {
           attachments?: Json | null
+          bcc_email?: string | null
           body_html?: string | null
           body_text?: string | null
           cc_email?: string | null
@@ -2893,8 +2896,10 @@ export type Database = {
       email_messages: {
         Row: {
           attachments: Json | null
+          bcc_email: string | null
           body_html: string | null
           body_text: string | null
+          cc_email: string | null
           created_at: string | null
           direction: string | null
           from_email: string | null
@@ -2908,8 +2913,10 @@ export type Database = {
         }
         Insert: {
           attachments?: Json | null
+          bcc_email?: string | null
           body_html?: string | null
           body_text?: string | null
+          cc_email?: string | null
           created_at?: string | null
           direction?: never
           from_email?: string | null
@@ -2923,8 +2930,10 @@ export type Database = {
         }
         Update: {
           attachments?: Json | null
+          bcc_email?: string | null
           body_html?: string | null
           body_text?: string | null
+          cc_email?: string | null
           created_at?: string | null
           direction?: never
           from_email?: string | null
