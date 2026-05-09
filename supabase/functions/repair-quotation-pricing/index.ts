@@ -370,11 +370,25 @@ serve(async (req) => {
       for (const p of pkgs || []) packageNameMap[p.id] = p.name;
     }
 
-    // 4. Line-Items
+    // 4. Line-Items — bei mehreren aktiven Optionen Multi-Variante mit
+    //    Alternativ-SubItems (Lex "OR"-Position), sonst klassisch additiv.
+    //    Hinweis: Repair-Skript erstellt nur Quotations (Angebot), nie
+    //    Rechnungen — deshalb ist die Alternative-Branch hier immer erlaubt
+    //    sobald > 1 Option vorhanden ist.
     const lineItems: LexOfficeLineItem[] = [];
-    for (const opt of options as OfferOption[]) {
-      const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
-      lineItems.push(...buildLineItems(opt, pkgName));
+    if ((options as OfferOption[]).length > 1) {
+      const variants: LexOfficeLineItem[] = (options as OfferOption[]).map((opt) => {
+        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
+        return buildVariantLineItem(opt, pkgName);
+      });
+      const parent = variants[0];
+      parent.subItems = variants.slice(1).map((v) => ({ ...v, alternative: true }));
+      lineItems.push(parent);
+    } else {
+      for (const opt of options as OfferOption[]) {
+        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
+        lineItems.push(...buildLineItems(opt, pkgName));
+      }
     }
     if (lineItems.length === 0) throw new Error("Keine Positionen generiert");
 
