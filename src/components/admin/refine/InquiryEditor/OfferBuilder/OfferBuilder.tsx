@@ -287,7 +287,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
 
       {/* Erklärtext: jede Option ist unabhängig */}
       <p className="text-xs text-muted-foreground -mt-4">
-        Erstelle bis zu drei Varianten für deinen Kunden. Jede Option kann unabhängig
+        Erstelle bis zu fünf Varianten (A–E) für deinen Kunden. Jede Option kann unabhängig
         ein Restaurant-Menü, Eigenes Menü, Paket oder nur eine E-Mail sein.
       </p>
 
