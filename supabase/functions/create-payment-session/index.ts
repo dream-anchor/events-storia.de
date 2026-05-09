@@ -245,7 +245,7 @@ serve(async (req) => {
     // Anfrage + Option laden
     const { data: inquiry, error: inqError } = await supabase
       .from('event_inquiries')
-      .select('id, contact_name, email, preferred_date, guest_count, deposit_percent')
+      .select('id, contact_name, email, preferred_date, guest_count, deposit_percent, deposit_amount')
       .eq('id', inquiryId)
       .single();
 
@@ -253,7 +253,9 @@ serve(async (req) => {
 
     // Sicherheitsnetz: deposit_percent === 0 darf nicht zu Anzahlung führen
     const inquiryDeposit = (inquiry as { deposit_percent: number | null }).deposit_percent;
-    if (paymentType === 'deposit' && inquiryDeposit === 0) {
+    const inquiryDepositAmount = (inquiry as { deposit_amount: number | null }).deposit_amount;
+    const isFixedDepositSingle = inquiryDepositAmount != null && inquiryDepositAmount > 0;
+    if (paymentType === 'deposit' && !isFixedDepositSingle && inquiryDeposit === 0) {
       throw new Error('Anzahlung ist für dieses Angebot nicht vorgesehen');
     }
 
@@ -267,7 +269,8 @@ serve(async (req) => {
 
     const inq = inquiry as {
       id: string; contact_name: string; email: string;
-      preferred_date: string | null; guest_count: string | null; deposit_percent: number | null;
+      preferred_date: string | null; guest_count: string | null;
+      deposit_percent: number | null; deposit_amount: number | null;
     };
     const opt = option as {
       id: string; option_label: string;
@@ -294,9 +297,13 @@ serve(async (req) => {
 
     const totalAmount = opt.total_amount; // already total (not per person)
     const depositPercent = inq.deposit_percent ?? 20;
+    const fixedDeposit = inq.deposit_amount;
+    const isFixedDeposit = fixedDeposit != null && fixedDeposit > 0;
 
     const amountEur = paymentType === 'deposit'
-      ? Math.round(totalAmount * depositPercent) / 100
+      ? (isFixedDeposit
+          ? Math.min(fixedDeposit as number, totalAmount)
+          : Math.round(totalAmount * depositPercent) / 100)
       : totalAmount;
 
     const amountCents = Math.round(amountEur * 100);
@@ -306,8 +313,11 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2024-06-20' });
 
+    const depositLabel = isFixedDeposit
+      ? `${(fixedDeposit as number).toFixed(2)} €`
+      : `${depositPercent}%`;
     const productName = paymentType === 'deposit'
-      ? `Anzahlung (${depositPercent}%) — Event ${inq.preferred_date || ''}`
+      ? `Anzahlung (${depositLabel}) — Event ${inq.preferred_date || ''}`
       : `Event-Buchung — ${inq.preferred_date || ''}`;
 
     const session = await stripe.checkout.sessions.create({
@@ -333,6 +343,7 @@ serve(async (req) => {
         payment_type: paymentType,
         total_amount: String(totalAmount),
         deposit_percent: String(depositPercent),
+        deposit_amount: isFixedDeposit ? String(fixedDeposit) : '',
       },
     });
 
