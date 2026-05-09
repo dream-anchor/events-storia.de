@@ -127,51 +127,39 @@ export function OfferArchivePreview() {
   return (
     <AdminLayout activeTab="events" title={`Archiv · v${versionNum}`}>
       <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-        {/* Top-Banner statt Senden-Buttons */}
+        {/* Schlankes Top-Banner — nur Kontext, kein Kopieren-Button mehr */}
         <div className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-4 md:p-5">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(`/admin/events/${id}/edit`)}
-                className="gap-2 -ml-2 -mt-1 shrink-0"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Zurück zum Angebot
-              </Button>
-              <div className="space-y-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge className="bg-amber-200 text-amber-900 hover:bg-amber-200 border-amber-300 font-mono">
-                    ARCHIV · v{versionNum}
-                  </Badge>
-                  <ShieldCheck className="h-4 w-4 text-amber-700" />
-                  <span className="text-xs font-medium text-amber-900 dark:text-amber-200 uppercase tracking-wide">
-                    Schreibgeschützt
-                  </span>
-                </div>
-                <p className="text-sm text-amber-900 dark:text-amber-200">
-                  Gesendet am <strong>{sentAtLabel}</strong>
-                  {entry.sent_by && (
-                    <> von <strong>{getAdminDisplayName(entry.sent_by)}</strong></>
-                  )}
-                </p>
-                <p className="text-xs text-amber-800/80 dark:text-amber-200/70">
-                  Diese Ansicht zeigt das Angebot exakt so, wie es zur Sendezeit
-                  an den Kunden ging. Es kann nicht bearbeitet werden.
-                </p>
-              </div>
-            </div>
+          <div className="flex items-start gap-3 flex-wrap">
             <Button
-              variant="default"
+              variant="ghost"
               size="sm"
-              className="gap-2 shrink-0"
-              onClick={() => setConfirmOpen(true)}
-              disabled={cloneMutation.isPending}
+              onClick={() => navigate(`/admin/events/${id}/edit`)}
+              className="gap-2 -ml-2 -mt-1 shrink-0"
             >
-              <Copy className="h-4 w-4" />
-              Als neues Angebot kopieren
+              <ArrowLeft className="h-4 w-4" />
+              Zurück zum Angebot
             </Button>
+            <div className="space-y-1 min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-amber-200 text-amber-900 hover:bg-amber-200 border-amber-300 font-mono">
+                  ARCHIV · v{versionNum}
+                </Badge>
+                <ShieldCheck className="h-4 w-4 text-amber-700" />
+                <span className="text-xs font-medium text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                  Schreibgeschützt
+                </span>
+              </div>
+              <p className="text-sm text-amber-900 dark:text-amber-200">
+                Gesendet am <strong>{sentAtLabel}</strong>
+                {entry.sent_by && (
+                  <> von <strong>{getAdminDisplayName(entry.sent_by)}</strong></>
+                )}
+              </p>
+              <p className="text-xs text-amber-800/80 dark:text-amber-200/70">
+                Diese Ansicht zeigt das Angebot exakt so, wie es zur Sendezeit
+                an den Kunden ging. Es kann nicht bearbeitet werden.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -187,6 +175,37 @@ export function OfferArchivePreview() {
             )}
           </div>
           <div className="p-4 space-y-3">
+            {/* Mail-Header (wie in einem E-Mail-Programm) */}
+            <div className="rounded-lg border bg-background/50 px-4 py-3">
+              <dl className="grid grid-cols-[64px_1fr] gap-x-4 gap-y-1.5 text-sm">
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground self-center">Von</dt>
+                <dd className="font-mono text-sm break-all">
+                  {entry.from_email || "info@events-storia.de"}
+                </dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground self-center">An</dt>
+                <dd className="font-mono text-sm break-all">
+                  {entry.recipient_email || <span className="text-muted-foreground italic">— nicht erfasst —</span>}
+                </dd>
+                {entry.cc_email && (
+                  <>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground self-center">CC</dt>
+                    <dd className="font-mono text-sm break-all">{entry.cc_email}</dd>
+                  </>
+                )}
+                {entry.bcc_email && (
+                  <>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground self-center">BCC</dt>
+                    <dd className="font-mono text-sm break-all">{entry.bcc_email}</dd>
+                  </>
+                )}
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground self-center">Betreff</dt>
+                <dd className="text-sm font-medium">
+                  {entry.subject || `Ihr Angebot von Storia · v${versionNum}`}
+                </dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground self-center">Datum</dt>
+                <dd className="text-sm text-muted-foreground">{sentAtLabel}</dd>
+              </dl>
+            </div>
             {iframeSrc ? (
               <>
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
@@ -281,6 +300,24 @@ export function OfferArchivePreview() {
         {!entry.email_content && (entry.options_snapshot?.length ?? 0) === 0 && (
           <Skeleton className="h-32 w-full" />
         )}
+
+        {/* Footer-Aktion: Kopieren als neue Version */}
+        <div className="rounded-2xl border bg-card p-4 md:p-5 flex items-center justify-between gap-4 flex-wrap">
+          <div className="text-sm text-muted-foreground min-w-0">
+            Möchten Sie diese Version als Grundlage für ein neues, bearbeitbares
+            Angebot verwenden? Die archivierte v{versionNum} bleibt unverändert.
+          </div>
+          <Button
+            variant="default"
+            size="sm"
+            className="gap-2 shrink-0"
+            onClick={() => setConfirmOpen(true)}
+            disabled={cloneMutation.isPending}
+          >
+            <Copy className="h-4 w-4" />
+            Als neues Angebot kopieren
+          </Button>
+        </div>
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
