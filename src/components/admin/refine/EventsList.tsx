@@ -18,6 +18,7 @@ import { BulkActionBar } from "@/components/admin/shared/BulkActionBar";
 import { cn } from "@/lib/utils";
 import { getAdminDisplayName, getAdminInitials } from "@/lib/adminDisplayNames";
 import { supabase } from "@/integrations/supabase/client";
+import { getInquiryActionState } from "@/lib/inquiryActionState";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 
 const statusConfig: Record<InquiryStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -344,6 +345,14 @@ export const EventsList = () => {
         return (
           <div className="flex flex-col gap-1 min-w-[160px]">
             <div className="flex items-center gap-1.5 flex-wrap">
+              <span
+                className={cn(
+                  "w-2 h-2 rounded-full flex-shrink-0",
+                  getInquiryActionState(event).dotClass
+                )}
+                title={getInquiryActionState(event).label}
+                aria-label={getInquiryActionState(event).label}
+              />
               <Badge variant="outline" className={cn("font-medium flex items-center w-fit", badgeClass)}>
                 {statusIcon}
                 {statusLabel}
@@ -649,7 +658,7 @@ export const EventsList = () => {
           </>
         ) : (
           <KanbanView
-            events={allEvents}
+            events={activeEvents}
             onRefresh={() => eventsQuery.query.refetch()}
           />
         )}
