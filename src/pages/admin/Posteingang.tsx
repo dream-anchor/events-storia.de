@@ -14,7 +14,6 @@ import {
   RotateCcw,
   Search,
   AlertTriangle,
-  X,
   EyeOff,
 } from "lucide-react";
 
