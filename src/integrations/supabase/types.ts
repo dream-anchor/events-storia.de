@@ -4070,6 +4070,27 @@ export type Database = {
         Returns: Json
       }
       generate_booking_number: { Args: never; Returns: string }
+      get_event_emails: {
+        Args: { p_event_id: string; p_include_hidden?: boolean }
+        Returns: {
+          attachment_count: number
+          body_html: string
+          body_text: string
+          date_at: string
+          from_email: string
+          from_name: string
+          has_attachments: boolean
+          id: string
+          imap_folder: string
+          imap_status: string
+          is_excluded: boolean
+          is_hidden: boolean
+          message_id: string
+          source: string
+          status_changed_at: string
+          subject: string
+        }[]
+      }
       get_next_order_number: {
         Args: { p_prefix: string; p_year: number }
         Returns: number
