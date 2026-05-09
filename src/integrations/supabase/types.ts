@@ -4028,6 +4028,10 @@ export type Database = {
       }
     }
     Functions: {
+      append_email_status_history: {
+        Args: { p_email_id: string; p_folder?: string; p_new_status: string }
+        Returns: undefined
+      }
       checkout_create_catering_order: {
         Args: { payload: Json }
         Returns: string

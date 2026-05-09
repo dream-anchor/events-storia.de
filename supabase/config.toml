@@ -1,5 +1,8 @@
 project_id = "sovlfqncotxcjqseeawp"
 
+[functions.imap-sync]
+verify_jwt = false
+
 [functions.parse-menu-pdf]
 verify_jwt = true
 
