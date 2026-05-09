@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
 
     const { data: email, error: eErr } = await admin
       .from("inbox_emails")
-      .select("id, from_email")
+      .select("id, from_email, subject, body_text, suggested_event_id, suggestion_category, suggestion_generated_at")
       .eq("id", body.email_id)
       .single();
     if (eErr || !email) return err("Email not found", 404);
