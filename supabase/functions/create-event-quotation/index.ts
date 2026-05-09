@@ -76,6 +76,10 @@ interface LexOfficeLineItem {
     grossAmount: number;
     taxRatePercentage: number;
   };
+  /** Nur fuer parent-LineItems: Alternativpositionen (Lex-API: alternative=true). */
+  subItems?: LexOfficeLineItem[];
+  /** Nur fuer subItems gueltig; muss true sein, sonst von API abgelehnt. */
+  alternative?: boolean;
 }
 
 // ─── Line-item builder ────────────────────────────────────────────────────────
@@ -488,6 +492,79 @@ function formatDateDE(isoDate: string): string {
   return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
 }
 
+// ─── Alternativ-Varianten (Multi-Option-Angebote) ─────────────────────────────
+// Lexware-API erlaubt `subItems[].alternative=true` als „OR"-Position. Bei
+// mehreren aktiven Angebots-Optionen ohne Kundenauswahl wird die erste Option
+// zum parent, die restlichen zu Alternative-Sub-Items.
+
+function formatEUR(n: number): string {
+  return new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(n);
+}
+
+function labelForMode(offerMode: string): string {
+  if (offerMode === 'menu') return 'Catering-Bestellung';
+  return 'Veranstaltungspaket';
+}
+
+/**
+ * Steuersatz aus den Detail-Items einer Variante ableiten.
+ * - alle Items selber Satz → diesen verwenden
+ * - gemischt → dominierender Satz nach Brutto-Anteil
+ * - leer (Fallback) → 7 % (Catering-Standard)
+ */
+function deriveTaxRate(items: LexOfficeLineItem[]): number {
+  if (items.length === 0) return FOOD_TAX_RATE;
+  const sumByRate: Record<number, number> = {};
+  for (const i of items) {
+    const r = i.unitPrice.taxRatePercentage;
+    sumByRate[r] = (sumByRate[r] || 0) + i.unitPrice.grossAmount * i.quantity;
+  }
+  const rates = Object.keys(sumByRate);
+  if (rates.length === 1) return Number(rates[0]);
+  return (sumByRate[DRINK_TAX_RATE] || 0) > (sumByRate[FOOD_TAX_RATE] || 0)
+    ? DRINK_TAX_RATE
+    : FOOD_TAX_RATE;
+}
+
+/**
+ * Konsolidiert eine Angebots-Option zu einer einzigen LexOffice-LineItem.
+ * Detail-Items wandern in `description`; Brutto-Gesamt und Steuersatz werden
+ * aus den Detail-Items abgeleitet (kein Hardcoding).
+ */
+function buildVariantLineItem(
+  opt: OfferOption,
+  packageName: string | null,
+  guestOverride?: number,
+): LexOfficeLineItem {
+  const detailItems = buildLineItems(opt, packageName, guestOverride);
+  const total = round2(
+    detailItems.reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0),
+  );
+  const description = detailItems
+    .map((i) => {
+      const lineTotal = round2(i.unitPrice.grossAmount * i.quantity);
+      const qty = i.quantity > 1 ? `${i.quantity} × ` : '';
+      return `- ${qty}${i.name}: ${formatEUR(lineTotal)}`;
+    })
+    .join('\n');
+  const taxRate = deriveTaxRate(detailItems);
+  return {
+    type: 'custom',
+    name: packageName || labelForMode(opt.offer_mode),
+    description,
+    quantity: 1,
+    unitName: 'Pauschale',
+    unitPrice: {
+      currency: 'EUR',
+      grossAmount: total > 0 ? total : round2(opt.total_amount || 0),
+      taxRatePercentage: taxRate,
+    },
+  };
+}
+
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -619,12 +696,30 @@ serve(async (req) => {
       }
     }
 
-    // 4. Line-Items aus allen aktiven Optionen bauen
+    // 4. Line-Items aus allen aktiven Optionen bauen.
+    //    Bei mehreren Varianten ohne Kundenauswahl: erste Variante als parent,
+    //    weitere als `subItems[].alternative=true` (Lex-API "OR"-Position).
+    //    So wird die Summe der Quotation NICHT aufaddiert.
+    //    WICHTIG: Pursue (Angebot → Rechnung) wird von Lex mit 406 abgelehnt,
+    //    solange alternative/optional Items enthalten sind. Daher nur im
+    //    reinen Angebots-Modus (kein forceDocumentType, keine Auswahl).
+    const isInvoiceOrOrder = forceDocumentType === 'invoice' || forceDocumentType === 'order';
+    const useAlternatives = !useSelectedQuantity && !isInvoiceOrOrder && workingOptions.length > 1;
     const lineItems: LexOfficeLineItem[] = [];
-    for (const opt of workingOptions as Array<OfferOption & { selected_quantity?: number | null }>) {
-      const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
-      const guestOverride = useSelectedQuantity ? (opt.selected_quantity ?? 0) : undefined;
-      lineItems.push(...buildLineItems(opt, pkgName, guestOverride));
+    if (useAlternatives) {
+      const variants: LexOfficeLineItem[] = (workingOptions as OfferOption[]).map((opt) => {
+        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
+        return buildVariantLineItem(opt, pkgName);
+      });
+      const parent = variants[0];
+      parent.subItems = variants.slice(1).map((v) => ({ ...v, alternative: true }));
+      lineItems.push(parent);
+    } else {
+      for (const opt of workingOptions as Array<OfferOption & { selected_quantity?: number | null }>) {
+        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
+        const guestOverride = useSelectedQuantity ? (opt.selected_quantity ?? 0) : undefined;
+        lineItems.push(...buildLineItems(opt, pkgName, guestOverride));
+      }
     }
 
     if (lineItems.length === 0) {

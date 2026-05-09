@@ -81,6 +81,10 @@ interface LexOfficeLineItem {
     grossAmount: number;
     taxRatePercentage: number;
   };
+  /** Nur fuer parent-LineItems: Alternativpositionen (Lex-API: alternative=true). */
+  subItems?: LexOfficeLineItem[];
+  /** Nur fuer subItems gueltig; muss true sein, sonst von API abgelehnt. */
+  alternative?: boolean;
 }
 
 function round2(n: number): number {
@@ -94,6 +98,69 @@ function formatDateDE(isoDate: string): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ─── Alternativ-Varianten (Multi-Option-Angebote) ─────────────────────────
+// Lexware-API: subItems[].alternative=true rendert als "OR"-Position. Bei
+// mehreren aktiven Optionen: erste als parent, restliche als Alternative.
+
+const FOOD_TAX_RATE = 7;
+const DRINK_TAX_RATE = 19;
+
+function formatEUR(n: number): string {
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+  }).format(n);
+}
+
+function labelForMode(offerMode: string): string {
+  if (offerMode === "menu") return "Catering-Bestellung";
+  return "Veranstaltungspaket";
+}
+
+function deriveTaxRate(items: LexOfficeLineItem[]): number {
+  if (items.length === 0) return FOOD_TAX_RATE;
+  const sumByRate: Record<number, number> = {};
+  for (const i of items) {
+    const r = i.unitPrice.taxRatePercentage;
+    sumByRate[r] = (sumByRate[r] || 0) + i.unitPrice.grossAmount * i.quantity;
+  }
+  const rates = Object.keys(sumByRate);
+  if (rates.length === 1) return Number(rates[0]);
+  return (sumByRate[DRINK_TAX_RATE] || 0) > (sumByRate[FOOD_TAX_RATE] || 0)
+    ? DRINK_TAX_RATE
+    : FOOD_TAX_RATE;
+}
+
+function buildVariantLineItem(
+  opt: OfferOption,
+  packageName: string | null,
+): LexOfficeLineItem {
+  const detailItems = buildLineItems(opt, packageName);
+  const total = round2(
+    detailItems.reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0),
+  );
+  const description = detailItems
+    .map((i) => {
+      const lineTotal = round2(i.unitPrice.grossAmount * i.quantity);
+      const qty = i.quantity > 1 ? `${i.quantity} × ` : "";
+      return `- ${qty}${i.name}: ${formatEUR(lineTotal)}`;
+    })
+    .join("\n");
+  const taxRate = deriveTaxRate(detailItems);
+  return {
+    type: "custom",
+    name: packageName || labelForMode(opt.offer_mode),
+    description,
+    quantity: 1,
+    unitName: "Pauschale",
+    unitPrice: {
+      currency: "EUR",
+      grossAmount: total > 0 ? total : round2(opt.total_amount || 0),
+      taxRatePercentage: taxRate,
+    },
+  };
 }
 
 function buildLineItems(
@@ -303,11 +370,25 @@ serve(async (req) => {
       for (const p of pkgs || []) packageNameMap[p.id] = p.name;
     }
 
-    // 4. Line-Items
+    // 4. Line-Items — bei mehreren aktiven Optionen Multi-Variante mit
+    //    Alternativ-SubItems (Lex "OR"-Position), sonst klassisch additiv.
+    //    Hinweis: Repair-Skript erstellt nur Quotations (Angebot), nie
+    //    Rechnungen — deshalb ist die Alternative-Branch hier immer erlaubt
+    //    sobald > 1 Option vorhanden ist.
     const lineItems: LexOfficeLineItem[] = [];
-    for (const opt of options as OfferOption[]) {
-      const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
-      lineItems.push(...buildLineItems(opt, pkgName));
+    if ((options as OfferOption[]).length > 1) {
+      const variants: LexOfficeLineItem[] = (options as OfferOption[]).map((opt) => {
+        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
+        return buildVariantLineItem(opt, pkgName);
+      });
+      const parent = variants[0];
+      parent.subItems = variants.slice(1).map((v) => ({ ...v, alternative: true }));
+      lineItems.push(parent);
+    } else {
+      for (const opt of options as OfferOption[]) {
+        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
+        lineItems.push(...buildLineItems(opt, pkgName));
+      }
     }
     if (lineItems.length === 0) throw new Error("Keine Positionen generiert");
 
