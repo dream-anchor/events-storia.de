@@ -1134,6 +1134,7 @@ function FinalOfferView({
                 key={option.id}
                 option={option}
                 inquiryId={inquiry.id}
+                inquiry={inquiry}
                 isSelected={inquiry.selected_option_id === option.id}
                 singleOption={displayOptions.length === 1}
               />
@@ -1148,11 +1149,13 @@ function FinalOfferView({
 function FinalOptionCard({
   option,
   inquiryId,
+  inquiry,
   isSelected,
   singleOption,
 }: {
   option: PublicOfferOption;
   inquiryId: string;
+  inquiry: PublicInquiry;
   isSelected: boolean;
   singleOption: boolean;
 }) {
@@ -1189,7 +1192,8 @@ function FinalOptionCard({
       : 0;
 
   const totalAmount = option.total_amount;
-  const depositAmount = Math.round(totalAmount * 0.2 * 100) / 100;
+  const deposit = computeDeposit(inquiry, totalAmount);
+  const depositAmount = deposit.amount;
 
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
@@ -1387,7 +1391,7 @@ function FinalOptionCard({
                 ) : (
                   <>
                     <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(depositAmount)}</span>
-                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">20% Anzahlung</span>
+                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">{deposit.label}</span>
                     <span className="text-[10px] font-sans text-muted-foreground/60 block">Rest vor dem Event</span>
                   </>
                 )}
