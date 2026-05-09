@@ -706,7 +706,9 @@ function PaketContent({
 
               {/* Preis pro Person editierbar */}
               <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground whitespace-nowrap">Preis/Person:</label>
+                <label className="text-xs text-muted-foreground whitespace-nowrap">
+                  {selectedPkg.price_per_person ? 'Preis/Person:' : 'Gesamtpreis:'}
+                </label>
                 <Input
                   type="number"
                   min="0"
@@ -720,7 +722,9 @@ function PaketContent({
                 <span className="text-xs text-muted-foreground">€</span>
                 {option.guestCount > 0 && option.budgetPerPerson != null && (
                   <span className="text-xs text-muted-foreground ml-auto">
-                    = {(option.budgetPerPerson * option.guestCount).toFixed(2).replace('.', ',')} € gesamt
+                    {selectedPkg.price_per_person
+                      ? `= ${(option.budgetPerPerson * option.guestCount).toFixed(2).replace('.', ',')} € gesamt`
+                      : `= ${(option.budgetPerPerson / option.guestCount).toFixed(2).replace('.', ',')} € pro Person`}
                   </span>
                 )}
               </div>
