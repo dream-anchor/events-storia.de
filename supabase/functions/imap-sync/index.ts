@@ -499,13 +499,49 @@ Deno.serve(async (req) => {
       );
     }
 
-    const a = await phaseA(client);
+    // Alle INBOX-Folder erkennen — KI-Mail-Assistent (IONOS) sortiert in Subfolder.
+    const list = await client.list();
+    const inboxFolders = new Set<string>(["INBOX"]);
+    for (const mb of list) {
+      const p = mb.path;
+      if (!p) continue;
+      if (p === "INBOX" || p.startsWith("INBOX/") || p.startsWith("INBOX.")) {
+        const lower = p.toLowerCase();
+        if (
+          lower.includes("trash") ||
+          lower.includes("papierkorb") ||
+          lower.includes("archiv") ||
+          lower.includes("archive") ||
+          lower.includes("sent") ||
+          lower.includes("gesendet") ||
+          lower.includes("drafts") ||
+          lower.includes("entwürfe") ||
+          lower.includes("entwurf") ||
+          lower.includes("spam") ||
+          lower.includes("junk")
+        ) continue;
+        inboxFolders.add(p);
+      }
+    }
+
+    const phaseAResults: any[] = [];
+    for (const f of inboxFolders) {
+      try {
+        const r = await phaseA(client, f);
+        phaseAResults.push(r);
+      } catch (e) {
+        const msg = (e as Error).message ?? String(e);
+        console.error(`phaseA(${f}) failed:`, msg);
+        try { await setSyncError(f, msg); } catch (_) { /* ignore */ }
+        phaseAResults.push({ folder: f, error: msg });
+      }
+    }
     const b = await phaseB(client);
 
     return new Response(
       JSON.stringify({
         ok: true,
-        phaseA: a,
+        phaseA: phaseAResults,
         phaseB: b,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
