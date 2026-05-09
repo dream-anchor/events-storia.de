@@ -56,6 +56,10 @@ interface PublicInquiry {
   selected_option_id: string | null;
   email_content: string | null;
   lexoffice_invoice_id: string | null;
+  deposit_amount?: number | null;
+  deposit_percent?: number | null;
+  deposit_due_days?: number | null;
+  payment_method?: string | null;
 }
 
 interface CourseSelection {
@@ -137,6 +141,35 @@ function formatCurrencyDecimal(amount: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+/**
+ * Berechnet die Anzahlung (deposit) auf Basis des Inquiry-Settings:
+ *   - deposit_amount > 0  → fixer Eurobetrag (gecappt auf totalAmount)
+ *   - sonst Prozentsatz   → totalAmount * deposit_percent / 100
+ * Liefert {amount, label, show}. show=false wenn 0 oder ≥ totalAmount.
+ */
+function computeDeposit(
+  inquiry: Pick<PublicInquiry, "deposit_amount" | "deposit_percent">,
+  totalAmount: number,
+): { amount: number; label: string; show: boolean } {
+  const fixed = inquiry.deposit_amount && inquiry.deposit_amount > 0 ? inquiry.deposit_amount : null;
+  if (fixed != null) {
+    const amount = Math.min(fixed, totalAmount);
+    return {
+      amount: Math.round(amount * 100) / 100,
+      label: "Anzahlung",
+      show: amount > 0 && amount < totalAmount,
+    };
+  }
+  const pct = inquiry.deposit_percent ?? 20;
+  if (pct <= 0) return { amount: 0, label: "Anzahlung", show: false };
+  const amount = Math.round(totalAmount * pct) / 100;
+  return {
+    amount,
+    label: `Anzahlung ${pct} %`,
+    show: amount > 0 && amount < totalAmount,
+  };
 }
 
 // =================================================================
