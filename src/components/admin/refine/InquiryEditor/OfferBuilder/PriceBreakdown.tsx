@@ -36,6 +36,9 @@ interface PriceBreakdownProps {
   /** Rabatt in Prozent (0–100, default 25) */
   discountPercent?: number;
   onDiscountChange?: (percent: number) => void;
+  /** Rabatt als fester €-Betrag (Vorrang vor Prozent wenn > 0) */
+  discountAmount?: number;
+  onDiscountAmountChange?: (amount: number) => void;
   disabled?: boolean;
   /** Equipment-Items (Fixkosten) */
   equipment?: EquipmentItem[];
@@ -155,6 +158,8 @@ export function PriceBreakdown({
   onPricingModeChange,
   discountPercent: discountPercentProp,
   onDiscountChange,
+  discountAmount: discountAmountProp,
+  onDiscountAmountChange,
   drinksLabel,
   disabled = false,
   equipment,
