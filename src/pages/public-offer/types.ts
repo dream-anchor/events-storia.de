@@ -27,6 +27,7 @@ export interface PublicInquiry {
   email_content: string | null;
   lexoffice_invoice_id: string | null;
   deposit_percent?: number | null;
+  deposit_amount?: number | null;
   deposit_due_days?: number | null;
   offer_validity_days?: number | null;
   payment_method?: string | null;
