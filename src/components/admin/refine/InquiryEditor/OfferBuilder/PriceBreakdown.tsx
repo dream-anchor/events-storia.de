@@ -360,17 +360,27 @@ export function PriceBreakdown({
     );
   }
 
-  const locationTotal = calculateEventPackagePrice(
-    packageData.id,
-    packageData.price,
-    guestCount,
-    !!packageData.price_per_person
-  );
+  // Override-Hinweis (gesetzt in OptionCard.effectivePackage, sobald budgetPerPerson > 0)
+  const isOverridden = (packageData as Package & { __priceOverridden?: boolean }).__priceOverridden === true;
+
+  // Wenn Override aktiv → Katalog-Logik (calculateEventPackagePrice, Tier-Breakdown) komplett umgehen.
+  // Override-Wert wird je nach Pakettyp interpretiert:
+  //   per_person → Wert × Gäste = Gesamtpreis
+  //   flat       → Wert         = Gesamtpreis
+  const locationTotal = isOverridden
+    ? (packageData.price_per_person ? packageData.price * guestCount : packageData.price)
+    : calculateEventPackagePrice(
+        packageData.id,
+        packageData.price,
+        guestCount,
+        !!packageData.price_per_person
+      );
 
   const menuTotal = menuPricePerPerson * guestCount;
   const grandTotal = locationTotal + menuTotal;
 
-  const isLocation = isLocationPackage(packageData.id, packageData.price);
+  // Tier-Breakdown nur ohne Override anzeigen (sonst widerspruechlich zum Override-Wert)
+  const isLocation = !isOverridden && isLocationPackage(packageData.id, packageData.price);
   const locationBreakdown = isLocation ? getLocationPricingBreakdown(guestCount) : null;
 
   // Rabatt-Berechnung (Paket-Modus) — analog zum Menü-Modus rein visuell.
@@ -396,7 +406,7 @@ export function PriceBreakdown({
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">
           {packageData.name}
-          {packageData.price_per_person && (
+          {packageData.price_per_person && guestCount > 0 && (
             <span className="text-xs ml-1">
               ({guestCount} × {formatCurrency(packageData.price)})
             </span>

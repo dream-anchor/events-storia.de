@@ -132,13 +132,16 @@ export function OptionCard({
   // Merged packageData mit Admin-Overrides für PriceBreakdown-Anzeige
   const effectivePackage = useMemo(() => {
     if (!selectedPackage) return undefined;
+    const hasOverride = option.budgetPerPerson != null && option.budgetPerPerson > 0;
     return {
       ...selectedPackage,
       name: option.packageName || selectedPackage.name,
-      // Override-Preis nur bei per-Person-Paketen (budgetPerPerson ist pro Person)
-      price: (option.budgetPerPerson != null && option.budgetPerPerson > 0 && selectedPackage.price_per_person)
-        ? option.budgetPerPerson
-        : selectedPackage.price,
+      // Override ersetzt den Katalogpreis vollständig — unabhängig vom Pakettyp.
+      // - per_person: Override = Preis pro Gast → wird in PriceBreakdown × guests gerechnet.
+      // - flat:        Override = Gesamtpreis → wird unverändert übernommen.
+      price: hasOverride ? option.budgetPerPerson! : selectedPackage.price,
+      // Hinweis für PriceBreakdown: kein calculateEventPackagePrice / Tier-Breakdown verwenden.
+      __priceOverridden: hasOverride,
     };
   }, [selectedPackage, option.packageName, option.budgetPerPerson]);
 
@@ -703,7 +706,9 @@ function PaketContent({
 
               {/* Preis pro Person editierbar */}
               <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground whitespace-nowrap">Preis/Person:</label>
+                <label className="text-xs text-muted-foreground whitespace-nowrap">
+                  {selectedPkg.price_per_person ? 'Preis/Person:' : 'Gesamtpreis:'}
+                </label>
                 <Input
                   type="number"
                   min="0"
@@ -717,7 +722,9 @@ function PaketContent({
                 <span className="text-xs text-muted-foreground">€</span>
                 {option.guestCount > 0 && option.budgetPerPerson != null && (
                   <span className="text-xs text-muted-foreground ml-auto">
-                    = {(option.budgetPerPerson * option.guestCount).toFixed(2).replace('.', ',')} € gesamt
+                    {selectedPkg.price_per_person
+                      ? `= ${(option.budgetPerPerson * option.guestCount).toFixed(2).replace('.', ',')} € gesamt`
+                      : `= ${(option.budgetPerPerson / option.guestCount).toFixed(2).replace('.', ',')} € pro Person`}
                   </span>
                 )}
               </div>
