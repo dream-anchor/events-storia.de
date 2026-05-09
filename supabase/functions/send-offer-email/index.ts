@@ -204,6 +204,7 @@ serve(async (req) => {
   try {
     const body = await req.json() as SendOfferEmailRequest;
     const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug, lexofficeQuotationId, isTestPreview, dryRun } = body;
+    const confirmedOperatorOverride = (body as { confirmedOperatorOverride?: boolean }).confirmedOperatorOverride === true;
 
     // Im dryRun reicht es wenn die Inquiry existiert — emailContent / customerEmail
     // duerfen leer sein. Wir liefern dann eine Vorschau mit Warnungen zurueck,
@@ -224,6 +225,37 @@ serve(async (req) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 },
       );
+    }
+
+    // Operator-Email-Guard (Defense in Depth)
+    // Verhindert Versand an Betreiber-Adressen ohne explizite Admin-Bestaetigung.
+    if (!dryRun && !isTestPreview && customerEmail) {
+      const operatorDomains = [
+        'events-storia.de', 'www.events-storia.de',
+        'ristorantestoria.de', 'www.ristorantestoria.de',
+        'storia-events.de', 'www.storia-events.de',
+      ];
+      const normalized = customerEmail.trim().toLowerCase();
+      const at = normalized.indexOf('@');
+      const domain = at >= 0 ? normalized.slice(at + 1) : '';
+      const isOperator = operatorDomains.some(
+        (d) => domain === d || domain.endsWith('.' + d),
+      );
+      if (isOperator && !confirmedOperatorOverride) {
+        console.warn('[send-offer-email] BLOCKED operator recipient', {
+          inquiryId, customerEmail,
+        });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'OPERATOR_EMAIL_BLOCKED',
+            message:
+              `Empfänger ${customerEmail} ist eine Betreiber-Adresse. ` +
+              `Versand ohne explizite Bestätigung blockiert.`,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 },
+        );
+      }
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

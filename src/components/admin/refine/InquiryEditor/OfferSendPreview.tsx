@@ -295,7 +295,14 @@ export function OfferSendPreview({
   const hasBlockingWarning = previewWarnings.some(
     (w) => w.toLowerCase().includes('anschreiben') || w.toLowerCase().includes('empfaenger') || w.toLowerCase().includes('empfänger')
   );
-  const canSend = !!preview && !previewError && !hasBlockingWarning;
+  // Operator-Email-Check: blockiert Versand wenn Empfänger eine Betreiber-Adresse ist
+  const operatorDomains = ['events-storia.de', 'ristorantestoria.de', 'storia-events.de'];
+  const recipientEmail = (inquiry.email || '').trim().toLowerCase();
+  const recipientDomain = recipientEmail.includes('@') ? recipientEmail.split('@')[1] : '';
+  const isOperatorRecipient = !!recipientDomain && operatorDomains.some(
+    (d) => recipientDomain === d || recipientDomain.endsWith('.' + d)
+  );
+  const canSend = !!preview && !previewError && !hasBlockingWarning && !isOperatorRecipient;
 
   return (
     <Wrapper>
@@ -328,6 +335,17 @@ export function OfferSendPreview({
 
         {/* Block 1: E-Mail-Vorschau (read-only WYSIWYG via Edge-Function-Dry-Run) */}
         <section className="rounded-xl border bg-card overflow-hidden">
+          {isOperatorRecipient && (
+            <div className="border-b border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
+              <div className="font-semibold text-destructive">
+                ⚠️ Empfänger ist eine Betreiber-Adresse
+              </div>
+              <div className="text-destructive/90 text-xs mt-1">
+                <strong>{inquiry.email}</strong> gehört zum Betreiber, nicht zum Kunden.
+                Versand ist blockiert. Bitte zurück und die Kunden-E-Mail in der Anfrage korrigieren.
+              </div>
+            </div>
+          )}
           <div className="bg-muted/50 px-4 py-3 border-b flex items-center gap-2">
             <Mail className="h-4 w-4 text-muted-foreground" />
             <h2 className="font-semibold">1. E-Mail an den Kunden</h2>

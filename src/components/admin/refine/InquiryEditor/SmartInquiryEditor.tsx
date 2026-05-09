@@ -658,6 +658,16 @@ export const SmartInquiryEditor = () => {
         let emailSent = false;
         let emailMessageId: string | null = null;
         if (inquiry.email) {
+          const { guardRecipientEmail } = await import('@/lib/operatorEmailGuard');
+          if (!guardRecipientEmail(inquiry.email)) {
+            toast.dismiss('offer-send-progress');
+            toast.warning(
+              `Versand abgebrochen: Empfänger ${inquiry.email} ist eine Betreiber-Adresse. ` +
+              `Bitte Kunden-Adresse korrigieren.`,
+              { duration: 12000 }
+            );
+            return;
+          }
           const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-offer-email', {
             body: {
               inquiryId: inquiry.id,
@@ -666,6 +676,7 @@ export const SmartInquiryEditor = () => {
               customerName: inquiry.contact_name || '',
               senderEmail: user?.email,
               lexofficeQuotationId: lexQuotationId,
+              confirmedOperatorOverride: true,
             },
           });
           if (emailError || !emailResult?.emailSent) {
@@ -920,6 +931,14 @@ export const SmartInquiryEditor = () => {
                     toast.error('Keine E-Mail-Adresse hinterlegt');
                     return;
                   }
+                  const { guardRecipientEmail } = await import('@/lib/operatorEmailGuard');
+                  if (!guardRecipientEmail(inquiry.email)) {
+                    toast.warning(
+                      `Versand abgebrochen: ${inquiry.email} ist eine Betreiber-Adresse.`,
+                      { duration: 10000 }
+                    );
+                    return;
+                  }
                   const { data: result } = await supabase.functions.invoke('send-offer-email', {
                     body: {
                       inquiryId: id,
@@ -927,6 +946,7 @@ export const SmartInquiryEditor = () => {
                       customerEmail: inquiry.email,
                       customerName: inquiry.contact_name || '',
                       senderEmail: currentUserEmail,
+                      confirmedOperatorOverride: true,
                     },
                   });
                   if (!result?.emailSent) {
