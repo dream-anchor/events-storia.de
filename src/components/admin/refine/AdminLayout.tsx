@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
 import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
+import { useUnassignedInboxCount } from "@/hooks/useUnassignedInbox";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
 import { NotificationCenter } from "../shared/NotificationCenter";
 import { SaveStatusBadge } from "../shared/SaveStatusBadge";
@@ -65,6 +66,7 @@ export const AdminLayout = ({
   const { data: newInquiriesCount } = useNewInquiriesCount();
   const { data: pendingOrdersCount } = usePendingOrdersCount();
   const { data: pendingBookingsCount } = usePendingMenuBookingsCount();
+  const { data: unassignedInboxCount } = useUnassignedInboxCount();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
   const { isAdmin, role } = usePermissions();
   const { showTestData, setShowTestData } = useTestMode();
@@ -110,6 +112,7 @@ export const AdminLayout = ({
   const navigation: NavItem[] = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
     { name: 'Anfragen', href: '/admin/inquiries', icon: Inbox, key: 'inquiries' },
+    { name: 'Posteingang', href: '/admin/posteingang', icon: Inbox, key: 'posteingang' },
     { name: 'Angebote', href: '/admin/quotations', icon: FileCheck, key: 'quotations' },
     { name: 'Rechnungen', href: '/admin/invoices', icon: FileText, key: 'invoices' },
   ];
@@ -144,7 +147,9 @@ export const AdminLayout = ({
           const active = isActive(item.href, item.key);
           const badgeCount = item.key === 'inquiries'
             ? (newInquiriesCount || 0) + (pendingBookingsCount || 0) + (pendingOrdersCount || 0)
-            : 0;
+            : item.key === 'posteingang'
+              ? (unassignedInboxCount || 0)
+              : 0;
 
           return (
             <Link
