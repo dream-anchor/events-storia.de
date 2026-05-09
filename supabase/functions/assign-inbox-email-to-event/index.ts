@@ -172,6 +172,7 @@ Deno.serve(async (req) => {
           is_excluded: false,
         });
       }
+      await writeFeedback(email, event_id, "match");
       return new Response(
         JSON.stringify({ ok: true, event_id, linked_count: 1, filter_id: null }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
