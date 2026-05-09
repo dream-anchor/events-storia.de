@@ -253,6 +253,22 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
           await uploadAttachments(inserted.id, attachments);
         }
 
+        // Match gegen Event-Filter (fire-and-forget, Fehler dürfen Sync nicht blocken)
+        if (inserted?.id) {
+          try {
+            await fetch(`${SUPABASE_URL}/functions/v1/match-email-to-events`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${SERVICE_ROLE}`,
+              },
+              body: JSON.stringify({ email_id: inserted.id }),
+            });
+          } catch (e) {
+            console.error("match invoke failed:", (e as Error).message);
+          }
+        }
+
         processed += 1;
         maxUid = Math.max(maxUid, uid);
         // inkrementell persistieren, damit ein CPU-Timeout nicht den Fortschritt verliert
