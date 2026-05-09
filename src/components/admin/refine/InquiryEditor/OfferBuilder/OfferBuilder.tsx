@@ -365,6 +365,8 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         isNewVersionAfterSend={hasLocalChangesAfterSend}
         currentVersion={builder.currentVersion}
         inquiryId={inquiry.id}
+        recipientName={inquiry.contact_name}
+        recipientEmail={inquiry.email}
       />}
 
       {/* Versionshistorie entfernt — wird in Timeline & Aktivitäten angezeigt */}
