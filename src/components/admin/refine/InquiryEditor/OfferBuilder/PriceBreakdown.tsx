@@ -475,8 +475,11 @@ export function PriceBreakdown({
   // Wenn kein finaler Override (finalPricePerPerson) gesetzt ist, fließt der
   // Rabatt ueber den Recalc-Effect in totalAmount; hier zeigen wir die
   // Aufstellung transparent an.
-  const pkgDiscountPct = discountPercentProp ?? 0;
-  const pkgDiscountAmount = grandTotal * (pkgDiscountPct / 100);
+  const pkgDiscountPct = Math.min(100, Math.max(0, discountPercentProp ?? 0));
+  const pkgDiscountEur = Math.max(0, discountAmountProp ?? 0);
+  const pkgDiscountAmount = pkgDiscountEur > 0
+    ? Math.min(pkgDiscountEur, grandTotal)
+    : grandTotal * (pkgDiscountPct / 100);
   const pkgNetTotal = grandTotal - pkgDiscountAmount;
 
   return (
@@ -532,29 +535,16 @@ export function PriceBreakdown({
 
       <Separator className="my-1" />
 
-      {/* Rabatt — frei eingebbar, 0–100 % */}
+      {/* Rabatt — % oder € (Toggle) */}
       {onDiscountChange && (
         <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <span>Rabatt</span>
-            <div className="relative w-14">
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                step={1}
-                value={pkgDiscountPct || ''}
-                placeholder="0"
-                onChange={(e) => {
-                  const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                  onDiscountChange?.(val);
-                }}
-                className="h-5 rounded px-1.5 pr-4 text-right text-xs"
-                disabled={disabled}
-              />
-              <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">%</span>
-            </div>
-          </div>
+          <DiscountInput
+            percent={pkgDiscountPct}
+            amount={pkgDiscountEur}
+            onPercentChange={(v) => onDiscountChange?.(v)}
+            onAmountChange={(v) => onDiscountAmountChange?.(v)}
+            disabled={disabled}
+          />
           {pkgDiscountAmount > 0 && (
             <span className="text-muted-foreground">−{formatCurrency(pkgDiscountAmount)}</span>
           )}
