@@ -41,6 +41,7 @@ import {
   useBlocklist,
   type UnassignedEmail,
 } from "@/hooks/useUnassignedInbox";
+import { AdminLayout } from "@/components/admin/refine/AdminLayout";
 
 type Tab = "open" | "hidden" | "blocked";
 
@@ -131,25 +132,30 @@ export default function Posteingang() {
   }, [list, selectedId, tab, assignOpen, createOpen, ignoreOpen]);
 
   return (
-    <div className="px-6 py-6 space-y-4">
-      <div className="flex items-baseline justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <InboxIcon className="h-6 w-6" />
-            Posteingang
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {openCount ?? 0} nicht zugeordnete Nachricht{(openCount ?? 0) === 1 ? "" : "en"}
-          </p>
+    <AdminLayout
+      activeTab="posteingang"
+      title="Posteingang"
+      showCreateButton={false}
+    >
+      <div className="space-y-4">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+              <InboxIcon className="h-6 w-6" />
+              Posteingang
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {openCount ?? 0} nicht zugeordnete Nachricht{(openCount ?? 0) === 1 ? "" : "en"}
+            </p>
+          </div>
+          <div className="text-xs text-muted-foreground hidden md:block">
+            Tastatur: <kbd className="px-1.5 py-0.5 bg-muted rounded">j</kbd>/
+            <kbd className="px-1.5 py-0.5 bg-muted rounded">k</kbd> Navigation ·{" "}
+            <kbd className="px-1.5 py-0.5 bg-muted rounded">e</kbd> Zuordnen ·{" "}
+            <kbd className="px-1.5 py-0.5 bg-muted rounded">n</kbd> Neu ·{" "}
+            <kbd className="px-1.5 py-0.5 bg-muted rounded">i</kbd> Ignorieren
+          </div>
         </div>
-        <div className="text-xs text-muted-foreground hidden md:block">
-          Tastatur: <kbd className="px-1.5 py-0.5 bg-muted rounded">j</kbd>/
-          <kbd className="px-1.5 py-0.5 bg-muted rounded">k</kbd> Navigation ·{" "}
-          <kbd className="px-1.5 py-0.5 bg-muted rounded">e</kbd> Zuordnen ·{" "}
-          <kbd className="px-1.5 py-0.5 bg-muted rounded">n</kbd> Neu ·{" "}
-          <kbd className="px-1.5 py-0.5 bg-muted rounded">i</kbd> Ignorieren
-        </div>
-      </div>
 
       <div className="flex gap-1 border-b">
         <TabBtn active={tab === "open"} onClick={() => setTab("open")}>
@@ -256,7 +262,8 @@ export default function Posteingang() {
           />
         </>
       )}
-    </div>
+      </div>
+    </AdminLayout>
   );
 }
 
