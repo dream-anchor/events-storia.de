@@ -10,6 +10,7 @@ import { SmartInquiryEditor } from "@/components/admin/refine/InquiryEditor";
 import { OfferSendPreview } from "@/components/admin/refine/InquiryEditor/OfferSendPreview";
 import { OfferArchivePreview } from "@/components/admin/refine/InquiryEditor/OfferArchivePreview";
 import { AdminOfferCreate } from "@/components/admin/refine/OfferCreate";
+import { UnifiedInquiriesList } from "@/components/admin/refine/UnifiedInquiriesList";
 import { TestModeProvider } from "@/contexts/TestModeContext";
 import { SaveStatusProvider } from "@/components/admin/shared/SaveStatusContext";
 
@@ -23,6 +24,10 @@ const resources = [
     list: "/admin/events",
     edit: "/admin/events/:id/edit",
     show: "/admin/events/:id",
+  },
+  {
+    name: "inquiries",
+    list: "/admin/inquiries",
   },
   {
     name: "bookings",
@@ -82,6 +87,7 @@ export const RefineAdminApp = () => {
     >
       <Routes>
         <Route index element={<Dashboard />} />
+        <Route path="inquiries" element={<UnifiedInquiriesList />} />
         <Route path="events">
           <Route index element={<EventsList />} />
           <Route path="create" element={<AdminOfferCreate />} />

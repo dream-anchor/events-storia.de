@@ -16,8 +16,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useTestMode } from "@/contexts/TestModeContext";
 import {
   LayoutDashboard,
-  CalendarDays,
-  UtensilsCrossed,
   FileText,
   FileCheck,
   Settings,
@@ -28,6 +26,7 @@ import {
   Bell,
   LogOut,
   ChevronDown,
+  Inbox,
 } from "lucide-react";
 import { useEffect, useState as useStateReact } from "react";
 
@@ -110,8 +109,7 @@ export const AdminLayout = ({
   // Navigation items matching mockup
   const navigation: NavItem[] = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
-    { name: 'Events', href: '/admin/events', icon: CalendarDays, key: 'events' },
-    { name: 'Catering', href: '/admin/orders', icon: UtensilsCrossed, key: 'catering' },
+    { name: 'Anfragen', href: '/admin/inquiries', icon: Inbox, key: 'inquiries' },
     { name: 'Angebote', href: '/admin/quotations', icon: FileCheck, key: 'quotations' },
     { name: 'Rechnungen', href: '/admin/invoices', icon: FileText, key: 'invoices' },
   ];
@@ -119,7 +117,12 @@ export const AdminLayout = ({
   const isActive = (href: string, key: string) => {
     if (href === '/admin' && location.pathname === '/admin') return true;
     if (href !== '/admin' && location.pathname.startsWith(href)) return true;
-    if (key === 'events' && (location.pathname.includes('/events') || location.pathname.includes('/bookings'))) return true;
+    if (key === 'inquiries' && (
+      location.pathname.includes('/admin/events') ||
+      location.pathname.includes('/admin/orders') ||
+      location.pathname.includes('/admin/bookings') ||
+      location.pathname.includes('/admin/inquiries')
+    )) return true;
     return activeTab === key;
   };
 
@@ -139,11 +142,9 @@ export const AdminLayout = ({
         {navigation.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href, item.key);
-          const badgeCount = item.key === 'events'
-            ? (newInquiriesCount || 0) + (pendingBookingsCount || 0)
-            : item.key === 'catering'
-              ? pendingOrdersCount || 0
-              : 0;
+          const badgeCount = item.key === 'inquiries'
+            ? (newInquiriesCount || 0) + (pendingBookingsCount || 0) + (pendingOrdersCount || 0)
+            : 0;
 
           return (
             <Link
