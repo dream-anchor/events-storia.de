@@ -290,14 +290,6 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         ein Restaurant-Menü, Eigenes Menü, Paket oder nur eine E-Mail sein.
       </p>
 
-      {/* 2. Kunden-Feedback Banner (nur nach Antwort) */}
-      {builder.offerPhase === "customer_responded" && builder.customerResponse && (
-        <CustomerFeedbackBanner
-          response={builder.customerResponse}
-          options={builder.options}
-        />
-      )}
-
       {/* 3. Options-Grid — pro Option wird der Modus innerhalb der Karte gewählt */}
       <OptionCardGrid
         options={builder.options}
