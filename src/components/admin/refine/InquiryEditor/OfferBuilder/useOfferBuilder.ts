@@ -189,6 +189,7 @@ async function saveOptionsToDb(
       budgetPerPerson: opt.budgetPerPerson,
       pricingMode: opt.pricingMode ?? 'per_person',
       discountPercent: opt.discountPercent,
+      discountAmount: opt.discountAmount ?? 0,
       packageNameOverride: opt.packageName || null,
     },
     total_amount: opt.totalAmount,
@@ -440,6 +441,7 @@ export function useOfferBuilder({
             budgetPerPerson: ((opt.menu_selection as Record<string, unknown>)?.budgetPerPerson as number) ?? null,
             pricingMode: ((opt.menu_selection as Record<string, unknown>)?.pricingMode as 'per_person' | 'per_event') ?? detectPricingMode(((opt.menu_selection as Record<string, unknown>)?.courses as CourseSelection[] | undefined)),
             discountPercent: ((opt.menu_selection as Record<string, unknown>)?.discountPercent as number) ?? 0,
+            discountAmount: ((opt.menu_selection as Record<string, unknown>)?.discountAmount as number) ?? 0,
             attachMenu: false,
             tableNote: null,
           }; });
@@ -869,6 +871,7 @@ export function useOfferBuilder({
           sortOrder: OPTION_LABELS.indexOf(nextLabel as typeof OPTION_LABELS[number]),
           budgetPerPerson: copyFrom.budgetPerPerson,
           discountPercent: copyFrom.discountPercent,
+          discountAmount: copyFrom.discountAmount ?? 0,
           attachMenu: copyFrom.attachMenu,
           tableNote: copyFrom.tableNote,
         }
