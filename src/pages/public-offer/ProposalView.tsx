@@ -951,6 +951,7 @@ function MobileStickyBookingBar({
   totalAmount,
   depositAmount,
   depositPercent,
+  isFixedDeposit,
   showDeposit,
   isPaying,
   onPay,
@@ -968,6 +969,7 @@ function MobileStickyBookingBar({
   totalAmount: number;
   depositAmount: number;
   depositPercent: number;
+  isFixedDeposit: boolean;
   showDeposit: boolean;
   isPaying: 'full' | 'deposit' | null;
   onPay: (type: 'full' | 'deposit') => void;
@@ -1024,7 +1026,7 @@ function MobileStickyBookingBar({
                 className="h-12 px-3 rounded-xl flex flex-col items-center justify-center gap-0 border-primary/30"
               >
                 <span className="text-[10px] uppercase tracking-wider font-sans leading-none">
-                  {depositPercent}%
+                  {isFixedDeposit ? 'Anzahl.' : `${depositPercent}%`}
                 </span>
                 <span className="text-xs font-semibold tabular-nums leading-tight">
                   {formatCurrencyDecimal(depositAmount)}
