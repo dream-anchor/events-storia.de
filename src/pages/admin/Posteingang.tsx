@@ -528,7 +528,7 @@ function AssignDialog({
       toast.error(error.message);
       return;
     }
-    if (data?.warning === "multi_inquiry_conflict") {
+    if (data?.warning === "multiple_open_events") {
       const sibling = (data.sibling_events || []) as any[];
       setConflict({
         events: sibling.map((s) => ({
