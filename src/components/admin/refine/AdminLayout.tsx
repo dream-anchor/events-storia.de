@@ -16,8 +16,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useTestMode } from "@/contexts/TestModeContext";
 import {
   LayoutDashboard,
-  CalendarDays,
-  UtensilsCrossed,
   FileText,
   FileCheck,
   Settings,
