@@ -1,58 +1,86 @@
-## 1. Archiv-Ansicht (`/admin/events/:id/archive/:v`) als E-Mail-Programm
+## 1. Kommunikations-Tab als Mailprogramm + Kundenrückmeldung integrieren
 
-**Ziel:** Block „1. E-Mail an den Kunden" zeigt einen vollständigen Mail-Header (Von / An / CC / BCC / Betreff / Datum) wie in einem Mailclient. Der gelbe „Als neues Angebot kopieren"-Button wandert vom oberen Banner an das Ende der Seite (Footer-Aktion).
+### Problem
+Wenn der Kunde im öffentlichen Angebot eine Option wählt (Anmerkung/Auswahl), erscheint das nur unter „Angebot" als blaues Hinweis-Karten-UI (`offer_customer_responses`). Im Tab „Kommunikation" sieht man die Antwort gar nicht — dort liegen ausschließlich Zeilen aus `email_messages`. Außerdem ist die jetzige Chat-Bubble-Optik (orange Sprechblasen) keine Mailprogramm-Ansicht.
 
-### Änderungen
+### Lösung
 
-**`src/hooks/useOfferHistory.ts` — `useOfferHistoryVersion`**
-- Analog zu `useOfferHistory`: zusätzlich `email_messages` für die Inquiry holen und nach nächster Sendezeit (±5 min, bevorzugt Subject „Angebot/Offer") matchen.
-- Liefert zusätzlich: `recipient_email`, `cc_email`, `bcc_email`, `subject`, `from_email`.
-- `OfferHistoryEntry`-Interface um `subject` und `from_email` erweitern.
+**Library:** [`@chatscope/chat-ui-kit-react`](https://chatscope.io/) — etablierte React-Library mit Mailprogramm-tauglichen Bausteinen (`MainContainer`, `Sidebar`, `ConversationList`, `Conversation`, `ChatContainer`, `ConversationHeader`, `MessageList`, `Message`, `MessageInput`). MIT-Lizenz, ~100k Wochen-Downloads, gepflegt.
 
-**`src/components/admin/refine/InquiryEditor/OfferArchivePreview.tsx`**
-- Oberes Banner schlanker: nur „Zurück zum Angebot" + Archiv-Badge + „Gesendet am … von …" + Schreibgeschützt-Hinweis. **Kein** Kopieren-Button mehr im Banner.
-- Block „1. E-Mail an den Kunden" bekommt **vor** dem iframe ein Mail-Header-Panel:
+Falls die Library aus irgendeinem Grund nicht installierbar ist (sehr selten), Fallback: `react-resizable-panels` (in shadcn schon enthalten) + manuelles Master-/Detail-Layout.
+
+**Neue Komponente:** `src/components/admin/shared/MailClient.tsx` ersetzt das aktuelle `ConversationThread`-Layout. Drei Spalten:
 
 ```text
-Von:      Storia Catering & Events <info@events-storia.de>
-An:       Max Mustermann <max@firma.de>
-CC:       — (falls vorhanden)
-BCC:      info@events-storia.de (falls vorhanden)
-Betreff:  Ihr Angebot von Storia · v2
-Datum:    08.05.2026 um 12:23
+┌────────────┬───────────────────────────────────────────┐
+│ Sidebar    │  Reading Pane                              │
+│ (Threads)  │                                            │
+│            │  Header: Betreff · Von · An · Datum        │
+│ Posteingang│  ──────────────────────────────────────── │
+│ • Mail 1   │  HTML-Inhalt (sanitized) oder Plain-Text  │
+│ • Mail 2   │  Anhänge (Chips)                           │
+│ • Antwort  │  Status-Badge (Versendet / Geöffnet / ..)  │
+│ • …        │                                            │
+│            │  ──────────────────────────────────────── │
+│            │  MessageInput unten (Antwort schreiben)    │
+└────────────┴───────────────────────────────────────────┘
 ```
 
-- Stil: zweispaltiges Grid `grid-cols-[80px_1fr]`, Labels in `text-muted-foreground uppercase tracking-wide text-[11px]`, Werte in `font-mono text-sm`. Fehlende Felder dezent als `—` oder ausblenden.
-- Iframe-Inhalt bleibt unverändert darunter.
-- Neuer Footer-Bereich am Seitenende (unter Block 3): primärer Button „Als neues Angebot kopieren" rechtsbündig, links kurzer Hinweistext. Bestätigungsdialog bleibt wie bisher.
+- Linke Sidebar: chronologische Liste aller Thread-Items, gemischter Quelle (siehe unten). Item zeigt Sender-Avatar (Initialen), Betreff/Vorschau, Zeit, Inbound/Outbound-Pfeil, ungelesen-Punkt.
+- Rechtes Reading-Pane: nur ausgewählte Mail. HTML wird via `DOMPurify` sanitized in einem Iframe (`sandbox="allow-same-origin"`) gerendert — wie bisher in `OfferArchivePreview`.
+- `MessageInput` unten zum direkten Antworten (verwendet weiter `send-offer-email` mit Operator-Guard, identisch zu heute).
+- Auf Mobile (≤768 px): Sidebar wird zur Drawer-Liste, Reading-Pane Vollbild — `useIsMobile`-Hook + `Sheet` von shadcn.
 
-**Out-of-scope:** kein DB-Schema, keine Edge-Function-Änderung. Falls `from_email` nicht im email_messages-Log steht, wird statisch `info@events-storia.de` angezeigt (offizielle Absenderadresse laut Memory).
+**Datenquellen-Merge:**
+
+`useMailThread(inquiryId)` Hook fasst zwei Tabellen zusammen, sortiert nach `created_at` ASC:
+
+1. `email_messages` (wie heute) — direction = `inbound`/`outbound`, Subject, Body (HTML/Plain), Attachments, Resend-Status.
+2. `offer_customer_responses` — Mapped als virtuelles Inbound-Item:
+   - `kind: "form_response"`
+   - `subject: "Kundenrückmeldung: Option X gewählt"`
+   - `body_html`: gerenderte Karte mit gewählter Option, Optionslabel/Paketname, optionale Anmerkung, Versand-Zeitstempel (visuell ähnlich der jetzigen blauen Karte aus Tab „Angebot", aber im Reading-Pane)
+   - `from_email`: Kunden-E-Mail aus `event_inquiries.email`
+   - `to_email`: `info@events-storia.de`
+   - Sidebar-Vorschau: „Hat Option A gewählt — Anmerkung: …"
+
+**Realtime:** Der bestehende `postgres_changes`-Subscribe auf `v2_event_emails` bleibt; zusätzlich Subscribe auf `offer_customer_responses` (filter `inquiry_id`).
+
+**Aufruf-Site:** `SmartInquiryEditor.tsx` Tab `kommunikation` ersetzt `<ConversationThread …>` durch `<MailClient inquiryId={id} customerEmail={inquiry.email} onSendReply={…} />`. Die Kunden-Antwort-Karte unter Tab „Angebot" bleibt unverändert (informativer Quick-View dort).
+
+### Files
+
+| Datei | Änderung |
+|---|---|
+| `package.json` | + `@chatscope/chat-ui-kit-react`, `@chatscope/chat-ui-kit-styles` |
+| `src/components/admin/shared/MailClient.tsx` | NEU |
+| `src/hooks/useMailThread.ts` | NEU — merged Source aus `email_messages` + `offer_customer_responses` |
+| `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` | ConversationThread → MailClient |
+| `src/components/admin/shared/ConversationThread.tsx` | bleibt vorerst (für andere Stellen falls genutzt), wird aber von MailClient ersetzt im Inquiry-Editor |
 
 ---
 
-## 2. Public Offer: Anzahlung respektiert gewählten Betrag (100 €)
+## 2. Anzahlungs-Toggle (% / €) — Audit aller Touchpoints
 
-**Bug:** `src/pages/PublicOffer.tsx` enthält zwei inline-Komponenten (`ProposalView` Zeile 546, `FinalOfferView` Zeile 1066) die hart `Math.round(totalAmount * 0.2 * 100) / 100` rechnen und „Anzahlung 20 %" anzeigen. Die RPC `get_public_offer` liefert seit 09.05. bereits `deposit_amount`, `deposit_percent`, `deposit_due_days`, `payment_method` — diese werden aber ignoriert. (Die separaten Dateien unter `src/pages/public-offer/ProposalView.tsx` machen es bereits richtig, sind aber nicht eingebunden.)
+Audit-Ergebnis nach Durchsicht aller relevanten Pfade — kein Code-Change nötig, nur Bestätigung:
 
-### Änderungen
+| Touchpoint | Datei | % | € (Fix) | Status |
+|---|---|---|---|---|
+| Maestro Editor | `PaymentTermsBlock.tsx` | ✓ | ✓ (Toggle „depositMode") | OK |
+| Public Offer | `PublicOffer.tsx` (`computeDeposit`) | ✓ | ✓ | OK (heute gefixt) |
+| Public Offer (separate Files, ungenutzt) | `public-offer/{Proposal,FinalOffer}View.tsx` | ✓ | ✓ | OK |
+| Stripe-Checkout | `create-payment-session/index.ts` | ✓ | ✓ (`Math.min(fixedDeposit, total)`) | OK |
+| Stripe-Maestro-Checkout | `create-event-payment-session/index.ts` | n/a | n/a | uses pre-computed `amount_cents` — OK |
+| Stripe-Webhook | `handle-stripe-webhook/index.ts` | ✓ | ✓ (uses `session.amount_total`) | OK |
+| LexOffice-Quotation | `create-event-quotation/index.ts` | ✓ | ✓ (`paymentTermLabel` mit `fixedDepositAmount.toFixed(2)`) | OK |
+| AI-Anschreiben | `generate-inquiry-email/index.ts` | n/a | n/a | nennt nur "Anzahlung online", keine konkrete Zahl — OK |
+| Internes Notify | `notify-customer-response/index.ts` | n/a | n/a | erwähnt Anzahlung nicht — OK |
 
-**`src/pages/PublicOffer.tsx`**
-- `PublicInquiry` Interface um Felder erweitern: `deposit_amount: number | null`, `deposit_percent: number | null`, `deposit_due_days: number | null`, `payment_method: string | null`.
-- Helper `computeDeposit(inquiry, totalAmount)` einführen (analog `public-offer/ProposalView.tsx` Zeilen 152–165):
-  - Wenn `deposit_amount > 0` → fixer Betrag (gecappt auf totalAmount)
-  - Sonst Prozentsatz (Default 20 wenn null) → `totalAmount * percent / 100`
-  - Anzeige nur wenn `< totalAmount` und `> 0`.
-- In `ProposalView` (Zeile 568) und `FinalOfferView` (Zeile 1158) den hardcoded `* 0.2` durch `computeDeposit(...)` ersetzen.
-- Label „Anzahlung 20 %" (Zeilen 740 und 1356) dynamisch:
-  - Fixer Betrag → einfach „Anzahlung"
-  - Prozent → „Anzahlung X %"
-- Kommentar Zeile 542 entsprechend anpassen.
-
-**Verifikation:** Inquiry `78680730-…` per `read_query` prüfen (`deposit_amount`, `deposit_percent`), dann Public-Offer-URL im Preview testen → muss 100 € statt 20 % anzeigen.
+**Ergebnis:** Beide Modi werden überall korrekt berücksichtigt. Es gibt **keinen** verbleibenden 20-%-Hardcode in customer-facing Flows. Damit ist Item 2 nur eine Bestätigung — kein Code-Change.
 
 ---
 
 ## Out of scope
-- Keine Migrations.
-- Keine Änderungen an `send-offer-email` oder anderen Edge-Functions.
-- Keine Refactor von PublicOffer.tsx zu den separaten `public-offer/*View.tsx`-Dateien (eigenes Ticket).
+- Volltext-Suche im Mail-Client (späteres Ticket).
+- Mail-Threading nach `in_reply_to` (heute reicht chronologische Liste; bei Bedarf später Gruppierung).
+- Migration der bestehenden `ConversationThread`-Komponente an anderen Stellen (`OrdersList.tsx`) — nur `SmartInquiryEditor` umstellen.
