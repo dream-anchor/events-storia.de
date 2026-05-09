@@ -254,6 +254,11 @@ export function OptionCard({
 
   const disabled = isLocked;
 
+  const [notesOpen, setNotesOpen] = useState(false);
+  const respondedRelative = respondedAt
+    ? formatDistanceToNow(parseISO(respondedAt), { locale: de, addSuffix: true })
+    : null;
+
   return (
     <motion.div
       layout
@@ -265,7 +270,8 @@ export function OptionCard({
       <Card
         className={cn(
           "rounded-2xl border-border/40 shadow-sm overflow-hidden",
-          !option.isActive && "opacity-50"
+          !option.isActive && "opacity-50",
+          isCustomerChoice && "ring-2 ring-foreground/80 border-transparent"
         )}
       >
         {/* Header */}
@@ -281,6 +287,18 @@ export function OptionCard({
             </div>
             <div>
               <div className="flex items-center gap-2">
+                {isCustomerChoice && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-foreground text-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                    title={respondedRelative ? `Kundenwahl ${respondedRelative}` : "Kundenwahl"}
+                  >
+                    <CheckCircle2 className="h-3 w-3" />
+                    Kundenwahl
+                    {respondedRelative && (
+                      <span className="font-normal normal-case tracking-normal opacity-80">· {respondedRelative}</span>
+                    )}
+                  </span>
+                )}
                 
                 <Select
                   value={dropdownValue}
