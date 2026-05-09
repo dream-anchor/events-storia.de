@@ -394,6 +394,9 @@ async function phaseB(client: ImapFlow): Promise<{ moved: number; deleted: numbe
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const url = new URL(req.url);
+  const diagnose = url.searchParams.get("diagnose") === "1";
+
   let client: ImapFlow | null = null;
   try {
     client = new ImapFlow({
@@ -404,6 +407,52 @@ Deno.serve(async (req) => {
       logger: false,
     });
     await client.connect();
+
+    if (diagnose) {
+      const list = await client.list();
+      const folders: any[] = [];
+      for (const mb of list) {
+        try {
+          const lock = await client.getMailboxLock(mb.path);
+          try {
+            const status = await client.status(mb.path, { messages: true, uidNext: true, uidValidity: true });
+            // Latest 3 messages by date
+            const latest: any[] = [];
+            try {
+              const total = (status as any).messages || 0;
+              if (total > 0) {
+                const start = Math.max(1, total - 2);
+                for await (const msg of client.fetch(`${start}:*`, { envelope: true, uid: true, internalDate: true })) {
+                  latest.push({
+                    uid: msg.uid,
+                    date: msg.internalDate,
+                    subject: msg.envelope?.subject,
+                    from: msg.envelope?.from?.[0]?.address,
+                  });
+                }
+              }
+            } catch (_) { /* ignore */ }
+            folders.push({
+              path: mb.path,
+              flags: Array.from(mb.flags || []),
+              specialUse: mb.specialUse,
+              messages: (status as any).messages,
+              uidNext: (status as any).uidNext,
+              uidValidity: (status as any).uidValidity,
+              latest,
+            });
+          } finally {
+            lock.release();
+          }
+        } catch (e) {
+          folders.push({ path: mb.path, error: (e as Error).message });
+        }
+      }
+      return new Response(
+        JSON.stringify({ ok: true, diagnose: true, folders }, null, 2),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
 
     const a = await phaseA(client);
     const b = await phaseB(client);
