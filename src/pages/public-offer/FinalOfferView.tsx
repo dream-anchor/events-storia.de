@@ -73,6 +73,8 @@ function FinalOptionCard({
   singleOption,
   paymentMethod,
   invoiceDueDays,
+  depositPercent,
+  depositAmount: fixedDepositAmount,
 }: {
   option: PublicOfferOption;
   inquiryId: string;
@@ -80,6 +82,8 @@ function FinalOptionCard({
   singleOption: boolean;
   paymentMethod: string;
   invoiceDueDays: number;
+  depositPercent: number;
+  depositAmount: number | null;
 }) {
   const isStripePayment = paymentMethod === 'deposit_online' || paymentMethod === 'prepayment_online';
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -96,8 +100,10 @@ function FinalOptionCard({
       : 0;
 
   const totalAmount = option.total_amount;
-  const depositPercent = 20;
-  const depositAmount = Math.round(totalAmount * depositPercent) / 100;
+  const isFixedDeposit = fixedDepositAmount != null && fixedDepositAmount > 0;
+  const depositAmount = isFixedDeposit
+    ? Math.min(fixedDepositAmount as number, totalAmount)
+    : Math.round(totalAmount * depositPercent) / 100;
 
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
