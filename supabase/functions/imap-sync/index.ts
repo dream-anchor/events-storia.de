@@ -19,7 +19,7 @@ const IMAP_PORT = parseInt(Deno.env.get("IMAP_PORT") ?? "993");
 const IMAP_USER = Deno.env.get("IMAP_USER")!;
 const IMAP_PASSWORD = Deno.env.get("IMAP_PASSWORD")!;
 
-const MAX_PER_RUN = 50;
+const MAX_PER_RUN = 10;
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
 const LARGE_MAIL_BYTES = 10 * 1024 * 1024;
 const BUCKET = "email-attachments";
@@ -237,6 +237,11 @@ async function phaseA(client: ImapFlow): Promise<{ processed: number; maxUid: nu
 
         processed += 1;
         maxUid = Math.max(maxUid, uid);
+        // inkrementell persistieren, damit ein CPU-Timeout nicht den Fortschritt verliert
+        await supabase
+          .from("imap_sync_state")
+          .update({ last_uid: maxUid, last_sync_at: new Date().toISOString() })
+          .eq("folder_name", "INBOX");
       } catch (e) {
         console.error(`Mail UID ${uid} failed:`, e);
         maxUid = Math.max(maxUid, uid);
