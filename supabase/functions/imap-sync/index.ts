@@ -23,6 +23,7 @@ const MAX_PER_RUN = 5;
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
 const LARGE_MAIL_BYTES = 200 * 1024;
 const BUCKET = "email-attachments";
+const MAX_DRAFTS_PER_RUN = 30;
 
 // Eigene Outbound-Adressen — Mails von diesen Absendern sind Kopien
 // unserer eigenen Outbound-Mails und gehören nicht in den Posteingang.
