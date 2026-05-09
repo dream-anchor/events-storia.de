@@ -346,33 +346,21 @@ export function PriceBreakdown({
             )}
 
             {/* Rabatt — nur sichtbar wenn > 0 */}
-            {(discountPercentProp ?? 0) > 0 && (<>
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1 text-green-600">
-                <span>Rabatt</span>
-                <div className="relative w-14">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={discountPercentProp ?? 0}
-                    onChange={(e) => {
-                      const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                      onDiscountChange?.(val);
-                    }}
-                    className="h-5 rounded px-1.5 pr-4 text-right text-xs text-green-600"
-                    disabled={disabled}
-                  />
-                  <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-green-600">%</span>
-                </div>
+            {((discountPercentProp ?? 0) > 0 || (discountAmountProp ?? 0) > 0) && (
+              <div className="flex items-center justify-between text-xs">
+                <DiscountInput
+                  percent={discountPctVal}
+                  amount={discountEurVal}
+                  onPercentChange={(v) => onDiscountChange?.(v)}
+                  onAmountChange={(v) => onDiscountAmountChange?.(v)}
+                  disabled={disabled}
+                  tone="green"
+                />
+                {discountAmount > 0 && (
+                  <span className="text-green-600">−{formatCurrency(discountAmount)}</span>
+                )}
               </div>
-              {discountAmount > 0 && (
-                <span className="text-green-600">−{formatCurrency(discountAmount)}</span>
-              )}
-            </div>
-
-            </>)}
+            )}
             {/* Netto — nur wenn Rabatt aktiv */}
             {netPerPerson > 0 && discountAmount > 0 && (
               <div className="flex items-center justify-between text-xs font-medium">
