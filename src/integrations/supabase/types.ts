@@ -3704,6 +3704,14 @@ export type Database = {
       }
     }
     Functions: {
+      checkout_create_catering_order: {
+        Args: { payload: Json }
+        Returns: string
+      }
+      checkout_create_event_booking: {
+        Args: { payload: Json }
+        Returns: string
+      }
       confirm_offline_booking: {
         Args: { p_inquiry_id: string; p_selected_option_id: string }
         Returns: Json

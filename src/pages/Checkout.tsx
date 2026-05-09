@@ -949,9 +949,8 @@ const Checkout = () => {
       const eventPackageId = eventItem?.id.replace('event-', '') || null;
       
       if (isEventBooking && eventItem) {
-        const { error } = await supabase
-          .from('event_bookings')
-          .insert({
+        const { error } = await supabase.rpc('checkout_create_event_booking', {
+          payload: {
             id: orderId,
             booking_number: newOrderNumber,
             customer_name: formData.name,
@@ -963,17 +962,17 @@ const Checkout = () => {
             guest_count: eventGuestCount,
             package_id: eventPackageId,
             total_amount: grandTotal,
-            payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending',
+            payment_status: 'pending',
             status: 'confirmed',
             internal_notes: fullNotes || null,
             menu_selection: null,
-          });
+          } as never,
+        });
 
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('catering_orders')
-          .insert({
+        const { error } = await supabase.rpc('checkout_create_catering_order', {
+          payload: {
             id: orderId,
             order_number: newOrderNumber,
             customer_name: formData.name,
@@ -1001,10 +1000,11 @@ const Checkout = () => {
             minimum_order_surcharge: minimumOrderSurcharge,
             calculated_distance_km: deliveryCalc?.distanceKm || null,
             payment_method: paymentMethod,
-            payment_status: paymentMethod === 'stripe' ? 'pending' : 'pending',
+            payment_status: 'pending',
             user_id: existingUserId,
-            reference_number: formData.referenceNumber?.trim() || null
-          });
+            reference_number: formData.referenceNumber?.trim() || null,
+          } as never,
+        });
 
         if (error) throw error;
       }
