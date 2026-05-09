@@ -1,3 +1,5 @@
+# Deploy-Workflow — bun-basiert seit 09.05.2026
+# Trigger: push to main → SFTP zu IONOS (events-storia.de)
 name: Deploy to IONOS (SFTP - events-storia.de)
 
 on:
