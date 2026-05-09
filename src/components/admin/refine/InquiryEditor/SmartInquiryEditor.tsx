@@ -961,6 +961,18 @@ export const SmartInquiryEditor = () => {
           </Card>
         </TabsContent>
 
+        {/* Tab: Mails (Posteingang-Verknüpfungen + Filter) */}
+        <TabsContent value="mails" className="mt-6">
+          {id && (
+            <EventMailsTab
+              eventId={id}
+              contactEmail={inquiry.email || null}
+              contactName={inquiry.contact_name || null}
+              eventName={inquiry.event_type || inquiry.company_name || null}
+            />
+          )}
+        </TabsContent>
+
         {/* Tab: Aufgaben */}
         <TabsContent value="aufgaben" className="mt-6 space-y-6">
           <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
