@@ -8,6 +8,7 @@ import type {
   OfferMode,
   CourseConfig,
   DrinkConfig,
+  CustomerResponse,
 } from "./types";
 import { DEFAULT_COURSE_CONFIGS } from "./types";
 import type { Package } from "../types";
@@ -28,6 +29,7 @@ interface OptionCardGridProps {
   guestCount: number;
   menuImporterOpen?: boolean;
   onMenuImporterOpenChange?: (open: boolean) => void;
+  customerResponse?: CustomerResponse | null;
 }
 
 export function OptionCardGrid({
@@ -45,6 +47,7 @@ export function OptionCardGrid({
   guestCount,
   menuImporterOpen,
   onMenuImporterOpenChange,
+  customerResponse,
 }: OptionCardGridProps) {
   const canAdd = options.length < 5 && !isLocked;
   const canDuplicate = options.length < 5;
@@ -126,6 +129,9 @@ export function OptionCardGrid({
                 canDuplicate={canDuplicate}
                 canDelete={canDelete}
                 onRequestImport={() => onMenuImporterOpenChange?.(true)}
+                isCustomerChoice={!!customerResponse && customerResponse.selectedOptionId === option.id}
+                customerNotes={customerResponse?.selectedOptionId === option.id ? customerResponse?.customerNotes ?? null : null}
+                respondedAt={customerResponse?.selectedOptionId === option.id ? customerResponse?.respondedAt ?? null : null}
               />
             );
           })}

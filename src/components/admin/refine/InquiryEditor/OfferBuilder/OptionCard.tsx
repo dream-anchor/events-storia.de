@@ -1,6 +1,9 @@
 import { useMemo, useEffect, useRef, useState } from "react";
+import { formatDistanceToNow, parseISO } from "date-fns";
+import { de } from "date-fns/locale";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed, RefreshCw, ChefHat, Package as PackageIcon, Mail } from "lucide-react";
+import { ChevronDown, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +59,9 @@ interface OptionCardProps {
   canDuplicate: boolean;
   canDelete: boolean;
   onRequestImport?: () => void;
+  isCustomerChoice?: boolean;
+  customerNotes?: string | null;
+  respondedAt?: string | null;
 }
 
 export function OptionCard({
@@ -72,6 +78,9 @@ export function OptionCard({
   canDuplicate,
   canDelete,
   onRequestImport,
+  isCustomerChoice = false,
+  customerNotes = null,
+  respondedAt = null,
 }: OptionCardProps) {
   const selectedPackage = useMemo(
     () => packages.find(p => p.id === option.packageId),
@@ -245,6 +254,11 @@ export function OptionCard({
 
   const disabled = isLocked;
 
+  const [notesOpen, setNotesOpen] = useState(false);
+  const respondedRelative = respondedAt
+    ? formatDistanceToNow(parseISO(respondedAt), { locale: de, addSuffix: true })
+    : null;
+
   return (
     <motion.div
       layout
@@ -256,7 +270,8 @@ export function OptionCard({
       <Card
         className={cn(
           "rounded-2xl border-border/40 shadow-sm overflow-hidden",
-          !option.isActive && "opacity-50"
+          !option.isActive && "opacity-50",
+          isCustomerChoice && "ring-2 ring-foreground/80 border-transparent"
         )}
       >
         {/* Header */}
@@ -272,6 +287,18 @@ export function OptionCard({
             </div>
             <div>
               <div className="flex items-center gap-2">
+                {isCustomerChoice && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-foreground text-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                    title={respondedRelative ? `Kundenwahl ${respondedRelative}` : "Kundenwahl"}
+                  >
+                    <CheckCircle2 className="h-3 w-3" />
+                    Kundenwahl
+                    {respondedRelative && (
+                      <span className="font-normal normal-case tracking-normal opacity-80">· {respondedRelative}</span>
+                    )}
+                  </span>
+                )}
                 
                 <Select
                   value={dropdownValue}
@@ -337,6 +364,25 @@ export function OptionCard({
             </Button>
           </div>
         </div>
+
+        {/* Kundennotiz (nur wenn diese Option vom Kunden gewählt wurde) */}
+        {isCustomerChoice && customerNotes && (
+          <div className="px-5 py-2 border-b border-border/30 bg-muted/10">
+            <button
+              type="button"
+              onClick={() => setNotesOpen((v) => !v)}
+              className="flex items-center gap-1.5 text-xs font-medium text-foreground/80 hover:text-foreground"
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", notesOpen && "rotate-180")} />
+              Anmerkung des Kunden
+            </button>
+            {notesOpen && (
+              <p className="mt-2 text-sm whitespace-pre-wrap text-muted-foreground bg-muted/40 rounded-xl p-3">
+                {customerNotes}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Body */}
         <div className="p-5 space-y-4">
