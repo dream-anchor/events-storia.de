@@ -19,6 +19,18 @@ interface SendOfferEmailRequest {
   /** Wenn true: nichts senden, nichts loggen — nur das gerenderte Mail-Objekt zurueckgeben.
    *  Wird vom WYSIWYG-Preview-Screen genutzt. */
   dryRun?: boolean;
+  /** Reply-Modus: überschreibt das gerenderte HTML-Template. */
+  emailHtml?: string;
+  /** Reply-Modus: überschreibt den Default-Subject "Ihr Angebot von STORIA Events". */
+  emailSubject?: string;
+  /** Zusätzliche CC-Empfänger (z.B. aus dem Composer). */
+  cc?: string[];
+  /** Zusätzliche BCC-Empfänger — werden mit dem Archiv-BCC kombiniert (deduped). */
+  bcc?: string[];
+  /** Threading: Message-ID der Mail, auf die geantwortet wird. */
+  inReplyTo?: string | null;
+  /** Threading: References-Header der Original-Mail (Array oder Space-getrennt). */
+  references?: string[] | string | null;
 }
 
 interface SendResult {
@@ -110,6 +122,8 @@ async function sendEmail(
   customerName: string,
   bcc?: string[],
   replyTo?: string,
+  cc?: string[],
+  headers?: Record<string, string>,
 ): Promise<SendResult> {
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   const smtpUser = Deno.env.get("SMTP_USER")?.trim();
@@ -125,10 +139,12 @@ async function sendEmail(
       const payload: Record<string, unknown> = {
         from: `${fromName} <info@events-storia.de>`,
         to,
+        cc: cc && cc.length > 0 ? cc : undefined,
         bcc: bcc && bcc.length > 0 ? bcc : undefined,
         subject,
         html,
         reply_to: replyTo || 'info@events-storia.de',
+        headers: headers && Object.keys(headers).length > 0 ? headers : undefined,
       };
 
       if (pdfBuffer) {
@@ -203,8 +219,15 @@ serve(async (req) => {
 
   try {
     const body = await req.json() as SendOfferEmailRequest;
-    const { inquiryId, emailContent, customerEmail, customerName, senderEmail, offerSlug: providedSlug, lexofficeQuotationId, isTestPreview, dryRun } = body;
+    const {
+      inquiryId, emailContent, customerEmail, customerName, senderEmail,
+      offerSlug: providedSlug, lexofficeQuotationId, isTestPreview, dryRun,
+      emailHtml: overrideHtml, emailSubject: overrideSubject,
+      cc: extraCc, bcc: extraBcc,
+      inReplyTo, references,
+    } = body;
     const confirmedOperatorOverride = (body as { confirmedOperatorOverride?: boolean }).confirmedOperatorOverride === true;
+    const isReplyMode = !!(overrideHtml && overrideHtml.trim());
 
     // Im dryRun reicht es wenn die Inquiry existiert — emailContent / customerEmail
     // duerfen leer sein. Wir liefern dann eine Vorschau mit Warnungen zurueck,
@@ -287,7 +310,9 @@ serve(async (req) => {
 
     const offerUrl = `https://events-storia.de/offer/${inquiryId}`;
 
-    const emailSubject = `Ihr Angebot von STORIA Events`;
+    const emailSubject = (overrideSubject && overrideSubject.trim())
+      ? overrideSubject.trim()
+      : `Ihr Angebot von STORIA Events`;
 
     // Anschreiben-Text aufbereiten:
     // 1. Redundante URL-Erwähnung entfernen (CTA-Button oben ist prominenter)
@@ -298,7 +323,7 @@ serve(async (req) => {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    const htmlBody = `<!DOCTYPE html>
+    const templateHtml = `<!DOCTYPE html>
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -361,6 +386,9 @@ serve(async (req) => {
 </body>
 </html>`;
 
+    // Reply-Modus: vom Composer geliefertes HTML 1:1 verwenden, sonst Template.
+    const htmlBody = isReplyMode ? (overrideHtml as string) : templateHtml;
+
     // LexOffice-PDF abrufen (falls quotationId vorhanden) — im dryRun nur Verfügbarkeitscheck (kein Wait-Loop)
     let pdfBuffer: Uint8Array | null = null;
     let hasPdf = false;
@@ -396,7 +424,37 @@ serve(async (req) => {
     // als BCC mitgesendet, damit das Buero ein Archiv aller versendeten Angebote
     // hat. Bei Test-Inquiries (is_test) wird kein BCC gesetzt.
     const ARCHIVE_BCC = 'info@events-storia.de';
-    const bccList: string[] = event.is_test ? [] : [ARCHIVE_BCC];
+    const bccList: string[] = [];
+    if (!event.is_test) bccList.push(ARCHIVE_BCC);
+    if (extraBcc && extraBcc.length > 0) {
+      for (const b of extraBcc) {
+        const t = (b || '').trim();
+        if (t && !bccList.some((x) => x.toLowerCase() === t.toLowerCase())) bccList.push(t);
+      }
+    }
+    const ccList: string[] = [];
+    if (extraCc && extraCc.length > 0) {
+      for (const c of extraCc) {
+        const t = (c || '').trim();
+        if (t && !ccList.some((x) => x.toLowerCase() === t.toLowerCase())) ccList.push(t);
+      }
+    }
+
+    // Threading-Header für Replies
+    const threadingHeaders: Record<string, string> = {};
+    if (inReplyTo) {
+      const irt = inReplyTo.startsWith('<') ? inReplyTo : `<${inReplyTo}>`;
+      threadingHeaders['In-Reply-To'] = irt;
+    }
+    if (references) {
+      const refsArr = Array.isArray(references)
+        ? references
+        : String(references).split(/\s+/).filter(Boolean);
+      const formatted = refsArr
+        .map((r) => (r.startsWith('<') ? r : `<${r}>`))
+        .join(' ');
+      if (formatted) threadingHeaders['References'] = formatted;
+    }
 
     const replyToAddress = 'info@events-storia.de';
     const safeSubject = getSafeSubject(emailSubject, isTest);
@@ -405,6 +463,7 @@ serve(async (req) => {
     let previewTo: string[] | null = null;
     let previewSubject: string | null = null;
     let previewBcc: string[] | null = null;
+    let previewCc: string[] | null = null;
     if (isTestPreview) {
       const PREVIEW_STANDARD_RECIPIENTS = ['antoine@monot.com', 'info@ristorantestoria.de'];
       const recipients = [...PREVIEW_STANDARD_RECIPIENTS];
@@ -415,11 +474,13 @@ serve(async (req) => {
       previewTo = recipients;
       previewSubject = `VORSCHAU – ${emailSubject}`;
       previewBcc = [];
+      previewCc = [];
     }
 
     const finalTo = previewTo || [safeCustomerEmail];
     const finalSubject = previewSubject || safeSubject;
     const finalBcc = previewBcc !== null ? previewBcc : bccList;
+    const finalCc = previewCc !== null ? previewCc : ccList;
     const fromName = "STORIA Events";
     const fromAddress = `${fromName} <info@events-storia.de>`;
 
@@ -442,6 +503,7 @@ serve(async (req) => {
           preview: {
             from: fromAddress,
             to: finalTo,
+            cc: finalCc,
             bcc: finalBcc,
             subject: finalSubject,
             htmlBody,
@@ -449,13 +511,19 @@ serve(async (req) => {
               filename: attachmentFilename,
               available: hasPdf,
             },
+            isReplyMode,
+            inReplyTo: threadingHeaders['In-Reply-To'] || null,
+            references: threadingHeaders['References'] || null,
           },
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    const result = await sendEmail(finalTo, finalSubject, htmlBody, fromName, pdfBuffer, customerName, finalBcc, replyToAddress);
+    const result = await sendEmail(
+      finalTo, finalSubject, htmlBody, fromName, pdfBuffer, customerName,
+      finalBcc, replyToAddress, finalCc, threadingHeaders,
+    );
 
     // Betreiber-Benachrichtigung: Versand fehlgeschlagen
     if (!result.sent) {
@@ -517,19 +585,21 @@ serve(async (req) => {
         direction: 'outbound',
         from_email: 'info@events-storia.de',
         to_email: customerEmail,
+        cc_email: finalCc.length > 0 ? finalCc.join(', ') : null,
         bcc_email: finalBcc.length > 0 ? finalBcc.join(', ') : null,
         subject: emailSubject,
-        body_text: cleanedEmailContent,
+        body_text: isReplyMode ? (emailContent || '') : cleanedEmailContent,
         body_html: htmlBody,
         attachments: hasPdf ? [{ filename: attachmentFilename }] : [],
         resend_message_id: result.messageId,
         resend_status: 'queued',
+        in_reply_to: threadingHeaders['In-Reply-To'] || null,
         sent_at: new Date().toISOString(),
       } as Record<string, unknown>);
     }
 
-    // Promote v2_event auf 'proposal_sent' (nur bei echtem Versand, nicht im Preview)
-    if (result.sent && !isTestPreview) {
+    // Promote v2_event auf 'proposal_sent' (nur bei echtem Versand, nicht im Preview, nicht bei Reply)
+    if (result.sent && !isTestPreview && !isReplyMode) {
       await supabase.from('v2_events').update({
         offer_sent_at: new Date().toISOString(),
         offer_sent_by: senderEmail || null,
@@ -596,6 +666,7 @@ serve(async (req) => {
         messageId: result.messageId,
         errorMessage: result.errorMessage,
         recipients: finalTo,
+        cc: finalCc,
         bcc: finalBcc,
         subject: finalSubject,
         offerUrl,
@@ -603,6 +674,7 @@ serve(async (req) => {
         hasPdfAttachment: hasPdf,
         warnings,
         isTestPreview: isTestPreview === true,
+        isReplyMode,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
