@@ -18,6 +18,7 @@ import { BulkActionBar } from "@/components/admin/shared/BulkActionBar";
 import { cn } from "@/lib/utils";
 import { getAdminDisplayName, getAdminInitials } from "@/lib/adminDisplayNames";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import { getInquiryActionState } from "@/lib/inquiryActionState";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 
@@ -128,12 +129,73 @@ export const EventsList = () => {
   const allEvents = eventsQuery.result?.data || [];
   const isLoading = eventsQuery.query.isLoading;
 
-  // Separate archived and active events
+  // Bookings ohne Quell-Inquiry → eigenständige „Gebucht"-Karten im Kanban
+  const bookingsQuery = useQuery({
+    queryKey: ["events-list-bookings", showTestData],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_bookings")
+        .select(
+          "id, booking_number, customer_name, company_name, customer_email, phone, guest_count, event_date, event_time, status, payment_status, total_amount, source_inquiry_id, menu_confirmed, created_at, updated_at, is_test"
+        )
+        .is("source_inquiry_id", null)
+        .not("status", "in", "(cancelled,refunded)")
+        .limit(200);
+      if (error) throw error;
+      const rows = (data || []) as any[];
+      return showTestData ? rows : rows.filter(r => r.is_test !== true);
+    },
+  });
+
+  // Map standalone bookings into EventInquiry shape (status='confirmed' for Kanban "Gebucht")
+  const bookingEvents: EventInquiry[] = useMemo(() => {
+    const rows = bookingsQuery.data || [];
+    return rows.map((b: any) => ({
+      id: `booking-${b.id}`,
+      company_name: b.company_name ?? null,
+      contact_name: b.customer_name ?? "",
+      email: b.customer_email ?? "",
+      phone: b.phone ?? null,
+      guest_count: b.guest_count ? String(b.guest_count) : null,
+      event_type: null,
+      preferred_date: b.event_date ?? null,
+      event_end_date: null,
+      venue: null,
+      message: null,
+      source: "booking",
+      status: "confirmed" as InquiryStatus,
+      internal_notes: null,
+      notification_sent: true,
+      created_at: b.created_at,
+      updated_at: b.updated_at ?? b.created_at,
+      last_edited_by: null,
+      last_edited_at: null,
+      offer_sent_at: null,
+      offer_sent_by: null,
+      assigned_to: null,
+      assigned_at: null,
+      assigned_by: null,
+      priority: "normal",
+      archived_at: null,
+      archived_by: null,
+      lexoffice_invoice_id: null,
+      lexoffice_document_type: null,
+      lexoffice_contact_id: null,
+      offer_phase: "confirmed",
+      total_amount: b.total_amount ?? null,
+      selected_option_id: null,
+    }));
+  }, [bookingsQuery.data]);
+
+  // Separate archived and active events. Standalone bookings always count as active "Gebucht".
   const { activeEvents, archivedEvents } = useMemo(() => {
     const archived = allEvents.filter(e => e.archived_at);
     const active = allEvents.filter(e => !e.archived_at);
-    return { activeEvents: active, archivedEvents: archived };
-  }, [allEvents]);
+    return {
+      activeEvents: [...active, ...bookingEvents],
+      archivedEvents: archived,
+    };
+  }, [allEvents, bookingEvents]);
 
   // Batch-load payment status for all visible events
   useEffect(() => {
