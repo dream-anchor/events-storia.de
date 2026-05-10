@@ -5,13 +5,20 @@ import { de } from "date-fns/locale";
 import {
   ChevronDown,
   ChevronRight,
-  CalendarDays,
+  Home,
   UtensilsCrossed,
+  Truck,
+  ShoppingBag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
-import type { InquiryRecord, UnifiedColumn } from "@/types/inquiryRecord";
+import type {
+  InquiryRecord,
+  ServiceType,
+  UnifiedColumn,
+} from "@/types/inquiryRecord";
+import { getRecordActionState } from "@/lib/inquiryActionState";
 
 interface UnifiedKanbanViewProps {
   records: InquiryRecord[];
@@ -101,18 +108,25 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
       const record = records.find((r) => r.id === id);
       if (!record || record.kind !== "event") return;
       if (record.column === target) return;
-      const map: Record<UnifiedColumn, string> = {
-        lead: "new",
-        proposal: "contacted",
-        pending: "offer_sent",
-        won: "confirmed",
-        lost: "declined",
-        closed: "cancelled",
+      // Map pipeline column → v2_events.status (and archived flag).
+      const map: Record<UnifiedColumn, { status: string; archived: boolean }> = {
+        lead: { status: "inquiry", archived: false },
+        proposal: { status: "offer_draft", archived: false },
+        pending: { status: "offer_sent", archived: false },
+        won: { status: "paid", archived: false },
+        lost: { status: "cancelled", archived: true },
+        closed: { status: "cancelled", archived: false },
       };
+      const upd = map[target];
       try {
         const { error } = await supabase
-          .from("event_inquiries")
-          .update({ status: map[target] as any, updated_at: new Date().toISOString() })
+          .from("v2_events")
+          .update({
+            status: upd.status as any,
+            archived: upd.archived,
+            archived_at: upd.archived ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", record.id);
         if (error) throw error;
         toast.success("Status geändert");
@@ -230,6 +244,7 @@ function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick
     record.companyName?.trim() ||
     record.customerName?.trim() ||
     "Unbenannte Anfrage";
+  const action = getRecordActionState(record);
   return (
     <div
       draggable={isEvent}
@@ -238,14 +253,15 @@ function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick
       onClick={onClick}
       title={isEvent ? "" : "Status nur im Detail änderbar"}
       className={cn(
-        "group relative bg-white p-3 rounded-xl border border-slate-200",
+        "group relative bg-white p-3 rounded-xl border border-slate-200 border-l-[3px]",
+        action.borderClass,
         "hover:shadow-sm hover:border-foreground/30 transition-all",
         isEvent ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
         isDragging && "opacity-40 scale-[0.98] shadow-md"
       )}
     >
       <div className="flex items-center gap-2 min-w-0">
-        <KindBadge kind={record.kind} />
+        <ServiceBadge serviceType={record.serviceType} />
         <h3 className="font-semibold text-slate-800 text-[13px] truncate flex-1 min-w-0">
           {title}
         </h3>
@@ -254,6 +270,12 @@ function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick
             {format(parseISO(record.date), "d. MMM", { locale: de })}
           </span>
         )}
+      </div>
+      <div className="flex items-center gap-1.5 mt-1.5">
+        <span className={cn("h-2 w-2 rounded-full flex-shrink-0", action.dotClass)} />
+        <span className={cn("text-[10px] font-semibold uppercase tracking-wide", action.textClass)}>
+          {action.label}
+        </span>
       </div>
       <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-500">
         {isEvent && record.guestCount ? <span>{record.guestCount} Gäste</span> : null}
@@ -274,19 +296,66 @@ function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick
   );
 }
 
-export function KindBadge({ kind, compact = false }: { kind: "event" | "catering"; compact?: boolean }) {
-  const Icon = kind === "event" ? CalendarDays : UtensilsCrossed;
-  const label = kind === "event" ? "Event" : "Catering";
+const SERVICE_META: Record<
+  ServiceType,
+  { label: string; tooltip: string; Icon: typeof UtensilsCrossed; chip: string }
+> = {
+  restaurant: {
+    label: "Im Haus",
+    tooltip: "Event im Restaurant",
+    Icon: Home,
+    chip: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
+  },
+  catering: {
+    label: "Außer Haus",
+    tooltip: "Event-Catering an externen Ort",
+    Icon: Truck,
+    chip: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+  },
+  catering_order: {
+    label: "Catering-Shop",
+    tooltip: "Bestellung über den Catering-Online-Shop",
+    Icon: ShoppingBag,
+    chip: "bg-amber-50 text-amber-800 ring-1 ring-amber-200",
+  },
+};
+
+export function ServiceBadge({
+  serviceType,
+  compact = false,
+}: {
+  serviceType: ServiceType;
+  compact?: boolean;
+}) {
+  const m = SERVICE_META[serviceType];
+  const Icon = m.Icon;
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full bg-foreground/5 ring-1 ring-foreground/15 text-foreground/80 font-medium",
-        compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[10px]"
+        "inline-flex items-center gap-1 rounded-full font-semibold whitespace-nowrap",
+        m.chip,
+        compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[10px]",
       )}
-      title={label}
+      title={m.tooltip}
     >
       <Icon className="h-3 w-3" />
-      {label}
+      {m.label}
     </span>
+  );
+}
+
+/** Backwards-compat alias — still imported by the legacy EventsList. */
+export function KindBadge({
+  kind,
+  compact = false,
+}: {
+  kind: "event" | "catering";
+  compact?: boolean;
+}) {
+  return (
+    <ServiceBadge
+      serviceType={kind === "event" ? "restaurant" : "catering_order"}
+      compact={compact}
+    />
   );
 }
