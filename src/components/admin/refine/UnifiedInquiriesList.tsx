@@ -245,14 +245,24 @@ export const UnifiedInquiriesList = () => {
             <h1 className="text-2xl font-bold tracking-tight">Anfragen</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {filtered.length} im Filter „{STATUS_LABELS[statusFilter]}
-              {kindFilter !== "all" ? ` · ${kindFilter === "event" ? "Events" : "Catering"}` : ""}
+              {kindFilter !== "all"
+                ? ` · ${
+                    kindFilter === "restaurant"
+                      ? "Im Haus"
+                      : kindFilter === "catering"
+                        ? "Außer Haus"
+                        : "Catering-Shop"
+                  }`
+                : ""}
               "
             </p>
           </div>
           <div className="flex items-center gap-3">
             {/* Kind filter */}
             <div className="flex items-center gap-1 p-1 rounded-2xl bg-muted/60">
-              {(["all", "event", "catering"] as KindFilter[]).map((k) => (
+              {(
+                ["all", "restaurant", "catering", "catering_order"] as KindFilter[]
+              ).map((k) => (
                 <button
                   key={k}
                   onClick={() => setKindFilter(k)}
@@ -260,10 +270,16 @@ export const UnifiedInquiriesList = () => {
                     "px-3 py-1.5 rounded-xl text-xs font-medium transition-colors",
                     kindFilter === k
                       ? "bg-white text-foreground shadow-sm ring-1 ring-foreground/10"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {k === "all" ? "Alle" : k === "event" ? "Events" : "Catering"}
+                  {k === "all"
+                    ? "Alle"
+                    : k === "restaurant"
+                      ? "Im Haus"
+                      : k === "catering"
+                        ? "Außer Haus"
+                        : "Shop"}
                   <span className="ml-1.5 text-[10px] tabular-nums opacity-60">
                     {kindCounts[k]}
                   </span>
