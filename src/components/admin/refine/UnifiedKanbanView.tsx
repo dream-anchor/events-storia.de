@@ -304,19 +304,19 @@ const SERVICE_META: Record<
     label: "Im Haus",
     tooltip: "Event im Restaurant",
     Icon: Home,
-    chip: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
+    chip: "bg-foreground text-background ring-1 ring-foreground",
   },
   catering: {
     label: "Außer Haus",
     tooltip: "Event-Catering an externen Ort",
     Icon: Truck,
-    chip: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+    chip: "bg-foreground/10 text-foreground ring-1 ring-foreground/25",
   },
   catering_order: {
     label: "Catering-Shop",
     tooltip: "Bestellung über den Catering-Online-Shop",
     Icon: ShoppingBag,
-    chip: "bg-amber-50 text-amber-800 ring-1 ring-amber-200",
+    chip: "bg-foreground/5 text-foreground/80 ring-1 ring-foreground/15",
   },
 };
 
