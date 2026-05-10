@@ -39,6 +39,12 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   useUnassignedInbox,
   useUnassignedInboxCount,
   useHiddenInbox,
@@ -166,6 +172,15 @@ export default function Posteingang() {
     });
   }, [rawList, onlySuggestions]);
 
+  const withSuggestionCount = useMemo(
+    () => rawList.filter((e) => !!e.suggestion_category).length,
+    [rawList],
+  );
+  const withoutSuggestionCount = useMemo(
+    () => rawList.filter((e) => !e.suggestion_category).length,
+    [rawList],
+  );
+
   const suggestedIds = useMemo(
     () => list.map((e) => e.suggested_event_id).filter((x): x is string => !!x),
     [list],
@@ -244,27 +259,66 @@ export default function Posteingang() {
           </div>
           <div className="flex items-center gap-2">
             {tab === "open" && (
-              <>
-                <Button
-                  size="sm"
-                  variant={onlySuggestions ? "default" : "outline"}
-                  className="rounded-full"
-                  onClick={() => setOnlySuggestions((v) => !v)}
-                >
-                  <Sparkles className="h-4 w-4 mr-1.5" />
-                  Nur Vorschläge
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={runBulkSuggest}
-                  disabled={bulkBusy}
-                >
-                  <RefreshCw className={cn("h-4 w-4 mr-1.5", bulkBusy && "animate-spin")} />
-                  Vorschläge generieren
-                </Button>
-              </>
+              <TooltipProvider delayDuration={200}>
+                <div className="flex items-center gap-2">
+                  {/* Filter (Anzeige einschränken) */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant={onlySuggestions ? "default" : "outline"}
+                        aria-pressed={onlySuggestions}
+                        className="rounded-full"
+                        onClick={() => setOnlySuggestions((v) => !v)}
+                      >
+                        <Sparkles className="h-4 w-4 mr-1.5" />
+                        Filter: mit Vorschlag
+                        <Badge variant="secondary" className="ml-2">
+                          {withSuggestionCount}
+                        </Badge>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      Blendet alle Mails aus, für die noch <em>kein</em> KI-Vorschlag
+                      existiert. Reine Anzeige-Filterung — es wird nichts berechnet.
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Visueller Trenner zwischen Filter und Aktion */}
+                  <div className="h-6 w-px bg-border mx-1" aria-hidden />
+
+                  {/* Aktion (KI starten) */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="rounded-full"
+                          onClick={runBulkSuggest}
+                          disabled={bulkBusy || withoutSuggestionCount === 0}
+                        >
+                          <RefreshCw
+                            className={cn("h-4 w-4 mr-1.5", bulkBusy && "animate-spin")}
+                          />
+                          {bulkBusy
+                            ? "KI analysiert …"
+                            : `KI-Vorschläge erstellen${
+                                withoutSuggestionCount > 0
+                                  ? ` (${withoutSuggestionCount} offen)`
+                                  : ""
+                              }`}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      {withoutSuggestionCount === 0
+                        ? "Alle offenen Mails haben bereits einen Vorschlag."
+                        : "Lässt die KI für alle offenen Mails ohne Vorschlag eine Zuordnung berechnen. Es wird nichts automatisch zugeordnet — du entscheidest pro Mail."}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
             )}
           </div>
         </div>
