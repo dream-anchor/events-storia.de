@@ -39,14 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   useUnassignedInbox,
-  useUnassignedInboxCount,
   useHiddenInbox,
   useBlocklist,
   useDraftsInbox,
@@ -54,8 +47,13 @@ import {
 } from "@/hooks/useUnassignedInbox";
 import { AdminLayout } from "@/components/admin/refine/AdminLayout";
 import { DraftsView } from "@/components/admin/posteingang/DraftsView";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 
-type Tab = "open" | "hidden" | "blocked" | "drafts";
+type Folder = "open" | "hidden" | "blocked" | "drafts";
 
 function initials(name: string | null | undefined, email: string | null | undefined) {
   const src = (name || email || "?").trim();
@@ -126,27 +124,12 @@ function useSuggestedEvents(ids: string[]) {
   });
 }
 
-function suggestionBadgeClasses(
-  category: string | null,
-  confidence: string | null,
-): string {
-  if (category === "match") {
-    if (confidence === "high") return "bg-emerald-100 text-emerald-800 border-emerald-200";
-    if (confidence === "medium") return "bg-amber-100 text-amber-800 border-amber-200";
-    return "bg-muted text-muted-foreground";
-  }
-  if (category === "new_inquiry") return "bg-blue-100 text-blue-800 border-blue-200";
-  if (category === "irrelevant") return "bg-red-50 text-red-700 border-red-200 opacity-80";
-  return "bg-muted text-muted-foreground";
-}
-
 export default function Posteingang() {
-  const [tab, setTab] = useState<Tab>("open");
+  const [folder, setFolder] = useState<Folder>("open");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [ignoreOpen, setIgnoreOpen] = useState(false);
-  const [onlySuggestions, setOnlySuggestions] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const qcOuter = useQueryClient();
 
@@ -154,28 +137,22 @@ export default function Posteingang() {
   const hidden = useHiddenInbox();
   const blocklist = useBlocklist();
   const drafts = useDraftsInbox();
-  const { data: openCount } = useUnassignedInboxCount();
+  // Counter is derived from the same list query — one source of truth.
+  const openCount = open.data?.length ?? 0;
 
   const rawList: UnassignedEmail[] =
-    tab === "open" ? open.data ?? [] : tab === "hidden" ? hidden.data ?? [] : [];
+    folder === "open" ? open.data ?? [] : folder === "hidden" ? hidden.data ?? [] : [];
 
   const list = useMemo(() => {
-    const filtered = onlySuggestions
-      ? rawList.filter((e) => !!e.suggestion_category)
-      : rawList;
     const confRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
-    return [...filtered].sort((a, b) => {
+    return [...rawList].sort((a, b) => {
       const ar = a.suggestion_category ? confRank[a.suggestion_confidence ?? "low"] ?? 3 : 4;
       const br = b.suggestion_category ? confRank[b.suggestion_confidence ?? "low"] ?? 3 : 4;
       if (ar !== br) return ar - br;
       return new Date(b.date_received).getTime() - new Date(a.date_received).getTime();
     });
-  }, [rawList, onlySuggestions]);
+  }, [rawList]);
 
-  const withSuggestionCount = useMemo(
-    () => rawList.filter((e) => !!e.suggestion_category).length,
-    [rawList],
-  );
   const withoutSuggestionCount = useMemo(
     () => rawList.filter((e) => !e.suggestion_category).length,
     [rawList],
@@ -197,17 +174,21 @@ export default function Posteingang() {
       toast.error(error.message);
       return;
     }
+    const processed = data?.processed ?? 0;
+    const withSuggestion = data?.with_suggestion ?? 0;
     toast.success(
-      `${data?.processed ?? 0} Mails analysiert, ${data?.with_suggestion ?? 0} Vorschläge generiert${data?.remaining ? ` (${data.remaining} weitere offen)` : ""}.`,
+      `${processed} Mail${processed === 1 ? "" : "s"} analysiert · ${withSuggestion} Vorschlag${withSuggestion === 1 ? "" : "e"} bereit.`,
     );
     qcOuter.invalidateQueries({ queryKey: ["unassigned-inbox"] });
   };
 
   const selected = useMemo(() => list.find((e) => e.id === selectedId) ?? null, [list, selectedId]);
 
-  // auto-select first
+  // Auto-select first; when current selection drops out, pick the next available item.
   useEffect(() => {
-    if (list.length > 0 && !selected) setSelectedId(list[0].id);
+    if (list.length > 0 && !selected) {
+      setSelectedId(list[0].id);
+    }
     if (list.length === 0) setSelectedId(null);
   }, [list, selected]);
 
@@ -225,20 +206,20 @@ export default function Posteingang() {
       } else if (ev.key === "k") {
         ev.preventDefault();
         setSelectedId(list[Math.max(0, idx - 1)].id);
-      } else if (ev.key === "e" && tab === "open") {
+      } else if (ev.key === "e" && folder === "open") {
         ev.preventDefault();
         setAssignOpen(true);
-      } else if (ev.key === "n" && tab === "open") {
+      } else if (ev.key === "n" && folder === "open") {
         ev.preventDefault();
         setCreateOpen(true);
-      } else if (ev.key === "i" && tab === "open") {
+      } else if (ev.key === "i" && folder === "open") {
         ev.preventDefault();
         setIgnoreOpen(true);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [list, selectedId, tab, assignOpen, createOpen, ignoreOpen]);
+  }, [list, selectedId, folder, assignOpen, createOpen, ignoreOpen]);
 
   return (
     <AdminLayout
@@ -246,207 +227,171 @@ export default function Posteingang() {
       title="Posteingang"
       showCreateButton={false}
     >
-      <div className="space-y-4">
-        <div className="flex items-baseline justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-              <InboxIcon className="h-6 w-6" />
-              Posteingang
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {openCount ?? 0} nicht zugeordnete Nachricht{(openCount ?? 0) === 1 ? "" : "en"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {tab === "open" && (
-              <TooltipProvider delayDuration={200}>
-                <div className="flex items-center gap-2">
-                  {/* Filter (Anzeige einschränken) */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant={onlySuggestions ? "default" : "outline"}
-                        aria-pressed={onlySuggestions}
-                        className="rounded-full"
-                        onClick={() => setOnlySuggestions((v) => !v)}
-                      >
-                        <Sparkles className="h-4 w-4 mr-1.5" />
-                        Filter: mit Vorschlag
-                        <Badge variant="secondary" className="ml-2">
-                          {withSuggestionCount}
-                        </Badge>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      Blendet alle Mails aus, für die noch <em>kein</em> KI-Vorschlag
-                      existiert. Reine Anzeige-Filterung — es wird nichts berechnet.
-                    </TooltipContent>
-                  </Tooltip>
+      <div className="h-[calc(100vh-120px)]">
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="rounded-2xl border bg-background overflow-hidden"
+        >
+          {/* LEFT — Folders + KI status */}
+          <ResizablePanel defaultSize={18} minSize={14} maxSize={26}>
+            <FolderSidebar
+              folder={folder}
+              setFolder={(f) => {
+                setFolder(f);
+                setSelectedId(null);
+              }}
+              counts={{
+                open: openCount,
+                hidden: hidden.data?.length ?? 0,
+                blocked: blocklist.data?.length ?? 0,
+                drafts: drafts.data?.length ?? 0,
+              }}
+              bulkBusy={bulkBusy}
+              withoutSuggestionCount={withoutSuggestionCount}
+              onRunBulkSuggest={runBulkSuggest}
+            />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
 
-                  {/* Visueller Trenner zwischen Filter und Aktion */}
-                  <div className="h-6 w-px bg-border mx-1" aria-hidden />
-
-                  {/* Aktion (KI starten) */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="rounded-full"
-                          onClick={runBulkSuggest}
-                          disabled={bulkBusy || withoutSuggestionCount === 0}
-                        >
-                          <RefreshCw
-                            className={cn("h-4 w-4 mr-1.5", bulkBusy && "animate-spin")}
-                          />
-                          {bulkBusy
-                            ? "KI analysiert …"
-                            : `KI-Vorschläge erstellen${
-                                withoutSuggestionCount > 0
-                                  ? ` (${withoutSuggestionCount} offen)`
-                                  : ""
-                              }`}
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      {withoutSuggestionCount === 0
-                        ? "Alle offenen Mails haben bereits einen Vorschlag."
-                        : "Lässt die KI für alle offenen Mails ohne Vorschlag eine Zuordnung berechnen. Es wird nichts automatisch zugeordnet — du entscheidest pro Mail."}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </TooltipProvider>
-            )}
-          </div>
-        </div>
-        <div className="text-xs text-muted-foreground hidden md:block">
-            Tastatur: <kbd className="px-1.5 py-0.5 bg-muted rounded">j</kbd>/
-            <kbd className="px-1.5 py-0.5 bg-muted rounded">k</kbd> Navigation ·{" "}
-            <kbd className="px-1.5 py-0.5 bg-muted rounded">e</kbd> Zuordnen ·{" "}
-            <kbd className="px-1.5 py-0.5 bg-muted rounded">n</kbd> Neu ·{" "}
-            <kbd className="px-1.5 py-0.5 bg-muted rounded">i</kbd> Ignorieren
-          </div>
-
-      <div className="flex gap-1 border-b">
-        <TabBtn active={tab === "open"} onClick={() => setTab("open")}>
-          Offen <Badge variant="secondary" className="ml-2">{openCount ?? 0}</Badge>
-        </TabBtn>
-        <TabBtn active={tab === "hidden"} onClick={() => setTab("hidden")}>
-          Ignoriert <Badge variant="secondary" className="ml-2">{hidden.data?.length ?? 0}</Badge>
-        </TabBtn>
-        <TabBtn active={tab === "blocked"} onClick={() => setTab("blocked")}>
-          Geblockte Absender <Badge variant="secondary" className="ml-2">{blocklist.data?.length ?? 0}</Badge>
-        </TabBtn>
-        <TabBtn active={tab === "drafts"} onClick={() => setTab("drafts")}>
-          <Pencil className="h-3.5 w-3.5 inline mr-1" />
-          Entwürfe <Badge variant="secondary" className="ml-2">{drafts.data?.length ?? 0}</Badge>
-        </TabBtn>
-      </div>
-
-      {tab === "blocked" ? (
-        <BlocklistView />
-      ) : tab === "drafts" ? (
-        <DraftsView />
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[60vh]">
-          {/* List */}
-          <div className="rounded-2xl border bg-white overflow-hidden flex flex-col max-h-[calc(100vh-220px)]">
-            <div className="overflow-y-auto divide-y">
-              {list.length === 0 && (
-                <div className="p-10 text-center text-sm text-muted-foreground">
-                  <Mail className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                  {tab === "open" ? "Keine offenen Mails." : "Keine ignorierten Mails."}
-                </div>
-              )}
-              {list.map((email) => (
-                <button
-                  key={email.id}
-                  onClick={() => setSelectedId(email.id)}
-                  className={cn(
-                    "w-full text-left p-3 flex items-start gap-3 hover:bg-muted/50 transition-colors",
-                    selectedId === email.id && "bg-muted/70"
-                  )}
-                >
-                  <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">
-                    {initials(email.from_name, email.from_email)}
+          {folder === "blocked" || folder === "drafts" ? (
+            <ResizablePanel defaultSize={82}>
+              <div className="h-full overflow-y-auto p-6 bg-muted/20">
+                {folder === "blocked" ? <BlocklistView /> : <DraftsView />}
+              </div>
+            </ResizablePanel>
+          ) : (
+            <>
+              {/* MIDDLE — Mail list */}
+              <ResizablePanel defaultSize={32} minSize={22}>
+                <div className="flex flex-col h-full">
+                  <div className="px-4 py-3 border-b flex items-center justify-between bg-background">
+                    <h2 className="text-sm font-semibold flex items-center gap-2">
+                      {folder === "open" ? (
+                        <>
+                          <InboxIcon className="h-4 w-4" />
+                          Offen
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff className="h-4 w-4" />
+                          Ignoriert
+                        </>
+                      )}
+                      <Badge variant="secondary" className="ml-1">
+                        {list.length}
+                      </Badge>
+                    </h2>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <strong className="truncate text-sm">
-                        {email.from_name || email.from_email}
-                      </strong>
-                      <span className="ml-auto text-xs text-muted-foreground shrink-0">
-                        {formatDistanceToNow(new Date(email.date_received), {
-                          addSuffix: true,
-                          locale: de,
-                        })}
-                      </span>
-                    </div>
-                    <div className="text-sm text-foreground/80 truncate">
-                      {email.subject || <span className="italic text-muted-foreground">(kein Betreff)</span>}
-                    </div>
-                    {email.suggestion_category && (
-                      <div className="mt-1">
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border",
-                            suggestionBadgeClasses(email.suggestion_category, email.suggestion_confidence),
-                          )}
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          {email.suggestion_category === "match" &&
-                            `→ ${suggestedEvents?.[email.suggested_event_id ?? ""]?.customer_name ?? "Event"}${
-                              suggestedEvents?.[email.suggested_event_id ?? ""]?.date
-                                ? ` · ${format(new Date(suggestedEvents![email.suggested_event_id!].date!), "dd.MM.yy", { locale: de })}`
-                                : ""
-                            }`}
-                          {email.suggestion_category === "new_inquiry" && "+ Neue Anfrage?"}
-                          {email.suggestion_category === "irrelevant" && "✕ Vermutlich irrelevant"}
-                          {email.suggestion_category === "unclear" && "? Unklar"}
-                        </span>
+                  <div className="flex-1 overflow-y-auto divide-y">
+                    {list.length === 0 && (
+                      <div className="p-10 text-center text-sm text-muted-foreground">
+                        <Mail className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                        {folder === "open" ? "Keine offenen Mails." : "Keine ignorierten Mails."}
                       </div>
                     )}
-                    <div className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-2">
-                      {email.has_attachments && <Paperclip className="h-3 w-3" />}
-                      <span className="truncate">{email.body_text?.slice(0, 100)}</span>
-                      {email.imap_status === "deleted_on_server" && (
-                        <Badge variant="outline" className="ml-auto text-amber-700 border-amber-300">
-                          Gelöscht
-                        </Badge>
-                      )}
-                    </div>
+                    {list.map((email) => (
+                      <button
+                        key={email.id}
+                        onClick={() => setSelectedId(email.id)}
+                        className={cn(
+                          "w-full text-left p-3 flex items-start gap-3 hover:bg-muted/50 transition-colors",
+                          selectedId === email.id && "bg-muted/70",
+                        )}
+                      >
+                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">
+                          {initials(email.from_name, email.from_email)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <strong className="truncate text-sm">
+                              {email.from_name || email.from_email}
+                            </strong>
+                            <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                              {formatDistanceToNow(new Date(email.date_received), {
+                                addSuffix: true,
+                                locale: de,
+                              })}
+                            </span>
+                          </div>
+                          <div className="text-sm text-foreground/80 truncate">
+                            {email.subject || (
+                              <span className="italic text-muted-foreground">(kein Betreff)</span>
+                            )}
+                          </div>
+                          {email.suggestion_category && (
+                            <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                              <Sparkles className="h-3 w-3" />
+                              {email.suggestion_category === "match" &&
+                                `→ ${
+                                  suggestedEvents?.[email.suggested_event_id ?? ""]
+                                    ?.customer_name ?? "Anfrage"
+                                }${
+                                  suggestedEvents?.[email.suggested_event_id ?? ""]?.date
+                                    ? ` · ${format(
+                                        new Date(
+                                          suggestedEvents![email.suggested_event_id!].date!,
+                                        ),
+                                        "dd.MM.yy",
+                                        { locale: de },
+                                      )}`
+                                    : ""
+                                }`}
+                              {email.suggestion_category === "new_inquiry" && "Neue Anfrage?"}
+                              {email.suggestion_category === "irrelevant" && "Vermutlich irrelevant"}
+                              {email.suggestion_category === "unclear" && "Unklar"}
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-2 mt-0.5">
+                            {email.has_attachments && <Paperclip className="h-3 w-3" />}
+                            <span className="truncate">{email.body_text?.slice(0, 100)}</span>
+                            {email.imap_status === "deleted_on_server" && (
+                              <Badge
+                                variant="outline"
+                                className="ml-auto text-muted-foreground border-muted-foreground/30"
+                              >
+                                Gelöscht
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                </button>
-              ))}
-            </div>
-          </div>
+                  <div className="px-4 py-2 border-t text-[11px] text-muted-foreground bg-muted/20 hidden md:block">
+                    <kbd className="px-1 py-0.5 bg-background rounded border">j</kbd>/
+                    <kbd className="px-1 py-0.5 bg-background rounded border">k</kbd> Navigation
+                  </div>
+                </div>
+              </ResizablePanel>
+              <ResizableHandle withHandle />
 
-          {/* Detail */}
-          <div className="rounded-2xl border bg-white overflow-hidden flex flex-col max-h-[calc(100vh-220px)]">
-            {selected ? (
-              <MailDetail
-                email={selected}
-                tab={tab}
-                suggestedEvent={
-                  selected.suggested_event_id
-                    ? suggestedEvents?.[selected.suggested_event_id] ?? null
-                    : null
-                }
-                onAssign={() => setAssignOpen(true)}
-                onCreate={() => setCreateOpen(true)}
-                onIgnore={() => setIgnoreOpen(true)}
-              />
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-                Wähle eine Mail aus der Liste.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+              {/* RIGHT — Detail */}
+              <ResizablePanel defaultSize={50} minSize={30}>
+                <div className="h-full flex flex-col bg-background">
+                  {selected ? (
+                    <MailDetail
+                      email={selected}
+                      folder={folder}
+                      suggestedEvent={
+                        selected.suggested_event_id
+                          ? suggestedEvents?.[selected.suggested_event_id] ?? null
+                          : null
+                      }
+                      onAssign={() => setAssignOpen(true)}
+                      onCreate={() => setCreateOpen(true)}
+                      onIgnore={() => setIgnoreOpen(true)}
+                    />
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+                      Wähle eine Mail aus der Liste.
+                    </div>
+                  )}
+                </div>
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
+      </div>
 
       {selected && (
         <>
@@ -467,22 +412,97 @@ export default function Posteingang() {
           />
         </>
       )}
-      </div>
     </AdminLayout>
   );
 }
 
-function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+/* ------------------------------ Folder Sidebar ----------------------------- */
+
+function FolderSidebar({
+  folder,
+  setFolder,
+  counts,
+  bulkBusy,
+  withoutSuggestionCount,
+  onRunBulkSuggest,
+}: {
+  folder: Folder;
+  setFolder: (f: Folder) => void;
+  counts: { open: number; hidden: number; blocked: number; drafts: number };
+  bulkBusy: boolean;
+  withoutSuggestionCount: number;
+  onRunBulkSuggest: () => void;
+}) {
+  const items: Array<{ key: Folder; label: string; icon: any; count: number }> = [
+    { key: "open", label: "Offen", icon: InboxIcon, count: counts.open },
+    { key: "hidden", label: "Ignoriert", icon: EyeOff, count: counts.hidden },
+    { key: "blocked", label: "Geblockte Absender", icon: Ban, count: counts.blocked },
+    { key: "drafts", label: "Entwürfe", icon: Pencil, count: counts.drafts },
+  ];
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-        active ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-      )}
-    >
-      {children}
-    </button>
+    <div className="h-full flex flex-col bg-muted/20 border-r">
+      <div className="px-4 py-4 border-b">
+        <h1 className="text-sm font-semibold flex items-center gap-2">
+          <InboxIcon className="h-4 w-4" />
+          Posteingang
+        </h1>
+        <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+          Mails, die nicht automatisch einer Anfrage zugeordnet werden konnten.
+        </p>
+      </div>
+      <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+        {items.map((it) => {
+          const Icon = it.icon;
+          const active = folder === it.key;
+          return (
+            <button
+              key={it.key}
+              onClick={() => setFolder(it.key)}
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors",
+                active
+                  ? "bg-foreground text-background"
+                  : "hover:bg-muted text-foreground/80",
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="flex-1 text-left truncate">{it.label}</span>
+              <span
+                className={cn(
+                  "text-[11px] tabular-nums",
+                  active ? "text-background/70" : "text-muted-foreground",
+                )}
+              >
+                {it.count}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+      <div className="p-3 border-t space-y-2">
+        <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold flex items-center gap-1.5">
+          <Sparkles className="h-3 w-3" />
+          KI-Vorschläge
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full rounded-xl justify-start"
+          onClick={onRunBulkSuggest}
+          disabled={bulkBusy || withoutSuggestionCount === 0}
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5 mr-2", bulkBusy && "animate-spin")} />
+          {bulkBusy
+            ? "Analysiert …"
+            : withoutSuggestionCount === 0
+              ? "Alle analysiert"
+              : `Analysieren (${withoutSuggestionCount})`}
+        </Button>
+        <p className="text-[10px] text-muted-foreground leading-snug">
+          Lässt die KI offene Mails einer Anfrage zuordnen. Du entscheidest pro Mail.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -490,14 +510,14 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
 
 function MailDetail({
   email,
-  tab,
+  folder,
   suggestedEvent,
   onAssign,
   onCreate,
   onIgnore,
 }: {
   email: UnassignedEmail;
-  tab: Tab;
+  folder: Folder;
   suggestedEvent: SuggestedEventInfo | null;
   onAssign: () => void;
   onCreate: () => void;
@@ -601,12 +621,12 @@ function MailDetail({
         </div>
 
         {email.imap_status === "deleted_on_server" && (
-          <div className="flex items-start gap-2 text-xs rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-amber-900 mt-2">
+          <div className="flex items-start gap-2 text-xs rounded-xl bg-muted border px-3 py-2 mt-2">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>Wurde im Postfach gelöscht — nur in Maestro archiviert verfügbar.</span>
           </div>
         )}
-        {tab === "hidden" && (
+        {folder === "hidden" && (
           <div className="flex items-start gap-2 text-xs rounded-xl bg-muted border px-3 py-2 mt-2">
             <EyeOff className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
@@ -615,86 +635,32 @@ function MailDetail({
           </div>
         )}
 
-        {tab === "open" && email.suggestion_category && (
-          <div className="rounded-xl border bg-muted/30 p-3 mt-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <Sparkles className="h-3.5 w-3.5" />
-              Vorschlag {email.suggestion_method === "llm" ? "(KI-analysiert)" : "(automatisch erkannt)"}
-              {email.suggestion_confidence && (
-                <Badge variant="outline" className="text-[10px] uppercase ml-auto">
-                  {email.suggestion_confidence}
-                </Badge>
-              )}
-            </div>
-            <div className="text-sm">
-              {email.suggestion_category === "match" && suggestedEvent && (
-                <p>
-                  Diese Mail gehört vermutlich zu{" "}
-                  <strong>{suggestedEvent.customer_name ?? "Event"}</strong>
-                  {suggestedEvent.date ? ` (${format(new Date(suggestedEvent.date), "dd.MM.yyyy", { locale: de })})` : ""}
-                  {suggestedEvent.occasion ? ` · ${suggestedEvent.occasion}` : ""}.
-                </p>
-              )}
-              {email.suggestion_category === "new_inquiry" && (
-                <p>Diese Mail wirkt wie eine neue Eventanfrage.</p>
-              )}
-              {email.suggestion_category === "irrelevant" && (
-                <p>Diese Mail wirkt wie Spam, Werbung oder Lieferantenkommunikation.</p>
-              )}
-              {email.suggestion_category === "unclear" && (
-                <p>Keine eindeutige Zuordnung möglich.</p>
-              )}
-              {email.suggestion_reasoning && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Begründung: {email.suggestion_reasoning}
-                </p>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button
-                size="sm"
-                onClick={acceptSuggestion}
-                disabled={accepting}
-                className="rounded-full"
-              >
-                <Check className="h-4 w-4 mr-1.5" />
-                Vorschlag annehmen
-              </Button>
-            </div>
-          </div>
+        {folder === "open" && (
+          <PrimaryActionBar
+            email={email}
+            suggestedEvent={suggestedEvent}
+            accepting={accepting}
+            onAcceptSuggestion={acceptSuggestion}
+            onAssign={onAssign}
+            onCreate={onCreate}
+            onIgnore={onIgnore}
+          />
         )}
-
-        <div className="flex flex-wrap gap-2 pt-3">
-          {tab === "open" && (
-            <>
-              <Button onClick={onAssign} size="sm" className="rounded-full">
-                <Pin className="h-4 w-4 mr-1.5" />
-                Zu existierender Anfrage zuordnen
-              </Button>
-              <Button onClick={onCreate} size="sm" variant="outline" className="rounded-full">
-                <Plus className="h-4 w-4 mr-1.5" />
-                Neue Anfrage anlegen
-              </Button>
-              <Button onClick={onIgnore} size="sm" variant="ghost" className="rounded-full">
-                <Ban className="h-4 w-4 mr-1.5" />
-                Ignorieren
-              </Button>
-            </>
-          )}
-          {tab === "hidden" && (
+        {folder === "hidden" && (
+          <div className="pt-3">
             <Button onClick={restore} size="sm" variant="outline" className="rounded-full">
               <RotateCcw className="h-4 w-4 mr-1.5" />
               Wieder einblenden
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
         {sanitizedHtml ? (
           <iframe
             title={`mail-${email.id}`}
-            className="w-full min-h-[400px] rounded-xl border bg-white"
+            className="w-full min-h-[400px] rounded-xl border bg-background"
             srcDoc={sanitizedHtml}
             sandbox="allow-same-origin"
             style={{ height: 500 }}
@@ -705,6 +671,111 @@ function MailDetail({
               <span className="italic text-muted-foreground">Kein Inhalt</span>
             )}
           </pre>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------- Primary Action Bar --------------------------- */
+
+function PrimaryActionBar({
+  email,
+  suggestedEvent,
+  accepting,
+  onAcceptSuggestion,
+  onAssign,
+  onCreate,
+  onIgnore,
+}: {
+  email: UnassignedEmail;
+  suggestedEvent: SuggestedEventInfo | null;
+  accepting: boolean;
+  onAcceptSuggestion: () => void;
+  onAssign: () => void;
+  onCreate: () => void;
+  onIgnore: () => void;
+}) {
+  const cat = email.suggestion_category;
+
+  // Build the primary label + handler based on KI suggestion.
+  let primaryLabel: React.ReactNode = "Anfrage suchen…";
+  let PrimaryIcon: any = Search;
+  let onPrimary: () => void = onAssign;
+  let helperText: string | null = null;
+
+  if (cat === "match" && suggestedEvent) {
+    const dateStr = suggestedEvent.date
+      ? format(new Date(suggestedEvent.date), "dd.MM.yyyy", { locale: de })
+      : null;
+    primaryLabel = (
+      <>
+        Zu <strong className="font-semibold ml-1">
+          {suggestedEvent.customer_name ?? "Anfrage"}
+        </strong>
+        {dateStr ? ` · ${dateStr}` : ""} zuordnen
+      </>
+    );
+    PrimaryIcon = Check;
+    onPrimary = onAcceptSuggestion;
+    helperText = "KI-Vorschlag — du kannst stattdessen manuell zuordnen.";
+  } else if (cat === "new_inquiry") {
+    primaryLabel = "Neue Anfrage anlegen";
+    PrimaryIcon = Plus;
+    onPrimary = onCreate;
+    helperText = "KI hält das für eine neue Eventanfrage.";
+  } else if (cat === "irrelevant") {
+    primaryLabel = "Ignorieren";
+    PrimaryIcon = Ban;
+    onPrimary = onIgnore;
+    helperText = "KI hält das für Spam / Werbung / Lieferantenmail.";
+  } else if (cat === "unclear") {
+    helperText = "KI konnte nicht eindeutig zuordnen — bitte selbst entscheiden.";
+  }
+
+  return (
+    <div className="pt-3 space-y-2">
+      {helperText && (
+        <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+          <Sparkles className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{helperText}</span>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          onClick={onPrimary}
+          disabled={accepting}
+          size="sm"
+          className="rounded-full"
+        >
+          <PrimaryIcon className="h-4 w-4 mr-1.5" />
+          {primaryLabel}
+        </Button>
+        {/* Secondary actions — context-dependent, always available but visually subordinate. */}
+        <span className="text-xs text-muted-foreground">oder</span>
+        {cat !== "match" && cat !== "unclear" && cat !== null && (
+          <Button onClick={onAssign} size="sm" variant="ghost" className="rounded-full text-xs">
+            <Pin className="h-3.5 w-3.5 mr-1" />
+            Zu Anfrage zuordnen
+          </Button>
+        )}
+        {cat === "match" && (
+          <Button onClick={onAssign} size="sm" variant="ghost" className="rounded-full text-xs">
+            <Pin className="h-3.5 w-3.5 mr-1" />
+            Anders zuordnen
+          </Button>
+        )}
+        {cat !== "new_inquiry" && (
+          <Button onClick={onCreate} size="sm" variant="ghost" className="rounded-full text-xs">
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Neue Anfrage
+          </Button>
+        )}
+        {cat !== "irrelevant" && (
+          <Button onClick={onIgnore} size="sm" variant="ghost" className="rounded-full text-xs">
+            <Ban className="h-3.5 w-3.5 mr-1" />
+            Ignorieren
+          </Button>
         )}
       </div>
     </div>
