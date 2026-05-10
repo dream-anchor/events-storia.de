@@ -144,6 +144,10 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
   // Drag handlers
   const handleDragStart = useCallback(
     (e: React.DragEvent, eventId: string) => {
+      if (eventId.startsWith("booking-")) {
+        e.preventDefault();
+        return;
+      }
       e.dataTransfer.setData("text/plain", eventId);
       setDraggingId(eventId);
     },
@@ -183,6 +187,10 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
 
   const applyStatusChange = useCallback(
     async (event: EventInquiry, targetColumn: ColumnId) => {
+      if (event.id.startsWith("booking-")) {
+        toast.info("Standalone-Buchung — Status hier nicht änderbar");
+        return;
+      }
       const map: Record<ColumnId, InquiryStatus> = {
         lead: "new",
         proposal: "contacted",
