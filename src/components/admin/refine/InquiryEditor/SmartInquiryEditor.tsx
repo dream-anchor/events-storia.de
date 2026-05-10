@@ -22,6 +22,7 @@ import { StaffNote } from "./StaffNote";
 import { TaskManager } from "@/components/admin/shared/TaskManager";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import EventMailsTab from "./EventMailsTab";
+import { MailClient } from "@/components/admin/shared/MailClient";
 import { PaymentCard } from "./PaymentCard";
 import { PaymentStatusStrip } from "./PaymentStatusStrip";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
@@ -869,7 +870,7 @@ export const SmartInquiryEditor = () => {
         <div className="relative">
         <TabsList className="w-full justify-start bg-muted/30 rounded-xl p-1 h-auto overflow-x-auto scrollbar-hide flex">
           <TabsTrigger value="angebot" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Angebot</TabsTrigger>
-          <TabsTrigger value="mails" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Mails</TabsTrigger>
+          <TabsTrigger value="mails" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Nachrichten</TabsTrigger>
           <TabsTrigger value="aufgaben" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Aufgaben</TabsTrigger>
           <TabsTrigger value="details" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Details</TabsTrigger>
         </TabsList>
@@ -913,14 +914,27 @@ export const SmartInquiryEditor = () => {
 
         </TabsContent>
 
-        {/* Tab: Mails — einheitliche Timeline (inbound + outbound) mit Filter-Verwaltung */}
+        {/* Tab: Nachrichten — Mail-Client-Ansicht (Sidebar + Reading Pane) */}
         <TabsContent value="mails" className="mt-6">
           {id && (
-            <EventMailsTab
-              eventId={id}
-              contactEmail={inquiry.email || null}
-              contactName={inquiry.contact_name || null}
-              eventName={inquiry.event_type || inquiry.company_name || null}
+            <MailClient
+              inquiryId={id}
+              customerEmail={inquiry.email || undefined}
+              onSendReply={async ({ to, cc, bcc, subject, html, text }) => {
+                const { error } = await supabase.functions.invoke("send-offer-email", {
+                  body: {
+                    inquiryId: id,
+                    to,
+                    cc: cc ? cc.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+                    bcc: bcc ? bcc.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+                    emailSubject: subject,
+                    emailHtml: html,
+                    emailText: text,
+                    isReply: true,
+                  },
+                });
+                if (error) throw error;
+              }}
             />
           )}
         </TabsContent>
