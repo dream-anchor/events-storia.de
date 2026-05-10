@@ -1298,6 +1298,9 @@ export const Settings = () => {
                 </Link>
               </CardContent>
             </Card>
+
+            {/* Equipment-Katalog */}
+            <EquipmentCatalogCard />
           </TabsContent>
 
           {/* Vorlagen Tab */}
