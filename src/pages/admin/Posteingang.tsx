@@ -39,14 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   useUnassignedInbox,
-  useUnassignedInboxCount,
   useHiddenInbox,
   useBlocklist,
   useDraftsInbox,
@@ -129,20 +122,6 @@ function useSuggestedEvents(ids: string[]) {
       return map;
     },
   });
-}
-
-function suggestionBadgeClasses(
-  category: string | null,
-  confidence: string | null,
-): string {
-  if (category === "match") {
-    if (confidence === "high") return "bg-emerald-100 text-emerald-800 border-emerald-200";
-    if (confidence === "medium") return "bg-amber-100 text-amber-800 border-amber-200";
-    return "bg-muted text-muted-foreground";
-  }
-  if (category === "new_inquiry") return "bg-blue-100 text-blue-800 border-blue-200";
-  if (category === "irrelevant") return "bg-red-50 text-red-700 border-red-200 opacity-80";
-  return "bg-muted text-muted-foreground";
 }
 
 export default function Posteingang() {
