@@ -1,115 +1,126 @@
-## Befunde
+# Dashboard → Team-Pinnwand "Was kommt als nächstes"
 
-Ich habe die vier Punkte im Code und in der DB überprüft:
+Aktuelles Dashboard ist eine Eigenbau-Triptych (Heute/Inbox/Outbox + Heatmap + NextUpHero). Die Daten sind gut, die Darstellung beantwortet aber nicht klar die Frage: *"Was muss als Nächstes erledigt werden — und von wem?"*
 
-### 1. Kanban-Ampel weg
-`src/lib/inquiryActionState.ts` existiert noch (rote/gelbe/grüne Zustände + Border/Dot/Chip), wird aber von `UnifiedKanbanView.tsx` und `UnifiedInquiriesList.tsx` **nicht** mehr verwendet. Die alten Views (`KanbanView.tsx`, `EventsList.tsx`) nutzen sie noch — die wurden beim Umbau auf "Unified" einfach ausgelassen.
+Wir ersetzen es durch eine **priorisierte Team-Worklist** als Hauptbereich, flankiert von einer **kompakten Tag-Timeline**. Dafür nutzen wir bewährte Libraries — keine eigenen Komponenten von Null.
 
-### 2. Archivierte Anfragen wieder sichtbar
-`useUnifiedInquiries` lädt Events ohne Archiv-Filter. `mapEventToColumn(status)` ignoriert `archived_at`/`archived`, also landet ein archiviertes Event mit Status `confirmed` **gleichzeitig in „Gebucht" und im Archiv-Akkordeon**.
+## Library-Wahl
 
-### 3. Anfragen in „Gebucht" fehlen — Hauptursache
-Die Liste fragt die Refine-Resource `events` ab. Diese ist im Data-Provider auf die **Legacy-Tabelle `event_inquiries`** gemappt:
-
-| Tabelle | Zeilen |
-|---|---|
-| `event_inquiries` (Legacy, von der Liste gelesen) | 66 |
-| `v2_events` (aktuelle Daten, Posteingang/Drafts/Inquiry-Editor lesen daraus) | 128 |
-
-Alle Statusverschiebungen der letzten Wochen passieren in `v2_events` (`status` ∈ `inquiry, offer_draft, offer_sent, offer_chosen, paid, completed, cancelled`). Die Anfragen-Übersicht sieht davon nichts → „Gebucht" wirkt leer/falsch.
-
-### 4. Catering vs. Event sichtbar machen
-`v2_events` hat eine Spalte `service_type` (`restaurant` | `catering`). Aktuell wird in der Liste nur unterschieden, ob ein Datensatz aus `event_inquiries` (→ "Event") oder `catering_orders` (→ "Catering") kommt — der „Außer-Haus / In-Haus"-Charakter eines v2-Events fehlt.
-
-### Library-Frage
-- **Tabelle:** Wir nutzen bereits `@tanstack/react-table` (über `DataTable`). Sortier-, Filter-, Pagination-fähig — kein Bibliothekswechsel nötig.
-- **Kanban:** Aktuell handgerollte HTML5-Drag-API (~50 Zeilen). Empfohlene Option für mehr Komfort (Touch, Auto-Scroll, Keyboard-A11y): `@dnd-kit/core` + `@dnd-kit/sortable`. Wir bauen das **nur, wenn du es willst** — die HTML5-Variante reicht für reines Spalten-Drag. Ich schlage vor: erst die vier Bugs fixen, Library-Wechsel separat.
-
----
-
-## Plan
-
-### A. Datenquelle umstellen (kritisch)
-
-`src/hooks/useUnifiedInquiries.ts` neu schreiben:
-
-- `v2_events` direkt per Supabase-Client lesen (mit `v2_customers` Join für `contact_name, email, phone, company_name`).
-- `catering_orders` weiter über Refine.
-- Felder mappen: `date` ← `v2_events.date`, `time` ← `time_from`, `guestCount` ← `guest_count`, `totalAmount` ← `amount_total`, `archivedAt` ← `archived_at`, `serviceType` ← `service_type`.
-
-`src/types/inquiryRecord.ts` anpassen:
-
-- Neue Status-→-Column-Map für v2:
-  - `inquiry` → `lead`
-  - `offer_draft` → `proposal`
-  - `offer_sent` → `pending`
-  - `offer_chosen` → `pending`
-  - `paid` → `won`
-  - `completed` → `won`
-  - `cancelled` → `closed`
-- Wenn `archived = true` → Column **immer** auf `closed` mappen (kein Doppel-Anzeigen).
-- Neues Feld `serviceType: "restaurant" | "catering" | "catering_order"`. `catering_order` = Datensätze aus `catering_orders`.
-
-### B. Drag-&-Drop-Update auf v2
-
-`UnifiedKanbanView.handleDrop`:
-
-- Schreibt jetzt in `v2_events.status` mit Map: `lead→inquiry, proposal→offer_draft, pending→offer_sent, won→paid, lost→cancelled+archived=true, closed→cancelled`.
-- Für `won → completed` würde ein gebuchtes Event als „erledigt" markiert; wir nutzen `paid` als Default für „Gebucht". Das halten wir bewusst minimal.
-
-### C. Ampel-System zurückbringen
-
-`src/lib/inquiryActionState.ts` erweitern auf v2-Felder (`status`, `offer_phase`, `archived`):
-
-- `respond` (rot): `status='inquiry'` und älter als 24 h **ohne Erstreaktion**, oder `offer_phase='customer_responded'`.
-- `won` (grün): `status ∈ {paid, completed}`.
-- `done` (grau): `archived=true` oder `status='cancelled'`.
-- `in_progress` (amber): alles andere.
-
-In **Kanban-Karte** (`UnifiedKanbanCard`):
-- Links farbiger 3px-Border (`borderClass`).
-- 8-px-Dot vor dem Titel.
-
-In **Tabelle** (`UnifiedInquiriesList.columns`):
-- Neue Spalte „Status" ganz vorne mit `chipClass`-Pill (Label + Farbe).
-- Zeile bekommt zusätzlich einen 3-px-Linksrand-Akzent (über `cellClassName` oder `rowClassName`).
-
-Catering-Records (kein `offer_phase`) bekommen eine vereinfachte Variante: `pending → respond/in_progress`, `confirmed → in_progress`, `completed → won`, `cancelled → done`.
-
-### D. Catering/Event auf den ersten Blick sichtbar
-
-`KindBadge` ersetzen durch eine semantischere Pill `ServiceBadge`, drei Varianten:
-
-| serviceType | Label | Icon | Tooltip |
+| Zweck | Library | Lizenz | Begründung |
 |---|---|---|---|
-| `restaurant` | „Im Haus" | `UtensilsCrossed` | Event im Restaurant |
-| `catering` | „Außer Haus" | `Truck` | Event-Catering an externen Ort |
-| `catering_order` | „Catering-Shop" | `ShoppingBag` | Bestellung über den Catering-Online-Shop |
+| Worklist (sortierbar, filterbar, gruppiert) | **@tanstack/react-table v8** | MIT | Bereits im Projekt. Headless, voll Tailwind-/shadcn-kompatibel, monochrom stylebar. |
+| Mini-Tag-Timeline (rechts) | **@schedule-x/react** + `@schedule-x/calendar` | MIT | Modern, headless, leichtgewichtig (~30kb), Light-Mode-tauglich, Inter-Font, monochrom theme-bar. Aktiv gewartet. |
+| Drag-Reorder (Pinnen/Snooze) | **@dnd-kit/core** (bereits im Projekt) | MIT | Konsistent mit Kanban. |
 
-Anzeige:
-- **Tabelle:** Eigene Spalte „Art" ganz links nach Status, mit Pill (oder als Icon + Label zusammen).
-- **Kanban-Karte:** Pill oben links, deutlich (Hintergrund + Icon), statt unauffällig grau wie heute.
-- **Mobile-Card:** Bereits in `mobileCardRender` — nur Komponente austauschen.
+Verworfen: FullCalendar (Lizenz/AGPL für Premium-Views), react-big-calendar (veraltete Optik), react-trello/react-kanban (falsches Paradigma — wir wollen Liste, keine Spalten).
 
-Filter-Toggle „Alle / Events / Catering" wird zu **„Alle / Im Haus / Außer Haus / Catering-Shop"** (oder zwei Pills: „Im Haus" und „Außer Haus", letzteres umfasst beide Catering-Typen) — du entscheidest, ich schlage 3 separate Pills vor, weil sie unterschiedlich gehandhabt werden.
+## Layout (Desktop ≥1280px)
 
-### E. Archiv-Logik vereinheitlichen
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│ Pinnwand · Sonntag, 10. Mai · Live · vor 3s                         │
+│ Guten Morgen, Antoine.                                              │
+│ 4 Aufgaben jetzt · 2 SLA-kritisch · 9 heute                         │
+├──────────────────────────────────────────────┬──────────────────────┤
+│ FILTER: [Alle][Jetzt][Heute][Diese Woche]    │  HEUTE · TIMELINE    │
+│ TYPE:   [Anfrage][Event][Catering][Zahlung]  │  ┌────────────────┐  │
+│                                              │  │ 09:00          │  │
+│ ┌──────────────────────────────────────────┐ │  │ ▌ Pickup Müller│  │
+│ │ ● JETZT · 11:30                          │ │  │ 12:30          │  │
+│ │   Catering-Lieferung Schmidt · 30 PAX    │ │  │ ▌ Liefer. K.   │  │
+│ │   📍 Lehel · ⚠ Menü unbestätigt          │ │  │ 18:00          │  │
+│ │   [Details] [Anrufen]                    │ │  │ ▌ Event AOK    │  │
+│ ├──────────────────────────────────────────┤ │  └────────────────┘  │
+│ │ ● SLA · seit 51h ohne Antwort            │ │                      │
+│ │   Anfrage Becker · Hochzeit 80 PAX       │ │  WOCHE               │
+│ │   [Antworten] [Snooze]                   │ │  Mo Di Mi Do Fr      │
+│ ├──────────────────────────────────────────┤ │  ▂ ▅ █ ▃ ▁           │
+│ │ ○ HEUTE · 14:00 · Anzahlung fällig       │ │  3  5  9  4  1       │
+│ │   Event Weber · 1.200 € offen            │ │                      │
+│ │   [Mahnen] [Stripe öffnen]               │ │                      │
+│ └──────────────────────────────────────────┘ │                      │
+└──────────────────────────────────────────────┴──────────────────────┘
+```
 
-In `UnifiedInquiriesList.statusMatches`:
-- `inbox`: `column ∈ {lead, proposal, pending}` **und** `!archivedAt`.
-- `won`: `column = won` **und** `!archivedAt`.
-- `archive`: `column ∈ {lost, closed}` **oder** `archivedAt`.
+Mobile: Timeline klappt unter Worklist; bestehende Tab-Bar entfällt.
 
-Da Punkt A bereits archivierte Events auf `closed` mappt, ist das automatisch konsistent.
+## Priority-Engine (Kern)
 
----
+Neue Datei `src/lib/dashboardPriority.ts` mit reiner Funktion `scoreTask(task) → { score, bucket, reasons[] }`. Buckets in dieser Reihenfolge:
 
-## Out of scope für diesen Schritt
+1. **JETZT** (`score 1000+`): Operation in den nächsten 2h, oder Operation laufend.
+2. **SLA-kritisch** (`score 800+`): Anfrage > 24h ohne Antwort, Zahlung überfällig, Menü < 48h vor Termin unbestätigt.
+3. **HEUTE** (`score 500+`): Operation heute, Reminder heute fällig.
+4. **DIESE WOCHE** (`score 200+`): Operation in 1–7 Tagen, Anfragen mit `awaiting_customer`.
+5. **OFFEN** (`score 0+`): alles andere im 14-Tage-Fenster.
 
-- Kanban-Library-Wechsel (`@dnd-kit`) — separater Task.
-- Tabellen-Library-Wechsel (bleibt `@tanstack/react-table`).
-- Migration der 66 Legacy-`event_inquiries`-Zeilen — falls darin noch echte Daten liegen, bitte separat klären.
+Zusatz-Modifier: `+ageDays * 5`, `+missingMenu * 50`, `+overduePayment * 80`. Reasons werden als kleine Chips in der Zeile gerendert ("Menü unbestätigt", "51h ohne Antwort", "Anzahlung überfällig").
 
-## Frage an dich, bevor ich umsetze
+## Datenfluss
 
-Sind die 66 Zeilen in `event_inquiries` vollständig in `v2_events` migriert, oder sollen wir beide Tabellen mergen, bis du sie selbst archivierst? Ich empfehle: **nur `v2_events`** lesen und `event_inquiries` ignorieren; falls du die alten doch sehen willst, ergänze ich einen Legacy-Toggle.
+`useDashboardData` liefert bereits `operations`, `inbox`, `staleInquiries`, `overduePayments`. Neuer Hook `useDashboardTasks()`:
+
+1. Ruft `useDashboardData()` auf.
+2. Mappt jede Quelle auf eine einheitliche `DashTask`-Struktur:
+   ```ts
+   type DashTask = {
+     id; sourceKind: "operation"|"inquiry"|"payment"|"reminder";
+     title; subtitle; customerName; serviceType: "restaurant"|"catering"|"payment"|"inquiry";
+     dueAt: Date | null; reasons: string[]; navigateTo: string;
+     primaryAction?: { label; href|onClick };
+     score: number; bucket: "now"|"sla"|"today"|"week"|"open";
+   }
+   ```
+3. Wendet `scoreTask` an, sortiert, deduppliziert (eine Operation kann gleichzeitig "Menü unbestätigt" + "Heute" sein → eine Zeile, mehrere Reasons).
+
+## Komponenten
+
+Neu unter `src/components/admin/refine/dashboard/`:
+
+- `Pinnwand.tsx` — neuer Container, ersetzt den Inhalt von `Dashboard.tsx`.
+- `WorklistTable.tsx` — TanStack-Table mit Spalten *Status (Bucket-Dot), Fällig, Kunde, Aufgabe, Reasons, Aktion*. Gruppiert per `bucket`. Row-click → `navigateTo`.
+- `WorklistFilters.tsx` — Bucket-Pills + Type-Toggles + Suche (Headless, kein neues Lib).
+- `DayTimelineSidebar.tsx` — `@schedule-x/react` `createCalendar` mit `viewDay`. Events = Operations heute. Monochromes Theme via CSS-Variables-Override.
+- `WeekSparkline.tsx` — bestehender `byDay` als kleines 7-Bar-Sparkline (ersetzt Heatmap, behält Info, weniger visuelles Gewicht).
+
+`Dashboard.tsx` wird zu einem dünnen Wrapper, der `<Pinnwand />` rendert. NextUpHero, TodayOperationsColumn, InboxColumn, OutboxColumn, WeekHeatmap werden gelöscht (Funktionalität wandert in WorklistTable + DayTimelineSidebar).
+
+## Aktionen pro Zeile
+
+Inline-Buttons (kein Floating, links-bündig nach Memory):
+- Anfrage stale → **Antworten** (öffnet Inquiry-Editor) + **Snooze 24h** (lokaler Localstorage-Snooze, später DB).
+- Operation heute → **Details** + **Anrufen** (`tel:`).
+- Zahlung überfällig → **Mahnen** (sendet Reminder via bestehender Funktion) + **Stripe öffnen**.
+- Menü unbestätigt → **Erinnerung senden** (bestehende Reminder-Logik).
+
+## Snooze (V1, optional)
+
+Pro Task: lokaler Snooze in `localStorage` Key `pinnwand:snooze:{taskId}` mit Ablauf-Timestamp. Snoozed Tasks rutschen aus JETZT/SLA in OFFEN bis Ablauf. V2 könnten wir das auf eine `dashboard_snoozes`-Tabelle migrieren, ist aber nicht Scope dieses Plans.
+
+## Styling
+
+- Strict Light-Mode, Inter, `rounded-2xl`, neutrale Grautöne.
+- Bucket-Dots: `bg-foreground` (JETZT), `bg-foreground/70` (SLA), `bg-foreground/40` (HEUTE), `bg-foreground/20` (Woche/Offen). Kein Rot/Grün/Gelb — Hierarchie über Sättigung.
+- Schedule-X Theme: CSS-Variablen-Override in einer kleinen `schedule-x-theme.css` (Hintergrund `--background`, Border `--border`, Event-Bg `--muted`).
+
+## Migration / Cleanup
+
+Nach Umsetzung lösche:
+- `src/components/admin/refine/dashboard/NextUpHero.tsx`
+- `…/TodayOperationsColumn.tsx`, `InboxColumn.tsx`, `OutboxColumn.tsx`, `WeekHeatmap.tsx`
+
+`useDashboardData` bleibt unverändert (Datenquelle), nur Konsumenten ändern sich.
+
+## Technische Risiken
+
+- **Schedule-X Bundle-Size**: ~30 kb gz, akzeptabel.
+- **Typenkonflikt** mit `setTimeout` → konsequent `ReturnType<typeof setTimeout>` (Memory-Regel).
+- **Realtime-Refresh**: bestehender 60s-Polling reicht; optional Supabase-Realtime auf `event_inquiries`/`catering_orders` für Live-Updates (V2).
+
+## Schritte
+
+1. Install: `@schedule-x/react @schedule-x/calendar @schedule-x/theme-shadcn`.
+2. `src/lib/dashboardPriority.ts` + `useDashboardTasks` Hook.
+3. `WorklistTable`, `WorklistFilters`, `DayTimelineSidebar`, `WeekSparkline`, `Pinnwand`.
+4. `Dashboard.tsx` auf Pinnwand umstellen, Alt-Komponenten löschen.
+5. Visuelle QA bei 1464px + Mobile, Live-Polling-Check.
