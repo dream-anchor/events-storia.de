@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
@@ -61,16 +61,9 @@ export const UnifiedInquiriesList = () => {
   const navigate = useNavigate();
   const { records, isLoading, refetch } = useUnifiedInquiries();
 
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "table";
-    return (localStorage.getItem("inquiriesViewMode") as ViewMode) || "table";
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("inbox");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
-
-  useEffect(() => {
-    localStorage.setItem("inquiriesViewMode", viewMode);
-  }, [viewMode]);
 
   const filtered = useMemo(() => {
     return records.filter((r) => {
