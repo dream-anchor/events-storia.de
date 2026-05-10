@@ -301,7 +301,13 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
                 isDragging={draggingId === event.id}
                 onDragStart={(e) => handleDragStart(e, event.id)}
                 onDragEnd={handleDragEnd}
-                onClick={() => navigate(`/admin/events/${event.id}/edit`)}
+                onClick={() => {
+                  if (event.id.startsWith("booking-")) {
+                    navigate(`/admin/bookings`);
+                  } else {
+                    navigate(`/admin/events/${event.id}/edit`);
+                  }
+                }}
                 onArchive={() => handleArchiveCard(event.id)}
                 onMoveToColumn={(col) => applyStatusChange(event, col)}
               />
