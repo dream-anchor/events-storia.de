@@ -72,6 +72,10 @@ export const UnifiedInquiriesList = () => {
     });
   }, [records, statusFilter, kindFilter]);
 
+  const kanbanRecords = useMemo(() => {
+    return records.filter((r) => kindFilter === "all" || r.serviceType === kindFilter);
+  }, [records, kindFilter]);
+
   const counts = useMemo(() => {
     const filterByKind = (r: InquiryRecord) =>
       kindFilter === "all" || r.serviceType === kindFilter;
@@ -296,7 +300,7 @@ export const UnifiedInquiriesList = () => {
         </div>
 
         {viewMode === "kanban" ? (
-          <UnifiedKanbanView records={filtered} onRefresh={refetch} />
+          <UnifiedKanbanView records={kanbanRecords} onRefresh={refetch} />
         ) : (
           <DataTable
             columns={columns}
