@@ -531,14 +531,14 @@ function FolderSidebar({
 
 function MailDetail({
   email,
-  tab,
+  folder,
   suggestedEvent,
   onAssign,
   onCreate,
   onIgnore,
 }: {
   email: UnassignedEmail;
-  tab: Tab;
+  folder: Folder;
   suggestedEvent: SuggestedEventInfo | null;
   onAssign: () => void;
   onCreate: () => void;
@@ -642,12 +642,12 @@ function MailDetail({
         </div>
 
         {email.imap_status === "deleted_on_server" && (
-          <div className="flex items-start gap-2 text-xs rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-amber-900 mt-2">
+          <div className="flex items-start gap-2 text-xs rounded-xl bg-muted border px-3 py-2 mt-2">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>Wurde im Postfach gelöscht — nur in Maestro archiviert verfügbar.</span>
           </div>
         )}
-        {tab === "hidden" && (
+        {folder === "hidden" && (
           <div className="flex items-start gap-2 text-xs rounded-xl bg-muted border px-3 py-2 mt-2">
             <EyeOff className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
@@ -656,86 +656,32 @@ function MailDetail({
           </div>
         )}
 
-        {tab === "open" && email.suggestion_category && (
-          <div className="rounded-xl border bg-muted/30 p-3 mt-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <Sparkles className="h-3.5 w-3.5" />
-              Vorschlag {email.suggestion_method === "llm" ? "(KI-analysiert)" : "(automatisch erkannt)"}
-              {email.suggestion_confidence && (
-                <Badge variant="outline" className="text-[10px] uppercase ml-auto">
-                  {email.suggestion_confidence}
-                </Badge>
-              )}
-            </div>
-            <div className="text-sm">
-              {email.suggestion_category === "match" && suggestedEvent && (
-                <p>
-                  Diese Mail gehört vermutlich zu{" "}
-                  <strong>{suggestedEvent.customer_name ?? "Event"}</strong>
-                  {suggestedEvent.date ? ` (${format(new Date(suggestedEvent.date), "dd.MM.yyyy", { locale: de })})` : ""}
-                  {suggestedEvent.occasion ? ` · ${suggestedEvent.occasion}` : ""}.
-                </p>
-              )}
-              {email.suggestion_category === "new_inquiry" && (
-                <p>Diese Mail wirkt wie eine neue Eventanfrage.</p>
-              )}
-              {email.suggestion_category === "irrelevant" && (
-                <p>Diese Mail wirkt wie Spam, Werbung oder Lieferantenkommunikation.</p>
-              )}
-              {email.suggestion_category === "unclear" && (
-                <p>Keine eindeutige Zuordnung möglich.</p>
-              )}
-              {email.suggestion_reasoning && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Begründung: {email.suggestion_reasoning}
-                </p>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button
-                size="sm"
-                onClick={acceptSuggestion}
-                disabled={accepting}
-                className="rounded-full"
-              >
-                <Check className="h-4 w-4 mr-1.5" />
-                Vorschlag annehmen
-              </Button>
-            </div>
-          </div>
+        {folder === "open" && (
+          <PrimaryActionBar
+            email={email}
+            suggestedEvent={suggestedEvent}
+            accepting={accepting}
+            onAcceptSuggestion={acceptSuggestion}
+            onAssign={onAssign}
+            onCreate={onCreate}
+            onIgnore={onIgnore}
+          />
         )}
-
-        <div className="flex flex-wrap gap-2 pt-3">
-          {tab === "open" && (
-            <>
-              <Button onClick={onAssign} size="sm" className="rounded-full">
-                <Pin className="h-4 w-4 mr-1.5" />
-                Zu existierender Anfrage zuordnen
-              </Button>
-              <Button onClick={onCreate} size="sm" variant="outline" className="rounded-full">
-                <Plus className="h-4 w-4 mr-1.5" />
-                Neue Anfrage anlegen
-              </Button>
-              <Button onClick={onIgnore} size="sm" variant="ghost" className="rounded-full">
-                <Ban className="h-4 w-4 mr-1.5" />
-                Ignorieren
-              </Button>
-            </>
-          )}
-          {tab === "hidden" && (
+        {folder === "hidden" && (
+          <div className="pt-3">
             <Button onClick={restore} size="sm" variant="outline" className="rounded-full">
               <RotateCcw className="h-4 w-4 mr-1.5" />
               Wieder einblenden
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
         {sanitizedHtml ? (
           <iframe
             title={`mail-${email.id}`}
-            className="w-full min-h-[400px] rounded-xl border bg-white"
+            className="w-full min-h-[400px] rounded-xl border bg-background"
             srcDoc={sanitizedHtml}
             sandbox="allow-same-origin"
             style={{ height: 500 }}
@@ -746,6 +692,111 @@ function MailDetail({
               <span className="italic text-muted-foreground">Kein Inhalt</span>
             )}
           </pre>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------- Primary Action Bar --------------------------- */
+
+function PrimaryActionBar({
+  email,
+  suggestedEvent,
+  accepting,
+  onAcceptSuggestion,
+  onAssign,
+  onCreate,
+  onIgnore,
+}: {
+  email: UnassignedEmail;
+  suggestedEvent: SuggestedEventInfo | null;
+  accepting: boolean;
+  onAcceptSuggestion: () => void;
+  onAssign: () => void;
+  onCreate: () => void;
+  onIgnore: () => void;
+}) {
+  const cat = email.suggestion_category;
+
+  // Build the primary label + handler based on KI suggestion.
+  let primaryLabel: React.ReactNode = "Anfrage suchen…";
+  let PrimaryIcon: any = Search;
+  let onPrimary: () => void = onAssign;
+  let helperText: string | null = null;
+
+  if (cat === "match" && suggestedEvent) {
+    const dateStr = suggestedEvent.date
+      ? format(new Date(suggestedEvent.date), "dd.MM.yyyy", { locale: de })
+      : null;
+    primaryLabel = (
+      <>
+        Zu <strong className="font-semibold ml-1">
+          {suggestedEvent.customer_name ?? "Anfrage"}
+        </strong>
+        {dateStr ? ` · ${dateStr}` : ""} zuordnen
+      </>
+    );
+    PrimaryIcon = Check;
+    onPrimary = onAcceptSuggestion;
+    helperText = "KI-Vorschlag — du kannst stattdessen manuell zuordnen.";
+  } else if (cat === "new_inquiry") {
+    primaryLabel = "Neue Anfrage anlegen";
+    PrimaryIcon = Plus;
+    onPrimary = onCreate;
+    helperText = "KI hält das für eine neue Eventanfrage.";
+  } else if (cat === "irrelevant") {
+    primaryLabel = "Ignorieren";
+    PrimaryIcon = Ban;
+    onPrimary = onIgnore;
+    helperText = "KI hält das für Spam / Werbung / Lieferantenmail.";
+  } else if (cat === "unclear") {
+    helperText = "KI konnte nicht eindeutig zuordnen — bitte selbst entscheiden.";
+  }
+
+  return (
+    <div className="pt-3 space-y-2">
+      {helperText && (
+        <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+          <Sparkles className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{helperText}</span>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          onClick={onPrimary}
+          disabled={accepting}
+          size="sm"
+          className="rounded-full"
+        >
+          <PrimaryIcon className="h-4 w-4 mr-1.5" />
+          {primaryLabel}
+        </Button>
+        {/* Secondary actions — context-dependent, always available but visually subordinate. */}
+        <span className="text-xs text-muted-foreground">oder</span>
+        {cat !== "match" && cat !== "unclear" && cat !== null && (
+          <Button onClick={onAssign} size="sm" variant="ghost" className="rounded-full text-xs">
+            <Pin className="h-3.5 w-3.5 mr-1" />
+            Zu Anfrage zuordnen
+          </Button>
+        )}
+        {cat === "match" && (
+          <Button onClick={onAssign} size="sm" variant="ghost" className="rounded-full text-xs">
+            <Pin className="h-3.5 w-3.5 mr-1" />
+            Anders zuordnen
+          </Button>
+        )}
+        {cat !== "new_inquiry" && (
+          <Button onClick={onCreate} size="sm" variant="ghost" className="rounded-full text-xs">
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Neue Anfrage
+          </Button>
+        )}
+        {cat !== "irrelevant" && (
+          <Button onClick={onIgnore} size="sm" variant="ghost" className="rounded-full text-xs">
+            <Ban className="h-3.5 w-3.5 mr-1" />
+            Ignorieren
+          </Button>
         )}
       </div>
     </div>
