@@ -59,6 +59,7 @@ export const SmartInquiryEditor = () => {
   // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren
   useRegisterSaveStatus('smart-inquiry-editor', saveStatus);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [mailsSubView, setMailsSubView] = useState<"inbox" | "mapping">("inbox");
   const downloadDocument = useDownloadLexOfficeDocument();
 
   // Local state for editable fields
@@ -917,25 +918,41 @@ export const SmartInquiryEditor = () => {
         {/* Tab: Nachrichten — Mail-Client-Ansicht (Sidebar + Reading Pane) */}
         <TabsContent value="mails" className="mt-6">
           {id && (
-            <MailClient
-              inquiryId={id}
-              customerEmail={inquiry.email || undefined}
-              onSendReply={async ({ to, cc, bcc, subject, html, text }) => {
-                const { error } = await supabase.functions.invoke("send-offer-email", {
-                  body: {
-                    inquiryId: id,
-                    to,
-                    cc: cc ? cc.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-                    bcc: bcc ? bcc.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-                    emailSubject: subject,
-                    emailHtml: html,
-                    emailText: text,
-                    isReply: true,
-                  },
-                });
-                if (error) throw error;
-              }}
-            />
+            <Tabs value={mailsSubView} onValueChange={(v) => setMailsSubView(v as "inbox" | "mapping")} className="w-full">
+              <TabsList className="rounded-lg bg-muted/40 p-1 mb-4">
+                <TabsTrigger value="inbox" className="rounded-md text-sm px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">Posteingang</TabsTrigger>
+                <TabsTrigger value="mapping" className="rounded-md text-sm px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">Mails zuordnen</TabsTrigger>
+              </TabsList>
+              <TabsContent value="inbox" className="mt-0">
+                <MailClient
+                  inquiryId={id}
+                  customerEmail={inquiry.email || undefined}
+                  onSendReply={async ({ to, cc, bcc, subject, html, text }) => {
+                    const { error } = await supabase.functions.invoke("send-offer-email", {
+                      body: {
+                        inquiryId: id,
+                        to,
+                        cc: cc ? cc.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+                        bcc: bcc ? bcc.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+                        emailSubject: subject,
+                        emailHtml: html,
+                        emailText: text,
+                        isReply: true,
+                      },
+                    });
+                    if (error) throw error;
+                  }}
+                />
+              </TabsContent>
+              <TabsContent value="mapping" className="mt-0">
+                <EventMailsTab
+                  eventId={id}
+                  contactEmail={inquiry.email || undefined}
+                  contactName={inquiry.contact_name || undefined}
+                  eventName={inquiry.event_type || undefined}
+                />
+              </TabsContent>
+            </Tabs>
           )}
         </TabsContent>
 
