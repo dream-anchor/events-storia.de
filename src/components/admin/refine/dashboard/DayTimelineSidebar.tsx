@@ -44,10 +44,10 @@ export function DayTimelineSidebar({ operations, todayKey }: Props) {
 
   const events = useMemo(() => buildEvents(operations, todayKey), [operations, todayKey]);
 
+  const dayView = useMemo(() => createViewDay(), []);
   const calendar = useNextCalendarApp({
-    views: [createViewDay()],
-    defaultView: createViewDay().name,
-    selectedDate: todayKey,
+    views: [dayView],
+    defaultView: dayView.name,
     locale: "de-DE",
     firstDayOfWeek: 1,
     dayBoundaries: { start: "08:00", end: "23:00" },
