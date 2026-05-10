@@ -241,7 +241,9 @@ export const UnifiedInquiriesList = () => {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Anfragen</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {filtered.length} im Filter „{STATUS_LABELS[statusFilter]}
+              {viewMode === "kanban"
+                ? `${kanbanRecords.length} im Kanban-Board`
+                : `${filtered.length} im Filter „${STATUS_LABELS[statusFilter]}“`}
               {kindFilter !== "all"
                 ? ` · ${
                     kindFilter === "restaurant"
@@ -251,7 +253,6 @@ export const UnifiedInquiriesList = () => {
                         : "Catering-Shop"
                   }`
                 : ""}
-              "
             </p>
           </div>
           <div className="flex items-center gap-3">
