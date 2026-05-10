@@ -59,6 +59,7 @@ export const SmartInquiryEditor = () => {
   // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren
   useRegisterSaveStatus('smart-inquiry-editor', saveStatus);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [mailsSubView, setMailsSubView] = useState<"inbox" | "mapping">("inbox");
   const downloadDocument = useDownloadLexOfficeDocument();
 
   // Local state for editable fields
