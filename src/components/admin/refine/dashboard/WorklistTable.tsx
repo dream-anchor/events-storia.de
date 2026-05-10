@@ -5,6 +5,7 @@ import {
   getCoreRowModel,
   useReactTable,
   type ColumnDef,
+  type Row,
 } from "@tanstack/react-table";
 import { Phone, MoreHorizontal, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -159,7 +160,7 @@ export function WorklistTable({ tasks, now, onChanged }: Props) {
   });
 
   // Group rows by bucket label for visual grouping
-  type Group = { bucket: TaskBucket; rows: typeof table.getRowModel().rows };
+  type Group = { bucket: TaskBucket; rows: Row<DashTask>[] };
   const groups = useMemo<Group[]>(() => {
     const map = new Map<TaskBucket, Group>();
     const order: TaskBucket[] = ["now", "sla", "today", "week", "open"];
