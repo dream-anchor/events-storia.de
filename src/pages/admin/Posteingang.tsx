@@ -54,8 +54,13 @@ import {
 } from "@/hooks/useUnassignedInbox";
 import { AdminLayout } from "@/components/admin/refine/AdminLayout";
 import { DraftsView } from "@/components/admin/posteingang/DraftsView";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 
-type Tab = "open" | "hidden" | "blocked" | "drafts";
+type Folder = "open" | "hidden" | "blocked" | "drafts";
 
 function initials(name: string | null | undefined, email: string | null | undefined) {
   const src = (name || email || "?").trim();
