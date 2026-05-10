@@ -9,13 +9,14 @@ import { DataTable, sortableHeader } from "./DataTable";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 import { useUnifiedInquiries } from "@/hooks/useUnifiedInquiries";
-import type { InquiryRecord, InquiryKind } from "@/types/inquiryRecord";
-import { UnifiedKanbanView, KindBadge } from "./UnifiedKanbanView";
+import type { InquiryRecord, ServiceType } from "@/types/inquiryRecord";
+import { UnifiedKanbanView, ServiceBadge } from "./UnifiedKanbanView";
+import { getRecordActionState } from "@/lib/inquiryActionState";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "table" | "kanban";
 type StatusFilter = "inbox" | "won" | "archive" | "all";
-type KindFilter = "all" | InquiryKind;
+type KindFilter = "all" | ServiceType;
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   inbox: "Eingang",
@@ -27,11 +28,20 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
 function statusMatches(r: InquiryRecord, f: StatusFilter): boolean {
   switch (f) {
     case "inbox":
-      return r.column === "lead" || r.column === "proposal" || r.column === "pending";
+      return (
+        !r.archivedAt &&
+        !r.archived &&
+        (r.column === "lead" || r.column === "proposal" || r.column === "pending")
+      );
     case "won":
-      return r.column === "won";
+      return r.column === "won" && !r.archivedAt && !r.archived;
     case "archive":
-      return r.column === "lost" || r.column === "closed" || !!r.archivedAt;
+      return (
+        r.column === "lost" ||
+        r.column === "closed" ||
+        !!r.archivedAt ||
+        !!r.archived
+      );
     case "all":
       return true;
   }
@@ -64,14 +74,14 @@ export const UnifiedInquiriesList = () => {
 
   const filtered = useMemo(() => {
     return records.filter((r) => {
-      if (kindFilter !== "all" && r.kind !== kindFilter) return false;
+      if (kindFilter !== "all" && r.serviceType !== kindFilter) return false;
       return statusMatches(r, statusFilter);
     });
   }, [records, statusFilter, kindFilter]);
 
   const counts = useMemo(() => {
     const filterByKind = (r: InquiryRecord) =>
-      kindFilter === "all" || r.kind === kindFilter;
+      kindFilter === "all" || r.serviceType === kindFilter;
     return {
       inbox: records.filter((r) => filterByKind(r) && statusMatches(r, "inbox")).length,
       won: records.filter((r) => filterByKind(r) && statusMatches(r, "won")).length,
@@ -83,8 +93,9 @@ export const UnifiedInquiriesList = () => {
   const kindCounts = useMemo(() => {
     return {
       all: records.length,
-      event: records.filter((r) => r.kind === "event").length,
-      catering: records.filter((r) => r.kind === "catering").length,
+      restaurant: records.filter((r) => r.serviceType === "restaurant").length,
+      catering: records.filter((r) => r.serviceType === "catering").length,
+      catering_order: records.filter((r) => r.serviceType === "catering_order").length,
     };
   }, [records]);
 
@@ -112,11 +123,31 @@ export const UnifiedInquiriesList = () => {
 
   const columns: ColumnDef<InquiryRecord>[] = [
     {
-      id: "kind",
-      header: sortableHeader<InquiryRecord>("Typ"),
-      accessorFn: (r) => r.kind,
-      cell: ({ row }) => <KindBadge kind={row.original.kind} />,
-      size: 90,
+      id: "action",
+      header: "Status",
+      accessorFn: (r) => getRecordActionState(r).label,
+      cell: ({ row }) => {
+        const a = getRecordActionState(row.original);
+        return (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap",
+              a.chipClass,
+            )}
+          >
+            <span className={cn("h-1.5 w-1.5 rounded-full", a.dotClass)} />
+            {a.label}
+          </span>
+        );
+      },
+      size: 130,
+    },
+    {
+      id: "serviceType",
+      header: sortableHeader<InquiryRecord>("Art"),
+      accessorFn: (r) => r.serviceType,
+      cell: ({ row }) => <ServiceBadge serviceType={row.original.serviceType} />,
+      size: 110,
     },
     {
       accessorKey: "number",
@@ -275,7 +306,7 @@ export const UnifiedInquiriesList = () => {
                 onClick={() => handleRowClick(r)}
                 title={
                   <span className="flex items-center gap-2">
-                    <KindBadge kind={r.kind} compact />
+                    <ServiceBadge serviceType={r.serviceType} compact />
                     <span className="truncate">{r.companyName || r.customerName}</span>
                   </span>
                 }
