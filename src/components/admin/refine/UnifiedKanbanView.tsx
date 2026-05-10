@@ -5,6 +5,7 @@ import { de } from "date-fns/locale";
 import {
   ChevronDown,
   ChevronRight,
+  Archive,
   Home,
   UtensilsCrossed,
   Truck,
@@ -139,6 +140,35 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
     [records, onRefresh]
   );
 
+  const handleArchiveCard = useCallback(
+    async (record: InquiryRecord) => {
+      if (record.kind !== "event") {
+        toast.info("Shop-Bestellungen werden über den Status „Storniert“ aus dem aktiven Board entfernt.");
+        return;
+      }
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error } = await supabase
+          .from("v2_events")
+          .update({
+            archived: true,
+            archived_at: new Date().toISOString(),
+            archived_by: user?.email || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", record.id);
+        if (error) throw error;
+        toast.success("Anfrage archiviert");
+        onRefresh();
+      } catch (err) {
+        console.error("Archive error:", err);
+        toast.error("Fehler beim Archivieren");
+      }
+    },
+    [onRefresh],
+  );
+
   const renderColumn = (column: { id: UnifiedColumn; title: string }) => {
     const { items, totalSum } = columnData[column.id];
     const isDragOver = dragOverColumn === column.id;
@@ -186,6 +216,7 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
                       : `/admin/orders/${r.id}/edit`
                   )
                 }
+                onArchive={() => handleArchiveCard(r)}
               />
             ))
           )}
@@ -236,9 +267,10 @@ interface CardProps {
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onClick: () => void;
+  onArchive: () => void;
 }
 
-function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick }: CardProps) {
+function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick, onArchive }: CardProps) {
   const isEvent = record.kind === "event";
   const title =
     record.companyName?.trim() ||
@@ -265,6 +297,20 @@ function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick
         <h3 className="font-semibold text-slate-800 text-[13px] truncate flex-1 min-w-0">
           {title}
         </h3>
+        <button
+          type="button"
+          disabled={record.kind !== "event"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onArchive();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35"
+          aria-label="Archivieren"
+          title={record.kind === "event" ? "Archivieren" : "Shop-Bestellungen über Status stornieren"}
+        >
+          <Archive className="h-3.5 w-3.5" />
+        </button>
         {record.date && (
           <span className="text-[11px] text-slate-500 tabular-nums flex-shrink-0">
             {format(parseISO(record.date), "d. MMM", { locale: de })}

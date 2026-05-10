@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
@@ -61,16 +61,9 @@ export const UnifiedInquiriesList = () => {
   const navigate = useNavigate();
   const { records, isLoading, refetch } = useUnifiedInquiries();
 
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "table";
-    return (localStorage.getItem("inquiriesViewMode") as ViewMode) || "table";
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("inbox");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
-
-  useEffect(() => {
-    localStorage.setItem("inquiriesViewMode", viewMode);
-  }, [viewMode]);
 
   const filtered = useMemo(() => {
     return records.filter((r) => {
@@ -78,6 +71,10 @@ export const UnifiedInquiriesList = () => {
       return statusMatches(r, statusFilter);
     });
   }, [records, statusFilter, kindFilter]);
+
+  const kanbanRecords = useMemo(() => {
+    return records.filter((r) => kindFilter === "all" || r.serviceType === kindFilter);
+  }, [records, kindFilter]);
 
   const counts = useMemo(() => {
     const filterByKind = (r: InquiryRecord) =>
@@ -244,7 +241,9 @@ export const UnifiedInquiriesList = () => {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Anfragen</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {filtered.length} im Filter „{STATUS_LABELS[statusFilter]}
+              {viewMode === "kanban"
+                ? `${kanbanRecords.length} im Kanban-Board`
+                : `${filtered.length} im Filter „${STATUS_LABELS[statusFilter]}“`}
               {kindFilter !== "all"
                 ? ` · ${
                     kindFilter === "restaurant"
@@ -254,7 +253,6 @@ export const UnifiedInquiriesList = () => {
                         : "Catering-Shop"
                   }`
                 : ""}
-              "
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -303,7 +301,7 @@ export const UnifiedInquiriesList = () => {
         </div>
 
         {viewMode === "kanban" ? (
-          <UnifiedKanbanView records={filtered} onRefresh={refetch} />
+          <UnifiedKanbanView records={kanbanRecords} onRefresh={refetch} />
         ) : (
           <DataTable
             columns={columns}
