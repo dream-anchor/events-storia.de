@@ -26,6 +26,25 @@ export type UnassignedEmail = {
   suggestion_generated_at: string | null;
 };
 
+export type DraftEmail = {
+  id: string;
+  imap_uid: number | null;
+  imap_folder: string;
+  imap_status: string;
+  draft_uid_key: string | null;
+  to_emails: string[];
+  cc_emails: string[];
+  reply_to_email: string | null;
+  from_email: string;
+  subject: string | null;
+  body_text: string | null;
+  body_html: string | null;
+  date_sent: string | null;
+  date_received: string;
+  updated_at: string;
+  has_attachments: boolean;
+};
+
 export function useUnassignedInboxCount() {
   return useQuery({
     queryKey: ["unassigned-inbox-count"],
@@ -112,4 +131,38 @@ export function useBlocklist() {
       return (data ?? []) as BlocklistEntry[];
     },
   });
+}
+
+export function useDraftsInbox() {
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: ["drafts-inbox"],
+    queryFn: async (): Promise<DraftEmail[]> => {
+      const { data, error } = await supabase
+        .from("inbox_emails")
+        .select(
+          "id, imap_uid, imap_folder, imap_status, draft_uid_key, to_emails, cc_emails, reply_to_email, from_email, subject, body_text, body_html, date_sent, date_received, updated_at, has_attachments"
+        )
+        .eq("direction", "draft")
+        .eq("imap_status", "present")
+        .order("updated_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return (data ?? []) as unknown as DraftEmail[];
+    },
+  });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("drafts-inbox")
+      .on("postgres_changes", { event: "*", schema: "public", table: "inbox_emails" }, () => {
+        qc.invalidateQueries({ queryKey: ["drafts-inbox"] });
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(ch);
+    };
+  }, [qc]);
+
+  return query;
 }

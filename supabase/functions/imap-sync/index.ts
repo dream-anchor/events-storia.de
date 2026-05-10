@@ -23,6 +23,7 @@ const MAX_PER_RUN = 5;
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
 const LARGE_MAIL_BYTES = 200 * 1024;
 const BUCKET = "email-attachments";
+const MAX_DRAFTS_PER_RUN = 30;
 
 // Eigene Outbound-Adressen — Mails von diesen Absendern sind Kopien
 // unserer eigenen Outbound-Mails und gehören nicht in den Posteingang.
@@ -502,6 +503,175 @@ async function phaseB(client: ImapFlow): Promise<{ moved: number; deleted: numbe
   return { moved, deleted };
 }
 
+/**
+ * Drafts werden anders synchronisiert als INBOX/SENT:
+ * - Drafts sind veränderlich. Ihre IMAP-UID ändert sich beim Bearbeiten.
+ * - Identifikation über draft_uid_key = `DRAFTS:{folder}:{uid}`.
+ * - Bei jedem Lauf: komplette UID-Liste vom Server holen, mit DB abgleichen.
+ * - Neu/geändert: upsert. Verschwunden: imap_status='deleted_on_server'.
+ */
+async function phaseDrafts(
+  client: ImapFlow,
+  folderPath: string,
+): Promise<{ folder: string; processed: number; updated: number; deleted: number }> {
+  let processed = 0;
+  let updated = 0;
+  let removed = 0;
+
+  const lock = await client.getMailboxLock(folderPath);
+  let presentUids: number[] = [];
+  try {
+    const result = await client.search({ all: true }, { uid: true });
+    presentUids = (result as number[]) ?? [];
+  } finally {
+    lock.release();
+  }
+  const presentSet = new Set(presentUids);
+
+  // Bestehende Drafts in DB
+  const { data: dbRows } = await supabase
+    .from("inbox_emails")
+    .select("id, imap_uid, draft_uid_key, imap_status")
+    .eq("direction", "draft")
+    .eq("imap_folder", folderPath);
+
+  const dbByUid = new Map<number, { id: string; status: string }>();
+  for (const r of (dbRows ?? []) as any[]) {
+    if (r.imap_uid != null) {
+      dbByUid.set(Number(r.imap_uid), { id: r.id, status: r.imap_status });
+    }
+  }
+
+  // 1. UIDs auf Server, aber nicht (oder als deleted) in DB → fetch & upsert
+  const toFetch: number[] = [];
+  for (const uid of presentUids) {
+    const row = dbByUid.get(uid);
+    if (!row) toFetch.push(uid);
+    else if (row.status !== "present") toFetch.push(uid);
+  }
+  // Begrenzung: nicht mehr als MAX_DRAFTS_PER_RUN frisch fetchen
+  const toFetchSlice = toFetch.slice(0, MAX_DRAFTS_PER_RUN);
+
+  if (toFetchSlice.length > 0) {
+    const fetchLock = await client.getMailboxLock(folderPath);
+    try {
+      for (const uid of toFetchSlice) {
+        try {
+          const meta = await client.fetchOne(
+            String(uid),
+            { uid: true, internalDate: true, envelope: true, size: true, source: true },
+            { uid: true },
+          );
+          if (!meta) continue;
+          const sourceBuf = (meta.source as Uint8Array) ?? null;
+          let parsed: any = {};
+          if (sourceBuf) {
+            parsed = await simpleParser(sourceBuf, {
+              skipImageLinks: true,
+              skipHtmlToText: true,
+              skipTextToHtml: true,
+            });
+          }
+          const env = meta.envelope ?? {};
+          if (!parsed.from && env.from) parsed.from = env.from;
+          if (!parsed.to && env.to) parsed.to = env.to;
+          if (!parsed.cc && env.cc) parsed.cc = env.cc;
+          if (!parsed.subject && env.subject) parsed.subject = env.subject;
+          if (!parsed.messageId && env.messageId) parsed.messageId = env.messageId;
+          if (!parsed.date && env.date) parsed.date = env.date;
+
+          const draftKey = `DRAFTS:${folderPath}:${uid}`;
+          const fromArr = addrList(parsed.from);
+          const toArr = addrList(parsed.to);
+          const ccArr = addrList(parsed.cc);
+          const replyToArr = addrList(parsed.replyTo);
+          const refs = parsed.references
+            ? Array.isArray(parsed.references) ? parsed.references : [parsed.references]
+            : [];
+          const rawSize = Number(meta.size ?? sourceBuf?.length ?? 0);
+          const rawMime = sourceBuf
+            ? new TextDecoder("utf-8", { fatal: false }).decode(sourceBuf)
+            : "";
+          // Drafts ohne stabile Message-ID: surrogate
+          const messageId = stripBrackets(parsed.messageId) || `draft-${IMAP_USER}-${folderPath}-${uid}`;
+
+          // Upsert über draft_uid_key (uniq), nicht über message_id
+          const existing = dbByUid.get(uid);
+          const payload = {
+            message_id: messageId,
+            draft_uid_key: draftKey,
+            raw_mime: rawMime,
+            raw_size_bytes: rawSize,
+            imap_uid: uid,
+            imap_folder: folderPath,
+            direction: "draft",
+            imap_status: "present",
+            from_email: fromArr[0]?.email ?? IMAP_USER.toLowerCase(),
+            from_name: fromArr[0]?.name ?? null,
+            to_emails: toArr.map((a) => a.email),
+            cc_emails: ccArr.map((a) => a.email),
+            reply_to_email: replyToArr[0]?.email ?? null,
+            subject: parsed.subject ?? null,
+            in_reply_to: stripBrackets(parsed.inReplyTo),
+            references_headers: refs.map((r: string) => stripBrackets(r)).filter(Boolean),
+            body_text: parsed.text ?? null,
+            body_html: typeof parsed.html === "string" ? parsed.html : null,
+            has_attachments: (parsed.attachments?.length ?? 0) > 0,
+            attachment_count: parsed.attachments?.length ?? 0,
+            date_sent: parsed.date ? new Date(parsed.date).toISOString() : null,
+            date_received: meta.internalDate
+              ? new Date(meta.internalDate as any).toISOString()
+              : new Date().toISOString(),
+            is_hidden: false,
+            updated_at: new Date().toISOString(),
+          };
+          if (existing) {
+            const { error } = await supabase
+              .from("inbox_emails")
+              .update(payload)
+              .eq("id", existing.id);
+            if (!error) updated += 1;
+          } else {
+            const { error } = await supabase
+              .from("inbox_emails")
+              .upsert(payload, { onConflict: "draft_uid_key", ignoreDuplicates: false });
+            if (!error) processed += 1;
+          }
+        } catch (e) {
+          console.error(`Draft UID ${uid} failed:`, (e as Error).message);
+        }
+      }
+    } finally {
+      fetchLock.release();
+    }
+  }
+
+  // 2. UIDs in DB als 'present', aber nicht mehr auf Server → deleted_on_server
+  for (const [uid, row] of dbByUid) {
+    if (row.status !== "present") continue;
+    if (presentSet.has(uid)) continue;
+    await supabase
+      .from("inbox_emails")
+      .update({
+        imap_status: "deleted_on_server",
+        status_changed_at: new Date().toISOString(),
+      })
+      .eq("id", row.id);
+    removed += 1;
+  }
+
+  await supabase
+    .from("imap_sync_state")
+    .update({
+      last_sync_at: new Date().toISOString(),
+      last_error: null,
+      imap_folder_path: folderPath,
+    })
+    .eq("folder_name", "DRAFTS");
+
+  return { folder: `DRAFTS(${folderPath})`, processed, updated, deleted: removed };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -570,6 +740,7 @@ Deno.serve(async (req) => {
     const list = await client.list();
     const inboxFolders = new Set<string>(["INBOX"]);
     let sentFolderPath: string | null = null;
+    let draftsFolderPath: string | null = null;
     const SENT_NAME_CANDIDATES = [
       "Sent",
       "INBOX.Sent",
@@ -583,12 +754,23 @@ Deno.serve(async (req) => {
       "Sent Items",
       "INBOX.Sent Items",
     ];
+    const DRAFTS_NAME_CANDIDATES = [
+      "Drafts",
+      "INBOX.Drafts",
+      "INBOX/Drafts",
+      "Entwürfe",
+      "INBOX.Entwürfe",
+      "INBOX/Entwürfe",
+      "Entwurf",
+    ];
     // 1. Pass: \Sent specialUse hat Vorrang
     for (const mb of list) {
       const su = (mb as any).specialUse;
       if (su === "\\Sent" && mb.path) {
         sentFolderPath = mb.path;
-        break;
+      }
+      if (su === "\\Drafts" && mb.path) {
+        draftsFolderPath = mb.path;
       }
     }
     // 2. Pass: Namens-Match
@@ -601,12 +783,22 @@ Deno.serve(async (req) => {
         }
       }
     }
+    if (!draftsFolderPath) {
+      for (const mb of list) {
+        if (!mb.path) continue;
+        if (DRAFTS_NAME_CANDIDATES.includes(mb.path)) {
+          draftsFolderPath = mb.path;
+          break;
+        }
+      }
+    }
 
     for (const mb of list) {
       const p = mb.path;
       if (!p) continue;
       // Sent nicht doppelt im inbox-Pool
       if (sentFolderPath && p === sentFolderPath) continue;
+      if (draftsFolderPath && p === draftsFolderPath) continue;
       if (p === "INBOX" || p.startsWith("INBOX/") || p.startsWith("INBOX.")) {
         const lower = p.toLowerCase();
         if (
@@ -654,6 +846,21 @@ Deno.serve(async (req) => {
       }
     } else {
       phaseAResults.push({ folder: "SENT", error: "Sent-Folder nicht gefunden" });
+    }
+
+    // DRAFTS-Folder synchen (full-list, da Drafts veränderlich sind)
+    if (draftsFolderPath) {
+      try {
+        const r = await phaseDrafts(client, draftsFolderPath);
+        phaseAResults.push(r);
+      } catch (e) {
+        const msg = (e as Error).message ?? String(e);
+        console.error(`phaseDrafts(${draftsFolderPath}) failed:`, msg);
+        try { await setSyncError("DRAFTS", msg); } catch (_) { /* ignore */ }
+        phaseAResults.push({ folder: `DRAFTS(${draftsFolderPath})`, error: msg });
+      }
+    } else {
+      phaseAResults.push({ folder: "DRAFTS", error: "Drafts-Folder nicht gefunden" });
     }
 
     const b = await phaseB(client);

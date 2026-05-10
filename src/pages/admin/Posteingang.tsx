@@ -18,6 +18,7 @@ import {
   Sparkles,
   RefreshCw,
   Check,
+  Pencil,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -42,11 +43,13 @@ import {
   useUnassignedInboxCount,
   useHiddenInbox,
   useBlocklist,
+  useDraftsInbox,
   type UnassignedEmail,
 } from "@/hooks/useUnassignedInbox";
 import { AdminLayout } from "@/components/admin/refine/AdminLayout";
+import { DraftsView } from "@/components/admin/posteingang/DraftsView";
 
-type Tab = "open" | "hidden" | "blocked";
+type Tab = "open" | "hidden" | "blocked" | "drafts";
 
 function initials(name: string | null | undefined, email: string | null | undefined) {
   const src = (name || email || "?").trim();
@@ -144,6 +147,7 @@ export default function Posteingang() {
   const open = useUnassignedInbox();
   const hidden = useHiddenInbox();
   const blocklist = useBlocklist();
+  const drafts = useDraftsInbox();
   const { data: openCount } = useUnassignedInboxCount();
 
   const rawList: UnassignedEmail[] =
@@ -282,10 +286,16 @@ export default function Posteingang() {
         <TabBtn active={tab === "blocked"} onClick={() => setTab("blocked")}>
           Geblockte Absender <Badge variant="secondary" className="ml-2">{blocklist.data?.length ?? 0}</Badge>
         </TabBtn>
+        <TabBtn active={tab === "drafts"} onClick={() => setTab("drafts")}>
+          <Pencil className="h-3.5 w-3.5 inline mr-1" />
+          Entwürfe <Badge variant="secondary" className="ml-2">{drafts.data?.length ?? 0}</Badge>
+        </TabBtn>
       </div>
 
       {tab === "blocked" ? (
         <BlocklistView />
+      ) : tab === "drafts" ? (
+        <DraftsView />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[60vh]">
           {/* List */}

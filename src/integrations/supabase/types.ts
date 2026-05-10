@@ -1525,6 +1525,7 @@ export type Database = {
           date_received: string
           date_sent: string | null
           direction: string
+          draft_uid_key: string | null
           from_email: string
           from_name: string | null
           has_attachments: boolean
@@ -1566,6 +1567,7 @@ export type Database = {
           date_received: string
           date_sent?: string | null
           direction?: string
+          draft_uid_key?: string | null
           from_email: string
           from_name?: string | null
           has_attachments?: boolean
@@ -1607,6 +1609,7 @@ export type Database = {
           date_received?: string
           date_sent?: string | null
           direction?: string
+          draft_uid_key?: string | null
           from_email?: string
           from_name?: string | null
           has_attachments?: boolean

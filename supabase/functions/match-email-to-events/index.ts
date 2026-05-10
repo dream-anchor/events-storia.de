@@ -76,6 +76,12 @@ async function matchEmail(emailId: string) {
   if (emailErr) throw emailErr;
   if (!email) return { matched: 0, skipped: "email_not_found" };
 
+  // Drafts werden nicht automatisch Events zugeordnet — sie werden nur
+  // direkt im Composer von Maestro "übernommen".
+  if ((email as any).direction === "draft") {
+    return { matched: 0, skipped: "draft" };
+  }
+
   const { data: filters, error: fErr } = await supabase
     .from("event_email_filters")
     .select("id, event_id, filter_type, filter_value, is_active")
