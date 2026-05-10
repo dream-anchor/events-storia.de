@@ -114,17 +114,28 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
       data[columnId].actionCounts[action] += 1;
     });
 
-    // Sort each column: respond first, then in_progress, then by date desc
-    const order: Record<ActionState, number> = { respond: 0, in_progress: 1, won: 2, done: 3 };
-    Object.values(data).forEach((bucket) => {
-      bucket.items.sort((a, b) => {
-        const aOrder = order[getInquiryActionState(a).state];
-        const bOrder = order[getInquiryActionState(b).state];
-        if (aOrder !== bOrder) return aOrder - bOrder;
-        const aTime = a.updated_at || a.created_at || "";
-        const bTime = b.updated_at || b.created_at || "";
-        return bTime.localeCompare(aTime);
-      });
+    // Per-column sort criteria:
+    //   Neu (lead)            → created_at desc (Eingang)
+    //   In Bearbeitung        → updated_at desc (letzte Bearbeitung)
+    //   Angebot raus          → offer_sent_at desc (Versand)
+    //   Gebucht (won)         → preferred_date desc (Eventdatum)
+    //   Archiv-Spalten        → updated_at desc als Default
+    const sortKey = (col: ColumnId, e: EventInquiry): string => {
+      switch (col) {
+        case "lead":
+          return e.created_at || "";
+        case "proposal":
+          return e.updated_at || e.last_edited_at || e.created_at || "";
+        case "pending":
+          return e.offer_sent_at || e.updated_at || e.created_at || "";
+        case "won":
+          return e.preferred_date || e.updated_at || e.created_at || "";
+        default:
+          return e.updated_at || e.created_at || "";
+      }
+    };
+    (Object.keys(data) as ColumnId[]).forEach((col) => {
+      data[col].items.sort((a, b) => sortKey(col, b).localeCompare(sortKey(col, a)));
     });
 
     return data;
@@ -133,6 +144,10 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
   // Drag handlers
   const handleDragStart = useCallback(
     (e: React.DragEvent, eventId: string) => {
+      if (eventId.startsWith("booking-")) {
+        e.preventDefault();
+        return;
+      }
       e.dataTransfer.setData("text/plain", eventId);
       setDraggingId(eventId);
     },
@@ -172,6 +187,10 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
 
   const applyStatusChange = useCallback(
     async (event: EventInquiry, targetColumn: ColumnId) => {
+      if (event.id.startsWith("booking-")) {
+        toast.info("Standalone-Buchung — Status hier nicht änderbar");
+        return;
+      }
       const map: Record<ColumnId, InquiryStatus> = {
         lead: "new",
         proposal: "contacted",
@@ -282,7 +301,13 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
                 isDragging={draggingId === event.id}
                 onDragStart={(e) => handleDragStart(e, event.id)}
                 onDragEnd={handleDragEnd}
-                onClick={() => navigate(`/admin/events/${event.id}/edit`)}
+                onClick={() => {
+                  if (event.id.startsWith("booking-")) {
+                    navigate(`/admin/bookings`);
+                  } else {
+                    navigate(`/admin/events/${event.id}/edit`);
+                  }
+                }}
                 onArchive={() => handleArchiveCard(event.id)}
                 onMoveToColumn={(col) => applyStatusChange(event, col)}
               />
