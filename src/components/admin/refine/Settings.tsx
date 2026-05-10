@@ -41,6 +41,7 @@ import {
 import { Link, useSearchParams } from "react-router-dom";
 import { useList } from "@refinedev/core";
 import { usePermissions } from "@/hooks/usePermissions";
+import { EquipmentCatalogCard } from "./EquipmentCatalogCard";
 
 // Business data interface
 interface BusinessData {
