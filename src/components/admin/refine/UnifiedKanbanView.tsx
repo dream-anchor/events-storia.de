@@ -5,11 +5,19 @@ import { de } from "date-fns/locale";
 import {
   ChevronDown,
   ChevronRight,
+  Archive,
   Home,
+  MoreVertical,
   UtensilsCrossed,
   Truck,
   ShoppingBag,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
@@ -139,6 +147,35 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
     [records, onRefresh]
   );
 
+  const handleArchiveCard = useCallback(
+    async (record: InquiryRecord) => {
+      if (record.kind !== "event") {
+        toast.info("Shop-Bestellungen werden über den Status „Storniert“ aus dem aktiven Board entfernt.");
+        return;
+      }
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error } = await supabase
+          .from("v2_events")
+          .update({
+            archived: true,
+            archived_at: new Date().toISOString(),
+            archived_by: user?.email || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", record.id);
+        if (error) throw error;
+        toast.success("Anfrage archiviert");
+        onRefresh();
+      } catch (err) {
+        console.error("Archive error:", err);
+        toast.error("Fehler beim Archivieren");
+      }
+    },
+    [onRefresh],
+  );
+
   const renderColumn = (column: { id: UnifiedColumn; title: string }) => {
     const { items, totalSum } = columnData[column.id];
     const isDragOver = dragOverColumn === column.id;
@@ -186,6 +223,7 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
                       : `/admin/orders/${r.id}/edit`
                   )
                 }
+                onArchive={() => handleArchiveCard(r)}
               />
             ))
           )}
