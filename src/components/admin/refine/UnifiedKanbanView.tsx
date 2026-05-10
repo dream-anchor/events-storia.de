@@ -274,9 +274,10 @@ interface CardProps {
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onClick: () => void;
+  onArchive: () => void;
 }
 
-function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick }: CardProps) {
+function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick, onArchive }: CardProps) {
   const isEvent = record.kind === "event";
   const title =
     record.companyName?.trim() ||
@@ -303,6 +304,26 @@ function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick
         <h3 className="font-semibold text-slate-800 text-[13px] truncate flex-1 min-w-0">
           {title}
         </h3>
+        <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Kartenaktionen"
+                title="Kartenaktionen"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onSelect={onArchive} disabled={record.kind !== "event"}>
+                <Archive className="mr-2 h-3.5 w-3.5" />
+                Archivieren
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         {record.date && (
           <span className="text-[11px] text-slate-500 tabular-nums flex-shrink-0">
             {format(parseISO(record.date), "d. MMM", { locale: de })}
