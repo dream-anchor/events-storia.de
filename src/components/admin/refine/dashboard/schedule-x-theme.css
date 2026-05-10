@@ -1,0 +1,40 @@
+/* Monochrome light theme override for Schedule-X inside Pinnwand */
+.sx-pinnwand {
+  --sx-color-primary: hsl(var(--foreground));
+  --sx-color-primary-container: hsl(var(--muted));
+  --sx-color-on-primary-container: hsl(var(--foreground));
+  --sx-color-secondary-container: hsl(var(--muted));
+  --sx-color-on-secondary-container: hsl(var(--foreground));
+  --sx-color-surface: hsl(var(--background));
+  --sx-color-on-surface: hsl(var(--foreground));
+  --sx-color-surface-container: hsl(var(--background));
+  --sx-color-surface-container-low: hsl(var(--background));
+  --sx-color-surface-container-high: hsl(var(--muted));
+  --sx-color-outline: hsl(var(--border));
+  --sx-color-outline-variant: hsl(var(--border));
+  --sx-internal-color-text: hsl(var(--foreground));
+  font-family: inherit;
+}
+
+.sx-pinnwand .sx-react-calendar-wrapper,
+.sx-pinnwand .sx__calendar {
+  height: 100%;
+  border-radius: 0;
+  border: none;
+  background: hsl(var(--background));
+}
+
+.sx-pinnwand .sx__time-grid-event,
+.sx-pinnwand .sx__event {
+  background: hsl(var(--foreground)) !important;
+  color: hsl(var(--background)) !important;
+  border: none !important;
+  border-radius: 8px !important;
+}
+
+.sx-pinnwand .sx__date-input,
+.sx-pinnwand .sx__view-selection,
+.sx-pinnwand .sx__forward-backward-navigation,
+.sx-pinnwand .sx__today-button {
+  display: none !important;
+}
