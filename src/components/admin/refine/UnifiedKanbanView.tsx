@@ -7,17 +7,10 @@ import {
   ChevronRight,
   Archive,
   Home,
-  MoreVertical,
   UtensilsCrossed,
   Truck,
   ShoppingBag,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
@@ -304,26 +297,20 @@ function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick
         <h3 className="font-semibold text-slate-800 text-[13px] truncate flex-1 min-w-0">
           {title}
         </h3>
-        <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Kartenaktionen"
-                title="Kartenaktionen"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onSelect={onArchive} disabled={record.kind !== "event"}>
-                <Archive className="mr-2 h-3.5 w-3.5" />
-                Archivieren
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <button
+          type="button"
+          disabled={record.kind !== "event"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onArchive();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35"
+          aria-label="Archivieren"
+          title={record.kind === "event" ? "Archivieren" : "Shop-Bestellungen über Status stornieren"}
+        >
+          <Archive className="h-3.5 w-3.5" />
+        </button>
         {record.date && (
           <span className="text-[11px] text-slate-500 tabular-nums flex-shrink-0">
             {format(parseISO(record.date), "d. MMM", { locale: de })}
