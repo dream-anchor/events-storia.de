@@ -1,4 +1,5 @@
 import type { InquiryRecord } from "@/types/inquiryRecord";
+import type { EventInquiry } from "@/types/refine";
 
 export type ActionState = "respond" | "in_progress" | "won" | "done";
 
@@ -71,5 +72,24 @@ export function getRecordActionState(r: InquiryRecord): ActionStateMeta {
   if (r.status === "pending") return { ...RESPOND, label: "Neu" };
   if (r.status === "completed") return { ...WON, label: "Erledigt" };
   if (r.status === "confirmed") return inProgress("Bestätigt");
+  return inProgress();
+}
+
+/**
+ * Legacy adapter for the old `event_inquiries` rows still rendered by
+ * `EventsList` / `KanbanView`. Maps the legacy status vocabulary to the
+ * unified action state.
+ */
+export function getInquiryActionState(event: EventInquiry): ActionStateMeta {
+  const archived = !!event.archived_at;
+  if (archived) return { ...DONE, label: "Archiviert" };
+  if (event.offer_phase === "customer_responded")
+    return { ...RESPOND, label: "Kunde wartet" };
+  if (event.status === "new") return { ...RESPOND, label: "Neu" };
+  if (event.status === "confirmed") return WON;
+  if (event.status === "declined") return { ...DONE, label: "Abgelehnt" };
+  if (event.status === "cancelled") return { ...DONE, label: "Abgesagt" };
+  if (event.status === "offer_sent") return inProgress("Angebot offen");
+  if (event.status === "contacted") return inProgress("In Bearbeitung");
   return inProgress();
 }
