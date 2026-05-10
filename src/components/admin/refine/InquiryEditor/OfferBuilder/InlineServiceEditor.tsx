@@ -1,7 +1,9 @@
-import { useState, useCallback } from "react";
-import { Plus, Trash2, Wrench, Users } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { Plus, Trash2, Wrench, Users, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import type { EquipmentItem } from "./types";
 
@@ -34,6 +36,41 @@ export function InlineServiceEditor({
   const config = SECTION_CONFIG[sectionType];
   const Icon = config.icon;
 
+  // Catalog (only for equipment)
+  const [catalog, setCatalog] = useState<Array<{ id: string; name: string; default_quantity: number; price_per_unit: number }>>([]);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState("");
+
+  useEffect(() => {
+    if (sectionType !== "equipment" || !catalogOpen || catalog.length > 0) return;
+    supabase
+      .from("equipment_catalog" as any)
+      .select("id,name,default_quantity,price_per_unit")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true })
+      .then(({ data }) => setCatalog((data || []) as any));
+  }, [sectionType, catalogOpen, catalog.length]);
+
+  const filteredCatalog = catalog.filter((c) =>
+    c.name.toLowerCase().includes(catalogSearch.trim().toLowerCase()),
+  );
+
+  const handleAddFromCatalog = useCallback(
+    (entry: { name: string; default_quantity: number; price_per_unit: number }) => {
+      const newItem: EquipmentItem = {
+        id: crypto.randomUUID(),
+        name: entry.name,
+        pricePerUnit: entry.price_per_unit,
+        quantity: entry.default_quantity || 1,
+      };
+      onUpdate([...items, newItem]);
+      setCatalogOpen(false);
+      setCatalogSearch("");
+    },
+    [items, onUpdate],
+  );
+
   const handleAdd = useCallback(() => {
     const newItem: EquipmentItem = {
       id: crypto.randomUUID(),
@@ -64,17 +101,69 @@ export function InlineServiceEditor({
             {config.label}
           </h4>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={handleAdd}
-          disabled={disabled}
-          className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
-        >
-          <Plus className="h-3 w-3" />
-          Hinzufügen
-        </Button>
+        <div className="flex items-center gap-1">
+          {sectionType === "equipment" && (
+            <Popover open={catalogOpen} onOpenChange={setCatalogOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={disabled}
+                  className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
+                >
+                  <BookOpen className="h-3 w-3" />
+                  Aus Katalog
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-0">
+                <div className="p-2 border-b">
+                  <Input
+                    autoFocus
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    placeholder="Suchen…"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="max-h-64 overflow-auto py-1">
+                  {catalog.length === 0 ? (
+                    <div className="text-xs text-muted-foreground px-3 py-4 text-center">
+                      Katalog ist leer. Pflege ihn unter Einstellungen → Pakete.
+                    </div>
+                  ) : filteredCatalog.length === 0 ? (
+                    <div className="text-xs text-muted-foreground px-3 py-4 text-center">Keine Treffer</div>
+                  ) : (
+                    filteredCatalog.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleAddFromCatalog(c)}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left"
+                      >
+                        <span className="truncate">{c.name}</span>
+                        <span className="text-muted-foreground tabular-nums shrink-0">
+                          {c.default_quantity}× · {c.price_per_unit.toFixed(2)} €
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleAdd}
+            disabled={disabled}
+            className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
+          >
+            <Plus className="h-3 w-3" />
+            Hinzufügen
+          </Button>
+        </div>
       </div>
 
       {/* Items */}
