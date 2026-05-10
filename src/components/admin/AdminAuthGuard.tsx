@@ -156,7 +156,7 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
           <div className="text-center">
-            <h1 className="text-lg font-bold text-foreground">StoriaMaestro</h1>
+            <h1 className="text-lg font-bold text-foreground">Maestro</h1>
             <p className="text-sm text-muted-foreground">Wird geladen...</p>
           </div>
         </div>
