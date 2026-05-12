@@ -1,105 +1,86 @@
-## Diagnose: Warum der Posteingang heute verwirrt
+## Ziel
 
-Der Posteingang ist ein **Triage-Werkzeug**: Mails, die **nicht automatisch einer Anfrage zugeordnet** werden konnten (weil Absender/Subject nicht matchen), landen hier und müssen manuell oder per KI einer Anfrage zugewiesen werden. Heute scheitert er an drei Dingen:
+Der LexOffice-Beleg soll im **Paket-Modus** exakt das spiegeln, was in MAESTRO sichtbar ist:
 
-1. **4 Tabs auf einer Ebene** (Offen / Ignoriert / Geblockte Absender / Entwürfe) — drei davon sind Sonderfälle, nur „Offen" ist die eigentliche Arbeit.
-2. **Aktions-Overload**: KI-Vorschlag annehmen · Zuordnen · Neu anlegen · Ignorieren · Filter mit Vorschlag · KI-Vorschläge erstellen — sechs Knöpfe, ohne klare Hierarchie.
-3. **Counter ≠ Liste-Bug**: `useUnassignedInboxCount` zählt mit `count: exact, head: true` direkt auf dem View `unassigned_inbox_emails` und liefert z. B. 476 — die Liste zieht aber dieselbe Quelle mit `select(...).limit(500)` und zeigt 0. Wenn Counter und Liste auseinanderlaufen, verliert man jegliches Vertrauen.
+- **Hauptzeile:** `Network-Aperitivo` — 10 × 69,00 € = **690,00 €** (7 % MwSt)
+- **Beschreibung darunter:** Auflistung aller im Paket enthaltenen Speisen & Getränke mit „inkl."-Markierung
+- **Equipment / Personal** weiterhin als eigene Positionen mit 19 % MwSt
 
-**Library-Frage ehrlich beantwortet**: Es gibt keine fertige React-Library, die genau diesen Triage-Use-Case abbildet (Mail → CRM-Anfrage). Die saubere Lösung ist ein 3-Spalten-Layout aus Komponenten, die wir bereits haben:
+## Heutiges Verhalten (Bug)
 
-- `@/components/ui/resizable` (shadcn / react-resizable-panels) — fürs Mail-App-Gefühl
-- `cmdk` (bereits installiert via shadcn `Command`) — für blitzschnelle Anfrage-Suche
-- `@chatscope/chat-ui-kit-react` (bereits in `MailClient` benutzt) — falls wir den Reading-Pane-Stil aus der Anfrage-Detailansicht spiegeln wollen
+In `supabase/functions/create-event-quotation/index.ts` Zeile 437–485 (Paket-Modus):
 
-Kein neues npm-Paket nötig.
+1. Es wird **nur eine Sammelzeile** „Veranstaltungspaket / Paketname" erzeugt — ohne Hinweis auf enthaltene Speisen/Getränke.
+2. Der Pro-Person-Preis wird aus `total_amount / guestCount` berechnet. In V1 stand `total_amount = 849 €` (weil die Caprese mit `overridePrice = 15,90 €` als Aufschlag gerechnet wurde), daher 84,90 €/Person statt der angezeigten 69 €.
+3. Die in der UI als „inkl." markierten Items (Caprese, Cocktail, Bier, Wasser, Kaffee) tauchen im LexOffice-Beleg gar nicht auf.
 
-## Ziel-UX (Gmail-artig, 3 Spalten)
+## Änderungen
+
+### 1. `paket`-Modus: enthaltene Items in `description` der Hauptzeile bündeln
+
+Im else-Zweig (Zeile 437+) zusätzlich vor dem `items.push(...)`:
 
 ```text
- ┌──────────────┬────────────────────┬─────────────────────────────┐
- │  FOLDERS     │  MAIL-LISTE        │  MAIL-DETAIL                │
- │              │                    │                             │
- │  📥 Offen 12 │  ┌──────────────┐  │  Anna Müller                │
- │  ⏸  Ignor.   │  │ ● Anna M.    │  │  anna@…                     │
- │  🚫 Blockiert│  │   Hochzeit … │  │  Betreff: Hochzeit Anfrage  │
- │  ✏️ Entwürfe │  │   vor 2 Std. │  │  ─────────────────────────  │
- │              │  │ 🪄 → ANF-238 │  │  [ Mail-HTML ]              │
- │  ─────────   │  └──────────────┘  │                             │
- │  KI-Status   │  ┌──────────────┐  │  ─────────────────────────  │
- │  🪄 Neue     │  │   Lukas K.   │  │  💡 Vorschlag (KI)          │
- │     Vorschl. │  │   Re: Menü…  │  │  → Anfrage ANF-238          │
- │     erzeugen │  │   gestern    │  │     Anna Müller · 14.06.    │
- │              │  └──────────────┘  │  [ ✓ Zuordnen ] [ Anders ]  │
- └──────────────┴────────────────────┴─────────────────────────────┘
+description = "Inklusive:
+• Antipasto: Caprese mit Büffelmozzarella
+• Aperitif: Cocktail (1 pro Person)
+• Getränk: Bier
+• Wasser: still, sparkling (1 Flasche pro Person)
+• Kaffee-Spezialität (1 pro Person)"
 ```
 
-### Linke Spalte: Folder-Liste (statt Tab-Reihe)
-- **Offen** (Default, mit Counter)
-- **Ignoriert**
-- **Geblockte Absender**
-- **Entwürfe**
-- darunter dezente **KI-Aktion** „Vorschläge für offene Mails erzeugen" mit Status (X analysiert / Y offen)
+Quelle: `menu_selection.courses[]` (Speisen) und `menu_selection.drinks[]` (Getränke). Pro Eintrag: Label (Antipasto, Aperitif, …) + ausgewählte Auswahl + ggf. `quantityLabel`. Custom-Drinks (`customDrink`) ebenfalls einbeziehen.
 
-→ Macht sofort klar: nur „Offen" ist tägliche Arbeit, der Rest sind Archive.
+### 2. Pro-Person-Preis aus `budgetPerPerson` ableiten (statt aus Summe)
 
-### Mitte: Mail-Liste
-- Pro Mail: Avatar/Initialen · Absender · Betreff · Zeit · **eine** klare Vorschlags-Zeile, falls vorhanden:
-  - 🪄 `→ ANF-238 · Anna Müller · 14.06.` (grün/neutral je nach Confidence — laut Memory aber **monochrom**, also nur Hover-Hint statt Farbe)
-- Kein „Filter mit Vorschlag"-Toggle mehr — stattdessen sind Mails mit Vorschlag automatisch oben sortiert (ist heute schon so) und visuell durch das 🪄-Chip kenntlich.
+```text
+Wenn ms.packageNameOverride und ms.budgetPerPerson > 0:
+   unitPriceBrutto = budgetPerPerson
+Sonst (Fallback heute):
+   unitPriceBrutto = (totalAmount − equipStaffTotal) / guestCount
+```
 
-### Rechts: Detail mit **einer** Primäraktion
-Der zentrale Konzept-Wechsel: Statt 4 gleichberechtigter Buttons gibt es **immer genau einen empfohlenen nächsten Schritt**, abgeleitet aus dem KI-Vorschlag:
+Damit erscheint im Beleg `10 × 69,00 € = 690,00 €` (statt 84,90 €). `total_amount` in der DB wird beim nächsten Senden bereits korrekt mit 690 € gespeichert — die Korrektur greift also automatisch für V2 und alle künftigen Versionen.
 
-| KI-Kategorie    | Primäraktion (1 Klick)                     | Sekundäraktion              |
-|-----------------|--------------------------------------------|-----------------------------|
-| `match`         | **„Zu ANF-238 zuordnen"**                  | „Anders zuordnen…"          |
-| `new_inquiry`   | **„Neue Anfrage anlegen"**                 | „Doch zu existierender…"    |
-| `irrelevant`    | **„Ignorieren"**                           | „Doch zu Anfrage zuordnen…" |
-| `unclear` / kein Vorschlag | **„Anfrage suchen…"** (öffnet cmdk-Palette) | „Neu anlegen", „Ignorieren" |
+### 3. Course-`overridePrice` im Paket-Modus NICHT als Aufschlag rechnen
 
-→ „Sehr direkt: 1 Klick" wie gewünscht. Confidence-Badges (high/medium/low) werden entfernt; Begründung steht nur als kleiner Tooltip unter dem Vorschlag (nicht im Hauptflow).
+Der heutige Bug — `overridePrice` der Caprese (15,90 €) wurde additiv ins `total_amount` aufaddiert (V1: 690 + 159 = 849) — kommt aus dem Preis-Berechner in `useOfferBuilder.ts` / `pricingMode.ts`. Im **Paket-Modus** ist eine Speise mit konfiguriertem `overridePrice` **„im Paket inkludiert"** (UI zeigt explizit „inkl."), darf also nicht aufgeschlagen werden.
 
-### „Anders zuordnen" / „Anfrage suchen" — cmdk-Palette
-Statt des heutigen schweren Dialogs mit Radio-Buttons (with_filter / single):
-- `Cmd/Strg+K` oder Klick öffnet eine `Command`-Palette
-- Tippst du, durchsuchst du Anfragen (Nummer, Kunde, E-Mail, Datum, Anlass)
-- Auto-Vorschlag oben (heutige `loadSuggestion`-Logik)
-- Enter = zuordnen. Filter-Modus „with_filter vs. single" wandert in einen kleinen Toggle **unter** dem Suchfeld mit Klartext-Erklärung („Auch zukünftige Mails dieses Absenders an diese Anfrage anhängen") — Default `with_filter`, bei `multiple_open_events`-Konflikt fragen wir wie heute nach.
+Anpassung in der Brutto-Berechnung (frontend `pricingMode.ts`): Wenn `offer_mode === 'paket'` und `packageNameOverride` gesetzt ist → Course-`overridePrice`-Werte ignorieren (nur als Anzeige-Info, nicht in Summe). Bestehende Menü-/Catering-Modi bleiben unverändert.
 
-### Tastatur (sichtbar im Footer der linken Spalte)
-- `j` / `k` Mail wechseln
-- `Enter` Primäraktion ausführen
-- `Cmd+K` Anfrage suchen
-- `e` Ignorieren
+### 4. Keine Re-Migration alter Belege
 
-## Bugs, die im Zuge gefixt werden
+V1 (AG0105) bleibt wie gesendet (849 €) — Belege sind immutable. Korrektur greift erst für V2, V3, neue Anfragen.
 
-1. **Counter-vs-Liste-Mismatch**: `useUnassignedInboxCount` durch `select("id", { count: "exact" }).limit(1)` ersetzen (kein `head: true` auf View — das umgeht Filter/RLS unzuverlässig). Alternativ: Counter aus `useUnassignedInbox().data?.length` ableiten — eine Quelle, eine Zahl.
-2. **Auto-Selection bricht beim Filter-Wechsel**: Wenn die selektierte Mail aus dem View fällt, springt heute der Detail-Bereich auf „leer". Logik so anpassen, dass automatisch die nächste Mail in der Liste selektiert wird.
-3. **`runBulkSuggest` Toast** ist sehr technisch — entschärfen auf „12 Mails analysiert · 8 Vorschläge bereit".
+## Technische Details
 
-## Was unangetastet bleibt
+**Betroffene Dateien:**
 
-- DB-Schema, Edge Functions (`assign-inbox-email-to-event`, `bulk-suggest-mappings`, `ignore-inbox-email`, `unarchive-email-globally`).
-- KI-Logik & Kategorien — nur die Darstellung wird vereinfacht.
-- Realtime-Subscriptions auf `inbox_emails` / `event_email_links`.
-- Drafts-View und Blocklist-View — übernehmen wir 1:1, nur als Folder statt Tab.
+- `supabase/functions/create-event-quotation/index.ts` — `buildLineItems` Paket-Branch + neue `buildPackageDescription`-Helper
+- `src/components/admin/refine/InquiryEditor/OfferBuilder/pricingMode.ts` (oder `useOfferBuilder.ts`) — Override-Aufschlag im Paket-Modus deaktivieren
+- ggf. `PriceBreakdown.tsx` — UI-Konsistenz prüfen (zeigt bereits 690 € korrekt)
 
-## Technische Umsetzung
+**Datenquelle für Beschreibung** (aus `menu_selection`-Snapshot):
 
-- **Refactor `src/pages/admin/Posteingang.tsx`** in einen Container + drei Subkomponenten:
-  - `PosteingangFolders.tsx` (linke Spalte)
-  - `PosteingangList.tsx` (mittlere Spalte)
-  - `PosteingangDetail.tsx` (rechte Spalte) — übernimmt heutige `MailDetail`-Logik, aber mit der neuen Primary/Secondary-Action-Struktur
-- 3-Spalten-Layout via `<ResizablePanelGroup direction="horizontal">` mit Default-Sizes 18/32/50.
-- Neue `AssignCommandPalette.tsx` auf Basis von `@/components/ui/command` ersetzt den bisherigen `AssignDialog` (dieser bleibt als Fallback erhalten oder wird gelöscht).
-- `IgnoreDialog`, `CreateInquiryDialog`, Conflict-Dialog `multiple_open_events` bleiben als kleine Modals erhalten — sie sind selten genug, dass ein Modal okay ist.
-- Counter-Hook `useUnassignedInboxCount` umstellen.
-- Mobile-Fallback: unterhalb `md:` zeigen wir nur Liste oder Detail (Routing per State), Folder-Liste als `Sheet` aus dem Header.
+```text
+courses[].courseLabel + itemName
+drinks[].drinkLabel + (selectedChoice || customDrink) + (quantityLabel)
+```
 
-## Was ich von dir noch brauche
+**Nicht angefasst:** `per_event`-Pricing (Zeile 110–243), `menu`-Modus (Zeile 246+). Beide listen Items bereits korrekt einzeln auf.
 
-Falls du absegnest, baue ich das in einem Schritt um. Ein Punkt, den ich explizit fragen muss, weil er Datenfluss berührt:
+## Verifizierung
 
-- **Soll der „with_filter"-Toggle (Auto-Anhängen zukünftiger Mails an dieselbe Anfrage) Default an oder aus sein?** Heute: an. Ich würde ihn an lassen — er ist der Hauptgrund, warum wir das Tool überhaupt brauchen.
+Nach Deploy: V2 in MAESTRO senden → LexOffice-Beleg AG0106 muss zeigen:
+
+```text
+1 | Network-Aperitivo | 10 | Person | 69,00 | 690,00
+    Inklusive:
+    • Antipasto: Caprese mit Büffelmozzarella
+    • Aperitif: Cocktail (1 pro Person)
+    • Getränk: Bier
+    • Wasser: still, sparkling (1 Flasche pro Person)
+    • Kaffee-Spezialität (1 pro Person)
+
+Gesamtbetrag: 690,00 € (Netto: 644,86 €, USt 7 %: 45,14 €)
+```
