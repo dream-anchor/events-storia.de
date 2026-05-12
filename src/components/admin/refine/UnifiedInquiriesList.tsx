@@ -22,7 +22,7 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   inbox: "Eingang",
   won: "Gebucht",
   archive: "Archiv",
-  all: "Alle",
+  all: "Alle aktiven",
 };
 
 function statusMatches(r: InquiryRecord, f: StatusFilter): boolean {
@@ -43,7 +43,9 @@ function statusMatches(r: InquiryRecord, f: StatusFilter): boolean {
         !!r.archived
       );
     case "all":
-      return true;
+      // "Alle aktiven" — Archivierte bewusst ausblenden,
+      // diese sind nur über den Archiv-Filter sichtbar.
+      return !r.archivedAt && !r.archived;
   }
 }
 
