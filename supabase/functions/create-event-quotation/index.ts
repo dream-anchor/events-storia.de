@@ -445,11 +445,36 @@ function buildLineItems(
       ((ms?.staff || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0))
     );
     const packageTotal = round2(totalAmount - equipStaffTotal);
-    const unitPriceBrutto = guestCount > 0 ? round2(packageTotal / guestCount) : 0;
+    // Pro-Person-Preis: bevorzugt aus budgetPerPerson (= echter Paket-Preis aus UI),
+    // damit der Beleg die im UI sichtbare Zahl spiegelt (z. B. 69 €) und nicht durch
+    // historische overridePrice-Aufschläge verzerrt wird. Fallback: Summe / Gäste.
+    const unitPriceBrutto = (ms?.budgetPerPerson != null && ms.budgetPerPerson > 0)
+      ? round2(ms.budgetPerPerson)
+      : (guestCount > 0 ? round2(packageTotal / guestCount) : 0);
+
+    // Beschreibung: enthaltene Speisen & Getränke auflisten (wie in MAESTRO sichtbar).
+    const inclLines: string[] = [];
+    for (const c of (ms?.courses || [])) {
+      if (!c.itemName) continue;
+      const label = c.courseLabel ? `${c.courseLabel}: ` : '';
+      inclLines.push(`• ${label}${c.itemName}`);
+    }
+    for (const d of (ms?.drinks || [])) {
+      const choice = d.selectedChoice || d.customDrink || '';
+      const label = d.drinkLabel || '';
+      if (!label && !choice) continue;
+      const qty = d.quantityLabel ? ` (${d.quantityLabel})` : '';
+      const text = choice ? `${label}: ${choice}${qty}` : `${label}${qty}`;
+      inclLines.push(`• ${text}`);
+    }
+    const description = inclLines.length > 0
+      ? `Inklusive:\n${inclLines.join('\n')}`
+      : '';
+
     items.push({
       type: 'custom',
       name: packageName || 'Veranstaltungspaket',
-      description: '',
+      description,
       quantity: guestCount,
       unitName: 'Person',
       unitPrice: {
