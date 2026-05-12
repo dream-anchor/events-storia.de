@@ -9,6 +9,7 @@ import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
 import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
 import { useUnassignedInboxCount } from "@/hooks/useUnassignedInbox";
+import { useList } from "@refinedev/core";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
 import { NotificationCenter } from "../shared/NotificationCenter";
 import { SaveStatusBadge } from "../shared/SaveStatusBadge";
@@ -68,6 +69,13 @@ export const AdminLayout = ({
   const { data: pendingOrdersCount } = usePendingOrdersCount();
   const { data: pendingBookingsCount } = usePendingMenuBookingsCount();
   const { data: unassignedInboxCount } = useUnassignedInboxCount();
+  const { result: newGroupInquiriesResult } = useList({
+    resource: "group_inquiries",
+    filters: [{ field: "status", operator: "eq", value: "new" }],
+    pagination: { pageSize: 1 },
+    meta: { count: "exact" },
+  });
+  const newGroupInquiriesCount = newGroupInquiriesResult?.total ?? 0;
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
   const { isAdmin, role } = usePermissions();
   const { showTestData, setShowTestData } = useTestMode();
