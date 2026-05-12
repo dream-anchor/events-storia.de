@@ -22,7 +22,7 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   inbox: "Eingang",
   won: "Gebucht",
   archive: "Archiv",
-  all: "Alle",
+  all: "Alle aktiven",
 };
 
 function statusMatches(r: InquiryRecord, f: StatusFilter): boolean {
@@ -43,7 +43,9 @@ function statusMatches(r: InquiryRecord, f: StatusFilter): boolean {
         !!r.archived
       );
     case "all":
-      return true;
+      // "Alle aktiven" — Archivierte bewusst ausblenden,
+      // diese sind nur über den Archiv-Filter sichtbar.
+      return !r.archivedAt && !r.archived;
   }
 }
 
@@ -73,8 +75,14 @@ export const UnifiedInquiriesList = () => {
   }, [records, statusFilter, kindFilter]);
 
   const kanbanRecords = useMemo(() => {
-    return records.filter((r) => kindFilter === "all" || r.serviceType === kindFilter);
-  }, [records, kindFilter]);
+    return records.filter((r) => {
+      if (kindFilter !== "all" && r.serviceType !== kindFilter) return false;
+      // Archivierte standardmäßig ausblenden — nur im Archiv-Filter sichtbar.
+      const isArchived = !!r.archivedAt || !!r.archived;
+      if (statusFilter === "archive") return isArchived;
+      return !isArchived;
+    });
+  }, [records, kindFilter, statusFilter]);
 
   const counts = useMemo(() => {
     const filterByKind = (r: InquiryRecord) =>
