@@ -1,62 +1,89 @@
-## Problem (verifiziert in der DB)
 
-In `v2_events` sind `archived` (Boolean) und `archived_at` (Timestamp) inkonsistent:
+## Warum „Gebucht" leer ist
 
-- 34 von 34 Anfragen mit Status `inquiry` haben `archived_at IS NOT NULL`, aber `archived = false`
-- 14 von 23 `offer_sent`, 5 von 6 `offer_draft` ebenso
-- Resultat: Karten bleiben in "Neu/Bearbeitung/Angebot raus" sichtbar (Filter prüft nur `archived`), tragen aber das Label "ARCHIVIERT" (Label prüft `archived_at OR archived`)
+Beim letzten Fix habe ich die **Kanban-Spalten an die Filter-Pills gekoppelt**. Klickt man oben auf „Eingang", verschwindet im Kanban die Spalte „Gebucht" — weil die zur Pipeline gehört, aber nicht zum Filter.
 
-Zusätzlich gibt es kein automatisches Verschwinden gebuchter Events nach dem Veranstaltungstermin und keinen klar getrennten Archiv-Bereich — das Archiv ist heute nur ein einklappbares Footer-Panel.
+Daten in der DB (heute):
+- 4 × `paid` (alle in Zukunft) → das sind die echten gebuchten Events
+- 11 × `completed` (alle vergangen) → erledigt
+- 30 × `offer_chosen` (alle vergangen) → Kunde hat Angebot gewählt, nie als bezahlt markiert (Datenleichen)
+- 20 × `cancelled` → Archiv
+- 1 × archiviert (`archived = true`)
 
-## Ziel
+Das Konzept war inkonsistent, weil **Kanban (Pipeline) und Tabelle (Status-Filter) zwei verschiedene Mentalmodelle vermischt** wurden.
 
-1. **Eine Wahrheit für Archiv**: `archived = true` ist die einzige Quelle. `archived_at` ist nur Zeitstempel.
-2. **Eigener Archiv-Bereich**: Archivierte Anfragen tauchen nirgendwo in der regulären Liste/Kanban auf — nur unter dem Filter "Archiv".
-3. **Auto-Erledigt nach Event**: Gebuchte/bezahlte Events werden ab dem Tag NACH dem Veranstaltungstermin automatisch in den Bereich "Erledigt" verschoben (eigener Tab, raus aus "Gebucht").
+---
 
-## Plan
+## Das neue, stabile Konzept
 
-### 1. Daten bereinigen (Migration)
-- `UPDATE v2_events SET archived_at = NULL WHERE archived = false` — entfernt verwaiste Timestamps, die keine echte Archivierung sind
-- Trigger/Insert-Pfad prüfen, der `archived_at` setzt ohne `archived = true` (vermutl. event_inquiries-Insert oder Email-Inbound). Quelle korrigieren, sodass künftig nur beides gemeinsam gesetzt wird.
+**Eine einzige Wahrheit pro Anfrage:** der `lifecycle`-Bucket. Jede Anfrage ist genau in einem Bucket. Kanban und Tabelle nutzen denselben Bucket — keine Doppellogik.
 
-### 2. Code: Single-Source-of-Truth `archived`
-- `src/lib/inquiryActionState.ts`: Label "Archiviert" nur noch wenn `archived === true` (kein `|| archivedAt`).
-- `mapV2Event` & Filter: konsequent nur `archived` nutzen.
+### Die 4 Buckets (genau diese, nichts dazwischen)
 
-### 3. Eigener Archiv-Bereich (UI)
-- **Tabs/Filter** in `UnifiedInquiriesList.tsx` neu sortieren:
-  - `Eingang` (lead/proposal/pending, nicht archiviert, Event in Zukunft oder ohne Datum)
-  - `Gebucht` (won, Event ≥ heute)
-  - `Erledigt` (won + Event < heute, oder Status `completed`) — NEU
-  - `Archiv` (archived = true, oder declined/cancelled)
-  - "Alle aktiven" → entfernen oder klar als "ohne Archiv & Erledigt" beschriften
-- Im Kanban-Modus: Archiv-Footer-Panel entfällt. Stattdessen:
-  - Pipeline (4 Spalten) zeigt nur Aktive (kein archiv, kein vergangenes Event)
-  - Klick auf Tab "Archiv" / "Erledigt" → Kanban zeigt eigene Spalten-Aufteilung dieser Kategorie
+| Bucket | Was drin ist | Quelle |
+|---|---|---|
+| **Eingang** | Aktive Anfragen in Bearbeitung | `status ∈ {inquiry, offer_draft, offer_sent}` und nicht archiviert/storniert |
+| **Gebucht** | Bestätigte, kommende Events | `status ∈ {offer_chosen, paid}` und `date >= heute` und nicht archiviert/storniert |
+| **Erledigt** | Vergangene oder explizit abgeschlossene Events | `status = completed` ODER (`status ∈ {offer_chosen, paid}` und `date < heute`) |
+| **Archiv** | Storniert / abgelehnt / manuell archiviert | `archived = true` ODER `status ∈ {cancelled, offer_declined, payment_failed, no_response}` |
 
-### 4. Auto-Übergang nach Veranstaltungstermin
-Frontend-derived (keine Cron nötig):
-- Helper `isPastEvent(record)`: `record.date < heute` UND Status ∈ {paid, completed, offer_chosen}
-- "Gebucht"-Filter: schließt `isPastEvent` aus
-- "Erledigt"-Filter: schließt `isPastEvent` ein
-- (Optional, separate Migration) nightly Cron, das `status = 'completed'` setzt, wenn `date < now() - 1 day`. Nicht im ersten Schritt nötig — Frontend-Derivation reicht visuell.
+Regeln:
+- **Genau ein Bucket pro Anfrage** — keine Überschneidung.
+- **`archived = true` ist die einzige Quelle für „archiviert"** — `archived_at` allein zählt nicht (Datenleichen ignorieren / aufräumen).
+- **Datum entscheidet automatisch über Eingang→Erledigt**: am Tag nach dem Eventdatum wandert ein gebuchtes Event in „Erledigt". Frontend-derived, kein Cron nötig.
+- **Catering-Shop-Bestellungen** folgen demselben Schema (mapping in `mapCateringToColumn`).
 
-### 5. Archivieren-Aktion sauber
-- Beim manuellen Archivieren immer `archived = true` UND `archived_at = now()` zusammen setzen (ist im Code bereits so — bleibt).
-- Beim "Drag in lost"-Spalte: aktuell wird `archived = true` gesetzt — bleibt.
+### Kanban-Ansicht
 
-## Technische Details
+Kanban zeigt **immer nur den aktuell gewählten Bucket**, aufgeteilt in feinere Spalten:
 
-Betroffene Dateien:
-- `supabase/migrations/<neu>.sql` — `UPDATE v2_events SET archived_at = NULL WHERE archived = false`
-- Insert-Trigger `event_inquiries_insert_trigger` / Email-Inbound-Funktion prüfen (wer setzt archived_at fälschlich?)
-- `src/lib/inquiryActionState.ts`
-- `src/components/admin/refine/UnifiedInquiriesList.tsx`
-- `src/components/admin/refine/UnifiedKanbanView.tsx`
-- `src/types/inquiryRecord.ts` (evtl. Helper `isPastEvent`)
+```
+Eingang   →  [Neu] [In Bearbeitung] [Angebot raus]
+Gebucht   →  [Bestätigt] [Bezahlt]                  (sortiert nach Eventdatum aufsteigend)
+Erledigt  →  [Abgeschlossen]                        (sortiert nach Eventdatum absteigend)
+Archiv    →  [Storniert] [Abgelehnt] [Manuell archiviert]
+```
 
-## Offene Fragen
+Der Filter-Pill oben (Eingang / Gebucht / Erledigt / Archiv) wechselt also nicht nur die Tabelle, sondern auch die Kanban-Spalten. Das ist konsistent: ein Klick = ein Bucket.
 
-1. Sollen vergangene Gebuchte automatisch auf `status = 'completed'` gesetzt werden (nightly Cron), oder reicht die rein visuelle Umsortierung im Frontend?
-2. "Alle aktiven"-Tab komplett entfernen oder behalten (ohne Archiv & Erledigt)?
+### Tabellen-Ansicht
+
+Identisch — dieselben 4 Pills, dieselbe Filterlogik, nur als flache Liste statt als Spalten.
+
+### Sortierung pro Bucket (Default)
+
+- **Eingang**: neueste zuerst (`created_at desc`)
+- **Gebucht**: nächstes Event zuerst (`date asc`)
+- **Erledigt**: zuletzt vergangenes zuerst (`date desc`)
+- **Archiv**: zuletzt geändert (`updated_at desc`)
+
+---
+
+## Was umgesetzt wird (Code)
+
+1. **`src/types/inquiryRecord.ts`** — Neue Funktion `getLifecycleBucket(r): "inbox" | "won" | "done" | "archive"` als **einzige** Bucket-Quelle. `mapV2EventToColumn` bleibt nur für die Kanban-Sub-Spalten. `isPastEvent` wird in `getLifecycleBucket` integriert.
+
+2. **`src/components/admin/refine/UnifiedInquiriesList.tsx`**
+   - `statusMatches` ersetzt durch `getLifecycleBucket(r) === filter`.
+   - Default-Sortierung pro Bucket setzen.
+   - Hinweis-Text aktualisieren.
+
+3. **`src/components/admin/refine/UnifiedKanbanView.tsx`**
+   - Spalten-Set abhängig vom aktiven Bucket (4 verschiedene Layouts).
+   - Drag-and-Drop nur innerhalb desselben Buckets erlaubt; Bucket-Wechsel (z.B. „archivieren", „als bezahlt markieren") via Card-Menü, nicht via Drag.
+
+4. **DB-Hygiene (einmalig, separate Migration)**
+   - `UPDATE v2_events SET archived_at = NULL WHERE archived = false AND archived_at IS NOT NULL;` (Datenleichen entfernen — bereits geplant, nochmal verifizieren).
+   - **Optional, mit Rückfrage:** Die 30 `offer_chosen` mit Datum < heute auf `completed` setzen, damit sie sauber in „Erledigt" landen (statt durch Datums-Heuristik). → siehe offene Frage.
+
+5. **Visuelle Klarheit**
+   - Pill-Counts zeigen exakt die Bucket-Größe — keine Diskrepanz mehr zwischen Anzeige und Inhalt.
+   - Header-Text: „X Einträge in „{Bucket}"" — gleich für Kanban und Tabelle.
+
+---
+
+## Offene Frage
+
+Die 30 alten `offer_chosen`-Einträge (alle in der Vergangenheit, nie auf `paid` umgestellt): Sollen die per Migration auf `completed` gesetzt werden, damit der Status sauber ist? Oder sollen sie nur über das Datum in „Erledigt" einsortiert werden und der Status bleibt wie er ist?
+
+Empfehlung: **auf `completed` setzen** — saubere Datenbasis, keine zukünftige Verwirrung mehr.

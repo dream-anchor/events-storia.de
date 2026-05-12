@@ -9,14 +9,18 @@ import { DataTable, sortableHeader } from "./DataTable";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 import { useUnifiedInquiries } from "@/hooks/useUnifiedInquiries";
-import { isPastEvent } from "@/types/inquiryRecord";
-import type { InquiryRecord, ServiceType } from "@/types/inquiryRecord";
+import { getLifecycleBucket } from "@/types/inquiryRecord";
+import type {
+  InquiryRecord,
+  LifecycleBucket,
+  ServiceType,
+} from "@/types/inquiryRecord";
 import { UnifiedKanbanView, ServiceBadge } from "./UnifiedKanbanView";
 import { getRecordActionState } from "@/lib/inquiryActionState";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "table" | "kanban";
-type StatusFilter = "inbox" | "won" | "done" | "archive";
+type StatusFilter = LifecycleBucket;
 type KindFilter = "all" | ServiceType;
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
@@ -27,26 +31,34 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
 };
 
 function statusMatches(r: InquiryRecord, f: StatusFilter): boolean {
-  const isArchived = !!r.archived;
-  // Cancelled/declined-Items werden wie archivierte behandelt → Archiv-Bereich.
-  const isCancelled = r.column === "lost" || r.column === "closed";
-  const past = isPastEvent(r);
-  switch (f) {
+  return getLifecycleBucket(r) === f;
+}
+
+function sortByBucket(list: InquiryRecord[], bucket: StatusFilter): InquiryRecord[] {
+  const ts = (s?: string | null) => (s ? new Date(s).getTime() : 0);
+  const dateAsc = (a: InquiryRecord, b: InquiryRecord) =>
+    (ts(a.date) || Infinity) - (ts(b.date) || Infinity);
+  const dateDesc = (a: InquiryRecord, b: InquiryRecord) => ts(b.date) - ts(a.date);
+  const createdDesc = (a: InquiryRecord, b: InquiryRecord) =>
+    ts(b.createdAt) - ts(a.createdAt);
+  const updatedDesc = (a: InquiryRecord, b: InquiryRecord) =>
+    ts(b.updatedAt) - ts(a.updatedAt);
+  const sorted = [...list];
+  switch (bucket) {
     case "inbox":
-      return (
-        !isArchived &&
-        !isCancelled &&
-        !past &&
-        (r.column === "lead" || r.column === "proposal" || r.column === "pending")
-      );
+      sorted.sort(createdDesc);
+      break;
     case "won":
-      return r.column === "won" && !isArchived && !isCancelled && !past;
+      sorted.sort(dateAsc);
+      break;
     case "done":
-      // Erledigt: vergangene Events oder explizit "completed"
-      return !isArchived && !isCancelled && (past || r.status === "completed");
+      sorted.sort(dateDesc);
+      break;
     case "archive":
-      return isArchived || isCancelled;
+      sorted.sort(updatedDesc);
+      break;
   }
+  return sorted;
 }
 
 function formatCurrency(n: number | null) {
@@ -68,14 +80,14 @@ export const UnifiedInquiriesList = () => {
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
 
   const filtered = useMemo(() => {
-    return records.filter((r) => {
+    const list = records.filter((r) => {
       if (kindFilter !== "all" && r.serviceType !== kindFilter) return false;
       return statusMatches(r, statusFilter);
     });
+    return sortByBucket(list, statusFilter);
   }, [records, statusFilter, kindFilter]);
 
   const kanbanRecords = useMemo(() => {
-    // Kanban folgt jetzt strikt dem aktiven Filter — kein verstecktes Archiv-Panel mehr.
     return records.filter((r) => {
       if (kindFilter !== "all" && r.serviceType !== kindFilter) return false;
       return statusMatches(r, statusFilter);
@@ -327,7 +339,11 @@ export const UnifiedInquiriesList = () => {
                 </button>
               ))}
             </div>
-            <UnifiedKanbanView records={kanbanRecords} onRefresh={refetch} />
+            <UnifiedKanbanView
+              records={kanbanRecords}
+              onRefresh={refetch}
+              bucket={statusFilter}
+            />
           </>
         ) : (
           <DataTable
