@@ -167,3 +167,20 @@ export function mapOrder(o: CateringOrder): InquiryRecord {
     raw: o,
   };
 }
+
+/**
+ * Vergangenes Event = Datum liegt vor heute UND es wurde gebucht/bezahlt/abgeschlossen.
+ * Wird zur automatischen Einsortierung in den "Erledigt"-Bereich verwendet.
+ */
+export function isPastEvent(r: InquiryRecord): boolean {
+  if (!r.date) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const eventDate = new Date(r.date);
+  if (Number.isNaN(eventDate.getTime())) return false;
+  if (eventDate >= today) return false;
+  if (r.kind === "event") {
+    return ["paid", "completed", "offer_chosen"].includes(r.status);
+  }
+  return ["confirmed", "completed"].includes(r.status);
+}
