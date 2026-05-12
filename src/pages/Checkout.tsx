@@ -1195,11 +1195,13 @@ const Checkout = () => {
         replace: true
       });
     } catch (error) {
-      console.error('Order error:', error);
+      const errMsg = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error ? String((error as { message: unknown }).message) : String(error));
+      console.error('Order error:', errMsg, error);
       toast.error(
-        language === 'de' 
-          ? 'Fehler beim Absenden. Bitte versuchen Sie es erneut.'
-          : 'Error submitting order. Please try again.'
+        language === 'de'
+          ? `Fehler beim Absenden: ${errMsg}`
+          : `Error submitting order: ${errMsg}`,
+        { duration: 8000 }
       );
     } finally {
       setIsSubmitting(false);
