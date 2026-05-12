@@ -26,26 +26,23 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
 };
 
 function statusMatches(r: InquiryRecord, f: StatusFilter): boolean {
+  const isArchived = !!r.archived;
   switch (f) {
     case "inbox":
       return (
-        !r.archivedAt &&
-        !r.archived &&
+        !isArchived &&
         (r.column === "lead" || r.column === "proposal" || r.column === "pending")
       );
     case "won":
-      return r.column === "won" && !r.archivedAt && !r.archived;
+      return r.column === "won" && !isArchived;
     case "archive":
       return (
-        r.column === "lost" ||
-        r.column === "closed" ||
-        !!r.archivedAt ||
-        !!r.archived
+        isArchived || r.column === "lost" || r.column === "closed"
       );
     case "all":
       // "Alle aktiven" — Archivierte bewusst ausblenden,
       // diese sind nur über den Archiv-Filter sichtbar.
-      return !r.archivedAt && !r.archived;
+      return !isArchived;
   }
 }
 
@@ -78,7 +75,7 @@ export const UnifiedInquiriesList = () => {
     return records.filter((r) => {
       if (kindFilter !== "all" && r.serviceType !== kindFilter) return false;
       // Archivierte standardmäßig ausblenden — nur im Archiv-Filter sichtbar.
-      const isArchived = !!r.archivedAt || !!r.archived;
+      const isArchived = !!r.archived;
       if (statusFilter === "archive") return isArchived;
       return !isArchived;
     });
