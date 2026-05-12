@@ -37,6 +37,15 @@ interface PackageFormData {
   sort_order: number;
   includes: string[];
   location_ids: string[];
+  // Gruppenreisen-spezifisch
+  subtitle: string;
+  currency: string;
+  duration_minutes: number;
+  language_support: string[];
+  target_groups: string[];
+  extras_available: string[];
+  website_menu_key: string;
+  visible_on_website: boolean;
 }
 
 interface LocationData {
@@ -62,6 +71,14 @@ const defaultFormData: PackageFormData = {
   sort_order: 0,
   includes: [],
   location_ids: [],
+  subtitle: "",
+  currency: "EUR",
+  duration_minutes: 0,
+  language_support: [],
+  target_groups: [],
+  extras_available: [],
+  website_menu_key: "",
+  visible_on_website: false,
 };
 
 export const PackageEdit = () => {
@@ -130,6 +147,14 @@ export const PackageEdit = () => {
         is_active: pkg.is_active ?? true,
         sort_order: pkg.sort_order || 0,
         includes: Array.isArray(pkg.includes) ? pkg.includes : [],
+        subtitle: pkg.subtitle || "",
+        currency: pkg.currency || "EUR",
+        duration_minutes: pkg.duration_minutes || 0,
+        language_support: Array.isArray(pkg.language_support) ? pkg.language_support : [],
+        target_groups: Array.isArray(pkg.target_groups) ? pkg.target_groups : [],
+        extras_available: Array.isArray(pkg.extras_available) ? pkg.extras_available : [],
+        website_menu_key: pkg.website_menu_key || "",
+        visible_on_website: pkg.visible_on_website ?? false,
       }));
     }
   }, [packageData, isCreate]);
@@ -332,6 +357,7 @@ export const PackageEdit = () => {
                   <SelectContent>
                     <SelectItem value="event">Event</SelectItem>
                     <SelectItem value="catering">Catering</SelectItem>
+                    <SelectItem value="gruppenreisen">Gruppenreisen</SelectItem>
                     <SelectItem value="general">Allgemein</SelectItem>
                   </SelectContent>
                 </Select>
@@ -500,6 +526,111 @@ export const PackageEdit = () => {
         {/* Menu Items - Only show for existing packages */}
         {!isCreate && id && (
           <PackageMenuItemsEditor packageId={id} />
+        )}
+
+        {/* Gruppenreisen-spezifische Felder */}
+        {formData.package_type === "gruppenreisen" && (
+          <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
+            <CardHeader>
+              <CardTitle>Gruppenreisen-Details</CardTitle>
+              <CardDescription>
+                Zusätzliche Felder für Reisegruppen-Pakete (sichtbar auf ristorantestoria.de)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="subtitle">Untertitel</Label>
+                <Input
+                  id="subtitle"
+                  value={formData.subtitle}
+                  onChange={(e) => handleChange("subtitle", e.target.value)}
+                  placeholder="z.B. Das schnelle Pizzeria-Menü für Reisegruppen"
+                />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="currency">Währung</Label>
+                  <Input
+                    id="currency"
+                    value={formData.currency}
+                    onChange={(e) => handleChange("currency", e.target.value.toUpperCase())}
+                    maxLength={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="duration_minutes">Dauer (Minuten)</Label>
+                  <Input
+                    id="duration_minutes"
+                    type="number"
+                    value={formData.duration_minutes}
+                    onChange={(e) => handleChange("duration_minutes", parseInt(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="website_menu_key">Webseiten-Schlüssel</Label>
+                  <Input
+                    id="website_menu_key"
+                    value={formData.website_menu_key}
+                    onChange={(e) => handleChange("website_menu_key", e.target.value)}
+                    placeholder="z.B. A, B, C"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Sprachen (kommagetrennt)</Label>
+                <Input
+                  value={formData.language_support.join(", ")}
+                  onChange={(e) =>
+                    handleChange(
+                      "language_support",
+                      e.target.value.split(",").map((s) => s.trim()).filter(Boolean)
+                    )
+                  }
+                  placeholder="de, en, it, fr"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Zielgruppen (kommagetrennt)</Label>
+                <Input
+                  value={formData.target_groups.join(", ")}
+                  onChange={(e) =>
+                    handleChange(
+                      "target_groups",
+                      e.target.value.split(",").map((s) => s.trim()).filter(Boolean)
+                    )
+                  }
+                  placeholder="Klassenfahrten, Studienreisen, Bus-Tagesausflüge"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Verfügbare Extras (eine Zeile pro Extra)</Label>
+                <Textarea
+                  rows={4}
+                  value={formData.extras_available.join("\n")}
+                  onChange={(e) =>
+                    handleChange(
+                      "extras_available",
+                      e.target.value.split("\n").map((s) => s.trim()).filter(Boolean)
+                    )
+                  }
+                  placeholder={"Antipasti-Vorspeise: +5 €/Person\nDessert: +4 €/Person"}
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Switch
+                  id="visible_on_website"
+                  checked={formData.visible_on_website}
+                  onCheckedChange={(checked) => handleChange("visible_on_website", checked)}
+                />
+                <Label htmlFor="visible_on_website">Auf ristorantestoria.de sichtbar</Label>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Includes */}
