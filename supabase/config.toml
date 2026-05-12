@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.reconcile-payment-statuses]
 verify_jwt = false
+
+[functions.lex-inspect]
+verify_jwt = false
