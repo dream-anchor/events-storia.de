@@ -1,10 +1,8 @@
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import {
-  ChevronDown,
-  ChevronRight,
   Archive,
   Home,
   UtensilsCrossed,
@@ -29,8 +27,8 @@ interface UnifiedKanbanViewProps {
 const PIPELINE_COLUMNS: { id: UnifiedColumn; title: string }[] = [
   { id: "lead", title: "Neu" },
   { id: "proposal", title: "In Bearbeitung" },
-  { id: "pending", title: "Angebot raus / Bestätigt" },
-  { id: "won", title: "Gebucht / Erledigt" },
+  { id: "pending", title: "Angebot raus" },
+  { id: "won", title: "Gebucht" },
 ];
 
 const ARCHIVE_COLUMNS: { id: UnifiedColumn; title: string }[] = [
@@ -49,7 +47,6 @@ function formatCurrency(amount: number) {
 
 export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps) {
   const navigate = useNavigate();
-  const [archiveOpen, setArchiveOpen] = useState(false);
   const [dragOverColumn, setDragOverColumn] = useState<UnifiedColumn | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
@@ -225,38 +222,32 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
     );
   };
 
-  const archiveCount = columnData.lost.items.length + columnData.closed.items.length;
+  const hasArchiveItems =
+    columnData.lost.items.length + columnData.closed.items.length > 0;
+  const hasPipelineItems =
+    columnData.lead.items.length +
+      columnData.proposal.items.length +
+      columnData.pending.items.length +
+      columnData.won.items.length >
+    0;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {PIPELINE_COLUMNS.map(renderColumn)}
-      </div>
-      <div className="rounded-2xl border border-slate-200 bg-white">
-        <button
-          onClick={() => setArchiveOpen((v) => !v)}
-          className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors rounded-2xl"
-        >
-          <div className="flex items-center gap-2.5">
-            {archiveOpen ? (
-              <ChevronDown className="h-4 w-4 text-slate-400" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-slate-400" />
-            )}
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
-              Abgelehnt & Storniert
-            </span>
-            <span className="bg-slate-100 text-slate-500 text-[11px] px-2 py-0.5 rounded-full font-semibold tabular-nums">
-              {archiveCount}
-            </span>
-          </div>
-        </button>
-        {archiveOpen && (
-          <div className="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {ARCHIVE_COLUMNS.map(renderColumn)}
-          </div>
-        )}
-      </div>
+      {hasPipelineItems && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {PIPELINE_COLUMNS.map(renderColumn)}
+        </div>
+      )}
+      {hasArchiveItems && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {ARCHIVE_COLUMNS.map(renderColumn)}
+        </div>
+      )}
+      {!hasPipelineItems && !hasArchiveItems && (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 py-16 text-center text-sm text-slate-400">
+          Keine Anfragen in diesem Filter
+        </div>
+      )}
     </div>
   );
 }

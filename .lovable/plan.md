@@ -1,86 +1,62 @@
+## Problem (verifiziert in der DB)
+
+In `v2_events` sind `archived` (Boolean) und `archived_at` (Timestamp) inkonsistent:
+
+- 34 von 34 Anfragen mit Status `inquiry` haben `archived_at IS NOT NULL`, aber `archived = false`
+- 14 von 23 `offer_sent`, 5 von 6 `offer_draft` ebenso
+- Resultat: Karten bleiben in "Neu/Bearbeitung/Angebot raus" sichtbar (Filter prüft nur `archived`), tragen aber das Label "ARCHIVIERT" (Label prüft `archived_at OR archived`)
+
+Zusätzlich gibt es kein automatisches Verschwinden gebuchter Events nach dem Veranstaltungstermin und keinen klar getrennten Archiv-Bereich — das Archiv ist heute nur ein einklappbares Footer-Panel.
+
 ## Ziel
 
-Der LexOffice-Beleg soll im **Paket-Modus** exakt das spiegeln, was in MAESTRO sichtbar ist:
+1. **Eine Wahrheit für Archiv**: `archived = true` ist die einzige Quelle. `archived_at` ist nur Zeitstempel.
+2. **Eigener Archiv-Bereich**: Archivierte Anfragen tauchen nirgendwo in der regulären Liste/Kanban auf — nur unter dem Filter "Archiv".
+3. **Auto-Erledigt nach Event**: Gebuchte/bezahlte Events werden ab dem Tag NACH dem Veranstaltungstermin automatisch in den Bereich "Erledigt" verschoben (eigener Tab, raus aus "Gebucht").
 
-- **Hauptzeile:** `Network-Aperitivo` — 10 × 69,00 € = **690,00 €** (7 % MwSt)
-- **Beschreibung darunter:** Auflistung aller im Paket enthaltenen Speisen & Getränke mit „inkl."-Markierung
-- **Equipment / Personal** weiterhin als eigene Positionen mit 19 % MwSt
+## Plan
 
-## Heutiges Verhalten (Bug)
+### 1. Daten bereinigen (Migration)
+- `UPDATE v2_events SET archived_at = NULL WHERE archived = false` — entfernt verwaiste Timestamps, die keine echte Archivierung sind
+- Trigger/Insert-Pfad prüfen, der `archived_at` setzt ohne `archived = true` (vermutl. event_inquiries-Insert oder Email-Inbound). Quelle korrigieren, sodass künftig nur beides gemeinsam gesetzt wird.
 
-In `supabase/functions/create-event-quotation/index.ts` Zeile 437–485 (Paket-Modus):
+### 2. Code: Single-Source-of-Truth `archived`
+- `src/lib/inquiryActionState.ts`: Label "Archiviert" nur noch wenn `archived === true` (kein `|| archivedAt`).
+- `mapV2Event` & Filter: konsequent nur `archived` nutzen.
 
-1. Es wird **nur eine Sammelzeile** „Veranstaltungspaket / Paketname" erzeugt — ohne Hinweis auf enthaltene Speisen/Getränke.
-2. Der Pro-Person-Preis wird aus `total_amount / guestCount` berechnet. In V1 stand `total_amount = 849 €` (weil die Caprese mit `overridePrice = 15,90 €` als Aufschlag gerechnet wurde), daher 84,90 €/Person statt der angezeigten 69 €.
-3. Die in der UI als „inkl." markierten Items (Caprese, Cocktail, Bier, Wasser, Kaffee) tauchen im LexOffice-Beleg gar nicht auf.
+### 3. Eigener Archiv-Bereich (UI)
+- **Tabs/Filter** in `UnifiedInquiriesList.tsx` neu sortieren:
+  - `Eingang` (lead/proposal/pending, nicht archiviert, Event in Zukunft oder ohne Datum)
+  - `Gebucht` (won, Event ≥ heute)
+  - `Erledigt` (won + Event < heute, oder Status `completed`) — NEU
+  - `Archiv` (archived = true, oder declined/cancelled)
+  - "Alle aktiven" → entfernen oder klar als "ohne Archiv & Erledigt" beschriften
+- Im Kanban-Modus: Archiv-Footer-Panel entfällt. Stattdessen:
+  - Pipeline (4 Spalten) zeigt nur Aktive (kein archiv, kein vergangenes Event)
+  - Klick auf Tab "Archiv" / "Erledigt" → Kanban zeigt eigene Spalten-Aufteilung dieser Kategorie
 
-## Änderungen
+### 4. Auto-Übergang nach Veranstaltungstermin
+Frontend-derived (keine Cron nötig):
+- Helper `isPastEvent(record)`: `record.date < heute` UND Status ∈ {paid, completed, offer_chosen}
+- "Gebucht"-Filter: schließt `isPastEvent` aus
+- "Erledigt"-Filter: schließt `isPastEvent` ein
+- (Optional, separate Migration) nightly Cron, das `status = 'completed'` setzt, wenn `date < now() - 1 day`. Nicht im ersten Schritt nötig — Frontend-Derivation reicht visuell.
 
-### 1. `paket`-Modus: enthaltene Items in `description` der Hauptzeile bündeln
-
-Im else-Zweig (Zeile 437+) zusätzlich vor dem `items.push(...)`:
-
-```text
-description = "Inklusive:
-• Antipasto: Caprese mit Büffelmozzarella
-• Aperitif: Cocktail (1 pro Person)
-• Getränk: Bier
-• Wasser: still, sparkling (1 Flasche pro Person)
-• Kaffee-Spezialität (1 pro Person)"
-```
-
-Quelle: `menu_selection.courses[]` (Speisen) und `menu_selection.drinks[]` (Getränke). Pro Eintrag: Label (Antipasto, Aperitif, …) + ausgewählte Auswahl + ggf. `quantityLabel`. Custom-Drinks (`customDrink`) ebenfalls einbeziehen.
-
-### 2. Pro-Person-Preis aus `budgetPerPerson` ableiten (statt aus Summe)
-
-```text
-Wenn ms.packageNameOverride und ms.budgetPerPerson > 0:
-   unitPriceBrutto = budgetPerPerson
-Sonst (Fallback heute):
-   unitPriceBrutto = (totalAmount − equipStaffTotal) / guestCount
-```
-
-Damit erscheint im Beleg `10 × 69,00 € = 690,00 €` (statt 84,90 €). `total_amount` in der DB wird beim nächsten Senden bereits korrekt mit 690 € gespeichert — die Korrektur greift also automatisch für V2 und alle künftigen Versionen.
-
-### 3. Course-`overridePrice` im Paket-Modus NICHT als Aufschlag rechnen
-
-Der heutige Bug — `overridePrice` der Caprese (15,90 €) wurde additiv ins `total_amount` aufaddiert (V1: 690 + 159 = 849) — kommt aus dem Preis-Berechner in `useOfferBuilder.ts` / `pricingMode.ts`. Im **Paket-Modus** ist eine Speise mit konfiguriertem `overridePrice` **„im Paket inkludiert"** (UI zeigt explizit „inkl."), darf also nicht aufgeschlagen werden.
-
-Anpassung in der Brutto-Berechnung (frontend `pricingMode.ts`): Wenn `offer_mode === 'paket'` und `packageNameOverride` gesetzt ist → Course-`overridePrice`-Werte ignorieren (nur als Anzeige-Info, nicht in Summe). Bestehende Menü-/Catering-Modi bleiben unverändert.
-
-### 4. Keine Re-Migration alter Belege
-
-V1 (AG0105) bleibt wie gesendet (849 €) — Belege sind immutable. Korrektur greift erst für V2, V3, neue Anfragen.
+### 5. Archivieren-Aktion sauber
+- Beim manuellen Archivieren immer `archived = true` UND `archived_at = now()` zusammen setzen (ist im Code bereits so — bleibt).
+- Beim "Drag in lost"-Spalte: aktuell wird `archived = true` gesetzt — bleibt.
 
 ## Technische Details
 
-**Betroffene Dateien:**
+Betroffene Dateien:
+- `supabase/migrations/<neu>.sql` — `UPDATE v2_events SET archived_at = NULL WHERE archived = false`
+- Insert-Trigger `event_inquiries_insert_trigger` / Email-Inbound-Funktion prüfen (wer setzt archived_at fälschlich?)
+- `src/lib/inquiryActionState.ts`
+- `src/components/admin/refine/UnifiedInquiriesList.tsx`
+- `src/components/admin/refine/UnifiedKanbanView.tsx`
+- `src/types/inquiryRecord.ts` (evtl. Helper `isPastEvent`)
 
-- `supabase/functions/create-event-quotation/index.ts` — `buildLineItems` Paket-Branch + neue `buildPackageDescription`-Helper
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/pricingMode.ts` (oder `useOfferBuilder.ts`) — Override-Aufschlag im Paket-Modus deaktivieren
-- ggf. `PriceBreakdown.tsx` — UI-Konsistenz prüfen (zeigt bereits 690 € korrekt)
+## Offene Fragen
 
-**Datenquelle für Beschreibung** (aus `menu_selection`-Snapshot):
-
-```text
-courses[].courseLabel + itemName
-drinks[].drinkLabel + (selectedChoice || customDrink) + (quantityLabel)
-```
-
-**Nicht angefasst:** `per_event`-Pricing (Zeile 110–243), `menu`-Modus (Zeile 246+). Beide listen Items bereits korrekt einzeln auf.
-
-## Verifizierung
-
-Nach Deploy: V2 in MAESTRO senden → LexOffice-Beleg AG0106 muss zeigen:
-
-```text
-1 | Network-Aperitivo | 10 | Person | 69,00 | 690,00
-    Inklusive:
-    • Antipasto: Caprese mit Büffelmozzarella
-    • Aperitif: Cocktail (1 pro Person)
-    • Getränk: Bier
-    • Wasser: still, sparkling (1 Flasche pro Person)
-    • Kaffee-Spezialität (1 pro Person)
-
-Gesamtbetrag: 690,00 € (Netto: 644,86 €, USt 7 %: 45,14 €)
-```
+1. Sollen vergangene Gebuchte automatisch auf `status = 'completed'` gesetzt werden (nightly Cron), oder reicht die rein visuelle Umsortierung im Frontend?
+2. "Alle aktiven"-Tab komplett entfernen oder behalten (ohne Archiv & Erledigt)?

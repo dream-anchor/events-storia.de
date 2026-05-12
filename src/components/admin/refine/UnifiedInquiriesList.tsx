@@ -9,40 +9,43 @@ import { DataTable, sortableHeader } from "./DataTable";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 import { useUnifiedInquiries } from "@/hooks/useUnifiedInquiries";
+import { isPastEvent } from "@/types/inquiryRecord";
 import type { InquiryRecord, ServiceType } from "@/types/inquiryRecord";
 import { UnifiedKanbanView, ServiceBadge } from "./UnifiedKanbanView";
 import { getRecordActionState } from "@/lib/inquiryActionState";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "table" | "kanban";
-type StatusFilter = "inbox" | "won" | "archive" | "all";
+type StatusFilter = "inbox" | "won" | "done" | "archive";
 type KindFilter = "all" | ServiceType;
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   inbox: "Eingang",
   won: "Gebucht",
+  done: "Erledigt",
   archive: "Archiv",
-  all: "Alle aktiven",
 };
 
 function statusMatches(r: InquiryRecord, f: StatusFilter): boolean {
   const isArchived = !!r.archived;
+  // Cancelled/declined-Items werden wie archivierte behandelt → Archiv-Bereich.
+  const isCancelled = r.column === "lost" || r.column === "closed";
+  const past = isPastEvent(r);
   switch (f) {
     case "inbox":
       return (
         !isArchived &&
+        !isCancelled &&
+        !past &&
         (r.column === "lead" || r.column === "proposal" || r.column === "pending")
       );
     case "won":
-      return r.column === "won" && !isArchived;
+      return r.column === "won" && !isArchived && !isCancelled && !past;
+    case "done":
+      // Erledigt: vergangene Events oder explizit "completed"
+      return !isArchived && !isCancelled && (past || r.status === "completed");
     case "archive":
-      return (
-        isArchived || r.column === "lost" || r.column === "closed"
-      );
-    case "all":
-      // "Alle aktiven" — Archivierte bewusst ausblenden,
-      // diese sind nur über den Archiv-Filter sichtbar.
-      return !isArchived;
+      return isArchived || isCancelled;
   }
 }
 
@@ -72,12 +75,10 @@ export const UnifiedInquiriesList = () => {
   }, [records, statusFilter, kindFilter]);
 
   const kanbanRecords = useMemo(() => {
+    // Kanban folgt jetzt strikt dem aktiven Filter — kein verstecktes Archiv-Panel mehr.
     return records.filter((r) => {
       if (kindFilter !== "all" && r.serviceType !== kindFilter) return false;
-      // Archivierte standardmäßig ausblenden — nur im Archiv-Filter sichtbar.
-      const isArchived = !!r.archived;
-      if (statusFilter === "archive") return isArchived;
-      return !isArchived;
+      return statusMatches(r, statusFilter);
     });
   }, [records, kindFilter, statusFilter]);
 
@@ -87,8 +88,8 @@ export const UnifiedInquiriesList = () => {
     return {
       inbox: records.filter((r) => filterByKind(r) && statusMatches(r, "inbox")).length,
       won: records.filter((r) => filterByKind(r) && statusMatches(r, "won")).length,
+      done: records.filter((r) => filterByKind(r) && statusMatches(r, "done")).length,
       archive: records.filter((r) => filterByKind(r) && statusMatches(r, "archive")).length,
-      all: records.filter(filterByKind).length,
     };
   }, [records, kindFilter]);
 
@@ -102,7 +103,7 @@ export const UnifiedInquiriesList = () => {
   }, [records]);
 
   const filterPills = (
-    ["inbox", "won", "archive", "all"] as StatusFilter[]
+    ["inbox", "won", "done", "archive"] as StatusFilter[]
   ).map((id) => ({
     id,
     label: STATUS_LABELS[id],
@@ -306,7 +307,28 @@ export const UnifiedInquiriesList = () => {
         </div>
 
         {viewMode === "kanban" ? (
-          <UnifiedKanbanView records={kanbanRecords} onRefresh={refetch} />
+          <>
+            <div className="flex items-center gap-1 p-1 rounded-2xl bg-muted/60 w-fit">
+              {filterPills.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setStatusFilter(p.value as StatusFilter)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-medium transition-colors",
+                    p.active
+                      ? "bg-white text-foreground shadow-sm ring-1 ring-foreground/10"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {p.label}
+                  <span className="ml-1.5 text-[10px] tabular-nums opacity-60">
+                    {p.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <UnifiedKanbanView records={kanbanRecords} onRefresh={refetch} />
+          </>
         ) : (
           <DataTable
             columns={columns}

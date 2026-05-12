@@ -52,15 +52,18 @@ function inProgress(label = "In Bearbeitung"): ActionStateMeta {
  * (v2 events + catering orders). Used by Kanban and Table.
  */
 export function getRecordActionState(r: InquiryRecord): ActionStateMeta {
-  const archived = !!r.archivedAt || !!r.archived;
+  // Single source of truth: nur die boolean-Flag entscheidet über "archiviert".
+  // `archivedAt` ist nur Zeitstempel.
+  const archived = !!r.archived;
 
   if (r.kind === "event") {
     if (archived) return { ...DONE, label: "Archiviert" };
     if (r.status === "cancelled") return { ...DONE, label: "Abgesagt" };
+    if (r.status === "completed") return { ...DONE, label: "Erledigt" };
     if (r.offerPhase === "customer_responded")
       return { ...RESPOND, label: "Kunde wartet" };
     if (r.status === "inquiry") return { ...RESPOND, label: "Neu" };
-    if (r.status === "paid" || r.status === "completed") return WON;
+    if (r.status === "paid") return WON;
     if (r.status === "offer_sent") return inProgress("Angebot offen");
     if (r.status === "offer_chosen") return inProgress("Option gewählt");
     if (r.status === "offer_draft") return inProgress("Angebot in Arbeit");
