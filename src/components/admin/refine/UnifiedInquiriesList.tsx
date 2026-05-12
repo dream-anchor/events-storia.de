@@ -34,6 +34,33 @@ function statusMatches(r: InquiryRecord, f: StatusFilter): boolean {
   return getLifecycleBucket(r) === f;
 }
 
+function sortByBucket(list: InquiryRecord[], bucket: StatusFilter): InquiryRecord[] {
+  const ts = (s?: string | null) => (s ? new Date(s).getTime() : 0);
+  const dateAsc = (a: InquiryRecord, b: InquiryRecord) =>
+    (ts(a.date) || Infinity) - (ts(b.date) || Infinity);
+  const dateDesc = (a: InquiryRecord, b: InquiryRecord) => ts(b.date) - ts(a.date);
+  const createdDesc = (a: InquiryRecord, b: InquiryRecord) =>
+    ts(b.createdAt) - ts(a.createdAt);
+  const updatedDesc = (a: InquiryRecord, b: InquiryRecord) =>
+    ts(b.updatedAt) - ts(a.updatedAt);
+  const sorted = [...list];
+  switch (bucket) {
+    case "inbox":
+      sorted.sort(createdDesc);
+      break;
+    case "won":
+      sorted.sort(dateAsc);
+      break;
+    case "done":
+      sorted.sort(dateDesc);
+      break;
+    case "archive":
+      sorted.sort(updatedDesc);
+      break;
+  }
+  return sorted;
+}
+
 function formatCurrency(n: number | null) {
   if (n == null) return "—";
   return n.toLocaleString("de-DE", {
