@@ -15,26 +15,99 @@ import { toast } from "sonner";
 import type {
   InquiryRecord,
   ServiceType,
-  UnifiedColumn,
+  LifecycleBucket,
 } from "@/types/inquiryRecord";
 import { getRecordActionState } from "@/lib/inquiryActionState";
 
 interface UnifiedKanbanViewProps {
   records: InquiryRecord[];
   onRefresh: () => void;
+  bucket: LifecycleBucket;
 }
 
-const PIPELINE_COLUMNS: { id: UnifiedColumn; title: string }[] = [
-  { id: "lead", title: "Neu" },
-  { id: "proposal", title: "In Bearbeitung" },
-  { id: "pending", title: "Angebot raus" },
-  { id: "won", title: "Gebucht" },
-];
+/**
+ * Sub-Spalten innerhalb eines Buckets. Eine ID = ein Ziel-Status (für Drag-and-Drop).
+ * Drag wechselt nur innerhalb desselben Buckets — Bucket-Wechsel passiert über
+ * Status-Änderung (z.B. „als bezahlt markieren") oder den Archiv-Button.
+ */
+type SubColumn = {
+  id: string;
+  title: string;
+  match: (r: InquiryRecord) => boolean;
+  /** Optional: Drop auf diese Spalte setzt diesen Status (nur events). */
+  dropStatus?: string;
+  /** Optional: Drop setzt zusätzlich `archived = true`. */
+  dropArchive?: boolean;
+};
 
-const ARCHIVE_COLUMNS: { id: UnifiedColumn; title: string }[] = [
-  { id: "lost", title: "Abgelehnt" },
-  { id: "closed", title: "Storniert" },
-];
+const BUCKET_COLUMNS: Record<LifecycleBucket, SubColumn[]> = {
+  inbox: [
+    {
+      id: "lead",
+      title: "Neu",
+      match: (r) => r.status === "inquiry" || r.status === "pending",
+      dropStatus: "inquiry",
+    },
+    {
+      id: "proposal",
+      title: "In Bearbeitung",
+      match: (r) => r.status === "offer_draft",
+      dropStatus: "offer_draft",
+    },
+    {
+      id: "pending",
+      title: "Angebot raus",
+      match: (r) => r.status === "offer_sent",
+      dropStatus: "offer_sent",
+    },
+  ],
+  won: [
+    {
+      id: "confirmed",
+      title: "Bestätigt",
+      match: (r) => r.status === "offer_chosen" || r.status === "confirmed",
+      dropStatus: "offer_chosen",
+    },
+    {
+      id: "paid",
+      title: "Bezahlt",
+      match: (r) => r.status === "paid",
+      dropStatus: "paid",
+    },
+  ],
+  done: [
+    {
+      id: "completed",
+      title: "Abgeschlossen",
+      match: () => true,
+    },
+  ],
+  archive: [
+    {
+      id: "cancelled",
+      title: "Storniert",
+      match: (r) => r.status === "cancelled",
+    },
+    {
+      id: "declined",
+      title: "Abgelehnt",
+      match: (r) =>
+        r.status === "offer_declined" ||
+        r.status === "payment_failed" ||
+        r.status === "no_response",
+    },
+    {
+      id: "manual",
+      title: "Manuell archiviert",
+      match: (r) =>
+        !!r.archived &&
+        r.status !== "cancelled" &&
+        r.status !== "offer_declined" &&
+        r.status !== "payment_failed" &&
+        r.status !== "no_response",
+    },
+  ],
+};
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("de-DE", {
@@ -45,32 +118,39 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps) {
+export function UnifiedKanbanView({ records, onRefresh, bucket }: UnifiedKanbanViewProps) {
   const navigate = useNavigate();
-  const [dragOverColumn, setDragOverColumn] = useState<UnifiedColumn | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
+  const columns = BUCKET_COLUMNS[bucket];
+
   const columnData = useMemo(() => {
-    const data: Record<UnifiedColumn, { items: InquiryRecord[]; totalSum: number }> = {
-      lead: { items: [], totalSum: 0 },
-      proposal: { items: [], totalSum: 0 },
-      pending: { items: [], totalSum: 0 },
-      won: { items: [], totalSum: 0 },
-      lost: { items: [], totalSum: 0 },
-      closed: { items: [], totalSum: 0 },
-    };
+    const data: Record<string, { items: InquiryRecord[]; totalSum: number }> = {};
+    columns.forEach((c) => {
+      data[c.id] = { items: [], totalSum: 0 };
+    });
+    // Fallback-Bucket für Records, die in keine Sub-Spalte fallen.
+    const fallback = columns[0]?.id;
     records.forEach((r) => {
-      data[r.column].items.push(r);
-      data[r.column].totalSum += r.totalAmount || 0;
+      const target = columns.find((c) => c.match(r))?.id ?? fallback;
+      if (!target) return;
+      data[target].items.push(r);
+      data[target].totalSum += r.totalAmount || 0;
     });
-    Object.values(data).forEach((b) => {
-      b.items.sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      );
-    });
+    // Sortierung passend zum Bucket
+    const ts = (s?: string | null) => (s ? new Date(s).getTime() : 0);
+    const sorter =
+      bucket === "won"
+        ? (a: InquiryRecord, b: InquiryRecord) =>
+            (ts(a.date) || Infinity) - (ts(b.date) || Infinity)
+        : bucket === "done"
+          ? (a: InquiryRecord, b: InquiryRecord) => ts(b.date) - ts(a.date)
+          : (a: InquiryRecord, b: InquiryRecord) =>
+              ts(b.updatedAt) - ts(a.updatedAt);
+    Object.values(data).forEach((b) => b.items.sort(sorter));
     return data;
-  }, [records]);
+  }, [records, columns, bucket]);
 
   const handleDragStart = useCallback(
     (e: React.DragEvent, record: InquiryRecord) => {
@@ -90,7 +170,7 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
     setDragOverColumn(null);
   }, []);
 
-  const handleDragOver = useCallback((e: React.DragEvent, col: UnifiedColumn) => {
+  const handleDragOver = useCallback((e: React.DragEvent, col: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDragOverColumn(col);
@@ -99,30 +179,26 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
   const handleDragLeave = useCallback(() => setDragOverColumn(null), []);
 
   const handleDrop = useCallback(
-    async (e: React.DragEvent, target: UnifiedColumn) => {
+    async (e: React.DragEvent, targetId: string) => {
       e.preventDefault();
       setDragOverColumn(null);
       const id = e.dataTransfer.getData("text/plain");
       const record = records.find((r) => r.id === id);
       if (!record || record.kind !== "event") return;
-      if (record.column === target) return;
-      // Map pipeline column → v2_events.status (and archived flag).
-      const map: Record<UnifiedColumn, { status: string; archived: boolean }> = {
-        lead: { status: "inquiry", archived: false },
-        proposal: { status: "offer_draft", archived: false },
-        pending: { status: "offer_sent", archived: false },
-        won: { status: "paid", archived: false },
-        lost: { status: "cancelled", archived: true },
-        closed: { status: "cancelled", archived: false },
-      };
-      const upd = map[target];
+      const target = columns.find((c) => c.id === targetId);
+      if (!target?.dropStatus) return;
+      if (record.status === target.dropStatus) return;
       try {
         const { error } = await supabase
           .from("v2_events")
           .update({
-            status: upd.status as any,
-            archived: upd.archived,
-            archived_at: upd.archived ? new Date().toISOString() : null,
+            status: target.dropStatus as any,
+            ...(target.dropArchive
+              ? {
+                  archived: true,
+                  archived_at: new Date().toISOString(),
+                }
+              : {}),
             updated_at: new Date().toISOString(),
           })
           .eq("id", record.id);
@@ -134,7 +210,7 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
         toast.error("Fehler beim Aktualisieren");
       }
     },
-    [records, onRefresh]
+    [records, onRefresh, columns]
   );
 
   const handleArchiveCard = useCallback(
@@ -166,9 +242,10 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
     [onRefresh],
   );
 
-  const renderColumn = (column: { id: UnifiedColumn; title: string }) => {
+  const renderColumn = (column: SubColumn) => {
     const { items, totalSum } = columnData[column.id];
     const isDragOver = dragOverColumn === column.id;
+    const isDroppable = !!column.dropStatus;
     return (
       <div
         key={column.id}
@@ -176,9 +253,9 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
           "flex flex-col rounded-2xl border border-slate-200 bg-slate-50/60 transition-all min-w-0",
           isDragOver && "ring-2 ring-foreground/40 border-foreground/40 bg-foreground/5"
         )}
-        onDragOver={(e) => handleDragOver(e, column.id)}
+        onDragOver={(e) => isDroppable && handleDragOver(e, column.id)}
         onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, column.id)}
+        onDrop={(e) => isDroppable && handleDrop(e, column.id)}
       >
         <div className="px-4 pt-4 pb-3 border-b border-slate-200/70">
           <div className="flex items-center justify-between mb-1.5">
@@ -194,9 +271,7 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
         <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)]">
           {items.length === 0 ? (
             <div className="border-2 border-dashed border-slate-200 rounded-xl py-8 flex items-center justify-center text-[11px] text-slate-400 uppercase tracking-wider">
-              {column.id === "lead" || column.id === "proposal" || column.id === "pending" || column.id === "won"
-                ? "Hierher ziehen"
-                : "Leer"}
+              {isDroppable ? "Hierher ziehen" : "Leer"}
             </div>
           ) : (
             items.map((r) => (
@@ -222,31 +297,27 @@ export function UnifiedKanbanView({ records, onRefresh }: UnifiedKanbanViewProps
     );
   };
 
-  const hasArchiveItems =
-    columnData.lost.items.length + columnData.closed.items.length > 0;
-  const hasPipelineItems =
-    columnData.lead.items.length +
-      columnData.proposal.items.length +
-      columnData.pending.items.length +
-      columnData.won.items.length >
-    0;
+  const total = columns.reduce(
+    (sum, c) => sum + (columnData[c.id]?.items.length ?? 0),
+    0,
+  );
+
+  // Spalten-Grid-Klassen abhängig von Anzahl
+  const gridClass =
+    columns.length >= 3
+      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+      : columns.length === 2
+        ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
+        : "grid grid-cols-1 gap-3";
 
   return (
     <div className="space-y-4">
-      {hasPipelineItems && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {PIPELINE_COLUMNS.map(renderColumn)}
-        </div>
-      )}
-      {hasArchiveItems && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {ARCHIVE_COLUMNS.map(renderColumn)}
-        </div>
-      )}
-      {!hasPipelineItems && !hasArchiveItems && (
+      {total === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 py-16 text-center text-sm text-slate-400">
-          Keine Anfragen in diesem Filter
+          Keine Anfragen in diesem Bereich
         </div>
+      ) : (
+        <div className={gridClass}>{columns.map(renderColumn)}</div>
       )}
     </div>
   );
