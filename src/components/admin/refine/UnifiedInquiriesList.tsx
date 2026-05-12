@@ -307,7 +307,28 @@ export const UnifiedInquiriesList = () => {
         </div>
 
         {viewMode === "kanban" ? (
-          <UnifiedKanbanView records={kanbanRecords} onRefresh={refetch} />
+          <>
+            <div className="flex items-center gap-1 p-1 rounded-2xl bg-muted/60 w-fit">
+              {filterPills.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setStatusFilter(p.value as StatusFilter)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-medium transition-colors",
+                    p.active
+                      ? "bg-white text-foreground shadow-sm ring-1 ring-foreground/10"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {p.label}
+                  <span className="ml-1.5 text-[10px] tabular-nums opacity-60">
+                    {p.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <UnifiedKanbanView records={kanbanRecords} onRefresh={refetch} />
+          </>
         ) : (
           <DataTable
             columns={columns}
