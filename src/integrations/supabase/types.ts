@@ -1467,10 +1467,12 @@ export type Database = {
       group_inquiries: {
         Row: {
           arrival_time: string | null
+          assigned_to: string | null
           company_name: string | null
           contact_name: string
           created_at: string | null
           email: string
+          external_id: string | null
           group_size: number
           id: string
           internal_notes: string | null
@@ -1480,16 +1482,26 @@ export type Database = {
           preferred_date: string | null
           preferred_date_flexible: boolean | null
           preferred_menu: string | null
+          responded_at: string | null
           source: string | null
           status: string
+          travel_plan_filename: string | null
+          travel_plan_url: string | null
           updated_at: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
         }
         Insert: {
           arrival_time?: string | null
+          assigned_to?: string | null
           company_name?: string | null
           contact_name: string
           created_at?: string | null
           email: string
+          external_id?: string | null
           group_size: number
           id?: string
           internal_notes?: string | null
@@ -1499,16 +1511,26 @@ export type Database = {
           preferred_date?: string | null
           preferred_date_flexible?: boolean | null
           preferred_menu?: string | null
+          responded_at?: string | null
           source?: string | null
           status?: string
+          travel_plan_filename?: string | null
+          travel_plan_url?: string | null
           updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Update: {
           arrival_time?: string | null
+          assigned_to?: string | null
           company_name?: string | null
           contact_name?: string
           created_at?: string | null
           email?: string
+          external_id?: string | null
           group_size?: number
           id?: string
           internal_notes?: string | null
@@ -1518,9 +1540,17 @@ export type Database = {
           preferred_date?: string | null
           preferred_date_flexible?: boolean | null
           preferred_menu?: string | null
+          responded_at?: string | null
           source?: string | null
           status?: string
+          travel_plan_filename?: string | null
+          travel_plan_url?: string | null
           updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Relationships: []
       }
@@ -2203,11 +2233,15 @@ export type Database = {
       packages: {
         Row: {
           created_at: string | null
+          currency: string | null
           description: string | null
           description_en: string | null
+          duration_minutes: number | null
+          extras_available: Json | null
           id: string
           includes: Json | null
           is_active: boolean | null
+          language_support: Json | null
           max_guests: number | null
           min_guests: number | null
           name: string
@@ -2220,15 +2254,23 @@ export type Database = {
           pricing_type: string | null
           requires_prepayment: boolean | null
           sort_order: number | null
+          subtitle: string | null
+          target_groups: Json | null
           updated_at: string | null
+          visible_on_website: boolean | null
+          website_menu_key: string | null
         }
         Insert: {
           created_at?: string | null
+          currency?: string | null
           description?: string | null
           description_en?: string | null
+          duration_minutes?: number | null
+          extras_available?: Json | null
           id?: string
           includes?: Json | null
           is_active?: boolean | null
+          language_support?: Json | null
           max_guests?: number | null
           min_guests?: number | null
           name: string
@@ -2241,15 +2283,23 @@ export type Database = {
           pricing_type?: string | null
           requires_prepayment?: boolean | null
           sort_order?: number | null
+          subtitle?: string | null
+          target_groups?: Json | null
           updated_at?: string | null
+          visible_on_website?: boolean | null
+          website_menu_key?: string | null
         }
         Update: {
           created_at?: string | null
+          currency?: string | null
           description?: string | null
           description_en?: string | null
+          duration_minutes?: number | null
+          extras_available?: Json | null
           id?: string
           includes?: Json | null
           is_active?: boolean | null
+          language_support?: Json | null
           max_guests?: number | null
           min_guests?: number | null
           name?: string
@@ -2262,7 +2312,11 @@ export type Database = {
           pricing_type?: string | null
           requires_prepayment?: boolean | null
           sort_order?: number | null
+          subtitle?: string | null
+          target_groups?: Json | null
           updated_at?: string | null
+          visible_on_website?: boolean | null
+          website_menu_key?: string | null
         }
         Relationships: []
       }
