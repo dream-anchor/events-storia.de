@@ -698,14 +698,11 @@ export function useOfferBuilder({
         const pkg = packagesProp.find(p => p.id === opt.packageId);
         if (!pkg) return opt;
 
-        // Paket-Modus: Aufpreise aus Gang-overridePrice (>0) summieren.
-        // Diese werden zum budgetPerPerson addiert (per_person) bzw. × Gäste (per_event-Behandlung unten).
-        let courseSurcharge = 0;
-        for (const c of opt.menuSelection.courses ?? []) {
-          if (c.overridePrice != null && c.overridePrice > 0) {
-            courseSurcharge += c.overridePrice;
-          }
-        }
+        // Paket-Modus: enthaltene Gänge sind als „inkl." Bestandteil des Pakets.
+        // Etwaige overridePrice-Werte sind reine Anzeige-/Katalog-Daten und werden
+        // NICHT zum Paketpreis addiert (sonst entstehen Phantom-Aufschläge wie 84,90 €
+        // statt 69 €). Equipment & Personal werden weiter unten separat berücksichtigt.
+        const courseSurcharge = 0;
 
         // Pricing-Modus entscheidet:
         //  per_event: budgetPerPerson ist bereits der Gesamtpreis
