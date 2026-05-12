@@ -37,6 +37,15 @@ interface PackageFormData {
   sort_order: number;
   includes: string[];
   location_ids: string[];
+  // Gruppenreisen-spezifisch
+  subtitle: string;
+  currency: string;
+  duration_minutes: number;
+  language_support: string[];
+  target_groups: string[];
+  extras_available: string[];
+  website_menu_key: string;
+  visible_on_website: boolean;
 }
 
 interface LocationData {
@@ -62,6 +71,14 @@ const defaultFormData: PackageFormData = {
   sort_order: 0,
   includes: [],
   location_ids: [],
+  subtitle: "",
+  currency: "EUR",
+  duration_minutes: 0,
+  language_support: [],
+  target_groups: [],
+  extras_available: [],
+  website_menu_key: "",
+  visible_on_website: false,
 };
 
 export const PackageEdit = () => {
@@ -130,6 +147,14 @@ export const PackageEdit = () => {
         is_active: pkg.is_active ?? true,
         sort_order: pkg.sort_order || 0,
         includes: Array.isArray(pkg.includes) ? pkg.includes : [],
+        subtitle: pkg.subtitle || "",
+        currency: pkg.currency || "EUR",
+        duration_minutes: pkg.duration_minutes || 0,
+        language_support: Array.isArray(pkg.language_support) ? pkg.language_support : [],
+        target_groups: Array.isArray(pkg.target_groups) ? pkg.target_groups : [],
+        extras_available: Array.isArray(pkg.extras_available) ? pkg.extras_available : [],
+        website_menu_key: pkg.website_menu_key || "",
+        visible_on_website: pkg.visible_on_website ?? false,
       }));
     }
   }, [packageData, isCreate]);
@@ -332,6 +357,7 @@ export const PackageEdit = () => {
                   <SelectContent>
                     <SelectItem value="event">Event</SelectItem>
                     <SelectItem value="catering">Catering</SelectItem>
+                    <SelectItem value="gruppenreisen">Gruppenreisen</SelectItem>
                     <SelectItem value="general">Allgemein</SelectItem>
                   </SelectContent>
                 </Select>
