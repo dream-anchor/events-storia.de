@@ -1203,6 +1203,16 @@ const Checkout = () => {
           : `Error submitting order: ${errMsg}`,
         { duration: 8000 }
       );
+      // Alert: Non-blocking Benachrichtigung bei Checkout-Fehler
+      supabase.functions.invoke('notify-checkout-error', {
+        body: {
+          errorMessage: errMsg,
+          items: items.map(i => ({ name: i.name, quantity: i.quantity })),
+          paymentMethod,
+          deliveryType: formData.deliveryType,
+          timestamp: new Date().toISOString(),
+        }
+      }).catch(() => {}); // fire-and-forget, nie blockieren
     } finally {
       setIsSubmitting(false);
     }
