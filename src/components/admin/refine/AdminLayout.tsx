@@ -28,6 +28,7 @@ import {
   LogOut,
   ChevronDown,
   Inbox,
+  Users,
 } from "lucide-react";
 import { useEffect, useState as useStateReact } from "react";
 
@@ -113,6 +114,7 @@ export const AdminLayout = ({
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
     { name: 'Anfragen', href: '/admin/inquiries', icon: Inbox, key: 'inquiries' },
     { name: 'Posteingang', href: '/admin/posteingang', icon: Inbox, key: 'posteingang' },
+    { name: 'Reisegruppen', href: '/admin/reisegruppen', icon: Users, key: 'reisegruppen' },
     { name: 'Angebote', href: '/admin/quotations', icon: FileCheck, key: 'quotations' },
     { name: 'Rechnungen', href: '/admin/invoices', icon: FileText, key: 'invoices' },
   ];
@@ -149,7 +151,9 @@ export const AdminLayout = ({
             ? (newInquiriesCount || 0) + (pendingBookingsCount || 0) + (pendingOrdersCount || 0)
             : item.key === 'posteingang'
               ? (unassignedInboxCount || 0)
-              : 0;
+              : item.key === 'reisegruppen'
+                ? (newGroupInquiriesCount || 0)
+                : 0;
 
           return (
             <Link
