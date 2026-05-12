@@ -75,8 +75,14 @@ export const UnifiedInquiriesList = () => {
   }, [records, statusFilter, kindFilter]);
 
   const kanbanRecords = useMemo(() => {
-    return records.filter((r) => kindFilter === "all" || r.serviceType === kindFilter);
-  }, [records, kindFilter]);
+    return records.filter((r) => {
+      if (kindFilter !== "all" && r.serviceType !== kindFilter) return false;
+      // Archivierte standardmäßig ausblenden — nur im Archiv-Filter sichtbar.
+      const isArchived = !!r.archivedAt || !!r.archived;
+      if (statusFilter === "archive") return isArchived;
+      return !isArchived;
+    });
+  }, [records, kindFilter, statusFilter]);
 
   const counts = useMemo(() => {
     const filterByKind = (r: InquiryRecord) =>
