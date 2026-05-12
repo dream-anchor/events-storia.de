@@ -184,3 +184,56 @@ export function isPastEvent(r: InquiryRecord): boolean {
   }
   return ["confirmed", "completed"].includes(r.status);
 }
+
+/**
+ * Lifecycle-Bucket = die EINE Wahrheit, in welchem Bereich eine Anfrage angezeigt wird.
+ * Genau ein Bucket pro Anfrage. Kanban und Tabelle teilen sich diese Logik.
+ */
+export type LifecycleBucket = "inbox" | "won" | "done" | "archive";
+
+const ARCHIVE_EVENT_STATUSES = new Set([
+  "cancelled",
+  "offer_declined",
+  "payment_failed",
+  "no_response",
+]);
+const ARCHIVE_CATERING_STATUSES = new Set(["cancelled"]);
+
+const WON_EVENT_STATUSES = new Set(["offer_chosen", "paid"]);
+const WON_CATERING_STATUSES = new Set(["confirmed"]);
+
+const ACTIVE_EVENT_STATUSES = new Set(["inquiry", "offer_draft", "offer_sent"]);
+const ACTIVE_CATERING_STATUSES = new Set(["pending"]);
+
+export function getLifecycleBucket(r: InquiryRecord): LifecycleBucket {
+  // 1) Manuell archiviert ODER terminaler Status → Archiv
+  if (r.archived) return "archive";
+  const archiveSet =
+    r.kind === "event" ? ARCHIVE_EVENT_STATUSES : ARCHIVE_CATERING_STATUSES;
+  if (archiveSet.has(r.status)) return "archive";
+
+  // 2) Explizit completed → Erledigt
+  if (r.status === "completed") return "done";
+
+  // 3) Gebuchte Events: nach Eventdatum entscheiden
+  const wonSet = r.kind === "event" ? WON_EVENT_STATUSES : WON_CATERING_STATUSES;
+  if (wonSet.has(r.status)) {
+    if (r.date) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const eventDate = new Date(r.date);
+      if (!Number.isNaN(eventDate.getTime()) && eventDate < today) {
+        return "done";
+      }
+    }
+    return "won";
+  }
+
+  // 4) Aktive Pipeline → Eingang
+  const activeSet =
+    r.kind === "event" ? ACTIVE_EVENT_STATUSES : ACTIVE_CATERING_STATUSES;
+  if (activeSet.has(r.status)) return "inbox";
+
+  // Fallback: lieber im Eingang anzeigen als verstecken
+  return "inbox";
+}
