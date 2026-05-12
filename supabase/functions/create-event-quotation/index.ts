@@ -25,6 +25,7 @@ interface DrinkSelectionDB {
   drinkLabel: string;
   selectedChoice: string | null;
   quantityLabel: string | null;
+  customDrink?: string | null;
 }
 
 interface DrinkEinzelnItemDB {
@@ -47,6 +48,7 @@ interface MenuSelectionDB {
   drinks?: DrinkSelectionDB[];
   winePairingPrice?: number | null;
   budgetPerPerson?: number | null;
+  packageNameOverride?: string | null;
   /** 'per_person' (Default) oder 'per_event' (Gesamtpreis für Anlass) */
   pricingMode?: 'per_person' | 'per_event';
   drinksMode?: 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
