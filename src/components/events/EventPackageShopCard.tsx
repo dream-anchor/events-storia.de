@@ -25,6 +25,15 @@ import firmenfeier from "@/assets/events/firmenfeier-catering-muenchen-storia.we
 // Get image for package by matching name patterns
 const getPackageImage = (name: string): string => {
   const nameLower = name.toLowerCase();
+  if (nameLower.includes("pizza") || nameLower.includes("pasta")) {
+    return ravioliDinner;
+  }
+  if (nameLower.includes("benvenuti")) {
+    return firmenfeier;
+  }
+  if (nameLower.includes("tradizione")) {
+    return ravioliDinner;
+  }
   if (nameLower.includes("business") || nameLower.includes("dinner")) {
     return ravioliDinner; // High-quality pasta for dinner
   }
