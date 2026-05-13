@@ -1638,6 +1638,38 @@ function FinalOptionCard({
 
         {/* Stornobedingungen — kompakter Accordion unter Zahlungs-Button */}
         {totalAmount > 0 && <CancellationTermsAccordion />}
+
+        {offlineTiming && totalAmount > 0 && (
+          <div className="mt-4 pt-4 border-t border-border/20">
+            <Button
+              onClick={() => setConfirmOpen(true)}
+              variant="outline"
+              className="w-full rounded-full font-sans border-2 border-primary/40 hover:border-primary"
+            >
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              Verbindlich buchen ohne Online-Zahlung
+            </Button>
+            <p className="text-[11px] text-muted-foreground/70 text-center mt-2">
+              {offlineTiming === 'on_site' && 'Zahlung vor Ort am Veranstaltungstag'}
+              {offlineTiming === 'after_event' && 'Zahlung per Rechnung nach der Veranstaltung'}
+              {offlineTiming === 'transfer_prepay' && 'Zahlung per Überweisung vor der Veranstaltung'}
+            </p>
+          </div>
+        )}
+
+        {offlineTiming && (
+          <OrderConfirmationDialog
+            open={confirmOpen}
+            onOpenChange={setConfirmOpen}
+            inquiryId={inquiryId}
+            selectedOptionId={option.id}
+            totalAmount={totalAmount}
+            paymentTiming={offlineTiming}
+            onConfirmed={() => {
+              window.location.reload();
+            }}
+          />
+        )}
       </div>
     </div>
   );
