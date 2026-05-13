@@ -742,6 +742,7 @@ function ProposalView({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [wantsCopy, setWantsCopy] = useState(false);
   const [copyEmail, setCopyEmail] = useState(inquiry.email || "");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
   const totalAmount = selectedOption?.total_amount ?? 0;
@@ -845,6 +846,14 @@ function ProposalView({
 
   const isSingle = options.length === 1;
   const busy = isSubmitting || isPaying !== null;
+
+  // Payment-Method bestimmt, ob "verbindlich buchen ohne Online-Zahlung" angeboten wird
+  const pm = inquiry.payment_method ?? '';
+  const offlineTiming: 'on_site' | 'after_event' | 'transfer_prepay' | null =
+    pm === 'pay_on_site' ? 'on_site'
+    : pm === 'invoice_after_event' ? 'after_event'
+    : pm === 'bank_transfer_prepay' ? 'transfer_prepay'
+    : null;
 
   return (
     <section className="bg-secondary/30">
