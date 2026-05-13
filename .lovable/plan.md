@@ -1,58 +1,41 @@
-# KI-Übersetzung der Reisegruppen-Menüs (EN/IT/FR)
-
-## Problem
-Die 3 Reisegruppen-Pakete (Pizza e Pasta, Benvenuti, Tradizione) liefern beim Auswählen im Menu Builder Gänge (`custom_item_name`) und Getränke (`drink_label`, `quantity_label`) nur auf **DE + EN**. Reisegruppen-Gäste sind aber häufig international (IT/FR). Aktuell müsste der Betreiber jede Übersetzung manuell pflegen.
-
 ## Ziel
-Beim Laden eines der 3 Reisegruppen-Pakete im Menu Builder sollen alle Item-Texte (Gänge + Getränke) bereits auf **EN / IT / FR** vorliegen — automatisch erzeugt von KI (Lovable AI Gateway, gemini-2.5-flash, identisch zum bestehenden `translate-menu-text`).
 
-Operator muss nichts eintippen. Übersetzungen werden **persistent** gespeichert (nicht bei jedem Öffnen neu generiert), bleiben aber per Button neu übersetzbar.
+Reisegruppen-Angebote (und alle künftigen Pakete mit übersetzten Items) sollen im PublicOffer auch in **IT** und **FR** angezeigt werden — mit Fallback auf DE.
 
 ## Umfang
-- Nur für `package_course_config` + `package_drink_config` Inhalte (Custom-Items aus Paketen).
-- Standard-MenuItems aus `catering_menu_items` / `ristorante_menu_items` haben bereits eigene `name_en` und sind nicht Teil dieses Plans.
 
-## Schritte
-
-### 1. Schema erweitern (Migration)
-Neue Spalten in `package_course_config`:
+### 1. Snapshot erweitern (`useOfferBuilder.ts`)
+Beim Auto-Befüllen von `menu_selection` zusätzlich zu `_en` auch `_it` und `_fr` Felder mitschreiben:
 - `course_label_it`, `course_label_fr`
 - `custom_item_name_it`, `custom_item_name_fr`
-- `custom_item_description_en`, `custom_item_description_it`, `custom_item_description_fr`
+- `custom_item_description_it/_fr`
+- `drink_label_it/_fr`, `quantity_label_it/_fr`
+- Drink-Options: `options_translations` (JSONB) komplett mitnehmen
 
-Neue Spalten in `package_drink_config`:
-- `drink_label_it`, `drink_label_fr`
-- `quantity_label_it`, `quantity_label_fr`
-- `options_translations` (JSONB) — Map `{ en: [...], it: [...], fr: [...] }` für die `options`-Liste (Wein, Wasser, Espresso etc.)
+→ Damit liegen IT/FR persistent im Offer-Snapshot, ohne bei Render erneut die Package-Tabelle zu joinen (analog bisheriger DE/EN-Logik).
 
-Alle nullable, kein Default.
+### 2. Sprachumschalter im PublicOffer
+- Neuer Switcher (DE / EN / IT / FR) oben in `src/pages/PublicOffer.tsx`
+- State `lang: 'de' | 'en' | 'it' | 'fr'`, default `de`
+- Optional: initial aus `?lang=` Query-Param oder Browser-Locale ableiten
+- Wird an `FinalOfferView` und `ProposalView` durchgereicht
 
-### 2. Edge-Function `translate-package-menu`
-- Input: `{ package_id, target_langs?: ['en','it','fr'] }`
-- Lädt alle Rows aus `package_course_config` + `package_drink_config` für das Package.
-- Sammelt alle DE-Strings, schickt einen Batch-Request an Lovable AI (gemini-2.5-flash) mit Tool-Calling für strukturierte Ausgabe.
-- System-Prompt analog `translate-menu-text` (gastronomische Begriffe beibehalten: Tagliatelle, Saltimbocca, Tiramisu …).
-- Schreibt Ergebnisse via Service-Role-Client zurück in die jeweiligen `_en/_it/_fr`-Spalten und `options_translations`.
-- Auth: Admin-only (JWT prüfen, `has_role(admin)`).
-- Fehlerfälle 429/402 sauber durchreichen.
+### 3. Lokalisierte Anzeige
+Helper `t(item, field, lang)` mit Fallback-Kette `lang → en → de`:
+- Course-Labels und Custom-Item-Namen/Descriptions
+- Drink-Labels, Quantity-Labels, Drink-Options (aus `options_translations[lang]`)
+- Standard-MenuItems: `name_en` existiert; für IT/FR Fallback auf DE (out-of-scope, da `menu_items` keine IT/FR-Spalten hat)
+- Statische UI-Strings (Buttons, Headlines, Datumsformate via `date-fns/locale` de/enUS/it/fr) ebenfalls lokalisieren
 
-### 3. Seed: einmalige Übersetzung der 3 Reisegruppen-Pakete
-Edge-Function deployen und einmalig für die 3 Package-IDs aufrufen (entweder via Admin-Button oder per `curl_edge_functions`-Tool nach Deploy).
+### 4. Datumsformatierung
+`date-fns/locale` `de`, `enUS`, `it`, `fr` je nach `lang` wählen (`format(..., { locale })`).
 
-### 4. UI-Button „Mit KI übersetzen"
-In `src/components/admin/refine/PackageEdit.tsx` neuer Button neben den Sprachfeldern: ruft die Edge-Function auf, zeigt Spinner, refetched Package-Config. Nutzbar für jedes Package, nicht nur Reisegruppen.
+## Außerhalb des Umfangs
+- Übersetzung von freien Textfeldern (Cover-Letter, Notizen) — bleiben DE
+- Übersetzung der Standard-`menu_items` (eigener Workflow nötig)
+- Email-Versand in IT/FR
 
-### 5. Hook + Types erweitern
-- `usePackageMenuConfig.ts`: zusätzliche Felder (`*_it`, `*_fr`, `options_translations`) durchreichen.
-- `MenuComposer/types.ts` + `OfferBuilder/types.ts`: `CourseConfig` und `DrinkConfig` um IT/FR Felder ergänzen.
-
-### 6. Persistenz im Angebot
-Beim Auto-Befüllen von `menu_selection` (in `useOfferBuilder.ts`) die mehrsprachigen Namen mit übernehmen, so dass `PublicOffer` (DE/EN/IT/FR) den jeweiligen Text rendert ohne Re-Lookup.
-
-### 7. PublicOffer-Rendering
-`src/pages/public-offer/...` (FinalOfferView/ProposalView): beim Anzeigen der Course/Drink-Items je nach `lang` das passende Feld nutzen (Fallback DE → EN → DE).
-
-## Nicht im Umfang
-- Übersetzung von Standard-MenuItems (haben eigene `name_en` Workflows).
-- Kein Live-On-Demand-Translate bei jedem Öffnen — nur einmalig + manueller Re-Trigger.
-- Keine Änderung der UX im OfferBuilder selbst (außer dass Texte jetzt mehrsprachig im Hintergrund vorhanden sind).
+## Technische Details
+- Files: `useOfferBuilder.ts` (Snapshot), `PublicOffer.tsx` (Switcher + Locale), `FinalOfferView.tsx` + `ProposalView.tsx` (Helper-Aufrufe), neuer Helper `src/lib/offerLang.ts`
+- Keine DB-Migration nötig (Spalten existieren bereits)
+- Keine Backend-Änderungen
