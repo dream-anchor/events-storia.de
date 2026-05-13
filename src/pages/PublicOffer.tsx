@@ -1415,8 +1415,8 @@ function FinalOptionCard({
 
   const pm = inquiry.payment_method ?? '';
   const offlineTiming: 'on_site' | 'after_event' | 'transfer_prepay' | null =
-    pm === 'pay_on_site' ? 'on_site'
-    : pm === 'invoice_after_event' ? 'after_event'
+    pm === 'on_site' || pm === 'pay_on_site' ? 'on_site'
+    : pm === 'invoice_after' || pm === 'invoice_after_event' ? 'after_event'
     : pm === 'bank_transfer_prepay' ? 'transfer_prepay'
     : null;
 
