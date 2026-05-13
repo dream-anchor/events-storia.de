@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { pickLang, OFFER_LANGS, OFFER_LANG_LABELS, isValidOfferLang, type OfferLang } from "@/lib/offerLang";
+import { OrderConfirmationDialog } from "@/pages/public-offer/OrderConfirmationDialog";
 import {
   Phone,
   Mail,
@@ -40,6 +41,7 @@ type OfferPhase =
   | "customer_responded"
   | "final_draft"
   | "final_sent"
+  | "order_confirmed"
   | "confirmed"
   | "paid";
 
@@ -483,7 +485,9 @@ export default function PublicOffer() {
           />
         )}
 
-        {(effectivePhase === "confirmed" || effectivePhase === "paid") && (
+        {(effectivePhase === "confirmed" ||
+          effectivePhase === "paid" ||
+          effectivePhase === "order_confirmed") && (
           <ConfirmationView inquiry={inquiry} options={options} />
         )}
 
@@ -738,6 +742,7 @@ function ProposalView({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [wantsCopy, setWantsCopy] = useState(false);
   const [copyEmail, setCopyEmail] = useState(inquiry.email || "");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
   const totalAmount = selectedOption?.total_amount ?? 0;
@@ -841,6 +846,14 @@ function ProposalView({
 
   const isSingle = options.length === 1;
   const busy = isSubmitting || isPaying !== null;
+
+  // Payment-Method bestimmt, ob "verbindlich buchen ohne Online-Zahlung" angeboten wird
+  const pm = inquiry.payment_method ?? '';
+  const offlineTiming: 'on_site' | 'after_event' | 'transfer_prepay' | null =
+    pm === 'pay_on_site' ? 'on_site'
+    : pm === 'invoice_after_event' ? 'after_event'
+    : pm === 'bank_transfer_prepay' ? 'transfer_prepay'
+    : null;
 
   return (
     <section className="bg-secondary/30">
@@ -948,6 +961,51 @@ function ProposalView({
             <div className="max-w-2xl mb-10 px-2">
               <CancellationTermsAccordion />
             </div>
+          )}
+
+          {/* ALTERNATIVE: Verbindlich buchen ohne Online-Zahlung (z.B. Zahlung vor Ort / nach Event) */}
+          {selectedOption && offlineTiming && (
+            <div className="max-w-2xl mb-10">
+              <div className="rounded-2xl border border-border/40 bg-white/40 dark:bg-white/5 backdrop-blur-sm p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h3 className="font-serif text-base md:text-lg font-semibold mb-1">
+                    Lieber ohne Online-Zahlung buchen?
+                  </h3>
+                  <p className="text-xs md:text-sm text-muted-foreground font-sans">
+                    Bestätigen Sie den Auftrag verbindlich — die Zahlung erfolgt
+                    {offlineTiming === 'on_site' && ' vor Ort am Veranstaltungstag.'}
+                    {offlineTiming === 'after_event' && ' per Rechnung nach der Veranstaltung.'}
+                    {offlineTiming === 'transfer_prepay' && ' per Überweisung vor der Veranstaltung.'}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setConfirmOpen(true)}
+                  variant="outline"
+                  className="rounded-full font-sans border-2 border-primary/40 hover:border-primary"
+                >
+                  <ShieldCheck className="h-4 w-4 mr-2" />
+                  Verbindlich buchen
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {selectedOption && offlineTiming && (
+            <OrderConfirmationDialog
+              open={confirmOpen}
+              onOpenChange={setConfirmOpen}
+              inquiryId={inquiry.id}
+              selectedOptionId={selectedOption.id}
+              totalAmount={totalAmount}
+              paymentTiming={offlineTiming}
+              onConfirmed={() => {
+                onSubmitted({
+                  inquiry: { ...inquiry, offer_phase: 'order_confirmed', selected_option_id: selectedOption.id },
+                  options,
+                  customer_response: null,
+                });
+              }}
+            />
           )}
 
           {/* SECONDARY ACTION — Nachricht senden */}
@@ -1319,6 +1377,7 @@ function FinalOptionCard({
   lang: OfferLang;
 }) {
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
   // Filter: Drinks mit Inhalt ODER "inkl."-Einträge (Wasser/Kaffee) mit quantityLabel
@@ -1353,6 +1412,13 @@ function FinalOptionCard({
   const totalAmount = option.total_amount;
   const deposit = computeDeposit(inquiry, totalAmount);
   const depositAmount = deposit.amount;
+
+  const pm = inquiry.payment_method ?? '';
+  const offlineTiming: 'on_site' | 'after_event' | 'transfer_prepay' | null =
+    pm === 'pay_on_site' ? 'on_site'
+    : pm === 'invoice_after_event' ? 'after_event'
+    : pm === 'bank_transfer_prepay' ? 'transfer_prepay'
+    : null;
 
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
@@ -1572,6 +1638,38 @@ function FinalOptionCard({
 
         {/* Stornobedingungen — kompakter Accordion unter Zahlungs-Button */}
         {totalAmount > 0 && <CancellationTermsAccordion />}
+
+        {offlineTiming && totalAmount > 0 && (
+          <div className="mt-4 pt-4 border-t border-border/20">
+            <Button
+              onClick={() => setConfirmOpen(true)}
+              variant="outline"
+              className="w-full rounded-full font-sans border-2 border-primary/40 hover:border-primary"
+            >
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              Verbindlich buchen ohne Online-Zahlung
+            </Button>
+            <p className="text-[11px] text-muted-foreground/70 text-center mt-2">
+              {offlineTiming === 'on_site' && 'Zahlung vor Ort am Veranstaltungstag'}
+              {offlineTiming === 'after_event' && 'Zahlung per Rechnung nach der Veranstaltung'}
+              {offlineTiming === 'transfer_prepay' && 'Zahlung per Überweisung vor der Veranstaltung'}
+            </p>
+          </div>
+        )}
+
+        {offlineTiming && (
+          <OrderConfirmationDialog
+            open={confirmOpen}
+            onOpenChange={setConfirmOpen}
+            inquiryId={inquiryId}
+            selectedOptionId={option.id}
+            totalAmount={totalAmount}
+            paymentTiming={offlineTiming}
+            onConfirmed={() => {
+              window.location.reload();
+            }}
+          />
+        )}
       </div>
     </div>
   );
