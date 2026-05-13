@@ -230,7 +230,7 @@ export const GroupInquiriesList = () => {
 
       <GroupInquiryDetail
         inquiry={selected}
-        onClose={() => setSelected(null)}
+        onClose={() => handleSheetChange(false)}
         onUpdated={() => query?.refetch?.()}
       />
     </AdminLayout>
