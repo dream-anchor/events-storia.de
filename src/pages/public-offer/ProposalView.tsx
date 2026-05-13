@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/lib/haptics";
 import { supabase } from "@/integrations/supabase/client";
+import { createPaymentSession, type PaymentSessionRequest } from "@/lib/createPaymentSession";
 import { toast } from "sonner";
 import type {
   PublicInquiry,
