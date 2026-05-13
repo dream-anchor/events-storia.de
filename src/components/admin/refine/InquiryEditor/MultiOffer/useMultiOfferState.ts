@@ -247,6 +247,12 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
             last_edited_at: new Date().toISOString(),
           })
           .eq("id", inquiryId);
+        // Erste Bearbeitung promotet "Neu" → "In Bearbeitung"
+        await supabase
+          .from("event_inquiries")
+          .update({ status: 'contacted' })
+          .eq("id", inquiryId)
+          .eq("status", "new");
       }
 
       // Log the activity with details about what changed
