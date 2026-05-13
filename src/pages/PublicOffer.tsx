@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation, useSearchParams } from "react-router-dom";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { supabase } from "@/integrations/supabase/client";
+import { createPaymentSession } from "@/lib/createPaymentSession";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
