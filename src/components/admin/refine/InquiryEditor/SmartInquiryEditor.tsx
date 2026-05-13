@@ -804,8 +804,10 @@ export const SmartInquiryEditor = () => {
             <PrintMenu inquiryId={inquiry.id} />
             {/* Save Status — unsichtbar (speichert automatisch im Hintergrund) */}
 
-            {/* LexOffice Document Button - Show if linked */}
-            {isOfferSent && lexofficeDocId && (
+            {/* LexOffice Document Button — nur fuer Rechnungen.
+                Der frühere "Angebot PDF"-Button wurde entfernt
+                (LexOffice-Quotation ist über die Sende-Vorschau erreichbar). */}
+            {isOfferSent && lexofficeDocId && lexofficeDocType === 'invoice' && (
               <Button
                 variant="outline"
                 size="sm"
@@ -819,7 +821,7 @@ export const SmartInquiryEditor = () => {
                   <ExternalLink className="h-4 w-4" />
                 )}
                 <span className="hidden sm:inline">
-                  {lexofficeDocType === 'invoice' ? 'Rechnung' : 'Angebot'} PDF
+                  Rechnung PDF
                 </span>
               </Button>
             )}
