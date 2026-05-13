@@ -61,6 +61,9 @@ export interface EventInquiry extends BaseRecord {
   offer_phase: string | null;
   total_amount: number | null;
   selected_option_id: string | null;
+  // Service-Typ-Felder (aus event_inquiries-View)
+  inquiry_type?: 'event' | 'catering' | null;
+  location_type?: 'storia' | 'company' | 'custom' | null;
 }
 
 export type InquiryPriority = 'normal' | 'high' | 'urgent';
