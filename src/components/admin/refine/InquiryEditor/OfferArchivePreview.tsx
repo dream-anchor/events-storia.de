@@ -288,8 +288,7 @@ export function OfferArchivePreview() {
                 <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto" />
                 <p>Für diese Version wurde kein PDF archiviert.</p>
                 <p className="text-xs text-muted-foreground/70">
-                  Die ursprüngliche LexOffice-Quotation kann weiterhin über den
-                  „Angebot PDF"-Button im Editor abgerufen werden.
+                  Die ursprüngliche LexOffice-Quotation steht direkt in LexOffice zur Verfügung.
                 </p>
               </div>
             )}
