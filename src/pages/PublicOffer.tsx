@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { pickLang, OFFER_LANGS, OFFER_LANG_LABELS, isValidOfferLang, type OfferLang } from "@/lib/offerLang";
+import { OrderConfirmationDialog } from "@/pages/public-offer/OrderConfirmationDialog";
 import {
   Phone,
   Mail,
@@ -40,6 +41,7 @@ type OfferPhase =
   | "customer_responded"
   | "final_draft"
   | "final_sent"
+  | "order_confirmed"
   | "confirmed"
   | "paid";
 
