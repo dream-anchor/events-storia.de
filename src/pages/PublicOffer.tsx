@@ -438,6 +438,13 @@ export default function PublicOffer() {
       <main className="flex-1">
         <HeroSection inquiry={inquiry} phase={effectivePhase} />
 
+        {/* Sprachumschalter — nur einblenden wenn Snapshot überhaupt Übersetzungen enthält */}
+        <OfferLanguageSwitcher
+          options={options}
+          lang={lang}
+          onChange={setLang}
+        />
+
         {/* PDF-Download — nur wenn LexOffice-Angebot verknüpft */}
         {inquiry.lexoffice_invoice_id && (
           <PdfDownloadSection inquiryId={inquiry.id} />
@@ -455,6 +462,7 @@ export default function PublicOffer() {
           <ProposalView
             inquiry={inquiry}
             options={options}
+            lang={lang}
             onSubmitted={(updatedData) => setData(updatedData)}
           />
         )}
@@ -471,6 +479,7 @@ export default function PublicOffer() {
           <FinalOfferView
             inquiry={inquiry}
             options={options}
+            lang={lang}
           />
         )}
 
