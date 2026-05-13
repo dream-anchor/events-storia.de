@@ -59,6 +59,7 @@ interface PublicInquiry {
   offer_phase: OfferPhase;
   selected_option_id: string | null;
   email_content: string | null;
+  lexoffice_quotation_id: string | null;
   lexoffice_invoice_id: string | null;
   deposit_amount?: number | null;
   deposit_percent?: number | null;
@@ -258,7 +259,7 @@ export default function PublicOffer() {
               .maybeSingle(),
             supabase
               .from('event_inquiries' as never)
-              .select('id, company_name, contact_name, email, event_type, preferred_date, event_end_date, guest_count, lexoffice_invoice_id, deposit_amount, deposit_percent, deposit_due_days, payment_method, offer_slug')
+              .select('id, company_name, contact_name, email, event_type, preferred_date, event_end_date, guest_count, lexoffice_quotation_id, lexoffice_invoice_id, deposit_amount, deposit_percent, deposit_due_days, payment_method, offer_slug')
               .eq('id', id)
               .maybeSingle(),
           ]);
@@ -334,6 +335,7 @@ export default function PublicOffer() {
               offer_phase: 'proposal_sent',
               selected_option_id: null,
               email_content: hist.email_content ?? null,
+              lexoffice_quotation_id: (inq.lexoffice_quotation_id as string | null) ?? null,
               lexoffice_invoice_id: (inq.lexoffice_invoice_id as string | null) ?? null,
               deposit_amount: (inq.deposit_amount as number | null) ?? null,
               deposit_percent: (inq.deposit_percent as number | null) ?? null,
@@ -537,10 +539,16 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
       const a = document.createElement('a');
       a.href = url;
       a.download = data.filename || 'STORIA_Angebot.pdf';
+      a.style.display = 'none';
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        a.remove();
+      }, 1000);
     } catch (err) {
       console.error('PDF download failed:', err);
+      toast.error('PDF konnte nicht heruntergeladen werden');
     } finally {
       setIsDownloading(false);
     }

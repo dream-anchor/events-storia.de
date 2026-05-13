@@ -66,10 +66,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Inquiry-Daten holen: lexoffice_invoice_id + contact_name
+    // Inquiry-Daten holen: LexOffice-Angebots-ID bevorzugt verwenden
     const { data: inquiry, error: dbError } = await supabase
       .from('event_inquiries')
-      .select('lexoffice_invoice_id, contact_name')
+      .select('lexoffice_quotation_id, lexoffice_invoice_id, contact_name')
       .eq('id', inquiryId)
       .single();
 
@@ -80,10 +80,13 @@ serve(async (req) => {
       );
     }
 
-    const lexofficeId = (inquiry as Record<string, unknown>).lexoffice_invoice_id as string | null;
+    const lexofficeId = (
+      (inquiry as Record<string, unknown>).lexoffice_quotation_id ||
+      (inquiry as Record<string, unknown>).lexoffice_invoice_id
+    ) as string | null;
     if (!lexofficeId) {
       return new Response(
-        JSON.stringify({ error: 'No LexOffice document linked to this inquiry' }),
+        JSON.stringify({ error: 'No LexOffice quotation linked to this inquiry' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
