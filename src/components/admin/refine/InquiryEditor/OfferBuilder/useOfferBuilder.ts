@@ -566,6 +566,12 @@ export function useOfferBuilder({
               last_edited_at: new Date().toISOString(),
             })
             .eq("id", inquiryId);
+          // Auto-Promotion: erste Bearbeitung verschiebt "Neu" → "In Bearbeitung"
+          await supabase
+            .from("event_inquiries")
+            .update({ status: 'contacted' } as Record<string, unknown>)
+            .eq("id", inquiryId)
+            .eq("status", "new");
         }
 
         lastSavedJsonRef.current = currentJson;
