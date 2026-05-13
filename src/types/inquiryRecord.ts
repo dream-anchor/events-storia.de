@@ -1,7 +1,7 @@
 import type { CateringOrder } from "@/types/refine";
 
 export type InquiryKind = "event" | "catering";
-export type ServiceType = "restaurant" | "catering" | "catering_order";
+export type ServiceType = "restaurant" | "catering" | "catering_order" | "group";
 
 export type UnifiedColumn =
   | "lead"
@@ -41,6 +41,26 @@ export interface V2EventRow {
   } | null;
 }
 
+export interface GroupInquiryRow {
+  id: string;
+  external_id?: string | null;
+  contact_name: string;
+  company_name: string | null;
+  email: string;
+  phone: string | null;
+  group_size: number;
+  preferred_date: string | null;
+  preferred_date_flexible: boolean | null;
+  arrival_time: string | null;
+  preferred_menu: string | null;
+  message: string | null;
+  language: string | null;
+  source: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string | null;
+}
+
 export interface InquiryRecord {
   id: string;
   kind: InquiryKind;
@@ -67,6 +87,9 @@ export interface InquiryRecord {
   archived?: boolean;
   raw: V2EventRow | CateringOrder;
 }
+
+// Erweiterung: raw kann auch eine Reisegruppen-Anfrage sein
+export type InquiryRecordRaw = V2EventRow | CateringOrder | GroupInquiryRow;
 
 export function mapV2EventToColumn(
   status: string | null | undefined,
@@ -168,6 +191,49 @@ export function mapOrder(o: CateringOrder): InquiryRecord {
   };
 }
 
+export function mapGroupInquiry(g: GroupInquiryRow): InquiryRecord {
+  return {
+    id: g.id,
+    kind: "event",
+    serviceType: "group",
+    number: g.external_id ? String(g.external_id).slice(0, 8) : g.id.slice(0, 8),
+    customerName: g.contact_name?.trim() || "—",
+    companyName: g.company_name?.trim() || null,
+    email: g.email ?? "",
+    phone: g.phone ?? null,
+    date: g.preferred_date ?? null,
+    time: g.arrival_time ?? null,
+    guestCount: g.group_size ?? null,
+    itemsCount: null,
+    totalAmount: null,
+    status: g.status ?? "new",
+    offerPhase: null,
+    column: mapGroupToColumn(g.status),
+    archived: g.status === "archived",
+    archivedAt: null,
+    createdAt: g.created_at,
+    updatedAt: g.updated_at || g.created_at,
+    raw: g as unknown as V2EventRow,
+  };
+}
+
+export function mapGroupToColumn(status: string | null | undefined): UnifiedColumn {
+  switch (status) {
+    case "new":
+      return "lead";
+    case "in_progress":
+    case "offer_sent":
+      return "pending";
+    case "confirmed":
+      return "won";
+    case "rejected":
+    case "archived":
+      return "closed";
+    default:
+      return "lead";
+  }
+}
+
 /**
  * Vergangenes Event = Datum liegt vor heute UND es wurde gebucht/bezahlt/abgeschlossen.
  * Wird zur automatischen Einsortierung in den "Erledigt"-Bereich verwendet.
@@ -205,7 +271,27 @@ const WON_CATERING_STATUSES = new Set(["confirmed"]);
 const ACTIVE_EVENT_STATUSES = new Set(["inquiry", "offer_draft", "offer_sent"]);
 const ACTIVE_CATERING_STATUSES = new Set(["pending"]);
 
+const ARCHIVE_GROUP_STATUSES = new Set(["rejected", "archived"]);
+const WON_GROUP_STATUSES = new Set(["confirmed"]);
+const ACTIVE_GROUP_STATUSES = new Set(["new", "in_progress", "offer_sent"]);
+
 export function getLifecycleBucket(r: InquiryRecord): LifecycleBucket {
+  // Reisegruppen-Anfragen haben eigene Statuswerte
+  if (r.serviceType === "group") {
+    if (r.archived || ARCHIVE_GROUP_STATUSES.has(r.status)) return "archive";
+    if (WON_GROUP_STATUSES.has(r.status)) {
+      if (r.date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const eventDate = new Date(r.date);
+        if (!Number.isNaN(eventDate.getTime()) && eventDate < today) return "done";
+      }
+      return "won";
+    }
+    if (ACTIVE_GROUP_STATUSES.has(r.status)) return "inbox";
+    return "inbox";
+  }
+
   // 1) Manuell archiviert ODER terminaler Status → Archiv
   if (r.archived) return "archive";
   const archiveSet =
