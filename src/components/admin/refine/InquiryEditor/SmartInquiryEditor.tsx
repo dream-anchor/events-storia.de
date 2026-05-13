@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
 import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
+import { PrintMenu } from "@/components/admin/refine/print/PrintMenu";
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -800,6 +801,7 @@ export const SmartInquiryEditor = () => {
 
           {/* Header Actions */}
           <div className="flex items-center gap-2 shrink-0">
+            <PrintMenu inquiryId={inquiry.id} />
             {/* Save Status — unsichtbar (speichert automatisch im Hintergrund) */}
 
             {/* LexOffice Document Button - Show if linked */}
