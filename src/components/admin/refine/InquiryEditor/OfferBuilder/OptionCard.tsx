@@ -448,6 +448,28 @@ export function OptionCard({
             />
           )}
 
+          {/* Equipment & Personal — direkt unter dem Essen, damit sichtbar ist,
+              dass diese Posten in die Gesamtsumme einfliessen. */}
+          {(option.offerMode === 'menu' || option.offerMode === 'paket' || option.offerMode === 'email') && (
+            <div className="space-y-4">
+              <p className="text-[11px] text-muted-foreground/70 -mb-2">
+                Equipment &amp; Personal — fliessen in die Gesamtsumme ein.
+              </p>
+              <InlineServiceEditor
+                items={option.menuSelection.equipment ?? []}
+                sectionType="equipment"
+                onUpdate={(items) => onUpdate({ menuSelection: { ...option.menuSelection, equipment: items } })}
+                disabled={disabled}
+              />
+              <InlineServiceEditor
+                items={option.menuSelection.staff ?? []}
+                sectionType="staff"
+                onUpdate={(items) => onUpdate({ menuSelection: { ...option.menuSelection, staff: items } })}
+                disabled={disabled}
+              />
+            </div>
+          )}
+
           {/* Preis — nur anzeigen wenn mindestens 1 Gang konfiguriert */}
           {(option.offerMode === 'paket' || (option.offerMode === 'menu' && option.menuSelection.courses.some(c => c.itemName))) && (
           <PriceBreakdown
@@ -472,24 +494,6 @@ export function OptionCard({
             equipment={option.menuSelection.equipment}
             staff={option.menuSelection.staff}
           />
-          )}
-
-          {/* Equipment & Personal — in allen Modi verfügbar */}
-          {(option.offerMode === 'menu' || option.offerMode === 'paket' || option.offerMode === 'email') && (
-            <div className="space-y-4">
-              <InlineServiceEditor
-                items={option.menuSelection.equipment ?? []}
-                sectionType="equipment"
-                onUpdate={(items) => onUpdate({ menuSelection: { ...option.menuSelection, equipment: items } })}
-                disabled={disabled}
-              />
-              <InlineServiceEditor
-                items={option.menuSelection.staff ?? []}
-                sectionType="staff"
-                onUpdate={(items) => onUpdate({ menuSelection: { ...option.menuSelection, staff: items } })}
-                disabled={disabled}
-              />
-            </div>
           )}
         </div>
       </Card>
