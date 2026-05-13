@@ -410,6 +410,14 @@ export const UnifiedInquiriesList = () => {
           />
         )}
       </div>
+      <GroupInquiryDetail
+        inquiry={selectedGroup}
+        onClose={() => setSelectedGroupId(null)}
+        onUpdated={() => {
+          refetch();
+          groupQuery?.refetch?.();
+        }}
+      />
     </AdminLayout>
   );
 };
