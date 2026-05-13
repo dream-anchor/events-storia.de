@@ -16,8 +16,6 @@ import type {
   ServiceType,
 } from "@/types/inquiryRecord";
 import { UnifiedKanbanView, ServiceBadge } from "./UnifiedKanbanView";
-import { GroupInquiryDetail, type GroupInquiry } from "./GroupInquiriesList";
-import { useList } from "@refinedev/core";
 import { getRecordActionState } from "@/lib/inquiryActionState";
 import { cn } from "@/lib/utils";
 
@@ -76,17 +74,6 @@ function formatCurrency(n: number | null) {
 export const UnifiedInquiriesList = () => {
   const navigate = useNavigate();
   const { records, isLoading, refetch } = useUnifiedInquiries();
-  const { result: groupResult, query: groupQuery } = useList<GroupInquiry>({
-    resource: "group_inquiries",
-    sorters: [{ field: "created_at", order: "desc" }],
-    pagination: { pageSize: 200 },
-  });
-  const groupItems = (groupResult?.data ?? []) as GroupInquiry[];
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const selectedGroup = useMemo(
-    () => groupItems.find((g) => g.id === selectedGroupId) ?? null,
-    [groupItems, selectedGroupId],
-  );
 
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("inbox");
@@ -143,14 +130,12 @@ export const UnifiedInquiriesList = () => {
   };
 
   const handleRowClick = (r: InquiryRecord) => {
-    if (r.serviceType === "group") {
-      setSelectedGroupId(r.id);
-      return;
-    }
     navigate(
-      r.kind === "event"
-        ? `/admin/events/${r.id}/edit`
-        : `/admin/orders/${r.id}/edit`,
+      r.serviceType === "group"
+        ? `/admin/reisegruppen/${r.id}/edit`
+        : r.kind === "event"
+          ? `/admin/events/${r.id}/edit`
+          : `/admin/orders/${r.id}/edit`,
     );
   };
 
@@ -363,7 +348,6 @@ export const UnifiedInquiriesList = () => {
               records={kanbanRecords}
               onRefresh={refetch}
               bucket={statusFilter}
-              onOpenGroup={(id) => setSelectedGroupId(id)}
             />
           </>
         ) : (
@@ -410,14 +394,6 @@ export const UnifiedInquiriesList = () => {
           />
         )}
       </div>
-      <GroupInquiryDetail
-        inquiry={selectedGroup}
-        onClose={() => setSelectedGroupId(null)}
-        onUpdated={() => {
-          refetch();
-          groupQuery?.refetch?.();
-        }}
-      />
     </AdminLayout>
   );
 };

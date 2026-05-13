@@ -284,15 +284,13 @@ export function UnifiedKanbanView({ records, onRefresh, bucket, onOpenGroup }: U
                 onDragStart={(e) => handleDragStart(e, r)}
                 onDragEnd={handleDragEnd}
                 onClick={() =>
-                  r.serviceType === "group" && onOpenGroup
-                    ? onOpenGroup(r.id)
-                    : navigate(
-                        r.serviceType === "group"
-                          ? `/admin/reisegruppen?id=${r.id}`
-                          : r.kind === "event"
-                            ? `/admin/events/${r.id}/edit`
-                            : `/admin/orders/${r.id}/edit`
-                      )
+                  navigate(
+                    r.serviceType === "group"
+                      ? `/admin/reisegruppen/${r.id}/edit`
+                      : r.kind === "event"
+                        ? `/admin/events/${r.id}/edit`
+                        : `/admin/orders/${r.id}/edit`,
+                  )
                 }
                 onArchive={() => handleArchiveCard(r)}
               />
