@@ -168,6 +168,8 @@ export function mapV2Event(e: V2EventRow): InquiryRecord {
     archivedAt: e.archived_at,
     createdAt: e.created_at,
     updatedAt: e.updated_at || e.created_at,
+    occasion: e.occasion ?? null,
+    dateEnd: e.date_end ?? null,
     raw: e,
   };
 }
