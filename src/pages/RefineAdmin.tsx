@@ -12,6 +12,7 @@ import { OfferArchivePreview } from "@/components/admin/refine/InquiryEditor/Off
 import { AdminOfferCreate } from "@/components/admin/refine/OfferCreate";
 import { UnifiedInquiriesList } from "@/components/admin/refine/UnifiedInquiriesList";
 import { GroupInquiriesList } from "@/components/admin/refine/GroupInquiriesList";
+import { GroupInquiryEdit } from "@/components/admin/refine/GroupInquiryEdit";
 import Posteingang from "@/pages/admin/Posteingang";
 import { TestModeProvider } from "@/contexts/TestModeContext";
 import { SaveStatusProvider } from "@/components/admin/shared/SaveStatusContext";
@@ -100,6 +101,7 @@ export const RefineAdminApp = () => {
         <Route path="inquiries" element={<UnifiedInquiriesList />} />
         <Route path="posteingang" element={<Posteingang />} />
         <Route path="reisegruppen" element={<GroupInquiriesList />} />
+        <Route path="reisegruppen/:id/edit" element={<GroupInquiryEdit />} />
         <Route path="events">
           <Route index element={<EventsList />} />
           <Route path="create" element={<AdminOfferCreate />} />
