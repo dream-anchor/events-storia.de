@@ -13,7 +13,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as strin
 
 export interface PaymentSessionRequest {
   inquiryId: string;
-  optionId?: string;
+  optionId?: string | null;
   paymentType: 'full' | 'deposit';
   optionQuantities?: Array<{ optionId: string; quantity: number }>;
 }
