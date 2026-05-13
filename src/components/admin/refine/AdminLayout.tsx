@@ -74,33 +74,41 @@ export const AdminLayout = ({
   // Admin-Theme auf body setzen, damit Radix-Portale (Dialog, Select, etc.)
   // die Maestro CSS-Variablen statt der Website-Variablen erben
   useEffect(() => {
-    document.body.classList.add('admin-active');
-    // Maestro-Favicon setzen
-    const existingIcon = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
-    const prevHref = existingIcon?.href;
-    if (existingIcon) {
-      existingIcon.href = '/maestro-favicon.svg';
-      existingIcon.type = 'image/svg+xml';
+    let prevHref: string | undefined;
+    let existingIcon: HTMLLinkElement | null = null;
+    try {
+      document.body.classList.add('admin-active');
+      existingIcon = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
+      prevHref = existingIcon?.href;
+      if (existingIcon) {
+        existingIcon.href = '/maestro-favicon.svg';
+        existingIcon.type = 'image/svg+xml';
+      }
+      document.title = 'StoriaMaestro';
+    } catch (err) {
+      console.warn('[AdminLayout] theme setup failed', err);
     }
-    document.title = 'StoriaMaestro';
     return () => {
-      document.body.classList.remove('admin-active');
-      if (existingIcon && prevHref) existingIcon.href = prevHref;
+      try {
+        document.body.classList.remove('admin-active');
+        if (existingIcon && prevHref) existingIcon.href = prevHref;
+      } catch { /* ignore */ }
     };
   }, []);
 
   // Get current user
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setUserEmail(user.email || null);
-        // Extract name from email or metadata
-        const name = user.user_metadata?.full_name ||
-                     user.email?.split('@')[0] ||
-                     "Benutzer";
-        setUserName(name);
-      }
-    });
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        if (user) {
+          setUserEmail(user.email || null);
+          const name = user.user_metadata?.full_name ||
+                       user.email?.split('@')[0] ||
+                       "Benutzer";
+          setUserName(name);
+        }
+      })
+      .catch((err) => console.warn('[AdminLayout] getUser failed', err));
   }, []);
 
   const handleLogout = async () => {

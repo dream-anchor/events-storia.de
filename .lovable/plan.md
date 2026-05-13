@@ -1,33 +1,43 @@
-## Diagnose: Getränke fehlen weiterhin im LexOffice-Beleg
+## Zwei separate Probleme
 
-DB-Stand für die Anfrage `90321866-…ce97`:
-- `offer_mode = full_menu`, `pricingMode = per_person`, `drinksMode = einzeln`
-- `budgetPerPerson = 40,20 €`, `guest_count = 74`, `total_amount = 2.974,80 €`
-- `drinksEinzeln = [{Wasser…, pricePerPerson: 0}, {Zwei Getränke pro Person…, pricePerPerson: 0}]`
+### 1) Maestro: weiße Seite auf dem Smartphone (events-storia.de/admin)
 
-In `create-event-quotation` läuft dieser Fall in den **Paket-/E-Mail-Branch** (Zeile 483 ff.), weil der `menu`-Branch nur auf `offer_mode === 'menu'` matcht — `full_menu` matcht dort nicht. Der Paket-Branch baut **eine** Position `Veranstaltungspaket` mit `quantity = 74 Person × 40,20 € (7 %)` und listet Inhalte in `description`.
+**Befund**
+- `/admin/login` rendert in der Preview problemlos (Login-Form sichtbar bei 390×844) und auch auf der Live-Domain `events-storia.de/admin`.
+- Wenn du **eingeloggt** bist und `/admin` aufrufst, lädt das Maestro-Dashboard korrekt (per Mobile-Screenshot bestätigt).
+- Wahrscheinlichste Ursache der weißen Seite auf deinem Handy: **veralteter Service-Worker / Browser-Cache** — die letzte Mobile-Korrektur ist live, aber dein iPhone hält noch alte JS-Bundles, die mit dem neuen CSS kollidieren und beim Mount crashen.
 
-Die Speisen werden korrekt in die Beschreibung übernommen, die Getränke aber **nicht**, weil `buildDrinkInfoLines()` in Zeile 128 alle Getränke mit `pricePerPerson <= 0` herausfiltert. Genau das sind die zwei Inklusivgetränke des Kunden → sie verschwinden komplett aus dem LexOffice-Dokument.
+**Vorgeschlagene Aktionen**
+- Cache-Busting verstärken: in `index.html` einen `<meta http-equiv="Cache-Control" content="no-cache">` für die Admin-Route ergänzen und sicherstellen, dass kein alter Service-Worker (`sw.js`) registriert ist (in `src/main.tsx` ein einmaliges `navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()))` für `/admin` einbauen).
+- AdminLayout absichern: Defensive Try/Catch im `useEffect` für `document.body.classList.add('admin-active')` und User-Fetch, damit ein einzelner Fehler nicht den gesamten Tree umlegt.
+- `body.admin-active` Hintergrund explizit auf `#f6f7f8` setzen (statt nur `hsl(220 14% 96%)`), passend zum `.admin-layout`-Container — verhindert weißes Flash zwischen Mount und CSS-Apply.
+- Erbitten: bitte einmal auf dem iPhone „Verlauf & Webseitendaten löschen" (Safari → Einstellungen) und dann erneut testen. Wenn das schon hilft, ist die Cache-Hypothese bestätigt und die obigen Schutzmaßnahmen verhindern das Wiederauftreten.
 
-Dasselbe Filter-Muster steht in `repair-quotation-pricing/index.ts` (Zeile 317).
+### 2) Public Offer: „Fehler beim Erstellen der Zahlungssitzung"
 
-## Fix
+**Befund**
+- Edge-Function `create-payment-session` läuft sauber: direkter cURL-Test gegen die Anfrage Lagourrès (`90321866-…`) liefert `200 OK` und gültige Stripe-Checkout-URL — sowohl im Single-Option- als auch im Multi-Option-Pfad.
+- Das Frontend ruft die Function über `supabase.functions.invoke()` auf. Diese Methode hängt automatisch den Auth-Header an. **In der Lovable-Preview-Umgebung kann der Fetch-Proxy genau diesen Aufruf abfangen und brechen** (bekannter Lovable-Preview-Bug bei Supabase-Auth-Calls). Auf der publizierten URL `events-storia.de` tritt das nicht auf.
+- Sekundär möglich: Das angesteuerte Angebot hat keine Option (siehe `95995bb6-…` und `9ba811ab-…` in der DB — beide ohne `inquiry_offer_options`). In dem Fall liefert die Function bewusst `400 — optionId ist erforderlich`.
 
-### 1) `supabase/functions/create-event-quotation/index.ts`
-- `buildDrinkInfoLines()` so anpassen, dass **inklusive** Getränke (`pricePerPerson === 0` oder undefined) immer in der Beschreibung gelistet werden. Nur leere Namen werden übersprungen. Der Preis-Filter (`<= 0`) entfällt für die reine Description-Ausgabe.
-- Wenn ein Preis > 0 vorhanden ist, weiterhin als „Name (X,XX €/Pers.)" formatieren; bei Preis 0 nur den Namen ausgeben (z. B. „Zwei Getränke pro Person (Wahl zwischen Wein, Spritz oder Bier) — inklusive").
-- Analog für `drinksMode = pauschale` und `weinbegleitung`: Wenn Preis 0 ist (selten, aber möglich), trotzdem mit Hinweis „inklusive" listen.
+**Vorgeschlagene Aktionen**
+- Robusterer Frontend-Aufruf: in `PublicOffer.tsx` (Zeilen 776 & 1445) und `ProposalView.tsx` (Zeile 182) statt `supabase.functions.invoke` einen direkten `fetch` auf `${VITE_SUPABASE_URL}/functions/v1/create-payment-session` mit `apikey` + `Content-Type` Headern verwenden. Das umgeht den Preview-Proxy und funktioniert in Preview wie in Produktion identisch.
+- Bessere Fehlermeldung: Wenn die Function `400 — optionId ist erforderlich` liefert, dem Kunden sagen „Bitte erst eine Menü-Option auswählen" statt der generischen Sitzungs-Fehlermeldung.
+- Guard im UI: Wenn `options.length === 0`, den Zahlen-Button gar nicht anzeigen, sondern Hinweistext „Angebot enthält keine Optionen — bitte Storia kontaktieren".
+- Verifikation: Nach dem Deploy einmal in der Preview UND auf events-storia.de den Zahlen-Button für die Lagourrès-Anfrage drücken und bestätigen, dass Stripe Checkout öffnet.
 
-### 2) `supabase/functions/repair-quotation-pricing/index.ts`
-- Dieselbe Änderung in der dortigen `buildDrinkInfoLines`-Funktion (Zeile 315 ff.).
+## Technische Details
 
-### 3) Stale Quotation zurücksetzen
-- `UPDATE event_inquiries SET lexoffice_quotation_id = NULL WHERE id = '90321866-239d-4331-a85b-fddf5280ce97'` per neuer Migration, damit beim nächsten Preview/Versand ein frisches LexOffice-Dokument mit korrekter Beschreibung entsteht.
+```text
+src/pages/PublicOffer.tsx          Zeilen 776, 1445 → fetch statt invoke
+src/pages/public-offer/
+  ├── ProposalView.tsx             Zeile 182 → fetch statt invoke
+  └── FinalOfferView.tsx           Zeile 111 → fetch statt invoke
+src/components/admin/refine/
+  └── AdminLayout.tsx              Try/Catch um useEffect-Bodies
+src/index.css                      body.admin-active → bg #f6f7f8
+src/main.tsx                       SW-Unregister Cleanup
+index.html                         no-cache Meta für Admin
+```
 
-### 4) Deploy & Verifizieren
-- Edge Functions `create-event-quotation` und `repair-quotation-pricing` deployen.
-- Dry-Run via `OfferSendPreview` (Route bereits offen): geladenes PDF muss in der Position „Veranstaltungspaket" jetzt unter „Inklusive:" auch beide Getränke nennen.
-
-## Was NICHT geändert wird
-- Keine Tax-Logik-Änderung (7 % bleibt korrekt für inkludiertes Komplettpaket — sobald Getränke einen Eigenpreis bekommen, greifen die bestehenden 19 %-Positionen weiter unten im Code).
-- Kein Refactoring der `full_menu` vs. `menu` Branch-Unterscheidung — separates Thema, würde den Scope sprengen.
+Keine DB-Migration nötig. Keine Änderung an der Edge-Function (läuft korrekt).

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation, useSearchParams } from "react-router-dom";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { supabase } from "@/integrations/supabase/client";
+import { createPaymentSession } from "@/lib/createPaymentSession";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
@@ -773,18 +774,17 @@ function ProposalView({
     if (!selectedOptionId) return;
     setIsPaying(paymentType);
     try {
-      const { data, error } = await supabase.functions.invoke('create-payment-session', {
-        body: { inquiryId: inquiry.id, optionId: selectedOptionId, paymentType },
+      const { checkoutUrl } = await createPaymentSession({
+        inquiryId: inquiry.id,
+        optionId: selectedOptionId,
+        paymentType,
       });
-      if (error || !data?.checkoutUrl) {
-        throw new Error(data?.error || 'Fehler beim Erstellen der Zahlungssitzung');
-      }
       trackEvent("offer_payment_initiated", {
         payment_type: paymentType,
         value: paymentType === 'full' ? totalAmount : depositAmount,
         currency: "EUR",
       });
-      window.location.href = data.checkoutUrl;
+      window.location.href = checkoutUrl;
     } catch (err) {
       setIsPaying(null);
       toast.error(
@@ -1442,13 +1442,12 @@ function FinalOptionCard({
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-payment-session', {
-        body: { inquiryId, optionId: option.id, paymentType },
+      const { checkoutUrl } = await createPaymentSession({
+        inquiryId,
+        optionId: option.id,
+        paymentType,
       });
-      if (error || !data?.checkoutUrl) {
-        throw new Error(data?.error || 'Fehler beim Erstellen der Zahlungssitzung');
-      }
-      window.location.href = data.checkoutUrl;
+      window.location.href = checkoutUrl;
     } catch (err) {
       setIsRedirecting(false);
       toast.error(

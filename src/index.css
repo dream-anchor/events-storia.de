@@ -149,7 +149,7 @@ body.admin-active {
   font-feature-settings: normal !important;
 
   /* Hintergrund des body selbst (sichtbar hinter Overlay) */
-  background-color: hsl(220 14% 96%);
+  background-color: #f6f7f8;
 }
 
 /* Alle Portal-Elemente innerhalb admin-active erben Maestro-Typografie */
