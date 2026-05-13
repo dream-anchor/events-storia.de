@@ -284,9 +284,11 @@ export function UnifiedKanbanView({ records, onRefresh, bucket }: UnifiedKanbanV
                 onDragEnd={handleDragEnd}
                 onClick={() =>
                   navigate(
-                    r.kind === "event"
-                      ? `/admin/events/${r.id}/edit`
-                      : `/admin/orders/${r.id}/edit`
+                    r.serviceType === "group"
+                      ? `/admin/reisegruppen?id=${r.id}`
+                      : r.kind === "event"
+                        ? `/admin/events/${r.id}/edit`
+                        : `/admin/orders/${r.id}/edit`
                   )
                 }
                 onArchive={() => handleArchiveCard(r)}
