@@ -74,9 +74,18 @@ export interface DrinkConfig {
 export interface CourseSelection {
   courseType: CourseType;
   courseLabel: string;
+  courseLabel_en?: string | null;
+  courseLabel_it?: string | null;
+  courseLabel_fr?: string | null;
   itemId: string | null;
   itemName: string;
+  itemName_en?: string | null;
+  itemName_it?: string | null;
+  itemName_fr?: string | null;
   itemDescription: string | null;
+  itemDescription_en?: string | null;
+  itemDescription_it?: string | null;
+  itemDescription_fr?: string | null;
   itemSource: ItemSource;
   isCustom: boolean;
   /** Editierbarer Preis pro Position (bei quantity=1 = Preis pro Portion; bei quantity>1 = Gesamtpreis fuer diese Position) */
@@ -88,8 +97,16 @@ export interface CourseSelection {
 export interface DrinkSelection {
   drinkGroup: DrinkGroupType;
   drinkLabel: string;
+  drinkLabel_en?: string | null;
+  drinkLabel_it?: string | null;
+  drinkLabel_fr?: string | null;
   selectedChoice: string | null; // For is_choice = true groups
+  /** Übersetzungen der ausgewählten Option (key = lang, value = übersetzte Bezeichnung) */
+  selectedChoice_translations?: Partial<Record<'en' | 'it' | 'fr', string>> | null;
   quantityLabel: string | null;
+  quantityLabel_en?: string | null;
+  quantityLabel_it?: string | null;
+  quantityLabel_fr?: string | null;
   customDrink?: string | null; // For manual drink entries
 }
 

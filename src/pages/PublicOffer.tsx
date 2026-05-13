@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
+import { pickLang, OFFER_LANGS, OFFER_LANG_LABELS, isValidOfferLang, type OfferLang } from "@/lib/offerLang";
 import {
   Phone,
   Mail,
@@ -65,8 +66,17 @@ interface PublicInquiry {
 interface CourseSelection {
   courseType: string;
   courseLabel: string;
+  courseLabel_en?: string | null;
+  courseLabel_it?: string | null;
+  courseLabel_fr?: string | null;
   itemName: string;
+  itemName_en?: string | null;
+  itemName_it?: string | null;
+  itemName_fr?: string | null;
   itemDescription: string | null;
+  itemDescription_en?: string | null;
+  itemDescription_it?: string | null;
+  itemDescription_fr?: string | null;
   /** Menge bei per_event-Bestellungen. Default 1 = keine Anzeige. */
   quantity?: number | null;
 }
@@ -74,8 +84,15 @@ interface CourseSelection {
 interface DrinkSelection {
   drinkGroup: string;
   drinkLabel: string;
+  drinkLabel_en?: string | null;
+  drinkLabel_it?: string | null;
+  drinkLabel_fr?: string | null;
   selectedChoice: string | null;
+  selectedChoice_translations?: Partial<Record<'en' | 'it' | 'fr', string>> | null;
   quantityLabel: string | null;
+  quantityLabel_en?: string | null;
+  quantityLabel_it?: string | null;
+  quantityLabel_fr?: string | null;
   customDrink?: string | null;
 }
 
@@ -184,6 +201,14 @@ export default function PublicOffer() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [payments, setPayments] = useState<PublicPayment[]>([]);
+
+  // Sprache: ?lang=de|en|it|fr (Default: de). Steuert Anzeige der übersetzten
+  // Menü-/Getränke-Felder (course_label, item_name, drink_label, ...).
+  const langParam = searchParams.get('lang');
+  const [lang, setLang] = useState<OfferLang>(isValidOfferLang(langParam) ? langParam : 'de');
+  useEffect(() => {
+    if (isValidOfferLang(langParam) && langParam !== lang) setLang(langParam);
+  }, [langParam, lang]);
 
   // Preview-Modus: wenn die Seite als iframe in der Admin-Preview angezeigt wird,
   // wird der aktuelle email_draft via Query-Param übergeben. So sieht der Admin
@@ -413,6 +438,13 @@ export default function PublicOffer() {
       <main className="flex-1">
         <HeroSection inquiry={inquiry} phase={effectivePhase} />
 
+        {/* Sprachumschalter — nur einblenden wenn Snapshot überhaupt Übersetzungen enthält */}
+        <OfferLanguageSwitcher
+          options={options}
+          lang={lang}
+          onChange={setLang}
+        />
+
         {/* PDF-Download — nur wenn LexOffice-Angebot verknüpft */}
         {inquiry.lexoffice_invoice_id && (
           <PdfDownloadSection inquiryId={inquiry.id} />
@@ -430,6 +462,7 @@ export default function PublicOffer() {
           <ProposalView
             inquiry={inquiry}
             options={options}
+            lang={lang}
             onSubmitted={(updatedData) => setData(updatedData)}
           />
         )}
@@ -446,6 +479,7 @@ export default function PublicOffer() {
           <FinalOfferView
             inquiry={inquiry}
             options={options}
+            lang={lang}
           />
         )}
 
@@ -686,10 +720,12 @@ function HeroSection({
 function ProposalView({
   inquiry,
   options,
+  lang,
   onSubmitted,
 }: {
   inquiry: PublicInquiry;
   options: PublicOfferOption[];
+  lang: OfferLang;
   onSubmitted: (data: PublicOfferData) => void;
 }) {
   // Single-Option ist auto-selected — Kunde muss nichts extra auswählen
@@ -837,6 +873,7 @@ function ProposalView({
                 isSelected={selectedOptionId === option.id}
                 onSelect={() => setSelectedOptionId(option.id)}
                 singleOption={isSingle}
+                lang={lang}
               />
             ))}
           </div>
@@ -993,11 +1030,13 @@ function ProposalOptionCard({
   isSelected,
   onSelect,
   singleOption,
+  lang,
 }: {
   option: PublicOfferOption;
   isSelected: boolean;
   onSelect: () => void;
   singleOption: boolean;
+  lang: OfferLang;
 }) {
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
@@ -1094,15 +1133,18 @@ function ProposalOptionCard({
                 {courses.map((c, i) => (
                   <div key={i} className="flex items-baseline gap-4">
                     <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0 pt-0.5">
-                      {c.courseLabel}
+                      {pickLang(c, 'courseLabel', lang) || c.courseLabel}
                     </span>
                     <div className="flex-1">
                       <p className="text-base md:text-lg font-serif text-foreground leading-snug">
-                        {(c.quantity ?? 1) > 1 ? `${c.quantity} × ${c.itemName}` : c.itemName}
+                        {(() => {
+                          const name = pickLang(c, 'itemName', lang) || c.itemName;
+                          return (c.quantity ?? 1) > 1 ? `${c.quantity} × ${name}` : name;
+                        })()}
                       </p>
-                      {c.itemDescription && (
+                      {(pickLang(c, 'itemDescription', lang) || c.itemDescription) && (
                         <p className="text-sm font-sans text-foreground/70 mt-1 leading-relaxed">
-                          {c.itemDescription}
+                          {pickLang(c, 'itemDescription', lang) || c.itemDescription}
                         </p>
                       )}
                     </div>
@@ -1114,23 +1156,28 @@ function ProposalOptionCard({
             {drinks.length > 0 && (
               <div className={cn("space-y-3", courses.length > 0 && "mt-6 pt-5 border-t border-border/15")}>
                 {drinks.map((d, i) => {
-                  const hasContent = d.customDrink || d.selectedChoice;
+                  const choiceLocalized = lang !== 'de' && d.selectedChoice
+                    ? d.selectedChoice_translations?.[lang] || d.selectedChoice
+                    : d.selectedChoice;
+                  const hasContent = d.customDrink || choiceLocalized;
+                  const qtyLabel = pickLang(d, 'quantityLabel', lang) || d.quantityLabel;
+                  const drinkLabelLoc = pickLang(d, 'drinkLabel', lang) || d.drinkLabel;
                   // quantityLabel nur zeigen wenn es keine Redundanz zu "inklusive" ist
-                  const qtyIsRedundant = d.quantityLabel && /^\s*(inklusive|inkl\.?|included)\s*$/i.test(d.quantityLabel);
+                  const qtyIsRedundant = qtyLabel && /^\s*(inklusive|inkl\.?|included|incluso|inclus)\s*$/i.test(qtyLabel);
                   return (
                     <div key={i} className="flex items-baseline gap-4">
                       <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
-                        {d.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : d.drinkLabel}
+                        {drinkLabelLoc === 'Zusatzgetränk' ? 'Getränk' : drinkLabelLoc}
                       </span>
                       <p className="text-base font-serif text-foreground leading-snug">
-                        {hasContent ? (d.customDrink || d.selectedChoice) : (
+                        {hasContent ? (d.customDrink || choiceLocalized) : (
                           <span className="text-emerald-700 dark:text-emerald-400 font-sans text-sm font-semibold uppercase tracking-wider">
                             inklusive
                           </span>
                         )}
-                        {d.quantityLabel && !qtyIsRedundant && (
+                        {qtyLabel && !qtyIsRedundant && (
                           <span className="text-sm text-muted-foreground ml-2 font-sans">
-                            ({d.quantityLabel})
+                            ({qtyLabel})
                           </span>
                         )}
                       </p>
@@ -1207,9 +1254,11 @@ function ThankYouView({
 function FinalOfferView({
   inquiry,
   options,
+  lang,
 }: {
   inquiry: PublicInquiry;
   options: PublicOfferOption[];
+  lang: OfferLang;
 }) {
   const selectedId = inquiry.selected_option_id;
   const displayOptions = selectedId
@@ -1244,6 +1293,7 @@ function FinalOfferView({
                 inquiry={inquiry}
                 isSelected={inquiry.selected_option_id === option.id}
                 singleOption={displayOptions.length === 1}
+                lang={lang}
               />
             ))}
           </div>
@@ -1259,12 +1309,14 @@ function FinalOptionCard({
   inquiry,
   isSelected,
   singleOption,
+  lang,
 }: {
   option: PublicOfferOption;
   inquiryId: string;
   inquiry: PublicInquiry;
   isSelected: boolean;
   singleOption: boolean;
+  lang: OfferLang;
 }) {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const menu = option.menu_selection;
@@ -1384,14 +1436,17 @@ function FinalOptionCard({
               {courses.map((course, i) => (
                 <div key={i}>
                   <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-1">
-                    {course.courseLabel}
+                    {pickLang(course, 'courseLabel', lang) || course.courseLabel}
                   </p>
                   <p className="font-serif text-base text-foreground">
-                    {(course.quantity ?? 1) > 1 ? `${course.quantity} × ${course.itemName}` : course.itemName}
+                    {(() => {
+                      const name = pickLang(course, 'itemName', lang) || course.itemName;
+                      return (course.quantity ?? 1) > 1 ? `${course.quantity} × ${name}` : name;
+                    })()}
                   </p>
-                  {course.itemDescription && (
+                  {(pickLang(course, 'itemDescription', lang) || course.itemDescription) && (
                     <p className="text-xs font-sans text-muted-foreground/60 italic mt-0.5">
-                      {course.itemDescription}
+                      {pickLang(course, 'itemDescription', lang) || course.itemDescription}
                     </p>
                   )}
                 </div>
@@ -1410,23 +1465,27 @@ function FinalOptionCard({
             </div>
             <div className="space-y-2.5">
               {drinks.map((drink, i) => {
-                const hasContent = drink.customDrink || drink.selectedChoice;
-                // quantityLabel nur zeigen wenn es keine Redundanz zu "inklusive" ist
-                const qtyIsRedundant = drink.quantityLabel && /^\s*(inklusive|inkl\.?|included)\s*$/i.test(drink.quantityLabel);
+                const choiceLocalized = lang !== 'de' && drink.selectedChoice
+                  ? drink.selectedChoice_translations?.[lang] || drink.selectedChoice
+                  : drink.selectedChoice;
+                const hasContent = drink.customDrink || choiceLocalized;
+                const qtyLabel = pickLang(drink, 'quantityLabel', lang) || drink.quantityLabel;
+                const drinkLabelLoc = pickLang(drink, 'drinkLabel', lang) || drink.drinkLabel;
+                const qtyIsRedundant = qtyLabel && /^\s*(inklusive|inkl\.?|included|incluso|inclus)\s*$/i.test(qtyLabel);
                 return (
                   <div key={i}>
                     <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
-                      {drink.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : drink.drinkLabel}
+                      {drinkLabelLoc === 'Zusatzgetränk' ? 'Getränk' : drinkLabelLoc}
                     </p>
                     <p className="font-serif text-sm text-foreground">
-                      {hasContent ? (drink.customDrink || drink.selectedChoice) : (
+                      {hasContent ? (drink.customDrink || choiceLocalized) : (
                         <span className="text-emerald-700 dark:text-emerald-400 font-sans text-xs font-semibold uppercase tracking-wider">
                           inklusive
                         </span>
                       )}
-                      {drink.quantityLabel && !qtyIsRedundant && (
+                      {qtyLabel && !qtyIsRedundant && (
                         <span className="text-muted-foreground/50 ml-1">
-                          ({drink.quantityLabel})
+                          ({qtyLabel})
                         </span>
                       )}
                     </p>
@@ -1875,6 +1934,67 @@ function OfferHeader() {
 }
 
 function OfferFooter() {
+  return _OfferFooter();
+}
+
+/**
+ * Sprachumschalter für übersetzte Menü-/Getränke-Felder.
+ * Zeigt sich nur, wenn der Snapshot tatsächlich Übersetzungen enthält
+ * (z.B. Reisegruppen-Pakete mit course_label_en/_it/_fr).
+ */
+function OfferLanguageSwitcher({
+  options,
+  lang,
+  onChange,
+}: {
+  options: PublicOfferOption[];
+  lang: OfferLang;
+  onChange: (l: OfferLang) => void;
+}) {
+  const hasTranslations = options.some((opt) => {
+    const m = opt.menu_selection;
+    if (!m) return false;
+    const c = m.courses?.some(
+      (x) => x.courseLabel_en || x.courseLabel_it || x.courseLabel_fr ||
+             x.itemName_en || x.itemName_it || x.itemName_fr
+    );
+    if (c) return true;
+    return m.drinks?.some(
+      (d) => d.drinkLabel_en || d.drinkLabel_it || d.drinkLabel_fr ||
+             d.selectedChoice_translations
+    );
+  });
+  if (!hasTranslations) return null;
+  return (
+    <div className="container mx-auto px-4 pt-6">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-muted-foreground/70">
+          Sprache
+        </span>
+        <div className="inline-flex rounded-full border border-border/40 p-0.5 bg-background/60 backdrop-blur-sm">
+          {OFFER_LANGS.map((l) => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => onChange(l)}
+              className={cn(
+                "px-3 py-1 text-xs font-sans font-semibold rounded-full transition-colors",
+                lang === l
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              aria-pressed={lang === l}
+            >
+              {OFFER_LANG_LABELS[l]}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function _OfferFooter() {
   return (
     <footer className="bg-foreground text-background">
       <div className="container mx-auto px-4 py-10">
