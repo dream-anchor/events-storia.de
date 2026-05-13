@@ -1,69 +1,151 @@
-# Migration `/admin/events` → `/admin/inquiries`
+# Druck- & Export-System für Anfragen
 
 ## Ziel
-`/admin/inquiries` (Live-URL, im Menü verlinkt) zeigt künftig die neue Ansicht (aktuell unter `/admin/events`). Alle Subseiten (Edit, Preview, Archive, Create) ziehen mit unter `/admin/inquiries/...`. Alte `/admin/events/...`-URLs leiten sauber weiter, damit Bookmarks, Notification-Links und E-Mail-Links nicht brechen.
+Vier Druckdokumente und ein Excel-Export — sauber für Küche, Service, Buchhaltung und Tagesplanung. Jeweils als PDF-Download **und** Browser-Druck verfügbar.
 
-## Was passiert konkret
+## Die fünf Outputs
 
-### 1. Routen umstellen (`src/pages/RefineAdmin.tsx`)
-- `<Route path="inquiries">` wird zur neuen Hauptroute mit allen Subrouten:
-  ```
-  /admin/inquiries                      → EventsList (neu)
-  /admin/inquiries/create               → AdminOfferCreate
-  /admin/inquiries/:id/edit             → SmartInquiryEditor
-  /admin/inquiries/:id/preview          → OfferSendPreview
-  /admin/inquiries/:id/archive/:version → OfferArchivePreview
-  ```
-- Alter `<Route path="events">`-Block wird ersetzt durch **Redirects**:
-  ```
-  /admin/events                      → /admin/inquiries
-  /admin/events/create               → /admin/inquiries/create
-  /admin/events/:id/edit             → /admin/inquiries/:id/edit
-  /admin/events/:id/preview          → /admin/inquiries/:id/preview
-  /admin/events/:id/archive/:version → /admin/inquiries/:id/archive/:version
-  ```
-- `UnifiedInquiriesList` wird nicht mehr eingebunden (Datei bleibt zunächst liegen, kann später entfernt werden).
-- Refine-`resources`-Array: `events` raus, `inquiries` bekommt `edit/show`-Pfade.
+### 1. Küchenzettel (`KitchenSheet`)
+**Zweck:** Kochcrew. Eine Anfrage = eine Seite.
 
-### 2. Interne Links umstellen (alle `/admin/events` → `/admin/inquiries`)
-Betroffene Dateien (alle gefunden, ~20 Stellen):
+Inhalt:
+- Kopf: Auftrags-Nr., Datum, Uhrzeit, „IN HAUS" / „AUSSER HAUS"
+- Kunde: Name, Firma, Gästeanzahl
+- **Allergene/Unverträglichkeiten** (fett, oben, eigener Block)
+- Menü (Gänge, Items, Mengen) — **ohne Preise**
+- Getränke
+- Sonderwünsche (aus `internal_notes`/Quote-Notes)
+- Bei Außer Haus: Liefer-/Abholzeit, Adresse
 
-**Hooks & Daten:**
-- `src/hooks/useUpcomingReminders.ts` (3×)
-- `src/hooks/useNotifications.ts` (4×)
-- `src/hooks/useDashboardData.ts` (4×)
-- `src/lib/dashboardPriority.ts` (1×)
+### 2. Service-Laufzettel (`ServiceSheet`)
+**Zweck:** Service- und Eventcrew vor Ort.
 
-**Admin-UI:**
-- `src/components/admin/refine/EventsList.tsx` (2×)
-- `src/components/admin/refine/KanbanView.tsx` (1×)
-- `src/components/admin/refine/UnifiedKanbanView.tsx` (1×)
-- `src/components/admin/refine/ContextBar.tsx` (Default-`backPath`)
-- `src/components/admin/refine/AdminLayout.tsx` (3×: Pfad-Check + 2× Create-Button)
-- `src/components/admin/refine/FloatingPillNav.tsx` (5×: Nav-Items mobile + desktop)
-- `src/components/admin/refine/CommandPalette.tsx` (4×)
-- `src/components/admin/refine/TasksWidget.tsx` (1×)
-- `src/components/admin/refine/EventEdit.tsx` (2×)
-- `src/components/admin/refine/OfferCreate/index.tsx` (2×)
-- `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` (3×)
-- `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx` (2×)
-- `src/components/admin/refine/InquiryEditor/OfferArchivePreview.tsx` (3×)
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/SendControls.tsx` (1×)
-- `src/components/admin/refine/InquiryEditor/OfferHistoryList.tsx` (1×)
-- `src/pages/admin/Posteingang.tsx` (1×)
+Inhalt:
+- Kopf: Auftrags-Nr., Datum, Aufbau-/Start-/Endzeit
+- Location-Block: In-Haus-Raum **oder** vollständige Außer-Haus-Adresse mit Stockwerk/Aufzug
+- Gästeanzahl, Sitzordnung, Anrede VIP-Gäste
+- Kontakt vor Ort (Telefon Kunde)
+- Equipment-Liste (aus `equipment_catalog`-Auswahl)
+- Sonderwünsche
+- **Keine Preise**, **kein Detail-Menü** (nur Eckdaten)
 
-Ersatz: schlichtes Find-and-Replace auf `/admin/events` → `/admin/inquiries`. Kommentare in Dateien werden mit angepasst.
+### 3. Komplettauftrag (`FullOrderSheet`)
+**Zweck:** Buchhaltung, interne Abwicklung.
 
-### 3. Was nicht angefasst wird
-- Datenbank, Edge Functions, E-Mail-Templates: brauchen keine Änderung (alte E-Mail-Links bleiben dank Redirects funktional).
-- `UnifiedInquiriesList.tsx`-Datei bleibt im Code (ungenutzt) — kann in einem Folge-Cleanup gelöscht werden, sobald die neue Ansicht live verifiziert ist.
+Inhalt:
+- Kopf: Auftrags-Nr., Status, Datum
+- Kunde + Rechnungsadresse
+- Komplett-Menü mit Einzel- und Gesamtpreisen, Gästeanzahl × Pers.-Preis
+- Equipment + Preise
+- Zahlungsplan: Anzahlung, Restzahlung, Zahlungsstatus, LexOffice-Rechnungs-Nr.
+- Versionshistorie (welche Angebotsversion wurde angenommen)
 
-## Risiko & Rollback
-- Niedriges Risiko: Redirects fangen alle Alt-URLs ab; Refine-Resource-Routen werden konsistent umgehängt.
-- Rollback = Routenblock in `RefineAdmin.tsx` zurücktauschen + Find-and-Replace umkehren.
+### 4. Tagesplan (`DayPlanSheet`)
+**Zweck:** Schichtplanung, Wochenübersicht.
 
-## Verifikation nach Deploy
-1. Live `/admin/inquiries` zeigt neue Ansicht (Spalten Neu / In Bearbeitung / Angebot verschickt / Gebucht).
-2. Alter Bookmark `/admin/events` → leitet auf `/admin/inquiries`.
-3. Notification-Link `/admin/events/:id/edit` → leitet auf `/admin/inquiries/:id/edit`.
-4. "Zurück zur Liste" landet auf `/admin/inquiries`.
+Inhalt:
+- Pro Tag eine Sektion (gruppiert nach `preferred_date`)
+- Tabelle: Zeit · Kunde · Gäste · Location · Menü-Kurz · Verantwortlich
+- Footer: Gesamt-Gäste/Tag, Anzahl Events/Tag
+
+### 5. Event-Liste (`EventListExport`) — PDF + Excel
+**Zweck:** Buchhaltung, GF, Übersicht.
+
+Spalten (PDF kompakt, Excel vollständig):
+| Datum | Zeit | Kunde | Firma | Gäste | Typ | Adresse | Status | Gesamt | Anzahlung | Rest offen | Verantwortlich | Notizen |
+
+Filter (vor Generierung):
+- Zeitraum: Diese Woche / Nächste Woche / Aktueller Monat / Frei wählbar
+- Status: Multi-Select (Gebucht / Angebot verschickt / In Bearbeitung)
+- Typ: In Haus / Außer Haus / beide
+- Verantwortlich: alle / einzelner Mitarbeiter
+
+## UI-Integration
+
+### A) Detailseite einer Anfrage (`SmartInquiryEditor`)
+Neuer **Drucken**-Button in der Toolbar oben rechts → Dropdown:
+- 🍳 Küchenzettel
+- 🛎 Service-Laufzettel
+- 📋 Komplettauftrag
+
+Jeder Eintrag öffnet eine Vorschau-Modal mit zwei Aktionen:
+- **PDF herunterladen**
+- **Drucken** (Browser-Dialog)
+
+### B) Listenansicht (`EventsList` unter `/admin/inquiries`)
+Zwei neue Bereiche:
+
+**Massenaktionen** (sichtbar, sobald ≥1 Anfrage angehakt):
+- Bulk-Druck Küchenzettel (gewählte → ein PDF, je 1 Seite)
+- Bulk-Druck Service-Laufzettel
+- Bulk-Druck Komplettauftrag
+
+**Filterleiste-Ergänzung** „Listen & Exporte":
+- 📅 Tagesplan drucken (mit Zeitraum-Auswahl)
+- 📊 Event-Liste drucken (PDF mit Filtern)
+- 📈 Event-Liste exportieren (Excel mit Filtern)
+
+## Technische Umsetzung
+
+### Stack
+- **PDF-Generierung:** `@react-pdf/renderer` (komponentenbasiert, sauber paginiert, läuft im Browser — kein Edge-Function-Roundtrip nötig). Liefert sowohl Download als auch Inline-Render für Druckvorschau.
+- **Excel-Export:** `xlsx` (SheetJS) — bereits etabliert; eine `.xlsx`-Datei mit Header-Styling.
+- **Browser-Druck:** Print-CSS (`@media print`) + `window.print()` auf der gleichen React-PDF-Vorschau.
+
+### Neue Dateien (Komponenten)
+```
+src/components/admin/refine/print/
+  KitchenSheet.tsx           ← React-PDF Document
+  ServiceSheet.tsx
+  FullOrderSheet.tsx
+  DayPlanSheet.tsx
+  EventListPdf.tsx
+  PrintMenu.tsx              ← Dropdown im Editor
+  PrintPreviewDialog.tsx     ← Modal mit Vorschau + DL/Druck
+  ExportFilters.tsx          ← Zeitraum + Status + Typ
+  exportEventsXlsx.ts        ← XLSX-Generator
+  fetchPrintData.ts          ← gemeinsame Datenholung (1 Query je Anfrage)
+```
+
+### Neue Hooks
+```
+src/hooks/usePrintInquiry.ts   ← lädt vollständige Daten für 1 Inquiry
+src/hooks/usePrintInquiries.ts ← lädt Daten für N Inquiries (Bulk)
+```
+
+### Daten
+Alle nötigen Felder existieren bereits in:
+- `event_inquiries` (Kunde, Datum, Adresse, Status, Zahlung)
+- `inquiry_offer_options` (Menü-Auswahl, Preis, Pakete)
+- `inquiry_offer_history` (welche Version angenommen)
+- `equipment_catalog` (für Service-Sheet)
+- `menu_items` / `menu_categories` (für Item-Namen + Allergene)
+
+Kein Schema-Change nötig.
+
+### Print-Layout-Standards
+- A4 hoch, 20mm Ränder
+- Helvetica (mitgeliefert in @react-pdf, kein Font-Loading)
+- Schwarz/weiß-tauglich, Logo SW oben links
+- Footer: Druckdatum, Seite X von Y, „events-storia.de"
+- Versionsnummer der Anfrage im Footer (Audit-Trail)
+
+## Reihenfolge der Implementierung
+1. `@react-pdf/renderer` + `xlsx` als Dependencies hinzufügen
+2. Gemeinsame Datenholung (`fetchPrintData`)
+3. Drei Detail-Sheets (Kitchen, Service, FullOrder) + Vorschau-Dialog
+4. Druck-Dropdown im `SmartInquiryEditor`
+5. Bulk-Aktionen + Massenauswahl in `EventsList`
+6. Tagesplan + Event-Liste-PDF
+7. Excel-Export
+
+## Was bewusst NICHT mit reinkommt
+- Edge-Function-PDF-Generierung (Browser reicht, schneller, kein Cold-Start)
+- E-Mail-Versand der Sheets (Folge-Feature; PDFs können manuell angehängt werden)
+- Templates/Branding-Editor (Layout fix, kann später konfigurierbar werden)
+
+## Verifikation
+- Drei Inquiry-Typen testen: In-Haus-Menü, Außer-Haus-Catering, Reisegruppe
+- Bulk: 5 Anfragen → 1 PDF mit 5 Seiten
+- Excel: Spalten korrekt, Zahlen als Zahlen (nicht Strings), Filter wirken
+- Druck-CSS: Im Browser-Druckdialog erscheint nur das Sheet, keine Admin-Chrome
