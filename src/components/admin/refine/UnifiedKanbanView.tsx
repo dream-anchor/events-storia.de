@@ -24,6 +24,7 @@ interface UnifiedKanbanViewProps {
   records: InquiryRecord[];
   onRefresh: () => void;
   bucket: LifecycleBucket;
+  onOpenGroup?: (id: string) => void;
 }
 
 /**
@@ -119,7 +120,7 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-export function UnifiedKanbanView({ records, onRefresh, bucket }: UnifiedKanbanViewProps) {
+export function UnifiedKanbanView({ records, onRefresh, bucket, onOpenGroup }: UnifiedKanbanViewProps) {
   const navigate = useNavigate();
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -283,13 +284,15 @@ export function UnifiedKanbanView({ records, onRefresh, bucket }: UnifiedKanbanV
                 onDragStart={(e) => handleDragStart(e, r)}
                 onDragEnd={handleDragEnd}
                 onClick={() =>
-                  navigate(
-                    r.serviceType === "group"
-                      ? `/admin/reisegruppen?id=${r.id}`
-                      : r.kind === "event"
-                        ? `/admin/events/${r.id}/edit`
-                        : `/admin/orders/${r.id}/edit`
-                  )
+                  r.serviceType === "group" && onOpenGroup
+                    ? onOpenGroup(r.id)
+                    : navigate(
+                        r.serviceType === "group"
+                          ? `/admin/reisegruppen?id=${r.id}`
+                          : r.kind === "event"
+                            ? `/admin/events/${r.id}/edit`
+                            : `/admin/orders/${r.id}/edit`
+                      )
                 }
                 onArchive={() => handleArchiveCard(r)}
               />
