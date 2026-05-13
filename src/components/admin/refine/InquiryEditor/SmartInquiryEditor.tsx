@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
 import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
+import { PrintMenu } from "@/components/admin/refine/print/PrintMenu";
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
