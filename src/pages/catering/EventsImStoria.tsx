@@ -9,7 +9,7 @@ import EventPackageShopCard from "@/components/events/EventPackageShopCard";
 import EventTestimonials from "@/components/events/EventTestimonials";
 import EventContactForm from "@/components/events/EventContactForm";
 import ConsentElfsightReviews from "@/components/ConsentElfsightReviews";
-import { useEventPackages } from "@/hooks/useEventPackages";
+import { useEventPackages, useReisegruppenPackages } from "@/hooks/useEventPackages";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -97,6 +97,7 @@ const EventsImStoria = () => {
   const formRef = useRef<HTMLDivElement>(null);
 
   const { data: packages, isLoading: packagesLoading } = useEventPackages();
+  const { data: reisegruppenPackages, isLoading: reisegruppenLoading } = useReisegruppenPackages();
   const { showGross, setShowGross } = usePriceDisplay();
 
   const scrollToForm = (packageId?: string) => {
