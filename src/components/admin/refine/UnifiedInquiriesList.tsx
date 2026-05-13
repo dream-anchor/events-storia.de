@@ -111,6 +111,7 @@ export const UnifiedInquiriesList = () => {
       restaurant: records.filter((r) => r.serviceType === "restaurant").length,
       catering: records.filter((r) => r.serviceType === "catering").length,
       catering_order: records.filter((r) => r.serviceType === "catering_order").length,
+      group: records.filter((r) => r.serviceType === "group").length,
     };
   }, [records]);
 
@@ -129,10 +130,14 @@ export const UnifiedInquiriesList = () => {
   };
 
   const handleRowClick = (r: InquiryRecord) => {
+    if (r.serviceType === "group") {
+      navigate(`/admin/reisegruppen?id=${r.id}`);
+      return;
+    }
     navigate(
       r.kind === "event"
         ? `/admin/events/${r.id}/edit`
-        : `/admin/orders/${r.id}/edit`
+        : `/admin/orders/${r.id}/edit`,
     );
   };
 
@@ -277,7 +282,7 @@ export const UnifiedInquiriesList = () => {
             {/* Kind filter */}
             <div className="flex items-center gap-1 p-1 rounded-2xl bg-muted/60">
               {(
-                ["all", "restaurant", "catering", "catering_order"] as KindFilter[]
+                ["all", "restaurant", "catering", "catering_order", "group"] as KindFilter[]
               ).map((k) => (
                 <button
                   key={k}
@@ -295,7 +300,9 @@ export const UnifiedInquiriesList = () => {
                       ? "Im Haus"
                       : k === "catering"
                         ? "Außer Haus"
-                        : "Shop"}
+                        : k === "catering_order"
+                          ? "Shop"
+                          : "Reisegruppen"}
                   <span className="ml-1.5 text-[10px] tabular-nums opacity-60">
                     {kindCounts[k]}
                   </span>
