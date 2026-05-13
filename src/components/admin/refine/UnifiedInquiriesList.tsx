@@ -3,10 +3,12 @@ import { ColumnDef } from "@tanstack/react-table";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { LayoutGrid, Table2, Calendar } from "lucide-react";
+import { LayoutGrid, Table2, Calendar, Printer } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable, sortableHeader } from "./DataTable";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Button } from "@/components/ui/button";
+import { UpcomingOrdersPrintDialog } from "./print/UpcomingOrdersPrintDialog";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 import { useUnifiedInquiries } from "@/hooks/useUnifiedInquiries";
 import { getLifecycleBucket } from "@/types/inquiryRecord";
@@ -78,6 +80,7 @@ export const UnifiedInquiriesList = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("inbox");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+  const [printOpen, setPrintOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const list = records.filter((r) => {
@@ -275,6 +278,16 @@ export const UnifiedInquiriesList = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPrintOpen(true)}
+              className="rounded-2xl gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              <span className="hidden sm:inline">Nächste Aufträge drucken</span>
+              <span className="sm:hidden">Drucken</span>
+            </Button>
             {/* Kind filter */}
             <div className="flex items-center gap-1 p-1 rounded-2xl bg-muted/60">
               {(
@@ -392,6 +405,11 @@ export const UnifiedInquiriesList = () => {
           />
         )}
       </div>
+      <UpcomingOrdersPrintDialog
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+        records={records}
+      />
     </AdminLayout>
   );
 };

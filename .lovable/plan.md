@@ -1,43 +1,64 @@
-## Zwei separate Probleme
+## Druckansicht „Nächste Aufträge" auf /admin/inquiries
 
-### 1) Maestro: weiße Seite auf dem Smartphone (events-storia.de/admin)
+Neuer Druck-Button in der Anfragen-Übersicht öffnet eine kompakte, druckoptimierte Liste der kommenden Aufträge — gruppiert nach Woche oder Monat und gefiltert nach In Haus / Außer Haus.
 
-**Befund**
-- `/admin/login` rendert in der Preview problemlos (Login-Form sichtbar bei 390×844) und auch auf der Live-Domain `events-storia.de/admin`.
-- Wenn du **eingeloggt** bist und `/admin` aufrufst, lädt das Maestro-Dashboard korrekt (per Mobile-Screenshot bestätigt).
-- Wahrscheinlichste Ursache der weißen Seite auf deinem Handy: **veralteter Service-Worker / Browser-Cache** — die letzte Mobile-Korrektur ist live, aber dein iPhone hält noch alte JS-Bundles, die mit dem neuen CSS kollidieren und beim Mount crashen.
+### Bedienung (Toolbar oben rechts)
 
-**Vorgeschlagene Aktionen**
-- Cache-Busting verstärken: in `index.html` einen `<meta http-equiv="Cache-Control" content="no-cache">` für die Admin-Route ergänzen und sicherstellen, dass kein alter Service-Worker (`sw.js`) registriert ist (in `src/main.tsx` ein einmaliges `navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()))` für `/admin` einbauen).
-- AdminLayout absichern: Defensive Try/Catch im `useEffect` für `document.body.classList.add('admin-active')` und User-Fetch, damit ein einzelner Fehler nicht den gesamten Tree umlegt.
-- `body.admin-active` Hintergrund explizit auf `#f6f7f8` setzen (statt nur `hsl(220 14% 96%)`), passend zum `.admin-layout`-Container — verhindert weißes Flash zwischen Mount und CSS-Apply.
-- Erbitten: bitte einmal auf dem iPhone „Verlauf & Webseitendaten löschen" (Safari → Einstellungen) und dann erneut testen. Wenn das schon hilft, ist die Cache-Hypothese bestätigt und die obigen Schutzmaßnahmen verhindern das Wiederauftreten.
+- **Drucken**-Button → öffnet Dialog
+- Im Dialog drei Toggles:
+  - **Zeitraum:** Woche · Monat (Default: Woche, ab heute, 4 Wochen / 3 Monate Voraus)
+  - **Ort:** In Haus · Außer Haus · Beides (Default: Beides)
+  - **Status:** standardmäßig nur bestätigte/bezahlte Buchungen (versendete Angebote optional zuschaltbar)
+- Knopf **„Drucken"** → `window.print()` mit dedizierter `@media print` CSS-Klasse, sonst Vorschau im Dialog
 
-### 2) Public Offer: „Fehler beim Erstellen der Zahlungssitzung"
+### Layout der Druckansicht
 
-**Befund**
-- Edge-Function `create-payment-session` läuft sauber: direkter cURL-Test gegen die Anfrage Lagourrès (`90321866-…`) liefert `200 OK` und gültige Stripe-Checkout-URL — sowohl im Single-Option- als auch im Multi-Option-Pfad.
-- Das Frontend ruft die Function über `supabase.functions.invoke()` auf. Diese Methode hängt automatisch den Auth-Header an. **In der Lovable-Preview-Umgebung kann der Fetch-Proxy genau diesen Aufruf abfangen und brechen** (bekannter Lovable-Preview-Bug bei Supabase-Auth-Calls). Auf der publizierten URL `events-storia.de` tritt das nicht auf.
-- Sekundär möglich: Das angesteuerte Angebot hat keine Option (siehe `95995bb6-…` und `9ba811ab-…` in der DB — beide ohne `inquiry_offer_options`). In dem Fall liefert die Function bewusst `400 — optionId ist erforderlich`.
+Kopfzeile: Logo-Mark · „Nächste Aufträge" · Zeitraum (z. B. „KW 20–23 / 2026") · Druckdatum · Ersteller-Initialen.
 
-**Vorgeschlagene Aktionen**
-- Robusterer Frontend-Aufruf: in `PublicOffer.tsx` (Zeilen 776 & 1445) und `ProposalView.tsx` (Zeile 182) statt `supabase.functions.invoke` einen direkten `fetch` auf `${VITE_SUPABASE_URL}/functions/v1/create-payment-session` mit `apikey` + `Content-Type` Headern verwenden. Das umgeht den Preview-Proxy und funktioniert in Preview wie in Produktion identisch.
-- Bessere Fehlermeldung: Wenn die Function `400 — optionId ist erforderlich` liefert, dem Kunden sagen „Bitte erst eine Menü-Option auswählen" statt der generischen Sitzungs-Fehlermeldung.
-- Guard im UI: Wenn `options.length === 0`, den Zahlen-Button gar nicht anzeigen, sondern Hinweistext „Angebot enthält keine Optionen — bitte Storia kontaktieren".
-- Verifikation: Nach dem Deploy einmal in der Preview UND auf events-storia.de den Zahlen-Button für die Lagourrès-Anfrage drücken und bestätigen, dass Stripe Checkout öffnet.
+Gliederung:
 
-## Technische Details
+```
+WOCHE 20 (11.–17. Mai 2026)
+─────────────────────────────────────
+  IN HAUS  (3)
+    Mi 13.05  18:30  Lagourrès        24 P  Tartuferia      AM
+    Sa 16.05  19:00  Müller GmbH      40 P  Hauptraum       MK
+  AUSSER HAUS  (2)
+    Do 14.05  12:00  BMW AG           80 P  Petuelring 130  AM
+    ...
 
-```text
-src/pages/PublicOffer.tsx          Zeilen 776, 1445 → fetch statt invoke
-src/pages/public-offer/
-  ├── ProposalView.tsx             Zeile 182 → fetch statt invoke
-  └── FinalOfferView.tsx           Zeile 111 → fetch statt invoke
-src/components/admin/refine/
-  └── AdminLayout.tsx              Try/Catch um useEffect-Bodies
-src/index.css                      body.admin-active → bg #f6f7f8
-src/main.tsx                       SW-Unregister Cleanup
-index.html                         no-cache Meta für Admin
+WOCHE 21 (18.–24. Mai 2026)
+...
 ```
 
-Keine DB-Migration nötig. Keine Änderung an der Edge-Function (läuft korrekt).
+Pro Zeile kompakt:
+- Datum + Wochentag, Uhrzeit
+- Kunde (Firma oder Name)
+- Personenzahl
+- Location/Adresse (bei Außer Haus die Straße, bei In Haus den Raum)
+- Verantwortliche/r (2-Letter-Initialen)
+- Kleines Icon/Badge: Status (bestätigt · bezahlt · Angebot offen)
+- Optional Notiz-Zeile (1 Zeile, abgeschnitten) für interne Hinweise
+
+Pro Gruppe Summen-Zeile: „∑ 3 Aufträge · 64 Personen".
+
+### Daten-Logik
+
+- Quelle: `event_inquiries` (Lebend-Tabelle) gefiltert nach `event_date >= today` und `event_date <= range_end`.
+- **In Haus** = `location_type = 'storia'` (oder leer + Venue Karlstr.)
+- **Außer Haus** = `location_type != 'storia'`
+- Sortierung: nach `event_date`, dann `time_slot`.
+- Bestätigt = `offer_phase IN ('booked','paid')` bzw. `selected_option_id IS NOT NULL`.
+
+### Technische Umsetzung
+
+- Neue Komponente `src/components/admin/refine/print/UpcomingOrdersSheet.tsx` (rein Frontend, eigene Print-CSS, A4 Hochformat, monochrom, Inter, rounded-2xl im Bildschirm, nüchtern in Print).
+- Dialog `UpcomingOrdersPrintDialog.tsx` mit den drei Togglen, lädt Daten via Supabase-Query (eine `select` über `event_inquiries`).
+- Print-Button in der Toolbar von `UnifiedInquiriesList.tsx` einfügen (links neben den bestehenden Aktionen, gemäß „inline bottom-left / oben rechts in Listen-Toolbar").
+- Wiederverwendung der vorhandenen `print/styles.ts` für `@media print`-Regeln.
+- Keine Backend-/DB-Änderungen.
+
+### Out of scope
+
+- Kein PDF-Export-Endpoint (nur Browser-Druck → spart eine Edge Function; PDF entsteht via „Als PDF speichern" im Druckdialog).
+- Keine Filter nach Mitarbeiter / Kategorie in v1.
