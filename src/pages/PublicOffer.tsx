@@ -500,9 +500,10 @@ export default function PublicOffer() {
           <ConfirmationView inquiry={inquiry} options={options} />
         )}
 
+        <PdfDownloadSection inquiryId={inquiry.id} />
+
         <PublicPaymentSection payments={payments} eventDate={inquiry.preferred_date ?? undefined} />
         <ContactSection />
-        <PdfDownloadSection inquiryId={inquiry.id} />
       </main>
       <OfferFooter />
     </div>
