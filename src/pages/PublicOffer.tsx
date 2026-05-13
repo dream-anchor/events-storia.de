@@ -461,11 +461,6 @@ export default function PublicOffer() {
           onChange={setLang}
         />
 
-        {/* PDF-Download — nur wenn LexOffice-Angebot verknüpft */}
-        {inquiry.lexoffice_invoice_id && (
-          <PdfDownloadSection inquiryId={inquiry.id} />
-        )}
-
         {/* Anschreiben — immer sichtbar wenn vorhanden.
             Im Preview-Modus (Admin-iframe) wird previewBody aus der URL verwendet
             und überschreibt den gespeicherten email_content. Echte Kunden haben
