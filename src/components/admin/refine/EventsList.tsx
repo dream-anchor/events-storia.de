@@ -53,7 +53,7 @@ function getServiceKind(event: EventInquiry): ServiceKind {
   return "in_house";
 }
 const SERVICE_LABELS: Record<ServiceKind, { label: string; Icon: typeof Home }> = {
-  in_house: { label: "In Haus", Icon: Home },
+  in_house: { label: "Im Haus", Icon: Home },
   catering: { label: "Außer Haus", Icon: Truck },
   group:    { label: "Reisegruppe", Icon: Users },
 };

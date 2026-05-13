@@ -93,7 +93,7 @@ function getServiceKind(event: EventInquiry): ServiceKind {
 }
 
 const SERVICE_META: Record<ServiceKind, { label: string; Icon: typeof Home; chip: string }> = {
-  in_house: { label: "In Haus", Icon: Home, chip: "bg-foreground text-background ring-1 ring-foreground" },
+  in_house: { label: "Im Haus", Icon: Home, chip: "bg-foreground text-background ring-1 ring-foreground" },
   catering: { label: "Außer Haus", Icon: Truck, chip: "bg-foreground/10 text-foreground ring-1 ring-foreground/25" },
   group:    { label: "Reisegruppe", Icon: Users, chip: "bg-foreground/10 text-foreground ring-1 ring-foreground/25" },
 };
