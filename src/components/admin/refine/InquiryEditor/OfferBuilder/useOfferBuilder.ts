@@ -758,6 +758,7 @@ export function useOfferBuilder({
       priceRecalcRef.current = true;
       // Recalc-Updates müssen auch persistiert werden (Auto-Save triggern)
       isDirtyRef.current = true;
+      if (dirtySourceRef.current === null) dirtySourceRef.current = 'auto';
       return updated;
     });
   }, [isLoading, packagesProp, options.map(o => {
