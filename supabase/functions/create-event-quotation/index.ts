@@ -707,6 +707,63 @@ serve(async (req) => {
       throw new Error('Keine aktiven Angebots-Optionen gefunden');
     }
 
+    // ── Freshness-Check ─────────────────────────────────────────────────────
+    // Wenn bereits ein LexOffice-Angebot existiert: vergleichen, ob der dort
+    // gespeicherte Brutto-Gesamtbetrag noch zum aktuellen Stand der
+    // inquiry_offer_options passt. Bei Differenz: altes Draft-Angebot in
+    // LexOffice loeschen (best effort) und neu erzeugen.
+    const isInvoiceModeEarly = forceDocumentType === 'invoice' || forceDocumentType === 'order';
+    const existingQuotationId = (inquiry as Record<string, unknown>).lexoffice_quotation_id as string | null;
+    if (!isInvoiceModeEarly && existingQuotationId) {
+      try {
+        const probe = await fetch(`https://api.lexoffice.io/v1/quotations/${existingQuotationId}`, {
+          headers: { Authorization: `Bearer ${lexofficeApiKey}`, Accept: 'application/json' },
+        });
+        if (probe.ok) {
+          const doc = await probe.json();
+          const lexTotal = round2(Number(doc?.totalPrice?.totalGrossAmount ?? 0));
+          const dbTotal = round2(
+            (workingOptions as Array<{ total_amount?: number | null; selected_quantity?: number | null }>).reduce(
+              (s, o) => s + Number(o.total_amount ?? 0),
+              0,
+            ),
+          );
+          if (lexTotal > 0 && Math.abs(lexTotal - dbTotal) <= 0.01) {
+            // PDF in LexOffice ist aktuell — nichts neu erzeugen
+            return new Response(
+              JSON.stringify({ success: true, quotationId: existingQuotationId, documentType: 'quotations', reused: true }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
+          // Stale → altes Draft-Angebot in LexOffice loeschen (nur wenn noch open/draft)
+          if (doc?.voucherStatus === 'draft' || doc?.voucherStatus === 'open') {
+            try {
+              await fetch(`https://api.lexoffice.io/v1/quotations/${existingQuotationId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${lexofficeApiKey}` },
+              });
+            } catch (delErr) {
+              console.warn('[create-event-quotation] Could not delete stale quotation:', delErr);
+            }
+          }
+          // Activity Log Eintrag fuer Audit
+          try {
+            await supabase.from('activity_logs').insert({
+              entity_type: 'event_inquiry',
+              entity_id: inquiryId,
+              action: 'lexoffice_quotation_refreshed',
+              new_value: { old_total: lexTotal, new_total: dbTotal, old_quotation_id: existingQuotationId },
+              metadata: { reason: 'price_drift_detected' },
+            });
+          } catch { /* ignore */ }
+          // Falls wir es nicht loeschen konnten oder Status finalized: id im Inquiry trotzdem zurueckziehen,
+          // damit das neue gleich gesetzt wird (passiert weiter unten).
+        }
+      } catch (probeErr) {
+        console.warn('[create-event-quotation] Freshness probe failed, will create new:', probeErr);
+      }
+    }
+
     // 3. Paketnamen für alle package_ids auflösen
     const packageIds = [...new Set(
       workingOptions.map((o: OfferOption) => o.package_id).filter(Boolean)

@@ -205,25 +205,24 @@ export function OfferSendPreview({
     setPdfLoading(true);
     setPdfError(null);
     try {
+      // Immer ueber create-event-quotation gehen — die Edge Function prueft, ob das
+      // existierende LexOffice-Angebot noch zum aktuellen Stand passt, und erzeugt
+      // bei Preis-Drift automatisch ein neues. So sind PDF und Preis immer aktuell.
       let quotationId = inquiry.lexoffice_quotation_id;
-      if (!quotationId) {
-        const { data: quotRes, error: quotErr } = await supabase.functions.invoke(
-          'create-event-quotation',
-          { body: { inquiryId: inquiry.id } }
+      const { data: quotRes, error: quotErr } = await supabase.functions.invoke(
+        'create-event-quotation',
+        { body: { inquiryId: inquiry.id } }
+      );
+      if (quotErr || !quotRes?.success || !quotRes?.quotationId) {
+        throw new Error(
+          quotRes?.error ||
+            quotErr?.message ||
+            'LexOffice-Angebot konnte nicht erstellt werden'
         );
-        if (quotErr || !quotRes?.success || !quotRes?.quotationId) {
-          throw new Error(
-            quotRes?.error ||
-              quotErr?.message ||
-              'LexOffice-Angebot konnte nicht erstellt werden'
-          );
-        }
-        quotationId = quotRes.quotationId as string;
-        await (supabase.from('event_inquiries') as unknown as {
-          update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
-        })
-          .update({ lexoffice_quotation_id: quotationId })
-          .eq('id', inquiry.id);
+      }
+      const newQuotationId = quotRes.quotationId as string;
+      if (newQuotationId !== quotationId) {
+        quotationId = newQuotationId;
         setInquiry((prev) => (prev ? { ...prev, lexoffice_quotation_id: quotationId } : prev));
       }
       const { data, error } = await supabase.functions.invoke('get-lexoffice-document', {

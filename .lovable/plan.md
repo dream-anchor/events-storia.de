@@ -1,51 +1,85 @@
-## Ziel
-Im PublicOffer ganz oben (direkt unter dem Hero, vor Anschreiben/Vorschlag) eine Restaurant-Galerie einblenden, damit Kunden – die das STORIA noch nicht kennen – einen visuellen Eindruck bekommen. Bilder per Klick als Lightbox vergrößern.
+## Problem 1 — LexOffice zeigt veralteten Betrag (CRITICAL)
 
-## Bildquelle
-Wir nutzen die **bereits im Projekt vorhandenen** Restaurant-Fotos aus `src/assets/` (gleiche Bilder wie im öffentlichen `ImageGrid`):
-- `haus-aussen-2.webp` (Gebäude/Außen)
-- `aussen.webp` (Terrasse Tag)
-- `menschen-aussen.jpeg` (Gäste Terrasse)
-- `weinservice.webp` (Bar/Weinregal)
-- `cocktails.webp` (Bar/Drinks)
-- `meeresfruchte.webp` (Antipasti)
-- `ravioli.webp` (Pasta)
-- `tiramisu.webp` (Dessert)
+### Was wir gefunden haben
 
-Die zwei hochgeladenen Collagen sind nur Referenz für die Bildauswahl/Stimmung – keine neuen Assets nötig.
+Anfrage `90321866-…ce97`:
+- **DB heute:** `total_amount` = 2 974,80 € (Hauptgang 35,00 € + Tiramisu 5,20 € × 74 = 40,20 € × 74)
+- **LexOffice-Angebot AG0107:** ein Line Item, `grossAmount` = **35,00 €**, quantity 74 → **2 590,00 €**
 
-## Neue Komponente
-`src/pages/public-offer/RestaurantGallery.tsx`
+→ Das LexOffice-Angebot wurde erstellt, **bevor** das Tiramisu (5,20 €) ins Paket aufgenommen wurde. Danach hat ein Maestro-User das Angebot bearbeitet → `inquiry_offer_options.total_amount` ging auf 2 974,80, aber die LexOffice-Quotation wurde **nie neu erzeugt**.
 
-- Editorial Layout, passend zum bestehenden PublicOffer-Stil (Container, Serif-Display Headline, dezente Captions).
-- Desktop: 4-spaltiges Masonry-artiges Grid (asymmetrisch: 1 großes Bild links + kleinere Kacheln, oder schlichtes 4×2 mit `aspect-[4/5]` und einem `md:col-span-2` Hero). Mobile: 2 Spalten, Hero `col-span-2`.
-- Kopfzeile: kleine Eyebrow „Ristorante Storia · München-Maxvorstadt", Headline „Lernen Sie unser Haus kennen" (oder vergleichbar), 1 Satz Subline.
-- Jedes Bild: `<button>` mit `aria-label`, `loading="lazy"`, `decoding="async"`, hover-Zoom (`group-hover:scale-[1.03]`), Caption-Overlay nur dezent (kleine Label unten links, monochrom).
-- Klick öffnet **shadcn `Dialog`** als Lightbox:
-  - Großes Bild zentriert (`max-h-[85vh] object-contain`), schwarzer Hintergrund (`bg-black/95`).
-  - Pfeile links/rechts (Buttons) + Tastatur (`ArrowLeft`/`ArrowRight`/`Escape`).
-  - Zähler „3 / 8" und Caption unten.
-  - Keine externen Lightbox-Pakete – nur shadcn Dialog + lokaler State.
+### Ursache im Code
 
-## Integration in `src/pages/PublicOffer.tsx`
-Ein einziger Einfügepunkt, direkt nach `<HeroSection .../>` und **vor** `OfferLanguageSwitcher`:
-
-```tsx
-<HeroSection inquiry={inquiry} phase={renderPhase} />
-<RestaurantGallery />
-<OfferLanguageSwitcher ... />
+`OfferSendPreview.tsx` (admin/refine/InquiryEditor):
+```ts
+if (!quotationId) {
+  // create-event-quotation aufrufen
+} else {
+  // einfach die alte PDF runterladen
+}
 ```
+Sobald `event_inquiries.lexoffice_quotation_id` gesetzt ist, wird **nie** geprüft, ob das LexOffice-Dokument noch zum aktuellen Angebot passt. Versand zieht stale PDF.
 
-- Wird in **allen** Phasen (proposal_sent, final_sent, confirmed, paid, customer_responded) angezeigt – das Kennenlernen schadet auch nach Buchung nicht. Falls gewünscht, später per Prop `phase` ausblenden.
-- Komponente ist statisch (keine DB/Props) → kein Refactor anderer Stellen.
+Dasselbe Muster gilt auch für Rechnungen (`lexoffice_invoice_id` wird einmal gesetzt und nicht invalidiert wenn sich Beträge ändern).
 
-## Design-Prinzipien
-- Premium UI 2026, monochrom (kein neues Grün/Gelb), `rounded-2xl`, `border-border/40`, `shadow-[var(--shadow-card)]`.
-- Inter (body) + bestehende Display-Font für Headline.
-- Keine Floating-Buttons. Lightbox-Close ist die Standard-shadcn-Schließen-Aktion + ESC.
-- A11y: `role="dialog"`, Fokus-Trap durch shadcn, alle Buttons mit `aria-label`, alt-Texte deutsch (analog zu `ImageGrid.tsx`).
+### Fix — zweistufig, defensiv
 
-## Out of scope
-- Keine neuen Bilder generieren oder hochladen.
-- Keine Backend-/Schema-Änderungen.
-- Keine Änderung an Hero, Anschreiben oder Phasenlogik.
+**A) Beim Speichern jeder Angebotsänderung Belege invalidieren (Hauptfix)**
+
+In allen Pfaden, die `inquiry_offer_options` oder beleg-relevante Inquiry-Felder mutieren:
+- OfferBuilder Save (Wizard / WizardConfigurator / OfferEditor)
+- `useCloneOfferVersion`
+- repair-quotation-pricing
+- jede Edge Function, die `total_amount`, `menu_selection`, `guest_count`, `equipment`, `staff`, `deposit_*`, `payment_method` ändert
+
+→ Zusätzlich `event_inquiries.lexoffice_quotation_id = NULL` (und für Rechnungen analog: nur invalidieren solange `voucherStatus = 'draft'` / nicht bezahlt) setzen, sobald sich beleg-relevante Daten ändern.
+
+Damit erzwingt jeder nächste „Vorschau / Senden" einen frischen Beleg auf Basis des aktuellen Standes. Bezahlte / finalisierte Belege werden **nicht** angefasst.
+
+Optional (sauber): ein Hash über die beleg-relevanten Felder (`total_amount`, `menu_selection`, `guest_count`, `equipment`, `staff`, `deposit_amount`, `deposit_percent`, `payment_method`) in `event_inquiries.lexoffice_source_hash` schreiben. Beim Erstellen wird der Hash gespeichert; beim nächsten Preview wird verglichen — ungleich → neu erzeugen.
+
+**B) Safety net im Preview/Sender (Backstop)**
+
+`OfferSendPreview` und `create-event-quotation` (oder eine neue `ensure-fresh-quotation`):
+1. Existiert `lexoffice_quotation_id`? Quotation per LexOffice-API laden, `totalGrossAmount` mit Summe aus `inquiry_offer_options.total_amount` (für aktive Optionen, ggf. × `selected_quantity`) vergleichen.
+2. Bei Differenz > 0,01 €: alte Quotation `voucherStatus = 'draft'` → automatisch eine neue erzeugen, `lexoffice_quotation_id` ersetzen. Alte Draft-Quotation per `DELETE /quotations/{id}` aufräumen (best effort, Fehler ignorieren).
+3. Im Activity Log einen Eintrag „LexOffice-Angebot wegen Preisdifferenz neu erzeugt (alt 2 590,00 € → neu 2 974,80 €)".
+
+Damit ist auch der Bestand (Anfragen, deren Belege schon stale sind) automatisch geheilt, sobald jemand wieder „Vorschau" oder „Senden" anklickt.
+
+**C) Bestehende Anfrage 90321866 reparieren**
+
+Einmaliger Schritt direkt nach Deployment: für die Anfrage `lexoffice_quotation_id` auf NULL setzen, damit die nächste Preview die korrekten 2 974,80 € erzeugt. (Migration mit gezieltem UPDATE auf genau diese ID.)
+
+### Akzeptanzkriterien
+
+- Nach Bearbeiten eines Angebots zeigt Preview eine **neue** LexOffice-Quotation mit dem aktuellen Brutto-Total.
+- Bezahlte Rechnungen werden nie überschrieben.
+- Bei der Test-Anfrage steht im PDF: 2 974,80 € (Netto 2 780,19 € + 7 % USt 194,61 €).
+
+---
+
+## Problem 2 — Public Offer Galerie-Text
+
+`src/pages/public-offer/RestaurantGallery.tsx`:
+- Zeile 63: „Ein kurzer Eindruck von Räumen, Terrasse und Küche – tippen Sie auf ein Bild für die Großansicht."
+  → Küche wird nicht gezeigt. Ändern auf: **„Ein kurzer Eindruck von unserem Haus und der Atmosphäre – tippen Sie auf ein Bild für die Großansicht."**
+- Zeile 20: caption „Räume, Küche & Terrasse" → **„Räume & Atmosphäre"**
+- Zeile 19: alt „… Show-Küche, Weinwand …" → **„… Innenraum, Weinwand und Außenansichten"** (kein „Show-Küche")
+
+---
+
+## Technische Details
+
+**Betroffene Dateien**
+- `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx` — Stale-Detection / Invalidierung beim Mount
+- `supabase/functions/create-event-quotation/index.ts` — beim Aufruf alte Draft-Quotation in LexOffice löschen falls ersetzt
+- alle Mutationsstellen für Angebots-Optionen (OfferBuilder Save, Clone, repair-quotation-pricing) — `lexoffice_quotation_id = NULL` setzen wenn beleg-relevante Felder geändert wurden
+- `src/pages/public-offer/RestaurantGallery.tsx` — Texte
+- Neue Migration: `lexoffice_quotation_id = NULL` für `90321866-…ce97`
+
+**Nicht angefasst**
+- Rechnungen mit `voucherStatus IN ('open','paid')` (LexOffice voucherStatus prüfen, bevor invalidieren).
+- Layout/Design der Galerie und der Preview-Seite.
+
+Soll ich so umsetzen?
