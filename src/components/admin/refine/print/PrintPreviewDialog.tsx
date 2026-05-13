@@ -9,8 +9,8 @@ import type { PrintInquiry } from '@/lib/print/types';
 import { KitchenSheet } from './KitchenSheet';
 import { ServiceSheet } from './ServiceSheet';
 import { FullOrderSheet } from './FullOrderSheet';
-
-export type PrintSheetType = 'kitchen' | 'service' | 'full';
+import type { PrintSheetType } from './PrintMenu';
+export type { PrintSheetType };
 
 const TITLES: Record<PrintSheetType, string> = {
   kitchen: 'Küchenzettel',
