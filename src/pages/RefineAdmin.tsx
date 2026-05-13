@@ -21,14 +21,10 @@ const resources = [
     list: "/admin",
   },
   {
-    name: "events",
-    list: "/admin/events",
-    edit: "/admin/events/:id/edit",
-    show: "/admin/events/:id",
-  },
-  {
     name: "inquiries",
     list: "/admin/inquiries",
+    edit: "/admin/inquiries/:id/edit",
+    show: "/admin/inquiries/:id",
   },
   {
     name: "posteingang",
@@ -92,15 +88,20 @@ export const RefineAdminApp = () => {
     >
       <Routes>
         <Route index element={<Dashboard />} />
-        <Route path="inquiries" element={<UnifiedInquiriesList />} />
         <Route path="posteingang" element={<Posteingang />} />
-        <Route path="events">
+        <Route path="inquiries">
           <Route index element={<EventsList />} />
           <Route path="create" element={<AdminOfferCreate />} />
           <Route path=":id/edit" element={<SmartInquiryEditor />} />
           <Route path=":id/preview" element={<OfferSendPreview />} />
           <Route path=":id/archive/:version" element={<OfferArchivePreview />} />
         </Route>
+        {/* Legacy redirects: /admin/events/* → /admin/inquiries/* */}
+        <Route path="events" element={<Navigate to="/admin/inquiries" replace />} />
+        <Route path="events/create" element={<Navigate to="/admin/inquiries/create" replace />} />
+        <Route path="events/:id/edit" element={<LegacyEventsRedirect to="edit" />} />
+        <Route path="events/:id/preview" element={<LegacyEventsRedirect to="preview" />} />
+        <Route path="events/:id/archive/:version" element={<LegacyEventsArchiveRedirect />} />
         <Route path="bookings">
           <Route index element={<EventBookingsList />} />
           <Route path=":id/edit" element={<EventBookingEditor />} />
