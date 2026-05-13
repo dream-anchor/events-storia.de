@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { CreditCard, Info, Landmark, Receipt, Wallet } from "lucide-react";
+import { CreditCard, Info, Landmark, Receipt, ShieldCheck, Wallet, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
@@ -358,6 +358,26 @@ export function PaymentTermsBlock({
         <Info className="h-3 w-3 mt-0.5 shrink-0" />
         <p>{summaryText}</p>
       </div>
+
+      {/* Kunden-Flow-Hinweis: zeigt dem Admin, was der Kunde sieht */}
+      {(method === 'on_site' || method === 'invoice_after') ? (
+        <div className="mt-3 rounded-xl border border-neutral-300/70 bg-neutral-50 p-3 flex items-start gap-2.5">
+          <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0 text-neutral-700" />
+          <div className="text-[11px] leading-relaxed text-neutral-700">
+            <strong className="text-neutral-900">Kunde sieht:</strong> Button „Verbindlich buchen" mit
+            rechtswirksamer Auftragsbestätigung — 3 Checkboxen (Annahme, AGB, Zahlung),
+            Name, IP, Geräte- &amp; Versionsnachweis. Vertragsschluss nach §§145, 147 BGB.
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50/60 p-3 flex items-start gap-2.5">
+          <Zap className="h-4 w-4 mt-0.5 shrink-0 text-neutral-600" />
+          <div className="text-[11px] leading-relaxed text-neutral-600">
+            <strong className="text-neutral-900">Kunde sieht:</strong> Stripe-Buchen-Button —
+            Vertragsschluss erfolgt automatisch mit der Zahlung.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
