@@ -1,151 +1,83 @@
-# Druck- & Export-System für Anfragen
+## Plan – Reisegruppen-Pakete in events-storia.de spiegeln (Option A)
 
-## Ziel
-Vier Druckdokumente und ein Excel-Export — sauber für Küche, Service, Buchhaltung und Tagesplanung. Jeweils als PDF-Download **und** Browser-Druck verfügbar.
+Die 3 Menüs sind bestätigt aus ristorantestoria.de/reisegruppen/ extrahiert. Wir spiegeln sie als native Pakete in unsere `packages` + `package_menu_items` + `package_drink_config`-Struktur. Damit funktionieren Maestro-Auto-Befüllung, Shop-Buchung, Lex-Sync und Pricing ohne Cross-DB-Aufrufe.
 
-## Die fünf Outputs
+### 1. Seed-Migration: `packages` + zugehörige Configs
 
-### 1. Küchenzettel (`KitchenSheet`)
-**Zweck:** Kochcrew. Eine Anfrage = eine Seite.
+Drei neue Datensätze mit `package_type = 'reisegruppen'`:
 
-Inhalt:
-- Kopf: Auftrags-Nr., Datum, Uhrzeit, „IN HAUS" / „AUSSER HAUS"
-- Kunde: Name, Firma, Gästeanzahl
-- **Allergene/Unverträglichkeiten** (fett, oben, eigener Block)
-- Menü (Gänge, Items, Mengen) — **ohne Preise**
-- Getränke
-- Sonderwünsche (aus `internal_notes`/Quote-Notes)
-- Bei Außer Haus: Liefer-/Abholzeit, Adresse
+| key | name | name_en | price | min_guests | max_guests | description | featured |
+|---|---|---|---|---|---|---|---|
+| `pizza-e-pasta` | Pizza e Pasta | Pizza & Pasta | 25 € p.P. | 20 | 100 | „Der schnelle Stopp – ideal für Busgruppen mit engem Zeitplan (45–60 Min.)" | nein |
+| `benvenuti` | Benvenuti | Benvenuti | 45 € p.P. | 20 | 100 | „Klassisches 3-Gänge-Menü (75–90 Min.)" | **ja** (Beliebt) |
+| `tradizione` | Tradizione | Tradizione | 67 € p.P. | 20 | 100 | „4-Gänge-Menü für Gruppen, die sich Zeit nehmen (90–120 Min.)" | nein |
 
-### 2. Service-Laufzettel (`ServiceSheet`)
-**Zweck:** Service- und Eventcrew vor Ort.
+Alle: `is_active = true`, `price_per_person = true`, `show_in_shop = true` (neues Flag, siehe unten), `package_type = 'reisegruppen'`.
 
-Inhalt:
-- Kopf: Auftrags-Nr., Datum, Aufbau-/Start-/Endzeit
-- Location-Block: In-Haus-Raum **oder** vollständige Außer-Haus-Adresse mit Stockwerk/Aufzug
-- Gästeanzahl, Sitzordnung, Anrede VIP-Gäste
-- Kontakt vor Ort (Telefon Kunde)
-- Equipment-Liste (aus `equipment_catalog`-Auswahl)
-- Sonderwünsche
-- **Keine Preise**, **kein Detail-Menü** (nur Eckdaten)
+`includes`-JSON pro Paket aus den extrahierten Bullet-Points.
 
-### 3. Komplettauftrag (`FullOrderSheet`)
-**Zweck:** Buchhaltung, interne Abwicklung.
+### 2. `package_course_config` + `package_menu_items` (Maestro-Auto-Befüllung)
 
-Inhalt:
-- Kopf: Auftrags-Nr., Status, Datum
-- Kunde + Rechnungsadresse
-- Komplett-Menü mit Einzel- und Gesamtpreisen, Gästeanzahl × Pers.-Preis
-- Equipment + Preise
-- Zahlungsplan: Anzahlung, Restzahlung, Zahlungsstatus, LexOffice-Rechnungs-Nr.
-- Versionshistorie (welche Angebotsversion wurde angenommen)
+**Pizza e Pasta:**
+- Course `main` „Hauptgang (Pizza ODER Pasta)" – Custom-Item-Liste:
+  - Pizza Margherita / Diavola / Quattro Formaggi / Prosciutto e Funghi
+  - Spaghetti Pomodoro / Penne all'Arrabbiata / Spaghetti Carbonara
+- Course `starter` „Gemischter Blattsalat" (Custom)
+- Course `dessert` „Espresso oder Gelato (1 Kugel)" (Custom)
 
-### 4. Tagesplan (`DayPlanSheet`)
-**Zweck:** Schichtplanung, Wochenübersicht.
+**Benvenuti:**
+- Course `starter` „Vorspeise zum Teilen": Caprese mit Büffel-Mozzarellina, Vitello Tonnato, Parmigiana-Auflauf, Steinofenbrot
+- Course `main` „Hauptgang (Wahl)": Pizza Margherita/Salame Piccante, Penne all'Arrabbiata/Tagliatelle al Ragù, Risotto Edelpilze (glutenfrei)
+- Course `dessert` „Kleines Tiramisu oder kleine Panna Cotta"
 
-Inhalt:
-- Pro Tag eine Sektion (gruppiert nach `preferred_date`)
-- Tabelle: Zeit · Kunde · Gäste · Location · Menü-Kurz · Verantwortlich
-- Footer: Gesamt-Gäste/Tag, Anzahl Events/Tag
+**Tradizione:**
+- Course `starter` (Antipasto misto): Vitello Tonnato / Burrata + Steinofenbrot
+- Course `pasta` (Primo): Tagliatelle al Ragù / Ravioli Ricotta+Steinpilze / Risotto Edelpilze
+- Course `main` (Secondo): Dorade Royal / Saltimbocca alla Romana / Parmigiana di Melanzane (vegetarisch)
+- Course `dessert`: Tiramisu / Panna Cotta / Cannoli Siciliani
 
-### 5. Event-Liste (`EventListExport`) — PDF + Excel
-**Zweck:** Buchhaltung, GF, Übersicht.
+Items werden als `package_menu_items` mit `is_custom = true` und `price = 0` (= „inkl.") angelegt – nutzt direkt das in Punkt 1 des Hauptplans definierte „Preis 0 = inkl."-Verhalten.
 
-Spalten (PDF kompakt, Excel vollständig):
-| Datum | Zeit | Kunde | Firma | Gäste | Typ | Adresse | Status | Gesamt | Anzahlung | Rest offen | Verantwortlich | Notizen |
+### 3. `package_drink_config`
 
-Filter (vor Generierung):
-- Zeitraum: Diese Woche / Nächste Woche / Aktueller Monat / Frei wählbar
-- Status: Multi-Select (Gebucht / Angebot verschickt / In Bearbeitung)
-- Typ: In Haus / Außer Haus / beide
-- Verantwortlich: alle / einzelner Mitarbeiter
+**Pizza e Pasta:** Wasser 0,5 l + 1 Softdrink (`is_included`, kein Choice)
+**Benvenuti:** 1× 0,1 l Hauswein ODER Helles ODER Softdrink (`is_choice`), + Wasser + Espresso (included)
+**Tradizione:** ½ l Wein p.P. + Wasser + Espresso (included)
 
-## UI-Integration
+### 4. Schema-Erweiterung
 
-### A) Detailseite einer Anfrage (`SmartInquiryEditor`)
-Neuer **Drucken**-Button in der Toolbar oben rechts → Dropdown:
-- 🍳 Küchenzettel
-- 🛎 Service-Laufzettel
-- 📋 Komplettauftrag
+Migration: `ALTER TABLE packages ADD COLUMN show_in_shop boolean NOT NULL DEFAULT false;`
+Diese 3 Pakete bekommen `show_in_shop = true`. Bestehende Event-Pakete bleiben unverändert (default false → müssen wir bei Bedarf später aktivieren).
 
-Jeder Eintrag öffnet eine Vorschau-Modal mit zwei Aktionen:
-- **PDF herunterladen**
-- **Drucken** (Browser-Dialog)
+### 5. Maestro-Auto-Befüllung (OfferBuilder)
 
-### B) Listenansicht (`EventsList` unter `/admin/inquiries`)
-Zwei neue Bereiche:
+In `OptionCard.tsx` bei Paket-Auswahl: wenn `package_id` gesetzt → laden von `package_menu_items` + `package_drink_config` und Vorbelegung der `courses`/`drinks` im `OfferBuilder`-State mit `overridePrice: 0` („inkl.").
 
-**Massenaktionen** (sichtbar, sobald ≥1 Anfrage angehakt):
-- Bulk-Druck Küchenzettel (gewählte → ein PDF, je 1 Seite)
-- Bulk-Druck Service-Laufzettel
-- Bulk-Druck Komplettauftrag
+### 6. Shop-Integration
 
-**Filterleiste-Ergänzung** „Listen & Exporte":
-- 📅 Tagesplan drucken (mit Zeitraum-Auswahl)
-- 📊 Event-Liste drucken (PDF mit Filtern)
-- 📈 Event-Liste exportieren (Excel mit Filtern)
+`useEventPackages` erweitern: zusätzlich `package_type = 'reisegruppen'` einbeziehen ODER neuer Hook `useReisegruppenPackages`. Auf der Events-Seite (`src/pages/Events*.tsx` bzw. `EventsImStoria.tsx`) eigene Sektion „Für Reisegruppen" mit `EventPackageShopCard` für die 3 Pakete.
 
-## Technische Umsetzung
+Bilder: bestehende Assets wiederverwenden – `ravioliDinner` (Tradizione), `firmenfeier` (Benvenuti), `sommerfest` (Pizza e Pasta). Falls gewünscht, später dedizierte Bilder.
 
-### Stack
-- **PDF-Generierung:** `@react-pdf/renderer` (komponentenbasiert, sauber paginiert, läuft im Browser — kein Edge-Function-Roundtrip nötig). Liefert sowohl Download als auch Inline-Render für Druckvorschau.
-- **Excel-Export:** `xlsx` (SheetJS) — bereits etabliert; eine `.xlsx`-Datei mit Header-Styling.
-- **Browser-Druck:** Print-CSS (`@media print`) + `window.print()` auf der gleichen React-PDF-Vorschau.
+Buchungspfad identisch zu bestehenden Shop-Paketen → Cart → Checkout → `event_inquiries` mit `package_id` referenziert.
 
-### Neue Dateien (Komponenten)
-```
-src/components/admin/refine/print/
-  KitchenSheet.tsx           ← React-PDF Document
-  ServiceSheet.tsx
-  FullOrderSheet.tsx
-  DayPlanSheet.tsx
-  EventListPdf.tsx
-  PrintMenu.tsx              ← Dropdown im Editor
-  PrintPreviewDialog.tsx     ← Modal mit Vorschau + DL/Druck
-  ExportFilters.tsx          ← Zeitraum + Status + Typ
-  exportEventsXlsx.ts        ← XLSX-Generator
-  fetchPrintData.ts          ← gemeinsame Datenholung (1 Query je Anfrage)
+### 7. Reihenfolge der Umsetzung
+
+```text
+Schritt A: Migration "show_in_shop" + Seed der 3 packages
+Schritt B: Seed package_course_config + package_menu_items
+Schritt C: Seed package_drink_config
+Schritt D: OfferBuilder Auto-Befüllung beim Paket-Wechsel
+Schritt E: useEventPackages erweitern + EventsImStoria.tsx Sektion
+Schritt F: QA – Maestro-Auswahl + Shop-Buchung Ende-zu-Ende
 ```
 
-### Neue Hooks
-```
-src/hooks/usePrintInquiry.ts   ← lädt vollständige Daten für 1 Inquiry
-src/hooks/usePrintInquiries.ts ← lädt Daten für N Inquiries (Bulk)
-```
+### 8. Bewusst nicht enthalten
 
-### Daten
-Alle nötigen Felder existieren bereits in:
-- `event_inquiries` (Kunde, Datum, Adresse, Status, Zahlung)
-- `inquiry_offer_options` (Menü-Auswahl, Preis, Pakete)
-- `inquiry_offer_history` (welche Version angenommen)
-- `equipment_catalog` (für Service-Sheet)
-- `menu_items` / `menu_categories` (für Item-Namen + Allergene)
+- **Live-Sync mit ristorantestoria.de**: Wenn dort Inhalte geändert werden, müssen wir hier manuell nachpflegen. Falls später nötig: separater Sync-Job (eigener Plan).
+- **Mehrsprachige Menüs (IT/FR)**: Wir spiegeln nur DE + EN. Das ristorantestoria-System hat 4 Sprachen, das ist hier nicht zwingend.
+- **Reiseleiter/Busfahrer-Logik** („ab 25 Pers. isst Reiseleiter gratis"): kommt in einen separaten Folge-Task – würde hier den Scope sprengen.
 
-Kein Schema-Change nötig.
+### 9. Zu klären
 
-### Print-Layout-Standards
-- A4 hoch, 20mm Ränder
-- Helvetica (mitgeliefert in @react-pdf, kein Font-Loading)
-- Schwarz/weiß-tauglich, Logo SW oben links
-- Footer: Druckdatum, Seite X von Y, „events-storia.de"
-- Versionsnummer der Anfrage im Footer (Audit-Trail)
-
-## Reihenfolge der Implementierung
-1. `@react-pdf/renderer` + `xlsx` als Dependencies hinzufügen
-2. Gemeinsame Datenholung (`fetchPrintData`)
-3. Drei Detail-Sheets (Kitchen, Service, FullOrder) + Vorschau-Dialog
-4. Druck-Dropdown im `SmartInquiryEditor`
-5. Bulk-Aktionen + Massenauswahl in `EventsList`
-6. Tagesplan + Event-Liste-PDF
-7. Excel-Export
-
-## Was bewusst NICHT mit reinkommt
-- Edge-Function-PDF-Generierung (Browser reicht, schneller, kein Cold-Start)
-- E-Mail-Versand der Sheets (Folge-Feature; PDFs können manuell angehängt werden)
-- Templates/Branding-Editor (Layout fix, kann später konfigurierbar werden)
-
-## Verifikation
-- Drei Inquiry-Typen testen: In-Haus-Menü, Außer-Haus-Catering, Reisegruppe
-- Bulk: 5 Anfragen → 1 PDF mit 5 Seiten
-- Excel: Spalten korrekt, Zahlen als Zahlen (nicht Strings), Filter wirken
-- Druck-CSS: Im Browser-Druckdialog erscheint nur das Sheet, keine Admin-Chrome
+Soll ich `show_in_shop` global einführen (auch für bestehende Event-Pakete optional aktivierbar), oder reicht ein einfaches Filter-Flag `package_type IN ('event','reisegruppen')` im Shop-Hook? Empfehlung: das neue Flag, weil es flexibler ist und unabhängig vom `package_type` greift.
