@@ -194,7 +194,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
           }
         }
       } else {
-        parts.push('Getränke: keine konfiguriert — PFLICHT-Standardformulierung verwenden: "Wasser und Kaffee-Spezialitäten sind inklusive. Weitere Getränke werden nach tatsächlichem Verbrauch abgerechnet."');
+        parts.push('Getränke: keine konfiguriert — PFLICHT-Standardformulierung als eigener Absatz verwenden, BEIDE Sätze, exakt so:\n  "Wasser wird während der gesamten Veranstaltung für alle auf den Tischen bereitgestellt. Dazu zwei Getränke pro Person zur Wahl (ein Glas Wein, Spritz oder Bier)."');
       }
 
       // Equipment & Staff context for AI
