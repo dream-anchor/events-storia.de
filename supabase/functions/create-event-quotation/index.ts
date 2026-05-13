@@ -118,17 +118,28 @@ function buildDrinkInfoLines(ms: MenuSelectionDB | null | undefined): string[] {
 
   // 2. Neuer drinksMode
   const mode = ms.drinksMode ?? 'none';
-  if (mode === 'pauschale' && (ms.drinksPauschalePrice ?? 0) > 0) {
+  if (mode === 'pauschale') {
     const desc = ms.drinksPauschaleDescription || 'Getränkepauschale';
-    lines.push(`${desc} (${(ms.drinksPauschalePrice ?? 0).toFixed(2).replace('.', ',')} € / Pers.)`);
-  } else if (mode === 'weinbegleitung' && (ms.winePairingPrice ?? 0) > 0) {
-    lines.push(`Weinbegleitung (${(ms.winePairingPrice ?? 0).toFixed(2).replace('.', ',')} € / Pers.)`);
+    const price = ms.drinksPauschalePrice ?? 0;
+    if (desc) {
+      lines.push(price > 0
+        ? `${desc} (${price.toFixed(2).replace('.', ',')} € / Pers.)`
+        : `${desc} (inklusive)`);
+    }
+  } else if (mode === 'weinbegleitung') {
+    const price = ms.winePairingPrice ?? 0;
+    lines.push(price > 0
+      ? `Weinbegleitung (${price.toFixed(2).replace('.', ',')} € / Pers.)`
+      : `Weinbegleitung (inklusive)`);
   } else if (mode === 'einzeln' && ms.drinksEinzeln?.length) {
     for (const d of ms.drinksEinzeln) {
-      if (!d.name || (d.pricePerPerson ?? 0) <= 0) continue;
+      if (!d.name) continue;
       const qty = d.quantity ?? 1;
-      const name = qty > 1 ? `${qty} × ${d.name}` : d.name;
-      lines.push(name);
+      const baseName = qty > 1 ? `${qty} × ${d.name}` : d.name;
+      const price = d.pricePerPerson ?? 0;
+      lines.push(price > 0
+        ? `${baseName} (${price.toFixed(2).replace('.', ',')} € / Pers.)`
+        : `${baseName} (inklusive)`);
     }
   } else if (mode === 'none' && (ms.winePairingPrice ?? 0) > 0) {
     lines.push(`Weinbegleitung (${(ms.winePairingPrice ?? 0).toFixed(2).replace('.', ',')} € / Pers.)`);

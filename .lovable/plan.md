@@ -1,47 +1,33 @@
-## 1) Maestro Smartphone „schwarze Seite" – Ursache & Fix
+## Diagnose: Getränke fehlen weiterhin im LexOffice-Beleg
 
-### Diagnose
-- Tailwind nutzt `darkMode: ["class"]`, eine `.dark`-Klasse wird im Code aber **nirgends** auf `<html>` gesetzt.
-- Trotzdem enthalten viele Admin-Komponenten `dark:bg-gray-900` / `dark:bg-neutral-900` Varianten (z. B. `AdminLayout`, `DataTable`, `SmartInquiryEditor`, `InquiryDetailsPanel`, `MultiOfferComposer`, `PaymentCard`, `OfferHistoryList`, `ContextBar` …).
-- `color-scheme: light !important` ist nur innerhalb `.admin-layout` gesetzt — auf `<html>`/`<body>` nicht. iOS Safari mit System-Dark-Mode interpretiert dadurch native UI-Flächen (Form-Controls, Scroll-Hintergrund, „bounce area", Status-Bar-Einfärbung) dunkel und manche Bereiche/Modale (Mobile-Sidebar, Toaster-Overlay) erscheinen schwarz.
-- Memory-Regel: **Strict Light-Mode**. Dark-Varianten dürfen also gar nicht greifen.
+DB-Stand für die Anfrage `90321866-…ce97`:
+- `offer_mode = full_menu`, `pricingMode = per_person`, `drinksMode = einzeln`
+- `budgetPerPerson = 40,20 €`, `guest_count = 74`, `total_amount = 2.974,80 €`
+- `drinksEinzeln = [{Wasser…, pricePerPerson: 0}, {Zwei Getränke pro Person…, pricePerPerson: 0}]`
 
-### Fix
-1. **Globaler Light-Mode-Lock** in `src/index.css`:
-   - `html, body { color-scheme: light !important; background-color: hsl(var(--background)); }`
-   - Optional `<meta name="color-scheme" content="light">` und `<meta name="theme-color" content="#f6f7f8">` in `index.html`, damit iOS Status-Bar/Bounce hell bleibt.
-2. **Tailwind-Dark-Hook neutralisieren**: in `tailwind.config.ts` `darkMode` auf `["class", ".__never__"]` setzen, sodass `dark:`-Utilities zur Laufzeit nie matchen (kein Refactor aller Komponenten nötig). Die existierenden `dark:`-Klassen bleiben als historischer Code erhalten, sind aber wirkungslos.
-3. **AdminLayout konkret aufräumen** (Sicherheitsnetz):
-   - `src/components/admin/refine/AdminLayout.tsx` Zeilen 133, 244, 277: `dark:bg-[#1a2632]` / `dark:bg-[#101922]` entfernen.
-   - Mobile Sidebar Overlay (`bg-black/50`) bleibt — ist nur das Backdrop, korrekt.
+In `create-event-quotation` läuft dieser Fall in den **Paket-/E-Mail-Branch** (Zeile 483 ff.), weil der `menu`-Branch nur auf `offer_mode === 'menu'` matcht — `full_menu` matcht dort nicht. Der Paket-Branch baut **eine** Position `Veranstaltungspaket` mit `quantity = 74 Person × 40,20 € (7 %)` und listet Inhalte in `description`.
 
-### Validierung
-- Browser-Tool mit Viewport 390×844 auf `/admin` und `/admin/inquiries/.../preview` öffnen, Light-Mode-Rendering prüfen, Sidebar öffnen/schließen.
+Die Speisen werden korrekt in die Beschreibung übernommen, die Getränke aber **nicht**, weil `buildDrinkInfoLines()` in Zeile 128 alle Getränke mit `pricePerPerson <= 0` herausfiltert. Genau das sind die zwei Inklusivgetränke des Kunden → sie verschwinden komplett aus dem LexOffice-Dokument.
 
----
+Dasselbe Filter-Muster steht in `repair-quotation-pricing/index.ts` (Zeile 317).
 
-## 2) Public Offer: PDF-Download dezent unter dem Menü
+## Fix
 
-### Aktuell
-`src/pages/PublicOffer.tsx` rendert `<PdfDownloadSection />` ganz am Ende (nach `<ContactSection />`, Zeile 505). Dadurch übersieht man den Link.
+### 1) `supabase/functions/create-event-quotation/index.ts`
+- `buildDrinkInfoLines()` so anpassen, dass **inklusive** Getränke (`pricePerPerson === 0` oder undefined) immer in der Beschreibung gelistet werden. Nur leere Namen werden übersprungen. Der Preis-Filter (`<= 0`) entfällt für die reine Description-Ausgabe.
+- Wenn ein Preis > 0 vorhanden ist, weiterhin als „Name (X,XX €/Pers.)" formatieren; bei Preis 0 nur den Namen ausgeben (z. B. „Zwei Getränke pro Person (Wahl zwischen Wein, Spritz oder Bier) — inklusive").
+- Analog für `drinksMode = pauschale` und `weinbegleitung`: Wenn Preis 0 ist (selten, aber möglich), trotzdem mit Hinweis „inklusive" listen.
 
-### Fix
-- `<PdfDownloadSection />` direkt **unter den Menü-/Angebot-Block** verschieben, also nach `ProposalView` / `FinalOfferView` / `ConfirmationView`, **vor** `PublicPaymentSection` und `ContactSection`.
-- Styling bleibt unverändert (kleiner Text-Link, `text-sm text-muted-foreground`, `underline-offset-2`).
-- Innerhalb der `PdfDownloadSection`: `flex justify-end` → `flex justify-center` (oder `justify-start`) damit der Link mittig direkt unter dem Menü sichtbar wird, statt rechts in der Footer-Zone zu verschwinden.
+### 2) `supabase/functions/repair-quotation-pricing/index.ts`
+- Dieselbe Änderung in der dortigen `buildDrinkInfoLines`-Funktion (Zeile 315 ff.).
 
-### Technische Details
-```text
-<main>
-  HeroSection
-  RestaurantGallery
-  OfferLanguageSwitcher
-  AnschreibenSection
-  ProposalView | FinalOfferView | ConfirmationView   ← Menü/Angebot
-  PdfDownloadSection                                  ← NEU hier
-  PublicPaymentSection
-  ContactSection
-</main>
-```
+### 3) Stale Quotation zurücksetzen
+- `UPDATE event_inquiries SET lexoffice_quotation_id = NULL WHERE id = '90321866-239d-4331-a85b-fddf5280ce97'` per neuer Migration, damit beim nächsten Preview/Versand ein frisches LexOffice-Dokument mit korrekter Beschreibung entsteht.
 
-Keine Änderungen an Edge Functions, Datenbank oder Business-Logik.
+### 4) Deploy & Verifizieren
+- Edge Functions `create-event-quotation` und `repair-quotation-pricing` deployen.
+- Dry-Run via `OfferSendPreview` (Route bereits offen): geladenes PDF muss in der Position „Veranstaltungspaket" jetzt unter „Inklusive:" auch beide Getränke nennen.
+
+## Was NICHT geändert wird
+- Keine Tax-Logik-Änderung (7 % bleibt korrekt für inkludiertes Komplettpaket — sobald Getränke einen Eigenpreis bekommen, greifen die bestehenden 19 %-Positionen weiter unten im Code).
+- Kein Refactoring der `full_menu` vs. `menu` Branch-Unterscheidung — separates Thema, würde den Scope sprengen.

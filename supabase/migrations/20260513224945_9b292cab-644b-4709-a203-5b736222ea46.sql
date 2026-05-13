@@ -1,0 +1,1 @@
+UPDATE public.event_inquiries SET lexoffice_quotation_id = NULL WHERE id = '90321866-239d-4331-a85b-fddf5280ce97';
