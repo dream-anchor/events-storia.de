@@ -774,18 +774,17 @@ function ProposalView({
     if (!selectedOptionId) return;
     setIsPaying(paymentType);
     try {
-      const { data, error } = await supabase.functions.invoke('create-payment-session', {
-        body: { inquiryId: inquiry.id, optionId: selectedOptionId, paymentType },
+      const { checkoutUrl } = await createPaymentSession({
+        inquiryId: inquiry.id,
+        optionId: selectedOptionId,
+        paymentType,
       });
-      if (error || !data?.checkoutUrl) {
-        throw new Error(data?.error || 'Fehler beim Erstellen der Zahlungssitzung');
-      }
       trackEvent("offer_payment_initiated", {
         payment_type: paymentType,
         value: paymentType === 'full' ? totalAmount : depositAmount,
         currency: "EUR",
       });
-      window.location.href = data.checkoutUrl;
+      window.location.href = checkoutUrl;
     } catch (err) {
       setIsPaying(null);
       toast.error(
