@@ -712,6 +712,96 @@ export type Database = {
           },
         ]
       }
+      _legacy_group_inquiries: {
+        Row: {
+          arrival_time: string | null
+          assigned_to: string | null
+          company_name: string | null
+          contact_name: string
+          created_at: string | null
+          email: string
+          external_id: string | null
+          group_size: number
+          id: string
+          internal_notes: string | null
+          language: string | null
+          message: string | null
+          phone: string | null
+          preferred_date: string | null
+          preferred_date_flexible: boolean | null
+          preferred_menu: string | null
+          responded_at: string | null
+          source: string | null
+          status: string
+          travel_plan_filename: string | null
+          travel_plan_url: string | null
+          updated_at: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          arrival_time?: string | null
+          assigned_to?: string | null
+          company_name?: string | null
+          contact_name: string
+          created_at?: string | null
+          email: string
+          external_id?: string | null
+          group_size: number
+          id?: string
+          internal_notes?: string | null
+          language?: string | null
+          message?: string | null
+          phone?: string | null
+          preferred_date?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
+          responded_at?: string | null
+          source?: string | null
+          status?: string
+          travel_plan_filename?: string | null
+          travel_plan_url?: string | null
+          updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          arrival_time?: string | null
+          assigned_to?: string | null
+          company_name?: string | null
+          contact_name?: string
+          created_at?: string | null
+          email?: string
+          external_id?: string | null
+          group_size?: number
+          id?: string
+          internal_notes?: string | null
+          language?: string | null
+          message?: string | null
+          phone?: string | null
+          preferred_date?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
+          responded_at?: string | null
+          source?: string | null
+          status?: string
+          travel_plan_filename?: string | null
+          travel_plan_url?: string | null
+          updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: []
+      }
       _legacy_inquiry_comments: {
         Row: {
           author_email: string
@@ -1463,96 +1553,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      group_inquiries: {
-        Row: {
-          arrival_time: string | null
-          assigned_to: string | null
-          company_name: string | null
-          contact_name: string
-          created_at: string | null
-          email: string
-          external_id: string | null
-          group_size: number
-          id: string
-          internal_notes: string | null
-          language: string | null
-          message: string | null
-          phone: string | null
-          preferred_date: string | null
-          preferred_date_flexible: boolean | null
-          preferred_menu: string | null
-          responded_at: string | null
-          source: string | null
-          status: string
-          travel_plan_filename: string | null
-          travel_plan_url: string | null
-          updated_at: string | null
-          utm_campaign: string | null
-          utm_content: string | null
-          utm_medium: string | null
-          utm_source: string | null
-          utm_term: string | null
-        }
-        Insert: {
-          arrival_time?: string | null
-          assigned_to?: string | null
-          company_name?: string | null
-          contact_name: string
-          created_at?: string | null
-          email: string
-          external_id?: string | null
-          group_size: number
-          id?: string
-          internal_notes?: string | null
-          language?: string | null
-          message?: string | null
-          phone?: string | null
-          preferred_date?: string | null
-          preferred_date_flexible?: boolean | null
-          preferred_menu?: string | null
-          responded_at?: string | null
-          source?: string | null
-          status?: string
-          travel_plan_filename?: string | null
-          travel_plan_url?: string | null
-          updated_at?: string | null
-          utm_campaign?: string | null
-          utm_content?: string | null
-          utm_medium?: string | null
-          utm_source?: string | null
-          utm_term?: string | null
-        }
-        Update: {
-          arrival_time?: string | null
-          assigned_to?: string | null
-          company_name?: string | null
-          contact_name?: string
-          created_at?: string | null
-          email?: string
-          external_id?: string | null
-          group_size?: number
-          id?: string
-          internal_notes?: string | null
-          language?: string | null
-          message?: string | null
-          phone?: string | null
-          preferred_date?: string | null
-          preferred_date_flexible?: boolean | null
-          preferred_menu?: string | null
-          responded_at?: string | null
-          source?: string | null
-          status?: string
-          travel_plan_filename?: string | null
-          travel_plan_url?: string | null
-          updated_at?: string | null
-          utm_campaign?: string | null
-          utm_content?: string | null
-          utm_medium?: string | null
-          utm_source?: string | null
-          utm_term?: string | null
-        }
-        Relationships: []
       }
       imap_sync_state: {
         Row: {
