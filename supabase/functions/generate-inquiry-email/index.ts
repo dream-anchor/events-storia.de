@@ -193,6 +193,8 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
             parts.push(`  ${d.drinkLabel}: inklusive`);
           }
         }
+      } else {
+        parts.push('Getränke: keine konfiguriert — PFLICHT-Standardformulierung verwenden: "Wasser und Kaffee-Spezialitäten sind inklusive. Weitere Getränke werden nach tatsächlichem Verbrauch abgerechnet."');
       }
 
       // Equipment & Staff context for AI
@@ -440,6 +442,7 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
    • ALLE Menügänge vollständig nennen (Vorspeise, Hauptgang, Dessert)
    • ALLE Getränke nennen — auch die inklusiven! (Wasser, Kaffee-Spezialitäten, Wein/Bier-Pauschale)
    • Inklusiv-Getränke haben in den Daten "inklusive" als Quantität oder stehen als "[Getränk]: inklusive". Die gehören IMMER in den Text.
+   • PFLICHT: Jedes Anschreiben enthält IMMER einen eigenen Getränke-Absatz. Wenn in den Daten "Getränke: keine konfiguriert" steht, schreibe wörtlich diesen Satz als eigenen Absatz: "Wasser und Kaffee-Spezialitäten sind inklusive. Weitere Getränke werden nach tatsächlichem Verbrauch abgerechnet." — diese Zeile darf NIE weggelassen werden.
 
 3. RECHTSCHREIBUNG — kein Slang, keine Abkürzungen.
    • Immer "inklusive" — NIE "inkl."

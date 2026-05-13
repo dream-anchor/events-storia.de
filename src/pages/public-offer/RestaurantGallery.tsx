@@ -3,26 +3,22 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-import hausAussen from "@/assets/haus-aussen-2.webp";
-import aussen from "@/assets/aussen.webp";
-import menschenAussen from "@/assets/menschen-aussen.jpeg";
-import weinservice from "@/assets/weinservice.webp";
-import cocktails from "@/assets/cocktails.webp";
-import meeresfruchte from "@/assets/meeresfruchte.webp";
-import ravioli from "@/assets/ravioli.webp";
-import tiramisu from "@/assets/tiramisu.webp";
+import uebersichtGaeste from "@/assets/storia-uebersicht-gaeste.webp";
+import uebersichtDetails from "@/assets/storia-uebersicht-details.webp";
 
 type Photo = { src: string; alt: string; caption: string };
 
 const PHOTOS: Photo[] = [
-  { src: hausAussen, alt: "Ristorante Storia – historisches Eckgebäude in der Karlstraße, Maxvorstadt München", caption: "Unser Haus · Karlstraße, Maxvorstadt" },
-  { src: aussen, alt: "Sonnige Außenterrasse des Ristorante Storia mit Sonnenschirmen", caption: "Terrasse am Tag" },
-  { src: menschenAussen, alt: "Gäste genießen italienische Küche auf der Terrasse des Storia", caption: "Gäste auf der Terrasse" },
-  { src: weinservice, alt: "Hinterleuchtete Weinwand mit ausgewählten italienischen Weinen", caption: "Weinwand & Bar" },
-  { src: cocktails, alt: "Aperitivo und handgefertigte Cocktails an der Storia Bar", caption: "Aperitivo & Cocktails" },
-  { src: meeresfruchte, alt: "Frische italienische Antipasti mit Meeresfrüchten", caption: "Antipasti del mare" },
-  { src: ravioli, alt: "Hausgemachte Ravioli aus der Storia-Küche", caption: "Pasta fatta in casa" },
-  { src: tiramisu, alt: "Klassisches hausgemachtes Tiramisu", caption: "Dolci della casa" },
+  {
+    src: uebersichtGaeste,
+    alt: "Ristorante Storia München – Eindrücke mit Gästen, Bar, Terrasse und Außenansicht",
+    caption: "Ristorante Storia · München-Maxvorstadt",
+  },
+  {
+    src: uebersichtDetails,
+    alt: "Ristorante Storia München – Innenraum, Show-Küche, Weinwand und Außenansichten",
+    caption: "Räume, Küche & Terrasse",
+  },
 ];
 
 export function RestaurantGallery() {
@@ -68,7 +64,7 @@ export function RestaurantGallery() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         {PHOTOS.map((photo, i) => (
           <button
             key={photo.src}
@@ -79,8 +75,7 @@ export function RestaurantGallery() {
               "group relative overflow-hidden rounded-2xl border border-border/40 bg-muted",
               "shadow-[var(--shadow-card,_0_1px_3px_rgba(0,0,0,0.08))]",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
-              "aspect-[4/5]",
-              i === 0 && "col-span-2 md:col-span-2 md:row-span-2 aspect-[4/5] md:aspect-auto",
+              "aspect-[3/2]",
             )}
           >
             <img
