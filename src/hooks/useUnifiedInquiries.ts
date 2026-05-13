@@ -6,8 +6,10 @@ import type { CateringOrder } from "@/types/refine";
 import {
   type InquiryRecord,
   type V2EventRow,
+  type GroupInquiryRow,
   mapV2Event,
   mapOrder,
+  mapGroupInquiry,
 } from "@/types/inquiryRecord";
 import { useTestMode } from "@/contexts/TestModeContext";
 
@@ -46,23 +48,43 @@ export function useUnifiedInquiries() {
     },
   });
 
+  const groupInquiriesQuery = useQuery({
+    queryKey: ["unified-group-inquiries"],
+    queryFn: async (): Promise<GroupInquiryRow[]> => {
+      const { data, error } = await supabase
+        .from("group_inquiries")
+        .select(
+          "id, external_id, contact_name, company_name, email, phone, group_size, preferred_date, preferred_date_flexible, arrival_time, preferred_menu, message, language, source, status, created_at, updated_at",
+        )
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return (data ?? []) as unknown as GroupInquiryRow[];
+    },
+  });
+
   const records: InquiryRecord[] = useMemo(() => {
     const events = (eventsQuery.data || []).map(mapV2Event);
     const orders = (ordersQuery.result?.data || []).map(mapOrder);
-    const all = [...events, ...orders];
+    const groups = (groupInquiriesQuery.data || []).map(mapGroupInquiry);
+    const all = [...events, ...orders, ...groups];
     // Default sort: newest first
     all.sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
     return all;
-  }, [eventsQuery.data, ordersQuery.result?.data]);
+  }, [eventsQuery.data, ordersQuery.result?.data, groupInquiriesQuery.data]);
 
-  const isLoading = eventsQuery.isLoading || ordersQuery.query.isLoading;
+  const isLoading =
+    eventsQuery.isLoading ||
+    ordersQuery.query.isLoading ||
+    groupInquiriesQuery.isLoading;
 
   const refetch = () => {
     eventsQuery.refetch();
     ordersQuery.query.refetch();
+    groupInquiriesQuery.refetch();
   };
 
   return { records, isLoading, refetch };
