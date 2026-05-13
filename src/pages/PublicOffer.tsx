@@ -502,6 +502,7 @@ export default function PublicOffer() {
 
         <PublicPaymentSection payments={payments} eventDate={inquiry.preferred_date ?? undefined} />
         <ContactSection />
+        <PdfDownloadSection inquiryId={inquiry.id} />
       </main>
       <OfferFooter />
     </div>
