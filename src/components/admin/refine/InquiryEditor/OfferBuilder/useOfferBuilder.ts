@@ -264,6 +264,9 @@ export function useOfferBuilder({
   // --- Core State (migriert aus useMultiOfferState) ---
   const [options, setOptions] = useState<OfferBuilderOption[]>([]);
   const isDirtyRef = useRef(false);
+  // 'user' = vom Benutzer ausgelöste Änderung (bumpt last_edited_at)
+  // 'auto' = automatische Sync-Änderung beim Öffnen (Gästezahl-Sync, Preis-Recalc) → KEIN Bump
+  const dirtySourceRef = useRef<'user' | 'auto' | null>(null);
   const [currentVersion, setCurrentVersion] = useState(1);
   const [history, setHistory] = useState<OfferHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -539,6 +542,8 @@ export function useOfferBuilder({
 
     if (!isDirtyRef.current) return;
     isDirtyRef.current = false;
+    const source = dirtySourceRef.current;
+    dirtySourceRef.current = null;
     const currentJson = JSON.stringify(options);
 
     if (saveTimeoutRef.current) {
@@ -558,7 +563,7 @@ export function useOfferBuilder({
         // Diff-basiertes Save (sicher bei vom Kunden ausgewählten Optionen)
         await saveOptionsToDb(inquiryId, options, currentVersion);
 
-        if (currentUserEmail) {
+        if (currentUserEmail && source === 'user') {
           await supabase
             .from("event_inquiries")
             .update({
@@ -621,6 +626,7 @@ export function useOfferBuilder({
       const anyWrong = prev.some(o => o.guestCount !== guestCount);
       if (!anyWrong) return prev;
       isDirtyRef.current = true;
+      if (dirtySourceRef.current === null) dirtySourceRef.current = 'auto';
       return prev.map(o => o.guestCount !== guestCount ? { ...o, guestCount } : o);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -754,6 +760,7 @@ export function useOfferBuilder({
       priceRecalcRef.current = true;
       // Recalc-Updates müssen auch persistiert werden (Auto-Save triggern)
       isDirtyRef.current = true;
+      if (dirtySourceRef.current === null) dirtySourceRef.current = 'auto';
       return updated;
     });
   }, [isLoading, packagesProp, options.map(o => {
@@ -887,6 +894,7 @@ export function useOfferBuilder({
       : createEmptyOption(nextLabel, guestCount, mode ?? 'unselected');
 
     isDirtyRef.current = true;
+    dirtySourceRef.current = 'user';
     setOptions(prev => [...prev, {
       id: crypto.randomUUID(),
       ...base,
@@ -897,6 +905,7 @@ export function useOfferBuilder({
 
   const removeOption = useCallback((optionId: string) => {
     isDirtyRef.current = true;
+    dirtySourceRef.current = 'user';
     setOptions(prev => {
       const filtered = prev.filter(o => o.id !== optionId);
       return filtered.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
@@ -911,6 +920,7 @@ export function useOfferBuilder({
       (!o.totalAmount || o.totalAmount === 0);
 
     isDirtyRef.current = true;
+    dirtySourceRef.current = 'user';
     setOptions(prev => {
       const nonEmpty = prev.filter(o => !isEmptyOption(o));
       const relabeled = nonEmpty.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
@@ -931,6 +941,7 @@ export function useOfferBuilder({
 
   const updateOption = useCallback((optionId: string, updates: Partial<OfferBuilderOption>) => {
     isDirtyRef.current = true;
+    dirtySourceRef.current = 'user';
     setOptions(prev => prev.map(o =>
       o.id === optionId ? { ...o, ...updates } : o
     ));
@@ -938,6 +949,7 @@ export function useOfferBuilder({
 
   const toggleOptionActive = useCallback((optionId: string) => {
     isDirtyRef.current = true;
+    dirtySourceRef.current = 'user';
     setOptions(prev => prev.map(o =>
       o.id === optionId ? { ...o, isActive: !o.isActive } : o
     ));
@@ -1383,12 +1395,15 @@ export function useOfferBuilder({
     }
     const currentJson = JSON.stringify(options);
     if (currentJson === lastSavedJsonRef.current || isLoading) return;
+    const source = dirtySourceRef.current;
+    dirtySourceRef.current = null;
+    isDirtyRef.current = false;
     setSaveStatus('saving');
     try {
       const { data: userData } = await supabase.auth.getUser();
       const currentUserEmail = userData.user?.email;
       await saveOptionsToDb(inquiryId, options, currentVersion);
-      if (currentUserEmail) {
+      if (currentUserEmail && source === 'user') {
         await supabase.from('event_inquiries').update({ last_edited_by: currentUserEmail, last_edited_at: new Date().toISOString() }).eq('id', inquiryId);
         await supabase
           .from('event_inquiries')
