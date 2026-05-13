@@ -892,6 +892,7 @@ export function useOfferBuilder({
       : createEmptyOption(nextLabel, guestCount, mode ?? 'unselected');
 
     isDirtyRef.current = true;
+    dirtySourceRef.current = 'user';
     setOptions(prev => [...prev, {
       id: crypto.randomUUID(),
       ...base,
@@ -902,6 +903,7 @@ export function useOfferBuilder({
 
   const removeOption = useCallback((optionId: string) => {
     isDirtyRef.current = true;
+    dirtySourceRef.current = 'user';
     setOptions(prev => {
       const filtered = prev.filter(o => o.id !== optionId);
       return filtered.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
@@ -916,6 +918,7 @@ export function useOfferBuilder({
       (!o.totalAmount || o.totalAmount === 0);
 
     isDirtyRef.current = true;
+    dirtySourceRef.current = 'user';
     setOptions(prev => {
       const nonEmpty = prev.filter(o => !isEmptyOption(o));
       const relabeled = nonEmpty.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
@@ -936,6 +939,7 @@ export function useOfferBuilder({
 
   const updateOption = useCallback((optionId: string, updates: Partial<OfferBuilderOption>) => {
     isDirtyRef.current = true;
+    dirtySourceRef.current = 'user';
     setOptions(prev => prev.map(o =>
       o.id === optionId ? { ...o, ...updates } : o
     ));
@@ -943,6 +947,7 @@ export function useOfferBuilder({
 
   const toggleOptionActive = useCallback((optionId: string) => {
     isDirtyRef.current = true;
+    dirtySourceRef.current = 'user';
     setOptions(prev => prev.map(o =>
       o.id === optionId ? { ...o, isActive: !o.isActive } : o
     ));
