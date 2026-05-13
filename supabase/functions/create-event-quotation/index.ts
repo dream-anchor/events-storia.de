@@ -93,6 +93,50 @@ interface LexOfficeLineItem {
 const FOOD_TAX_RATE = 7;
 const DRINK_TAX_RATE = 19;
 
+/**
+ * Sammelt eine Liste aller konfigurierten Getränke einer Option als Strings für
+ * die LexOffice-Beschreibung. Deckt sowohl das Legacy-`drinks[]`-Array
+ * (Paket-Konfiguration: Wasser, Kaffee, Hauptgetränk …) als auch den neuen
+ * `drinksMode` (pauschale | weinbegleitung | einzeln) ab.
+ *
+ * Wird überall genutzt, wo Getränke nicht als eigene Position auftauchen
+ * (Paket-Modus, E-Mail-Modus, Variant-Beschreibung). So gehen Getränke nie
+ * verloren — egal welcher Pfad/Modus aktiv ist.
+ */
+function buildDrinkInfoLines(ms: MenuSelectionDB | null | undefined): string[] {
+  if (!ms) return [];
+  const lines: string[] = [];
+
+  // 1. Legacy: drinks[] (Paket-Konfig: Wasser, Kaffee, Hauptgetränk-Auswahl)
+  for (const d of (ms.drinks || [])) {
+    const choice = d.selectedChoice || d.customDrink || '';
+    const label = d.drinkLabel || '';
+    if (!label && !choice) continue;
+    const qty = d.quantityLabel ? ` (${d.quantityLabel})` : '';
+    lines.push(choice ? `${label}: ${choice}${qty}` : `${label}${qty}`);
+  }
+
+  // 2. Neuer drinksMode
+  const mode = ms.drinksMode ?? 'none';
+  if (mode === 'pauschale' && (ms.drinksPauschalePrice ?? 0) > 0) {
+    const desc = ms.drinksPauschaleDescription || 'Getränkepauschale';
+    lines.push(`${desc} (${(ms.drinksPauschalePrice ?? 0).toFixed(2).replace('.', ',')} € / Pers.)`);
+  } else if (mode === 'weinbegleitung' && (ms.winePairingPrice ?? 0) > 0) {
+    lines.push(`Weinbegleitung (${(ms.winePairingPrice ?? 0).toFixed(2).replace('.', ',')} € / Pers.)`);
+  } else if (mode === 'einzeln' && ms.drinksEinzeln?.length) {
+    for (const d of ms.drinksEinzeln) {
+      if (!d.name || (d.pricePerPerson ?? 0) <= 0) continue;
+      const qty = d.quantity ?? 1;
+      const name = qty > 1 ? `${qty} × ${d.name}` : d.name;
+      lines.push(name);
+    }
+  } else if (mode === 'none' && (ms.winePairingPrice ?? 0) > 0) {
+    lines.push(`Weinbegleitung (${(ms.winePairingPrice ?? 0).toFixed(2).replace('.', ',')} € / Pers.)`);
+  }
+
+  return lines;
+}
+
 function buildLineItems(
   opt: OfferOption,
   packageName: string | null,
@@ -459,13 +503,8 @@ function buildLineItems(
       const label = c.courseLabel ? `${c.courseLabel}: ` : '';
       inclLines.push(`• ${label}${c.itemName}`);
     }
-    for (const d of (ms?.drinks || [])) {
-      const choice = d.selectedChoice || d.customDrink || '';
-      const label = d.drinkLabel || '';
-      if (!label && !choice) continue;
-      const qty = d.quantityLabel ? ` (${d.quantityLabel})` : '';
-      const text = choice ? `${label}: ${choice}${qty}` : `${label}${qty}`;
-      inclLines.push(`• ${text}`);
+    for (const drinkLine of buildDrinkInfoLines(ms)) {
+      inclLines.push(`• ${drinkLine}`);
     }
     const description = inclLines.length > 0
       ? `Inklusive:\n${inclLines.join('\n')}`

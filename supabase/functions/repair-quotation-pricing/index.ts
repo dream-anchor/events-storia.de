@@ -289,10 +289,42 @@ function buildLineItems(
 
   // per_person-Fallback: Paket/E-Mail-Modus = eine Gesamtposition (Brutto)
   const unitPriceBrutto = guestCount > 0 ? round2(totalAmount / guestCount) : 0;
+
+  // Beschreibung: enthaltene Speisen & Getränke auflisten
+  const inclLines: string[] = [];
+  for (const c of (ms?.courses || [])) {
+    if (!c.itemName) continue;
+    const label = c.courseLabel ? `${c.courseLabel}: ` : "";
+    inclLines.push(`• ${label}${c.itemName}`);
+  }
+  // drinks[] (Paket-Konfig)
+  for (const d of (ms?.drinks || [])) {
+    const choice = d.selectedChoice || "";
+    const label = d.drinkLabel || "";
+    if (!label && !choice) continue;
+    const qty = d.quantityLabel ? ` (${d.quantityLabel})` : "";
+    inclLines.push(`• ${choice ? `${label}: ${choice}${qty}` : `${label}${qty}`}`);
+  }
+  // drinksMode-Getränke
+  const dm = ms?.drinksMode ?? "none";
+  if (dm === "pauschale" && (ms?.drinksPauschalePrice ?? 0) > 0) {
+    const desc = ms?.drinksPauschaleDescription || "Getränkepauschale";
+    inclLines.push(`• ${desc} (${(ms!.drinksPauschalePrice ?? 0).toFixed(2).replace(".", ",")} € / Pers.)`);
+  } else if (dm === "weinbegleitung" && (ms?.winePairingPrice ?? 0) > 0) {
+    inclLines.push(`• Weinbegleitung (${(ms!.winePairingPrice ?? 0).toFixed(2).replace(".", ",")} € / Pers.)`);
+  } else if (dm === "einzeln" && ms?.drinksEinzeln?.length) {
+    for (const d of ms.drinksEinzeln) {
+      if (!d.name || (d.pricePerPerson ?? 0) <= 0) continue;
+      const qty = d.quantity ?? 1;
+      inclLines.push(`• ${qty > 1 ? `${qty} × ${d.name}` : d.name}`);
+    }
+  }
+  const description = inclLines.length > 0 ? `Inklusive:\n${inclLines.join("\n")}` : "";
+
   items.push({
     type: "custom",
     name: packageName || "Veranstaltungspaket",
-    description: "",
+    description,
     quantity: guestCount,
     unitName: "Person",
     unitPrice: {
