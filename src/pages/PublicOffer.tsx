@@ -1301,12 +1301,14 @@ function FinalOptionCard({
   inquiry,
   isSelected,
   singleOption,
+  lang,
 }: {
   option: PublicOfferOption;
   inquiryId: string;
   inquiry: PublicInquiry;
   isSelected: boolean;
   singleOption: boolean;
+  lang: OfferLang;
 }) {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const menu = option.menu_selection;
