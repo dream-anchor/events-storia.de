@@ -624,6 +624,7 @@ export function useOfferBuilder({
       const anyWrong = prev.some(o => o.guestCount !== guestCount);
       if (!anyWrong) return prev;
       isDirtyRef.current = true;
+      if (dirtySourceRef.current === null) dirtySourceRef.current = 'auto';
       return prev.map(o => o.guestCount !== guestCount ? { ...o, guestCount } : o);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
