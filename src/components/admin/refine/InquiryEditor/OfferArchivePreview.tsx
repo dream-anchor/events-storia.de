@@ -14,7 +14,7 @@
  * Top-Banner statt Senden-Buttons. Einzige primäre Aktion:
  * „Als neues Angebot kopieren".
  *
- * Route: /admin/events/:id/archive/:version
+ * Route: /admin/inquiries/:id/archive/:version
  */
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -66,7 +66,7 @@ export function OfferArchivePreview() {
     if (versionNum == null) return;
     await cloneMutation.mutateAsync(versionNum);
     setConfirmOpen(false);
-    navigate(`/admin/events/${id}/edit`);
+    navigate(`/admin/inquiries/${id}/edit`);
   };
 
   if (isLoading) {
@@ -86,7 +86,7 @@ export function OfferArchivePreview() {
           <p className="text-muted-foreground">
             Diese Angebots-Version wurde nicht gefunden.
           </p>
-          <Button variant="outline" onClick={() => navigate(`/admin/events/${id}/edit`)}>
+          <Button variant="outline" onClick={() => navigate(`/admin/inquiries/${id}/edit`)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Zurück zum Angebot
           </Button>
@@ -133,7 +133,7 @@ export function OfferArchivePreview() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate(`/admin/events/${id}/edit`)}
+              onClick={() => navigate(`/admin/inquiries/${id}/edit`)}
               className="gap-2 -ml-2 -mt-1 shrink-0"
             >
               <ArrowLeft className="h-4 w-4" />

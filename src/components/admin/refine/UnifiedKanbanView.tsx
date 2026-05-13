@@ -286,7 +286,7 @@ export function UnifiedKanbanView({ records, onRefresh, bucket, onOpenGroup }: U
                 onClick={() =>
                   navigate(
                     r.kind === "event"
-                      ? `/admin/events/${r.id}/edit`
+                      ? `/admin/inquiries/${r.id}/edit`
                       : `/admin/orders/${r.id}/edit`,
                   )
                 }

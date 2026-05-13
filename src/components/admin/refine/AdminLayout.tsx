@@ -121,7 +121,7 @@ export const AdminLayout = ({
     if (href === '/admin' && location.pathname === '/admin') return true;
     if (href !== '/admin' && location.pathname.startsWith(href)) return true;
     if (key === 'inquiries' && (
-      location.pathname.includes('/admin/events') ||
+      location.pathname.includes('/admin/inquiries') ||
       location.pathname.includes('/admin/orders') ||
       location.pathname.includes('/admin/bookings') ||
       location.pathname.includes('/admin/inquiries')
@@ -308,7 +308,7 @@ export const AdminLayout = ({
           <div className="flex items-center gap-2 sm:gap-3">
             {showCreateButton && (
               <Button
-                onClick={onCreateClick || (() => window.location.href = '/admin/events/create')}
+                onClick={onCreateClick || (() => window.location.href = '/admin/inquiries/create')}
                 className="hidden sm:flex items-center gap-2 shadow-sm"
               >
                 <Plus className="h-4 w-4" />
@@ -371,7 +371,7 @@ export const AdminLayout = ({
       {/* Mobile FAB: New Inquiry */}
       {showCreateButton && (
         <Button
-          onClick={onCreateClick || (() => window.location.href = '/admin/events/create')}
+          onClick={onCreateClick || (() => window.location.href = '/admin/inquiries/create')}
           className="lg:hidden fixed right-4 z-40 h-14 w-14 rounded-full shadow-lg p-0"
           style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
           aria-label={createButtonText}

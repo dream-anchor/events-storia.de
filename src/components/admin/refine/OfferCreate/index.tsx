@@ -20,7 +20,7 @@ const TEST_REDIRECT_EMAIL = "antoine@monot.com";
 // ─── Steps ────────────────────────────────────────────────────────────────────
 // Wizard ist auf 2 Schritte reduziert: Eingang + Kontakt/Event-Details.
 // Angebotskonfiguration, E-Mail-Entwurf, Zahlungsbedingungen, Versand laufen
-// alle auf der vollen Edit-Seite (/admin/events/:id/edit), nicht hier.
+// alle auf der vollen Edit-Seite (/admin/inquiries/:id/edit), nicht hier.
 const STEPS = [
   { id: 1, label: "Eingang", icon: FileText },
   { id: 2, label: "Kontakt & Event", icon: PenLine },
@@ -471,7 +471,7 @@ export const AdminOfferCreate = () => {
       });
 
       toast.success('Anfrage angelegt — wechsle zur Angebotskonfiguration');
-      navigate(`/admin/events/${data.id}/edit`);
+      navigate(`/admin/inquiries/${data.id}/edit`);
     } catch (err) {
       console.error('Handoff error:', err);
       toast.error(err instanceof Error ? err.message : 'Fehler beim Speichern');
@@ -492,7 +492,7 @@ export const AdminOfferCreate = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => step > 1 ? setStep(step - 1) : navigate('/admin/events')}
+            onClick={() => step > 1 ? setStep(step - 1) : navigate('/admin/inquiries')}
             className="h-9 w-9"
           >
             <ArrowLeft className="h-4 w-4" />

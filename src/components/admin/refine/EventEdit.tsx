@@ -143,7 +143,7 @@ export const EventEdit = () => {
       <AdminLayout activeTab="events">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Event nicht gefunden</p>
-          <Button variant="link" onClick={() => navigate('/admin/events')}>
+          <Button variant="link" onClick={() => navigate('/admin/inquiries')}>
             Zurück zur Übersicht
           </Button>
         </div>
@@ -156,7 +156,7 @@ export const EventEdit = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/admin/events')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/admin/inquiries')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>

@@ -217,7 +217,7 @@ export function OfferHistoryList({ inquiryId }: OfferHistoryListProps) {
                     size="sm"
                     className="gap-1.5 text-xs h-8"
                     onClick={() =>
-                      navigate(`/admin/events/${inquiryId}/archive/${entry.version}`)
+                      navigate(`/admin/inquiries/${inquiryId}/archive/${entry.version}`)
                     }
                   >
                     <Eye className="h-3.5 w-3.5" />

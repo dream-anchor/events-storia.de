@@ -137,7 +137,7 @@ export function useUpcomingReminders() {
           kind: "follow_up_task",
           title: `Follow-up: ${t.title || "Aufgabe"}`,
           recipient: "Team",
-          navigateTo: t.inquiry_id ? `/admin/events/${t.inquiry_id}/edit` : null,
+          navigateTo: t.inquiry_id ? `/admin/inquiries/${t.inquiry_id}/edit` : null,
         });
       });
 
@@ -166,7 +166,7 @@ export function useUpcomingReminders() {
           kind: "payment_overdue",
           title: `Zahlung wird überfällig: ${p.customer_name || "—"}`,
           recipient: p.customer_name,
-          navigateTo: p.inquiry_id ? `/admin/events/${p.inquiry_id}/edit` : null,
+          navigateTo: p.inquiry_id ? `/admin/inquiries/${p.inquiry_id}/edit` : null,
         });
       });
 
@@ -179,7 +179,7 @@ export function useUpcomingReminders() {
           kind: "offer_reminder",
           title: `Angebotserinnerung an ${o.contact_name}`,
           recipient: o.email,
-          navigateTo: `/admin/events/${o.id}/edit`,
+          navigateTo: `/admin/inquiries/${o.id}/edit`,
         });
       });
 

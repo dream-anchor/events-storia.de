@@ -173,7 +173,7 @@ function paymentToTask(p: DashboardData["overduePayments"][number]): DashTask {
     customerName: p.customerName,
     dueAt: null,
     reasons: [`${p.daysOverdue} Tage überfällig`],
-    navigateTo: p.inquiryId ? `/admin/events/${p.inquiryId}/edit` : `/admin`,
+    navigateTo: p.inquiryId ? `/admin/inquiries/${p.inquiryId}/edit` : `/admin`,
     score: 850 + p.daysOverdue * 5,
     bucket: "sla",
   };
