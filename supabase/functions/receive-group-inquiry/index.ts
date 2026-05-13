@@ -124,6 +124,7 @@ const handler = async (req: Request): Promise<Response> => {
         service_type: "group",
         source: "reisegruppen",
         date: data.preferredDate || null,
+        event_time: data.arrivalTime || null,
         guest_count: data.groupSize,
         occasion: "Reisegruppe",
         customer_notes: data.message || null,
@@ -138,6 +139,16 @@ const handler = async (req: Request): Promise<Response> => {
     if (insertError) {
       console.error("Insert error:", insertError);
       throw new Error(`Database error: ${insertError.message}`);
+    }
+
+    const { error: markerError } = await supabase
+      .from("v2_events")
+      .update({ source_inquiry_id: inquiry.id })
+      .eq("id", inquiry.id);
+
+    if (markerError) {
+      console.error("Compatibility marker error:", markerError);
+      throw new Error(`Database error: ${markerError.message}`);
     }
 
     console.log("Group inquiry saved:", inquiry.id);
