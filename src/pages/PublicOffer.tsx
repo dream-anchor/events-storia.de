@@ -720,10 +720,12 @@ function HeroSection({
 function ProposalView({
   inquiry,
   options,
+  lang,
   onSubmitted,
 }: {
   inquiry: PublicInquiry;
   options: PublicOfferOption[];
+  lang: OfferLang;
   onSubmitted: (data: PublicOfferData) => void;
 }) {
   // Single-Option ist auto-selected — Kunde muss nichts extra auswählen
