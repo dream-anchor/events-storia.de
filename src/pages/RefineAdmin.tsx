@@ -1,6 +1,6 @@
 import { Refine } from "@refinedev/core";
 import routerProvider from "@refinedev/react-router";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 import { supabaseDataProvider } from "@/providers/refine-data-provider";
 import { supabaseAuthProvider } from "@/providers/refine-auth-provider";
 import { Dashboard, EventsList, OrdersList, MenuItemsList, PackagesList, PackageEdit, LocationEdit, EventBookingsList, EventBookingEditor, Settings } from "@/components/admin/refine";
@@ -14,6 +14,17 @@ import { UnifiedInquiriesList } from "@/components/admin/refine/UnifiedInquiries
 import Posteingang from "@/pages/admin/Posteingang";
 import { TestModeProvider } from "@/contexts/TestModeContext";
 import { SaveStatusProvider } from "@/components/admin/shared/SaveStatusContext";
+
+// Legacy redirect helpers: keep old /admin/events/* URLs working.
+const LegacyEventsRedirect = ({ to }: { to: "edit" | "preview" }) => {
+  const { id } = useParams();
+  const location = useLocation();
+  return <Navigate to={`/admin/inquiries/${id}/${to}${location.search}${location.hash}`} replace />;
+};
+const LegacyEventsArchiveRedirect = () => {
+  const { id, version } = useParams();
+  return <Navigate to={`/admin/inquiries/${id}/archive/${version}`} replace />;
+};
 
 const resources = [
   {
