@@ -37,15 +37,28 @@ const styles = StyleSheet.create({
   },
   itemRow: {
     flexDirection: 'row',
-    paddingVertical: 3,
+    alignItems: 'stretch',
+    paddingVertical: 5,
     borderBottom: `0.5px solid ${printColors.line}`,
   },
-  cDate: { width: 70, fontSize: 9 },
-  cTime: { width: 38, fontSize: 9, color: printColors.muted },
-  cCustomer: { flex: 1.6, fontSize: 9, fontWeight: 'bold', paddingRight: 6 },
-  cGuests: { width: 38, fontSize: 9, textAlign: 'right' },
-  cWhere: { flex: 1.8, fontSize: 9, color: printColors.muted, paddingLeft: 6 },
-  cStatus: { width: 60, fontSize: 8, textAlign: 'right', color: printColors.muted },
+  cDateBlock: { width: 78 },
+  cDate: { fontSize: 10, fontWeight: 'bold' },
+  cTime: { fontSize: 9, color: printColors.muted, marginTop: 1 },
+  cGuestsBox: {
+    width: 44,
+    marginRight: 8,
+    border: `0.8px solid ${printColors.text}`,
+    paddingVertical: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cGuestsNum: { fontSize: 12, fontWeight: 'bold' },
+  cGuestsLabel: { fontSize: 7, color: printColors.muted, letterSpacing: 0.5, marginTop: 1 },
+  cBody: { flex: 1, paddingRight: 6 },
+  cBodyTop: { flexDirection: 'row', justifyContent: 'space-between' },
+  cCustomer: { fontSize: 10, fontWeight: 'bold' },
+  cMeta: { fontSize: 8, color: printColors.muted, textAlign: 'right' },
+  cDescription: { fontSize: 8, color: printColors.muted, marginTop: 2 },
   groupSummary: {
     fontSize: 8,
     color: printColors.muted,
@@ -57,13 +70,33 @@ const styles = StyleSheet.create({
 });
 
 function whereLabel(r: InquiryRecord): string {
-  // We don't have address details on InquiryRecord; use occasion/number fallback
+  if (r.roomOrCityShort) return r.roomOrCityShort;
   const raw: any = r.raw;
-  if (r.serviceType === 'restaurant') {
-    return raw?.occasion || 'Karlstr. 47a';
+  if (r.serviceType === 'restaurant') return raw?.venue || 'Karlstr. 47a';
+  return raw?.delivery_city || raw?.delivery_address || raw?.occasion || '—';
+}
+
+function descriptionLine(r: InquiryRecord): string {
+  const parts: string[] = [];
+  if (r.occasion) parts.push(r.occasion);
+  if (r.packageLabel) parts.push(r.packageLabel);
+  else if (r.menuSummary) parts.push(r.menuSummary);
+  const where = whereLabel(r);
+  if (where && where !== '—') parts.push(where);
+  return parts.join(' · ') || '—';
+}
+
+function dateLabel(r: InquiryRecord): string {
+  if (!r.date) return '—';
+  const d = parseISO(r.date);
+  if (Number.isNaN(d.getTime())) return '—';
+  if (r.dateEnd && r.dateEnd !== r.date) {
+    const e = parseISO(r.dateEnd);
+    if (!Number.isNaN(e.getTime())) {
+      return `${format(d, 'EE dd.MM.', { locale: de })}–${format(e, 'EE dd.MM.', { locale: de })}`;
+    }
   }
-  // Außer Haus / Catering
-  return raw?.occasion || raw?.delivery_city || raw?.delivery_address || '—';
+  return format(d, 'EE dd.MM.', { locale: de });
 }
 
 function statusLabel(r: InquiryRecord): string {
