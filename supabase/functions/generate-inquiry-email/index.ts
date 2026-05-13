@@ -120,6 +120,17 @@ interface OfferBuilderRequest {
 
 type RequestBody = LegacyRequest | MultiOfferRequest | OfferBuilderRequest;
 
+function formatEUR(amount: number): string {
+  // Truncate to 2 decimals (no rounding up), German format with thousand separator.
+  const truncated = Math.trunc(amount * 100) / 100;
+  return new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(truncated);
+}
+
 function isOfferBuilderRequest(body: RequestBody): body is OfferBuilderRequest {
   return 'inquiryId' in body && 'phase' in body && !('isMultiOption' in body);
 }
@@ -162,9 +173,9 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       //   per_event: Gesamtpreis fuer den Anlass (z.B. 5-Tage-Lieferung, Mehrtages-Catering)
       //   per_person (default): Preis pro Person
       if (opt.pricingMode === 'per_event' && opt.totalAmount > 0) {
-        optParts.push(`Gesamtpreis: ${opt.totalAmount.toFixed(2).replace('.', ',')} € fuer den gesamten Anlass`);
+        optParts.push(`Gesamtpreis: ${formatEUR(opt.totalAmount)} fuer den gesamten Anlass`);
       } else if (opt.totalAmount > 0 && opt.guestCount > 0) {
-        optParts.push(`${(opt.totalAmount / opt.guestCount).toFixed(2)} € pro Person`);
+        optParts.push(`${formatEUR(opt.totalAmount / opt.guestCount)} pro Person`);
       }
 
       parts.push(`\n--- ${label} ---`);
@@ -202,7 +213,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       if (equipment.length > 0) {
         parts.push('Ausstattung:');
         for (const e of equipment) {
-          parts.push(`  ${e.name}: ${e.quantity}x ${Number(e.pricePerUnit).toFixed(2).replace('.', ',')} €`);
+          parts.push(`  ${e.name}: ${e.quantity}x ${formatEUR(Number(e.pricePerUnit))}`);
         }
       }
 
@@ -210,7 +221,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       if (staff.length > 0) {
         parts.push('Personal:');
         for (const e of staff) {
-          parts.push(`  ${e.name}: ${e.quantity}x ${Number(e.pricePerUnit).toFixed(2).replace('.', ',')} €`);
+          parts.push(`  ${e.name}: ${e.quantity}x ${formatEUR(Number(e.pricePerUnit))}`);
         }
       }
     }
@@ -449,6 +460,11 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
    • Immer "inklusive" — NIE "inkl."
    • "Paket" mit k und t — NIE "Packet"
    • Jedes Wort korrekt, inkl. Fachbegriffe
+
+5. PREISE — NIEMALS runden, NIEMALS auf-/abrunden auf volle Euro.
+   • Übernimm Preise EXAKT so wie sie in den Daten stehen, inkl. beider Nachkommastellen.
+   • Beispiel: "2.974,80 €" bleibt "2.974,80 €" — NIE "2.975 €", NIE "2.975,- €", NIE "ca. 2.975 €".
+   • Format ist immer deutsch: Tausenderpunkt, Komma als Dezimaltrenner, zwei Nachkommastellen, "€" am Ende.
 
 4. ABSÄTZE — genau eine Leerzeile zwischen Absätzen.
    • Zwei Newlines (\n\n) zwischen jedem Absatz
