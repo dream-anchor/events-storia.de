@@ -1395,12 +1395,15 @@ export function useOfferBuilder({
     }
     const currentJson = JSON.stringify(options);
     if (currentJson === lastSavedJsonRef.current || isLoading) return;
+    const source = dirtySourceRef.current;
+    dirtySourceRef.current = null;
+    isDirtyRef.current = false;
     setSaveStatus('saving');
     try {
       const { data: userData } = await supabase.auth.getUser();
       const currentUserEmail = userData.user?.email;
       await saveOptionsToDb(inquiryId, options, currentVersion);
-      if (currentUserEmail) {
+      if (currentUserEmail && source === 'user') {
         await supabase.from('event_inquiries').update({ last_edited_by: currentUserEmail, last_edited_at: new Date().toISOString() }).eq('id', inquiryId);
         await supabase
           .from('event_inquiries')
