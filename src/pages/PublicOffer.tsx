@@ -186,6 +186,14 @@ export default function PublicOffer() {
   const [error, setError] = useState(false);
   const [payments, setPayments] = useState<PublicPayment[]>([]);
 
+  // Sprache: ?lang=de|en|it|fr (Default: de). Steuert Anzeige der übersetzten
+  // Menü-/Getränke-Felder (course_label, item_name, drink_label, ...).
+  const langParam = searchParams.get('lang');
+  const [lang, setLang] = useState<OfferLang>(isValidOfferLang(langParam) ? langParam : 'de');
+  useEffect(() => {
+    if (isValidOfferLang(langParam) && langParam !== lang) setLang(langParam);
+  }, [langParam, lang]);
+
   // Preview-Modus: wenn die Seite als iframe in der Admin-Preview angezeigt wird,
   // wird der aktuelle email_draft via Query-Param übergeben. So sieht der Admin
   // den Text den er gerade editiert — noch bevor er versendet wurde.
