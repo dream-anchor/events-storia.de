@@ -62,37 +62,75 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Rate limiting: max 5 per email in 60 minutes
+    // Rate limiting: max 5 group-event inquiries per email in 60 minutes
+    const email = data.email.toLowerCase().trim();
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { count } = await supabase
-      .from("group_inquiries")
-      .select("id", { count: "exact", head: true })
-      .eq("email", data.email.toLowerCase().trim())
-      .gte("created_at", oneHourAgo);
+    const { data: rlCustomers } = await supabase
+      .from("v2_customers")
+      .select("id")
+      .ilike("email", email);
+    const rlIds = (rlCustomers ?? []).map((c: any) => c.id);
+    let count = 0;
+    if (rlIds.length > 0) {
+      const { count: c } = await supabase
+        .from("v2_events")
+        .select("id", { count: "exact", head: true })
+        .eq("service_type", "group")
+        .in("customer_id", rlIds)
+        .gte("created_at", oneHourAgo);
+      count = c ?? 0;
+    }
 
-    if ((count ?? 0) >= 5) {
+    if (count >= 5) {
       return new Response(
         JSON.stringify({ error: "Zu viele Anfragen. Bitte versuchen Sie es später erneut." }),
         { status: 429, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
+    // Kunde finden (per E-Mail) oder anlegen
+    let customerId: string | null = null;
+    {
+      const { data: existing } = await supabase
+        .from("v2_customers")
+        .select("id")
+        .ilike("email", email)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (existing?.id) {
+        customerId = existing.id;
+      } else {
+        const { data: created, error: cErr } = await supabase
+          .from("v2_customers")
+          .insert({
+            name: data.contactName || email,
+            company: data.companyName || null,
+            email,
+            phone: data.phone || null,
+          })
+          .select("id")
+          .single();
+        if (cErr) throw new Error(`Customer error: ${cErr.message}`);
+        customerId = created!.id;
+      }
+    }
+
     const { data: inquiry, error: insertError } = await supabase
-      .from("group_inquiries")
+      .from("v2_events")
       .insert({
-        company_name: data.companyName || null,
-        contact_name: data.contactName,
-        email: data.email.toLowerCase().trim(),
-        phone: data.phone || null,
-        group_size: data.groupSize,
-        preferred_date: data.preferredDate || null,
-        preferred_date_flexible: data.preferredDateFlexible ?? false,
+        customer_id: customerId,
+        status: "inquiry",
+        service_type: "group",
+        source: "reisegruppen",
+        date: data.preferredDate || null,
+        guest_count: data.groupSize,
+        occasion: "Reisegruppe",
+        customer_notes: data.message || null,
+        language: data.language || "de",
         arrival_time: data.arrivalTime || null,
         preferred_menu: data.preferredMenu || null,
-        message: data.message || null,
-        language: data.language || "de",
-        source: data.source || "ristorantestoria.de/reisegruppen",
-        status: "new",
+        preferred_date_flexible: data.preferredDateFlexible ?? false,
       })
       .select("id")
       .single();
