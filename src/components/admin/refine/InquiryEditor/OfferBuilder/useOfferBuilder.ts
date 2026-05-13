@@ -542,6 +542,8 @@ export function useOfferBuilder({
 
     if (!isDirtyRef.current) return;
     isDirtyRef.current = false;
+    const source = dirtySourceRef.current;
+    dirtySourceRef.current = null;
     const currentJson = JSON.stringify(options);
 
     if (saveTimeoutRef.current) {
@@ -561,7 +563,7 @@ export function useOfferBuilder({
         // Diff-basiertes Save (sicher bei vom Kunden ausgewählten Optionen)
         await saveOptionsToDb(inquiryId, options, currentVersion);
 
-        if (currentUserEmail) {
+        if (currentUserEmail && source === 'user') {
           await supabase
             .from("event_inquiries")
             .update({
