@@ -151,6 +151,7 @@ Deno.serve(async (req) => {
     service_type: 'group',
     source: 'reisegruppen',
     date: body.preferred_date ?? null,
+    event_time: body.arrival_time ?? null,
     guest_count: groupSize,
     occasion: 'Reisegruppe',
     customer_notes: body.message ?? null,
@@ -170,6 +171,13 @@ Deno.serve(async (req) => {
     .single()
 
   if (error) return bad(500, 'Insert failed', error.message)
+
+  const { error: markerError } = await supabase
+    .from('v2_events')
+    .update({ source_inquiry_id: data.id })
+    .eq('id', data.id)
+
+  if (markerError) return bad(500, 'Compatibility marker failed', markerError.message)
 
   return ok({ id: data.id, status: data.status, created_at: data.created_at, duplicate: false }, 201)
 })
