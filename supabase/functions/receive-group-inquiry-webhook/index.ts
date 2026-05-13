@@ -12,6 +12,15 @@ const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const ALLOWED_STATUS = ['new', 'in_progress', 'offer_sent', 'confirmed', 'rejected', 'archived']
 
+const STATUS_MAP: Record<string, string> = {
+  new: 'inquiry',
+  in_progress: 'offer_draft',
+  offer_sent: 'offer_sent',
+  confirmed: 'paid',
+  rejected: 'cancelled',
+  archived: 'cancelled',
+}
+
 function bad(status: number, error: string, details?: unknown) {
   return new Response(JSON.stringify({ error, details }), {
     status,
@@ -94,44 +103,68 @@ Deno.serve(async (req) => {
     }
   }
 
-  const row = {
-    external_id: body.external_id ?? null,
-    contact_name: body.contact_name,
-    company_name: body.company_name ?? null,
-    email: body.email,
-    phone: body.phone ?? null,
-    group_size: groupSize,
-    preferred_date: body.preferred_date ?? null,
-    preferred_date_flexible: body.preferred_date_flexible ?? false,
-    arrival_time: body.arrival_time ?? null,
-    preferred_menu: body.preferred_menu ?? null,
-    message: body.message ?? null,
-    language: body.language ?? 'de',
-    source: body.source ?? 'ristorantestoria.de/reisegruppen',
-    status,
-    travel_plan_url: travelPlanUrl,
-    travel_plan_filename: travelPlanFilename,
-    utm_source: body.utm_source ?? null,
-    utm_medium: body.utm_medium ?? null,
-    utm_campaign: body.utm_campaign ?? null,
-    utm_term: body.utm_term ?? null,
-    utm_content: body.utm_content ?? null,
-  }
-
-  // Idempotency: if external_id already exists, return existing
-  if (row.external_id) {
+  // Idempotency: external_id stored in v2_events.number
+  if (body.external_id) {
     const { data: existing } = await supabase
-      .from('group_inquiries')
+      .from('v2_events')
       .select('id, created_at, status')
-      .eq('external_id', row.external_id)
+      .eq('service_type', 'group')
+      .eq('number', String(body.external_id))
       .maybeSingle()
     if (existing) {
       return ok({ id: existing.id, status: existing.status, duplicate: true, created_at: existing.created_at }, 200)
     }
   }
 
+  // Customer find-or-create
+  const email = String(body.email).toLowerCase().trim()
+  let customerId: string | null = null
+  {
+    const { data: existing } = await supabase
+      .from('v2_customers')
+      .select('id')
+      .ilike('email', email)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (existing?.id) customerId = existing.id
+    else {
+      const { data: created, error: cErr } = await supabase
+        .from('v2_customers')
+        .insert({
+          name: body.contact_name || email,
+          company: body.company_name || null,
+          email,
+          phone: body.phone || null,
+        })
+        .select('id')
+        .single()
+      if (cErr) return bad(500, 'Customer create failed', cErr.message)
+      customerId = created!.id
+    }
+  }
+
+  const row = {
+    customer_id: customerId,
+    number: body.external_id ? String(body.external_id) : null,
+    status: STATUS_MAP[status] ?? 'inquiry',
+    service_type: 'group',
+    source: 'reisegruppen',
+    date: body.preferred_date ?? null,
+    guest_count: groupSize,
+    occasion: 'Reisegruppe',
+    customer_notes: body.message ?? null,
+    language: body.language ?? 'de',
+    arrival_time: body.arrival_time ?? null,
+    preferred_menu: body.preferred_menu ?? null,
+    preferred_date_flexible: body.preferred_date_flexible ?? false,
+    travel_plan_url: travelPlanUrl,
+    travel_plan_filename: travelPlanFilename,
+    archived: status === 'archived',
+  }
+
   const { data, error } = await supabase
-    .from('group_inquiries')
+    .from('v2_events')
     .insert(row)
     .select('id, created_at, status')
     .single()
