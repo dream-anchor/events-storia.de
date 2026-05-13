@@ -264,6 +264,9 @@ export function useOfferBuilder({
   // --- Core State (migriert aus useMultiOfferState) ---
   const [options, setOptions] = useState<OfferBuilderOption[]>([]);
   const isDirtyRef = useRef(false);
+  // 'user' = vom Benutzer ausgelöste Änderung (bumpt last_edited_at)
+  // 'auto' = automatische Sync-Änderung beim Öffnen (Gästezahl-Sync, Preis-Recalc) → KEIN Bump
+  const dirtySourceRef = useRef<'user' | 'auto' | null>(null);
   const [currentVersion, setCurrentVersion] = useState(1);
   const [history, setHistory] = useState<OfferHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
