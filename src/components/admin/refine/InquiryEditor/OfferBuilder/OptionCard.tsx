@@ -176,8 +176,14 @@ export function OptionCard({
     const initialDrinks: DrinkSelection[] = drinkConfigs.map(config => ({
       drinkGroup: config.drink_group,
       drinkLabel: config.drink_label,
+      drinkLabel_en: config.drink_label_en ?? null,
+      drinkLabel_it: config.drink_label_it ?? null,
+      drinkLabel_fr: config.drink_label_fr ?? null,
       selectedChoice: null,
       quantityLabel: config.quantity_label,
+      quantityLabel_en: config.quantity_label_en ?? null,
+      quantityLabel_it: config.quantity_label_it ?? null,
+      quantityLabel_fr: config.quantity_label_fr ?? null,
       customDrink: null,
     }));
 
@@ -203,9 +209,14 @@ export function OptionCard({
   };
 
   const handleCourseAdd = (courseType: CourseType, courseLabel: string) => {
+    // Auto-detect _en/_it/_fr aus courseConfigs des Pakets, sofern verfügbar
+    const cfg = courseConfigs.find(c => c.course_type === courseType);
     const newCourse: CourseSelection = {
       courseType,
       courseLabel,
+      courseLabel_en: cfg?.course_label_en ?? null,
+      courseLabel_it: cfg?.course_label_it ?? null,
+      courseLabel_fr: cfg?.course_label_fr ?? null,
       itemId: null,
       itemName: '',
       itemDescription: null,
