@@ -485,7 +485,9 @@ export default function PublicOffer() {
           />
         )}
 
-        {(effectivePhase === "confirmed" || effectivePhase === "paid") && (
+        {(effectivePhase === "confirmed" ||
+          effectivePhase === "paid" ||
+          effectivePhase === "order_confirmed") && (
           <ConfirmationView inquiry={inquiry} options={options} />
         )}
 
