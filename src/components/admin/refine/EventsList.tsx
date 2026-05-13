@@ -26,7 +26,7 @@ import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardL
 const statusConfig: Record<InquiryStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   new: { label: "Neu", variant: "default" },
   contacted: { label: "Kontaktiert", variant: "secondary" },
-  offer_sent: { label: "Angebot", variant: "outline" },
+  offer_sent: { label: "Angebot verschickt", variant: "outline" },
   confirmed: { label: "Bestätigt", variant: "default" },
   declined: { label: "Abgelehnt", variant: "destructive" },
   cancelled: { label: "Storniert", variant: "destructive" },
@@ -385,7 +385,7 @@ export const EventsList = () => {
             subLabel = `von ${getAdminDisplayName(event.archived_by)}`;
           }
         } else if (event.offer_sent_at && event.status !== 'confirmed' && event.status !== 'declined') {
-          statusLabel = 'Angebot gesendet';
+          statusLabel = 'Angebot verschickt';
           statusIcon = <Send className="h-3 w-3 mr-1" />;
           badgeClass = 'border-emerald-500/50 text-emerald-700 bg-emerald-50';
           if (event.offer_sent_by) {
