@@ -193,6 +193,8 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
             parts.push(`  ${d.drinkLabel}: inklusive`);
           }
         }
+      } else {
+        parts.push('Getränke: keine konfiguriert — PFLICHT-Standardformulierung verwenden: "Wasser und Kaffee-Spezialitäten sind inklusive. Weitere Getränke werden nach tatsächlichem Verbrauch abgerechnet."');
       }
 
       // Equipment & Staff context for AI
