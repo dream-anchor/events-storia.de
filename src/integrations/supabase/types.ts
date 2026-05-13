@@ -2931,8 +2931,15 @@ export type Database = {
           offer_sent_by: string | null
           offer_slug: string | null
           offer_validity_days: number | null
+          order_confirmation_terms_version: string | null
+          order_confirmed_at: string | null
+          order_confirmed_by_name: string | null
+          order_confirmed_ip: string | null
+          order_confirmed_user_agent: string | null
+          order_confirmed_version: number | null
           package_id: string | null
           payment_method: string | null
+          payment_timing: string | null
           payment_type: string | null
           preferred_date_flexible: boolean | null
           preferred_menu: string | null
@@ -3036,8 +3043,15 @@ export type Database = {
           offer_sent_by?: string | null
           offer_slug?: string | null
           offer_validity_days?: number | null
+          order_confirmation_terms_version?: string | null
+          order_confirmed_at?: string | null
+          order_confirmed_by_name?: string | null
+          order_confirmed_ip?: string | null
+          order_confirmed_user_agent?: string | null
+          order_confirmed_version?: number | null
           package_id?: string | null
           payment_method?: string | null
+          payment_timing?: string | null
           payment_type?: string | null
           preferred_date_flexible?: boolean | null
           preferred_menu?: string | null
@@ -3141,8 +3155,15 @@ export type Database = {
           offer_sent_by?: string | null
           offer_slug?: string | null
           offer_validity_days?: number | null
+          order_confirmation_terms_version?: string | null
+          order_confirmed_at?: string | null
+          order_confirmed_by_name?: string | null
+          order_confirmed_ip?: string | null
+          order_confirmed_user_agent?: string | null
+          order_confirmed_version?: number | null
           package_id?: string | null
           payment_method?: string | null
+          payment_timing?: string | null
           payment_type?: string | null
           preferred_date_flexible?: boolean | null
           preferred_menu?: string | null
@@ -3725,8 +3746,15 @@ export type Database = {
           offer_sent_by: string | null
           offer_slug: string | null
           offer_validity_days: number | null
+          order_confirmation_terms_version: string | null
+          order_confirmed_at: string | null
+          order_confirmed_by_name: string | null
+          order_confirmed_ip: string | null
+          order_confirmed_user_agent: string | null
+          order_confirmed_version: number | null
           paid_amount: number | null
           payment_method: string | null
+          payment_timing: string | null
           payment_type: string | null
           phone: string | null
           preferred_date: string | null
