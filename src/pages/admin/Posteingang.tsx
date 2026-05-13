@@ -1196,7 +1196,7 @@ function CreateInquiryDialog({
     qc.invalidateQueries({ queryKey: ["unassigned-inbox-count"] });
     onOpenChange(false);
     if (data.redirect_url) navigate(data.redirect_url);
-    else if (data.event_id) navigate(`/admin/events/${data.event_id}/edit`);
+    else if (data.event_id) navigate(`/admin/inquiries/${data.event_id}/edit`);
   };
 
   return (

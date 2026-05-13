@@ -52,7 +52,7 @@ export function TasksWidget({ className }: TasksWidgetProps) {
 
   const handleTaskClick = (task: TaskWithInquiry) => {
     if (task.inquiry_id) {
-      navigate(`/admin/events/${task.inquiry_id}/edit`);
+      navigate(`/admin/inquiries/${task.inquiry_id}/edit`);
     }
   };
 

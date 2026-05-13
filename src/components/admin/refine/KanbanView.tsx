@@ -338,7 +338,7 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
                   if (event.id.startsWith("booking-")) {
                     navigate(`/admin/bookings`);
                   } else {
-                    navigate(`/admin/events/${event.id}/edit`);
+                    navigate(`/admin/inquiries/${event.id}/edit`);
                   }
                 }}
                 onArchive={() => handleArchiveCard(event.id)}

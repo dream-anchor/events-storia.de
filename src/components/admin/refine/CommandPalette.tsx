@@ -95,7 +95,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
                 {events.map((event: any) => (
                   <CommandItem 
                     key={event.id} 
-                    onSelect={() => handleSelect(`/admin/events/${event.id}/edit`)}
+                    onSelect={() => handleSelect(`/admin/inquiries/${event.id}/edit`)}
                     className="flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3">
@@ -170,7 +170,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
             <span>Inbox</span>
             <CommandShortcut>⌘I</CommandShortcut>
           </CommandItem>
-          <CommandItem onSelect={() => handleSelect('/admin/events')}>
+          <CommandItem onSelect={() => handleSelect('/admin/inquiries')}>
             <CalendarDays className="mr-2 h-4 w-4" />
             <span>Event-Anfragen</span>
             <CommandShortcut>⌘E</CommandShortcut>
@@ -199,7 +199,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
         <CommandSeparator />
 
         <CommandGroup heading="Schnellaktionen">
-          <CommandItem onSelect={() => handleSelect('/admin/events/create')}>
+          <CommandItem onSelect={() => handleSelect('/admin/inquiries/create')}>
             <Plus className="mr-2 h-4 w-4" />
             <span>Neue Event-Anfrage erstellen</span>
             <CommandShortcut>⇧⌘N</CommandShortcut>
@@ -245,7 +245,7 @@ export const useCommandPalette = () => {
         }
         if (e.key === 'e') {
           e.preventDefault();
-          window.location.href = '/admin/events';
+          window.location.href = '/admin/inquiries';
         }
         if (e.key === 'o') {
           e.preventDefault();
@@ -263,7 +263,7 @@ export const useCommandPalette = () => {
       // Schnellaktion: Cmd+Shift+N für neue Anfrage
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'n') {
         e.preventDefault();
-        window.location.href = '/admin/events/create';
+        window.location.href = '/admin/inquiries/create';
       }
     };
 

@@ -757,7 +757,7 @@ export const SmartInquiryEditor = () => {
       <AdminLayout activeTab="events">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Anfrage nicht gefunden</p>
-          <Button variant="link" onClick={() => navigate('/admin/events')}>
+          <Button variant="link" onClick={() => navigate('/admin/inquiries')}>
             Zurück zur Übersicht
           </Button>
         </div>
@@ -773,7 +773,7 @@ export const SmartInquiryEditor = () => {
       <div className="sticky top-0 z-40 -mx-3 sm:-mx-4 lg:-mx-6 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-border/40 mb-4 sm:mb-6">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-            <Button variant="ghost" size="icon" className="shrink-0 h-10 w-10" onClick={() => navigate('/admin/events')}>
+            <Button variant="ghost" size="icon" className="shrink-0 h-10 w-10" onClick={() => navigate('/admin/inquiries')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -1031,7 +1031,7 @@ export const SmartInquiryEditor = () => {
         open={!!sendSuccess}
         info={sendSuccess}
         onClose={() => setSendSuccess(null)}
-        onGoToList={() => { setSendSuccess(null); navigate('/admin/events'); }}
+        onGoToList={() => { setSendSuccess(null); navigate('/admin/inquiries'); }}
         onGoToOffer={() => { setSendSuccess(null); if (inquiry?.id) window.open(`/offer/${inquiry.id}`, '_blank', 'noopener,noreferrer'); }}
       />
 

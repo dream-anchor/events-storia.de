@@ -68,7 +68,7 @@ export function SendControls({
    *  Wird nur aufgerufen wenn inquiryId gesetzt ist (Opt-in, Legacy-Pfade bleiben unveraendert). */
   const goToPreview = (send: 'proposal' | 'final') => {
     if (!inquiryId) return;
-    navigate(`/admin/events/${inquiryId}/preview?send=${send}`);
+    navigate(`/admin/inquiries/${inquiryId}/preview?send=${send}`);
   };
 
   const canSendProposal =

@@ -652,7 +652,7 @@ export const EventsList = () => {
   ];
 
   const handleRowClick = (event: EventInquiry) => {
-    navigate(`/admin/events/${event.id}/edit`);
+    navigate(`/admin/inquiries/${event.id}/edit`);
   };
 
   return (
@@ -685,7 +685,7 @@ export const EventsList = () => {
             </ToggleGroup>
 
             <Button asChild className="shadow-sm hidden sm:flex">
-              <Link to="/admin/events/create">
+              <Link to="/admin/inquiries/create">
                 <Plus className="h-4 w-4 mr-2" />
                 Neue Anfrage
               </Link>

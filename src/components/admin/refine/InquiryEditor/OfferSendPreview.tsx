@@ -11,7 +11,7 @@
  *     und liefert { from, to, bcc, subject, htmlBody, attachment }
  *   - Wir zeigen diese Werte direkt an, htmlBody in einem iframe via srcDoc.
  *
- * Route: /admin/events/:id/preview?send=proposal|final
+ * Route: /admin/inquiries/:id/preview?send=proposal|final
  */
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
@@ -75,15 +75,15 @@ export function OfferSendPreview({
   const [searchParams] = useSearchParams();
   const sendType = (searchParams.get('send') as SendType) || 'proposal';
 
-  // Allow embedding via props (Wizard) — fall back to route params (standalone /admin/events/:id/preview)
+  // Allow embedding via props (Wizard) — fall back to route params (standalone /admin/inquiries/:id/preview)
   const id = embeddedInquiryId ?? params.id;
   const handleBack = onBack
     ? onBack
-    : () => id && navigate(`/admin/events/${id}/edit`);
+    : () => id && navigate(`/admin/inquiries/${id}/edit`);
   const handleAfterSend = onAfterSend
     ? onAfterSend
     : (inquiryId: string, query: string) =>
-        navigate(`/admin/events/${inquiryId}/edit?${query}`);
+        navigate(`/admin/inquiries/${inquiryId}/edit?${query}`);
 
   const [inquiry, setInquiry] = useState<PreviewInquiry | null>(null);
   const [loading, setLoading] = useState(true);

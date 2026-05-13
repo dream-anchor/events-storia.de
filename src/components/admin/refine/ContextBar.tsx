@@ -18,7 +18,7 @@ interface ContextBarProps {
 export const ContextBar = ({
   title,
   subtitle,
-  backPath = "/admin/events",
+  backPath = "/admin/inquiries",
   status,
   date,
   guestCount,

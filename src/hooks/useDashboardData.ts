@@ -196,7 +196,7 @@ export function useDashboardData() {
           menuConfirmed: b.menu_confirmed,
           totalAmount: b.total_amount,
           navigateTo: b.source_inquiry_id
-            ? `/admin/events/${b.source_inquiry_id}/edit`
+            ? `/admin/inquiries/${b.source_inquiry_id}/edit`
             : `/admin/bookings`,
         });
       });
@@ -223,7 +223,7 @@ export function useDashboardData() {
           paymentStatus: null,
           menuConfirmed: null,
           totalAmount: e.total_amount,
-          navigateTo: `/admin/events/${e.id}/edit`,
+          navigateTo: `/admin/inquiries/${e.id}/edit`,
         });
       });
 
@@ -248,7 +248,7 @@ export function useDashboardData() {
           createdAt: e.created_at,
           ageDays: diffDays(today, created),
           isStale: false,
-          navigateTo: `/admin/events/${e.id}/edit`,
+          navigateTo: `/admin/inquiries/${e.id}/edit`,
           unanswered: !repliedSet.has(e.id),
           hoursSince: hoursSinceCreated,
         });
@@ -294,7 +294,7 @@ export function useDashboardData() {
           createdAt: e.created_at,
           ageDays: age,
           isStale: true,
-          navigateTo: `/admin/events/${e.id}/edit`,
+          navigateTo: `/admin/inquiries/${e.id}/edit`,
         });
       });
       staleInquiries.sort((a, b) => b.ageDays - a.ageDays);
