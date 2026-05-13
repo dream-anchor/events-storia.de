@@ -50,6 +50,12 @@ function buildLocationAddress(inq: any): string | null {
   return parts.length ? parts.join(', ') : null;
 }
 
+function buildMapsUrl(parts: (string | null | undefined)[]): string | null {
+  const joined = parts.filter(Boolean).join(', ').trim();
+  if (!joined) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(joined)}`;
+}
+
 function shortOrderNumber(id: string): string {
   return id.slice(0, 8).toUpperCase();
 }
@@ -94,6 +100,13 @@ export async function fetchPrintInquiry(inquiryId: string): Promise<PrintInquiry
   const guestCountNum = selectedOption?.guestCount || parseInt(inq.guest_count || '0', 10) || 0;
   const total = selectedOption?.totalAmount ?? 0;
 
+  const isStoria = inq.location_type === 'storia';
+  const street = isStoria ? null : (inq.location_street || inq.delivery_street || null);
+  const zip = isStoria ? null : (inq.location_postal_code || inq.delivery_zip || null);
+  const city = isStoria ? null : (inq.location_city || inq.delivery_city || null);
+  const country = isStoria ? null : (inq.location_country || 'Deutschland');
+  const floor = isStoria ? null : (inq.delivery_floor || null);
+
   return {
     id: String(inq.id),
     orderNumber: shortOrderNumber(String(inq.id)),
@@ -111,6 +124,14 @@ export async function fetchPrintInquiry(inquiryId: string): Promise<PrintInquiry
     locationAddress: buildLocationAddress(inq),
     roomSelection: inq.room_selection,
     isCatering: inq.inquiry_type === 'catering' || inq.location_type !== 'storia',
+    locationStreet: street,
+    locationZip: zip,
+    locationCity: city,
+    locationCountry: country,
+    locationDetails: inq.location_details ?? null,
+    deliveryFloor: floor,
+    hasElevator: Boolean(inq.has_elevator),
+    mapsUrl: isStoria ? null : buildMapsUrl([inq.location_name, street, zip, city, country]),
     internalNotes: inq.internal_notes,
     customerMessage: inq.message,
     status: inq.status || 'new',
