@@ -1003,7 +1003,9 @@ export function useOfferBuilder({
           offer_sent_by: null,
           current_offer_version: newVersion,
           offer_phase: 'draft',
-          status: 'offer_sent',
+          // Bearbeitung eines bereits versendeten Angebots → zurück in
+          // "In Bearbeitung", bis erneut versendet wird.
+          status: 'contacted',
         } as Record<string, unknown>)
         .eq("id", inquiryId);
 
