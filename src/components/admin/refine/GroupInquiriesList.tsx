@@ -237,7 +237,7 @@ export const GroupInquiriesList = () => {
   );
 };
 
-function GroupInquiryDetail({
+export function GroupInquiryDetail({
   inquiry,
   onClose,
   onUpdated,
