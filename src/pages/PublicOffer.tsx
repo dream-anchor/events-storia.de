@@ -66,8 +66,17 @@ interface PublicInquiry {
 interface CourseSelection {
   courseType: string;
   courseLabel: string;
+  courseLabel_en?: string | null;
+  courseLabel_it?: string | null;
+  courseLabel_fr?: string | null;
   itemName: string;
+  itemName_en?: string | null;
+  itemName_it?: string | null;
+  itemName_fr?: string | null;
   itemDescription: string | null;
+  itemDescription_en?: string | null;
+  itemDescription_it?: string | null;
+  itemDescription_fr?: string | null;
   /** Menge bei per_event-Bestellungen. Default 1 = keine Anzeige. */
   quantity?: number | null;
 }
@@ -75,8 +84,15 @@ interface CourseSelection {
 interface DrinkSelection {
   drinkGroup: string;
   drinkLabel: string;
+  drinkLabel_en?: string | null;
+  drinkLabel_it?: string | null;
+  drinkLabel_fr?: string | null;
   selectedChoice: string | null;
+  selectedChoice_translations?: Partial<Record<'en' | 'it' | 'fr', string>> | null;
   quantityLabel: string | null;
+  quantityLabel_en?: string | null;
+  quantityLabel_it?: string | null;
+  quantityLabel_fr?: string | null;
   customDrink?: string | null;
 }
 
