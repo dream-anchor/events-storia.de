@@ -1934,6 +1934,67 @@ function OfferHeader() {
 }
 
 function OfferFooter() {
+  return _OfferFooter();
+}
+
+/**
+ * Sprachumschalter für übersetzte Menü-/Getränke-Felder.
+ * Zeigt sich nur, wenn der Snapshot tatsächlich Übersetzungen enthält
+ * (z.B. Reisegruppen-Pakete mit course_label_en/_it/_fr).
+ */
+function OfferLanguageSwitcher({
+  options,
+  lang,
+  onChange,
+}: {
+  options: PublicOfferOption[];
+  lang: OfferLang;
+  onChange: (l: OfferLang) => void;
+}) {
+  const hasTranslations = options.some((opt) => {
+    const m = opt.menu_selection;
+    if (!m) return false;
+    const c = m.courses?.some(
+      (x) => x.courseLabel_en || x.courseLabel_it || x.courseLabel_fr ||
+             x.itemName_en || x.itemName_it || x.itemName_fr
+    );
+    if (c) return true;
+    return m.drinks?.some(
+      (d) => d.drinkLabel_en || d.drinkLabel_it || d.drinkLabel_fr ||
+             d.selectedChoice_translations
+    );
+  });
+  if (!hasTranslations) return null;
+  return (
+    <div className="container mx-auto px-4 pt-6">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-muted-foreground/70">
+          Sprache
+        </span>
+        <div className="inline-flex rounded-full border border-border/40 p-0.5 bg-background/60 backdrop-blur-sm">
+          {OFFER_LANGS.map((l) => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => onChange(l)}
+              className={cn(
+                "px-3 py-1 text-xs font-sans font-semibold rounded-full transition-colors",
+                lang === l
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              aria-pressed={lang === l}
+            >
+              {OFFER_LANG_LABELS[l]}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function _OfferFooter() {
   return (
     <footer className="bg-foreground text-background">
       <div className="container mx-auto px-4 py-10">
