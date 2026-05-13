@@ -1436,14 +1436,17 @@ function FinalOptionCard({
               {courses.map((course, i) => (
                 <div key={i}>
                   <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-1">
-                    {course.courseLabel}
+                    {pickLang(course, 'courseLabel', lang) || course.courseLabel}
                   </p>
                   <p className="font-serif text-base text-foreground">
-                    {(course.quantity ?? 1) > 1 ? `${course.quantity} × ${course.itemName}` : course.itemName}
+                    {(() => {
+                      const name = pickLang(course, 'itemName', lang) || course.itemName;
+                      return (course.quantity ?? 1) > 1 ? `${course.quantity} × ${name}` : name;
+                    })()}
                   </p>
-                  {course.itemDescription && (
+                  {(pickLang(course, 'itemDescription', lang) || course.itemDescription) && (
                     <p className="text-xs font-sans text-muted-foreground/60 italic mt-0.5">
-                      {course.itemDescription}
+                      {pickLang(course, 'itemDescription', lang) || course.itemDescription}
                     </p>
                   )}
                 </div>
@@ -1462,23 +1465,27 @@ function FinalOptionCard({
             </div>
             <div className="space-y-2.5">
               {drinks.map((drink, i) => {
-                const hasContent = drink.customDrink || drink.selectedChoice;
-                // quantityLabel nur zeigen wenn es keine Redundanz zu "inklusive" ist
-                const qtyIsRedundant = drink.quantityLabel && /^\s*(inklusive|inkl\.?|included)\s*$/i.test(drink.quantityLabel);
+                const choiceLocalized = lang !== 'de' && drink.selectedChoice
+                  ? drink.selectedChoice_translations?.[lang] || drink.selectedChoice
+                  : drink.selectedChoice;
+                const hasContent = drink.customDrink || choiceLocalized;
+                const qtyLabel = pickLang(drink, 'quantityLabel', lang) || drink.quantityLabel;
+                const drinkLabelLoc = pickLang(drink, 'drinkLabel', lang) || drink.drinkLabel;
+                const qtyIsRedundant = qtyLabel && /^\s*(inklusive|inkl\.?|included|incluso|inclus)\s*$/i.test(qtyLabel);
                 return (
                   <div key={i}>
                     <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
-                      {drink.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : drink.drinkLabel}
+                      {drinkLabelLoc === 'Zusatzgetränk' ? 'Getränk' : drinkLabelLoc}
                     </p>
                     <p className="font-serif text-sm text-foreground">
-                      {hasContent ? (drink.customDrink || drink.selectedChoice) : (
+                      {hasContent ? (drink.customDrink || choiceLocalized) : (
                         <span className="text-emerald-700 dark:text-emerald-400 font-sans text-xs font-semibold uppercase tracking-wider">
                           inklusive
                         </span>
                       )}
-                      {drink.quantityLabel && !qtyIsRedundant && (
+                      {qtyLabel && !qtyIsRedundant && (
                         <span className="text-muted-foreground/50 ml-1">
-                          ({drink.quantityLabel})
+                          ({qtyLabel})
                         </span>
                       )}
                     </p>
