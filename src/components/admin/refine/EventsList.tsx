@@ -28,7 +28,22 @@ import type { InquiryRecord } from "@/types/inquiryRecord";
 function eventToInquiryRecord(e: EventInquiry): InquiryRecord {
   const kind = getServiceKind(e);
   const serviceType = kind === "in_house" ? "restaurant" : kind === "catering" ? "catering" : "group";
-  const guests = typeof e.guest_count === "string" ? parseInt(e.guest_count, 10) : (e.guest_count as any);
+  const guestsRaw =
+    typeof e.guest_count === "string"
+      ? Number(e.guest_count.replace(/[^\d]/g, ""))
+      : Number(e.guest_count as any);
+  const guests = Number.isFinite(guestsRaw) && guestsRaw > 0 ? guestsRaw : null;
+  const occasionRaw = (e.event_type ?? "").trim().toLowerCase();
+  const occasionLabel = occasionRaw
+    ? eventTypeLabels[occasionRaw] || e.event_type || null
+    : null;
+  const venue = (e.venue ?? "").trim();
+  const locType = (e as any).location_type as "storia" | "company" | "custom" | null;
+  const roomOrCityShort =
+    kind === "in_house"
+      ? venue || "Karlstr. 47a"
+      : venue || (locType === "company" ? "beim Kunden" : "Außer Haus");
+  const assignedInitials = e.assigned_to ? getAdminInitials(e.assigned_to) : null;
   return {
     id: e.id,
     kind: "event",
@@ -40,7 +55,7 @@ function eventToInquiryRecord(e: EventInquiry): InquiryRecord {
     phone: e.phone ?? null,
     date: e.preferred_date ?? null,
     time: e.time_slot ?? null,
-    guestCount: Number.isFinite(guests) ? guests : null,
+    guestCount: guests,
     totalAmount: (e as any).total_amount ?? null,
     status: e.status,
     offerPhase: (e as any).offer_phase ?? null,
@@ -49,6 +64,10 @@ function eventToInquiryRecord(e: EventInquiry): InquiryRecord {
     updatedAt: e.updated_at ?? e.created_at,
     archivedAt: e.archived_at ?? null,
     archived: !!e.archived_at,
+    occasion: occasionLabel,
+    dateEnd: e.event_end_date ?? null,
+    roomOrCityShort,
+    assignedInitials,
     raw: e as any,
   };
 }
