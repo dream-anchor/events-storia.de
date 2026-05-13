@@ -500,9 +500,10 @@ export default function PublicOffer() {
           <ConfirmationView inquiry={inquiry} options={options} />
         )}
 
+        <PdfDownloadSection inquiryId={inquiry.id} />
+
         <PublicPaymentSection payments={payments} eventDate={inquiry.preferred_date ?? undefined} />
         <ContactSection />
-        <PdfDownloadSection inquiryId={inquiry.id} />
       </main>
       <OfferFooter />
     </div>
@@ -548,7 +549,7 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
   return (
     <section className="border-t border-border/20 bg-background/50">
       <div className="container mx-auto px-4 py-4">
-        <div className="flex justify-end">
+        <div className="flex justify-center">
           <button
             onClick={handleDownload}
             disabled={isDownloading}

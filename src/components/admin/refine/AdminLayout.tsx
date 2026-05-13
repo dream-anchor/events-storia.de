@@ -130,7 +130,7 @@ export const AdminLayout = ({
   };
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-white dark:bg-[#1a2632]">
+    <div className="flex flex-col h-full bg-white">
       {/* Logo Section */}
       <div className="p-6 flex items-center gap-3">
         <img src="/maestro-favicon.svg" alt="StoriaMaestro" className="size-10 rounded-lg" />
@@ -241,7 +241,7 @@ export const AdminLayout = ({
   );
 
   return (
-    <div className="min-h-screen bg-[#f6f7f8] dark:bg-[#101922] admin-layout">
+    <div className="min-h-screen bg-[#f6f7f8] admin-layout">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64 lg:border-r lg:border-border">
         <SidebarContent />
@@ -274,7 +274,7 @@ export const AdminLayout = ({
       {/* Main Content Area */}
       <div className="lg:pl-64">
         {/* Header Bar */}
-        <header className="sticky top-0 z-40 flex flex-col border-b border-border bg-white dark:bg-[#1a2632] pt-[env(safe-area-inset-top,0px)]">
+        <header className="sticky top-0 z-40 flex flex-col border-b border-border bg-white pt-[env(safe-area-inset-top,0px)]">
           <div className="h-14 sm:h-16 flex items-center gap-3 px-3 sm:px-4 lg:px-8">
           {/* Mobile menu button */}
           <Button
