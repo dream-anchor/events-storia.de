@@ -8,6 +8,7 @@ import {
   UtensilsCrossed,
   Truck,
   ShoppingBag,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/typed-client";
@@ -425,6 +426,12 @@ const SERVICE_META: Record<
     tooltip: "Bestellung über den Catering-Online-Shop",
     Icon: ShoppingBag,
     chip: "bg-foreground/5 text-foreground/80 ring-1 ring-foreground/15",
+  },
+  group: {
+    label: "Reisegruppe",
+    tooltip: "Anfrage von ristorantestoria.de/reisegruppen",
+    Icon: Users,
+    chip: "bg-foreground/10 text-foreground ring-1 ring-foreground/25",
   },
 };
 
