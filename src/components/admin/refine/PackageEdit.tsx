@@ -106,6 +106,28 @@ export const PackageEdit = () => {
 
   const { mutate: update } = useUpdate();
   const { mutate: create } = useCreate();
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  const handleTranslateMenu = async () => {
+    if (!id) return;
+    setIsTranslating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "translate-package-menu",
+        { body: { package_id: id, target_langs: ["en", "it", "fr"] } },
+      );
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(
+        `Übersetzungen erstellt (EN/IT/FR) — ${data?.updates ?? 0} Einträge aktualisiert`,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Fehler bei der Übersetzung";
+      toast.error(msg);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   // Fetch assigned location IDs for this package
   useEffect(() => {
