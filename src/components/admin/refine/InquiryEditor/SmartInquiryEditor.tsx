@@ -800,6 +800,7 @@ export const SmartInquiryEditor = () => {
 
           {/* Header Actions */}
           <div className="flex items-center gap-2 shrink-0">
+            <PrintMenu inquiryId={inquiry.id} />
             {/* Save Status — unsichtbar (speichert automatisch im Hintergrund) */}
 
             {/* LexOffice Document Button - Show if linked */}
