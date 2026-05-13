@@ -7,6 +7,7 @@ import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { pickLang, OFFER_LANGS, OFFER_LANG_LABELS, isValidOfferLang, type OfferLang } from "@/lib/offerLang";
 import { OrderConfirmationDialog } from "@/pages/public-offer/OrderConfirmationDialog";
+import { RestaurantGallery } from "@/pages/public-offer/RestaurantGallery";
 import {
   Phone,
   Mail,
@@ -450,6 +451,8 @@ export default function PublicOffer() {
       <OfferHeader />
       <main className="flex-1">
         <HeroSection inquiry={inquiry} phase={renderPhase} />
+
+        <RestaurantGallery />
 
         {/* Sprachumschalter — nur einblenden wenn Snapshot überhaupt Übersetzungen enthält */}
         <OfferLanguageSwitcher
