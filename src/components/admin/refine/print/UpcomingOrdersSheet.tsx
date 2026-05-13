@@ -198,7 +198,7 @@ export function UpcomingOrdersSheet({ records, groupBy, scope, rangeLabel, gener
             const offsite = g.items.filter((x) => !isInHouse(x));
             const totalGuests = g.items.reduce((sum, x) => sum + (x.guestCount || 0), 0);
             return (
-              <View key={g.key} wrap={false}>
+              <View key={g.key}>
                 <Text style={styles.groupTitle}>{g.label}</Text>
                 <Text style={styles.groupSummary}>
                   ∑ {g.items.length} Aufträge · {totalGuests} Gäste · {inhouse.length} In Haus / {offsite.length} Außer Haus
