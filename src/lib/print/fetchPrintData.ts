@@ -69,6 +69,13 @@ export async function fetchPrintInquiry(inquiryId: string): Promise<PrintInquiry
     .maybeSingle();
   if (error || !inq) return null;
 
+  // Lieferadress-Details kommen aus v2_events (im View nicht enthalten)
+  const { data: v2 } = await supabase
+    .from('v2_events')
+    .select('delivery_floor,has_elevator,location_details,location_country')
+    .eq('id', inquiryId)
+    .maybeSingle();
+
   // Selected Option laden — falls vorhanden
   let selectedOption: OfferBuilderOption | null = null;
   let selectedLabel: string | null = null;
@@ -104,8 +111,8 @@ export async function fetchPrintInquiry(inquiryId: string): Promise<PrintInquiry
   const street = isStoria ? null : (inq.location_street || inq.delivery_street || null);
   const zip = isStoria ? null : (inq.location_postal_code || inq.delivery_zip || null);
   const city = isStoria ? null : (inq.location_city || inq.delivery_city || null);
-  const country = isStoria ? null : (inq.location_country || 'Deutschland');
-  const floor = isStoria ? null : (inq.delivery_floor || null);
+  const country = isStoria ? null : (v2?.location_country || 'Deutschland');
+  const floor = isStoria ? null : (v2?.delivery_floor || null);
 
   return {
     id: String(inq.id),
@@ -128,9 +135,9 @@ export async function fetchPrintInquiry(inquiryId: string): Promise<PrintInquiry
     locationZip: zip,
     locationCity: city,
     locationCountry: country,
-    locationDetails: inq.location_details ?? null,
+    locationDetails: isStoria ? null : (v2?.location_details ?? null),
     deliveryFloor: floor,
-    hasElevator: Boolean(inq.has_elevator),
+    hasElevator: Boolean(v2?.has_elevator),
     mapsUrl: isStoria ? null : buildMapsUrl([inq.location_name, street, zip, city, country]),
     internalNotes: inq.internal_notes,
     customerMessage: inq.message,
