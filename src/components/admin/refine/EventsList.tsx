@@ -176,6 +176,7 @@ export const EventsList = () => {
       event_type: null,
       preferred_date: b.event_date ?? null,
       event_end_date: null,
+      time_slot: b.event_time ?? null,
       venue: null,
       message: null,
       source: "booking",
