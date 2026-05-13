@@ -52,6 +52,28 @@ export const useEventPackages = () => {
   });
 };
 
+export const useReisegruppenPackages = () => {
+  return useQuery({
+    queryKey: ["reisegruppen-packages"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("packages")
+        .select("*")
+        .eq("is_active", true)
+        .eq("package_type", "gruppenreisen")
+        .eq("visible_on_website", true)
+        .order("price");
+
+      if (error) throw error;
+
+      return (data || []).map(pkg => ({
+        ...pkg,
+        includes: Array.isArray(pkg.includes) ? pkg.includes : []
+      })) as EventPackage[];
+    },
+  });
+};
+
 export const useEventLocations = () => {
   return useQuery({
     queryKey: ["event-locations"],

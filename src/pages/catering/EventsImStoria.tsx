@@ -9,7 +9,7 @@ import EventPackageShopCard from "@/components/events/EventPackageShopCard";
 import EventTestimonials from "@/components/events/EventTestimonials";
 import EventContactForm from "@/components/events/EventContactForm";
 import ConsentElfsightReviews from "@/components/ConsentElfsightReviews";
-import { useEventPackages } from "@/hooks/useEventPackages";
+import { useEventPackages, useReisegruppenPackages } from "@/hooks/useEventPackages";
 import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -97,6 +97,7 @@ const EventsImStoria = () => {
   const formRef = useRef<HTMLDivElement>(null);
 
   const { data: packages, isLoading: packagesLoading } = useEventPackages();
+  const { data: reisegruppenPackages, isLoading: reisegruppenLoading } = useReisegruppenPackages();
   const { showGross, setShowGross } = usePriceDisplay();
 
   const scrollToForm = (packageId?: string) => {
@@ -364,6 +365,53 @@ const EventsImStoria = () => {
                       : '100% Deposit · No hidden costs · Free cancellation up to 14 days before'}
                   </div>
                 </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Reisegruppen-Pakete */}
+        <section id="reisegruppen-pakete" className="py-16 md:py-24 bg-gradient-to-b from-background to-muted/40">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <Badge variant="outline" className="mb-4 px-4 py-1.5 text-sm">
+                {language === 'de' ? 'Für Reisegruppen ab 20 Personen' : 'For tour groups from 20 people'}
+              </Badge>
+              <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">
+                {language === 'de' ? 'Gruppenmenüs für Reisegruppen' : 'Group menus for tour groups'}
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                {language === 'de'
+                  ? 'Drei Menüs für jeden Zeitplan und jedes Budget – ideal für Busgruppen, Stadtführungen und Incoming-Reiseveranstalter.'
+                  : 'Three menus for every schedule and budget – ideal for bus groups, city tours and incoming tour operators.'}
+              </p>
+            </div>
+
+            <div className="max-w-6xl mx-auto">
+              {reisegruppenLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-[500px] rounded-xl" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-stretch">
+                  {reisegruppenPackages?.map((pkg) => (
+                    <EventPackageShopCard
+                      key={pkg.id}
+                      pkg={pkg}
+                      featured={pkg.name.toLowerCase().includes('benvenuti')}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-8 text-center">
+                <p className="text-base text-muted-foreground max-w-2xl mx-auto">
+                  {language === 'de'
+                    ? 'Mindestgruppengröße: 20 Personen. Vegetarische, vegane, glutenfreie und laktosefreie Alternativen sind bei jedem Menü möglich. Alle Preise inkl. MwSt.'
+                    : 'Minimum group size: 20 people. Vegetarian, vegan, gluten-free and lactose-free alternatives are available for every menu. All prices incl. VAT.'}
+                </p>
+              </div>
             </div>
           </div>
         </section>
