@@ -1390,6 +1390,11 @@ export function useOfferBuilder({
           await saveOptionsToDb(inquiryId, options, currentVersion);
           if (currentUserEmail) {
             await supabase.from('event_inquiries').update({ last_edited_by: currentUserEmail, last_edited_at: new Date().toISOString() }).eq('id', inquiryId);
+            await supabase
+              .from('event_inquiries')
+              .update({ status: 'contacted' } as Record<string, unknown>)
+              .eq('id', inquiryId)
+              .eq('status', 'new');
           }
           lastSavedJsonRef.current = currentJson;
           setSaveStatus('idle');
