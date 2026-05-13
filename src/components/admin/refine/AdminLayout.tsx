@@ -9,7 +9,6 @@ import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
 import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
 import { useUnassignedInboxCount } from "@/hooks/useUnassignedInbox";
-import { useList } from "@refinedev/core";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
 import { NotificationCenter } from "../shared/NotificationCenter";
 import { SaveStatusBadge } from "../shared/SaveStatusBadge";
@@ -29,7 +28,6 @@ import {
   LogOut,
   ChevronDown,
   Inbox,
-  Users,
 } from "lucide-react";
 import { useEffect, useState as useStateReact } from "react";
 
