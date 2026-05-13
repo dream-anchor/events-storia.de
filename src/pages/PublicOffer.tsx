@@ -1442,13 +1442,12 @@ function FinalOptionCard({
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-payment-session', {
-        body: { inquiryId, optionId: option.id, paymentType },
+      const { checkoutUrl } = await createPaymentSession({
+        inquiryId,
+        optionId: option.id,
+        paymentType,
       });
-      if (error || !data?.checkoutUrl) {
-        throw new Error(data?.error || 'Fehler beim Erstellen der Zahlungssitzung');
-      }
-      window.location.href = data.checkoutUrl;
+      window.location.href = checkoutUrl;
     } catch (err) {
       setIsRedirecting(false);
       toast.error(
