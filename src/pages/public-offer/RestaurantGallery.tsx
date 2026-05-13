@@ -85,11 +85,6 @@ export function RestaurantGallery() {
               decoding="async"
               className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
             />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent p-3 md:p-4">
-              <span className="text-[11px] md:text-xs font-sans font-medium tracking-wide text-white/95">
-                {photo.caption}
-              </span>
-            </div>
           </button>
         ))}
       </div>
