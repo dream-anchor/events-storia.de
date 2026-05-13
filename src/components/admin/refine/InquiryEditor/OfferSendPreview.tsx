@@ -246,17 +246,73 @@ export function OfferSendPreview({
     }
   };
 
-  // Senden = an Edit-Seite delegieren (oder onAfterSend-Callback im Embed)
+  // Echter Versand = an Edit-Seite delegieren (Phase-Update passiert dort)
   const handleSend = (isTest: boolean) => {
     if (!inquiry) return;
-    if (isTest) setIsTestSending(true); else setIsSending(true);
+    if (isTest) {
+      // Test-Mail wird direkt hier verschickt — KEIN URL-Hop, kein State-Editor.
+      void handleSendTestDirect();
+      return;
+    }
+    setIsSending(true);
     const query = new URLSearchParams({
       send: sendType,
-      confirmed: isTest ? 'test' : '1',
+      confirmed: '1',
     }).toString();
     setTimeout(() => {
       handleAfterSend(inquiry.id, query);
     }, 150);
+  };
+
+  // Test-Mail direkt aus der Preview senden — robust, idempotent pro Klick,
+  // ohne sessionStorage-Guards oder URL-Re-Routing.
+  const handleSendTestDirect = async () => {
+    if (!inquiry) return;
+    setIsTestSending(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      console.info('[OfferSendPreview] Sende Test-Mail direkt', {
+        inquiryId: inquiry.id,
+        senderEmail: user?.email,
+      });
+      const { data, error } = await supabase.functions.invoke('send-offer-email', {
+        body: {
+          inquiryId: inquiry.id,
+          emailContent: inquiry.email_draft || '',
+          customerEmail: inquiry.email || user?.email || 'info@events-storia.de',
+          customerName: inquiry.contact_name || '',
+          senderEmail: user?.email,
+          lexofficeQuotationId: inquiry.lexoffice_quotation_id,
+          isTestPreview: true,
+        },
+      });
+      if (error) {
+        let detailed: string | null = null;
+        try {
+          const ctx = (error as { context?: Response }).context;
+          if (ctx && typeof ctx.json === 'function') {
+            const cloned = ctx.clone ? ctx.clone() : ctx;
+            const body = await cloned.json().catch(() => null);
+            if (body && typeof body.error === 'string') detailed = body.error;
+          }
+        } catch { /* ignore */ }
+        throw new Error(detailed || error.message || 'Vorschau-Mail fehlgeschlagen');
+      }
+      const recipients: string[] = Array.isArray(data?.recipients) ? data.recipients : [];
+      const msgId = data?.messageId ? ` (ID ${String(data.messageId).slice(0, 8)}…)` : '';
+      if (data && data.emailSent === false) {
+        toast.error(`Versand fehlgeschlagen: ${data.errorMessage || 'Unbekannt'}`, { duration: 10000 });
+      } else if (recipients.length > 0) {
+        toast.success(`Vorschau-Mail gesendet an: ${recipients.join(', ')}${msgId}`, { duration: 8000 });
+      } else {
+        toast.success('Vorschau-Mail gesendet', { duration: 6000 });
+      }
+    } catch (err) {
+      console.error('[OfferSendPreview] Test-mail failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Vorschau-Mail fehlgeschlagen');
+    } finally {
+      setIsTestSending(false);
+    }
   };
 
   // Im embedded-Modus (Wizard) liefert der Caller bereits den AdminLayout-Wrapper

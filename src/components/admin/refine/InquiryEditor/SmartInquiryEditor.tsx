@@ -447,16 +447,18 @@ export const SmartInquiryEditor = () => {
     if (!inquiry || !isInitialized) return;
     if (sendTriggerHandledRef.current) return;
 
-    // F5-Schutz: einmal getriggerte Kombinationen werden pro Browser-Session
-    // fuer 10 Sekunden als "schon erledigt" markiert — ABER erst NACH einem
-    // erfolgreichen Versand. So blockieren wir keine kaputten Fehlversuche.
+    // F5-Schutz NUR fuer echten Versand (confirmed === '1').
+    // Test-Mails laufen seit der Refactor direkt aus OfferSendPreview — dieser
+    // Branch wird fuer Tests nur noch als Legacy-Fallback erreicht und darf
+    // nicht durch sessionStorage-Guards blockiert werden.
     const triggerKey = `send-triggered:${inquiry.id}:${sendType}:${confirmed}`;
-    const lastTrigger = sessionStorage.getItem(triggerKey);
-    if (lastTrigger && Date.now() - parseInt(lastTrigger, 10) < 10_000) {
-      // Innerhalb 10s schon ausgefuehrt — URL still saeubern und raus.
-      sendTriggerHandledRef.current = true;
-      setSearchParams({}, { replace: true });
-      return;
+    if (confirmed === '1') {
+      const lastTrigger = sessionStorage.getItem(triggerKey);
+      if (lastTrigger && Date.now() - parseInt(lastTrigger, 10) < 10_000) {
+        sendTriggerHandledRef.current = true;
+        setSearchParams({}, { replace: true });
+        return;
+      }
     }
 
     sendTriggerHandledRef.current = true;

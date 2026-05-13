@@ -525,8 +525,11 @@ function KanbanCard({
           {title}
         </h3>
         {event.preferred_date && (
-          <span className="text-[11px] text-slate-500 tabular-nums flex-shrink-0">
+          <span className="text-[11px] text-slate-500 tabular-nums flex-shrink-0 text-right leading-tight">
             {format(parseISO(event.preferred_date), "d. MMM", { locale: de })}
+            {event.time_slot && (
+              <span className="block text-[10px] text-slate-400">{event.time_slot}</span>
+            )}
           </span>
         )}
       </div>

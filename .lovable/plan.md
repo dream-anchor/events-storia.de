@@ -1,99 +1,64 @@
-## Bewertung als Senior CX Engineer
-
-Das Vorgehen ist richtig: Die Pipeline muss den tatsächlichen Kunden-/Sales-Zustand abbilden, nicht technische Zwischenzustände. Entscheidend ist, dass es eine eindeutige Status-Logik gibt, die sowohl automatisch als auch bei manueller Verschiebung dieselben Zustände setzt.
-
-Die Zieldefinition ist stimmig:
-
-```text
-Neu                 = neue, noch nie bearbeitete Anfrage
-In Bearbeitung      = bearbeitet / Angebot wird erstellt / versendetes Angebot wird überarbeitet
-Angebot verschickt  = Angebot wurde aktiv an Kunden verschickt
-Gebucht             = verbindliche Buchung
-```
-
-Wichtig: „Angebot verschickt“ darf nur gelten, solange nicht wieder daran gearbeitet wird. Sobald ein bereits verschicktes Angebot bearbeitet/entsperrt wird, gehört es wieder in „In Bearbeitung“.
-
-## Gefundene Ursache Public Offer Archiv
-
-In `OfferArchivePreview` wird der Archiv-iframe so geöffnet:
-
-```text
-/offer/:id?archive_version=N
-```
-
-`PublicOffer.tsx` liest diesen Parameter aktuell aber nicht aus. Dadurch lädt die Vorschau immer das aktuelle Live-Angebot über `get_public_offer`, nicht den archivierten Snapshot aus `inquiry_offer_history.options_snapshot`.
-
-Wenn das Live-Angebot inzwischen wieder auf Entwurf/Bearbeitung steht, Optionen deaktiviert wurden oder `offer_phase` nicht mehr zum alten Angebot passt, verschwinden in der Archivansicht Menü-Optionen und Zahlungsbuttons. Das ist falsch, weil Archiv-Versionen immutable sein müssen.
-
 ## Plan
 
-### 1. Public Offer Archiv wirklich als Snapshot anzeigen
+### 1. Live vs. Lovable Preview (fehlende „Gebucht"-Spalte)
 
-- `PublicOffer.tsx` erkennt `archive_version`.
-- Bei gesetztem `archive_version` wird nicht das aktuelle Live-Angebot als Quelle für Optionen verwendet.
-- Stattdessen wird die passende Version aus `inquiry_offer_history` geladen.
-- `options_snapshot` wird in das bestehende Public-Offer-Datenformat gemappt.
-- Die öffentliche Angebotsseite rendert dann wieder:
-  - archiviertes Anschreiben,
-  - archivierte Menüoption(en),
-  - Menüdetails,
-  - die bestehenden Zahlungsbuttons unter den Optionen.
+**Das ist kein Browser-Cache-Problem.**
 
-Falls im Snapshot kein Stripe-Link gespeichert ist, bleiben die Buttons trotzdem sichtbar und nutzen wie bisher die Payment-Session-Erstellung über Inquiry + Option.
+`events-storia.de` wird **nicht** von Lovable gehostet. Die Live-Seite wird per GitHub Actions Workflow (`.github/workflows/deploy-ionos.yml`) per SFTP zu IONOS deployed — Trigger ist `push to main`. Die Lovable-Preview (`id-preview--…lovable.app`) zeigt dagegen sofort jede ungespeicherte Änderung.
 
-### 2. Status-Labels vereinheitlichen
+**Konsequenz:** Wenn in Lovable schon „Gebucht" zu sehen ist, auf der Live-Seite aber nicht, dann ist der Code noch nicht nach `main` gepusht oder der GitHub-Action-Build ist fehlgeschlagen / läuft noch.
 
-- Kanban-Spalte umbenennen:
-  - von `Angebot raus`
-  - zu `Angebot verschickt`
-- Status-Badge in der Tabelle ebenfalls auf `Angebot verschickt` ausrichten, statt gemischter Begriffe wie „Angebot gesendet“/„Angebot“.
+**Was ich tun werde:**
+- Keine Code-Änderung nötig.
+- In der Antwort konkret erklären: Lovable-Änderungen müssen via **Publish** (oder git-Push nach `main`) auf IONOS deployed werden, dann GitHub-Action-Status prüfen.
+- Hinweis: Hard-Reload hilft nicht, weil der Server selbst die alte Version ausliefert.
 
-### 3. Status-Automatik an der CX-Logik ausrichten
+---
 
-Eine zentrale Mapping-Logik wird in den betroffenen UI-Flows konsistent angewendet:
+### 2. Eventdatum + Uhrzeit immer in Kanban & Tabelle
 
-```text
-new        -> Neu
-contacted  -> In Bearbeitung
-offer_sent -> Angebot verschickt
-confirmed  -> Gebucht
-declined   -> Abgelehnt
-cancelled  -> Abgesagt
-```
+**Status quo:**
+- **Kanban-Card** (`KanbanView.tsx`): zeigt `preferred_date` als „d. MMM" oben rechts. **Uhrzeit fehlt.**
+- **Tabelle** (`EventsList.tsx`): hat Spalte `preferred_date` mit Datum. **Uhrzeit fehlt.**
 
-Automatische Übergänge:
+**Änderungen:**
+- **KanbanView.tsx**: Datum-Pill um Uhrzeit erweitern. Format: `13. Okt · 18:30`. Wenn nur Datum vorhanden → nur Datum. Datenfeld: `preferred_time` (existiert in `event_inquiries`) bzw. `time_from` (v2).
+- **EventsList.tsx**: in der Datums-Cell unter dem Datum eine zweite Zeile mit `HH:mm` ergänzen (kleiner, `text-muted-foreground`). Wenn keine Zeit vorhanden → leer lassen, kein Platzhalter.
+- Beide Views nutzen denselben `formatEventDateTime`-Helper (neu in `src/lib/utils.ts` oder lokal), damit das Format konsistent ist.
+- `EventInquiry`-Type in `src/types/refine.ts` und Mapping in `useEventInquiries`/`mapV2Event` prüfen, dass `preferred_time` vorhanden ist (sonst nachladen via `select`).
 
-- Neue Anfrage bleibt `new`, solange keine Bearbeitung erfolgt.
-- Beim ersten Bearbeiten/Speichern wird `new` automatisch zu `contacted`.
-- Beim Versenden eines Angebots wird Status `offer_sent`.
-- Wenn ein bereits verschicktes Angebot zur Bearbeitung geöffnet/entsperrt wird, wird Status `contacted` und `offer_sent_at` zurückgesetzt.
-- Nach erneutem Versand wird wieder Status `offer_sent`.
-- Bei verbindlicher Buchung wird Status `confirmed`.
+---
 
-### 4. Sortierung in allen Spalten korrekt setzen
+### 3. „Testmail an Betreiber" wird nicht immer verschickt
 
-Kanban-Sortierung wird so angepasst:
+**Ursachenanalyse** (Code-Pfad: `OfferSendPreview.tsx` → URL `?confirmed=test&send=…` → `SmartInquiryEditor.tsx` ab Zeile 443):
 
-- `Neu`: neueste Anfrage oben (`created_at desc`)
-- `In Bearbeitung`: letzte Bearbeitung oben (`last_edited_at` / `updated_at desc`)
-- `Angebot verschickt`: letzter Versand oben (`offer_sent_at desc`)
-- `Gebucht`: Buchungs-/Statusänderung oben, fallback auf `updated_at` / Eventdatum
+Es gibt **drei unabhängige Stolperdrähte**, die jeden zweiten Versand blockieren:
 
-Damit steht in jeder Spalte die aktuell relevanteste Anfrage oben.
+1. **`sendTriggerHandledRef`** (Zeile 442/448): wird beim ersten Trigger im Component-Lifetime auf `true` gesetzt — bleibt über alle Re-Mounts derselben Editor-Instanz erhalten. Kommt der User zurück und klickt erneut „Test", wird der Effect nicht nochmal ausgeführt, weil die URL bereinigt ist und der Ref nicht zurückgesetzt wird.
+2. **`sessionStorage`-Guard** (Zeile 453–460): blockt jede Wiederholung 10 Sekunden lang **pro `inquiry+sendType+confirmed`-Kombination**. Für Test-Mails ist dieser Schutz unnötig — Tests dürfen jederzeit wiederholt werden.
+3. **`isInitialized`-Race** (Zeile 447): wenn der Editor noch nicht „initialized" ist (100 ms-Delay nach Mount), wird der Trigger ignoriert und kommt erst beim nächsten Render. Wenn die URL aber inzwischen bereinigt wurde, geht der Versand verloren.
 
-### 5. Manuelle Verschiebung bleibt erhalten
+Zusätzlich: der Test-Versand passiert **nicht direkt** auf der Preview-Seite, sondern via Re-Routing zurück zum Editor mit URL-Param. Das ist fragil — jeder Navigations-Hiccup verliert den Klick.
 
-Drag & Drop sowie das Karten-Menü bleiben möglich. Sie setzen weiterhin denselben Datenstatus wie die Automatik:
+**Fix:**
+- **Test-Mail direkt aus `OfferSendPreview.tsx` versenden** statt über URL-Hop:
+  - Neuer Handler `handleSendTest` ruft `send-offer-email` mit `isTestPreview: true` direkt auf.
+  - Toast bei Erfolg/Fehler bleibt auf der Preview-Seite, kein Redirect.
+  - Nur der **echte** Versand geht weiterhin den URL-Hop (weil dort die Phase-Änderung im Editor passieren muss).
+- **In `SmartInquiryEditor.tsx`** den `confirmed === 'test'`-Branch entfernen (oder als Fallback behalten) — Test-Versand läuft dann nicht mehr über den State-Editor.
+- Den `sessionStorage`-Guard auf den **echten** Versand beschränken (`confirmed === '1'`), nicht auf `test`.
+- Console-Logging vor jedem `invoke('send-offer-email')` ergänzen, damit künftige Probleme im Network/Console sofort sichtbar sind.
 
-- nach `Neu` → `new`
-- nach `In Bearbeitung` → `contacted`
-- nach `Angebot verschickt` → `offer_sent`
-- nach `Gebucht` → `confirmed`
+**Zusatz-Robustheit (Edge Function-Seite):**
+- Kurz prüfen, ob `send-offer-email` bei `isTestPreview: true` und fehlender `senderEmail` (kein eingeloggter User) abbricht. Falls ja: Fallback auf Default-Adresse (`info@events-storia.de`) protokollieren.
 
-Damit widersprechen manuelle und automatische Steuerung sich nicht mehr.
+---
 
-## Technische Hinweise
+### Reihenfolge der Umsetzung
 
-- Keine Schemaänderung nötig, weil die benötigten Felder (`status`, `offer_phase`, `offer_sent_at`, `last_edited_at`, `current_offer_version`, `options_snapshot`) bereits existieren.
-- Die wichtigste Reparatur ist frontendseitig: `archive_version` muss in `PublicOffer.tsx` ausgewertet werden.
-- Zusätzlich wird die bestehende Entsperr-/Bearbeitungslogik korrigiert, weil dort aktuell teils `status: 'offer_sent'` beibehalten wird, obwohl das Angebot wieder in Bearbeitung ist.
+1. (Klein) Datum + Uhrzeit in Kanban-Card und Tabellen-Cell.
+2. (Mittel) Test-Mail direkt aus Preview senden + Guards entschärfen.
+3. (Doku) User in Antwort über Live-Deploy-Mechanismus aufklären.
+
+Keine DB-Migrations nötig.

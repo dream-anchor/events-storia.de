@@ -176,6 +176,7 @@ export const EventsList = () => {
       event_type: null,
       preferred_date: b.event_date ?? null,
       event_end_date: null,
+      time_slot: b.event_time ?? null,
       venue: null,
       message: null,
       source: "booking",
@@ -510,6 +511,7 @@ export const EventsList = () => {
         if (!date) return <span className="text-muted-foreground">-</span>;
 
         const dateObj = parseISO(date);
+        const time = row.original.time_slot;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const diffDays = Math.floor((dateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -530,6 +532,11 @@ export const EventsList = () => {
               <p className="text-sm font-medium">
                 {format(dateObj, "EEE, dd.MM.yy", { locale: de })}
               </p>
+              {time && (
+                <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
+                  {time} Uhr
+                </p>
+              )}
               {relativeLabel && (
                 <p className={cn(
                   "text-xs font-medium mt-0.5",
