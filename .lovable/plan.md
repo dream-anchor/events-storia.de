@@ -1,83 +1,58 @@
-## Plan – Reisegruppen-Pakete in events-storia.de spiegeln (Option A)
+# KI-Übersetzung der Reisegruppen-Menüs (EN/IT/FR)
 
-Die 3 Menüs sind bestätigt aus ristorantestoria.de/reisegruppen/ extrahiert. Wir spiegeln sie als native Pakete in unsere `packages` + `package_menu_items` + `package_drink_config`-Struktur. Damit funktionieren Maestro-Auto-Befüllung, Shop-Buchung, Lex-Sync und Pricing ohne Cross-DB-Aufrufe.
+## Problem
+Die 3 Reisegruppen-Pakete (Pizza e Pasta, Benvenuti, Tradizione) liefern beim Auswählen im Menu Builder Gänge (`custom_item_name`) und Getränke (`drink_label`, `quantity_label`) nur auf **DE + EN**. Reisegruppen-Gäste sind aber häufig international (IT/FR). Aktuell müsste der Betreiber jede Übersetzung manuell pflegen.
 
-### 1. Seed-Migration: `packages` + zugehörige Configs
+## Ziel
+Beim Laden eines der 3 Reisegruppen-Pakete im Menu Builder sollen alle Item-Texte (Gänge + Getränke) bereits auf **EN / IT / FR** vorliegen — automatisch erzeugt von KI (Lovable AI Gateway, gemini-2.5-flash, identisch zum bestehenden `translate-menu-text`).
 
-Drei neue Datensätze mit `package_type = 'reisegruppen'`:
+Operator muss nichts eintippen. Übersetzungen werden **persistent** gespeichert (nicht bei jedem Öffnen neu generiert), bleiben aber per Button neu übersetzbar.
 
-| key | name | name_en | price | min_guests | max_guests | description | featured |
-|---|---|---|---|---|---|---|---|
-| `pizza-e-pasta` | Pizza e Pasta | Pizza & Pasta | 25 € p.P. | 20 | 100 | „Der schnelle Stopp – ideal für Busgruppen mit engem Zeitplan (45–60 Min.)" | nein |
-| `benvenuti` | Benvenuti | Benvenuti | 45 € p.P. | 20 | 100 | „Klassisches 3-Gänge-Menü (75–90 Min.)" | **ja** (Beliebt) |
-| `tradizione` | Tradizione | Tradizione | 67 € p.P. | 20 | 100 | „4-Gänge-Menü für Gruppen, die sich Zeit nehmen (90–120 Min.)" | nein |
+## Umfang
+- Nur für `package_course_config` + `package_drink_config` Inhalte (Custom-Items aus Paketen).
+- Standard-MenuItems aus `catering_menu_items` / `ristorante_menu_items` haben bereits eigene `name_en` und sind nicht Teil dieses Plans.
 
-Alle: `is_active = true`, `price_per_person = true`, `show_in_shop = true` (neues Flag, siehe unten), `package_type = 'reisegruppen'`.
+## Schritte
 
-`includes`-JSON pro Paket aus den extrahierten Bullet-Points.
+### 1. Schema erweitern (Migration)
+Neue Spalten in `package_course_config`:
+- `course_label_it`, `course_label_fr`
+- `custom_item_name_it`, `custom_item_name_fr`
+- `custom_item_description_en`, `custom_item_description_it`, `custom_item_description_fr`
 
-### 2. `package_course_config` + `package_menu_items` (Maestro-Auto-Befüllung)
+Neue Spalten in `package_drink_config`:
+- `drink_label_it`, `drink_label_fr`
+- `quantity_label_it`, `quantity_label_fr`
+- `options_translations` (JSONB) — Map `{ en: [...], it: [...], fr: [...] }` für die `options`-Liste (Wein, Wasser, Espresso etc.)
 
-**Pizza e Pasta:**
-- Course `main` „Hauptgang (Pizza ODER Pasta)" – Custom-Item-Liste:
-  - Pizza Margherita / Diavola / Quattro Formaggi / Prosciutto e Funghi
-  - Spaghetti Pomodoro / Penne all'Arrabbiata / Spaghetti Carbonara
-- Course `starter` „Gemischter Blattsalat" (Custom)
-- Course `dessert` „Espresso oder Gelato (1 Kugel)" (Custom)
+Alle nullable, kein Default.
 
-**Benvenuti:**
-- Course `starter` „Vorspeise zum Teilen": Caprese mit Büffel-Mozzarellina, Vitello Tonnato, Parmigiana-Auflauf, Steinofenbrot
-- Course `main` „Hauptgang (Wahl)": Pizza Margherita/Salame Piccante, Penne all'Arrabbiata/Tagliatelle al Ragù, Risotto Edelpilze (glutenfrei)
-- Course `dessert` „Kleines Tiramisu oder kleine Panna Cotta"
+### 2. Edge-Function `translate-package-menu`
+- Input: `{ package_id, target_langs?: ['en','it','fr'] }`
+- Lädt alle Rows aus `package_course_config` + `package_drink_config` für das Package.
+- Sammelt alle DE-Strings, schickt einen Batch-Request an Lovable AI (gemini-2.5-flash) mit Tool-Calling für strukturierte Ausgabe.
+- System-Prompt analog `translate-menu-text` (gastronomische Begriffe beibehalten: Tagliatelle, Saltimbocca, Tiramisu …).
+- Schreibt Ergebnisse via Service-Role-Client zurück in die jeweiligen `_en/_it/_fr`-Spalten und `options_translations`.
+- Auth: Admin-only (JWT prüfen, `has_role(admin)`).
+- Fehlerfälle 429/402 sauber durchreichen.
 
-**Tradizione:**
-- Course `starter` (Antipasto misto): Vitello Tonnato / Burrata + Steinofenbrot
-- Course `pasta` (Primo): Tagliatelle al Ragù / Ravioli Ricotta+Steinpilze / Risotto Edelpilze
-- Course `main` (Secondo): Dorade Royal / Saltimbocca alla Romana / Parmigiana di Melanzane (vegetarisch)
-- Course `dessert`: Tiramisu / Panna Cotta / Cannoli Siciliani
+### 3. Seed: einmalige Übersetzung der 3 Reisegruppen-Pakete
+Edge-Function deployen und einmalig für die 3 Package-IDs aufrufen (entweder via Admin-Button oder per `curl_edge_functions`-Tool nach Deploy).
 
-Items werden als `package_menu_items` mit `is_custom = true` und `price = 0` (= „inkl.") angelegt – nutzt direkt das in Punkt 1 des Hauptplans definierte „Preis 0 = inkl."-Verhalten.
+### 4. UI-Button „Mit KI übersetzen"
+In `src/components/admin/refine/PackageEdit.tsx` neuer Button neben den Sprachfeldern: ruft die Edge-Function auf, zeigt Spinner, refetched Package-Config. Nutzbar für jedes Package, nicht nur Reisegruppen.
 
-### 3. `package_drink_config`
+### 5. Hook + Types erweitern
+- `usePackageMenuConfig.ts`: zusätzliche Felder (`*_it`, `*_fr`, `options_translations`) durchreichen.
+- `MenuComposer/types.ts` + `OfferBuilder/types.ts`: `CourseConfig` und `DrinkConfig` um IT/FR Felder ergänzen.
 
-**Pizza e Pasta:** Wasser 0,5 l + 1 Softdrink (`is_included`, kein Choice)
-**Benvenuti:** 1× 0,1 l Hauswein ODER Helles ODER Softdrink (`is_choice`), + Wasser + Espresso (included)
-**Tradizione:** ½ l Wein p.P. + Wasser + Espresso (included)
+### 6. Persistenz im Angebot
+Beim Auto-Befüllen von `menu_selection` (in `useOfferBuilder.ts`) die mehrsprachigen Namen mit übernehmen, so dass `PublicOffer` (DE/EN/IT/FR) den jeweiligen Text rendert ohne Re-Lookup.
 
-### 4. Schema-Erweiterung
+### 7. PublicOffer-Rendering
+`src/pages/public-offer/...` (FinalOfferView/ProposalView): beim Anzeigen der Course/Drink-Items je nach `lang` das passende Feld nutzen (Fallback DE → EN → DE).
 
-Migration: `ALTER TABLE packages ADD COLUMN show_in_shop boolean NOT NULL DEFAULT false;`
-Diese 3 Pakete bekommen `show_in_shop = true`. Bestehende Event-Pakete bleiben unverändert (default false → müssen wir bei Bedarf später aktivieren).
-
-### 5. Maestro-Auto-Befüllung (OfferBuilder)
-
-In `OptionCard.tsx` bei Paket-Auswahl: wenn `package_id` gesetzt → laden von `package_menu_items` + `package_drink_config` und Vorbelegung der `courses`/`drinks` im `OfferBuilder`-State mit `overridePrice: 0` („inkl.").
-
-### 6. Shop-Integration
-
-`useEventPackages` erweitern: zusätzlich `package_type = 'reisegruppen'` einbeziehen ODER neuer Hook `useReisegruppenPackages`. Auf der Events-Seite (`src/pages/Events*.tsx` bzw. `EventsImStoria.tsx`) eigene Sektion „Für Reisegruppen" mit `EventPackageShopCard` für die 3 Pakete.
-
-Bilder: bestehende Assets wiederverwenden – `ravioliDinner` (Tradizione), `firmenfeier` (Benvenuti), `sommerfest` (Pizza e Pasta). Falls gewünscht, später dedizierte Bilder.
-
-Buchungspfad identisch zu bestehenden Shop-Paketen → Cart → Checkout → `event_inquiries` mit `package_id` referenziert.
-
-### 7. Reihenfolge der Umsetzung
-
-```text
-Schritt A: Migration "show_in_shop" + Seed der 3 packages
-Schritt B: Seed package_course_config + package_menu_items
-Schritt C: Seed package_drink_config
-Schritt D: OfferBuilder Auto-Befüllung beim Paket-Wechsel
-Schritt E: useEventPackages erweitern + EventsImStoria.tsx Sektion
-Schritt F: QA – Maestro-Auswahl + Shop-Buchung Ende-zu-Ende
-```
-
-### 8. Bewusst nicht enthalten
-
-- **Live-Sync mit ristorantestoria.de**: Wenn dort Inhalte geändert werden, müssen wir hier manuell nachpflegen. Falls später nötig: separater Sync-Job (eigener Plan).
-- **Mehrsprachige Menüs (IT/FR)**: Wir spiegeln nur DE + EN. Das ristorantestoria-System hat 4 Sprachen, das ist hier nicht zwingend.
-- **Reiseleiter/Busfahrer-Logik** („ab 25 Pers. isst Reiseleiter gratis"): kommt in einen separaten Folge-Task – würde hier den Scope sprengen.
-
-### 9. Zu klären
-
-Soll ich `show_in_shop` global einführen (auch für bestehende Event-Pakete optional aktivierbar), oder reicht ein einfaches Filter-Flag `package_type IN ('event','reisegruppen')` im Shop-Hook? Empfehlung: das neue Flag, weil es flexibler ist und unabhängig vom `package_type` greift.
+## Nicht im Umfang
+- Übersetzung von Standard-MenuItems (haben eigene `name_en` Workflows).
+- Kein Live-On-Demand-Translate bei jedem Öffnen — nur einmalig + manueller Re-Trigger.
+- Keine Änderung der UX im OfferBuilder selbst (außer dass Texte jetzt mehrsprachig im Hintergrund vorhanden sind).
