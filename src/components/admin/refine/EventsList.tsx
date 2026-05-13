@@ -3,7 +3,7 @@ import { useList } from "@refinedev/core";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare, User, Flag, AlertTriangle, LayoutGrid, Table2, Archive } from "lucide-react";
+import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare, User, Flag, AlertTriangle, LayoutGrid, Table2, Archive, Printer } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable, sortableHeader } from "./DataTable";
@@ -22,6 +22,36 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { getInquiryActionState } from "@/lib/inquiryActionState";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
+import { UpcomingOrdersPrintDialog } from "./print/UpcomingOrdersPrintDialog";
+import type { InquiryRecord } from "@/types/inquiryRecord";
+
+function eventToInquiryRecord(e: EventInquiry): InquiryRecord {
+  const kind = getServiceKind(e);
+  const serviceType = kind === "in_house" ? "restaurant" : kind === "catering" ? "catering" : "group";
+  const guests = typeof e.guest_count === "string" ? parseInt(e.guest_count, 10) : (e.guest_count as any);
+  return {
+    id: e.id,
+    kind: "event",
+    serviceType: serviceType as InquiryRecord["serviceType"],
+    number: (e as any).booking_number || e.id.slice(0, 8),
+    customerName: e.contact_name,
+    companyName: e.company_name,
+    email: e.email,
+    phone: e.phone ?? null,
+    date: e.preferred_date ?? null,
+    time: e.time_slot ?? null,
+    guestCount: Number.isFinite(guests) ? guests : null,
+    totalAmount: (e as any).total_amount ?? null,
+    status: e.status,
+    offerPhase: (e as any).offer_phase ?? null,
+    column: "lead" as InquiryRecord["column"],
+    createdAt: e.created_at,
+    updatedAt: e.updated_at ?? e.created_at,
+    archivedAt: e.archived_at ?? null,
+    archived: !!e.archived_at,
+    raw: e as any,
+  };
+}
 
 const statusConfig: Record<InquiryStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   new: { label: "Neu", variant: "default" },
@@ -116,6 +146,7 @@ export const EventsList = () => {
     () => (localStorage.getItem("eventsViewMode") as "table" | "kanban") || "table"
   );
   const [paymentStatus, setPaymentStatus] = useState<Record<string, 'none' | 'pending' | 'partial' | 'complete' | 'overdue'>>({});
+  const [printOpen, setPrintOpen] = useState(false);
   const { showTestData } = useTestMode();
 
   // Save view preference
@@ -667,6 +698,15 @@ export const EventsList = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPrintOpen(true)}
+              className="rounded-lg gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              <span className="hidden sm:inline">Nächste Aufträge</span>
+            </Button>
             {/* View Toggle */}
             <ToggleGroup
               type="single"
@@ -784,6 +824,11 @@ export const EventsList = () => {
           />
         )}
       </div>
+      <UpcomingOrdersPrintDialog
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+        records={activeEvents.map((e) => eventToInquiryRecord(e))}
+      />
     </AdminLayout>
   );
 };
