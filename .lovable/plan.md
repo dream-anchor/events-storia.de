@@ -1,35 +1,60 @@
-## Plan
+## Ziel
 
-Reisegruppen sollen in „Anfragen“ nicht mehr als rechtes Sheet/Overlay erscheinen. Beim Klick sollen sie wie „Im Haus“ als eigene Detailseite im Admin-Bereich geöffnet werden.
+Reisegruppen-Anfragen öffnen sich künftig im **gleichen** SmartInquiryEditor wie In-Haus- und Lieferungs-Anfragen — mit Angebots-/Menü-Builder, Mails, Tasks, Timeline, Zahlungen, LexOffice usw. Keine separate Detailmaske mehr.
 
-## Umsetzung
+## Hintergrund
 
-1. **Kein Sheet mehr aus der Anfragen-Übersicht**
-   - `UnifiedInquiriesList.tsx` rendert für Reisegruppen kein `<GroupInquiryDetail />` mehr innerhalb der Übersicht.
-   - Dadurch verschwindet die dunkle Overlay-Ansicht mit rechter Drittel-Spalte.
+- In-Haus / Lieferung / Catering liegen in `v2_events` (+ `event_inquiries` View) und nutzen `SmartInquiryEditor` unter `/admin/inquiries/:id/edit`.
+- Reisegruppen liegen in einer **eigenen** Tabelle `group_inquiries` mit komplett anderem Schema (kein `menu_selection`, kein `quote_items`, kein `offer_phase`, kein Contact-Bezug etc.).
+- Deshalb existiert aktuell die separate Maske (`GroupInquiryEdit` / alter `/admin/reisegruppen`-Sheet).
 
-2. **Reisegruppen per Navigation öffnen**
-   - Klick auf eine Reisegruppe führt künftig auf eine normale Admin-Detailroute, z. B. `/admin/reisegruppen/:id/edit`.
-   - Das gilt für Kanban, Tabelle und Mobile Cards.
+Damit Reisegruppen denselben Editor bekommen, müssen sie als „normales" Event geführt werden.
 
-3. **Neue Vollseiten-Detailansicht für Reisegruppen**
-   - Die bestehende Reisegruppen-Detailmaske wird aus dem Sheet herausgelöst und als normale Seite aufgebaut.
-   - Layout-Verhalten wie bei „Im Haus“: volle Admin-Seite mit Zurück-Button, Header, Datenbereichen und Speichern unten inline.
-   - Status, interne Notizen, Kontaktdaten, Wunschdatum, Gruppengröße, Wunschmenü, Nachricht und Reiseplan bleiben erhalten.
+## Lösungsweg: Reisegruppen in `v2_events` integrieren
 
-4. **Alte Reisegruppen-Liste entschärfen**
-   - Die alte Route `/admin/reisegruppen` bleibt erreichbar, wird aber nicht mehr aus „Anfragen“ geöffnet.
-   - Optional bleibt dort das alte Sheet-Verhalten für Direktnutzung bestehen, aber nicht mehr im Hauptworkflow.
+### 1. Datenbank-Migration
 
-## Technische Details
+- Neuen Wert `group` zur Enum `v2_event_service` hinzufügen.
+- Neuen Wert für `v2_event_source` ergänzen, falls noch nicht vorhanden (z. B. `reisegruppen`).
+- `v2_events` um spezifische Reisegruppen-Felder erweitern (nullable):
+  - `language` (text, default `'de'`)
+  - `arrival_time` (text)
+  - `preferred_menu` (text)
+  - `travel_plan_url`, `travel_plan_filename` (text)
+  - `preferred_date_flexible` (bool, default false)
+  - UTM-Felder bereits vorhanden → prüfen, sonst ergänzen.
+- One-off Backfill: bestehende `group_inquiries` → `v2_events` migrieren.
+  - Pro Zeile: Contact in `v2_contacts` anlegen/finden (per E-Mail), dann `v2_events`-Zeile mit `service_type='group'`, `source='reisegruppen'`, Status-Mapping (`new→inquiry`, `in_progress→offer_draft`, `offer_sent→offer_sent`, `confirmed→paid`, `rejected→archived`, `archived→archived`).
+  - `group_size → guest_count`, `message → customer_notes`, `internal_notes`, `preferred_date`, neue Felder 1:1.
+  - `id` der group_inquiry wird in `v2_events` als gleicher Primärschlüssel übernommen → keine kaputten Links.
+- Neue Webhook-/Insert-Pfade: Reisegruppen-Formular schreibt künftig direkt nach `v2_events` (statt `group_inquiries`).
+  - Edge Function `submit-group-inquiry` (oder entsprechende) entsprechend anpassen.
+- `group_inquiries` bleibt zunächst als Read-Only-Schattenkopie bestehen (wird in einer Folge-PR nach erfolgreicher Migration entfernt).
 
-- Frontend-only Änderung, keine Datenbankänderung.
-- Betroffene Dateien:
-  - `src/pages/RefineAdmin.tsx` für die neue Route
-  - `src/components/admin/refine/UnifiedInquiriesList.tsx` für Navigation statt Sheet
-  - `src/components/admin/refine/UnifiedKanbanView.tsx` für Navigation statt Callback/Sheet
-  - `src/components/admin/refine/GroupInquiriesList.tsx` oder neue kleine Detail-Komponente für die Vollseitenansicht
+### 2. Routing & Listen
 
-## Ergebnis
+- `UnifiedKanbanView` und `UnifiedInquiriesList`: bei `serviceType === "group"` ebenfalls auf `/admin/inquiries/${id}/edit` navigieren (statt `/admin/reisegruppen/...`).
+- Route `/admin/reisegruppen/:id/edit` und `GroupInquiryEdit.tsx` werden entfernt.
+- Alte `/admin/reisegruppen`-Übersicht: optional behalten als Filter (Quelle = `reisegruppen`) oder ebenfalls entfernen.
 
-Reisegruppen verhalten sich in der Anfragen-Liste wie „Im Haus“: Klick öffnet eine normale Detailseite statt einer rechten Overlay-Anzeige.
+### 3. SmartInquiryEditor anpassen
+
+Der Editor bleibt das gleiche Bauwerk; er erhält nur kleine Group-spezifische Anpassungen:
+- Neuer Header-Badge „Reisegruppe" wenn `service_type === 'group'`.
+- Neue Sektion „Reisegruppe-Details" (in Tab „Übersicht"/„Event"):
+  - Sprache, Anreisezeit, Wunschmenü (Text), Reiseplan-Link (signed URL für `travel_plan_url`), Flex-Datum-Flag.
+- LocationBlock / Lieferadresse für Group ausblenden (nicht relevant).
+- Menü-/Angebots-Builder funktionieren unverändert (gleiches `menu_selection`/`quote_items`-Schema).
+
+### 4. Aufräumen
+
+- `GroupInquiryEdit.tsx`, `GroupInquiriesList.tsx`, `GroupInquiryDetail`-Sheet, ehemalige Reisegruppen-Routen entfernen, sobald die Migration grün ist.
+- `useList`/Resources auf `group_inquiries` aus dem Refine-Setup entfernen.
+
+## Offene Punkte vor Umsetzung
+
+1. **Bestehende Daten migrieren?** Ja → Backfill in derselben Migration, oder lieber ein separater Schritt nach Code-Deploy?
+2. **Alte Tabelle `group_inquiries`** sofort löschen oder vorerst als `_legacy_group_inquiries` archivieren?
+3. **Reisegruppen-Übersichtsseite** `/admin/reisegruppen` ebenfalls abschalten (alles läuft dann über die Anfragen-Liste mit Filter „Reisegruppe")?
+
+Sobald diese drei Punkte beantwortet sind, setze ich Migration + Editor-Anpassung + Routing in einem Rutsch um.
