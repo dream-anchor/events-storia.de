@@ -85,6 +85,13 @@ export interface InquiryRecord {
   updatedAt: string;
   archivedAt?: string | null;
   archived?: boolean;
+  // --- optionale Felder für Druckansichten / Übersichten ---
+  occasion?: string | null;
+  dateEnd?: string | null;
+  packageLabel?: string | null;
+  menuSummary?: string | null;
+  roomOrCityShort?: string | null;
+  assignedInitials?: string | null;
   raw: V2EventRow | CateringOrder;
 }
 
