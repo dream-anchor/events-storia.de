@@ -162,9 +162,9 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       //   per_event: Gesamtpreis fuer den Anlass (z.B. 5-Tage-Lieferung, Mehrtages-Catering)
       //   per_person (default): Preis pro Person
       if (opt.pricingMode === 'per_event' && opt.totalAmount > 0) {
-        optParts.push(`Gesamtpreis: ${opt.totalAmount.toFixed(2).replace('.', ',')} € fuer den gesamten Anlass`);
+        optParts.push(`Gesamtpreis: ${formatEUR(opt.totalAmount)} fuer den gesamten Anlass`);
       } else if (opt.totalAmount > 0 && opt.guestCount > 0) {
-        optParts.push(`${(opt.totalAmount / opt.guestCount).toFixed(2)} € pro Person`);
+        optParts.push(`${formatEUR(opt.totalAmount / opt.guestCount)} pro Person`);
       }
 
       parts.push(`\n--- ${label} ---`);
