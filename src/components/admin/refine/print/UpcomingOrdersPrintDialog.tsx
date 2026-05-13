@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, Download, Printer } from 'lucide-react';
@@ -44,17 +46,92 @@ export function UpcomingOrdersPrintDialog({ open, onClose, records, generatedBy 
     return { filtered: list, rangeLabel: label };
   }, [records, groupBy, includeOpen]);
 
+  // Sammle alle Option-IDs aus den gefilterten Records (raw.selected_option_id)
+  const optionIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of filtered) {
+      const sid = (r.raw as any)?.selected_option_id;
+      if (sid && typeof sid === 'string') ids.add(sid);
+    }
+    return Array.from(ids);
+  }, [filtered]);
+
+  // Lade Optionen + Pakete in einem Rutsch
+  const optionsQuery = useQuery({
+    queryKey: ['print-upcoming-options', optionIds],
+    enabled: open && optionIds.length > 0,
+    queryFn: async () => {
+      const { data: opts } = await (supabase as any)
+        .from('inquiry_offer_options')
+        .select('id, package_id, option_label, menu_selection, total_amount')
+        .in('id', optionIds);
+      const options = (opts || []) as Array<{
+        id: string;
+        package_id: string | null;
+        option_label: string | null;
+        menu_selection: any;
+        total_amount: number | null;
+      }>;
+      const pkgIds = Array.from(
+        new Set(options.map((o) => o.package_id).filter(Boolean) as string[]),
+      );
+      let packages: Record<string, string> = {};
+      if (pkgIds.length > 0) {
+        const { data: pkgs } = await supabase
+          .from('packages')
+          .select('id, name')
+          .in('id', pkgIds);
+        for (const p of pkgs || []) packages[p.id] = p.name;
+      }
+      const map: Record<string, { packageLabel: string | null; menuSummary: string | null }> = {};
+      for (const o of options) {
+        const pkgName = o.package_id ? packages[o.package_id] || null : null;
+        const label = pkgName
+          ? o.option_label && o.option_label !== 'A'
+            ? `Paket „${pkgName}" · Option ${o.option_label}`
+            : `Paket „${pkgName}"`
+          : null;
+        // Versuche Kurzfassung des Menüs aus menu_selection.courses
+        let summary: string | null = null;
+        const courses = o.menu_selection?.courses;
+        if (Array.isArray(courses) && courses.length > 0) {
+          const names = courses
+            .map((c: any) => (c?.itemName || '').trim())
+            .filter(Boolean)
+            .slice(0, 4);
+          if (names.length > 0) summary = names.join(' · ');
+        }
+        map[o.id] = { packageLabel: label, menuSummary: summary };
+      }
+      return map;
+    },
+  });
+
+  const enriched = useMemo(() => {
+    const map = optionsQuery.data || {};
+    return filtered.map((r) => {
+      const sid = (r.raw as any)?.selected_option_id;
+      const extra = sid ? map[sid] : null;
+      if (!extra) return r;
+      return {
+        ...r,
+        packageLabel: r.packageLabel ?? extra.packageLabel,
+        menuSummary: r.menuSummary ?? extra.menuSummary,
+      };
+    });
+  }, [filtered, optionsQuery.data]);
+
   const doc = useMemo(
     () => (
       <UpcomingOrdersSheet
-        records={filtered}
+        records={enriched}
         groupBy={groupBy}
         scope={scope}
         rangeLabel={rangeLabel}
         generatedBy={generatedBy}
       />
     ),
-    [filtered, groupBy, scope, rangeLabel, generatedBy],
+    [enriched, groupBy, scope, rangeLabel, generatedBy],
   );
 
   useEffect(() => {
