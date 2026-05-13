@@ -120,6 +120,17 @@ interface OfferBuilderRequest {
 
 type RequestBody = LegacyRequest | MultiOfferRequest | OfferBuilderRequest;
 
+function formatEUR(amount: number): string {
+  // Truncate to 2 decimals (no rounding up), German format with thousand separator.
+  const truncated = Math.trunc(amount * 100) / 100;
+  return new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(truncated);
+}
+
 function isOfferBuilderRequest(body: RequestBody): body is OfferBuilderRequest {
   return 'inquiryId' in body && 'phase' in body && !('isMultiOption' in body);
 }
