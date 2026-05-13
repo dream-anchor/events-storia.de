@@ -26,7 +26,7 @@ interface KanbanViewProps {
 const PIPELINE_COLUMNS = [
   { id: "lead", title: "Neu" },
   { id: "proposal", title: "In Bearbeitung" },
-  { id: "pending", title: "Angebot raus" },
+  { id: "pending", title: "Angebot verschickt" },
   { id: "won", title: "Gebucht" },
 ] as const;
 

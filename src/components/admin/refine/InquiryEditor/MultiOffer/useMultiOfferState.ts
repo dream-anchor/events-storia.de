@@ -247,6 +247,12 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
             last_edited_at: new Date().toISOString(),
           })
           .eq("id", inquiryId);
+        // Erste Bearbeitung promotet "Neu" → "In Bearbeitung"
+        await supabase
+          .from("event_inquiries")
+          .update({ status: 'contacted' })
+          .eq("id", inquiryId)
+          .eq("status", "new");
       }
 
       // Log the activity with details about what changed
@@ -496,7 +502,8 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
           offer_sent_at: null,
           offer_sent_by: null,
           current_offer_version: newVersion,
-          status: 'offer_sent', // Explicitly keep status as offer_sent
+          // Wieder in Bearbeitung — Angebot ist nicht mehr "verschickt"
+          status: 'contacted',
         })
         .eq("id", inquiryId);
       

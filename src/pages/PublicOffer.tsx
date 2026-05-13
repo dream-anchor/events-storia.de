@@ -203,11 +203,118 @@ export default function PublicOffer() {
   const isSlugRoute = location.pathname.includes('/ihr-angebot/') || location.pathname.includes('/your-offer/');
   const lookupValue = slug || id;
 
+  // Archiv-Modus: ?archive_version=N rendert die Snapshot-Version aus
+  // inquiry_offer_history (immutable), statt das aktuelle Live-Angebot.
+  // Wird vom Admin-Archiv-Preview als iframe-src verwendet.
+  const archiveVersionRaw = searchParams.get('archive_version');
+  const archiveVersion = archiveVersionRaw ? parseInt(archiveVersionRaw, 10) : null;
+  const isArchive = archiveVersion != null && !Number.isNaN(archiveVersion);
+
   useEffect(() => {
     if (!lookupValue) return;
 
     const fetchOffer = async () => {
       try {
+        // ARCHIV: Snapshot aus inquiry_offer_history laden
+        if (isArchive && id) {
+          const [histRes, inqRes] = await Promise.all([
+            supabase
+              .from('inquiry_offer_history' as never)
+              .select('options_snapshot, email_content')
+              .eq('inquiry_id', id)
+              .eq('version', archiveVersion!)
+              .maybeSingle(),
+            supabase
+              .from('event_inquiries' as never)
+              .select('id, company_name, contact_name, email, event_type, preferred_date, event_end_date, guest_count, lexoffice_invoice_id, deposit_amount, deposit_percent, deposit_due_days, payment_method, offer_slug')
+              .eq('id', id)
+              .maybeSingle(),
+          ]);
+          const hist = (histRes.data as unknown) as { options_snapshot: unknown; email_content: string | null } | null;
+          const inq = (inqRes.data as unknown) as Record<string, unknown> | null;
+          if (!hist || !inq) {
+            setError(true);
+            return;
+          }
+          const snapOptions = Array.isArray(hist.options_snapshot)
+            ? (hist.options_snapshot as Array<Record<string, unknown>>)
+            : [];
+          // Aktiv-Filter: archivierte Snapshots können auch deaktivierte enthalten
+          const activeSnaps = snapOptions.filter(o => (o as { is_active?: boolean }).is_active !== false);
+
+          // Paketnamen für package_id auflösen (analog zur RPC)
+          const packageIds = Array.from(new Set(
+            activeSnaps.map(o => (o as { package_id?: string | null }).package_id).filter((x): x is string => !!x)
+          ));
+          let packageNames: Record<string, string> = {};
+          if (packageIds.length) {
+            const { data: pkgRows } = await supabase
+              .from('packages' as never)
+              .select('id, name')
+              .in('id', packageIds);
+            if (Array.isArray(pkgRows)) {
+              packageNames = Object.fromEntries(
+                (pkgRows as Array<{ id: string; name: string }>).map(p => [p.id, p.name])
+              );
+            }
+          }
+
+          const options: PublicOfferOption[] = activeSnaps
+            .map((o, idx) => {
+              const offerMode = (o.offer_mode as string | null) || 'fest_menu';
+              const menuSel = o.menu_selection as Record<string, unknown> | null;
+              const override = menuSel && typeof menuSel.packageNameOverride === 'string'
+                ? menuSel.packageNameOverride.trim()
+                : '';
+              const pkgId = (o.package_id as string | null) || null;
+              const packageName =
+                offerMode === 'menu'
+                  ? 'Individuelles Menü'
+                  : override
+                  ? override
+                  : (pkgId && packageNames[pkgId]) || 'Individuelles Paket';
+              return {
+                id: String(o.id ?? `snap-${idx}`),
+                option_label: String(o.option_label ?? String.fromCharCode(65 + idx)),
+                offer_mode: offerMode,
+                guest_count: Number(o.guest_count ?? 0),
+                menu_selection: menuSel as MenuSelection | null,
+                total_amount: Number(o.total_amount ?? 0),
+                stripe_payment_link_url: (o.stripe_payment_link_url as string | null) ?? null,
+                package_name: packageName,
+                sort_order: Number(o.sort_order ?? idx),
+              } as PublicOfferOption;
+            })
+            .sort((a, b) => a.sort_order - b.sort_order);
+
+          const archiveData: PublicOfferData = {
+            inquiry: {
+              id: String(inq.id),
+              company_name: (inq.company_name as string | null) ?? null,
+              contact_name: String(inq.contact_name ?? ''),
+              email: (inq.email as string | null) ?? null,
+              event_type: (inq.event_type as string | null) ?? null,
+              preferred_date: (inq.preferred_date as string | null) ?? null,
+              event_end_date: (inq.event_end_date as string | null) ?? null,
+              guest_count: (inq.guest_count as string | null) ?? null,
+              status: 'offer_sent',
+              // Archiv → immer ProposalView mit Menü + 2 Zahlbuttons
+              offer_phase: 'proposal_sent',
+              selected_option_id: null,
+              email_content: hist.email_content ?? null,
+              lexoffice_invoice_id: (inq.lexoffice_invoice_id as string | null) ?? null,
+              deposit_amount: (inq.deposit_amount as number | null) ?? null,
+              deposit_percent: (inq.deposit_percent as number | null) ?? null,
+              deposit_due_days: (inq.deposit_due_days as number | null) ?? null,
+              payment_method: (inq.payment_method as string | null) ?? null,
+            },
+            options,
+            customer_response: null,
+          };
+          setData(archiveData);
+          return;
+        }
+
         let result;
         let rpcError;
 
@@ -243,11 +350,11 @@ export default function PublicOffer() {
     };
 
     fetchOffer();
-  }, [lookupValue, isSlugRoute]);
+  }, [lookupValue, isSlugRoute, isArchive, archiveVersion, id]);
 
   // Load payments separately (anon access, only public fields)
   useEffect(() => {
-    if (!data?.inquiry?.id) return;
+    if (!data?.inquiry?.id || isArchive) return;
     supabase
       .from("event_payments")
       .select("id, payment_type, amount_cents, status, due_date, due_days_before_event, paid_at, paid_via, stripe_payment_link_url")

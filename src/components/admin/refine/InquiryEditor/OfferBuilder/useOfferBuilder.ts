@@ -566,6 +566,12 @@ export function useOfferBuilder({
               last_edited_at: new Date().toISOString(),
             })
             .eq("id", inquiryId);
+          // Auto-Promotion: erste Bearbeitung verschiebt "Neu" → "In Bearbeitung"
+          await supabase
+            .from("event_inquiries")
+            .update({ status: 'contacted' } as Record<string, unknown>)
+            .eq("id", inquiryId)
+            .eq("status", "new");
         }
 
         lastSavedJsonRef.current = currentJson;
@@ -1003,7 +1009,9 @@ export function useOfferBuilder({
           offer_sent_by: null,
           current_offer_version: newVersion,
           offer_phase: 'draft',
-          status: 'offer_sent',
+          // Bearbeitung eines bereits versendeten Angebots → zurück in
+          // "In Bearbeitung", bis erneut versendet wird.
+          status: 'contacted',
         } as Record<string, unknown>)
         .eq("id", inquiryId);
 
@@ -1382,6 +1390,11 @@ export function useOfferBuilder({
           await saveOptionsToDb(inquiryId, options, currentVersion);
           if (currentUserEmail) {
             await supabase.from('event_inquiries').update({ last_edited_by: currentUserEmail, last_edited_at: new Date().toISOString() }).eq('id', inquiryId);
+            await supabase
+              .from('event_inquiries')
+              .update({ status: 'contacted' } as Record<string, unknown>)
+              .eq('id', inquiryId)
+              .eq('status', 'new');
           }
           lastSavedJsonRef.current = currentJson;
           setSaveStatus('idle');
