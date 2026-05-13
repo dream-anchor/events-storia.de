@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { createPaymentSession } from "@/lib/createPaymentSession";
 import type { PublicInquiry, PublicOfferOption } from "./types";
 import { formatCurrency, formatCurrencyDecimal, buildDrinkRows } from "./types";
 import { CancellationTermsAccordion } from "./ContactSection";
