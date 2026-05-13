@@ -17,7 +17,7 @@ export interface V2EventRow {
   number: string | null;
   status: string | null;
   offer_phase: string | null;
-  service_type: "restaurant" | "catering" | null;
+  service_type: "restaurant" | "catering" | "group" | null;
   date: string | null;
   date_end: string | null;
   time_from: string | null;
@@ -136,7 +136,11 @@ export function mapV2Event(e: V2EventRow): InquiryRecord {
   const rawCompany = (cust?.company ?? "").trim();
   const isPlaceholderCompany = /^(private|privat)$/i.test(rawCompany);
   const serviceType: ServiceType =
-    e.service_type === "catering" ? "catering" : "restaurant";
+    e.service_type === "catering"
+      ? "catering"
+      : e.service_type === "group"
+        ? "group"
+        : "restaurant";
   return {
     id: e.id,
     kind: "event",
