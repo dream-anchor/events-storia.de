@@ -963,6 +963,51 @@ function ProposalView({
             </div>
           )}
 
+          {/* ALTERNATIVE: Verbindlich buchen ohne Online-Zahlung (z.B. Zahlung vor Ort / nach Event) */}
+          {selectedOption && offlineTiming && (
+            <div className="max-w-2xl mb-10">
+              <div className="rounded-2xl border border-border/40 bg-white/40 dark:bg-white/5 backdrop-blur-sm p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h3 className="font-serif text-base md:text-lg font-semibold mb-1">
+                    Lieber ohne Online-Zahlung buchen?
+                  </h3>
+                  <p className="text-xs md:text-sm text-muted-foreground font-sans">
+                    Bestätigen Sie den Auftrag verbindlich — die Zahlung erfolgt
+                    {offlineTiming === 'on_site' && ' vor Ort am Veranstaltungstag.'}
+                    {offlineTiming === 'after_event' && ' per Rechnung nach der Veranstaltung.'}
+                    {offlineTiming === 'transfer_prepay' && ' per Überweisung vor der Veranstaltung.'}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setConfirmOpen(true)}
+                  variant="outline"
+                  className="rounded-full font-sans border-2 border-primary/40 hover:border-primary"
+                >
+                  <ShieldCheck className="h-4 w-4 mr-2" />
+                  Verbindlich buchen
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {selectedOption && offlineTiming && (
+            <OrderConfirmationDialog
+              open={confirmOpen}
+              onOpenChange={setConfirmOpen}
+              inquiryId={inquiry.id}
+              selectedOptionId={selectedOption.id}
+              totalAmount={totalAmount}
+              paymentTiming={offlineTiming}
+              onConfirmed={() => {
+                onSubmitted({
+                  inquiry: { ...inquiry, offer_phase: 'order_confirmed', selected_option_id: selectedOption.id },
+                  options,
+                  customer_response: null,
+                });
+              }}
+            />
+          )}
+
           {/* SECONDARY ACTION — Nachricht senden */}
           <div className="max-w-2xl">
             <div className="rounded-2xl border border-border/40 bg-white/40 dark:bg-white/5 backdrop-blur-sm p-6 md:p-7">
