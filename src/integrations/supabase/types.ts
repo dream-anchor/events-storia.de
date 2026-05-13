@@ -4483,13 +4483,14 @@ export type Database = {
       v2_email_direction: "inbound" | "outbound"
       v2_event_location: "in_house" | "external"
       v2_event_priority: "low" | "normal" | "high" | "urgent"
-      v2_event_service: "restaurant" | "catering" | "hybrid"
+      v2_event_service: "restaurant" | "catering" | "hybrid" | "group"
       v2_event_source:
         | "website"
         | "manual"
         | "email_inbound"
         | "phone"
         | "catering_form"
+        | "reisegruppen"
       v2_event_status:
         | "inquiry"
         | "offer_draft"
@@ -4658,13 +4659,14 @@ export const Constants = {
       v2_email_direction: ["inbound", "outbound"],
       v2_event_location: ["in_house", "external"],
       v2_event_priority: ["low", "normal", "high", "urgent"],
-      v2_event_service: ["restaurant", "catering", "hybrid"],
+      v2_event_service: ["restaurant", "catering", "hybrid", "group"],
       v2_event_source: [
         "website",
         "manual",
         "email_inbound",
         "phone",
         "catering_form",
+        "reisegruppen",
       ],
       v2_event_status: [
         "inquiry",
