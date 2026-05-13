@@ -1,64 +1,55 @@
-## Teil 1 — Service-Laufzettel: Außer-Haus-Adresse + Speisen
+## Problem
 
-### Was wirklich vorhanden ist (DB `v2_events`)
+Auf `/admin/inquiries/{id}/preview?send=proposal` rendert die Admin-Preview ein iframe mit
+`/offer/{id}?preview_send=proposal&preview_body=…`.
 
-Keine neuen Felder nötig — alles bereits da:
-- `location_name`, `location_street`, `location_postal_code`, `location_city`, `location_country`
-- `delivery_street`, `delivery_zip`, `delivery_city`, **`delivery_floor`**, **`has_elevator`**
-- `location_details` (freier Zugangs-/Notiztext)
-- `phone` (Kunden-Telefon)
-- `time_slot` (Uhrzeit)
+Die Anfrage `90321866-…` hat aktuell `offer_phase = 'draft'` und `status = 'new'` (Angebot wurde
+noch nie versendet). In `PublicOffer.tsx` wird `effectivePhase` so berechnet:
 
-### Was im Service-Laufzettel fehlt
-
-Aktuell zeigt `ServiceSheet.tsx` nur eine Zeile „Ort: …". Wir bauen daraus:
-
-```
-LIEFERADRESSE  (nur bei Außer Haus)
-─────────────────────────
-Hotel Bayerischer Hof
-Promenadeplatz 2-6
-80333 München, Deutschland
-Etage: 3 · Aufzug: ja
-Zugang: Hinterhof, Code 4711
-Telefon vor Ort: +49 89 123456
-maps.google.com/?q=…
+```ts
+const effectivePhase = phase === "draft" && inquiry.status === "offer_sent"
+  ? "final_sent"
+  : phase;
 ```
 
-Plus ein neuer **Speisen-Block**, der die Kurse aus `selectedOption.menuSelection.courses` (bzw. Paket-Kurse) auflistet — Gang, Bezeichnung, Menge — ohne Preise (für Crew relevant).
+→ Bei `status = 'new'` bleibt die Phase `draft`. Keiner der View-Branches (`proposal_sent`,
+`final_sent`, …) trifft zu, daher rendert weder `ProposalView` (Menü-Vorschau + Zahlbutton)
+noch `FinalOfferView`. Das Anschreiben + die Zahlungsbuttons unten sind sichtbar, aber der
+mittlere Block (Menü + großer "Auswählen"/"Jetzt zahlen"-Button) fehlt.
 
-Wenn `location_type ≠ 'storia'` und keine Adress-Felder gefüllt sind: **rote Warnbox** „⚠ Lieferadresse fehlt — bitte in der Anfrage ergänzen", statt stillem `—`.
+Der URL-Parameter `preview_send`, den die Admin-Preview schon mitsendet, wird bisher
+**nicht** ausgewertet — nur `preview_body` wird gelesen.
 
-### Umsetzung Teil 1
+## Lösung
 
-- `PrintInquiry`-Type erweitern um bereits vorhandene Felder: `locationStreet`, `locationZip`, `locationCity`, `locationCountry`, `locationDetails`, `deliveryFloor`, `hasElevator`, `mapsUrl`. (Keine DB-Migration!)
-- `fetchPrintData.ts` befüllt aus `v2_events` (Fallback `location_*` → `delivery_*`).
-- Neue Komponente `DeliveryAddressBlock` in `sheetParts.tsx` (mehrzeilig, mit Etage/Aufzug-Zeile + Maps-URL).
-- Neue Komponente `MenuBlock` in `sheetParts.tsx`: rendert `selectedOption.menuSelection.courses` (Menü-Modus) oder `package.includes_courses` (Paket-Modus) als Liste „Vorspeise — Bruschetta misti — 18 ×" ohne Preise.
-- `ServiceSheet.tsx` einbinden: `DeliveryAddressBlock` (nur außer Haus) → `EventBlock` → `MenuBlock` → `EquipmentSection` → `AllergenBlock` (existiert schon, nur einbinden) → `NotesSection`.
+In `src/pages/PublicOffer.tsx` den `preview_send`-Param auswerten und damit die Phase für
+die Anzeige überschreiben — strikt nur visuell, keine DB-Änderung, keine Geschäftslogik:
 
-## Teil 2 — Personal-Katalog (Equipment-Picker auch für Personal)
+- `preview_send = 'proposal'` → `effectivePhase = 'proposal_sent'`
+- `preview_send = 'final'`    → `effectivePhase = 'final_sent'`
 
-Equipment hat schon einen Katalog-Picker („Aus Katalog" → liest `equipment_catalog`). Personal hat keinen → du musst jedes Mal „Kellner / 35 €" frei tippen. Lösung:
+Override greift nur, wenn `preview_send` in der URL steht (also nur im Admin-iframe). Echte
+Kunden sehen weiterhin die echte Phase.
 
-- **Neue Tabelle `staff_catalog`** (analog zu `equipment_catalog`):
-  - `id`, `name` (z.B. „Servicekraft", „Barkeeper", „Koch", „Spüler", „Fahrer")
-  - `default_quantity` (Standardstunden), `price_per_unit` (Stundensatz €)
-  - `sort_order`, `is_active`, Standard-Timestamps
-  - RLS: nur Staff/Admin lesen+schreiben (gleiche Policies wie `equipment_catalog`)
-  - **Seed**: Servicekraft (4 h, 35 €), Barkeeper (4 h, 40 €), Koch (4 h, 50 €), Spüler (4 h, 25 €), Fahrer (2 h, 30 €)
-- `InlineServiceEditor.tsx`: den vorhandenen Catalog-Picker-Block nicht mehr nur bei `sectionType === 'equipment'` zeigen, sondern auch bei `staff` — und je nach `sectionType` aus `equipment_catalog` oder `staff_catalog` lesen.
+## Änderungen
 
-Du kannst dann später Personal-Einträge direkt im Supabase-Editor pflegen (kein extra Settings-UI nötig — du sagtest, du verstehst die Frage nicht; ich gehe davon aus „nicht nötig").
+**Nur eine Datei:** `src/pages/PublicOffer.tsx`
 
-## Geänderte / neue Dateien
+1. Neben `previewBodyRaw` auch `previewSend = searchParams.get('preview_send')` lesen.
+2. Nach dem bestehenden `effectivePhase`-Block ergänzen:
+   ```ts
+   const previewPhase: OfferPhase | null =
+     previewSend === 'proposal' ? 'proposal_sent' :
+     previewSend === 'final'    ? 'final_sent'    : null;
+   const renderPhase = previewPhase ?? effectivePhase;
+   ```
+3. In den View-Branches (Zeilen 463–492) `effectivePhase` durch `renderPhase` ersetzen,
+   ebenso im `HeroSection`-Aufruf wenn das Badge konsistent sein soll.
 
-- `supabase/migrations/...` — nur **`staff_catalog`** anlegen + seed (keine Spalten auf `v2_events`!)
-- `src/integrations/supabase/types.ts` — Auto-Regen
-- `src/lib/print/types.ts` — `PrintInquiry` um vorhandene Adress-/Etage-Felder erweitern
-- `src/lib/print/fetchPrintData.ts` — neue Felder mappen, `mapsUrl` bauen
-- `src/components/admin/refine/print/sheetParts.tsx` — `DeliveryAddressBlock` + `MenuBlock`
-- `src/components/admin/refine/print/ServiceSheet.tsx` — neue Blöcke + Adress-Warnbanner einbinden
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/InlineServiceEditor.tsx` — Catalog-Picker auch für `staff`
+Keine Änderungen an Hooks, RPC, Migration, Edge-Functions, ProposalView/FinalOfferView selbst.
 
-Keine Änderungen an Offer-Versionierung, RLS, Stripe-/Confirm-Flows oder dem Inquiry-Editor selbst.
+## Nicht-Ziele
+
+- Status oder Phase in der DB ändern
+- Verhalten für echte Kunden (ohne `preview_send`) verändern
+- Anschreiben-Logik anfassen
