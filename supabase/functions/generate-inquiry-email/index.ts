@@ -213,7 +213,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       if (equipment.length > 0) {
         parts.push('Ausstattung:');
         for (const e of equipment) {
-          parts.push(`  ${e.name}: ${e.quantity}x ${Number(e.pricePerUnit).toFixed(2).replace('.', ',')} €`);
+          parts.push(`  ${e.name}: ${e.quantity}x ${formatEUR(Number(e.pricePerUnit))}`);
         }
       }
 
@@ -221,7 +221,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       if (staff.length > 0) {
         parts.push('Personal:');
         for (const e of staff) {
-          parts.push(`  ${e.name}: ${e.quantity}x ${Number(e.pricePerUnit).toFixed(2).replace('.', ',')} €`);
+          parts.push(`  ${e.name}: ${e.quantity}x ${formatEUR(Number(e.pricePerUnit))}`);
         }
       }
     }
