@@ -130,4 +130,70 @@ export function AllergenBlock({ inq }: { inq: PrintInquiry }) {
   );
 }
 
+export function DeliveryAddressBlock({ inq }: { inq: PrintInquiry }) {
+  if (inq.locationType === 'storia') return null;
+
+  const hasAddress = Boolean(inq.locationStreet || inq.locationCity || inq.locationName);
+  if (!hasAddress) {
+    return (
+      <View style={s.alertBox}>
+        <Text style={s.alertTitle}>⚠ Lieferadresse fehlt</Text>
+        <Text>Bitte in der Anfrage ergänzen, bevor das Team ausrückt.</Text>
+      </View>
+    );
+  }
+
+  const cityLine = [inq.locationZip, inq.locationCity].filter(Boolean).join(' ');
+  const cityCountry = [cityLine, inq.locationCountry].filter(Boolean).join(', ');
+  const floorLine = inq.deliveryFloor
+    ? `Etage: ${inq.deliveryFloor} · Aufzug: ${inq.hasElevator ? 'ja' : 'nein'}`
+    : (inq.hasElevator ? 'Aufzug: ja' : null);
+
+  return (
+    <View style={s.section}>
+      <Text style={s.sectionTitle}>Lieferadresse</Text>
+      {inq.locationName && <Text style={s.value}>{inq.locationName}</Text>}
+      {inq.locationStreet && <Text style={s.value}>{inq.locationStreet}</Text>}
+      {cityCountry && <Text style={s.value}>{cityCountry}</Text>}
+      {floorLine && <Text style={s.value}>{floorLine}</Text>}
+      {inq.locationDetails && (
+        <View style={s.row}>
+          <Text style={s.label}>Zugang</Text>
+          <Text style={s.value}>{inq.locationDetails}</Text>
+        </View>
+      )}
+      {inq.phone && (
+        <View style={s.row}>
+          <Text style={s.label}>Telefon vor Ort</Text>
+          <Text style={s.value}>{inq.phone}</Text>
+        </View>
+      )}
+      {inq.mapsUrl && (
+        <Text style={{ ...s.value, fontSize: 8, color: printColors.muted }}>{inq.mapsUrl}</Text>
+      )}
+    </View>
+  );
+}
+
+export function MenuBlock({ inq }: { inq: PrintInquiry }) {
+  const courses = inq.selectedOption?.menuSelection.courses ?? [];
+  if (!courses.length) return null;
+  return (
+    <View style={s.section}>
+      <Text style={s.sectionTitle}>Speisen</Text>
+      {courses.map((c, i) => {
+        const qty = c.quantity && c.quantity > 1 ? `${c.quantity} ×` : '1 ×';
+        return (
+          <View key={i} style={s.row} wrap={false}>
+            <Text style={s.label}>{c.courseLabel}</Text>
+            <Text style={s.value}>
+              {qty} {c.itemName || '—'}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 export { s as printStyles, printColors };
