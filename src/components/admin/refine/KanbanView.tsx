@@ -94,7 +94,7 @@ function getServiceKind(event: EventInquiry): ServiceKind {
 
 const SERVICE_META: Record<ServiceKind, { label: string; Icon: typeof Home; chip: string }> = {
   in_house: { label: "In Haus", Icon: Home, chip: "bg-foreground text-background ring-1 ring-foreground" },
-  catering: { label: "Catering", Icon: Truck, chip: "bg-foreground/10 text-foreground ring-1 ring-foreground/25" },
+  catering: { label: "Außer Haus", Icon: Truck, chip: "bg-foreground/10 text-foreground ring-1 ring-foreground/25" },
   group:    { label: "Reisegruppe", Icon: Users, chip: "bg-foreground/10 text-foreground ring-1 ring-foreground/25" },
 };
 
@@ -512,7 +512,15 @@ function KanbanCard({
       {/* Row 1: dot + name + date */}
       <div className="flex items-center gap-2 min-w-0 pr-7">
         <span className={cn("w-2 h-2 rounded-full flex-shrink-0", action.dotClass)} />
-        <ServiceBadge kind={getServiceKind(event)} />
+        {(() => {
+          const k = getServiceKind(event);
+          return (
+            <>
+              <ServiceBadge kind={k} />
+              {k === "group" && <ServiceBadge kind="in_house" />}
+            </>
+          );
+        })()}
         <h3 className="font-semibold text-slate-800 text-[13px] truncate flex-1 min-w-0">
           {title}
         </h3>
