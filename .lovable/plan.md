@@ -1,41 +1,91 @@
 ## Ziel
 
-Reisegruppen-Angebote (und alle künftigen Pakete mit übersetzten Items) sollen im PublicOffer auch in **IT** und **FR** angezeigt werden — mit Fallback auf DE.
+Drei Verbesserungen am Offer-/Menu-Builder unter `/admin/inquiries`:
 
-## Umfang
+1. Änderungen im Builder müssen **sofort** im Druck-/PDF-Preview erscheinen.
+2. Gang-Bezeichnungen (z.B. „🍽️ Antipasto") **inline editierbar** machen — Label und Icon änderbar.
+3. **Equipment & Personal** im OptionCard nach oben (direkt unter dem Essen, vor der Preisaufstellung) verschieben, damit klar ist, dass sie in die Gesamtsumme einfließen.
 
-### 1. Snapshot erweitern (`useOfferBuilder.ts`)
-Beim Auto-Befüllen von `menu_selection` zusätzlich zu `_en` auch `_it` und `_fr` Felder mitschreiben:
-- `course_label_it`, `course_label_fr`
-- `custom_item_name_it`, `custom_item_name_fr`
-- `custom_item_description_it/_fr`
-- `drink_label_it/_fr`, `quantity_label_it/_fr`
-- Drink-Options: `options_translations` (JSONB) komplett mitnehmen
+Plus: Den Button **„Angebot PDF"** überall im Admin entfernen.
 
-→ Damit liegen IT/FR persistent im Offer-Snapshot, ohne bei Render erneut die Package-Tabelle zu joinen (analog bisheriger DE/EN-Logik).
+---
 
-### 2. Sprachumschalter im PublicOffer
-- Neuer Switcher (DE / EN / IT / FR) oben in `src/pages/PublicOffer.tsx`
-- State `lang: 'de' | 'en' | 'it' | 'fr'`, default `de`
-- Optional: initial aus `?lang=` Query-Param oder Browser-Locale ableiten
-- Wird an `FinalOfferView` und `ProposalView` durchgereicht
+## 1. Live-Sync Builder ↔ Druck/PDF
 
-### 3. Lokalisierte Anzeige
-Helper `t(item, field, lang)` mit Fallback-Kette `lang → en → de`:
-- Course-Labels und Custom-Item-Namen/Descriptions
-- Drink-Labels, Quantity-Labels, Drink-Options (aus `options_translations[lang]`)
-- Standard-MenuItems: `name_en` existiert; für IT/FR Fallback auf DE (out-of-scope, da `menu_items` keine IT/FR-Spalten hat)
-- Statische UI-Strings (Buttons, Headlines, Datumsformate via `date-fns/locale` de/enUS/it/fr) ebenfalls lokalisieren
+### Problem
+`useOfferBuilder` speichert via Debounce (Timeout in `saveTimeoutRef`). Wenn man direkt nach einer Änderung auf **Drucken** klickt, lädt `PrintPreviewDialog` über `fetchPrintInquiries` die noch nicht gespeicherte alte DB-Version.
 
-### 4. Datumsformatierung
-`date-fns/locale` `de`, `enUS`, `it`, `fr` je nach `lang` wählen (`format(..., { locale })`).
+### Lösung
+- In `PrintMenu.tsx` vor dem Öffnen des Dialogs ein globales Flush-Event auslösen (z.B. `window.dispatchEvent(new CustomEvent('lovable:flush-saves'))`) und kurz `await` auf die Promise warten.
+- In `useOfferBuilder.ts` einen `useEffect` registrieren, der auf `lovable:flush-saves` lauscht und `flushSave()` synchron ausführt; `flushSave` gibt Promise zurück.
+- Alternative (sauberer): Einen kleinen Save-Coordinator (`src/lib/saveCoordinator.ts`) bauen, mit `register(flush)` / `flushAll()`. PrintMenu ruft `await flushAll()` vor `setOpen(true)`.
 
-## Außerhalb des Umfangs
-- Übersetzung von freien Textfeldern (Cover-Letter, Notizen) — bleiben DE
-- Übersetzung der Standard-`menu_items` (eigener Workflow nötig)
-- Email-Versand in IT/FR
+### Bonus: PDF-Vorschau im Builder bereits live
+`MultiOffer/LivePDFPreview.tsx` reagiert bereits auf `options`-Änderungen via `useMemo` — hier nichts zu tun.
+
+---
+
+## 2. Inline-editierbare Gang-Bezeichnungen
+
+Datei: `src/components/admin/refine/InquiryEditor/OfferBuilder/InlineCourseEditor.tsx`
+
+Aktuell ist `course.courseLabel` ein nicht-klickbarer `<span>` (Zeile 147–153). `COURSE_ICONS` mappt `courseType → Emoji`.
+
+### Änderungen
+- Icon-`<span>` (Zeile 147) wird ein **Popover-Trigger**: zeigt eine kleine Auswahl aller Gang-Typen (`COURSE_ICONS`-Keys: Antipasto, Pasta, Main, Dessert, …) mit Icon + Default-Label. Klick → setzt `courseType` UND `courseLabel` neu (über `onUpdateCourse(idx, { courseType, courseLabel })`).
+- Label-`<span>` (Zeile 152) wird klickbar → öffnet ein kleines `Input`-Popover (oder switch zu inline `Input` analog dem bestehenden `editingName`-Pattern für `itemName`). Speichert in `courseLabel`.
+- `onUpdateCourse`-Signatur unterstützt das bereits (`Partial<CourseSelection>`). `courseLabel` ist bereits Teil des Snapshots.
+- Mobile: gleiche Popover funktionieren auch im `MobileCourseSheet` — dort identisches Pattern hinzufügen.
+
+### Persistenz
+`courseLabel` und `courseType` sind bereits in `CourseSelection` und werden von `useOfferBuilder` mitgespeichert — keine DB-Migration nötig. PDF/Print liest aus `menu_selection.courses` → übernimmt geänderte Bezeichnung automatisch.
+
+---
+
+## 3. Equipment & Personal vor PriceBreakdown
+
+Datei: `src/components/admin/refine/InquiryEditor/OfferBuilder/OptionCard.tsx`
+
+Aktuelle Reihenfolge (Zeilen ~419–493):
+```
+Menu/Paket-Content (Gänge)
+PriceBreakdown
+Equipment + Personal (InlineServiceEditor)
+```
+
+### Änderung
+JSX-Blöcke umordnen:
+```
+Menu/Paket-Content (Gänge)
+Equipment + Personal (InlineServiceEditor)   ← hochgezogen
+PriceBreakdown                                ← danach
+```
+
+`PriceBreakdown` erhält `equipment` und `staff` bereits als Props (Zeile 472–473) und summiert sie in die Gesamtsumme — Logik bleibt unberührt.
+
+Visuelles Subheading (klein, muted) für die Service-Sektion: „Equipment & Personal — fließen in die Gesamtsumme ein", damit die neue Hierarchie selbsterklärend ist.
+
+---
+
+## 4. Button „Angebot PDF" entfernen
+
+Treffer im Code:
+
+- `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` Zeilen 807–825: Der konditionale Header-Button, der je nach `lexofficeDocType` „Rechnung PDF" oder **„Angebot PDF"** rendert. → Button entfernen, aber `handleDownloadDocument` für Rechnungen anderswo erhalten lassen (oder den Button auf `lexofficeDocType === 'invoice'` einschränken, falls die Rechnungs-Variante bleiben soll).
+- `src/components/admin/refine/InquiryEditor/OfferArchivePreview.tsx` Zeile 292: Hinweistext „…kann über den 'Angebot PDF'-Button im Editor abgerufen werden." → Satz entfernen/umformulieren, da der Button weg ist.
+
+**Klärung benötigt** (siehe unten): Soll auch die Rechnungs-Variante (`Rechnung PDF`) weg? Aktuell ist es ein einziger Button, der je nach Doc-Typ umlabelt.
+
+---
 
 ## Technische Details
-- Files: `useOfferBuilder.ts` (Snapshot), `PublicOffer.tsx` (Switcher + Locale), `FinalOfferView.tsx` + `ProposalView.tsx` (Helper-Aufrufe), neuer Helper `src/lib/offerLang.ts`
-- Keine DB-Migration nötig (Spalten existieren bereits)
-- Keine Backend-Änderungen
+
+- Keine DB-Migration nötig — alle Felder sind im JSONB `menu_selection` bereits enthalten.
+- Kein neuer Edge-Function-Code; PDF-Generatoren (`KitchenSheet`, `ServiceSheet`, `FullOrderSheet`, `download-public-offer-pdf`) lesen aus `menu_selection.courses` / `.equipment` / `.staff` und übernehmen geänderte Labels automatisch.
+- `ReturnType<typeof setTimeout>` Pattern beibehalten (Memory).
+
+---
+
+## Offene Frage
+
+Der einzige „Angebot PDF"-Button im Admin ist eigentlich ein Doppel-Button: er heißt **„Angebot PDF"** für offene Angebote und **„Rechnung PDF"** sobald eine Rechnung verknüpft ist. Soll der Button komplett weg (auch die Rechnungs-Variante), oder nur die Angebots-Variante?

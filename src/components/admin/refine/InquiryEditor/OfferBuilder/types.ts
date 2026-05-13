@@ -252,8 +252,8 @@ export interface UseOfferBuilderReturn {
   updateOption: (optionId: string, updates: Partial<OfferBuilderOption>) => void;
   toggleOptionActive: (optionId: string) => void;
 
-  // Flush pending saves
-  flushSave: () => void;
+  // Flush pending saves (returns Promise so callers can await)
+  flushSave: () => Promise<void> | void;
 
   // Persistence
   saveOptions: () => Promise<void>;

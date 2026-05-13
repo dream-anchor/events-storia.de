@@ -1374,35 +1374,33 @@ export function useOfferBuilder({
   // =================================================================
   // RETURN
   // =================================================================
-  // Flush pending save immediately (call before unmount/navigation)
-  const flushSave = useCallback(() => {
+  // Flush pending save immediately (call before unmount/navigation/print).
+  // Returns a Promise so callers (e.g. PrintMenu via flushAll) can await it.
+  const flushSave = useCallback(async (): Promise<void> => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
     }
     const currentJson = JSON.stringify(options);
-    if (currentJson !== lastSavedJsonRef.current && !isLoading) {
-      setSaveStatus('saving');
-      (async () => {
-        try {
-          const { data: userData } = await supabase.auth.getUser();
-          const currentUserEmail = userData.user?.email;
-          await saveOptionsToDb(inquiryId, options, currentVersion);
-          if (currentUserEmail) {
-            await supabase.from('event_inquiries').update({ last_edited_by: currentUserEmail, last_edited_at: new Date().toISOString() }).eq('id', inquiryId);
-            await supabase
-              .from('event_inquiries')
-              .update({ status: 'contacted' } as Record<string, unknown>)
-              .eq('id', inquiryId)
-              .eq('status', 'new');
-          }
-          lastSavedJsonRef.current = currentJson;
-          setSaveStatus('idle');
-        } catch (error) {
-          console.error('[OfferBuilder] flushSave error:', error);
-          setSaveStatus('idle');
-        }
-      })();
+    if (currentJson === lastSavedJsonRef.current || isLoading) return;
+    setSaveStatus('saving');
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const currentUserEmail = userData.user?.email;
+      await saveOptionsToDb(inquiryId, options, currentVersion);
+      if (currentUserEmail) {
+        await supabase.from('event_inquiries').update({ last_edited_by: currentUserEmail, last_edited_at: new Date().toISOString() }).eq('id', inquiryId);
+        await supabase
+          .from('event_inquiries')
+          .update({ status: 'contacted' } as Record<string, unknown>)
+          .eq('id', inquiryId)
+          .eq('status', 'new');
+      }
+      lastSavedJsonRef.current = currentJson;
+      setSaveStatus('idle');
+    } catch (error) {
+      console.error('[OfferBuilder] flushSave error:', error);
+      setSaveStatus('idle');
     }
   }, [options, inquiryId, currentVersion, isLoading]);
 
