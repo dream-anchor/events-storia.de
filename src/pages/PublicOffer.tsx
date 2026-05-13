@@ -226,6 +226,10 @@ export default function PublicOffer() {
     }
   }
 
+  // Preview-Phase-Override: nur im Admin-iframe gesetzt. Zwingt PublicOffer dazu,
+  // die ProposalView/FinalOfferView zu rendern, auch wenn die DB-Phase noch 'draft' ist.
+  const previewSend = searchParams.get('preview_send');
+
   // Slug-Route (/ihr-angebot/:slug) oder UUID-Route (/offer/:id)
   const isSlugRoute = location.pathname.includes('/ihr-angebot/') || location.pathname.includes('/your-offer/');
   const lookupValue = slug || id;
@@ -434,11 +438,18 @@ export default function PublicOffer() {
   const effectivePhase: OfferPhase =
     phase === "draft" && inquiry.status === "offer_sent" ? "final_sent" : phase;
 
+  // Preview-Override (Admin-iframe): preview_send forciert die View-Phase
+  const previewPhase: OfferPhase | null =
+    previewSend === 'proposal' ? 'proposal_sent'
+    : previewSend === 'final'  ? 'final_sent'
+    : null;
+  const renderPhase: OfferPhase = previewPhase ?? effectivePhase;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <OfferHeader />
       <main className="flex-1">
-        <HeroSection inquiry={inquiry} phase={effectivePhase} />
+        <HeroSection inquiry={inquiry} phase={renderPhase} />
 
         {/* Sprachumschalter — nur einblenden wenn Snapshot überhaupt Übersetzungen enthält */}
         <OfferLanguageSwitcher
@@ -460,7 +471,7 @@ export default function PublicOffer() {
           <AnschreibenSection emailContent={previewBody || inquiry.email_content || ''} />
         )}
 
-        {effectivePhase === "proposal_sent" && (
+        {renderPhase === "proposal_sent" && (
           <ProposalView
             inquiry={inquiry}
             options={options}
@@ -469,15 +480,15 @@ export default function PublicOffer() {
           />
         )}
 
-        {effectivePhase === "customer_responded" && (
+        {renderPhase === "customer_responded" && (
           <ThankYouView
             customerResponse={customer_response}
             options={options}
           />
         )}
 
-        {(effectivePhase === "final_sent" ||
-          effectivePhase === "final_draft") && (
+        {(renderPhase === "final_sent" ||
+          renderPhase === "final_draft") && (
           <FinalOfferView
             inquiry={inquiry}
             options={options}
@@ -485,9 +496,9 @@ export default function PublicOffer() {
           />
         )}
 
-        {(effectivePhase === "confirmed" ||
-          effectivePhase === "paid" ||
-          effectivePhase === "order_confirmed") && (
+        {(renderPhase === "confirmed" ||
+          renderPhase === "paid" ||
+          renderPhase === "order_confirmed") && (
           <ConfirmationView inquiry={inquiry} options={options} />
         )}
 
