@@ -201,7 +201,7 @@ export function UpcomingOrdersSheet({ records, groupBy, scope, rangeLabel, gener
               <View key={g.key} wrap={false}>
                 <Text style={styles.groupTitle}>{g.label}</Text>
                 <Text style={styles.groupSummary}>
-                  ∑ {g.items.length} Aufträge · {totalGuests} Gäste
+                  ∑ {g.items.length} Aufträge · {totalGuests} Gäste · {inhouse.length} In Haus / {offsite.length} Außer Haus
                 </Text>
 
                 {(scope === 'both' || scope === 'inhouse') && inhouse.length > 0 && (
