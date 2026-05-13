@@ -179,13 +179,8 @@ export function ProposalView({
               .map(([optionId, quantity]) => ({ optionId, quantity })),
           }
         : { inquiryId: inquiry.id, optionId: selectedOptionId, paymentType };
-      const { data, error } = await supabase.functions.invoke('create-payment-session', {
-        body,
-      });
-      if (error || !data?.checkoutUrl) {
-        throw new Error(data?.error || 'Fehler beim Erstellen der Zahlungssitzung');
-      }
-      window.location.href = data.checkoutUrl;
+      const { checkoutUrl } = await createPaymentSession(body);
+      window.location.href = checkoutUrl;
     } catch (err) {
       setIsPaying(null);
       toast.error(
