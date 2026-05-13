@@ -88,8 +88,7 @@ export interface InquiryRecord {
   raw: V2EventRow | CateringOrder;
 }
 
-// Erweiterung: raw kann auch eine Reisegruppen-Anfrage sein
-export type InquiryRecordRaw = V2EventRow | CateringOrder | GroupInquiryRow;
+export type InquiryRecordRaw = V2EventRow | CateringOrder;
 
 export function mapV2EventToColumn(
   status: string | null | undefined,
