@@ -1243,9 +1243,11 @@ function ThankYouView({
 function FinalOfferView({
   inquiry,
   options,
+  lang,
 }: {
   inquiry: PublicInquiry;
   options: PublicOfferOption[];
+  lang: OfferLang;
 }) {
   const selectedId = inquiry.selected_option_id;
   const displayOptions = selectedId
