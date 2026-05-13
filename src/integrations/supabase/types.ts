@@ -2821,6 +2821,7 @@ export type Database = {
           archived: boolean | null
           archived_at: string | null
           archived_by: string | null
+          arrival_time: string | null
           assigned_at: string | null
           assigned_by: string | null
           assigned_to: string | null
@@ -2868,6 +2869,7 @@ export type Database = {
           is_pickup: boolean | null
           is_test: boolean | null
           items: Json | null
+          language: string | null
           last_edited_at: string | null
           last_edited_by: string | null
           lexoffice_document_type: string | null
@@ -2896,6 +2898,8 @@ export type Database = {
           package_id: string | null
           payment_method: string | null
           payment_type: string | null
+          preferred_date_flexible: boolean | null
+          preferred_menu: string | null
           priority: Database["public"]["Enums"]["v2_event_priority"] | null
           quote_items: Json | null
           quote_notes: string | null
@@ -2912,6 +2916,8 @@ export type Database = {
           status_changed_at: string | null
           time_from: string | null
           time_to: string | null
+          travel_plan_filename: string | null
+          travel_plan_url: string | null
           updated_at: string
           venue: string | null
         }
@@ -2920,6 +2926,7 @@ export type Database = {
           archived?: boolean | null
           archived_at?: string | null
           archived_by?: string | null
+          arrival_time?: string | null
           assigned_at?: string | null
           assigned_by?: string | null
           assigned_to?: string | null
@@ -2967,6 +2974,7 @@ export type Database = {
           is_pickup?: boolean | null
           is_test?: boolean | null
           items?: Json | null
+          language?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
           lexoffice_document_type?: string | null
@@ -2995,6 +3003,8 @@ export type Database = {
           package_id?: string | null
           payment_method?: string | null
           payment_type?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
           priority?: Database["public"]["Enums"]["v2_event_priority"] | null
           quote_items?: Json | null
           quote_notes?: string | null
@@ -3011,6 +3021,8 @@ export type Database = {
           status_changed_at?: string | null
           time_from?: string | null
           time_to?: string | null
+          travel_plan_filename?: string | null
+          travel_plan_url?: string | null
           updated_at?: string
           venue?: string | null
         }
@@ -3019,6 +3031,7 @@ export type Database = {
           archived?: boolean | null
           archived_at?: string | null
           archived_by?: string | null
+          arrival_time?: string | null
           assigned_at?: string | null
           assigned_by?: string | null
           assigned_to?: string | null
@@ -3066,6 +3079,7 @@ export type Database = {
           is_pickup?: boolean | null
           is_test?: boolean | null
           items?: Json | null
+          language?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
           lexoffice_document_type?: string | null
@@ -3094,6 +3108,8 @@ export type Database = {
           package_id?: string | null
           payment_method?: string | null
           payment_type?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
           priority?: Database["public"]["Enums"]["v2_event_priority"] | null
           quote_items?: Json | null
           quote_notes?: string | null
@@ -3110,6 +3126,8 @@ export type Database = {
           status_changed_at?: string | null
           time_from?: string | null
           time_to?: string | null
+          travel_plan_filename?: string | null
+          travel_plan_url?: string | null
           updated_at?: string
           venue?: string | null
         }
