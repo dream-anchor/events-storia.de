@@ -8,6 +8,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable, sortableHeader } from "./DataTable";
 import { KanbanView } from "./KanbanView";
+import { Home, Truck, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -40,6 +41,21 @@ const eventTypeLabels: Record<string, string> = {
   teamevent: "Teamevent",
   konferenz: "Konferenz",
   sonstiges: "Sonstiges",
+};
+
+type ServiceKind = "in_house" | "catering" | "group";
+function getServiceKind(event: EventInquiry): ServiceKind {
+  const src = (event as any).source?.toString().toLowerCase() ?? "";
+  if (src.includes("reisegruppen") || src === "group") return "group";
+  if ((event as any).inquiry_type === "catering") return "catering";
+  const loc = (event as any).location_type;
+  if (loc === "company" || loc === "custom") return "catering";
+  return "in_house";
+}
+const SERVICE_LABELS: Record<ServiceKind, { label: string; Icon: typeof Home }> = {
+  in_house: { label: "In Haus", Icon: Home },
+  catering: { label: "Catering", Icon: Truck },
+  group:    { label: "Reisegruppe", Icon: Users },
 };
 
 // Filter-Konzept (Option C, 16.04.2026):
@@ -446,6 +462,34 @@ export const EventsList = () => {
           </div>
         );
       },
+    },
+
+    // Spalte: Art (In Haus / Catering / Reisegruppe)
+    {
+      id: "service_kind",
+      header: "Art",
+      accessorFn: (row) => SERVICE_LABELS[getServiceKind(row)].label,
+      cell: ({ row }) => {
+        const kind = getServiceKind(row.original);
+        const m = SERVICE_LABELS[kind];
+        const Icon = m.Icon;
+        const chip =
+          kind === "in_house"
+            ? "bg-foreground text-background ring-1 ring-foreground"
+            : "bg-foreground/10 text-foreground ring-1 ring-foreground/25";
+        return (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap",
+              chip,
+            )}
+          >
+            <Icon className="h-3 w-3" />
+            {m.label}
+          </span>
+        );
+      },
+      size: 110,
     },
 
     // Spalte 3: Eventdatum (VORGEZOGEN analog Orders-Liefertermin)
