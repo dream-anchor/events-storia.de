@@ -1133,15 +1133,18 @@ function ProposalOptionCard({
                 {courses.map((c, i) => (
                   <div key={i} className="flex items-baseline gap-4">
                     <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0 pt-0.5">
-                      {c.courseLabel}
+                      {pickLang(c, 'courseLabel', lang) || c.courseLabel}
                     </span>
                     <div className="flex-1">
                       <p className="text-base md:text-lg font-serif text-foreground leading-snug">
-                        {(c.quantity ?? 1) > 1 ? `${c.quantity} × ${c.itemName}` : c.itemName}
+                        {(() => {
+                          const name = pickLang(c, 'itemName', lang) || c.itemName;
+                          return (c.quantity ?? 1) > 1 ? `${c.quantity} × ${name}` : name;
+                        })()}
                       </p>
-                      {c.itemDescription && (
+                      {(pickLang(c, 'itemDescription', lang) || c.itemDescription) && (
                         <p className="text-sm font-sans text-foreground/70 mt-1 leading-relaxed">
-                          {c.itemDescription}
+                          {pickLang(c, 'itemDescription', lang) || c.itemDescription}
                         </p>
                       )}
                     </div>
@@ -1153,23 +1156,28 @@ function ProposalOptionCard({
             {drinks.length > 0 && (
               <div className={cn("space-y-3", courses.length > 0 && "mt-6 pt-5 border-t border-border/15")}>
                 {drinks.map((d, i) => {
-                  const hasContent = d.customDrink || d.selectedChoice;
+                  const choiceLocalized = lang !== 'de' && d.selectedChoice
+                    ? d.selectedChoice_translations?.[lang] || d.selectedChoice
+                    : d.selectedChoice;
+                  const hasContent = d.customDrink || choiceLocalized;
+                  const qtyLabel = pickLang(d, 'quantityLabel', lang) || d.quantityLabel;
+                  const drinkLabelLoc = pickLang(d, 'drinkLabel', lang) || d.drinkLabel;
                   // quantityLabel nur zeigen wenn es keine Redundanz zu "inklusive" ist
-                  const qtyIsRedundant = d.quantityLabel && /^\s*(inklusive|inkl\.?|included)\s*$/i.test(d.quantityLabel);
+                  const qtyIsRedundant = qtyLabel && /^\s*(inklusive|inkl\.?|included|incluso|inclus)\s*$/i.test(qtyLabel);
                   return (
                     <div key={i} className="flex items-baseline gap-4">
                       <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
-                        {d.drinkLabel === 'Zusatzgetränk' ? 'Getränk' : d.drinkLabel}
+                        {drinkLabelLoc === 'Zusatzgetränk' ? 'Getränk' : drinkLabelLoc}
                       </span>
                       <p className="text-base font-serif text-foreground leading-snug">
-                        {hasContent ? (d.customDrink || d.selectedChoice) : (
+                        {hasContent ? (d.customDrink || choiceLocalized) : (
                           <span className="text-emerald-700 dark:text-emerald-400 font-sans text-sm font-semibold uppercase tracking-wider">
                             inklusive
                           </span>
                         )}
-                        {d.quantityLabel && !qtyIsRedundant && (
+                        {qtyLabel && !qtyIsRedundant && (
                           <span className="text-sm text-muted-foreground ml-2 font-sans">
-                            ({d.quantityLabel})
+                            ({qtyLabel})
                           </span>
                         )}
                       </p>
