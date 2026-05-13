@@ -371,6 +371,7 @@ const EventsImStoria = () => {
 
         {/* Event Gallery */}
         <section className="py-16 md:py-20">
+        {/* (moved below) */}
           <div className="container mx-auto px-4">
             <div className="text-center mb-8">
               <h2 className="text-2xl md:text-3xl font-serif font-medium mb-4">
