@@ -16,8 +16,8 @@ const PHOTOS: Photo[] = [
   },
   {
     src: uebersichtDetails,
-    alt: "Ristorante Storia München – Innenraum, Show-Küche, Weinwand und Außenansichten",
-    caption: "Räume, Küche & Terrasse",
+    alt: "Ristorante Storia München – Innenraum, Weinwand und Außenansichten",
+    caption: "Räume & Atmosphäre",
   },
 ];
 
@@ -60,7 +60,7 @@ export function RestaurantGallery() {
           Lernen Sie unser Haus kennen
         </h2>
         <p className="text-sm md:text-base text-muted-foreground">
-          Ein kurzer Eindruck von Räumen, Terrasse und Küche – tippen Sie auf ein Bild für die Großansicht.
+          Ein kurzer Eindruck von unserem Haus und der Atmosphäre – tippen Sie auf ein Bild für die Großansicht.
         </p>
       </div>
 
