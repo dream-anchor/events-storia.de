@@ -545,20 +545,20 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
   };
 
   return (
-    <section className="bg-background">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl">
+    <section className="border-t border-border/20 bg-background/50">
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex justify-end">
           <button
             onClick={handleDownload}
             disabled={isDownloading}
-            className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl bg-amber-700 hover:bg-amber-800 text-white font-sans font-semibold text-base shadow-[0_4px_15px_rgba(180,83,9,0.25)] hover:shadow-[0_8px_25px_rgba(180,83,9,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isDownloading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Download className="h-5 w-5" />
+              <Download className="h-3.5 w-3.5" />
             )}
-            Angebot als PDF herunterladen
+            <span className="underline underline-offset-2">Angebot als PDF herunterladen</span>
           </button>
         </div>
       </div>
