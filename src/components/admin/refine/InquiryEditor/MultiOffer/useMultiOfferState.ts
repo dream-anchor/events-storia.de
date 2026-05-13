@@ -496,7 +496,8 @@ export function useMultiOfferState({ inquiryId, guestCount, selectedPackages }: 
           offer_sent_at: null,
           offer_sent_by: null,
           current_offer_version: newVersion,
-          status: 'offer_sent', // Explicitly keep status as offer_sent
+          // Wieder in Bearbeitung — Angebot ist nicht mehr "verschickt"
+          status: 'contacted',
         })
         .eq("id", inquiryId);
       
