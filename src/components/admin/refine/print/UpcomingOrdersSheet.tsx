@@ -235,21 +235,28 @@ export function UpcomingOrdersSheet({ records, groupBy, scope, rangeLabel, gener
 }
 
 function ItemRow({ r }: { r: InquiryRecord }) {
-  const d = r.date ? parseISO(r.date) : null;
+  const meta: string[] = [];
+  if (r.assignedInitials) meta.push(r.assignedInitials);
+  meta.push(statusLabel(r));
   return (
-    <View style={styles.itemRow}>
-      <Text style={styles.cDate}>
-        {d ? format(d, 'EE dd.MM.', { locale: de }) : '—'}
-      </Text>
-      <Text style={styles.cTime}>{r.time || ''}</Text>
-      <Text style={styles.cCustomer}>
-        {r.companyName || r.customerName}
-      </Text>
-      <Text style={styles.cGuests}>
-        {r.guestCount ? `${r.guestCount} P` : '—'}
-      </Text>
-      <Text style={styles.cWhere}>{whereLabel(r)}</Text>
-      <Text style={styles.cStatus}>{statusLabel(r)}</Text>
+    <View style={styles.itemRow} wrap={false}>
+      <View style={styles.cDateBlock}>
+        <Text style={styles.cDate}>{dateLabel(r)}</Text>
+        <Text style={styles.cTime}>{r.time || '—'}</Text>
+      </View>
+      <View style={styles.cGuestsBox}>
+        <Text style={styles.cGuestsNum}>{r.guestCount ?? '—'}</Text>
+        <Text style={styles.cGuestsLabel}>PERS</Text>
+      </View>
+      <View style={styles.cBody}>
+        <View style={styles.cBodyTop}>
+          <Text style={styles.cCustomer}>
+            {r.companyName || r.customerName}
+          </Text>
+          <Text style={styles.cMeta}>{meta.join(' · ')}</Text>
+        </View>
+        <Text style={styles.cDescription}>{descriptionLine(r)}</Text>
+      </View>
     </View>
   );
 }
