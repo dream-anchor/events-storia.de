@@ -1030,11 +1030,13 @@ function ProposalOptionCard({
   isSelected,
   onSelect,
   singleOption,
+  lang,
 }: {
   option: PublicOfferOption;
   isSelected: boolean;
   onSelect: () => void;
   singleOption: boolean;
+  lang: OfferLang;
 }) {
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
