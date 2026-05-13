@@ -177,11 +177,14 @@ function DrinkRow({
             } else {
               const optIdx = config.options.findIndex(o => getOptionLabel(o) === val);
               const tr = config.options_translations || null;
-              const translations = optIdx >= 0 && tr ? {
-                en: tr.en?.[optIdx] ?? null,
-                it: tr.it?.[optIdx] ?? null,
-                fr: tr.fr?.[optIdx] ?? null,
-              } : null;
+              const translations: Partial<Record<'en' | 'it' | 'fr', string>> | null =
+                optIdx >= 0 && tr
+                  ? {
+                      ...(tr.en?.[optIdx] ? { en: tr.en[optIdx] } : {}),
+                      ...(tr.it?.[optIdx] ? { it: tr.it[optIdx] } : {}),
+                      ...(tr.fr?.[optIdx] ? { fr: tr.fr[optIdx] } : {}),
+                    }
+                  : null;
               onUpdateDrink(idx, {
                 selectedChoice: val,
                 customDrink: null,
