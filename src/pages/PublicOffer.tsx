@@ -59,6 +59,7 @@ interface PublicInquiry {
   offer_phase: OfferPhase;
   selected_option_id: string | null;
   email_content: string | null;
+  lexoffice_quotation_id: string | null;
   lexoffice_invoice_id: string | null;
   deposit_amount?: number | null;
   deposit_percent?: number | null;
