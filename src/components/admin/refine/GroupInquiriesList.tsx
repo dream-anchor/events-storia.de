@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useList, useUpdate } from "@refinedev/core";
 import { AdminLayout } from "./AdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -85,6 +86,7 @@ export const GroupInquiriesList = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<GroupInquiry | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { result, query } = useList<GroupInquiry>({
     resource: "group_inquiries",
@@ -93,6 +95,26 @@ export const GroupInquiriesList = () => {
   });
 
   const items = (result?.data ?? []) as GroupInquiry[];
+
+  // Auto-open detail sheet when ?id= is in the URL (deep-link from Anfragen-Liste)
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (!id || items.length === 0) return;
+    const match = items.find((i) => i.id === id);
+    if (match && (!selected || selected.id !== id)) {
+      setSelected(match);
+    }
+  }, [searchParams, items, selected]);
+
+  const handleSheetChange = (open: boolean) => {
+    if (!open) {
+      setSelected(null);
+      if (searchParams.get("id")) {
+        searchParams.delete("id");
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  };
 
   const filtered = useMemo(() => {
     return items.filter((i) => {
