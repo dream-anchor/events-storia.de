@@ -27,6 +27,19 @@ import { cn } from "@/lib/utils";
 import { DishPicker } from "./DishPicker";
 import { COURSE_ICONS } from "./types";
 import type { CourseConfig, CourseSelection, CourseType } from "./types";
+
+// Default-Labels pro CourseType — werden im Icon-Picker als Vorschlag angeboten.
+const COURSE_TYPE_LABELS: Record<CourseType, string> = {
+  starter: 'Antipasto',
+  pasta: 'Pasta',
+  main: 'Hauptgang',
+  main_fish: 'Fisch',
+  main_meat: 'Fleisch',
+  dessert: 'Dessert',
+  fingerfood: 'Fingerfood',
+  vegetarisch: 'Vegetarisch',
+  vegan: 'Vegan',
+};
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { PricingMode } from "./pricingMode";
 import { findBestMenuItem } from "./menuItemLookup";
@@ -57,6 +70,8 @@ function SortableCourseRow({
   onDishSelect,
   onClear,
   onUpdateName,
+  onUpdateLabel,
+  onUpdateType,
   onUpdateQuantity,
   onUpdatePrice,
   onRemoveCourse,
@@ -72,6 +87,8 @@ function SortableCourseRow({
   onDishSelect: (index: number, dish: { id: string; name: string; description: string | null; source: string; price: number | null }) => void;
   onClear: (index: number) => void;
   onUpdateName: (index: number, name: string) => void;
+  onUpdateLabel: (index: number, label: string) => void;
+  onUpdateType: (index: number, courseType: CourseType, label: string) => void;
   onUpdateQuantity: (index: number, quantity: number) => void;
   onUpdatePrice: (index: number, price: number | null) => void;
   onRemoveCourse: (index: number) => void;
@@ -82,6 +99,9 @@ function SortableCourseRow({
 }) {
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [tempLabel, setTempLabel] = useState("");
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const {
     attributes,
     listeners,
@@ -144,13 +164,78 @@ function SortableCourseRow({
           <GripVertical className="h-3.5 w-3.5 text-muted-foreground/20 shrink-0" />
         )}
 
-        <span className="text-base w-7 text-center shrink-0">
-          {COURSE_ICONS[course.courseType as CourseType] || '🍽️'}
-        </span>
-        {/* Voller Gang-Name auf Mobile sichtbar */}
-        <span className="text-sm font-medium sm:font-normal text-foreground sm:text-muted-foreground sm:w-20 shrink-0 sm:truncate flex-1 sm:flex-initial">
-          {course.courseLabel}
-        </span>
+        {/* Icon — klickbar: oeffnet einen Picker fuer Gang-Typ */}
+        {disabled ? (
+          <span className="text-base w-7 text-center shrink-0">
+            {COURSE_ICONS[course.courseType as CourseType] || '🍽️'}
+          </span>
+        ) : (
+          <Popover open={iconPickerOpen} onOpenChange={setIconPickerOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className="text-base w-7 h-7 flex items-center justify-center shrink-0 rounded-md hover:bg-muted/60 transition-colors"
+                title="Gang-Typ aendern"
+                aria-label="Gang-Typ aendern"
+              >
+                {COURSE_ICONS[course.courseType as CourseType] || '🍽️'}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-56 p-1">
+              {(Object.keys(COURSE_ICONS) as CourseType[]).map((ct) => (
+                <button
+                  key={ct}
+                  onClick={() => {
+                    // Wenn der Label noch der Default-Label des alten Typs ist,
+                    // dann auf den neuen Default umstellen — sonst Custom-Label belassen.
+                    const oldDefault = COURSE_TYPE_LABELS[course.courseType as CourseType];
+                    const keepCustom = course.courseLabel && course.courseLabel !== oldDefault;
+                    onUpdateType(idx, ct, keepCustom ? course.courseLabel : COURSE_TYPE_LABELS[ct]);
+                    setIconPickerOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted/50 text-left"
+                >
+                  <span className="text-base w-6 text-center">{COURSE_ICONS[ct]}</span>
+                  <span>{COURSE_TYPE_LABELS[ct]}</span>
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+        )}
+        {/* Gang-Label — klickbar: inline editierbar */}
+        {editingLabel && !disabled ? (
+          <Input
+            value={tempLabel}
+            onChange={(e) => setTempLabel(e.target.value)}
+            onBlur={() => {
+              const v = tempLabel.trim();
+              if (v && v !== course.courseLabel) onUpdateLabel(idx, v);
+              setEditingLabel(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const v = tempLabel.trim();
+                if (v && v !== course.courseLabel) onUpdateLabel(idx, v);
+                setEditingLabel(false);
+              }
+              if (e.key === 'Escape') setEditingLabel(false);
+            }}
+            autoFocus
+            className="h-8 sm:w-28 text-sm"
+          />
+        ) : (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => { setTempLabel(course.courseLabel); setEditingLabel(true); }}
+            className={cn(
+              "text-sm font-medium sm:font-normal text-foreground sm:text-muted-foreground sm:w-20 shrink-0 sm:truncate flex-1 sm:flex-initial text-left rounded px-1 -mx-1",
+              !disabled && "hover:bg-muted/40 cursor-text"
+            )}
+            title={!disabled ? "Bezeichnung aendern" : undefined}
+          >
+            {course.courseLabel}
+          </button>
+        )}
 
         {/* Mobile-only Edit + Trash in der Header-Reihe; sm+: Trash am Zeilenende */}
         {!disabled && onOpenMobileSheet && (
@@ -402,6 +487,8 @@ export function InlineCourseEditor({
             onDishSelect={handleDishSelect}
             onClear={handleClear}
             onUpdateName={(index, name) => onUpdateCourse(index, { itemName: name })}
+            onUpdateLabel={(index, courseLabel) => onUpdateCourse(index, { courseLabel })}
+            onUpdateType={(index, courseType, courseLabel) => onUpdateCourse(index, { courseType, courseLabel })}
             onUpdateQuantity={(index, quantity) => onUpdateCourse(index, { quantity })}
             onUpdatePrice={(index, overridePrice) => onUpdateCourse(index, { overridePrice })}
             pricingMode={pricingMode}
