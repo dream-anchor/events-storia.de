@@ -461,6 +461,11 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
    • "Paket" mit k und t — NIE "Packet"
    • Jedes Wort korrekt, inkl. Fachbegriffe
 
+5. PREISE — NIEMALS runden, NIEMALS auf-/abrunden auf volle Euro.
+   • Übernimm Preise EXAKT so wie sie in den Daten stehen, inkl. beider Nachkommastellen.
+   • Beispiel: "2.974,80 €" bleibt "2.974,80 €" — NIE "2.975 €", NIE "2.975,- €", NIE "ca. 2.975 €".
+   • Format ist immer deutsch: Tausenderpunkt, Komma als Dezimaltrenner, zwei Nachkommastellen, "€" am Ende.
+
 4. ABSÄTZE — genau eine Leerzeile zwischen Absätzen.
    • Zwei Newlines (\n\n) zwischen jedem Absatz
    • Jeder Gedankengang ist ein eigener Absatz
