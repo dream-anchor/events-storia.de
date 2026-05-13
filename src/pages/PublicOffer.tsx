@@ -1285,6 +1285,7 @@ function FinalOfferView({
                 inquiry={inquiry}
                 isSelected={inquiry.selected_option_id === option.id}
                 singleOption={displayOptions.length === 1}
+                lang={lang}
               />
             ))}
           </div>
