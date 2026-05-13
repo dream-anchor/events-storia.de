@@ -539,10 +539,16 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
       const a = document.createElement('a');
       a.href = url;
       a.download = data.filename || 'STORIA_Angebot.pdf';
+      a.style.display = 'none';
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        a.remove();
+      }, 1000);
     } catch (err) {
       console.error('PDF download failed:', err);
+      toast.error('PDF konnte nicht heruntergeladen werden');
     } finally {
       setIsDownloading(false);
     }
