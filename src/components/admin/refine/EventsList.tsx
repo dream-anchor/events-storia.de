@@ -796,6 +796,11 @@ export const EventsList = () => {
           />
         )}
       </div>
+      <UpcomingOrdersPrintDialog
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+        records={activeEvents.map((e) => eventToInquiryRecord(e))}
+      />
     </AdminLayout>
   );
 };
