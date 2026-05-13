@@ -56,7 +56,7 @@ const statusColor = (s: string) => {
   }
 };
 
-interface GroupInquiry {
+export interface GroupInquiry {
   id: string;
   external_id?: string | null;
   contact_name: string;
@@ -237,7 +237,7 @@ export const GroupInquiriesList = () => {
   );
 };
 
-function GroupInquiryDetail({
+export function GroupInquiryDetail({
   inquiry,
   onClose,
   onUpdated,
