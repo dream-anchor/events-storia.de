@@ -9,7 +9,6 @@ import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
 import { usePendingMenuBookingsCount } from "@/hooks/useEventBookings";
 import { useUnassignedInboxCount } from "@/hooks/useUnassignedInbox";
-import { useList } from "@refinedev/core";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
 import { NotificationCenter } from "../shared/NotificationCenter";
 import { SaveStatusBadge } from "../shared/SaveStatusBadge";
@@ -29,7 +28,6 @@ import {
   LogOut,
   ChevronDown,
   Inbox,
-  Users,
 } from "lucide-react";
 import { useEffect, useState as useStateReact } from "react";
 
@@ -69,13 +67,6 @@ export const AdminLayout = ({
   const { data: pendingOrdersCount } = usePendingOrdersCount();
   const { data: pendingBookingsCount } = usePendingMenuBookingsCount();
   const { data: unassignedInboxCount } = useUnassignedInboxCount();
-  const { result: newGroupInquiriesResult } = useList({
-    resource: "group_inquiries",
-    filters: [{ field: "status", operator: "eq", value: "new" }],
-    pagination: { pageSize: 1 },
-    meta: { count: "exact" },
-  });
-  const newGroupInquiriesCount = newGroupInquiriesResult?.total ?? 0;
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
   const { isAdmin, role } = usePermissions();
   const { showTestData, setShowTestData } = useTestMode();
@@ -122,7 +113,6 @@ export const AdminLayout = ({
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
     { name: 'Anfragen', href: '/admin/inquiries', icon: Inbox, key: 'inquiries' },
     { name: 'Posteingang', href: '/admin/posteingang', icon: Inbox, key: 'posteingang' },
-    { name: 'Reisegruppen', href: '/admin/reisegruppen', icon: Users, key: 'reisegruppen' },
     { name: 'Angebote', href: '/admin/quotations', icon: FileCheck, key: 'quotations' },
     { name: 'Rechnungen', href: '/admin/invoices', icon: FileText, key: 'invoices' },
   ];
@@ -159,9 +149,7 @@ export const AdminLayout = ({
             ? (newInquiriesCount || 0) + (pendingBookingsCount || 0) + (pendingOrdersCount || 0)
             : item.key === 'posteingang'
               ? (unassignedInboxCount || 0)
-              : item.key === 'reisegruppen'
-                ? (newGroupInquiriesCount || 0)
-                : 0;
+              : 0;
 
           return (
             <Link
