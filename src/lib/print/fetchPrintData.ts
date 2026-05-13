@@ -95,8 +95,8 @@ export async function fetchPrintInquiry(inquiryId: string): Promise<PrintInquiry
   const total = selectedOption?.totalAmount ?? 0;
 
   return {
-    id: inq.id,
-    orderNumber: shortOrderNumber(inq.id),
+    id: String(inq.id),
+    orderNumber: shortOrderNumber(String(inq.id)),
     contactName: inq.contact_name || '',
     companyName: inq.company_name,
     email: inq.email || '',
