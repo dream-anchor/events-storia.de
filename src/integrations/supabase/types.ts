@@ -2377,6 +2377,45 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_catalog: {
+        Row: {
+          created_at: string
+          default_quantity: number
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          price_per_unit: number
+          sort_order: number
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_quantity?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          price_per_unit?: number
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_quantity?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          price_per_unit?: number
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null

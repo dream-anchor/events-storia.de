@@ -1,6 +1,6 @@
 import { Document, Page, Text, View } from '@react-pdf/renderer';
 import { sheetStyles as s } from './styles';
-import { SheetHeader, SheetFooter, CustomerBlock, EventBlock, locationLabel } from './sheetParts';
+import { SheetHeader, SheetFooter, CustomerBlock, EventBlock, DeliveryAddressBlock, MenuBlock, AllergenBlock, locationLabel } from './sheetParts';
 import type { PrintInquiry } from '@/lib/print/types';
 
 function EquipmentSection({ inq }: { inq: PrintInquiry }) {
@@ -46,7 +46,10 @@ export function ServiceSheet({ inquiries }: { inquiries: PrintInquiry[] }) {
           <Text style={s.pill}>{locationLabel(inq)}</Text>
           <CustomerBlock inq={inq} showContact={true} />
           <EventBlock inq={inq} />
+          <DeliveryAddressBlock inq={inq} />
+          <MenuBlock inq={inq} />
           <EquipmentSection inq={inq} />
+          <AllergenBlock inq={inq} />
           <NotesSection inq={inq} />
           <SheetFooter />
         </Page>

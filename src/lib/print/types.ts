@@ -21,6 +21,15 @@ export interface PrintInquiry {
   locationAddress: string | null;
   roomSelection: string | null;
   isCatering: boolean;
+  // Lieferadresse-Details (für Außer Haus)
+  locationStreet: string | null;
+  locationZip: string | null;
+  locationCity: string | null;
+  locationCountry: string | null;
+  locationDetails: string | null;
+  deliveryFloor: string | null;
+  hasElevator: boolean;
+  mapsUrl: string | null;
   // Notizen
   internalNotes: string | null;
   customerMessage: string | null;

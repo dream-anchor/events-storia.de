@@ -42,9 +42,10 @@ export function InlineServiceEditor({
   const [catalogSearch, setCatalogSearch] = useState("");
 
   useEffect(() => {
-    if (sectionType !== "equipment" || !catalogOpen || catalog.length > 0) return;
+    if (!catalogOpen || catalog.length > 0) return;
+    const tableName = sectionType === 'staff' ? 'staff_catalog' : 'equipment_catalog';
     supabase
-      .from("equipment_catalog" as any)
+      .from(tableName as any)
       .select("id,name,default_quantity,price_per_unit")
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
@@ -102,8 +103,7 @@ export function InlineServiceEditor({
           </h4>
         </div>
         <div className="flex items-center gap-1">
-          {sectionType === "equipment" && (
-            <Popover open={catalogOpen} onOpenChange={setCatalogOpen}>
+          <Popover open={catalogOpen} onOpenChange={setCatalogOpen}>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
@@ -129,7 +129,7 @@ export function InlineServiceEditor({
                 <div className="max-h-64 overflow-auto py-1">
                   {catalog.length === 0 ? (
                     <div className="text-xs text-muted-foreground px-3 py-4 text-center">
-                      Katalog ist leer. Pflege ihn unter Einstellungen → Pakete.
+                      Katalog ist leer.
                     </div>
                   ) : filteredCatalog.length === 0 ? (
                     <div className="text-xs text-muted-foreground px-3 py-4 text-center">Keine Treffer</div>
@@ -150,8 +150,7 @@ export function InlineServiceEditor({
                   )}
                 </div>
               </PopoverContent>
-            </Popover>
-          )}
+          </Popover>
           <Button
             type="button"
             variant="ghost"
