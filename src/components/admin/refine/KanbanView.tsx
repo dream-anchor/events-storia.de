@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, differenceInDays, differenceInHours } from "date-fns";
 import { de } from "date-fns/locale";
-import { ChevronDown, ChevronRight, Archive, MoreVertical, ArrowRightLeft } from "lucide-react";
+import { ChevronDown, ChevronRight, Archive, MoreVertical, ArrowRightLeft, Home, Truck, Users } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,6 +79,39 @@ function formatCurrency(amount: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+type ServiceKind = "in_house" | "catering" | "group";
+
+function getServiceKind(event: EventInquiry): ServiceKind {
+  const src = (event as any).source?.toString().toLowerCase() ?? "";
+  if (src.includes("reisegruppen") || src === "group") return "group";
+  if ((event as any).inquiry_type === "catering") return "catering";
+  const loc = (event as any).location_type;
+  if (loc === "company" || loc === "custom") return "catering";
+  return "in_house";
+}
+
+const SERVICE_META: Record<ServiceKind, { label: string; Icon: typeof Home; chip: string }> = {
+  in_house: { label: "In Haus", Icon: Home, chip: "bg-foreground text-background ring-1 ring-foreground" },
+  catering: { label: "Catering", Icon: Truck, chip: "bg-foreground/10 text-foreground ring-1 ring-foreground/25" },
+  group:    { label: "Reisegruppe", Icon: Users, chip: "bg-foreground/10 text-foreground ring-1 ring-foreground/25" },
+};
+
+function ServiceBadge({ kind }: { kind: ServiceKind }) {
+  const m = SERVICE_META[kind];
+  const Icon = m.Icon;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap",
+        m.chip,
+      )}
+    >
+      <Icon className="h-2.5 w-2.5" />
+      {m.label}
+    </span>
+  );
 }
 
 export function KanbanView({ events, onRefresh }: KanbanViewProps) {
