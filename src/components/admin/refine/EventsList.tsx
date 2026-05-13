@@ -25,6 +25,34 @@ import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardL
 import { UpcomingOrdersPrintDialog } from "./print/UpcomingOrdersPrintDialog";
 import type { InquiryRecord } from "@/types/inquiryRecord";
 
+function eventToInquiryRecord(e: EventInquiry): InquiryRecord {
+  const kind = getServiceKind(e);
+  const serviceType = kind === "in_house" ? "restaurant" : kind === "catering" ? "catering" : "group";
+  const guests = typeof e.guest_count === "string" ? parseInt(e.guest_count, 10) : (e.guest_count as any);
+  return {
+    id: e.id,
+    kind: "event",
+    serviceType: serviceType as InquiryRecord["serviceType"],
+    number: (e as any).booking_number || e.id.slice(0, 8),
+    customerName: e.contact_name,
+    companyName: e.company_name,
+    email: e.email,
+    phone: e.phone ?? null,
+    date: e.preferred_date ?? null,
+    time: e.time_slot ?? null,
+    guestCount: Number.isFinite(guests) ? guests : null,
+    totalAmount: (e as any).total_amount ?? null,
+    status: e.status,
+    offerPhase: (e as any).offer_phase ?? null,
+    column: "lead" as InquiryRecord["column"],
+    createdAt: e.created_at,
+    updatedAt: e.updated_at ?? e.created_at,
+    archivedAt: e.archived_at ?? null,
+    archived: !!e.archived_at,
+    raw: e as any,
+  };
+}
+
 const statusConfig: Record<InquiryStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   new: { label: "Neu", variant: "default" },
   contacted: { label: "Kontaktiert", variant: "secondary" },
