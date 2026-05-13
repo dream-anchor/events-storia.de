@@ -1377,6 +1377,7 @@ function FinalOptionCard({
   lang: OfferLang;
 }) {
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
   // Filter: Drinks mit Inhalt ODER "inkl."-Einträge (Wasser/Kaffee) mit quantityLabel
@@ -1411,6 +1412,13 @@ function FinalOptionCard({
   const totalAmount = option.total_amount;
   const deposit = computeDeposit(inquiry, totalAmount);
   const depositAmount = deposit.amount;
+
+  const pm = inquiry.payment_method ?? '';
+  const offlineTiming: 'on_site' | 'after_event' | 'transfer_prepay' | null =
+    pm === 'pay_on_site' ? 'on_site'
+    : pm === 'invoice_after_event' ? 'after_event'
+    : pm === 'bank_transfer_prepay' ? 'transfer_prepay'
+    : null;
 
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
