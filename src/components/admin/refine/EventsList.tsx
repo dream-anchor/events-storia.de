@@ -3,7 +3,7 @@ import { useList } from "@refinedev/core";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare, User, Flag, AlertTriangle, LayoutGrid, Table2, Archive } from "lucide-react";
+import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare, User, Flag, AlertTriangle, LayoutGrid, Table2, Archive, Printer } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable, sortableHeader } from "./DataTable";
@@ -22,6 +22,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { getInquiryActionState } from "@/lib/inquiryActionState";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
+import { UpcomingOrdersPrintDialog } from "./print/UpcomingOrdersPrintDialog";
+import type { InquiryRecord } from "@/types/inquiryRecord";
 
 const statusConfig: Record<InquiryStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   new: { label: "Neu", variant: "default" },
@@ -116,6 +118,7 @@ export const EventsList = () => {
     () => (localStorage.getItem("eventsViewMode") as "table" | "kanban") || "table"
   );
   const [paymentStatus, setPaymentStatus] = useState<Record<string, 'none' | 'pending' | 'partial' | 'complete' | 'overdue'>>({});
+  const [printOpen, setPrintOpen] = useState(false);
   const { showTestData } = useTestMode();
 
   // Save view preference
@@ -667,6 +670,15 @@ export const EventsList = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPrintOpen(true)}
+              className="rounded-lg gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              <span className="hidden sm:inline">Nächste Aufträge</span>
+            </Button>
             {/* View Toggle */}
             <ToggleGroup
               type="single"
