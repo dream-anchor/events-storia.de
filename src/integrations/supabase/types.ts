@@ -712,6 +712,96 @@ export type Database = {
           },
         ]
       }
+      _legacy_group_inquiries: {
+        Row: {
+          arrival_time: string | null
+          assigned_to: string | null
+          company_name: string | null
+          contact_name: string
+          created_at: string | null
+          email: string
+          external_id: string | null
+          group_size: number
+          id: string
+          internal_notes: string | null
+          language: string | null
+          message: string | null
+          phone: string | null
+          preferred_date: string | null
+          preferred_date_flexible: boolean | null
+          preferred_menu: string | null
+          responded_at: string | null
+          source: string | null
+          status: string
+          travel_plan_filename: string | null
+          travel_plan_url: string | null
+          updated_at: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          arrival_time?: string | null
+          assigned_to?: string | null
+          company_name?: string | null
+          contact_name: string
+          created_at?: string | null
+          email: string
+          external_id?: string | null
+          group_size: number
+          id?: string
+          internal_notes?: string | null
+          language?: string | null
+          message?: string | null
+          phone?: string | null
+          preferred_date?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
+          responded_at?: string | null
+          source?: string | null
+          status?: string
+          travel_plan_filename?: string | null
+          travel_plan_url?: string | null
+          updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          arrival_time?: string | null
+          assigned_to?: string | null
+          company_name?: string | null
+          contact_name?: string
+          created_at?: string | null
+          email?: string
+          external_id?: string | null
+          group_size?: number
+          id?: string
+          internal_notes?: string | null
+          language?: string | null
+          message?: string | null
+          phone?: string | null
+          preferred_date?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
+          responded_at?: string | null
+          source?: string | null
+          status?: string
+          travel_plan_filename?: string | null
+          travel_plan_url?: string | null
+          updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: []
+      }
       _legacy_inquiry_comments: {
         Row: {
           author_email: string
@@ -1463,96 +1553,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      group_inquiries: {
-        Row: {
-          arrival_time: string | null
-          assigned_to: string | null
-          company_name: string | null
-          contact_name: string
-          created_at: string | null
-          email: string
-          external_id: string | null
-          group_size: number
-          id: string
-          internal_notes: string | null
-          language: string | null
-          message: string | null
-          phone: string | null
-          preferred_date: string | null
-          preferred_date_flexible: boolean | null
-          preferred_menu: string | null
-          responded_at: string | null
-          source: string | null
-          status: string
-          travel_plan_filename: string | null
-          travel_plan_url: string | null
-          updated_at: string | null
-          utm_campaign: string | null
-          utm_content: string | null
-          utm_medium: string | null
-          utm_source: string | null
-          utm_term: string | null
-        }
-        Insert: {
-          arrival_time?: string | null
-          assigned_to?: string | null
-          company_name?: string | null
-          contact_name: string
-          created_at?: string | null
-          email: string
-          external_id?: string | null
-          group_size: number
-          id?: string
-          internal_notes?: string | null
-          language?: string | null
-          message?: string | null
-          phone?: string | null
-          preferred_date?: string | null
-          preferred_date_flexible?: boolean | null
-          preferred_menu?: string | null
-          responded_at?: string | null
-          source?: string | null
-          status?: string
-          travel_plan_filename?: string | null
-          travel_plan_url?: string | null
-          updated_at?: string | null
-          utm_campaign?: string | null
-          utm_content?: string | null
-          utm_medium?: string | null
-          utm_source?: string | null
-          utm_term?: string | null
-        }
-        Update: {
-          arrival_time?: string | null
-          assigned_to?: string | null
-          company_name?: string | null
-          contact_name?: string
-          created_at?: string | null
-          email?: string
-          external_id?: string | null
-          group_size?: number
-          id?: string
-          internal_notes?: string | null
-          language?: string | null
-          message?: string | null
-          phone?: string | null
-          preferred_date?: string | null
-          preferred_date_flexible?: boolean | null
-          preferred_menu?: string | null
-          responded_at?: string | null
-          source?: string | null
-          status?: string
-          travel_plan_filename?: string | null
-          travel_plan_url?: string | null
-          updated_at?: string | null
-          utm_campaign?: string | null
-          utm_content?: string | null
-          utm_medium?: string | null
-          utm_source?: string | null
-          utm_term?: string | null
-        }
-        Relationships: []
       }
       imap_sync_state: {
         Row: {
@@ -2821,6 +2821,7 @@ export type Database = {
           archived: boolean | null
           archived_at: string | null
           archived_by: string | null
+          arrival_time: string | null
           assigned_at: string | null
           assigned_by: string | null
           assigned_to: string | null
@@ -2868,6 +2869,7 @@ export type Database = {
           is_pickup: boolean | null
           is_test: boolean | null
           items: Json | null
+          language: string | null
           last_edited_at: string | null
           last_edited_by: string | null
           lexoffice_document_type: string | null
@@ -2896,6 +2898,8 @@ export type Database = {
           package_id: string | null
           payment_method: string | null
           payment_type: string | null
+          preferred_date_flexible: boolean | null
+          preferred_menu: string | null
           priority: Database["public"]["Enums"]["v2_event_priority"] | null
           quote_items: Json | null
           quote_notes: string | null
@@ -2912,6 +2916,8 @@ export type Database = {
           status_changed_at: string | null
           time_from: string | null
           time_to: string | null
+          travel_plan_filename: string | null
+          travel_plan_url: string | null
           updated_at: string
           venue: string | null
         }
@@ -2920,6 +2926,7 @@ export type Database = {
           archived?: boolean | null
           archived_at?: string | null
           archived_by?: string | null
+          arrival_time?: string | null
           assigned_at?: string | null
           assigned_by?: string | null
           assigned_to?: string | null
@@ -2967,6 +2974,7 @@ export type Database = {
           is_pickup?: boolean | null
           is_test?: boolean | null
           items?: Json | null
+          language?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
           lexoffice_document_type?: string | null
@@ -2995,6 +3003,8 @@ export type Database = {
           package_id?: string | null
           payment_method?: string | null
           payment_type?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
           priority?: Database["public"]["Enums"]["v2_event_priority"] | null
           quote_items?: Json | null
           quote_notes?: string | null
@@ -3011,6 +3021,8 @@ export type Database = {
           status_changed_at?: string | null
           time_from?: string | null
           time_to?: string | null
+          travel_plan_filename?: string | null
+          travel_plan_url?: string | null
           updated_at?: string
           venue?: string | null
         }
@@ -3019,6 +3031,7 @@ export type Database = {
           archived?: boolean | null
           archived_at?: string | null
           archived_by?: string | null
+          arrival_time?: string | null
           assigned_at?: string | null
           assigned_by?: string | null
           assigned_to?: string | null
@@ -3066,6 +3079,7 @@ export type Database = {
           is_pickup?: boolean | null
           is_test?: boolean | null
           items?: Json | null
+          language?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
           lexoffice_document_type?: string | null
@@ -3094,6 +3108,8 @@ export type Database = {
           package_id?: string | null
           payment_method?: string | null
           payment_type?: string | null
+          preferred_date_flexible?: boolean | null
+          preferred_menu?: string | null
           priority?: Database["public"]["Enums"]["v2_event_priority"] | null
           quote_items?: Json | null
           quote_notes?: string | null
@@ -3110,6 +3126,8 @@ export type Database = {
           status_changed_at?: string | null
           time_from?: string | null
           time_to?: string | null
+          travel_plan_filename?: string | null
+          travel_plan_url?: string | null
           updated_at?: string
           venue?: string | null
         }
@@ -4483,13 +4501,14 @@ export type Database = {
       v2_email_direction: "inbound" | "outbound"
       v2_event_location: "in_house" | "external"
       v2_event_priority: "low" | "normal" | "high" | "urgent"
-      v2_event_service: "restaurant" | "catering" | "hybrid"
+      v2_event_service: "restaurant" | "catering" | "hybrid" | "group"
       v2_event_source:
         | "website"
         | "manual"
         | "email_inbound"
         | "phone"
         | "catering_form"
+        | "reisegruppen"
       v2_event_status:
         | "inquiry"
         | "offer_draft"
@@ -4658,13 +4677,14 @@ export const Constants = {
       v2_email_direction: ["inbound", "outbound"],
       v2_event_location: ["in_house", "external"],
       v2_event_priority: ["low", "normal", "high", "urgent"],
-      v2_event_service: ["restaurant", "catering", "hybrid"],
+      v2_event_service: ["restaurant", "catering", "hybrid", "group"],
       v2_event_source: [
         "website",
         "manual",
         "email_inbound",
         "phone",
         "catering_form",
+        "reisegruppen",
       ],
       v2_event_status: [
         "inquiry",

@@ -111,12 +111,13 @@ export function useDashboardData() {
         .lte("event_date", in14Str)
         .not("status", "in", "(cancelled,refunded)");
 
-      // Group inquiries last 48h
+      // Reisegruppen-Events (jetzt in v2_events) — letzte 48h
       const groupQ = supabase
-        .from("group_inquiries")
-        .select("id, contact_name, company_name, group_size, preferred_date, status, created_at")
+        .from("v2_events")
+        .select("id, guest_count, date, status, created_at, v2_customers ( name, company )")
+        .eq("service_type", "group")
         .gte("created_at", past48.toISOString())
-        .not("status", "in", "(declined,archived)");
+        .not("status", "in", "(cancelled,offer_declined)");
 
       // Overdue payments
       const payQ = supabase
@@ -268,12 +269,12 @@ export function useDashboardData() {
         inbox.push({
           id: g.id,
           kind: "group",
-          customerName: g.contact_name,
-          subtitle: `Gruppe · ${g.group_size} P.`,
+          customerName: g.v2_customers?.name || "—",
+          subtitle: `Gruppe · ${g.guest_count ?? "?"} P.`,
           createdAt: g.created_at,
           ageDays: diffDays(today, new Date(g.created_at)),
           isStale: false,
-          navigateTo: `/admin`,
+          navigateTo: `/admin/inquiries/${g.id}/edit`,
         });
       });
       inbox.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
