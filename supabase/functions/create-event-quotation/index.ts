@@ -503,13 +503,8 @@ function buildLineItems(
       const label = c.courseLabel ? `${c.courseLabel}: ` : '';
       inclLines.push(`• ${label}${c.itemName}`);
     }
-    for (const d of (ms?.drinks || [])) {
-      const choice = d.selectedChoice || d.customDrink || '';
-      const label = d.drinkLabel || '';
-      if (!label && !choice) continue;
-      const qty = d.quantityLabel ? ` (${d.quantityLabel})` : '';
-      const text = choice ? `${label}: ${choice}${qty}` : `${label}${qty}`;
-      inclLines.push(`• ${text}`);
+    for (const drinkLine of buildDrinkInfoLines(ms)) {
+      inclLines.push(`• ${drinkLine}`);
     }
     const description = inclLines.length > 0
       ? `Inklusive:\n${inclLines.join('\n')}`
