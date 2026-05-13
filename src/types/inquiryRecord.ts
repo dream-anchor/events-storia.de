@@ -85,6 +85,13 @@ export interface InquiryRecord {
   updatedAt: string;
   archivedAt?: string | null;
   archived?: boolean;
+  // --- optionale Felder für Druckansichten / Übersichten ---
+  occasion?: string | null;
+  dateEnd?: string | null;
+  packageLabel?: string | null;
+  menuSummary?: string | null;
+  roomOrCityShort?: string | null;
+  assignedInitials?: string | null;
   raw: V2EventRow | CateringOrder;
 }
 
@@ -161,6 +168,8 @@ export function mapV2Event(e: V2EventRow): InquiryRecord {
     archivedAt: e.archived_at,
     createdAt: e.created_at,
     updatedAt: e.updated_at || e.created_at,
+    occasion: e.occasion ?? null,
+    dateEnd: e.date_end ?? null,
     raw: e,
   };
 }
