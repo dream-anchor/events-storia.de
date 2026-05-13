@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, X, Loader2, MapPin } from "lucide-react";
+import { ArrowLeft, Save, Plus, X, Loader2, MapPin, Languages } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PackageMenuItemsEditor } from "./PackageMenuItemsEditor";
@@ -106,6 +106,28 @@ export const PackageEdit = () => {
 
   const { mutate: update } = useUpdate();
   const { mutate: create } = useCreate();
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  const handleTranslateMenu = async () => {
+    if (!id) return;
+    setIsTranslating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "translate-package-menu",
+        { body: { package_id: id, target_langs: ["en", "it", "fr"] } },
+      );
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(
+        `Übersetzungen erstellt (EN/IT/FR) — ${data?.updates ?? 0} Einträge aktualisiert`,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Fehler bei der Übersetzung";
+      toast.error(msg);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   // Fetch assigned location IDs for this package
   useEffect(() => {
@@ -525,7 +547,40 @@ export const PackageEdit = () => {
 
         {/* Menu Items - Only show for existing packages */}
         {!isCreate && id && (
-          <PackageMenuItemsEditor packageId={id} />
+          <>
+            <PackageMenuItemsEditor packageId={id} />
+
+            <Card className="rounded-xl border border-border/60 bg-white dark:bg-gray-900">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Languages className="h-5 w-5" />
+                  Mehrsprachigkeit (KI)
+                </CardTitle>
+                <CardDescription>
+                  Übersetzt alle Gänge & Getränke dieses Pakets automatisch
+                  nach Englisch, Italienisch und Französisch. Bestehende
+                  Übersetzungen werden überschrieben.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleTranslateMenu}
+                  disabled={isTranslating}
+                >
+                  {isTranslating ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Languages className="h-4 w-4 mr-2" />
+                  )}
+                  {isTranslating
+                    ? "Übersetze …"
+                    : "Mit KI übersetzen (EN / IT / FR)"}
+                </Button>
+              </CardContent>
+            </Card>
+          </>
         )}
 
         {/* Gruppenreisen-spezifische Felder */}

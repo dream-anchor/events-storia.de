@@ -27,13 +27,20 @@ export interface CourseConfig {
   course_type: CourseType;
   course_label: string;
   course_label_en: string | null;
+  course_label_it?: string | null;
+  course_label_fr?: string | null;
   is_required: boolean;
   allowed_sources: ('catering' | 'ristorante')[];
   allowed_categories: string[];
   is_custom_item: boolean;
   custom_item_name: string | null;
   custom_item_name_en: string | null;
+  custom_item_name_it?: string | null;
+  custom_item_name_fr?: string | null;
   custom_item_description: string | null;
+  custom_item_description_en?: string | null;
+  custom_item_description_it?: string | null;
+  custom_item_description_fr?: string | null;
   sort_order: number;
 }
 
@@ -49,10 +56,16 @@ export interface DrinkConfig {
   drink_group: DrinkGroupType;
   drink_label: string;
   drink_label_en: string | null;
+  drink_label_it?: string | null;
+  drink_label_fr?: string | null;
   options: DrinkOption[] | string[];
+  /** Übersetzte Options-Listen pro Sprache, gleiche Reihenfolge wie `options` */
+  options_translations?: Partial<Record<'en' | 'it' | 'fr', string[]>> | null;
   quantity_per_person: string | null;
   quantity_label: string | null;
   quantity_label_en: string | null;
+  quantity_label_it?: string | null;
+  quantity_label_fr?: string | null;
   is_choice: boolean;
   is_included: boolean;
   sort_order: number;

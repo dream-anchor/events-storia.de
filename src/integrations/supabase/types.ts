@@ -2035,11 +2035,18 @@ export type Database = {
           allowed_sources: string[] | null
           course_label: string
           course_label_en: string | null
+          course_label_fr: string | null
+          course_label_it: string | null
           course_type: string
           created_at: string | null
           custom_item_description: string | null
+          custom_item_description_en: string | null
+          custom_item_description_fr: string | null
+          custom_item_description_it: string | null
           custom_item_name: string | null
           custom_item_name_en: string | null
+          custom_item_name_fr: string | null
+          custom_item_name_it: string | null
           id: string
           is_custom_item: boolean | null
           is_required: boolean | null
@@ -2051,11 +2058,18 @@ export type Database = {
           allowed_sources?: string[] | null
           course_label: string
           course_label_en?: string | null
+          course_label_fr?: string | null
+          course_label_it?: string | null
           course_type: string
           created_at?: string | null
           custom_item_description?: string | null
+          custom_item_description_en?: string | null
+          custom_item_description_fr?: string | null
+          custom_item_description_it?: string | null
           custom_item_name?: string | null
           custom_item_name_en?: string | null
+          custom_item_name_fr?: string | null
+          custom_item_name_it?: string | null
           id?: string
           is_custom_item?: boolean | null
           is_required?: boolean | null
@@ -2067,11 +2081,18 @@ export type Database = {
           allowed_sources?: string[] | null
           course_label?: string
           course_label_en?: string | null
+          course_label_fr?: string | null
+          course_label_it?: string | null
           course_type?: string
           created_at?: string | null
           custom_item_description?: string | null
+          custom_item_description_en?: string | null
+          custom_item_description_fr?: string | null
+          custom_item_description_it?: string | null
           custom_item_name?: string | null
           custom_item_name_en?: string | null
+          custom_item_name_fr?: string | null
+          custom_item_name_it?: string | null
           id?: string
           is_custom_item?: boolean | null
           is_required?: boolean | null
@@ -2094,13 +2115,18 @@ export type Database = {
           drink_group: string
           drink_label: string
           drink_label_en: string | null
+          drink_label_fr: string | null
+          drink_label_it: string | null
           id: string
           is_choice: boolean | null
           is_included: boolean | null
           options: Json | null
+          options_translations: Json | null
           package_id: string
           quantity_label: string | null
           quantity_label_en: string | null
+          quantity_label_fr: string | null
+          quantity_label_it: string | null
           quantity_per_person: string | null
           sort_order: number | null
         }
@@ -2109,13 +2135,18 @@ export type Database = {
           drink_group: string
           drink_label: string
           drink_label_en?: string | null
+          drink_label_fr?: string | null
+          drink_label_it?: string | null
           id?: string
           is_choice?: boolean | null
           is_included?: boolean | null
           options?: Json | null
+          options_translations?: Json | null
           package_id: string
           quantity_label?: string | null
           quantity_label_en?: string | null
+          quantity_label_fr?: string | null
+          quantity_label_it?: string | null
           quantity_per_person?: string | null
           sort_order?: number | null
         }
@@ -2124,13 +2155,18 @@ export type Database = {
           drink_group?: string
           drink_label?: string
           drink_label_en?: string | null
+          drink_label_fr?: string | null
+          drink_label_it?: string | null
           id?: string
           is_choice?: boolean | null
           is_included?: boolean | null
           options?: Json | null
+          options_translations?: Json | null
           package_id?: string
           quantity_label?: string | null
           quantity_label_en?: string | null
+          quantity_label_fr?: string | null
+          quantity_label_it?: string | null
           quantity_per_person?: string | null
           sort_order?: number | null
         }
