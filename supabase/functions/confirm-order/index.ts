@@ -72,17 +72,18 @@ Deno.serve(async (req) => {
   const ua = req.headers.get('user-agent') || null;
 
   // Derive payment_timing if not yet set, from payment_method
+  const pm = ev.payment_method;
   const paymentTiming =
     ev.payment_timing ||
-    (ev.payment_method === 'deposit_online'
+    (pm === 'deposit_online'
       ? 'online_deposit'
-      : ev.payment_method === 'full_online'
+      : pm === 'prepayment_online' || pm === 'full_online'
         ? 'online_full'
-        : ev.payment_method === 'invoice_after_event'
+        : pm === 'invoice_after' || pm === 'invoice_after_event'
           ? 'after_event'
-          : ev.payment_method === 'pay_on_site'
+          : pm === 'on_site' || pm === 'pay_on_site'
             ? 'on_site'
-            : ev.payment_method === 'bank_transfer_prepay'
+            : pm === 'bank_transfer_prepay'
               ? 'transfer_prepay'
               : 'after_event');
 
