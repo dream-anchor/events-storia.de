@@ -873,6 +873,7 @@ function ProposalView({
                 isSelected={selectedOptionId === option.id}
                 onSelect={() => setSelectedOptionId(option.id)}
                 singleOption={isSingle}
+                lang={lang}
               />
             ))}
           </div>
