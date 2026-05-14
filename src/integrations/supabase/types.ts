@@ -1770,6 +1770,134 @@ export type Database = {
           },
         ]
       }
+      lead_notify_failures: {
+        Row: {
+          attempted_at: string
+          error_message: string | null
+          id: string
+          lead_id: string
+          resolved_at: string | null
+          step: string
+        }
+        Insert: {
+          attempted_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id: string
+          resolved_at?: string | null
+          step: string
+        }
+        Update: {
+          attempted_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string
+          resolved_at?: string | null
+          step?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_notify_failures_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_funnel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads_funnel: {
+        Row: {
+          created_at: string
+          date_mode: string
+          date_range_end: string | null
+          date_range_start: string | null
+          date_value: string | null
+          email: string
+          first_name: string
+          format: string | null
+          gdpr_consent: boolean
+          gdpr_consent_at: string | null
+          id: string
+          intent: string
+          last_name: string
+          lead_score: number
+          notes: string | null
+          notified_at: string | null
+          occasion: string
+          occasion_other: string | null
+          people_bucket: string
+          phone: string | null
+          source_url: string | null
+          status: string
+          updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          created_at?: string
+          date_mode: string
+          date_range_end?: string | null
+          date_range_start?: string | null
+          date_value?: string | null
+          email: string
+          first_name: string
+          format?: string | null
+          gdpr_consent?: boolean
+          gdpr_consent_at?: string | null
+          id?: string
+          intent: string
+          last_name: string
+          lead_score?: number
+          notes?: string | null
+          notified_at?: string | null
+          occasion: string
+          occasion_other?: string | null
+          people_bucket: string
+          phone?: string | null
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          created_at?: string
+          date_mode?: string
+          date_range_end?: string | null
+          date_range_start?: string | null
+          date_value?: string | null
+          email?: string
+          first_name?: string
+          format?: string | null
+          gdpr_consent?: boolean
+          gdpr_consent_at?: string | null
+          id?: string
+          intent?: string
+          last_name?: string
+          lead_score?: number
+          notes?: string | null
+          notified_at?: string | null
+          occasion?: string
+          occasion_other?: string | null
+          people_bucket?: string
+          phone?: string | null
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           capacity_seated: number | null
