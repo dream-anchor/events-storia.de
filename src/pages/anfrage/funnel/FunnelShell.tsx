@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
-import { funnelReducer, initialFunnelState } from "./types";
+import { funnelReducer, initialFunnelState, type FunnelState } from "./types";
 import { captureUtm, readUtm, clearUtm } from "./utm";
 import { ProgressBar } from "./ProgressBar";
 import { Step0_Intent } from "./Step0_Intent";
@@ -43,8 +43,7 @@ export const FunnelShell = () => {
     return () => window.removeEventListener("pagehide", onHide);
   }, [done, state.step, state.intent]);
 
-  const setPatch = (patch: Parameters<typeof dispatch>[0] extends { type: "SET"; patch: infer P } ? P : never) =>
-    dispatch({ type: "SET", patch });
+  const setPatch = (patch: Partial<FunnelState>) => dispatch({ type: "SET", patch });
 
   const goNext = () => {
     trackEvent("funnel_step_complete", { step: state.step, intent: state.intent ?? "none" });
