@@ -1,44 +1,55 @@
-## Problem
+## 1) Bild-Bug — rechtes Galerie-Bild wirkt kürzer
 
-Bei der letzten Test-Buchung mit Kostenübernahme (Zahlung später / Rechnung) hat **der Gast** die Bestätigungsmail erhalten, **wir aber nicht**.
+**Ursache:** Beide Quellbilder sind exakt 1536×1024 (3:2), genauso wie der Container `aspect-[3/2]` mit `object-cover`. Das rechte Bild (`storia-uebersicht-details.webp`) hat aber **am unteren Rand einen hellen Streifen mit den Caption-Labels**. Dadurch wirkt der Inhalt visuell kürzer, obwohl die Container exakt gleich hoch sind.
 
-## Ursache (in den Logs verifiziert)
+**Fix:** Das rechte Asset einmalig per `imagegen--edit_image` neu rendern — ohne den hellen Bottom-Streifen, sodass die Bildkomposition bis zum Rand reicht (oder alternativ: `object-cover` mit Skalierung 1.05 + `objectPosition: 'center 30%'` als CSS-only-Workaround). Bevorzugt Asset-Re-Crop, da das Ergebnis sauberer ist.
 
-Beide Mails laufen über die Funktion `notify-customer-response`:
+**Datei:** `src/assets/storia-uebersicht-details.webp` (überschreiben).
 
+---
+
+## 2) Sprachumschalter — komplette Seite übersetzen
+
+Aktuell schaltet `lang` in `src/pages/PublicOffer.tsx` nur die Anzeige der DB-übersetzten Menü-/Getränke-Felder um. Hero-Texte, Section-Headlines, Buttons und das **Anschreiben** bleiben deutsch.
+
+### 2a) Statische UI-Labels lokalisieren
+
+Mini-Wörterbuch direkt in `PublicOffer.tsx` (oder `src/pages/public-offer/i18n.ts`):
+
+```ts
+export const OFFER_UI = {
+  de: { language: 'Sprache', greeting_open: 'Liebe', ... },
+  en: { language: 'Language', greeting_open: 'Dear', ... },
+  it: { ... }, fr: { ... },
+};
 ```
-09:44:41  Kunde   → mimmo2905@yahoo.de                       resend  delivered ✅
-09:44:41  Admin   → info@events-storia.de, d.speranza@…      resend  delayed   ❌
-09:36:40  Admin   → info@events-storia.de, d.speranza@…      resend  delayed   ❌
-```
 
-Resend nimmt die Mail an (`sent = true`), liefert sie aber an `info@events-storia.de` nicht aus → Status bleibt **`delayed`**. Weil der Code `sent = true` setzt, greift der **IONOS-SMTP-Fallback nicht**. Der Gast (yahoo.de) bekommt sein Mail, wir bekommen nichts.
+Per `lang` an alle Sub-Views (`HeroSection`, `AnschreibenSection`, `ProposalView`, `FinalOfferView`, `ConfirmationView`, `ThankYouView`, `PaymentSection`, `OrderConfirmationDialog`, `RestaurantGallery`, `OfferFooter`) durchreichen — die meisten bekommen `lang` schon, müssen aber Texte daraus ableiten statt hartzucodieren.
 
-Hintergrund: Wir senden **von** `info@events-storia.de` **an** `info@events-storia.de` über Resend. Resend stellt das per ausgehender MX an unser eigenes IONOS-Postfach zu, was IONOS regelmäßig deferred → "delayed".
+### 2b) Anschreiben (E-Mail-Body) via AI übersetzen + cachen
 
-(WhatsApp-Alarm scheitert separat mit `WhatsApp not configured` — nicht Teil dieses Fixes.)
+Anschreiben ist Freitext aus `inquiry.email_content`. Lösung analog zu `translate-menu-text`:
 
-## Lösung
+- **Neue Edge Function** `translate-offer-letter`: nimmt `inquiry_id`, `target_lang`, ruft Lovable AI Gateway (`google/gemini-3-flash-preview`), schreibt Ergebnis in neue Spalte `inquiry.email_content_translations jsonb` (`{ en: "...", it: "...", fr: "..." }`).
+- **Migration:** `ALTER TABLE inquiry ADD COLUMN email_content_translations jsonb`. Beim Versand der Übersetzung gehen automatisch alle 3 Sprachen einmalig durch (lazy/on-demand beim ersten Klick auf Sprache reicht ebenfalls).
+- **Frontend:** `AnschreibenSection` empfängt `lang` + `translations`. Wenn `lang !== 'de'` und `translations[lang]` existiert → anzeigen. Sonst → on-demand-Fetch über `supabase.functions.invoke('translate-offer-letter', { inquiry_id, target_lang })`, Spinner zeigen, danach rendern.
+- Bei Archiv-Snapshots (`isArchive`): Übersetzung ebenfalls aus dem Snapshot lesen, **nicht** neu generieren (Immutability).
 
-In `supabase/functions/notify-customer-response/index.ts` die **Admin-Benachrichtigung** dual versenden:
+### 2c) Switcher immer sichtbar
 
-1. **Primär: IONOS SMTP** für interne Empfänger (`info@events-storia.de`, `d.speranza@storia-muenchen.de`) — eigene Domain, sofort zustellbar, kein Resend-MX-Umweg.
-2. **Fallback: Resend** falls SMTP-Credentials fehlen oder einen Fehler werfen.
+`OfferLanguageSwitcher` zeigt sich aktuell nur bei vorhandenen Menü-Übersetzungen (`hasTranslations`). Diese Bedingung entfernen — der Toggle soll auch bei reinen Text-Angeboten funktionieren.
 
-Die **Kunden-Bestätigung** bleibt unverändert (Resend primär, da externe Empfänger).
-
-**Subject bleibt unverändert.**
+---
 
 ## Technische Details
 
-Datei: `supabase/functions/notify-customer-response/index.ts`
+**Geänderte/neue Dateien:**
+- `src/assets/storia-uebersicht-details.webp` — neu gerendert ohne hellen Footer
+- `src/pages/public-offer/i18n.ts` — neue UI-Strings für de/en/it/fr
+- `src/pages/PublicOffer.tsx` — `OfferLanguageSwitcher` immer rendern, `lang` an alle Subviews durchreichen, `translations` an `AnschreibenSection`
+- `src/pages/public-offer/AnschreibenSection.tsx` — `lang` + `translations` Props, on-demand Fetch
+- `src/pages/public-offer/HeroSection.tsx`, `ProposalView.tsx`, `FinalOfferView.tsx`, `ConfirmationView.tsx`, `ThankYouView.tsx`, `PaymentSection.tsx`, `OrderConfirmationDialog.tsx`, `ContactSection.tsx`, `PdfDownloadSection.tsx`, `RestaurantGallery.tsx` — Texte über `OFFER_UI[lang]`
+- `supabase/functions/translate-offer-letter/index.ts` — neu, analog zu `translate-menu-text`
+- Migration: `email_content_translations jsonb` auf `inquiry`
 
-- Reihenfolge der beiden Send-Blöcke für die Admin-Mail tauschen: erst SMTP (denomailer / IONOS), dann Resend als Fallback.
-- `provider` in `email_delivery_logs` zeigt korrekt `ionos_smtp` bzw. `resend`.
-
-Keine DB-Änderung, keine UI-Änderung, kein Eingriff in `confirm-order`, Subject oder Kunden-Mail.
-
-## Out of Scope
-
-- WhatsApp-Konfiguration (separater Task).
-- Manuelles Nachsenden der verlorenen Test-Bestätigung — sag Bescheid, wenn ich sie nachschicken soll.
+**Out of Scope:** Übersetzung von dynamischen Restaurant-Adressen, Footer-Legal-Links und PDF-Download-Inhalten (PDF bleibt Deutsch — separate Aufgabe).
