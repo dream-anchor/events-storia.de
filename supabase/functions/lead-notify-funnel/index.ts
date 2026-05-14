@@ -19,7 +19,7 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SLACK_ALERTS_WEBHOOK_URL = Deno.env.get("SLACK_ALERTS_WEBHOOK_URL");
 
 const RESEND_API = "https://api.resend.com";
-const FROM_AUTOREPLY = "Familia Speranza <info@events-storia.de>";
+const FROM_AUTOREPLY = "Domenico Speranza · Storia <info@events-storia.de>";
 const FROM_INTERNAL = "Lead-Funnel <noreply@events-storia.de>";
 const INTERNAL_TO_DEFAULT = "info@events-storia.de";
 const INTERNAL_MAIL_OVERRIDE_TO = Deno.env.get("INTERNAL_MAIL_OVERRIDE_TO");
@@ -213,14 +213,43 @@ function buildAutoReplyHtml(l: LeadRow): string {
   const fmt = fmtFormat(l.format);
   if (fmt && l.intent !== "consult") rows.push(`Format: ${esc(fmt)}`);
   const intent = fmtIntent(l.intent); if (intent) rows.push(`Anliegen: ${esc(intent)}`);
-  return `<!doctype html><html><body style="font-family:Inter,Arial,sans-serif;color:#333;font-size:15px;line-height:1.6;max-width:600px;margin:0 auto;padding:24px">
-    <p>${greeting}</p>
-    <p>vielen Dank für Ihre Nachricht. Ich habe Ihre Anfrage erhalten und melde mich innerhalb eines Werktags persönlich bei Ihnen, um die Details mit Ihnen zu besprechen.</p>
-    <p><strong>Ihre Angaben:</strong><br>
-    ${rows.join("<br>")}</p>
-    <p>Falls in der Zwischenzeit etwas dazukommt oder sich ändert, schreiben Sie mir gerne direkt an <a href="mailto:info@events-storia.de">info@events-storia.de</a>.</p>
-    <p>Herzliche Grüße<br>Domenico Speranza<br>Storia &middot; Restaurant &amp; Catering</p>
-  </body></html>`;
+  const detailsBlock = rows.length
+    ? `<p style="margin:0 0 18px;font-size:15px;color:#444;line-height:1.7"><strong style="color:#1a1a1a">Ihre Angaben:</strong><br>${rows.join("<br>")}</p>`
+    : "";
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#faf6f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;line-height:1.6;color:#333;">
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Wir haben Ihre Anfrage erhalten und melden uns kurz.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#faf6f0;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.04);">
+        <tr><td style="padding:32px 32px 20px;text-align:center;border-bottom:1px solid #f0ead8;">
+          <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:normal;color:#1a1a1a;letter-spacing:0.08em;">STORIA</h1>
+          <p style="margin:6px 0 0;font-size:11px;color:#999;letter-spacing:0.18em;text-transform:uppercase;">Catering &amp; Events &mdash; München</p>
+        </td></tr>
+        <tr><td style="padding:32px;font-size:15px;color:#444;line-height:1.7">
+          <p style="margin:0 0 18px">${greeting}</p>
+          <p style="margin:0 0 18px">vielen Dank für Ihre Nachricht. Ich habe Ihre Anfrage erhalten und melde mich innerhalb von 4 Stunden persönlich bei Ihnen, außerhalb unserer Öffnungszeiten am nächsten Morgen.</p>
+          ${detailsBlock}
+          <p style="margin:0 0 24px">Falls in der Zwischenzeit etwas dazukommt oder sich ändert, schreiben Sie mir gerne direkt an <a href="mailto:info@events-storia.de" style="color:#b45309;text-decoration:none">info@events-storia.de</a>.</p>
+          <p style="margin:0;color:#1a1a1a">Herzliche Grüße<br>Domenico Speranza<br>Storia &middot; Restaurant &amp; Catering</p>
+          <p style="margin:18px 0 0;font-size:13px;color:#666;line-height:1.6">
+            Karlstraße 47a &middot; 80333 München<br>
+            <a href="tel:+498951519696" style="color:#b45309;text-decoration:none">+49 89 51519696</a> &middot; <a href="mailto:info@events-storia.de" style="color:#b45309;text-decoration:none">info@events-storia.de</a><br>
+            <a href="https://www.events-storia.de" style="color:#b45309;text-decoration:none">www.events-storia.de</a>
+          </p>
+        </td></tr>
+        <tr><td style="padding:24px 32px;background-color:#faf6f0;text-align:center;border-top:1px solid #f0ead8;">
+          <p style="margin:0 0 8px;font-size:13px;color:#666;"><strong>STORIA Catering &amp; Events</strong><br>Karlstraße 47a, 80333 München</p>
+          <p style="margin:8px 0 0;font-size:13px;">
+            <a href="tel:+498951519696" style="color:#b45309;text-decoration:none;">089 51519696</a>
+            &nbsp;&middot;&nbsp;
+            <a href="mailto:info@events-storia.de" style="color:#b45309;text-decoration:none;">info@events-storia.de</a>
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
 }
 
 function buildInternalHtml(l: LeadRow, score: number): string {
@@ -331,7 +360,7 @@ Deno.serve(async (req) => {
         await sendResend({
           from: FROM_AUTOREPLY,
           to: [l.email],
-          subject: "Wir haben Ihre Anfrage erhalten — Familia Speranza",
+          subject: "Ihre Anfrage bei Storia — wir melden uns kurz",
           html: buildAutoReplyHtml(l),
           reply_to: "info@events-storia.de",
         });
