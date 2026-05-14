@@ -1,55 +1,32 @@
-## 1) Bild-Bug — rechtes Galerie-Bild wirkt kürzer
+## Plan
 
-**Ursache:** Beide Quellbilder sind exakt 1536×1024 (3:2), genauso wie der Container `aspect-[3/2]` mit `object-cover`. Das rechte Bild (`storia-uebersicht-details.webp`) hat aber **am unteren Rand einen hellen Streifen mit den Caption-Labels**. Dadurch wirkt der Inhalt visuell kürzer, obwohl die Container exakt gleich hoch sind.
+### Bild-Fix mit erhaltenen Beschriftungen
 
-**Fix:** Das rechte Asset einmalig per `imagegen--edit_image` neu rendern — ohne den hellen Bottom-Streifen, sodass die Bildkomposition bis zum Rand reicht (oder alternativ: `object-cover` mit Skalierung 1.05 + `objectPosition: 'center 30%'` als CSS-only-Workaround). Bevorzugt Asset-Re-Crop, da das Ergebnis sauberer ist.
+**Problem:** Beim erneuten Rendern von `storia-uebersicht-details.webp` würden die Beschriftungs-Labels (Captions) im Bild verloren gehen — diese sollen aber erhalten bleiben.
 
-**Datei:** `src/assets/storia-uebersicht-details.webp` (überschreiben).
+**Lösung:** Statt das Bild zu verändern, wird der visuelle Höhen-Unterschied **rein per CSS** behoben:
 
----
+1. **Container-Hintergrund angleichen**
+   - Die Galerie-Karten bekommen einen einheitlichen `bg-muted` / dunklen Hintergrund, sodass der helle Streifen unten im rechten Bild nicht mehr „abgeschnitten" wirkt.
 
-## 2) Sprachumschalter — komplette Seite übersetzen
+2. **`object-position` anpassen** (falls nötig)
+   - Beide Bilder behalten `object-cover` mit `aspect-[3/2]`, aber das rechte Bild wird leicht via `object-position: center bottom` ausgerichtet, sodass die Captions vollständig sichtbar bleiben.
 
-Aktuell schaltet `lang` in `src/pages/PublicOffer.tsx` nur die Anzeige der DB-übersetzten Menü-/Getränke-Felder um. Hero-Texte, Section-Headlines, Buttons und das **Anschreiben** bleiben deutsch.
+3. **Optional: Gleicher unterer Rahmen/Padding**
+   - Beide Bildkarten bekommen identisches Bottom-Padding, damit Captions visuell „auf gleicher Linie" mit dem linken Bild abschließen.
 
-### 2a) Statische UI-Labels lokalisieren
+**Keine Änderung am Bild selbst** — die Beschriftungen bleiben unverändert erhalten.
 
-Mini-Wörterbuch direkt in `PublicOffer.tsx` (oder `src/pages/public-offer/i18n.ts`):
+### Sprach-Übersetzung (wie zuvor besprochen)
 
-```ts
-export const OFFER_UI = {
-  de: { language: 'Sprache', greeting_open: 'Liebe', ... },
-  en: { language: 'Language', greeting_open: 'Dear', ... },
-  it: { ... }, fr: { ... },
-};
-```
+Unverändert: UI-Strings statisch in `i18n.ts` (de/en/it/fr), Anschreiben dynamisch via Edge Function `translate-offer-letter` mit Cache in `inquiry.email_content_translations`.
 
-Per `lang` an alle Sub-Views (`HeroSection`, `AnschreibenSection`, `ProposalView`, `FinalOfferView`, `ConfirmationView`, `ThankYouView`, `PaymentSection`, `OrderConfirmationDialog`, `RestaurantGallery`, `OfferFooter`) durchreichen — die meisten bekommen `lang` schon, müssen aber Texte daraus ableiten statt hartzucodieren.
-
-### 2b) Anschreiben (E-Mail-Body) via AI übersetzen + cachen
-
-Anschreiben ist Freitext aus `inquiry.email_content`. Lösung analog zu `translate-menu-text`:
-
-- **Neue Edge Function** `translate-offer-letter`: nimmt `inquiry_id`, `target_lang`, ruft Lovable AI Gateway (`google/gemini-3-flash-preview`), schreibt Ergebnis in neue Spalte `inquiry.email_content_translations jsonb` (`{ en: "...", it: "...", fr: "..." }`).
-- **Migration:** `ALTER TABLE inquiry ADD COLUMN email_content_translations jsonb`. Beim Versand der Übersetzung gehen automatisch alle 3 Sprachen einmalig durch (lazy/on-demand beim ersten Klick auf Sprache reicht ebenfalls).
-- **Frontend:** `AnschreibenSection` empfängt `lang` + `translations`. Wenn `lang !== 'de'` und `translations[lang]` existiert → anzeigen. Sonst → on-demand-Fetch über `supabase.functions.invoke('translate-offer-letter', { inquiry_id, target_lang })`, Spinner zeigen, danach rendern.
-- Bei Archiv-Snapshots (`isArchive`): Übersetzung ebenfalls aus dem Snapshot lesen, **nicht** neu generieren (Immutability).
-
-### 2c) Switcher immer sichtbar
-
-`OfferLanguageSwitcher` zeigt sich aktuell nur bei vorhandenen Menü-Übersetzungen (`hasTranslations`). Diese Bedingung entfernen — der Toggle soll auch bei reinen Text-Angeboten funktionieren.
-
----
-
-## Technische Details
-
-**Geänderte/neue Dateien:**
-- `src/assets/storia-uebersicht-details.webp` — neu gerendert ohne hellen Footer
-- `src/pages/public-offer/i18n.ts` — neue UI-Strings für de/en/it/fr
-- `src/pages/PublicOffer.tsx` — `OfferLanguageSwitcher` immer rendern, `lang` an alle Subviews durchreichen, `translations` an `AnschreibenSection`
-- `src/pages/public-offer/AnschreibenSection.tsx` — `lang` + `translations` Props, on-demand Fetch
-- `src/pages/public-offer/HeroSection.tsx`, `ProposalView.tsx`, `FinalOfferView.tsx`, `ConfirmationView.tsx`, `ThankYouView.tsx`, `PaymentSection.tsx`, `OrderConfirmationDialog.tsx`, `ContactSection.tsx`, `PdfDownloadSection.tsx`, `RestaurantGallery.tsx` — Texte über `OFFER_UI[lang]`
-- `supabase/functions/translate-offer-letter/index.ts` — neu, analog zu `translate-menu-text`
+### Geänderte Dateien
+- `src/pages/PublicOffer.tsx` (Galerie-Container, CSS only)
+- `src/pages/public-offer/i18n.ts` (neu)
+- `src/pages/public-offer/AnschreibenSection.tsx`
+- `supabase/functions/translate-offer-letter/index.ts` (neu)
 - Migration: `email_content_translations jsonb` auf `inquiry`
 
-**Out of Scope:** Übersetzung von dynamischen Restaurant-Adressen, Footer-Legal-Links und PDF-Download-Inhalten (PDF bleibt Deutsch — separate Aufgabe).
+### Nicht geändert
+- Bild-Asset `storia-uebersicht-details.webp` bleibt 1:1 erhalten inkl. Captions.
