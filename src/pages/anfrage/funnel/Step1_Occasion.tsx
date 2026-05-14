@@ -4,23 +4,15 @@ import { Button } from "@/components/ui/button";
 import { occasionSchema } from "./funnelSchema";
 import { cn } from "@/lib/utils";
 import type { Occasion, PeopleBucket } from "./types";
+import { FUNNEL_DE } from "./i18n/de";
 
-const OCCASIONS: { id: Occasion; label: string }[] = [
-  { id: "firmenfeier", label: "Firmenfeier" },
-  { id: "geburtstag", label: "Geburtstag" },
-  { id: "hochzeit", label: "Hochzeit" },
-  { id: "weihnachtsfeier", label: "Weihnachtsfeier" },
-  { id: "privat", label: "Privater Anlass" },
-  { id: "sonstiges", label: "Sonstiges" },
-];
+const OCCASIONS: { id: Occasion; label: string }[] = (
+  ["firmenfeier", "geburtstag", "hochzeit", "weihnachtsfeier", "privat", "sonstiges"] as Occasion[]
+).map((id) => ({ id, label: FUNNEL_DE.step1.occasions[id] }));
 
-const BUCKETS: { id: PeopleBucket; label: string }[] = [
-  { id: "2-10", label: "2–10" },
-  { id: "11-25", label: "11–25" },
-  { id: "26-50", label: "26–50" },
-  { id: "51-100", label: "51–100" },
-  { id: "100+", label: "100+" },
-];
+const BUCKETS: { id: PeopleBucket; label: string }[] = (
+  ["2-10", "11-25", "26-50", "51-100", "100+"] as PeopleBucket[]
+).map((id) => ({ id, label: FUNNEL_DE.step1.buckets[id] }));
 
 type Props = {
   occasion: Occasion | null;
@@ -48,8 +40,8 @@ export const Step1_Occasion = ({ occasion, occasion_other, people_bucket, onChan
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl md:text-3xl font-serif font-semibold mb-2">Worum geht es?</h2>
-        <p className="text-muted-foreground mb-5">Wählen Sie den Anlass.</p>
+        <h2 className="text-2xl md:text-3xl font-serif font-semibold mb-2">{FUNNEL_DE.step1.heading}</h2>
+        <p className="text-muted-foreground mb-5">{FUNNEL_DE.step1.subline}</p>
         <div className="flex flex-wrap gap-2">
           {OCCASIONS.map((o) => (
             <button
@@ -74,7 +66,7 @@ export const Step1_Occasion = ({ occasion, occasion_other, people_bucket, onChan
             <Input
               value={occasion_other}
               onChange={(e) => onChange({ occasion_other: e.target.value })}
-              placeholder="Kurz beschreiben"
+              placeholder={FUNNEL_DE.step1.other_placeholder}
               maxLength={120}
               className="h-12"
               aria-invalid={!!errors.occasion_other}
@@ -85,7 +77,7 @@ export const Step1_Occasion = ({ occasion, occasion_other, people_bucket, onChan
       </div>
 
       <div>
-        <h3 className="text-lg md:text-xl font-semibold mb-3">Wie viele Personen?</h3>
+        <h3 className="text-lg md:text-xl font-semibold mb-3">{FUNNEL_DE.step1.people_heading}</h3>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {BUCKETS.map((b) => (
             <button
@@ -108,8 +100,8 @@ export const Step1_Occasion = ({ occasion, occasion_other, people_bucket, onChan
       </div>
 
       <div className="flex items-center justify-between pt-4">
-        <Button variant="ghost" onClick={onBack} className="min-h-[48px]">Zurück</Button>
-        <Button onClick={submit} className="min-h-[48px] px-6">Weiter</Button>
+        <Button variant="ghost" onClick={onBack} className="min-h-[48px]">{FUNNEL_DE.common.zurueck}</Button>
+        <Button onClick={submit} className="min-h-[48px] px-6">{FUNNEL_DE.common.weiter}</Button>
       </div>
     </div>
   );
