@@ -9,6 +9,7 @@ import { de } from "date-fns/locale";
 import { pickLang, OFFER_LANGS, OFFER_LANG_LABELS, isValidOfferLang, type OfferLang } from "@/lib/offerLang";
 import { OrderConfirmationDialog } from "@/pages/public-offer/OrderConfirmationDialog";
 import { RestaurantGallery } from "@/pages/public-offer/RestaurantGallery";
+import { tOffer } from "@/pages/public-offer/i18n";
 import {
   Phone,
   Mail,
@@ -2133,33 +2134,17 @@ function OfferFooter() {
  * (z.B. Reisegruppen-Pakete mit course_label_en/_it/_fr).
  */
 function OfferLanguageSwitcher({
-  options,
   lang,
   onChange,
 }: {
-  options: PublicOfferOption[];
   lang: OfferLang;
   onChange: (l: OfferLang) => void;
 }) {
-  const hasTranslations = options.some((opt) => {
-    const m = opt.menu_selection;
-    if (!m) return false;
-    const c = m.courses?.some(
-      (x) => x.courseLabel_en || x.courseLabel_it || x.courseLabel_fr ||
-             x.itemName_en || x.itemName_it || x.itemName_fr
-    );
-    if (c) return true;
-    return m.drinks?.some(
-      (d) => d.drinkLabel_en || d.drinkLabel_it || d.drinkLabel_fr ||
-             d.selectedChoice_translations
-    );
-  });
-  if (!hasTranslations) return null;
   return (
     <div className="container mx-auto px-4 pt-6">
       <div className="flex items-center gap-2">
         <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-muted-foreground/70">
-          Sprache
+          {tOffer(lang, 'language')}
         </span>
         <div className="inline-flex rounded-full border border-border/40 p-0.5 bg-background/60 backdrop-blur-sm">
           {OFFER_LANGS.map((l) => (
