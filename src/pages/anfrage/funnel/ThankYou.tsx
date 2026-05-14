@@ -1,4 +1,5 @@
 import { CheckCircle2 } from "lucide-react";
+import { FUNNEL_DE } from "./i18n/de";
 
 export const ThankYou = ({ firstName }: { firstName: string }) => (
   <div className="rounded-2xl border border-border bg-card p-8 md:p-12 text-center">
@@ -6,14 +7,13 @@ export const ThankYou = ({ firstName }: { firstName: string }) => (
       <CheckCircle2 className="h-7 w-7 text-foreground" />
     </div>
     <h2 className="text-2xl md:text-3xl font-serif font-semibold mb-3">
-      Vielen Dank{firstName ? `, ${firstName}` : ""}.
+      {FUNNEL_DE.thankyou.heading_prefix}{firstName ? `, ${firstName}` : ""}.
     </h2>
     <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
-      Ihre Anfrage ist bei uns angekommen. Wir melden uns innerhalb von 24 Stunden persönlich,
-      außerhalb unserer Öffnungszeiten am nächsten Morgen.
+      {FUNNEL_DE.thankyou.body}
     </p>
     <p className="text-sm text-muted-foreground mt-6">
-      Dringend? <a href="tel:+498951519696" className="underline text-foreground font-medium">089 51519696</a>
+      {FUNNEL_DE.thankyou.urgent_prefix} <a href={FUNNEL_DE.common.phone_href} className="underline text-foreground font-medium">{FUNNEL_DE.common.phone_display}</a>
     </p>
   </div>
 );
