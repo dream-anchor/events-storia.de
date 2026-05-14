@@ -9,6 +9,7 @@ import { de } from "date-fns/locale";
 import { pickLang, OFFER_LANGS, OFFER_LANG_LABELS, isValidOfferLang, type OfferLang } from "@/lib/offerLang";
 import { OrderConfirmationDialog } from "@/pages/public-offer/OrderConfirmationDialog";
 import { RestaurantGallery } from "@/pages/public-offer/RestaurantGallery";
+import { tOffer } from "@/pages/public-offer/i18n";
 import {
   Phone,
   Mail,
@@ -206,6 +207,7 @@ export default function PublicOffer() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [payments, setPayments] = useState<PublicPayment[]>([]);
+  const [letterTranslations, setLetterTranslations] = useState<Record<string, string>>({});
 
   // Sprache: ?lang=de|en|it|fr (Default: de). Steuert Anzeige der übersetzten
   // Menü-/Getränke-Felder (course_label, item_name, drink_label, ...).
@@ -401,6 +403,20 @@ export default function PublicOffer() {
       });
   }, [data?.inquiry?.id]);
 
+  // Cached Anschreiben-Übersetzungen (en/it/fr) laden — nur Cache, kein AI-Call hier.
+  useEffect(() => {
+    if (!data?.inquiry?.id || isArchive) return;
+    supabase
+      .from("v2_events")
+      .select("email_content_translations")
+      .eq("id", data.inquiry.id)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        const t = (row?.email_content_translations ?? {}) as Record<string, string>;
+        if (t && typeof t === 'object') setLetterTranslations(t);
+      });
+  }, [data?.inquiry?.id, isArchive]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -455,11 +471,10 @@ export default function PublicOffer() {
       <main className="flex-1">
         <HeroSection inquiry={inquiry} phase={renderPhase} />
 
-        <RestaurantGallery />
+        <RestaurantGallery lang={lang} />
 
-        {/* Sprachumschalter — nur einblenden wenn Snapshot überhaupt Übersetzungen enthält */}
+        {/* Sprachumschalter — immer sichtbar (übersetzt UI-Labels + Anschreiben on-demand) */}
         <OfferLanguageSwitcher
-          options={options}
           lang={lang}
           onChange={setLang}
         />
@@ -469,7 +484,12 @@ export default function PublicOffer() {
             und überschreibt den gespeicherten email_content. Echte Kunden haben
             keinen previewBody und sehen den versendeten email_content. */}
         {(previewBody || inquiry.email_content) && (
-          <AnschreibenSection emailContent={previewBody || inquiry.email_content || ''} />
+          <AnschreibenSection
+            emailContent={previewBody || inquiry.email_content || ''}
+            inquiryId={inquiry.id}
+            lang={lang}
+            translations={letterTranslations}
+          />
         )}
 
         {renderPhase === "proposal_sent" && (
@@ -581,25 +601,70 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
 // ANSCHREIBEN SECTION — persönlicher Begleittext
 // =================================================================
 
-function AnschreibenSection({ emailContent }: { emailContent: string }) {
-  // Grußformel finden — danach kommt nur noch der Absendername
+function AnschreibenSection({
+  emailContent,
+  inquiryId,
+  lang = 'de',
+  translations,
+}: {
+  emailContent: string;
+  inquiryId?: string;
+  lang?: OfferLang;
+  translations?: Record<string, string>;
+}) {
+  const [translated, setTranslated] = useState<string | null>(
+    lang !== 'de' && translations?.[lang] ? translations[lang] : null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+    if (lang === 'de') { setTranslated(null); return; }
+    if (translations?.[lang]) { setTranslated(translations[lang]); return; }
+    if (!inquiryId || !emailContent) return;
+    let cancelled = false;
+    setLoading(true);
+    setTranslated(null);
+    supabase.functions.invoke('translate-offer-letter', {
+      body: { inquiry_id: inquiryId, target_lang: lang, source_text: emailContent },
+    })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data?.translated) { setFailed(true); setTranslated(null); }
+        else setTranslated(data.translated as string);
+      })
+      .catch(() => { if (!cancelled) setFailed(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [lang, inquiryId, emailContent, translations]);
+
+  const sourceText = translated ?? emailContent;
   const greetingSeparators = [
     "Mit freundlichen Grüßen",
     "Herzliche Grüße",
     "Beste Grüße",
     "Viele Grüße",
+    "Kind regards",
+    "Best regards",
+    "Sincerely",
+    "Cordialmente",
+    "Cordiali saluti",
+    "Cordialement",
+    "Sincères salutations",
+    "Bien cordialement",
   ];
 
-  let bodyText = emailContent;
+  let bodyText = sourceText;
   let greetingLine = "";
   let senderName = "";
 
   for (const sep of greetingSeparators) {
-    const idx = emailContent.indexOf(sep);
+    const idx = sourceText.indexOf(sep);
     if (idx !== -1) {
-      bodyText = emailContent.slice(0, idx).trimEnd();
+      bodyText = sourceText.slice(0, idx).trimEnd();
       // Alles nach der Grußformel
-      const afterGreeting = emailContent.slice(idx);
+      const afterGreeting = sourceText.slice(idx);
       // Grußformel + Name (erste 1-2 Zeilen), Rest (Firmenadresse etc.) abschneiden
       const lines = afterGreeting.split('\n').map(l => l.trim()).filter(Boolean);
       greetingLine = lines[0] || sep; // "Viele Grüße"
@@ -638,6 +703,16 @@ function AnschreibenSection({ emailContent }: { emailContent: string }) {
     <section className="bg-background">
       <div className="container mx-auto px-4 py-12 md:py-16">
         <div className="max-w-2xl">
+          {loading && (
+            <div className="mb-4 text-xs font-sans uppercase tracking-widest text-muted-foreground/70">
+              {tOffer(lang, 'translatingLetter')}
+            </div>
+          )}
+          {failed && lang !== 'de' && (
+            <div className="mb-4 text-xs font-sans text-muted-foreground/70 italic">
+              {tOffer(lang, 'translationFailed')}
+            </div>
+          )}
           {/* Fließtext */}
           <div className="font-serif text-base md:text-[1.1rem] leading-[1.75] text-foreground/90 whitespace-pre-line">
             {bodyText}
@@ -2059,33 +2134,17 @@ function OfferFooter() {
  * (z.B. Reisegruppen-Pakete mit course_label_en/_it/_fr).
  */
 function OfferLanguageSwitcher({
-  options,
   lang,
   onChange,
 }: {
-  options: PublicOfferOption[];
   lang: OfferLang;
   onChange: (l: OfferLang) => void;
 }) {
-  const hasTranslations = options.some((opt) => {
-    const m = opt.menu_selection;
-    if (!m) return false;
-    const c = m.courses?.some(
-      (x) => x.courseLabel_en || x.courseLabel_it || x.courseLabel_fr ||
-             x.itemName_en || x.itemName_it || x.itemName_fr
-    );
-    if (c) return true;
-    return m.drinks?.some(
-      (d) => d.drinkLabel_en || d.drinkLabel_it || d.drinkLabel_fr ||
-             d.selectedChoice_translations
-    );
-  });
-  if (!hasTranslations) return null;
   return (
     <div className="container mx-auto px-4 pt-6">
       <div className="flex items-center gap-2">
         <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-muted-foreground/70">
-          Sprache
+          {tOffer(lang, 'language')}
         </span>
         <div className="inline-flex rounded-full border border-border/40 p-0.5 bg-background/60 backdrop-blur-sm">
           {OFFER_LANGS.map((l) => (

@@ -2931,6 +2931,7 @@ export type Database = {
           deposit_amount: number | null
           deposit_due_days: number | null
           deposit_percent: number | null
+          email_content_translations: Json | null
           email_draft: string | null
           event_end_date: string | null
           event_time: string | null
@@ -3043,6 +3044,7 @@ export type Database = {
           deposit_amount?: number | null
           deposit_due_days?: number | null
           deposit_percent?: number | null
+          email_content_translations?: Json | null
           email_draft?: string | null
           event_end_date?: string | null
           event_time?: string | null
@@ -3155,6 +3157,7 @@ export type Database = {
           deposit_amount?: number | null
           deposit_due_days?: number | null
           deposit_percent?: number | null
+          email_content_translations?: Json | null
           email_draft?: string | null
           event_end_date?: string | null
           event_time?: string | null
