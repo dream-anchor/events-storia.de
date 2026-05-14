@@ -102,7 +102,9 @@ https://events-storia.de/admin/events/${inquiryId}/edit`;
       "d.speranza@storia-muenchen.de",
     ];
 
-    // Sende per Resend (primär) oder SMTP (fallback)
+    // Admin-Benachrichtigung: IONOS SMTP primär (eigene Domain → sofortige Zustellung,
+    // umgeht das Resend→IONOS-MX "delayed"-Problem bei info@events-storia.de),
+    // Resend nur als Fallback.
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const smtpUser = Deno.env.get("SMTP_USER")?.trim();
     const smtpPassword = Deno.env.get("SMTP_PASSWORD");
@@ -111,42 +113,8 @@ https://events-storia.de/admin/events/${inquiryId}/edit`;
     let messageId: string | null = null;
     let errorMessage: string | null = null;
 
-    // Resend (primär)
-    if (resendApiKey) {
-      try {
-        const res = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${resendApiKey}`,
-            "Content-Type": "application/json; charset=utf-8",
-          },
-          body: JSON.stringify({
-            from: "STORIA Events <info@events-storia.de>",
-            to: notificationRecipients,
-            subject: emailSubject,
-            html: htmlBody,
-            text: emailText,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          sent = true;
-          provider = "resend";
-          messageId = data.id || null;
-          errorMessage = null;
-          console.log("Notification sent via Resend to:", notificationRecipients.join(", "));
-        } else {
-          errorMessage = `Resend error: ${await res.text()}`;
-          console.error(errorMessage);
-        }
-      } catch (resendErr) {
-        errorMessage = resendErr instanceof Error ? resendErr.message : "Resend error";
-        console.error("Resend exception:", errorMessage);
-      }
-    }
-
-    // SMTP Fallback
-    if (!sent && smtpUser && smtpPassword) {
+    // IONOS SMTP (primär für interne Empfänger)
+    if (smtpUser && smtpPassword) {
       try {
         const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
         const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.ionos.de";
@@ -171,10 +139,44 @@ https://events-storia.de/admin/events/${inquiryId}/edit`;
         sent = true;
         provider = "ionos_smtp";
         errorMessage = null;
-        console.log("Notification sent via IONOS SMTP (fallback) to:", notificationRecipients.join(", "));
+        console.log("Notification sent via IONOS SMTP (primary) to:", notificationRecipients.join(", "));
       } catch (smtpError) {
         errorMessage = smtpError instanceof Error ? smtpError.message : "SMTP error";
-        console.error("SMTP fallback error:", errorMessage);
+        console.error("IONOS SMTP (primary) error:", errorMessage);
+      }
+    }
+
+    // Resend (Fallback)
+    if (!sent && resendApiKey) {
+      try {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json; charset=utf-8",
+          },
+          body: JSON.stringify({
+            from: "STORIA Events <info@events-storia.de>",
+            to: notificationRecipients,
+            subject: emailSubject,
+            html: htmlBody,
+            text: emailText,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          sent = true;
+          provider = "resend";
+          messageId = data.id || null;
+          errorMessage = null;
+          console.log("Notification sent via Resend (fallback) to:", notificationRecipients.join(", "));
+        } else {
+          errorMessage = `Resend error: ${await res.text()}`;
+          console.error(errorMessage);
+        }
+      } catch (resendErr) {
+        errorMessage = resendErr instanceof Error ? resendErr.message : "Resend error";
+        console.error("Resend exception:", errorMessage);
       }
     }
 

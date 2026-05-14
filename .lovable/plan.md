@@ -1,64 +1,44 @@
-## Ziel
+## Problem
 
-Die Druckliste soll auf einen Blick zeigen *was los ist*: Wer kommt wann, mit wie vielen Leuten, was ist gebucht (Paket/Menü), wo findet es statt und wer ist verantwortlich.
+Bei der letzten Test-Buchung mit Kostenübernahme (Zahlung später / Rechnung) hat **der Gast** die Bestätigungsmail erhalten, **wir aber nicht**.
 
-## Was sich pro Zeile ändert
+## Ursache (in den Logs verifiziert)
 
-Aktuell (zu dünn):
+Beide Mails laufen über die Funktion `notify-customer-response`:
+
 ```
-Mi 13.05  18:30  Müller GmbH         24 P   Karlstr. 47a    bezahlt
-```
-
-Neu (zweizeilig, kompakt):
-```
-Mi 13.05  18:30  │ 24 Pers │ Müller GmbH                              AM · bezahlt
-                 │         │ Firmenfeier · Paket „Tartuferia" 4-Gang  · Hauptraum
+09:44:41  Kunde   → mimmo2905@yahoo.de                       resend  delivered ✅
+09:44:41  Admin   → info@events-storia.de, d.speranza@…      resend  delayed   ❌
+09:36:40  Admin   → info@events-storia.de, d.speranza@…      resend  delayed   ❌
 ```
 
-Felder pro Auftrag:
-- **Datum + Wochentag + Uhrzeit** (links, fix)
-- **Personenzahl** prominent in eigener Spalte mit Rahmen (vorher zu klein, teils leer)
-- **Kunde/Firma** fett
-- **Kurzbeschreibung** (zweite Zeile, grau): `Anlass · Paket-/Menüname · Raum oder Stadt`
-- **Verantwortliche/r** (2-Letter-Initialen) + **Status** rechts
+Resend nimmt die Mail an (`sent = true`), liefert sie aber an `info@events-storia.de` nicht aus → Status bleibt **`delayed`**. Weil der Code `sent = true` setzt, greift der **IONOS-SMTP-Fallback nicht**. Der Gast (yahoo.de) bekommt sein Mail, wir bekommen nichts.
 
-Bei mehrtägigen Events: Datum als `Mi 13.–Fr 15.05.` darstellen.
+Hintergrund: Wir senden **von** `info@events-storia.de` **an** `info@events-storia.de` über Resend. Resend stellt das per ausgehender MX an unser eigenes IONOS-Postfach zu, was IONOS regelmäßig deferred → "delayed".
 
-## Datenbeschaffung
+(WhatsApp-Alarm scheitert separat mit `WhatsApp not configured` — nicht Teil dieses Fixes.)
 
-Im `UpcomingOrdersPrintDialog` zusätzlich folgendes laden, sobald der Dialog öffnet:
+## Lösung
 
-1. Für alle gefilterten Events mit `selected_option_id`: einmaliger Batch-Select auf `offer_options` (oder die korrekte Tabelle) → liefert `package_name`, `option_label`, ggf. Kurzfassung des Menüs (z. B. erste Course-Namen, kommagetrennt, max. 60 Zeichen).
-2. Für `assigned_to` → Anzeige der Initialen via vorhandenem `getAdminInitials()`.
+In `supabase/functions/notify-customer-response/index.ts` die **Admin-Benachrichtigung** dual versenden:
 
-Adapter `eventToInquiryRecord` in `EventsList.tsx` und `mapV2Event` in `types/inquiryRecord.ts` werden um optionale Felder erweitert (alle nullable, keine Breaking Changes):
-- `occasion: string | null`
-- `packageLabel: string | null` (z. B. „Paket Tartuferia 4-Gang")
-- `menuSummary: string | null`
-- `roomOrCityShort: string | null`
-- `assignedInitials: string | null`
-- `dateEnd: string | null` für mehrtägige Events
+1. **Primär: IONOS SMTP** für interne Empfänger (`info@events-storia.de`, `d.speranza@storia-muenchen.de`) — eigene Domain, sofort zustellbar, kein Resend-MX-Umweg.
+2. **Fallback: Resend** falls SMTP-Credentials fehlen oder einen Fehler werfen.
 
-Der Adapter parst `guest_count` robust (`Number(e.guest_count) || null` statt `parseInt`-Pfad, der aktuell bei manchen Datensätzen `null` liefert — das ist die Ursache des fehlenden „24 P").
+Die **Kunden-Bestätigung** bleibt unverändert (Resend primär, da externe Empfänger).
 
-## Layout `UpcomingOrdersSheet.tsx`
+**Subject bleibt unverändert.**
 
-- Zwei-Zeilen-Row, Spaltenbreiten neu justiert.
-- Personenspalte erhält dünnen Rahmen und zentrierte 11pt-Zahl, damit sie als „Headline" lesbar ist.
-- Unterzeile in 8pt grau (`printColors.muted`), max. eine Zeile, mit Ellipsis.
-- Gruppen-Header bleiben (KW / Monat). Sub-Header „In Haus / Außer Haus" bleiben.
-- Zusatz in der Gruppen-Summenzeile: `∑ 3 Aufträge · 64 Personen · 2 In Haus / 1 Außer Haus`.
+## Technische Details
 
-## Out of scope
+Datei: `supabase/functions/notify-customer-response/index.ts`
 
-- Keine Backend-/DB-Änderung.
-- Keine neuen Filter (Mitarbeiter, Kategorie) — bleibt für v2.
-- Keine Änderung an Bildschirm-UI der Anfragen-Liste, nur am Druckdokument und am Dialog-Datenladen.
+- Reihenfolge der beiden Send-Blöcke für die Admin-Mail tauschen: erst SMTP (denomailer / IONOS), dann Resend als Fallback.
+- `provider` in `email_delivery_logs` zeigt korrekt `ionos_smtp` bzw. `resend`.
 
-## Betroffene Dateien
+Keine DB-Änderung, keine UI-Änderung, kein Eingriff in `confirm-order`, Subject oder Kunden-Mail.
 
-- `src/components/admin/refine/print/UpcomingOrdersSheet.tsx` — neues Row-Layout, Summenzeile.
-- `src/components/admin/refine/print/UpcomingOrdersPrintDialog.tsx` — Batch-Query für Paket-/Menünamen, Anreicherung der Records vor Render.
-- `src/components/admin/refine/EventsList.tsx` — Adapter `eventToInquiryRecord` um neue Felder erweitern, robustes Guest-Count-Parsing.
-- `src/types/inquiryRecord.ts` — neue optionale Felder im Typ.
-- `src/hooks/useUnifiedInquiries.ts` / `mapV2Event` — gleiche Felder befüllen, damit der Druck auch aus der Unified-Liste konsistent funktioniert.
+## Out of Scope
+
+- WhatsApp-Konfiguration (separater Task).
+- Manuelles Nachsenden der verlorenen Test-Bestätigung — sag Bescheid, wenn ich sie nachschicken soll.
