@@ -8,6 +8,7 @@ export type RouteKey =
   | 'home'
   | 'contact'
   | 'events'
+  | 'anfrage'
   | 'catering.fingerfood'
   | 'catering.platters'
   | 'catering.casseroles'
@@ -60,6 +61,7 @@ export const ROUTES: RouteConfig[] = [
   { key: 'home', de: '/', en: '/', languages: ['de', 'en'], prerender: true, priority: 1.0, changefreq: 'weekly' },
   { key: 'contact', de: '/kontakt', en: '/contact', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'monthly' },
   { key: 'events', de: '/events', en: '/events', languages: ['de', 'en'], prerender: true, priority: 0.9, changefreq: 'weekly' },
+  { key: 'anfrage', de: '/anfrage', en: '/anfrage', languages: ['de'], prerender: true, priority: 0.8, changefreq: 'weekly' },
 
   // Catering pages
   { key: 'catering.fingerfood', de: '/catering/buffet-fingerfood', en: '/catering/finger-food-buffet', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'weekly' },

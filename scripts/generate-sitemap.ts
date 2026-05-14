@@ -27,9 +27,13 @@ const collectUrls = (): string[] => {
   const urls: string[] = [];
   for (const route of ROUTES) {
     if (!route.prerender || route.noIndex) continue;
-    urls.push(`${DOMAIN}${withTrailingSlash(route.de)}`);
-    const enPath = route.en === '/' ? '/en/' : `/en${route.en}/`;
-    urls.push(`${DOMAIN}${enPath}`);
+    const hasDe = route.languages.includes('de');
+    const hasEn = route.languages.includes('en');
+    if (hasDe) urls.push(`${DOMAIN}${withTrailingSlash(route.de)}`);
+    if (hasEn) {
+      const enPath = route.en === '/' ? '/en/' : `/en${route.en}/`;
+      urls.push(`${DOMAIN}${enPath}`);
+    }
   }
   return urls;
 };
@@ -45,20 +49,26 @@ const generateSitemap = (): string => {
     const enPath = route.en === '/' ? '/en/' : `/en${route.en}/`;
     const priority = (route.priority ?? 0.5).toFixed(1);
     const changefreq = route.changefreq ?? 'monthly';
+    const hasDe = route.languages.includes('de');
+    const hasEn = route.languages.includes('en');
 
-    // DE URL entry with hreflang
-    urlEntries.push(`  <url>
+    // DE URL entry (with hreflang only when EN exists)
+    if (hasDe) {
+      const hreflang = hasEn ? `
+    <xhtml:link rel="alternate" hreflang="de" href="${DOMAIN}${dePath}"/>
+    <xhtml:link rel="alternate" hreflang="en" href="${DOMAIN}${enPath}"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="${DOMAIN}${dePath}"/>` : '';
+      urlEntries.push(`  <url>
     <loc>${DOMAIN}${dePath}</loc>
     <lastmod>${today}</lastmod>
     <changefreq>${changefreq}</changefreq>
-    <priority>${priority}</priority>
-    <xhtml:link rel="alternate" hreflang="de" href="${DOMAIN}${dePath}"/>
-    <xhtml:link rel="alternate" hreflang="en" href="${DOMAIN}${enPath}"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="${DOMAIN}${dePath}"/>
+    <priority>${priority}</priority>${hreflang}
   </url>`);
+    }
 
     // EN URL entry with hreflang
-    urlEntries.push(`  <url>
+    if (hasEn) {
+      urlEntries.push(`  <url>
     <loc>${DOMAIN}${enPath}</loc>
     <lastmod>${today}</lastmod>
     <changefreq>${changefreq}</changefreq>
@@ -67,6 +77,7 @@ const generateSitemap = (): string => {
     <xhtml:link rel="alternate" hreflang="en" href="${DOMAIN}${enPath}"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="${DOMAIN}${dePath}"/>
   </url>`);
+    }
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
