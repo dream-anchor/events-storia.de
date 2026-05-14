@@ -1,8 +1,18 @@
 import { Utensils, Truck, MessagesSquare, CalendarDays } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 import type { Intent } from "./types";
+import { FUNNEL_DE } from "./i18n/de";
 
-const RESERVATION_URL = "https://www.opentable.de/r/ristorante-storia-munchen";
+const buildReservationUrl = () => {
+  const params = new URLSearchParams({
+    rid: "115809",
+    restref: "115809",
+    lang: "de-DE",
+    partysize: "2",
+    ot_source: "Restaurant website",
+  });
+  return `https://www.opentable.de/restref/client/?${params.toString()}`;
+};
 
 type Tile = {
   id: Intent | "reservation";
@@ -11,21 +21,22 @@ type Tile = {
   Icon: React.ComponentType<{ className?: string }>;
 };
 
+const T = FUNNEL_DE.step0.tiles;
 const TILES: Tile[] = [
-  { id: "reservation", title: "Tisch reservieren", desc: "Regulärer Restaurantbesuch — direkt zur Reservierung.", Icon: CalendarDays },
-  { id: "inhouse",     title: "Im Restaurant feiern", desc: "Geburtstag, Firmenfeier, Hochzeit bei uns vor Ort.", Icon: Utensils },
-  { id: "delivery",    title: "Catering / Lieferung", desc: "Wir kommen zu Ihnen — Büro, Zuhause, Veranstaltungsort.", Icon: Truck },
-  { id: "consult",     title: "Beratung gewünscht", desc: "Sie wissen noch nicht genau — wir helfen weiter.", Icon: MessagesSquare },
+  { id: "reservation", title: T.reservation.title, desc: T.reservation.desc, Icon: CalendarDays },
+  { id: "inhouse",     title: T.inhouse.title,     desc: T.inhouse.desc,     Icon: Utensils },
+  { id: "delivery",    title: T.delivery.title,    desc: T.delivery.desc,    Icon: Truck },
+  { id: "consult",     title: T.consult.title,     desc: T.consult.desc,     Icon: MessagesSquare },
 ];
 
 export const Step0_Intent = ({ onSelect }: { onSelect: (intent: Intent) => void }) => {
   return (
     <div>
       <h2 className="text-2xl md:text-3xl font-serif font-semibold text-center mb-2">
-        Womit dürfen wir helfen?
+        {FUNNEL_DE.step0.heading}
       </h2>
       <p className="text-center text-muted-foreground mb-8">
-        Wählen Sie, was am besten passt.
+        {FUNNEL_DE.step0.subline}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {TILES.map(({ id, title, desc, Icon }) => (
@@ -35,7 +46,7 @@ export const Step0_Intent = ({ onSelect }: { onSelect: (intent: Intent) => void 
             onClick={() => {
               if (id === "reservation") {
                 trackEvent("funnel_step_complete", { step: 0, intent: "reservation" });
-                window.location.href = RESERVATION_URL;
+                window.location.href = buildReservationUrl();
                 return;
               }
               trackEvent("funnel_step_complete", { step: 0, intent: id });
