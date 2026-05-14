@@ -11,7 +11,7 @@ export const ErwartungBlock = () => (
         Angebot. Erst wenn alles passt, sprechen wir über die Buchung.
       </p>
       <p>
-        Wir antworten innerhalb von 4 Stunden, in den meisten Fällen
+        Wir antworten innerhalb von 24 Stunden, in den meisten Fällen
         deutlich schneller. Außerhalb unserer Öffnungszeiten
         (Mo–Fr 9–1 Uhr, Sa–So 12–1 Uhr) am nächsten Morgen. Eine
         automatische Bestätigung erhalten Sie sofort per E-Mail.

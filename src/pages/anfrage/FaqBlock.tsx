@@ -8,7 +8,7 @@ import {
 const FAQS = [
   {
     q: "Wie schnell antwortet Storia auf eine Anfrage?",
-    a: "Wir melden uns innerhalb von 4 Stunden persönlich bei Ihnen — meistens schneller. Bei Anfragen außerhalb unserer Öffnungszeiten (Mo–Fr 9–1 Uhr, Sa–So 12–1 Uhr) am nächsten Morgen. Eine automatische Bestätigung erhalten Sie sofort per E-Mail.",
+    a: "Wir melden uns innerhalb von 24 Stunden persönlich bei Ihnen — meistens schneller. Bei Anfragen außerhalb unserer Öffnungszeiten (Mo–Fr 9–1 Uhr, Sa–So 12–1 Uhr) am nächsten Morgen. Eine automatische Bestätigung erhalten Sie sofort per E-Mail.",
   },
   {
     q: "Welche Anlässe richtet Storia aus?",
