@@ -56,6 +56,7 @@ type LeadRow = {
   utm_medium: string | null;
   utm_campaign: string | null;
   source_url: string | null;
+  event_inquiry_id: string | null;
 };
 
 function scoreLead(l: LeadRow): number {
@@ -252,7 +253,7 @@ function buildAutoReplyHtml(l: LeadRow): string {
 </body></html>`;
 }
 
-function buildInternalHtml(l: LeadRow, score: number): string {
+function buildInternalHtml(l: LeadRow, score: number, inquiryId: string | null): string {
   const utm = [l.utm_source, l.utm_medium, l.utm_campaign].filter(Boolean).join(" / ");
   const fmt = fmtFormat(l.format);
   const showFormat = !(l.intent === "consult" && !l.format) && fmt;
@@ -284,7 +285,7 @@ function buildInternalHtml(l: LeadRow, score: number): string {
     <table cellpadding="0" style="border-collapse:collapse;font-size:14px">
       ${tableRows}
     </table>
-    <p style="margin-top:20px"><a href="https://events-storia.de/admin/leads/${esc(l.id)}">In Maestro öffnen →</a></p>
+    <p style="margin-top:20px"><a href="https://events-storia.de/n${esc(inquiryId ?? l.id)}/edit">In Maestro öffnen →</a></p>
     <hr style="border:none;border-top:1px solid #e5e5e5;margin:24px 0 12px">
     <p style="font-size:12px;color:#888;margin:0">Diese Anfrage kam über das Online-Formular auf events-storia.de/anfrage. Lead-ID: ${esc(l.id)}</p>
   </body></html>`;
@@ -295,6 +296,72 @@ function subjectForScore(score: number, l: LeadRow): string {
   const base = parts.join(" • ");
   if (score >= 70) return `Anfrage (Priorität): ${base}`;
   return `Anfrage: ${base}`;
+}
+
+function buildInquiryMessage(l: LeadRow): string {
+  const lines: string[] = [];
+  lines.push(`Anliegen: ${fmtIntent(l.intent)}`);
+  lines.push(`Anlass: ${fmtOccasion(l)}`);
+  lines.push(`Personen: ${fmtPeople(l.people_bucket)}`);
+  const dt = fmtDate(l);
+  if (dt) lines.push(`Datum: ${dt}`);
+  const fmt = fmtFormat(l.format);
+  if (fmt && l.intent !== "consult") lines.push(`Format: ${fmt}`);
+  if (l.notes) lines.push("", "Nachricht:", l.notes);
+  const utm = [l.utm_source, l.utm_medium, l.utm_campaign].filter(Boolean).join(" / ");
+  if (utm) lines.push("", `UTM: ${utm}`);
+  if (l.source_url) lines.push(`Quelle: ${l.source_url}`);
+  lines.push("", `Lead-ID: ${l.id}`);
+  return lines.join("\n");
+}
+
+async function ensureEventInquiry(
+  supabase: ReturnType<typeof createClient>,
+  l: LeadRow,
+): Promise<string | null> {
+  if (l.event_inquiry_id) return l.event_inquiry_id;
+
+  const inquiry_type = l.intent === "delivery" ? "catering" : "event";
+  const preferred_date =
+    l.date_mode === "fixed" ? l.date_value :
+    l.date_mode === "flexible" ? l.date_range_start :
+    null;
+  const event_end_date = l.date_mode === "flexible" ? l.date_range_end : null;
+
+  const payload = {
+    inquiry_type,
+    contact_name: fullName(l) || (l.email ?? "—"),
+    email: l.email,
+    phone: l.phone,
+    guest_count: l.people_bucket,
+    event_type: fmtOccasion(l) || null,
+    preferred_date,
+    event_end_date,
+    message: buildInquiryMessage(l),
+    source: "anfrage_funnel",
+    status: "new",
+    notification_sent: true, // wir versenden eigene Mail unten
+    is_test: false,
+  };
+
+  const { data, error } = await supabase
+    .from("event_inquiries")
+    .insert(payload)
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(`event_inquiries insert failed: ${error?.message ?? "unknown"}`);
+  }
+
+  const inquiryId = (data as { id: string }).id;
+
+  await supabase
+    .from("leads_funnel")
+    .update({ event_inquiry_id: inquiryId })
+    .eq("id", l.id);
+
+  return inquiryId;
 }
 
 Deno.serve(async (req) => {
@@ -354,6 +421,17 @@ Deno.serve(async (req) => {
 
     console.log("[lead-notify-funnel] processing", l.id, "score=", score, "internal_to=", INTERNAL_TO);
 
+    // 0) Inquiry in Maestro anlegen (vor Mails, damit Link funktioniert)
+    let inquiryId: string | null = null;
+    try {
+      inquiryId = await ensureEventInquiry(supabase, l);
+      console.log("[lead-notify-funnel] event_inquiry ensured", inquiryId);
+    } catch (e) {
+      const msg = String((e as Error).message ?? e);
+      console.error("[lead-notify-funnel] event_inquiry create failed:", msg);
+      await logFailure(supabase, l.id, "event_inquiry_create", msg);
+    }
+
     // 1) Auto-Reply
     if (l.email) {
       try {
@@ -381,7 +459,7 @@ Deno.serve(async (req) => {
         from: FROM_INTERNAL,
         to: [INTERNAL_TO],
         subject: subjectForScore(score, l),
-        html: buildInternalHtml(l, score),
+        html: buildInternalHtml(l, score, inquiryId),
         reply_to: l.email || undefined,
       });
       console.log("[lead-notify-funnel] internal_mail sent to", INTERNAL_TO);

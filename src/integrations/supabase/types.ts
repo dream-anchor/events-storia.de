@@ -1813,6 +1813,7 @@ export type Database = {
           date_range_start: string | null
           date_value: string | null
           email: string
+          event_inquiry_id: string | null
           first_name: string
           format: string | null
           gdpr_consent: boolean
@@ -1843,6 +1844,7 @@ export type Database = {
           date_range_start?: string | null
           date_value?: string | null
           email: string
+          event_inquiry_id?: string | null
           first_name: string
           format?: string | null
           gdpr_consent?: boolean
@@ -1873,6 +1875,7 @@ export type Database = {
           date_range_start?: string | null
           date_value?: string | null
           email?: string
+          event_inquiry_id?: string | null
           first_name?: string
           format?: string | null
           gdpr_consent?: boolean
