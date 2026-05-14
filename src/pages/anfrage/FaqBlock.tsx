@@ -34,8 +34,8 @@ const FAQS = [
 
 export const FaqBlock = () => (
   <section aria-labelledby="anfrage-faq" className="space-y-5">
-    <h2 id="anfrage-faq" className="text-2xl md:text-3xl font-serif font-bold tracking-tight">
-      Häufige Fragen zur Anfrage
+      <h2 id="anfrage-faq" className="text-2xl md:text-3xl font-serif font-bold tracking-tight">
+      Häufige Fragen
     </h2>
     <Accordion type="single" collapsible className="max-w-3xl">
       {FAQS.map((item, idx) => (

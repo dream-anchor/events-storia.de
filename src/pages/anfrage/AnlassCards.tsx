@@ -36,6 +36,13 @@ const ANLAESSE = [
     href: "/italienisches-catering-muenchen",
     linkLabel: "Details zum Catering München",
   },
+  {
+    title: "Privatfeier",
+    body:
+      "Vom intimen Dinner mit Freunden bis zur Familienfeier — wir richten private Anlässe für jede Gruppengröße aus, im Restaurant oder als Catering bei Ihnen zuhause.",
+    href: "/geburtstag-catering-muenchen",
+    linkLabel: "Details zu privaten Feiern",
+  },
 ] as const;
 
 export const AnlassCards = () => (
