@@ -253,7 +253,7 @@ function buildAutoReplyHtml(l: LeadRow): string {
 </body></html>`;
 }
 
-function buildInternalHtml(l: LeadRow, score: number): string {
+function buildInternalHtml(l: LeadRow, score: number, inquiryId: string | null): string {
   const utm = [l.utm_source, l.utm_medium, l.utm_campaign].filter(Boolean).join(" / ");
   const fmt = fmtFormat(l.format);
   const showFormat = !(l.intent === "consult" && !l.format) && fmt;
@@ -285,7 +285,7 @@ function buildInternalHtml(l: LeadRow, score: number): string {
     <table cellpadding="0" style="border-collapse:collapse;font-size:14px">
       ${tableRows}
     </table>
-    <p style="margin-top:20px"><a href="https://events-storia.de/admin/leads/${esc(l.id)}">In Maestro öffnen →</a></p>
+    <p style="margin-top:20px"><a href="https://events-storia.de/n${esc(inquiryId ?? l.id)}/edit">In Maestro öffnen →</a></p>
     <hr style="border:none;border-top:1px solid #e5e5e5;margin:24px 0 12px">
     <p style="font-size:12px;color:#888;margin:0">Diese Anfrage kam über das Online-Formular auf events-storia.de/anfrage. Lead-ID: ${esc(l.id)}</p>
   </body></html>`;
