@@ -27,6 +27,46 @@ export const FunnelShell = () => {
   // UTM einmalig erfassen
   useEffect(() => { captureUtm(); }, []);
 
+  // Pre-fill aus URL-Query-Parametern (genau einmal beim Mount)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const VALID_INTENT = ["inhouse", "delivery", "consult"] as const;
+    const VALID_OCCASION = ["firmenfeier", "geburtstag", "hochzeit", "weihnachtsfeier", "privat", "sonstiges"] as const;
+    const VALID_PEOPLE = ["2-10", "11-25", "26-50", "51-100", "100+"] as const;
+    const VALID_FORMAT = ["a_la_carte", "3_gaenge", "aperitivo_flying_buffet", "exklusivmiete", "fingerfood", "pizza_napoletana", "warme_auflaeufe", "komplett_buffet"] as const;
+
+    const rawIntent = params.get("intent");
+    const rawOccasion = params.get("occasion");
+    const rawPeople = params.get("people");
+    const rawFormat = params.get("format");
+
+    const intent = VALID_INTENT.includes(rawIntent as typeof VALID_INTENT[number]) ? (rawIntent as typeof VALID_INTENT[number]) : null;
+    const occasion = VALID_OCCASION.includes(rawOccasion as typeof VALID_OCCASION[number]) ? (rawOccasion as typeof VALID_OCCASION[number]) : null;
+    const people = VALID_PEOPLE.includes(rawPeople as typeof VALID_PEOPLE[number]) ? (rawPeople as typeof VALID_PEOPLE[number]) : null;
+    let format = VALID_FORMAT.includes(rawFormat as typeof VALID_FORMAT[number]) ? (rawFormat as typeof VALID_FORMAT[number]) : null;
+    // format wird bei consult ignoriert
+    if (intent === "consult") format = null;
+
+    const patch: Partial<FunnelState> = {};
+    if (intent) patch.intent = intent;
+    if (occasion) patch.occasion = occasion;
+    if (people) patch.people_bucket = people;
+    if (format) patch.format = format;
+
+    if (Object.keys(patch).length === 0) return;
+
+    dispatch({ type: "SET", patch });
+    if (intent) dispatch({ type: "GOTO", step: 1 });
+
+    const applied: Record<string, string> = {};
+    if (intent) applied.intent = intent;
+    if (occasion) applied.occasion = occasion;
+    if (people) applied.people = people;
+    if (format) applied.format = format;
+    trackEvent("funnel_prefilled", applied);
+  }, []);
+
   // Step-View tracken + Fokus auf Step-Container
   useEffect(() => {
     if (done) return;
