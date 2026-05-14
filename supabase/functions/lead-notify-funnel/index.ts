@@ -308,10 +308,8 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       ok: true,
-      score,
-      internal_to: TEST_BLOCK ? "BLOCKED" : INTERNAL_TO,
-      override_raw_len: OVERRIDE_RAW.length,
-      override_trimmed: OVERRIDE_TRIMMED ? OVERRIDE_TRIMMED.replace(/(.{2}).+(@.+)/, "$1***$2") : null,
+      lead_id: l.id,
+      lead_score: score,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
