@@ -30,7 +30,7 @@ const Anfrage = () => {
               </h1>
               <p className="text-lg md:text-xl text-foreground/75 leading-relaxed">
                 Sagen Sie uns in 60 Sekunden, was Sie planen.
-                <br className="hidden sm:inline" /> Wir melden uns innerhalb von 4 Stunden persönlich.
+                <br className="hidden sm:inline" /> Wir melden uns innerhalb von 24 Stunden persönlich.
               </p>
             </header>
 
