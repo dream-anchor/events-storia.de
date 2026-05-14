@@ -1,13 +1,19 @@
 import { z } from "zod";
 
 export const intentSchema = z.object({
-  intent: z.enum(["inhouse", "delivery", "consult"]),
+  intent: z.enum(["inhouse", "delivery", "consult"], {
+    errorMap: () => ({ message: "Bitte auswählen." }),
+  }),
 });
 
 export const occasionSchema = z.object({
-  occasion: z.enum(["geburtstag", "firmenfeier", "hochzeit", "weihnachtsfeier", "privat", "sonstiges"]),
+  occasion: z.enum(["geburtstag", "firmenfeier", "hochzeit", "weihnachtsfeier", "privat", "sonstiges"], {
+    errorMap: () => ({ message: "Bitte Anlass wählen." }),
+  }),
   occasion_other: z.string().trim().max(120).optional().default(""),
-  people_bucket: z.enum(["2-10", "11-25", "26-50", "51-100", "100+"]),
+  people_bucket: z.enum(["2-10", "11-25", "26-50", "51-100", "100+"], {
+    errorMap: () => ({ message: "Bitte Personenzahl wählen." }),
+  }),
 }).superRefine((v, ctx) => {
   if (v.occasion === "sonstiges" && !v.occasion_other.trim()) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["occasion_other"], message: "Bitte kurz beschreiben." });
@@ -15,7 +21,9 @@ export const occasionSchema = z.object({
 });
 
 export const dateSchema = z.object({
-  date_mode: z.enum(["fixed", "flexible", "open"]),
+  date_mode: z.enum(["fixed", "flexible", "open"], {
+    errorMap: () => ({ message: "Bitte Variante wählen." }),
+  }),
   date_value: z.string().optional().default(""),
   date_range_start: z.string().optional().default(""),
   date_range_end: z.string().optional().default(""),
@@ -36,7 +44,7 @@ export const formatSchema = z.object({
   format: z.enum([
     "a_la_carte", "3_gaenge", "aperitivo_flying_buffet", "exklusivmiete",
     "fingerfood", "pizza_napoletana", "warme_auflaeufe", "komplett_buffet", "beratung",
-  ]),
+  ], { errorMap: () => ({ message: "Bitte Format wählen." }) }),
 });
 
 export const contactSchema = z.object({

@@ -4,12 +4,11 @@ import { Button } from "@/components/ui/button";
 import { dateSchema } from "./funnelSchema";
 import { cn } from "@/lib/utils";
 import type { DateMode } from "./types";
+import { FUNNEL_DE } from "./i18n/de";
 
-const TABS: { id: DateMode; label: string; desc: string }[] = [
-  { id: "fixed", label: "Festes Datum", desc: "Genauer Tag steht." },
-  { id: "flexible", label: "Zeitraum", desc: "Innerhalb eines Zeitfensters." },
-  { id: "open", label: "Noch offen", desc: "Termin folgt später." },
-];
+const TABS: { id: DateMode; label: string; desc: string }[] = (
+  ["fixed", "flexible", "open"] as DateMode[]
+).map((id) => ({ id, label: FUNNEL_DE.step2.tabs[id].label, desc: FUNNEL_DE.step2.tabs[id].desc }));
 
 type Props = {
   date_mode: DateMode | null;
@@ -34,18 +33,18 @@ export const Step2_Date = ({ date_mode, date_value, date_range_start, date_range
     if (!r.success) {
       const e: Record<string, string> = {};
       for (const i of r.error.issues) e[i.path[0] as string] = i.message;
-      if (!date_mode) e.date_mode = "Bitte wählen.";
+      if (!date_mode) e.date_mode = FUNNEL_DE.step2.err_pick;
       setErrors(e); return;
     }
-    if (!date_mode) { setErrors({ date_mode: "Bitte wählen." }); return; }
+    if (!date_mode) { setErrors({ date_mode: FUNNEL_DE.step2.err_pick }); return; }
     setErrors({}); onNext();
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl md:text-3xl font-serif font-semibold mb-2">Wann ist es geplant?</h2>
-        <p className="text-muted-foreground mb-5">Wählen Sie eine Variante.</p>
+        <h2 className="text-2xl md:text-3xl font-serif font-semibold mb-2">{FUNNEL_DE.step2.heading}</h2>
+        <p className="text-muted-foreground mb-5">{FUNNEL_DE.step2.subline}</p>
         <div role="tablist" className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {TABS.map((t) => (
             <button
@@ -71,7 +70,7 @@ export const Step2_Date = ({ date_mode, date_value, date_range_start, date_range
 
       {date_mode === "fixed" && (
         <div>
-          <label className="block text-sm font-medium mb-1">Datum</label>
+          <label className="block text-sm font-medium mb-1">{FUNNEL_DE.step2.date_label}</label>
           <Input
             type="date"
             value={date_value}
@@ -87,11 +86,11 @@ export const Step2_Date = ({ date_mode, date_value, date_range_start, date_range
       {date_mode === "flexible" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
           <div>
-            <label className="block text-sm font-medium mb-1">Von</label>
+            <label className="block text-sm font-medium mb-1">{FUNNEL_DE.step2.from_label}</label>
             <Input type="date" value={date_range_start} min={today()} onChange={(e) => onChange({ date_range_start: e.target.value })} className="h-12" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Bis</label>
+            <label className="block text-sm font-medium mb-1">{FUNNEL_DE.step2.to_label}</label>
             <Input type="date" value={date_range_end} min={date_range_start || today()} onChange={(e) => onChange({ date_range_end: e.target.value })} className="h-12" />
           </div>
           {(errors.date_range_start || errors.date_range_end) && (
@@ -101,8 +100,8 @@ export const Step2_Date = ({ date_mode, date_value, date_range_start, date_range
       )}
 
       <div className="flex items-center justify-between pt-4">
-        <Button variant="ghost" onClick={onBack} className="min-h-[48px]">Zurück</Button>
-        <Button onClick={submit} className="min-h-[48px] px-6">Weiter</Button>
+        <Button variant="ghost" onClick={onBack} className="min-h-[48px]">{FUNNEL_DE.common.zurueck}</Button>
+        <Button onClick={submit} className="min-h-[48px] px-6">{FUNNEL_DE.common.weiter}</Button>
       </div>
     </div>
   );

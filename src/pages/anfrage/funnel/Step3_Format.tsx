@@ -3,22 +3,15 @@ import { Button } from "@/components/ui/button";
 import { formatSchema } from "./funnelSchema";
 import { cn } from "@/lib/utils";
 import type { Format, Intent } from "./types";
+import { FUNNEL_DE } from "./i18n/de";
 
-const INHOUSE_OPTIONS: { id: Format; label: string; desc: string }[] = [
-  { id: "a_la_carte", label: "À la carte", desc: "Klassisch aus der Karte." },
-  { id: "3_gaenge", label: "3-Gänge-Menü", desc: "Vorspeise, Hauptgang, Dessert." },
-  { id: "aperitivo_flying_buffet", label: "Aperitivo + Flying Buffet", desc: "Stehend, locker, gesellig." },
-  { id: "exklusivmiete", label: "Exklusivmiete", desc: "Restaurant nur für Sie." },
-  { id: "beratung", label: "Noch unsicher", desc: "Wir beraten Sie." },
-];
+const INHOUSE_OPTIONS: { id: Format; label: string; desc: string }[] = (
+  ["a_la_carte", "3_gaenge", "aperitivo_flying_buffet", "exklusivmiete", "beratung"] as Format[]
+).map((id) => ({ id, label: FUNNEL_DE.step3.inhouse[id as keyof typeof FUNNEL_DE.step3.inhouse].label, desc: FUNNEL_DE.step3.inhouse[id as keyof typeof FUNNEL_DE.step3.inhouse].desc }));
 
-const DELIVERY_OPTIONS: { id: Format; label: string; desc: string }[] = [
-  { id: "fingerfood", label: "Fingerfood", desc: "Häppchen, Antipasti, Snacks." },
-  { id: "pizza_napoletana", label: "Pizza Napoletana", desc: "Mit mobilem Holzofen." },
-  { id: "warme_auflaeufe", label: "Warme Aufläufe", desc: "Lasagne, Pasta al forno." },
-  { id: "komplett_buffet", label: "Komplett-Buffet", desc: "Vorspeisen bis Dessert." },
-  { id: "beratung", label: "Noch unsicher", desc: "Wir beraten Sie." },
-];
+const DELIVERY_OPTIONS: { id: Format; label: string; desc: string }[] = (
+  ["fingerfood", "pizza_napoletana", "warme_auflaeufe", "komplett_buffet", "beratung"] as Format[]
+).map((id) => ({ id, label: FUNNEL_DE.step3.delivery[id as keyof typeof FUNNEL_DE.step3.delivery].label, desc: FUNNEL_DE.step3.delivery[id as keyof typeof FUNNEL_DE.step3.delivery].desc }));
 
 type Props = {
   intent: Intent;
@@ -34,7 +27,7 @@ export const Step3_Format = ({ intent, format, onChange, onNext, onBack }: Props
 
   const submit = () => {
     const r = formatSchema.safeParse({ format: format ?? undefined });
-    if (!r.success) { setError("Bitte wählen."); return; }
+    if (!r.success) { setError(FUNNEL_DE.step3.err_pick); return; }
     setError(""); onNext();
   };
 
@@ -42,9 +35,9 @@ export const Step3_Format = ({ intent, format, onChange, onNext, onBack }: Props
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl md:text-3xl font-serif font-semibold mb-2">
-          {intent === "delivery" ? "Welches Format passt?" : "Wie soll der Abend laufen?"}
+          {intent === "delivery" ? FUNNEL_DE.step3.heading_delivery : FUNNEL_DE.step3.heading_inhouse}
         </h2>
-        <p className="text-muted-foreground mb-5">Eine Richtung reicht — Details klären wir gemeinsam.</p>
+        <p className="text-muted-foreground mb-5">{FUNNEL_DE.step3.subline}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -67,8 +60,8 @@ export const Step3_Format = ({ intent, format, onChange, onNext, onBack }: Props
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex items-center justify-between pt-4">
-        <Button variant="ghost" onClick={onBack} className="min-h-[48px]">Zurück</Button>
-        <Button onClick={submit} className="min-h-[48px] px-6">Weiter</Button>
+        <Button variant="ghost" onClick={onBack} className="min-h-[48px]">{FUNNEL_DE.common.zurueck}</Button>
+        <Button onClick={submit} className="min-h-[48px] px-6">{FUNNEL_DE.common.weiter}</Button>
       </div>
     </div>
   );
