@@ -206,6 +206,7 @@ export default function PublicOffer() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [payments, setPayments] = useState<PublicPayment[]>([]);
+  const [letterTranslations, setLetterTranslations] = useState<Record<string, string>>({});
 
   // Sprache: ?lang=de|en|it|fr (Default: de). Steuert Anzeige der übersetzten
   // Menü-/Getränke-Felder (course_label, item_name, drink_label, ...).
@@ -401,6 +402,20 @@ export default function PublicOffer() {
       });
   }, [data?.inquiry?.id]);
 
+  // Cached Anschreiben-Übersetzungen (en/it/fr) laden — nur Cache, kein AI-Call hier.
+  useEffect(() => {
+    if (!data?.inquiry?.id || isArchive) return;
+    supabase
+      .from("v2_events")
+      .select("email_content_translations")
+      .eq("id", data.inquiry.id)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        const t = (row?.email_content_translations ?? {}) as Record<string, string>;
+        if (t && typeof t === 'object') setLetterTranslations(t);
+      });
+  }, [data?.inquiry?.id, isArchive]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -455,11 +470,10 @@ export default function PublicOffer() {
       <main className="flex-1">
         <HeroSection inquiry={inquiry} phase={renderPhase} />
 
-        <RestaurantGallery />
+        <RestaurantGallery lang={lang} />
 
-        {/* Sprachumschalter — nur einblenden wenn Snapshot überhaupt Übersetzungen enthält */}
+        {/* Sprachumschalter — immer sichtbar (übersetzt UI-Labels + Anschreiben on-demand) */}
         <OfferLanguageSwitcher
-          options={options}
           lang={lang}
           onChange={setLang}
         />
@@ -469,7 +483,12 @@ export default function PublicOffer() {
             und überschreibt den gespeicherten email_content. Echte Kunden haben
             keinen previewBody und sehen den versendeten email_content. */}
         {(previewBody || inquiry.email_content) && (
-          <AnschreibenSection emailContent={previewBody || inquiry.email_content || ''} />
+          <AnschreibenSection
+            emailContent={previewBody || inquiry.email_content || ''}
+            inquiryId={inquiry.id}
+            lang={lang}
+            translations={letterTranslations}
+          />
         )}
 
         {renderPhase === "proposal_sent" && (
