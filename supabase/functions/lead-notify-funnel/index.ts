@@ -459,7 +459,7 @@ Deno.serve(async (req) => {
         from: FROM_INTERNAL,
         to: [INTERNAL_TO],
         subject: subjectForScore(score, l),
-        html: buildInternalHtml(l, score),
+        html: buildInternalHtml(l, score, inquiryId),
         reply_to: l.email || undefined,
       });
       console.log("[lead-notify-funnel] internal_mail sent to", INTERNAL_TO);
