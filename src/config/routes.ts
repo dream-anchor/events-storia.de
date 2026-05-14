@@ -8,6 +8,7 @@ export type RouteKey =
   | 'home'
   | 'contact'
   | 'events'
+  | 'anfrage'
   | 'catering.fingerfood'
   | 'catering.platters'
   | 'catering.casseroles'
