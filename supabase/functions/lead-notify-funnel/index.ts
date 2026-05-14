@@ -23,8 +23,15 @@ const FROM_AUTOREPLY = "Familia Speranza <info@events-storia.de>";
 const FROM_INTERNAL = "Lead-Funnel <noreply@events-storia.de>";
 const INTERNAL_TO_DEFAULT = "info@events-storia.de";
 const INTERNAL_MAIL_OVERRIDE_TO = Deno.env.get("INTERNAL_MAIL_OVERRIDE_TO");
-const INTERNAL_TO = (INTERNAL_MAIL_OVERRIDE_TO && INTERNAL_MAIL_OVERRIDE_TO.includes("@"))
-  ? INTERNAL_MAIL_OVERRIDE_TO
+const OVERRIDE_RAW = INTERNAL_MAIL_OVERRIDE_TO ?? "";
+const OVERRIDE_TRIMMED = OVERRIDE_RAW.trim();
+// TEST-SAFETY: solange der Wert "TESTMODE_BLOCK_INTERNAL" ist, wird die interne
+// Mail vollständig blockiert (nicht an info@ gesendet). Vor Phase-1-Launch
+// muss diese Env-Variable entweder gelöscht oder auf eine echte Adresse
+// gesetzt werden.
+const TEST_BLOCK = OVERRIDE_TRIMMED === "TESTMODE_BLOCK_INTERNAL";
+const INTERNAL_TO = OVERRIDE_TRIMMED.includes("@")
+  ? OVERRIDE_TRIMMED
   : INTERNAL_TO_DEFAULT;
 
 type LeadRow = {
@@ -277,6 +284,9 @@ Deno.serve(async (req) => {
     }
 
     // 2) Interne Mail (mit optionalem Override)
+    if (TEST_BLOCK) {
+      console.log("[lead-notify-funnel] internal_mail BLOCKED (TESTMODE)");
+    } else {
     try {
       await sendResend({
         from: FROM_INTERNAL,
@@ -291,11 +301,18 @@ Deno.serve(async (req) => {
       console.error("[lead-notify-funnel] internal_mail failed:", msg);
       await logFailure(supabase, l.id, "internal_mail", msg);
     }
+    }
 
     // Phase 1.5 stub — Slack hot-lead alert (commented)
     // if (score >= 70 && SLACK_ALERTS_WEBHOOK_URL) { ... }
 
-    return new Response(JSON.stringify({ ok: true, score, internal_to: INTERNAL_TO }), {
+    return new Response(JSON.stringify({
+      ok: true,
+      score,
+      internal_to: TEST_BLOCK ? "BLOCKED" : INTERNAL_TO,
+      override_raw_len: OVERRIDE_RAW.length,
+      override_trimmed: OVERRIDE_TRIMMED ? OVERRIDE_TRIMMED.replace(/(.{2}).+(@.+)/, "$1***$2") : null,
+    }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
