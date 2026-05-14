@@ -128,84 +128,144 @@ async function sendResend(payload: {
 function fmtPeople(b: string | null) {
   switch (b) {
     case "2-10": return "bis zu zehn Personen";
-    case "10-20": return "10–20 Personen";
-    case "20-50": return "20–50 Personen";
-    case "50-100": return "50–100 Personen";
+    case "10-20": return "11 bis 20 Personen";
+    case "20-50": return "21 bis 50 Personen";
+    case "50-100": return "51 bis 100 Personen";
     case "100+": return "über 100 Personen";
-    default: return b || "—";
+    default: return b || "";
   }
 }
+
+function fmtDateValue(d: string | null): string {
+  if (!d) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  if (!m) return d;
+  return `${m[3]}.${m[2]}.${m[1]}`;
+}
+
 function fmtDate(l: LeadRow) {
-  if (l.date_mode === "fixed" && l.date_value) return l.date_value;
-  if (l.date_mode === "range" && l.date_range_start && l.date_range_end) {
-    return `${l.date_range_start} – ${l.date_range_end}`;
+  if (l.date_mode === "fixed" && l.date_value) return fmtDateValue(l.date_value);
+  if (l.date_mode === "flexible" && l.date_range_start && l.date_range_end) {
+    return `${fmtDateValue(l.date_range_start)} bis ${fmtDateValue(l.date_range_end)}`;
   }
-  if (l.date_mode === "flexible") return "Flexibel (mehrere Termine möglich)";
-  return "Termin noch offen";
+  if (l.date_mode === "open") return "noch offen";
+  return "";
 }
 function fmtOccasion(l: LeadRow) {
-  if (l.occasion === "other") return l.occasion_other || "Sonstiges";
-  return l.occasion || "—";
+  switch (l.occasion) {
+    case "geburtstag": return "Geburtstag";
+    case "firmenfeier": return "Firmenfeier";
+    case "hochzeit": return "Hochzeit";
+    case "weihnachtsfeier": return "Weihnachtsfeier";
+    case "privat": return "Privater Anlass";
+    case "sonstiges":
+    case "other":
+      return l.occasion_other ? `Sonstiges (${l.occasion_other})` : "Sonstiges";
+    default: return l.occasion || "";
+  }
 }
 function fmtIntent(i: string | null) {
   switch (i) {
+    case "inhouse": return "Im Restaurant feiern";
+    case "delivery": return "Catering / Lieferung";
+    case "consult": return "Beratung gewünscht";
+    // Legacy fallbacks
     case "catering": return "Catering";
     case "location": return "Location bei Storia";
     case "both": return "Catering + Location";
-    case "consult": return "Erstberatung";
     case "unsure": return "Noch unentschieden";
-    default: return i || "—";
+    default: return i || "";
   }
 }
+function fmtFormat(f: string | null) {
+  switch (f) {
+    case "a_la_carte": return "À la carte";
+    case "3_gaenge": return "3-Gänge-Menü";
+    case "aperitivo_flying_buffet": return "Aperitivo + Flying Buffet";
+    case "exklusivmiete": return "Exklusivmiete";
+    case "fingerfood": return "Fingerfood";
+    case "pizza_napoletana": return "Pizza Napoletana";
+    case "warme_aufläufe":
+    case "warme_auflaeufe": return "Warme Aufläufe";
+    case "komplett_buffet": return "Komplett-Buffet";
+    case "beratung": return "Beratung gewünscht";
+    default: return f || "";
+  }
+}
+function fmtPriority(score: number) {
+  if (score >= 70) return `hoch (${score})`;
+  if (score >= 40) return `mittel (${score})`;
+  return `niedrig (${score})`;
+}
 function fullName(l: LeadRow) {
-  return [l.first_name, l.last_name].filter(Boolean).join(" ") || "—";
+  return [l.first_name, l.last_name].filter(Boolean).join(" ") || "";
 }
 function esc(s: string | null | undefined) {
   return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function buildAutoReplyHtml(l: LeadRow): string {
-  const name = l.first_name ? esc(l.first_name) : "Sie";
-  const formatLine = l.format ? `Format: ${esc(l.format)}<br>` : "";
+  const greeting = l.first_name ? `Hallo ${esc(l.first_name)},` : "Hallo,";
+  const rows: string[] = [];
+  const occ = fmtOccasion(l); if (occ) rows.push(`Anlass: ${esc(occ)}`);
+  const ppl = fmtPeople(l.people_bucket); if (ppl) rows.push(`Personen: ${esc(ppl)}`);
+  const dt = fmtDate(l); if (dt) rows.push(`Datum: ${esc(dt)}`);
+  const fmt = fmtFormat(l.format);
+  if (fmt && l.intent !== "consult") rows.push(`Format: ${esc(fmt)}`);
+  const intent = fmtIntent(l.intent); if (intent) rows.push(`Anliegen: ${esc(intent)}`);
   return `<!doctype html><html><body style="font-family:Inter,Arial,sans-serif;color:#333;font-size:15px;line-height:1.6;max-width:600px;margin:0 auto;padding:24px">
-    <p>Liebe/r ${name},</p>
-    <p>vielen Dank für Ihre Anfrage bei Familia Speranza. Wir haben Ihre Angaben erhalten und melden uns innerhalb eines Werktags persönlich bei Ihnen.</p>
-    <p><strong>Ihre Anfrage im Überblick:</strong><br>
-    Anlass: ${esc(fmtOccasion(l))}<br>
-    Personen: ${esc(fmtPeople(l.people_bucket))}<br>
-    Datum: ${esc(fmtDate(l))}<br>
-    ${formatLine}Anliegen: ${esc(fmtIntent(l.intent))}</p>
-    <p>Bei Rückfragen erreichen Sie uns jederzeit unter <a href="mailto:info@events-storia.de">info@events-storia.de</a>.</p>
-    <p>Herzliche Grüße<br>Familia Speranza<br>Storia Restaurant &amp; Catering</p>
+    <p>${greeting}</p>
+    <p>vielen Dank für Ihre Nachricht. Ich habe Ihre Anfrage erhalten und melde mich innerhalb eines Werktags persönlich bei Ihnen, um die Details mit Ihnen zu besprechen.</p>
+    <p><strong>Ihre Angaben:</strong><br>
+    ${rows.join("<br>")}</p>
+    <p>Falls in der Zwischenzeit etwas dazukommt oder sich ändert, schreiben Sie mir gerne direkt an <a href="mailto:info@events-storia.de">info@events-storia.de</a>.</p>
+    <p>Herzliche Grüße<br>Domenico Speranza<br>Storia &middot; Restaurant &amp; Catering</p>
   </body></html>`;
 }
 
 function buildInternalHtml(l: LeadRow, score: number): string {
-  const utm = [l.utm_source, l.utm_medium, l.utm_campaign].filter(Boolean).join(" / ") || "—";
+  const utm = [l.utm_source, l.utm_medium, l.utm_campaign].filter(Boolean).join(" / ");
+  const fmt = fmtFormat(l.format);
+  const showFormat = !(l.intent === "consult" && !l.format) && fmt;
+
+  const rows: Array<[string, string]> = [];
+  const push = (label: string, val: string | null | undefined) => {
+    if (val && String(val).trim()) rows.push([label, String(val)]);
+  };
+  push("Name", fullName(l));
+  push("E-Mail", l.email);
+  push("Telefon", l.phone);
+  push("Anliegen", fmtIntent(l.intent));
+  push("Anlass", fmtOccasion(l));
+  push("Personen", fmtPeople(l.people_bucket));
+  push("Datum", fmtDate(l));
+  if (showFormat) push("Format", fmt);
+  push("Notiz", l.notes);
+  push("Priorität", fmtPriority(score));
+  if (utm) push("UTM", utm);
+  push("Quelle", l.source_url);
+  rows.push(["Lead-ID", l.id]);
+
+  const tableRows = rows.map(([k, v]) =>
+    `<tr><td style="padding:4px 16px 4px 0;color:#666;vertical-align:top"><b>${esc(k)}</b></td><td style="padding:4px 0">${k === "Lead-ID" ? `<code>${esc(v)}</code>` : esc(v)}</td></tr>`
+  ).join("");
+
   return `<!doctype html><html><body style="font-family:Inter,Arial,sans-serif;color:#333;font-size:15px;line-height:1.6">
-    <h2 style="margin:0 0 12px">Neuer Lead — Score ${score}${score >= 70 ? " 🔥" : ""}</h2>
-    <table cellpadding="6" style="border-collapse:collapse;font-size:14px">
-      <tr><td><b>Name</b></td><td>${esc(fullName(l))}</td></tr>
-      <tr><td><b>E-Mail</b></td><td>${esc(l.email)}</td></tr>
-      <tr><td><b>Telefon</b></td><td>${esc(l.phone)}</td></tr>
-      <tr><td><b>Anliegen</b></td><td>${esc(fmtIntent(l.intent))}</td></tr>
-      <tr><td><b>Anlass</b></td><td>${esc(fmtOccasion(l))}</td></tr>
-      <tr><td><b>Personen</b></td><td>${esc(fmtPeople(l.people_bucket))}</td></tr>
-      <tr><td><b>Datum</b></td><td>${esc(fmtDate(l))}</td></tr>
-      <tr><td><b>Format</b></td><td>${esc(l.format) || "—"}</td></tr>
-      <tr><td><b>Notiz</b></td><td>${esc(l.notes)}</td></tr>
-      <tr><td><b>UTM</b></td><td>${esc(utm)}</td></tr>
-      <tr><td><b>Quelle</b></td><td>${esc(l.source_url)}</td></tr>
-      <tr><td><b>Lead-ID</b></td><td><code>${esc(l.id)}</code></td></tr>
+    <h2 style="margin:0 0 16px;font-weight:600">Neue Anfrage</h2>
+    <table cellpadding="0" style="border-collapse:collapse;font-size:14px">
+      ${tableRows}
     </table>
-    <p style="margin-top:16px"><a href="https://events-storia.de/admin/leads/${esc(l.id)}">In Maestro öffnen</a></p>
+    <p style="margin-top:20px"><a href="https://events-storia.de/admin/leads/${esc(l.id)}">In Maestro öffnen →</a></p>
+    <hr style="border:none;border-top:1px solid #e5e5e5;margin:24px 0 12px">
+    <p style="font-size:12px;color:#888;margin:0">Diese Anfrage kam über das Online-Formular auf events-storia.de/anfrage. Lead-ID: ${esc(l.id)}</p>
   </body></html>`;
 }
 
 function subjectForScore(score: number, l: LeadRow): string {
-  const base = `${fullName(l)} • ${fmtOccasion(l)} • ${fmtPeople(l.people_bucket)}`;
-  if (score >= 70) return `🔥 HOT LEAD (${score}) — ${base}`;
-  return `Lead (${score}) — ${base}`;
+  const parts = [fullName(l), fmtOccasion(l), fmtPeople(l.people_bucket)].filter(Boolean);
+  const base = parts.join(" • ");
+  if (score >= 70) return `Anfrage (Priorität): ${base}`;
+  return `Anfrage: ${base}`;
 }
 
 Deno.serve(async (req) => {
