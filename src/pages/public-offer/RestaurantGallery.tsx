@@ -74,10 +74,10 @@ export function RestaurantGallery({ lang = 'de' }: { lang?: OfferLang } = {}) {
             onClick={() => setOpenIndex(i)}
             aria-label={`${tOffer(lang, photo.captionKey)} – Großansicht öffnen`}
             className={cn(
-              "group relative overflow-hidden rounded-2xl border border-border/40 bg-muted",
+              "group relative overflow-hidden rounded-2xl border border-border/40 bg-neutral-100",
               "shadow-[var(--shadow-card,_0_1px_3px_rgba(0,0,0,0.08))]",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
-              "aspect-[3/2]",
+              "aspect-[16/10]",
             )}
           >
             <img
@@ -85,7 +85,7 @@ export function RestaurantGallery({ lang = 'de' }: { lang?: OfferLang } = {}) {
               alt={photo.alt}
               loading="lazy"
               decoding="async"
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+              className="absolute inset-0 h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.02]"
             />
           </button>
         ))}
