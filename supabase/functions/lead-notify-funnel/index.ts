@@ -228,7 +228,7 @@ function buildAutoReplyHtml(l: LeadRow): string {
         </td></tr>
         <tr><td style="padding:32px;font-size:15px;color:#444;line-height:1.7">
           <p style="margin:0 0 18px">${greeting}</p>
-          <p style="margin:0 0 18px">vielen Dank für Ihre Nachricht. Ich habe Ihre Anfrage erhalten und melde mich innerhalb von 4 Stunden persönlich bei Ihnen, außerhalb unserer Öffnungszeiten am nächsten Morgen.</p>
+          <p style="margin:0 0 18px">vielen Dank für Ihre Nachricht. Ich habe Ihre Anfrage erhalten und melde mich innerhalb von 24 Stunden persönlich bei Ihnen, außerhalb unserer Öffnungszeiten am nächsten Morgen.</p>
           ${detailsBlock}
           <p style="margin:0 0 24px">Falls in der Zwischenzeit etwas dazukommt oder sich ändert, schreiben Sie mir gerne direkt an <a href="mailto:info@events-storia.de" style="color:#b45309;text-decoration:none">info@events-storia.de</a>.</p>
           <p style="margin:0;color:#1a1a1a">Herzliche Grüße<br>Events Storia</p>

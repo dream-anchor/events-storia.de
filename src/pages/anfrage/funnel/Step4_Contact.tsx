@@ -33,7 +33,7 @@ export const Step4_Contact = ({ values, onChange, onSubmit, onBack, submitting, 
     <div className="space-y-5">
       <div>
         <h2 className="text-2xl md:text-3xl font-serif font-semibold mb-2">Wie erreichen wir Sie?</h2>
-        <p className="text-muted-foreground mb-5">Wir melden uns innerhalb von 4 Stunden persönlich.</p>
+        <p className="text-muted-foreground mb-5">Wir melden uns innerhalb von 24 Stunden persönlich.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

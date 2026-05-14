@@ -9,7 +9,7 @@ export const ThankYou = ({ firstName }: { firstName: string }) => (
       Vielen Dank{firstName ? `, ${firstName}` : ""}.
     </h2>
     <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
-      Ihre Anfrage ist bei uns angekommen. Wir melden uns innerhalb von 4 Stunden persönlich,
+      Ihre Anfrage ist bei uns angekommen. Wir melden uns innerhalb von 24 Stunden persönlich,
       außerhalb unserer Öffnungszeiten am nächsten Morgen.
     </p>
     <p className="text-sm text-muted-foreground mt-6">

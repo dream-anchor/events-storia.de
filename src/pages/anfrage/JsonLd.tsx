@@ -35,7 +35,7 @@ const faqPage = {
       name: "Wie schnell antwortet Storia auf eine Anfrage?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Wir melden uns innerhalb von 4 Stunden persönlich bei Ihnen — meistens schneller. Bei Anfragen außerhalb unserer Öffnungszeiten (Mo–Fr 9–1 Uhr, Sa–So 12–1 Uhr) am nächsten Morgen. Eine automatische Bestätigung erhalten Sie sofort per E-Mail.",
+        text: "Wir melden uns innerhalb von 24 Stunden persönlich bei Ihnen — meistens schneller. Bei Anfragen außerhalb unserer Öffnungszeiten (Mo–Fr 9–1 Uhr, Sa–So 12–1 Uhr) am nächsten Morgen. Eine automatische Bestätigung erhalten Sie sofort per E-Mail.",
       },
     },
     {

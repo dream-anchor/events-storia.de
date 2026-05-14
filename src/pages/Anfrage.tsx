@@ -13,7 +13,7 @@ const Anfrage = () => {
     <>
       <SEO
         title="Anfrage senden — Events & Catering im Storia München | Karlstraße 47a"
-        description="Unverbindliche Anfrage für Firmenfeier, Hochzeit, Geburtstag oder Catering im Storia München-Maxvorstadt. Persönliche Rückmeldung innerhalb von 4 Stunden."
+        description="Unverbindliche Anfrage für Firmenfeier, Hochzeit, Geburtstag oder Catering im Storia München-Maxvorstadt. Persönliche Rückmeldung innerhalb von 24 Stunden."
         canonical="/anfrage"
         type="website"
         alternateUrl={undefined}
