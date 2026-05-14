@@ -298,6 +298,72 @@ function subjectForScore(score: number, l: LeadRow): string {
   return `Anfrage: ${base}`;
 }
 
+function buildInquiryMessage(l: LeadRow): string {
+  const lines: string[] = [];
+  lines.push(`Anliegen: ${fmtIntent(l.intent)}`);
+  lines.push(`Anlass: ${fmtOccasion(l)}`);
+  lines.push(`Personen: ${fmtPeople(l.people_bucket)}`);
+  const dt = fmtDate(l);
+  if (dt) lines.push(`Datum: ${dt}`);
+  const fmt = fmtFormat(l.format);
+  if (fmt && l.intent !== "consult") lines.push(`Format: ${fmt}`);
+  if (l.notes) lines.push("", "Nachricht:", l.notes);
+  const utm = [l.utm_source, l.utm_medium, l.utm_campaign].filter(Boolean).join(" / ");
+  if (utm) lines.push("", `UTM: ${utm}`);
+  if (l.source_url) lines.push(`Quelle: ${l.source_url}`);
+  lines.push("", `Lead-ID: ${l.id}`);
+  return lines.join("\n");
+}
+
+async function ensureEventInquiry(
+  supabase: ReturnType<typeof createClient>,
+  l: LeadRow,
+): Promise<string | null> {
+  if (l.event_inquiry_id) return l.event_inquiry_id;
+
+  const inquiry_type = l.intent === "delivery" ? "catering" : "event";
+  const preferred_date =
+    l.date_mode === "fixed" ? l.date_value :
+    l.date_mode === "flexible" ? l.date_range_start :
+    null;
+  const event_end_date = l.date_mode === "flexible" ? l.date_range_end : null;
+
+  const payload = {
+    inquiry_type,
+    contact_name: fullName(l) || (l.email ?? "—"),
+    email: l.email,
+    phone: l.phone,
+    guest_count: l.people_bucket,
+    event_type: fmtOccasion(l) || null,
+    preferred_date,
+    event_end_date,
+    message: buildInquiryMessage(l),
+    source: "anfrage_funnel",
+    status: "new",
+    notification_sent: true, // wir versenden eigene Mail unten
+    is_test: false,
+  };
+
+  const { data, error } = await supabase
+    .from("event_inquiries")
+    .insert(payload)
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(`event_inquiries insert failed: ${error?.message ?? "unknown"}`);
+  }
+
+  const inquiryId = (data as { id: string }).id;
+
+  await supabase
+    .from("leads_funnel")
+    .update({ event_inquiry_id: inquiryId })
+    .eq("id", l.id);
+
+  return inquiryId;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -354,6 +420,17 @@ Deno.serve(async (req) => {
     }
 
     console.log("[lead-notify-funnel] processing", l.id, "score=", score, "internal_to=", INTERNAL_TO);
+
+    // 0) Inquiry in Maestro anlegen (vor Mails, damit Link funktioniert)
+    let inquiryId: string | null = null;
+    try {
+      inquiryId = await ensureEventInquiry(supabase, l);
+      console.log("[lead-notify-funnel] event_inquiry ensured", inquiryId);
+    } catch (e) {
+      const msg = String((e as Error).message ?? e);
+      console.error("[lead-notify-funnel] event_inquiry create failed:", msg);
+      await logFailure(supabase, l.id, "event_inquiry_create", msg);
+    }
 
     // 1) Auto-Reply
     if (l.email) {
