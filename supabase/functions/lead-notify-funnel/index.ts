@@ -19,7 +19,7 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SLACK_ALERTS_WEBHOOK_URL = Deno.env.get("SLACK_ALERTS_WEBHOOK_URL");
 
 const RESEND_API = "https://api.resend.com";
-const FROM_AUTOREPLY = "Domenico Speranza · Storia <info@events-storia.de>";
+const FROM_AUTOREPLY = "Events Storia <info@events-storia.de>";
 const FROM_INTERNAL = "Lead-Funnel <noreply@events-storia.de>";
 const INTERNAL_TO_DEFAULT = "info@events-storia.de";
 const INTERNAL_MAIL_OVERRIDE_TO = Deno.env.get("INTERNAL_MAIL_OVERRIDE_TO");
