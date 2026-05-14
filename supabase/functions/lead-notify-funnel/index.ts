@@ -4,6 +4,10 @@
 //          + failure logging into lead_notify_failures
 // Phase 1.5 (stub, commented): Slack hot-lead alert + Slack failure alert
 // Fire-and-forget: must NEVER return 5xx to caller; always 200/4xx with JSON.
+//
+// TEST-MODUS: Wenn die Env-Variable INTERNAL_MAIL_OVERRIDE_TO gesetzt ist,
+// wird die interne Notification an diese Adresse statt info@events-storia.de
+// geschickt. VOR PHASE-1-LAUNCH MUSS DIESE VARIABLE GELÖSCHT WERDEN.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
@@ -16,9 +20,13 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SLACK_ALERTS_WEBHOOK_URL = Deno.env.get("SLACK_ALERTS_WEBHOOK_URL");
 
 const RESEND_GATEWAY = "https://connector-gateway.lovable.dev/resend";
-const FROM_AUTOREPLY = "Familie Speranza <info@events-storia.de>";
+const FROM_AUTOREPLY = "Familia Speranza <info@events-storia.de>";
 const FROM_INTERNAL = "Lead-Funnel <noreply@events-storia.de>";
-const INTERNAL_TO = "info@events-storia.de";
+const INTERNAL_TO_DEFAULT = "info@events-storia.de";
+const INTERNAL_MAIL_OVERRIDE_TO = Deno.env.get("INTERNAL_MAIL_OVERRIDE_TO");
+const INTERNAL_TO = (INTERNAL_MAIL_OVERRIDE_TO && INTERNAL_MAIL_OVERRIDE_TO.includes("@"))
+  ? INTERNAL_MAIL_OVERRIDE_TO
+  : INTERNAL_TO_DEFAULT;
 
 type LeadRow = {
   id: string;
@@ -29,13 +37,15 @@ type LeadRow = {
   format: string | null;
   date_mode: string | null;
   date_value: string | null;
-  date_range: unknown;
+  date_range_start: string | null;
+  date_range_end: string | null;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
   phone: string | null;
   notes: string | null;
   lead_score: number | null;
+  notified_at: string | null;
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
@@ -44,28 +54,26 @@ type LeadRow = {
 
 function scoreLead(l: LeadRow): number {
   let s = 0;
-  // people
   switch (l.people_bucket) {
+    case "2-10": s += 5; break;
     case "10-20": s += 10; break;
     case "20-50": s += 20; break;
     case "50-100": s += 25; break;
     case "100+": s += 30; break;
   }
-  // date
   switch (l.date_mode) {
     case "fixed": s += 25; break;
     case "range": s += 15; break;
     case "flexible": s += 10; break;
     case "open": s += 5; break;
   }
-  // occasion
   if (l.occasion && l.occasion !== "other") s += 15;
   else if (l.occasion === "other" && l.occasion_other) s += 10;
-  // intent
   switch (l.intent) {
     case "catering": s += 20; break;
     case "location": s += 20; break;
     case "both": s += 25; break;
+    case "consult":
     case "unsure": s += 10; break;
   }
   return Math.min(100, s);
@@ -83,22 +91,9 @@ async function logFailure(
       step,
       error_message: error.slice(0, 2000),
     });
-  } catch (_) {
-    // swallow
-  }
-
-  // Phase 1.5 stub — Slack failure alert
-  // if (SLACK_ALERTS_WEBHOOK_URL) {
-  //   try {
-  //     await fetch(SLACK_ALERTS_WEBHOOK_URL, {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({
-  //         text: `⚠️ Mail failed for lead ${leadId} — step: ${step}`,
-  //       }),
-  //     });
-  //   } catch (_) { /* swallow */ }
-  // }
+  } catch (_) { /* swallow */ }
+  // Phase 1.5 stub — Slack failure alert (commented)
+  // if (SLACK_ALERTS_WEBHOOK_URL) { ... }
 }
 
 async function sendResend(payload: {
@@ -122,71 +117,89 @@ async function sendResend(payload: {
   });
   const txt = await r.text();
   if (!r.ok) throw new Error(`Resend ${r.status}: ${txt.slice(0, 500)}`);
+  return txt;
 }
 
 function fmtPeople(b: string | null) {
-  if (!b) return "—";
-  return b;
+  switch (b) {
+    case "2-10": return "bis zu zehn Personen";
+    case "10-20": return "10–20 Personen";
+    case "20-50": return "20–50 Personen";
+    case "50-100": return "50–100 Personen";
+    case "100+": return "über 100 Personen";
+    default: return b || "—";
+  }
 }
 function fmtDate(l: LeadRow) {
   if (l.date_mode === "fixed" && l.date_value) return l.date_value;
-  if (l.date_mode === "range") {
-    try {
-      const r = l.date_range as { from?: string; to?: string } | null;
-      if (r?.from && r?.to) return `${r.from} – ${r.to}`;
-    } catch (_) {}
-    return "Zeitraum (flexibel)";
+  if (l.date_mode === "range" && l.date_range_start && l.date_range_end) {
+    return `${l.date_range_start} – ${l.date_range_end}`;
   }
-  if (l.date_mode === "flexible") return "Flexibel";
-  return "Noch offen";
+  if (l.date_mode === "flexible") return "Flexibel (mehrere Termine möglich)";
+  return "Termin noch offen";
 }
 function fmtOccasion(l: LeadRow) {
   if (l.occasion === "other") return l.occasion_other || "Sonstiges";
   return l.occasion || "—";
 }
+function fmtIntent(i: string | null) {
+  switch (i) {
+    case "catering": return "Catering";
+    case "location": return "Location bei Storia";
+    case "both": return "Catering + Location";
+    case "consult": return "Erstberatung";
+    case "unsure": return "Noch unentschieden";
+    default: return i || "—";
+  }
+}
 function fullName(l: LeadRow) {
   return [l.first_name, l.last_name].filter(Boolean).join(" ") || "—";
 }
+function esc(s: string | null | undefined) {
+  return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
 function buildAutoReplyHtml(l: LeadRow): string {
-  const name = l.first_name || "zusammen";
+  const name = l.first_name ? esc(l.first_name) : "Sie";
+  const formatLine = l.format ? `Format: ${esc(l.format)}<br>` : "";
   return `<!doctype html><html><body style="font-family:Inter,Arial,sans-serif;color:#333;font-size:15px;line-height:1.6;max-width:600px;margin:0 auto;padding:24px">
     <p>Liebe/r ${name},</p>
-    <p>vielen Dank für Ihre Anfrage bei Familie Speranza. Wir haben Ihre Angaben erhalten und melden uns innerhalb eines Werktags persönlich bei Ihnen.</p>
+    <p>vielen Dank für Ihre Anfrage bei Familia Speranza. Wir haben Ihre Angaben erhalten und melden uns innerhalb eines Werktags persönlich bei Ihnen.</p>
     <p><strong>Ihre Anfrage im Überblick:</strong><br>
-    Anlass: ${fmtOccasion(l)}<br>
-    Personen: ${fmtPeople(l.people_bucket)}<br>
-    Datum: ${fmtDate(l)}<br>
-    Format: ${l.format || "—"}</p>
-    <p>Bei Rückfragen erreichen Sie uns unter <a href="mailto:info@events-storia.de">info@events-storia.de</a>.</p>
-    <p>Herzliche Grüße<br>Familie Speranza<br>Storia Restaurant &amp; Catering</p>
+    Anlass: ${esc(fmtOccasion(l))}<br>
+    Personen: ${esc(fmtPeople(l.people_bucket))}<br>
+    Datum: ${esc(fmtDate(l))}<br>
+    ${formatLine}Anliegen: ${esc(fmtIntent(l.intent))}</p>
+    <p>Bei Rückfragen erreichen Sie uns jederzeit unter <a href="mailto:info@events-storia.de">info@events-storia.de</a>.</p>
+    <p>Herzliche Grüße<br>Familia Speranza<br>Storia Restaurant &amp; Catering</p>
   </body></html>`;
 }
 
 function buildInternalHtml(l: LeadRow, score: number): string {
+  const utm = [l.utm_source, l.utm_medium, l.utm_campaign].filter(Boolean).join(" / ") || "—";
   return `<!doctype html><html><body style="font-family:Inter,Arial,sans-serif;color:#333;font-size:15px;line-height:1.6">
-    <h2 style="margin:0 0 12px">Neuer Lead — Score ${score}</h2>
+    <h2 style="margin:0 0 12px">Neuer Lead — Score ${score}${score >= 70 ? " 🔥" : ""}</h2>
     <table cellpadding="6" style="border-collapse:collapse;font-size:14px">
-      <tr><td><b>Name</b></td><td>${fullName(l)}</td></tr>
-      <tr><td><b>E-Mail</b></td><td>${l.email || "—"}</td></tr>
-      <tr><td><b>Telefon</b></td><td>${l.phone || "—"}</td></tr>
-      <tr><td><b>Intent</b></td><td>${l.intent || "—"}</td></tr>
-      <tr><td><b>Anlass</b></td><td>${fmtOccasion(l)}</td></tr>
-      <tr><td><b>Personen</b></td><td>${fmtPeople(l.people_bucket)}</td></tr>
-      <tr><td><b>Datum</b></td><td>${fmtDate(l)}</td></tr>
-      <tr><td><b>Format</b></td><td>${l.format || "—"}</td></tr>
-      <tr><td><b>Notiz</b></td><td>${(l.notes || "").replace(/</g, "&lt;")}</td></tr>
-      <tr><td><b>UTM</b></td><td>${[l.utm_source, l.utm_medium, l.utm_campaign].filter(Boolean).join(" / ") || "—"}</td></tr>
-      <tr><td><b>Quelle</b></td><td>${l.source_url || "—"}</td></tr>
-      <tr><td><b>Lead-ID</b></td><td><code>${l.id}</code></td></tr>
+      <tr><td><b>Name</b></td><td>${esc(fullName(l))}</td></tr>
+      <tr><td><b>E-Mail</b></td><td>${esc(l.email)}</td></tr>
+      <tr><td><b>Telefon</b></td><td>${esc(l.phone)}</td></tr>
+      <tr><td><b>Anliegen</b></td><td>${esc(fmtIntent(l.intent))}</td></tr>
+      <tr><td><b>Anlass</b></td><td>${esc(fmtOccasion(l))}</td></tr>
+      <tr><td><b>Personen</b></td><td>${esc(fmtPeople(l.people_bucket))}</td></tr>
+      <tr><td><b>Datum</b></td><td>${esc(fmtDate(l))}</td></tr>
+      <tr><td><b>Format</b></td><td>${esc(l.format) || "—"}</td></tr>
+      <tr><td><b>Notiz</b></td><td>${esc(l.notes)}</td></tr>
+      <tr><td><b>UTM</b></td><td>${esc(utm)}</td></tr>
+      <tr><td><b>Quelle</b></td><td>${esc(l.source_url)}</td></tr>
+      <tr><td><b>Lead-ID</b></td><td><code>${esc(l.id)}</code></td></tr>
     </table>
+    <p style="margin-top:16px"><a href="https://events-storia.de/admin/leads/${esc(l.id)}">In Maestro öffnen</a></p>
   </body></html>`;
 }
 
 function subjectForScore(score: number, l: LeadRow): string {
   const base = `${fullName(l)} • ${fmtOccasion(l)} • ${fmtPeople(l.people_bucket)}`;
   if (score >= 70) return `🔥 HOT LEAD (${score}) — ${base}`;
-  if (score >= 40) return `Lead (${score}) — ${base}`;
   return `Lead (${score}) — ${base}`;
 }
 
@@ -222,30 +235,50 @@ Deno.serve(async (req) => {
     }
 
     const l = lead as LeadRow;
+
+    // Idempotency: wenn bereits notified, no-op
+    if (l.notified_at) {
+      console.log("[lead-notify-funnel] noop already_notified", l.id);
+      return new Response(
+        JSON.stringify({ ok: true, score: l.lead_score, noop: true, reason: "already_notified" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const score = scoreLead(l);
 
-    // Persist score
-    await supabase
+    // Score persistieren + notified_at setzen (verhindert Doppelversand)
+    const { error: updErr } = await supabase
       .from("leads_funnel")
       .update({ lead_score: score, notified_at: new Date().toISOString() })
-      .eq("id", l.id);
+      .eq("id", l.id)
+      .is("notified_at", null);
 
-    // 1) Auto-Reply (only if email present)
+    if (updErr) {
+      console.error("[lead-notify-funnel] update score failed", updErr.message);
+    }
+
+    console.log("[lead-notify-funnel] processing", l.id, "score=", score, "internal_to=", INTERNAL_TO);
+
+    // 1) Auto-Reply
     if (l.email) {
       try {
         await sendResend({
           from: FROM_AUTOREPLY,
           to: [l.email],
-          subject: "Wir haben Ihre Anfrage erhalten — Familie Speranza",
+          subject: "Wir haben Ihre Anfrage erhalten — Familia Speranza",
           html: buildAutoReplyHtml(l),
           reply_to: "info@events-storia.de",
         });
+        console.log("[lead-notify-funnel] auto_reply sent to", l.email);
       } catch (e) {
-        await logFailure(supabase, l.id, "auto_reply", String((e as Error).message ?? e));
+        const msg = String((e as Error).message ?? e);
+        console.error("[lead-notify-funnel] auto_reply failed:", msg);
+        await logFailure(supabase, l.id, "auto_reply", msg);
       }
     }
 
-    // 2) Internal notification
+    // 2) Interne Mail (mit optionalem Override)
     try {
       await sendResend({
         from: FROM_INTERNAL,
@@ -254,41 +287,22 @@ Deno.serve(async (req) => {
         html: buildInternalHtml(l, score),
         reply_to: l.email || undefined,
       });
+      console.log("[lead-notify-funnel] internal_mail sent to", INTERNAL_TO);
     } catch (e) {
-      await logFailure(supabase, l.id, "internal_mail", String((e as Error).message ?? e));
+      const msg = String((e as Error).message ?? e);
+      console.error("[lead-notify-funnel] internal_mail failed:", msg);
+      await logFailure(supabase, l.id, "internal_mail", msg);
     }
 
-    // Phase 1.5 stub — Slack hot-lead alert (block-kit), out of phase 1
-    // if (score >= 70 && SLACK_ALERTS_WEBHOOK_URL) {
-    //   try {
-    //     await fetch(SLACK_ALERTS_WEBHOOK_URL, {
-    //       method: "POST",
-    //       headers: { "Content-Type": "application/json" },
-    //       body: JSON.stringify({
-    //         blocks: [
-    //           { type: "header", text: { type: "plain_text", text: `🔥 HOT LEAD (${score})` } },
-    //           { type: "section", fields: [
-    //             { type: "mrkdwn", text: `*Name:*\n${fullName(l)}` },
-    //             { type: "mrkdwn", text: `*Anlass:*\n${fmtOccasion(l)}` },
-    //             { type: "mrkdwn", text: `*Personen:*\n${fmtPeople(l.people_bucket)}` },
-    //             { type: "mrkdwn", text: `*Datum:*\n${fmtDate(l)}` },
-    //           ]},
-    //           { type: "actions", elements: [
-    //             { type: "button", text: { type: "plain_text", text: "In Maestro öffnen" }, url: `https://events-storia.de/admin/leads/${l.id}` }
-    //           ]},
-    //           { type: "context", elements: [{ type: "mrkdwn", text: `Lead-ID: \`${l.id}\`` }] },
-    //         ],
-    //       }),
-    //     });
-    //   } catch (_) { /* swallow */ }
-    // }
+    // Phase 1.5 stub — Slack hot-lead alert (commented)
+    // if (score >= 70 && SLACK_ALERTS_WEBHOOK_URL) { ... }
 
-    return new Response(JSON.stringify({ ok: true, score }), {
+    return new Response(JSON.stringify({ ok: true, score, internal_to: INTERNAL_TO }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    // Fire-and-forget — never 5xx to caller
+    console.error("[lead-notify-funnel] unhandled", e);
     return new Response(
       JSON.stringify({ ok: false, error: String((e as Error).message ?? e), lead_id: leadId }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
