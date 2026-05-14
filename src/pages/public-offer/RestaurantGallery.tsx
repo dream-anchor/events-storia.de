@@ -5,23 +5,25 @@ import { cn } from "@/lib/utils";
 
 import uebersichtGaeste from "@/assets/storia-uebersicht-gaeste.webp";
 import uebersichtDetails from "@/assets/storia-uebersicht-details.webp";
+import type { OfferLang } from "@/lib/offerLang";
+import { tOffer } from "./i18n";
 
-type Photo = { src: string; alt: string; caption: string };
+type Photo = { src: string; alt: string; captionKey: string };
 
 const PHOTOS: Photo[] = [
   {
     src: uebersichtGaeste,
     alt: "Ristorante Storia München – Eindrücke mit Gästen, Bar, Terrasse und Außenansicht",
-    caption: "Ristorante Storia · München-Maxvorstadt",
+    captionKey: "galleryCaption1",
   },
   {
     src: uebersichtDetails,
     alt: "Ristorante Storia München – Innenraum, Weinwand und Außenansichten",
-    caption: "Räume & Atmosphäre",
+    captionKey: "galleryCaption2",
   },
 ];
 
-export function RestaurantGallery() {
+export function RestaurantGallery({ lang = 'de' }: { lang?: OfferLang } = {}) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const isOpen = openIndex !== null;
 
@@ -54,13 +56,13 @@ export function RestaurantGallery() {
     >
       <div className="max-w-3xl mb-6 md:mb-8">
         <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-muted-foreground mb-3">
-          Ristorante Storia · München-Maxvorstadt
+          {tOffer(lang, 'galleryEyebrow')}
         </p>
         <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight mb-2">
-          Lernen Sie unser Haus kennen
+          {tOffer(lang, 'galleryTitle')}
         </h2>
         <p className="text-sm md:text-base text-muted-foreground">
-          Ein kurzer Eindruck von unserem Haus und der Atmosphäre – tippen Sie auf ein Bild für die Großansicht.
+          {tOffer(lang, 'gallerySubtitle')}
         </p>
       </div>
 
@@ -70,7 +72,7 @@ export function RestaurantGallery() {
             key={photo.src}
             type="button"
             onClick={() => setOpenIndex(i)}
-            aria-label={`${photo.caption} – Großansicht öffnen`}
+            aria-label={`${tOffer(lang, photo.captionKey)} – Großansicht öffnen`}
             className={cn(
               "group relative overflow-hidden rounded-2xl border border-border/40 bg-muted",
               "shadow-[var(--shadow-card,_0_1px_3px_rgba(0,0,0,0.08))]",
@@ -130,7 +132,7 @@ export function RestaurantGallery() {
               </div>
 
               <div className="flex items-center justify-between gap-4 px-4 md:px-6 py-3 border-t border-white/10">
-                <span className="text-sm font-sans text-white/90">{current.caption}</span>
+                <span className="text-sm font-sans text-white/90">{tOffer(lang, current.captionKey)}</span>
                 <span className="text-xs font-sans tabular-nums text-white/60">
                   {(openIndex ?? 0) + 1} / {PHOTOS.length}
                 </span>
