@@ -231,7 +231,7 @@ function buildAutoReplyHtml(l: LeadRow): string {
           <p style="margin:0 0 18px">vielen Dank für Ihre Nachricht. Ich habe Ihre Anfrage erhalten und melde mich innerhalb von 4 Stunden persönlich bei Ihnen, außerhalb unserer Öffnungszeiten am nächsten Morgen.</p>
           ${detailsBlock}
           <p style="margin:0 0 24px">Falls in der Zwischenzeit etwas dazukommt oder sich ändert, schreiben Sie mir gerne direkt an <a href="mailto:info@events-storia.de" style="color:#b45309;text-decoration:none">info@events-storia.de</a>.</p>
-          <p style="margin:0;color:#1a1a1a">Herzliche Grüße<br>Domenico Speranza<br>Storia &middot; Restaurant &amp; Catering</p>
+          <p style="margin:0;color:#1a1a1a">Herzliche Grüße<br>Events Storia</p>
           <p style="margin:18px 0 0;font-size:13px;color:#666;line-height:1.6">
             Karlstraße 47a &middot; 80333 München<br>
             <a href="tel:+498951519696" style="color:#b45309;text-decoration:none">+49 89 51519696</a> &middot; <a href="mailto:info@events-storia.de" style="color:#b45309;text-decoration:none">info@events-storia.de</a><br>
