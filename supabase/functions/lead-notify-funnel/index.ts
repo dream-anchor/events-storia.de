@@ -56,6 +56,7 @@ type LeadRow = {
   utm_medium: string | null;
   utm_campaign: string | null;
   source_url: string | null;
+  event_inquiry_id: string | null;
 };
 
 function scoreLead(l: LeadRow): number {
