@@ -15,11 +15,10 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 // Phase 1.5 (optional)
 const SLACK_ALERTS_WEBHOOK_URL = Deno.env.get("SLACK_ALERTS_WEBHOOK_URL");
 
-const RESEND_GATEWAY = "https://connector-gateway.lovable.dev/resend";
+const RESEND_API = "https://api.resend.com";
 const FROM_AUTOREPLY = "Familia Speranza <info@events-storia.de>";
 const FROM_INTERNAL = "Lead-Funnel <noreply@events-storia.de>";
 const INTERNAL_TO_DEFAULT = "info@events-storia.de";
@@ -103,15 +102,14 @@ async function sendResend(payload: {
   html: string;
   reply_to?: string;
 }) {
-  if (!RESEND_API_KEY || !LOVABLE_API_KEY) {
-    throw new Error("RESEND_API_KEY or LOVABLE_API_KEY missing");
+  if (!RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY missing");
   }
-  const r = await fetch(`${RESEND_GATEWAY}/emails`, {
+  const r = await fetch(`${RESEND_API}/emails`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": RESEND_API_KEY,
+      Authorization: `Bearer ${RESEND_API_KEY}`,
     },
     body: JSON.stringify(payload),
   });
