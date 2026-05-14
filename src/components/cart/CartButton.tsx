@@ -17,6 +17,7 @@ const CartButton = () => {
   // Hide on checkout page, admin pages, or when cart is empty
   if (location.pathname === '/checkout' || location.pathname === '/en/checkout') return null;
   if (location.pathname.startsWith('/admin')) return null;
+  if (location.pathname === '/anfrage' || location.pathname === '/en/anfrage') return null;
   if (totalItems === 0) return null;
 
   return (
