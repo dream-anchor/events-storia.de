@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.translate-offer-letter]
 verify_jwt = false
+
+[functions.report-system-error]
+verify_jwt = false
