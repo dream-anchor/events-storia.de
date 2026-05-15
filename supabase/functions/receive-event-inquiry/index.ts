@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
+import { reportEdgeError } from '../_shared/reportError.ts';
 
 
 
@@ -407,6 +408,7 @@ const handler = async (req: Request): Promise<Response> => {
     );
   } catch (error: any) {
     console.error("Error in receive-event-inquiry function:", error);
+    reportEdgeError({ source: 'edge:receive-event-inquiry', severity: 'critical', message: error?.message ?? String(error) });
     return new Response(
       JSON.stringify({ error: error.message }),
       {

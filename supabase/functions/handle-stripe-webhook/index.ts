@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { reportEdgeError } from '../_shared/reportError.ts';
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -111,6 +112,7 @@ serve(async (req) => {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     logStep("FATAL ERROR", { message: msg });
+    reportEdgeError({ source: 'edge:handle-stripe-webhook', severity: 'critical', message: msg });
     // Return 200 even on error to prevent Stripe from retrying indefinitely
     // Log the error for debugging but acknowledge receipt
     return new Response(JSON.stringify({ received: true, error: msg }), {

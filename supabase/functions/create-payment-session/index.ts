@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { reportEdgeError } from '../_shared/reportError.ts';
 
 interface CreatePaymentSessionRequest {
   inquiryId: string;
@@ -362,6 +363,7 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('create-payment-session error:', error);
+    reportEdgeError({ source: 'edge:create-payment-session', severity: 'critical', message: error instanceof Error ? error.message : String(error) });
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unbekannter Fehler' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
