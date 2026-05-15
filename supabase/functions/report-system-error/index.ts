@@ -15,9 +15,9 @@ const SHARED_SECRET = Deno.env.get("SYSTEM_HEALTH_SHARED_SECRET")!;
 const ALLOWED_PROJECTS = new Set(["events_storia", "ristorante_storia"]);
 const ALLOWED_SEVERITIES = new Set(["warning", "error", "critical"]);
 
-async function sha256Hex(input: string): Promise<string> {
+async function hashHex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
-  const buf = await crypto.subtle.digest("SHA-256", data);
+  const buf = await crypto.subtle.digest("SHA-1", data);
   return Array.from(new Uint8Array(buf))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
     }
 
     const truncatedMessage = message.slice(0, 2000);
-    const payloadHash = await sha256Hex(`${project}|${source}|${truncatedMessage}`);
+    const payloadHash = await hashHex(`${project}|${source}|${truncatedMessage}`);
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
