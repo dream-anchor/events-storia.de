@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { reportEdgeError } from '../_shared/reportError.ts';
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -9,6 +10,14 @@ serve(async (req) => {
 
   try {
     const { errorMessage, items, paymentMethod, deliveryType, timestamp } = await req.json();
+
+    // Log to System-Health Hub
+    reportEdgeError({
+      source: 'checkout:client',
+      severity: 'critical',
+      message: errorMessage || '(empty)',
+      payload: { items, paymentMethod, deliveryType, timestamp },
+    });
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
@@ -53,6 +62,7 @@ Zeitpunkt: ${timestamp || new Date().toISOString()}
     });
   } catch (err) {
     console.error('notify-checkout-error failed:', err);
+    reportEdgeError({ source: 'edge:notify-checkout-error', severity: 'error', message: err instanceof Error ? err.message : String(err) });
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: corsHeaders
