@@ -1,32 +1,37 @@
-## Plan
+## Problem
 
-### Bild-Fix mit erhaltenen Beschriftungen
+Checkout schlägt mit `column "desired_time" is of type time without time zone but expression is of type text` fehl. Kunden können keine Catering-Bestellung absenden.
 
-**Problem:** Beim erneuten Rendern von `storia-uebersicht-details.webp` würden die Beschriftungs-Labels (Captions) im Bild verloren gehen — diese sollen aber erhalten bleiben.
+## Ursache
 
-**Lösung:** Statt das Bild zu verändern, wird der visuelle Höhen-Unterschied **rein per CSS** behoben:
+Die RPC-Funktion `public.checkout_create_catering_order(payload jsonb)` schreibt `desired_time` (Spaltentyp `time`) als plain text in das `INSERT`:
 
-1. **Container-Hintergrund angleichen**
-   - Die Galerie-Karten bekommen einen einheitlichen `bg-muted` / dunklen Hintergrund, sodass der helle Streifen unten im rechten Bild nicht mehr „abgeschnitten" wirkt.
+```sql
+payload->>'desired_time',
+```
 
-2. **`object-position` anpassen** (falls nötig)
-   - Beide Bilder behalten `object-cover` mit `aspect-[3/2]`, aber das rechte Bild wird leicht via `object-position: center bottom` ausgerichtet, sodass die Captions vollständig sichtbar bleiben.
+Postgres akzeptierte das früher per impliziter Coercion, tut es jetzt aber nicht mehr (wahrscheinlich nach einem Plattform-Update). `desired_date` ist bereits korrekt mit `NULLIF(... ,'')::date` gecastet — `desired_time` fehlt das analoge `::time`.
 
-3. **Optional: Gleicher unterer Rahmen/Padding**
-   - Beide Bildkarten bekommen identisches Bottom-Padding, damit Captions visuell „auf gleicher Linie" mit dem linken Bild abschließen.
+Frontend-Code (`src/pages/Checkout.tsx`) ist korrekt und wird nicht angefasst — es ist ein reiner DB-Function-Bug.
 
-**Keine Änderung am Bild selbst** — die Beschriftungen bleiben unverändert erhalten.
+## Fix (1 Migration, keine Code-Änderung)
 
-### Sprach-Übersetzung (wie zuvor besprochen)
+Funktion `checkout_create_catering_order` ersetzen — identisch zur aktuellen Version, nur eine Zeile geändert:
 
-Unverändert: UI-Strings statisch in `i18n.ts` (de/en/it/fr), Anschreiben dynamisch via Edge Function `translate-offer-letter` mit Cache in `inquiry.email_content_translations`.
+```sql
+-- vorher
+payload->>'desired_time',
+-- nachher
+NULLIF(payload->>'desired_time','')::time,
+```
 
-### Geänderte Dateien
-- `src/pages/PublicOffer.tsx` (Galerie-Container, CSS only)
-- `src/pages/public-offer/i18n.ts` (neu)
-- `src/pages/public-offer/AnschreibenSection.tsx`
-- `supabase/functions/translate-offer-letter/index.ts` (neu)
-- Migration: `email_content_translations jsonb` auf `inquiry`
+`SECURITY DEFINER`, `search_path = public` und alle anderen Felder bleiben unverändert.
 
-### Nicht geändert
-- Bild-Asset `storia-uebersicht-details.webp` bleibt 1:1 erhalten inkl. Captions.
+## Validierung
+
+1. Migration deployen.
+2. Testbestellung Pickup mit Uhrzeit → erfolgreich.
+3. Testbestellung ohne Uhrzeit (`time = ""`) → `NULL` in DB, kein Fehler.
+4. STORIA-Alert-Mail (`notify-checkout-error`) sollte für neue Submits ausbleiben.
+
+Keine Änderungen an Edge Functions, Stripe-Flow, Frontend oder anderen Tabellen.
