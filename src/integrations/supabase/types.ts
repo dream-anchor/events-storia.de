@@ -1145,6 +1145,36 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_audits: {
+        Row: {
+          audit_date: string
+          created_at: string
+          id: string
+          notified: boolean
+          project: Database["public"]["Enums"]["project_key"]
+          severity_score: number
+          summary: Json
+        }
+        Insert: {
+          audit_date: string
+          created_at?: string
+          id?: string
+          notified?: boolean
+          project: Database["public"]["Enums"]["project_key"]
+          severity_score?: number
+          summary: Json
+        }
+        Update: {
+          audit_date?: string
+          created_at?: string
+          id?: string
+          notified?: boolean
+          project?: Database["public"]["Enums"]["project_key"]
+          severity_score?: number
+          summary?: Json
+        }
+        Relationships: []
+      }
       email_attachments: {
         Row: {
           content_id: string | null
@@ -2544,6 +2574,66 @@ export type Database = {
           sort_order?: number
           unit?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      system_errors: {
+        Row: {
+          count: number
+          created_at: string
+          escalated_at: string | null
+          first_seen: string
+          id: string
+          last_seen: string
+          message: string
+          payload: Json | null
+          payload_hash: string
+          project: Database["public"]["Enums"]["project_key"]
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          source: string
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          escalated_at?: string | null
+          first_seen?: string
+          id?: string
+          last_seen?: string
+          message: string
+          payload?: Json | null
+          payload_hash: string
+          project: Database["public"]["Enums"]["project_key"]
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source: string
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          escalated_at?: string | null
+          first_seen?: string
+          id?: string
+          last_seen?: string
+          message?: string
+          payload?: Json | null
+          payload_hash?: string
+          project?: Database["public"]["Enums"]["project_key"]
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source?: string
+          url?: string | null
+          user_agent?: string | null
         }
         Relationships: []
       }
@@ -4713,6 +4803,23 @@ export type Database = {
         Returns: boolean
       }
       purge_deleted_menu_items: { Args: never; Returns: undefined }
+      report_system_error_internal: {
+        Args: {
+          p_message: string
+          p_payload: Json
+          p_payload_hash: string
+          p_project: Database["public"]["Enums"]["project_key"]
+          p_severity: string
+          p_source: string
+          p_url?: string
+          p_user_agent?: string
+        }
+        Returns: {
+          count: number
+          id: string
+          was_new: boolean
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       submit_offer_response: {
@@ -4735,6 +4842,7 @@ export type Database = {
         | "valentines"
         | "special"
         | "catering"
+      project_key: "events_storia" | "ristorante_storia"
       v2_email_direction: "inbound" | "outbound"
       v2_event_location: "in_house" | "external"
       v2_event_priority: "low" | "normal" | "high" | "urgent"
@@ -4911,6 +5019,7 @@ export const Constants = {
         "special",
         "catering",
       ],
+      project_key: ["events_storia", "ristorante_storia"],
       v2_email_direction: ["inbound", "outbound"],
       v2_event_location: ["in_house", "external"],
       v2_event_priority: ["low", "normal", "high", "urgent"],
