@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { reportEdgeError } from '../_shared/reportError.ts';
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -120,6 +121,7 @@ serve(async (req) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
     logStep("ERROR", { error: msg });
+    reportEdgeError({ source: 'edge:create-event-payment-session', severity: 'critical', message: msg });
     return new Response(
       JSON.stringify({ error: msg }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
