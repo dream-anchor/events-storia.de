@@ -4803,6 +4803,17 @@ export type Database = {
         Returns: boolean
       }
       purge_deleted_menu_items: { Args: never; Returns: undefined }
+      report_frontend_error: {
+        Args: {
+          p_message: string
+          p_payload?: Json
+          p_severity: string
+          p_source: string
+          p_url?: string
+          p_user_agent?: string
+        }
+        Returns: string
+      }
       report_system_error_internal: {
         Args: {
           p_message: string

@@ -28,6 +28,7 @@ import {
   LogOut,
   ChevronDown,
   Inbox,
+  ShieldAlert,
 } from "lucide-react";
 import { useEffect, useState as useStateReact } from "react";
 
@@ -123,6 +124,7 @@ export const AdminLayout = ({
     { name: 'Posteingang', href: '/admin/posteingang', icon: Inbox, key: 'posteingang' },
     { name: 'Angebote', href: '/admin/quotations', icon: FileCheck, key: 'quotations' },
     { name: 'Rechnungen', href: '/admin/invoices', icon: FileText, key: 'invoices' },
+    { name: 'System-Health', href: '/admin/system-health', icon: ShieldAlert, key: 'system-health' },
   ];
 
   const isActive = (href: string, key: string) => {
