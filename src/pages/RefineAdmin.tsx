@@ -12,6 +12,7 @@ import { OfferArchivePreview } from "@/components/admin/refine/InquiryEditor/Off
 import { AdminOfferCreate } from "@/components/admin/refine/OfferCreate";
 import { UnifiedInquiriesList } from "@/components/admin/refine/UnifiedInquiriesList";
 import Posteingang from "@/pages/admin/Posteingang";
+import SystemHealth from "@/pages/admin/SystemHealth";
 import { TestModeProvider } from "@/contexts/TestModeContext";
 import { SaveStatusProvider } from "@/components/admin/shared/SaveStatusContext";
 
@@ -140,6 +141,7 @@ export const RefineAdminApp = () => {
           <Route path=":id/edit" element={<LocationEdit />} />
         </Route>
         <Route path="settings" element={<Settings />} />
+        <Route path="system-health" element={<SystemHealth />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </Refine>
