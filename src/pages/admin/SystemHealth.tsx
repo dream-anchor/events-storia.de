@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, CheckCircle2, RefreshCw, ShieldAlert } from "lucide-react";
+import { AlertCircle, CheckCircle2, RefreshCw, ShieldAlert, Activity } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { toast } from "sonner";
@@ -44,6 +44,39 @@ export default function SystemHealth() {
   const [loading, setLoading] = useState(true);
   const [showResolved, setShowResolved] = useState(false);
   const [activeTab, setActiveTab] = useState<Project>("events_storia");
+  const [auditRuns, setAuditRuns] = useState<any[]>([]);
+  const [auditRunning, setAuditRunning] = useState(false);
+
+  const loadAuditRuns = async () => {
+    const { data } = await supabase
+      .from("system_health_audit_runs" as any)
+      .select("id,run_at,summary,email_sent,had_blockers,triggered_by")
+      .order("run_at", { ascending: false })
+      .limit(7);
+    setAuditRuns((data ?? []) as any[]);
+  };
+
+  const runAuditNow = async () => {
+    setAuditRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("system-health-daily-audit", {
+        body: { triggered_by: "manual" },
+      });
+      if (error) throw error;
+      toast.success("Audit ausgeführt", {
+        description: data?.email_sent
+          ? `E-Mail gesendet (${data.email_id ?? "—"})`
+          : data?.has_content
+          ? "Inhalte gefunden, aber kein E-Mail-Versand"
+          : "Keine neuen Auffälligkeiten",
+      });
+      await loadAuditRuns();
+    } catch (e: any) {
+      toast.error("Audit fehlgeschlagen", { description: e?.message ?? String(e) });
+    } finally {
+      setAuditRunning(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -61,6 +94,7 @@ export default function SystemHealth() {
 
   useEffect(() => {
     load();
+    loadAuditRuns();
     const channel = supabase
       .channel("system_errors_live")
       .on("postgres_changes", { event: "*", schema: "public", table: "system_errors" }, () => load())
@@ -158,6 +192,54 @@ export default function SystemHealth() {
             );
           })}
         </div>
+
+        <Card className="p-5 rounded-2xl border-neutral-200">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Activity className="size-4 text-neutral-700" />
+                <h2 className="text-base font-semibold">Tägliches Audit</h2>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Cron läuft täglich ~08:00 Europe/Berlin. E-Mail an info@events-storia.de nur bei Auffälligkeiten.
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={runAuditNow} disabled={auditRunning}>
+              <RefreshCw className={`size-4 mr-2 ${auditRunning ? "animate-spin" : ""}`} />
+              Jetzt ausführen
+            </Button>
+          </div>
+          {auditRuns.length === 0 ? (
+            <div className="mt-4 text-sm text-muted-foreground">Noch keine Audit-Läufe.</div>
+          ) : (
+            <div className="mt-4 space-y-2">
+              {auditRuns.map((r) => {
+                const projs = r.summary?.projects ?? [];
+                const newCrit = projs.reduce((a: number, p: any) => a + (p.new_critical ?? 0), 0);
+                const escal = projs.reduce((a: number, p: any) => a + (p.escalating ?? 0), 0);
+                return (
+                  <div key={r.id} className="flex items-center justify-between py-2 border-b border-neutral-100 last:border-0">
+                    <div className="text-sm">
+                      <span className="font-medium">
+                        {new Date(r.run_at).toLocaleString("de-DE", { timeZone: "Europe/Berlin" })}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        · {r.triggered_by}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <Badge variant="outline" className="rounded-full">
+                        {newCrit} neu krit. · {escal} eskal.
+                      </Badge>
+                      {r.email_sent && <Badge className="bg-neutral-900 text-white rounded-full">E-Mail</Badge>}
+                      {r.had_blockers && <Badge variant="outline" className="rounded-full border-neutral-400">Blocker</Badge>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Project)}>
           <TabsList className="rounded-2xl">

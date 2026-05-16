@@ -2637,6 +2637,42 @@ export type Database = {
         }
         Relationships: []
       }
+      system_health_audit_runs: {
+        Row: {
+          created_at: string
+          email_id: string | null
+          email_sent: boolean
+          had_blockers: boolean
+          id: string
+          run_at: string
+          summary: Json
+          triggered_by: string
+          window_hours: number
+        }
+        Insert: {
+          created_at?: string
+          email_id?: string | null
+          email_sent?: boolean
+          had_blockers?: boolean
+          id?: string
+          run_at?: string
+          summary?: Json
+          triggered_by?: string
+          window_hours?: number
+        }
+        Update: {
+          created_at?: string
+          email_id?: string | null
+          email_sent?: boolean
+          had_blockers?: boolean
+          id?: string
+          run_at?: string
+          summary?: Json
+          triggered_by?: string
+          window_hours?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
