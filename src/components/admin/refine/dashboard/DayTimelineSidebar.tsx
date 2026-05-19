@@ -1,3 +1,5 @@
+// Polyfill für Temporal API (fehlt auf iOS Safari) — muss vor @schedule-x importiert werden
+import "@js-temporal/polyfill";
 import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScheduleXCalendar, useNextCalendarApp } from "@schedule-x/react";
