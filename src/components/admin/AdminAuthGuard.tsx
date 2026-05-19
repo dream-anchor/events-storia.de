@@ -131,13 +131,38 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
 
     checkAuth();
 
-    // Listen for sign out to clear cache and redirect
+    // Listen for auth state changes.
+    // iOS-Hinweis: Bei Token-Refresh feuert Supabase manchmal SIGNED_OUT gefolgt von
+    // TOKEN_REFRESHED/SIGNED_IN. Deshalb bei diesen Events neu verifizieren statt blind auszuloggen.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event) => {
+      async (event, session) => {
         if (!mounted) return;
         if (event === 'SIGNED_OUT') {
           clearCachedAdmin();
           setAuthState('unauthenticated');
+        } else if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+          if (!session?.user) return;
+          const userId = session.user.id;
+          const cached = getCachedAuth();
+          if (cached?.userId === userId) return; // Bereits verifiziert
+          try {
+            const { data: roleData } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', userId)
+              .in('role', ['admin', 'staff'])
+              .maybeSingle();
+            if (!mounted) return;
+            if (roleData) {
+              setCachedAuth(userId, roleData.role as AppRole);
+              setAuthState('authenticated');
+            } else {
+              clearCachedAdmin();
+              setAuthState('unauthenticated');
+            }
+          } catch {
+            // Bei Netzwerkfehler: bestehenden Zustand beibehalten
+          }
         }
       }
     );

@@ -15,6 +15,7 @@ import Posteingang from "@/pages/admin/Posteingang";
 import SystemHealth from "@/pages/admin/SystemHealth";
 import { TestModeProvider } from "@/contexts/TestModeContext";
 import { SaveStatusProvider } from "@/components/admin/shared/SaveStatusContext";
+import { AdminErrorBoundary } from "@/components/admin/AdminErrorBoundary";
 
 // Legacy redirect helpers: keep old /admin/events/* URLs working.
 const LegacyEventsRedirect = ({ to }: { to: "edit" | "preview" }) => {
@@ -86,6 +87,7 @@ const resources = [
 
 export const RefineAdminApp = () => {
   return (
+    <AdminErrorBoundary>
     <TestModeProvider>
     <SaveStatusProvider>
     <Refine
@@ -147,5 +149,6 @@ export const RefineAdminApp = () => {
     </Refine>
     </SaveStatusProvider>
     </TestModeProvider>
+    </AdminErrorBoundary>
   );
 };
