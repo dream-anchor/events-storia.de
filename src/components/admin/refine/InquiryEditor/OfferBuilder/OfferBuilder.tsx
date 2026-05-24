@@ -318,6 +318,9 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
           offerValidityDays={inquiry.offer_validity_days}
           paymentMethod={inquiry.payment_method}
           invoiceDueDays={inquiry.invoice_due_days}
+          depositMethod={(inquiry as any).deposit_method}
+          balanceMethod={(inquiry as any).balance_method}
+          balanceDueDaysBeforeEvent={(inquiry as any).balance_due_days_before_event}
           onChange={(field, value) => onFieldChange(field, value)}
           isReadOnly={inquiry.status === 'confirmed'}
         />
