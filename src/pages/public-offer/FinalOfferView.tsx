@@ -56,7 +56,10 @@ export function FinalOfferView({
                 singleOption={displayOptions.length === 1}
                 paymentMethod={inquiry.payment_method || 'deposit_online'}
                 invoiceDueDays={inquiry.invoice_due_days ?? 14}
-                depositPercent={inquiry.deposit_percent ?? 20}
+                depositPercent={
+                  inquiry.deposit_percent
+                    ?? ((inquiry.payment_method || 'deposit_online') === 'deposit_online' ? 20 : 0)
+                }
                 depositAmount={inquiry.deposit_amount ?? null}
               />
             ))}
@@ -105,6 +108,8 @@ function FinalOptionCard({
   const depositAmount = isFixedDeposit
     ? Math.min(fixedDepositAmount as number, totalAmount)
     : Math.round(totalAmount * depositPercent) / 100;
+  // Anzahlungs-Button nur zeigen, wenn explizit konfiguriert und sinnvoll
+  const showDeposit = depositAmount > 0 && depositAmount < totalAmount;
 
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
@@ -338,7 +343,7 @@ function FinalOptionCard({
             <p className="text-sm font-sans font-medium text-center text-foreground/80">
               {isRedirecting ? 'Zahlung wird vorbereitet…' : 'Wie möchten Sie zahlen?'}
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={cn("grid gap-3", showDeposit ? "grid-cols-2" : "grid-cols-1")}>
               <button
                 onClick={() => handlePayment('full')}
                 disabled={isRedirecting}
@@ -353,6 +358,7 @@ function FinalOptionCard({
                   </>
                 )}
               </button>
+              {showDeposit && (
               <button
                 onClick={() => handlePayment('deposit')}
                 disabled={isRedirecting}
@@ -370,6 +376,7 @@ function FinalOptionCard({
                   </>
                 )}
               </button>
+              )}
             </div>
           </div>
         ) : (

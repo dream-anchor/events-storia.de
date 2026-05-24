@@ -121,7 +121,11 @@ export function PaymentTermsBlock({
   const da = depositAmount ?? 0;
 
   const handleNumber = useCallback((field: string, raw: string, min: number, max?: number) => {
-    if (raw === "") return;
+    if (raw === "") {
+      // Leerer Wert ⇒ 0 (wichtig für deposit_percent, sonst klemmt der Editor bei alten Werten)
+      onChange(field, min);
+      return;
+    }
     let n = parseInt(raw, 10);
     if (isNaN(n)) return;
     if (n < min) n = min;
@@ -138,6 +142,11 @@ export function PaymentTermsBlock({
       onChange("deposit_amount", 0);
     } else if (m === 'deposit_online' && dp === 100) {
       onChange("deposit_percent", defaults.deposit_percent);
+    } else if (m === 'on_site' || m === 'invoice_after') {
+      // Bei Offline-Methoden: keine Anzahlung — Altwerte aktiv nullen, damit
+      // Public Offer nicht stale auf 20 % zurückfällt.
+      onChange("deposit_percent", 0);
+      onChange("deposit_amount", 0);
     }
   }, [isReadOnly, onChange, dp, defaults.deposit_percent]);
 
@@ -165,9 +174,14 @@ export function PaymentTermsBlock({
   const summaryText = (() => {
     switch (method) {
       case 'deposit_online':
-        return depositMode === 'amount'
-          ? `Anzahlung ${da.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € innerhalb ${dd} Tage, Restzahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`
-          : `Anzahlung ${dp} % innerhalb ${dd} Tage, Restzahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`;
+        if (depositMode === 'amount') {
+          return da > 0
+            ? `Anzahlung ${da.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € innerhalb ${dd} Tage, Restzahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`
+            : `Komplette Online-Zahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`;
+        }
+        return dp > 0
+          ? `Anzahlung ${dp} % innerhalb ${dd} Tage, Restzahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`
+          : `Komplette Online-Zahlung vor Veranstaltung — keine Anzahlung. Angebot ${ov} Tage gültig.`;
       case 'prepayment_online':
         return `Vorauszahlung 100 % innerhalb ${dd} Tage per Stripe. Angebot ${ov} Tage gültig.`;
       case 'on_site':
@@ -254,12 +268,12 @@ export function PaymentTermsBlock({
                   id="deposit-value"
                   type="number"
                   inputMode="numeric"
-                  min={1}
+                  min={0}
                   max={99}
                   step={1}
                   value={dp}
                   disabled={isReadOnly}
-                  onChange={(e) => handleNumber("deposit_percent", e.target.value, 1, 99)}
+                  onChange={(e) => handleNumber("deposit_percent", e.target.value, 0, 99)}
                   className="pr-8"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>

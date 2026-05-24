@@ -173,9 +173,14 @@ function formatCurrencyDecimal(amount: number) {
  * Liefert {amount, label, show}. show=false wenn 0 oder ≥ totalAmount.
  */
 function computeDeposit(
-  inquiry: Pick<PublicInquiry, "deposit_amount" | "deposit_percent">,
+  inquiry: Pick<PublicInquiry, "deposit_amount" | "deposit_percent" | "payment_method">,
   totalAmount: number,
 ): { amount: number; label: string; show: boolean } {
+  // Bei Offline-Zahlung (vor Ort / Rechnung) gibt es konzeptionell keine Anzahlung
+  const pm = (inquiry.payment_method ?? '').toLowerCase();
+  if (pm === 'on_site' || pm === 'pay_on_site' || pm === 'invoice_after' || pm === 'invoice_after_event') {
+    return { amount: 0, label: 'Anzahlung', show: false };
+  }
   const fixed = inquiry.deposit_amount && inquiry.deposit_amount > 0 ? inquiry.deposit_amount : null;
   if (fixed != null) {
     const amount = Math.min(fixed, totalAmount);
@@ -185,7 +190,9 @@ function computeDeposit(
       show: amount > 0 && amount < totalAmount,
     };
   }
-  const pct = inquiry.deposit_percent ?? 20;
+  // Sicherer Default nur, wenn auch wirklich Online-Anzahlungsmodus
+  const fallbackPct = pm === 'deposit_online' ? 20 : 0;
+  const pct = inquiry.deposit_percent ?? fallbackPct;
   if (pct <= 0) return { amount: 0, label: "Anzahlung", show: false };
   const amount = Math.round(totalAmount * pct) / 100;
   return {
@@ -985,8 +992,8 @@ function ProposalView({
             ))}
           </div>
 
-          {/* PRIMARY ACTION — Buchen über Stripe (nur wenn Betrag kalkuliert ist) */}
-          {selectedOption && totalAmount > 0 && (
+          {/* PRIMARY ACTION — Buchen über Stripe (nur wenn Online-Zahlung & Betrag) */}
+          {selectedOption && totalAmount > 0 && !offlineTiming && (
             <div className="max-w-2xl mb-10">
               <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm rounded-2xl border-2 border-primary/20 p-6 md:p-8 shadow-[0_8px_30px_rgba(139,0,0,0.08)]">
                 <div className="mb-6">
@@ -998,7 +1005,10 @@ function ProposalView({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className={cn(
+                  "grid grid-cols-1 gap-3",
+                  deposit.show && "md:grid-cols-2"
+                )}>
                   {/* Voll bezahlen — Primary/Dominant */}
                   <Button
                     onClick={() => handlePayment('full')}
@@ -1014,7 +1024,8 @@ function ProposalView({
                     </span>
                   </Button>
 
-                  {/* Anzahlung 20 % — Secondary/Alternative */}
+                  {/* Anzahlung — nur wenn vom Admin konfiguriert (0 % < x < 100 %) */}
+                  {deposit.show && (
                   <Button
                     onClick={() => handlePayment('deposit')}
                     disabled={busy}
@@ -1029,6 +1040,7 @@ function ProposalView({
                       {formatCurrencyDecimal(depositAmount)}
                     </span>
                   </Button>
+                  )}
                 </div>
 
                 {/* Trust-Elemente */}
@@ -1691,7 +1703,7 @@ function FinalOptionCard({
             <p className="text-sm font-sans font-medium text-center text-foreground/80">
               {isRedirecting ? 'Zahlung wird vorbereitet…' : 'Wie möchten Sie zahlen?'}
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={cn("grid gap-3", deposit.show ? "grid-cols-2" : "grid-cols-1")}>
               <button
                 onClick={() => handlePayment('full')}
                 disabled={isRedirecting}
@@ -1706,6 +1718,7 @@ function FinalOptionCard({
                   </>
                 )}
               </button>
+              {deposit.show && (
               <button
                 onClick={() => handlePayment('deposit')}
                 disabled={isRedirecting}
@@ -1721,6 +1734,7 @@ function FinalOptionCard({
                   </>
                 )}
               </button>
+              )}
             </div>
           </div>
         ) : (
