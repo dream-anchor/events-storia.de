@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
+import { MenuItemPicker } from "./MenuItemPicker";
 
 type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
@@ -217,6 +218,7 @@ export const CateringOrderEditor = () => {
   const [billingCity, setBillingCity] = useState("");
   const [billingCountry, setBillingCountry] = useState("Deutschland");
   const [isRecalcDelivery, setIsRecalcDelivery] = useState(false);
+  const [isMarkingRefunded, setIsMarkingRefunded] = useState(false);
 
   // Initialize state from order
   useEffect(() => {
@@ -333,6 +335,24 @@ export const CateringOrderEditor = () => {
     }
   };
 
+  const markRefundedManually = async () => {
+    if (!id) return;
+    setIsMarkingRefunded(true);
+    try {
+      const { error } = await supabase
+        .from("catering_orders" as any)
+        .update({ payment_status: "refunded" } as any)
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Als zurückerstattet markiert (manuell via Bank/Bar)");
+      orderQuery.query.refetch();
+    } catch (e: any) {
+      toast.error(e.message || "Fehler beim Markieren");
+    } finally {
+      setIsMarkingRefunded(false);
+    }
+  };
+
   if (orderQuery.query.isLoading) {
     return (
       <AdminLayout activeTab="orders">
@@ -358,7 +378,10 @@ export const CateringOrderEditor = () => {
 
   const items = Array.isArray(order.items) ? order.items : [];
   const isCancelled = order.status === 'cancelled';
-  const isPaid = order.payment_method === 'stripe' && order.payment_status === 'paid';
+  const isStripePaid = order.payment_method === 'stripe' && order.payment_status === 'paid';
+  const isManuallyPaid = order.payment_method && order.payment_method !== 'stripe' && order.payment_status === 'paid';
+  const isPaid = isStripePaid || isManuallyPaid;
+  const isRefunded = order.payment_status === 'refunded';
 
   return (
     <AdminLayout activeTab="orders">
@@ -413,10 +436,15 @@ export const CateringOrderEditor = () => {
                     <AlertDialogTitle>Bestellung stornieren?</AlertDialogTitle>
                       <AlertDialogDescription asChild>
                         <div>
-                          {isPaid ? (
+                          {isStripePaid ? (
                             <span className="flex items-center gap-2 text-muted-foreground">
                               <AlertCircle className="h-4 w-4 text-primary" />
                               Die Zahlung wird automatisch über Stripe zurückerstattet.
+                            </span>
+                          ) : isManuallyPaid ? (
+                            <span className="flex items-center gap-2 text-muted-foreground">
+                              <AlertCircle className="h-4 w-4 text-primary" />
+                              Manuelle Zahlung ({order.payment_method}) — bitte Rückerstattung außerhalb des Systems vornehmen und anschließend als „zurückerstattet" markieren.
                             </span>
                           ) : (
                             <span>Diese Bestellung wird als storniert markiert.</span>
@@ -499,14 +527,20 @@ export const CateringOrderEditor = () => {
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center justify-between">
                       <span>Bestellte Artikel</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setItemsState(prev => [...prev, { name: "Neuer Artikel", quantity: 1, price: 0 }])}
-                      >
-                        <Plus className="h-3.5 w-3.5 mr-1" /> Artikel
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <MenuItemPicker
+                          onPick={(pi) => setItemsState(prev => [...prev, pi])}
+                          triggerLabel="Aus Katalog"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setItemsState(prev => [...prev, { name: "Neuer Artikel", quantity: 1, price: 0 }])}
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Frei
+                        </Button>
+                      </div>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -736,6 +770,23 @@ export const CateringOrderEditor = () => {
                         <p className="text-xs text-muted-foreground font-mono">
                           PI: {order.stripe_payment_intent_id.slice(0, 20)}...
                         </p>
+                      )}
+                      {isPaid && !isRefunded && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={markRefundedManually}
+                          disabled={isMarkingRefunded}
+                        >
+                          {isMarkingRefunded ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                          )}
+                          {isStripePaid
+                            ? "Manuell als zurückerstattet markieren"
+                            : "Als zurückerstattet markieren"}
+                        </Button>
                       )}
                     </div>
 

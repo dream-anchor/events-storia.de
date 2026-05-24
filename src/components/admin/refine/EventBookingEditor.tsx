@@ -14,7 +14,9 @@ import {
   User,
   Phone,
   AtSign,
-  Activity
+  Activity,
+  Ban,
+  RefreshCw
 } from "lucide-react";
 import { useList } from "@refinedev/core";
 import { AdminLayout } from "./AdminLayout";
@@ -24,6 +26,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
   useEventBooking, 
@@ -44,6 +51,18 @@ export const EventBookingEditor = () => {
   
   const [menuSelection, setMenuSelection] = useState<MenuSelection>({ courses: [], drinks: [] });
   const [internalNotes, setInternalNotes] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [guestCount, setGuestCount] = useState<number>(0);
+  const [totalAmount, setTotalAmount] = useState<number>(0);
+  const [bookingStatus, setBookingStatus] = useState<string>("menu_pending");
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isMarkingRefunded, setIsMarkingRefunded] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -66,6 +85,15 @@ export const EventBookingEditor = () => {
       });
     }
     setInternalNotes(booking.internal_notes || "");
+    setEventDate(booking.event_date || "");
+    setEventTime((booking.event_time || "").slice(0, 5));
+    setGuestCount(booking.guest_count || 0);
+    setTotalAmount(Number(booking.total_amount) || 0);
+    setBookingStatus(booking.status || "menu_pending");
+    setCustomerName(booking.customer_name || "");
+    setCustomerEmail(booking.customer_email || "");
+    setPhone(booking.phone || "");
+    setCompanyName(booking.company_name || "");
     setIsInitialized(true);
   }
 
@@ -81,7 +109,16 @@ export const EventBookingEditor = () => {
       updates: {
         menu_selection: menuSelection as any,
         internal_notes: internalNotes,
-      },
+        event_date: eventDate || null,
+        event_time: eventTime || null,
+        guest_count: guestCount || 0,
+        total_amount: totalAmount || 0,
+        status: bookingStatus,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        phone: phone || null,
+        company_name: companyName || null,
+      } as any,
     }, {
       onSuccess: () => {
         setSaveStatus('saved');
@@ -92,7 +129,7 @@ export const EventBookingEditor = () => {
         setSaveStatus('idle');
       },
     });
-  }, [id, updateBooking, menuSelection, internalNotes]);
+  }, [id, updateBooking, menuSelection, internalNotes, eventDate, eventTime, guestCount, totalAmount, bookingStatus, customerName, customerEmail, phone, companyName]);
 
   // Auto-save on any change (debounced)
   useEffect(() => {
@@ -111,7 +148,7 @@ export const EventBookingEditor = () => {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [menuSelection, internalNotes, performSave]);
+  }, [menuSelection, internalNotes, eventDate, eventTime, guestCount, totalAmount, bookingStatus, customerName, customerEmail, phone, companyName, performSave]);
 
   // Mark as initialized after first load
   useEffect(() => {
@@ -121,6 +158,45 @@ export const EventBookingEditor = () => {
       }, 100);
     }
   }, [booking]);
+
+  const handleCancelBooking = async () => {
+    if (!id) return;
+    setIsCancelling(true);
+    try {
+      const { error } = await supabase
+        .from("event_bookings" as any)
+        .update({
+          status: "cancelled",
+          cancellation_reason: cancelReason || "Stornierung durch Admin",
+          cancelled_at: new Date().toISOString(),
+        } as any)
+        .eq("id", id);
+      if (error) throw error;
+      setBookingStatus("cancelled");
+      toast.success("Buchung storniert");
+    } catch (e: any) {
+      toast.error(e.message || "Fehler beim Stornieren");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const markRefundedManually = async () => {
+    if (!id) return;
+    setIsMarkingRefunded(true);
+    try {
+      const { error } = await supabase
+        .from("event_bookings" as any)
+        .update({ payment_status: "refunded" } as any)
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Als zurückerstattet markiert");
+    } catch (e: any) {
+      toast.error(e.message || "Fehler beim Markieren");
+    } finally {
+      setIsMarkingRefunded(false);
+    }
+  };
 
   const handleConfirmAndSend = useCallback(() => {
     if (!id) return;
@@ -225,6 +301,35 @@ export const EventBookingEditor = () => {
                 Bestätigung senden
               </Button>
             )}
+
+            {bookingStatus !== "cancelled" && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm">
+                    <Ban className="h-4 w-4 mr-2" />
+                    Stornieren
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Buchung stornieren?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Die Buchung wird als storniert markiert. Bei bereits geleisteten Zahlungen muss die Rückerstattung manuell vorgenommen und anschließend als „zurückerstattet" markiert werden.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Stornierungsgrund (optional)</Label>
+                    <Textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="z.B. Kunde hat abgesagt..." />
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleCancelBooking} disabled={isCancelling} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      {isCancelling ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wird storniert...</> : "Stornieren"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
 
@@ -258,22 +363,25 @@ export const EventBookingEditor = () => {
                     <CardTitle className="text-base">Event-Details</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>
-                        {booking.event_date && format(parseISO(booking.event_date), "EEEE, dd. MMMM yyyy", { locale: de })}
-                      </span>
-                    </div>
-                    {booking.event_time && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="w-4" />
-                        <span className="text-muted-foreground">{booking.event_time} Uhr</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> Datum</Label>
+                        <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
                       </div>
-                    )}
-                    <div className="flex items-center gap-2 text-sm">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span>{booking.guest_count} Gäste</span>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Uhrzeit</Label>
+                        <Input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
+                      </div>
                     </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Gäste</Label>
+                      <Input type="number" min="0" value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value) || 0)} />
+                    </div>
+                    {eventDate && (
+                      <p className="text-xs text-muted-foreground">
+                        {format(parseISO(eventDate), "EEEE, dd. MMMM yyyy", { locale: de })}
+                      </p>
+                    )}
                     
                     <Separator />
                     
@@ -291,15 +399,39 @@ export const EventBookingEditor = () => {
                     
                     <Separator />
                     
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Gesamtbetrag</span>
-                      <span className="text-xl font-bold text-primary">
-                        {booking.total_amount?.toLocaleString('de-DE', { 
-                          style: 'currency', 
-                          currency: 'EUR' 
-                        })}
-                      </span>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Gesamtbetrag (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={totalAmount}
+                        onChange={(e) => setTotalAmount(Number(e.target.value) || 0)}
+                        className="text-right font-semibold text-base"
+                      />
                     </div>
+
+                    <Separator />
+
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Status</Label>
+                      <Select value={bookingStatus} onValueChange={setBookingStatus}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="menu_pending">Menü ausstehend</SelectItem>
+                          <SelectItem value="ready">Bereit</SelectItem>
+                          <SelectItem value="completed">Abgeschlossen</SelectItem>
+                          <SelectItem value="cancelled">Storniert</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {booking.payment_status === "paid" && (
+                      <Button variant="outline" size="sm" className="w-full" onClick={markRefundedManually} disabled={isMarkingRefunded}>
+                        {isMarkingRefunded ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-2" />}
+                        Als zurückerstattet markieren
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -308,31 +440,23 @@ export const EventBookingEditor = () => {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Kunde</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span>{booking.customer_name}</span>
+                  <CardContent className="space-y-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> Name</Label>
+                      <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
                     </div>
-                    {booking.company_name && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        <span>{booking.company_name}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 text-sm">
-                      <AtSign className="h-4 w-4 text-muted-foreground" />
-                      <a href={`mailto:${booking.customer_email}`} className="text-primary hover:underline">
-                        {booking.customer_email}
-                      </a>
+                    <div>
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Firma</Label>
+                      <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="optional" />
                     </div>
-                    {booking.phone && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <a href={`tel:${booking.phone}`} className="text-primary hover:underline">
-                          {booking.phone}
-                        </a>
-                      </div>
-                    )}
+                    <div>
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1"><AtSign className="h-3 w-3" /> E-Mail</Label>
+                      <Input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Telefon</Label>
+                      <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="optional" />
+                    </div>
                   </CardContent>
                 </Card>
 
