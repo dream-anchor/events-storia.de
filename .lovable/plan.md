@@ -1,12 +1,9 @@
 ## Ziel
-Mengenfeld auf Stripe-Checkout auffälliger machen – durch klareren Produktnamen/-beschreibung (das einzige was wir an Stripe steuern können).
+Finale Vorschau beider Restzahlungs-Mails neu generieren.
 
 ## Vorgehen
-1. Stripe-Produkt `prod_…` (Restzahlung Rigshospitalet Veranstaltung 28.08.2026) aktualisieren:
-   - **Name:** `⚠️ MENGE = finale Gästeanzahl anpassen!`
-   - **Description:** `Restzahlung Rigshospitalet · 28.08.2026 · 63 € pro Gast · Bitte links bei "Menge" die finale Gästezahl eintragen (min. 70).`
-2. Damit erscheint links neben dem Mengen-Dropdown ein deutlicher Hinweis-Text – das ist die einzige Stelle, die Stripe an der Hosted-Checkout-Seite individualisieren lässt.
-3. Bestehender Payment Link bleibt gültig (gleiche Price-ID, adjustable_quantity 70–120).
+1. **`/mnt/documents/vorschau-rigshospitalet-restzahlung.html`** aktualisieren – Christina Byrne Windfeld, Stripe-Link mit angepasstem Produktnamen ("⚠️ MENGE = finale Gästeanzahl anpassen!"). Hinweisbox in der Mail klarer formulieren, dass auf der Stripe-Seite links bei "Menge" die finale Gästezahl eingetragen werden muss.
+2. **`/mnt/documents/vorschau-cyim-restzahlung.html`** neu erstellen – Restzahlungs-Mail für CYIM mit Zahlungsdaten/Frist (10 Tage vor Event). Klärung nötig: zahlt CYIM auch per Stripe oder per Überweisung? Aus Kontext bisher: CYIM-Vorschau war "bestaetigung", nicht Restzahlung – ich gehe davon aus, dass für CYIM die bereits bestehende `vorschau-cyim-bestaetigung.html` gemeint ist (mit Überweisungs-Restzahlung).
 
-## Hinweis
-Das blau umrandete „Menge 70"-Dropdown selbst kann nicht vergrößert/umgestylt werden – Stripe-Checkout ist nicht anpassbar. Wenn das nicht reicht, wäre Option 2 (eigene Zwischenseite auf events-storia.de mit großem Gäste-Zahl-Picker, dann fixer Stripe-Link) der einzige Weg zu wirklich großem Auswahlfeld.
+## Output
+Beide HTML-Dateien in `/mnt/documents/` als `<presentation-artifact>` zur Vorschau ausgeben.
