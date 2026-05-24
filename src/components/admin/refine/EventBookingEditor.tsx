@@ -67,6 +67,8 @@ export const EventBookingEditor = () => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isMarkingRefunded, setIsMarkingRefunded] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [customer, setCustomer] = useState<{ id?: string; account_invited_at?: string | null; account_activated_at?: string | null } | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitializedRef = useRef(false);
@@ -77,6 +79,19 @@ export const EventBookingEditor = () => {
     pagination: { pageSize: 100 },
   });
   const packages = packagesQuery.result?.data || [];
+
+  // Kundenkonto-Status laden (v2_customers via email match)
+  useEffect(() => {
+    if (!booking?.customer_email) return;
+    (async () => {
+      const { data } = await supabase
+        .from("v2_customers")
+        .select("id, account_invited_at, account_activated_at")
+        .eq("email", booking.customer_email)
+        .maybeSingle();
+      if (data) setCustomer(data as any);
+    })();
+  }, [booking?.customer_email]);
 
   // Initialize state from booking
   if (booking && !isInitialized) {
