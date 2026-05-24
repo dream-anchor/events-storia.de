@@ -559,64 +559,34 @@ export const CateringOrderEditor = () => {
             </AlertDialog>
             
             {!isCancelled && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive">
-                    <Ban className="h-4 w-4 mr-2" />
-                    Stornieren
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Bestellung stornieren?</AlertDialogTitle>
-                      <AlertDialogDescription asChild>
-                        <div>
-                          {isStripePaid ? (
-                            <span className="flex items-center gap-2 text-muted-foreground">
-                              <AlertCircle className="h-4 w-4 text-primary" />
-                              Die Zahlung wird automatisch über Stripe zurückerstattet.
-                            </span>
-                          ) : isManuallyPaid ? (
-                            <span className="flex items-center gap-2 text-muted-foreground">
-                              <AlertCircle className="h-4 w-4 text-primary" />
-                              Manuelle Zahlung ({order.payment_method}) — bitte Rückerstattung außerhalb des Systems vornehmen und anschließend als „zurückerstattet" markieren.
-                            </span>
-                          ) : (
-                            <span>Diese Bestellung wird als storniert markiert.</span>
-                          )}
-                        </div>
-                      </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Stornierungsgrund (optional)</label>
-                    <Textarea
-                      value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value)}
-                      placeholder="z.B. Kunde hat abgesagt..."
-                    />
-                  </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleCancelOrder}
-                      disabled={isCancelling}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      {isCancelling ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Wird storniert...
-                        </>
-                      ) : (
-                        "Bestellung stornieren"
-                      )}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Button variant="destructive" onClick={() => setShowCancelDialog(true)}>
+                <Ban className="h-4 w-4 mr-2" />
+                Stornieren
+              </Button>
             )}
           </div>
         </div>
+
+        {/* Storno-Dialog mit KI-Nachricht */}
+        <CancellationDialog
+          open={showCancelDialog}
+          onOpenChange={setShowCancelDialog}
+          context="catering_order"
+          customerName={order.customer_name}
+          orderNumber={order.order_number}
+          eventDate={order.desired_date || undefined}
+          totalAmount={order.total_amount || undefined}
+          refundInfo={
+            isStripePaid
+              ? "Die Zahlung wird automatisch über Stripe zurückerstattet."
+              : isManuallyPaid
+              ? `Manuelle Zahlung (${order.payment_method}) — Rückerstattung bitte separat vornehmen.`
+              : undefined
+          }
+          onConfirm={(msg) => handleCancelOrder(msg)}
+          title="Bestellung stornieren"
+          confirmLabel="Stornieren & Nachricht senden"
+        />
 
         {/* Cancelled Notice */}
         {isCancelled && (
