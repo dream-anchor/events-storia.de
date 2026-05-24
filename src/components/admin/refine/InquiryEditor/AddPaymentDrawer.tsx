@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { addDays, format } from "date-fns";
 import { de } from "date-fns/locale";
-import { CalendarIcon, X, AlertTriangle, FlaskConical } from "lucide-react";
+import { CalendarIcon, X, AlertTriangle, FlaskConical, CheckCircle2, Link2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -37,6 +37,7 @@ interface Props {
 
 type PaymentType = 'deposit' | 'prepayment' | 'final';
 type DueType = 'date' | 'days' | 'immediate';
+type PaymentMode = 'link' | 'manual_paid';
 
 const typeLabels: Record<PaymentType, string> = {
   deposit: 'Anzahlung',
@@ -73,6 +74,10 @@ export function AddPaymentDrawer({
   const [notes, setNotes] = useState('');
   const [sendLink, setSendLink] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('link');
+  const [createInvoice, setCreateInvoice] = useState(true);
+  const [sendConfirmation, setSendConfirmation] = useState(true);
+  const [manualMethod, setManualMethod] = useState<string>('bank_transfer');
 
   // Reset on open
   useEffect(() => {
@@ -84,6 +89,10 @@ export function AddPaymentDrawer({
       setDueDays('14');
       setNotes('');
       setSendLink(true);
+      setPaymentMode('link');
+      setCreateInvoice(true);
+      setSendConfirmation(true);
+      setManualMethod('bank_transfer');
     }
   }, [open]);
 
@@ -117,15 +126,17 @@ export function AddPaymentDrawer({
       toast.error('Betrag muss größer als 0 € sein');
       return;
     }
-    if (dueType === 'date' && !dueDate) {
-      toast.error('Bitte ein Fälligkeitsdatum wählen');
-      return;
-    }
-    if (dueType === 'days') {
-      const days = parseInt(dueDays, 10);
-      if (!dueDays || isNaN(days) || days < 0) {
-        toast.error('Bitte gültige Tage vor Event eingeben');
+    if (paymentMode === 'link') {
+      if (dueType === 'date' && !dueDate) {
+        toast.error('Bitte ein Fälligkeitsdatum wählen');
         return;
+      }
+      if (dueType === 'days') {
+        const days = parseInt(dueDays, 10);
+        if (!dueDays || isNaN(days) || days < 0) {
+          toast.error('Bitte gültige Tage vor Event eingeben');
+          return;
+        }
       }
     }
 
@@ -133,27 +144,33 @@ export function AddPaymentDrawer({
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
+      const isManualPaid = paymentMode === 'manual_paid';
       const payload = {
         inquiry_id: inquiryId,
         payment_type: paymentType as 'deposit' | 'prepayment' | 'final',
         amount_cents: amountCents,
-        status: 'draft' as const,
+        status: (isManualPaid ? 'paid' : 'draft') as 'draft' | 'paid',
         notes: notes.trim() || null,
         created_by: user?.id || null,
         due_date: null as string | null,
         due_days_before_event: null as number | null,
+        paid_at: isManualPaid ? new Date().toISOString() : null,
+        paid_via: isManualPaid ? manualMethod : null,
       };
 
-      if (dueType === 'date' && dueDate) {
-        payload.due_date = format(dueDate, 'yyyy-MM-dd');
-      } else if (dueType === 'days' && dueDays) {
-        const days = parseInt(dueDays, 10);
-        if (!isNaN(days) && days >= 0) {
-          payload.due_days_before_event = days;
-        }
-      } else if (dueType === 'immediate') {
-        // Sofort fällig → due_date = heute, damit Reminder-Logik & Status sauber laufen
+      if (isManualPaid) {
         payload.due_date = format(new Date(), 'yyyy-MM-dd');
+      } else {
+        if (dueType === 'date' && dueDate) {
+          payload.due_date = format(dueDate, 'yyyy-MM-dd');
+        } else if (dueType === 'days' && dueDays) {
+          const days = parseInt(dueDays, 10);
+          if (!isNaN(days) && days >= 0) {
+            payload.due_days_before_event = days;
+          }
+        } else if (dueType === 'immediate') {
+          payload.due_date = format(new Date(), 'yyyy-MM-dd');
+        }
       }
 
       const { data: newPayment, error: insertError } = await supabase
@@ -166,7 +183,39 @@ export function AddPaymentDrawer({
 
       const paymentId = newPayment.id;
 
-      if (sendLink) {
+      if (isManualPaid) {
+        // Manual paid path: optional LexOffice invoice + customer confirmation email
+        const warnings: string[] = [];
+
+        if (createInvoice) {
+          const fnName = paymentType === 'final'
+            ? 'create-lexoffice-final-invoice'
+            : 'create-lexoffice-downpayment-invoice';
+          const body = paymentType === 'final'
+            ? { inquiryId }
+            : { payment_id: paymentId };
+          const { data: invData, error: invErr } = await supabase.functions.invoke(fnName, { body });
+          if (invErr || invData?.error) {
+            warnings.push(`Rechnung: ${invData?.error || invErr?.message || 'Fehler'}`);
+          }
+        }
+
+        if (sendConfirmation) {
+          const { data: emailData, error: emailError } = await supabase.functions.invoke(
+            'send-payment-email',
+            { body: { payment_id: paymentId, is_confirmation: true } }
+          );
+          if (emailError || !emailData?.success) {
+            warnings.push(`Bestätigung: ${emailData?.error || emailError?.message || 'Fehler'}`);
+          }
+        }
+
+        if (warnings.length > 0) {
+          toast.warning(`Zahlung als bezahlt vermerkt. ${warnings.join(' · ')}`);
+        } else {
+          toast.success('Zahlung als bezahlt vermerkt' + (createInvoice || sendConfirmation ? ' (Rechnung & Bestätigung versendet)' : ''));
+        }
+      } else if (sendLink) {
         // Stripe Session erstellen
         const { data: sessionData, error: sessionError } = await supabase.functions.invoke(
           'create-event-payment-session',
@@ -227,6 +276,39 @@ export function AddPaymentDrawer({
         </SheetHeader>
 
         <div className="space-y-5">
+          {/* Mode-Switch */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Zahlungsweg</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMode('link')}
+                className={cn(
+                  'px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors flex items-center justify-center gap-2',
+                  paymentMode === 'link'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:border-primary/50'
+                )}
+              >
+                <Link2 className="h-4 w-4" />
+                Zahlungslink senden
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMode('manual_paid')}
+                className={cn(
+                  'px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors flex items-center justify-center gap-2',
+                  paymentMode === 'manual_paid'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:border-primary/50'
+                )}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Bereits bezahlt
+              </button>
+            </div>
+          </div>
+
           {/* Typ */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Typ</Label>
