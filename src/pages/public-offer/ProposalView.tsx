@@ -150,10 +150,11 @@ export function ProposalView({
     ? multiOptionsTotal
     : (selectedOption?.total_amount ?? 0);
   // Zahlungs-Konditionen aus Inquiry (RPC liefert Defaults aus site_settings)
-  const depositPercent = inquiry.deposit_percent ?? 20;
+  const paymentMethod = (inquiry.payment_method || 'deposit_online') as string;
+  // Sicherer Default für deposit_percent NUR bei deposit_online; sonst 0.
+  const depositPercent = inquiry.deposit_percent ?? (paymentMethod === 'deposit_online' ? 20 : 0);
   const fixedDepositAmount = inquiry.deposit_amount ?? null;
   const depositDueDays = inquiry.deposit_due_days ?? 5;
-  const paymentMethod = (inquiry.payment_method || 'deposit_online') as string;
   const invoiceDueDays = inquiry.invoice_due_days ?? 14;
   const isStripePayment = paymentMethod === 'deposit_online' || paymentMethod === 'prepayment_online';
   const isFixedDeposit = fixedDepositAmount != null && fixedDepositAmount > 0;
