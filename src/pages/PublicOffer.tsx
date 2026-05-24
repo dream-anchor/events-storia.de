@@ -173,9 +173,14 @@ function formatCurrencyDecimal(amount: number) {
  * Liefert {amount, label, show}. show=false wenn 0 oder ≥ totalAmount.
  */
 function computeDeposit(
-  inquiry: Pick<PublicInquiry, "deposit_amount" | "deposit_percent">,
+  inquiry: Pick<PublicInquiry, "deposit_amount" | "deposit_percent" | "payment_method">,
   totalAmount: number,
 ): { amount: number; label: string; show: boolean } {
+  // Bei Offline-Zahlung (vor Ort / Rechnung) gibt es konzeptionell keine Anzahlung
+  const pm = (inquiry.payment_method ?? '').toLowerCase();
+  if (pm === 'on_site' || pm === 'pay_on_site' || pm === 'invoice_after' || pm === 'invoice_after_event') {
+    return { amount: 0, label: 'Anzahlung', show: false };
+  }
   const fixed = inquiry.deposit_amount && inquiry.deposit_amount > 0 ? inquiry.deposit_amount : null;
   if (fixed != null) {
     const amount = Math.min(fixed, totalAmount);
@@ -185,7 +190,9 @@ function computeDeposit(
       show: amount > 0 && amount < totalAmount,
     };
   }
-  const pct = inquiry.deposit_percent ?? 20;
+  // Sicherer Default nur, wenn auch wirklich Online-Anzahlungsmodus
+  const fallbackPct = pm === 'deposit_online' ? 20 : 0;
+  const pct = inquiry.deposit_percent ?? fallbackPct;
   if (pct <= 0) return { amount: 0, label: "Anzahlung", show: false };
   const amount = Math.round(totalAmount * pct) / 100;
   return {
