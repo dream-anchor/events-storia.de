@@ -895,6 +895,34 @@ export const SmartInquiryEditor = () => {
           </Badge>
         )}
         <div className="flex-1" />
+        {inquiry.email && (
+          <InviteCustomerAccountButton
+            customerEmail={inquiry.email}
+            customerName={inquiry.contact_name || undefined}
+            customerId={customer?.id}
+            invitedAt={customer?.account_invited_at}
+            activatedAt={customer?.account_activated_at}
+            onInvited={async () => {
+              const { data } = await (supabase as any)
+                .from("v2_customers")
+                .select("id, account_invited_at, account_activated_at")
+                .eq("email", inquiry.email)
+                .maybeSingle();
+              if (data) setCustomer(data);
+            }}
+          />
+        )}
+        {inquiry.status !== "declined" && inquiry.status !== "confirmed" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs h-8 text-destructive hover:text-destructive"
+            onClick={() => setShowCancelDialog(true)}
+          >
+            <Ban className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Anfrage absagen</span>
+          </Button>
+        )}
         {isOfferSent && (
           <Button
             variant="outline"
@@ -908,6 +936,18 @@ export const SmartInquiryEditor = () => {
           </Button>
         )}
       </div>
+
+      <CancellationDialog
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        context="inquiry"
+        customerName={inquiry.contact_name || ""}
+        orderNumber={`Anfrage #${(inquiry.id || "").slice(0, 8)}`}
+        eventDate={inquiry.preferred_date || undefined}
+        onConfirm={(msg) => handleCancelInquiry(msg)}
+        title="Anfrage absagen"
+        confirmLabel="Absagen & Nachricht protokollieren"
+      />
 
       {/* Main Content — Tab-Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
