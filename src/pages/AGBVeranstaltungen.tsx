@@ -8,7 +8,7 @@ const AGBVeranstaltungen = () => {
     <>
       <SEO
         title="AGB für Veranstaltungen"
-        description="Allgemeine Geschäftsbedingungen für Veranstaltungen der Dream & Anchor Handelsgesellschaft mbH (STORIA Events München): Buchung, Anzahlung, Stornierung."
+        description="Allgemeine Geschäftsbedingungen für Veranstaltungen der Speranza GmbH (STORIA Events München): Buchung, Anzahlung, Stornierung."
         noIndex={true}
       />
       <div className="min-h-screen bg-background">
@@ -20,7 +20,7 @@ const AGBVeranstaltungen = () => {
               Allgemeine Geschäftsbedingungen für Veranstaltungen
             </h1>
             <p className="text-center text-sm text-muted-foreground mb-12">
-              Stand: April 2026 — Dream & Anchor Handelsgesellschaft mbH
+              Stand: April 2026 — Speranza GmbH
             </p>
 
             <div className="prose prose-lg max-w-none space-y-8 text-foreground/90">
