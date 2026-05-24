@@ -1,92 +1,36 @@
-## Reihenfolge & Scope
+# Bestell-E-Mail im Look & Feel der Event-Anfragen
 
-Reihenfolge nach Risk/Reward: erst die zwei kleinen Fixes (5 Min), dann der mittlere Auto-Rechnung-Hook (30 Min), zum Schluss der große Bestelldetail-Editor (Hauptteil).
+## Problem
+Die Kunden-Bestellbestätigung aus `send-order-notification` ist aktuell ein einfacher Plain-Text in einem `<div white-space:pre-wrap>`. Die Event-/Angebots-Mail (`send-offer-email`) ist dagegen eine vollwertige STORIA-HTML-Vorlage mit Header, cremefarbenem Hintergrund, abgerundeter Karte, Footer mit Kontakt.
 
----
+Ziel: Kunden-Bestellbestätigung im selben Look & Feel.
 
-### 1. Shop "Bestellen"-Button immer klickbar + AGB-Warnung
+## Umfang
+- **Nur Kunden-Mail** (Catering-Bestellung **und** Event-Buchung — beide laufen über dieselbe Funktion).
+- **Restaurant-/Admin-Mail** bleibt schlichter Plain-Text (für interne Lesbarkeit ist das besser).
+- Inhalt der Kundenmail bleibt unverändert (Grußformel, Bestellnummer, Items, Lieferung, Datum, nächste Schritte), wird nur strukturiert in das STORIA-Template eingebettet.
 
-**Datei:** `src/components/checkout/StickyMobileCTA.tsx` + Desktop-Submit in `src/pages/Checkout.tsx`
+## Umsetzung
 
-**Heute:** Button ist enabled, aber wenn AGB nicht angehakt sind, blockiert `Checkout.handleSubmit` still mit einem Toast. User sieht keinen visuellen Hinweis am Häkchen.
+### 1. `supabase/functions/send-order-notification/index.ts`
+- Neue Funktion `generateCustomerHtml(data)` parallel zu `generateCustomerEmailText`:
+  - Übernimmt das Template aus `send-offer-email` (cremefarbener Wrapper `#faf6f0`, weiße Karte `border-radius:16px`, STORIA-Serif-Header, Footer mit Tel/Mail-Links in `#b45309`).
+  - Strukturierte Sektionen statt freier Text:
+    - **Header**: „STORIA" + „Catering & Events — München"
+    - **Begrüßung + Bestell-/Buchungsnummer**
+    - **Tabelle „Ihre Auswahl / Ihre Buchung"** (Items mit Menge, Name, Einzelpreis, Summe; Chafing Dish; Mindestbestellwert-Aufschlag; Lieferung; Gesamtsumme fett hervorgehoben)
+    - **Block „Termin & Lieferung"** (Datum, Uhrzeit, Lieferart/Adresse oder Abholung, ggf. Gästezahl)
+    - **Anmerkungen** (falls vorhanden)
+    - **Next Steps** (Zahlungstext / 24h-Antwort)
+    - **Footer**: Tel/E-Mail-Links + Adresse + `events-storia.de`
+  - HTML-Escaping für alle dynamischen Felder (kleine `escapeHtml`-Helferfunktion).
+- `sendEmail(...)` bekommt einen optionalen `htmlOverride`-Parameter; wenn gesetzt, wird er statt des Plain-Text-Wrappers verwendet (Plain-Text bleibt für Spam-Score weiterhin als `text:` mit dabei).
+- Aufrufstelle: Kunden-Versand ruft `sendEmail` mit `htmlOverride = generateCustomerHtml(data)`, Restaurant-Versand bleibt unverändert (alter pre-wrap-Wrapper).
 
-**Änderung:**
-- Button bleibt **immer aktiv** (bereits so für Mobile — Desktop angleichen).
-- Beim Klick ohne AGB-Häkchen: AGB-Checkbox bekommt rot-pulsierende Border + Scroll-into-view + Toast "Bitte AGB akzeptieren".
-- AGB-Checkbox-State global im Checkout-Form (existiert bereits), nur visuelles Feedback nachziehen.
+### 2. Deployment
+- `deploy_edge_functions(["send-order-notification"])` nach dem Patch.
 
----
-
-### 2. Bounce-Adresse `d.speranza@storia-muenchen.de` entfernen
-
-**Strategie:** Code grep nach `d.speranza` ergab 0 Treffer. Adresse liegt in DB (Admin-User-Tabelle / Notification-Empfänger-Config).
-
-**Vorgehen:**
-- Suche in `user_roles`, `admin_presence`, `notification_recipients` (falls existiert), und Edge-Function-Code für hartkodierte Empfängerlisten.
-- Entferne den Eintrag bzw. ersetze durch `info@events-storia.de`.
-- Bei `notify-customer-response`: Empfängerliste als Array statt komma-string an Resend übergeben (Bonus-Fix).
-
----
-
-### 3. Auto-Rechnung + Bestätigungsmail bei manueller "bezahlt"-Markierung
-
-**Dateien:**
-- `src/components/admin/refine/InquiryEditor/AddPaymentDrawer.tsx` — neuer Switch
-- `supabase/functions/handle-stripe-webhook/index.ts` — Logik extrahieren in shared helper
-- (oder direkt) Trigger der `create-lexoffice-downpayment-invoice` / `create-lexoffice-final-invoice` Pipeline aus dem Drawer
-
-**Änderung im AddPaymentDrawer:**
-- Wenn `status` direkt als `paid` markiert wird (Zahlungsweg "manuell"), neuer Checkbox-Block:
-  - ☑ "Rechnung über LexOffice erstellen" (Default EIN)
-  - ☑ "Bestätigung an Kunde senden" (Default EIN)
-- Nach Insert mit `status='paid'`:
-  - LexOffice-Invoice-Edge-Function aufrufen (Anzahlung vs. Schlussrechnung anhand `payment_type`).
-  - `send-payment-confirmation-email` (existiert ggf., sonst `send-payment-email` mit `is_confirmation: true`).
-  - Beides in `email_delivery_logs` loggen.
-
----
-
-### 4. Bestelldetail-Overhaul (Catering-Order / Event-Order)
-
-**Datei:** Neue Komponente `src/components/admin/orders/OrderEditor.tsx` ersetzt aktuellen statischen View unter Route `/admin/orders/:id/edit`.
-
-**Heute:** Mitte ist leer, nur "Bestellte Artikel" + "Interne Notizen". Rechts Status + Kunde + Abholung + Zahlung + Rechnungsadresse.
-
-**Neu — alles editierbar in 4 Cards (mittlere Spalte gefüllt):**
-
-| Card | Editierbar | Effekt |
-|---|---|---|
-| **Bestellte Artikel** | +/−/Menge ändern, Artikel hinzufügen aus Katalog | Zwischensumme + Gesamt live neu berechnen |
-| **Termin & Fulfillment** | Datum, Zeit, Abholung↔Lieferung umschalten + Adresse | Bei Umschalten auf Lieferung: Liefergebühr per `calculate-delivery-cost` Edge Function neu kalkulieren; Mindestbestellzuschlag prüfen |
-| **Rechnungsadresse** | Name, Straße, PLZ, Stadt, Land, Firma, USt-IdNr | Bei vorhandener LexOffice-Invoice: Hinweis "Adresse wird erst auf zukünftigen Belegen verwendet, bestehende Rechnung bleibt unverändert" |
-| **Status & Zahlung** | Status-Dropdown, "Als bezahlt markieren" (siehe Punkt 3), Storno mit Grund | Bei Storno: LexOffice-Storno-Beleg optional |
-
-**Layout (Desktop):**
-```
-[Header: Order-Nr • Status • Speichern/Storno]
-[Tabs/Sections in mittlerer Spalte, Sidebar rechts mit Customer + Audit-Log]
-```
-
-**Validierung:**
-- Jede Änderung → optimistic UI + Toast + Eintrag in `activity_logs`.
-- "Speichern" zentral oben, Sticky.
-- Bei kritischen Änderungen (Adresse nach Rechnungsstellung): Bestätigungsdialog.
-
-**Audit:**
-- Jede Änderung in `activity_logs` mit `old_value` / `new_value`.
-
----
-
-## Technische Details
-
-- Catering-Order liegt in `catering_orders` (aktuelle Tabelle, nicht `_legacy_…`).
-- Items als JSONB (`items` Spalte) — UI braucht Item-Editor mit Katalog-Picker aus `equipment_catalog` und Standard-Menüs.
-- Liefergebühr-Berechnung über vorhandene `calculate-delivery-cost` Edge Function (falls nicht da: neue Function mit Google-Maps-Distanz + Tarif-Tabelle).
-- AGB-Validierung im Checkout bereits in `Checkout.tsx.handleSubmit` vorhanden — nur visuelles Feedback nachziehen.
-
-## Out of Scope (separate Runden)
-
-- Komplettes Rewrite der Event-Booking-Detailseite (nur Catering-Order in dieser Runde).
-- Storno-Refund über Stripe API (manuelles Storno-Flag reicht für jetzt).
-- Drag-and-Drop Item-Reordering.
-- WhatsApp-Notification bei Order-Änderung an Kunde.
+## Out of Scope
+- Keine inhaltlichen Änderungen am Text der Bestätigung.
+- Keine Änderung der Admin-/Restaurant-Mail.
+- Keine neue Edge Function, kein Transactional-Email-System — die bestehende Resend/IONOS-Pipeline bleibt 1:1.
