@@ -29,6 +29,7 @@ import {
   ChevronDown,
   Inbox,
   ShieldAlert,
+  ShoppingCart,
 } from "lucide-react";
 import { useEffect, useState as useStateReact } from "react";
 
@@ -121,6 +122,7 @@ export const AdminLayout = ({
   const navigation: NavItem[] = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, key: 'dashboard' },
     { name: 'Anfragen', href: '/admin/inquiries', icon: Inbox, key: 'inquiries' },
+    { name: 'Bestellungen', href: '/admin/orders', icon: ShoppingCart, key: 'orders' },
     { name: 'Posteingang', href: '/admin/posteingang', icon: Inbox, key: 'posteingang' },
     { name: 'Angebote', href: '/admin/quotations', icon: FileCheck, key: 'quotations' },
     { name: 'Rechnungen', href: '/admin/invoices', icon: FileText, key: 'invoices' },
@@ -130,12 +132,8 @@ export const AdminLayout = ({
   const isActive = (href: string, key: string) => {
     if (href === '/admin' && location.pathname === '/admin') return true;
     if (href !== '/admin' && location.pathname.startsWith(href)) return true;
-    if (key === 'inquiries' && (
-      location.pathname.includes('/admin/inquiries') ||
-      location.pathname.includes('/admin/orders') ||
-      location.pathname.includes('/admin/bookings') ||
-      location.pathname.includes('/admin/inquiries')
-    )) return true;
+    if (key === 'inquiries' && location.pathname.includes('/admin/inquiries')) return true;
+    if (key === 'orders' && location.pathname.includes('/admin/orders')) return true;
     return activeTab === key;
   };
 
@@ -156,10 +154,12 @@ export const AdminLayout = ({
           const Icon = item.icon;
           const active = isActive(item.href, item.key);
           const badgeCount = item.key === 'inquiries'
-            ? (newInquiriesCount || 0) + (pendingBookingsCount || 0) + (pendingOrdersCount || 0)
-            : item.key === 'posteingang'
-              ? (unassignedInboxCount || 0)
-              : 0;
+            ? (newInquiriesCount || 0) + (pendingBookingsCount || 0)
+            : item.key === 'orders'
+              ? (pendingOrdersCount || 0)
+              : item.key === 'posteingang'
+                ? (unassignedInboxCount || 0)
+                : 0;
 
           return (
             <Link
