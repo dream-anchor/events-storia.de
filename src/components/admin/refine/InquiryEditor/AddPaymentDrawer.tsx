@@ -383,7 +383,8 @@ export function AddPaymentDrawer({
             )}
           </div>
 
-          {/* Fälligkeit */}
+          {/* Fälligkeit — nur bei Zahlungslink */}
+          {paymentMode === 'link' && (
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fällig</Label>
             <div className="space-y-2">
@@ -463,6 +464,39 @@ export function AddPaymentDrawer({
               </p>
             )}
           </div>
+          )}
+
+          {/* Manuelle Zahlung — Methode */}
+          {paymentMode === 'manual_paid' && (
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Zahlungsmethode</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { v: 'bank_transfer', l: 'Überweisung' },
+                  { v: 'cash', l: 'Bar' },
+                  { v: 'paypal', l: 'PayPal' },
+                  { v: 'other', l: 'Sonstiges' },
+                ].map(m => (
+                  <button
+                    key={m.v}
+                    type="button"
+                    onClick={() => setManualMethod(m.v)}
+                    className={cn(
+                      'px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors',
+                      manualMethod === m.v
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-primary/50'
+                    )}
+                  >
+                    {m.l}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Wird als <strong>bezahlt</strong> mit aktuellem Datum vermerkt.
+              </p>
+            </div>
+          )}
 
           {/* Notiz */}
           <div className="space-y-2">
@@ -485,20 +519,55 @@ export function AddPaymentDrawer({
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Nach Anlegen
             </Label>
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id="sendLink"
-                checked={sendLink}
-                onCheckedChange={v => setSendLink(!!v)}
-                className="mt-0.5"
-              />
-              <label htmlFor="sendLink" className="text-sm cursor-pointer leading-snug">
-                Zahlungslink per E-Mail senden
-                <span className="block text-xs text-muted-foreground">
-                  Stripe Checkout (Karte, SEPA, Billie) wird erstellt und an die Kunden-E-Mail gesendet.
-                </span>
-              </label>
-            </div>
+            {paymentMode === 'link' ? (
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="sendLink"
+                  checked={sendLink}
+                  onCheckedChange={v => setSendLink(!!v)}
+                  className="mt-0.5"
+                />
+                <label htmlFor="sendLink" className="text-sm cursor-pointer leading-snug">
+                  Zahlungslink per E-Mail senden
+                  <span className="block text-xs text-muted-foreground">
+                    Stripe Checkout (Karte, SEPA, Billie) wird erstellt und an die Kunden-E-Mail gesendet.
+                  </span>
+                </label>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="createInvoice"
+                    checked={createInvoice}
+                    onCheckedChange={v => setCreateInvoice(!!v)}
+                    className="mt-0.5"
+                  />
+                  <label htmlFor="createInvoice" className="text-sm cursor-pointer leading-snug">
+                    LexOffice-Rechnung erstellen
+                    <span className="block text-xs text-muted-foreground">
+                      {paymentType === 'final'
+                        ? 'Schlussrechnung mit Abzug aller bisherigen Anzahlungen.'
+                        : 'Anzahlungsrechnung (UStG-konform, Brutto, USt separat).'}
+                    </span>
+                  </label>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="sendConfirmation"
+                    checked={sendConfirmation}
+                    onCheckedChange={v => setSendConfirmation(!!v)}
+                    className="mt-0.5"
+                  />
+                  <label htmlFor="sendConfirmation" className="text-sm cursor-pointer leading-snug">
+                    Bestätigung an Kunde senden
+                    <span className="block text-xs text-muted-foreground">
+                      „Zahlung erhalten — Vielen Dank" an die hinterlegte Kunden-E-Mail.
+                    </span>
+                  </label>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Buttons */}
@@ -511,7 +580,7 @@ export function AddPaymentDrawer({
               className="flex-1"
               disabled={isSubmitting || amountCents <= 0}
             >
-              {isSubmitting ? 'Anlegen…' : 'Zahlung anlegen'}
+              {isSubmitting ? 'Wird verarbeitet…' : paymentMode === 'manual_paid' ? 'Als bezahlt vermerken' : 'Zahlung anlegen'}
             </Button>
           </div>
         </div>
