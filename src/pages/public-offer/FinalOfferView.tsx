@@ -56,7 +56,10 @@ export function FinalOfferView({
                 singleOption={displayOptions.length === 1}
                 paymentMethod={inquiry.payment_method || 'deposit_online'}
                 invoiceDueDays={inquiry.invoice_due_days ?? 14}
-                depositPercent={inquiry.deposit_percent ?? 20}
+                depositPercent={
+                  inquiry.deposit_percent
+                    ?? ((inquiry.payment_method || 'deposit_online') === 'deposit_online' ? 20 : 0)
+                }
                 depositAmount={inquiry.deposit_amount ?? null}
               />
             ))}
