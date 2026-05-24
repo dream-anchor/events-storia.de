@@ -322,35 +322,31 @@ export const EventBookingEditor = () => {
             )}
 
             {bookingStatus !== "cancelled" && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm">
-                    <Ban className="h-4 w-4 mr-2" />
-                    Stornieren
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Buchung stornieren?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Die Buchung wird als storniert markiert. Bei bereits geleisteten Zahlungen muss die Rückerstattung manuell vorgenommen und anschließend als „zurückerstattet" markiert werden.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Stornierungsgrund (optional)</Label>
-                    <Textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="z.B. Kunde hat abgesagt..." />
-                  </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleCancelBooking} disabled={isCancelling} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      {isCancelling ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wird storniert...</> : "Stornieren"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Button variant="destructive" size="sm" onClick={() => setShowCancelDialog(true)}>
+                <Ban className="h-4 w-4 mr-2" />
+                Stornieren
+              </Button>
             )}
           </div>
         </div>
+
+        <CancellationDialog
+          open={showCancelDialog}
+          onOpenChange={setShowCancelDialog}
+          context="event_booking"
+          customerName={booking.customer_name}
+          orderNumber={booking.booking_number}
+          eventDate={booking.event_date || undefined}
+          totalAmount={Number(booking.total_amount) || undefined}
+          refundInfo={
+            booking.payment_status === "paid"
+              ? "Bereits geleistete Zahlungen müssen manuell zurückerstattet werden."
+              : undefined
+          }
+          onConfirm={(msg) => handleCancelBooking(msg)}
+          title="Buchung stornieren"
+          confirmLabel="Stornieren & Nachricht protokollieren"
+        />
 
         <Tabs defaultValue="details" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 max-w-sm">
