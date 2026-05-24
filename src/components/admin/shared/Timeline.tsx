@@ -103,7 +103,7 @@ const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
   const actorName = getAdminDisplayName(log.actor_email);
   const initials = getAdminInitials(log.actor_email);
   const theme = getActionTheme(log.action);
-  const hasSummary: boolean = Boolean(log.metadata?.summary);
+  const hasSummary: boolean = !!(log.metadata && (log.metadata as Record<string, unknown>).summary);
 
   return (
     <div className="relative flex gap-3 group">
@@ -236,6 +236,25 @@ const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
               </a>
             </Button>
           )}
+
+          {(() => {
+            const m = (log.metadata || {}) as Record<string, unknown>;
+            const resendId = (m.resend_id as string) || (m.resend_message_id as string) || null;
+            const piId = (m.stripe_payment_intent_id as string) || null;
+            const sessId = (m.stripe_session_id as string) || null;
+            const chargeId = (m.stripe_charge_id as string) || null;
+            if (!resendId && !piId && !sessId && !chargeId) return null;
+            return (
+              <div className="mt-2">
+                <ExternalRefLinks
+                  resendId={resendId}
+                  stripePaymentIntentId={piId}
+                  stripeSessionId={sessId}
+                  stripeChargeId={chargeId}
+                />
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
