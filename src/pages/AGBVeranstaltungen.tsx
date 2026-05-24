@@ -36,7 +36,7 @@ const AGBVeranstaltungen = () => {
                     sämtliche Verträge über die Durchführung von Veranstaltungen einschließlich Catering-Dienstleistungen,
                     die mietweise Überlassung von Veranstaltungsräumen sowie alle damit zusammenhängenden Leistungen des
                     Ristorante STORIA, Karlstraße 47a, 80333 München, betrieben durch die Speranza GmbH
-                    Handelsgesellschaft mbH (nachfolgend „STORIA").
+                    (nachfolgend „STORIA").
                   </li>
                   <li>
                     Abweichende Geschäftsbedingungen des Kunden finden nur Anwendung, wenn dies ausdrücklich
