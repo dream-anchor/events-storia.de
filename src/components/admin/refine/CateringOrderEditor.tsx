@@ -634,9 +634,20 @@ export const CateringOrderEditor = () => {
 
           {/* Tab: Details */}
           <TabsContent value="details">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - Order Details */}
-              <div className="lg:col-span-2 space-y-6">
+            {dirtySections.any && (
+              <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/5 px-4 py-3 flex items-start gap-3">
+                <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-foreground">Ungespeicherte Änderungen ({dirtySections.list.length})</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {dirtySections.list.map((s) => s.title).join(' · ')}
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+              {/* Hauptspalte */}
+              <div className="lg:col-span-3 space-y-6 min-w-0">
                 {/* Items */}
                 <Card>
                   <CardHeader>
