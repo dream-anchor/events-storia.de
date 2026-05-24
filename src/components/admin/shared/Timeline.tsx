@@ -36,6 +36,7 @@ import { useEmailDeliveryLogs, formatProvider, formatEmailStatus, type EmailDeli
 import { useOfferHistory, type OfferHistoryEntry } from '@/hooks/useOfferHistory';
 import type { ActivityLog, EntityType } from './types';
 import { getAdminDisplayName, getAdminInitials } from '@/lib/adminDisplayNames';
+import { ExternalRefLinks } from './ExternalRefLinks';
 
 // Combined timeline entry type
 type TimelineItem = 
@@ -394,6 +395,10 @@ const EmailDeliveryEntry = ({ emailLog, isFirst, isLast }: EmailDeliveryEntryPro
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+            )}
+
+            {emailLog.provider === 'resend' && emailLog.provider_message_id && (
+              <ExternalRefLinks resendId={emailLog.provider_message_id} />
             )}
           </div>
 
