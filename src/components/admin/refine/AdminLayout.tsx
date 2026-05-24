@@ -319,10 +319,11 @@ export const AdminLayout = ({
             {showCreateButton && (
               <Button
                 onClick={onCreateClick || (() => window.location.href = '/admin/inquiries/create')}
-                className="hidden sm:flex items-center gap-2 shadow-sm"
+                className="flex items-center gap-2 shadow-sm h-10 sm:h-10 px-3 sm:px-4"
+                aria-label={createButtonText}
               >
                 <Plus className="h-4 w-4" />
-                {createButtonText}
+                <span className="hidden sm:inline">{createButtonText}</span>
               </Button>
             )}
 
@@ -377,18 +378,6 @@ export const AdminLayout = ({
           </motion.div>
         </main>
       </div>
-
-      {/* Mobile FAB: New Inquiry */}
-      {showCreateButton && (
-        <Button
-          onClick={onCreateClick || (() => window.location.href = '/admin/inquiries/create')}
-          className="lg:hidden fixed right-4 z-40 h-14 w-14 rounded-full shadow-lg p-0"
-          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
-          aria-label={createButtonText}
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
-      )}
 
       {/* Command Palette */}
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
