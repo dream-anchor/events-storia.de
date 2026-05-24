@@ -236,6 +236,20 @@ const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
               </a>
             </Button>
           )}
+
+          {/* External provider deep-links (Resend / Stripe) */}
+          {(log.metadata?.resend_id || log.metadata?.resend_message_id ||
+            log.metadata?.stripe_payment_intent_id || log.metadata?.stripe_session_id ||
+            log.metadata?.stripe_charge_id) && (
+            <div className="mt-2">
+              <ExternalRefLinks
+                resendId={(log.metadata?.resend_id as string) || (log.metadata?.resend_message_id as string) || null}
+                stripePaymentIntentId={(log.metadata?.stripe_payment_intent_id as string) || null}
+                stripeSessionId={(log.metadata?.stripe_session_id as string) || null}
+                stripeChargeId={(log.metadata?.stripe_charge_id as string) || null}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
