@@ -3192,6 +3192,8 @@ export type Database = {
           email_draft: string | null
           event_end_date: string | null
           event_time: string | null
+          final_lexoffice_invoice_id: string | null
+          final_lexoffice_invoice_number: string | null
           guest_count: number | null
           has_elevator: boolean | null
           id: string
@@ -3305,6 +3307,8 @@ export type Database = {
           email_draft?: string | null
           event_end_date?: string | null
           event_time?: string | null
+          final_lexoffice_invoice_id?: string | null
+          final_lexoffice_invoice_number?: string | null
           guest_count?: number | null
           has_elevator?: boolean | null
           id?: string
@@ -3418,6 +3422,8 @@ export type Database = {
           email_draft?: string | null
           event_end_date?: string | null
           event_time?: string | null
+          final_lexoffice_invoice_id?: string | null
+          final_lexoffice_invoice_number?: string | null
           guest_count?: number | null
           has_elevator?: boolean | null
           id?: string
