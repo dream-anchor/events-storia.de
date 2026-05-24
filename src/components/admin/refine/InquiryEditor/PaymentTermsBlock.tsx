@@ -28,7 +28,7 @@ const DEFAULTS = {
   deposit_due_days: 5,
   offer_validity_days: 14,
   invoice_due_days: 14,
-  balance_due_days_before_event: 14,
+  balance_due_days_before_event: 10,
 };
 
 const DEPOSIT_OPTIONS: { value: DepositMethod; label: string; description: string; icon: React.ElementType }[] = [
