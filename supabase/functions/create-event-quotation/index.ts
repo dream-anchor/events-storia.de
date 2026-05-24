@@ -872,6 +872,45 @@ serve(async (req) => {
       throw new Error('Keine Positionen für das Angebot — Menü oder Paket konfigurieren');
     }
 
+    // ── Anzahlungsabzug (Schlussrechnung) ──────────────────────────────────
+    // Pro vorausgegangener Anzahlungsrechnung eine eigene negative Brutto-
+    // Zeile anhängen. Pflicht nach § 14 Abs. 5 UStG: Rechnungsnummer + Datum
+    // im Namen, Bruttobetrag als negativer grossAmount, gleicher Steuersatz
+    // wie die Anzahlung (Default 7 % Catering).
+    if (Array.isArray(downPaymentDeductions) && downPaymentDeductions.length > 0) {
+      for (const d of downPaymentDeductions as Array<{
+        invoice_number?: string | null;
+        date_iso?: string | null;
+        gross: number;
+        tax_rate?: number;
+      }>) {
+        const taxRate = typeof d.tax_rate === 'number' ? d.tax_rate : FOOD_TAX_RATE;
+        const grossAbs = Math.abs(round2(d.gross || 0));
+        if (grossAbs <= 0) continue;
+        const dateDE = d.date_iso
+          ? new Date(d.date_iso).toLocaleDateString('de-DE', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })
+          : '';
+        const refLabel = d.invoice_number ? `Nr. ${d.invoice_number}` : '';
+        lineItems.push({
+          type: 'custom',
+          name: `abzgl. Anzahlung gem. Rechnung${refLabel ? ` ${refLabel}` : ''}${dateDE ? ` vom ${dateDE}` : ''}`,
+          description:
+            'Bereits gezahlte Anzahlung (Netto, USt und Brutto) gemäß § 14 Abs. 5 UStG abgezogen.',
+          quantity: 1,
+          unitName: 'Pauschale',
+          unitPrice: {
+            currency: 'EUR',
+            grossAmount: -grossAbs,
+            taxRatePercentage: taxRate,
+          },
+        });
+      }
+    }
+
     // 5. Adressen live auflösen (kein Snapshot)
     const businessData = await loadBusinessData(supabase);
     const locationAddr = resolveLocationAddress(inquiry as never, businessData);
