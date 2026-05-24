@@ -159,6 +159,45 @@ export const EventBookingEditor = () => {
     }
   }, [booking]);
 
+  const handleCancelBooking = async () => {
+    if (!id) return;
+    setIsCancelling(true);
+    try {
+      const { error } = await supabase
+        .from("event_bookings" as any)
+        .update({
+          status: "cancelled",
+          cancellation_reason: cancelReason || "Stornierung durch Admin",
+          cancelled_at: new Date().toISOString(),
+        } as any)
+        .eq("id", id);
+      if (error) throw error;
+      setBookingStatus("cancelled");
+      toast.success("Buchung storniert");
+    } catch (e: any) {
+      toast.error(e.message || "Fehler beim Stornieren");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const markRefundedManually = async () => {
+    if (!id) return;
+    setIsMarkingRefunded(true);
+    try {
+      const { error } = await supabase
+        .from("event_bookings" as any)
+        .update({ payment_status: "refunded" } as any)
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Als zurückerstattet markiert");
+    } catch (e: any) {
+      toast.error(e.message || "Fehler beim Markieren");
+    } finally {
+      setIsMarkingRefunded(false);
+    }
+  };
+
   const handleConfirmAndSend = useCallback(() => {
     if (!id) return;
     
