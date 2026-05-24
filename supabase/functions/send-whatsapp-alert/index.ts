@@ -113,6 +113,19 @@ const handler = async (req: Request): Promise<Response> => {
     const data: WhatsAppAlertRequest = await req.json();
     console.log("WhatsApp alert request:", JSON.stringify(data));
 
+    // Wenn WhatsApp gar nicht konfiguriert ist: still ablehnen, KEIN failed-Log.
+    // (sonst füllt sich `email_delivery_logs` mit "WhatsApp not configured" Einträgen,
+    // die nicht handlungsrelevant sind.)
+    const accessToken = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
+    const phoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
+    if (!accessToken || !phoneNumberId) {
+      console.warn("WhatsApp not configured — skipping silently (no log entry)");
+      return new Response(
+        JSON.stringify({ success: false, skipped: true, reason: "not_configured" }),
+        { status: 200, headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders } },
+      );
+    }
+
     const message = buildMessage(data);
     const result = await sendWhatsApp(message);
 
