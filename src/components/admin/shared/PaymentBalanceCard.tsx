@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Send, CheckCircle2, Euro } from "lucide-react";
+import { Loader2, Send, CheckCircle2, Euro, Mail } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ExternalRefLinks } from "./ExternalRefLinks";
@@ -40,6 +44,9 @@ export function PaymentBalanceCard({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [customAmount, setCustomAmount] = useState<string>("");
+  const [confirmDialog, setConfirmDialog] = useState<{ row: PaymentRow; apology: boolean } | null>(null);
+  const [confirmSending, setConfirmSending] = useState(false);
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
 
   const loadPayments = async () => {
     setLoading(true);
@@ -103,6 +110,33 @@ export function PaymentBalanceCard({
     }
   };
 
+  const openConfirmDialog = (row: PaymentRow) => {
+    const paidAt = row.paid_at ? new Date(row.paid_at).getTime() : Date.now();
+    const isOld = Date.now() - paidAt > 24 * 60 * 60 * 1000;
+    const notConfirmedYet = !confirmedIds.has(row.id);
+    setConfirmDialog({ row, apology: isOld && notConfirmedYet });
+  };
+
+  const sendConfirmation = async () => {
+    if (!confirmDialog) return;
+    setConfirmSending(true);
+    try {
+      const { error } = await supabase.functions.invoke("send-payment-confirmation-v2", {
+        body: { payment_id: confirmDialog.row.id, include_apology: confirmDialog.apology },
+      });
+      if (error) throw error;
+      setConfirmedIds(prev => new Set(prev).add(confirmDialog.row.id));
+      toast.success("Bestätigung versendet", {
+        description: `${customerEmail}${confirmDialog.apology ? " (mit Entschuldigung)" : ""}`,
+      });
+      setConfirmDialog(null);
+    } catch (e) {
+      toast.error("Versand fehlgeschlagen", { description: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setConfirmSending(false);
+    }
+  };
+
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-3">
@@ -153,6 +187,7 @@ export function PaymentBalanceCard({
             <ul className="space-y-1.5">
               {rows.map((r) => {
                 const isPaid = r.status === "paid";
+                const wasConfirmed = confirmedIds.has(r.id);
                 return (
                   <li key={r.id} className="flex items-center gap-3 text-sm rounded-xl border px-3 py-2">
                     <div className={`h-2 w-2 rounded-full ${isPaid ? "bg-foreground" : "bg-muted-foreground/50"}`} />
@@ -174,6 +209,17 @@ export function PaymentBalanceCard({
                       stripePaymentIntentId={r.stripe_payment_intent_id}
                       stripeSessionId={r.stripe_checkout_session_id}
                     />
+                    {isPaid && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-xl h-8 px-2.5 text-xs"
+                        onClick={() => openConfirmDialog(r)}
+                      >
+                        <Mail className="h-3.5 w-3.5 mr-1.5" />
+                        {wasConfirmed ? "Erneut senden" : "Bestätigung senden"}
+                      </Button>
+                    )}
                     {isPaid && <CheckCircle2 className="h-4 w-4 text-foreground" />}
                   </li>
                 );
@@ -182,6 +228,53 @@ export function PaymentBalanceCard({
           </div>
         )}
       </CardContent>
+
+      <Dialog open={!!confirmDialog} onOpenChange={(open) => !open && setConfirmDialog(null)}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Zahlungsbestätigung an Kunden senden</DialogTitle>
+            <DialogDescription>
+              Es wird eine Bestätigungs-E-Mail im STORIA-Design an{" "}
+              <strong>{customerEmail}</strong> versendet.
+            </DialogDescription>
+          </DialogHeader>
+          {confirmDialog && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-xl border bg-muted/30 p-3 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Betrag</span><span className="font-medium">{fmt(confirmDialog.row.amount_cents / 100)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Art</span><span>{confirmDialog.row.payment_type === "deposit" ? "Anzahlung" : "Zahlung"}</span></div>
+                {confirmDialog.row.paid_at && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Bezahlt am</span><span>{new Date(confirmDialog.row.paid_at).toLocaleString("de-DE")}</span></div>
+                )}
+              </div>
+              <label className="flex items-start gap-3 cursor-pointer rounded-xl border p-3 hover:bg-muted/30">
+                <Checkbox
+                  checked={confirmDialog.apology}
+                  onCheckedChange={(checked) =>
+                    setConfirmDialog({ ...confirmDialog, apology: !!checked })
+                  }
+                  className="mt-0.5"
+                />
+                <div className="space-y-1">
+                  <div className="text-sm font-medium">Entschuldigung für verspätete Bestätigung mitschicken</div>
+                  <div className="text-xs text-muted-foreground">
+                    Fügt einen kurzen Hinweis hinzu, dass die Bestätigung aus technischen Gründen verspätet versendet wurde.
+                  </div>
+                </div>
+              </label>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmDialog(null)} disabled={confirmSending} className="rounded-xl">
+              Abbrechen
+            </Button>
+            <Button onClick={sendConfirmation} disabled={confirmSending} className="rounded-xl">
+              {confirmSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              Jetzt senden
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

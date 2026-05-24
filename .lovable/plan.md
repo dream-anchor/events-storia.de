@@ -1,79 +1,72 @@
-## Ziel
 
-Jede Änderung an Bestellungen, Anfragen und Buchungen (Adresse, Datum, Uhrzeit, Gäste, Zahlung, Lieferung, Status, Beträge, Notizen …) erscheint **sofort und in Klartext** im Tab „Aktivitäten" der Timeline – chronologisch, mit Name + Initialen des bearbeitenden Mitarbeiters, ohne technische JSON-Diffs.
+## Was wird gemacht (Schritt für Schritt)
 
-Heute schreibt nur ein kleiner Teil der Edge Functions in `activity_logs`. Direkte Feldänderungen im Editor (z. B. Adresse anpassen, Datum verschieben, Zahlungsmethode umstellen) werden **nicht** geloggt – genau das wird behoben.
-
----
-
-## Lösung in 3 Bausteinen
-
-### 1. DB-Trigger als Single Source of Truth (Backend)
-
-Eine neue Postgres-Funktion `log_entity_changes()` läuft als `AFTER UPDATE`-Trigger auf den drei Kerntabellen:
-
-- `event_inquiries` (Entity-Typ `inquiry`)
-- `event_bookings`  (Entity-Typ `booking`)
-- `catering_orders` (Entity-Typ `order`)
-
-Pro relevanter Feldänderung wird **eine** Zeile in `activity_logs` geschrieben mit:
-
-- `action = 'field_changed'`
-- `metadata.field` = technischer Feldname
-- `metadata.label` = deutsches Klartext-Label („Veranstaltungsdatum", „Lieferadresse", „Gäste", „Zahlungsmethode" …)
-- `metadata.old_display` / `metadata.new_display` = bereits formatierter, lesbarer Wert (Datum als `15.05.2026`, Betrag als `1.250,00 €`, Adresse als Einzeiler, Bool als „Ja/Nein")
-- `metadata.group` = Sammel-Kategorie (`address`, `schedule`, `payment`, `delivery`, `guests`, `contact`, `notes`, `status`, `amount`)
-- `actor_id` / `actor_email` aus `auth.uid()` bzw. JWT-Claim (Fallback: „System")
-
-Adress- und Mehrfeld-Änderungen (Straße + PLZ + Stadt) werden **zusammengefasst** zu einem Log-Eintrag „Lieferadresse geändert" mit Vorher/Nachher als einzeilige Adresse – nicht 3 separate Zeilen.
-
-Felder-Whitelist (alles andere wird ignoriert, damit kein Rauschen entsteht):
-
-```text
-schedule : event_date, event_end_date, event_time, time_slot, desired_date, desired_time
-guests   : guest_count
-address  : delivery_street/zip/city/floor/has_elevator  → "Lieferadresse"
-           billing_street/zip/city/country/name/company → "Rechnungsadresse"
-           location_name/street/postal_code/city        → "Veranstaltungsort"
-contact  : customer_name, customer_email, customer_phone, contact_name, company_name
-payment  : payment_method, payment_status, payment_type, deposit_percent,
-           paid_amount, remaining_amount
-delivery : is_pickup, delivery_time_slot, delivery_cost
-amount   : total_amount
-status   : status, offer_phase, menu_confirmed
-notes    : internal_notes, notes, cancellation_reason
-```
-
-### 2. Edge-Function-Logs vereinheitlichen
-
-Die bestehenden manuellen `activity_logs`-Inserts (Storno, Stripe-Webhook, LexOffice, Invite, Balance-Link …) bleiben unverändert – sie liefern bereits sprechende Actions. Wir ergänzen lediglich konsistente `metadata.label`-Felder, wo sie noch fehlen, damit die Timeline einheitlich rendert.
-
-### 3. Timeline-Renderer aufpolieren (Frontend)
-
-`src/hooks/useActivityLog.ts` + `src/components/admin/shared/Timeline.tsx`:
-
-- Neuer Formatter für `action = 'field_changed'`:  
-  `„{label} geändert: {old_display} → {new_display}"` (z. B. „Veranstaltungsdatum geändert: 15.05.2026 → 22.05.2026").
-- Eigene Icons + Farben pro `metadata.group` (Adresse = MapPin/blau, Zahlung = CreditCard/grün, Termin = Calendar/amber, Gäste = Users, Lieferung = Truck, Status = ArrowRightLeft, Notiz = StickyNote).
-- **Smart Grouping im UI**: Mehrere `field_changed`-Events desselben Bearbeiters innerhalb von 60 Sekunden werden visuell zu einem Block zusammengefasst („Antoine Monot (AM) hat 3 Felder geändert · vor 2 Min.") – aufklappbar mit Detail-Liste. Datenbank-Einträge bleiben einzeln.
-- Avatar/Initialen über bestehendes `getAdminInitials()` aus `adminDisplayNames.ts`.
-- Kein JSON, kein `old_value`/`new_value`-Dump mehr sichtbar – nur die `*_display`-Strings.
+**Wichtig:** Keine automatischen E-Mails an Kunden. Antoine löst alles manuell per Button aus, nach Rücksprache mit dem Betreiber.
 
 ---
 
-## Verifikation
+### 1. Bug A — Catering-Editor Zahlungsstand stimmt nicht
 
-1. Adresse einer Bestellung im `CateringOrderEditor` ändern → genau ein Eintrag „Lieferadresse geändert: alte Adresse → neue Adresse" erscheint in der Timeline.
-2. Datum + Gäste + Zahlungsmethode in einer Anfrage in einem Save ändern → drei einzelne Klartext-Einträge, im UI als ein Block des aktuellen Admins zusammengefasst.
-3. Bestehende Edge-Function-Events (Stornierung, Stripe-Zahlung, Angebot v2) erscheinen unverändert mit ihren bisherigen Icons und Texten.
-4. Keine Logs bei reinen Auto-Updates wie `updated_at`, `last_edited_at`, `current_offer_version` u. ä. (sind nicht in der Whitelist).
+In `src/components/admin/refine/CateringOrderEditor.tsx` (Z. 988–995):
+- `totalEur={grandTotal}` statt `Number(order.total_amount)` → nimmt die live berechnete Brutto-Summe (Artikel + Lieferung + Mindestbestell-Aufschlag = 231,80 €), die der Editor oben bereits korrekt anzeigt.
+- `externalPaidEur={0}` statt der bisherigen Doppelzählung. Die `v2_payments`-Zeile von 22 € existiert bereits; die alte Logik addierte `order.total_amount` zusätzlich → "Bezahlt 44 €". Fix: nichts mehr addieren.
 
----
+Ergebnis: Card zeigt **Gesamt 231,80 € · Bezahlt 22 € · Offen 209,80 €**, passend zum echten Stand.
 
-## Technische Details (für später)
+### 2. Bug B — Cyim-Zahlung wurde mit 2.590 € statt 500 € gespeichert
 
-- Migration: `create or replace function public.log_entity_changes()` + 3 Trigger `AFTER UPDATE ON ...` + Hilfsfunktion `public.format_address(...)` für einzeilige Adress-Strings.
-- Funktion `SECURITY DEFINER`, `search_path = public`, Actor aus `auth.uid()` + `auth.jwt() ->> 'email'`, Fallback `'system@events-storia.de'`.
-- Mehrfeld-Address-Diff: pro Gruppe (`delivery_*`, `billing_*`, `location_*`) ein Eintrag, wenn mindestens ein Feld der Gruppe sich geändert hat.
-- Anschließend `useActivityLog.ts` um `field_changed`-Formatter, neue Icons in `Timeline.tsx`, und Group-by-Author-Window (60 s) in der `useMemo`-Aggregation der Timeline ergänzen.
-- `ActivityLog`-Type in `src/components/admin/shared/types.ts` um optionale `metadata.label / old_display / new_display / group / field` erweitern.
+In `supabase/functions/handle-stripe-webhook/index.ts` → `processEventOfferPaymentInline`:
+- `amountCents` aus `session.amount_total` (Fallback: `option.amount_total * 100`).
+- `payment_type` aus `session.metadata.payment_type` (`full`|`deposit`); falls fehlt → automatisch ableiten: gezahlte Summe < Angebotsgesamt → `'deposit'`, sonst `'full'`.
+- Wenn `deposit`: Event-Status auf `confirmed` + `offer_phase='confirmed'` (statt `paid`), `paid_amount`/`remaining_amount` setzen. Bei `full` bleibt es bei `paid`.
+
+### 3. Daten-Backfill für die zwei Cyim-Datensätze
+
+Einmaliges UPDATE über die Insert-Funktion (zugelassen für UPDATEs hier? nein — Migration nötig):
+- `v2_payments` `897c9308-4135-4b6e-a0a3-0606eff8c46d` → `amount_cents=50000`, `payment_type='deposit'`.
+- `v2_events` `90321866-239d-4331-a85b-fddf5280ce97` → `status='confirmed'`, `offer_phase='confirmed'`, `paid_amount=500`, `remaining_amount=2090` (falls die Felder existieren — sonst nur status).
+
+### 4. Neue Edge Function `send-payment-confirmation-v2`
+
+Versendet eine Zahlungsbestätigung im **bestehenden Storia-Look** (übernommen aus `send-payment-email`, gleicher schwarzer Header, Karlstraße-Footer):
+- Input: `{ payment_id: uuid, include_apology?: boolean }`.
+- Lädt `v2_payments` + `v2_events` + `v2_customers`.
+- Subject: `"Zahlungseingang bestätigt: {Anzahlung|Zahlung} – {Buchungsnummer}"`.
+- Body:
+  - Begrüßung mit Kundenname.
+  - Optionaler Apology-Block (nur wenn `include_apology=true`):
+    > „Aufgrund eines technischen Fehlers ist die Bestätigung Ihrer Zahlung leider verspätet bei Ihnen eingetroffen. Bitte entschuldigen Sie diese Verzögerung. Ihre Anzahlung in Höhe von **{Betrag}** ist bei uns eingegangen und wurde erfolgreich verbucht."
+  - Standard-Bestätigung: Betrag, Datum, Buchungsnummer, Veranstaltungsdatum.
+  - Stornobedingungen-Hinweis (wie bestehende Mail).
+  - Footer mit Karlstraße 47a etc.
+- BCC `info@events-storia.de`.
+- Schreibt `activity_logs`-Eintrag `payment_confirmation_email_sent` (mit `metadata.with_apology`).
+- **KEIN automatischer Aufruf aus dem Webhook.**
+
+### 5. PaymentBalanceCard – manueller Sende-Button pro bezahlter Zeile
+
+In `src/components/admin/shared/PaymentBalanceCard.tsx`:
+- Für jede `paid`-Zeile zusätzlich ein kleiner Outline-Button **„Bestätigung senden"** rechts neben dem Status.
+- Klick öffnet einen kleinen Dialog mit:
+  - Checkbox „Entschuldigung für verspätete Bestätigung mitschicken" (default an, falls die Zahlung > 24 h alt ist und noch nie bestätigt wurde).
+  - Vorschau der Empfänger-Adresse und des Betrags.
+  - Bestätigen → ruft `send-payment-confirmation-v2` mit `{ payment_id, include_apology }`.
+- Toast „Bestätigung versendet".
+- Nach Erfolg wird der Button auf „Erneut senden" gewechselt (kein Lock-Out, da Antoine ggf. nochmal manuell senden möchte).
+
+### 6. Verifikation (nach Approval)
+
+- Catering-Editor `CAT-BESTELLUNG-24-05-2026-887` öffnen → Zahlungsstand 231,80/22/209,80.
+- Cyim-Event öffnen → Zahlungsstand 2.590/500/2.090.
+- Manuell „Bestätigung senden (mit Entschuldigung)" für Cyim & Rigshospitalet auslösen, sobald Antoine grünes Licht gibt.
+- Test-Webhook-Aufruf (deposit + full) gegen die korrigierte `processEventOfferPaymentInline` (mit Mock-Session).
+
+## Technische Details (für Devs)
+
+- **Geänderte Dateien:**
+  - `src/components/admin/refine/CateringOrderEditor.tsx` (2 Zeilen)
+  - `src/components/admin/shared/PaymentBalanceCard.tsx` (Button + Dialog)
+  - `supabase/functions/handle-stripe-webhook/index.ts` (`processEventOfferPaymentInline` Z. 367–417)
+- **Neu:** `supabase/functions/send-payment-confirmation-v2/index.ts` (~180 Z., Template aus `send-payment-email` recyclet, kein neuer Provider).
+- **Migration:** kurzes UPDATE für die zwei Cyim-Datensätze; keine Schema-Änderungen.
+- **Mailversand bleibt manuell**: Webhook löst weiterhin keine Kunden-Mail aus (das war Bug C und wird hier bewusst NICHT automatisiert).

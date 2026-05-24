@@ -364,13 +364,22 @@ async function processEventOfferPaymentInline(
   }
 
   // Insert v2_payments
-  const amountCents = Math.round(option.amount_total * 100);
+  const sessionAmountCents = typeof session.amount_total === "number" ? session.amount_total : null;
+  const fullAmountCents = Math.round(option.amount_total * 100);
+  const amountCents = sessionAmountCents && sessionAmountCents > 0 ? sessionAmountCents : fullAmountCents;
+  const metaPaymentType = (session.metadata?.payment_type as string | undefined)?.toLowerCase();
+  const paymentType: "full" | "deposit" =
+    metaPaymentType === "deposit" || metaPaymentType === "full"
+      ? (metaPaymentType as "full" | "deposit")
+      : amountCents < fullAmountCents - 1
+        ? "deposit"
+        : "full";
   const { data: paymentData, error: payErr } = await supabase
     .from("v2_payments")
     .insert({
       event_id: ev.id,
       amount_cents: amountCents,
-      payment_type: "full",
+      payment_type: paymentType,
       status: "paid",
       stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: session.payment_intent as string,
@@ -402,11 +411,16 @@ async function processEventOfferPaymentInline(
       : `EVT-${currentYear}-${String(seqNum).padStart(4, '0')}`;
   }
 
-  // Promote event to paid
+  // Promote event. v2_event_status has no 'confirmed' value, so we keep
+  // 'paid' for both full and deposit payments. The open balance is derived
+  // from v2_events.amount_total minus the sum of v2_payments. We track the
+  // deposit case in offer_phase so the UI can distinguish "Anzahlung" from
+  // "voll bezahlt".
   await supabase
     .from("v2_events")
     .update({
       status: "paid",
+      offer_phase: paymentType === "deposit" ? "deposit_paid" : "paid",
       booking_number: bookingNumber,
       package_id: option.package_id,
       menu_selection: option.menu_selection,
@@ -416,7 +430,7 @@ async function processEventOfferPaymentInline(
     })
     .eq("id", ev.id);
 
-  logStep("v2_event promoted to paid", { eventId: ev.id, bookingNumber });
+  logStep("v2_event promoted", { eventId: ev.id, bookingNumber, paymentType });
 
   // Mark chosen option + deactivate siblings
   await supabase
