@@ -218,9 +218,17 @@ export const UnifiedInquiriesList = () => {
       id: "contact",
       header: "Kontakt",
       cell: ({ row }) => (
-        <div className="flex flex-col text-xs text-muted-foreground min-w-0">
-          <span className="truncate">{row.original.email}</span>
-          {row.original.phone && <span className="truncate">{row.original.phone}</span>}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex flex-col text-xs text-muted-foreground min-w-0">
+            <span className="truncate">{row.original.email}</span>
+            {row.original.phone && <span className="truncate">{row.original.phone}</span>}
+          </div>
+          {row.original.email && (
+            <InviteCustomerIconButton
+              customerEmail={row.original.email}
+              customerName={row.original.customerName || undefined}
+            />
+          )}
         </div>
       ),
     },
