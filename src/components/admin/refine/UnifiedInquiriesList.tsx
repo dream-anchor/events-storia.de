@@ -324,11 +324,11 @@ export const UnifiedInquiriesList = () => {
               onValueChange={(v) => v && setViewMode(v as ViewMode)}
               className="rounded-2xl bg-muted/60 p-1"
             >
-              <ToggleGroupItem value="table" aria-label="Tabelle" className="rounded-xl px-3">
-                <Table2 className="h-4 w-4" />
-              </ToggleGroupItem>
               <ToggleGroupItem value="kanban" aria-label="Kanban" className="rounded-xl px-3">
                 <LayoutGrid className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="table" aria-label="Tabelle" className="rounded-xl px-3">
+                <Table2 className="h-4 w-4" />
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
