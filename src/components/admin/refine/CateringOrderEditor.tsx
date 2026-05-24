@@ -296,14 +296,23 @@ export const CateringOrderEditor = () => {
     try {
       const { data, error } = await supabase.functions.invoke("calculate-delivery", {
         body: {
-          delivery_address: `${deliveryStreet}, ${deliveryZip} ${deliveryCity}`,
-          subtotal: itemsSubtotal,
+          address: `${deliveryStreet}, ${deliveryZip} ${deliveryCity}`,
+          isPizzaOnly: false,
         },
       });
       if (error) throw error;
-      if (data?.delivery_cost != null) setDeliveryCost(Number(data.delivery_cost));
-      if (data?.minimum_order_surcharge != null) setMinimumOrderSurcharge(Number(data.minimum_order_surcharge));
-      toast.success(`Liefergebühr neu berechnet: ${(data?.delivery_cost ?? 0).toFixed(2)} €`);
+      if (data?.error) throw new Error(data.error);
+      const gross = Number(data?.deliveryCostGross ?? 0);
+      const minimumOrder = Number(data?.minimumOrder ?? 0);
+      setDeliveryCost(gross);
+      // Mindestbestellwert-Aufschlag: nur falls aktuelle Speisensumme unter minimumOrder
+      const surcharge = Math.max(0, minimumOrder - itemsSubtotal);
+      setMinimumOrderSurcharge(surcharge);
+      const dist = data?.distanceKm ? ` · ${data.distanceKm.toFixed(1)} km` : "";
+      const surMsg = surcharge > 0
+        ? ` · Mindestbestellwert ${minimumOrder} € → Aufschlag ${surcharge.toFixed(2)} €`
+        : "";
+      toast.success(`Liefergebühr: ${gross.toFixed(2)} €${dist}${surMsg}`);
     } catch (e: any) {
       toast.error(e.message || "Liefergebühr-Berechnung fehlgeschlagen");
     } finally {
