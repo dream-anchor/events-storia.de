@@ -1145,6 +1145,69 @@ export type Database = {
         }
         Relationships: []
       }
+      balance_payment_links: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          customer_email: string
+          customer_name: string | null
+          default_guests: number
+          deposit_paid_cents: number
+          event_date: string | null
+          event_id: string | null
+          event_label: string
+          event_label_en: string | null
+          id: string
+          max_guests: number
+          min_guests: number
+          notes: string | null
+          price_per_person_cents: number
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          customer_email: string
+          customer_name?: string | null
+          default_guests: number
+          deposit_paid_cents?: number
+          event_date?: string | null
+          event_id?: string | null
+          event_label: string
+          event_label_en?: string | null
+          id?: string
+          max_guests?: number
+          min_guests?: number
+          notes?: string | null
+          price_per_person_cents: number
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string
+          customer_name?: string | null
+          default_guests?: number
+          deposit_paid_cents?: number
+          event_date?: string | null
+          event_id?: string | null
+          event_label?: string
+          event_label_en?: string | null
+          id?: string
+          max_guests?: number
+          min_guests?: number
+          notes?: string | null
+          price_per_person_cents?: number
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_audits: {
         Row: {
           audit_date: string
