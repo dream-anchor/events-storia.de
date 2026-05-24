@@ -1,9 +1,18 @@
 ## Ziel
-Finale Vorschau beider Restzahlungs-Mails neu generieren.
+1. **Neue Projekt-Regel** in `mem://` speichern: Alle Kunden-Mails müssen zweisprachig sein – Deutsch oben, sichtbarer Trenner, Englisch darunter.
+2. **Beide Vorschau-Mails** zweisprachig machen:
+   - `vorschau-rigshospitalet-restzahlung.html` (Christina Byrne Windfeld)
+   - `vorschau-cyim-bestaetigung.html` (Jessica Lagourrès)
+3. **Bei Christina** zusätzlich den fehlenden Satz ergänzen:
+   > „Ihre Anzahlung in Höhe von 490,00 € ist bei uns eingegangen und wurde erfolgreich verbucht."
 
 ## Vorgehen
-1. **`/mnt/documents/vorschau-rigshospitalet-restzahlung.html`** aktualisieren – Christina Byrne Windfeld, Stripe-Link mit angepasstem Produktnamen ("⚠️ MENGE = finale Gästeanzahl anpassen!"). Hinweisbox in der Mail klarer formulieren, dass auf der Stripe-Seite links bei "Menge" die finale Gästezahl eingetragen werden muss.
-2. **`/mnt/documents/vorschau-cyim-restzahlung.html`** neu erstellen – Restzahlungs-Mail für CYIM mit Zahlungsdaten/Frist (10 Tage vor Event). Klärung nötig: zahlt CYIM auch per Stripe oder per Überweisung? Aus Kontext bisher: CYIM-Vorschau war "bestaetigung", nicht Restzahlung – ich gehe davon aus, dass für CYIM die bereits bestehende `vorschau-cyim-bestaetigung.html` gemeint ist (mit Überweisungs-Restzahlung).
+1. Memory-Datei `mem://communications/bilingual-customer-emails` anlegen + Index aktualisieren (Core-Regel).
+2. Englische Übersetzungen einmalig mit Lovable AI (gpt-5.4) erzeugen – hochwertig, geschäftsmäßig, britisches Englisch.
+3. Trenner-Design: dezente horizontale Linie + Label „English version" (gleiche Brand-Farbe `#b45309`).
+4. Reihenfolge: kompletter deutscher Block (inkl. Anrede, Stornobedingungen, Footer-Hinweise) → Trenner → kompletter englischer Block. Buchungstabellen werden **einmal** gezeigt (Zahlen sind sprachneutral) – Labels bleiben deutsch, englische Übersetzung der Spalten kommt in Klammern oder als zweite Tabelle im EN-Block (zweite Tabelle, sauberer).
+5. Footer (Speranza GmbH …) bleibt einmalig am Ende (rechtlich identisch).
+6. Bei Christina den Anzahlungs-Satz in beiden Sprachen direkt nach der Anrede einbauen.
 
 ## Output
-Beide HTML-Dateien in `/mnt/documents/` als `<presentation-artifact>` zur Vorschau ausgeben.
+Beide aktualisierte HTML-Dateien als `<presentation-artifact>` zur Vorschau.
