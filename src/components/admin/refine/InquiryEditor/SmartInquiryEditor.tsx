@@ -82,6 +82,8 @@ export const SmartInquiryEditor = () => {
   const [selectedOptionInfo, setSelectedOptionInfo] = useState<{ optionLabel: string; packageName: string } | null>(null);
   const [offerTotal, setOfferTotal] = useState<number | null>(null);
   const [sendSuccess, setSendSuccess] = useState<SendSuccessInfo | null>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [customer, setCustomer] = useState<{ id?: string; account_invited_at?: string | null; account_activated_at?: string | null } | null>(null);
 
   const buildPersistableInquiryValues = useCallback((source: Record<string, unknown>) => {
     const {
