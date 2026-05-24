@@ -25,6 +25,9 @@ import {
 } from "lucide-react";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
+import { CancellationDialog } from "@/components/admin/shared/CancellationDialog";
+import { PaymentBalanceCard } from "@/components/admin/shared/PaymentBalanceCard";
+import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
 import { MenuItemPicker } from "./MenuItemPicker";
 
 type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
@@ -198,6 +201,21 @@ export const CateringOrderEditor = () => {
   const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [customer, setCustomer] = useState<{ id?: string; account_invited_at?: string | null; account_activated_at?: string | null } | null>(null);
+
+  // Kundenkonto-Status laden (v2_customers via email match)
+  useEffect(() => {
+    if (!order?.customer_email) return;
+    (async () => {
+      const { data } = await supabase
+        .from("v2_customers")
+        .select("id, account_invited_at, account_activated_at")
+        .eq("email", order.customer_email)
+        .maybeSingle();
+      if (data) setCustomer(data as any);
+    })();
+  }, [order?.customer_email]);
 
   // Editable state
   type OrderItem = { id?: string; name: string; quantity: number; price: number };
@@ -387,7 +405,7 @@ export const CateringOrderEditor = () => {
     }
   }, [isPickup, deliveryStreet, deliveryZip, deliveryCity, itemsSubtotal]);
 
-  const handleCancelOrder = async () => {
+  const handleCancelOrder = async (cancelMessage?: string) => {
     if (!id || !order) return;
     
     setIsCancelling(true);
@@ -396,6 +414,7 @@ export const CateringOrderEditor = () => {
         body: {
           orderId: id,
           reason: cancelReason || "Stornierung durch Admin",
+          customerMessage: cancelMessage,
         },
       });
 
@@ -406,6 +425,7 @@ export const CateringOrderEditor = () => {
     } catch (err: any) {
       console.error("Cancel error:", err);
       toast.error(err.message || "Fehler beim Stornieren");
+      throw err;
     } finally {
       setIsCancelling(false);
     }
