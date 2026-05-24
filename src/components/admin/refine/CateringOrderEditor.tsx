@@ -10,6 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +21,7 @@ import {
   ArrowLeft, Loader2, Save, Phone, Mail, Building2, MapPin, 
   Calendar, Clock, CreditCard, Receipt, User, BadgeCheck, 
   FileText, Truck, Package, Ban, RefreshCw, AlertCircle, Activity,
-  ExternalLink, Download, Plus
+  ExternalLink, Download, Plus, Trash2, Minus
 } from "lucide-react";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
@@ -194,30 +198,116 @@ export const CateringOrderEditor = () => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Editable state
+  type OrderItem = { id?: string; name: string; quantity: number; price: number };
+  const [itemsState, setItemsState] = useState<OrderItem[]>([]);
+  const [desiredDate, setDesiredDate] = useState<string>("");
+  const [desiredTime, setDesiredTime] = useState<string>("");
+  const [isPickup, setIsPickup] = useState<boolean>(true);
+  const [deliveryStreet, setDeliveryStreet] = useState("");
+  const [deliveryZip, setDeliveryZip] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryFloor, setDeliveryFloor] = useState("");
+  const [hasElevator, setHasElevator] = useState(false);
+  const [deliveryCost, setDeliveryCost] = useState<number>(0);
+  const [minimumOrderSurcharge, setMinimumOrderSurcharge] = useState<number>(0);
+  const [billingName, setBillingName] = useState("");
+  const [billingStreet, setBillingStreet] = useState("");
+  const [billingZip, setBillingZip] = useState("");
+  const [billingCity, setBillingCity] = useState("");
+  const [billingCountry, setBillingCountry] = useState("Deutschland");
+  const [isRecalcDelivery, setIsRecalcDelivery] = useState(false);
+
   // Initialize state from order
   useEffect(() => {
     if (order && !isInitialized) {
       setInternalNotes(order.internal_notes || "");
       setStatus(order.status || "pending");
+      setItemsState(Array.isArray(order.items) ? order.items.map((i: any) => ({
+        id: i.id, name: i.name, quantity: Number(i.quantity) || 1, price: Number(i.price) || 0,
+      })) : []);
+      setDesiredDate(order.desired_date || "");
+      setDesiredTime((order.desired_time || "").slice(0, 5));
+      setIsPickup(!!order.is_pickup);
+      setDeliveryStreet(order.delivery_street || "");
+      setDeliveryZip(order.delivery_zip || "");
+      setDeliveryCity(order.delivery_city || "");
+      setDeliveryFloor(order.delivery_floor || "");
+      setHasElevator(!!order.has_elevator);
+      setDeliveryCost(Number(order.delivery_cost) || 0);
+      setMinimumOrderSurcharge(Number(order.minimum_order_surcharge) || 0);
+      setBillingName(order.billing_name || "");
+      setBillingStreet(order.billing_street || "");
+      setBillingZip(order.billing_zip || "");
+      setBillingCity(order.billing_city || "");
+      setBillingCountry(order.billing_country || "Deutschland");
       setIsInitialized(true);
     }
   }, [order, isInitialized]);
 
+  // Live-Berechnung
+  const itemsSubtotal = itemsState.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+  const grandTotal = itemsSubtotal + (isPickup ? 0 : deliveryCost) + minimumOrderSurcharge;
+
   const handleSave = useCallback(() => {
     if (!id) return;
-    
+
     updateMutation.mutate({
       resource: "orders",
       id,
       values: {
         internal_notes: internalNotes,
         status,
+        items: itemsState,
+        desired_date: desiredDate || null,
+        desired_time: desiredTime || null,
+        is_pickup: isPickup,
+        delivery_street: isPickup ? null : (deliveryStreet || null),
+        delivery_zip: isPickup ? null : (deliveryZip || null),
+        delivery_city: isPickup ? null : (deliveryCity || null),
+        delivery_floor: isPickup ? null : (deliveryFloor || null),
+        has_elevator: isPickup ? false : hasElevator,
+        delivery_cost: isPickup ? 0 : deliveryCost,
+        minimum_order_surcharge: minimumOrderSurcharge,
+        total_amount: grandTotal,
+        billing_name: billingName || null,
+        billing_street: billingStreet || null,
+        billing_zip: billingZip || null,
+        billing_city: billingCity || null,
+        billing_country: billingCountry || null,
       },
     }, {
-      onSuccess: () => toast.success("Änderungen gespeichert"),
+      onSuccess: () => {
+        toast.success("Änderungen gespeichert");
+        orderQuery.query.refetch();
+      },
       onError: () => toast.error("Fehler beim Speichern"),
     });
-  }, [id, updateMutation, internalNotes, status]);
+  }, [id, updateMutation, internalNotes, status, itemsState, desiredDate, desiredTime, isPickup, deliveryStreet, deliveryZip, deliveryCity, deliveryFloor, hasElevator, deliveryCost, minimumOrderSurcharge, grandTotal, billingName, billingStreet, billingZip, billingCity, billingCountry, orderQuery.query]);
+
+  const recalcDelivery = useCallback(async () => {
+    if (isPickup || !deliveryStreet || !deliveryZip || !deliveryCity) {
+      toast.error("Bitte Lieferadresse vollständig ausfüllen");
+      return;
+    }
+    setIsRecalcDelivery(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("calculate-delivery", {
+        body: {
+          delivery_address: `${deliveryStreet}, ${deliveryZip} ${deliveryCity}`,
+          subtotal: itemsSubtotal,
+        },
+      });
+      if (error) throw error;
+      if (data?.delivery_cost != null) setDeliveryCost(Number(data.delivery_cost));
+      if (data?.minimum_order_surcharge != null) setMinimumOrderSurcharge(Number(data.minimum_order_surcharge));
+      toast.success(`Liefergebühr neu berechnet: ${(data?.delivery_cost ?? 0).toFixed(2)} €`);
+    } catch (e: any) {
+      toast.error(e.message || "Liefergebühr-Berechnung fehlgeschlagen");
+    } finally {
+      setIsRecalcDelivery(false);
+    }
+  }, [isPickup, deliveryStreet, deliveryZip, deliveryCity, itemsSubtotal]);
 
   const handleCancelOrder = async () => {
     if (!id || !order) return;
@@ -407,67 +497,65 @@ export const CateringOrderEditor = () => {
                 {/* Items */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Bestellte Artikel</CardTitle>
+                    <CardTitle className="text-lg flex items-center justify-between">
+                      <span>Bestellte Artikel</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setItemsState(prev => [...prev, { name: "Neuer Artikel", quantity: 1, price: 0 }])}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Artikel
+                      </Button>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted">
-                          <tr>
-                            <th className="text-left p-3 font-medium">Artikel</th>
-                            <th className="text-center p-3 font-medium">Menge</th>
-                            <th className="text-right p-3 font-medium">Preis</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {items.map((item: any, index: number) => (
-                            <tr key={index} className="border-t">
-                              <td className="p-3">{item.name}</td>
-                              <td className="p-3 text-center">{item.quantity}x</td>
-                              <td className="p-3 text-right">
-                                {((item.price || 0) * (item.quantity || 1)).toFixed(2).replace('.', ',')} €
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot className="bg-muted/50">
-                          <tr className="border-t">
-                            <td className="p-3" colSpan={2}>Zwischensumme</td>
-                            <td className="p-3 text-right">
-                              {items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1), 0).toFixed(2).replace('.', ',')} €
-                            </td>
-                          </tr>
-                          {order.minimum_order_surcharge > 0 && (
-                            <tr className="border-t text-muted-foreground">
-                              <td className="p-3" colSpan={2}>Mindestbestellwert-Aufschlag</td>
-                              <td className="p-3 text-right">
-                                +{order.minimum_order_surcharge.toFixed(2).replace('.', ',')} €
-                              </td>
-                            </tr>
-                          )}
-                          {order.delivery_cost > 0 && (
-                            <tr className="border-t">
-                              <td className="p-3" colSpan={2}>
-                                Lieferkosten
-                                {order.calculated_distance_km && (
-                                  <span className="text-muted-foreground ml-1">
-                                    ({order.calculated_distance_km.toFixed(1)} km)
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3 text-right">
-                                +{order.delivery_cost.toFixed(2).replace('.', ',')} €
-                              </td>
-                            </tr>
-                          )}
-                          <tr className="border-t-2 font-semibold bg-muted">
-                            <td className="p-3" colSpan={2}>Gesamtsumme (inkl. MwSt.)</td>
-                            <td className="p-3 text-right text-primary text-lg">
-                              {(order.total_amount || 0).toFixed(2).replace('.', ',')} €
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
+                    <div className="space-y-2">
+                      {itemsState.length === 0 && (
+                        <p className="text-sm text-muted-foreground italic py-4 text-center">Noch keine Artikel</p>
+                      )}
+                      {itemsState.map((item, idx) => (
+                        <div key={idx} className="grid grid-cols-[1fr_70px_90px_auto] gap-2 items-center">
+                          <Input
+                            value={item.name}
+                            onChange={e => setItemsState(prev => prev.map((it, i) => i === idx ? { ...it, name: e.target.value } : it))}
+                            placeholder="Artikelname"
+                          />
+                          <Input
+                            type="number"
+                            min="0"
+                            value={item.quantity}
+                            onChange={e => setItemsState(prev => prev.map((it, i) => i === idx ? { ...it, quantity: Number(e.target.value) || 0 } : it))}
+                            className="text-center"
+                          />
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={item.price}
+                              onChange={e => setItemsState(prev => prev.map((it, i) => i === idx ? { ...it, price: Number(e.target.value) || 0 } : it))}
+                              className="pr-6 text-right"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={() => setItemsState(prev => prev.filter((_, i) => i !== idx))} className="h-8 w-8">
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Separator />
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between"><span className="text-muted-foreground">Zwischensumme</span><span>{itemsSubtotal.toFixed(2).replace('.', ',')} €</span></div>
+                        {minimumOrderSurcharge > 0 && (
+                          <div className="flex justify-between text-muted-foreground"><span>Mindestbestellwert-Aufschlag</span><span>+{minimumOrderSurcharge.toFixed(2).replace('.', ',')} €</span></div>
+                        )}
+                        {!isPickup && deliveryCost > 0 && (
+                          <div className="flex justify-between"><span className="text-muted-foreground">Lieferkosten{order.calculated_distance_km ? ` (${order.calculated_distance_km.toFixed(1)} km)` : ''}</span><span>+{deliveryCost.toFixed(2).replace('.', ',')} €</span></div>
+                        )}
+                        <Separator />
+                        <div className="flex justify-between font-semibold text-base pt-1"><span>Gesamtsumme (inkl. MwSt.)</span><span className="text-primary">{grandTotal.toFixed(2).replace('.', ',')} €</span></div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -570,7 +658,7 @@ export const CateringOrderEditor = () => {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
-                      {order.is_pickup ? (
+                      {isPickup ? (
                         <><Package className="h-4 w-4" /> Abholung</>
                       ) : (
                         <><Truck className="h-4 w-4" /> Lieferung</>
@@ -578,29 +666,47 @@ export const CateringOrderEditor = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {order.desired_date && (
-                      <p className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        {format(parseISO(order.desired_date), "EEEE, dd. MMMM yyyy", { locale: de })}
-                      </p>
-                    )}
-                    {order.desired_time && (
-                      <p className="flex items-center gap-2 text-sm">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        {order.desired_time} Uhr
-                      </p>
-                    )}
-                    {!order.is_pickup && (order.delivery_street || order.delivery_city) && (
-                      <div className="pt-2 border-t">
-                        <p className="flex items-start gap-2 text-sm">
-                          <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                          <span>
-                            {order.delivery_street && <>{order.delivery_street}<br /></>}
-                            {order.delivery_zip} {order.delivery_city}
-                            {order.delivery_floor && <><br />Etage: {order.delivery_floor}</>}
-                            {order.has_elevator && <><br /><span className="text-muted-foreground">(mit Aufzug)</span></>}
-                          </span>
-                        </p>
+                    <div className="flex items-center justify-between rounded-lg border p-2">
+                      <Label htmlFor="pickup-switch" className="text-sm font-medium cursor-pointer">
+                        {isPickup ? 'Abholung' : 'Lieferung'}
+                      </Label>
+                      <Switch id="pickup-switch" checked={!isPickup} onCheckedChange={v => setIsPickup(!v)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Datum</Label>
+                        <Input type="date" value={desiredDate} onChange={e => setDesiredDate(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Uhrzeit</Label>
+                        <Input type="time" value={desiredTime} onChange={e => setDesiredTime(e.target.value)} />
+                      </div>
+                    </div>
+                    {!isPickup && (
+                      <div className="pt-2 border-t space-y-2">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Lieferadresse</Label>
+                        <Input value={deliveryStreet} onChange={e => setDeliveryStreet(e.target.value)} placeholder="Straße & Hausnummer" />
+                        <div className="grid grid-cols-[80px_1fr] gap-2">
+                          <Input value={deliveryZip} onChange={e => setDeliveryZip(e.target.value)} placeholder="PLZ" />
+                          <Input value={deliveryCity} onChange={e => setDeliveryCity(e.target.value)} placeholder="Stadt" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 items-center">
+                          <Input value={deliveryFloor} onChange={e => setDeliveryFloor(e.target.value)} placeholder="Etage" />
+                          <label className="flex items-center gap-2 text-sm">
+                            <input type="checkbox" checked={hasElevator} onChange={e => setHasElevator(e.target.checked)} />
+                            Aufzug
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 items-end">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Liefergebühr (€)</Label>
+                            <Input type="number" step="0.01" min="0" value={deliveryCost} onChange={e => setDeliveryCost(Number(e.target.value) || 0)} />
+                          </div>
+                          <Button type="button" size="sm" variant="outline" onClick={recalcDelivery} disabled={isRecalcDelivery}>
+                            {isRecalcDelivery ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+                            Neu berechnen
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </CardContent>
@@ -671,27 +777,30 @@ export const CateringOrderEditor = () => {
                   </CardContent>
                 </Card>
 
-                {/* Billing Address */}
-                {order.billing_name && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Receipt className="h-4 w-4" />
-                        Rechnungsadresse
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-sm space-y-1">
-                      <p className="font-medium">{order.billing_name}</p>
-                      {order.billing_street && <p>{order.billing_street}</p>}
-                      {(order.billing_zip || order.billing_city) && (
-                        <p>{order.billing_zip} {order.billing_city}</p>
-                      )}
-                      {order.billing_country && order.billing_country !== 'Deutschland' && (
-                        <p>{order.billing_country}</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
+                {/* Billing Address — editable */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Receipt className="h-4 w-4" />
+                      Rechnungsadresse
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {order.lexoffice_invoice_id && (
+                      <p className="text-xs flex items-start gap-1.5 text-muted-foreground bg-muted/50 rounded p-2">
+                        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                        Bereits Rechnung erstellt — Änderungen gelten nur für zukünftige Belege.
+                      </p>
+                    )}
+                    <Input value={billingName} onChange={e => setBillingName(e.target.value)} placeholder="Name / Firma" />
+                    <Input value={billingStreet} onChange={e => setBillingStreet(e.target.value)} placeholder="Straße & Hausnummer" />
+                    <div className="grid grid-cols-[80px_1fr] gap-2">
+                      <Input value={billingZip} onChange={e => setBillingZip(e.target.value)} placeholder="PLZ" />
+                      <Input value={billingCity} onChange={e => setBillingCity(e.target.value)} placeholder="Stadt" />
+                    </div>
+                    <Input value={billingCountry} onChange={e => setBillingCountry(e.target.value)} placeholder="Land" />
+                  </CardContent>
+                </Card>
 
                 {/* Email Status */}
                 <EmailStatusCard entityType="catering_order" entityId={id!} />

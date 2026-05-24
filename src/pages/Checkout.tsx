@@ -1251,7 +1251,7 @@ const Checkout = () => {
       form="checkout-form"
       variant="checkoutCta"
       className="w-full h-12 text-base"
-      disabled={isSubmitting || isProcessingPayment || !formData.acceptTerms}
+      disabled={isSubmitting || isProcessingPayment}
     >
       {isSubmitting || isProcessingPayment ? (
         <>
