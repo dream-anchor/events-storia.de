@@ -195,9 +195,9 @@ export const SmartInquiryEditor = () => {
   // Get status info
   const getStatusInfo = () => {
     if (inquiry?.status === 'confirmed') return { label: 'Bestätigt', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' };
-    if (inquiry?.status === 'offer_sent') return { label: 'Angebot gesendet', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' };
+    if (inquiry?.status === 'offer_sent') return { label: 'Angebot gesendet', color: 'bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100' };
     if (inquiry?.status === 'declined') return { label: 'Abgelehnt', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' };
-    if (inquiry?.last_edited_at) return { label: 'In Bearbeitung', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' };
+    if (inquiry?.last_edited_at) return { label: 'In Bearbeitung', color: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200' };
     return { label: 'Neu', color: 'bg-primary/10 text-primary' };
   };
   const statusInfo = getStatusInfo();
