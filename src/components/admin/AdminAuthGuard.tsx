@@ -73,8 +73,15 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
 
     const checkAuth = async () => {
       try {
-        // Step 1: getSession() — reads from localStorage, no network call
-        const { data: { session } } = await supabase.auth.getSession();
+        // Step 1: getSession() — reads from localStorage, no network call.
+        // Timeout als Fallback falls Supabase nicht antwortet.
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('getSession timeout')), 6000)
+          ),
+        ]);
+        const { data: { session } } = sessionResult;
 
         if (!mounted) return;
 
