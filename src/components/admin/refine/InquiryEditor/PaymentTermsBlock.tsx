@@ -28,7 +28,7 @@ const DEFAULTS = {
   deposit_due_days: 5,
   offer_validity_days: 14,
   invoice_due_days: 14,
-  balance_due_days_before_event: 14,
+  balance_due_days_before_event: 10,
 };
 
 const DEPOSIT_OPTIONS: { value: DepositMethod; label: string; description: string; icon: React.ElementType }[] = [
@@ -330,7 +330,7 @@ export function PaymentTermsBlock({
             {dMethod === 'stripe'
               ? 'Stripe-Buchen-Button für die Anzahlung — Vertragsschluss erfolgt automatisch mit der Zahlung.'
               : 'Stripe-Link wird automatisch für die Restzahlung versendet.'}
-            {bMethod === 'stripe_prepay' && <> 7 Tage vor Event automatische Erinnerung, falls der Restbetrag noch offen ist.</>}
+            {bMethod === 'stripe_prepay' && <> 13 Tage vor Event automatische Erinnerung, falls der Restbetrag noch offen ist.</>}
           </div>
         </div>
       )}
