@@ -46,7 +46,7 @@ export const OrdersList = () => {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState<InboxFilter>('all');
   const [viewMode, setViewMode] = useState<"table" | "kanban">(
-    () => (localStorage.getItem("ordersViewMode") as "table" | "kanban") || "table"
+    () => (localStorage.getItem("ordersViewMode") as "table" | "kanban") || "kanban"
   );
   const [kanbanBucket, setKanbanBucket] = useState<OrdersBucket>(
     () => (localStorage.getItem("ordersKanbanBucket") as OrdersBucket) || "inbox"
@@ -395,13 +395,13 @@ export const OrdersList = () => {
             onValueChange={(v) => v && setViewMode(v as "table" | "kanban")}
             className="bg-muted p-1 rounded-lg"
           >
-            <ToggleGroupItem value="table" aria-label="Tabellenansicht" className="h-8 px-2 sm:px-3 data-[state=on]:bg-white dark:data-[state=on]:bg-gray-800 data-[state=on]:shadow-sm rounded-md">
-              <Table2 className="h-4 w-4" />
-              <span className="hidden sm:inline ml-1.5">Tabelle</span>
-            </ToggleGroupItem>
             <ToggleGroupItem value="kanban" aria-label="Kanban-Ansicht" className="h-8 px-2 sm:px-3 data-[state=on]:bg-white dark:data-[state=on]:bg-gray-800 data-[state=on]:shadow-sm rounded-md">
               <LayoutGrid className="h-4 w-4" />
               <span className="hidden sm:inline ml-1.5">Kanban</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="table" aria-label="Tabellenansicht" className="h-8 px-2 sm:px-3 data-[state=on]:bg-white dark:data-[state=on]:bg-gray-800 data-[state=on]:shadow-sm rounded-md">
+              <Table2 className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1.5">Tabelle</span>
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
