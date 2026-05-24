@@ -248,7 +248,7 @@ function buildHtml(o: {
           </p>
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:24px 0 0;">
             Bei Fragen stehen wir Ihnen jederzeit gerne zur Verfügung:<br/>
-            <a href="tel:+498995457475" style="color:#b45309;text-decoration:none;">089 954 574 750</a>
+            <a href="tel:+498951519696" style="color:#b45309;text-decoration:none;">089 51519696</a>
             oder <a href="mailto:info@events-storia.de" style="color:#b45309;text-decoration:none;">info@events-storia.de</a>
           </p>
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:16px 0 0;">
@@ -257,7 +257,7 @@ function buildHtml(o: {
         </td></tr>
         <tr><td style="background-color:#f5f5f0;padding:20px 32px;font-size:11px;color:#777777;border-top:1px solid #e5e5e5;">
           <p style="margin:0 0 8px;"><a href="https://events-storia.de/datenschutz" style="color:#b45309;">Datenschutzerklärung</a> · <a href="https://events-storia.de/impressum" style="color:#b45309;margin-left:8px;">Impressum</a></p>
-          <p style="margin:0;">Dream &amp; Anchor Handelsgesellschaft mbH · Karlstraße 47a · 80333 München · info@events-storia.de · +49 89 954 574 750</p>
+          <p style="margin:0;">Speranza GmbH · Karlstraße 47a · 80333 München · info@events-storia.de · +49 89 51519696</p>
         </td></tr>
       </table>
     </td></tr>

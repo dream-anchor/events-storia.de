@@ -468,7 +468,7 @@ serve(async (req) => {
                 </table>
                 <p style="font-size:13px;color:#666666;line-height:1.6;">
                   Buchungsnummer: ${bookingNr}<br/>
-                  Bei Fragen: <a href="mailto:info@events-storia.de" style="color:#b45309;">info@events-storia.de</a> · 089 954 574 750
+                  Bei Fragen: <a href="mailto:info@events-storia.de" style="color:#b45309;">info@events-storia.de</a> · 089 51519696
                 </p>
                 <p style="font-size:15px;line-height:1.6;margin-top:24px;">Herzliche Grüße,<br/><strong>Ihr STORIA Events Team</strong></p>
               </div>`;

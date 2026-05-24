@@ -992,7 +992,7 @@ function buildInvoiceEmailHtml(order: any): string {
         </td></tr>
         <tr><td style="background-color:#f0f0f0;padding:16px 32px;font-size:12px;color:#888;text-align:center;">
           STORIA Events · Karlstr. 47a · 80333 München<br/>
-          info@events-storia.de · +49 89 954 574 750
+          info@events-storia.de · +49 89 51519696
         </td></tr>
       </table>
     </td></tr>

@@ -8,7 +8,7 @@ const AGBVeranstaltungen = () => {
     <>
       <SEO
         title="AGB für Veranstaltungen"
-        description="Allgemeine Geschäftsbedingungen für Veranstaltungen der Dream & Anchor Handelsgesellschaft mbH (STORIA Events München): Buchung, Anzahlung, Stornierung."
+        description="Allgemeine Geschäftsbedingungen für Veranstaltungen der Speranza GmbH (STORIA Events München): Buchung, Anzahlung, Stornierung."
         noIndex={true}
       />
       <div className="min-h-screen bg-background">
@@ -20,7 +20,7 @@ const AGBVeranstaltungen = () => {
               Allgemeine Geschäftsbedingungen für Veranstaltungen
             </h1>
             <p className="text-center text-sm text-muted-foreground mb-12">
-              Stand: April 2026 — Dream & Anchor Handelsgesellschaft mbH
+              Stand: April 2026 — Speranza GmbH
             </p>
 
             <div className="prose prose-lg max-w-none space-y-8 text-foreground/90">
@@ -35,8 +35,8 @@ const AGBVeranstaltungen = () => {
                     Diese Allgemeinen Geschäftsbedingungen für Veranstaltungen (nachfolgend „AGBV") gelten für
                     sämtliche Verträge über die Durchführung von Veranstaltungen einschließlich Catering-Dienstleistungen,
                     die mietweise Überlassung von Veranstaltungsräumen sowie alle damit zusammenhängenden Leistungen des
-                    Ristorante STORIA, Karlstraße 47a, 80333 München, betrieben durch die Dream &amp; Anchor
-                    Handelsgesellschaft mbH (nachfolgend „STORIA").
+                    Ristorante STORIA, Karlstraße 47a, 80333 München, betrieben durch die Speranza GmbH
+                    (nachfolgend „STORIA").
                   </li>
                   <li>
                     Abweichende Geschäftsbedingungen des Kunden finden nur Anwendung, wenn dies ausdrücklich
