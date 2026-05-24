@@ -1028,22 +1028,43 @@ serve(async (req) => {
 
     // Document-ID an das Inquiry zurueckschreiben
     if (result?.id) {
-      const updateFields: Record<string, unknown> = {
-        lexoffice_invoice_id: result.id,
-      };
-      if (isInvoiceMode) {
-        // For invoices, don't set quotation_id — it's not a quotation
+      if (isFinalInvoice && isInvoiceMode) {
+        // Schlussrechnung: in v2_events.final_lexoffice_invoice_* persistieren,
+        // damit die reguläre invoice-Spalte (für die "normale" Rechnung) nicht
+        // überschrieben wird. Direkt auf der Basistabelle schreiben, weil das
+        // View event_inquiries diese Felder nicht durchreicht.
+        const finalNumber = (result?.voucherNumber || result?.invoiceNumber || null) as string | null;
+        await supabase
+          .from('v2_events')
+          .update({
+            final_lexoffice_invoice_id: result.id,
+            final_lexoffice_invoice_number: finalNumber,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', inquiryId);
       } else {
-        updateFields.lexoffice_quotation_id = result.id;
+        const updateFields: Record<string, unknown> = {
+          lexoffice_invoice_id: result.id,
+        };
+        if (!isInvoiceMode) {
+          updateFields.lexoffice_quotation_id = result.id;
+        }
+        await supabase
+          .from('event_inquiries')
+          .update(updateFields)
+          .eq('id', inquiryId);
       }
-      await supabase
-        .from('event_inquiries')
-        .update(updateFields)
-        .eq('id', inquiryId);
     }
 
     return new Response(
-      JSON.stringify({ success: true, quotationId: result.id, documentType: endpoint }),
+      JSON.stringify({
+        success: true,
+        quotationId: result.id,
+        invoiceId: result.id,
+        invoiceNumber: result?.voucherNumber || result?.invoiceNumber || null,
+        documentType: endpoint,
+        isFinalInvoice: !!isFinalInvoice,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
 
