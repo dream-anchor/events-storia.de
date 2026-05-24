@@ -4798,6 +4798,32 @@ export type Database = {
       }
     }
     Functions: {
+      _fmt_address: {
+        Args: {
+          city: string
+          country?: string
+          floor_?: string
+          street: string
+          zip: string
+        }
+        Returns: string
+      }
+      _fmt_bool: { Args: { b: boolean }; Returns: string }
+      _fmt_date: { Args: { d: string }; Returns: string }
+      _fmt_money: { Args: { n: number }; Returns: string }
+      _fmt_text: { Args: { t: string }; Returns: string }
+      _log_field_change: {
+        Args: {
+          p_entity_id: string
+          p_entity_type: string
+          p_field: string
+          p_group: string
+          p_label: string
+          p_new_display: string
+          p_old_display: string
+        }
+        Returns: undefined
+      }
       append_email_status_history: {
         Args: { p_email_id: string; p_folder?: string; p_new_status: string }
         Returns: undefined

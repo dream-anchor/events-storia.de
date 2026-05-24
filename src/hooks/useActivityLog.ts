@@ -76,6 +76,13 @@ export const formatActivityAction = (log: ActivityLog): string => {
       const newStatus = l.new_value?.status || '?';
       return `Status geändert: ${oldStatus} → ${newStatus}`;
     },
+    'field_changed': (l) => {
+      const m = (l.metadata || {}) as Record<string, unknown>;
+      const label = (m.label as string) || (m.field as string) || 'Feld';
+      const oldD = (m.old_display as string) || '—';
+      const newD = (m.new_display as string) || '—';
+      return `${label} geändert: ${oldD} → ${newD}`;
+    },
     'price_updated': (l) => {
       const itemName = l.metadata?.itemName || 'Artikel';
       return `Preis von "${itemName}" geändert`;

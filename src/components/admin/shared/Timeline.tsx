@@ -19,7 +19,11 @@ import {
   CheckCircle2,
   XCircle,
   Send,
-  Server
+  Server,
+  MapPin,
+  Calendar,
+  Truck,
+  Users
 } from 'lucide-react';
 import { formatDistanceToNow, format, parseISO, isToday, isYesterday } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -65,7 +69,27 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   'package_selected': <Package className="h-3 w-3" />,
 };
 
-const getIcon = (action: string) => ICON_MAP[action] || <Activity className="h-3 w-3" />;
+const GROUP_ICON_MAP: Record<string, React.ReactNode> = {
+  'address': <MapPin className="h-3 w-3" />,
+  'schedule': <Calendar className="h-3 w-3" />,
+  'guests': <Users className="h-3 w-3" />,
+  'payment': <CreditCard className="h-3 w-3" />,
+  'delivery': <Truck className="h-3 w-3" />,
+  'amount': <Euro className="h-3 w-3" />,
+  'status': <ArrowRightLeft className="h-3 w-3" />,
+  'notes': <StickyNote className="h-3 w-3" />,
+  'contact': <User className="h-3 w-3" />,
+};
+
+const getIcon = (log: ActivityLog | { action: string; metadata?: Record<string, unknown> }) => {
+  const action = log.action;
+  if (action === 'field_changed') {
+    const grp = (log.metadata as Record<string, unknown> | undefined)?.group as string | undefined;
+    if (grp && GROUP_ICON_MAP[grp]) return GROUP_ICON_MAP[grp];
+    return <Pencil className="h-3 w-3" />;
+  }
+  return ICON_MAP[action] || <Activity className="h-3 w-3" />;
+};
 
 // Get color theme for action type
 const getActionTheme = (action: string): { bg: string; border: string; icon: string } => {
@@ -78,6 +102,7 @@ const getActionTheme = (action: string): { bg: string; border: string; icon: str
     'payment_received': { bg: 'bg-green-500/10', border: 'border-green-500/30', icon: 'text-green-600' },
     'booking_created': { bg: 'bg-teal-500/10', border: 'border-teal-500/30', icon: 'text-teal-600' },
     'menu_confirmed': { bg: 'bg-orange-500/10', border: 'border-orange-500/30', icon: 'text-orange-600' },
+    'field_changed': { bg: 'bg-muted/40', border: 'border-muted', icon: 'text-foreground/70' },
   };
   return themes[action] || { bg: 'bg-muted/50', border: 'border-muted', icon: 'text-muted-foreground' };
 };
@@ -130,7 +155,7 @@ const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
                   theme.bg, theme.border
                 )}>
                   <div className={theme.icon}>
-                    {getIcon(log.action)}
+                    {getIcon(log)}
                   </div>
                 </div>
               </div>
