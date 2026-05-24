@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2 } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2, Ban } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,8 @@ import { toast } from "sonner";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
 import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
 import { PrintMenu } from "@/components/admin/refine/print/PrintMenu";
+import { CancellationDialog } from "@/components/admin/shared/CancellationDialog";
+import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
