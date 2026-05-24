@@ -35,7 +35,7 @@ const AGBVeranstaltungen = () => {
                     Diese Allgemeinen Geschäftsbedingungen für Veranstaltungen (nachfolgend „AGBV") gelten für
                     sämtliche Verträge über die Durchführung von Veranstaltungen einschließlich Catering-Dienstleistungen,
                     die mietweise Überlassung von Veranstaltungsräumen sowie alle damit zusammenhängenden Leistungen des
-                    Ristorante STORIA, Karlstraße 47a, 80333 München, betrieben durch die Dream &amp; Anchor
+                    Ristorante STORIA, Karlstraße 47a, 80333 München, betrieben durch die Speranza GmbH
                     Handelsgesellschaft mbH (nachfolgend „STORIA").
                   </li>
                   <li>
