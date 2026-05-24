@@ -1164,3 +1164,159 @@ function buildNotificationPayload(order: any) {
     isEventBooking: false,
   };
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PREPAYMENT mit anpassbarer Personenzahl (create-prepayment-link)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// deno-lint-ignore no-explicit-any
+async function handlePrepaymentPerPerson(
+  supabase: any,
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+  metadata: Record<string, string>,
+) {
+  const eventId = metadata.event_id;
+  const minGuests = parseInt(metadata.min_guests || "0", 10);
+  const pricePerPersonCents = parseInt(metadata.price_per_person_cents || "0", 10);
+
+  logStep("Processing prepayment_per_person", { eventId, sessionId: session.id });
+
+  // Idempotenz
+  const { data: existing } = await supabase
+    .from("v2_payments")
+    .select("id, status")
+    .eq("event_id", eventId)
+    .eq("stripe_checkout_session_id", session.id)
+    .maybeSingle();
+  if (existing?.status === "paid") {
+    logStep("prepayment already paid, skipping", { paymentId: existing.id });
+    return;
+  }
+
+  // Final-Quantity aus Line Items lesen
+  let finalGuests = minGuests;
+  try {
+    const items = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
+    if (items.data[0]?.quantity) finalGuests = items.data[0].quantity;
+  } catch (e) {
+    logStep("listLineItems failed", { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  const amountCents = session.amount_total ?? (pricePerPersonCents * finalGuests);
+
+  // Existing sent record finden (anhand stripe_payment_link_url)
+  const linkUrl = (session as any).url || null;
+  const { data: sentRow } = await supabase
+    .from("v2_payments")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("status", "sent")
+    .ilike("notes", "%prepayment%")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let paymentId = sentRow?.id;
+
+  // Payment-Methode ermitteln
+  let paidVia = "card";
+  try {
+    if (session.payment_intent) {
+      const pi = await stripe.paymentIntents.retrieve(session.payment_intent as string);
+      if (pi.payment_method) {
+        const pm = await stripe.paymentMethods.retrieve(pi.payment_method as string);
+        paidVia = pm.type;
+      }
+    }
+  } catch {/* nfat */}
+
+  if (paymentId) {
+    await supabase.from("v2_payments").update({
+      status: "paid",
+      amount_cents: amountCents,
+      paid_at: new Date().toISOString(),
+      paid_via: paidVia,
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: (session.payment_intent as string) || null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", paymentId);
+  } else {
+    const { data: ins } = await supabase.from("v2_payments").insert({
+      event_id: eventId,
+      amount_cents: amountCents,
+      payment_type: "balance",
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      paid_via: paidVia,
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: (session.payment_intent as string) || null,
+      notes: `Prepayment per Person (${finalGuests} Gäste)`,
+    }).select("id").single();
+    paymentId = ins?.id;
+  }
+
+  // guest_count am Event aktualisieren (nur wenn ≥ min)
+  if (finalGuests >= minGuests) {
+    await supabase.from("v2_events").update({
+      guest_count: finalGuests,
+      updated_at: new Date().toISOString(),
+    }).eq("id", eventId);
+  }
+
+  // Activity log
+  await logActivity(supabase, {
+    entity_type: "event_inquiry",
+    entity_id: eventId,
+    action: "prepayment_per_person_paid",
+    description: `Kunde hat ${finalGuests} Gäste bestätigt und ${formatEUR(amountCents / 100)} gezahlt (${paidVia})`,
+    metadata: {
+      payment_id: paymentId,
+      final_guests: finalGuests,
+      min_guests: minGuests,
+      amount_cents: amountCents,
+      price_per_person_cents: pricePerPersonCents,
+      stripe_session_id: session.id,
+      paid_via: paidVia,
+    },
+  });
+
+  // Kunden-Bestätigung
+  if (paymentId) {
+    try {
+      await supabase.functions.invoke("send-payment-confirmation-v2", {
+        body: { payment_id: paymentId },
+      });
+    } catch (e) {
+      logStep("confirmation email failed", { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  // Operator-Info via Resend
+  try {
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+    if (resendKey) {
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+        body: JSON.stringify({
+          from: "STORIA Events <info@events-storia.de>",
+          to: ["info@events-storia.de"],
+          subject: `Prepayment eingegangen: ${finalGuests} Gäste · ${formatEUR(amountCents / 100)}`,
+          html: `<p>Ein Kunde hat per Stripe-Prepayment-Link gezahlt.</p>
+                 <ul>
+                   <li><strong>Event-ID:</strong> ${eventId}</li>
+                   <li><strong>Finale Personenzahl:</strong> ${finalGuests} (Minimum war ${minGuests})</li>
+                   <li><strong>Betrag:</strong> ${formatEUR(amountCents / 100)}</li>
+                   <li><strong>Zahlungsart:</strong> ${paidVia}</li>
+                   <li><strong>Stripe-Session:</strong> ${session.id}</li>
+                 </ul>`,
+        }),
+      });
+    }
+  } catch (e) {
+    logStep("operator email failed", { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  logStep("prepayment_per_person processing complete", { paymentId, finalGuests, amountCents });
+}
