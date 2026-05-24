@@ -14,7 +14,9 @@ import {
   User,
   Phone,
   AtSign,
-  Activity
+  Activity,
+  Ban,
+  RefreshCw
 } from "lucide-react";
 import { useList } from "@refinedev/core";
 import { AdminLayout } from "./AdminLayout";
@@ -24,6 +26,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
   useEventBooking, 
@@ -44,6 +51,18 @@ export const EventBookingEditor = () => {
   
   const [menuSelection, setMenuSelection] = useState<MenuSelection>({ courses: [], drinks: [] });
   const [internalNotes, setInternalNotes] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [guestCount, setGuestCount] = useState<number>(0);
+  const [totalAmount, setTotalAmount] = useState<number>(0);
+  const [bookingStatus, setBookingStatus] = useState<string>("menu_pending");
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isMarkingRefunded, setIsMarkingRefunded] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -66,6 +85,15 @@ export const EventBookingEditor = () => {
       });
     }
     setInternalNotes(booking.internal_notes || "");
+    setEventDate(booking.event_date || "");
+    setEventTime((booking.event_time || "").slice(0, 5));
+    setGuestCount(booking.guest_count || 0);
+    setTotalAmount(Number(booking.total_amount) || 0);
+    setBookingStatus(booking.status || "menu_pending");
+    setCustomerName(booking.customer_name || "");
+    setCustomerEmail(booking.customer_email || "");
+    setPhone(booking.phone || "");
+    setCompanyName(booking.company_name || "");
     setIsInitialized(true);
   }
 
@@ -81,7 +109,16 @@ export const EventBookingEditor = () => {
       updates: {
         menu_selection: menuSelection as any,
         internal_notes: internalNotes,
-      },
+        event_date: eventDate || null,
+        event_time: eventTime || null,
+        guest_count: guestCount || 0,
+        total_amount: totalAmount || 0,
+        status: bookingStatus,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        phone: phone || null,
+        company_name: companyName || null,
+      } as any,
     }, {
       onSuccess: () => {
         setSaveStatus('saved');
@@ -92,7 +129,7 @@ export const EventBookingEditor = () => {
         setSaveStatus('idle');
       },
     });
-  }, [id, updateBooking, menuSelection, internalNotes]);
+  }, [id, updateBooking, menuSelection, internalNotes, eventDate, eventTime, guestCount, totalAmount, bookingStatus, customerName, customerEmail, phone, companyName]);
 
   // Auto-save on any change (debounced)
   useEffect(() => {
@@ -111,7 +148,7 @@ export const EventBookingEditor = () => {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [menuSelection, internalNotes, performSave]);
+  }, [menuSelection, internalNotes, eventDate, eventTime, guestCount, totalAmount, bookingStatus, customerName, customerEmail, phone, companyName, performSave]);
 
   // Mark as initialized after first load
   useEffect(() => {
