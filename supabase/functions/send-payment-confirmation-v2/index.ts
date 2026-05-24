@@ -13,8 +13,27 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { payment_id, include_apology = false } = await req.json();
+    const {
+      payment_id,
+      include_apology = false,
+      mode = "confirmation",
+      prepayment,
+    } = await req.json() as {
+      payment_id: string;
+      include_apology?: boolean;
+      mode?: "confirmation" | "prepayment_invite";
+      prepayment?: {
+        paymentLinkUrl: string;
+        pricePerPersonCents: number;
+        minGuests: number;
+        maxGuests?: number;
+      };
+    };
     if (!payment_id) throw new Error("payment_id ist erforderlich");
+    const isPrepaymentInvite = mode === "prepayment_invite";
+    if (isPrepaymentInvite && (!prepayment || !prepayment.paymentLinkUrl)) {
+      throw new Error("prepayment.paymentLinkUrl erforderlich für prepayment_invite");
+    }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -29,7 +48,9 @@ serve(async (req) => {
       .eq("id", payment_id)
       .single();
     if (payErr || !payment) throw new Error("Zahlung nicht gefunden");
-    if (payment.status !== "paid") throw new Error("Zahlung ist nicht als bezahlt markiert");
+    if (!isPrepaymentInvite && payment.status !== "paid") {
+      throw new Error("Zahlung ist nicht als bezahlt markiert");
+    }
 
     // Load event + customer
     const { data: ev, error: evErr } = await supabase
@@ -65,7 +86,9 @@ serve(async (req) => {
     const eventDateStr = ev.date ? new Date(ev.date).toLocaleDateString("de-DE") : null;
     const bookingNumber = ev.booking_number || "—";
 
-    const subject = `Zahlungseingang bestätigt: ${typeLabel}${ev.booking_number ? ` – ${ev.booking_number}` : ""}`;
+    const subject = isPrepaymentInvite
+      ? `Restzahlung Ihrer Veranstaltung${ev.booking_number ? ` – ${ev.booking_number}` : ""}`
+      : `Zahlungseingang bestätigt: ${typeLabel}${ev.booking_number ? ` – ${ev.booking_number}` : ""}`;
     const isTest = ev.is_test === true;
     const safeEmail = getSafeRecipientEmail(customer.email, isTest);
     const safeSubject = getSafeSubject(subject, isTest);
@@ -79,6 +102,13 @@ serve(async (req) => {
       eventDateStr,
       bookingNumber,
       includeApology: !!include_apology,
+      prepayment: isPrepaymentInvite && prepayment ? {
+        paymentLinkUrl: prepayment.paymentLinkUrl,
+        pricePerPersonFormatted: new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" })
+          .format(prepayment.pricePerPersonCents / 100),
+        minGuests: prepayment.minGuests,
+        maxGuests: prepayment.maxGuests ?? null,
+      } : null,
     });
 
     log("Sending via Resend", { to: safeEmail, subject: safeSubject, include_apology });
@@ -137,7 +167,14 @@ function buildHtml(o: {
   eventDateStr: string | null;
   bookingNumber: string;
   includeApology: boolean;
+  prepayment?: {
+    paymentLinkUrl: string;
+    pricePerPersonFormatted: string;
+    minGuests: number;
+    maxGuests: number | null;
+  } | null;
 }): string {
+  const isPrepayment = !!o.prepayment;
   const apologyBlock = o.includeApology
     ? `<div style="background-color:#fff8ea;border:1px solid #f1d9a2;border-radius:8px;padding:16px 18px;margin:0 0 24px;">
          <p style="color:#5a3a05;font-size:14px;line-height:1.6;margin:0;">
@@ -148,13 +185,34 @@ function buildHtml(o: {
        </div>`
     : "";
 
-  const summaryRows = [
+  const summaryRows = isPrepayment ? [
+    o.bookingNumber !== "—" ? `<tr><td style="padding:6px 0;color:#777777;">Buchungsnummer</td><td style="padding:6px 0;color:#1a1a1a;text-align:right;">${o.bookingNumber}</td></tr>` : "",
+    o.eventDateStr ? `<tr><td style="padding:6px 0;color:#777777;">Veranstaltungsdatum</td><td style="padding:6px 0;color:#1a1a1a;text-align:right;">${o.eventDateStr}</td></tr>` : "",
+    `<tr><td style="padding:6px 0;color:#777777;">Preis pro Gast</td><td style="padding:6px 0;color:#1a1a1a;text-align:right;"><strong>${o.prepayment!.pricePerPersonFormatted}</strong></td></tr>`,
+    `<tr><td style="padding:6px 0;color:#777777;">Mindestpersonenzahl</td><td style="padding:6px 0;color:#1a1a1a;text-align:right;">${o.prepayment!.minGuests}</td></tr>`,
+  ].filter(Boolean).join("") : [
     o.bookingNumber !== "—" ? `<tr><td style="padding:6px 0;color:#777777;">Buchungsnummer</td><td style="padding:6px 0;color:#1a1a1a;text-align:right;">${o.bookingNumber}</td></tr>` : "",
     `<tr><td style="padding:6px 0;color:#777777;">${o.typeLabel}</td><td style="padding:6px 0;color:#1a1a1a;text-align:right;"><strong>${o.amountFormatted}</strong></td></tr>`,
     o.totalFormatted ? `<tr><td style="padding:6px 0;color:#777777;">Gesamtsumme</td><td style="padding:6px 0;color:#1a1a1a;text-align:right;">${o.totalFormatted}</td></tr>` : "",
     o.remainingFormatted ? `<tr><td style="padding:6px 0;color:#777777;">Noch offen</td><td style="padding:6px 0;color:#1a1a1a;text-align:right;">${o.remainingFormatted}</td></tr>` : "",
     o.eventDateStr ? `<tr><td style="padding:6px 0;color:#777777;">Veranstaltungsdatum</td><td style="padding:6px 0;color:#1a1a1a;text-align:right;">${o.eventDateStr}</td></tr>` : "",
   ].filter(Boolean).join("");
+
+  const prepaymentBlock = isPrepayment ? `
+    <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Bitte geben Sie Ihre <strong>finale Gästezahl</strong> ein (mindestens <strong>${o.prepayment!.minGuests}</strong>, gerne auch mehr) und begleichen Sie den Restbetrag direkt per Kreditkarte:
+    </p>
+    <table cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+      <tr><td>
+        <a href="${o.prepayment!.paymentLinkUrl}"
+           style="display:inline-block;background-color:#b45309;color:#ffffff;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;text-decoration:none;">
+          Jetzt Restbetrag begleichen &rarr;
+        </a>
+      </td></tr>
+    </table>
+    <p style="color:#666666;font-size:13px;line-height:1.6;margin:0 0 24px;">
+      Die endgültige Summe ergibt sich aus <strong>${o.prepayment!.pricePerPersonFormatted} &times; gewählte Personenzahl</strong>. Sie können die Anzahl beim Bezahlen direkt anpassen.
+    </p>` : "";
 
   return `<!DOCTYPE html>
 <html lang="de"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
@@ -166,16 +224,19 @@ function buildHtml(o: {
           <h1 style="color:#ffffff;margin:0;font-size:22px;font-family:Arial,sans-serif;">STORIA Events</h1>
         </td></tr>
         <tr><td style="padding:32px;">
-          <h2 style="color:#1a1a1a;margin:0 0 16px;font-size:20px;">Zahlung erhalten – Vielen Dank!</h2>
+          <h2 style="color:#1a1a1a;margin:0 0 16px;font-size:20px;">${isPrepayment ? "Restzahlung Ihrer Veranstaltung" : "Zahlung erhalten – Vielen Dank!"}</h2>
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 16px;">Guten Tag ${o.customerName},</p>
           ${apologyBlock}
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 16px;">
-            wir bestätigen hiermit den Eingang Ihrer ${o.typeLabel} und freuen uns auf Ihre Veranstaltung mit uns.
+            ${isPrepayment
+              ? "wir freuen uns auf Ihre Veranstaltung. Damit wir alles bestmöglich vorbereiten können, bitten wir Sie um die Vorab-Begleichung des Restbetrags."
+              : `wir bestätigen hiermit den Eingang Ihrer ${o.typeLabel} und freuen uns auf Ihre Veranstaltung mit uns.`}
           </p>
           <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 24px;font-size:14px;">
             ${summaryRows}
           </table>
-          ${o.remainingFormatted ? `<p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 16px;">
+          ${prepaymentBlock}
+          ${!isPrepayment && o.remainingFormatted ? `<p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 16px;">
             Den noch offenen Betrag von <strong>${o.remainingFormatted}</strong> stellen wir Ihnen rechtzeitig vor der Veranstaltung in Rechnung.
           </p>` : ""}
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:16px 0 0;">

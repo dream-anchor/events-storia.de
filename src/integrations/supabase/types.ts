@@ -3204,6 +3204,7 @@ export type Database = {
           final_lexoffice_invoice_id: string | null
           final_lexoffice_invoice_number: string | null
           guest_count: number | null
+          guest_count_max: number | null
           has_elevator: boolean | null
           id: string
           internal_notes: string | null
@@ -3319,6 +3320,7 @@ export type Database = {
           final_lexoffice_invoice_id?: string | null
           final_lexoffice_invoice_number?: string | null
           guest_count?: number | null
+          guest_count_max?: number | null
           has_elevator?: boolean | null
           id?: string
           internal_notes?: string | null
@@ -3434,6 +3436,7 @@ export type Database = {
           final_lexoffice_invoice_id?: string | null
           final_lexoffice_invoice_number?: string | null
           guest_count?: number | null
+          guest_count_max?: number | null
           has_elevator?: boolean | null
           id?: string
           internal_notes?: string | null
