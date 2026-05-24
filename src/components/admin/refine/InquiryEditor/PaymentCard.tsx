@@ -341,6 +341,11 @@ export function PaymentCard({ inquiryId, preferredDate, offerTotal, isTest = fal
   const [payments, setPayments] = useState<EventPayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddDrawer, setShowAddDrawer] = useState(false);
+  const [finalInvoiceState, setFinalInvoiceState] = useState<{
+    id: string | null;
+    number: string | null;
+    loading: boolean;
+  }>({ id: null, number: null, loading: false });
 
   const loadPayments = useCallback(async () => {
     setIsLoading(true);
@@ -352,6 +357,20 @@ export function PaymentCard({ inquiryId, preferredDate, offerTotal, isTest = fal
 
     if (!error && data) setPayments(data as EventPayment[]);
     setIsLoading(false);
+
+    // Schlussrechnung-Status separat laden
+    const { data: eventRow } = await (supabase as any)
+      .from('v2_events')
+      .select('final_lexoffice_invoice_id, final_lexoffice_invoice_number')
+      .eq('id', inquiryId)
+      .maybeSingle();
+    if (eventRow) {
+      setFinalInvoiceState(s => ({
+        ...s,
+        id: eventRow.final_lexoffice_invoice_id || null,
+        number: eventRow.final_lexoffice_invoice_number || null,
+      }));
+    }
   }, [inquiryId]);
 
   useEffect(() => {
@@ -366,6 +385,32 @@ export function PaymentCard({ inquiryId, preferredDate, offerTotal, isTest = fal
     .filter(p => p.status !== 'paid')
     .reduce((sum, p) => sum + p.amount_cents, 0);
   const grandTotal = paidTotal + openTotal;
+
+  const allPaid = activePayments.length > 0 && activePayments.every(p => p.status === 'paid');
+  const hasFinalInvoice = !!finalInvoiceState.id;
+
+  const handleCreateFinalInvoice = useCallback(async () => {
+    setFinalInvoiceState(s => ({ ...s, loading: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'create-lexoffice-final-invoice',
+        { body: { inquiry_id: inquiryId } }
+      );
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'Schlussrechnung fehlgeschlagen');
+      }
+      toast.success(
+        data?.invoice_number
+          ? `Schlussrechnung ${data.invoice_number} erstellt`
+          : 'Schlussrechnung erstellt'
+      );
+      await loadPayments();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Fehler bei LexOffice');
+    } finally {
+      setFinalInvoiceState(s => ({ ...s, loading: false }));
+    }
+  }, [inquiryId, loadPayments]);
 
   return (
     <>
@@ -429,6 +474,25 @@ export function PaymentCard({ inquiryId, preferredDate, offerTotal, isTest = fal
             <Plus className="h-3.5 w-3.5" />
             Zahlung anlegen
           </Button>
+
+          {/* Schlussrechnung */}
+          {hasFinalInvoice ? (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              <Receipt className="h-3.5 w-3.5" />
+              <span>Schlussrechnung {finalInvoiceState.number || ''} erstellt</span>
+            </div>
+          ) : allPaid && (
+            <Button
+              size="sm"
+              variant="default"
+              className="w-full gap-1.5 text-xs"
+              onClick={handleCreateFinalInvoice}
+              disabled={finalInvoiceState.loading}
+            >
+              <Receipt className="h-3.5 w-3.5" />
+              {finalInvoiceState.loading ? 'Erstelle Schlussrechnung…' : 'Schlussrechnung erstellen'}
+            </Button>
+          )}
         </CardContent>
       </Card>
 
