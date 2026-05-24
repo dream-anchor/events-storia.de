@@ -29,7 +29,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -40,6 +39,9 @@ import {
 import { MenuComposer, MenuSelection } from "./InquiryEditor/MenuComposer";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
+import { CancellationDialog } from "@/components/admin/shared/CancellationDialog";
+import { PaymentBalanceCard } from "@/components/admin/shared/PaymentBalanceCard";
+import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
 
 export const EventBookingEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -64,6 +66,8 @@ export const EventBookingEditor = () => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isMarkingRefunded, setIsMarkingRefunded] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [customer, setCustomer] = useState<{ id?: string; account_invited_at?: string | null; account_activated_at?: string | null } | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitializedRef = useRef(false);
@@ -74,6 +78,19 @@ export const EventBookingEditor = () => {
     pagination: { pageSize: 100 },
   });
   const packages = packagesQuery.result?.data || [];
+
+  // Kundenkonto-Status laden (v2_customers via email match)
+  useEffect(() => {
+    if (!booking?.customer_email) return;
+    (async () => {
+      const { data } = await supabase
+        .from("v2_customers")
+        .select("id, account_invited_at, account_activated_at")
+        .eq("email", booking.customer_email)
+        .maybeSingle();
+      if (data) setCustomer(data as any);
+    })();
+  }, [booking?.customer_email]);
 
   // Initialize state from booking
   if (booking && !isInitialized) {
@@ -159,7 +176,7 @@ export const EventBookingEditor = () => {
     }
   }, [booking]);
 
-  const handleCancelBooking = async () => {
+  const handleCancelBooking = async (customerMessage?: string) => {
     if (!id) return;
     setIsCancelling(true);
     try {
@@ -167,15 +184,16 @@ export const EventBookingEditor = () => {
         .from("event_bookings" as any)
         .update({
           status: "cancelled",
-          cancellation_reason: cancelReason || "Stornierung durch Admin",
+          cancellation_reason: customerMessage || cancelReason || "Stornierung durch Admin",
           cancelled_at: new Date().toISOString(),
         } as any)
         .eq("id", id);
       if (error) throw error;
       setBookingStatus("cancelled");
-      toast.success("Buchung storniert");
+      toast.success(customerMessage ? "Buchung storniert – Nachricht protokolliert" : "Buchung storniert");
     } catch (e: any) {
       toast.error(e.message || "Fehler beim Stornieren");
+      throw e;
     } finally {
       setIsCancelling(false);
     }
@@ -303,35 +321,31 @@ export const EventBookingEditor = () => {
             )}
 
             {bookingStatus !== "cancelled" && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm">
-                    <Ban className="h-4 w-4 mr-2" />
-                    Stornieren
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Buchung stornieren?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Die Buchung wird als storniert markiert. Bei bereits geleisteten Zahlungen muss die Rückerstattung manuell vorgenommen und anschließend als „zurückerstattet" markiert werden.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Stornierungsgrund (optional)</Label>
-                    <Textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="z.B. Kunde hat abgesagt..." />
-                  </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleCancelBooking} disabled={isCancelling} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      {isCancelling ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wird storniert...</> : "Stornieren"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Button variant="destructive" size="sm" onClick={() => setShowCancelDialog(true)}>
+                <Ban className="h-4 w-4 mr-2" />
+                Stornieren
+              </Button>
             )}
           </div>
         </div>
+
+        <CancellationDialog
+          open={showCancelDialog}
+          onOpenChange={setShowCancelDialog}
+          context="event_booking"
+          customerName={booking.customer_name}
+          orderNumber={booking.booking_number}
+          eventDate={booking.event_date || undefined}
+          totalAmount={Number(booking.total_amount) || undefined}
+          refundInfo={
+            booking.payment_status === "paid"
+              ? "Bereits geleistete Zahlungen müssen manuell zurückerstattet werden."
+              : undefined
+          }
+          onConfirm={(msg) => handleCancelBooking(msg)}
+          title="Buchung stornieren"
+          confirmLabel="Stornieren & Nachricht protokollieren"
+        />
 
         <Tabs defaultValue="details" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 max-w-sm">
@@ -457,11 +471,38 @@ export const EventBookingEditor = () => {
                       <Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Telefon</Label>
                       <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="optional" />
                     </div>
+                    <div className="pt-2 border-t">
+                      <InviteCustomerAccountButton
+                        customerEmail={customerEmail}
+                        customerName={customerName}
+                        customerId={customer?.id}
+                        invitedAt={customer?.account_invited_at}
+                        activatedAt={customer?.account_activated_at}
+                        onInvited={async () => {
+                          const { data } = await supabase
+                            .from("v2_customers")
+                            .select("id, account_invited_at, account_activated_at")
+                            .eq("email", customerEmail)
+                            .maybeSingle();
+                          if (data) setCustomer(data as any);
+                        }}
+                      />
+                    </div>
                   </CardContent>
                 </Card>
 
                 {/* Email Status */}
                 <EmailStatusCard entityType="event_booking" entityId={id!} />
+
+                {/* Zahlungsstand & Restzahlung */}
+                <PaymentBalanceCard
+                  eventId={id!}
+                  context="event_booking"
+                  totalEur={Number(totalAmount) || 0}
+                  customerEmail={customerEmail}
+                  customerName={customerName}
+                  externalPaidEur={booking.payment_status === "paid" ? (Number(booking.total_amount) || 0) : 0}
+                />
 
                 {/* Internal Notes Card */}
                 <Card>
