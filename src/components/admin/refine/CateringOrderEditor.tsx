@@ -977,33 +977,6 @@ export const CateringOrderEditor = () => {
                   </CardContent>
                 </Card>
 
-                {/* Billing Address — editable */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Receipt className="h-4 w-4" />
-                      Rechnungsadresse
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {order.lexoffice_invoice_id && (
-                      <p className="text-xs flex items-start gap-1.5 text-muted-foreground bg-muted/50 rounded p-2">
-                        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                        Bereits Rechnung erstellt — Änderungen gelten nur für zukünftige Belege.
-                      </p>
-                    )}
-                    <Input value={billingName} onChange={e => setBillingName(e.target.value)} placeholder="Name / Firma" />
-                    <Input value={billingStreet} onChange={e => setBillingStreet(e.target.value)} placeholder="Straße & Hausnummer" />
-                    <div className="grid grid-cols-[80px_1fr] gap-2">
-                      <Input value={billingZip} onChange={e => setBillingZip(e.target.value)} placeholder="PLZ" />
-                      <Input value={billingCity} onChange={e => setBillingCity(e.target.value)} placeholder="Stadt" />
-                    </div>
-                    <Input value={billingCountry} onChange={e => setBillingCountry(e.target.value)} placeholder="Land" />
-                  </CardContent>
-                </Card>
-
-                {/* Email Status */}
-                <EmailStatusCard entityType="catering_order" entityId={id!} />
               </div>
             </div>
           </TabsContent>
