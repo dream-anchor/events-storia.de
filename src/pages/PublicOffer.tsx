@@ -1703,7 +1703,7 @@ function FinalOptionCard({
             <p className="text-sm font-sans font-medium text-center text-foreground/80">
               {isRedirecting ? 'Zahlung wird vorbereitet…' : 'Wie möchten Sie zahlen?'}
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={cn("grid gap-3", deposit.show ? "grid-cols-2" : "grid-cols-1")}>
               <button
                 onClick={() => handlePayment('full')}
                 disabled={isRedirecting}
@@ -1718,6 +1718,7 @@ function FinalOptionCard({
                   </>
                 )}
               </button>
+              {deposit.show && (
               <button
                 onClick={() => handlePayment('deposit')}
                 disabled={isRedirecting}
@@ -1733,6 +1734,7 @@ function FinalOptionCard({
                   </>
                 )}
               </button>
+              )}
             </div>
           </div>
         ) : (
