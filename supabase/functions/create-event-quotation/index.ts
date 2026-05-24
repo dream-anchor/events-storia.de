@@ -718,7 +718,19 @@ serve(async (req) => {
   }
 
   try {
-    const { inquiryId, useSelectedQuantity, forceDocumentType } = await req.json();
+    const {
+      inquiryId,
+      useSelectedQuantity,
+      forceDocumentType,
+      // NEU: für Schlussrechnung — Liste der vorausgegangenen
+      // Anzahlungsrechnungen, die abgezogen werden müssen (§ 14 Abs. 5 UStG).
+      // Jeder Eintrag erzeugt eine negative Brutto-Line-Item.
+      downPaymentDeductions,
+      // NEU: wenn true, wird der erzeugte Voucher in
+      // v2_events.final_lexoffice_invoice_id gespeichert (Schlussrechnung)
+      // statt in lexoffice_invoice_id (regulärer Beleg).
+      isFinalInvoice,
+    } = await req.json();
     if (!inquiryId) throw new Error('inquiryId fehlt');
 
     const lexofficeApiKey = Deno.env.get('LEXOFFICE_API_KEY');
