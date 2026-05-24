@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2 } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2, Ban } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,8 @@ import { toast } from "sonner";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
 import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
 import { PrintMenu } from "@/components/admin/refine/print/PrintMenu";
+import { CancellationDialog } from "@/components/admin/shared/CancellationDialog";
+import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -80,6 +82,8 @@ export const SmartInquiryEditor = () => {
   const [selectedOptionInfo, setSelectedOptionInfo] = useState<{ optionLabel: string; packageName: string } | null>(null);
   const [offerTotal, setOfferTotal] = useState<number | null>(null);
   const [sendSuccess, setSendSuccess] = useState<SendSuccessInfo | null>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [customer, setCustomer] = useState<{ id?: string; account_invited_at?: string | null; account_activated_at?: string | null } | null>(null);
 
   const buildPersistableInquiryValues = useCallback((source: Record<string, unknown>) => {
     const {
@@ -121,6 +125,39 @@ export const SmartInquiryEditor = () => {
 
   // Update mutation
   const { mutate: updateInquiry } = useUpdate();
+
+  // Kundenkonto-Status laden
+  useEffect(() => {
+    const email = inquiry?.email;
+    if (!email) return;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("v2_customers")
+        .select("id, account_invited_at, account_activated_at")
+        .eq("email", email)
+        .maybeSingle();
+      if (data) setCustomer(data);
+    })();
+  }, [inquiry?.email]);
+
+  const handleCancelInquiry = async (customerMessage?: string) => {
+    if (!id) return;
+    const { error } = await (supabase as any)
+      .from("events")
+      .update({
+        status: "declined",
+        internal_notes: customerMessage
+          ? `${inquiry?.internal_notes ? inquiry.internal_notes + "\n\n" : ""}— Absage-Nachricht (${new Date().toLocaleString("de-DE")}) —\n${customerMessage}`
+          : inquiry?.internal_notes,
+      })
+      .eq("id", id);
+    if (error) {
+      toast.error("Fehler beim Absagen", { description: error.message });
+      throw error;
+    }
+    toast.success(customerMessage ? "Anfrage abgesagt – Nachricht protokolliert" : "Anfrage abgesagt");
+    inquiryQuery.query.refetch();
+  };
 
   // Reset-Effect: Wenn die URL-ID wechselt (Navigation zu anderer Anfrage),
   // muessen wir erlauben dass der lokale State aus der neuen Inquiry
@@ -858,6 +895,34 @@ export const SmartInquiryEditor = () => {
           </Badge>
         )}
         <div className="flex-1" />
+        {inquiry.email && (
+          <InviteCustomerAccountButton
+            customerEmail={inquiry.email}
+            customerName={inquiry.contact_name || undefined}
+            customerId={customer?.id}
+            invitedAt={customer?.account_invited_at}
+            activatedAt={customer?.account_activated_at}
+            onInvited={async () => {
+              const { data } = await (supabase as any)
+                .from("v2_customers")
+                .select("id, account_invited_at, account_activated_at")
+                .eq("email", inquiry.email)
+                .maybeSingle();
+              if (data) setCustomer(data);
+            }}
+          />
+        )}
+        {inquiry.status !== "declined" && inquiry.status !== "confirmed" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs h-8 text-destructive hover:text-destructive"
+            onClick={() => setShowCancelDialog(true)}
+          >
+            <Ban className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Anfrage absagen</span>
+          </Button>
+        )}
         {isOfferSent && (
           <Button
             variant="outline"
@@ -871,6 +936,18 @@ export const SmartInquiryEditor = () => {
           </Button>
         )}
       </div>
+
+      <CancellationDialog
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        context="inquiry"
+        customerName={inquiry.contact_name || ""}
+        orderNumber={`Anfrage #${(inquiry.id || "").slice(0, 8)}`}
+        eventDate={inquiry.preferred_date || undefined}
+        onConfirm={(msg) => handleCancelInquiry(msg)}
+        title="Anfrage absagen"
+        confirmLabel="Absagen & Nachricht protokollieren"
+      />
 
       {/* Main Content — Tab-Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
