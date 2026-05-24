@@ -58,8 +58,8 @@ export const OrdersList = () => {
     ],
   });
 
-  const orders = ordersQuery.result?.data || [];
-  const isLoading = ordersQuery.query.isLoading;
+  const orders = ordersQuery.data?.data || [];
+  const isLoading = ordersQuery.isLoading;
 
   // Zählwerte für Filter-Badges (unabhängig vom aktuellen Filter)
   const counts = useMemo(() => {
@@ -351,7 +351,7 @@ export const OrdersList = () => {
           searchPlaceholder="Suche nach Bestellnummer, Kunde, Adresse..."
           filterPills={filterPills}
           onFilterChange={handleFilterChange}
-          onRefresh={() => ordersQuery.query.refetch()}
+          onRefresh={() => ordersQuery.refetch()}
           onRowClick={handleRowClick}
           isLoading={isLoading}
           pageSize={25}
