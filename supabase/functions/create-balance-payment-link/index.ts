@@ -15,6 +15,48 @@ interface Body {
 
 const log = (s: string, d?: unknown) => console.log(`[BALANCE-LINK] ${s}`, d ? JSON.stringify(d) : "");
 
+const PUBLIC_BASE_URL = "https://events-storia.de";
+
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "event";
+}
+
+async function buildUniqueSlug(
+  supabase: ReturnType<typeof createClient>,
+  base: string,
+  eventId: string,
+): Promise<string> {
+  // If a link for this event already exists, reuse its slug
+  const { data: existing } = await supabase
+    .from("balance_payment_links")
+    .select("slug")
+    .eq("event_id", eventId)
+    .limit(1)
+    .maybeSingle();
+  if (existing?.slug) return existing.slug;
+
+  let candidate = base;
+  let n = 1;
+  while (true) {
+    const { data: clash } = await supabase
+      .from("balance_payment_links")
+      .select("id")
+      .eq("slug", candidate)
+      .limit(1)
+      .maybeSingle();
+    if (!clash) return candidate;
+    n += 1;
+    candidate = `${base}-${n}`;
+  }
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -39,35 +81,73 @@ serve(async (req) => {
       throw new Error("eventId, amountEur, customerEmail required");
     }
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY missing");
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    // ============================================================
+    // NEU: Dynamische Restzahlungs-Seite /restzahlung/<slug>
+    // Statt statischer stripe.paymentLinks.create(...) — der Kunde
+    // wählt finale Gästezahl, Seite berechnet Preis × Gäste − Anzahlung.
+    // ============================================================
 
-    const origin = req.headers.get("origin") || "https://events-storia.de";
+    // Event-Daten holen (für price_per_person, guests, deposit, date)
+    const { data: ev } = await supabaseAdmin
+      .from("v2_events")
+      .select("id, customer_id, date, booking_number, number, amount_total, guest_count, deposit_amount")
+      .eq("id", body.eventId)
+      .maybeSingle();
 
-    const product = await stripe.products.create({
-      name: body.description || `Storia – Restzahlung`,
-      metadata: { event_id: body.eventId, context: body.context, kind: "balance" },
-    });
-    const price = await stripe.prices.create({
-      product: product.id,
-      unit_amount: Math.round(body.amountEur * 100),
-      currency: "eur",
-    });
+    if (!ev) throw new Error(`Event ${body.eventId} nicht gefunden`);
 
-    const paymentLink = await stripe.paymentLinks.create({
-      line_items: [{ price: price.id, quantity: 1 }],
-      after_completion: { type: "redirect", redirect: { url: `${origin}/zahlung-erfolgreich?event=${body.eventId}` } },
-      metadata: {
-        event_id: body.eventId,
-        context: body.context,
-        kind: "balance",
-        amount_eur: body.amountEur.toString(),
-        customer_email: body.customerEmail,
-      },
-      customer_creation: "always",
-    });
-    log("payment link created", { id: paymentLink.id, url: paymentLink.url });
+    // Bereits gezahlte Anzahlung (status=paid, payment_type=deposit/prepayment) ermitteln
+    const { data: paidRows } = await supabaseAdmin
+      .from("v2_payments")
+      .select("amount_cents, status, payment_type")
+      .eq("event_id", body.eventId)
+      .eq("status", "paid");
+    const depositPaidCents = (paidRows || [])
+      .filter((p) => p.payment_type === "deposit" || p.payment_type === "prepayment")
+      .reduce((s, p) => s + (p.amount_cents || 0), 0);
+
+    const guestCount = Math.max(1, Number(ev.guest_count || 1));
+    const amountTotalCents = Math.round(Number(ev.amount_total || 0) * 100);
+    // Preis pro Person 1:1 aus Maestro: amount_total / guest_count
+    // Fallback wenn amount_total fehlt: amountEur + deposit
+    const totalCents = amountTotalCents > 0
+      ? amountTotalCents
+      : Math.round(body.amountEur * 100) + depositPaidCents;
+    const pricePerPersonCents = Math.round(totalCents / guestCount);
+
+    // Slug: <nachname>-<booking_number-suffix>
+    const lastName = (body.customerName || "kunde").trim().split(/\s+/).pop() || "kunde";
+    const numSuffix = (ev.booking_number || ev.number || body.eventId)
+      .toString().match(/(\d+)\s*$/)?.[1] || ev.id.slice(0, 6);
+    const baseSlug = `${slugify(lastName)}-${numSuffix}`;
+    const slug = await buildUniqueSlug(supabaseAdmin, baseSlug, body.eventId);
+
+    // Upsert balance_payment_links Eintrag
+    const eventLabel = body.description || `Veranstaltung ${ev.booking_number || ev.number || ""}`.trim();
+    const upsertRow = {
+      slug,
+      event_label: eventLabel,
+      event_label_en: eventLabel,
+      price_per_person_cents: pricePerPersonCents,
+      deposit_paid_cents: depositPaidCents,
+      min_guests: guestCount,
+      max_guests: guestCount + 30,
+      default_guests: guestCount,
+      customer_email: body.customerEmail,
+      customer_name: body.customerName ?? null,
+      event_id: body.eventId,
+      event_date: ev.date,
+      active: true,
+      created_by: userData.user.id,
+    };
+
+    const { error: upsertErr } = await supabaseAdmin
+      .from("balance_payment_links")
+      .upsert(upsertRow, { onConflict: "slug" });
+    if (upsertErr) throw new Error(`balance_payment_links upsert: ${upsertErr.message}`);
+
+    const paymentUrl = `${PUBLIC_BASE_URL}/restzahlung/${slug}`;
+    log("dynamic balance link prepared", { slug, url: paymentUrl, pricePerPersonCents, depositPaidCents, guestCount });
 
     // Payment-Record (sent) anlegen, damit die Timeline ihn sofort sieht
     const { data: paymentRow } = await supabaseAdmin.from("v2_payments").insert({
@@ -75,7 +155,7 @@ serve(async (req) => {
       amount_cents: Math.round(body.amountEur * 100),
       payment_type: "balance",
       status: "sent",
-      stripe_payment_link_url: paymentLink.url,
+      stripe_payment_link_url: paymentUrl,
       notes: body.description || "Restzahlung via Maestro",
       created_by: userData.user.email ?? null,
     }).select("id").single();
@@ -99,12 +179,13 @@ serve(async (req) => {
       actor_email: userData.user.email,
       metadata: {
         amount_eur: body.amountEur,
-        payment_link_id: paymentLink.id,
-        payment_link_url: paymentLink.url,
+        slug,
+        payment_link_url: paymentUrl,
+        kind: "dynamic_balance_page",
       },
     });
 
-    return new Response(JSON.stringify({ success: true, paymentLinkUrl: paymentLink.url, paymentLinkId: paymentLink.id }), {
+    return new Response(JSON.stringify({ success: true, paymentLinkUrl: paymentUrl, slug }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
