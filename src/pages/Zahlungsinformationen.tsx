@@ -9,7 +9,7 @@ const Zahlungsinformationen = () => {
     <>
       <SEO 
         title="Zahlungsinformationen"
-        description="Zahlungsmöglichkeiten bei STORIA München: Kreditkarte, EC-Karte, Apple Pay, Google Pay, Barzahlung und Gutscheine."
+        description="Zahlungsmöglichkeiten bei STORIA München: Kreditkarte, Karte, Apple Pay, Google Pay, Barzahlung und Gutscheine."
         noIndex={true}
       />
       <div className="min-h-screen bg-background">
@@ -30,7 +30,7 @@ const Zahlungsinformationen = () => {
               <p>Folgende Zahlungsmittel werden im Restaurant akzeptiert:</p>
               <ul className="list-disc pl-6 space-y-2">
                 <li><strong>Barzahlung</strong> in Euro</li>
-                <li><strong>EC-Karte</strong> (Girocard, Maestro, V Pay)</li>
+                <li><strong>Karte</strong> (Girocard, Maestro, V Pay)</li>
                 <li><strong>Kreditkarte</strong> (Visa, Mastercard, American Express)</li>
                 <li><strong>Apple Pay</strong></li>
                 <li><strong>Google Pay</strong></li>
