@@ -988,10 +988,10 @@ export const CateringOrderEditor = () => {
                 <PaymentBalanceCard
                   eventId={id!}
                   context="catering_order"
-                  totalEur={Number(order.total_amount) || 0}
+                  totalEur={grandTotal}
                   customerEmail={order.customer_email}
                   customerName={order.customer_name}
-                  externalPaidEur={isStripePaid && order.total_amount ? Number(order.total_amount) : 0}
+                  externalPaidEur={0}
                 />
 
               </div>
