@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { CateringOrder, OrderStatus } from "@/hooks/useCateringOrders";
+import { CateringOrder, OrderStatus } from "@/types/refine";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 
@@ -91,12 +91,13 @@ function OrderCard({ order, onRefresh }: { order: CateringOrder; onRefresh: () =
     }
   };
 
-  const otherStatuses: { id: OrderStatus; label: string }[] = [
+  const allStatuses: { id: OrderStatus; label: string }[] = [
     { id: "pending",   label: "Neu" },
     { id: "confirmed", label: "Bestätigt" },
     { id: "completed", label: "Erledigt" },
     { id: "cancelled", label: "Storniert" },
-  ].filter((s) => s.id !== (order.status as OrderStatus));
+  ];
+  const otherStatuses = allStatuses.filter((s) => s.id !== (order.status as OrderStatus));
 
   return (
     <div
