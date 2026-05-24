@@ -60,11 +60,19 @@ export const OrdersList = () => {
     filters: statusValues
       ? [{ field: "status", operator: "in", value: statusValues }]
       : [],
-    // Sortierung: nächster Liefertermin oben, dann nach Erstellungszeit
     sorters: [
       { field: "desired_date", order: "asc" },
       { field: "desired_time", order: "asc" },
     ],
+  });
+
+  // Separater Query für Kanban — kein Status-Filter, alle Orders
+  const kanbanQuery = useList<CateringOrder>({
+    resource: "orders",
+    pagination: { pageSize: 500 },
+    filters: [],
+    sorters: [{ field: "desired_date", order: "asc" }],
+    queryOptions: { enabled: viewMode === "kanban" },
   });
 
   const orders = ordersQuery.data?.data || [];
@@ -344,11 +352,7 @@ export const OrdersList = () => {
     navigate(`/admin/orders/${order.id}/edit`);
   };
 
-  // Kanban braucht alle aktiven Orders (nicht nur den aktuellen Filter)
-  const allActiveOrders = useMemo(() => {
-    if (viewMode !== "kanban") return [];
-    return ordersQuery.data?.data || [];
-  }, [viewMode, ordersQuery.data]);
+  const allActiveOrders = kanbanQuery.data?.data || [];
 
   return (
     <AdminLayout activeTab="orders">
