@@ -251,6 +251,73 @@ export const CateringOrderEditor = () => {
   const itemsSubtotal = itemsState.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
   const grandTotal = itemsSubtotal + (isPickup ? 0 : deliveryCost) + minimumOrderSurcharge;
 
+  // Dirty tracking pro Bereich (für Warn-Dialog)
+  const dirtySections = useMemo(() => {
+    if (!order || !isInitialized) return { any: false, list: [] as { key: string; title: string; warning: string }[] };
+    const list: { key: string; title: string; warning: string }[] = [];
+    const origItems = Array.isArray(order.items) ? order.items : [];
+    const itemsChanged =
+      JSON.stringify(itemsState.map((i) => ({ name: i.name, qty: i.quantity, p: i.price }))) !==
+      JSON.stringify(origItems.map((i: any) => ({ name: i.name, qty: Number(i.quantity) || 1, p: Number(i.price) || 0 })));
+    if (itemsChanged) {
+      list.push({
+        key: "items",
+        title: "Bestellte Speisen geändert",
+        warning: order.lexoffice_invoice_id
+          ? "Eine Rechnung existiert bereits in LexOffice — sie wird NICHT automatisch neu erstellt. Bitte bei Bedarf manuell ein neues Dokument generieren."
+          : "Gesamtsumme wurde neu berechnet. Speichern aktualisiert nur die Bestellung — keine automatische Rechnung.",
+      });
+    }
+    const pickupChanged = !!order.is_pickup !== isPickup;
+    if (pickupChanged) {
+      list.push({
+        key: "fulfillment",
+        title: "Abholung ↔ Lieferung gewechselt",
+        warning: "Liefergebühr wurde nicht automatisch neu berechnet. Bitte vorher 'Neu berechnen' drücken.",
+      });
+    }
+    const addressChanged =
+      !isPickup &&
+      ((order.delivery_street || "") !== deliveryStreet ||
+        (order.delivery_zip || "") !== deliveryZip ||
+        (order.delivery_city || "") !== deliveryCity);
+    if (addressChanged && !pickupChanged) {
+      list.push({
+        key: "address",
+        title: "Lieferadresse geändert",
+        warning: "Neue Adresse — bitte 'Neu berechnen' drücken, falls noch nicht geschehen.",
+      });
+    }
+    const dateChanged =
+      (order.desired_date || "") !== desiredDate ||
+      ((order.desired_time || "").slice(0, 5)) !== desiredTime;
+    if (dateChanged) {
+      list.push({
+        key: "schedule",
+        title: "Datum / Uhrzeit geändert",
+        warning: "Der Kunde wird NICHT automatisch benachrichtigt. Bitte ggf. separat informieren.",
+      });
+    }
+    const billingChanged =
+      (order.billing_name || "") !== billingName ||
+      (order.billing_street || "") !== billingStreet ||
+      (order.billing_zip || "") !== billingZip ||
+      (order.billing_city || "") !== billingCity ||
+      (order.billing_country || "Deutschland") !== billingCountry;
+    if (billingChanged) {
+      list.push({
+        key: "billing",
+        title: "Rechnungsadresse geändert",
+        warning: order.lexoffice_invoice_id
+          ? "Eine LexOffice-Rechnung existiert bereits — Änderung gilt nur für künftige Belege."
+          : "Wird auf künftige Rechnungen angewandt.",
+      });
+    }
+    return { any: list.length > 0, list };
+  }, [order, isInitialized, itemsState, isPickup, deliveryStreet, deliveryZip, deliveryCity, desiredDate, desiredTime, billingName, billingStreet, billingZip, billingCity, billingCountry]);
+
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+
   const handleSave = useCallback(() => {
     if (!id) return;
 
