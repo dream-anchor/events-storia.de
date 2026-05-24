@@ -1,0 +1,2 @@
+ALTER TABLE public.v2_events ADD COLUMN IF NOT EXISTS guest_count_max integer;
+COMMENT ON COLUMN public.v2_events.guest_count_max IS 'Optionale Obergrenze fuer Personenzahl (z. B. fuer Stripe Prepayment-Link). Wenn NULL, gilt nur die Mindestpersonenzahl aus guest_count.';
