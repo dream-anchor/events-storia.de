@@ -126,6 +126,39 @@ export const SmartInquiryEditor = () => {
   // Update mutation
   const { mutate: updateInquiry } = useUpdate();
 
+  // Kundenkonto-Status laden
+  useEffect(() => {
+    const email = inquiry?.email;
+    if (!email) return;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("v2_customers")
+        .select("id, account_invited_at, account_activated_at")
+        .eq("email", email)
+        .maybeSingle();
+      if (data) setCustomer(data);
+    })();
+  }, [inquiry?.email]);
+
+  const handleCancelInquiry = async (customerMessage?: string) => {
+    if (!id) return;
+    const { error } = await (supabase as any)
+      .from("events")
+      .update({
+        status: "declined",
+        internal_notes: customerMessage
+          ? `${inquiry?.internal_notes ? inquiry.internal_notes + "\n\n" : ""}— Absage-Nachricht (${new Date().toLocaleString("de-DE")}) —\n${customerMessage}`
+          : inquiry?.internal_notes,
+      })
+      .eq("id", id);
+    if (error) {
+      toast.error("Fehler beim Absagen", { description: error.message });
+      throw error;
+    }
+    toast.success(customerMessage ? "Anfrage abgesagt – Nachricht protokolliert" : "Anfrage abgesagt");
+    inquiryQuery.query.refetch();
+  };
+
   // Reset-Effect: Wenn die URL-ID wechselt (Navigation zu anderer Anfrage),
   // muessen wir erlauben dass der lokale State aus der neuen Inquiry
   // initialisiert wird. Muss VOR dem Init-Effect stehen.
