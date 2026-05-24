@@ -40,6 +40,9 @@ import {
 import { MenuComposer, MenuSelection } from "./InquiryEditor/MenuComposer";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
+import { CancellationDialog } from "@/components/admin/shared/CancellationDialog";
+import { PaymentBalanceCard } from "@/components/admin/shared/PaymentBalanceCard";
+import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
 
 export const EventBookingEditor = () => {
   const { id } = useParams<{ id: string }>();
