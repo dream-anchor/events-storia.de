@@ -169,6 +169,8 @@ function buildHtml(o: {
   eventDateStr: string | null;
   bookingNumber: string;
   includeApology: boolean;
+  balanceMethod?: string | null;
+  depositMethod?: string | null;
   prepayment?: {
     paymentLinkUrl: string;
     pricePerPersonFormatted: string;
