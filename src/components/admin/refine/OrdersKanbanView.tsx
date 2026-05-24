@@ -359,9 +359,8 @@ export function OrdersKanbanView({ orders, bucket, onRefresh }: OrdersKanbanView
     columns.forEach((c) => {
       data[c.id] = { items: [], totalSum: 0 };
     });
-    const fallback = columns[0]?.id;
     orders.forEach((o) => {
-      const target = columns.find((c) => c.match(o))?.id ?? fallback;
+      const target = columns.find((c) => c.match(o))?.id;
       if (!target || !data[target]) return;
       data[target].items.push(o);
       data[target].totalSum += o.total_amount || 0;
