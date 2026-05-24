@@ -96,6 +96,9 @@ serve(async (req) => {
       } else if (metadata.payment_id && metadata.source === 'maestro') {
         // ━━━ MAESTRO PAYMENT (Anzahlung / Vorauszahlung via Admin) ━━━
         await handleMaestroPayment(supabase, stripe, session, metadata);
+      } else if (metadata.kind === 'prepayment_per_person' && metadata.event_id) {
+        // ━━━ PREPAYMENT mit anpassbarer Personenzahl ━━━
+        await handlePrepaymentPerPerson(supabase, stripe, session, metadata);
       } else {
         logStep("Unknown payment type, no matching metadata", { metadata });
       }
