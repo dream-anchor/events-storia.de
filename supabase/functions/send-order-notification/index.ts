@@ -684,11 +684,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send customer email
     const customerEmailText = generateCustomerEmailText(data);
+    const customerHtml = generateCustomerHtml(data);
     const customerResult = await sendEmail(
       [data.customerEmail],
       customerSubject,
       customerEmailText,
-      "STORIA Catering"
+      "STORIA Catering",
+      customerHtml
     );
 
     // Log customer email
