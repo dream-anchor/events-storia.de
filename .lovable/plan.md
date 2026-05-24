@@ -1,96 +1,92 @@
+## Reihenfolge & Scope
 
-## Teil A — Audit der letzten 14 Tage
+Reihenfolge nach Risk/Reward: erst die zwei kleinen Fixes (5 Min), dann der mittlere Auto-Rechnung-Hook (30 Min), zum Schluss der große Bestelldetail-Editor (Hauptteil).
 
-### A.1 Anfragen / Bestellungen im System
+---
 
-In `v2_events` sind in den letzten 14 Tagen **20 Datensätze** angelegt worden (alle erscheinen also im System). Verteilt nach Quelle:
+### 1. Shop "Bestellen"-Button immer klickbar + AGB-Warnung
 
-- `website` (Event-Anfrageformular): 5
-- `catering_form`: 4 (3 echte bezahlte Bestellungen + 1 Test)
-- `reisegruppen`: 4
-- `manual` (im Maestro angelegt): 7 (davon 2 als `is_test=true` markiert)
+**Datei:** `src/components/checkout/StickyMobileCTA.tsx` + Desktop-Submit in `src/pages/Checkout.tsx`
 
-Zusätzlich in den Legacy-/Sekundärtabellen (werden parallel von alten Edge Functions geschrieben, sollten konsistent sein):
+**Heute:** Button ist enabled, aber wenn AGB nicht angehakt sind, blockiert `Checkout.handleSubmit` still mit einem Toast. User sieht keinen visuellen Hinweis am Häkchen.
 
-- `event_inquiries`: 13 neu
-- `catering_orders`: 3 neu
-- `event_bookings`: 1 neu
-- `v2_payments` / `event_payments`: je 4 neu
+**Änderung:**
+- Button bleibt **immer aktiv** (bereits so für Mobile — Desktop angleichen).
+- Beim Klick ohne AGB-Häkchen: AGB-Checkbox bekommt rot-pulsierende Border + Scroll-into-view + Toast "Bitte AGB akzeptieren".
+- AGB-Checkbox-State global im Checkout-Form (existiert bereits), nur visuelles Feedback nachziehen.
 
-**Befund:** Es gibt **keine "verwaisten" Datensätze**, die in der DB liegen, aber nicht im Maestro auftauchen würden. Jede Anfrage/Bestellung der letzten 14 Tage existiert mit Customer-Verknüpfung in `v2_events`.
+---
 
-Einziges Auffälliges:
-- 2 `reisegruppen`-Einträge vom 12.05. mit Status `offer_draft` und gleicher Mail (Tom Test) — sieht nach Doppel-Submit aus, beide echt in der Tabelle.
-- 2 manuelle Test-Einträge mit `is_test=true` werden je nach Filter in der UI ausgeblendet.
+### 2. Bounce-Adresse `d.speranza@storia-muenchen.de` entfernen
 
-### A.2 Benachrichtigungen an Betreiber & Kunden
+**Strategie:** Code grep nach `d.speranza` ergab 0 Treffer. Adresse liegt in DB (Admin-User-Tabelle / Notification-Empfänger-Config).
 
-`email_delivery_logs` für die letzten 14 Tage gegen die `v2_events`-Liste gemappt:
+**Vorgehen:**
+- Suche in `user_roles`, `admin_presence`, `notification_recipients` (falls existiert), und Edge-Function-Code für hartkodierte Empfängerlisten.
+- Entferne den Eintrag bzw. ersetze durch `info@events-storia.de`.
+- Bei `notify-customer-response`: Empfängerliste als Array statt komma-string an Resend übergeben (Bonus-Fix).
 
-| Datum | Quelle | Kunde-Mail | Betreiber-Mail | WhatsApp |
-|---|---|---|---|---|
-| 22.05. 07:35 Mimmo (website) | ✅ | ✅ | ❌ "WhatsApp not configured" |
-| 22.05. 07:34 Mimmo (manual, paid) | — keine Mail-Logs | — | — |
-| 19.05. neo-kanzlei (website) | ✅ | ✅ | ❌ "WhatsApp not configured" |
-| 19.05. Anna Besyakova (manual, paid) | — keine Mail-Logs | — | — |
-| 18.05. Test2 reisegruppen | — keine Mail-Logs | — | — |
-| 16.05. CAT-...-530 (catering_form, bezahlt) | ✅ | ✅ | ❌ |
-| 15.05. CAT-...-321 (catering_form, bezahlt) | ✅ | ✅ | ❌ |
-| 14.05. Fardo, Agnese, Mimmo (website) | ✅ | ✅ | ❌ |
-| 14.05. Ida Lucca (manual, cancelled) | — keine Mail-Logs | — | — |
-| 13.05. Jessica Lagourrès (manual, paid) | nur Angebots-Mails ab 15.05. | — | — |
-| 13.05. rachele ruggeri (website, paid) | (zu prüfen, oberhalb des Truncate) | | |
-| 12.05. Tom Test reisegruppen ×2 | — | — | — |
-| 12.05. Test reisegruppen | — | — | — |
-| 11.05. Mimmo website | ✅ | ✅ | ❌ |
+---
 
-**Befunde Notifications:**
+### 3. Auto-Rechnung + Bestätigungsmail bei manueller "bezahlt"-Markierung
 
-1. **`source = 'manual'` löst keine Benachrichtigung aus.** Korrekt designed (man legt im Admin selbst an), aber: bei `status = 'paid'` manuell angelegt (Anna 19.05., Jessica 13.05.) gibt es **keine Zahlungsbestätigung an den Kunden**. Das ist eine Lücke — sobald wir "paid" setzen, sollte zumindest optional die LexOffice-Rechnung + Bestätigungsmail rausgehen (passt zum laufenden Anzahlungs/Schlussrechnungs-Thema).
-2. **`source = 'reisegruppen'` (Tom Test, Test, Test2) versendet aktuell gar keine Mail** — weder an Kunde noch Betreiber. Das ist ein echter Bug: 4 Reisegruppen-Anfragen in 14 Tagen, 0 Logs.
-3. **WhatsApp-Alarm schlägt seit Tagen fehl** mit `WhatsApp not configured` (Meta API Credential fehlt/abgelaufen). Trifft alle 4 Inquiry-Pfade.
-4. Die Betreiber-Mail (`info@events-storia.de, d.speranza@storia-muenchen.de`) bei `Kundenantwort` wird mit Status `bounced` geloggt (mehrere Treffer am 15.05./22.05.) — Resend lehnt die kommaseparierte Adressliste in einem Feld ab, müsste als Array übergeben werden.
+**Dateien:**
+- `src/components/admin/refine/InquiryEditor/AddPaymentDrawer.tsx` — neuer Switch
+- `supabase/functions/handle-stripe-webhook/index.ts` — Logik extrahieren in shared helper
+- (oder direkt) Trigger der `create-lexoffice-downpayment-invoice` / `create-lexoffice-final-invoice` Pipeline aus dem Drawer
 
-### A.3 Maßnahmen Teil A
+**Änderung im AddPaymentDrawer:**
+- Wenn `status` direkt als `paid` markiert wird (Zahlungsweg "manuell"), neuer Checkbox-Block:
+  - ☑ "Rechnung über LexOffice erstellen" (Default EIN)
+  - ☑ "Bestätigung an Kunde senden" (Default EIN)
+- Nach Insert mit `status='paid'`:
+  - LexOffice-Invoice-Edge-Function aufrufen (Anzahlung vs. Schlussrechnung anhand `payment_type`).
+  - `send-payment-confirmation-email` (existiert ggf., sonst `send-payment-email` mit `is_confirmation: true`).
+  - Beides in `email_delivery_logs` loggen.
 
-1. `process-new-inquiry` / Reisegruppen-Flow: Notification-Hook hinzufügen (Kunden-Confirmation + Betreiber-Alert + Logging in `email_delivery_logs`), analog zu `website`/`catering_form`.
-2. Bei `manual`-Anlage mit `status = 'paid'`: optionalen Schalter "Bestätigung + Rechnung an Kunde senden" im AddPaymentDrawer aktivieren (greift bestehende `create-lexoffice-downpayment-invoice` / `…-final-invoice` Pipelines aus dem letzten Schritt).
-3. WhatsApp-Versand: `WHATSAPP_*` Secret-Status prüfen, sonst stillschweigend skippen (kein "failed"-Log) bis Credentials wieder gesetzt sind.
-4. Kundenantwort-Notification: Empfängerliste als Array `["info@…", "d.speranza@…"]` an Resend übergeben, nicht als ein String mit Komma.
+---
 
-## Teil B — Mobile-Fehler "Can't find variable: Temporal"
+### 4. Bestelldetail-Overhaul (Catering-Order / Event-Order)
 
-### Ursache
+**Datei:** Neue Komponente `src/components/admin/orders/OrderEditor.tsx` ersetzt aktuellen statischen View unter Route `/admin/orders/:id/edit`.
 
-`src/main.tsx` macht `import "@js-temporal/polyfill"`. Aber `@js-temporal/polyfill@0.5.1` ist **kein Auto-Side-Effect-Polyfill** — das Paket exportiert `Temporal` als Named Export und setzt `globalThis.Temporal` **nicht** selbst. Auf Desktop-Chrome funktioniert es trotzdem, weil V8 bereits experimentelles `Temporal` hat; auf iOS Safari und älteren Android-WebViews fehlt es ⇒ `@schedule-x/calendar` knallt mit `Can't find variable: Temporal`.
+**Heute:** Mitte ist leer, nur "Bestellte Artikel" + "Interne Notizen". Rechts Status + Kunde + Abholung + Zahlung + Rechnungsadresse.
 
-Im polyfill-Bundle (`dist/index.esm.js`) ist auch kein `globalThis.Temporal = …` Statement (verifiziert).
+**Neu — alles editierbar in 4 Cards (mittlere Spalte gefüllt):**
 
-### Fix
+| Card | Editierbar | Effekt |
+|---|---|---|
+| **Bestellte Artikel** | +/−/Menge ändern, Artikel hinzufügen aus Katalog | Zwischensumme + Gesamt live neu berechnen |
+| **Termin & Fulfillment** | Datum, Zeit, Abholung↔Lieferung umschalten + Adresse | Bei Umschalten auf Lieferung: Liefergebühr per `calculate-delivery-cost` Edge Function neu kalkulieren; Mindestbestellzuschlag prüfen |
+| **Rechnungsadresse** | Name, Straße, PLZ, Stadt, Land, Firma, USt-IdNr | Bei vorhandener LexOffice-Invoice: Hinweis "Adresse wird erst auf zukünftigen Belegen verwendet, bestehende Rechnung bleibt unverändert" |
+| **Status & Zahlung** | Status-Dropdown, "Als bezahlt markieren" (siehe Punkt 3), Storno mit Grund | Bei Storno: LexOffice-Storno-Beleg optional |
 
-`src/main.tsx`:
-
-```ts
-import { Temporal, Intl as TemporalIntl, toTemporalInstant } from "@js-temporal/polyfill";
-
-if (typeof globalThis.Temporal === "undefined") {
-  // @ts-expect-error – Temporal ist im TS-Lib noch nicht enthalten
-  globalThis.Temporal = Temporal;
-  // @ts-expect-error – toTemporalInstant auf Date.prototype anhängen
-  Date.prototype.toTemporalInstant = toTemporalInstant;
-}
+**Layout (Desktop):**
+```
+[Header: Order-Nr • Status • Speichern/Storno]
+[Tabs/Sections in mittlerer Spalte, Sidebar rechts mit Customer + Audit-Log]
 ```
 
-`@ts-expect-error` Kommentare, weil `globalThis.Temporal` in den eingebundenen TS-Libs nicht typisiert ist.
+**Validierung:**
+- Jede Änderung → optimistic UI + Toast + Eintrag in `activity_logs`.
+- "Speichern" zentral oben, Sticky.
+- Bei kritischen Änderungen (Adresse nach Rechnungsstellung): Bestätigungsdialog.
 
-### Validierung
+**Audit:**
+- Jede Änderung in `activity_logs` mit `old_value` / `new_value`.
 
-1. Build durchlaufen lassen.
-2. Mobile-Preview öffnen → `/maestro` Route lädt ohne ErrorBoundary "Admin konnte nicht geladen werden".
-3. Console-Check: `typeof globalThis.Temporal === "object"`.
+---
 
-## Out of Scope (separate Runde)
+## Technische Details
 
-- Echte Backfill-Mails für die 7 manuell angelegten Vorgänge der letzten 14 Tage.
-- LexOffice-Integration für `source='manual'`-Zahlungen.
-- Renaming/Cleanup der parallelen Legacy-Tabellen (`event_inquiries`, `catering_orders`, `event_bookings`) zugunsten von `v2_events` als Single Source.
+- Catering-Order liegt in `catering_orders` (aktuelle Tabelle, nicht `_legacy_…`).
+- Items als JSONB (`items` Spalte) — UI braucht Item-Editor mit Katalog-Picker aus `equipment_catalog` und Standard-Menüs.
+- Liefergebühr-Berechnung über vorhandene `calculate-delivery-cost` Edge Function (falls nicht da: neue Function mit Google-Maps-Distanz + Tarif-Tabelle).
+- AGB-Validierung im Checkout bereits in `Checkout.tsx.handleSubmit` vorhanden — nur visuelles Feedback nachziehen.
+
+## Out of Scope (separate Runden)
+
+- Komplettes Rewrite der Event-Booking-Detailseite (nur Catering-Order in dieser Runde).
+- Storno-Refund über Stripe API (manuelles Storno-Flag reicht für jetzt).
+- Drag-and-Drop Item-Reordering.
+- WhatsApp-Notification bei Order-Änderung an Kunde.
