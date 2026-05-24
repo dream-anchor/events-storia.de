@@ -174,9 +174,14 @@ export function PaymentTermsBlock({
   const summaryText = (() => {
     switch (method) {
       case 'deposit_online':
-        return depositMode === 'amount'
-          ? `Anzahlung ${da.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € innerhalb ${dd} Tage, Restzahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`
-          : `Anzahlung ${dp} % innerhalb ${dd} Tage, Restzahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`;
+        if (depositMode === 'amount') {
+          return da > 0
+            ? `Anzahlung ${da.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € innerhalb ${dd} Tage, Restzahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`
+            : `Komplette Online-Zahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`;
+        }
+        return dp > 0
+          ? `Anzahlung ${dp} % innerhalb ${dd} Tage, Restzahlung vor Veranstaltung. Angebot ${ov} Tage gültig.`
+          : `Komplette Online-Zahlung vor Veranstaltung — keine Anzahlung. Angebot ${ov} Tage gültig.`;
       case 'prepayment_online':
         return `Vorauszahlung 100 % innerhalb ${dd} Tage per Stripe. Angebot ${ov} Tage gültig.`;
       case 'on_site':
