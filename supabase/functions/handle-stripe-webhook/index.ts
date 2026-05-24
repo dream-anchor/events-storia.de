@@ -637,6 +637,9 @@ async function handleMaestroPayment(
     },
   });
 
+  // ── UStG-konforme Anzahlungs- / Schlussrechnung erzeugen ────────────────
+  await triggerInvoiceForPayment(paymentId, inquiryId, paymentType);
+
   logStep("Maestro payment processing complete", { paymentId, inquiryId });
 }
 
