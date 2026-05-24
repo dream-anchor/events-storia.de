@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate } from "@refinedev/core";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { AdminLayout } from "./AdminLayout";
@@ -251,6 +251,73 @@ export const CateringOrderEditor = () => {
   const itemsSubtotal = itemsState.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
   const grandTotal = itemsSubtotal + (isPickup ? 0 : deliveryCost) + minimumOrderSurcharge;
 
+  // Dirty tracking pro Bereich (für Warn-Dialog)
+  const dirtySections = useMemo(() => {
+    if (!order || !isInitialized) return { any: false, list: [] as { key: string; title: string; warning: string }[] };
+    const list: { key: string; title: string; warning: string }[] = [];
+    const origItems = Array.isArray(order.items) ? order.items : [];
+    const itemsChanged =
+      JSON.stringify(itemsState.map((i) => ({ name: i.name, qty: i.quantity, p: i.price }))) !==
+      JSON.stringify(origItems.map((i: any) => ({ name: i.name, qty: Number(i.quantity) || 1, p: Number(i.price) || 0 })));
+    if (itemsChanged) {
+      list.push({
+        key: "items",
+        title: "Bestellte Speisen geändert",
+        warning: order.lexoffice_invoice_id
+          ? "Eine Rechnung existiert bereits in LexOffice — sie wird NICHT automatisch neu erstellt. Bitte bei Bedarf manuell ein neues Dokument generieren."
+          : "Gesamtsumme wurde neu berechnet. Speichern aktualisiert nur die Bestellung — keine automatische Rechnung.",
+      });
+    }
+    const pickupChanged = !!order.is_pickup !== isPickup;
+    if (pickupChanged) {
+      list.push({
+        key: "fulfillment",
+        title: "Abholung ↔ Lieferung gewechselt",
+        warning: "Liefergebühr wurde nicht automatisch neu berechnet. Bitte vorher 'Neu berechnen' drücken.",
+      });
+    }
+    const addressChanged =
+      !isPickup &&
+      ((order.delivery_street || "") !== deliveryStreet ||
+        (order.delivery_zip || "") !== deliveryZip ||
+        (order.delivery_city || "") !== deliveryCity);
+    if (addressChanged && !pickupChanged) {
+      list.push({
+        key: "address",
+        title: "Lieferadresse geändert",
+        warning: "Neue Adresse — bitte 'Neu berechnen' drücken, falls noch nicht geschehen.",
+      });
+    }
+    const dateChanged =
+      (order.desired_date || "") !== desiredDate ||
+      ((order.desired_time || "").slice(0, 5)) !== desiredTime;
+    if (dateChanged) {
+      list.push({
+        key: "schedule",
+        title: "Datum / Uhrzeit geändert",
+        warning: "Der Kunde wird NICHT automatisch benachrichtigt. Bitte ggf. separat informieren.",
+      });
+    }
+    const billingChanged =
+      (order.billing_name || "") !== billingName ||
+      (order.billing_street || "") !== billingStreet ||
+      (order.billing_zip || "") !== billingZip ||
+      (order.billing_city || "") !== billingCity ||
+      (order.billing_country || "Deutschland") !== billingCountry;
+    if (billingChanged) {
+      list.push({
+        key: "billing",
+        title: "Rechnungsadresse geändert",
+        warning: order.lexoffice_invoice_id
+          ? "Eine LexOffice-Rechnung existiert bereits — Änderung gilt nur für künftige Belege."
+          : "Wird auf künftige Rechnungen angewandt.",
+      });
+    }
+    return { any: list.length > 0, list };
+  }, [order, isInitialized, itemsState, isPickup, deliveryStreet, deliveryZip, deliveryCity, desiredDate, desiredTime, billingName, billingStreet, billingZip, billingCity, billingCountry]);
+
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+
   const handleSave = useCallback(() => {
     if (!id) return;
 
@@ -296,14 +363,23 @@ export const CateringOrderEditor = () => {
     try {
       const { data, error } = await supabase.functions.invoke("calculate-delivery", {
         body: {
-          delivery_address: `${deliveryStreet}, ${deliveryZip} ${deliveryCity}`,
-          subtotal: itemsSubtotal,
+          address: `${deliveryStreet}, ${deliveryZip} ${deliveryCity}`,
+          isPizzaOnly: false,
         },
       });
       if (error) throw error;
-      if (data?.delivery_cost != null) setDeliveryCost(Number(data.delivery_cost));
-      if (data?.minimum_order_surcharge != null) setMinimumOrderSurcharge(Number(data.minimum_order_surcharge));
-      toast.success(`Liefergebühr neu berechnet: ${(data?.delivery_cost ?? 0).toFixed(2)} €`);
+      if (data?.error) throw new Error(data.error);
+      const gross = Number(data?.deliveryCostGross ?? 0);
+      const minimumOrder = Number(data?.minimumOrder ?? 0);
+      setDeliveryCost(gross);
+      // Mindestbestellwert-Aufschlag: nur falls aktuelle Speisensumme unter minimumOrder
+      const surcharge = Math.max(0, minimumOrder - itemsSubtotal);
+      setMinimumOrderSurcharge(surcharge);
+      const dist = data?.distanceKm ? ` · ${data.distanceKm.toFixed(1)} km` : "";
+      const surMsg = surcharge > 0
+        ? ` · Mindestbestellwert ${minimumOrder} € → Aufschlag ${surcharge.toFixed(2)} €`
+        : "";
+      toast.success(`Liefergebühr: ${gross.toFixed(2)} €${dist}${surMsg}`);
     } catch (e: any) {
       toast.error(e.message || "Liefergebühr-Berechnung fehlgeschlagen");
     } finally {
@@ -414,14 +490,53 @@ export const CateringOrderEditor = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleSave} disabled={isSaving}>
+            <Button
+              variant={dirtySections.any ? "default" : "outline"}
+              onClick={() => {
+                if (dirtySections.any) {
+                  setShowSaveConfirm(true);
+                } else {
+                  handleSave();
+                }
+              }}
+              disabled={isSaving}
+            >
               {isSaving ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Save className="h-4 w-4 mr-2" />
               )}
-              Speichern
+              Speichern{dirtySections.any ? ` (${dirtySections.list.length})` : ''}
             </Button>
+            <AlertDialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Änderungen speichern?</AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3 text-sm">
+                      <p className="text-foreground">Folgende Bereiche werden geändert:</p>
+                      <ul className="space-y-2">
+                        {dirtySections.list.map((s) => (
+                          <li key={s.key} className="flex gap-2 items-start rounded-md border border-amber-500/30 bg-amber-500/5 p-2">
+                            <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="font-medium text-foreground">{s.title}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{s.warning}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => { setShowSaveConfirm(false); handleSave(); }}>
+                    Trotzdem speichern
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             
             {!isCancelled && (
               <AlertDialog>
@@ -519,9 +634,20 @@ export const CateringOrderEditor = () => {
 
           {/* Tab: Details */}
           <TabsContent value="details">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - Order Details */}
-              <div className="lg:col-span-2 space-y-6">
+            {dirtySections.any && (
+              <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/5 px-4 py-3 flex items-start gap-3">
+                <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-foreground">Ungespeicherte Änderungen ({dirtySections.list.length})</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {dirtySections.list.map((s) => s.title).join(' · ')}
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+              {/* Hauptspalte */}
+              <div className="lg:col-span-3 space-y-6 min-w-0">
                 {/* Items */}
                 <Card>
                   <CardHeader>
@@ -623,38 +749,61 @@ export const CateringOrderEditor = () => {
                     />
                   </CardContent>
                 </Card>
-              </div>
 
-              {/* Right Column - Info Cards */}
-              <div className="space-y-6">
-                {/* Status */}
+                {/* Billing Address — editable */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Status</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Receipt className="h-4 w-4" />
+                      Rechnungsadresse
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <Select 
-                      value={status} 
-                      onValueChange={(v) => setStatus(v as OrderStatus)}
-                      disabled={isCancelled}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Neu</SelectItem>
-                        <SelectItem value="confirmed">Bestätigt</SelectItem>
-                        <SelectItem value="completed">Erledigt</SelectItem>
-                        <SelectItem value="cancelled">Storniert</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <CardContent className="space-y-2">
+                    {order.lexoffice_invoice_id && (
+                      <p className="text-xs flex items-start gap-1.5 text-muted-foreground bg-muted/50 rounded p-2">
+                        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                        Bereits Rechnung erstellt — Änderungen gelten nur für zukünftige Belege.
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <Input value={billingName} onChange={e => setBillingName(e.target.value)} placeholder="Name / Firma" />
+                      <Input value={billingCountry} onChange={e => setBillingCountry(e.target.value)} placeholder="Land" />
+                    </div>
+                    <Input value={billingStreet} onChange={e => setBillingStreet(e.target.value)} placeholder="Straße & Hausnummer" />
+                    <div className="grid grid-cols-[100px_1fr] gap-2">
+                      <Input value={billingZip} onChange={e => setBillingZip(e.target.value)} placeholder="PLZ" />
+                      <Input value={billingCity} onChange={e => setBillingCity(e.target.value)} placeholder="Stadt" />
+                    </div>
                   </CardContent>
                 </Card>
 
-                {/* Customer */}
+                {/* Email Status */}
+                <EmailStatusCard entityType="catering_order" entityId={id!} />
+              </div>
+
+              {/* Kunden-Rail (sticky) */}
+              <div className="lg:col-span-2 space-y-4 lg:sticky lg:top-4 self-start lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:pr-1">
+                {/* Status & Kunde */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Kunde</CardTitle>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center justify-between gap-2">
+                      <span>Kunde</span>
+                      <Select
+                        value={status}
+                        onValueChange={(v) => setStatus(v as OrderStatus)}
+                        disabled={isCancelled}
+                      >
+                        <SelectTrigger className="h-7 w-auto text-xs px-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Eingegangen, unbezahlt</SelectItem>
+                          <SelectItem value="confirmed">Bestätigt</SelectItem>
+                          <SelectItem value="completed">Erledigt</SelectItem>
+                          <SelectItem value="cancelled">Storniert</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <p className="font-medium text-lg">{order.customer_name}</p>
@@ -664,9 +813,9 @@ export const CateringOrderEditor = () => {
                         {order.company_name}
                       </p>
                     )}
-                    <a href={`mailto:${order.customer_email}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
-                      <Mail className="h-4 w-4" />
-                      {order.customer_email}
+                    <a href={`mailto:${order.customer_email}`} className="flex items-start gap-2 text-sm text-primary hover:underline break-all">
+                      <Mail className="h-4 w-4 mt-0.5 shrink-0" />
+                      <span>{order.customer_email}</span>
                     </a>
                     <a href={`tel:${order.customer_phone}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
                       <Phone className="h-4 w-4" />
@@ -828,33 +977,6 @@ export const CateringOrderEditor = () => {
                   </CardContent>
                 </Card>
 
-                {/* Billing Address — editable */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Receipt className="h-4 w-4" />
-                      Rechnungsadresse
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {order.lexoffice_invoice_id && (
-                      <p className="text-xs flex items-start gap-1.5 text-muted-foreground bg-muted/50 rounded p-2">
-                        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                        Bereits Rechnung erstellt — Änderungen gelten nur für zukünftige Belege.
-                      </p>
-                    )}
-                    <Input value={billingName} onChange={e => setBillingName(e.target.value)} placeholder="Name / Firma" />
-                    <Input value={billingStreet} onChange={e => setBillingStreet(e.target.value)} placeholder="Straße & Hausnummer" />
-                    <div className="grid grid-cols-[80px_1fr] gap-2">
-                      <Input value={billingZip} onChange={e => setBillingZip(e.target.value)} placeholder="PLZ" />
-                      <Input value={billingCity} onChange={e => setBillingCity(e.target.value)} placeholder="Stadt" />
-                    </div>
-                    <Input value={billingCountry} onChange={e => setBillingCountry(e.target.value)} placeholder="Land" />
-                  </CardContent>
-                </Card>
-
-                {/* Email Status */}
-                <EmailStatusCard entityType="catering_order" entityId={id!} />
               </div>
             </div>
           </TabsContent>

@@ -174,9 +174,9 @@ export const EmailStatusCard = ({ entityType, entityId, className, currentEmail,
 
                     {/* Zeile 2: Empfänger + Absender + Provider + Zeit */}
                     <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground flex-wrap">
-                      <span className="truncate max-w-[220px]">
+                      <span className="whitespace-normal break-all">
                         → {log.recipient_name
-                          ? `${log.recipient_name} (${log.recipient_email})`
+                          ? `${log.recipient_name} <${log.recipient_email}>`
                           : log.recipient_email}
                       </span>
                       <span>•</span>

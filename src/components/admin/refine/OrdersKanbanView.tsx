@@ -45,13 +45,13 @@ const BUCKET_COLUMNS: Record<OrdersBucket, SubColumn[]> = {
   inbox: [
     {
       id: "pending",
-      title: "Neu / offen",
+      title: "Eingegangen, unbezahlt",
       match: (o) => o.status === "pending",
       dropStatus: "pending",
     },
     {
       id: "confirmed",
-      title: "Bestätigt",
+      title: "Neu · Bestätigt",
       match: (o) => o.status === "confirmed",
       dropStatus: "confirmed",
     },
@@ -230,7 +230,7 @@ function OrderKanbanCard({
   const hasUnreadCustomer = lastCustomer > lastOurs;
 
   const allStatuses: { id: OrderStatus; label: string }[] = [
-    { id: "pending", label: "Neu / offen" },
+    { id: "pending", label: "Eingegangen, unbezahlt" },
     { id: "confirmed", label: "Bestätigt" },
     { id: "completed", label: "Erledigt" },
     { id: "cancelled", label: "Storniert" },

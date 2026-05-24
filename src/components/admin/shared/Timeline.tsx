@@ -354,9 +354,14 @@ const EmailDeliveryEntry = ({ emailLog, isFirst, isLast }: EmailDeliveryEntryPro
           </div>
 
           {/* Email subject */}
-          <p className="text-sm text-foreground flex items-center gap-1.5">
-            <Send className="h-3.5 w-3.5 text-muted-foreground" />
-            E-Mail "{emailLog.subject}" an {emailLog.recipient_name || emailLog.recipient_email}
+          <p className="text-sm text-foreground flex items-start gap-1.5 break-all">
+            <Send className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+            <span>
+              E-Mail "{emailLog.subject}" an{' '}
+              {emailLog.recipient_name
+                ? `${emailLog.recipient_name} <${emailLog.recipient_email}>`
+                : emailLog.recipient_email}
+            </span>
           </p>
 
           {/* Provider & Message ID details */}
