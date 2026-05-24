@@ -1,86 +1,83 @@
 ## Ziel
 
-Anzahlungen UStG-konform abbilden: jede Anzahlung erzeugt eine **Anzahlungsrechnung** in LexOffice (mit fortlaufender Nummer, separat ausgewiesener USt, Bezug zum Veranstaltungsdatum). Nach dem Event wird eine **Schlussrechnung** erstellt, die alle vorausgegangenen Anzahlungen mit Rechnungsnummer, Datum, Netto-, USt- und Bruttobetrag explizit abzieht (§ 14 Abs. 5 UStG).
+Zwei Themen sauber zu Ende ziehen:
 
-## Ist-Zustand (kurz)
+1. **Bug: 0% Anzahlung wird als 20% angezeigt** (Public Offer + Berechnung).
+2. **UI-Verkabelung Anzahlungs-/Schlussrechnung** (Backend ist da, Buttons & manuelle Trigger fehlen).
 
-- `event_payments` hat bereits `payment_type ∈ {deposit, prepayment, final}` und `lexoffice_invoice_id` je Zahlung, aber es wird **keine** LexOffice-Rechnung pro Anzahlung erzeugt.
-- `handle-stripe-webhook → handleEventOfferPayment` setzt nur `paid_amount` / `remaining_amount` auf der Inquiry.
-- `create-lexoffice-invoice` und `create-event-quotation` kennen nur `quotation` / `invoice` — kein Anzahlungs- oder Schlussrechnungsmodus, kein Anzahlungsabzug.
-- Manuelle Zahlungen (`AddPaymentDrawer`) werden nur intern verbucht.
-- **Hinweis zur LexOffice-API:** Der `/down-payment-invoices`-Endpoint ist read-only. Anzahlungs- und Schlussrechnungen werden also als normale `invoices` mit klarem Titel/Block angelegt — das ist UStG-konform und entspricht exakt der vom Auftraggeber zitierten Beispielzeile.
+---
 
-## Sollverhalten
+## Teil 1 — 0%-Anzahlung Bug fix (Senior CX + Red Team)
 
-### 1. Anzahlungsrechnung — automatisch bei Zahlungseingang
-Sobald eine `event_payments`-Zeile mit `payment_type ∈ {deposit, prepayment}` bezahlt wird (Stripe-Webhook **oder** manuelle Erfassung über `AddPaymentDrawer`):
-- LexOffice-Rechnung erzeugen mit
-  - Titel: "Anzahlungsrechnung" (bzw. "2. Anzahlungsrechnung" bei weiteren Anzahlungen)
-  - Introduction enthält Leistungszeitraum / Veranstaltungsdatum / Event-Bezeichnung
-  - Line-Items = der gezahlte Anzahlungsbetrag, USt separat ausgewiesen (gleicher Steuersatz wie die zugrunde liegende Leistung, i. d. R. 7 % für Speisen-Catering, 19 % für Service/Logistik; pauschal: gemischte Aufschlüsselung wie auf der späteren Schlussrechnung — Default: einheitlich Anteil 7/19 entsprechend dem prozentualen Mix des Auftrags)
-  - `taxConditions: { taxType: 'gross' }` (Brutto-Preise gemäß Memory `lexoffice-gross-pricing`)
-  - `paymentConditions.paymentTermLabel = "Bereits bezahlt am DD.MM.YYYY"`
-- `event_payments.lexoffice_invoice_id` + `lexoffice_invoice_number` persistieren.
-- PDF an Kunde mailen + BCC `info@events-storia.de` (bestehender `sendInvoicePdfByEmail`-Flow).
-- Aktivität loggen: "Anzahlungsrechnung Nr. X über Y € erstellt".
+### Root Cause
+Drei Ebenen treffen aufeinander:
 
-### 2. Schlussrechnung — beim Schritt "Schlussrechnung erstellen"
-Trigger: Admin klickt im Inquiry-Editor auf neue Aktion "Schlussrechnung erstellen" (oder automatisch beim Bezahlen einer `final`-Zahlung).
-- Vollständige Leistung als Line-Items wie heute.
-- Anschließend pro vorausgegangener Anzahlung eine **eigene Abzugs-Line-Item** mit negativem Betrag:
-  - Name: `abzgl. Anzahlung gem. Rechnung Nr. {invoice_number} vom {DD.MM.YYYY}`
-  - Brutto = `-payment.amount_cents/100`, USt-Satz = gewichteter Satz der Anzahlungsrechnung
-  - Sicherstellt, dass Netto, USt und Brutto in der Summe korrekt zusammenpassen.
-- Titel: "Schlussrechnung"
-- Verbindet via `event_payments.lexoffice_invoice_id` alle Anzahlungen mit der Schlussrechnung (neues Feld: `final_invoice_id` auf der Inquiry oder Referenz via `event_payments.notes`).
+- **Editor** (`PaymentTermsBlock.tsx`): Das `%`-Input hat `min={1}` und `handleNumber(... , 1, 99)` — **0 lässt sich gar nicht eingeben**. Es gibt auch keine Methode "keine Anzahlung". `deposit_online` ist die einzige Variante mit Anzahlungsfeld; bei `on_site`/`invoice_after` bleibt der Altwert stehen.
+- **Public Offer**: `inquiry.deposit_percent ?? 20` an 3 Stellen (`PublicOffer.tsx:188`, `ProposalView.tsx:153`, `FinalOfferView.tsx:59`). Bei `null` in der DB ⇒ 20%.
+- **computeDeposit** ignoriert `payment_method`. Wenn Admin auf `on_site`/`invoice_after` umstellt, wird Altwert (z.B. 20) weiter benutzt.
 
-### 3. Reservierungspauschalen (Ausnahme)
-Optionales Flag `payment.is_reservation_fee` (nur per Hand setzbar). Wenn `true` → keine UStG-Anzahlungsrechnung, sondern interne Verbuchung „Terminblockierung". Aus Scope für Phase 1 ausgelagert, nur Schema-Hook vorbereiten.
+### Fixes
 
-## Änderungen
+1. **`PaymentTermsBlock.tsx`**
+   - `min={0}`, `handleNumber("deposit_percent", e.target.value, 0, 99)`.
+   - Bei `deposit_percent === 0` Hinweistext anzeigen: "Keine Anzahlung — volle Zahlung zum Termin/per Rechnung."
+   - In `handleMethodChange`: bei Wechsel auf `on_site`/`invoice_after` ⇒ `deposit_percent = 0`, `deposit_amount = 0` (klare DB-Wahrheit, kein Stale-State).
+   - Default für Neukunden bleibt 20, aber nur wenn `paymentMethod` (initial) `deposit_online` ist; sonst 0.
 
-### Migrationen
-- `ALTER TABLE event_payments ADD COLUMN is_reservation_fee boolean DEFAULT false NOT NULL` (für späteren Ausnahmefall, schon vorbereiten).
-- `ALTER TABLE event_inquiries ADD COLUMN final_lexoffice_invoice_id text` + `final_lexoffice_invoice_number text` (Schlussrechnung getrennt vom Angebots-`lexoffice_invoice_id`).
+2. **`computeDeposit` (`PublicOffer.tsx`)**
+   - Signatur erweitern: `inquiry` muss `payment_method` kennen.
+   - Wenn `payment_method ∈ {on_site, pay_on_site, invoice_after, invoice_after_event}` ⇒ `show: false`, `amount: 0`.
+   - `pct = inquiry.deposit_percent ?? 20` → `?? (paymentMethod === 'deposit_online' ? 20 : 0)`. Sicherer Default nur, wenn auch wirklich Anzahlungs-Modus.
+   - `pct === 0` ⇒ `show: false` (ist schon da, bleibt).
 
-### Edge Functions
-- **Neu: `supabase/functions/create-lexoffice-downpayment-invoice/index.ts`**
-  - Input: `{ payment_id }` (aus `event_payments`).
-  - Lädt Payment + Inquiry, baut LexOffice-Invoice (Brutto, Titel "Anzahlungsrechnung"), persistiert `lexoffice_invoice_id` + `lexoffice_invoice_number` zurück.
-  - Validiert: Idempotenz (skip, wenn `lexoffice_invoice_id` schon existiert), Payment ist bezahlt, kein `is_reservation_fee`.
-  - Mailt PDF an Kunde (analog `sendInvoicePdfByEmail`).
+3. **`ProposalView.tsx` & `FinalOfferView.tsx`**
+   - Den lokalen `?? 20`-Fallback entfernen und die Logik über `computeDeposit` (oder eine analoge Helper) ziehen — Single Source of Truth.
+   - Anzeige des Anzahlungs-Blocks an `deposit.show` koppeln (nicht nur an Prozent), inkl. Render-Guards bei `on_site` / `invoice_after`.
 
-- **Neu: `supabase/functions/create-lexoffice-final-invoice/index.ts`**
-  - Input: `{ inquiry_id }`.
-  - Lädt Inquiry + Items + alle `event_payments` mit `lexoffice_invoice_id`.
-  - Baut Schlussrechnung mit (a) regulären Line-Items, (b) Abzugs-Line-Items pro Anzahlung.
-  - Persistiert `final_lexoffice_invoice_id` + `final_lexoffice_invoice_number` auf `event_inquiries`.
-  - Idempotent.
+4. **Server-side Härtung (Red Team)**
+   - `create-payment-session/index.ts`: vor Stripe-Checkout Re-Compute des Betrags **server-seitig** aus DB-Werten (`v2_events.deposit_percent/amount/payment_method` + Total aus Quotation). Client-übergebenen `amount` nur als Anzeige nutzen, niemals an Stripe weiterreichen.
+   - Bei `payment_method ∈ {on_site, invoice_after}` ⇒ 400, kein Stripe-Session-Create für `deposit`-Type.
+   - Logging: `[deposit-recompute] client=… server=…` bei Abweichung, damit Drift sichtbar wird.
 
-- **Update `handle-stripe-webhook` → `handleMaestroPayment` und `handleEventOfferPayment`:**
-  - Nach erfolgreicher Zahlung von `payment_type ∈ {deposit, prepayment}`: `create-lexoffice-downpayment-invoice` aufrufen.
-  - Nach erfolgreicher Zahlung von `payment_type = 'final'`: `create-lexoffice-final-invoice` aufrufen.
+### QA-Checklist
+- 0% + `deposit_online` ⇒ Public Offer zeigt "Komplette Zahlung", kein Anzahlungs-Block, Stripe-Button "Jetzt zahlen" mit Total.
+- 0% + `invoice_after` ⇒ kein Stripe-Block, nur Hinweistext "Rechnung nach Veranstaltung, zahlbar binnen X Tagen".
+- 30% + `deposit_online` ⇒ Anzahlungs-Block 30%.
+- DB hat `deposit_percent = null` + `payment_method = on_site` ⇒ Public Offer zeigt **keine** Anzahlung (nicht mehr 20).
+- Manuelle Stripe-Manipulation (Param-Edit) im Browser ⇒ Server lehnt mit 400 ab.
 
-- **Update `AddPaymentDrawer`-Flow:**
-  - Wenn manuelle Zahlung mit Status `paid` markiert wird → gleiche Edge-Function-Aufrufe wie oben.
-  - Neue „Schlussrechnung erstellen"-Action im `PaymentCard`, ruft `create-lexoffice-final-invoice` direkt auf (für Fälle ohne `final`-Stripe-Zahlung, z. B. komplette Anzahlung am Anfang + Rest in bar).
+---
 
-### UI
-- `PaymentCard.tsx`: pro `event_payments`-Zeile Link/Button „Anzahlungsrechnung öffnen" (PDF-Download via bestehendes `get-lexoffice-document`).
-- Neuer Button „Schlussrechnung erstellen" im Inquiry-Editor (sichtbar, sobald mind. eine bezahlte Anzahlung existiert und das Event-Datum vorbei ist oder Status `completed`).
-- Inquiry-Sidebar zeigt Liste aller LexOffice-Belege: Anzahlungsrechnungen + Schlussrechnung (analog bestehender Voucher-Liste, siehe Memory `lexoffice-document-visibility`).
+## Teil 2 — UI-Verkabelung Anzahlungs-/Schlussrechnung
 
-### Memory-Update
-- Neue Memory-Datei `mem://integrations/lexoffice-downpayment-flow` mit den oben definierten Regeln, plus Ergänzung in `mem://business/offer-lifecycle-management` zu „Anzahlung erzeugt sofort Anzahlungsrechnung".
+### Was schon liegt
+- `create-lexoffice-downpayment-invoice` Edge Function (deployed).
+- `create-lexoffice-final-invoice` Edge Function (deployed).
+- `handle-stripe-webhook` ruft automatisch je nach `payment_type`.
+- Migration: `final_lexoffice_invoice_id/number` auf `v2_events`.
 
-## Out-of-Scope (Phase 2)
-- Reservierungspauschalen-Sonderlogik außer Schema-Flag.
-- Stornierung/Korrektur von Anzahlungsrechnungen (LexOffice-Storno-Beleg) — bleibt vorerst manuell.
-- Migration historischer Anzahlungen ohne Rechnung — eigener Backfill-Job nach Approval.
+### Was fehlt
 
-## Verifikation
-1. Test-Inquiry mit 30 % Anzahlung anlegen → Stripe-Zahlung simulieren → Anzahlungsrechnung in LexOffice + PDF-Mail.
-2. Zweite Anzahlung manuell verbuchen → zweite Anzahlungsrechnung mit fortlaufender Nummer.
-3. „Schlussrechnung erstellen" → Schlussrechnung mit zwei Abzugszeilen, Summen stimmen auf den Cent.
-4. Idempotenz: zweiter Aufruf erzeugt keine Duplikate.
-5. Reservierungspauschalen-Flag = true → keine LexOffice-Erstellung, nur interne Verbuchung.
+1. **`AddPaymentDrawer.tsx`** — bei manuell als `paid` markiertem Payment (`deposit`/`prepayment`/`final`) direkt die passende Edge Function callen (analog zur Webhook-Logik). Spinner + Toast "Anzahlungsrechnung erstellt" / "Schlussrechnung erstellt".
+
+2. **`PaymentCard.tsx`**
+   - Pro bezahltem `deposit`/`prepayment`-Payment Button "Anzahlungsrechnung öffnen" (Link zu LexOffice-PDF via vorhandene Doc-Retrieval-Logik).
+   - Falls `lexoffice_invoice_id` fehlt: Button "Anzahlungsrechnung nachholen" → ruft `create-lexoffice-downpayment-invoice`.
+   - Neuer Button "Schlussrechnung erstellen" (sichtbar wenn alle Payments paid und `final_lexoffice_invoice_id` leer).
+
+3. **Inquiry Sidebar / LexOffice Documents Liste**
+   - Anzahlungsrechnungen + Schlussrechnung neben Angebot/Voucher anzeigen (bestehende Doc-Visibility-Komponente erweitern).
+
+4. **Idempotenz im UI**
+   - Buttons disabled wenn Function bereits einmal erfolgreich (anhand persistierter `lexoffice_invoice_id`).
+
+### Out of scope
+- LexOffice-Storno-Flow.
+- Historische Backfill-Migration für bestehende Payments.
+- `is_reservation_fee`-Editor-UI (Flag liegt, UI später).
+
+### QA
+- Manuell als bezahlt markierte 30%-Anzahlung ⇒ Anzahlungsrechnung in LexOffice, PDF-Mail raus, Button "Anzahlungsrechnung öffnen" verfügbar.
+- 2× Anzahlung ⇒ 2 Rechnungen, fortlaufende Nummern.
+- Klick "Schlussrechnung erstellen" ⇒ Schlussrechnung mit `abzgl.`-Zeilen pro Anzahlung, Centbeträge stimmen.
+- Doppelklick / Reload ⇒ keine Doppelrechnung (Idempotenz).
