@@ -749,38 +749,61 @@ export const CateringOrderEditor = () => {
                     />
                   </CardContent>
                 </Card>
-              </div>
 
-              {/* Right Column - Info Cards */}
-              <div className="space-y-6">
-                {/* Status */}
+                {/* Billing Address — editable */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Status</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Receipt className="h-4 w-4" />
+                      Rechnungsadresse
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <Select 
-                      value={status} 
-                      onValueChange={(v) => setStatus(v as OrderStatus)}
-                      disabled={isCancelled}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Neu</SelectItem>
-                        <SelectItem value="confirmed">Bestätigt</SelectItem>
-                        <SelectItem value="completed">Erledigt</SelectItem>
-                        <SelectItem value="cancelled">Storniert</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <CardContent className="space-y-2">
+                    {order.lexoffice_invoice_id && (
+                      <p className="text-xs flex items-start gap-1.5 text-muted-foreground bg-muted/50 rounded p-2">
+                        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                        Bereits Rechnung erstellt — Änderungen gelten nur für zukünftige Belege.
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <Input value={billingName} onChange={e => setBillingName(e.target.value)} placeholder="Name / Firma" />
+                      <Input value={billingCountry} onChange={e => setBillingCountry(e.target.value)} placeholder="Land" />
+                    </div>
+                    <Input value={billingStreet} onChange={e => setBillingStreet(e.target.value)} placeholder="Straße & Hausnummer" />
+                    <div className="grid grid-cols-[100px_1fr] gap-2">
+                      <Input value={billingZip} onChange={e => setBillingZip(e.target.value)} placeholder="PLZ" />
+                      <Input value={billingCity} onChange={e => setBillingCity(e.target.value)} placeholder="Stadt" />
+                    </div>
                   </CardContent>
                 </Card>
 
-                {/* Customer */}
+                {/* Email Status */}
+                <EmailStatusCard entityType="catering_order" entityId={id!} />
+              </div>
+
+              {/* Kunden-Rail (sticky) */}
+              <div className="lg:col-span-2 space-y-4 lg:sticky lg:top-4 self-start lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:pr-1">
+                {/* Status & Kunde */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Kunde</CardTitle>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center justify-between gap-2">
+                      <span>Kunde</span>
+                      <Select
+                        value={status}
+                        onValueChange={(v) => setStatus(v as OrderStatus)}
+                        disabled={isCancelled}
+                      >
+                        <SelectTrigger className="h-7 w-auto text-xs px-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Eingegangen, unbezahlt</SelectItem>
+                          <SelectItem value="confirmed">Bestätigt</SelectItem>
+                          <SelectItem value="completed">Erledigt</SelectItem>
+                          <SelectItem value="cancelled">Storniert</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <p className="font-medium text-lg">{order.customer_name}</p>
@@ -790,9 +813,9 @@ export const CateringOrderEditor = () => {
                         {order.company_name}
                       </p>
                     )}
-                    <a href={`mailto:${order.customer_email}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
-                      <Mail className="h-4 w-4" />
-                      {order.customer_email}
+                    <a href={`mailto:${order.customer_email}`} className="flex items-start gap-2 text-sm text-primary hover:underline break-all">
+                      <Mail className="h-4 w-4 mt-0.5 shrink-0" />
+                      <span>{order.customer_email}</span>
                     </a>
                     <a href={`tel:${order.customer_phone}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
                       <Phone className="h-4 w-4" />
