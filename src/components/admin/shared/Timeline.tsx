@@ -155,7 +155,7 @@ const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
                   theme.bg, theme.border
                 )}>
                   <div className={theme.icon}>
-                    {getIcon(log.action)}
+                    {getIcon(log)}
                   </div>
                 </div>
               </div>
