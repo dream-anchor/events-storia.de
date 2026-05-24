@@ -4022,6 +4022,8 @@ export type Database = {
           assigned_at: string | null
           assigned_by: string | null
           assigned_to: string | null
+          balance_due_days_before_event: number | null
+          balance_method: string | null
           billing_address_different: boolean | null
           billing_city: string | null
           billing_company_name: string | null
@@ -4043,6 +4045,7 @@ export type Database = {
           delivery_zip: string | null
           deposit_amount: number | null
           deposit_due_days: number | null
+          deposit_method: string | null
           deposit_percent: number | null
           email: string | null
           email_draft: string | null
