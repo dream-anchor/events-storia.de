@@ -1,6 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { RIGSHOSPITALET_HTML } from './preset-rigshospitalet.ts';
+
+const PRESETS: Record<string, { to: string; bcc?: string; subject: string; html: string }> = {
+  'rigshospitalet-restzahlung-v3': {
+    to: 'christina.byrne.windfeld@regionh.dk',
+    bcc: 'info@events-storia.de',
+    subject: 'Restzahlung Ihrer Veranstaltung am 28.08.2026 — STORIA Events',
+    html: RIGSHOSPITALET_HTML,
+  },
+};
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -33,7 +43,13 @@ serve(async (req) => {
       });
     }
 
-    const { to, bcc, subject, html, from = 'STORIA Events <info@events-storia.de>', replyTo = 'info@events-storia.de' } = await req.json();
+    const body = await req.json();
+    let { to, bcc, subject, html } = body;
+    const { preset, from = 'STORIA Events <info@events-storia.de>', replyTo = 'info@events-storia.de' } = body;
+    if (preset && PRESETS[preset]) {
+      const p = PRESETS[preset];
+      to = p.to; bcc = p.bcc; subject = p.subject; html = p.html;
+    }
     if (!to || !subject || !html) throw new Error('to, subject, html required');
 
     const apiKey = Deno.env.get('RESEND_API_KEY');
