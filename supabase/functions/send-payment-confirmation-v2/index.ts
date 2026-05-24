@@ -55,7 +55,7 @@ serve(async (req) => {
     // Load event + customer
     const { data: ev, error: evErr } = await supabase
       .from("v2_events")
-      .select("id, customer_id, booking_number, date, time_from, event_time, amount_total, is_test")
+      .select("id, customer_id, booking_number, date, time_from, event_time, amount_total, is_test, deposit_method, balance_method")
       .eq("id", payment.event_id)
       .single();
     if (evErr || !ev) throw new Error("Event nicht gefunden");
