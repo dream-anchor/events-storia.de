@@ -19,6 +19,7 @@ import type {
 } from "@/types/inquiryRecord";
 import { UnifiedKanbanView, ServiceBadge } from "./UnifiedKanbanView";
 import { getRecordActionState } from "@/lib/inquiryActionState";
+import { InviteCustomerIconButton } from "@/components/admin/shared/InviteCustomerIconButton";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "table" | "kanban";
