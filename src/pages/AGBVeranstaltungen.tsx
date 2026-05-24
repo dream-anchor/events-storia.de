@@ -270,17 +270,6 @@ const AGBVeranstaltungen = () => {
                 </ol>
               </section>
 
-              {/* Hinweis */}
-              <section className="mt-12 p-4 bg-muted/30 rounded-lg border border-border/40">
-                <p className="text-sm text-muted-foreground">
-                  <strong>Hinweis:</strong> Diese AGB wurden von Dream &amp; Anchor Handelsgesellschaft mbH
-                  erstellt und ersetzen keine anwaltliche Beratung. Bei Fragen wenden Sie sich bitte an{" "}
-                  <a href="mailto:info@events-storia.de" className="text-primary hover:underline">
-                    info@events-storia.de
-                  </a>.
-                </p>
-              </section>
-
             </div>
           </div>
         </main>
