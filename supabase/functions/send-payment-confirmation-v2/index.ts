@@ -102,6 +102,8 @@ serve(async (req) => {
       eventDateStr,
       bookingNumber,
       includeApology: !!include_apology,
+      balanceMethod: ev.balance_method,
+      depositMethod: ev.deposit_method,
       prepayment: isPrepaymentInvite && prepayment ? {
         paymentLinkUrl: prepayment.paymentLinkUrl,
         pricePerPersonFormatted: new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" })
