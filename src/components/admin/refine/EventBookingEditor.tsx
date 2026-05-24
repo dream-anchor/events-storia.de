@@ -177,7 +177,7 @@ export const EventBookingEditor = () => {
     }
   }, [booking]);
 
-  const handleCancelBooking = async () => {
+  const handleCancelBooking = async (customerMessage?: string) => {
     if (!id) return;
     setIsCancelling(true);
     try {
@@ -185,15 +185,16 @@ export const EventBookingEditor = () => {
         .from("event_bookings" as any)
         .update({
           status: "cancelled",
-          cancellation_reason: cancelReason || "Stornierung durch Admin",
+          cancellation_reason: customerMessage || cancelReason || "Stornierung durch Admin",
           cancelled_at: new Date().toISOString(),
         } as any)
         .eq("id", id);
       if (error) throw error;
       setBookingStatus("cancelled");
-      toast.success("Buchung storniert");
+      toast.success(customerMessage ? "Buchung storniert – Nachricht protokolliert" : "Buchung storniert");
     } catch (e: any) {
       toast.error(e.message || "Fehler beim Stornieren");
+      throw e;
     } finally {
       setIsCancelling(false);
     }
