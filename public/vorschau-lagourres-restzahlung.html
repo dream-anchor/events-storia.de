@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Restzahlung Cyim — STORIA Events</title>
+<style>
+  body { margin: 0; padding: 0; background-color: #f5f5f5; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .container { max-width: 640px; margin: 0 auto; background-color: #ffffff; }
+  .header { background-color: #1a1a1a; color: #ffffff; padding: 32px 24px; text-align: center; }
+  .header h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .header p { margin: 8px 0 4px; font-size: 14px; color: #a0a0a0; }
+  .content { padding: 32px 24px; color: #333333; font-size: 15px; line-height: 1.6; }
+  .greeting { font-size: 16px; font-weight: 500; margin-bottom: 16px; }
+  .apology { background-color: #f8f8f8; border-left: 3px solid #333333; padding: 16px; margin: 20px 3px; font-size: 14px; color: #555555; }
+  .event-box { background-color: #fafafa; border-radius: 12px; padding: 20px; margin: 24px 3px; }
+  .event-box h3 { margin: 0 0 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #888888; }
+  .event-row { display: flex; justify-content: space-between; padding: 8px 3px; border-bottom: 1px solid #eeeeee; }
+  .event-row:last-child { border-bottom: none; }
+  .event-label { color: #888888; font-size: 14px; }
+  .event-value { font-weight: 500; font-size: 14px; }
+  .cost-table { width: 100%; margin: 20px 3px; border-collapse: collapse; }
+  .cost-table th { text-align: left; padding: 10px 3px; font-size: 13px; color: #888888; border-bottom: 2px solid #eeeeee; }
+  .cost-table td { padding: 10px 3px; border-bottom: 1px solid #eeeeee; font-size: 14px; }
+  .cost-table .total-row td { font-weight: 600; font-size: 15px; border-bottom: none; border-top: 2px solid #333333; }
+  .balance-due { background-color: #1a1a1a; color: #ffffff; padding: 20px; border-radius: 12px; margin: 24px 3px; text-align: center; }
+  .balance-due .label { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #a0a0a0; margin-bottom: 4px; }
+  .balance-due .amount { font-size: 28px; font-weight: 700; }
+  .payment-note { background-color: #f0f0f0; border-radius: 8px; padding: 16px; margin: 20px 3px; font-size: 14px; color: #555555; }
+  .divider { border: none; border-top: 1px solid #e0e0e1; margin: 32px 3px; }
+  .lang-section h2 { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+  .lang-section p { margin-bottom: 12px; }
+  .footer { background-color: #fafafa; padding: 24px; text-align: center; font-size: 13px; color: #888888; }
+  .footer a { color: #333333; text-decoration: none; }
+  @media (max-width: 480px) {
+    .header, .content, .footer { padding-left: 16px; padding-right: 16px; }
+    .balance-due .amount { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>STORIA Events</h1>
+    <p>Restzahlung / Balance Payment</p>
+  </div>
+
+  <!-- German Content -->
+  <div class="content">
+    <div class="lang-section">
+      <p class="greeting">Sehr geehrte Frau Lagourrès,</p>
+
+      <p>vielen Dank für Ihre Anzahlung. Wir entschuldigen uns aufrichtig für die verspätete Zusendung dieser Information — wir haben intern umstrukturiert und möchten sicherstellen, dass alle Details für Ihr Event vollständig vorliegen.</p>
+
+      <div class="apology">
+        <strong>Entschuldigung für den späten Versand:</strong> Aufgrund interner Umstrukturierungen erreicht Sie diese Mail später als geplant. Wir bitten um Entschuldigung und stehen selbstverständlich für Rückfragen zur Verfügung.
+      </div>
+
+      <h2>Ihr Event im Überblick</h2>
+      <div class="event-box">
+        <h3>Veranstaltungsdetails</h3>
+        <div class="event-row"><span class="event-label">Unternehmen</span><span class="event-value">Cyim</span></div>
+        <div class="event-row"><span class="event-label">Datum</span><span class="event-value">Samstag, 29. August 2026</span></div>
+        <div class="event-row"><span class="event-label">Gästezahl</span><span class="event-value">74 Personen</span></div>
+        <div class="event-row"><span class="event-label">Location</span><span class="event-value">Maxvorstadt, München</span></div>
+      </div>
+
+      <h2>Kostenaufstellung</h2>
+      <table class="cost-table">
+        <tr><th>Posten</th><th style="text-align:right">Betrag</th></tr>
+        <tr><td>Preis pro Person</td><td style="text-align:right">35,00 €</td></tr>
+        <tr><td>Gästezahl</td><td style="text-align:right">74</td></tr>
+        <tr><td><strong>Gesamtkosten</strong></td><td style="text-align:right"><strong>2.590,00 €</strong></td></tr>
+        <tr><td>Bereits gezahlte Anzahlung</td><td style="text-align:right" style="color:#888">− 500,00 €</td></tr>
+        <tr class="total-row"><td>Restbetrag fällig</td><td style="text-align:right">2.090,00 €</td></tr>
+      </table>
+
+      <div class="balance-due">
+        <div class="label">Restbetrag / Balance Due</div>
+        <div class="amount">2.090,00 €</div>
+      </div>
+
+      <div class="payment-note">
+        <strong>Zahlung vor Ort:</strong> Der Restbetrag wird am Tag der Veranstaltung vor Ort beglichen — bar oder per Karte. Sie erhalten keine separate Zahlungs-E-Mail.
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- English Content -->
+    <div class="lang-section">
+      <p class="greeting">Dear Ms. Lagourrès,</p>
+
+      <p>Thank you very much for your deposit. We sincerely apologize for sending this information late — we have restructured internally and want to ensure all details for your event are fully in place.</p>
+
+      <div class="apology">
+        <strong>Apology for the late delivery:</strong> Due to internal restructuring, this email reaches you later than planned. We apologize and are of course available for any questions.
+      </div>
+
+      <h2>Your Event at a Glance</h2>
+      <div class="event-box">
+        <h3>Event Details</h3>
+        <div class="event-row"><span class="event-label">Company</span><span class="event-value">Cyim</span></div>
+        <div class="event-row"><span class="event-label">Date</span><span class="event-value">Saturday, 29 August 2026</span></div>
+        <div class="event-row"><span class="event-label">Guests</span><span class="event-value">74 people</span></div>
+        <div class="event-row"><span class="event-label">Location</span><span class="event-value">Maxvorstadt, Munich</span></div>
+      </div>
+
+      <h2>Cost Breakdown</h2>
+      <table class="cost-table">
+        <tr><th>Item</th><th style="text-align:right">Amount</th></tr>
+        <tr><td>Price per person</td><td style="text-align:right">35,00 €</td></tr>
+        <tr><td>Number of guests</td><td style="text-align:right">74</td></tr>
+        <tr><td><strong>Total cost</strong></td><td style="text-align:right"><strong>2.590,00 €</strong></td></tr>
+        <tr><td>Deposit already paid</td><td style="text-align:right" style="color:#888">− 500,00 €</td></tr>
+        <tr class="total-row"><td>Balance due</td><td style="text-align:right">2.090,00 €</td></tr>
+      </table>
+
+      <div class="balance-due">
+        <div class="label">Restbetrag / Balance Due</div>
+        <div class="amount">2.090,00 €</div>
+      </div>
+
+      <div class="payment-note">
+        <strong>On-site payment:</strong> The balance will be settled on the day of the event — cash or card. You will not receive a separate payment email.
+      </div>
+
+      <p style="margin-top:24px;">Bei Rückfragen stehen wir Ihnen jederzeit zur Verfügung. / If you have any questions, please do not hesitate to contact us.</p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p><strong>STORIA Events</strong><br>
+    Karlstr. 47a · 80333 München<br>
+    <a href="mailto:info@events-storia.de">info@events-storia.de</a> · <a href="https://events-storia.de">events-storia.de</a></p>
+  </div>
+
+</div>
+</body>
+</html>
