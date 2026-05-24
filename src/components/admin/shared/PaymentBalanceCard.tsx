@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Send, CheckCircle2, Euro, Mail } from "lucide-react";
+import { Loader2, Send, CheckCircle2, Euro, Mail, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,13 @@ export function PaymentBalanceCard({
   const [confirmDialog, setConfirmDialog] = useState<{ row: PaymentRow; apology: boolean } | null>(null);
   const [confirmSending, setConfirmSending] = useState(false);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [prepayOpen, setPrepayOpen] = useState(false);
+  const [prepayLoading, setPrepayLoading] = useState(false);
+  const [prepayPricePerPerson, setPrepayPricePerPerson] = useState<string>("");
+  const [prepayMinGuests, setPrepayMinGuests] = useState<string>("");
+  const [prepayMaxGuests, setPrepayMaxGuests] = useState<string>("");
+  const [prepaySendEmail, setPrepaySendEmail] = useState(true);
+  const [prepayDescription, setPrepayDescription] = useState<string>("");
 
   const loadPayments = async () => {
     setLoading(true);
@@ -80,6 +87,80 @@ export function PaymentBalanceCard({
   useEffect(() => {
     if (openEur > 0 && !customAmount) setCustomAmount(openEur.toFixed(2));
   }, [openEur, customAmount]);
+
+  // Pre-Fill Prepayment-Dialog aus gewähltem Angebot + Event
+  const openPrepayDialog = async () => {
+    setPrepayOpen(true);
+    try {
+      const [{ data: ev }, { data: opt }] = await Promise.all([
+        supabase.from("v2_events").select("guest_count, guest_count_max").eq("id", eventId).single(),
+        supabase
+          .from("v2_offer_options")
+          .select("guest_count, amount_total")
+          .eq("event_id", eventId)
+          .eq("is_active", true)
+          .order("is_chosen", { ascending: false })
+          .order("version", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      const minG = ev?.guest_count ?? opt?.guest_count ?? 1;
+      setPrepayMinGuests(String(minG));
+      setPrepayMaxGuests(ev?.guest_count_max ? String(ev.guest_count_max) : "");
+      if (opt?.amount_total && opt.guest_count && opt.guest_count > 0) {
+        const perPerson = Number(opt.amount_total) / opt.guest_count;
+        setPrepayPricePerPerson(perPerson.toFixed(2));
+      } else if (totalEur > 0 && minG > 0) {
+        setPrepayPricePerPerson((totalEur / minG).toFixed(2));
+      }
+      setPrepayDescription(`Restzahlung – ${customerName ?? "Veranstaltung"}`);
+    } catch (e) {
+      console.warn("[prepay] preload failed", e);
+    }
+  };
+
+  const handleCreatePrepayLink = async () => {
+    const perPerson = Number((prepayPricePerPerson || "").replace(",", "."));
+    const minG = parseInt(prepayMinGuests || "0", 10);
+    const maxG = prepayMaxGuests.trim() ? parseInt(prepayMaxGuests, 10) : undefined;
+    if (!Number.isFinite(perPerson) || perPerson <= 0) {
+      toast.error("Bitte gültigen Preis pro Person eingeben");
+      return;
+    }
+    if (!Number.isFinite(minG) || minG < 1) {
+      toast.error("Mindestpersonenzahl muss ≥ 1 sein");
+      return;
+    }
+    if (maxG !== undefined && (!Number.isFinite(maxG) || maxG < minG)) {
+      toast.error("Maximalpersonenzahl muss ≥ Minimum sein");
+      return;
+    }
+    setPrepayLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke("create-prepayment-link", {
+        body: {
+          eventId,
+          pricePerPersonCents: Math.round(perPerson * 100),
+          minGuests: minG,
+          maxGuests: maxG ?? null,
+          description: prepayDescription || undefined,
+          sendEmail: prepaySendEmail,
+        },
+      });
+      if (error) throw error;
+      toast.success(
+        prepaySendEmail
+          ? "Stripe-Link erstellt und an Kunde gesendet"
+          : "Stripe-Link erstellt",
+      );
+      setPrepayOpen(false);
+      await loadPayments();
+    } catch (e) {
+      toast.error("Erstellung fehlgeschlagen", { description: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setPrepayLoading(false);
+    }
+  };
 
   const handleSendBalance = async () => {
     const amt = Number((customAmount || "").replace(",", "."));
@@ -178,6 +259,10 @@ export function PaymentBalanceCard({
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
               Zahlungslink senden
             </Button>
+            <Button onClick={openPrepayDialog} variant="outline" className="rounded-xl">
+              <Users className="h-4 w-4 mr-2" />
+              Pro-Person-Link (anpassbar)
+            </Button>
           </div>
         )}
 
@@ -271,6 +356,92 @@ export function PaymentBalanceCard({
             <Button onClick={sendConfirmation} disabled={confirmSending} className="rounded-xl">
               {confirmSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
               Jetzt senden
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pro-Person Prepayment Dialog */}
+      <Dialog open={prepayOpen} onOpenChange={setPrepayOpen}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Stripe-Link mit anpassbarer Personenzahl</DialogTitle>
+            <DialogDescription>
+              Der Kunde kann im Checkout die finale Gästezahl selbst eingeben (nie unter dem Minimum). Stripe berechnet automatisch <em>Preis × Personen</em>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Preis pro Person (EUR, brutto)</label>
+                <Input
+                  type="number" min="0" step="0.01"
+                  value={prepayPricePerPerson}
+                  onChange={(e) => setPrepayPricePerPerson(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Mindestpersonen</label>
+                <Input
+                  type="number" min="1" step="1"
+                  value={prepayMinGuests}
+                  onChange={(e) => setPrepayMinGuests(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1 col-span-2">
+                <label className="text-xs text-muted-foreground">Maximalpersonen (optional)</label>
+                <Input
+                  type="number" min="1" step="1"
+                  placeholder="leer = bis 999"
+                  value={prepayMaxGuests}
+                  onChange={(e) => setPrepayMaxGuests(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1 col-span-2">
+                <label className="text-xs text-muted-foreground">Beschreibung (Stripe-Produktname)</label>
+                <Input
+                  value={prepayDescription}
+                  onChange={(e) => setPrepayDescription(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+            {prepayPricePerPerson && prepayMinGuests && (
+              <div className="rounded-xl border bg-muted/30 p-3 text-sm">
+                <div className="text-xs text-muted-foreground mb-1">Vorschau</div>
+                <div>
+                  <strong>{fmt(Number(prepayPricePerPerson.replace(",", ".")) || 0)}</strong> × {prepayMinGuests} Gäste ={" "}
+                  <strong>{fmt((Number(prepayPricePerPerson.replace(",", ".")) || 0) * (parseInt(prepayMinGuests, 10) || 0))}</strong>
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Kunde kann auf bis zu {prepayMaxGuests || "999"} Gäste hochstellen.
+                </div>
+              </div>
+            )}
+            <label className="flex items-start gap-3 cursor-pointer rounded-xl border p-3 hover:bg-muted/30">
+              <Checkbox
+                checked={prepaySendEmail}
+                onCheckedChange={(c) => setPrepaySendEmail(!!c)}
+                className="mt-0.5"
+              />
+              <div className="space-y-1">
+                <div className="text-sm font-medium">Direkt per E-Mail an Kunde senden</div>
+                <div className="text-xs text-muted-foreground">
+                  Sendet die Bestätigungsmail mit dem eingebetteten Zahlungslink an {customerEmail}.
+                </div>
+              </div>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPrepayOpen(false)} disabled={prepayLoading} className="rounded-xl">
+              Abbrechen
+            </Button>
+            <Button onClick={handleCreatePrepayLink} disabled={prepayLoading} className="rounded-xl">
+              {prepayLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              Stripe-Link erstellen
             </Button>
           </DialogFooter>
         </DialogContent>
