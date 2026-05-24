@@ -1,83 +1,45 @@
-# Session D — Daily Audit + Preflight
+## Befund
 
-Sessions A–C laufen: Hub-Tabelle steht, Maestro-Edge-Functions melden, Ristorante meldet (Hub-Connection bestätigt). Session D schließt die Schleife mit **proaktiver Beobachtung** (täglicher Digest) und einem **Pre-Deploy-Gate**.
+- Die Datenbank ist erreichbar und enthält Bestellungen: aktuell 33 Catering-Bestellungen, davon 2 Testbestellungen.
+- Der Grund, warum Kanban und Tabelle leer wirken: Die aktuelle Bestellungen-Ansicht filtert standardmäßig auf `pending` und `confirmed` (`Eingang`). In der Datenbank gibt es aber momentan keine Bestellungen mit diesen Statuswerten; alle vorhandenen Bestellungen sind `completed` oder `cancelled`.
+- Die neuen bezahlten Testbestellungen wurden offenbar sofort als `completed` gespeichert/angezeigt. Dadurch landen sie nicht im Standard-Filter „Eingang“.
+- Zusätzlich ist die neue `OrdersKanbanView` farblich/technisch noch nicht sauber an das bestehende Premium-Light-Design angepasst und nutzt direkte Farbklassen.
 
 ## Ziel
 
-1. **Daily Audit** — einmal pro Tag (08:00 Europe/Berlin) wird der Health-Status beider Projekte zusammengefasst und per E-Mail an `info@events-storia.de` geschickt. Kein Rauschen — nur wenn es etwas zu sagen gibt.
-2. **Preflight** — ein lokal/CI ausführbares Script, das vor einem Publish blockiert, wenn offene kritische Fehler oder fehlende Secrets existieren.
+Bestellungen sollen in Maestro zuverlässig sichtbar sein, besonders neue/bezahlte Catering-Bestellungen, ohne die getrennte Navigation wieder rückgängig zu machen.
 
-## Was wird gebaut
+## Umsetzung
 
-### 1. Migration: `system_health_audit_runs`
+1. **Standardansicht korrigieren**
+   - In `OrdersList.tsx` den Default-Filter von `Eingang` auf eine sinnvollere Bestellungsansicht ändern.
+   - Vorschlag: Default `Alle`, damit keine bezahlte Bestellung durch Status-Mapping unsichtbar wird.
+   - Alternativ könnte `Eingang` auch `completed` einschließen, aber das wäre fachlich unsauber, weil „Erledigt“ dann doppelt auftaucht.
 
-Neue Tabelle, um jeden Audit-Lauf für Traceability zu speichern.
+2. **Filter-Beschriftung für Bestellungen schärfen**
+   - Die Status-Pills so benennen, dass sie zum Bestellprozess passen:
+     - `Alle`
+     - `Neu / offen`
+     - `Bestätigt`
+     - `Erledigt`
+     - `Storniert`
+   - Dabei keine Datenlogik im Backend ändern.
 
-Felder (Domain): `run_at`, `window_hours`, `summary` (jsonb), `email_sent`, `email_id`, `had_blockers` (bool).
+3. **Kanban leer-Zustand verbessern**
+   - Wenn Kanban keine Karten in den Spalten zeigt, aber Daten vorhanden sind, soll klarer erkennbar sein, welcher Filter/Status greift.
+   - Kanban soll weiterhin einen eigenen unlimitierten Status-Query nutzen und alle Orders anzeigen.
 
-RLS: nur Admins lesen (gleiche Policy wie `system_errors`).
+4. **Order-Status-Mapping prüfen, aber nicht automatisch ändern**
+   - Ich ändere nicht blind die Datenbank-Trigger, weil `completed` evtl. bewusst durch alte Automatisierung gesetzt wurde.
+   - Ich prüfe im Code, ob der Checkout oder Reminder-Cron neue bezahlte Orders direkt auf `completed` setzt.
+   - Falls ja, schlage ich danach separat vor: bezahlt = `confirmed`, erst nach Lieferzeit = `completed`.
 
-### 2. Edge Function: `system-health-daily-audit`
+5. **Design-Konformität der neuen Kanban-Ansicht korrigieren**
+   - Direkte Grün/Gelb-Farbklassen in `OrdersKanbanView.tsx` entfernen oder auf bestehende semantische Tokens/zulässige neutrale Akzente umstellen.
+   - Premium-Light-Monochrome-Standard beibehalten.
 
-- `verify_jwt = false` (wird vom Cron via pg_net aufgerufen)
-- Sammelt für die letzten 24h pro Projekt (`events_storia`, `ristorante_storia`):
-  - **Neue kritische Fehler** (severity = critical, first_seen > now()-24h, unresolved)
-  - **Eskalierende Fehler** (count-Zuwachs > 10 in 24h, unresolved)
-  - **Stille kritische Alt-Fehler** (severity = critical, unresolved, älter als 7 Tage)
-  - **Top-3 by count** (24h)
-- Schreibt einen Eintrag in `system_health_audit_runs`
-- Sendet **nur dann** eine E-Mail (via bestehender Resend-Infra), wenn mindestens eine Kategorie nicht leer ist
-  - Empfänger: `info@events-storia.de`
-  - Betreff: `[System-Health] Tägliche Übersicht — N kritisch / M eskalierend`
-  - Body: monochrome Light-Mode-Tabelle, Links zu `/admin/system-health`
-- Keine WhatsApp-Eskalation (das macht bereits das Realtime-System bei akuten Fehlern)
+## Validierung
 
-### 3. pg_cron Job
-
-Täglich 08:00 Europe/Berlin (= 06:00/07:00 UTC, je nach DST — wir nehmen `0 6 * * *` UTC, also Sommerzeit 08:00 / Winterzeit 07:00, was für eine 08-Uhr-Mail akzeptabel ist).
-
-Wird via `insert`-Tool angelegt (enthält projektspezifische URL).
-
-### 4. Preflight-Script: `scripts/preflight.mjs`
-
-CLI-Tool (`node scripts/preflight.mjs`). Prüft:
-- **Secrets vorhanden**: `SYSTEM_HEALTH_SHARED_SECRET`, `RESEND_API_KEY`, `LEXOFFICE_API_KEY`, `STRIPE_SECRET_KEY` (best-effort via Supabase Management API oder lokale `.env` falls vorhanden — primär: nur Existenzprüfung über Edge-Function-Aufruf, der `Deno.env.get` testet)
-- **Offene kritische Fehler** (24h) — schlägt fehl wenn > 0 und `--strict`
-- **Letzter Audit-Lauf** existiert und ist < 36h alt
-- **Hub-Connection-Test** (POST mit Test-Payload an `report-system-error` mit shared secret)
-
-Exit-Codes: 0 = clean, 1 = Warnungen, 2 = Blocker.
-
-Aufruf-Hinweis im README.
-
-### 5. Admin-UI-Ergänzung in `SystemHealth.tsx`
-
-Neue Karte oben: **"Letzter Audit-Lauf"** mit
-- Zeitpunkt
-- Zusammenfassung (Counts)
-- Button "Jetzt manuell ausführen" → ruft `system-health-daily-audit` ad-hoc auf
-- Tabelle der letzten 7 Audit-Läufe
-
-## Was wird NICHT gebaut
-
-- Keine Anomalie-Erkennung auf Function-Ebene (würde Traffic-Tracking voraussetzen, das wir nicht haben)
-- Kein Slack/Teams-Webhook (nicht angefragt)
-- Kein "Auto-Heal" / Retry-Logik
-- Keine Änderungen an Sessions A–C oder am Ristorante-Projekt
-
-## Technical Notes
-
-```text
-pg_cron (06:00 UTC daily)
-        │
-        ▼
-net.http_post → system-health-daily-audit (Hub)
-        │
-        ├─ SELECT system_errors WHERE …
-        ├─ INSERT system_health_audit_runs
-        └─ wenn nicht leer → Resend → info@events-storia.de
-```
-
-E-Mail-Body folgt Memory-Vorgaben: Inter, monochrome, kein Grün/Gelb, `info@events-storia.de` als Absender, dynamische DB-Signatur.
-
-Bestätige den Plan, dann lege ich Migration + Function + Cron + Preflight-Script + UI-Karte in einem Rutsch an.
+- Read-only Datenbankcheck: Bestellungen existieren und werden nicht durch fehlende Daten verursacht.
+- Frontend-Check: `/admin/orders` zeigt nach Änderung die vorhandenen Bestellungen direkt in Tabelle und Kanban.
+- Keine Änderung an Checkout, Zahlungslogik oder Datenbankstruktur ohne separaten Befund.

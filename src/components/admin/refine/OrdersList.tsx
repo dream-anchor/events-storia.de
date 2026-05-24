@@ -32,18 +32,19 @@ import { OrdersKanbanView } from "./OrdersKanbanView";
  * - nichts: kein aktiver Dialog
  */
 
-type InboxFilter = 'inbox' | 'done' | 'cancelled' | 'all';
+type InboxFilter = 'all' | 'open' | 'confirmed' | 'done' | 'cancelled';
 
 const filterToStatus: Record<InboxFilter, OrderStatus[] | null> = {
-  inbox: ['pending', 'confirmed'],
+  all: null,
+  open: ['pending'],
+  confirmed: ['confirmed'],
   done: ['completed'],
   cancelled: ['cancelled'],
-  all: null,
 };
 
 export const OrdersList = () => {
   const navigate = useNavigate();
-  const [activeFilter, setActiveFilter] = useState<InboxFilter>('inbox');
+  const [activeFilter, setActiveFilter] = useState<InboxFilter>('all');
   const [viewMode, setViewMode] = useState<"table" | "kanban">(
     () => (localStorage.getItem("ordersViewMode") as "table" | "kanban") || "table"
   );
@@ -75,8 +76,8 @@ export const OrdersList = () => {
     queryOptions: { enabled: viewMode === "kanban" },
   });
 
-  const orders = ordersQuery.data?.data || [];
-  const isLoading = ordersQuery.isLoading;
+  const orders = ordersQuery.result?.data || [];
+  const isLoading = ordersQuery.query.isLoading;
 
   // Zählwerte für Filter-Badges (unabhängig vom aktuellen Filter)
   const counts = useMemo(() => {
@@ -84,22 +85,24 @@ export const OrdersList = () => {
     // Trick: Wenn bereits "all" aktiv ist, nehmen wir die. Sonst: nur Schätzung via aktueller Liste.
     // Saubere Lösung wäre eine separate Query — für jetzt: Badge nur auf aktiven Filter.
     return {
-      inbox: activeFilter === 'inbox' ? orders.length : null,
+      all: activeFilter === 'all' ? orders.length : null,
+      open: activeFilter === 'open' ? orders.length : null,
+      confirmed: activeFilter === 'confirmed' ? orders.length : null,
       done: activeFilter === 'done' ? orders.length : null,
       cancelled: activeFilter === 'cancelled' ? orders.length : null,
-      all: activeFilter === 'all' ? orders.length : null,
     };
   }, [orders.length, activeFilter]);
 
   const filterPills = [
-    { id: 'inbox', label: 'Eingang', value: 'inbox', active: activeFilter === 'inbox', count: counts.inbox },
+    { id: 'all', label: 'Alle', value: 'all', active: activeFilter === 'all', count: counts.all },
+    { id: 'open', label: 'Neu / offen', value: 'open', active: activeFilter === 'open', count: counts.open },
+    { id: 'confirmed', label: 'Bestätigt', value: 'confirmed', active: activeFilter === 'confirmed', count: counts.confirmed },
     { id: 'done', label: 'Erledigt', value: 'done', active: activeFilter === 'done', count: counts.done },
     { id: 'cancelled', label: 'Storniert', value: 'cancelled', active: activeFilter === 'cancelled', count: counts.cancelled },
-    { id: 'all', label: 'Alle', value: 'all', active: activeFilter === 'all', count: counts.all },
   ];
 
   const handleFilterChange = (_id: string, value: string) => {
-    setActiveFilter((value as InboxFilter) || 'inbox');
+    setActiveFilter((value as InboxFilter) || 'all');
   };
 
   const columns: ColumnDef<CateringOrder>[] = [
@@ -352,7 +355,7 @@ export const OrdersList = () => {
     navigate(`/admin/orders/${order.id}/edit`);
   };
 
-  const allActiveOrders = kanbanQuery.data?.data || [];
+  const allActiveOrders = kanbanQuery.result?.data || [];
 
   return (
     <AdminLayout activeTab="orders">
@@ -385,7 +388,7 @@ export const OrdersList = () => {
         {viewMode === "kanban" ? (
           <OrdersKanbanView
             orders={allActiveOrders}
-            onRefresh={() => ordersQuery.refetch()}
+            onRefresh={() => ordersQuery.query.refetch()}
           />
         ) : (
         <DataTable
@@ -394,7 +397,7 @@ export const OrdersList = () => {
           searchPlaceholder="Suche nach Bestellnummer, Kunde, Adresse..."
           filterPills={filterPills}
           onFilterChange={handleFilterChange}
-          onRefresh={() => ordersQuery.refetch()}
+          onRefresh={() => ordersQuery.query.refetch()}
           onRowClick={handleRowClick}
           isLoading={isLoading}
           pageSize={25}

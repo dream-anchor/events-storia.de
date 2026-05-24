@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { CateringOrder, OrderStatus } from "@/hooks/useCateringOrders";
+import { CateringOrder, OrderStatus } from "@/types/refine";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 
@@ -22,10 +22,10 @@ interface OrdersKanbanViewProps {
 }
 
 const COLUMNS = [
-  { id: "pending",   title: "Neu",        color: "bg-blue-500" },
-  { id: "confirmed", title: "Bestätigt",  color: "bg-emerald-500" },
-  { id: "completed", title: "Erledigt",   color: "bg-gray-400" },
-  { id: "cancelled", title: "Storniert",  color: "bg-rose-400" },
+  { id: "pending",   title: "Neu / offen", color: "bg-foreground" },
+  { id: "confirmed", title: "Bestätigt",   color: "bg-foreground/70" },
+  { id: "completed", title: "Erledigt",    color: "bg-muted-foreground/60" },
+  { id: "cancelled", title: "Storniert",   color: "bg-muted-foreground/30" },
 ] as const;
 
 type ColId = (typeof COLUMNS)[number]["id"];
@@ -54,17 +54,17 @@ function PaymentBadge({ order }: { order: CateringOrder }) {
   const isPaid = order.payment_status === "paid";
   const isCash = order.payment_method === "cash" && order.is_pickup;
   if (isPaid) return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5">
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-foreground bg-muted border border-border rounded-full px-1.5 py-0.5">
       <CreditCard className="h-2.5 w-2.5" /> Bezahlt
     </span>
   );
   if (isCash) return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-muted-foreground bg-muted/60 border border-border rounded-full px-1.5 py-0.5">
       <HandCoins className="h-2.5 w-2.5" /> Cash
     </span>
   );
   return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5">
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-1.5 py-0.5">
       <AlertCircle className="h-2.5 w-2.5" /> Unbezahlt
     </span>
   );
@@ -91,12 +91,13 @@ function OrderCard({ order, onRefresh }: { order: CateringOrder; onRefresh: () =
     }
   };
 
-  const otherStatuses: { id: OrderStatus; label: string }[] = [
+  const allStatuses: { id: OrderStatus; label: string }[] = [
     { id: "pending",   label: "Neu" },
     { id: "confirmed", label: "Bestätigt" },
     { id: "completed", label: "Erledigt" },
     { id: "cancelled", label: "Storniert" },
-  ].filter((s) => s.id !== (order.status as OrderStatus));
+  ];
+  const otherStatuses = allStatuses.filter((s) => s.id !== (order.status as OrderStatus));
 
   return (
     <div
@@ -150,7 +151,7 @@ function OrderCard({ order, onRefresh }: { order: CateringOrder; onRefresh: () =
           <span>{format(parseISO(order.desired_date), "EEE dd.MM.yy", { locale: de })}</span>
           {order.desired_time && <span>· {order.desired_time}</span>}
           {daysInfo && (
-            <span className={cn("font-medium", daysInfo.urgent ? "text-amber-600" : "")}>
+            <span className={cn("font-medium", daysInfo.urgent ? "text-destructive" : "")}>
               ({daysInfo.label})
             </span>
           )}
