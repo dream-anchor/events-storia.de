@@ -63,7 +63,9 @@ const FrontendGlobals = () => {
   const isOfferRoute =
     location.pathname.startsWith('/offer/') ||
     location.pathname.startsWith('/ihr-angebot/') ||
-    location.pathname.startsWith('/your-offer/');
+    location.pathname.startsWith('/your-offer/') ||
+    location.pathname.startsWith('/restzahlung/') ||
+    location.pathname.startsWith('/en/balance-payment/');
 
   if (isOfferRoute) {
     return (
