@@ -12,7 +12,7 @@ import { CateringOrder, OrderStatus } from "@/types/refine";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, useEffect } from "react";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
-import { OrdersKanbanView } from "./OrdersKanbanView";
+import { OrdersKanbanView, OrdersBucket } from "./OrdersKanbanView";
 
 /**
  * Filter-Konzept (Senior CX Review 16.04.2026):
@@ -48,10 +48,17 @@ export const OrdersList = () => {
   const [viewMode, setViewMode] = useState<"table" | "kanban">(
     () => (localStorage.getItem("ordersViewMode") as "table" | "kanban") || "table"
   );
+  const [kanbanBucket, setKanbanBucket] = useState<OrdersBucket>(
+    () => (localStorage.getItem("ordersKanbanBucket") as OrdersBucket) || "inbox"
+  );
 
   useEffect(() => {
     localStorage.setItem("ordersViewMode", viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem("ordersKanbanBucket", kanbanBucket);
+  }, [kanbanBucket]);
 
   const statusValues = filterToStatus[activeFilter];
 
@@ -357,6 +364,18 @@ export const OrdersList = () => {
 
   const allActiveOrders = kanbanQuery.result?.data || [];
 
+  const bucketCounts = useMemo(() => ({
+    inbox: allActiveOrders.filter((o) => o.status === 'pending' || o.status === 'confirmed').length,
+    done: allActiveOrders.filter((o) => o.status === 'completed').length,
+    archive: allActiveOrders.filter((o) => o.status === 'cancelled').length,
+  }), [allActiveOrders]);
+
+  const bucketPills: { id: OrdersBucket; label: string; count: number }[] = [
+    { id: 'inbox', label: 'Eingang', count: bucketCounts.inbox },
+    { id: 'done', label: 'Erledigt', count: bucketCounts.done },
+    { id: 'archive', label: 'Archiv', count: bucketCounts.archive },
+  ];
+
   return (
     <AdminLayout activeTab="orders">
       <div className="space-y-6">
@@ -386,10 +405,35 @@ export const OrdersList = () => {
         </div>
 
         {viewMode === "kanban" ? (
-          <OrdersKanbanView
-            orders={allActiveOrders}
-            onRefresh={() => ordersQuery.query.refetch()}
-          />
+          <>
+            <div className="flex items-center gap-1 p-1 rounded-2xl bg-muted/60 w-fit">
+              {bucketPills.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setKanbanBucket(p.id)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-medium transition-colors",
+                    kanbanBucket === p.id
+                      ? "bg-white text-foreground shadow-sm ring-1 ring-foreground/10"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {p.label}
+                  <span className="ml-1.5 text-[10px] tabular-nums opacity-60">
+                    {p.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <OrdersKanbanView
+              orders={allActiveOrders}
+              bucket={kanbanBucket}
+              onRefresh={() => {
+                ordersQuery.query.refetch();
+                kanbanQuery.query.refetch();
+              }}
+            />
+          </>
         ) : (
         <DataTable
           columns={columns}
