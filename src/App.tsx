@@ -34,6 +34,7 @@ const PasswordReset = lazy(() => import("./pages/PasswordReset"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const Kontakt = lazy(() => import("./pages/Kontakt"));
 const Anfrage = lazy(() => import("./pages/Anfrage"));
+const Restzahlung = lazy(() => import("./pages/Restzahlung"));
 
 // Legal Pages (lazy)
 const Impressum = lazy(() => import("./pages/Impressum"));
@@ -158,6 +159,10 @@ const App = () => {
                     {/* Public Offer */}
                     <Route path="/offer/:id" element={<PublicOffer />} />
                     <Route path="/ihr-angebot/:slug" element={<PublicOffer />} />
+
+                    {/* Balance Payment */}
+                    <Route path="/restzahlung/:slug" element={<Restzahlung />} />
+                    <Route path="/en/balance-payment/:slug" element={<Restzahlung />} />
 
                     {/* Legal */}
                     <Route path="/impressum" element={<Impressum />} />
