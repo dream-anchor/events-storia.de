@@ -162,11 +162,14 @@ serve(async (req) => {
         oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };
     } else {
-      // Beyond 8km: €1.20 per km NET (+ 19% VAT)
-      // Pizza: single trip (one-way), Equipment: round trip (×2)
+      // Beyond 8km: €50 Anfahrtspauschale pro Fahrt + €1.20 per km NET (+ 19% VAT)
+      // Pizza: single trip (one-way, ×1), Equipment: round trip (×2)
       const tripMultiplier = isPizzaOnly ? 1 : 2;
+      const BASE_FEE_PER_TRIP = 50;
       const totalDistanceKm = oneWayDistanceKm * tripMultiplier;
-      const netCost = Math.round(totalDistanceKm * NET_COST_PER_KM * 100) / 100;
+      const netCost = Math.round(
+        (BASE_FEE_PER_TRIP * tripMultiplier + totalDistanceKm * NET_COST_PER_KM) * 100
+      ) / 100;
       const grossCost = Math.round(netCost * (1 + VAT_RATE) * 100) / 100;
       const vatAmount = Math.round((grossCost - netCost) * 100) / 100;
 
@@ -179,11 +182,11 @@ serve(async (req) => {
         isFreeDelivery: false,
         minimumOrder: 200,
         message: isPizzaOnly
-          ? `Lieferung (${Math.round(oneWayDistanceKm)} km)`
-          : `Lieferung (${Math.round(oneWayDistanceKm)} km × 2 Fahrten)`,
+          ? `Lieferung (${Math.round(oneWayDistanceKm)} km, inkl. Anfahrtspauschale)`
+          : `Lieferung (${Math.round(oneWayDistanceKm)} km × 2 Fahrten, inkl. Anfahrtspauschale)`,
         messageEn: isPizzaOnly
-          ? `Delivery (${Math.round(oneWayDistanceKm)} km)`
-          : `Delivery (${Math.round(oneWayDistanceKm)} km × 2 trips)`,
+          ? `Delivery (${Math.round(oneWayDistanceKm)} km, incl. base fee)`
+          : `Delivery (${Math.round(oneWayDistanceKm)} km × 2 trips, incl. base fee)`,
         isRoundTrip: !isPizzaOnly,
         oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
       };
