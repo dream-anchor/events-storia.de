@@ -1,113 +1,79 @@
-## Übersicht
+## Ziel
 
-Mehrere zusammenhängende Erweiterungen für das Maestro-Admin-System (Bestellungen + Anfragen). Aufgeteilt in 7 Arbeitspakete.
+Jede Änderung an Bestellungen, Anfragen und Buchungen (Adresse, Datum, Uhrzeit, Gäste, Zahlung, Lieferung, Status, Beträge, Notizen …) erscheint **sofort und in Klartext** im Tab „Aktivitäten" der Timeline – chronologisch, mit Name + Initialen des bearbeitenden Mitarbeiters, ohne technische JSON-Diffs.
 
----
-
-### 1. Mobile Nicht-Kritisch-Fixes (Quick Wins)
-
-- **Tab-Scroll-Hint** in `SmartInquiryEditor`: rechter Fade-Gradient (`bg-gradient-to-l from-background`) als visueller Hinweis auf horizontales Scrollen.
-- **Dashboard-Listenitems** ("Di·19:00 / Mi·18:30"): Layout in `AdminDashboard` überarbeiten — Initialen-Avatar links, Titel + Datum/Uhrzeit untereinander, statt gestapelter Index-Zahlen.
-- **Status-Pills monochrom**: "Angebot gesendet" (grün) und "In Bearbeitung" (gelb) auf neutrale Grautöne umstellen (Memory: `monochrome-aesthetic-standards`).
+Heute schreibt nur ein kleiner Teil der Edge Functions in `activity_logs`. Direkte Feldänderungen im Editor (z. B. Adresse anpassen, Datum verschieben, Zahlungsmethode umstellen) werden **nicht** geloggt – genau das wird behoben.
 
 ---
 
-### 2. Storno mit KI-Nachricht
+## Lösung in 3 Bausteinen
 
-- In `CateringOrderEditor` / `EventBookingEditor`: bei Statuswechsel auf "Storniert" öffnet sich Dialog mit:
-  - Textarea für persönliche Nachricht
-  - Button "Mit KI ausformulieren" → Edge Function `ai-cancellation-message` (Lovable AI Gateway, `google/gemini-2.5-flash`)
-  - Prompt-Kontext: Kundenname, Bestellnummer, Datum, Grund-Stichworte des Admins
-  - Resultat editierbar, dann "Senden & Stornieren" → Email via `send-transactional-email` + Status-Update
-- Gleiche Logik für **Anfragen** ("Anfrage absagen") in `SmartInquiryEditor`.
+### 1. DB-Trigger als Single Source of Truth (Backend)
 
----
+Eine neue Postgres-Funktion `log_entity_changes()` läuft als `AFTER UPDATE`-Trigger auf den drei Kerntabellen:
 
-### 3. Resend- & Stripe-Deep-Links in allen Aktivitäts-Timelines
+- `event_inquiries` (Entity-Typ `inquiry`)
+- `event_bookings`  (Entity-Typ `booking`)
+- `catering_orders` (Entity-Typ `order`)
 
-- `Timeline.tsx` + `EmailStatusCard.tsx` + Activity-Logs erweitern um Icon-Links:
-  - **E-Mail-Events**: Link zu `https://resend.com/emails/{resend_id}` (sofern `resend_id` gespeichert)
-  - **Payment-Events**: Link zu `https://dashboard.stripe.com/payments/{payment_intent_id}` bzw. `/checkout/sessions/{session_id}`
-- Migration: Sicherstellen, dass `resend_id`, `stripe_payment_intent_id`, `stripe_session_id` in `activity_log` / `email_log` / `payments` gespeichert werden (Spalten existieren teils schon, prüfen & ggf. ergänzen).
-- Einheitliche `<ExternalRefLinks>`-Komponente für konsistente Darstellung überall (Bestellungen, Anfragen, Email-History, CRM-Activity).
+Pro relevanter Feldänderung wird **eine** Zeile in `activity_logs` geschrieben mit:
 
----
+- `action = 'field_changed'`
+- `metadata.field` = technischer Feldname
+- `metadata.label` = deutsches Klartext-Label („Veranstaltungsdatum", „Lieferadresse", „Gäste", „Zahlungsmethode" …)
+- `metadata.old_display` / `metadata.new_display` = bereits formatierter, lesbarer Wert (Datum als `15.05.2026`, Betrag als `1.250,00 €`, Adresse als Einzeiler, Bool als „Ja/Nein")
+- `metadata.group` = Sammel-Kategorie (`address`, `schedule`, `payment`, `delivery`, `guests`, `contact`, `notes`, `status`, `amount`)
+- `actor_id` / `actor_email` aus `auth.uid()` bzw. JWT-Claim (Fallback: „System")
 
-### 4. Bezahlt-/Offen-Übersicht + Nachzahlungslink
+Adress- und Mehrfeld-Änderungen (Straße + PLZ + Stadt) werden **zusammengefasst** zu einem Log-Eintrag „Lieferadresse geändert" mit Vorher/Nachher als einzeilige Adresse – nicht 3 separate Zeilen.
 
-- In `CateringOrderEditor` / `EventBookingEditor` neue Sektion **"Zahlungsstand"**:
-  - Bereits bezahlt: Σ erfolgreicher Stripe-Charges (aus `payments` Tabelle)
-  - Aktuelle Gesamtsumme (nach Änderungen)
-  - **Offener Betrag** = Gesamt − Bezahlt (farblich hervorgehoben)
-- Bei offener Differenz > 0: Button **"Zahlungslink senden"**
-  - Edge Function `create-balance-payment-link`: erstellt Stripe Checkout Session über Restbetrag, verknüpft mit Order-ID in `metadata`
-  - Versendet Email-Template `balance-payment-request` mit Link
-  - Webhook updated `payments` + Status nach erfolgreicher Zahlung
-- Anzeige in Aktivitäts-Timeline mit Stripe-Deep-Link (siehe Punkt 3).
+Felder-Whitelist (alles andere wird ignoriert, damit kein Rauschen entsteht):
 
----
+```text
+schedule : event_date, event_end_date, event_time, time_slot, desired_date, desired_time
+guests   : guest_count
+address  : delivery_street/zip/city/floor/has_elevator  → "Lieferadresse"
+           billing_street/zip/city/country/name/company → "Rechnungsadresse"
+           location_name/street/postal_code/city        → "Veranstaltungsort"
+contact  : customer_name, customer_email, customer_phone, contact_name, company_name
+payment  : payment_method, payment_status, payment_type, deposit_percent,
+           paid_amount, remaining_amount
+delivery : is_pickup, delivery_time_slot, delivery_cost
+amount   : total_amount
+status   : status, offer_phase, menu_confirmed
+notes    : internal_notes, notes, cancellation_reason
+```
 
-### 5. Abweichende Rechnungs-/Lieferadresse
+### 2. Edge-Function-Logs vereinheitlichen
 
-- DB-Migration: neue Spalten `billing_address` (jsonb) auf `catering_orders`, `event_bookings`, `inquiries` — wenn `null`, gilt Lieferadresse = Rechnungsadresse.
-- UI in `AddressSection`: Checkbox "Abweichende Rechnungsadresse" → blendet zweites Adressformular ein (gleiche Struktur: Straße, PLZ, Ort, Etage, Aufzug, Hinweise).
-- LexOffice-Integration (`lexoffice-create-invoice`): nutzt `billing_address ?? delivery_address`.
-- Gilt für Bestellungen **und** Anfragen.
+Die bestehenden manuellen `activity_logs`-Inserts (Storno, Stripe-Webhook, LexOffice, Invite, Balance-Link …) bleiben unverändert – sie liefern bereits sprechende Actions. Wir ergänzen lediglich konsistente `metadata.label`-Felder, wo sie noch fehlen, damit die Timeline einheitlich rendert.
 
----
+### 3. Timeline-Renderer aufpolieren (Frontend)
 
-### 6. Kundenkonto per Einladungs-Email
+`src/hooks/useActivityLog.ts` + `src/components/admin/shared/Timeline.tsx`:
 
-- DB: `profiles` + `user_roles` Tabellen prüfen (existieren laut Memory).
-- Edge Function `invite-customer-account`:
-  - Input: customer_email, customer_name, related_inquiry_id/order_id
-  - Verwendet `supabase.auth.admin.inviteUserByEmail()` mit `redirectTo: /set-password`
-  - Erstellt vorab `profiles`-Eintrag mit Daten aus Bestellung/Anfrage
-  - Versendet Branded-Email "Ihr persönlicher Kundenbereich" (Template `customer-account-invitation`)
-- UI: Button "Kundenkonto einladen" in `CustomerSection` von:
-  - `CateringOrderEditor`
-  - `EventBookingEditor`
-  - `SmartInquiryEditor`
-  - Kundenliste/CRM-Detail
-- Status-Anzeige: "Eingeladen am …" / "Aktiviert am …" / "Kein Konto"
-- Neue Seite `/kundenbereich` (Login + Übersicht eigener Bestellungen/Rechnungen) als Folge-Arbeitspaket (optional Phase 2, hier nur Einladungs-Flow).
+- Neuer Formatter für `action = 'field_changed'`:  
+  `„{label} geändert: {old_display} → {new_display}"` (z. B. „Veranstaltungsdatum geändert: 15.05.2026 → 22.05.2026").
+- Eigene Icons + Farben pro `metadata.group` (Adresse = MapPin/blau, Zahlung = CreditCard/grün, Termin = Calendar/amber, Gäste = Users, Lieferung = Truck, Status = ArrowRightLeft, Notiz = StickyNote).
+- **Smart Grouping im UI**: Mehrere `field_changed`-Events desselben Bearbeiters innerhalb von 60 Sekunden werden visuell zu einem Block zusammengefasst („Antoine Monot (AM) hat 3 Felder geändert · vor 2 Min.") – aufklappbar mit Detail-Liste. Datenbank-Einträge bleiben einzeln.
+- Avatar/Initialen über bestehendes `getAdminInitials()` aus `adminDisplayNames.ts`.
+- Kein JSON, kein `old_value`/`new_value`-Dump mehr sichtbar – nur die `*_display`-Strings.
 
 ---
 
-### 7. Anfragen-Parität
+## Verifikation
 
-Folgende Features werden auch in `SmartInquiryEditor` / `InquiryEditor` gespiegelt:
-
-| Feature | Bestellung | Anfrage |
-|---|---|---|
-| Storno mit KI-Nachricht | ✓ | ✓ ("Absage") |
-| Resend/Stripe Deep-Links | ✓ | ✓ |
-| Bezahlt/Offen-Übersicht | ✓ | nur wenn Anzahlung erfasst |
-| Zahlungslink senden | ✓ | ✓ (für Anzahlung/Reservierung) |
-| Alt. Rechnungsadresse | ✓ | ✓ |
-| Kundenkonto einladen | ✓ | ✓ |
+1. Adresse einer Bestellung im `CateringOrderEditor` ändern → genau ein Eintrag „Lieferadresse geändert: alte Adresse → neue Adresse" erscheint in der Timeline.
+2. Datum + Gäste + Zahlungsmethode in einer Anfrage in einem Save ändern → drei einzelne Klartext-Einträge, im UI als ein Block des aktuellen Admins zusammengefasst.
+3. Bestehende Edge-Function-Events (Stornierung, Stripe-Zahlung, Angebot v2) erscheinen unverändert mit ihren bisherigen Icons und Texten.
+4. Keine Logs bei reinen Auto-Updates wie `updated_at`, `last_edited_at`, `current_offer_version` u. ä. (sind nicht in der Whitelist).
 
 ---
 
-## Technische Notizen
+## Technische Details (für später)
 
-- **Edge Functions neu**: `ai-cancellation-message`, `create-balance-payment-link`, `invite-customer-account`
-- **Edge Functions erweitern**: `lexoffice-create-invoice` (billing_address-Fallback), `stripe-webhook` (Balance-Payments)
-- **DB-Migrationen**: `billing_address` (3 Tabellen), ggf. `resend_id` / `stripe_*_id` Spalten in `activity_log`, Kundenkonto-Status-Spalte
-- **Email-Templates neu**: `order-cancellation`, `balance-payment-request`, `customer-account-invitation` (alle Brutto-Preise, Signatur-System lt. Memory)
-- **Konsistente Komponenten**: `<ExternalRefLinks>`, `<PaymentBalanceCard>`, `<CancellationDialog>`, `<CustomerAccountInviteButton>`, `<AlternateBillingAddressFields>` — wiederverwendbar über Orders/Bookings/Inquiries
-- **Memory-Compliance**: Monochrome Palette, Inline-Buttons (kein FAB), rounded-2xl, Inter, Offer-Immutability respektieren
-
----
-
-## Reihenfolge
-
-1. Mobile-Fixes (klein, schnell)
-2. DB-Migrationen (billing_address, account-status, activity-log refs)
-3. Shared Komponenten + Deep-Links
-4. Bezahlt/Offen + Stripe-Balance-Flow
-5. Kundenkonto-Einladung
-6. Storno mit KI
-7. Anfragen-Parität durchziehen
-
-Frage vor Implementation: **Alle 7 Pakete in einem Rutsch, oder priorisiert? Falls priorisiert — welche zuerst?**
+- Migration: `create or replace function public.log_entity_changes()` + 3 Trigger `AFTER UPDATE ON ...` + Hilfsfunktion `public.format_address(...)` für einzeilige Adress-Strings.
+- Funktion `SECURITY DEFINER`, `search_path = public`, Actor aus `auth.uid()` + `auth.jwt() ->> 'email'`, Fallback `'system@events-storia.de'`.
+- Mehrfeld-Address-Diff: pro Gruppe (`delivery_*`, `billing_*`, `location_*`) ein Eintrag, wenn mindestens ein Feld der Gruppe sich geändert hat.
+- Anschließend `useActivityLog.ts` um `field_changed`-Formatter, neue Icons in `Timeline.tsx`, und Group-by-Author-Window (60 s) in der `useMemo`-Aggregation der Timeline ergänzen.
+- `ActivityLog`-Type in `src/components/admin/shared/types.ts` um optionale `metadata.label / old_display / new_display / group / field` erweitern.
