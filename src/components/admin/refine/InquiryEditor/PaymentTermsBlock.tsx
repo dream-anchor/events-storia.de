@@ -330,7 +330,7 @@ export function PaymentTermsBlock({
             {dMethod === 'stripe'
               ? 'Stripe-Buchen-Button für die Anzahlung — Vertragsschluss erfolgt automatisch mit der Zahlung.'
               : 'Stripe-Link wird automatisch für die Restzahlung versendet.'}
-            {bMethod === 'stripe_prepay' && <> 7 Tage vor Event automatische Erinnerung, falls der Restbetrag noch offen ist.</>}
+            {bMethod === 'stripe_prepay' && <> 13 Tage vor Event automatische Erinnerung, falls der Restbetrag noch offen ist.</>}
           </div>
         </div>
       )}
