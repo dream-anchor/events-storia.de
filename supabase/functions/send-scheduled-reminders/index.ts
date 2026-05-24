@@ -379,12 +379,12 @@ serve(async (req) => {
     }
 
     // ============================================
-    // 4. STRIPE-VORAUSZAHLUNG OFFEN (7 Tage vor Event)
+    // 4. STRIPE-VORAUSZAHLUNG OFFEN (13 Tage vor Event = 3 Tage vor 10-Tage-Frist)
     //    NUR wenn balance_method = 'stripe_prepay' UND noch nicht voll bezahlt.
     // ============================================
     {
       const target = new Date(now);
-      target.setDate(target.getDate() + 7);
+      target.setDate(target.getDate() + 13);
       const targetDate = target.toISOString().split("T")[0];
 
       const { data: prepayEvents, error: prepayErr } = await supabase
