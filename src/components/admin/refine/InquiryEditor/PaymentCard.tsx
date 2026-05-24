@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   CreditCard, Plus, Copy, Check, Mail, AlertTriangle,
-  Clock, Ban, RefreshCw, ChevronDown, ChevronUp
+  Clock, Ban, RefreshCw, ChevronDown, ChevronUp, FileText, Receipt
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,8 @@ export interface EventPayment {
   customer_email: string | null;
   guest_count: string | null;
   event_type: string | null;
+  lexoffice_invoice_id?: string | null;
+  lexoffice_invoice_number?: string | null;
 }
 
 interface Props {
@@ -190,7 +192,32 @@ function PaymentRow({
     }
   }, [payment.id, onRefresh]);
 
+  const handleCreateDownpaymentInvoice = useCallback(async () => {
+    setActionLoading('lexoffice');
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'create-lexoffice-downpayment-invoice',
+        { body: { payment_id: payment.id } }
+      );
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'LexOffice-Aufruf fehlgeschlagen');
+      }
+      toast.success(
+        data?.invoice_number
+          ? `Anzahlungsrechnung ${data.invoice_number} erstellt`
+          : 'Anzahlungsrechnung erstellt'
+      );
+      onRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Fehler bei LexOffice');
+    } finally {
+      setActionLoading(null);
+    }
+  }, [payment.id, onRefresh]);
+
   const isActive = !['cancelled', 'refunded'].includes(payment.status);
+  const isDownpayment = payment.payment_type === 'deposit' || payment.payment_type === 'prepayment';
+  const hasLexInvoice = !!payment.lexoffice_invoice_id;
 
   return (
     <div className={`rounded-lg border p-3 space-y-2 ${!isActive ? 'opacity-60' : ''} ${status === 'overdue' ? 'border-red-200 bg-red-50/30' : 'border-border/60 bg-white'}`}>
@@ -226,6 +253,12 @@ function PaymentRow({
         )}
         {payment.email_sent_at && (
           <span>Link gesendet am {formatDate(payment.email_sent_at)}</span>
+        )}
+        {hasLexInvoice && (
+          <span className="inline-flex items-center gap-1 text-emerald-700">
+            <Receipt className="h-3 w-3" />
+            Anzahlungsrechnung {payment.lexoffice_invoice_number || ''}
+          </span>
         )}
       </div>
 
@@ -284,6 +317,18 @@ function PaymentRow({
             >
               <Ban className="h-3 w-3" />
               {actionLoading === 'cancel' ? '…' : 'Stornieren'}
+            </Button>
+          )}
+          {status === 'paid' && isDownpayment && !hasLexInvoice && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={handleCreateDownpaymentInvoice}
+              disabled={!!actionLoading}
+            >
+              <FileText className="h-3 w-3" />
+              {actionLoading === 'lexoffice' ? 'Erstelle…' : 'Anzahlungsrechnung erstellen'}
             </Button>
           )}
         </div>
