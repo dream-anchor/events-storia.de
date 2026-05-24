@@ -824,6 +824,23 @@ export const CateringOrderEditor = () => {
                         </Badge>
                       )}
                     </div>
+                    <div className="pt-2 border-t">
+                      <InviteCustomerAccountButton
+                        customerEmail={order.customer_email}
+                        customerName={order.customer_name}
+                        customerId={customer?.id}
+                        invitedAt={customer?.account_invited_at}
+                        activatedAt={customer?.account_activated_at}
+                        onInvited={async () => {
+                          const { data } = await supabase
+                            .from("v2_customers")
+                            .select("id, account_invited_at, account_activated_at")
+                            .eq("email", order.customer_email)
+                            .maybeSingle();
+                          if (data) setCustomer(data as any);
+                        }}
+                      />
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -966,6 +983,16 @@ export const CateringOrderEditor = () => {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Zahlungsstand & Restzahlung */}
+                <PaymentBalanceCard
+                  eventId={id!}
+                  context="catering_order"
+                  totalEur={Number(order.total_amount) || 0}
+                  customerEmail={order.customer_email}
+                  customerName={order.customer_name}
+                  externalPaidEur={isStripePaid && order.total_amount ? Number(order.total_amount) : 0}
+                />
 
               </div>
             </div>
