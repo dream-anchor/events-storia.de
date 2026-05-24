@@ -718,7 +718,19 @@ serve(async (req) => {
   }
 
   try {
-    const { inquiryId, useSelectedQuantity, forceDocumentType } = await req.json();
+    const {
+      inquiryId,
+      useSelectedQuantity,
+      forceDocumentType,
+      // NEU: für Schlussrechnung — Liste der vorausgegangenen
+      // Anzahlungsrechnungen, die abgezogen werden müssen (§ 14 Abs. 5 UStG).
+      // Jeder Eintrag erzeugt eine negative Brutto-Line-Item.
+      downPaymentDeductions,
+      // NEU: wenn true, wird der erzeugte Voucher in
+      // v2_events.final_lexoffice_invoice_id gespeichert (Schlussrechnung)
+      // statt in lexoffice_invoice_id (regulärer Beleg).
+      isFinalInvoice,
+    } = await req.json();
     if (!inquiryId) throw new Error('inquiryId fehlt');
 
     const lexofficeApiKey = Deno.env.get('LEXOFFICE_API_KEY');
@@ -860,6 +872,45 @@ serve(async (req) => {
       throw new Error('Keine Positionen für das Angebot — Menü oder Paket konfigurieren');
     }
 
+    // ── Anzahlungsabzug (Schlussrechnung) ──────────────────────────────────
+    // Pro vorausgegangener Anzahlungsrechnung eine eigene negative Brutto-
+    // Zeile anhängen. Pflicht nach § 14 Abs. 5 UStG: Rechnungsnummer + Datum
+    // im Namen, Bruttobetrag als negativer grossAmount, gleicher Steuersatz
+    // wie die Anzahlung (Default 7 % Catering).
+    if (Array.isArray(downPaymentDeductions) && downPaymentDeductions.length > 0) {
+      for (const d of downPaymentDeductions as Array<{
+        invoice_number?: string | null;
+        date_iso?: string | null;
+        gross: number;
+        tax_rate?: number;
+      }>) {
+        const taxRate = typeof d.tax_rate === 'number' ? d.tax_rate : FOOD_TAX_RATE;
+        const grossAbs = Math.abs(round2(d.gross || 0));
+        if (grossAbs <= 0) continue;
+        const dateDE = d.date_iso
+          ? new Date(d.date_iso).toLocaleDateString('de-DE', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })
+          : '';
+        const refLabel = d.invoice_number ? `Nr. ${d.invoice_number}` : '';
+        lineItems.push({
+          type: 'custom',
+          name: `abzgl. Anzahlung gem. Rechnung${refLabel ? ` ${refLabel}` : ''}${dateDE ? ` vom ${dateDE}` : ''}`,
+          description:
+            'Bereits gezahlte Anzahlung (Netto, USt und Brutto) gemäß § 14 Abs. 5 UStG abgezogen.',
+          quantity: 1,
+          unitName: 'Pauschale',
+          unitPrice: {
+            currency: 'EUR',
+            grossAmount: -grossAbs,
+            taxRatePercentage: taxRate,
+          },
+        });
+      }
+    }
+
     // 5. Adressen live auflösen (kein Snapshot)
     const businessData = await loadBusinessData(supabase);
     const locationAddr = resolveLocationAddress(inquiry as never, businessData);
@@ -977,22 +1028,43 @@ serve(async (req) => {
 
     // Document-ID an das Inquiry zurueckschreiben
     if (result?.id) {
-      const updateFields: Record<string, unknown> = {
-        lexoffice_invoice_id: result.id,
-      };
-      if (isInvoiceMode) {
-        // For invoices, don't set quotation_id — it's not a quotation
+      if (isFinalInvoice && isInvoiceMode) {
+        // Schlussrechnung: in v2_events.final_lexoffice_invoice_* persistieren,
+        // damit die reguläre invoice-Spalte (für die "normale" Rechnung) nicht
+        // überschrieben wird. Direkt auf der Basistabelle schreiben, weil das
+        // View event_inquiries diese Felder nicht durchreicht.
+        const finalNumber = (result?.voucherNumber || result?.invoiceNumber || null) as string | null;
+        await supabase
+          .from('v2_events')
+          .update({
+            final_lexoffice_invoice_id: result.id,
+            final_lexoffice_invoice_number: finalNumber,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', inquiryId);
       } else {
-        updateFields.lexoffice_quotation_id = result.id;
+        const updateFields: Record<string, unknown> = {
+          lexoffice_invoice_id: result.id,
+        };
+        if (!isInvoiceMode) {
+          updateFields.lexoffice_quotation_id = result.id;
+        }
+        await supabase
+          .from('event_inquiries')
+          .update(updateFields)
+          .eq('id', inquiryId);
       }
-      await supabase
-        .from('event_inquiries')
-        .update(updateFields)
-        .eq('id', inquiryId);
     }
 
     return new Response(
-      JSON.stringify({ success: true, quotationId: result.id, documentType: endpoint }),
+      JSON.stringify({
+        success: true,
+        quotationId: result.id,
+        invoiceId: result.id,
+        invoiceNumber: result?.voucherNumber || result?.invoiceNumber || null,
+        documentType: endpoint,
+        isFinalInvoice: !!isFinalInvoice,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
 
