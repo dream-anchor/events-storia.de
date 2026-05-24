@@ -103,7 +103,7 @@ const ActivityEntry = ({ log, isFirst, isLast }: ActivityEntryProps) => {
   const actorName = getAdminDisplayName(log.actor_email);
   const initials = getAdminInitials(log.actor_email);
   const theme = getActionTheme(log.action);
-  const hasSummary: boolean = Boolean(log.metadata?.summary);
+  const hasSummary: boolean = !!(log.metadata && (log.metadata as Record<string, unknown>).summary);
 
   return (
     <div className="relative flex gap-3 group">
