@@ -1,3 +1,6 @@
+// Temporal-Polyfill MUSS als allererstes geladen werden (iOS Safari hat kein Temporal),
+// damit Libraries wie @schedule-x/calendar beim Auswerten globalThis.Temporal vorfinden.
+import "@js-temporal/polyfill";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
