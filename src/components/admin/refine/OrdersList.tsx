@@ -283,8 +283,9 @@ export const OrdersList = () => {
       cell: ({ row }) => {
         const o = row.original;
         return (
-          <div className="flex flex-col gap-1 min-w-[180px]">
-            {o.customer_email && (
+          <div className="flex items-start gap-2 min-w-[180px]">
+            <div className="flex flex-col gap-1 min-w-0 flex-1">
+              {o.customer_email && (
               <a
                 href={`mailto:${o.customer_email}`}
                 onClick={(e) => e.stopPropagation()}
@@ -303,6 +304,13 @@ export const OrdersList = () => {
                 <Phone className="h-3 w-3" />
                 <span>{o.customer_phone}</span>
               </a>
+            )}
+            </div>
+            {o.customer_email && (
+              <InviteCustomerIconButton
+                customerEmail={o.customer_email}
+                customerName={o.customer_name || undefined}
+              />
             )}
           </div>
         );
