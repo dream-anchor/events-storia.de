@@ -157,7 +157,7 @@ function buildHtml(o: {
   ].filter(Boolean).join("");
 
   return `<!DOCTYPE html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<html lang="de"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f7f7f7;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f7f7;padding:32px 0;">
     <tr><td align="center">
@@ -180,7 +180,7 @@ function buildHtml(o: {
           </p>` : ""}
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:16px 0 0;">
             <strong>Stornobedingungen:</strong><br/>
-            Bis 30 Tage vorher: kostenlos &middot; 14–30 Tage: 25&nbsp;% &middot; 7–14 Tage: 50&nbsp;% &middot; 2–7 Tage: 80&nbsp;% &middot; Unter 48&nbsp;Std./No-Show: 100&nbsp;% abzgl. ersparter Aufwendungen.<br/>
+            Bis 30 Tage vorher: kostenlos &middot; 14&ndash;30 Tage: 25&nbsp;% &middot; 7&ndash;14 Tage: 50&nbsp;% &middot; 2&ndash;7 Tage: 80&nbsp;% &middot; Unter 48&nbsp;Std./No-Show: 100&nbsp;% abzgl. ersparter Aufwendungen.<br/>
             <span style="font-size:13px;color:#666666;">
               Vollständige AGB: <a href="https://www.events-storia.de/agb-veranstaltungen" style="color:#b45309;">events-storia.de/agb-veranstaltungen</a>
             </span>
