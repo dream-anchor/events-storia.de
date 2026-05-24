@@ -1,0 +1,1 @@
+UPDATE public.v2_events SET amount_total = 4900.00 WHERE id = '316a0f27-8911-464f-97ea-c5135328f3d5' AND amount_total IS NULL;
