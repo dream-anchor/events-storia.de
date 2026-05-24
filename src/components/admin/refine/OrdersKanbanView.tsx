@@ -365,12 +365,12 @@ export function OrdersKanbanView({ orders, bucket, onRefresh }: OrdersKanbanView
       data[target].items.push(o);
       data[target].totalSum += o.total_amount || 0;
     });
-    // Sortierung: nächster Termin zuerst
+    // Sortierung: neueste Bestellung zuerst
     Object.values(data).forEach((b) =>
       b.items.sort((a, b) => {
-        const da = a.desired_date || a.created_at || "";
-        const db = b.desired_date || b.created_at || "";
-        return da.localeCompare(db);
+        const da = a.created_at || "";
+        const db = b.created_at || "";
+        return db.localeCompare(da);
       }),
     );
     return data;
