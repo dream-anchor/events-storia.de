@@ -10,6 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +21,7 @@ import {
   ArrowLeft, Loader2, Save, Phone, Mail, Building2, MapPin, 
   Calendar, Clock, CreditCard, Receipt, User, BadgeCheck, 
   FileText, Truck, Package, Ban, RefreshCw, AlertCircle, Activity,
-  ExternalLink, Download, Plus
+  ExternalLink, Download, Plus, Trash2, Minus
 } from "lucide-react";
 import { Timeline } from "@/components/admin/shared/Timeline";
 import { EmailStatusCard } from "@/components/admin/shared/EmailStatusCard";
@@ -194,30 +198,116 @@ export const CateringOrderEditor = () => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Editable state
+  type OrderItem = { id?: string; name: string; quantity: number; price: number };
+  const [itemsState, setItemsState] = useState<OrderItem[]>([]);
+  const [desiredDate, setDesiredDate] = useState<string>("");
+  const [desiredTime, setDesiredTime] = useState<string>("");
+  const [isPickup, setIsPickup] = useState<boolean>(true);
+  const [deliveryStreet, setDeliveryStreet] = useState("");
+  const [deliveryZip, setDeliveryZip] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryFloor, setDeliveryFloor] = useState("");
+  const [hasElevator, setHasElevator] = useState(false);
+  const [deliveryCost, setDeliveryCost] = useState<number>(0);
+  const [minimumOrderSurcharge, setMinimumOrderSurcharge] = useState<number>(0);
+  const [billingName, setBillingName] = useState("");
+  const [billingStreet, setBillingStreet] = useState("");
+  const [billingZip, setBillingZip] = useState("");
+  const [billingCity, setBillingCity] = useState("");
+  const [billingCountry, setBillingCountry] = useState("Deutschland");
+  const [isRecalcDelivery, setIsRecalcDelivery] = useState(false);
+
   // Initialize state from order
   useEffect(() => {
     if (order && !isInitialized) {
       setInternalNotes(order.internal_notes || "");
       setStatus(order.status || "pending");
+      setItemsState(Array.isArray(order.items) ? order.items.map((i: any) => ({
+        id: i.id, name: i.name, quantity: Number(i.quantity) || 1, price: Number(i.price) || 0,
+      })) : []);
+      setDesiredDate(order.desired_date || "");
+      setDesiredTime((order.desired_time || "").slice(0, 5));
+      setIsPickup(!!order.is_pickup);
+      setDeliveryStreet(order.delivery_street || "");
+      setDeliveryZip(order.delivery_zip || "");
+      setDeliveryCity(order.delivery_city || "");
+      setDeliveryFloor(order.delivery_floor || "");
+      setHasElevator(!!order.has_elevator);
+      setDeliveryCost(Number(order.delivery_cost) || 0);
+      setMinimumOrderSurcharge(Number(order.minimum_order_surcharge) || 0);
+      setBillingName(order.billing_name || "");
+      setBillingStreet(order.billing_street || "");
+      setBillingZip(order.billing_zip || "");
+      setBillingCity(order.billing_city || "");
+      setBillingCountry(order.billing_country || "Deutschland");
       setIsInitialized(true);
     }
   }, [order, isInitialized]);
 
+  // Live-Berechnung
+  const itemsSubtotal = itemsState.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+  const grandTotal = itemsSubtotal + (isPickup ? 0 : deliveryCost) + minimumOrderSurcharge;
+
   const handleSave = useCallback(() => {
     if (!id) return;
-    
+
     updateMutation.mutate({
       resource: "orders",
       id,
       values: {
         internal_notes: internalNotes,
         status,
+        items: itemsState,
+        desired_date: desiredDate || null,
+        desired_time: desiredTime || null,
+        is_pickup: isPickup,
+        delivery_street: isPickup ? null : (deliveryStreet || null),
+        delivery_zip: isPickup ? null : (deliveryZip || null),
+        delivery_city: isPickup ? null : (deliveryCity || null),
+        delivery_floor: isPickup ? null : (deliveryFloor || null),
+        has_elevator: isPickup ? false : hasElevator,
+        delivery_cost: isPickup ? 0 : deliveryCost,
+        minimum_order_surcharge: minimumOrderSurcharge,
+        total_amount: grandTotal,
+        billing_name: billingName || null,
+        billing_street: billingStreet || null,
+        billing_zip: billingZip || null,
+        billing_city: billingCity || null,
+        billing_country: billingCountry || null,
       },
     }, {
-      onSuccess: () => toast.success("Änderungen gespeichert"),
+      onSuccess: () => {
+        toast.success("Änderungen gespeichert");
+        orderQuery.query.refetch();
+      },
       onError: () => toast.error("Fehler beim Speichern"),
     });
-  }, [id, updateMutation, internalNotes, status]);
+  }, [id, updateMutation, internalNotes, status, itemsState, desiredDate, desiredTime, isPickup, deliveryStreet, deliveryZip, deliveryCity, deliveryFloor, hasElevator, deliveryCost, minimumOrderSurcharge, grandTotal, billingName, billingStreet, billingZip, billingCity, billingCountry, orderQuery.query]);
+
+  const recalcDelivery = useCallback(async () => {
+    if (isPickup || !deliveryStreet || !deliveryZip || !deliveryCity) {
+      toast.error("Bitte Lieferadresse vollständig ausfüllen");
+      return;
+    }
+    setIsRecalcDelivery(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("calculate-delivery", {
+        body: {
+          delivery_address: `${deliveryStreet}, ${deliveryZip} ${deliveryCity}`,
+          subtotal: itemsSubtotal,
+        },
+      });
+      if (error) throw error;
+      if (data?.delivery_cost != null) setDeliveryCost(Number(data.delivery_cost));
+      if (data?.minimum_order_surcharge != null) setMinimumOrderSurcharge(Number(data.minimum_order_surcharge));
+      toast.success(`Liefergebühr neu berechnet: ${(data?.delivery_cost ?? 0).toFixed(2)} €`);
+    } catch (e: any) {
+      toast.error(e.message || "Liefergebühr-Berechnung fehlgeschlagen");
+    } finally {
+      setIsRecalcDelivery(false);
+    }
+  }, [isPickup, deliveryStreet, deliveryZip, deliveryCity, itemsSubtotal]);
 
   const handleCancelOrder = async () => {
     if (!id || !order) return;
