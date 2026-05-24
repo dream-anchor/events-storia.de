@@ -520,7 +520,7 @@ interface SendResult {
   errorMessage: string | null;
 }
 
-async function sendEmail(to: string[], subject: string, text: string, fromName: string): Promise<SendResult> {
+async function sendEmail(to: string[], subject: string, text: string, fromName: string, htmlOverride?: string): Promise<SendResult> {
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   const smtpUser = Deno.env.get("SMTP_USER")?.trim();
   const smtpPassword = Deno.env.get("SMTP_PASSWORD");
@@ -529,7 +529,7 @@ async function sendEmail(to: string[], subject: string, text: string, fromName: 
   let messageId: string | null = null;
   let errorMessage: string | null = null;
 
-  const htmlBody = `<!DOCTYPE html>
+  const htmlBody = htmlOverride ?? `<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
