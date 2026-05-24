@@ -1,83 +1,96 @@
-## Ziel
 
-Zwei Themen sauber zu Ende ziehen:
+## Teil A — Audit der letzten 14 Tage
 
-1. **Bug: 0% Anzahlung wird als 20% angezeigt** (Public Offer + Berechnung).
-2. **UI-Verkabelung Anzahlungs-/Schlussrechnung** (Backend ist da, Buttons & manuelle Trigger fehlen).
+### A.1 Anfragen / Bestellungen im System
 
----
+In `v2_events` sind in den letzten 14 Tagen **20 Datensätze** angelegt worden (alle erscheinen also im System). Verteilt nach Quelle:
 
-## Teil 1 — 0%-Anzahlung Bug fix (Senior CX + Red Team)
+- `website` (Event-Anfrageformular): 5
+- `catering_form`: 4 (3 echte bezahlte Bestellungen + 1 Test)
+- `reisegruppen`: 4
+- `manual` (im Maestro angelegt): 7 (davon 2 als `is_test=true` markiert)
 
-### Root Cause
-Drei Ebenen treffen aufeinander:
+Zusätzlich in den Legacy-/Sekundärtabellen (werden parallel von alten Edge Functions geschrieben, sollten konsistent sein):
 
-- **Editor** (`PaymentTermsBlock.tsx`): Das `%`-Input hat `min={1}` und `handleNumber(... , 1, 99)` — **0 lässt sich gar nicht eingeben**. Es gibt auch keine Methode "keine Anzahlung". `deposit_online` ist die einzige Variante mit Anzahlungsfeld; bei `on_site`/`invoice_after` bleibt der Altwert stehen.
-- **Public Offer**: `inquiry.deposit_percent ?? 20` an 3 Stellen (`PublicOffer.tsx:188`, `ProposalView.tsx:153`, `FinalOfferView.tsx:59`). Bei `null` in der DB ⇒ 20%.
-- **computeDeposit** ignoriert `payment_method`. Wenn Admin auf `on_site`/`invoice_after` umstellt, wird Altwert (z.B. 20) weiter benutzt.
+- `event_inquiries`: 13 neu
+- `catering_orders`: 3 neu
+- `event_bookings`: 1 neu
+- `v2_payments` / `event_payments`: je 4 neu
 
-### Fixes
+**Befund:** Es gibt **keine "verwaisten" Datensätze**, die in der DB liegen, aber nicht im Maestro auftauchen würden. Jede Anfrage/Bestellung der letzten 14 Tage existiert mit Customer-Verknüpfung in `v2_events`.
 
-1. **`PaymentTermsBlock.tsx`**
-   - `min={0}`, `handleNumber("deposit_percent", e.target.value, 0, 99)`.
-   - Bei `deposit_percent === 0` Hinweistext anzeigen: "Keine Anzahlung — volle Zahlung zum Termin/per Rechnung."
-   - In `handleMethodChange`: bei Wechsel auf `on_site`/`invoice_after` ⇒ `deposit_percent = 0`, `deposit_amount = 0` (klare DB-Wahrheit, kein Stale-State).
-   - Default für Neukunden bleibt 20, aber nur wenn `paymentMethod` (initial) `deposit_online` ist; sonst 0.
+Einziges Auffälliges:
+- 2 `reisegruppen`-Einträge vom 12.05. mit Status `offer_draft` und gleicher Mail (Tom Test) — sieht nach Doppel-Submit aus, beide echt in der Tabelle.
+- 2 manuelle Test-Einträge mit `is_test=true` werden je nach Filter in der UI ausgeblendet.
 
-2. **`computeDeposit` (`PublicOffer.tsx`)**
-   - Signatur erweitern: `inquiry` muss `payment_method` kennen.
-   - Wenn `payment_method ∈ {on_site, pay_on_site, invoice_after, invoice_after_event}` ⇒ `show: false`, `amount: 0`.
-   - `pct = inquiry.deposit_percent ?? 20` → `?? (paymentMethod === 'deposit_online' ? 20 : 0)`. Sicherer Default nur, wenn auch wirklich Anzahlungs-Modus.
-   - `pct === 0` ⇒ `show: false` (ist schon da, bleibt).
+### A.2 Benachrichtigungen an Betreiber & Kunden
 
-3. **`ProposalView.tsx` & `FinalOfferView.tsx`**
-   - Den lokalen `?? 20`-Fallback entfernen und die Logik über `computeDeposit` (oder eine analoge Helper) ziehen — Single Source of Truth.
-   - Anzeige des Anzahlungs-Blocks an `deposit.show` koppeln (nicht nur an Prozent), inkl. Render-Guards bei `on_site` / `invoice_after`.
+`email_delivery_logs` für die letzten 14 Tage gegen die `v2_events`-Liste gemappt:
 
-4. **Server-side Härtung (Red Team)**
-   - `create-payment-session/index.ts`: vor Stripe-Checkout Re-Compute des Betrags **server-seitig** aus DB-Werten (`v2_events.deposit_percent/amount/payment_method` + Total aus Quotation). Client-übergebenen `amount` nur als Anzeige nutzen, niemals an Stripe weiterreichen.
-   - Bei `payment_method ∈ {on_site, invoice_after}` ⇒ 400, kein Stripe-Session-Create für `deposit`-Type.
-   - Logging: `[deposit-recompute] client=… server=…` bei Abweichung, damit Drift sichtbar wird.
+| Datum | Quelle | Kunde-Mail | Betreiber-Mail | WhatsApp |
+|---|---|---|---|---|
+| 22.05. 07:35 Mimmo (website) | ✅ | ✅ | ❌ "WhatsApp not configured" |
+| 22.05. 07:34 Mimmo (manual, paid) | — keine Mail-Logs | — | — |
+| 19.05. neo-kanzlei (website) | ✅ | ✅ | ❌ "WhatsApp not configured" |
+| 19.05. Anna Besyakova (manual, paid) | — keine Mail-Logs | — | — |
+| 18.05. Test2 reisegruppen | — keine Mail-Logs | — | — |
+| 16.05. CAT-...-530 (catering_form, bezahlt) | ✅ | ✅ | ❌ |
+| 15.05. CAT-...-321 (catering_form, bezahlt) | ✅ | ✅ | ❌ |
+| 14.05. Fardo, Agnese, Mimmo (website) | ✅ | ✅ | ❌ |
+| 14.05. Ida Lucca (manual, cancelled) | — keine Mail-Logs | — | — |
+| 13.05. Jessica Lagourrès (manual, paid) | nur Angebots-Mails ab 15.05. | — | — |
+| 13.05. rachele ruggeri (website, paid) | (zu prüfen, oberhalb des Truncate) | | |
+| 12.05. Tom Test reisegruppen ×2 | — | — | — |
+| 12.05. Test reisegruppen | — | — | — |
+| 11.05. Mimmo website | ✅ | ✅ | ❌ |
 
-### QA-Checklist
-- 0% + `deposit_online` ⇒ Public Offer zeigt "Komplette Zahlung", kein Anzahlungs-Block, Stripe-Button "Jetzt zahlen" mit Total.
-- 0% + `invoice_after` ⇒ kein Stripe-Block, nur Hinweistext "Rechnung nach Veranstaltung, zahlbar binnen X Tagen".
-- 30% + `deposit_online` ⇒ Anzahlungs-Block 30%.
-- DB hat `deposit_percent = null` + `payment_method = on_site` ⇒ Public Offer zeigt **keine** Anzahlung (nicht mehr 20).
-- Manuelle Stripe-Manipulation (Param-Edit) im Browser ⇒ Server lehnt mit 400 ab.
+**Befunde Notifications:**
 
----
+1. **`source = 'manual'` löst keine Benachrichtigung aus.** Korrekt designed (man legt im Admin selbst an), aber: bei `status = 'paid'` manuell angelegt (Anna 19.05., Jessica 13.05.) gibt es **keine Zahlungsbestätigung an den Kunden**. Das ist eine Lücke — sobald wir "paid" setzen, sollte zumindest optional die LexOffice-Rechnung + Bestätigungsmail rausgehen (passt zum laufenden Anzahlungs/Schlussrechnungs-Thema).
+2. **`source = 'reisegruppen'` (Tom Test, Test, Test2) versendet aktuell gar keine Mail** — weder an Kunde noch Betreiber. Das ist ein echter Bug: 4 Reisegruppen-Anfragen in 14 Tagen, 0 Logs.
+3. **WhatsApp-Alarm schlägt seit Tagen fehl** mit `WhatsApp not configured` (Meta API Credential fehlt/abgelaufen). Trifft alle 4 Inquiry-Pfade.
+4. Die Betreiber-Mail (`info@events-storia.de, d.speranza@storia-muenchen.de`) bei `Kundenantwort` wird mit Status `bounced` geloggt (mehrere Treffer am 15.05./22.05.) — Resend lehnt die kommaseparierte Adressliste in einem Feld ab, müsste als Array übergeben werden.
 
-## Teil 2 — UI-Verkabelung Anzahlungs-/Schlussrechnung
+### A.3 Maßnahmen Teil A
 
-### Was schon liegt
-- `create-lexoffice-downpayment-invoice` Edge Function (deployed).
-- `create-lexoffice-final-invoice` Edge Function (deployed).
-- `handle-stripe-webhook` ruft automatisch je nach `payment_type`.
-- Migration: `final_lexoffice_invoice_id/number` auf `v2_events`.
+1. `process-new-inquiry` / Reisegruppen-Flow: Notification-Hook hinzufügen (Kunden-Confirmation + Betreiber-Alert + Logging in `email_delivery_logs`), analog zu `website`/`catering_form`.
+2. Bei `manual`-Anlage mit `status = 'paid'`: optionalen Schalter "Bestätigung + Rechnung an Kunde senden" im AddPaymentDrawer aktivieren (greift bestehende `create-lexoffice-downpayment-invoice` / `…-final-invoice` Pipelines aus dem letzten Schritt).
+3. WhatsApp-Versand: `WHATSAPP_*` Secret-Status prüfen, sonst stillschweigend skippen (kein "failed"-Log) bis Credentials wieder gesetzt sind.
+4. Kundenantwort-Notification: Empfängerliste als Array `["info@…", "d.speranza@…"]` an Resend übergeben, nicht als ein String mit Komma.
 
-### Was fehlt
+## Teil B — Mobile-Fehler "Can't find variable: Temporal"
 
-1. **`AddPaymentDrawer.tsx`** — bei manuell als `paid` markiertem Payment (`deposit`/`prepayment`/`final`) direkt die passende Edge Function callen (analog zur Webhook-Logik). Spinner + Toast "Anzahlungsrechnung erstellt" / "Schlussrechnung erstellt".
+### Ursache
 
-2. **`PaymentCard.tsx`**
-   - Pro bezahltem `deposit`/`prepayment`-Payment Button "Anzahlungsrechnung öffnen" (Link zu LexOffice-PDF via vorhandene Doc-Retrieval-Logik).
-   - Falls `lexoffice_invoice_id` fehlt: Button "Anzahlungsrechnung nachholen" → ruft `create-lexoffice-downpayment-invoice`.
-   - Neuer Button "Schlussrechnung erstellen" (sichtbar wenn alle Payments paid und `final_lexoffice_invoice_id` leer).
+`src/main.tsx` macht `import "@js-temporal/polyfill"`. Aber `@js-temporal/polyfill@0.5.1` ist **kein Auto-Side-Effect-Polyfill** — das Paket exportiert `Temporal` als Named Export und setzt `globalThis.Temporal` **nicht** selbst. Auf Desktop-Chrome funktioniert es trotzdem, weil V8 bereits experimentelles `Temporal` hat; auf iOS Safari und älteren Android-WebViews fehlt es ⇒ `@schedule-x/calendar` knallt mit `Can't find variable: Temporal`.
 
-3. **Inquiry Sidebar / LexOffice Documents Liste**
-   - Anzahlungsrechnungen + Schlussrechnung neben Angebot/Voucher anzeigen (bestehende Doc-Visibility-Komponente erweitern).
+Im polyfill-Bundle (`dist/index.esm.js`) ist auch kein `globalThis.Temporal = …` Statement (verifiziert).
 
-4. **Idempotenz im UI**
-   - Buttons disabled wenn Function bereits einmal erfolgreich (anhand persistierter `lexoffice_invoice_id`).
+### Fix
 
-### Out of scope
-- LexOffice-Storno-Flow.
-- Historische Backfill-Migration für bestehende Payments.
-- `is_reservation_fee`-Editor-UI (Flag liegt, UI später).
+`src/main.tsx`:
 
-### QA
-- Manuell als bezahlt markierte 30%-Anzahlung ⇒ Anzahlungsrechnung in LexOffice, PDF-Mail raus, Button "Anzahlungsrechnung öffnen" verfügbar.
-- 2× Anzahlung ⇒ 2 Rechnungen, fortlaufende Nummern.
-- Klick "Schlussrechnung erstellen" ⇒ Schlussrechnung mit `abzgl.`-Zeilen pro Anzahlung, Centbeträge stimmen.
-- Doppelklick / Reload ⇒ keine Doppelrechnung (Idempotenz).
+```ts
+import { Temporal, Intl as TemporalIntl, toTemporalInstant } from "@js-temporal/polyfill";
+
+if (typeof globalThis.Temporal === "undefined") {
+  // @ts-expect-error – Temporal ist im TS-Lib noch nicht enthalten
+  globalThis.Temporal = Temporal;
+  // @ts-expect-error – toTemporalInstant auf Date.prototype anhängen
+  Date.prototype.toTemporalInstant = toTemporalInstant;
+}
+```
+
+`@ts-expect-error` Kommentare, weil `globalThis.Temporal` in den eingebundenen TS-Libs nicht typisiert ist.
+
+### Validierung
+
+1. Build durchlaufen lassen.
+2. Mobile-Preview öffnen → `/maestro` Route lädt ohne ErrorBoundary "Admin konnte nicht geladen werden".
+3. Console-Check: `typeof globalThis.Temporal === "object"`.
+
+## Out of Scope (separate Runde)
+
+- Echte Backfill-Mails für die 7 manuell angelegten Vorgänge der letzten 14 Tage.
+- LexOffice-Integration für `source='manual'`-Zahlungen.
+- Renaming/Cleanup der parallelen Legacy-Tabellen (`event_inquiries`, `catering_orders`, `event_bookings`) zugunsten von `v2_events` als Single Source.

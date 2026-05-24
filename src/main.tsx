@@ -1,6 +1,16 @@
 // Temporal-Polyfill MUSS als allererstes geladen werden (iOS Safari hat kein Temporal),
 // damit Libraries wie @schedule-x/calendar beim Auswerten globalThis.Temporal vorfinden.
-import "@js-temporal/polyfill";
+// Achtung: `@js-temporal/polyfill@0.5` setzt `globalThis.Temporal` NICHT automatisch —
+// wir müssen den Named Export selbst auf das globale Objekt heben, sonst knallt iOS Safari
+// mit "Can't find variable: Temporal".
+import { Temporal, toTemporalInstant } from "@js-temporal/polyfill";
+
+if (typeof (globalThis as unknown as { Temporal?: unknown }).Temporal === "undefined") {
+  // @ts-expect-error – Temporal ist in den TS-Libs noch nicht typisiert
+  globalThis.Temporal = Temporal;
+  // @ts-expect-error – toTemporalInstant ist eine Stage-3-Erweiterung von Date.prototype
+  Date.prototype.toTemporalInstant = toTemporalInstant;
+}
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
