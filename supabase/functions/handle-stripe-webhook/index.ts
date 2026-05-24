@@ -995,6 +995,49 @@ function formatEUR(amount: number): string {
   }).format(amount);
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// UStG-Helper: Anzahlungsrechnung bzw. Schlussrechnung triggern
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function triggerInvoiceForPayment(
+  paymentId: string,
+  inquiryId: string,
+  paymentType: string,
+) {
+  try {
+    if (paymentType === "deposit" || paymentType === "prepayment") {
+      await fetch(
+        `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-lexoffice-downpayment-invoice`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ payment_id: paymentId }),
+        },
+      );
+      logStep("Anzahlungsrechnung getriggert", { paymentId });
+    } else if (paymentType === "final") {
+      await fetch(
+        `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-lexoffice-final-invoice`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ inquiryId }),
+        },
+      );
+      logStep("Schlussrechnung getriggert", { inquiryId });
+    }
+  } catch (err) {
+    logStep("Invoice trigger error (non-fatal)", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 // deno-lint-ignore no-explicit-any
 async function logActivity(supabase: any, entry: {
   entity_type: string;
