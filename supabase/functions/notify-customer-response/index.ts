@@ -99,7 +99,6 @@ https://events-storia.de/admin/events/${inquiryId}/edit`;
 
     const notificationRecipients = [
       "info@events-storia.de",
-      "d.speranza@storia-muenchen.de",
     ];
 
     // Admin-Benachrichtigung: IONOS SMTP primär (eigene Domain → sofortige Zustellung,
