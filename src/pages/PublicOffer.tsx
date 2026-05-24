@@ -992,8 +992,8 @@ function ProposalView({
             ))}
           </div>
 
-          {/* PRIMARY ACTION — Buchen über Stripe (nur wenn Betrag kalkuliert ist) */}
-          {selectedOption && totalAmount > 0 && (
+          {/* PRIMARY ACTION — Buchen über Stripe (nur wenn Online-Zahlung & Betrag) */}
+          {selectedOption && totalAmount > 0 && !offlineTiming && (
             <div className="max-w-2xl mb-10">
               <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm rounded-2xl border-2 border-primary/20 p-6 md:p-8 shadow-[0_8px_30px_rgba(139,0,0,0.08)]">
                 <div className="mb-6">
@@ -1005,7 +1005,10 @@ function ProposalView({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className={cn(
+                  "grid grid-cols-1 gap-3",
+                  deposit.show && "md:grid-cols-2"
+                )}>
                   {/* Voll bezahlen — Primary/Dominant */}
                   <Button
                     onClick={() => handlePayment('full')}
@@ -1021,7 +1024,8 @@ function ProposalView({
                     </span>
                   </Button>
 
-                  {/* Anzahlung 20 % — Secondary/Alternative */}
+                  {/* Anzahlung — nur wenn vom Admin konfiguriert (0 % < x < 100 %) */}
+                  {deposit.show && (
                   <Button
                     onClick={() => handlePayment('deposit')}
                     disabled={busy}
@@ -1036,6 +1040,7 @@ function ProposalView({
                       {formatCurrencyDecimal(depositAmount)}
                     </span>
                   </Button>
+                  )}
                 </div>
 
                 {/* Trust-Elemente */}
