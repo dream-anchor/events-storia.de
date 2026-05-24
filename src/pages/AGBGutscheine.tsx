@@ -105,7 +105,7 @@ const AGBGutscheine = () => {
                 <li>Kreditkarte (Visa, Mastercard, American Express)</li>
                 <li>PayPal</li>
                 <li>Sofortüberweisung</li>
-                <li>EC-Karte (bei Kauf im Restaurant)</li>
+                <li>Karte (bei Kauf im Restaurant)</li>
                 <li>Barzahlung (bei Kauf im Restaurant)</li>
               </ul>
             </section>

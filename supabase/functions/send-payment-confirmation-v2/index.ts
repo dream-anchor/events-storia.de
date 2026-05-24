@@ -55,7 +55,7 @@ serve(async (req) => {
     // Load event + customer
     const { data: ev, error: evErr } = await supabase
       .from("v2_events")
-      .select("id, customer_id, booking_number, date, time_from, event_time, amount_total, is_test")
+      .select("id, customer_id, booking_number, date, time_from, event_time, amount_total, is_test, deposit_method, balance_method")
       .eq("id", payment.event_id)
       .single();
     if (evErr || !ev) throw new Error("Event nicht gefunden");
@@ -102,6 +102,8 @@ serve(async (req) => {
       eventDateStr,
       bookingNumber,
       includeApology: !!include_apology,
+      balanceMethod: ev.balance_method,
+      depositMethod: ev.deposit_method,
       prepayment: isPrepaymentInvite && prepayment ? {
         paymentLinkUrl: prepayment.paymentLinkUrl,
         pricePerPersonFormatted: new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" })
@@ -167,6 +169,8 @@ function buildHtml(o: {
   eventDateStr: string | null;
   bookingNumber: string;
   includeApology: boolean;
+  balanceMethod?: string | null;
+  depositMethod?: string | null;
   prepayment?: {
     paymentLinkUrl: string;
     pricePerPersonFormatted: string;
@@ -236,9 +240,14 @@ function buildHtml(o: {
             ${summaryRows}
           </table>
           ${prepaymentBlock}
-          ${!isPrepayment && o.remainingFormatted ? `<p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 16px;">
-            Den noch offenen Betrag von <strong>${o.remainingFormatted}</strong> stellen wir Ihnen rechtzeitig vor der Veranstaltung in Rechnung.
-          </p>` : ""}
+          ${!isPrepayment && o.remainingFormatted ? (() => {
+            const balanceText = o.balanceMethod === 'on_site'
+              ? `Den noch offenen Betrag von <strong>${o.remainingFormatted}</strong> begleichen Sie bitte <strong>vor Ort beim Event</strong> (bar oder Karte).`
+              : o.balanceMethod === 'invoice_after'
+              ? `Den noch offenen Betrag von <strong>${o.remainingFormatted}</strong> stellen wir Ihnen nach der Veranstaltung in Rechnung.`
+              : `Den noch offenen Betrag von <strong>${o.remainingFormatted}</strong> stellen wir Ihnen rechtzeitig vor der Veranstaltung in Rechnung.`;
+            return `<p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 16px;">${balanceText}</p>`;
+          })() : ""}
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:16px 0 0;">
             <strong>Stornobedingungen:</strong><br/>
             Bis 30 Tage vorher: kostenlos &middot; 14&ndash;30 Tage: 25&nbsp;% &middot; 7&ndash;14 Tage: 50&nbsp;% &middot; 2&ndash;7 Tage: 80&nbsp;% &middot; Unter 48&nbsp;Std./No-Show: 100&nbsp;% abzgl. ersparter Aufwendungen.<br/>
