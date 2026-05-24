@@ -15,10 +15,10 @@ serve(async (req) => {
   }
 
   try {
-    const { payment_id, is_reminder = false } = await req.json();
+    const { payment_id, is_reminder = false, is_confirmation = false } = await req.json();
     if (!payment_id) throw new Error('payment_id ist erforderlich');
 
-    logStep("Sending payment email", { payment_id, is_reminder });
+    logStep("Sending payment email", { payment_id, is_reminder, is_confirmation });
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -33,7 +33,9 @@ serve(async (req) => {
       .single();
 
     if (error || !payment) throw new Error('Zahlung nicht gefunden');
-    if (!payment.stripe_payment_link_url) throw new Error('Kein Zahlungslink vorhanden — bitte erst Stripe Session erstellen');
+    if (!is_confirmation && !payment.stripe_payment_link_url) {
+      throw new Error('Kein Zahlungslink vorhanden — bitte erst Stripe Session erstellen');
+    }
     if (!payment.customer_email) throw new Error('Keine E-Mail-Adresse bei der Anfrage hinterlegt');
 
     // Check if the linked inquiry is a test
@@ -68,20 +70,25 @@ serve(async (req) => {
       ? new Date(payment.effective_due_date).toLocaleDateString('de-DE')
       : null;
 
-    const subject = is_reminder
-      ? `Erinnerung: ${typeLabel} für ${payment.event_type || 'Ihre Veranstaltung'} am ${eventDateStr}`
-      : `${typeLabel}: ${amountFormatted} für Ihre Veranstaltung am ${eventDateStr}`;
+    const subject = is_confirmation
+      ? `Zahlungseingang bestätigt: ${typeLabel} für Ihre Veranstaltung am ${eventDateStr}`
+      : is_reminder
+        ? `Erinnerung: ${typeLabel} für ${payment.event_type || 'Ihre Veranstaltung'} am ${eventDateStr}`
+        : `${typeLabel}: ${amountFormatted} für Ihre Veranstaltung am ${eventDateStr}`;
 
-    const introText = is_reminder
-      ? `wir möchten Sie freundlich daran erinnern, dass Ihre <strong>${typeLabel}</strong> in Höhe von <strong>${amountFormatted}</strong>${effectiveDueDateStr ? ` (fällig seit ${effectiveDueDateStr})` : ''} noch aussteht.`
-      : `anbei erhalten Sie den Zahlungslink für die <strong>${typeLabel}</strong> in Höhe von <strong>${amountFormatted}</strong>${effectiveDueDateStr ? ` (fällig bis ${effectiveDueDateStr})` : ''}.`;
+    const introText = is_confirmation
+      ? `vielen Dank! Wir haben Ihre <strong>${typeLabel}</strong> in Höhe von <strong>${amountFormatted}</strong> erhalten und Ihre Buchung ist damit verbindlich bestätigt. Die offizielle Rechnung finden Sie als PDF in Ihrem Kundenkonto bzw. erhalten Sie separat per E-Mail.`
+      : is_reminder
+        ? `wir möchten Sie freundlich daran erinnern, dass Ihre <strong>${typeLabel}</strong> in Höhe von <strong>${amountFormatted}</strong>${effectiveDueDateStr ? ` (fällig seit ${effectiveDueDateStr})` : ''} noch aussteht.`
+        : `anbei erhalten Sie den Zahlungslink für die <strong>${typeLabel}</strong> in Höhe von <strong>${amountFormatted}</strong>${effectiveDueDateStr ? ` (fällig bis ${effectiveDueDateStr})` : ''}.`;
 
     const html = buildPaymentEmailHtml({
       customerName: payment.contact_name,
       introText,
       typeLabel,
       amountFormatted,
-      paymentUrl: payment.stripe_payment_link_url,
+      paymentUrl: payment.stripe_payment_link_url || '',
+      isConfirmation: is_confirmation,
     });
 
     const safeSubject = getSafeSubject(subject, isTest);
@@ -141,6 +148,7 @@ function buildPaymentEmailHtml(opts: {
   typeLabel: string;
   amountFormatted: string;
   paymentUrl: string;
+  isConfirmation?: boolean;
 }): string {
   return `<!DOCTYPE html>
 <html lang="de">
@@ -156,25 +164,25 @@ function buildPaymentEmailHtml(opts: {
           <h1 style="color:#ffffff;margin:0;font-size:22px;font-family:Arial,sans-serif;">STORIA Events</h1>
         </td></tr>
         <tr><td style="padding:32px;">
-          <h2 style="color:#1a1a1a;margin:0 0 16px;font-size:20px;">${opts.typeLabel}: ${opts.amountFormatted}</h2>
+          <h2 style="color:#1a1a1a;margin:0 0 16px;font-size:20px;">${opts.isConfirmation ? `Zahlung erhalten – Vielen Dank!` : `${opts.typeLabel}: ${opts.amountFormatted}`}</h2>
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 16px;">
             Guten Tag ${opts.customerName},
           </p>
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 24px;">
             ${opts.introText}
           </p>
-          <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+          ${opts.isConfirmation ? '' : `<table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
             <tr><td>
               <a href="${opts.paymentUrl}"
                  style="display:inline-block;background-color:#b45309;color:#ffffff;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;text-decoration:none;">
                 Jetzt bezahlen →
               </a>
             </td></tr>
-          </table>
-          <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 8px;">
+          </table>`}
+          ${opts.isConfirmation ? '' : `<p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 8px;">
             Sie können per Kreditkarte, SEPA-Lastschrift oder – bei Firmenbuchungen – auf Rechnung über Billie bezahlen.
             Der Zahlungslink ist 72 Stunden gültig.
-          </p>
+          </p>`}
           <p style="color:#333333;font-size:15px;line-height:1.6;margin:16px 0 0;">
             <strong>Stornobedingungen:</strong><br/>
             Bis 30 Tage vorher: kostenlos &middot;
