@@ -2696,6 +2696,9 @@ export type Database = {
       }
       v2_customers: {
         Row: {
+          account_activated_at: string | null
+          account_invited_at: string | null
+          account_invited_by: string | null
           address_city: string | null
           address_street: string | null
           address_zip: string | null
@@ -2712,6 +2715,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_activated_at?: string | null
+          account_invited_at?: string | null
+          account_invited_by?: string | null
           address_city?: string | null
           address_street?: string | null
           address_zip?: string | null
@@ -2728,6 +2734,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_activated_at?: string | null
+          account_invited_at?: string | null
+          account_invited_by?: string | null
           address_city?: string | null
           address_street?: string | null
           address_zip?: string | null
