@@ -116,7 +116,7 @@ export function CancellationDialog({
             <Textarea
               value={reasonNotes}
               onChange={(e) => setReasonNotes(e.target.value)}
-              placeholder="z.B. „Termin nicht mehr verfügbar, Küche überlastet, Verlegung möglich"."
+              placeholder='z.B. "Termin nicht mehr verfügbar, Küche überlastet, Verlegung möglich".'
               rows={2}
             />
             <div className="flex justify-end">
