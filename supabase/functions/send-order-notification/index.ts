@@ -95,6 +95,201 @@ const formatDate = (dateStr: string) => {
   return `${days[date.getDay()]}, ${date.getDate()}. ${months[date.getMonth()]} ${date.getFullYear()}`;
 };
 
+const escapeHtml = (input: string | number | undefined | null): string => {
+  if (input === undefined || input === null) return '';
+  return String(input)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
+const generateCustomerHtml = (data: OrderNotificationRequest): string => {
+  const subtotal = data.subtotal || data.totalAmount || 0;
+  const grandTotal = data.grandTotal || data.totalAmount || 0;
+  const isPaid = data.paymentStatus === 'paid';
+  const isEvent = data.isEventBooking === true;
+
+  const greeting = isEvent
+    ? (isPaid ? 'vielen Dank für Ihre Event-Buchung!' : 'vielen Dank für Ihre Event-Anfrage!')
+    : (isPaid ? 'vielen Dank für Ihre Bestellung!' : 'vielen Dank für Ihre Anfrage!');
+
+  const nextSteps = isEvent
+    ? (isPaid
+      ? 'Ihre Zahlung wurde erfolgreich verarbeitet. Wir werden uns in Kürze mit Ihnen bezüglich der Menüauswahl in Verbindung setzen.'
+      : 'Wir melden uns innerhalb von 24 Stunden bei Ihnen, um die Details Ihrer Veranstaltung zu besprechen.')
+    : (isPaid
+      ? `Ihre Zahlung per ${data.paymentMethod === 'stripe' ? 'Kreditkarte' : 'Rechnung'} über ${formatPrice(grandTotal)} wurde erfolgreich verarbeitet. Wir bereiten Ihre Bestellung vor.`
+      : data.paymentMethod === 'stripe'
+        ? 'Sie werden jetzt zur Zahlung weitergeleitet. Nach erfolgreicher Zahlung erhalten Sie eine Bestellbestätigung.'
+        : 'Wir melden uns innerhalb von 24 Stunden bei Ihnen.');
+
+  const orderLabel = isEvent ? 'Buchungsnummer' : 'Bestellnummer';
+  const itemsLabel = isEvent ? 'Ihre Buchung' : 'Ihre Auswahl';
+  const scheduleLabel = isEvent ? 'Veranstaltung' : 'Termin & Lieferung';
+
+  // Items rows
+  let itemRows = '';
+  for (const item of data.items) {
+    const itemTotal = item.price * item.quantity;
+    const servingInfo = item.servingInfo ? ` <span style="color:#999;">(${escapeHtml(item.servingInfo)})</span>` : '';
+    itemRows += `
+      <tr>
+        <td style="padding:10px 0;border-bottom:1px solid #f0ead8;font-size:14px;color:#333;vertical-align:top;">
+          <strong style="color:#1a1a1a;">${item.quantity}×</strong> ${escapeHtml(item.name)}${servingInfo}
+        </td>
+        <td style="padding:10px 0;border-bottom:1px solid #f0ead8;font-size:14px;color:#444;text-align:right;white-space:nowrap;vertical-align:top;">
+          ${escapeHtml(formatPrice(itemTotal))}
+        </td>
+      </tr>`;
+  }
+  if (data.wantsChafingDish && data.chafingDishQuantity && data.chafingDishTotal) {
+    itemRows += `
+      <tr>
+        <td style="padding:10px 0;border-bottom:1px solid #f0ead8;font-size:14px;color:#333;">
+          <strong style="color:#1a1a1a;">${data.chafingDishQuantity}×</strong> Chafing Dish (Warmhaltebehälter)
+        </td>
+        <td style="padding:10px 0;border-bottom:1px solid #f0ead8;font-size:14px;color:#444;text-align:right;white-space:nowrap;">
+          ${escapeHtml(formatPrice(data.chafingDishTotal))}
+        </td>
+      </tr>`;
+  }
+
+  // Summary rows
+  let summaryRows = `
+    <tr>
+      <td style="padding:6px 0;font-size:13px;color:#666;">Zwischensumme</td>
+      <td style="padding:6px 0;font-size:13px;color:#666;text-align:right;white-space:nowrap;">${escapeHtml(formatPrice(subtotal))}</td>
+    </tr>`;
+  if (data.minimumOrderSurcharge && data.minimumOrderSurcharge > 0) {
+    summaryRows += `
+    <tr>
+      <td style="padding:6px 0;font-size:13px;color:#666;">Mindestbestellwert-Aufschlag</td>
+      <td style="padding:6px 0;font-size:13px;color:#666;text-align:right;white-space:nowrap;">${escapeHtml(formatPrice(data.minimumOrderSurcharge))}</td>
+    </tr>`;
+  }
+  if (!isEvent) {
+    if (data.isPickup) {
+      summaryRows += `
+    <tr>
+      <td style="padding:6px 0;font-size:13px;color:#666;">Selbstabholung</td>
+      <td style="padding:6px 0;font-size:13px;color:#666;text-align:right;white-space:nowrap;">kostenlos</td>
+    </tr>`;
+    } else if (data.deliveryCost !== undefined) {
+      const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1).replace('.', ',')} km)` : '';
+      summaryRows += `
+    <tr>
+      <td style="padding:6px 0;font-size:13px;color:#666;">Lieferung${escapeHtml(distanceText)}</td>
+      <td style="padding:6px 0;font-size:13px;color:#666;text-align:right;white-space:nowrap;">${data.deliveryCost === 0 ? 'kostenlos' : escapeHtml(formatPrice(data.deliveryCost))}</td>
+    </tr>`;
+    }
+  }
+  summaryRows += `
+    <tr>
+      <td style="padding:12px 0 0;font-size:16px;color:#1a1a1a;font-weight:600;border-top:2px solid #1a1a1a;">Gesamtsumme</td>
+      <td style="padding:12px 0 0;font-size:16px;color:#1a1a1a;font-weight:600;text-align:right;white-space:nowrap;border-top:2px solid #1a1a1a;">${escapeHtml(formatPrice(grandTotal))}</td>
+    </tr>`;
+
+  // Schedule / delivery block
+  let scheduleRows = '';
+  if (isEvent) {
+    scheduleRows += `<div style="font-size:14px;color:#444;margin-bottom:6px;"><strong style="color:#1a1a1a;">Veranstaltungsort:</strong> STORIA Ristorante, Karlstraße 47a, 80333 München</div>`;
+    if (data.guestCount) {
+      scheduleRows += `<div style="font-size:14px;color:#444;margin-bottom:6px;"><strong style="color:#1a1a1a;">Anzahl Gäste:</strong> ${escapeHtml(data.guestCount)} Personen</div>`;
+    }
+  } else if (data.isPickup) {
+    scheduleRows += `<div style="font-size:14px;color:#444;margin-bottom:6px;"><strong style="color:#1a1a1a;">Lieferart:</strong> Selbstabholung</div>`;
+    scheduleRows += `<div style="font-size:14px;color:#444;margin-bottom:6px;"><strong style="color:#1a1a1a;">Abholadresse:</strong> Karlstraße 47a, 80333 München</div>`;
+  } else {
+    const floorInfo = data.deliveryFloor ? `, Stockwerk: ${data.deliveryFloor}` : '';
+    const elevatorInfo = data.hasElevator === true ? ', Aufzug vorhanden' : (data.hasElevator === false ? ', kein Aufzug' : '');
+    const addr = (data.deliveryStreet && data.deliveryZip && data.deliveryCity)
+      ? `${data.deliveryStreet}, ${data.deliveryZip} ${data.deliveryCity}${floorInfo}${elevatorInfo}`
+      : (data.deliveryAddress ? `${data.deliveryAddress}${floorInfo}${elevatorInfo}` : '');
+    scheduleRows += `<div style="font-size:14px;color:#444;margin-bottom:6px;"><strong style="color:#1a1a1a;">Lieferart:</strong> Lieferung</div>`;
+    if (addr) scheduleRows += `<div style="font-size:14px;color:#444;margin-bottom:6px;"><strong style="color:#1a1a1a;">Adresse:</strong> ${escapeHtml(addr)}</div>`;
+  }
+  scheduleRows += `<div style="font-size:14px;color:#444;margin-bottom:6px;"><strong style="color:#1a1a1a;">Datum:</strong> ${escapeHtml(data.desiredDate ? formatDate(data.desiredDate) : 'Auf Anfrage')}</div>`;
+  scheduleRows += `<div style="font-size:14px;color:#444;margin-bottom:6px;"><strong style="color:#1a1a1a;">Uhrzeit:</strong> ${escapeHtml(data.desiredTime ? data.desiredTime + ' Uhr' : 'Auf Anfrage')}</div>`;
+
+  const notesBlock = data.notes
+    ? `<tr><td style="padding:0 32px 24px;">
+         <div style="background:#faf6f0;border-radius:12px;padding:16px 20px;">
+           <div style="font-size:12px;color:#999;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Ihre Anmerkungen</div>
+           <div style="font-size:14px;color:#444;white-space:pre-wrap;">${escapeHtml(data.notes)}</div>
+         </div>
+       </td></tr>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(isEvent ? 'Ihre Event-Buchung' : 'Ihre Bestellung')} – STORIA</title>
+</head>
+<body style="margin:0;padding:0;background-color:#faf6f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;line-height:1.6;color:#333;">
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
+    ${escapeHtml(greeting)} ${escapeHtml(orderLabel)}: ${escapeHtml(data.orderNumber)}
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#faf6f0;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.04);">
+        <tr><td style="padding:32px 32px 20px;text-align:center;border-bottom:1px solid #f0ead8;">
+          <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:normal;color:#1a1a1a;letter-spacing:0.08em;">STORIA</h1>
+          <p style="margin:6px 0 0;font-size:11px;color:#999;letter-spacing:0.18em;text-transform:uppercase;">Catering &amp; Events &mdash; München</p>
+        </td></tr>
+
+        <tr><td style="padding:32px 32px 8px;">
+          <p style="margin:0 0 6px;font-size:15px;color:#555;">Guten Tag ${escapeHtml(data.customerName)},</p>
+          <p style="margin:0 0 20px;font-size:16px;color:#1a1a1a;">${escapeHtml(greeting)}</p>
+          <div style="display:inline-block;background:#faf6f0;border-radius:999px;padding:8px 16px;font-size:13px;color:#1a1a1a;">
+            <span style="color:#999;text-transform:uppercase;letter-spacing:0.1em;font-size:11px;">${escapeHtml(orderLabel)}</span>
+            &nbsp;·&nbsp; <strong>${escapeHtml(data.orderNumber)}</strong>
+          </div>
+        </td></tr>
+
+        <tr><td style="padding:24px 32px 8px;">
+          <h2 style="margin:0 0 12px;font-size:13px;color:#999;text-transform:uppercase;letter-spacing:0.12em;font-weight:600;">${escapeHtml(itemsLabel)}</h2>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            ${itemRows}
+          </table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;">
+            ${summaryRows}
+          </table>
+        </td></tr>
+
+        <tr><td style="padding:24px 32px 8px;">
+          <h2 style="margin:0 0 12px;font-size:13px;color:#999;text-transform:uppercase;letter-spacing:0.12em;font-weight:600;">${escapeHtml(scheduleLabel)}</h2>
+          ${scheduleRows}
+        </td></tr>
+
+        ${notesBlock}
+
+        <tr><td style="padding:8px 32px 28px;">
+          <div style="border-top:1px solid #e5e5e5;padding-top:18px;font-size:14px;color:#555;">${escapeHtml(nextSteps)}</div>
+        </td></tr>
+
+        <tr><td style="padding:24px 32px;background-color:#faf6f0;text-align:center;border-top:1px solid #f0ead8;">
+          <p style="margin:0 0 8px;font-size:13px;color:#666;">Bei Fragen erreichen Sie uns jederzeit:</p>
+          <p style="margin:8px 0 0;font-size:13px;">
+            <a href="tel:+498951519696" style="color:#b45309;text-decoration:none;">089 51519696</a>
+            &nbsp;·&nbsp;
+            <a href="mailto:info@events-storia.de" style="color:#b45309;text-decoration:none;">info@events-storia.de</a>
+          </p>
+          <p style="margin:14px 0 0;font-size:12px;color:#999;">STORIA Ristorante &middot; Karlstraße 47a &middot; 80333 München</p>
+          <p style="margin:6px 0 0;font-size:11px;color:#aaa;">
+            <a href="https://events-storia.de" style="color:#aaa;text-decoration:none;">events-storia.de</a>
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+};
+
 const generateCustomerEmailText = (data: OrderNotificationRequest): string => {
   const subtotal = data.subtotal || data.totalAmount || 0;
   const grandTotal = data.grandTotal || data.totalAmount || 0;
