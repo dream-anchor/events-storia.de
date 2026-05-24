@@ -383,7 +383,9 @@ export const OrdersList = () => {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Catering-Bestellungen</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {orders.length} {orders.length === 1 ? 'Bestellung' : 'Bestellungen'} im Filter „{filterPills.find(f => f.active)?.label}"
+              {viewMode === "kanban"
+                ? `${bucketCounts[kanbanBucket]} ${bucketCounts[kanbanBucket] === 1 ? 'Bestellung' : 'Bestellungen'} im Bucket „${bucketPills.find((p) => p.id === kanbanBucket)?.label}"`
+                : `${orders.length} ${orders.length === 1 ? 'Bestellung' : 'Bestellungen'} im Filter „${filterPills.find(f => f.active)?.label}"`}
             </p>
           </div>
           {/* View Toggle */}
