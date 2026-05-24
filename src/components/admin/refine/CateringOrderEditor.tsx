@@ -490,14 +490,53 @@ export const CateringOrderEditor = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleSave} disabled={isSaving}>
+            <Button
+              variant={dirtySections.any ? "default" : "outline"}
+              onClick={() => {
+                if (dirtySections.any) {
+                  setShowSaveConfirm(true);
+                } else {
+                  handleSave();
+                }
+              }}
+              disabled={isSaving}
+            >
               {isSaving ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Save className="h-4 w-4 mr-2" />
               )}
-              Speichern
+              Speichern{dirtySections.any ? ` (${dirtySections.list.length})` : ''}
             </Button>
+            <AlertDialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Änderungen speichern?</AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3 text-sm">
+                      <p className="text-foreground">Folgende Bereiche werden geändert:</p>
+                      <ul className="space-y-2">
+                        {dirtySections.list.map((s) => (
+                          <li key={s.key} className="flex gap-2 items-start rounded-md border border-amber-500/30 bg-amber-500/5 p-2">
+                            <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="font-medium text-foreground">{s.title}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{s.warning}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => { setShowSaveConfirm(false); handleSave(); }}>
+                    Trotzdem speichern
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             
             {!isCancelled && (
               <AlertDialog>
