@@ -472,11 +472,38 @@ export const EventBookingEditor = () => {
                       <Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Telefon</Label>
                       <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="optional" />
                     </div>
+                    <div className="pt-2 border-t">
+                      <InviteCustomerAccountButton
+                        customerEmail={customerEmail}
+                        customerName={customerName}
+                        customerId={customer?.id}
+                        invitedAt={customer?.account_invited_at}
+                        activatedAt={customer?.account_activated_at}
+                        onInvited={async () => {
+                          const { data } = await supabase
+                            .from("v2_customers")
+                            .select("id, account_invited_at, account_activated_at")
+                            .eq("email", customerEmail)
+                            .maybeSingle();
+                          if (data) setCustomer(data as any);
+                        }}
+                      />
+                    </div>
                   </CardContent>
                 </Card>
 
                 {/* Email Status */}
                 <EmailStatusCard entityType="event_booking" entityId={id!} />
+
+                {/* Zahlungsstand & Restzahlung */}
+                <PaymentBalanceCard
+                  eventId={id!}
+                  context="event_booking"
+                  totalEur={Number(totalAmount) || 0}
+                  customerEmail={customerEmail}
+                  customerName={customerName}
+                  externalPaidEur={booking.payment_status === "paid" ? (Number(booking.total_amount) || 0) : 0}
+                />
 
                 {/* Internal Notes Card */}
                 <Card>
