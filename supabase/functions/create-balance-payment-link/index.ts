@@ -69,8 +69,8 @@ serve(async (req) => {
     });
     log("payment link created", { id: paymentLink.id, url: paymentLink.url });
 
-    // Payment-Record (pending) anlegen, damit die Timeline ihn sofort sieht
-    await supabaseAdmin.from("v2_payments").insert({
+    // Payment-Record (sent) anlegen, damit die Timeline ihn sofort sieht
+    const { data: paymentRow } = await supabaseAdmin.from("v2_payments").insert({
       event_id: body.eventId,
       amount_cents: Math.round(body.amountEur * 100),
       payment_type: "balance",
@@ -78,22 +78,13 @@ serve(async (req) => {
       stripe_payment_link_url: paymentLink.url,
       notes: body.description || "Restzahlung via Maestro",
       created_by: userData.user.email ?? null,
-    });
+    }).select("id").single();
 
     // Optional: E-Mail mit dem Link via send-payment-email
-    if (body.sendEmail !== false) {
+    if (body.sendEmail !== false && paymentRow?.id) {
       try {
         await supabaseAdmin.functions.invoke("send-payment-email", {
-          body: {
-            eventId: body.eventId,
-            context: body.context,
-            amountEur: body.amountEur,
-            paymentLinkUrl: paymentLink.url,
-            customerEmail: body.customerEmail,
-            customerName: body.customerName,
-            kind: "balance",
-            description: body.description,
-          },
+          body: { payment_id: paymentRow.id },
         });
       } catch (e) {
         log("send-payment-email failed (non-fatal)", e instanceof Error ? e.message : e);
