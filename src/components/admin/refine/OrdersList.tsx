@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useState, useMemo, useEffect } from "react";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 import { OrdersKanbanView, OrdersBucket } from "./OrdersKanbanView";
+import { InviteCustomerIconButton } from "@/components/admin/shared/InviteCustomerIconButton";
 
 /**
  * Filter-Konzept (Senior CX Review 16.04.2026):
