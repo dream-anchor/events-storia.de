@@ -452,8 +452,9 @@ serve(async (req) => {
                 <h2 style="color:#1a1a1a;margin:0 0 16px;font-size:20px;">Restzahlung steht noch aus</h2>
                 <p style="font-size:15px;line-height:1.6;">Guten Tag ${customer.name || "Sehr geehrte Damen und Herren"},</p>
                 <p style="font-size:15px;line-height:1.6;">
-                  Ihre Veranstaltung am <strong>${eventDateStr}</strong> rückt näher – in 7 Tagen ist es soweit.
-                  Bitte begleichen Sie den noch offenen Restbetrag von <strong>${remainingFmt}</strong> vorab per Kreditkarte.
+                  Ihre Veranstaltung am <strong>${eventDateStr}</strong> rückt näher.
+                  Bitte begleichen Sie den noch offenen Restbetrag von <strong>${remainingFmt}</strong>
+                  bis spätestens <strong>10 Tage vor der Veranstaltung</strong> vorab per Kreditkarte.
                 </p>
                 <p style="font-size:15px;line-height:1.6;">
                   Sie können beim Bezahlen die finale <strong>Personenzahl</strong> noch anpassen (mehr Personen jederzeit möglich).
