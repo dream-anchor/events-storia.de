@@ -76,8 +76,8 @@ export const OrdersList = () => {
     queryOptions: { enabled: viewMode === "kanban" },
   });
 
-  const orders = ordersQuery.data?.data || [];
-  const isLoading = ordersQuery.isLoading;
+  const orders = ordersQuery.result?.data || [];
+  const isLoading = ordersQuery.query.isLoading;
 
   // Zählwerte für Filter-Badges (unabhängig vom aktuellen Filter)
   const counts = useMemo(() => {
@@ -355,7 +355,7 @@ export const OrdersList = () => {
     navigate(`/admin/orders/${order.id}/edit`);
   };
 
-  const allActiveOrders = kanbanQuery.data?.data || [];
+  const allActiveOrders = kanbanQuery.result?.data || [];
 
   return (
     <AdminLayout activeTab="orders">
@@ -388,7 +388,7 @@ export const OrdersList = () => {
         {viewMode === "kanban" ? (
           <OrdersKanbanView
             orders={allActiveOrders}
-            onRefresh={() => ordersQuery.refetch()}
+            onRefresh={() => ordersQuery.query.refetch()}
           />
         ) : (
         <DataTable
@@ -397,7 +397,7 @@ export const OrdersList = () => {
           searchPlaceholder="Suche nach Bestellnummer, Kunde, Adresse..."
           filterPills={filterPills}
           onFilterChange={handleFilterChange}
-          onRefresh={() => ordersQuery.refetch()}
+          onRefresh={() => ordersQuery.query.refetch()}
           onRowClick={handleRowClick}
           isLoading={isLoading}
           pageSize={25}
