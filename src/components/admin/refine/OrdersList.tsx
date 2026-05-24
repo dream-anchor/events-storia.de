@@ -3,14 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar, Package, CreditCard, Truck, MapPin, Phone, Mail, MessageCircle, CheckCircle2, AlertCircle, HandCoins } from "lucide-react";
+import { Calendar, Package, CreditCard, Truck, MapPin, Phone, Mail, MessageCircle, CheckCircle2, AlertCircle, HandCoins, LayoutGrid, Table2 } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable, sortableHeader } from "./DataTable";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CateringOrder, OrderStatus } from "@/types/refine";
 import { cn } from "@/lib/utils";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
+import { OrdersKanbanView } from "./OrdersKanbanView";
 
 /**
  * Filter-Konzept (Senior CX Review 16.04.2026):
@@ -42,6 +44,13 @@ const filterToStatus: Record<InboxFilter, OrderStatus[] | null> = {
 export const OrdersList = () => {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState<InboxFilter>('inbox');
+  const [viewMode, setViewMode] = useState<"table" | "kanban">(
+    () => (localStorage.getItem("ordersViewMode") as "table" | "kanban") || "table"
+  );
+
+  useEffect(() => {
+    localStorage.setItem("ordersViewMode", viewMode);
+  }, [viewMode]);
 
   const statusValues = filterToStatus[activeFilter];
 
@@ -335,16 +344,46 @@ export const OrdersList = () => {
     navigate(`/admin/orders/${order.id}/edit`);
   };
 
+  // Kanban braucht alle aktiven Orders (nicht nur den aktuellen Filter)
+  const allActiveOrders = useMemo(() => {
+    if (viewMode !== "kanban") return [];
+    return ordersQuery.data?.data || [];
+  }, [viewMode, ordersQuery.data]);
+
   return (
     <AdminLayout activeTab="orders">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Catering-Bestellungen</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {orders.length} {orders.length === 1 ? 'Bestellung' : 'Bestellungen'} im Filter „{filterPills.find(f => f.active)?.label}"
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Catering-Bestellungen</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {orders.length} {orders.length === 1 ? 'Bestellung' : 'Bestellungen'} im Filter „{filterPills.find(f => f.active)?.label}"
+            </p>
+          </div>
+          {/* View Toggle */}
+          <ToggleGroup
+            type="single"
+            value={viewMode}
+            onValueChange={(v) => v && setViewMode(v as "table" | "kanban")}
+            className="bg-muted p-1 rounded-lg"
+          >
+            <ToggleGroupItem value="table" aria-label="Tabellenansicht" className="h-8 px-2 sm:px-3 data-[state=on]:bg-white dark:data-[state=on]:bg-gray-800 data-[state=on]:shadow-sm rounded-md">
+              <Table2 className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1.5">Tabelle</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="kanban" aria-label="Kanban-Ansicht" className="h-8 px-2 sm:px-3 data-[state=on]:bg-white dark:data-[state=on]:bg-gray-800 data-[state=on]:shadow-sm rounded-md">
+              <LayoutGrid className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1.5">Kanban</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
+        {viewMode === "kanban" ? (
+          <OrdersKanbanView
+            orders={allActiveOrders}
+            onRefresh={() => ordersQuery.refetch()}
+          />
+        ) : (
         <DataTable
           columns={columns}
           data={orders}
@@ -404,6 +443,7 @@ export const OrdersList = () => {
             );
           }}
         />
+        )}
       </div>
     </AdminLayout>
   );
