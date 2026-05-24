@@ -379,6 +379,151 @@ serve(async (req) => {
     }
 
     // ============================================
+    // 4. STRIPE-VORAUSZAHLUNG OFFEN (7 Tage vor Event)
+    //    NUR wenn balance_method = 'stripe_prepay' UND noch nicht voll bezahlt.
+    // ============================================
+    {
+      const target = new Date(now);
+      target.setDate(target.getDate() + 7);
+      const targetDate = target.toISOString().split("T")[0];
+
+      const { data: prepayEvents, error: prepayErr } = await supabase
+        .from("v2_events")
+        .select("id, booking_number, date, amount_total, customer_id, is_test")
+        .eq("balance_method", "stripe_prepay")
+        .eq("date", targetDate);
+
+      if (prepayErr) {
+        console.error("Error fetching prepay events:", prepayErr);
+      } else if (prepayEvents) {
+        for (const ev of prepayEvents) {
+          try {
+            // Idempotenz: schon heute gesendet?
+            const { data: already } = await supabase
+              .from("email_delivery_logs")
+              .select("id")
+              .eq("entity_id", ev.id)
+              .eq("entity_type", "event_inquiry")
+              .gte("sent_at", new Date(now.getTime() - 23 * 60 * 60 * 1000).toISOString())
+              .contains("metadata", { prepay_7d_reminder: true })
+              .limit(1);
+            if (already && already.length > 0) continue;
+
+            // Bereits gezahlt prüfen → SKIP wenn vollständig bezahlt (CRITICAL)
+            const { data: payments } = await supabase
+              .from("v2_payments")
+              .select("amount_cents, status, stripe_payment_link_url, payment_type, created_at")
+              .eq("event_id", ev.id);
+            const totalDueCents = Math.round(Number(ev.amount_total || 0) * 100);
+            const paidCents = (payments || [])
+              .filter((p) => p.status === "paid")
+              .reduce((s, p) => s + (p.amount_cents || 0), 0);
+            if (totalDueCents > 0 && paidCents >= totalDueCents) {
+              console.log(`Skip 7d prepay reminder for ${ev.id} — already fully paid`);
+              continue;
+            }
+
+            // Stripe Link aus letztem balance/prepayment payment-Record
+            const linkPayment = (payments || [])
+              .filter((p) => p.stripe_payment_link_url && (p.payment_type === "balance" || p.payment_type === "prepayment"))
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+            const paymentLinkUrl = linkPayment?.stripe_payment_link_url;
+            if (!paymentLinkUrl) {
+              console.log(`Skip 7d prepay reminder for ${ev.id} — kein Stripe Link vorhanden`);
+              continue;
+            }
+
+            const { data: customer } = await supabase
+              .from("v2_customers")
+              .select("name, email")
+              .eq("id", ev.customer_id)
+              .single();
+            if (!customer?.email) continue;
+
+            const remainingCents = Math.max(0, totalDueCents - paidCents);
+            const remainingFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" })
+              .format(remainingCents / 100);
+            const eventDateStr = ev.date ? new Date(ev.date).toLocaleDateString("de-DE") : "—";
+            const bookingNr = ev.booking_number || "—";
+
+            const subject = `Erinnerung: Restzahlung für Ihre Veranstaltung am ${eventDateStr}`;
+            const html = `
+              <div style="max-width:600px;margin:0 auto;padding:24px;font-family:Arial,sans-serif;color:#333333;">
+                <h2 style="color:#1a1a1a;margin:0 0 16px;font-size:20px;">Restzahlung steht noch aus</h2>
+                <p style="font-size:15px;line-height:1.6;">Guten Tag ${customer.name || "Sehr geehrte Damen und Herren"},</p>
+                <p style="font-size:15px;line-height:1.6;">
+                  Ihre Veranstaltung am <strong>${eventDateStr}</strong> rückt näher – in 7 Tagen ist es soweit.
+                  Bitte begleichen Sie den noch offenen Restbetrag von <strong>${remainingFmt}</strong> vorab per Kreditkarte.
+                </p>
+                <p style="font-size:15px;line-height:1.6;">
+                  Sie können beim Bezahlen die finale <strong>Personenzahl</strong> noch anpassen (mehr Personen jederzeit möglich).
+                </p>
+                <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
+                  <tr><td>
+                    <a href="${paymentLinkUrl}"
+                       style="display:inline-block;background-color:#b45309;color:#ffffff;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;text-decoration:none;">
+                      Jetzt Restbetrag begleichen &rarr;
+                    </a>
+                  </td></tr>
+                </table>
+                <p style="font-size:13px;color:#666666;line-height:1.6;">
+                  Buchungsnummer: ${bookingNr}<br/>
+                  Bei Fragen: <a href="mailto:info@events-storia.de" style="color:#b45309;">info@events-storia.de</a> · 089 954 574 750
+                </p>
+                <p style="font-size:15px;line-height:1.6;margin-top:24px;">Herzliche Grüße,<br/><strong>Ihr STORIA Events Team</strong></p>
+              </div>`;
+
+            // Empfänger + CC Betreiber
+            const resendApiKey = Deno.env.get("RESEND_API_KEY");
+            if (!resendApiKey) {
+              console.error("RESEND_API_KEY fehlt — überspringe 7d prepay reminder");
+              continue;
+            }
+            const safeTo = ev.is_test ? "test@events-storia.de" : customer.email;
+            const res = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+              body: JSON.stringify({
+                from: "STORIA Events <info@events-storia.de>",
+                to: [safeTo],
+                cc: ["info@events-storia.de"],
+                subject,
+                html,
+              }),
+            });
+            const ok = res.ok;
+            const respJson = ok ? await res.json() : null;
+            const errTxt = ok ? null : await res.text();
+
+            await supabase.from("email_delivery_logs").insert({
+              entity_type: "event_inquiry",
+              entity_id: ev.id,
+              recipient_email: safeTo,
+              recipient_name: customer.name,
+              subject,
+              provider: "resend",
+              provider_message_id: respJson?.id ?? null,
+              status: ok ? "sent" : "failed",
+              error_message: errTxt,
+              sent_by: "system",
+              metadata: { prepay_7d_reminder: true, event_id: ev.id, days_before: 7 },
+            });
+
+            results.push({
+              type: "prepay_7d_reminder",
+              inquiryId: ev.id,
+              email: customer.email,
+              success: ok,
+              error: errTxt || undefined,
+            });
+          } catch (e) {
+            console.error("prepay 7d reminder error:", e);
+          }
+        }
+      }
+    }
+
+    // ============================================
     // SUMMARY
     // ============================================
     const successCount = results.filter((r) => r.success).length;
