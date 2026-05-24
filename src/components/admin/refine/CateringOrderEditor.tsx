@@ -340,8 +340,8 @@ export const CateringOrderEditor = () => {
     setIsMarkingRefunded(true);
     try {
       const { error } = await supabase
-        .from("catering_orders")
-        .update({ payment_status: "refunded" })
+        .from("catering_orders" as any)
+        .update({ payment_status: "refunded" } as any)
         .eq("id", id);
       if (error) throw error;
       toast.success("Als zurückerstattet markiert (manuell via Bank/Bar)");
