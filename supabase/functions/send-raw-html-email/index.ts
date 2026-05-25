@@ -4,18 +4,20 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 import { RIGSHOSPITALET_HTML } from './preset-rigshospitalet.ts';
 import { CYIM_ANZAHLUNG_HTML } from './preset-cyim.ts';
 
-const PRESETS: Record<string, { to: string; bcc?: string; subject: string; html: string }> = {
+const PRESETS: Record<string, { to: string; bcc?: string; subject: string; html: string; entityId?: string }> = {
   'rigshospitalet-restzahlung-v3': {
     to: 'christina.byrne.windfeld@regionh.dk',
     bcc: 'info@events-storia.de',
     subject: 'Restzahlung Ihrer Veranstaltung am 28.08.2026 — STORIA Events',
     html: RIGSHOSPITALET_HTML,
+    entityId: '316a0f27-8911-464f-97ea-c5135328f3d5',
   },
   'cyim-anzahlung-bestaetigung': {
     to: 'j.lagourres@cyim.com',
     bcc: 'info@events-storia.de',
     subject: 'Anzahlung erhalten – Ihre Veranstaltung am 29.08.2026 / Payment received — STORIA Events',
     html: CYIM_ANZAHLUNG_HTML,
+    entityId: '90321866-239d-4331-a85b-fddf5280ce97',
   },
 };
 
@@ -53,9 +55,11 @@ serve(async (req) => {
     const body = await req.json();
     let { to, bcc, subject, html } = body;
     const { preset, from = 'STORIA Events <info@events-storia.de>', replyTo = 'info@events-storia.de' } = body;
+    let entityId: string | undefined = body.event_id || body.inquiry_id || body.entity_id;
     if (preset && PRESETS[preset]) {
       const p = PRESETS[preset];
       to = p.to; bcc = p.bcc; subject = p.subject; html = p.html;
+      if (!entityId && p.entityId) entityId = p.entityId;
     }
     if (!to || !subject || !html) throw new Error('to, subject, html required');
 
@@ -78,6 +82,50 @@ serve(async (req) => {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(`Resend ${res.status}: ${JSON.stringify(data)}`);
+
+    // Auto-resolve entityId via recipient email if not provided
+    if (!entityId) {
+      const recipient = Array.isArray(to) ? to[0] : to;
+      const { data: cust } = await admin
+        .from('v2_customers')
+        .select('id')
+        .eq('email', recipient)
+        .maybeSingle();
+      if (cust?.id) {
+        const { data: ev } = await admin
+          .from('v2_events')
+          .select('id')
+          .eq('customer_id', cust.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (ev?.id) entityId = ev.id;
+      }
+    }
+
+    // Log to email_delivery_logs so the email appears in Maestro's activity timeline
+    if (entityId) {
+      try {
+        await admin.from('email_delivery_logs').insert({
+          entity_type: 'event_inquiry',
+          entity_id: entityId,
+          recipient_email: Array.isArray(to) ? to[0] : to,
+          subject,
+          provider: 'resend',
+          provider_message_id: data.id ?? null,
+          status: 'sent',
+          sent_by: userData.user.email ?? null,
+          sent_at: new Date().toISOString(),
+          metadata: {
+            bcc: bcc ?? null,
+            preset: preset ?? null,
+            type: 'manual_raw_html',
+          },
+        });
+      } catch (logErr) {
+        console.error('Failed to log email_delivery_logs entry:', logErr);
+      }
+    }
 
     return new Response(JSON.stringify({ success: true, id: data.id }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
