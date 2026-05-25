@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { RIGSHOSPITALET_HTML } from './preset-rigshospitalet.ts';
+import { CYIM_ANZAHLUNG_HTML } from './preset-cyim.ts';
 
 const PRESETS: Record<string, { to: string; bcc?: string; subject: string; html: string }> = {
   'rigshospitalet-restzahlung-v3': {
@@ -9,6 +10,12 @@ const PRESETS: Record<string, { to: string; bcc?: string; subject: string; html:
     bcc: 'info@events-storia.de',
     subject: 'Restzahlung Ihrer Veranstaltung am 28.08.2026 — STORIA Events',
     html: RIGSHOSPITALET_HTML,
+  },
+  'cyim-anzahlung-bestaetigung': {
+    to: 'j.lagourres@cyim.com',
+    bcc: 'info@events-storia.de',
+    subject: 'Anzahlung erhalten – Ihre Veranstaltung am 29.08.2026 / Payment received — STORIA Events',
+    html: CYIM_ANZAHLUNG_HTML,
   },
 };
 
