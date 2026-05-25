@@ -1,71 +1,51 @@
-# Restzahlung über Stripe automatisieren + Mail-Vorschauen v3
 
-## Teil 1 — Automatisierung „Stripe – vorab" wird Standard-Logik
+## Antworten auf deine drei Punkte
 
-**Heute:** Manueller DB-Eintrag in `balance_payment_links` und manuell zusammengebauter `buy.stripe.com`-Link in Mails.
-**Ziel:** Sobald in einer Inquiry die **Restzahlung = „Stripe – vorab"** ist, läuft alles automatisch über `/restzahlung/<slug>`.
+### 1. Wo siehst du Christinas Versand?
 
-### Was passiert automatisch
+Maestro → Anfrage Christina Byrne Windfeld → Tab **„Aktivitäten"** (Timeline rechts).
+Christinas Eintrag ist bereits da:
 
-1. **Slug-Generierung & Eintrag**
-   - Beim Speichern einer Inquiry mit `balance_method = 'stripe_prepay'` wird automatisch (DB-Trigger oder Edge-Function) ein Eintrag in `balance_payment_links` angelegt bzw. aktualisiert:
-     - `slug` = `<nachname>-<order_number-suffix>` (lowercase, ohne Umlaute) — z. B. `windfeld-0100`
-     - `event_label` / `event_label_en` aus Inquiry-Daten
-     - `price_per_person_cents` = `event_price_per_person` aus Maestro (1:1)
-     - `deposit_paid_cents` = bereits eingegangene Anzahlung (aus `v2_payments`, 1:1 — keine Neuberechnung)
-     - `min_guests` = aktuelle bestätigte Gästezahl
-     - `max_guests` = `min_guests + 30` (sinnvoller Puffer; konfigurierbar)
-     - `default_guests` = `min_guests`
-     - `customer_email`, `customer_name`, `event_id`, `event_date` aus Inquiry
-     - `active = true` bis Zahlung eingegangen → dann `active = false`
+- **Datum:** 24.05.2026, 23:50
+- **Betreff:** „Restzahlung Ihrer Veranstaltung am 28.08.2026 — STORIA Events"
+- **Empfänger:** christina.byrne.windfeld@regionh.dk
+- **Status:** sent (Resend-ID `5cd7b7e1…`)
 
-2. **Mail-Versand (alle Restzahlungs-Mails)**
-   - `create-balance-payment-link` & `send-payment-email` & `send-scheduled-reminders` werden so angepasst, dass bei `balance_method = 'stripe_prepay'` **niemals** mehr ein `stripe.paymentLinks.create(...)`-Aufruf gemacht wird.
-   - Stattdessen wird der bestehende `balance_payment_links.slug` der Inquiry geholt und der Link `https://events-storia.de/restzahlung/<slug>` in die Mail gesetzt.
-   - Bestehende Mail-Templates bekommen den neuen Link + den aktualisierten Erklärtext („Die Seite berechnet automatisch Preis × Gäste − Anzahlung").
+Direktlink: `/admin/inquiries/316a0f27-8911-464f-97ea-c5135328f3d5/edit` → Aktivitäten.
 
-3. **Zahlungsabgleich**
-   - Stripe-Webhook (oder bestehender `reconcile-payment-statuses` Job) erkennt erfolgreiche Zahlungen via Session-Metadata (`balance_payment_link_id`) und setzt `active = false` + loggt in `v2_payments` + `activity_logs` (passiert teilweise schon in `create-balance-checkout`).
+### 2. Jessicas Mail in Maestro sichtbar machen
 
-### Was sich für Admin/Maestro **nicht** ändert
-- UI „Zahlungs-Konditionen" bleibt 1:1 wie im Screenshot
-- Keine neuen Felder, kein neues Eingabeformular
-- Preise/Anzahlungen kommen weiterhin **1:1** aus Maestro
-- Andere Restzahlungs-Optionen („Vor Ort", „Rechnung nach Event") bleiben unverändert
+Jessicas Event ID gefunden: **`f64adbad-2e37-463a-804b-ee0bfc0503b4`** (Cyim · j.lagourres@cyim.com).
 
-### Was sich für den Kunden ändert
-- Alle Restzahlungs-Mails verlinken auf die dynamische `/restzahlung/<slug>`-Seite
-- Kunde wählt finale Gästezahl → sieht offene Summe live → zahlt korrekten Betrag
-- Keine statischen Stripe-Payment-Links mehr (die das Anzahlungs-Problem hatten)
+Ich trage einen Eintrag in `email_delivery_logs` ein:
 
----
+- entity_type: `v2_event`
+- entity_id: `f64adbad-2e37-463a-804b-ee0bfc0503b4`
+- recipient: `j.lagourres@cyim.com` / Jessica Lagourrès
+- subject: „Anzahlung erhalten – Ihre Veranstaltung am 29.08.2026 / Payment received — STORIA Events"
+- provider_message_id: `b75e629a-c55d-4f92-9f06-3d2e74e36962` (Resend)
+- status: `sent`
+- metadata: `{ bcc: 'info@events-storia.de', template: 'cyim-anzahlung-bestaetigung', type: 'anzahlung_bestaetigung' }`
 
-## Teil 2 — Mail-Vorschauen v3 (für Rigshospitalet)
+Danach erscheint die Mail in der Aktivitäten-Timeline ihres Events analog zu Christina.
 
-Zwei HTML-Vorschauen aktualisieren/erzeugen in `/mnt/documents/`:
+### 3. Design „Christina-Style" als Standard festlegen
 
-1. **`vorschau-rigshospitalet-bestaetigung.html`** — bleibt inhaltlich gleich (enthält keinen Restzahlungs-Link). Nur zur erneuten Ausgabe.
+Ich speichere eine Memory-Notiz `mem://communications/restzahlung-email-design-standard` mit folgendem verbindlichen Aufbau für alle künftigen Zahlungs-/Bestätigungs-Mails:
 
-2. **`vorschau-rigshospitalet-restzahlung_v3.html`** — basierend auf v2, mit folgenden Änderungen:
-   - Button-URL: `https://buy.stripe.com/...` → `https://events-storia.de/restzahlung/rigshospitalet`
-   - Fallback-Link unter dem Button: gleicher Tausch
-   - Erklärtext DE: „Die Seite berechnet automatisch **70,00 € × Anzahl Gäste − 490,00 € Anzahlung** und zeigt Ihnen den exakten Restbetrag, bevor Sie bezahlen."
-   - Erklärtext EN: analoge englische Version
-   - Alles andere (Layout, Tabellen, Stornobedingungen, DE/EN-Trenner, EN-Hinweis oben) bleibt 1:1
+- Header: schwarzer Balken (`#1a1a1a`), weißes „STORIA Events"
+- **Vollständiger DE-Block zuerst**, dann horizontaler Trenner mit „ENGLISH VERSION" (Akzent `#b45309`), dann **vollständiger EN-Block**
+- Tabelle Buchungsnr · Anzahlung · Gesamtsumme · Restbetrag · Datum (rechtsbündig, Werte fett)
+- Akzent-Box (`#fff8ea` / `#f1d9a2`) für besondere Hinweise (z. B. Entschuldigung)
+- Stornobedingungen als Inline-Block mit AGB-Link
+- Footer einmalig am Ende: Datenschutz · Impressum · Speranza GmbH / Karlstr. 47a / Tel / Mail
+- Font: Arial/Helvetica, Body weiß (`#ffffff`), Text `#333333` 15 px
 
-Beide Dateien werden anschließend als `<presentation-artifact>` ausgegeben.
+Diese Memory-Regel sorgt dafür, dass künftige Restzahlungs-/Anzahlungs-Mails automatisch im gleichen Look gebaut werden.
 
----
+## Was passiert beim „Implement"
 
-## Reihenfolge bei der Umsetzung
+1. Insert in `email_delivery_logs` für Jessica → erscheint sofort in der Timeline.
+2. Memory-Datei `restzahlung-email-design-standard` anlegen + Index aktualisieren.
 
-1. Mail-Vorschauen v3 erzeugen (schnell, isoliert)
-2. Migration: Trigger / Helper-Function für Auto-Anlage in `balance_payment_links`
-3. `create-balance-payment-link` & `send-payment-email` & `send-scheduled-reminders` umstellen auf Slug-basierten Link bei `stripe_prepay`
-4. Smoke-Test mit Rigshospitalet-Daten
-
-## Nicht enthalten
-- Keine Änderung an „Stripe – sofort" (Anzahlung) — die bleibt klassischer Stripe-Link
-- Keine Änderung an Vor-Ort / Rechnung-nach-Event
-- Keine UI-Änderung in der Inquiry
-- Keine Maestro-Logik-Änderung
+Kein Code im App-Frontend wird verändert.
