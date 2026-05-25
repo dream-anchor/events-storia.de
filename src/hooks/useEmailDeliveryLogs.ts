@@ -26,10 +26,16 @@ export const useEmailDeliveryLogs = (entityType: EntityType, entityId: string) =
   return useQuery({
     queryKey: ['email-delivery-logs', entityType, entityId],
     queryFn: async (): Promise<EmailDeliveryLog[]> => {
+      // For inquiry pages, also include logs written with entity_type 'v2_event'
+      // (same UUID, written by edge functions that key off the event record).
+      const entityTypes = entityType === 'event_inquiry'
+        ? ['event_inquiry', 'v2_event']
+        : [entityType];
+
       const { data, error } = await supabase
         .from('email_delivery_logs')
         .select('*')
-        .eq('entity_type', entityType)
+        .in('entity_type', entityTypes)
         .eq('entity_id', entityId)
         .order('sent_at', { ascending: false });
 
