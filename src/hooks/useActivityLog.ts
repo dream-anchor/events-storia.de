@@ -9,10 +9,16 @@ export const useActivityLogs = (entityType: EntityType, entityId: string) => {
   return useQuery({
     queryKey: ['activity-logs', entityType, entityId],
     queryFn: async (): Promise<ActivityLog[]> => {
+      // For inquiry pages, also include logs written with entity_type 'v2_event'
+      // (edge functions key off the event record but the UUID is identical).
+      const entityTypes = entityType === 'event_inquiry'
+        ? ['event_inquiry', 'v2_event']
+        : [entityType];
+
       const { data, error } = await supabase
         .from('activity_logs')
         .select('*')
-        .eq('entity_type', entityType)
+        .in('entity_type', entityTypes)
         .eq('entity_id', entityId)
         .order('created_at', { ascending: false })
         .limit(50);
