@@ -127,6 +127,109 @@ serve(async (req) => {
       }
     }
 
+    // Auto-create open balance payment record so PublicOffer payment window reappears
+    // after a manual Restzahlungs-Mail. No-op if one already exists.
+    const looksLikeRestzahlung = /restzahlung|balance|final payment/i.test(subject ?? '');
+    if (entityId && looksLikeRestzahlung) {
+      try {
+        const { data: openPay } = await admin
+          .from('v2_payments')
+          .select('id')
+          .eq('event_id', entityId)
+          .in('payment_type', ['final', 'balance'])
+          .neq('status', 'paid')
+          .neq('status', 'cancelled')
+          .neq('status', 'refunded')
+          .limit(1)
+          .maybeSingle();
+
+        if (!openPay) {
+          const { data: ev } = await admin
+            .from('v2_events')
+            .select('id, amount_total, guest_count, date, booking_number, number')
+            .eq('id', entityId)
+            .maybeSingle();
+
+          if (ev && Number(ev.amount_total) > 0) {
+            const { data: paidRows } = await admin
+              .from('v2_payments')
+              .select('amount_cents, payment_type, status')
+              .eq('event_id', entityId)
+              .eq('status', 'paid');
+            const depositPaidCents = (paidRows ?? [])
+              .filter((p) => p.payment_type === 'deposit' || p.payment_type === 'prepayment')
+              .reduce((s, p) => s + (p.amount_cents || 0), 0);
+
+            const totalCents = Math.round(Number(ev.amount_total) * 100);
+            const openCents = Math.max(0, totalCents - depositPaidCents);
+            const guestCount = Math.max(1, Number(ev.guest_count || 1));
+            const pricePerPersonCents = Math.round(totalCents / guestCount);
+
+            if (openCents > 0) {
+              // Slug: <lastname>-<booking-suffix>
+              const recipient = (Array.isArray(to) ? to[0] : to) as string;
+              const { data: cust } = await admin
+                .from('v2_customers')
+                .select('name')
+                .eq('email', recipient)
+                .maybeSingle();
+              const lastName = ((cust?.name ?? recipient).trim().split(/\s+/).pop() ?? 'kunde')
+                .toLowerCase()
+                .normalize('NFKD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/ß/g, 'ss')
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '') || 'kunde';
+              const numSuffix =
+                (ev.booking_number || ev.number || ev.id).toString().match(/(\d+)\s*$/)?.[1] ||
+                ev.id.slice(0, 6);
+              let slug = `${lastName}-${numSuffix}`;
+              const { data: existingSlug } = await admin
+                .from('balance_payment_links')
+                .select('slug')
+                .eq('event_id', entityId)
+                .limit(1)
+                .maybeSingle();
+              if (existingSlug?.slug) slug = existingSlug.slug;
+
+              await admin
+                .from('balance_payment_links')
+                .upsert(
+                  {
+                    slug,
+                    event_id: entityId,
+                    event_date: ev.date,
+                    event_label: `Restzahlung – Veranstaltung ${ev.booking_number ?? ev.number ?? ''}`.trim(),
+                    event_label_en: `Balance payment – Event ${ev.booking_number ?? ev.number ?? ''}`.trim(),
+                    customer_email: recipient,
+                    customer_name: cust?.name ?? null,
+                    price_per_person_cents: pricePerPersonCents,
+                    deposit_paid_cents: depositPaidCents,
+                    min_guests: guestCount,
+                    max_guests: guestCount + 30,
+                    default_guests: guestCount,
+                    active: true,
+                  },
+                  { onConflict: 'slug' },
+                );
+
+              await admin.from('v2_payments').insert({
+                event_id: entityId,
+                amount_cents: openCents,
+                payment_type: 'final',
+                status: 'sent',
+                stripe_payment_link_url: `https://events-storia.de/restzahlung/${slug}`,
+                notes: 'Auto-erstellt durch manuelle Restzahlungs-Mail (send-raw-html-email)',
+              });
+              console.log('[send-raw-html-email] auto-created balance payment record', { entityId, slug, openCents });
+            }
+          }
+        }
+      } catch (autoErr) {
+        console.error('Auto-create balance payment failed (non-fatal):', autoErr);
+      }
+    }
+
     return new Response(JSON.stringify({ success: true, id: data.id }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
