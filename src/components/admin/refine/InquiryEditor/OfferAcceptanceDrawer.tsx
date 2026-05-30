@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { CheckCircle2, Loader2, Phone, Mail, MapPin, Globe2, Info } from "lucide-react";
+import { CheckCircle2, Loader2, Phone, Mail, MapPin, Globe2, Info, ChefHat, Pencil } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -9,6 +9,14 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +26,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { MenuComposer, type MenuSelection } from "./MenuComposer";
 
 type Via = "phone" | "email" | "onsite" | "online";
 
@@ -25,6 +34,12 @@ interface OfferOption {
   id: string;
   label: string;
   package_name_snapshot?: string | null;
+  package_id?: string | null;
+  offer_mode?: string | null;
+  menu_selection?: MenuSelection | null;
+  version?: number | null;
+  post_acceptance_adjustment?: boolean | null;
+  adjustment_reason?: string | null;
   guest_count: number | null;
   amount_total: number | null;
   is_active: boolean | null;
@@ -72,6 +87,10 @@ export function OfferAcceptanceDrawer({
   const [totalInput, setTotalInput] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(false);
+  const [menuEditorOpen, setMenuEditorOpen] = useState(false);
+  const [draftMenu, setDraftMenu] = useState<MenuSelection | null>(null);
+  const [adjustmentReason, setAdjustmentReason] = useState("");
+  const [savingMenu, setSavingMenu] = useState(false);
 
   // Optionen laden, wenn Drawer geöffnet wird
   useEffect(() => {
@@ -84,7 +103,7 @@ export function OfferAcceptanceDrawer({
       const { data, error } = await (supabase as any)
         .from("v2_offer_options")
         .select(
-          "id, label, package_name_snapshot, guest_count, amount_total, is_active, is_chosen, version, sort_order",
+          "id, label, package_name_snapshot, package_id, offer_mode, menu_selection, guest_count, amount_total, is_active, is_chosen, version, sort_order, post_acceptance_adjustment, adjustment_reason",
         )
         .eq("event_id", inquiryId)
         .order("sort_order", { ascending: true })
@@ -130,6 +149,90 @@ export function OfferAcceptanceDrawer({
     () => options.find((o) => o.id === selectedOptionId) ?? null,
     [options, selectedOptionId],
   );
+
+  const canAdjustMenu = !!chosen?.package_id;
+
+  const reloadChosenOption = async () => {
+    if (!selectedOptionId) return;
+    const { data } = await (supabase as any)
+      .from("v2_offer_options")
+      .select(
+        "id, label, package_name_snapshot, package_id, offer_mode, menu_selection, guest_count, amount_total, is_active, is_chosen, version, sort_order, post_acceptance_adjustment, adjustment_reason",
+      )
+      .eq("id", selectedOptionId)
+      .maybeSingle();
+    if (data) {
+      setOptions((prev) => prev.map((o) => (o.id === data.id ? (data as OfferOption) : o)));
+      if (data.guest_count) setGuestCountInput(String(data.guest_count));
+      if (data.amount_total !== null && data.amount_total !== undefined) {
+        setTotalInput(String(data.amount_total).replace(".", ","));
+      }
+    }
+  };
+
+  const handleOpenMenuEditor = () => {
+    if (!chosen) return;
+    setDraftMenu(
+      (chosen.menu_selection as MenuSelection) ?? { courses: [], drinks: [] },
+    );
+    setAdjustmentReason("Telefonisch besprochen");
+    setMenuEditorOpen(true);
+  };
+
+  const handleSaveMenu = async () => {
+    if (!chosen || !draftMenu) return;
+    setSavingMenu(true);
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const editorEmail = userRes?.user?.email ?? null;
+      const newVersion = (chosen.version ?? 1) + 1;
+      const guestCountForUpdate = parsedGuests ?? chosen.guest_count;
+
+      const { error: updateError } = await (supabase as any)
+        .from("v2_offer_options")
+        .update({
+          menu_selection: draftMenu,
+          version: newVersion,
+          post_acceptance_adjustment: true,
+          adjustment_reason: adjustmentReason.trim() || "Bei Annahme angepasst",
+          adjusted_at: new Date().toISOString(),
+          adjusted_by_email: editorEmail,
+          guest_count: guestCountForUpdate,
+        })
+        .eq("id", chosen.id);
+      if (updateError) throw updateError;
+
+      await (supabase as any).from("activity_logs").insert({
+        entity_type: "event_inquiry",
+        entity_id: inquiryId,
+        action: "offer_menu_adjusted_at_acceptance",
+        actor_email: editorEmail,
+        metadata: {
+          option_id: chosen.id,
+          option_label: chosen.label,
+          old_version: chosen.version ?? 1,
+          new_version: newVersion,
+          reason: adjustmentReason.trim() || "Bei Annahme angepasst",
+          courses: draftMenu.courses?.length ?? 0,
+          drinks: draftMenu.drinks?.length ?? 0,
+        },
+      });
+
+      // Notiz im Drawer ergänzen
+      setInternalNote((prev) => {
+        const note = `Menü bei Annahme angepasst (V${newVersion}): ${adjustmentReason.trim() || "Telefonisch besprochen"}`;
+        return prev ? `${prev}\n${note}` : note;
+      });
+
+      await reloadChosenOption();
+      toast.success(`Menü angepasst — neue Version V${newVersion} angelegt`);
+      setMenuEditorOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+    } finally {
+      setSavingMenu(false);
+    }
+  };
 
   const parsedGuests = useMemo(() => {
     const n = parseInt(guestCountInput.replace(/[^\d]/g, ""), 10);
@@ -287,6 +390,39 @@ export function OfferAcceptanceDrawer({
 
           {/* Korrekturen */}
           {selectedOptionId && (
+            <>
+            {canAdjustMenu && (
+              <div className="rounded-2xl border border-border/60 bg-muted/30 p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white border border-border/60">
+                    <ChefHat className="h-4 w-4 text-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">Menü dieser Option</p>
+                      {chosen?.post_acceptance_adjustment && (
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-foreground/70 bg-foreground/5 border border-border/60 rounded px-1.5 py-0.5">
+                          angepasst V{chosen.version}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Wurde telefonisch etwas anderes besprochen? Menü vor der Annahme anpassen — erzeugt automatisch eine neue interne Version.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOpenMenuEditor}
+                      className="mt-2 h-8 text-xs"
+                    >
+                      <Pencil className="h-3 w-3 mr-1.5" />
+                      Menü anpassen
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="acc-guests" className="text-xs">
@@ -323,6 +459,7 @@ export function OfferAcceptanceDrawer({
                 )}
               </div>
             </div>
+            </>
           )}
 
           <Separator />
