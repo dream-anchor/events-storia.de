@@ -1880,7 +1880,7 @@ function ConfirmationView({
                           {d.label}
                         </span>
                         <p className="flex-1 text-sm md:text-base font-serif text-foreground leading-snug">
-                          {d.text}
+                          {d.name}
                         </p>
                       </div>
                     ))}
