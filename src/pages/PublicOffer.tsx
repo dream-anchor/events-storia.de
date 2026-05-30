@@ -1922,25 +1922,27 @@ function ConfirmationView({
 function PublicPaymentSection({
   payments,
   eventDate,
+  lang,
 }: {
   payments: PublicPayment[];
   eventDate?: string;
+  lang: OfferLang;
 }) {
   if (!payments.length) return null;
 
   const typeLabels: Record<string, string> = {
-    deposit: "Anzahlung",
-    prepayment: "Vorauszahlung",
-    final: "Restzahlung",
+    deposit: tOffer(lang, 'paymentsTypeDeposit'),
+    prepayment: tOffer(lang, 'paymentsTypePrepayment'),
+    final: tOffer(lang, 'paymentsTypeFinal'),
   };
 
   const fmt = (cents: number) =>
-    new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
+    new Intl.NumberFormat(currencyLocale(lang), { style: "currency", currency: "EUR" }).format(cents / 100);
 
   const fmtDate = (iso: string | null | Date) => {
     if (!iso) return null;
     try {
-      return format(typeof iso === "string" ? parseISO(iso) : iso, "d. MMMM yyyy", { locale: de });
+      return format(typeof iso === "string" ? parseISO(iso) : iso, "d. MMMM yyyy", { locale: dateFnsLocale(lang) });
     } catch {
       return null;
     }
@@ -1965,10 +1967,10 @@ function PublicPaymentSection({
 
   const headerIcon = allPaid ? "✅" : hasOverdue ? "⚠️" : "💰";
   const headerText = allPaid
-    ? "Ihre Zahlungen"
+    ? tOffer(lang, 'paymentsHeadingPaid')
     : hasOverdue
-    ? "Offene Zahlung"
-    : "Ihre Zahlungen";
+    ? tOffer(lang, 'paymentsHeadingOpen')
+    : tOffer(lang, 'paymentsHeadingPaid');
 
   return (
     <section className="bg-background border-t border-border/30">
@@ -1976,7 +1978,7 @@ function PublicPaymentSection({
         <div className="max-w-2xl">
           {/* Header */}
           <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/60 mb-3">
-            Zahlungen
+            {tOffer(lang, 'paymentsEyebrow')}
           </p>
           <h2 className="font-serif text-xl md:text-2xl font-bold mb-6">
             {headerIcon} {headerText}
@@ -2006,17 +2008,17 @@ function PublicPaymentSection({
                     </p>
                     <p className="text-xs font-sans text-muted-foreground mt-0.5">
                       {isPaid
-                        ? `Bezahlt am ${fmtDate(p.paid_at) ?? "—"}`
+                        ? `${tOffer(lang, 'paymentsPaidOn')} ${fmtDate(p.paid_at) ?? "—"}`
                         : isOverdue
-                        ? `Fällig seit ${fmtDate(due) ?? "—"}`
+                        ? `${tOffer(lang, 'paymentsDueSince')} ${fmtDate(due) ?? "—"}`
                         : due
-                        ? `Fällig bis ${fmtDate(due)}`
-                        : "Fälligkeit wird mitgeteilt"}
+                        ? `${tOffer(lang, 'paymentsDueBy')} ${fmtDate(due)}`
+                        : tOffer(lang, 'dueAnnounced')}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-sans font-bold text-sm text-foreground">{fmt(p.amount_cents)}</p>
-                    {isPaid && <p className="text-xs text-emerald-600 font-sans">✓ Eingegangen</p>}
+                    {isPaid && <p className="text-xs text-emerald-600 font-sans">{tOffer(lang, 'paymentsReceived')}</p>}
                   </div>
                 </div>
               );
@@ -2026,7 +2028,7 @@ function PublicPaymentSection({
           {/* Gesamtsumme wenn alles bezahlt */}
           {allPaid && (
             <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-emerald-50 border border-emerald-200 mb-6">
-              <p className="font-sans font-semibold text-sm text-emerald-800">Gesamt bezahlt</p>
+              <p className="font-sans font-semibold text-sm text-emerald-800">{tOffer(lang, 'paymentsTotalPaid')}</p>
               <p className="font-sans font-bold text-sm text-emerald-800">{fmt(totalPaid)}</p>
             </div>
           )}
@@ -2041,9 +2043,9 @@ function PublicPaymentSection({
             >
               <button className="w-full py-4 px-6 rounded-2xl bg-amber-700 hover:bg-amber-800 text-white font-sans font-semibold text-base shadow-[0_4px_15px_rgba(180,83,9,0.25)] hover:shadow-[0_8px_25px_rgba(180,83,9,0.35)] hover:-translate-y-0.5 transition-all flex flex-col items-center gap-1">
                 <span>
-                  {typeLabels[firstOpen.payment_type] ?? "Zahlung"} jetzt bezahlen →
+                  {typeLabels[firstOpen.payment_type] ?? tOffer(lang, 'payGeneric')} {tOffer(lang, 'paymentsPayCta')}
                 </span>
-                <span className="text-xs font-normal opacity-80">Karte · SEPA · Billie</span>
+                <span className="text-xs font-normal opacity-80">{tOffer(lang, 'payMethods')}</span>
               </button>
             </a>
           )}
@@ -2051,16 +2053,16 @@ function PublicPaymentSection({
           {/* Alles bezahlt — Dankestext */}
           {allPaid && (
             <p className="text-sm font-sans text-muted-foreground">
-              Vielen Dank! Alle Zahlungen sind eingegangen. Wir freuen uns auf Ihr Event.
+              {tOffer(lang, 'paymentsAllPaidThanks')}
             </p>
           )}
 
           {/* Kontakthinweis bei offener Zahlung ohne Link */}
           {!allPaid && firstOpen && !firstOpen.stripe_payment_link_url && (
             <p className="text-sm font-sans text-muted-foreground">
-              Bei Fragen zur Zahlung erreichen Sie uns unter{" "}
+              {tOffer(lang, 'paymentsContactIntro')}{" "}
               <a href="tel:+498951519696" className="text-primary hover:underline">089 51519696</a>{" "}
-              oder{" "}
+              {tOffer(lang, 'paymentsOrText')}{" "}
               <a href="mailto:info@events-storia.de" className="text-primary hover:underline">info@events-storia.de</a>.
             </p>
           )}
