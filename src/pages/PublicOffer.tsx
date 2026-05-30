@@ -2144,18 +2144,18 @@ function CancellationTermsAccordion() {
 
 // =================================================================
 
-function ContactSection() {
+function ContactSection({ lang }: { lang: OfferLang }) {
   return (
     <section className="border-t border-border/30">
       <div className="container mx-auto px-4 py-12 md:py-16">
         <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/60 mb-3">
-          Kontakt
+          {tOffer(lang, 'contactEyebrow')}
         </p>
         <h2 className="text-xl md:text-2xl font-serif font-bold mb-3">
-          Fragen zu Ihrem Angebot?
+          {tOffer(lang, 'contactTitle')}
         </h2>
         <p className="text-muted-foreground font-sans mb-8 max-w-md text-sm">
-          Wir beraten Sie gerne persönlich und passen das Angebot an Ihre Wünsche an.
+          {tOffer(lang, 'contactSubtitle')}
         </p>
         <div className="flex flex-col sm:flex-row items-start gap-4">
           <a href="tel:+498951519696">
