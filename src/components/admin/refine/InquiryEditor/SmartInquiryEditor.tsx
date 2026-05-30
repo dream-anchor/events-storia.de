@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2, Ban } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2, Ban, CheckCircle2 } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
 import { PrintMenu } from "@/components/admin/refine/print/PrintMenu";
 import { CancellationDialog } from "@/components/admin/shared/CancellationDialog";
 import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
+import { OfferAcceptanceDrawer } from "./OfferAcceptanceDrawer";
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -83,6 +84,7 @@ export const SmartInquiryEditor = () => {
   const [offerTotal, setOfferTotal] = useState<number | null>(null);
   const [sendSuccess, setSendSuccess] = useState<SendSuccessInfo | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showAcceptanceDrawer, setShowAcceptanceDrawer] = useState(false);
   const [customer, setCustomer] = useState<{ id?: string; account_invited_at?: string | null; account_activated_at?: string | null } | null>(null);
 
   const buildPersistableInquiryValues = useCallback((source: Record<string, unknown>) => {
