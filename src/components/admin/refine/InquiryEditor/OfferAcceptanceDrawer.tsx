@@ -150,7 +150,8 @@ export function OfferAcceptanceDrawer({
     [options, selectedOptionId],
   );
 
-  const canAdjustMenu = !!chosen?.package_id;
+  // Menü anpassen ist möglich bei allen Menü-/Paket-Modi (nicht bei reinen Text-/E-Mail-Angeboten)
+  const canAdjustMenu = !!chosen && chosen.offer_mode !== "email" && chosen.offer_mode !== "text";
 
   const reloadChosenOption = async () => {
     if (!selectedOptionId) return;
