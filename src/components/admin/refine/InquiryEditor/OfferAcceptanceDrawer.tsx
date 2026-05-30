@@ -544,35 +544,29 @@ export function OfferAcceptanceDrawer({
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="adj-reason" className="text-xs">Grund der Anpassung</Label>
-              <Input
-                id="adj-reason"
-                value={adjustmentReason}
-                onChange={(e) => setAdjustmentReason(e.target.value)}
-                placeholder="z.B. Tiramisu gegen Panna Cotta getauscht"
-              />
-            </div>
-
             {chosen && draftMenu && (
-              <MenuComposer
-                packageId={chosen.package_id ?? null}
-                packageName={chosen.package_name_snapshot ?? null}
-                guestCount={parsedGuests ?? chosen.guest_count ?? 1}
-                menuSelection={draftMenu}
-                onMenuSelectionChange={setDraftMenu}
-              />
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-sm space-y-3">
+                <p className="font-medium text-foreground">
+                  Menü wird im Angebots-Editor angepasst
+                </p>
+                <p className="text-muted-foreground text-xs leading-relaxed">
+                  Schließe diesen Dialog, wechsle in den Tab <strong>Angebot</strong> und
+                  klicke <strong>„Angebot bearbeiten"</strong>. Dort kannst du Gänge,
+                  Getränke und Pakete vollständig ändern — eine neue Version wird
+                  automatisch angelegt. Komm danach hierher zurück und klicke
+                  <strong> „Angebot annehmen"</strong>.
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Notiere den Grund der Anpassung ggf. in der internen Notiz unten
+                  (z. B. „Tiramisu → Panna Cotta, telefonisch besprochen").
+                </p>
+              </div>
             )}
           </div>
 
           <DialogFooter className="border-t border-border/40 pt-3">
-            <Button variant="ghost" onClick={() => setMenuEditorOpen(false)} disabled={savingMenu}>
-              Abbrechen
-            </Button>
-            <Button onClick={handleSaveMenu} disabled={savingMenu}>
-              {savingMenu && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Menü speichern (neue Version)
+            <Button onClick={() => setMenuEditorOpen(false)}>
+              Verstanden
             </Button>
           </DialogFooter>
         </DialogContent>
