@@ -40,6 +40,8 @@ import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCus
 import { OfferAcceptanceDrawer } from "./OfferAcceptanceDrawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CustomerLang } from "./CustomerLanguageSelector";
+import { LanguageSwitchDialog, type TranslationScope } from "./LanguageSwitchDialog";
+import { Languages as LanguagesIcon } from "lucide-react";
 
 const HEADER_LANGS: { value: CustomerLang; flag: string; code: string; label: string }[] = [
   { value: "de", flag: "🇩🇪", code: "DE", label: "Deutsch" },
@@ -68,6 +70,13 @@ export const SmartInquiryEditor = () => {
   const consecutiveSaveErrorsRef = useRef(0);
   const errorToastShownRef = useRef(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>();
+
+  // Language-switch dialog
+  const [langDialog, setLangDialog] = useState<{ open: boolean; target: CustomerLang }>({
+    open: false,
+    target: "de",
+  });
+  const [lastTranslatedLang, setLastTranslatedLang] = useState<CustomerLang | null>(null);
 
   // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren
   useRegisterSaveStatus('smart-inquiry-editor', saveStatus);
