@@ -136,6 +136,8 @@ function SortableCourseRow({
   const quantity = course.quantity ?? 1;
   const lineTotal = unitPrice != null ? unitPrice * quantity : null;
   const fmtEUR = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  // Effektiver Modus pro Zeile: explizit > globaler Fallback.
+  const effPriceMode: LinePriceMode = (course.priceMode ?? (pricingMode === 'per_event' ? 'flat' : 'per_person')) as LinePriceMode;
 
   return (
     <div
