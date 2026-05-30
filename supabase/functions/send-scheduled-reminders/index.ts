@@ -1,6 +1,56 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { emailLanguagePlan, bilingualSubject, type CustomerLang } from '../_shared/customer-language.ts';
+import { formatCurrency as fmtCur, LOCALE_MAP } from '../_shared/email-i18n.ts';
+
+function asLang(v: unknown): CustomerLang {
+  const s = String(v ?? 'de').toLowerCase();
+  return (s === 'en' || s === 'it' || s === 'fr') ? s : 'de';
+}
+
+const OFFER_REMINDER = {
+  subject1: { de: 'Erinnerung: Ihr Angebot von STORIA wartet auf Sie', en: 'Reminder: your STORIA offer is waiting for you', it: 'Promemoria: la vostra offerta STORIA vi aspetta', fr: 'Rappel : votre offre STORIA vous attend' } as Record<CustomerLang,string>,
+  subject2: { de: 'Letzte Erinnerung: Ihr STORIA Angebot läuft bald ab', en: 'Final reminder: your STORIA offer expires soon', it: 'Ultimo promemoria: la vostra offerta STORIA sta per scadere', fr: 'Dernier rappel : votre offre STORIA expire bientôt' } as Record<CustomerLang,string>,
+  heading: { de: 'Erinnerung an Ihr Angebot', en: 'Reminder about your offer', it: 'Promemoria della vostra offerta', fr: 'Rappel concernant votre offre' } as Record<CustomerLang,string>,
+  greeting: { de: 'Sehr geehrte/r', en: 'Dear', it: 'Gentile', fr: 'Cher/Chère' } as Record<CustomerLang,string>,
+  body: (lang: CustomerLang, days: number, date: string | null) => {
+    const d = date ? ` ${({de:'am',en:'on',it:'del',fr:'du'} as Record<CustomerLang,string>)[lang]} ${date}` : '';
+    return ({
+      de: `wir haben vor ${days} Tagen ein Angebot für Ihre Veranstaltung${d} erstellt.`,
+      en: `${days} days ago we sent you an offer for your event${d}.`,
+      it: `${days} giorni fa vi abbiamo inviato un'offerta per il vostro evento${d}.`,
+      fr: `Il y a ${days} jours, nous vous avons envoyé une offre pour votre événement${d}.`,
+    } as Record<CustomerLang,string>)[lang];
+  },
+  questions: { de: 'Falls Sie noch Fragen haben oder Änderungen wünschen, stehen wir Ihnen gerne zur Verfügung.', en: 'If you have any questions or wish to make changes, we are happy to help.', it: 'Per qualsiasi domanda o modifica, siamo a vostra disposizione.', fr: 'Pour toute question ou modification, nous restons à votre disposition.' } as Record<CustomerLang,string>,
+  urgency: { de: 'Bitte beachten Sie: Um Ihren Wunschtermin zu sichern, benötigen wir zeitnah Ihre Rückmeldung.', en: 'Please note: to secure your preferred date, we need your reply soon.', it: 'Vi preghiamo di notare: per garantire la data desiderata, abbiamo bisogno di una vostra risposta a breve.', fr: 'Merci de noter : pour garantir votre date souhaitée, nous avons besoin de votre réponse rapidement.' } as Record<CustomerLang,string>,
+  signOff: { de: 'Mit freundlichen Grüßen', en: 'Best regards', it: 'Cordiali saluti', fr: 'Cordialement' } as Record<CustomerLang,string>,
+  team: { de: 'Ihr STORIA Events Team', en: 'Your STORIA Events Team', it: 'Il vostro Team STORIA Events', fr: 'Votre équipe STORIA Events' } as Record<CustomerLang,string>,
+};
+
+const PREPAY = {
+  subjectTpl: { de: (d: string) => `Erinnerung: Restzahlung für Ihre Veranstaltung am ${d}`,
+                en: (d: string) => `Reminder: balance payment for your event on ${d}`,
+                it: (d: string) => `Promemoria: saldo per il vostro evento del ${d}`,
+                fr: (d: string) => `Rappel : solde pour votre événement du ${d}` } as Record<CustomerLang,(d:string)=>string>,
+  heading: { de: 'Restzahlung steht noch aus', en: 'Balance payment still pending', it: 'Saldo ancora in sospeso', fr: 'Solde en attente' } as Record<CustomerLang,string>,
+  greeting: { de: 'Guten Tag', en: 'Hello', it: 'Buongiorno', fr: 'Bonjour' } as Record<CustomerLang,string>,
+  body: (lang: CustomerLang, date: string, amount: string) => ({
+    de: `Ihre Veranstaltung am <strong>${date}</strong> rückt näher. Bitte begleichen Sie den noch offenen Restbetrag von <strong>${amount}</strong> bis spätestens <strong>10 Tage vor der Veranstaltung</strong> vorab per Kreditkarte.`,
+    en: `Your event on <strong>${date}</strong> is approaching. Please settle the remaining balance of <strong>${amount}</strong> at the latest <strong>10 days before the event</strong> by credit card.`,
+    it: `Il vostro evento del <strong>${date}</strong> si avvicina. Vi preghiamo di saldare l'importo residuo di <strong>${amount}</strong> entro e non oltre <strong>10 giorni prima dell'evento</strong> con carta di credito.`,
+    fr: `Votre événement du <strong>${date}</strong> approche. Merci de régler le solde restant de <strong>${amount}</strong> au plus tard <strong>10 jours avant l'événement</strong> par carte bancaire.`,
+  } as Record<CustomerLang,string>)[lang],
+  guests: { de: 'Sie können beim Bezahlen die finale <strong>Personenzahl</strong> noch anpassen (mehr Personen jederzeit möglich).', en: 'When paying you can still adjust the final <strong>guest count</strong> (more guests always possible).', it: 'Al momento del pagamento potete ancora adeguare il <strong>numero di persone</strong> finale (più persone sempre possibile).', fr: 'Au moment du paiement, vous pouvez encore ajuster le <strong>nombre de personnes</strong> final (plus de personnes toujours possible).' } as Record<CustomerLang,string>,
+  cta: { de: 'Jetzt Restbetrag begleichen →', en: 'Pay balance now →', it: 'Paga il saldo ora →', fr: 'Payer le solde →' } as Record<CustomerLang,string>,
+  booking: { de: 'Buchungsnummer', en: 'Booking number', it: 'Numero di prenotazione', fr: 'Numéro de réservation' } as Record<CustomerLang,string>,
+  questions: { de: 'Bei Fragen', en: 'Questions', it: 'Domande', fr: 'Questions' } as Record<CustomerLang,string>,
+  signOff: { de: 'Herzliche Grüße,', en: 'Best regards,', it: 'Cordiali saluti,', fr: 'Cordialement,' } as Record<CustomerLang,string>,
+  team: { de: 'Ihr STORIA Events Team', en: 'Your STORIA Events Team', it: 'Il vostro Team STORIA Events', fr: 'Votre équipe STORIA Events' } as Record<CustomerLang,string>,
+};
+
+const SEP = `<hr style="border:0;border-top:1px dashed #d9d2c5;margin:24px 0;" />`;
 
 
 
