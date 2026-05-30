@@ -1303,6 +1303,20 @@ export const SmartInquiryEditor = () => {
         onGoToOffer={() => { setSendSuccess(null); if (inquiry?.id) window.open(`/offer/${inquiry.id}`, '_blank', 'noopener,noreferrer'); }}
       />
 
+      <LanguageSwitchDialog
+        open={langDialog.open}
+        currentLang={((inquiry?.customer_language as CustomerLang | null) || 'de')}
+        targetLang={langDialog.target}
+        available={{
+          coverLetter: !!(emailDraft || inquiry?.email_draft),
+          customerMessage: true,
+          menu: quoteItems.length > 0,
+          packageDesc: selectedPackages.length > 0,
+        }}
+        onCancel={() => setLangDialog({ open: false, target: langDialog.target })}
+        onConfirm={performLanguageSwitch}
+      />
+
     </AdminLayout>
   );
 };
