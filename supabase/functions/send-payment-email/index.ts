@@ -2,6 +2,13 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
+import {
+  resolveCustomerLanguage, emailLanguagePlan, bilingualSubject,
+  type CustomerLang,
+} from '../_shared/customer-language.ts';
+import {
+  formatCurrency, formatDate, paymentTypeLabel, t, SEPARATOR_HTML,
+} from '../_shared/email-i18n.ts';
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -10,9 +17,7 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { payment_id, is_reminder = false, is_confirmation = false } = await req.json();
@@ -38,68 +43,160 @@ serve(async (req) => {
     }
     if (!payment.customer_email) throw new Error('Keine E-Mail-Adresse bei der Anfrage hinterlegt');
 
-    // Check if the linked inquiry is a test
     const { data: inquiryRow } = await supabase
       .from('event_inquiries')
-      .select('is_test')
+      .select('is_test, customer_language')
       .eq('id', payment.inquiry_id)
       .single();
     const isTest = inquiryRow?.is_test === true;
     const safeEmail = getSafeRecipientEmail(payment.customer_email, isTest);
 
+    const lang: CustomerLang = await resolveCustomerLanguage(supabase, payment.inquiry_id)
+      .catch(() => 'de');
+    // event_inquiries may have its own customer_language — prefer it when present.
+    const inquiryLang = (inquiryRow?.customer_language as CustomerLang | undefined);
+    const effectiveLang: CustomerLang =
+      (inquiryLang && ['de', 'en', 'it', 'fr'].includes(inquiryLang)) ? inquiryLang : lang;
+    const plan = emailLanguagePlan(effectiveLang);
+
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) throw new Error('RESEND_API_KEY nicht konfiguriert');
 
-    const typeLabels: Record<string, string> = {
-      deposit: 'Anzahlung',
-      prepayment: 'Vorauszahlung',
-      final: 'Endabrechnung',
+    const subjectFor = (lng: CustomerLang) => {
+      const typeLbl = paymentTypeLabel(lng, payment.payment_type);
+      const amt = formatCurrency(lng, payment.amount_cents);
+      const ev = payment.preferred_date
+        ? formatDate(lng, payment.preferred_date)
+        : ({ de: 'Termin offen', en: 'date TBC', it: 'data da definire', fr: 'date à définir' }[lng]);
+      if (is_confirmation) {
+        return ({
+          de: `Zahlungseingang bestätigt: ${typeLbl} für Ihre Veranstaltung am ${ev}`,
+          en: `Payment received: ${typeLbl} for your event on ${ev}`,
+          it: `Pagamento ricevuto: ${typeLbl} per il vostro evento del ${ev}`,
+          fr: `Paiement reçu : ${typeLbl} pour votre événement du ${ev}`,
+        }[lng]);
+      }
+      if (is_reminder) {
+        return ({
+          de: `Erinnerung: ${typeLbl} für Ihre Veranstaltung am ${ev}`,
+          en: `Reminder: ${typeLbl} for your event on ${ev}`,
+          it: `Promemoria: ${typeLbl} per il vostro evento del ${ev}`,
+          fr: `Rappel : ${typeLbl} pour votre événement du ${ev}`,
+        }[lng]);
+      }
+      return ({
+        de: `${typeLbl}: ${amt} für Ihre Veranstaltung am ${ev}`,
+        en: `${typeLbl}: ${amt} for your event on ${ev}`,
+        it: `${typeLbl}: ${amt} per il vostro evento del ${ev}`,
+        fr: `${typeLbl} : ${amt} pour votre événement du ${ev}`,
+      }[lng]);
     };
-    const typeLabel = typeLabels[payment.payment_type] || payment.payment_type;
 
-    const amountFormatted = new Intl.NumberFormat('de-DE', {
-      style: 'currency',
-      currency: 'EUR',
-    }).format(payment.amount_cents / 100);
+    const subjects: Record<CustomerLang, string> = {
+      de: subjectFor('de'), en: subjectFor('en'), it: subjectFor('it'), fr: subjectFor('fr'),
+    };
+    const subject = bilingualSubject(effectiveLang, subjects);
 
-    const eventDateStr = payment.preferred_date
-      ? new Date(payment.preferred_date).toLocaleDateString('de-DE')
-      : 'Termin offen';
+    const buildBlock = (lng: CustomerLang) => {
+      const typeLbl = paymentTypeLabel(lng, payment.payment_type);
+      const amt = formatCurrency(lng, payment.amount_cents);
+      const dueStr = payment.effective_due_date ? formatDate(lng, payment.effective_due_date) : null;
 
-    const effectiveDueDateStr = payment.effective_due_date
-      ? new Date(payment.effective_due_date).toLocaleDateString('de-DE')
-      : null;
+      const introMap = {
+        de: is_confirmation
+          ? `vielen Dank! Wir haben Ihre <strong>${typeLbl}</strong> in Höhe von <strong>${amt}</strong> erhalten und Ihre Buchung ist damit verbindlich bestätigt. Die offizielle Rechnung erhalten Sie separat per E-Mail.`
+          : is_reminder
+            ? `wir möchten Sie freundlich daran erinnern, dass Ihre <strong>${typeLbl}</strong> in Höhe von <strong>${amt}</strong>${dueStr ? ` (fällig seit ${dueStr})` : ''} noch aussteht.`
+            : `anbei erhalten Sie den Zahlungslink für die <strong>${typeLbl}</strong> in Höhe von <strong>${amt}</strong>${dueStr ? ` (fällig bis ${dueStr})` : ''}.`,
+        en: is_confirmation
+          ? `thank you! We have received your <strong>${typeLbl}</strong> of <strong>${amt}</strong> and your booking is now confirmed. The official invoice will follow by email.`
+          : is_reminder
+            ? `a friendly reminder that your <strong>${typeLbl}</strong> of <strong>${amt}</strong>${dueStr ? ` (due since ${dueStr})` : ''} is still pending.`
+            : `please find below the payment link for your <strong>${typeLbl}</strong> of <strong>${amt}</strong>${dueStr ? ` (due by ${dueStr})` : ''}.`,
+        it: is_confirmation
+          ? `grazie! Abbiamo ricevuto il vostro <strong>${typeLbl}</strong> di <strong>${amt}</strong> e la prenotazione è ora confermata. La fattura ufficiale seguirà via e-mail.`
+          : is_reminder
+            ? `un cortese promemoria: il vostro <strong>${typeLbl}</strong> di <strong>${amt}</strong>${dueStr ? ` (scaduto dal ${dueStr})` : ''} è ancora in sospeso.`
+            : `di seguito trovate il link di pagamento per il <strong>${typeLbl}</strong> di <strong>${amt}</strong>${dueStr ? ` (entro il ${dueStr})` : ''}.`,
+        fr: is_confirmation
+          ? `merci ! Nous avons bien reçu votre <strong>${typeLbl}</strong> de <strong>${amt}</strong> et votre réservation est confirmée. La facture officielle suivra par e-mail.`
+          : is_reminder
+            ? `un rappel : votre <strong>${typeLbl}</strong> de <strong>${amt}</strong>${dueStr ? ` (échue depuis le ${dueStr})` : ''} reste en attente.`
+            : `veuillez trouver ci-dessous le lien de paiement pour le <strong>${typeLbl}</strong> de <strong>${amt}</strong>${dueStr ? ` (avant le ${dueStr})` : ''}.`,
+      } as const;
 
-    const subject = is_confirmation
-      ? `Zahlungseingang bestätigt: ${typeLabel} für Ihre Veranstaltung am ${eventDateStr}`
-      : is_reminder
-        ? `Erinnerung: ${typeLabel} für ${payment.event_type || 'Ihre Veranstaltung'} am ${eventDateStr}`
-        : `${typeLabel}: ${amountFormatted} für Ihre Veranstaltung am ${eventDateStr}`;
+      const heading = is_confirmation
+        ? ({ de: 'Zahlung erhalten – Vielen Dank!', en: 'Payment received – Thank you!', it: 'Pagamento ricevuto – Grazie!', fr: 'Paiement reçu – Merci !' }[lng])
+        : `${typeLbl}: ${amt}`;
 
-    const introText = is_confirmation
-      ? `vielen Dank! Wir haben Ihre <strong>${typeLabel}</strong> in Höhe von <strong>${amountFormatted}</strong> erhalten und Ihre Buchung ist damit verbindlich bestätigt. Die offizielle Rechnung finden Sie als PDF in Ihrem Kundenkonto bzw. erhalten Sie separat per E-Mail.`
-      : is_reminder
-        ? `wir möchten Sie freundlich daran erinnern, dass Ihre <strong>${typeLabel}</strong> in Höhe von <strong>${amountFormatted}</strong>${effectiveDueDateStr ? ` (fällig seit ${effectiveDueDateStr})` : ''} noch aussteht.`
-        : `anbei erhalten Sie den Zahlungslink für die <strong>${typeLabel}</strong> in Höhe von <strong>${amountFormatted}</strong>${effectiveDueDateStr ? ` (fällig bis ${effectiveDueDateStr})` : ''}.`;
+      const ctaHtml = is_confirmation ? '' : `<table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+        <tr><td>
+          <a href="${payment.stripe_payment_link_url || ''}"
+             style="display:inline-block;background-color:#b45309;color:#ffffff;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;text-decoration:none;">
+            ${t(lng, 'payNowCta')}
+          </a>
+        </td></tr>
+      </table>
+      <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 8px;">${t(lng, 'paymentLinkValidity')}</p>`;
 
-    const html = buildPaymentEmailHtml({
-      customerName: payment.contact_name,
-      introText,
-      typeLabel,
-      amountFormatted,
-      paymentUrl: payment.stripe_payment_link_url || '',
-      isConfirmation: is_confirmation,
-    });
+      return `
+        <h2 style="color:#1a1a1a;margin:0 0 16px;font-size:20px;">${heading}</h2>
+        <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 16px;">${t(lng, 'greeting')} ${payment.contact_name || ''},</p>
+        <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 24px;">${introMap[lng]}</p>
+        ${ctaHtml}
+        <p style="color:#333333;font-size:15px;line-height:1.6;margin:16px 0 0;">
+          <strong>${t(lng, 'cancellationTermsTitle')}</strong><br/>
+          ${t(lng, 'cancellationTermsBody')}<br/>
+          <span style="font-size:13px;color:#666666;">${t(lng, 'cancellationTermsFootnote')}
+            <a href="https://www.events-storia.de/agb-veranstaltungen" style="color:#b45309;">events-storia.de/agb-veranstaltungen</a>
+          </span>
+        </p>
+        <p style="color:#333333;font-size:15px;line-height:1.6;margin:24px 0 0;">
+          ${t(lng, 'questionsLine')}<br/>
+          <a href="tel:+498951519696" style="color:#b45309;text-decoration:none;">089 51519696</a>
+          – <a href="mailto:info@events-storia.de" style="color:#b45309;text-decoration:none;">info@events-storia.de</a>
+        </p>
+        <p style="color:#333333;font-size:15px;line-height:1.6;margin:16px 0 0;">
+          ${t(lng, 'signOff')}<br/><strong>${t(lng, 'teamSignature')}</strong>
+        </p>`;
+    };
+
+    const primaryBlock = buildBlock(plan.primary);
+    const secondaryBlock = plan.secondary ? `${SEPARATOR_HTML}${buildBlock(plan.secondary)}` : '';
+    const footerLang = plan.primary;
+
+    const html = `<!DOCTYPE html>
+<html lang="${plan.primary}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f7f7f7;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f7f7;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
+        <tr><td style="background-color:#1a1a1a;padding:24px 32px;">
+          <h1 style="color:#ffffff;margin:0;font-size:22px;font-family:Arial,sans-serif;">STORIA Events</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          ${primaryBlock}
+          ${secondaryBlock}
+        </td></tr>
+        <tr><td style="background-color:#f5f5f0;padding:20px 32px;font-size:11px;color:#777777;border-top:1px solid #e5e5e5;">
+          <p style="margin:0 0 8px;">${t(footerLang, 'legalDisclaimer')}</p>
+          <p style="margin:0 0 8px;">
+            <a href="https://events-storia.de/datenschutz" style="color:#b45309;">${t(footerLang, 'privacyImprint')}</a> ·
+            <a href="https://events-storia.de/impressum" style="color:#b45309;margin-left:8px;">${t(footerLang, 'imprint')}</a>
+          </p>
+          <p style="margin:0;">Speranza GmbH · Karlstraße 47a · 80333 München · info@events-storia.de · +49 89 51519696</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
 
     const safeSubject = getSafeSubject(subject, isTest);
-    logStep("Sending via Resend", { to: safeEmail, subject: safeSubject });
+    logStep("Sending via Resend", { to: safeEmail, subject: safeSubject, lang: effectiveLang });
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${resendApiKey}`,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
       body: JSON.stringify({
         from: 'STORIA Events <info@events-storia.de>',
         to: [safeEmail],
@@ -117,7 +214,6 @@ serve(async (req) => {
     const resendResult = await resendResponse.json();
     logStep("Email sent", { messageId: resendResult.id });
 
-    // Timestamp auf Payment setzen
     const updateField = is_reminder ? 'reminder_sent_at' : 'email_sent_at';
     await supabase
       .from('event_payments')
@@ -129,7 +225,7 @@ serve(async (req) => {
       .eq('id', payment_id);
 
     return new Response(
-      JSON.stringify({ success: true, messageId: resendResult.id }),
+      JSON.stringify({ success: true, messageId: resendResult.id, language: effectiveLang }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
@@ -141,91 +237,3 @@ serve(async (req) => {
     );
   }
 });
-
-function buildPaymentEmailHtml(opts: {
-  customerName: string;
-  introText: string;
-  typeLabel: string;
-  amountFormatted: string;
-  paymentUrl: string;
-  isConfirmation?: boolean;
-}): string {
-  return `<!DOCTYPE html>
-<html lang="de">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f7f7f7;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f7f7;padding:32px 0;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
-        <tr><td style="background-color:#1a1a1a;padding:24px 32px;">
-          <h1 style="color:#ffffff;margin:0;font-size:22px;font-family:Arial,sans-serif;">STORIA Events</h1>
-        </td></tr>
-        <tr><td style="padding:32px;">
-          <h2 style="color:#1a1a1a;margin:0 0 16px;font-size:20px;">${opts.isConfirmation ? `Zahlung erhalten – Vielen Dank!` : `${opts.typeLabel}: ${opts.amountFormatted}`}</h2>
-          <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 16px;">
-            Guten Tag ${opts.customerName},
-          </p>
-          <p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 24px;">
-            ${opts.introText}
-          </p>
-          ${opts.isConfirmation ? '' : `<table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
-            <tr><td>
-              <a href="${opts.paymentUrl}"
-                 style="display:inline-block;background-color:#b45309;color:#ffffff;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;text-decoration:none;">
-                Jetzt bezahlen →
-              </a>
-            </td></tr>
-          </table>`}
-          ${opts.isConfirmation ? '' : `<p style="color:#333333;font-size:15px;line-height:1.6;margin:0 0 8px;">
-            Sie können per Kreditkarte, SEPA-Lastschrift oder – bei Firmenbuchungen – auf Rechnung über Billie bezahlen.
-            Der Zahlungslink ist 72 Stunden gültig.
-          </p>`}
-          <p style="color:#333333;font-size:15px;line-height:1.6;margin:16px 0 0;">
-            <strong>Stornobedingungen:</strong><br/>
-            Bis 30 Tage vorher: kostenlos &middot;
-            14–30 Tage: 25&nbsp;% &middot;
-            7–14 Tage: 50&nbsp;% &middot;
-            2–7 Tage: 80&nbsp;% &middot;
-            Unter 48&nbsp;Std./No-Show: 100&nbsp;% abzgl. ersparter Aufwendungen.<br/>
-            <span style="font-size:13px;color:#666666;">
-              Es steht Ihnen frei nachzuweisen, dass ein geringerer oder kein Schaden entstanden ist (§&nbsp;309 Nr.&nbsp;5b BGB).
-              Vollständige AGB:
-              <a href="https://www.events-storia.de/agb-veranstaltungen" style="color:#b45309;">events-storia.de/agb-veranstaltungen</a>
-            </span>
-          </p>
-          <p style="color:#333333;font-size:15px;line-height:1.6;margin:24px 0 0;">
-            Bei Fragen stehen wir Ihnen gerne zur Verfügung:<br/>
-            <a href="tel:+498951519696" style="color:#b45309;text-decoration:none;">089 51519696</a>
-            oder <a href="mailto:info@events-storia.de" style="color:#b45309;text-decoration:none;">info@events-storia.de</a>
-          </p>
-          <p style="color:#333333;font-size:15px;line-height:1.6;margin:16px 0 0;">
-            Herzliche Grüße,<br/>
-            <strong>Ihr STORIA Events Team</strong>
-          </p>
-        </td></tr>
-        <tr><td style="background-color:#f5f5f0;padding:20px 32px;font-size:11px;color:#777777;border-top:1px solid #e5e5e5;">
-          <p style="margin:0 0 8px;">
-            <strong>Rechtliche Hinweise:</strong>
-            Mit der Zahlung bestätigen Sie die Buchung zu den vereinbarten Konditionen.
-            Es gelten unsere <a href="https://events-storia.de/agb-veranstaltungen" style="color:#b45309;">AGB für Veranstaltungen</a>.
-            Da es sich um eine Dienstleistung zu einem spezifischen Termin handelt, besteht kein Widerrufsrecht
-            (§ 312g Abs. 2 Nr. 9 BGB). Es gelten die Stornobedingungen gemäß AGB.
-          </p>
-          <p style="margin:0 0 8px;">
-            <a href="https://events-storia.de/datenschutz" style="color:#b45309;">Datenschutzerklärung</a> ·
-            <a href="https://events-storia.de/impressum" style="color:#b45309;margin-left:8px;">Impressum</a>
-          </p>
-          <p style="margin:0;">
-            Speranza GmbH · Karlstraße 47a · 80333 München ·
-            info@events-storia.de · +49 89 51519696
-          </p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-}
