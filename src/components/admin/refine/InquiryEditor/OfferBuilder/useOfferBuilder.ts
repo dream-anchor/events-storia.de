@@ -6,7 +6,7 @@ import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { CourseConfig, DrinkConfig, DrinkOption, CourseSelection } from "../MenuComposer/types";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
-import { detectPricingMode, calculateTotalAmount, parseQuantityPrefix } from "./pricingMode";
+import { detectPricingMode, parseQuantityPrefix } from "./pricingMode";
 import {
   OfferBuilderOption,
   OfferPhase,
@@ -647,49 +647,53 @@ export function useOfferBuilder({
       let changed = false;
       const updated = prev.map(opt => {
         if (opt.offerMode === 'menu') {
-          // Menue-Modus: Zeilen-Totals aus quantity * overridePrice
-          let dishSubtotal = 0;
+          // Menue-Modus: per-line priceMode bestimmt ob × Gäste oder pauschal
+          const guests = Math.max(1, opt.guestCount);
+          const globalMode = opt.pricingMode ?? 'per_person';
+          const lineMult = (priceMode?: 'per_person' | 'flat' | null): number => {
+            const m = priceMode ?? (globalMode === 'per_event' ? 'flat' : 'per_person');
+            return m === 'flat' ? 1 : guests;
+          };
+
+          let dishAbs = 0;
           for (const course of opt.menuSelection.courses) {
             if (course.overridePrice != null && course.overridePrice > 0) {
               const qty = course.quantity ?? 1;
-              dishSubtotal += course.overridePrice * qty;
+              dishAbs += course.overridePrice * qty * lineMult(course.priceMode);
             }
           }
-          // Getränke je nach Modus
-          let drinksPerPerson = 0;
+
+          // Getränke
+          let drinksAbs = 0;
           const drinkMode = opt.menuSelection.drinksMode ?? 'none';
-          const pm = opt.pricingMode ?? 'per_person';
           if (drinkMode === 'weinbegleitung' || drinkMode === 'none') {
-            drinksPerPerson = opt.menuSelection.winePairingPrice || 0;
+            drinksAbs = (opt.menuSelection.winePairingPrice || 0) * guests;
           } else if (drinkMode === 'pauschale') {
-            drinksPerPerson = opt.menuSelection.drinksPauschalePrice || 0;
+            drinksAbs = (opt.menuSelection.drinksPauschalePrice || 0) * guests;
           } else if (drinkMode === 'einzeln') {
-            // per_event: absolute Mengen x Einzelpreis (Zeilen-Total)
-            // per_person: einfach Summe der Einzelpreise (quantity wird nicht genutzt)
-            drinksPerPerson = (opt.menuSelection.drinksEinzeln || []).reduce((s, d) => {
-              const qty = pm === 'per_event' ? (d.quantity ?? 1) : 1;
-              return s + d.pricePerPerson * qty;
+            drinksAbs = (opt.menuSelection.drinksEinzeln || []).reduce((s, d) => {
+              const qty = d.quantity ?? 1;
+              return s + d.pricePerPerson * qty * lineMult(d.priceMode);
             }, 0);
           }
-          const subtotal = dishSubtotal + drinksPerPerson;
-          const netPerPerson = subtotal;
 
-          // budgetPerPerson (manuell gesetzt) hat Vorrang. Wenn nicht gesetzt,
-          // wird der eingegebene Rabatt auf den errechneten Preis angewendet.
+          const subtotalAbs = dishAbs + drinksAbs;
+
           const discountPct = Math.min(100, Math.max(0, opt.discountPercent ?? 0));
-          // €-Rabatt hat Vorrang, sonst Prozent
           const discountEur = Math.max(0, opt.discountAmount ?? 0);
           const computeDiscount = (base: number) =>
             discountEur > 0 ? Math.min(discountEur, base) : base * (discountPct / 100);
-          const guestsForDiv = Math.max(1, opt.guestCount);
-          const perPersonDiscount = (base: number) => computeDiscount(base * guestsForDiv) / guestsForDiv;
-          const effectivePerPerson = (opt.budgetPerPerson != null && opt.budgetPerPerson > 0)
-            ? opt.budgetPerPerson
-            : netPerPerson - perPersonDiscount(netPerPerson);
-          // Gesamtsumme je nach Pricing-Modus
-          const mode = opt.pricingMode ?? 'per_person';
-          const fallbackTotal = netPerPerson * opt.guestCount - computeDiscount(netPerPerson * opt.guestCount);
-          let newTotal = calculateTotalAmount(mode, effectivePerPerson, opt.guestCount, fallbackTotal);
+
+          let newTotal: number;
+          if (opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
+            // Manueller Override: budget × (Gäste oder 1) je nach globalem Modus
+            const overrideTotal = globalMode === 'per_event'
+              ? opt.budgetPerPerson
+              : opt.budgetPerPerson * guests;
+            newTotal = overrideTotal - computeDiscount(overrideTotal);
+          } else {
+            newTotal = subtotalAbs - computeDiscount(subtotalAbs);
+          }
 
           // Equipment & Staff: Fixkosten addieren (nicht pro Person)
           const equipTotal = (opt.menuSelection.equipment || [])

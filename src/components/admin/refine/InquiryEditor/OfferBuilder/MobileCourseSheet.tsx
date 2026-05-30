@@ -11,6 +11,7 @@ import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { PricingMode } from "./pricingMode";
 import { findBestMenuItem } from "./menuItemLookup";
 import { haptic } from "@/lib/haptics";
+import { LinePriceModeToggle, type LinePriceMode } from "./LinePriceModeToggle";
 
 interface MobileCourseSheetProps {
   open: boolean;
@@ -103,6 +104,7 @@ export function MobileCourseSheet({
       isCustom: draft.isCustom,
       overridePrice: draft.overridePrice,
       quantity: draft.quantity,
+      priceMode: draft.priceMode,
     });
     haptic("success");
     onOpenChange(false);
@@ -261,6 +263,17 @@ export function MobileCourseSheet({
                 {quantity} × {fmtEUR(unitPrice ?? 0)}
               </span>
               <span className="font-semibold tabular-nums">{fmtEUR(lineTotal)}</span>
+            </div>
+          )}
+
+          {/* Pro-Zeile Preismodus */}
+          {!packageMode && (
+            <div className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+              <span className="text-sm text-muted-foreground">Preis berechnen als</span>
+              <LinePriceModeToggle
+                value={(draft.priceMode ?? (pricingMode === 'per_event' ? 'flat' : 'per_person')) as LinePriceMode}
+                onChange={(m) => setDraft((d) => (d ? { ...d, priceMode: m } : d))}
+              />
             </div>
           )}
 

@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { DishPicker } from "./DishPicker";
 import { COURSE_ICONS } from "./types";
 import type { CourseConfig, CourseSelection, CourseType } from "./types";
+import { LinePriceModeToggle, type LinePriceMode } from "./LinePriceModeToggle";
 
 // Default-Labels pro CourseType — werden im Icon-Picker als Vorschlag angeboten.
 const COURSE_TYPE_LABELS: Record<CourseType, string> = {
@@ -74,6 +75,7 @@ function SortableCourseRow({
   onUpdateType,
   onUpdateQuantity,
   onUpdatePrice,
+  onUpdatePriceMode,
   onRemoveCourse,
   pricingMode,
   disabled,
@@ -91,6 +93,7 @@ function SortableCourseRow({
   onUpdateType: (index: number, courseType: CourseType, label: string) => void;
   onUpdateQuantity: (index: number, quantity: number) => void;
   onUpdatePrice: (index: number, price: number | null) => void;
+  onUpdatePriceMode: (index: number, mode: LinePriceMode) => void;
   onRemoveCourse: (index: number) => void;
   pricingMode: PricingMode;
   disabled: boolean;
@@ -133,6 +136,8 @@ function SortableCourseRow({
   const quantity = course.quantity ?? 1;
   const lineTotal = unitPrice != null ? unitPrice * quantity : null;
   const fmtEUR = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  // Effektiver Modus pro Zeile: explizit > globaler Fallback.
+  const effPriceMode: LinePriceMode = (course.priceMode ?? (pricingMode === 'per_event' ? 'flat' : 'per_person')) as LinePriceMode;
 
   return (
     <div
@@ -375,9 +380,19 @@ function SortableCourseRow({
 
       {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
       {pricingMode === 'per_event' && quantity > 1 && (
-        <span className="text-sm font-medium tabular-nums w-24 text-right shrink-0 order-5 sm:order-none">
+        <span className="text-sm font-medium tabular-nums w-24 text-right shrink-0 order-6 sm:order-none">
           {lineTotal != null ? fmtEUR(lineTotal) : ''}
         </span>
+      )}
+
+      {/* Pro-Zeile Preismodus (/Pers. ↔ pauschal) — nur im Menü-Modus */}
+      {!packageMode && (
+        <LinePriceModeToggle
+          value={effPriceMode}
+          onChange={(m) => onUpdatePriceMode(idx, m)}
+          disabled={disabled}
+          className="order-5 sm:order-none"
+        />
       )}
 
       {/* Gang entfernen — auf sm+ am Zeilenende; auf Mobile bereits in der Header-Reihe */}
@@ -491,6 +506,7 @@ export function InlineCourseEditor({
             onUpdateType={(index, courseType, courseLabel) => onUpdateCourse(index, { courseType, courseLabel })}
             onUpdateQuantity={(index, quantity) => onUpdateCourse(index, { quantity })}
             onUpdatePrice={(index, overridePrice) => onUpdateCourse(index, { overridePrice })}
+            onUpdatePriceMode={(index, priceMode) => onUpdateCourse(index, { priceMode })}
             pricingMode={pricingMode}
               onRemoveCourse={onRemoveCourse}
               disabled={disabled}
