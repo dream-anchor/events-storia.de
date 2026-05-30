@@ -71,7 +71,8 @@ export const LanguageSwitchDialog = ({
   const to = LANG_META[targetLang];
   const isSameTarget = currentLang === targetLang;
 
-  const items: { key: keyof TranslationScope; label: string; hint: string; show: boolean }[] = [
+  type Item = { key: keyof TranslationScope; label: string; hint: string; show: boolean };
+  const items: Item[] = ([
     {
       key: "coverLetter",
       label: "Anschreiben (Draft)",
@@ -96,7 +97,7 @@ export const LanguageSwitchDialog = ({
       hint: "Übersetzung des aktiven Pakets wird vorgewärmt.",
       show: available.packageDesc,
     },
-  ].filter((i) => i.show);
+  ] as Item[]).filter((i) => i.show);
 
   const anyAvailable = items.length > 0;
 
