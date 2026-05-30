@@ -265,6 +265,17 @@ export function MobileCourseSheet({
             </div>
           )}
 
+          {/* Pro-Zeile Preismodus */}
+          {!packageMode && (
+            <div className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+              <span className="text-sm text-muted-foreground">Preis berechnen als</span>
+              <LinePriceModeToggle
+                value={(draft.priceMode ?? (pricingMode === 'per_event' ? 'flat' : 'per_person')) as LinePriceMode}
+                onChange={(m) => setDraft((d) => (d ? { ...d, priceMode: m } : d))}
+              />
+            </div>
+          )}
+
           {/* Remove */}
           <Button
             variant="ghost"
