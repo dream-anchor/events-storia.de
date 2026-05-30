@@ -957,7 +957,7 @@ export const SmartInquiryEditor = () => {
                   </Badge>
                   <Select
                     value={(inquiry.customer_language as CustomerLang | null) || 'de'}
-                    onValueChange={(v) => handleLocalFieldChange('customer_language', v as CustomerLang)}
+                    onValueChange={(v) => handleLanguageSelect(v as CustomerLang)}
                   >
                     <SelectTrigger
                       className="h-7 w-auto gap-1.5 px-2 py-0 text-xs font-medium bg-muted/40 border-border/60 rounded-md"
