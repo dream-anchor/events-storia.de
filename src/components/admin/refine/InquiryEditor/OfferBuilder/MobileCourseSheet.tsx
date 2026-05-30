@@ -11,6 +11,7 @@ import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { PricingMode } from "./pricingMode";
 import { findBestMenuItem } from "./menuItemLookup";
 import { haptic } from "@/lib/haptics";
+import { LinePriceModeToggle, type LinePriceMode } from "./LinePriceModeToggle";
 
 interface MobileCourseSheetProps {
   open: boolean;
