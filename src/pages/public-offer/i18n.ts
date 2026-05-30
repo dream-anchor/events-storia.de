@@ -553,3 +553,18 @@ export const OFFER_UI: Record<OfferLang, Record<string, string>> = {
 export function tOffer(lang: OfferLang, key: string): string {
   return OFFER_UI[lang]?.[key] ?? OFFER_UI.de[key] ?? key;
 }
+
+/** Returns the date-fns locale matching the customer language. */
+import { de as deLocale } from 'date-fns/locale/de';
+import { enGB as enLocale } from 'date-fns/locale/en-GB';
+import { it as itLocale } from 'date-fns/locale/it';
+import { fr as frLocale } from 'date-fns/locale/fr';
+
+export function dateFnsLocale(lang: OfferLang) {
+  switch (lang) {
+    case 'en': return enLocale;
+    case 'it': return itLocale;
+    case 'fr': return frLocale;
+    default: return deLocale;
+  }
+}
