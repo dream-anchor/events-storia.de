@@ -3284,6 +3284,7 @@ export type Database = {
           language: string | null
           last_edited_at: string | null
           last_edited_by: string | null
+          last_translated_language: string | null
           lexoffice_document_type: string | null
           lexoffice_quotation_id: string | null
           location: Database["public"]["Enums"]["v2_event_location"] | null
@@ -3408,6 +3409,7 @@ export type Database = {
           language?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
+          last_translated_language?: string | null
           lexoffice_document_type?: string | null
           lexoffice_quotation_id?: string | null
           location?: Database["public"]["Enums"]["v2_event_location"] | null
@@ -3532,6 +3534,7 @@ export type Database = {
           language?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
+          last_translated_language?: string | null
           lexoffice_document_type?: string | null
           lexoffice_quotation_id?: string | null
           location?: Database["public"]["Enums"]["v2_event_location"] | null
