@@ -97,6 +97,19 @@ export function OfferSendPreview({
   const [isSending, setIsSending] = useState(false);
   const [isTestSending, setIsTestSending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Sprachwechsel im Editor → Vorschau neu laden
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { inquiryId?: string } | undefined;
+      if (!detail?.inquiryId || detail.inquiryId === id) {
+        setRefreshKey((k) => k + 1);
+      }
+    };
+    window.addEventListener('inquiry-language-changed', handler);
+    return () => window.removeEventListener('inquiry-language-changed', handler);
+  }, [id]);
   const pdfInFlightRef = useRef<string | null>(null);
 
   // Inquiry laden
