@@ -555,13 +555,22 @@ export function OfferAcceptanceDrawer({
             </div>
 
             {chosen && draftMenu && (
-              <MenuComposer
-                packageId={chosen.package_id ?? null}
-                packageName={chosen.package_name_snapshot ?? null}
-                guestCount={parsedGuests ?? chosen.guest_count ?? 1}
-                menuSelection={draftMenu}
-                onMenuSelectionChange={setDraftMenu}
-              />
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-sm space-y-3">
+                <p className="font-medium text-foreground">
+                  Menü wird im Angebots-Editor angepasst
+                </p>
+                <p className="text-muted-foreground text-xs leading-relaxed">
+                  Schließe diesen Dialog, wechsle in den Tab <strong>Angebot</strong> und
+                  klicke <strong>„Angebot bearbeiten"</strong>. Dort kannst du Gänge,
+                  Getränke und Pakete vollständig ändern — eine neue Version wird
+                  automatisch angelegt. Komm danach hierher zurück und klicke
+                  <strong> „Angebot annehmen"</strong>.
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Notiere den Grund der Anpassung ggf. in der internen Notiz unten
+                  (z. B. „Tiramisu → Panna Cotta, telefonisch besprochen").
+                </p>
+              </div>
             )}
           </div>
 
