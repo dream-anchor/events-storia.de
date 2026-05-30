@@ -9,7 +9,7 @@ import { de } from "date-fns/locale";
 import { pickLang, OFFER_LANGS, OFFER_LANG_LABELS, isValidOfferLang, type OfferLang } from "@/lib/offerLang";
 import { OrderConfirmationDialog } from "@/pages/public-offer/OrderConfirmationDialog";
 import { RestaurantGallery } from "@/pages/public-offer/RestaurantGallery";
-import { tOffer } from "@/pages/public-offer/i18n";
+import { tOffer, dateFnsLocale, currencyLocale } from "@/pages/public-offer/i18n";
 import {
   Phone,
   Mail,
@@ -150,8 +150,8 @@ interface PublicPayment {
   stripe_payment_link_url: string | null;
 }
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("de-DE", {
+function formatCurrency(amount: number, lang: OfferLang = 'de') {
+  return new Intl.NumberFormat(currencyLocale(lang), {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 0,
@@ -159,8 +159,8 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-function formatCurrencyDecimal(amount: number) {
-  return new Intl.NumberFormat("de-DE", {
+function formatCurrencyDecimal(amount: number, lang: OfferLang = 'de') {
+  return new Intl.NumberFormat(currencyLocale(lang), {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,
@@ -453,19 +453,19 @@ export default function PublicOffer() {
         <OfferHeader />
         <div className="container mx-auto px-4 py-24 text-center">
           <h1 className="text-2xl font-serif font-bold mb-4">
-            Angebot nicht gefunden
+            {tOffer(lang, 'offerNotFoundTitle')}
           </h1>
           <p className="text-muted-foreground mb-8 font-sans">
-            Dieses Angebot ist nicht verfügbar oder wurde noch nicht versendet.
+            {tOffer(lang, 'offerNotFoundBody')}
           </p>
           <LocalizedLink
             to="home"
             className="text-primary hover:underline font-medium font-sans"
           >
-            Zur Startseite
+            {tOffer(lang, 'backHome')}
           </LocalizedLink>
         </div>
-        <OfferFooter />
+        <OfferFooter lang={lang} />
       </div>
     );
   }
@@ -488,7 +488,7 @@ export default function PublicOffer() {
     <div className="min-h-screen bg-background flex flex-col">
       <OfferHeader />
       <main className="flex-1">
-        <HeroSection inquiry={inquiry} phase={renderPhase} />
+        <HeroSection inquiry={inquiry} phase={renderPhase} lang={lang} />
 
         <RestaurantGallery lang={lang} />
 
@@ -524,6 +524,7 @@ export default function PublicOffer() {
           <ThankYouView
             customerResponse={customer_response}
             options={options}
+            lang={lang}
           />
         )}
 
@@ -539,15 +540,15 @@ export default function PublicOffer() {
         {(renderPhase === "confirmed" ||
           renderPhase === "paid" ||
           renderPhase === "order_confirmed") && (
-          <ConfirmationView inquiry={inquiry} options={options} />
+          <ConfirmationView inquiry={inquiry} options={options} lang={lang} />
         )}
 
-        <PdfDownloadSection inquiryId={inquiry.id} />
+        <PdfDownloadSection inquiryId={inquiry.id} lang={lang} />
 
-        <PublicPaymentSection payments={payments} eventDate={inquiry.preferred_date ?? undefined} />
-        <ContactSection />
+        <PublicPaymentSection payments={payments} eventDate={inquiry.preferred_date ?? undefined} lang={lang} />
+        <ContactSection lang={lang} />
       </main>
-      <OfferFooter />
+      <OfferFooter lang={lang} />
     </div>
   );
 }
@@ -556,7 +557,7 @@ export default function PublicOffer() {
 // PDF DOWNLOAD SECTION
 // =================================================================
 
-function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
+function PdfDownloadSection({ inquiryId, lang = 'de' }: { inquiryId: string; lang?: OfferLang }) {
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownload = async () => {
@@ -564,11 +565,11 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
     try {
       const { data, error } = await supabase.functions.invoke(
         'download-public-offer-pdf',
-        { body: { inquiryId } }
+        { body: { inquiryId, lang } }
       );
 
       if (error || !data?.pdf) {
-        throw new Error(data?.error || 'PDF nicht verfügbar');
+        throw new Error(data?.error || tOffer(lang, 'pdfUnavailable'));
       }
 
       const blob = new Blob(
@@ -588,7 +589,7 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
       }, 1000);
     } catch (err) {
       console.error('PDF download failed:', err);
-      toast.error('PDF konnte nicht heruntergeladen werden');
+      toast.error(tOffer(lang, 'pdfUnavailable'));
     } finally {
       setIsDownloading(false);
     }
@@ -608,7 +609,7 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
             ) : (
               <Download className="h-3.5 w-3.5" />
             )}
-            <span className="underline underline-offset-2">Angebot als PDF herunterladen</span>
+            <span className="underline underline-offset-2">{tOffer(lang, 'pdfDownload')}</span>
           </button>
         </div>
       </div>
@@ -757,18 +758,20 @@ function AnschreibenSection({
 function HeroSection({
   inquiry,
   phase,
+  lang,
 }: {
   inquiry: PublicInquiry;
   phase: OfferPhase;
+  lang: OfferLang;
 }) {
   const displayName = inquiry.company_name || inquiry.contact_name;
 
   const phaseConfig: Partial<Record<OfferPhase, { text: string; color: string }>> = {
-    proposal_sent: { text: "Vorschlag", color: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
-    customer_responded: { text: "Rückmeldung erhalten", color: "bg-blue-500/10 text-blue-700 border-blue-500/20" },
-    final_sent: { text: "Finales Angebot", color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
-    confirmed: { text: "Bestätigt", color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
-    paid: { text: "Bezahlt", color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
+    proposal_sent: { text: tOffer(lang, 'phaseProposal'), color: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
+    customer_responded: { text: tOffer(lang, 'phaseResponded'), color: "bg-blue-500/10 text-blue-700 border-blue-500/20" },
+    final_sent: { text: tOffer(lang, 'phaseFinal'), color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
+    confirmed: { text: tOffer(lang, 'phaseConfirmed'), color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
+    paid: { text: tOffer(lang, 'phasePaid'), color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
   };
 
   const badge = phaseConfig[phase];
@@ -784,7 +787,7 @@ function HeroSection({
           {/* Badge + Label */}
           <div className="flex items-center gap-3 mb-5">
             <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-              Ihr persönliches Angebot
+              {tOffer(lang, 'heroEyebrow')}
             </p>
             {badge && (
               <span className={cn(
@@ -808,8 +811,8 @@ function HeroSection({
                 <Calendar className="h-3.5 w-3.5 text-primary/70" />
                 <span className="text-sm font-sans font-medium text-foreground/80">
                   {inquiry.event_end_date
-                    ? `${format(parseISO(inquiry.preferred_date), "d.", { locale: de })}–${format(parseISO(inquiry.event_end_date), "d. MMMM yyyy", { locale: de })}`
-                    : format(parseISO(inquiry.preferred_date), "d. MMMM yyyy", { locale: de })}
+                    ? `${format(parseISO(inquiry.preferred_date), "d.", { locale: dateFnsLocale(lang) })}–${format(parseISO(inquiry.event_end_date), "d. MMMM yyyy", { locale: dateFnsLocale(lang) })}`
+                    : format(parseISO(inquiry.preferred_date), "d. MMMM yyyy", { locale: dateFnsLocale(lang) })}
                 </span>
               </div>
             )}
@@ -817,7 +820,7 @@ function HeroSection({
               <div className="flex items-center gap-2 bg-white/60 dark:bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 border border-white/40">
                 <Users className="h-3.5 w-3.5 text-primary/70" />
                 <span className="text-sm font-sans font-medium text-foreground/80">
-                  {inquiry.guest_count} Gäste
+                  {inquiry.guest_count} {tOffer(lang, 'guests')}
                 </span>
               </div>
             )}
@@ -1378,9 +1381,11 @@ function ProposalOptionCard({
 function ThankYouView({
   customerResponse,
   options,
+  lang,
 }: {
   customerResponse: CustomerResponseData | null;
   options: PublicOfferOption[];
+  lang: OfferLang;
 }) {
   const selectedOption = customerResponse?.selected_option_id
     ? options.find((o) => o.id === customerResponse.selected_option_id)
@@ -1394,21 +1399,21 @@ function ThankYouView({
             <CheckCircle2 className="h-8 w-8 text-blue-600" />
           </div>
           <h2 className="text-2xl md:text-3xl font-serif font-bold mb-4">
-            Vielen Dank für Ihre Rückmeldung!
+            {tOffer(lang, 'thankTitle')}
           </h2>
           {selectedOption && (
             <p className="text-muted-foreground font-sans mb-2">
-              Sie haben{" "}
+              {tOffer(lang, 'thankChose')}{" "}
               <strong className="text-foreground">
                 {selectedOption.package_name}
               </strong>{" "}
-              gewählt.
+              {tOffer(lang, 'thankChoseSuffix')}
             </p>
           )}
           {customerResponse?.customer_notes && (
             <div className="bg-white/60 dark:bg-white/10 backdrop-blur-sm rounded-xl p-5 mt-6 mb-6 text-left border border-white/40">
               <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">
-                Ihre Anmerkung
+                {tOffer(lang, 'thankNote')}
               </p>
               <p className="text-sm font-sans text-foreground whitespace-pre-wrap">
                 {customerResponse.customer_notes}
@@ -1416,7 +1421,7 @@ function ThankYouView({
             </div>
           )}
           <p className="text-muted-foreground font-sans">
-            Wir melden uns in Kürze mit dem finalen Angebot bei Ihnen.
+            {tOffer(lang, 'thankFollowUp')}
           </p>
         </div>
       </div>
@@ -1803,9 +1808,11 @@ function FinalOptionCard({
 function ConfirmationView({
   inquiry,
   options,
+  lang,
 }: {
   inquiry: PublicInquiry;
   options: PublicOfferOption[];
+  lang: OfferLang;
 }) {
   const selectedOption = inquiry.selected_option_id
     ? options.find((o) => o.id === inquiry.selected_option_id)
@@ -1829,26 +1836,26 @@ function ConfirmationView({
             <CheckCircle2 className="h-8 w-8 text-emerald-600" />
           </div>
           <h2 className="text-2xl md:text-3xl font-serif font-bold mb-5">
-            Buchung bestätigt!
+            {tOffer(lang, 'bookingConfirmed')}
           </h2>
           {selectedOption && (
             <p className="text-muted-foreground font-sans mb-2">
               <strong className="text-foreground">{selectedOption.package_name}</strong>
-              {" "}für {selectedOption.guest_count} Gäste —{" "}
+              {" "}{tOffer(lang, 'forGuests').replace('{n}', String(selectedOption.guest_count))} —{" "}
               {pricePerPerson > 0
-                ? `${formatCurrencyDecimal(pricePerPerson)} pro Person`
-                : `${formatCurrency(selectedOption.total_amount)} Gesamtpreis`}
+                ? `${formatCurrencyDecimal(pricePerPerson, lang)} ${tOffer(lang, 'perPersonSuffix')}`
+                : `${formatCurrency(selectedOption.total_amount, lang)} ${tOffer(lang, 'totalSuffix')}`}
             </p>
           )}
           {inquiry.preferred_date && (
             <p className="text-lg font-serif font-semibold text-foreground mb-2">
               {inquiry.event_end_date
-                ? `${format(parseISO(inquiry.preferred_date), "EEEE, d. MMMM", { locale: de })} – ${format(parseISO(inquiry.event_end_date), "d. MMMM yyyy", { locale: de })}`
-                : format(parseISO(inquiry.preferred_date), "EEEE, d. MMMM yyyy", { locale: de })}
+                ? `${format(parseISO(inquiry.preferred_date), "EEEE, d. MMMM", { locale: dateFnsLocale(lang) })} – ${format(parseISO(inquiry.event_end_date), "d. MMMM yyyy", { locale: dateFnsLocale(lang) })}`
+                : format(parseISO(inquiry.preferred_date), "EEEE, d. MMMM yyyy", { locale: dateFnsLocale(lang) })}
             </p>
           )}
           <p className="text-muted-foreground font-sans mt-6">
-            Wir freuen uns auf Ihr Event! Bei Fragen erreichen Sie uns jederzeit.
+            {tOffer(lang, 'weLookForward')}
           </p>
         </div>
 
@@ -1862,7 +1869,7 @@ function ConfirmationView({
             <div className="max-w-2xl mt-12">
               <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/60 dark:border-white/20 rounded-2xl px-6 py-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
                 <h3 className="font-serif text-lg font-bold text-foreground mb-5">
-                  Ihr gewähltes Menü
+                  {tOffer(lang, 'yourSelectedMenu')}
                 </h3>
                 {courses.length > 0 && (
                   <div className="space-y-4">
@@ -1915,25 +1922,27 @@ function ConfirmationView({
 function PublicPaymentSection({
   payments,
   eventDate,
+  lang,
 }: {
   payments: PublicPayment[];
   eventDate?: string;
+  lang: OfferLang;
 }) {
   if (!payments.length) return null;
 
   const typeLabels: Record<string, string> = {
-    deposit: "Anzahlung",
-    prepayment: "Vorauszahlung",
-    final: "Restzahlung",
+    deposit: tOffer(lang, 'paymentsTypeDeposit'),
+    prepayment: tOffer(lang, 'paymentsTypePrepayment'),
+    final: tOffer(lang, 'paymentsTypeFinal'),
   };
 
   const fmt = (cents: number) =>
-    new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
+    new Intl.NumberFormat(currencyLocale(lang), { style: "currency", currency: "EUR" }).format(cents / 100);
 
   const fmtDate = (iso: string | null | Date) => {
     if (!iso) return null;
     try {
-      return format(typeof iso === "string" ? parseISO(iso) : iso, "d. MMMM yyyy", { locale: de });
+      return format(typeof iso === "string" ? parseISO(iso) : iso, "d. MMMM yyyy", { locale: dateFnsLocale(lang) });
     } catch {
       return null;
     }
@@ -1958,10 +1967,10 @@ function PublicPaymentSection({
 
   const headerIcon = allPaid ? "✅" : hasOverdue ? "⚠️" : "💰";
   const headerText = allPaid
-    ? "Ihre Zahlungen"
+    ? tOffer(lang, 'paymentsHeadingPaid')
     : hasOverdue
-    ? "Offene Zahlung"
-    : "Ihre Zahlungen";
+    ? tOffer(lang, 'paymentsHeadingOpen')
+    : tOffer(lang, 'paymentsHeadingPaid');
 
   return (
     <section className="bg-background border-t border-border/30">
@@ -1969,7 +1978,7 @@ function PublicPaymentSection({
         <div className="max-w-2xl">
           {/* Header */}
           <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/60 mb-3">
-            Zahlungen
+            {tOffer(lang, 'paymentsEyebrow')}
           </p>
           <h2 className="font-serif text-xl md:text-2xl font-bold mb-6">
             {headerIcon} {headerText}
@@ -1999,17 +2008,17 @@ function PublicPaymentSection({
                     </p>
                     <p className="text-xs font-sans text-muted-foreground mt-0.5">
                       {isPaid
-                        ? `Bezahlt am ${fmtDate(p.paid_at) ?? "—"}`
+                        ? `${tOffer(lang, 'paymentsPaidOn')} ${fmtDate(p.paid_at) ?? "—"}`
                         : isOverdue
-                        ? `Fällig seit ${fmtDate(due) ?? "—"}`
+                        ? `${tOffer(lang, 'paymentsDueSince')} ${fmtDate(due) ?? "—"}`
                         : due
-                        ? `Fällig bis ${fmtDate(due)}`
-                        : "Fälligkeit wird mitgeteilt"}
+                        ? `${tOffer(lang, 'paymentsDueBy')} ${fmtDate(due)}`
+                        : tOffer(lang, 'dueAnnounced')}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-sans font-bold text-sm text-foreground">{fmt(p.amount_cents)}</p>
-                    {isPaid && <p className="text-xs text-emerald-600 font-sans">✓ Eingegangen</p>}
+                    {isPaid && <p className="text-xs text-emerald-600 font-sans">{tOffer(lang, 'paymentsReceived')}</p>}
                   </div>
                 </div>
               );
@@ -2019,7 +2028,7 @@ function PublicPaymentSection({
           {/* Gesamtsumme wenn alles bezahlt */}
           {allPaid && (
             <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-emerald-50 border border-emerald-200 mb-6">
-              <p className="font-sans font-semibold text-sm text-emerald-800">Gesamt bezahlt</p>
+              <p className="font-sans font-semibold text-sm text-emerald-800">{tOffer(lang, 'paymentsTotalPaid')}</p>
               <p className="font-sans font-bold text-sm text-emerald-800">{fmt(totalPaid)}</p>
             </div>
           )}
@@ -2034,9 +2043,9 @@ function PublicPaymentSection({
             >
               <button className="w-full py-4 px-6 rounded-2xl bg-amber-700 hover:bg-amber-800 text-white font-sans font-semibold text-base shadow-[0_4px_15px_rgba(180,83,9,0.25)] hover:shadow-[0_8px_25px_rgba(180,83,9,0.35)] hover:-translate-y-0.5 transition-all flex flex-col items-center gap-1">
                 <span>
-                  {typeLabels[firstOpen.payment_type] ?? "Zahlung"} jetzt bezahlen →
+                  {typeLabels[firstOpen.payment_type] ?? tOffer(lang, 'payGeneric')} {tOffer(lang, 'paymentsPayCta')}
                 </span>
-                <span className="text-xs font-normal opacity-80">Karte · SEPA · Billie</span>
+                <span className="text-xs font-normal opacity-80">{tOffer(lang, 'payMethods')}</span>
               </button>
             </a>
           )}
@@ -2044,16 +2053,16 @@ function PublicPaymentSection({
           {/* Alles bezahlt — Dankestext */}
           {allPaid && (
             <p className="text-sm font-sans text-muted-foreground">
-              Vielen Dank! Alle Zahlungen sind eingegangen. Wir freuen uns auf Ihr Event.
+              {tOffer(lang, 'paymentsAllPaidThanks')}
             </p>
           )}
 
           {/* Kontakthinweis bei offener Zahlung ohne Link */}
           {!allPaid && firstOpen && !firstOpen.stripe_payment_link_url && (
             <p className="text-sm font-sans text-muted-foreground">
-              Bei Fragen zur Zahlung erreichen Sie uns unter{" "}
+              {tOffer(lang, 'paymentsContactIntro')}{" "}
               <a href="tel:+498951519696" className="text-primary hover:underline">089 51519696</a>{" "}
-              oder{" "}
+              {tOffer(lang, 'paymentsOrText')}{" "}
               <a href="mailto:info@events-storia.de" className="text-primary hover:underline">info@events-storia.de</a>.
             </p>
           )}
@@ -2135,18 +2144,18 @@ function CancellationTermsAccordion() {
 
 // =================================================================
 
-function ContactSection() {
+function ContactSection({ lang }: { lang: OfferLang }) {
   return (
     <section className="border-t border-border/30">
       <div className="container mx-auto px-4 py-12 md:py-16">
         <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/60 mb-3">
-          Kontakt
+          {tOffer(lang, 'contactEyebrow')}
         </p>
         <h2 className="text-xl md:text-2xl font-serif font-bold mb-3">
-          Fragen zu Ihrem Angebot?
+          {tOffer(lang, 'contactTitle')}
         </h2>
         <p className="text-muted-foreground font-sans mb-8 max-w-md text-sm">
-          Wir beraten Sie gerne persönlich und passen das Angebot an Ihre Wünsche an.
+          {tOffer(lang, 'contactSubtitle')}
         </p>
         <div className="flex flex-col sm:flex-row items-start gap-4">
           <a href="tel:+498951519696">
@@ -2204,8 +2213,8 @@ function OfferHeader() {
   );
 }
 
-function OfferFooter() {
-  return _OfferFooter();
+function OfferFooter({ lang = 'de' }: { lang?: OfferLang }) {
+  return _OfferFooter(lang);
 }
 
 /**
@@ -2249,7 +2258,7 @@ function OfferLanguageSwitcher({
   );
 }
 
-function _OfferFooter() {
+function _OfferFooter(lang: OfferLang = 'de') {
   return (
     <footer className="bg-foreground text-background">
       <div className="container mx-auto px-4 py-10">
@@ -2257,7 +2266,7 @@ function _OfferFooter() {
           <div>
             <p className="font-display text-xl font-bold tracking-wide mb-1">STORIA</p>
             <p className="text-sm text-background/50 font-sans">
-              Catering & Events — München
+              {tOffer(lang, 'footerCompany')}
             </p>
           </div>
           <div className="flex flex-col md:flex-row items-center gap-4 text-sm text-background/50 font-sans">
@@ -2284,13 +2293,13 @@ function _OfferFooter() {
               to="legal.imprint"
               className="hover:text-background/60 transition-colors"
             >
-              Impressum
+              {tOffer(lang, 'footerImprint')}
             </LocalizedLink>
             <LocalizedLink
               to="legal.privacy"
               className="hover:text-background/60 transition-colors"
             >
-              Datenschutz
+              {tOffer(lang, 'footerPrivacy')}
             </LocalizedLink>
           </div>
         </div>
