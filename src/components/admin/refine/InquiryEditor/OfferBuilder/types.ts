@@ -60,6 +60,8 @@ export interface DrinkEinzelnItem {
   pricePerPerson: number;
   /** Menge bei per_event-Bestellungen. Default 1. Analog zu CourseSelection.quantity. */
   quantity?: number | null;
+  /** Pro-Zeile Preismodus. 'per_person' = Preis × Gäste, 'flat' = Pauschalpreis (×1). Default 'per_person'. */
+  priceMode?: 'per_person' | 'flat' | null;
 }
 
 export type OfferPhase =
