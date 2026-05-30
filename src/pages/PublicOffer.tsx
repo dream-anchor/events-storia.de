@@ -1278,11 +1278,11 @@ function ProposalOptionCard({
           <div>
             <h3 className="font-serif text-lg font-bold text-foreground leading-tight">
               {option.offer_mode === "menu" || option.package_name === "Individuelles Paket" || option.package_name === "Individuelles Menü"
-                ? "Individuelles Menü"
+                ? tOffer(lang, 'customMenu')
                 : option.package_name}
             </h3>
             <p className="text-xs text-muted-foreground font-sans mt-1">
-              {option.guest_count} Gäste
+              {option.guest_count} {tOffer(lang, 'guests')}
             </p>
           </div>
         </div>
@@ -1291,14 +1291,14 @@ function ProposalOptionCard({
         <div className="text-right shrink-0">
           <p className="text-2xl font-serif font-bold text-primary leading-none">
             {pricePerPerson > 0
-              ? formatCurrencyDecimal(pricePerPerson)
-              : formatCurrency(option.total_amount)}
+              ? formatCurrencyDecimal(pricePerPerson, lang)
+              : formatCurrency(option.total_amount, lang)}
           </p>
           <p className="text-[11px] text-muted-foreground font-sans mt-1">
-            {pricePerPerson > 0 ? 'pro Person' : 'Gesamtpreis'}
+            {pricePerPerson > 0 ? tOffer(lang, 'perPersonShort') : tOffer(lang, 'totalPriceLabel')}
           </p>
           <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
-            inkl. gesetzl. MwSt.
+            {tOffer(lang, 'inclVat')}
           </p>
         </div>
       </div>
@@ -1351,7 +1351,7 @@ function ProposalOptionCard({
                       <p className="text-base font-serif text-foreground leading-snug">
                         {hasContent ? (d.customDrink || choiceLocalized) : (
                           <span className="text-emerald-700 dark:text-emerald-400 font-sans text-sm font-semibold uppercase tracking-wider">
-                            inklusive
+                            {tOffer(lang, 'included')}
                           </span>
                         )}
                         {qtyLabel && !qtyIsRedundant && (
