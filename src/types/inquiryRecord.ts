@@ -30,6 +30,7 @@ export interface V2EventRow {
   archived_at: string | null;
   offer_slug: string | null;
   booking_number: string | null;
+  customer_language?: string | null;
   created_at: string;
   updated_at: string | null;
   v2_customers?: {
@@ -92,6 +93,7 @@ export interface InquiryRecord {
   menuSummary?: string | null;
   roomOrCityShort?: string | null;
   assignedInitials?: string | null;
+  customerLanguage?: string | null;
   raw: V2EventRow | CateringOrder;
 }
 
@@ -170,6 +172,7 @@ export function mapV2Event(e: V2EventRow): InquiryRecord {
     updatedAt: e.updated_at || e.created_at,
     occasion: e.occasion ?? null,
     dateEnd: e.date_end ?? null,
+    customerLanguage: (e.customer_language ?? 'de'),
     raw: e,
   };
 }
@@ -218,6 +221,7 @@ export function mapGroupInquiry(g: GroupInquiryRow): InquiryRecord {
     guestCount: g.group_size ?? null,
     itemsCount: null,
     totalAmount: null,
+    customerLanguage: g.language ?? 'de',
     status: g.status ?? "new",
     offerPhase: null,
     column: mapGroupToColumn(g.status),
