@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { DishPicker } from "./DishPicker";
 import { COURSE_ICONS } from "./types";
 import type { CourseConfig, CourseSelection, CourseType } from "./types";
+import { LinePriceModeToggle, type LinePriceMode } from "./LinePriceModeToggle";
 
 // Default-Labels pro CourseType — werden im Icon-Picker als Vorschlag angeboten.
 const COURSE_TYPE_LABELS: Record<CourseType, string> = {
