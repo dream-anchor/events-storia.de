@@ -380,9 +380,19 @@ function SortableCourseRow({
 
       {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
       {pricingMode === 'per_event' && quantity > 1 && (
-        <span className="text-sm font-medium tabular-nums w-24 text-right shrink-0 order-5 sm:order-none">
+        <span className="text-sm font-medium tabular-nums w-24 text-right shrink-0 order-6 sm:order-none">
           {lineTotal != null ? fmtEUR(lineTotal) : ''}
         </span>
+      )}
+
+      {/* Pro-Zeile Preismodus (/Pers. ↔ pauschal) — nur im Menü-Modus */}
+      {!packageMode && (
+        <LinePriceModeToggle
+          value={effPriceMode}
+          onChange={(m) => onUpdatePriceMode(idx, m)}
+          disabled={disabled}
+          className="order-5 sm:order-none"
+        />
       )}
 
       {/* Gang entfernen — auf sm+ am Zeilenende; auf Mobile bereits in der Header-Reihe */}
