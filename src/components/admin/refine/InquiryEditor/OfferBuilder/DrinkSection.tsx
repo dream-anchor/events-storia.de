@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { Wine, Plus, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Wine, Plus, Trash2, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { DishPicker } from "./DishPicker";
@@ -180,61 +180,19 @@ export function DrinkSection({
             const fmtEUR = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
             const effPriceMode: LinePriceMode = (item.priceMode ?? (pricingMode === 'per_event' ? 'flat' : 'per_person')) as LinePriceMode;
             return (
-              <div key={item.id + idx} className="flex items-center gap-2">
-                {/* Menge (nur bei per_event) */}
-                {pricingMode === 'per_event' && (
-                  <div className="relative w-16 shrink-0">
-                    <Input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={quantity}
-                      onChange={(e) => {
-                        const v = parseInt(e.target.value, 10);
-                        if (!isNaN(v) && v > 0) handleUpdateEinzeln(idx, { quantity: v });
-                      }}
-                      disabled={disabled}
-                      className="h-8 rounded-lg pr-5 text-right text-sm tabular-nums"
-                      title="Menge"
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">×</span>
-                  </div>
-                )}
-                <span className="text-sm flex-1 truncate text-foreground">{item.name}</span>
-                <div className="relative w-28 shrink-0">
-                  <Input
-                    type="number"
-                    value={item.pricePerPerson > 0 ? item.pricePerPerson : ''}
-                    onChange={(e) => handleUpdateEinzeln(idx, { pricePerPerson: parseFloat(e.target.value) || 0 })}
-                    placeholder="0,00"
-                    className="h-8 rounded-xl pr-14 text-right text-xs"
-                    disabled={disabled}
-                  />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                    €
-                  </span>
-                </div>
-                <LinePriceModeToggle
-                  value={effPriceMode}
-                  onChange={(m) => handleUpdateEinzeln(idx, { priceMode: m })}
-                  disabled={disabled}
-                />
-                {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
-                {pricingMode === 'per_event' && quantity > 1 && (
-                  <span className="text-xs font-medium tabular-nums w-24 text-right shrink-0">
-                    {fmtEUR(lineTotal)}
-                  </span>
-                )}
-                {!disabled && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveEinzeln(idx)}
-                    className="shrink-0 p-1 rounded-md hover:bg-muted/50 transition-colors"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-destructive" />
-                  </button>
-                )}
-              </div>
+              <DrinkRow
+                key={item.id + idx}
+                idx={idx}
+                item={item}
+                quantity={quantity}
+                lineTotal={lineTotal}
+                fmtEUR={fmtEUR}
+                effPriceMode={effPriceMode}
+                pricingMode={pricingMode}
+                disabled={disabled}
+                onUpdate={handleUpdateEinzeln}
+                onRemove={handleRemoveEinzeln}
+              />
             );
           })}
 
@@ -254,6 +212,117 @@ export function DrinkSection({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+interface DrinkRowProps {
+  idx: number;
+  item: DrinkEinzelnItem;
+  quantity: number;
+  lineTotal: number;
+  fmtEUR: (n: number) => string;
+  effPriceMode: LinePriceMode;
+  pricingMode: PricingMode;
+  disabled: boolean;
+  onUpdate: (idx: number, update: Partial<DrinkEinzelnItem>) => void;
+  onRemove: (idx: number) => void;
+}
+
+function DrinkRow({ idx, item, quantity, lineTotal, fmtEUR, effPriceMode, pricingMode, disabled, onUpdate, onRemove }: DrinkRowProps) {
+  const [editingName, setEditingName] = useState(false);
+  const [tempName, setTempName] = useState(item.name);
+
+  const commitName = () => {
+    const v = tempName.trim();
+    if (v && v !== item.name) onUpdate(idx, { name: v });
+    setEditingName(false);
+  };
+
+  return (
+    <div className="group flex items-center gap-2">
+                {/* Menge (nur bei per_event) */}
+                {pricingMode === 'per_event' && (
+                  <div className="relative w-16 shrink-0">
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={quantity}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        if (!isNaN(v) && v > 0) onUpdate(idx, { quantity: v });
+                      }}
+                      disabled={disabled}
+                      className="h-8 rounded-lg pr-5 text-right text-sm tabular-nums"
+                      title="Menge"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">×</span>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0 flex items-center gap-1">
+                  {editingName ? (
+                    <Input
+                      value={tempName}
+                      onChange={(e) => setTempName(e.target.value)}
+                      onBlur={commitName}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commitName();
+                        if (e.key === 'Escape') { setTempName(item.name); setEditingName(false); }
+                      }}
+                      autoFocus
+                      className="h-8 text-sm"
+                    />
+                  ) : (
+                    <>
+                      <span className="text-sm flex-1 truncate text-foreground">{item.name}</span>
+                      {!disabled && (
+                        <button
+                          type="button"
+                          onClick={() => { setTempName(item.name); setEditingName(true); }}
+                          className="shrink-0 p-1 rounded-md hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Bezeichnung bearbeiten"
+                          aria-label="Bezeichnung bearbeiten"
+                        >
+                          <Pencil className="h-3 w-3 text-muted-foreground/60" />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="relative w-28 shrink-0">
+                  <Input
+                    type="number"
+                    value={item.pricePerPerson > 0 ? item.pricePerPerson : ''}
+                    onChange={(e) => onUpdate(idx, { pricePerPerson: parseFloat(e.target.value) || 0 })}
+                    placeholder="0,00"
+                    className="h-8 rounded-xl pr-14 text-right text-xs"
+                    disabled={disabled}
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                    €
+                  </span>
+                </div>
+                <LinePriceModeToggle
+                  value={effPriceMode}
+                  onChange={(m) => onUpdate(idx, { priceMode: m })}
+                  disabled={disabled}
+                />
+                {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
+                {pricingMode === 'per_event' && quantity > 1 && (
+                  <span className="text-xs font-medium tabular-nums w-24 text-right shrink-0">
+                    {fmtEUR(lineTotal)}
+                  </span>
+                )}
+                {!disabled && (
+                  <button
+                    type="button"
+                    onClick={() => onRemove(idx)}
+                    className="shrink-0 p-1 rounded-md hover:bg-muted/50 transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-destructive" />
+                  </button>
+                )}
     </div>
   );
 }
