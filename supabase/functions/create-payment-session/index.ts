@@ -38,9 +38,13 @@ serve(async (req) => {
         .eq('id', inquiryId)
         .single();
       const pm = (pmCheck as { payment_method: string | null } | null)?.payment_method || 'deposit_online';
-      if (pm === 'on_site' || pm === 'invoice_after') {
+      if (pm === 'on_site' || pm === 'invoice_after' || pm === 'invoice_before') {
+        const label =
+          pm === 'on_site' ? 'Vor Ort'
+          : pm === 'invoice_before' ? 'Rechnung vor Event'
+          : 'Rechnung';
         return new Response(
-          JSON.stringify({ error: `Zahlungsart "${pm === 'on_site' ? 'Vor Ort' : 'Rechnung'}" — keine Online-Zahlung vorgesehen.` }),
+          JSON.stringify({ error: `Zahlungsart "${label}" — keine Online-Zahlung vorgesehen.` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
