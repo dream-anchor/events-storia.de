@@ -221,7 +221,7 @@ export function mapGroupInquiry(g: GroupInquiryRow): InquiryRecord {
     guestCount: g.group_size ?? null,
     itemsCount: null,
     totalAmount: null,
-    
+    customerLanguage: g.language ?? 'de',
     status: g.status ?? "new",
     offerPhase: null,
     column: mapGroupToColumn(g.status),
