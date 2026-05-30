@@ -192,7 +192,7 @@ export function OfferSendPreview({
     return () => {
       cancelled = true;
     };
-  }, [inquiry?.id, inquiry?.lexoffice_quotation_id]);
+  }, [inquiry?.id, inquiry?.lexoffice_quotation_id, refreshKey]);
 
   // LexOffice-PDF wird NICHT mehr automatisch geladen (Auto-Fetch erzeugte ungewollt
   // eine Quotation in LexOffice). Stattdessen Button-getriggert via loadLexofficePdf().
