@@ -69,6 +69,8 @@ export interface ExtendedInquiry extends BaseRecord {
   billing_postal_code: string | null;
   billing_city: string | null;
   billing_country: string | null;
+  // Customer-facing language for offer page, PDFs and emails
+  customer_language: 'de' | 'en' | 'it' | 'fr' | null;
 }
 
 export type LocationType = 'storia' | 'company' | 'custom';
