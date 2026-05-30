@@ -4129,6 +4129,7 @@ export type Database = {
           converted_to_booking_id: string | null
           created_at: string | null
           current_offer_version: number | null
+          customer_language: string | null
           delivery_city: string | null
           delivery_street: string | null
           delivery_time_slot: string | null

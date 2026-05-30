@@ -3,6 +3,50 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
 import { resolveV2Event } from '../_shared/v2-lookup.ts';
+import { resolveCustomerLanguage, emailLanguagePlan, bilingualSubject, type CustomerLang } from '../_shared/customer-language.ts';
+
+/** Per-language chrome strings (subject, CTA, preheader, footer, etc.). */
+const CHROME: Record<CustomerLang, {
+  subject: string;
+  preheader: string;
+  intro: string;
+  cta: string;
+  explainer: string;
+  footerSub: string;
+}> = {
+  de: {
+    subject: 'Ihr Angebot von STORIA Events',
+    preheader: 'Ihr persönliches Angebot ist online bereit. Jetzt ansehen und buchen.',
+    intro: 'Ihr persönliches Angebot ist online bereit:',
+    cta: 'Angebot ansehen',
+    explainer: 'Alle Details einsehen, Favoriten wählen und bequem online buchen.',
+    footerSub: 'Catering & Events — München',
+  },
+  en: {
+    subject: 'Your offer from STORIA Events',
+    preheader: 'Your personal offer is ready online. View and book it now.',
+    intro: 'Your personal offer is ready online:',
+    cta: 'View offer',
+    explainer: 'Review all details, pick your favourites and book conveniently online.',
+    footerSub: 'Catering & Events — Munich',
+  },
+  it: {
+    subject: 'La vostra offerta di STORIA Events',
+    preheader: 'La vostra offerta personalizzata è online. Apritela e prenotate.',
+    intro: 'La vostra offerta personalizzata è online:',
+    cta: 'Apri l’offerta',
+    explainer: 'Consultate tutti i dettagli, scegliete i preferiti e prenotate online.',
+    footerSub: 'Catering & Eventi — Monaco di Baviera',
+  },
+  fr: {
+    subject: 'Votre offre STORIA Events',
+    preheader: 'Votre offre personnalisée est en ligne. Consultez-la et réservez.',
+    intro: 'Votre offre personnalisée est en ligne :',
+    cta: 'Voir l’offre',
+    explainer: 'Consultez les détails, choisissez vos favoris et réservez en ligne.',
+    footerSub: 'Traiteur & Événements — Munich',
+  },
+};
 
 interface SendOfferEmailRequest {
   inquiryId: string;
@@ -294,6 +338,13 @@ serve(async (req) => {
       );
     }
 
+    // Customer language drives subject / chrome / footer.
+    const customerLang = await resolveCustomerLanguage(supabase, event.id);
+    const langPlan = emailLanguagePlan(customerLang);
+    const primaryChrome = CHROME[langPlan.primary];
+    const secondaryChrome = langPlan.secondary ? CHROME[langPlan.secondary] : null;
+    const htmlLangAttr = langPlan.primary;
+
     // Slug generieren oder verwenden + in DB speichern (nicht im dryRun)
     const slug = providedSlug || generateOfferSlug(customerName || 'angebot', inquiryId);
     if (!dryRun) {
@@ -312,7 +363,12 @@ serve(async (req) => {
 
     const emailSubject = (overrideSubject && overrideSubject.trim())
       ? overrideSubject.trim()
-      : `Ihr Angebot von STORIA Events`;
+      : bilingualSubject(customerLang, {
+          de: CHROME.de.subject,
+          en: CHROME.en.subject,
+          it: CHROME.it.subject,
+          fr: CHROME.fr.subject,
+        });
 
     // Anschreiben-Text aufbereiten:
     // 1. Redundante URL-Erwähnung entfernen (CTA-Button oben ist prominenter)
@@ -324,7 +380,7 @@ serve(async (req) => {
       .trim();
 
     const templateHtml = `<!DOCTYPE html>
-<html lang="de">
+<html lang="${htmlLangAttr}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -333,7 +389,7 @@ serve(async (req) => {
 <body style="margin: 0; padding: 0; background-color: #faf6f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333;">
   <!-- Preheader (versteckt, sichtbar nur in Inbox-Preview) -->
   <div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">
-    Ihr persönliches Angebot ist online bereit. Jetzt ansehen und buchen.
+    ${escapeHtml(primaryChrome.preheader)}
   </div>
 
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf6f0; padding: 32px 16px;">
@@ -343,20 +399,26 @@ serve(async (req) => {
         <!-- Header mit STORIA-Branding -->
         <tr><td style="padding: 32px 32px 20px; text-align: center; border-bottom: 1px solid #f0ead8;">
           <h1 style="margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 28px; font-weight: normal; color: #1a1a1a; letter-spacing: 0.08em;">STORIA</h1>
-          <p style="margin: 6px 0 0; font-size: 11px; color: #999; letter-spacing: 0.18em; text-transform: uppercase;">Catering &amp; Events &mdash; München</p>
+          <p style="margin: 6px 0 0; font-size: 11px; color: #999; letter-spacing: 0.18em; text-transform: uppercase;">${escapeHtml(primaryChrome.footerSub)}</p>
         </td></tr>
 
         <!-- CTA-Bereich -->
         <tr><td style="padding: 32px; text-align: center;">
           <p style="margin: 0 0 20px; font-size: 16px; color: #555;">
-            Ihr persönliches Angebot ist online bereit:
+            ${escapeHtml(primaryChrome.intro)}
           </p>
           <a href="${offerUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #b45309; color: #ffffff; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 999px; text-decoration: none; letter-spacing: 0.02em; box-shadow: 0 4px 12px rgba(180,83,9,0.25);">
-            Angebot ansehen
+            ${escapeHtml(primaryChrome.cta)}
           </a>
           <p style="margin: 16px 0 0; font-size: 13px; color: #999;">
-            Alle Details einsehen, Favoriten wählen und bequem online buchen.
+            ${escapeHtml(primaryChrome.explainer)}
           </p>
+          ${secondaryChrome ? `
+          <div style="margin-top: 20px; padding-top: 20px; border-top: 1px dashed #e8dfc7;">
+            <p style="margin: 0 0 12px; font-size: 14px; color: #777;">${escapeHtml(secondaryChrome.intro)}</p>
+            <a href="${offerUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #ffffff; color: #b45309; font-weight: 600; font-size: 14px; padding: 10px 22px; border-radius: 999px; text-decoration: none; border: 1px solid #b45309;">${escapeHtml(secondaryChrome.cta)}</a>
+            <p style="margin: 12px 0 0; font-size: 12px; color: #aaa;">${escapeHtml(secondaryChrome.explainer)}</p>
+          </div>` : ''}
         </td></tr>
 
         <!-- Anschreiben (Admin-Text) -->
