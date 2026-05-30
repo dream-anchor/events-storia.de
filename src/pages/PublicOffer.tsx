@@ -9,7 +9,7 @@ import { de } from "date-fns/locale";
 import { pickLang, OFFER_LANGS, OFFER_LANG_LABELS, isValidOfferLang, type OfferLang } from "@/lib/offerLang";
 import { OrderConfirmationDialog } from "@/pages/public-offer/OrderConfirmationDialog";
 import { RestaurantGallery } from "@/pages/public-offer/RestaurantGallery";
-import { tOffer } from "@/pages/public-offer/i18n";
+import { tOffer, dateFnsLocale, currencyLocale } from "@/pages/public-offer/i18n";
 import {
   Phone,
   Mail,
@@ -150,8 +150,8 @@ interface PublicPayment {
   stripe_payment_link_url: string | null;
 }
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("de-DE", {
+function formatCurrency(amount: number, lang: OfferLang = 'de') {
+  return new Intl.NumberFormat(currencyLocale(lang), {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 0,
@@ -159,8 +159,8 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-function formatCurrencyDecimal(amount: number) {
-  return new Intl.NumberFormat("de-DE", {
+function formatCurrencyDecimal(amount: number, lang: OfferLang = 'de') {
+  return new Intl.NumberFormat(currencyLocale(lang), {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,
