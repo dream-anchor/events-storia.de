@@ -3,13 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
 import { resolveV2Event } from '../_shared/v2-lookup.ts';
-
-
+import { emailLanguagePlan, bilingualSubject, type CustomerLang } from '../_shared/customer-language.ts';
+import { formatDateLong, t, SEPARATOR_TEXT } from '../_shared/email-i18n.ts';
 
 interface MenuConfirmationRequest {
   bookingId: string;
   sendEmail: boolean;
-  sentBy?: string; // Admin email who triggered the send
+  sentBy?: string;
 }
 
 interface EmailLogEntry {
@@ -29,132 +29,165 @@ interface EmailLogEntry {
 // deno-lint-ignore no-explicit-any
 async function logEmailDelivery(supabase: any, entry: EmailLogEntry) {
   try {
-    const { error } = await supabase
-      .from('email_delivery_logs')
-      .insert(entry);
-    
-    if (error) {
-      console.error('Failed to log email delivery:', error);
-    } else {
-      console.log('Email delivery logged:', entry.status, entry.recipient_email);
-    }
-  } catch (err) {
-    console.error('Error logging email delivery:', err);
-  }
+    const { error } = await supabase.from('email_delivery_logs').insert(entry);
+    if (error) console.error('Failed to log email delivery:', error);
+  } catch (err) { console.error('Error logging email delivery:', err); }
 }
 
-serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+const MENU_LABELS = {
+  de: { menu: 'MENÜ', drinks: 'GETRÄNKE' },
+  en: { menu: 'MENU', drinks: 'DRINKS' },
+  it: { menu: 'MENÙ', drinks: 'BEVANDE' },
+  fr: { menu: 'MENU', drinks: 'BOISSONS' },
+} as const;
+
+function buildMenuText(menuSelection: any, lng: CustomerLang): string {
+  const L = MENU_LABELS[lng];
+  let out = '';
+  if (menuSelection?.courses?.length) {
+    out += `${L.menu}\n\n`;
+    for (const c of menuSelection.courses) {
+      if (c.itemName) {
+        out += `${c.courseLabel}\n${c.itemName}\n`;
+        if (c.itemDescription) out += `${c.itemDescription}\n`;
+        out += '\n';
+      }
+    }
   }
-
-  try {
-    const { bookingId, sendEmail, sentBy } = await req.json() as MenuConfirmationRequest;
-
-    if (!bookingId) {
-      throw new Error('bookingId is required');
+  if (menuSelection?.drinks?.length) {
+    out += `\n${L.drinks}\n\n`;
+    for (const d of menuSelection.drinks) {
+      const sel = d.selectedChoice || d.customDrink;
+      if (sel) out += `${d.drinkLabel}: ${sel}\n`;
     }
+  }
+  return out;
+}
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+function buildBodyBlock(lng: CustomerLang, args: {
+  customerName: string; packageName: string; eventDate: string; guestCount: number; menuText: string;
+}): string {
+  const BODIES = {
+    de: `Sehr geehrte/r ${args.customerName},
 
-    // Resolve v2_event aus Legacy- oder v2-UUID
-    const event = await resolveV2Event(supabase, bookingId);
-    if (!event) {
-      throw new Error(`v2_event not found for ${bookingId}`);
-    }
+vielen Dank für Ihre Buchung des ${args.packageName} am ${args.eventDate}.
 
-    // Customer separat laden
-    const { data: customer } = await supabase
-      .from('v2_customers')
-      .select('name, email, phone, company')
-      .eq('id', event.customer_id)
-      .single();
-    if (!customer) {
-      throw new Error(`v2_customer not found for ${event.customer_id}`);
-    }
+Wir haben folgendes Menü für Ihre Veranstaltung mit ${args.guestCount} Gästen zusammengestellt:
 
-    // Package separat laden falls verlinkt
-    let packageData: { name?: string } | null = null;
-    if (event.package_id) {
-      const { data: pkg } = await supabase
-        .from('packages')
-        .select('*')
-        .eq('id', event.package_id)
-        .single();
-      packageData = pkg;
-    }
-
-    console.log('v2_event found:', event.booking_number);
-
-    const menuSelection = event.menu_selection as {
-      courses: Array<{ courseLabel: string; itemName: string; itemDescription?: string }>;
-      drinks: Array<{ drinkLabel: string; selectedChoice?: string; customDrink?: string }>;
-    } | null;
-
-    let menuText = '';
-    
-    if (menuSelection?.courses?.length) {
-      menuText += 'MENÜ\n\n';
-      for (const course of menuSelection.courses) {
-        if (course.itemName) {
-          menuText += `${course.courseLabel}\n`;
-          menuText += `${course.itemName}\n`;
-          if (course.itemDescription) {
-            menuText += `${course.itemDescription}\n`;
-          }
-          menuText += '\n';
-        }
-      }
-    }
-
-    if (menuSelection?.drinks?.length) {
-      menuText += '\nGETRÄNKE\n\n';
-      for (const drink of menuSelection.drinks) {
-        const selection = drink.selectedChoice || drink.customDrink;
-        if (selection) {
-          menuText += `${drink.drinkLabel}: ${selection}\n`;
-        }
-      }
-    }
-
-    const eventDate = new Date(event.date).toLocaleDateString('de-DE', {
-      weekday: 'long',
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
-
-    const packageName = packageData?.name || 'Event-Paket';
-
-    const emailSubject = `Ihr Menü für ${eventDate} steht fest`;
-    const isTest = event.is_test === true;
-    const safeRecipient = getSafeRecipientEmail(customer.email, isTest);
-    const safeSubject = getSafeSubject(emailSubject, isTest);
-    const emailBody = `Sehr geehrte/r ${customer.name},
-
-vielen Dank für Ihre Buchung des ${packageName} am ${eventDate}.
-
-Wir haben folgendes Menü für Ihre Veranstaltung mit ${event.guest_count} Gästen zusammengestellt:
-
-${menuText}
+${args.menuText}
 
 Sollten Ihre Gäste besondere Ernährungsbedürfnisse haben (Allergien, vegetarisch, vegan), teilen Sie uns dies bitte rechtzeitig mit. Wir passen das Menü entsprechend an.
 
 Bei Fragen stehen wir Ihnen gerne zur Verfügung.
 
 Mit freundlichen Grüßen,
-Ihr STORIA Team
+Ihr STORIA Team`,
+    en: `Dear ${args.customerName},
 
-STORIA · Ristorante
-Karlstraße 47a
-80333 München
-Tel: +49 89 51519696
-info@events-storia.de`;
+thank you for booking the ${args.packageName} on ${args.eventDate}.
 
-    console.log('Email content generated');
+We have put together the following menu for your event with ${args.guestCount} guests:
+
+${args.menuText}
+
+If your guests have any special dietary needs (allergies, vegetarian, vegan), please let us know in good time and we will adjust the menu accordingly.
+
+Please do not hesitate to contact us with any questions.
+
+Best regards,
+Your STORIA Team`,
+    it: `Gentile ${args.customerName},
+
+grazie per la prenotazione del ${args.packageName} il ${args.eventDate}.
+
+Abbiamo preparato il seguente menù per il vostro evento con ${args.guestCount} ospiti:
+
+${args.menuText}
+
+Se i vostri ospiti hanno esigenze alimentari particolari (allergie, vegetariano, vegano), vi preghiamo di comunicarcelo per tempo. Adatteremo il menù di conseguenza.
+
+In caso di domande, restiamo a vostra disposizione.
+
+Cordiali saluti,
+Il vostro Team STORIA`,
+    fr: `Chère/Cher ${args.customerName},
+
+merci pour votre réservation du ${args.packageName} le ${args.eventDate}.
+
+Nous avons composé le menu suivant pour votre événement avec ${args.guestCount} invités :
+
+${args.menuText}
+
+Si vos invités ont des besoins alimentaires particuliers (allergies, végétarien, végan), merci de nous le faire savoir à temps. Nous adapterons le menu en conséquence.
+
+Pour toute question, nous restons à votre disposition.
+
+Cordialement,
+Votre équipe STORIA`,
+  } as const;
+  return BODIES[lng];
+}
+
+serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  try {
+    const { bookingId, sendEmail, sentBy } = await req.json() as MenuConfirmationRequest;
+    if (!bookingId) throw new Error('bookingId is required');
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const event = await resolveV2Event(supabase, bookingId);
+    if (!event) throw new Error(`v2_event not found for ${bookingId}`);
+
+    const { data: customer } = await supabase
+      .from('v2_customers')
+      .select('name, email, phone, company')
+      .eq('id', event.customer_id)
+      .single();
+    if (!customer) throw new Error(`v2_customer not found for ${event.customer_id}`);
+
+    let packageData: { name?: string } | null = null;
+    if (event.package_id) {
+      const { data: pkg } = await supabase.from('packages').select('*').eq('id', event.package_id).single();
+      packageData = pkg;
+    }
+
+    const lang: CustomerLang = (['de','en','it','fr'] as string[]).includes(event.customer_language)
+      ? event.customer_language as CustomerLang : 'de';
+    const plan = emailLanguagePlan(lang);
+    const packageName = packageData?.name || ({ de: 'Event-Paket', en: 'Event package', it: 'Pacchetto evento', fr: 'Forfait événement' }[plan.primary]);
+
+    const menuSelection = event.menu_selection;
+
+    const subjectFor = (lng: CustomerLang) => ({
+      de: `Ihr Menü für ${formatDateLong(lng, event.date)} steht fest`,
+      en: `Your menu for ${formatDateLong(lng, event.date)} is confirmed`,
+      it: `Il vostro menù per il ${formatDateLong(lng, event.date)} è confermato`,
+      fr: `Votre menu pour le ${formatDateLong(lng, event.date)} est confirmé`,
+    }[lng]);
+    const subject = bilingualSubject(lang, { de: subjectFor('de'), en: subjectFor('en'), it: subjectFor('it'), fr: subjectFor('fr') });
+    const isTest = event.is_test === true;
+    const safeRecipient = getSafeRecipientEmail(customer.email, isTest);
+    const safeSubject = getSafeSubject(subject, isTest);
+
+    const buildFull = (lng: CustomerLang) => buildBodyBlock(lng, {
+      customerName: customer.name,
+      packageName,
+      eventDate: formatDateLong(lng, event.date),
+      guestCount: event.guest_count,
+      menuText: buildMenuText(menuSelection, lng),
+    });
+
+    const primaryBody = buildFull(plan.primary);
+    const secondaryBody = plan.secondary ? buildFull(plan.secondary) : '';
+    const FOOTER = `\n\nSTORIA · Ristorante\nKarlstraße 47a\n80333 München\nTel: +49 89 51519696\ninfo@events-storia.de`;
+    const emailBody = secondaryBody
+      ? `${primaryBody}${SEPARATOR_TEXT}${secondaryBody}${FOOTER}`
+      : `${primaryBody}${FOOTER}`;
 
     let emailSent = false;
     let emailProvider = '';
@@ -167,92 +200,47 @@ info@events-storia.de`;
       const smtpPassword = Deno.env.get('SMTP_PASSWORD');
 
       const htmlEmail = `<!DOCTYPE html>
-<html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
+<html lang="${plan.primary}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="white-space: pre-wrap;">${emailBody}</div>
-</body>
-</html>`;
+</body></html>`;
 
-      // Resend (primär)
       if (resendApiKey) {
         try {
           const resendResponse = await fetch('https://api.resend.com/emails', {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${resendApiKey}`,
-              'Content-Type': 'application/json; charset=utf-8',
-            },
+            headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json; charset=utf-8' },
             body: JSON.stringify({
               from: 'STORIA Events <info@events-storia.de>',
-              to: safeRecipient,
-              subject: safeSubject,
-              html: htmlEmail,
-              text: emailBody,
+              to: safeRecipient, subject: safeSubject, html: htmlEmail, text: emailBody,
               reply_to: 'info@events-storia.de',
             }),
           });
-
           if (resendResponse.ok) {
             const resendData = await resendResponse.json();
-            console.log('Email sent via Resend to', safeRecipient);
-            emailSent = true;
-            emailProvider = 'resend';
-            emailMessageId = resendData.id || null;
-            emailError = null;
-          } else {
-            emailError = `Resend error: ${await resendResponse.text()}`;
-            console.error(emailError);
-          }
-        } catch (resendErr) {
-          emailError = resendErr instanceof Error ? resendErr.message : 'Resend error';
-          console.error('Resend exception:', emailError);
-        }
+            emailSent = true; emailProvider = 'resend'; emailMessageId = resendData.id || null;
+          } else { emailError = `Resend error: ${await resendResponse.text()}`; console.error(emailError); }
+        } catch (e) { emailError = e instanceof Error ? e.message : 'Resend error'; }
       }
 
-      // SMTP Fallback (nur wenn Resend fehlschlug)
       if (!emailSent && smtpUser && smtpPassword) {
         try {
           const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
-          const smtpHost = Deno.env.get('SMTP_HOST') || 'smtp.ionos.de';
-          const smtpPort = parseInt(Deno.env.get('SMTP_PORT') || '465');
-
           const client = new SMTPClient({
             connection: {
-              hostname: smtpHost,
-              port: smtpPort,
-              tls: true,
-              auth: { username: smtpUser, password: smtpPassword },
+              hostname: Deno.env.get('SMTP_HOST') || 'smtp.ionos.de',
+              port: parseInt(Deno.env.get('SMTP_PORT') || '465'),
+              tls: true, auth: { username: smtpUser, password: smtpPassword },
             },
           });
-
-          await client.send({
-            from: `STORIA Events <${smtpUser}>`,
-            to: [safeRecipient],
-            subject: safeSubject,
-            html: htmlEmail,
-          });
-
+          await client.send({ from: `STORIA Events <${smtpUser}>`, to: [safeRecipient], subject: safeSubject, html: htmlEmail });
           await client.close();
-          console.log('Email sent via IONOS SMTP (fallback) to', safeRecipient);
-          emailSent = true;
-          emailProvider = 'ionos_smtp';
-          emailError = null;
-        } catch (smtpError) {
-          emailError = smtpError instanceof Error ? smtpError.message : 'SMTP error';
-          console.error('SMTP fallback error:', emailError);
-        }
+          emailSent = true; emailProvider = 'ionos_smtp'; emailError = null;
+        } catch (e) { emailError = e instanceof Error ? e.message : 'SMTP error'; }
       }
 
-      if (!emailSent && !resendApiKey && !smtpUser) {
-        emailError = 'No email provider configured';
-        console.warn(emailError);
-      }
+      if (!emailSent && !resendApiKey && !smtpUser) emailError = 'No email provider configured';
 
-      // Log email delivery to database
       await logEmailDelivery(supabase, {
         entity_type: 'v2_event',
         entity_id: event.id,
@@ -269,61 +257,36 @@ info@events-storia.de`;
           email_type: 'menu_confirmation',
           package_name: packageName,
           event_date: event.date,
+          language: lang,
         },
       });
 
-      // Email-Thread auch in v2_event_emails persistieren
       if (emailSent) {
         await supabase.from('v2_event_emails').insert({
-          event_id: event.id,
-          direction: 'outbound',
-          from_email: 'info@events-storia.de',
-          to_email: customer.email,
-          subject: emailSubject,
-          body_text: emailBody,
-          body_html: htmlEmail,
-          resend_message_id: emailMessageId,
-          resend_status: 'queued',
+          event_id: event.id, direction: 'outbound',
+          from_email: 'info@events-storia.de', to_email: customer.email,
+          subject, body_text: emailBody, body_html: htmlEmail,
+          resend_message_id: emailMessageId, resend_status: 'queued',
           sent_at: new Date().toISOString(),
         });
       }
     }
 
-    const { error: updateError } = await supabase
-      .from('v2_events')
-      .update({
-        menu_confirmed: true,
-        menu_confirmed_at: new Date().toISOString(),
-        confirmation_email_sent_at: emailSent ? new Date().toISOString() : null,
-      })
-      .eq('id', event.id);
-
-    if (updateError) {
-      console.error('Update error:', updateError);
-    }
+    await supabase.from('v2_events').update({
+      menu_confirmed: true,
+      menu_confirmed_at: new Date().toISOString(),
+      confirmation_email_sent_at: emailSent ? new Date().toISOString() : null,
+    }).eq('id', event.id);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        emailSent: emailSent,
-        bookingNumber: event.booking_number,
-        provider: emailProvider || undefined,
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
-        status: 200,
-      }
+      JSON.stringify({ success: true, emailSent, bookingNumber: event.booking_number, provider: emailProvider || undefined, language: lang }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }, status: 200 },
     );
-
   } catch (error) {
     console.error('Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
-        status: 400,
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }, status: 400 },
     );
   }
 });
