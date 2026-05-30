@@ -1120,6 +1120,7 @@ function ProposalView({
               selectedOptionId={selectedOption.id}
               totalAmount={totalAmount}
               paymentTiming={offlineTiming}
+              lang={lang}
               onConfirmed={() => {
                 onSubmitted({
                   inquiry: { ...inquiry, offer_phase: 'order_confirmed', selected_option_id: selectedOption.id },
@@ -1791,6 +1792,7 @@ function FinalOptionCard({
             selectedOptionId={option.id}
             totalAmount={totalAmount}
             paymentTiming={offlineTiming}
+            lang={lang}
             onConfirmed={() => {
               window.location.reload();
             }}
