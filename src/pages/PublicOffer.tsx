@@ -453,19 +453,19 @@ export default function PublicOffer() {
         <OfferHeader />
         <div className="container mx-auto px-4 py-24 text-center">
           <h1 className="text-2xl font-serif font-bold mb-4">
-            Angebot nicht gefunden
+            {tOffer(lang, 'offerNotFoundTitle')}
           </h1>
           <p className="text-muted-foreground mb-8 font-sans">
-            Dieses Angebot ist nicht verfügbar oder wurde noch nicht versendet.
+            {tOffer(lang, 'offerNotFoundBody')}
           </p>
           <LocalizedLink
             to="home"
             className="text-primary hover:underline font-medium font-sans"
           >
-            Zur Startseite
+            {tOffer(lang, 'backHome')}
           </LocalizedLink>
         </div>
-        <OfferFooter />
+        <OfferFooter lang={lang} />
       </div>
     );
   }
@@ -488,7 +488,7 @@ export default function PublicOffer() {
     <div className="min-h-screen bg-background flex flex-col">
       <OfferHeader />
       <main className="flex-1">
-        <HeroSection inquiry={inquiry} phase={renderPhase} />
+        <HeroSection inquiry={inquiry} phase={renderPhase} lang={lang} />
 
         <RestaurantGallery lang={lang} />
 
@@ -524,6 +524,7 @@ export default function PublicOffer() {
           <ThankYouView
             customerResponse={customer_response}
             options={options}
+            lang={lang}
           />
         )}
 
@@ -539,15 +540,15 @@ export default function PublicOffer() {
         {(renderPhase === "confirmed" ||
           renderPhase === "paid" ||
           renderPhase === "order_confirmed") && (
-          <ConfirmationView inquiry={inquiry} options={options} />
+          <ConfirmationView inquiry={inquiry} options={options} lang={lang} />
         )}
 
-        <PdfDownloadSection inquiryId={inquiry.id} />
+        <PdfDownloadSection inquiryId={inquiry.id} lang={lang} />
 
-        <PublicPaymentSection payments={payments} eventDate={inquiry.preferred_date ?? undefined} />
-        <ContactSection />
+        <PublicPaymentSection payments={payments} eventDate={inquiry.preferred_date ?? undefined} lang={lang} />
+        <ContactSection lang={lang} />
       </main>
-      <OfferFooter />
+      <OfferFooter lang={lang} />
     </div>
   );
 }
