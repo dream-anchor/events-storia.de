@@ -294,6 +294,18 @@ export const SmartInquiryEditor = () => {
       setCurrentUserEmail(user?.email || undefined);
     });
     if (id) {
+      (supabase as any)
+        .from('v2_events')
+        .select('last_translated_language')
+        .eq('id', id)
+        .maybeSingle()
+        .then(({ data }: any) => {
+          if (data?.last_translated_language) {
+            setLastTranslatedLang(data.last_translated_language as CustomerLang);
+          }
+        });
+    }
+    if (id) {
       supabase.from('offer_customer_responses' as never)
         .select('responded_at, selected_option_id, customer_notes')
         .eq('inquiry_id', id)
