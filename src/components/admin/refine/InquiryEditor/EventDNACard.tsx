@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AssigneeSelector } from "@/components/admin/shared/AssigneeSelector";
 import { PrioritySelector } from "@/components/admin/shared/PrioritySelector";
+import { CustomerLanguageSelector, CustomerLang } from "./CustomerLanguageSelector";
 import { InquiryPriority } from "@/types/refine";
 import { ExtendedInquiry } from "./types";
 import { NominatimAutocomplete } from "./NominatimAutocomplete";
@@ -326,7 +327,7 @@ export const EventDNACard = ({
 
         {/* Assignee & Priority Section */}
         <div className="pt-4 border-t border-border/40">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Assignee */}
             <div className="space-y-2">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
@@ -353,6 +354,13 @@ export const EventDNACard = ({
                 disabled={!onPriorityChange}
               />
             </div>
+
+            {/* Customer Language */}
+            <CustomerLanguageSelector
+              value={(inquiry.customer_language as CustomerLang | null) || 'de'}
+              onChange={(lang) => onFieldChange('customer_language', lang)}
+              disabled={isReadOnly}
+            />
           </div>
         </div>
 
