@@ -92,6 +92,8 @@ export interface CourseSelection {
   overridePrice?: number | null;
   /** Menge bei per_event-Modus. Default 1. Wird beim Laden aus 'N x Foo'-Pattern im itemName migriert. */
   quantity?: number | null;
+  /** Pro-Zeile Preismodus. 'per_person' = Preis × Gäste, 'flat' = Pauschalpreis (×1). Default 'per_person'. */
+  priceMode?: 'per_person' | 'flat' | null;
 }
 
 export interface DrinkSelection {
