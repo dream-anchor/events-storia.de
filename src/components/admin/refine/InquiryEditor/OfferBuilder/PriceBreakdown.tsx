@@ -269,6 +269,8 @@ export function PriceBreakdown({
           : (catalogPrice && catalogPrice > 0 ? catalogPrice : null);
         const quantity = c.quantity ?? 1;
         const lineTotal = unitPrice != null ? unitPrice * quantity : null;
+        // Effektiver Modus pro Zeile: explizit > global-Fallback
+        const effMode: 'per_person' | 'flat' = (c.priceMode ?? (pricingMode === 'per_event' ? 'flat' : 'per_person')) as 'per_person' | 'flat';
         return {
           index: idx,
           label: c.courseLabel,
@@ -277,6 +279,7 @@ export function PriceBreakdown({
           unitPrice,
           quantity,
           lineTotal,
+          lineMode: effMode,
           overridePrice: c.overridePrice,
         };
       })
@@ -288,21 +291,28 @@ export function PriceBreakdown({
         unitPrice: number | null;
         quantity: number;
         lineTotal: number | null;
+        lineMode: 'per_person' | 'flat';
         overridePrice?: number | null;
       }[];
 
-    const dishSubtotal = dishLines.reduce((sum, d) => sum + (d.lineTotal || 0), 0);
-    const winePerPerson = winePairingPrice || 0;
-    const subtotalPerPerson = dishSubtotal + winePerPerson;
     const guestsForDiv = Math.max(1, guestCount);
-    // Rabatt: €-Betrag hat Vorrang, gilt auf Total → pro Person dividieren.
-    // Prozent: gilt auf dishSubtotal pro Person.
+    // Absolute Subtotale pro Zeile
+    const dishAbs = dishLines.reduce((sum, d) => {
+      const mult = d.lineMode === 'flat' ? 1 : guestsForDiv;
+      return sum + (d.lineTotal || 0) * mult;
+    }, 0);
+    const winePerPerson = winePairingPrice || 0;
+    const wineAbs = winePerPerson * guestsForDiv;
+    const subtotalAbs = dishAbs + wineAbs;
+    // Rabatt: €-Betrag hat Vorrang, % auf Subtotal
     const discountAmountTotal = discountMode === 'amount'
-      ? Math.min(discountEurVal, subtotalPerPerson * guestsForDiv)
-      : dishSubtotal * (discountPctVal / 100) * guestsForDiv;
-    const discountAmount = discountAmountTotal / guestsForDiv;
-    const netPerPerson = subtotalPerPerson - discountAmount;
-    const calculatedTotal = netPerPerson * guestCount;
+      ? Math.min(discountEurVal, subtotalAbs)
+      : subtotalAbs * (discountPctVal / 100);
+    const netAbs = subtotalAbs - discountAmountTotal;
+    // Anzeige-Werte je nach globalem Modus
+    const subtotalDisplay = pricingMode === 'per_event' ? subtotalAbs : (subtotalAbs / guestsForDiv);
+    const netDisplay = pricingMode === 'per_event' ? netAbs : (netAbs / guestsForDiv);
+    const discountDisplay = pricingMode === 'per_event' ? discountAmountTotal : (discountAmountTotal / guestsForDiv);
 
     // Equipment & Staff Summen
     const equipSum = (equipment || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
@@ -336,12 +346,12 @@ export function PriceBreakdown({
             )}
 
             {/* Zwischensumme */}
-            {subtotalPerPerson > 0 && (
+            {subtotalAbs > 0 && (
               <div className="flex items-center justify-between text-xs pt-1 border-t border-border/20">
                 <span className="text-muted-foreground">
                   {pricingMode === 'per_event' ? 'Zwischensumme gesamt' : 'Zwischensumme / Pers.'}
                 </span>
-                <span className="font-medium">{formatCurrency(subtotalPerPerson)}</span>
+                <span className="font-medium">{formatCurrency(subtotalDisplay)}</span>
               </div>
             )}
 
@@ -356,18 +366,18 @@ export function PriceBreakdown({
                   disabled={disabled}
                   tone="green"
                 />
-                {discountAmount > 0 && (
-                  <span className="text-green-600">−{formatCurrency(discountAmount)}</span>
+                {discountAmountTotal > 0 && (
+                  <span className="text-green-600">−{formatCurrency(discountDisplay)}</span>
                 )}
               </div>
             )}
             {/* Netto — nur wenn Rabatt aktiv */}
-            {netPerPerson > 0 && discountAmount > 0 && (
+            {netAbs > 0 && discountAmountTotal > 0 && (
               <div className="flex items-center justify-between text-xs font-medium">
                 <span className="text-muted-foreground">
                   {pricingMode === 'per_event' ? 'Netto gesamt' : 'Netto / Person'}
                 </span>
-                <span>{formatCurrency(netPerPerson)}</span>
+                <span>{formatCurrency(netDisplay)}</span>
               </div>
             )}
           </div>
@@ -408,7 +418,7 @@ export function PriceBreakdown({
           <span className="text-xs text-muted-foreground">
             {pricingMode === 'per_event' ? 'Errechnet gesamt' : 'Errechnet / Person'}
           </span>
-          <span className="text-sm text-muted-foreground">{formatCurrency(netPerPerson)}</span>
+          <span className="text-sm text-muted-foreground">{formatCurrency(netDisplay)}</span>
         </div>
 
         {/* Finaler Angebotspreis — editierbar */}
@@ -424,7 +434,7 @@ export function PriceBreakdown({
                 const val = e.target.value;
                 onFinalPriceChange?.(val === '' ? null : parseFloat(val) || 0);
               }}
-              placeholder={netPerPerson > 0 ? netPerPerson.toFixed(2) : '0,00'}
+              placeholder={netDisplay > 0 ? netDisplay.toFixed(2) : '0,00'}
               className="h-9 rounded-xl pr-6 text-right text-sm font-bold"
               disabled={disabled}
             />
