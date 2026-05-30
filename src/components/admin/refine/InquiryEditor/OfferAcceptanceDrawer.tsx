@@ -526,6 +526,56 @@ export function OfferAcceptanceDrawer({
           </Button>
         </div>
       </SheetContent>
+
+      {/* Menü-Anpassungs-Dialog */}
+      <Dialog open={menuEditorOpen} onOpenChange={(v) => !v && !savingMenu && setMenuEditorOpen(false)}>
+        <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ChefHat className="h-5 w-5" />
+              Menü anpassen — Option {chosen?.label}
+            </DialogTitle>
+            <DialogDescription>
+              Speichern erzeugt eine neue interne Version (V{(chosen?.version ?? 1) + 1}).
+              Das Angebot beim Kunden bleibt unverändert — diese Anpassung dokumentiert
+              die telefonisch besprochene Variante.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="adj-reason" className="text-xs">Grund der Anpassung</Label>
+              <Input
+                id="adj-reason"
+                value={adjustmentReason}
+                onChange={(e) => setAdjustmentReason(e.target.value)}
+                placeholder="z.B. Tiramisu gegen Panna Cotta getauscht"
+              />
+            </div>
+
+            {chosen && draftMenu && (
+              <MenuComposer
+                packageId={chosen.package_id ?? null}
+                packageName={chosen.package_name_snapshot ?? null}
+                guestCount={parsedGuests ?? chosen.guest_count ?? 1}
+                menuSelection={draftMenu}
+                onMenuSelectionChange={setDraftMenu}
+              />
+            )}
+          </div>
+
+          <DialogFooter className="border-t border-border/40 pt-3">
+            <Button variant="ghost" onClick={() => setMenuEditorOpen(false)} disabled={savingMenu}>
+              Abbrechen
+            </Button>
+            <Button onClick={handleSaveMenu} disabled={savingMenu}>
+              {savingMenu && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Menü speichern (neue Version)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }
