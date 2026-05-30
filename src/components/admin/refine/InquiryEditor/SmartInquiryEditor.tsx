@@ -264,6 +264,102 @@ export const SmartInquiryEditor = () => {
     setLocalInquiry(prev => ({ ...prev, [field]: value }));
   }, []);
 
+  // Sprache wechseln: öffnet Dialog, falls die Zielsprache von der aktuellen abweicht.
+  const handleLanguageSelect = useCallback((target: CustomerLang) => {
+    const current = ((inquiry?.customer_language as CustomerLang | null) || 'de');
+    if (target === current) return;
+    setLangDialog({ open: true, target });
+  }, [inquiry?.customer_language]);
+
+  const performLanguageSwitch = useCallback(async (scope: TranslationScope, translate: boolean) => {
+    const target = langDialog.target;
+    if (!id) return;
+
+    // 1) Sprache lokal + remote setzen (Auto-Save übernimmt remote via handleLocalFieldChange).
+    handleLocalFieldChange('customer_language', target);
+
+    // 2) Wenn Zielsprache = de, keine Übersetzungen. Trotzdem last_translated_language updaten.
+    try {
+      await (supabase as any).from('v2_events').update({
+        customer_language: target,
+        last_translated_language: target,
+      }).eq('id', id);
+      setLastTranslatedLang(target);
+    } catch (err) {
+      console.warn('[lang-switch] persist failed', err);
+    }
+
+    if (!translate || target === 'de') {
+      toast.success(`Sprache auf ${target.toUpperCase()} gewechselt.`);
+      setLangDialog({ open: false, target });
+      // Preview-Iframes informieren
+      window.dispatchEvent(new CustomEvent('inquiry-language-changed', { detail: { inquiryId: id, language: target } }));
+      return;
+    }
+
+    const targetLang = target as Exclude<CustomerLang, 'de'>;
+    const tasks: Promise<unknown>[] = [];
+    const labels: string[] = [];
+
+    if (scope.coverLetter && (emailDraft || inquiry?.email_draft)) {
+      labels.push('Anschreiben');
+      tasks.push(
+        supabase.functions.invoke('translate-offer-letter', {
+          body: { inquiry_id: id, target_lang: targetLang, source_text: emailDraft || inquiry?.email_draft || '' },
+        }).catch((e) => { console.warn('[lang-switch] cover-letter failed', e); throw e; })
+      );
+    }
+
+    if (scope.packageDesc && selectedPackages.length > 0) {
+      labels.push('Paket');
+      for (const sp of selectedPackages) {
+        if (!sp?.package_id) continue;
+        tasks.push(
+          supabase.functions.invoke('translate-package-menu', {
+            body: { package_id: sp.package_id, target_langs: [targetLang] },
+          }).catch((e) => { console.warn('[lang-switch] package failed', e); })
+        );
+      }
+    }
+
+    if (scope.menu && quoteItems.length > 0) {
+      labels.push('Menü');
+      for (const it of quoteItems) {
+        tasks.push(
+          supabase.functions.invoke('translate-menu-text', {
+            body: { texts: { name: it.name || '', description: it.description || '' }, sourceLang: 'de', targetLang },
+          }).catch((e) => { console.warn('[lang-switch] menu item failed', e); })
+        );
+      }
+    }
+
+    if (scope.customerMessage) {
+      labels.push('AI-Kundennachricht');
+      // Hinweis: AI-Kundennachricht wird beim nächsten Generieren automatisch neu erstellt.
+    }
+
+    const toastId = toast.loading(`Übersetze ${labels.length} Inhalt${labels.length === 1 ? '' : 'e'} → ${targetLang.toUpperCase()}…`);
+    try {
+      await Promise.allSettled(tasks);
+      toast.success(`Sprache auf ${targetLang.toUpperCase()} gewechselt. Übersetzt: ${labels.join(', ')}.`, { id: toastId });
+    } catch (err) {
+      toast.error('Übersetzung teilweise fehlgeschlagen — siehe Konsole.', { id: toastId });
+    }
+
+    setLangDialog({ open: false, target });
+    window.dispatchEvent(new CustomEvent('inquiry-language-changed', { detail: { inquiryId: id, language: targetLang } }));
+
+    // Aktivitätslog
+    try {
+      const fromLang = ((inquiry?.customer_language as string | null) || 'de').toUpperCase();
+      await (supabase as any).from('activity_log').insert({
+        inquiry_id: id,
+        action: 'language_changed',
+        details: `Kundensprache von ${fromLang} auf ${targetLang.toUpperCase()} geändert. Re-übersetzt: ${labels.join(', ') || '–'}`,
+      });
+    } catch { /* log table optional */ }
+  }, [langDialog.target, id, handleLocalFieldChange, emailDraft, inquiry?.email_draft, inquiry?.customer_language, selectedPackages, quoteItems]);
+
   const handleItemAdd = useCallback((item: { id: string; name: string; description: string | null; price: number | null }) => {
     setQuoteItems(prev => {
       const exists = prev.find(i => i.id === item.id);
