@@ -6,6 +6,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { OfferLang } from "@/lib/offerLang";
+import { tOffer, currencyLocale } from "./i18n";
 
 interface Props {
   open: boolean;
@@ -16,13 +18,18 @@ interface Props {
   /** how the customer will pay later — drives the additional acknowledge text */
   paymentTiming: "on_site" | "after_event" | "transfer_prepay";
   onConfirmed: () => void;
+  lang?: OfferLang;
 }
 
-const labelByTiming: Record<Props["paymentTiming"], string> = {
-  on_site: "vor Ort am Veranstaltungstag",
-  after_event: "per Rechnung nach der Veranstaltung",
-  transfer_prepay: "per Überweisung vor der Veranstaltung",
-};
+function timingLabel(lang: OfferLang, t: Props["paymentTiming"]): string {
+  const key =
+    t === "on_site"
+      ? "dialogTimingOnSite"
+      : t === "after_event"
+        ? "dialogTimingAfterEvent"
+        : "dialogTimingTransferPrepay";
+  return tOffer(lang, key);
+}
 
 export function OrderConfirmationDialog({
   open,
@@ -32,6 +39,7 @@ export function OrderConfirmationDialog({
   totalAmount,
   paymentTiming,
   onConfirmed,
+  lang = "de",
 }: Props) {
   const [name, setName] = useState("");
   const [accept1, setAccept1] = useState(false);
@@ -57,23 +65,26 @@ export function OrderConfirmationDialog({
         },
       });
       if (error || (data as { error?: string })?.error) {
-        throw new Error((data as { error?: string })?.error || error?.message || "Fehler");
+        throw new Error((data as { error?: string })?.error || error?.message || tOffer(lang, "dialogConfirmError"));
       }
-      toast.success("Auftrag verbindlich bestätigt — vielen Dank!");
+      toast.success(tOffer(lang, "dialogSuccess"));
       onConfirmed();
       onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Fehler bei der Bestätigung");
+      toast.error(e instanceof Error ? e.message : tOffer(lang, "dialogConfirmError"));
     } finally {
       setLoading(false);
     }
   };
 
-  const formattedTotal = new Intl.NumberFormat("de-DE", {
+  const formattedTotal = new Intl.NumberFormat(currencyLocale(lang), {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,
   }).format(totalAmount);
+
+  const timing = timingLabel(lang, paymentTiming);
+  const description = tOffer(lang, "dialogBindingDescription").replace("{timing}", timing);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,23 +92,20 @@ export function OrderConfirmationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />
-            Verbindliche Auftragsbestätigung
+            {tOffer(lang, "dialogBindingTitle")}
           </DialogTitle>
-          <DialogDescription>
-            Mit Ihrer Bestätigung kommt ein rechtswirksamer Vertrag zustande.
-            Die Zahlung erfolgt {labelByTiming[paymentTiming]}.
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div>
             <label className="text-sm font-medium block mb-1">
-              Vor- und Nachname
+              {tOffer(lang, "dialogFullName")}
             </label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="z.B. Max Mustermann"
+              placeholder={tOffer(lang, "dialogNamePlaceholder")}
               autoComplete="name"
             />
           </div>
@@ -109,9 +117,9 @@ export function OrderConfirmationDialog({
               className="mt-0.5"
             />
             <span className="text-muted-foreground">
-              Ich nehme das Angebot in der gezeigten Form
-              <strong className="text-foreground"> rechtsverbindlich </strong>
-              an.
+              {tOffer(lang, "dialogAccept1Prefix")}{" "}
+              <strong className="text-foreground">{tOffer(lang, "dialogAccept1Bold")}</strong>{" "}
+              {tOffer(lang, "dialogAccept1Suffix")}
             </span>
           </label>
 
@@ -122,16 +130,16 @@ export function OrderConfirmationDialog({
               className="mt-0.5"
             />
             <span className="text-muted-foreground">
-              Ich habe die{" "}
+              {tOffer(lang, "dialogAccept2Prefix")}{" "}
               <a
                 href="/agb-veranstaltungen"
                 target="_blank"
                 rel="noreferrer"
                 className="underline hover:text-primary"
               >
-                AGB
+                {tOffer(lang, "dialogAccept2Link")}
               </a>{" "}
-              und die Stornobedingungen gelesen und akzeptiere sie.
+              {tOffer(lang, "dialogAccept2Suffix")}
             </span>
           </label>
 
@@ -142,15 +150,14 @@ export function OrderConfirmationDialog({
               className="mt-0.5"
             />
             <span className="text-muted-foreground">
-              Mir ist bekannt, dass der Gesamtbetrag von{" "}
+              {tOffer(lang, "dialogAccept3Prefix")}{" "}
               <strong className="text-foreground">{formattedTotal}</strong>{" "}
-              {labelByTiming[paymentTiming]} fällig ist.
+              {timing} {tOffer(lang, "dialogAccept3Suffix")}.
             </span>
           </label>
 
           <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
-            Zur Beweissicherung speichern wir Datum, Ihre IP-Adresse und Ihr
-            Gerät zusammen mit der Version dieses Angebots.
+            {tOffer(lang, "dialogEvidenceNote")}
           </p>
         </div>
 
@@ -160,11 +167,11 @@ export function OrderConfirmationDialog({
             onClick={() => onOpenChange(false)}
             disabled={loading}
           >
-            Abbrechen
+            {tOffer(lang, "dialogCancel")}
           </Button>
           <Button onClick={handleConfirm} disabled={!canSubmit}>
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Jetzt verbindlich buchen
+            {tOffer(lang, "dialogBookNowCta")}
           </Button>
         </DialogFooter>
       </DialogContent>
