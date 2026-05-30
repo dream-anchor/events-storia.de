@@ -40,6 +40,8 @@ import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCus
 import { OfferAcceptanceDrawer } from "./OfferAcceptanceDrawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CustomerLang } from "./CustomerLanguageSelector";
+import { LanguageSwitchDialog, type TranslationScope } from "./LanguageSwitchDialog";
+import { Languages as LanguagesIcon } from "lucide-react";
 
 const HEADER_LANGS: { value: CustomerLang; flag: string; code: string; label: string }[] = [
   { value: "de", flag: "🇩🇪", code: "DE", label: "Deutsch" },
@@ -68,6 +70,13 @@ export const SmartInquiryEditor = () => {
   const consecutiveSaveErrorsRef = useRef(0);
   const errorToastShownRef = useRef(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>();
+
+  // Language-switch dialog
+  const [langDialog, setLangDialog] = useState<{ open: boolean; target: CustomerLang }>({
+    open: false,
+    target: "de",
+  });
+  const [lastTranslatedLang, setLastTranslatedLang] = useState<CustomerLang | null>(null);
 
   // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren
   useRegisterSaveStatus('smart-inquiry-editor', saveStatus);
@@ -255,6 +264,103 @@ export const SmartInquiryEditor = () => {
     setLocalInquiry(prev => ({ ...prev, [field]: value }));
   }, []);
 
+  // Sprache wechseln: öffnet Dialog, falls die Zielsprache von der aktuellen abweicht.
+  const handleLanguageSelect = useCallback((target: CustomerLang) => {
+    const current = ((inquiry?.customer_language as CustomerLang | null) || 'de');
+    if (target === current) return;
+    setLangDialog({ open: true, target });
+  }, [inquiry?.customer_language]);
+
+  const performLanguageSwitch = useCallback(async (scope: TranslationScope, translate: boolean) => {
+    const target = langDialog.target;
+    if (!id) return;
+
+    // 1) Sprache lokal + remote setzen (Auto-Save übernimmt remote via handleLocalFieldChange).
+    handleLocalFieldChange('customer_language', target);
+
+    // 2) Wenn Zielsprache = de, keine Übersetzungen. Trotzdem last_translated_language updaten.
+    try {
+      await (supabase as any).from('v2_events').update({
+        customer_language: target,
+        last_translated_language: target,
+      }).eq('id', id);
+      setLastTranslatedLang(target);
+    } catch (err) {
+      console.warn('[lang-switch] persist failed', err);
+    }
+
+    if (!translate || target === 'de') {
+      toast.success(`Sprache auf ${target.toUpperCase()} gewechselt.`);
+      setLangDialog({ open: false, target });
+      // Preview-Iframes informieren
+      window.dispatchEvent(new CustomEvent('inquiry-language-changed', { detail: { inquiryId: id, language: target } }));
+      return;
+    }
+
+    const targetLang = target as Exclude<CustomerLang, 'de'>;
+    const tasks: Promise<unknown>[] = [];
+    const labels: string[] = [];
+
+    if (scope.coverLetter && (emailDraft || inquiry?.email_draft)) {
+      labels.push('Anschreiben');
+      tasks.push(
+        supabase.functions.invoke('translate-offer-letter', {
+          body: { inquiry_id: id, target_lang: targetLang, source_text: emailDraft || inquiry?.email_draft || '' },
+        }).catch((e: unknown) => { console.warn('[lang-switch] cover-letter failed', e); throw e; })
+      );
+    }
+
+    if (scope.packageDesc && selectedPackages.length > 0) {
+      labels.push('Paket');
+      for (const sp of selectedPackages) {
+        const pkgId = (sp as { id?: string })?.id;
+        if (!pkgId) continue;
+        tasks.push(
+          supabase.functions.invoke('translate-package-menu', {
+            body: { package_id: pkgId, target_langs: [targetLang] },
+          }).catch((e: unknown) => { console.warn('[lang-switch] package failed', e); })
+        );
+      }
+    }
+
+    if (scope.menu && quoteItems.length > 0) {
+      labels.push('Menü');
+      for (const it of quoteItems) {
+        tasks.push(
+          supabase.functions.invoke('translate-menu-text', {
+            body: { texts: { name: it.name || '', description: it.description || '' }, sourceLang: 'de', targetLang },
+          }).catch((e: unknown) => { console.warn('[lang-switch] menu item failed', e); })
+        );
+      }
+    }
+
+    if (scope.customerMessage) {
+      labels.push('AI-Kundennachricht');
+      // Hinweis: AI-Kundennachricht wird beim nächsten Generieren automatisch neu erstellt.
+    }
+
+    const toastId = toast.loading(`Übersetze ${labels.length} Inhalt${labels.length === 1 ? '' : 'e'} → ${targetLang.toUpperCase()}…`);
+    try {
+      await Promise.allSettled(tasks);
+      toast.success(`Sprache auf ${targetLang.toUpperCase()} gewechselt. Übersetzt: ${labels.join(', ')}.`, { id: toastId });
+    } catch (err) {
+      toast.error('Übersetzung teilweise fehlgeschlagen — siehe Konsole.', { id: toastId });
+    }
+
+    setLangDialog({ open: false, target });
+    window.dispatchEvent(new CustomEvent('inquiry-language-changed', { detail: { inquiryId: id, language: targetLang } }));
+
+    // Aktivitätslog
+    try {
+      const fromLang = ((inquiry?.customer_language as string | null) || 'de').toUpperCase();
+      await (supabase as any).from('activity_log').insert({
+        inquiry_id: id,
+        action: 'language_changed',
+        details: `Kundensprache von ${fromLang} auf ${targetLang.toUpperCase()} geändert. Re-übersetzt: ${labels.join(', ') || '–'}`,
+      });
+    } catch { /* log table optional */ }
+  }, [langDialog.target, id, handleLocalFieldChange, emailDraft, inquiry?.email_draft, inquiry?.customer_language, selectedPackages, quoteItems]);
+
   const handleItemAdd = useCallback((item: { id: string; name: string; description: string | null; price: number | null }) => {
     setQuoteItems(prev => {
       const exists = prev.find(i => i.id === item.id);
@@ -284,6 +390,18 @@ export const SmartInquiryEditor = () => {
     supabase.auth.getUser().then(({ data: { user } }: any) => {
       setCurrentUserEmail(user?.email || undefined);
     });
+    if (id) {
+      (supabase as any)
+        .from('v2_events')
+        .select('last_translated_language')
+        .eq('id', id)
+        .maybeSingle()
+        .then(({ data }: any) => {
+          if (data?.last_translated_language) {
+            setLastTranslatedLang(data.last_translated_language as CustomerLang);
+          }
+        });
+    }
     if (id) {
       supabase.from('offer_customer_responses' as never)
         .select('responded_at, selected_option_id, customer_notes')
@@ -839,7 +957,7 @@ export const SmartInquiryEditor = () => {
                   </Badge>
                   <Select
                     value={(inquiry.customer_language as CustomerLang | null) || 'de'}
-                    onValueChange={(v) => handleLocalFieldChange('customer_language', v as CustomerLang)}
+                    onValueChange={(v) => handleLanguageSelect(v as CustomerLang)}
                   >
                     <SelectTrigger
                       className="h-7 w-auto gap-1.5 px-2 py-0 text-xs font-medium bg-muted/40 border-border/60 rounded-md"
@@ -929,6 +1047,27 @@ export const SmartInquiryEditor = () => {
           )}
         </div>
       </div>
+
+      {/* Sprach-Mismatch-Banner: aktuelle Kundensprache ≠ zuletzt synchronisierte Sprache */}
+      {(() => {
+        const current = ((inquiry?.customer_language as CustomerLang | null) || 'de');
+        if (current === 'de') return null;
+        if (lastTranslatedLang === current) return null;
+        const lastLabel = (lastTranslatedLang || 'de').toUpperCase();
+        return (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/40 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm text-foreground/80">
+              <LanguagesIcon className="h-4 w-4 shrink-0" />
+              <span>
+                Anschreiben / Menü-Texte sind noch auf <strong>{lastLabel}</strong> — Kundensprache ist <strong>{current.toUpperCase()}</strong>.
+              </span>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setLangDialog({ open: true, target: current })}>
+              Jetzt übersetzen
+            </Button>
+          </div>
+        );
+      })()}
 
       {/* Quick Actions + TEST Badge */}
       <div className="flex items-center gap-2 flex-wrap mb-4 -mt-2">
@@ -1183,6 +1322,20 @@ export const SmartInquiryEditor = () => {
         onClose={() => setSendSuccess(null)}
         onGoToList={() => { setSendSuccess(null); navigate('/admin/inquiries'); }}
         onGoToOffer={() => { setSendSuccess(null); if (inquiry?.id) window.open(`/offer/${inquiry.id}`, '_blank', 'noopener,noreferrer'); }}
+      />
+
+      <LanguageSwitchDialog
+        open={langDialog.open}
+        currentLang={((inquiry?.customer_language as CustomerLang | null) || 'de')}
+        targetLang={langDialog.target}
+        available={{
+          coverLetter: !!(emailDraft || inquiry?.email_draft),
+          customerMessage: true,
+          menu: quoteItems.length > 0,
+          packageDesc: selectedPackages.length > 0,
+        }}
+        onCancel={() => setLangDialog({ open: false, target: langDialog.target })}
+        onConfirm={performLanguageSwitch}
       />
 
     </AdminLayout>
