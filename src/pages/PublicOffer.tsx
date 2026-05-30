@@ -35,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
+import { buildDrinkRows } from "@/pages/public-offer/types";
 
 // --- Types ---
 
@@ -1837,6 +1838,58 @@ function ConfirmationView({
             Wir freuen uns auf Ihr Event! Bei Fragen erreichen Sie uns jederzeit.
           </p>
         </div>
+
+        {/* Menü-Details — auch nach Bestätigung sichtbar */}
+        {selectedOption && (() => {
+          const menu = selectedOption.menu_selection;
+          const courses = menu?.courses?.filter((c) => c.itemName) || [];
+          const drinkRows = buildDrinkRows(menu);
+          if (courses.length === 0 && drinkRows.length === 0) return null;
+          return (
+            <div className="max-w-2xl mt-12">
+              <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/60 dark:border-white/20 rounded-2xl px-6 py-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+                <h3 className="font-serif text-lg font-bold text-foreground mb-5">
+                  Ihr gewähltes Menü
+                </h3>
+                {courses.length > 0 && (
+                  <div className="space-y-4">
+                    {courses.map((c, i) => (
+                      <div key={i} className="flex items-baseline gap-4">
+                        <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0 pt-0.5">
+                          {c.courseLabel}
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-base md:text-lg font-serif text-foreground leading-snug">
+                            {(c.quantity ?? 1) > 1 ? `${c.quantity} × ${c.itemName}` : c.itemName}
+                          </p>
+                          {c.itemDescription && (
+                            <p className="text-sm font-sans text-foreground/70 mt-1 leading-relaxed">
+                              {c.itemDescription}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {drinkRows.length > 0 && (
+                  <div className={cn("space-y-3", courses.length > 0 && "mt-6 pt-5 border-t border-border/15")}>
+                    {drinkRows.map((d, i) => (
+                      <div key={i} className="flex items-baseline gap-4">
+                        <span className="text-[10px] font-sans font-semibold text-primary/60 uppercase tracking-[0.15em] w-24 flex-shrink-0">
+                          {d.label}
+                        </span>
+                        <p className="flex-1 text-sm md:text-base font-serif text-foreground leading-snug">
+                          {d.name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </section>
   );
