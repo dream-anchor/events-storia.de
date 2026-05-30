@@ -69,7 +69,7 @@ serve(async (req) => {
     // Inquiry-Daten holen: LexOffice-Angebots-ID bevorzugt verwenden
     const { data: inquiry, error: dbError } = await supabase
       .from('event_inquiries')
-      .select('lexoffice_quotation_id, lexoffice_invoice_id, contact_name')
+      .select('lexoffice_quotation_id, lexoffice_invoice_id, contact_name, customer_language')
       .eq('id', inquiryId)
       .single();
 
@@ -164,7 +164,12 @@ serve(async (req) => {
     const base64 = btoa(binary);
 
     const contactName = (inquiry as Record<string, unknown>).contact_name as string || 'Angebot';
-    const filename = `STORIA_Angebot_${contactName.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_')}.pdf`;
+    const lang = ((inquiry as Record<string, unknown>).customer_language as string || 'de').toLowerCase();
+    const filenameWord: Record<string, string> = {
+      de: 'Angebot', en: 'Offer', it: 'Offerta', fr: 'Offre',
+    };
+    const word = filenameWord[lang] || 'Angebot';
+    const filename = `STORIA_${word}_${contactName.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_')}.pdf`;
 
     console.log(`Public PDF download: ${pdfBuffer.byteLength} bytes für Inquiry ${inquiryId}`);
 
