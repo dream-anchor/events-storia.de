@@ -6,8 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 export type DepositMethod = 'none' | 'stripe' | 'on_site' | 'invoice';
-export type BalanceMethod = 'stripe_prepay' | 'on_site' | 'invoice_after';
-export type PaymentMethodType = 'deposit_online' | 'prepayment_online' | 'on_site' | 'invoice_after';
+export type BalanceMethod = 'stripe_prepay' | 'on_site' | 'invoice_after' | 'invoice_before';
+export type PaymentMethodType = 'deposit_online' | 'prepayment_online' | 'on_site' | 'invoice_after' | 'invoice_before';
 
 interface PaymentTermsBlockProps {
   depositPercent: number | null | undefined;
@@ -41,6 +41,7 @@ const DEPOSIT_OPTIONS: { value: DepositMethod; label: string; description: strin
 const BALANCE_OPTIONS: { value: BalanceMethod; label: string; description: string; icon: React.ElementType }[] = [
   { value: 'stripe_prepay', label: 'Stripe – vorab',      description: 'Link in Mail vor Event', icon: Wallet },
   { value: 'on_site',       label: 'Vor Ort beim Event',  description: 'Bar / EC am Event',      icon: Landmark },
+  { value: 'invoice_before',label: 'Rechnung vor Event',  description: 'Überweisung vor Event',  icon: FileText },
   { value: 'invoice_after', label: 'Rechnung nach Event', description: 'Per Überweisung',        icon: Receipt },
 ];
 
@@ -50,6 +51,7 @@ function legacyToPair(pm: string | null | undefined): { deposit: DepositMethod; 
     case 'prepayment_online': return { deposit: 'none',   balance: 'stripe_prepay' };
     case 'on_site':           return { deposit: 'none',   balance: 'on_site' };
     case 'invoice_after':     return { deposit: 'none',   balance: 'invoice_after' };
+    case 'invoice_before':    return { deposit: 'none',   balance: 'invoice_before' };
     default:                  return { deposit: 'stripe', balance: 'stripe_prepay' };
   }
 }
@@ -58,6 +60,7 @@ function pairToLegacy(deposit: DepositMethod, balance: BalanceMethod): PaymentMe
   if (deposit === 'stripe' && balance === 'stripe_prepay') return 'deposit_online';
   if (deposit === 'none'   && balance === 'stripe_prepay') return 'prepayment_online';
   if (balance === 'on_site') return 'on_site';
+  if (balance === 'invoice_before') return 'invoice_before';
   if (balance === 'invoice_after') return 'invoice_after';
   return 'deposit_online';
 }
@@ -131,6 +134,7 @@ export function PaymentTermsBlock({
     onChange("payment_timing",
       balance === 'on_site' ? 'on_site'
       : balance === 'invoice_after' ? 'after_event'
+      : balance === 'invoice_before' ? 'before_event'
       : deposit === 'none' ? 'online_full'
       : 'online_deposit');
     if (deposit === 'none') {
@@ -154,7 +158,7 @@ export function PaymentTermsBlock({
 
   const showDepositAmount = dMethod !== 'none';
   const showDepositFrist  = dMethod === 'stripe' || dMethod === 'invoice';
-  const showBalanceFrist  = bMethod === 'stripe_prepay';
+  const showBalanceFrist  = bMethod === 'stripe_prepay' || bMethod === 'invoice_before';
   const showInvoiceDays   = bMethod === 'invoice_after';
   const hasAnyStripe = dMethod === 'stripe' || bMethod === 'stripe_prepay';
 
@@ -170,6 +174,8 @@ export function PaymentTermsBlock({
     ? `Restzahlung per Stripe (${bDays} Tage vor Event)`
     : bMethod === 'on_site'
     ? `Restzahlung vor Ort beim Event`
+    : bMethod === 'invoice_before'
+    ? `Restzahlung per Rechnung vor Event (Zahlung bis ${bDays} Tage vor Event)`
     : `Restzahlung per Rechnung nach Event (Zahlungsziel ${invDays} Tage)`;
   const summaryText = `${depositText ? depositText + ', ' : ''}${balanceText}. Angebot ${ov} Tage gültig.`;
 
@@ -318,8 +324,10 @@ export function PaymentTermsBlock({
         <div className="mt-3 rounded-xl border border-neutral-300/70 bg-neutral-50 p-3 flex items-start gap-2.5">
           <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0 text-neutral-700" />
           <div className="text-[11px] leading-relaxed text-neutral-700">
-            <strong className="text-neutral-900">Kunde sieht:</strong> Button „Verbindlich buchen" mit
-            rechtswirksamer Auftragsbestätigung (3 Checkboxen, Name, IP, Geräte-Nachweis). Vertragsschluss nach §§145, 147 BGB.
+            <strong className="text-neutral-900">Kunde sieht:</strong>{' '}
+            {bMethod === 'invoice_before'
+              ? `Button „Verbindlich buchen" mit Auftragsbestätigung. Rechnung wird manuell versendet — Zahlungseingang spätestens ${bDays} Tage vor Event erwartet.`
+              : 'Button „Verbindlich buchen" mit rechtswirksamer Auftragsbestätigung (3 Checkboxen, Name, IP, Geräte-Nachweis). Vertragsschluss nach §§145, 147 BGB.'}
           </div>
         </div>
       ) : (

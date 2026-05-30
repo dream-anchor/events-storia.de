@@ -179,7 +179,7 @@ function computeDeposit(
 ): { amount: number; label: string; show: boolean } {
   // Bei Offline-Zahlung (vor Ort / Rechnung) gibt es konzeptionell keine Anzahlung
   const pm = (inquiry.payment_method ?? '').toLowerCase();
-  if (pm === 'on_site' || pm === 'pay_on_site' || pm === 'invoice_after' || pm === 'invoice_after_event') {
+  if (pm === 'on_site' || pm === 'pay_on_site' || pm === 'invoice_after' || pm === 'invoice_after_event' || pm === 'invoice_before' || pm === 'invoice_before_event') {
     return { amount: 0, label: 'Anzahlung', show: false };
   }
   const fixed = inquiry.deposit_amount && inquiry.deposit_amount > 0 ? inquiry.deposit_amount : null;
@@ -954,6 +954,7 @@ function ProposalView({
   const offlineTiming: 'on_site' | 'after_event' | 'transfer_prepay' | null =
     pm === 'on_site' || pm === 'pay_on_site' ? 'on_site'
     : pm === 'invoice_after' || pm === 'invoice_after_event' ? 'after_event'
+    : pm === 'invoice_before' || pm === 'invoice_before_event' ? 'after_event'
     : pm === 'bank_transfer_prepay' ? 'transfer_prepay'
     : null;
 
@@ -1524,6 +1525,7 @@ function FinalOptionCard({
   const offlineTiming: 'on_site' | 'after_event' | 'transfer_prepay' | null =
     pm === 'on_site' || pm === 'pay_on_site' ? 'on_site'
     : pm === 'invoice_after' || pm === 'invoice_after_event' ? 'after_event'
+    : pm === 'invoice_before' || pm === 'invoice_before_event' ? 'after_event'
     : pm === 'bank_transfer_prepay' ? 'transfer_prepay'
     : null;
 

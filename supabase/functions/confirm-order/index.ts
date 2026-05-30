@@ -112,11 +112,13 @@ Deno.serve(async (req) => {
         ? 'online_full'
         : pm === 'invoice_after' || pm === 'invoice_after_event'
           ? 'after_event'
-          : pm === 'on_site' || pm === 'pay_on_site'
-            ? 'on_site'
-            : pm === 'bank_transfer_prepay'
-              ? 'transfer_prepay'
-              : 'after_event');
+          : pm === 'invoice_before' || pm === 'invoice_before_event'
+            ? 'before_event'
+            : pm === 'on_site' || pm === 'pay_on_site'
+              ? 'on_site'
+              : pm === 'bank_transfer_prepay'
+                ? 'transfer_prepay'
+                : 'after_event');
 
   // Optional Overrides bei Offline-Annahme (Gäste, Total)
   const guestOverride =
