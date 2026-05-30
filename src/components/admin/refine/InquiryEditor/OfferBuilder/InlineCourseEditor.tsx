@@ -92,6 +92,7 @@ function SortableCourseRow({
   onUpdateType: (index: number, courseType: CourseType, label: string) => void;
   onUpdateQuantity: (index: number, quantity: number) => void;
   onUpdatePrice: (index: number, price: number | null) => void;
+  onUpdatePriceMode: (index: number, mode: LinePriceMode) => void;
   onRemoveCourse: (index: number) => void;
   pricingMode: PricingMode;
   disabled: boolean;
