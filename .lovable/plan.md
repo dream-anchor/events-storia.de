@@ -1,66 +1,42 @@
-## Ziel
+## Problem
 
-Bisher gilt der Modus **pro Person / pro Anlass** global für die gesamte Option. Künftig soll **jede einzelne Speise- und Getränkezeile** individuell auf "pro Person" oder "pauschal (pro Anlass)" gesetzt werden können — z.B. Hauptgang pro Person, aber "1 × Sektempfang" pauschal.
+In der Command-Palette (⌘K) wird beim Tippen von "ess" nicht die Firma "ESS" als Bestellung angezeigt, sondern nur Navigationspunkte wie "Catering-Bestellungen" (matched auf "Bestellungen"), "Speisen & Getränke" (Speisen) etc.
 
-Der bestehende globale Toggle in `PriceBreakdown` bleibt als Default-Vorgabe für neue Zeilen erhalten, überschreibt aber nichts mehr.
+Ursache: `cmdk` filtert standardmäßig clientseitig nach den Labels der gerenderten Items. Die dynamisch via `useList` geladenen Treffer aus `event_inquiries` und `catering_orders` werden zwar geladen — aber `cmdk` schließt sie aus, weil deren sichtbarer Text (z. B. "ESS GmbH · 12.06.25") nicht clean auf "ess" matched, während gleichzeitig die Navigations-Items "fälschlich" matchen.
 
-## Datenmodell
+Zusätzlich werden echte Suchergebnisse unter die Navigation gemischt, statt prominent oben zu stehen.
 
-Erweiterung der bestehenden Selection-Typen in `MenuComposer/types.ts` und `OfferBuilder/types.ts` (nur Frontend-Types — `menu_selection` ist `jsonb`, keine DB-Migration nötig):
+## Lösung
 
-- `CourseSelection.priceMode?: 'per_person' | 'flat'` (Default: `'per_person'`)
-- `DrinkEinzelnItem.priceMode?: 'per_person' | 'flat'` (Default: `'per_person'`)
-- `EquipmentItem` bleibt wie bisher pauschal (kein Toggle nötig).
+`src/components/admin/refine/CommandPalette.tsx` umbauen:
 
-Pauschale Pauschal-/Weinbegleitungs-Getränke (`drinksMode === 'pauschale' | 'weinbegleitung'`) bleiben unverändert pro Person, da sie konzeptuell so gedacht sind.
+1. **`shouldFilter={false}`** am `CommandDialog` setzen — wir filtern serverseitig (Supabase `contains`-Filter läuft bereits) und übernehmen die Anzeige-Logik selbst.
 
-## UI
+2. **Reihenfolge bei aktiver Suche (`search.length >= 2`):**
+   - Ganz oben: **Treffer** (Event-Anfragen + Catering-Bestellungen), inkl. Loading-State (`isFetching`) und "Keine Treffer für ‚ess'"-Hinweis, wenn beide Listen leer sind.
+   - Darunter optional: gefilterte Navigation/Schnellaktionen, aber nur die, deren Label tatsächlich den Suchbegriff enthält (manueller `includes`-Check, case-insensitive). So verschwinden irreführende Treffer wie "Catering-Bestellungen" bei "ess" nicht komplett, sind aber klar nachrangig.
 
-### 1. `InlineCourseEditor.tsx` (Speisen)
-Pro Zeile zwischen Preis-Input und Trash-Button ein kompakter 2-Werte-Toggle (`/Pers.` ↔ `pauschal`), in derselben Optik wie der bestehende `PricingModeToggle`. Auf Mobile geht der Toggle in die Preis-Reihe (order-4).
+3. **Bei leerer Suche** (`search.length < 2`): unverändert Navigation + Schnellaktionen + Extern anzeigen.
 
-Auswirkung im Editor:
-- Zeilen-Total wird weiter aus `unitPrice × quantity` berechnet (Quantity-Feld bleibt für `per_event`-Modus erhalten).
-- Suffix neben dem Preisfeld passt sich an: `€ / Pers.` vs. `€ pauschal`.
+4. **Treffer-Darstellung leicht aufwerten:**
+   - Event-Anfragen: Firma/Name groß, darunter Datum + Gäste + Status — Label hilfreicher machen (z. B. "ESS GmbH" deutlich, E-Mail als sekundäre Zeile, damit man die Anfrage sofort einordnen kann).
+   - Catering-Bestellungen: Kunde/Firma + Bestellnummer + Datum + Betrag (bereits vorhanden, bleibt).
+   - Beide bekommen ein klares Badge ("Anfrage" bzw. "Bestellung"), damit sofort erkennbar ist, in welcher Sektion man landet.
 
-### 2. `DrinkSection.tsx` (Getränke, Modus "Positionen")
-Identischer Toggle pro `drinksEinzeln`-Zeile. Suffix im Preis-Input wechselt zwischen `€ / Pers.` und `€` (pauschal).
+5. **Suche entlatencen:** `search` per kleinem `useDebouncedValue` (150 ms) durchreichen, damit nicht bei jedem Tastendruck zwei Supabase-Queries feuern.
 
-### 3. `PriceBreakdown.tsx`
-Berechnung in `dishLines` und Getränken anpassen:
+6. **Empty-State** der `CommandEmpty` nur noch zeigen, wenn weder dynamische Treffer noch gefilterte Navigation übrig sind.
 
-- Wenn `priceMode === 'per_person'` → `lineTotal = unitPrice × quantity × guestCount`
-- Wenn `priceMode === 'flat'` → `lineTotal = unitPrice × quantity`
+## Out of scope
 
-`dishSubtotal` und `winePerPerson` werden auf einen einheitlichen **Gesamtbetrag** zusammengeführt. Der Toggle "Preis berechnen als pro Person / pro Anlass" über der Summe wird zur reinen **Anzeige-Sicht** der Zwischensumme (Gesamtbetrag vs. Gesamtbetrag ÷ Gäste), nicht mehr zur Eingabe-Interpretation.
+- Keine Änderung an Datenmodell, Edge Functions oder anderen Seiten.
+- Suche bleibt auf `event_inquiries` + `catering_orders` beschränkt (keine neuen Ressourcen wie `event_bookings`/Pakete in dieser Iteration).
+- Keyboard-Shortcuts (⌘O, ⌘M …) bleiben unverändert.
 
-Rabatt-Logik (Prozent auf Subtotal, €-Betrag auf Total) bleibt unverändert, basiert ab jetzt aber auf dem korrekt aggregierten Gesamtbetrag.
+## Technische Details
 
-### 4. Public Offer (`pages/public-offer/types.ts`, `ProposalView.tsx`, `FinalOfferView.tsx`, PDF)
-- `CourseSelection`/`DrinkSelection`-Types erhalten das optionale `priceMode`-Feld.
-- Anzeige der Position: bei `flat` wird kein "/ Pers." Suffix gerendert, sondern der Betrag 1:1.
-- `buildDrinkRows` berücksichtigt `priceMode` analog.
-
-## Migration / Backwards Compatibility
-
-- Alle Bestandsdaten haben `priceMode === undefined` → Behandlung als `'per_person'` (entspricht heutigem Verhalten in Verbindung mit dem globalen `pricingMode`).
-- Beim **Laden** alter Optionen mit globalem `pricingMode === 'per_event'` werden alle Zeilen einmalig als `priceMode: 'flat'` migriert (in `useOfferBuilder` beim Initial-Load), damit das visuelle Ergebnis identisch bleibt.
-- Der globale `pricingMode` bleibt als Default für neu hinzugefügte Zeilen erhalten — er beeinflusst aber keine Summen mehr.
-
-## Geänderte Dateien
-
-- `src/components/admin/refine/InquiryEditor/MenuComposer/types.ts` — `CourseSelection.priceMode`
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/types.ts` — `DrinkEinzelnItem.priceMode`
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/InlineCourseEditor.tsx` — Toggle pro Zeile + Suffix
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/DrinkSection.tsx` — Toggle pro Zeile + Suffix
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/PriceBreakdown.tsx` — Aggregations-Logik per Zeile
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/useOfferBuilder.ts` — Migration alter Daten beim Initial-Load
-- `src/pages/public-offer/types.ts` — Type-Erweiterung + `buildDrinkRows`
-- `src/pages/public-offer/ProposalView.tsx` / `FinalOfferView.tsx` — Suffix-Rendering
-
-Keine DB-Migration, keine Edge-Function-Änderung.
-
-## Out of Scope
-
-- LexOffice-Rechnungspositionen (laufen weiterhin als Brutto-Totals 1:1 aus Maestro — `priceMode` wird beim Mapping zur Rechnung nur zur Suffix-Anzeige genutzt, nicht für die Summe).
-- E-Mail-Templates: zeigen nur den Totalbetrag, kein Per-Line-Suffix nötig.
+- Datei: `src/components/admin/refine/CommandPalette.tsx`
+- `CommandDialog` Prop `shouldFilter={false}` (cmdk-API).
+- Kleiner `useDebouncedValue`-Hook lokal in der Datei.
+- Navigations-Array in ein konstantes Array hochziehen, damit ein einziger `.filter(item => item.label.toLowerCase().includes(q))` reicht.
+- Loading-Spinner: kleines `Loader2`-Icon (lucide) in einem CommandItem mit `disabled`, wenn `recentEventsQuery.isFetching || recentOrdersQuery.isFetching`.

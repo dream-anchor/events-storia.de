@@ -4,7 +4,7 @@ import { useList } from "@refinedev/core";
 import { 
   LayoutDashboard, CalendarDays, FileText, Package, 
   UtensilsCrossed, Plus, ArrowRight, Inbox, Building2,
-  Users, Search, Clock, CheckCircle2
+  Users, Search, Clock, CheckCircle2, Loader2
 } from "lucide-react";
 import {
   CommandDialog,
@@ -28,19 +28,29 @@ interface CommandPaletteProps {
 export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 150);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const q = debouncedSearch;
+  const qLower = q.toLowerCase();
+  const isSearching = q.length >= 2;
 
   // Fetch recent events for smart search
   const recentEventsQuery = useList({
     resource: "event_inquiries",
     pagination: { pageSize: 5 },
     sorters: [{ field: "created_at", order: "desc" }],
-    filters: search.length >= 2 ? [
+    filters: isSearching ? [
       {
         operator: "or",
         value: [
-          { field: "contact_name", operator: "contains", value: search },
-          { field: "company_name", operator: "contains", value: search },
-          { field: "email", operator: "contains", value: search },
+          { field: "contact_name", operator: "contains", value: q },
+          { field: "company_name", operator: "contains", value: q },
+          { field: "email", operator: "contains", value: q },
         ]
       }
     ] : [],
@@ -51,13 +61,13 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
     resource: "catering_orders",
     pagination: { pageSize: 5 },
     sorters: [{ field: "created_at", order: "desc" }],
-    filters: search.length >= 2 ? [
+    filters: isSearching ? [
       {
         operator: "or",
         value: [
-          { field: "customer_name", operator: "contains", value: search },
-          { field: "company_name", operator: "contains", value: search },
-          { field: "order_number", operator: "contains", value: search },
+          { field: "customer_name", operator: "contains", value: q },
+          { field: "company_name", operator: "contains", value: q },
+          { field: "order_number", operator: "contains", value: q },
         ]
       }
     ] : [],
@@ -65,6 +75,8 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 
   const events = recentEventsQuery.result?.data || [];
   const orders = recentOrdersQuery.result?.data || [];
+  const isFetching =
+    isSearching && (recentEventsQuery.query.isFetching || recentOrdersQuery.query.isFetching);
 
   const handleSelect = (path: string) => {
     navigate(path);
@@ -77,24 +89,60 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
     if (!open) setSearch("");
   }, [open]);
 
+  const navItems = useMemo(() => [
+    { path: '/admin', label: 'Dashboard', icon: LayoutDashboard, shortcut: '⌘D' },
+    { path: '/admin/inbox', label: 'Inbox', icon: Inbox, shortcut: '⌘I' },
+    { path: '/admin/inquiries', label: 'Event-Anfragen', icon: CalendarDays, shortcut: '⌘E' },
+    { path: '/admin/bookings', label: 'Buchungen', icon: CheckCircle2 },
+    { path: '/admin/orders', label: 'Catering-Bestellungen', icon: FileText, shortcut: '⌘O' },
+    { path: '/admin/packages', label: 'Pakete', icon: Package, shortcut: '⌘P' },
+    { path: '/admin/menu', label: 'Speisen & Getränke', icon: UtensilsCrossed, shortcut: '⌘M' },
+  ], []);
+
+  const quickItems = useMemo(() => [
+    { path: '/admin/inquiries/create', label: 'Neue Event-Anfrage erstellen', shortcut: '⇧⌘N' },
+    { path: '/admin/packages/create', label: 'Neues Paket erstellen' },
+  ], []);
+
+  const filteredNav = isSearching
+    ? navItems.filter((i) => i.label.toLowerCase().includes(qLower))
+    : navItems;
+  const filteredQuick = isSearching
+    ? quickItems.filter((i) => i.label.toLowerCase().includes(qLower))
+    : quickItems;
+
+  const hasResults = events.length > 0 || orders.length > 0;
+
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
       <CommandInput 
         placeholder="Suche nach Events, Bestellungen, Kunden..." 
         value={search}
         onValueChange={setSearch}
       />
       <CommandList className="max-h-[400px]">
-        <CommandEmpty>Keine Ergebnisse gefunden.</CommandEmpty>
-        
-        {/* Dynamic search results */}
-        {search.length >= 2 && (events.length > 0 || orders.length > 0) && (
+        {isSearching && !hasResults && !isFetching && filteredNav.length === 0 && filteredQuick.length === 0 && (
+          <CommandEmpty>Keine Ergebnisse für „{q}".</CommandEmpty>
+        )}
+
+        {isSearching && isFetching && !hasResults && (
+          <CommandGroup heading="Suche läuft …">
+            <CommandItem disabled>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <span className="text-muted-foreground">Treffer werden geladen…</span>
+            </CommandItem>
+          </CommandGroup>
+        )}
+
+        {/* Dynamic search results — always on top when searching */}
+        {isSearching && hasResults && (
           <>
             {events.length > 0 && (
               <CommandGroup heading="Event-Anfragen">
                 {events.map((event: any) => (
                   <CommandItem 
                     key={event.id} 
+                    value={`inq-${event.id}`}
                     onSelect={() => handleSelect(`/admin/inquiries/${event.id}/edit`)}
                     className="flex items-center justify-between"
                   >
@@ -103,8 +151,13 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
                         <CalendarDays className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                       </div>
                       <div>
-                        <p className="font-medium">{event.company_name || event.contact_name}</p>
+                        <p className="font-medium">
+                          {event.company_name || event.contact_name || 'Ohne Name'}
+                        </p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {event.company_name && event.contact_name && (
+                            <span>{event.contact_name}</span>
+                          )}
                           {event.preferred_date && (
                             <span>{format(parseISO(event.preferred_date), "dd.MM.yy", { locale: de })}</span>
                           )}
@@ -114,12 +167,18 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
                               {event.guest_count}
                             </span>
                           )}
+                          {event.email && (
+                            <span className="truncate max-w-[200px]">{event.email}</span>
+                          )}
                         </div>
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      {event.status === 'new' ? 'Neu' : event.status === 'offer_sent' ? 'Angebot' : event.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">Anfrage</Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {event.status === 'new' ? 'Neu' : event.status === 'offer_sent' ? 'Angebot' : event.status}
+                      </Badge>
+                    </div>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -130,6 +189,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
                 {orders.map((order: any) => (
                   <CommandItem 
                     key={order.id} 
+                    value={`ord-${order.id}`}
                     onSelect={() => handleSelect(`/admin/orders/${order.id}/edit`)}
                     className="flex items-center justify-between"
                   >
@@ -138,8 +198,13 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
                         <FileText className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                       </div>
                       <div>
-                        <p className="font-medium">{order.customer_name}</p>
+                        <p className="font-medium">
+                          {order.company_name || order.customer_name}
+                        </p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {order.company_name && order.customer_name && (
+                            <span>{order.customer_name}</span>
+                          )}
                           <span className="font-mono">{order.order_number}</span>
                           {order.desired_date && (
                             <span>{format(parseISO(order.desired_date), "dd.MM.yy", { locale: de })}</span>
@@ -147,9 +212,12 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
                         </div>
                       </div>
                     </div>
-                    <span className="text-sm font-medium">
-                      {order.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">Bestellung</Badge>
+                      <span className="text-sm font-medium">
+                        {order.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                      </span>
+                    </div>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -159,65 +227,47 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
         )}
 
         {/* Navigation */}
-        <CommandGroup heading="Navigation">
-          <CommandItem onSelect={() => handleSelect('/admin')}>
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            <span>Dashboard</span>
-            <CommandShortcut>⌘D</CommandShortcut>
-          </CommandItem>
-          <CommandItem onSelect={() => handleSelect('/admin/inbox')}>
-            <Inbox className="mr-2 h-4 w-4" />
-            <span>Inbox</span>
-            <CommandShortcut>⌘I</CommandShortcut>
-          </CommandItem>
-          <CommandItem onSelect={() => handleSelect('/admin/inquiries')}>
-            <CalendarDays className="mr-2 h-4 w-4" />
-            <span>Event-Anfragen</span>
-            <CommandShortcut>⌘E</CommandShortcut>
-          </CommandItem>
-          <CommandItem onSelect={() => handleSelect('/admin/bookings')}>
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            <span>Buchungen</span>
-          </CommandItem>
-          <CommandItem onSelect={() => handleSelect('/admin/orders')}>
-            <FileText className="mr-2 h-4 w-4" />
-            <span>Catering-Bestellungen</span>
-            <CommandShortcut>⌘O</CommandShortcut>
-          </CommandItem>
-          <CommandItem onSelect={() => handleSelect('/admin/packages')}>
-            <Package className="mr-2 h-4 w-4" />
-            <span>Pakete</span>
-            <CommandShortcut>⌘P</CommandShortcut>
-          </CommandItem>
-          <CommandItem onSelect={() => handleSelect('/admin/menu')}>
-            <UtensilsCrossed className="mr-2 h-4 w-4" />
-            <span>Speisen & Getränke</span>
-            <CommandShortcut>⌘M</CommandShortcut>
-          </CommandItem>
-        </CommandGroup>
+        {filteredNav.length > 0 && (
+          <CommandGroup heading="Navigation">
+            {filteredNav.map((item) => {
+              const Icon = item.icon;
+              return (
+                <CommandItem key={item.path} value={`nav-${item.path}`} onSelect={() => handleSelect(item.path)}>
+                  <Icon className="mr-2 h-4 w-4" />
+                  <span>{item.label}</span>
+                  {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+        )}
 
-        <CommandSeparator />
+        {filteredQuick.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Schnellaktionen">
+              {filteredQuick.map((item) => (
+                <CommandItem key={item.path} value={`quick-${item.path}`} onSelect={() => handleSelect(item.path)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  <span>{item.label}</span>
+                  {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
 
-        <CommandGroup heading="Schnellaktionen">
-          <CommandItem onSelect={() => handleSelect('/admin/inquiries/create')}>
-            <Plus className="mr-2 h-4 w-4" />
-            <span>Neue Event-Anfrage erstellen</span>
-            <CommandShortcut>⇧⌘N</CommandShortcut>
-          </CommandItem>
-          <CommandItem onSelect={() => handleSelect('/admin/packages/create')}>
-            <Plus className="mr-2 h-4 w-4" />
-            <span>Neues Paket erstellen</span>
-          </CommandItem>
-        </CommandGroup>
-
-        <CommandSeparator />
-
-        <CommandGroup heading="Extern">
-          <CommandItem onSelect={() => window.open('/', '_blank')}>
-            <ArrowRight className="mr-2 h-4 w-4" />
-            <span>Webseite öffnen</span>
-          </CommandItem>
-        </CommandGroup>
+        {!isSearching && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Extern">
+              <CommandItem value="ext-website" onSelect={() => window.open('/', '_blank')}>
+                <ArrowRight className="mr-2 h-4 w-4" />
+                <span>Webseite öffnen</span>
+              </CommandItem>
+            </CommandGroup>
+          </>
+        )}
       </CommandList>
     </CommandDialog>
   );
