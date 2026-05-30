@@ -1048,6 +1048,27 @@ export const SmartInquiryEditor = () => {
         </div>
       </div>
 
+      {/* Sprach-Mismatch-Banner: aktuelle Kundensprache ≠ zuletzt synchronisierte Sprache */}
+      {(() => {
+        const current = ((inquiry?.customer_language as CustomerLang | null) || 'de');
+        if (current === 'de') return null;
+        if (lastTranslatedLang === current) return null;
+        const lastLabel = (lastTranslatedLang || 'de').toUpperCase();
+        return (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/40 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm text-foreground/80">
+              <LanguagesIcon className="h-4 w-4 shrink-0" />
+              <span>
+                Anschreiben / Menü-Texte sind noch auf <strong>{lastLabel}</strong> — Kundensprache ist <strong>{current.toUpperCase()}</strong>.
+              </span>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setLangDialog({ open: true, target: current })}>
+              Jetzt übersetzen
+            </Button>
+          </div>
+        );
+      })()}
+
       {/* Quick Actions + TEST Badge */}
       <div className="flex items-center gap-2 flex-wrap mb-4 -mt-2">
         {(inquiry as any).is_test && (
