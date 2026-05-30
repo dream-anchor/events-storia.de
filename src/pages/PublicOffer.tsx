@@ -1453,10 +1453,10 @@ function FinalOfferView({
           {/* Sektion-Header */}
           <div className="mb-10">
             <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/60 mb-3">
-              Finales Angebot
+              {tOffer(lang, 'finalOfferEyebrow')}
             </p>
             <h2 className="font-serif text-2xl md:text-3xl font-bold">
-              {displayOptions.length === 1 ? "Ihr Menü" : `${displayOptions.length} Optionen`}
+              {displayOptions.length === 1 ? tOffer(lang, 'yourMenu') : tOffer(lang, 'optionsCount').replace('{n}', String(displayOptions.length))}
             </h2>
           </div>
 
@@ -1588,25 +1588,25 @@ function FinalOptionCard({
           <div>
             <h3 className="font-serif text-xl font-bold text-foreground">
               {option.offer_mode === "menu" || option.package_name === "Individuelles Paket" || option.package_name === "Individuelles Menü"
-                ? "Individuelles Menü"
+                ? tOffer(lang, 'customMenu')
                 : option.package_name}
             </h3>
             <p className="text-xs text-muted-foreground font-sans mt-1">
-              {option.guest_count} Gäste
+              {option.guest_count} {tOffer(lang, 'guests')}
             </p>
           </div>
         </div>
         <div className="text-right shrink-0">
           <p className="text-2xl font-serif font-bold text-primary leading-none">
             {pricePerPerson > 0
-              ? formatCurrencyDecimal(pricePerPerson)
-              : formatCurrency(option.total_amount)}
+              ? formatCurrencyDecimal(pricePerPerson, lang)
+              : formatCurrency(option.total_amount, lang)}
           </p>
           <p className="text-[11px] text-muted-foreground font-sans mt-1">
-            {pricePerPerson > 0 ? 'pro Person' : 'Gesamtpreis'}
+            {pricePerPerson > 0 ? tOffer(lang, 'perPersonShort') : tOffer(lang, 'totalPriceLabel')}
           </p>
           <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
-            inkl. gesetzl. MwSt.
+            {tOffer(lang, 'inclVat')}
           </p>
         </div>
       </div>
@@ -1618,7 +1618,7 @@ function FinalOptionCard({
             <div className="flex items-center gap-2 mb-4">
               <UtensilsCrossed className="h-3.5 w-3.5 text-primary/40" />
               <h4 className="text-[10px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/50">
-                Menü
+                {tOffer(lang, 'menuLabel')}
               </h4>
             </div>
             <div className="space-y-4">
@@ -1649,7 +1649,7 @@ function FinalOptionCard({
             <div className="flex items-center gap-2 mb-4">
               <Wine className="h-3.5 w-3.5 text-primary/40" />
               <h4 className="text-[10px] font-sans font-semibold uppercase tracking-[0.2em] text-primary/50">
-                Getränke
+                {tOffer(lang, 'drinksLabel')}
               </h4>
             </div>
             <div className="space-y-2.5">
@@ -1669,7 +1669,7 @@ function FinalOptionCard({
                     <p className="font-serif text-sm text-foreground">
                       {hasContent ? (drink.customDrink || choiceLocalized) : (
                         <span className="text-emerald-700 dark:text-emerald-400 font-sans text-xs font-semibold uppercase tracking-wider">
-                          inklusive
+                          {tOffer(lang, 'included')}
                         </span>
                       )}
                       {qtyLabel && !qtyIsRedundant && (
@@ -1688,7 +1688,7 @@ function FinalOptionCard({
         {courses.length === 0 && drinks.length === 0 && (
           <div className="border-t border-border/20 pt-5">
             <p className="text-sm text-muted-foreground font-sans italic">
-              Menüdetails werden noch zusammengestellt.
+              {tOffer(lang, 'menuComingSoon')}
             </p>
           </div>
         )}
@@ -1706,12 +1706,12 @@ function FinalOptionCard({
             {isRedirecting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Zahlung wird vorbereitet…
+                {tOffer(lang, 'preparingPayment')}
               </>
             ) : (
               <>
                 <CreditCard className="h-4 w-4" />
-                Jetzt zahlen — {formatCurrencyDecimal(totalAmount)}
+                {tOffer(lang, 'payNowAmount')} — {formatCurrencyDecimal(totalAmount, lang)}
               </>
             )}
           </Button>
@@ -1719,7 +1719,7 @@ function FinalOptionCard({
           /* Menü-Modus: Komplett oder Anzahlung */
           <div className="space-y-3">
             <p className="text-sm font-sans font-medium text-center text-foreground/80">
-              {isRedirecting ? 'Zahlung wird vorbereitet…' : 'Wie möchten Sie zahlen?'}
+              {isRedirecting ? tOffer(lang, 'preparingPayment') : tOffer(lang, 'howToPay')}
             </p>
             <div className={cn("grid gap-3", deposit.show ? "grid-cols-2" : "grid-cols-1")}>
               <button
@@ -1731,8 +1731,8 @@ function FinalOptionCard({
                   <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                 ) : (
                   <>
-                    <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(totalAmount)}</span>
-                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">Komplett zahlen</span>
+                    <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(totalAmount, lang)}</span>
+                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">{tOffer(lang, 'payFullShort')}</span>
                   </>
                 )}
               </button>
@@ -1746,9 +1746,9 @@ function FinalOptionCard({
                   <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                 ) : (
                   <>
-                    <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(depositAmount)}</span>
+                    <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(depositAmount, lang)}</span>
                     <span className="text-xs font-sans text-muted-foreground block mt-0.5">{deposit.label}</span>
-                    <span className="text-[10px] font-sans text-muted-foreground/60 block">Rest vor dem Event</span>
+                    <span className="text-[10px] font-sans text-muted-foreground/60 block">{tOffer(lang, 'restBeforeEvent')}</span>
                   </>
                 )}
               </button>
@@ -1757,7 +1757,7 @@ function FinalOptionCard({
           </div>
         ) : (
           <p className="text-center text-sm text-muted-foreground font-sans py-1">
-            Kontaktieren Sie uns für die Buchung.
+            {tOffer(lang, 'contactForBooking')}
           </p>
         )}
 
@@ -1772,12 +1772,12 @@ function FinalOptionCard({
               className="w-full rounded-full font-sans border-2 border-primary/40 hover:border-primary"
             >
               <ShieldCheck className="h-4 w-4 mr-2" />
-              Verbindlich buchen ohne Online-Zahlung
+              {tOffer(lang, 'bookBindingNoOnline')}
             </Button>
             <p className="text-[11px] text-muted-foreground/70 text-center mt-2">
-              {offlineTiming === 'on_site' && 'Zahlung vor Ort am Veranstaltungstag'}
-              {offlineTiming === 'after_event' && 'Zahlung per Rechnung nach der Veranstaltung'}
-              {offlineTiming === 'transfer_prepay' && 'Zahlung per Überweisung vor der Veranstaltung'}
+              {offlineTiming === 'on_site' && tOffer(lang, 'offlineTimingOnSiteShort')}
+              {offlineTiming === 'after_event' && tOffer(lang, 'offlineTimingAfterEventShort')}
+              {offlineTiming === 'transfer_prepay' && tOffer(lang, 'offlineTimingTransferShort')}
             </p>
           </div>
         )}
