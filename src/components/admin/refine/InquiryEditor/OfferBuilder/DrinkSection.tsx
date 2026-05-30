@@ -6,6 +6,7 @@ import { DishPicker } from "./DishPicker";
 import type { DrinkSectionMode, DrinkEinzelnItem } from "./types";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { PricingMode } from "./pricingMode";
+import { LinePriceModeToggle, type LinePriceMode } from "./LinePriceModeToggle";
 
 interface DrinkSectionUpdate {
   drinksMode?: DrinkSectionMode;
@@ -177,6 +178,7 @@ export function DrinkSection({
             const quantity = item.quantity ?? 1;
             const lineTotal = item.pricePerPerson > 0 ? item.pricePerPerson * quantity : 0;
             const fmtEUR = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+            const effPriceMode: LinePriceMode = (item.priceMode ?? (pricingMode === 'per_event' ? 'flat' : 'per_person')) as LinePriceMode;
             return (
               <div key={item.id + idx} className="flex items-center gap-2">
                 {/* Menge (nur bei per_event) */}
@@ -209,9 +211,14 @@ export function DrinkSection({
                     disabled={disabled}
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                    {pricingMode === 'per_event' ? '€' : '€ / Pers.'}
+                    €
                   </span>
                 </div>
+                <LinePriceModeToggle
+                  value={effPriceMode}
+                  onChange={(m) => handleUpdateEinzeln(idx, { priceMode: m })}
+                  disabled={disabled}
+                />
                 {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
                 {pricingMode === 'per_event' && quantity > 1 && (
                   <span className="text-xs font-medium tabular-nums w-24 text-right shrink-0">
