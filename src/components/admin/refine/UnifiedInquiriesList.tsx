@@ -74,6 +74,23 @@ function formatCurrency(n: number | null) {
   });
 }
 
+const LANG_FLAG: Record<string, string> = {
+  de: '🇩🇪', en: '🇬🇧', it: '🇮🇹', fr: '🇫🇷',
+};
+function LangBadge({ lang }: { lang?: string | null }) {
+  const l = (lang || 'de').toLowerCase();
+  if (l === 'de') return null;
+  const flag = LANG_FLAG[l] || '🌐';
+  return (
+    <span
+      title={`Kundensprache: ${l.toUpperCase()}`}
+      className="inline-flex items-center text-[11px] leading-none px-1.5 py-0.5 rounded-full border border-border bg-muted/50 text-muted-foreground"
+    >
+      <span className="mr-1">{flag}</span>{l.toUpperCase()}
+    </span>
+  );
+}
+
 export const UnifiedInquiriesList = () => {
   const navigate = useNavigate();
   const { records, isLoading, refetch } = useUnifiedInquiries();
@@ -203,8 +220,9 @@ export const UnifiedInquiriesList = () => {
         const r = row.original;
         return (
           <div className="flex flex-col min-w-0">
-            <span className="font-medium text-sm truncate">
-              {r.companyName || r.customerName}
+            <span className="font-medium text-sm truncate flex items-center gap-2">
+              <span className="truncate">{r.companyName || r.customerName}</span>
+              <LangBadge lang={r.customerLanguage} />
             </span>
             {r.companyName && (
               <span className="text-xs text-muted-foreground truncate">
