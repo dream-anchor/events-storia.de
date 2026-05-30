@@ -557,7 +557,7 @@ export default function PublicOffer() {
 // PDF DOWNLOAD SECTION
 // =================================================================
 
-function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
+function PdfDownloadSection({ inquiryId, lang = 'de' }: { inquiryId: string; lang?: OfferLang }) {
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownload = async () => {
@@ -565,11 +565,11 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
     try {
       const { data, error } = await supabase.functions.invoke(
         'download-public-offer-pdf',
-        { body: { inquiryId } }
+        { body: { inquiryId, lang } }
       );
 
       if (error || !data?.pdf) {
-        throw new Error(data?.error || 'PDF nicht verfügbar');
+        throw new Error(data?.error || tOffer(lang, 'pdfUnavailable'));
       }
 
       const blob = new Blob(
@@ -589,7 +589,7 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
       }, 1000);
     } catch (err) {
       console.error('PDF download failed:', err);
-      toast.error('PDF konnte nicht heruntergeladen werden');
+      toast.error(tOffer(lang, 'pdfUnavailable'));
     } finally {
       setIsDownloading(false);
     }
@@ -609,7 +609,7 @@ function PdfDownloadSection({ inquiryId }: { inquiryId: string }) {
             ) : (
               <Download className="h-3.5 w-3.5" />
             )}
-            <span className="underline underline-offset-2">Angebot als PDF herunterladen</span>
+            <span className="underline underline-offset-2">{tOffer(lang, 'pdfDownload')}</span>
           </button>
         </div>
       </div>
