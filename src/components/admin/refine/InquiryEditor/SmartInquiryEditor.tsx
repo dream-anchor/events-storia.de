@@ -306,18 +306,19 @@ export const SmartInquiryEditor = () => {
       tasks.push(
         supabase.functions.invoke('translate-offer-letter', {
           body: { inquiry_id: id, target_lang: targetLang, source_text: emailDraft || inquiry?.email_draft || '' },
-        }).catch((e) => { console.warn('[lang-switch] cover-letter failed', e); throw e; })
+        }).catch((e: unknown) => { console.warn('[lang-switch] cover-letter failed', e); throw e; })
       );
     }
 
     if (scope.packageDesc && selectedPackages.length > 0) {
       labels.push('Paket');
       for (const sp of selectedPackages) {
-        if (!sp?.package_id) continue;
+        const pkgId = (sp as { id?: string })?.id;
+        if (!pkgId) continue;
         tasks.push(
           supabase.functions.invoke('translate-package-menu', {
-            body: { package_id: sp.package_id, target_langs: [targetLang] },
-          }).catch((e) => { console.warn('[lang-switch] package failed', e); })
+            body: { package_id: pkgId, target_langs: [targetLang] },
+          }).catch((e: unknown) => { console.warn('[lang-switch] package failed', e); })
         );
       }
     }
@@ -328,7 +329,7 @@ export const SmartInquiryEditor = () => {
         tasks.push(
           supabase.functions.invoke('translate-menu-text', {
             body: { texts: { name: it.name || '', description: it.description || '' }, sourceLang: 'de', targetLang },
-          }).catch((e) => { console.warn('[lang-switch] menu item failed', e); })
+          }).catch((e: unknown) => { console.warn('[lang-switch] menu item failed', e); })
         );
       }
     }
