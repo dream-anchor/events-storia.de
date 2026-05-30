@@ -1,91 +1,51 @@
-## Ausgangslage
-
-Aktuell kann ein Angebot nur über die Public Offer Seite vom Kunden angenommen werden (Button → setzt `offer_phase = order_confirmed`). Wenn der Kunde **telefonisch, per E-Mail oder vor Ort** zusagt, gibt es keinen sauberen Eintrittspunkt:
-
-- Status muss manuell auf "Bestätigt" geklickt werden
-- Es wird **keine Rechnung** automatisch erzeugt
-- Es wird **keine Bestätigungs-E-Mail** versendet
-- Zahlungseinträge müssen separat über `AddPaymentDrawer` angelegt werden
-
-Das Ergebnis: inkonsistente Datenlage zwischen online- und offline-akzeptierten Angeboten, und manuelle Schritte in LexOffice.
-
 ## Ziel
+Beim manuellen Annehmen eines Angebots (telefonisch/E-Mail/vor Ort) soll der Betreiber das **Menü der gewählten Option noch anpassen** können — z.B. weil am Telefon "statt Tiramisu nehmen wir Panna Cotta" besprochen wurde — **bevor** die Annahme final gespeichert und Rechnung/Bestätigung versendet werden.
 
-**Ein zentraler Aktions-Punkt** im Inquiry-Editor: *"Angebot angenommen"*. Egal ob der Kunde online geklickt oder telefonisch zugesagt hat — danach ist immer derselbe konsistente Zustand erreicht: gebuchtes Event mit der korrekten LexOffice-Rechnung, Zahlungseinträgen und (optional) Bestätigungsmail an den Kunden.
+## Lösungsansatz
 
-## Vorgeschlagene Lösung
+### 1. „Menü anpassen" direkt im OfferAcceptanceDrawer
+Im Block der gewählten Option (`OfferAcceptanceDrawer.tsx`) erscheint neben der Option ein dezenter Button **„Menü anpassen"**. Klick öffnet den bestehenden Menü-Editor (gleiche Komponente wie im OfferBuilder, `MenuComposer` / `PackageMenuEditor`) — vorausgefüllt mit dem aktuellen `menu_selection` der Option.
 
-### 1. Neuer Bereich „Angebot annehmen" im Inquiry-Editor
+Auch für Pakete (offer_mode = `paket`) wird derselbe Pfad genutzt — bei Bedarf kann der Editor sowohl Menü-Composition als auch Paket-Items bearbeiten.
 
-Sichtbar, sobald `offer_phase` mindestens `proposal_sent` oder `final_sent` ist und `status` noch nicht `confirmed`. Position: prominent im Sidebar des SmartInquiryEditor, gleicher visueller Stil wie der bestehende Versand-Bereich.
+### 2. Versionierung bleibt sauber (Immutability-Prinzip)
+Wir respektieren die Regel „Angebote sind nach Versand unveränderlich". Speichern erzeugt deshalb **automatisch eine neue interne Version** der Option (`v2_offer_options`), markiert mit:
+- `version` = letzte + 1
+- `post_acceptance_adjustment = true` (neue Spalte, boolean)
+- `adjustment_reason` (z.B. „telefonisch besprochen")
 
-Inhalt:
-- Welches **Angebot/Option** wird angenommen (Dropdown bei Mehr-Optionen-Angeboten, sonst vorausgewählt)
-- **Wie hat der Kunde angenommen?**
-  - online (vorausgefüllt wenn `offer_phase = order_confirmed`)
-  - telefonisch
-  - per E-Mail
-  - vor Ort / persönlich
-- **Datum der Annahme** (Default heute)
-- **Anzahl Gäste final** (Default = `guest_count` aus Angebot, editierbar falls Kunde Korrektur durchgegeben hat)
-- **Interne Notiz** (optional, z. B. „Christina hat um 14:30 angerufen, alles wie Option A")
+Die alte Version bleibt erhalten (Audit-Trail). Im PublicOffer wird die neue Version **nicht** automatisch an den Kunden gesendet — sie ist eine interne Korrektur basierend auf der mündlichen Annahme.
 
-### 2. Konsequenzen beim Klick auf „Buchung bestätigen"
+### 3. Gäste & Total werden automatisch nachgezogen
+Nach Save aus dem Menü-Editor:
+- Drawer-State lädt Option neu
+- `guest_count` und `amount_total` (aus Maestro-Prinzip: Preis × Gäste) werden in die Felder „Gästezahl final" / „Gesamtbetrag" übernommen
+- Banner: „Menü angepasst — neue Version V{n} angelegt"
+- Interne Notiz wird ergänzt mit „Menü angepasst: {summary}"
 
-Atomarer Ablauf in einer Edge Function `confirm-offer-acceptance`:
+### 4. Aktivitäts-Log
+Eintrag in `activity_logs`:
+- `action`: `offer_menu_adjusted_at_acceptance`
+- `metadata`: { option_id, old_version, new_version, reason, diff_summary }
 
-1. **Inquiry markieren**
-   - `status = 'confirmed'`
-   - `offer_phase = 'confirmed'` (falls noch nicht `order_confirmed`)
-   - `selected_option_id` setzen
-   - `confirmed_at`, `confirmed_via` (online/phone/email/onsite), `confirmed_by` (Admin) eintragen
-   - Activity-Log-Eintrag
+### 5. Confirm-Order Edge Function
+`confirm-order` braucht keine Änderungen — sie nutzt automatisch die aktuelle (= angepasste) Option-Version, da `selected_option_id` auf die neueste Version zeigt.
 
-2. **LexOffice Rechnung erzeugen** — Logik abhängig von `payment_method`:
-   | payment_method | Rechnung |
-   |---|---|
-   | `deposit_online` | Anzahlungsrechnung (`create-lexoffice-downpayment-invoice`) + Restzahlung als Payment-Plan |
-   | `invoice_after_event` | Keine sofortige Rechnung, nur Payment-Plan-Eintrag mit Fälligkeit nach Event |
-   | `pay_on_site` | Keine Rechnung, Hinweis dass am Eventtag bar bezahlt wird |
-   | `prepayment_full` | Vollständige Vorab-Rechnung |
+## Technische Details
 
-   In jedem Fall werden die zugehörigen `event_payments`-Einträge angelegt (mit Stripe Payment Link wo passend), sodass die `PaymentBalanceCard` sofort die richtigen Beträge zeigt.
+### Geänderte/neue Dateien
+- `src/components/admin/refine/InquiryEditor/OfferAcceptanceDrawer.tsx` — Button „Menü anpassen" pro Option, Inline-Dialog mit Menü-Editor, Reload-Logik nach Save
+- `src/components/admin/refine/OfferAcceptanceMenuEditor.tsx` (neu) — Wrapper um bestehenden `MenuComposer`, der Versionierung beim Save handhabt
+- Migration: `v2_offer_options` erhält `post_acceptance_adjustment boolean default false` und `adjustment_reason text`
 
-3. **Bestätigungsmail an Kunden** (Default an, ausschaltbar im Drawer)
-   - Bilinguales Template (DE + EN, wie bestehender Standard)
-   - Inhalt: Buchungsdetails, gebuchtes Menü, Zahlungsinfos, Restzahlungsfälligkeit, AGB-Hinweis
-   - BCC an `info@events-storia.de`
+### Wiederverwendete Komponenten
+- Bestehender `MenuComposer` / `PackageMenuEditor` aus OfferBuilder
+- Bestehende Versionierungs-Logik (gleicher Pfad wie „Angebot bearbeiten")
 
-4. **WhatsApp Alarm** an Admin („Christina hat Angebot angenommen — 4.900 € — 70 Gäste — Anzahlung läuft")
+### Edge Cases
+- **Mehrere Optionen**: Nur die im Drawer **gewählte** Option ist anpassbar; andere bleiben sichtbar, aber readonly.
+- **Abbruch**: Schließen des Menü-Editors ohne Save erzeugt **keine** neue Version.
+- **Nach erfolgter Annahme**: Wenn die Annahme schon gespeichert wurde, ist das ein separater Flow („nachträgliche Korrektur" — heute schon möglich über InquiryEditor). Dieser Plan deckt nur den Pfad **vor** Klick auf „Angebot annehmen" ab.
 
-### 3. Online-Annahme bleibt — wird aber transparent dieselbe Logik triggern
-
-Heute setzt der Public-Offer-Klick nur `offer_phase = order_confirmed`. Diesen Schritt erweitern: nach dem Setzen ruft PublicOffer dieselbe `confirm-offer-acceptance` Edge Function auf (mit `confirmed_via = 'online'`). Damit ist online und offline garantiert identisch.
-
-### 4. Idempotenz & Reversibilität
-
-- Funktion prüft, ob bereits eine LexOffice-Rechnung für dieses Inquiry+Option existiert → keine Doppelung
-- Falls Admin sich vertut: zusätzlicher Button „Annahme zurücknehmen" (nur sichtbar wenn **keine** Zahlung eingegangen ist und Rechnung noch im Entwurf-Status). Storniert LexOffice-Rechnung, setzt Status zurück auf `offer_sent`.
-
-## Was bleibt unverändert
-
-- Angebots-Immutability: Annahme erstellt **keine** neue Angebots-Version
-- `AddPaymentDrawer` bleibt für nachträgliche Zahlungs-Erfassung
-- `PaymentBalanceCard` bleibt der zentrale Ort für Zahlungsstatus
-- LexOffice Brutto-Preise: alle Beträge 1:1 aus Maestro
-
-## Technische Notizen
-
-- Neue DB-Spalten auf `v2_events`: `confirmed_at TIMESTAMPTZ`, `confirmed_via TEXT`, `confirmed_by UUID`
-- Neue Edge Function `confirm-offer-acceptance` (Wrapper, ruft intern die richtige Rechnungs-Function)
-- Neue Komponente `OfferAcceptanceDrawer.tsx` im InquiryEditor
-- Erweiterung `PublicOffer.tsx` Zeile ~1110: nach `offer_phase = 'order_confirmed'` zusätzlich Edge Function aufrufen
-- Activity-Log-Action: `offer_accepted` mit Metadata `{via, option_id, guest_count, invoice_id}`
-
-## Offene Fragen
-
-1. **Soll die Anzahlungsrechnung bei `deposit_online`-Annahme sofort versendet werden**, oder erst nach Klick auf „Rechnung versenden"? (Aktuell: Stripe-Link wird per Bestätigungsmail mitgeschickt — soll das so bleiben?)
-2. **Bei `invoice_after_event`**: möchten Sie trotzdem eine **Reservierungsbestätigung** als PDF (keine Rechnung) automatisch erzeugen?
-3. **Wenn Kunde am Telefon weniger Gäste sagt** als im Angebot stand: soll die Rechnung den korrigierten Wert nehmen (vermutlich ja, aber Bestätigung wäre gut)?
-
-Wenn diese drei Punkte geklärt sind, kann ich direkt mit der Implementierung starten.
+### Kompatibilität
+Keine Breaking Changes — bestehende Annahme funktioniert weiter, „Menü anpassen" ist optional.
