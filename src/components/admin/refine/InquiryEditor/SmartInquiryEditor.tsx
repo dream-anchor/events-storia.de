@@ -1030,6 +1030,23 @@ export const SmartInquiryEditor = () => {
               </Button>
             )}
 
+            {isOfferSent && lexofficeDocId && lexofficeDocType === 'invoice' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 px-2 sm:px-3"
+                onClick={() => setInvoiceDialogOpen(true)}
+                title={(inquiry as any)?.invoice_email_sent_at
+                  ? `Zuletzt versendet am ${new Date((inquiry as any).invoice_email_sent_at).toLocaleString('de-DE')}`
+                  : 'Rechnung per E-Mail an Kunden senden'}
+              >
+                <MailIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  {(inquiry as any)?.invoice_email_sent_at ? 'Rechnung erneut senden' : 'Rechnung senden'}
+                </span>
+              </Button>
+            )}
+
           </div>
         </div>
 
