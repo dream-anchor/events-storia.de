@@ -210,7 +210,7 @@ serve(async (req) => {
     // ============================================
     const { data: pendingOffers, error: offersError } = await supabase
       .from("event_inquiries")
-      .select("id, email, contact_name, company_name, preferred_date, offer_sent_at, reminder_count")
+      .select("id, email, contact_name, company_name, preferred_date, offer_sent_at, reminder_count, customer_language")
       .eq("status", "offer_sent")
       .not("offer_sent_at", "is", null);
 
@@ -233,33 +233,30 @@ serve(async (req) => {
 
         if (shouldSendReminder) {
           const reminderNumber = reminderCount + 1;
-          const subject =
-            reminderNumber === 1
-              ? "Erinnerung: Ihr Angebot von STORIA wartet auf Sie"
-              : "Letzte Erinnerung: Ihr STORIA Angebot läuft bald ab";
+          const lang = asLang((inquiry as { customer_language?: string }).customer_language);
+          const plan = emailLanguagePlan(lang);
+          const subjKey = reminderNumber === 1 ? 'subject1' : 'subject2';
+          const subject = bilingualSubject(lang, OFFER_REMINDER[subjKey]);
+
+          const renderBlock = (L: CustomerLang) => `
+            <h2 style="color:#1a1a1a;">${OFFER_REMINDER.heading[L]}</h2>
+            <p>${OFFER_REMINDER.greeting[L]} ${inquiry.contact_name || ''},</p>
+            <p>${OFFER_REMINDER.body(L, daysSinceOffer, inquiry.preferred_date || null)}</p>
+            <p>${OFFER_REMINDER.questions[L]}</p>
+            ${reminderNumber === 2 ? `<p style="color:#c0392b;"><strong>${OFFER_REMINDER.urgency[L]}</strong></p>` : ''}
+            <p style="margin-top:20px;">${OFFER_REMINDER.signOff[L]}<br/>${OFFER_REMINDER.team[L]}</p>`;
 
           const html = `
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h2 style="color: #1a1a1a;">Erinnerung an Ihr Angebot</h2>
-              <p>Sehr geehrte/r ${inquiry.contact_name || "Kunde"},</p>
-              <p>wir haben vor ${daysSinceOffer} Tagen ein Angebot für Ihre Veranstaltung${
-            inquiry.preferred_date ? ` am ${inquiry.preferred_date}` : ""
-          } erstellt.</p>
-              <p>Falls Sie noch Fragen haben oder Änderungen wünschen, stehen wir Ihnen gerne zur Verfügung.</p>
-              ${
-                reminderNumber === 2
-                  ? '<p style="color: #c0392b;"><strong>Bitte beachten Sie:</strong> Um Ihren Wunschtermin zu sichern, benötigen wir zeitnah Ihre Rückmeldung.</p>'
-                  : ""
-              }
-              <p style="margin-top: 20px;">Mit freundlichen Grüßen<br>Ihr STORIA Events Team</p>
-              <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-              <p style="font-size: 12px; color: #666;">
-                STORIA Ristorante & Events<br>
+            <div style="max-width:600px;margin:0 auto;padding:20px;">
+              ${renderBlock(plan.primary)}
+              ${plan.secondary ? `${SEP}${renderBlock(plan.secondary)}` : ''}
+              <hr style="margin:30px 0;border:none;border-top:1px solid #eee;">
+              <p style="font-size:12px;color:#666;">
+                STORIA Ristorante &amp; Events<br>
                 Buttermelcherstraße 9, 80469 München<br>
                 Tel: 089 20328484
               </p>
-            </div>
-          `;
+            </div>`;
 
           const offerResult = await sendEmail([inquiry.email], subject, html, "STORIA Events");
 
