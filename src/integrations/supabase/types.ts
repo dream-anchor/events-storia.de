@@ -3622,6 +3622,9 @@ export type Database = {
       }
       v2_offer_options: {
         Row: {
+          adjusted_at: string | null
+          adjusted_by_email: string | null
+          adjustment_reason: string | null
           amount_total: number
           chosen_at: string | null
           chosen_by_email: string | null
@@ -3639,6 +3642,7 @@ export type Database = {
           outdated_reason: string | null
           package_id: string | null
           package_name_snapshot: string | null
+          post_acceptance_adjustment: boolean
           sort_order: number | null
           source_option_id: string | null
           stripe_payment_link_id: string | null
@@ -3647,6 +3651,9 @@ export type Database = {
           version: number | null
         }
         Insert: {
+          adjusted_at?: string | null
+          adjusted_by_email?: string | null
+          adjustment_reason?: string | null
           amount_total: number
           chosen_at?: string | null
           chosen_by_email?: string | null
@@ -3664,6 +3671,7 @@ export type Database = {
           outdated_reason?: string | null
           package_id?: string | null
           package_name_snapshot?: string | null
+          post_acceptance_adjustment?: boolean
           sort_order?: number | null
           source_option_id?: string | null
           stripe_payment_link_id?: string | null
@@ -3672,6 +3680,9 @@ export type Database = {
           version?: number | null
         }
         Update: {
+          adjusted_at?: string | null
+          adjusted_by_email?: string | null
+          adjustment_reason?: string | null
           amount_total?: number
           chosen_at?: string | null
           chosen_by_email?: string | null
@@ -3689,6 +3700,7 @@ export type Database = {
           outdated_reason?: string | null
           package_id?: string | null
           package_name_snapshot?: string | null
+          post_acceptance_adjustment?: boolean
           sort_order?: number | null
           source_option_id?: string | null
           stripe_payment_link_id?: string | null
