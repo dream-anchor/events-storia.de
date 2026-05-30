@@ -758,18 +758,20 @@ function AnschreibenSection({
 function HeroSection({
   inquiry,
   phase,
+  lang,
 }: {
   inquiry: PublicInquiry;
   phase: OfferPhase;
+  lang: OfferLang;
 }) {
   const displayName = inquiry.company_name || inquiry.contact_name;
 
   const phaseConfig: Partial<Record<OfferPhase, { text: string; color: string }>> = {
-    proposal_sent: { text: "Vorschlag", color: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
-    customer_responded: { text: "Rückmeldung erhalten", color: "bg-blue-500/10 text-blue-700 border-blue-500/20" },
-    final_sent: { text: "Finales Angebot", color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
-    confirmed: { text: "Bestätigt", color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
-    paid: { text: "Bezahlt", color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
+    proposal_sent: { text: tOffer(lang, 'phaseProposal'), color: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
+    customer_responded: { text: tOffer(lang, 'phaseResponded'), color: "bg-blue-500/10 text-blue-700 border-blue-500/20" },
+    final_sent: { text: tOffer(lang, 'phaseFinal'), color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
+    confirmed: { text: tOffer(lang, 'phaseConfirmed'), color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
+    paid: { text: tOffer(lang, 'phasePaid'), color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
   };
 
   const badge = phaseConfig[phase];
@@ -785,7 +787,7 @@ function HeroSection({
           {/* Badge + Label */}
           <div className="flex items-center gap-3 mb-5">
             <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-              Ihr persönliches Angebot
+              {tOffer(lang, 'heroEyebrow')}
             </p>
             {badge && (
               <span className={cn(
@@ -809,8 +811,8 @@ function HeroSection({
                 <Calendar className="h-3.5 w-3.5 text-primary/70" />
                 <span className="text-sm font-sans font-medium text-foreground/80">
                   {inquiry.event_end_date
-                    ? `${format(parseISO(inquiry.preferred_date), "d.", { locale: de })}–${format(parseISO(inquiry.event_end_date), "d. MMMM yyyy", { locale: de })}`
-                    : format(parseISO(inquiry.preferred_date), "d. MMMM yyyy", { locale: de })}
+                    ? `${format(parseISO(inquiry.preferred_date), "d.", { locale: dateFnsLocale(lang) })}–${format(parseISO(inquiry.event_end_date), "d. MMMM yyyy", { locale: dateFnsLocale(lang) })}`
+                    : format(parseISO(inquiry.preferred_date), "d. MMMM yyyy", { locale: dateFnsLocale(lang) })}
                 </span>
               </div>
             )}
@@ -818,7 +820,7 @@ function HeroSection({
               <div className="flex items-center gap-2 bg-white/60 dark:bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 border border-white/40">
                 <Users className="h-3.5 w-3.5 text-primary/70" />
                 <span className="text-sm font-sans font-medium text-foreground/80">
-                  {inquiry.guest_count} Gäste
+                  {inquiry.guest_count} {tOffer(lang, 'guests')}
                 </span>
               </div>
             )}
