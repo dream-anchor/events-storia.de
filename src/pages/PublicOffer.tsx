@@ -2213,8 +2213,8 @@ function OfferHeader() {
   );
 }
 
-function OfferFooter() {
-  return _OfferFooter();
+function OfferFooter({ lang = 'de' }: { lang?: OfferLang }) {
+  return _OfferFooter(lang);
 }
 
 /**
@@ -2258,7 +2258,7 @@ function OfferLanguageSwitcher({
   );
 }
 
-function _OfferFooter() {
+function _OfferFooter(lang: OfferLang = 'de') {
   return (
     <footer className="bg-foreground text-background">
       <div className="container mx-auto px-4 py-10">
@@ -2266,7 +2266,7 @@ function _OfferFooter() {
           <div>
             <p className="font-display text-xl font-bold tracking-wide mb-1">STORIA</p>
             <p className="text-sm text-background/50 font-sans">
-              Catering & Events — München
+              {tOffer(lang, 'footerCompany')}
             </p>
           </div>
           <div className="flex flex-col md:flex-row items-center gap-4 text-sm text-background/50 font-sans">
@@ -2293,13 +2293,13 @@ function _OfferFooter() {
               to="legal.imprint"
               className="hover:text-background/60 transition-colors"
             >
-              Impressum
+              {tOffer(lang, 'footerImprint')}
             </LocalizedLink>
             <LocalizedLink
               to="legal.privacy"
               className="hover:text-background/60 transition-colors"
             >
-              Datenschutz
+              {tOffer(lang, 'footerPrivacy')}
             </LocalizedLink>
           </div>
         </div>
