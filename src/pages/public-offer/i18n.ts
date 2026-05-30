@@ -1,4 +1,8 @@
 import type { OfferLang } from "@/lib/offerLang";
+import { de as deLocale } from 'date-fns/locale/de';
+import { enGB as enLocale } from 'date-fns/locale/en-GB';
+import { it as itLocale } from 'date-fns/locale/it';
+import { fr as frLocale } from 'date-fns/locale/fr';
 
 /**
  * Static UI strings for the public offer page in all supported customer
@@ -555,16 +559,21 @@ export function tOffer(lang: OfferLang, key: string): string {
 }
 
 /** Returns the date-fns locale matching the customer language. */
-import { de as deLocale } from 'date-fns/locale/de';
-import { enGB as enLocale } from 'date-fns/locale/en-GB';
-import { it as itLocale } from 'date-fns/locale/it';
-import { fr as frLocale } from 'date-fns/locale/fr';
-
 export function dateFnsLocale(lang: OfferLang) {
   switch (lang) {
     case 'en': return enLocale;
     case 'it': return itLocale;
     case 'fr': return frLocale;
     default: return deLocale;
+  }
+}
+
+/** Currency locale ("de-DE","en-GB","it-IT","fr-FR"). */
+export function currencyLocale(lang: OfferLang): string {
+  switch (lang) {
+    case 'en': return 'en-GB';
+    case 'it': return 'it-IT';
+    case 'fr': return 'fr-FR';
+    default: return 'de-DE';
   }
 }
