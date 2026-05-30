@@ -80,6 +80,9 @@ export const SmartInquiryEditor = () => {
   });
   const [lastTranslatedLang, setLastTranslatedLang] = useState<CustomerLang | null>(null);
 
+  // Invoice-send dialog
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+
   // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren
   useRegisterSaveStatus('smart-inquiry-editor', saveStatus);
   const [isDownloading, setIsDownloading] = useState(false);
