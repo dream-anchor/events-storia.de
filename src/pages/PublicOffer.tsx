@@ -217,13 +217,23 @@ export default function PublicOffer() {
   const [payments, setPayments] = useState<PublicPayment[]>([]);
   const [letterTranslations, setLetterTranslations] = useState<Record<string, string>>({});
 
-  // Sprache: ?lang=de|en|it|fr (Default: de). Steuert Anzeige der übersetzten
-  // Menü-/Getränke-Felder (course_label, item_name, drink_label, ...).
+  // Sprache: standardmäßig die im Admin gewählte `customer_language` der Anfrage.
+  // `?lang=` darf das überschreiben (z.B. für interne Vorschauen).
   const langParam = searchParams.get('lang');
-  const [lang, setLang] = useState<OfferLang>(isValidOfferLang(langParam) ? langParam : 'de');
+  const customerLang = data?.inquiry?.customer_language;
+  const defaultLang: OfferLang = isValidOfferLang(customerLang) ? customerLang : 'de';
+  const [lang, setLang] = useState<OfferLang>(
+    isValidOfferLang(langParam) ? langParam : defaultLang,
+  );
   useEffect(() => {
-    if (isValidOfferLang(langParam) && langParam !== lang) setLang(langParam);
-  }, [langParam, lang]);
+    if (isValidOfferLang(langParam)) {
+      if (langParam !== lang) setLang(langParam);
+      return;
+    }
+    if (isValidOfferLang(customerLang) && customerLang !== lang) {
+      setLang(customerLang);
+    }
+  }, [langParam, customerLang, lang]);
 
   // Preview-Modus: wenn die Seite als iframe in der Admin-Preview angezeigt wird,
   // wird der aktuelle email_draft via Query-Param übergeben. So sieht der Admin
