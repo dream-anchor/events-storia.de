@@ -3250,6 +3250,7 @@ export type Database = {
           created_by: string | null
           current_offer_version: number | null
           customer_id: string
+          customer_language: string
           customer_notes: string | null
           date: string | null
           date_end: string | null
@@ -3373,6 +3374,7 @@ export type Database = {
           created_by?: string | null
           current_offer_version?: number | null
           customer_id: string
+          customer_language?: string
           customer_notes?: string | null
           date?: string | null
           date_end?: string | null
@@ -3496,6 +3498,7 @@ export type Database = {
           created_by?: string | null
           current_offer_version?: number | null
           customer_id?: string
+          customer_language?: string
           customer_notes?: string | null
           date?: string | null
           date_end?: string | null

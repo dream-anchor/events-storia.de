@@ -32,6 +32,8 @@ export interface PublicInquiry {
   offer_validity_days?: number | null;
   payment_method?: string | null;
   invoice_due_days?: number | null;
+  /** Customer-facing language chosen by admin. Drives the public offer + emails. */
+  customer_language?: 'de' | 'en' | 'it' | 'fr' | null;
 }
 
 export interface CourseSelection {
