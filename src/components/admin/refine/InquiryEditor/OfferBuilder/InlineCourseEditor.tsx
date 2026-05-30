@@ -493,6 +493,7 @@ export function InlineCourseEditor({
             onUpdateType={(index, courseType, courseLabel) => onUpdateCourse(index, { courseType, courseLabel })}
             onUpdateQuantity={(index, quantity) => onUpdateCourse(index, { quantity })}
             onUpdatePrice={(index, overridePrice) => onUpdateCourse(index, { overridePrice })}
+            onUpdatePriceMode={(index, priceMode) => onUpdateCourse(index, { priceMode })}
             pricingMode={pricingMode}
               onRemoveCourse={onRemoveCourse}
               disabled={disabled}
