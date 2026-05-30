@@ -38,6 +38,15 @@ import { PrintMenu } from "@/components/admin/refine/print/PrintMenu";
 import { CancellationDialog } from "@/components/admin/shared/CancellationDialog";
 import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
 import { OfferAcceptanceDrawer } from "./OfferAcceptanceDrawer";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { CustomerLang } from "./CustomerLanguageSelector";
+
+const HEADER_LANGS: { value: CustomerLang; flag: string; code: string; label: string }[] = [
+  { value: "de", flag: "🇩🇪", code: "DE", label: "Deutsch" },
+  { value: "en", flag: "🇬🇧", code: "EN", label: "Englisch" },
+  { value: "it", flag: "🇮🇹", code: "IT", label: "Italienisch" },
+  { value: "fr", flag: "🇫🇷", code: "FR", label: "Französisch" },
+];
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
