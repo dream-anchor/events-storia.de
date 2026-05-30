@@ -575,13 +575,8 @@ export function OfferAcceptanceDrawer({
           </div>
 
           <DialogFooter className="border-t border-border/40 pt-3">
-            <Button variant="ghost" onClick={() => setMenuEditorOpen(false)} disabled={savingMenu}>
-              Abbrechen
-            </Button>
-            <Button onClick={handleSaveMenu} disabled={savingMenu}>
-              {savingMenu && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Menü speichern (neue Version)
+            <Button onClick={() => setMenuEditorOpen(false)}>
+              Verstanden
             </Button>
           </DialogFooter>
         </DialogContent>
