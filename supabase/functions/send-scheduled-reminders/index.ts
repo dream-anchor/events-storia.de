@@ -436,7 +436,7 @@ serve(async (req) => {
 
       const { data: prepayEvents, error: prepayErr } = await supabase
         .from("v2_events")
-        .select("id, booking_number, date, amount_total, customer_id, is_test")
+        .select("id, booking_number, date, amount_total, customer_id, is_test, customer_language")
         .eq("balance_method", "stripe_prepay")
         .eq("date", targetDate);
 
@@ -488,37 +488,39 @@ serve(async (req) => {
             if (!customer?.email) continue;
 
             const remainingCents = Math.max(0, totalDueCents - paidCents);
-            const remainingFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" })
-              .format(remainingCents / 100);
-            const eventDateStr = ev.date ? new Date(ev.date).toLocaleDateString("de-DE") : "—";
+            const lang = asLang((ev as { customer_language?: string }).customer_language);
+            const plan = emailLanguagePlan(lang);
+            const remainingFmt = fmtCur(plan.primary, remainingCents);
+            const eventDateStr = ev.date ? new Date(ev.date).toLocaleDateString(LOCALE_MAP[plan.primary]) : "—";
             const bookingNr = ev.booking_number || "—";
 
-            const subject = `Erinnerung: Restzahlung für Ihre Veranstaltung am ${eventDateStr}`;
+            const subject = bilingualSubject(lang, {
+              de: PREPAY.subjectTpl.de(eventDateStr),
+              en: PREPAY.subjectTpl.en(eventDateStr),
+              it: PREPAY.subjectTpl.it(eventDateStr),
+              fr: PREPAY.subjectTpl.fr(eventDateStr),
+            });
+            const renderPrepay = (L: CustomerLang) => `
+              <h2 style="color:#1a1a1a;margin:0 0 16px;font-size:20px;">${PREPAY.heading[L]}</h2>
+              <p style="font-size:15px;line-height:1.6;">${PREPAY.greeting[L]} ${customer.name || ''},</p>
+              <p style="font-size:15px;line-height:1.6;">${PREPAY.body(L, eventDateStr, remainingFmt)}</p>
+              <p style="font-size:15px;line-height:1.6;">${PREPAY.guests[L]}</p>
+              <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
+                <tr><td>
+                  <a href="${paymentLinkUrl}" style="display:inline-block;background-color:#b45309;color:#ffffff;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;text-decoration:none;">
+                    ${PREPAY.cta[L]}
+                  </a>
+                </td></tr>
+              </table>
+              <p style="font-size:13px;color:#666666;line-height:1.6;">
+                ${PREPAY.booking[L]}: ${bookingNr}<br/>
+                ${PREPAY.questions[L]}: <a href="mailto:info@events-storia.de" style="color:#b45309;">info@events-storia.de</a> · 089 51519696
+              </p>
+              <p style="font-size:15px;line-height:1.6;margin-top:24px;">${PREPAY.signOff[L]}<br/><strong>${PREPAY.team[L]}</strong></p>`;
             const html = `
               <div style="max-width:600px;margin:0 auto;padding:24px;font-family:Arial,sans-serif;color:#333333;">
-                <h2 style="color:#1a1a1a;margin:0 0 16px;font-size:20px;">Restzahlung steht noch aus</h2>
-                <p style="font-size:15px;line-height:1.6;">Guten Tag ${customer.name || "Sehr geehrte Damen und Herren"},</p>
-                <p style="font-size:15px;line-height:1.6;">
-                  Ihre Veranstaltung am <strong>${eventDateStr}</strong> rückt näher.
-                  Bitte begleichen Sie den noch offenen Restbetrag von <strong>${remainingFmt}</strong>
-                  bis spätestens <strong>10 Tage vor der Veranstaltung</strong> vorab per Kreditkarte.
-                </p>
-                <p style="font-size:15px;line-height:1.6;">
-                  Sie können beim Bezahlen die finale <strong>Personenzahl</strong> noch anpassen (mehr Personen jederzeit möglich).
-                </p>
-                <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
-                  <tr><td>
-                    <a href="${paymentLinkUrl}"
-                       style="display:inline-block;background-color:#b45309;color:#ffffff;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;text-decoration:none;">
-                      Jetzt Restbetrag begleichen &rarr;
-                    </a>
-                  </td></tr>
-                </table>
-                <p style="font-size:13px;color:#666666;line-height:1.6;">
-                  Buchungsnummer: ${bookingNr}<br/>
-                  Bei Fragen: <a href="mailto:info@events-storia.de" style="color:#b45309;">info@events-storia.de</a> · 089 51519696
-                </p>
-                <p style="font-size:15px;line-height:1.6;margin-top:24px;">Herzliche Grüße,<br/><strong>Ihr STORIA Events Team</strong></p>
+                ${renderPrepay(plan.primary)}
+                ${plan.secondary ? `${SEP}${renderPrepay(plan.secondary)}` : ''}
               </div>`;
 
             // Empfänger + CC Betreiber
