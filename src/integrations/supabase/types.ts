@@ -3276,6 +3276,8 @@ export type Database = {
           id: string
           internal_notes: string | null
           invoice_due_days: number | null
+          invoice_email_sent_at: string | null
+          invoice_email_sent_by: string | null
           invoice_lexoffice_id: string | null
           invoice_lexoffice_number: string | null
           is_pickup: boolean | null
@@ -3401,6 +3403,8 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           invoice_due_days?: number | null
+          invoice_email_sent_at?: string | null
+          invoice_email_sent_by?: string | null
           invoice_lexoffice_id?: string | null
           invoice_lexoffice_number?: string | null
           is_pickup?: boolean | null
@@ -3526,6 +3530,8 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           invoice_due_days?: number | null
+          invoice_email_sent_at?: string | null
+          invoice_email_sent_by?: string | null
           invoice_lexoffice_id?: string | null
           invoice_lexoffice_number?: string | null
           is_pickup?: boolean | null
