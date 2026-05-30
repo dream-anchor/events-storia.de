@@ -75,6 +75,7 @@ function SortableCourseRow({
   onUpdateType,
   onUpdateQuantity,
   onUpdatePrice,
+  onUpdatePriceMode,
   onRemoveCourse,
   pricingMode,
   disabled,
