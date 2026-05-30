@@ -41,6 +41,7 @@ export interface CourseSelection {
   itemDescription: string | null;
   quantity?: number | null;
   overridePrice?: number | null;
+  priceMode?: 'per_person' | 'flat' | null;
 }
 
 export interface DrinkSelection {
