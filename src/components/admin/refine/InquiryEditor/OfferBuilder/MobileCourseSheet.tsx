@@ -103,6 +103,7 @@ export function MobileCourseSheet({
       isCustom: draft.isCustom,
       overridePrice: draft.overridePrice,
       quantity: draft.quantity,
+      priceMode: draft.priceMode,
     });
     haptic("success");
     onOpenChange(false);
