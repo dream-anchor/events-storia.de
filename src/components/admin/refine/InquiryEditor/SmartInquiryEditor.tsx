@@ -42,6 +42,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { CustomerLang } from "./CustomerLanguageSelector";
 import { LanguageSwitchDialog, type TranslationScope } from "./LanguageSwitchDialog";
 import { Languages as LanguagesIcon } from "lucide-react";
+import { SendInvoiceDialog } from "./SendInvoiceDialog";
+import { Mail as MailIcon } from "lucide-react";
 
 const HEADER_LANGS: { value: CustomerLang; flag: string; code: string; label: string }[] = [
   { value: "de", flag: "🇩🇪", code: "DE", label: "Deutsch" },
@@ -77,6 +79,9 @@ export const SmartInquiryEditor = () => {
     target: "de",
   });
   const [lastTranslatedLang, setLastTranslatedLang] = useState<CustomerLang | null>(null);
+
+  // Invoice-send dialog
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
 
   // Zentralen SaveStatus-Context mit lokalem saveStatus synchronisieren
   useRegisterSaveStatus('smart-inquiry-editor', saveStatus);
@@ -1025,6 +1030,23 @@ export const SmartInquiryEditor = () => {
               </Button>
             )}
 
+            {isOfferSent && lexofficeDocId && lexofficeDocType === 'invoice' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 px-2 sm:px-3"
+                onClick={() => setInvoiceDialogOpen(true)}
+                title={(inquiry as any)?.invoice_email_sent_at
+                  ? `Zuletzt versendet am ${new Date((inquiry as any).invoice_email_sent_at).toLocaleString('de-DE')}`
+                  : 'Rechnung per E-Mail an Kunden senden'}
+              >
+                <MailIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  {(inquiry as any)?.invoice_email_sent_at ? 'Rechnung erneut senden' : 'Rechnung senden'}
+                </span>
+              </Button>
+            )}
+
           </div>
         </div>
 
@@ -1337,6 +1359,18 @@ export const SmartInquiryEditor = () => {
         onCancel={() => setLangDialog({ open: false, target: langDialog.target })}
         onConfirm={performLanguageSwitch}
       />
+
+      {inquiry?.id && (
+        <SendInvoiceDialog
+          open={invoiceDialogOpen}
+          onOpenChange={setInvoiceDialogOpen}
+          inquiryId={inquiry.id}
+          defaultEmail={inquiry.email || ''}
+          defaultLanguage={((inquiry?.customer_language as CustomerLang | null) || 'de')}
+          invoiceNumber={(inquiry as any)?.final_lexoffice_invoice_number || (inquiry as any)?.invoice_lexoffice_number || null}
+          onSent={() => { /* Refine refetches via realtime — no-op */ }}
+        />
+      )}
 
     </AdminLayout>
   );
