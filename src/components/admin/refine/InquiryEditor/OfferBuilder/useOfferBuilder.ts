@@ -6,7 +6,7 @@ import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { CourseConfig, DrinkConfig, DrinkOption, CourseSelection } from "../MenuComposer/types";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
-import { detectPricingMode, calculateTotalAmount, parseQuantityPrefix } from "./pricingMode";
+import { detectPricingMode, parseQuantityPrefix } from "./pricingMode";
 import {
   OfferBuilderOption,
   OfferPhase,
