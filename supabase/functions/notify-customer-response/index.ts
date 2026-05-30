@@ -74,7 +74,7 @@ serve(async (req) => {
     const eventDate = event.date || "Kein Datum";
     const guestCount = event.guest_count || "?";
     const paymentMethod = event.payment_method || 'deposit_online';
-    const isOfflineBooking = paymentMethod === 'on_site' || paymentMethod === 'invoice_after';
+    const isOfflineBooking = paymentMethod === 'on_site' || paymentMethod === 'invoice_after' || paymentMethod === 'invoice_before';
     const isTest = event.is_test === true;
 
     const emailSubject = `Kundenantwort: ${customerName} hat Option gewählt`;
