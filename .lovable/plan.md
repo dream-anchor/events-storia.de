@@ -1,44 +1,91 @@
-## Ursachenanalyse
+## Ausgangslage
 
-Auf der Inquiry-Seite (`/admin/inquiries/.../edit`) fragt die Timeline `email_delivery_logs` mit `entity_type='event_inquiry'` ab (Datei `SmartInquiryEditor.tsx`, Zeile 1106). Aber:
+Aktuell kann ein Angebot nur über die Public Offer Seite vom Kunden angenommen werden (Button → setzt `offer_phase = order_confirmed`). Wenn der Kunde **telefonisch, per E-Mail oder vor Ort** zusagt, gibt es keinen sauberen Eintrittspunkt:
 
-1. **Christinas Restzahlungs-Mail vom 24.05.** (`515ac390…`) wurde mit `entity_type='v2_event'` geloggt → unsichtbar.
-2. **Alle 7 Angebots-Mails von Christina** (07.05.) wurden ebenfalls mit `entity_type='v2_event'` geloggt → unsichtbar.
-3. Die Edge Function `send-raw-html-email` (die Restzahlung an Christina und Anzahlungsbestätigung an Jessica versendet hat) **loggt überhaupt nichts** in `email_delivery_logs`. Christinas Restzahlungs-Log wurde nur manuell von einer anderen Funktion (`receive-resend-webhook`?) als `v2_event` nachgetragen, Jessicas gar nicht.
+- Status muss manuell auf "Bestätigt" geklickt werden
+- Es wird **keine Rechnung** automatisch erzeugt
+- Es wird **keine Bestätigungs-E-Mail** versendet
+- Zahlungseinträge müssen separat über `AddPaymentDrawer` angelegt werden
 
-Da Inquiry-ID und v2_event-ID identisch sind (gleiche UUID), ist die saubere Lösung: Timeline soll beide Entity-Types lesen, und der Raw-HTML-Sender soll künftig immer mitloggen.
+Das Ergebnis: inkonsistente Datenlage zwischen online- und offline-akzeptierten Angeboten, und manuelle Schritte in LexOffice.
 
-## Plan
+## Ziel
 
-### 1. Timeline liest beide Entity-Types (Frontend)
-- `src/hooks/useEmailDeliveryLogs.ts`: Query um `.in('entity_type', ['event_inquiry', 'v2_event'])` erweitern, wenn `entityType === 'event_inquiry'`.
-- `src/hooks/useActivityLog.ts` (`useActivityLogs`): Analog erweitern, damit auch `offer_email_sent`-Einträge (entity_type `v2_event`) erscheinen.
+**Ein zentraler Aktions-Punkt** im Inquiry-Editor: *"Angebot angenommen"*. Egal ob der Kunde online geklickt oder telefonisch zugesagt hat — danach ist immer derselbe konsistente Zustand erreicht: gebuchtes Event mit der korrekten LexOffice-Rechnung, Zahlungseinträgen und (optional) Bestätigungsmail an den Kunden.
 
-Effekt: Christinas 7 Angebots-Mails und die Restzahlung erscheinen sofort in der Aktivitäten-Timeline. Keine Daten-Migration nötig.
+## Vorgeschlagene Lösung
 
-### 2. `send-raw-html-email` loggt zukünftig automatisch
-- Nach erfolgreichem Resend-POST ein `INSERT` in `email_delivery_logs` durchführen mit:
-  - `entity_type = 'event_inquiry'` (Maestro-Standard)
-  - `entity_id` = optional aus Request-Body (`event_id`/`inquiry_id`), sonst über die TO-Adresse + neuestes Event resolved (Lookup in `v2_events` JOIN `v2_customers`)
-  - Für die zwei vordefinierten Presets `entity_id` hartkodieren:
-    - `rigshospitalet-restzahlung-v3` → `316a0f27-8911-464f-97ea-c5135328f3d5`
-    - `cyim-anzahlung-bestaetigung` → `90321866-239d-4331-a85b-fddf5280ce97`
-  - `recipient_email`, `subject`, `provider='resend'`, `provider_message_id=data.id`, `status='sent'`, `sent_by=userData.user.email`, `metadata={ bcc, preset, type: 'manual_raw_html' }`
+### 1. Neuer Bereich „Angebot annehmen" im Inquiry-Editor
 
-### 3. Christinas Restzahlungs-Mail nachtragen
-- Die bestehende Reihe `515ac390…` (entity_type `v2_event`) bleibt, wird durch Schritt 1 sichtbar. Keine Insertion nötig.
-- Falls Schritt 1 nicht greift (z. B. Schema-Cache), als Fallback eine Kopie mit `entity_type='event_inquiry'` einfügen.
+Sichtbar, sobald `offer_phase` mindestens `proposal_sent` oder `final_sent` ist und `status` noch nicht `confirmed`. Position: prominent im Sidebar des SmartInquiryEditor, gleicher visueller Stil wie der bestehende Versand-Bereich.
 
-### 4. Verifikation
-- Inquiry-Seite Christina neu laden → Restzahlung + 7 Angebots-Mails erscheinen in „Aktivitäten“.
-- Inquiry-Seite Jessica neu laden → Anzahlungsbestätigung erscheint.
-- Nächste Mail über `send-raw-html-email` erzeugt automatisch einen Log-Eintrag.
+Inhalt:
+- Welches **Angebot/Option** wird angenommen (Dropdown bei Mehr-Optionen-Angeboten, sonst vorausgewählt)
+- **Wie hat der Kunde angenommen?**
+  - online (vorausgefüllt wenn `offer_phase = order_confirmed`)
+  - telefonisch
+  - per E-Mail
+  - vor Ort / persönlich
+- **Datum der Annahme** (Default heute)
+- **Anzahl Gäste final** (Default = `guest_count` aus Angebot, editierbar falls Kunde Korrektur durchgegeben hat)
+- **Interne Notiz** (optional, z. B. „Christina hat um 14:30 angerufen, alles wie Option A")
 
-## Technische Details
+### 2. Konsequenzen beim Klick auf „Buchung bestätigen"
 
-Geänderte Dateien:
-- `src/hooks/useEmailDeliveryLogs.ts`
-- `src/hooks/useActivityLog.ts`
-- `supabase/functions/send-raw-html-email/index.ts`
+Atomarer Ablauf in einer Edge Function `confirm-offer-acceptance`:
 
-Kein DB-Schema-Wechsel, keine Migration nötig.
+1. **Inquiry markieren**
+   - `status = 'confirmed'`
+   - `offer_phase = 'confirmed'` (falls noch nicht `order_confirmed`)
+   - `selected_option_id` setzen
+   - `confirmed_at`, `confirmed_via` (online/phone/email/onsite), `confirmed_by` (Admin) eintragen
+   - Activity-Log-Eintrag
+
+2. **LexOffice Rechnung erzeugen** — Logik abhängig von `payment_method`:
+   | payment_method | Rechnung |
+   |---|---|
+   | `deposit_online` | Anzahlungsrechnung (`create-lexoffice-downpayment-invoice`) + Restzahlung als Payment-Plan |
+   | `invoice_after_event` | Keine sofortige Rechnung, nur Payment-Plan-Eintrag mit Fälligkeit nach Event |
+   | `pay_on_site` | Keine Rechnung, Hinweis dass am Eventtag bar bezahlt wird |
+   | `prepayment_full` | Vollständige Vorab-Rechnung |
+
+   In jedem Fall werden die zugehörigen `event_payments`-Einträge angelegt (mit Stripe Payment Link wo passend), sodass die `PaymentBalanceCard` sofort die richtigen Beträge zeigt.
+
+3. **Bestätigungsmail an Kunden** (Default an, ausschaltbar im Drawer)
+   - Bilinguales Template (DE + EN, wie bestehender Standard)
+   - Inhalt: Buchungsdetails, gebuchtes Menü, Zahlungsinfos, Restzahlungsfälligkeit, AGB-Hinweis
+   - BCC an `info@events-storia.de`
+
+4. **WhatsApp Alarm** an Admin („Christina hat Angebot angenommen — 4.900 € — 70 Gäste — Anzahlung läuft")
+
+### 3. Online-Annahme bleibt — wird aber transparent dieselbe Logik triggern
+
+Heute setzt der Public-Offer-Klick nur `offer_phase = order_confirmed`. Diesen Schritt erweitern: nach dem Setzen ruft PublicOffer dieselbe `confirm-offer-acceptance` Edge Function auf (mit `confirmed_via = 'online'`). Damit ist online und offline garantiert identisch.
+
+### 4. Idempotenz & Reversibilität
+
+- Funktion prüft, ob bereits eine LexOffice-Rechnung für dieses Inquiry+Option existiert → keine Doppelung
+- Falls Admin sich vertut: zusätzlicher Button „Annahme zurücknehmen" (nur sichtbar wenn **keine** Zahlung eingegangen ist und Rechnung noch im Entwurf-Status). Storniert LexOffice-Rechnung, setzt Status zurück auf `offer_sent`.
+
+## Was bleibt unverändert
+
+- Angebots-Immutability: Annahme erstellt **keine** neue Angebots-Version
+- `AddPaymentDrawer` bleibt für nachträgliche Zahlungs-Erfassung
+- `PaymentBalanceCard` bleibt der zentrale Ort für Zahlungsstatus
+- LexOffice Brutto-Preise: alle Beträge 1:1 aus Maestro
+
+## Technische Notizen
+
+- Neue DB-Spalten auf `v2_events`: `confirmed_at TIMESTAMPTZ`, `confirmed_via TEXT`, `confirmed_by UUID`
+- Neue Edge Function `confirm-offer-acceptance` (Wrapper, ruft intern die richtige Rechnungs-Function)
+- Neue Komponente `OfferAcceptanceDrawer.tsx` im InquiryEditor
+- Erweiterung `PublicOffer.tsx` Zeile ~1110: nach `offer_phase = 'order_confirmed'` zusätzlich Edge Function aufrufen
+- Activity-Log-Action: `offer_accepted` mit Metadata `{via, option_id, guest_count, invoice_id}`
+
+## Offene Fragen
+
+1. **Soll die Anzahlungsrechnung bei `deposit_online`-Annahme sofort versendet werden**, oder erst nach Klick auf „Rechnung versenden"? (Aktuell: Stripe-Link wird per Bestätigungsmail mitgeschickt — soll das so bleiben?)
+2. **Bei `invoice_after_event`**: möchten Sie trotzdem eine **Reservierungsbestätigung** als PDF (keine Rechnung) automatisch erzeugen?
+3. **Wenn Kunde am Telefon weniger Gäste sagt** als im Angebot stand: soll die Rechnung den korrigierten Wert nehmen (vermutlich ja, aber Bestätigung wäre gut)?
+
+Wenn diese drei Punkte geklärt sind, kann ich direkt mit der Implementierung starten.
