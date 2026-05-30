@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2, Ban } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2, Ban, CheckCircle2 } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
 import { PrintMenu } from "@/components/admin/refine/print/PrintMenu";
 import { CancellationDialog } from "@/components/admin/shared/CancellationDialog";
 import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
+import { OfferAcceptanceDrawer } from "./OfferAcceptanceDrawer";
 
 export const SmartInquiryEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -83,6 +84,7 @@ export const SmartInquiryEditor = () => {
   const [offerTotal, setOfferTotal] = useState<number | null>(null);
   const [sendSuccess, setSendSuccess] = useState<SendSuccessInfo | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showAcceptanceDrawer, setShowAcceptanceDrawer] = useState(false);
   const [customer, setCustomer] = useState<{ id?: string; account_invited_at?: string | null; account_activated_at?: string | null } | null>(null);
 
   const buildPersistableInquiryValues = useCallback((source: Record<string, unknown>) => {
@@ -923,6 +925,20 @@ export const SmartInquiryEditor = () => {
             <span className="hidden sm:inline">Anfrage absagen</span>
           </Button>
         )}
+        {isOfferSent &&
+          !(inquiry as any)?.order_confirmed_at &&
+          inquiry.status !== "declined" &&
+          inquiry.status !== "confirmed" && (
+            <Button
+              size="sm"
+              className="gap-1.5 text-xs h-8 bg-foreground text-background hover:bg-foreground/90"
+              onClick={() => setShowAcceptanceDrawer(true)}
+              title="Angebot wurde angenommen — online oder telefonisch"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Angebot annehmen</span>
+            </Button>
+          )}
         {isOfferSent && (
           <Button
             variant="outline"
@@ -947,6 +963,17 @@ export const SmartInquiryEditor = () => {
         onConfirm={(msg) => handleCancelInquiry(msg)}
         title="Anfrage absagen"
         confirmLabel="Absagen & Nachricht protokollieren"
+      />
+
+      <OfferAcceptanceDrawer
+        open={showAcceptanceDrawer}
+        onClose={() => setShowAcceptanceDrawer(false)}
+        inquiryId={id!}
+        customerName={inquiry.contact_name}
+        preferredDate={inquiry.preferred_date}
+        onConfirmed={() => {
+          inquiryQuery.query.refetch();
+        }}
       />
 
       {/* Main Content — Tab-Navigation */}

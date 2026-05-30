@@ -3307,11 +3307,15 @@ export type Database = {
           offer_slug: string | null
           offer_validity_days: number | null
           order_confirmation_terms_version: string | null
+          order_confirmed_admin_email: string | null
+          order_confirmed_admin_id: string | null
           order_confirmed_at: string | null
           order_confirmed_by_name: string | null
+          order_confirmed_internal_note: string | null
           order_confirmed_ip: string | null
           order_confirmed_user_agent: string | null
           order_confirmed_version: number | null
+          order_confirmed_via: string | null
           package_id: string | null
           payment_method: string | null
           payment_timing: string | null
@@ -3426,11 +3430,15 @@ export type Database = {
           offer_slug?: string | null
           offer_validity_days?: number | null
           order_confirmation_terms_version?: string | null
+          order_confirmed_admin_email?: string | null
+          order_confirmed_admin_id?: string | null
           order_confirmed_at?: string | null
           order_confirmed_by_name?: string | null
+          order_confirmed_internal_note?: string | null
           order_confirmed_ip?: string | null
           order_confirmed_user_agent?: string | null
           order_confirmed_version?: number | null
+          order_confirmed_via?: string | null
           package_id?: string | null
           payment_method?: string | null
           payment_timing?: string | null
@@ -3545,11 +3553,15 @@ export type Database = {
           offer_slug?: string | null
           offer_validity_days?: number | null
           order_confirmation_terms_version?: string | null
+          order_confirmed_admin_email?: string | null
+          order_confirmed_admin_id?: string | null
           order_confirmed_at?: string | null
           order_confirmed_by_name?: string | null
+          order_confirmed_internal_note?: string | null
           order_confirmed_ip?: string | null
           order_confirmed_user_agent?: string | null
           order_confirmed_version?: number | null
+          order_confirmed_via?: string | null
           package_id?: string | null
           payment_method?: string | null
           payment_timing?: string | null

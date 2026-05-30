@@ -1,0 +1,397 @@
+import { useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
+import { CheckCircle2, Loader2, Phone, Mail, MapPin, Globe2, Info } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+type Via = "phone" | "email" | "onsite" | "online";
+
+interface OfferOption {
+  id: string;
+  label: string;
+  package_name_snapshot?: string | null;
+  guest_count: number | null;
+  amount_total: number | null;
+  is_active: boolean | null;
+  is_chosen?: boolean | null;
+}
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  inquiryId: string;
+  customerName: string | null;
+  preferredDate?: string | null;
+  onConfirmed: () => void;
+}
+
+const viaMeta: Record<Exclude<Via, "online">, { label: string; icon: typeof Phone }> = {
+  phone: { label: "Telefonisch", icon: Phone },
+  email: { label: "Per E-Mail", icon: Mail },
+  onsite: { label: "Vor Ort / Persönlich", icon: MapPin },
+};
+
+function formatEUR(n: number | null | undefined): string {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+  }).format(Number(n));
+}
+
+export function OfferAcceptanceDrawer({
+  open,
+  onClose,
+  inquiryId,
+  customerName,
+  preferredDate,
+  onConfirmed,
+}: Props) {
+  const [via, setVia] = useState<Exclude<Via, "online">>("phone");
+  const [confirmName, setConfirmName] = useState("");
+  const [internalNote, setInternalNote] = useState("");
+  const [options, setOptions] = useState<OfferOption[]>([]);
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const [guestCountInput, setGuestCountInput] = useState<string>("");
+  const [totalInput, setTotalInput] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+
+  // Optionen laden, wenn Drawer geöffnet wird
+  useEffect(() => {
+    if (!open) return;
+    setConfirmName(customerName?.trim() || "");
+    setInternalNote("");
+    setVia("phone");
+    setOptionsLoading(true);
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("v2_offer_options")
+        .select(
+          "id, label, package_name_snapshot, guest_count, amount_total, is_active, is_chosen, version, sort_order",
+        )
+        .eq("event_id", inquiryId)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+      setOptionsLoading(false);
+      if (error) {
+        toast.error("Optionen konnten nicht geladen werden", { description: error.message });
+        return;
+      }
+      const rows = (data as OfferOption[]) || [];
+      // Bevorzugt aktive Optionen; wenn keine aktiv, alle anzeigen
+      const active = rows.filter((o) => o.is_active !== false);
+      const list = active.length ? active : rows;
+      setOptions(list);
+      const preferred = list.find((o) => o.is_chosen) ?? list[0];
+      if (preferred) {
+        setSelectedOptionId(preferred.id);
+        setGuestCountInput(preferred.guest_count ? String(preferred.guest_count) : "");
+        setTotalInput(
+          preferred.amount_total !== null && preferred.amount_total !== undefined
+            ? String(preferred.amount_total).replace(".", ",")
+            : "",
+        );
+      } else {
+        setSelectedOptionId(null);
+      }
+    })();
+  }, [open, inquiryId, customerName]);
+
+  // Wenn Option gewechselt wird: Gäste/Total nachziehen
+  useEffect(() => {
+    const opt = options.find((o) => o.id === selectedOptionId);
+    if (!opt) return;
+    setGuestCountInput(opt.guest_count ? String(opt.guest_count) : "");
+    setTotalInput(
+      opt.amount_total !== null && opt.amount_total !== undefined
+        ? String(opt.amount_total).replace(".", ",")
+        : "",
+    );
+  }, [selectedOptionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const chosen = useMemo(
+    () => options.find((o) => o.id === selectedOptionId) ?? null,
+    [options, selectedOptionId],
+  );
+
+  const parsedGuests = useMemo(() => {
+    const n = parseInt(guestCountInput.replace(/[^\d]/g, ""), 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [guestCountInput]);
+
+  const parsedTotal = useMemo(() => {
+    const n = parseFloat(totalInput.replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  }, [totalInput]);
+
+  const guestsChanged = chosen?.guest_count != null && parsedGuests !== chosen.guest_count;
+  const totalChanged =
+    chosen?.amount_total != null &&
+    parsedTotal != null &&
+    Number(parsedTotal).toFixed(2) !== Number(chosen.amount_total).toFixed(2);
+
+  const canSubmit =
+    !loading &&
+    confirmName.trim().length >= 2 &&
+    (options.length === 0 || !!selectedOptionId);
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("confirm-order", {
+        body: {
+          inquiry_id: inquiryId,
+          selected_option_id: selectedOptionId,
+          customer_name: confirmName.trim(),
+          agbs_accepted: true,
+          terms_accepted: true,
+          payment_acknowledged: true,
+          via,
+          internal_note: internalNote.trim() || null,
+          guest_count_override: guestsChanged ? parsedGuests : null,
+          amount_total_override: totalChanged ? parsedTotal : null,
+        },
+      });
+      const errMsg =
+        (data as { error?: string } | null)?.error || error?.message;
+      if (errMsg) throw new Error(errMsg);
+      toast.success("Angebot als angenommen markiert", {
+        description: "Status & Buchung sind jetzt scharf. Rechnung & Bestätigung kannst du im Tab Details auslösen.",
+      });
+      onConfirmed();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Fehler beim Annehmen");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader className="space-y-2">
+          <SheetTitle className="flex items-center gap-2 text-lg">
+            <CheckCircle2 className="h-5 w-5 text-foreground" />
+            Angebot annehmen
+          </SheetTitle>
+          <SheetDescription>
+            Erfasst die verbindliche Annahme — auch wenn sie telefonisch, per E-Mail
+            oder persönlich passiert ist. Rechnung & Kunden-Bestätigung versendest du
+            danach manuell (Tab <span className="font-medium">Details → Zahlungen</span>),
+            damit telefonisch besprochene Änderungen erst einfließen können.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="space-y-6 py-6">
+          {/* Annahme-Kanal */}
+          <div className="space-y-2">
+            <Label>Wie hat der Kunde angenommen?</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {(Object.keys(viaMeta) as Array<keyof typeof viaMeta>).map((key) => {
+                const meta = viaMeta[key];
+                const Icon = meta.icon;
+                const active = via === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setVia(key)}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 rounded-2xl border px-3 py-3 text-xs transition",
+                      active
+                        ? "border-foreground bg-foreground/5 text-foreground"
+                        : "border-border/60 bg-white hover:border-foreground/40 text-muted-foreground",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className="font-medium">{meta.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Option-Auswahl */}
+          {optionsLoading ? (
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Angebots-Optionen werden geladen…
+            </div>
+          ) : options.length === 0 ? (
+            <div className="rounded-2xl border border-amber-300/50 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2">
+              <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span>
+                Es wurden keine Angebots-Optionen gefunden. Die Annahme wird ohne
+                konkrete Option erfasst.
+              </span>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Welche Option wird angenommen?</Label>
+              <RadioGroup
+                value={selectedOptionId ?? ""}
+                onValueChange={(v) => setSelectedOptionId(v)}
+                className="space-y-2"
+              >
+                {options.map((opt) => {
+                  const active = selectedOptionId === opt.id;
+                  return (
+                    <label
+                      key={opt.id}
+                      htmlFor={`opt-${opt.id}`}
+                      className={cn(
+                        "flex items-start gap-3 rounded-2xl border px-3 py-3 cursor-pointer transition",
+                        active
+                          ? "border-foreground bg-foreground/5"
+                          : "border-border/60 bg-white hover:border-foreground/40",
+                      )}
+                    >
+                      <RadioGroupItem value={opt.id} id={`opt-${opt.id}`} className="mt-1" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold">Option {opt.label}</span>
+                          {opt.package_name_snapshot && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              · {opt.package_name_snapshot}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {opt.guest_count ?? "—"} Gäste · {formatEUR(opt.amount_total)}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </RadioGroup>
+            </div>
+          )}
+
+          {/* Korrekturen */}
+          {selectedOptionId && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="acc-guests" className="text-xs">
+                  Gästezahl final
+                </Label>
+                <Input
+                  id="acc-guests"
+                  inputMode="numeric"
+                  value={guestCountInput}
+                  onChange={(e) => setGuestCountInput(e.target.value)}
+                  placeholder="z.B. 70"
+                />
+                {guestsChanged && (
+                  <p className="text-[11px] text-foreground/70">
+                    Abweichend vom Angebot ({chosen?.guest_count ?? "—"})
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="acc-total" className="text-xs">
+                  Gesamtbetrag (€)
+                </Label>
+                <Input
+                  id="acc-total"
+                  inputMode="decimal"
+                  value={totalInput}
+                  onChange={(e) => setTotalInput(e.target.value)}
+                  placeholder="z.B. 4900,00"
+                />
+                {totalChanged && (
+                  <p className="text-[11px] text-foreground/70">
+                    Abweichend vom Angebot ({formatEUR(chosen?.amount_total)})
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Kunden-Name & Notiz */}
+          <div className="space-y-1.5">
+            <Label htmlFor="acc-name">Name des Kunden (zur Beweissicherung)</Label>
+            <Input
+              id="acc-name"
+              value={confirmName}
+              onChange={(e) => setConfirmName(e.target.value)}
+              placeholder="z.B. Christina Müller"
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="acc-note" className="flex items-center gap-1.5">
+              Interne Notiz
+              <span className="text-[11px] font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </Label>
+            <Textarea
+              id="acc-note"
+              value={internalNote}
+              onChange={(e) => setInternalNote(e.target.value)}
+              placeholder={
+                via === "phone"
+                  ? "z.B. Angerufen am " +
+                    format(new Date(), "dd.MM.yyyy 'um' HH:mm", { locale: de }) +
+                    " — wollte Option A wie besprochen."
+                  : "Kurzer Kontext zur Annahme…"
+              }
+              rows={3}
+              className="resize-none"
+            />
+          </div>
+
+          {preferredDate && (
+            <div className="rounded-2xl bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              Veranstaltungsdatum:{" "}
+              <span className="text-foreground font-medium">
+                {(() => {
+                  try {
+                    return format(new Date(preferredDate), "dd.MM.yyyy", { locale: de });
+                  } catch {
+                    return preferredDate;
+                  }
+                })()}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
+          <Button variant="ghost" onClick={onClose} disabled={loading}>
+            Abbrechen
+          </Button>
+          <Button onClick={handleSubmit} disabled={!canSubmit}>
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+            Angebot annehmen
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+export type { Via as OfferAcceptanceVia };
+export const OfferAcceptanceOnlineIcon = Globe2;
