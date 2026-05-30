@@ -837,6 +837,39 @@ export const SmartInquiryEditor = () => {
                   <Badge className={cn("text-[10px] sm:text-xs", statusInfo.color)}>
                     {statusInfo.label}
                   </Badge>
+                  <Select
+                    value={(inquiry.customer_language as CustomerLang | null) || 'de'}
+                    onValueChange={(v) => handleLocalFieldChange('customer_language', v as CustomerLang)}
+                  >
+                    <SelectTrigger
+                      className="h-7 w-auto gap-1.5 px-2 py-0 text-xs font-medium bg-muted/40 border-border/60 rounded-md"
+                      aria-label="Kundensprache"
+                    >
+                      <SelectValue>
+                        {(() => {
+                          const cur = ((inquiry.customer_language as CustomerLang | null) || 'de');
+                          const m = HEADER_LANGS.find((l) => l.value === cur)!;
+                          return (
+                            <span className="flex items-center gap-1.5">
+                              <span className="text-sm leading-none">{m.flag}</span>
+                              <span>{m.code}</span>
+                            </span>
+                          );
+                        })()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {HEADER_LANGS.map((l) => (
+                        <SelectItem key={l.value} value={l.value}>
+                          <span className="flex items-center gap-2">
+                            <span className="text-base leading-none">{l.flag}</span>
+                            <span>{l.label}</span>
+                            <span className="text-muted-foreground text-xs">({l.code})</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <p className="text-xs text-muted-foreground hidden sm:block truncate">
                   {inquiry.company_name && <><Building2 className="h-3 w-3 inline mr-1" />{inquiry.company_name} · </>}
