@@ -544,16 +544,6 @@ export function OfferAcceptanceDrawer({
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="adj-reason" className="text-xs">Grund der Anpassung</Label>
-              <Input
-                id="adj-reason"
-                value={adjustmentReason}
-                onChange={(e) => setAdjustmentReason(e.target.value)}
-                placeholder="z.B. Tiramisu gegen Panna Cotta getauscht"
-              />
-            </div>
-
             {chosen && draftMenu && (
               <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-sm space-y-3">
                 <p className="font-medium text-foreground">
