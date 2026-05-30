@@ -1808,9 +1808,11 @@ function FinalOptionCard({
 function ConfirmationView({
   inquiry,
   options,
+  lang,
 }: {
   inquiry: PublicInquiry;
   options: PublicOfferOption[];
+  lang: OfferLang;
 }) {
   const selectedOption = inquiry.selected_option_id
     ? options.find((o) => o.id === inquiry.selected_option_id)
@@ -1834,26 +1836,26 @@ function ConfirmationView({
             <CheckCircle2 className="h-8 w-8 text-emerald-600" />
           </div>
           <h2 className="text-2xl md:text-3xl font-serif font-bold mb-5">
-            Buchung bestätigt!
+            {tOffer(lang, 'bookingConfirmed')}
           </h2>
           {selectedOption && (
             <p className="text-muted-foreground font-sans mb-2">
               <strong className="text-foreground">{selectedOption.package_name}</strong>
-              {" "}für {selectedOption.guest_count} Gäste —{" "}
+              {" "}{tOffer(lang, 'forGuests').replace('{n}', String(selectedOption.guest_count))} —{" "}
               {pricePerPerson > 0
-                ? `${formatCurrencyDecimal(pricePerPerson)} pro Person`
-                : `${formatCurrency(selectedOption.total_amount)} Gesamtpreis`}
+                ? `${formatCurrencyDecimal(pricePerPerson, lang)} ${tOffer(lang, 'perPersonSuffix')}`
+                : `${formatCurrency(selectedOption.total_amount, lang)} ${tOffer(lang, 'totalSuffix')}`}
             </p>
           )}
           {inquiry.preferred_date && (
             <p className="text-lg font-serif font-semibold text-foreground mb-2">
               {inquiry.event_end_date
-                ? `${format(parseISO(inquiry.preferred_date), "EEEE, d. MMMM", { locale: de })} – ${format(parseISO(inquiry.event_end_date), "d. MMMM yyyy", { locale: de })}`
-                : format(parseISO(inquiry.preferred_date), "EEEE, d. MMMM yyyy", { locale: de })}
+                ? `${format(parseISO(inquiry.preferred_date), "EEEE, d. MMMM", { locale: dateFnsLocale(lang) })} – ${format(parseISO(inquiry.event_end_date), "d. MMMM yyyy", { locale: dateFnsLocale(lang) })}`
+                : format(parseISO(inquiry.preferred_date), "EEEE, d. MMMM yyyy", { locale: dateFnsLocale(lang) })}
             </p>
           )}
           <p className="text-muted-foreground font-sans mt-6">
-            Wir freuen uns auf Ihr Event! Bei Fragen erreichen Sie uns jederzeit.
+            {tOffer(lang, 'weLookForward')}
           </p>
         </div>
 
@@ -1867,7 +1869,7 @@ function ConfirmationView({
             <div className="max-w-2xl mt-12">
               <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/60 dark:border-white/20 rounded-2xl px-6 py-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
                 <h3 className="font-serif text-lg font-bold text-foreground mb-5">
-                  Ihr gewähltes Menü
+                  {tOffer(lang, 'yourSelectedMenu')}
                 </h3>
                 {courses.length > 0 && (
                   <div className="space-y-4">
