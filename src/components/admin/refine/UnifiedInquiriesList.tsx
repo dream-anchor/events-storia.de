@@ -408,6 +408,7 @@ export const UnifiedInquiriesList = () => {
                   <span className="flex items-center gap-2">
                     <ServiceBadge serviceType={r.serviceType} compact />
                     <span className="truncate">{r.companyName || r.customerName}</span>
+                    <LangBadge lang={r.customerLanguage} />
                   </span>
                 }
                 subtitle={
