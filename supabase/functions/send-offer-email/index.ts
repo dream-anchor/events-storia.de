@@ -3,6 +3,50 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
 import { resolveV2Event } from '../_shared/v2-lookup.ts';
+import { resolveCustomerLanguage, emailLanguagePlan, bilingualSubject, type CustomerLang } from '../_shared/customer-language.ts';
+
+/** Per-language chrome strings (subject, CTA, preheader, footer, etc.). */
+const CHROME: Record<CustomerLang, {
+  subject: string;
+  preheader: string;
+  intro: string;
+  cta: string;
+  explainer: string;
+  footerSub: string;
+}> = {
+  de: {
+    subject: 'Ihr Angebot von STORIA Events',
+    preheader: 'Ihr persönliches Angebot ist online bereit. Jetzt ansehen und buchen.',
+    intro: 'Ihr persönliches Angebot ist online bereit:',
+    cta: 'Angebot ansehen',
+    explainer: 'Alle Details einsehen, Favoriten wählen und bequem online buchen.',
+    footerSub: 'Catering & Events — München',
+  },
+  en: {
+    subject: 'Your offer from STORIA Events',
+    preheader: 'Your personal offer is ready online. View and book it now.',
+    intro: 'Your personal offer is ready online:',
+    cta: 'View offer',
+    explainer: 'Review all details, pick your favourites and book conveniently online.',
+    footerSub: 'Catering & Events — Munich',
+  },
+  it: {
+    subject: 'La vostra offerta di STORIA Events',
+    preheader: 'La vostra offerta personalizzata è online. Apritela e prenotate.',
+    intro: 'La vostra offerta personalizzata è online:',
+    cta: 'Apri l’offerta',
+    explainer: 'Consultate tutti i dettagli, scegliete i preferiti e prenotate online.',
+    footerSub: 'Catering & Eventi — Monaco di Baviera',
+  },
+  fr: {
+    subject: 'Votre offre STORIA Events',
+    preheader: 'Votre offre personnalisée est en ligne. Consultez-la et réservez.',
+    intro: 'Votre offre personnalisée est en ligne :',
+    cta: 'Voir l’offre',
+    explainer: 'Consultez les détails, choisissez vos favoris et réservez en ligne.',
+    footerSub: 'Traiteur & Événements — Munich',
+  },
+};
 
 interface SendOfferEmailRequest {
   inquiryId: string;
