@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2, Ban, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2 } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -35,9 +35,7 @@ import { toast } from "sonner";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
 import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
 import { PrintMenu } from "@/components/admin/refine/print/PrintMenu";
-import { CancellationDialog } from "@/components/admin/shared/CancellationDialog";
 import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
-import { OfferAcceptanceDrawer } from "./OfferAcceptanceDrawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CustomerLang } from "./CustomerLanguageSelector";
 import { LanguageSwitchDialog, type TranslationScope } from "./LanguageSwitchDialog";
@@ -106,8 +104,6 @@ export const SmartInquiryEditor = () => {
   const [selectedOptionInfo, setSelectedOptionInfo] = useState<{ optionLabel: string; packageName: string } | null>(null);
   const [offerTotal, setOfferTotal] = useState<number | null>(null);
   const [sendSuccess, setSendSuccess] = useState<SendSuccessInfo | null>(null);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [showAcceptanceDrawer, setShowAcceptanceDrawer] = useState(false);
   const [customer, setCustomer] = useState<{ id?: string; account_invited_at?: string | null; account_activated_at?: string | null } | null>(null);
 
   const buildPersistableInquiryValues = useCallback((source: Record<string, unknown>) => {
@@ -164,25 +160,6 @@ export const SmartInquiryEditor = () => {
       if (data) setCustomer(data);
     })();
   }, [inquiry?.email]);
-
-  const handleCancelInquiry = async (customerMessage?: string) => {
-    if (!id) return;
-    const { error } = await (supabase as any)
-      .from("events")
-      .update({
-        status: "declined",
-        internal_notes: customerMessage
-          ? `${inquiry?.internal_notes ? inquiry.internal_notes + "\n\n" : ""}— Absage-Nachricht (${new Date().toLocaleString("de-DE")}) —\n${customerMessage}`
-          : inquiry?.internal_notes,
-      })
-      .eq("id", id);
-    if (error) {
-      toast.error("Fehler beim Absagen", { description: error.message });
-      throw error;
-    }
-    toast.success(customerMessage ? "Anfrage abgesagt – Nachricht protokolliert" : "Anfrage abgesagt");
-    inquiryQuery.query.refetch();
-  };
 
   // Reset-Effect: Wenn die URL-ID wechselt (Navigation zu anderer Anfrage),
   // muessen wir erlauben dass der lokale State aus der neuen Inquiry
