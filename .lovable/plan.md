@@ -1,33 +1,49 @@
 ## Ziel
 
-Im Inquiry-Editor: Button heißt **„Rechnung schicken"** und ist nie ausgegraut (sofern Angebot angenommen). Klick öffnet immer die **Vorschau** zuerst — auch wenn noch keine LexOffice-Rechnung existiert. Im Dialog kann die Endrechnung dann mit einem Klick erzeugt werden, danach erscheinen PDF-Vorschau und Versand-Button.
+1. Buttons **„Anfrage absagen"** und **„Angebot annehmen"** im Inquiry-Editor ersatzlos entfernen (samt zugehörigem Dialog/Drawer).
+2. Button **„Rechnung schicken"** ist **jederzeit** verfügbar (unabhängig vom Status), öffnet **immer zuerst die Vorschau** (E-Mail + PDF). Versand erst nach expliziter Freigabe im Dialog.
 
 ## Änderungen
 
-### 1. `SmartInquiryEditor.tsx` (Header-Button)
+### `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx`
 
-- Bedingung vereinfachen: Button erscheint sobald `isOfferSent` (oder besser: Angebot accepted) — **kein `hasInvoice`-Disabled-Zustand mehr**.
-- Label immer **„Rechnung schicken"** (kein Wechsel auf „erneut senden"; stattdessen Tooltip mit letztem Versanddatum, falls vorhanden).
-- `onClick` öffnet immer `setInvoiceDialogOpen(true)` — keine Vorbedingung mehr.
+**Entfernen:**
+- Import `CancellationDialog` (Zeile 38)
+- Import `OfferAcceptanceDrawer` (Zeile 40)
+- State `showCancelDialog`, `showAcceptanceDrawer` (Zeile 109–110)
+- Handler `handleCancelInquiry` (Zeile 168 ff., falls nirgendwo sonst genutzt)
+- Button-Block „Anfrage absagen" (Zeilen 1124–1134)
+- Button-Block „Angebot annehmen" (Zeilen 1135–1148)
+- `<CancellationDialog ... />` und `<OfferAcceptanceDrawer ... />` (Zeilen 1163–1184)
+- Nicht mehr verwendete Icon-Imports (`Ban`, `CheckCircle2`) prüfen
 
-### 2. `SendInvoiceDialog.tsx` (Vorschau-Dialog)
+**Anpassen — „Rechnung schicken"-Button:**
+- Sichtbarkeitsbedingung von `isOfferSent` lösen → **immer sichtbar**, sobald ein Empfänger (`inquiry.email`) existiert.
+- Niemals disabled. Tooltip zeigt letztes Versanddatum, falls vorhanden, sonst „Vorschau öffnen".
+- `onClick` öffnet immer den `SendInvoiceDialog`.
 
-- Neuer State: `invoiceExists` (aus aktueller `lexoffice_invoice_id` + `lexoffice_document_type === 'invoice'`).
-- **Wenn keine Rechnung existiert:**
-  - PDF-Tab zeigt Hinweis-Card: „Noch keine Rechnung in LexOffice vorhanden." + Button **„Endrechnung jetzt erzeugen"**.
-  - Klick ruft Edge Function `create-lexoffice-final-invoice` mit `{ inquiry_id }` auf, zeigt Lade-Spinner, refetcht danach die `inquiry`-Row und lädt PDF via bestehendem `get-lexoffice-document`.
-  - E-Mail-Tab funktioniert unverändert (Preview unabhängig vom PDF).
-  - Footer-Button **„Senden an …"** bleibt disabled, solange keine Rechnung existiert. Tooltip erklärt: „Bitte zuerst Endrechnung erzeugen."
-- **Wenn Rechnung existiert:** unverändertes Verhalten (PDF laden, Versand möglich).
+### `src/components/admin/refine/InquiryEditor/SendInvoiceDialog.tsx`
 
-### 3. Keine DB-/Migrations-Änderungen
+Bereits umgesetztes Verhalten bleibt:
+- Dialog öffnet mit E-Mail-Vorschau + PDF-Vorschau-Tab.
+- Wenn keine LexOffice-Rechnung existiert → Hinweis-Card + Button **„Endrechnung jetzt erzeugen"** (ruft `create-lexoffice-final-invoice`).
+- Footer-Button **„Senden an …"** disabled, bis Rechnung existiert.
+- Versand erst nach Klick auf „Senden" — das ist die Freigabe.
 
-- `invoice_email_sent_at` etc. bleiben wie sie sind.
-- `create-lexoffice-final-invoice` existiert bereits — keine neue Edge Function nötig.
+Keine weiteren Änderungen am Dialog nötig.
+
+### Datei-Cleanup
+
+- **Löschen:** `src/components/admin/refine/InquiryEditor/OfferAcceptanceDrawer.tsx` (nur hier importiert).
+- `CancellationDialog` bleibt erhalten (wird ggf. an anderer Stelle verwendet) — nur Import hier entfernen.
+
+### Keine DB-/Migration-Änderungen
+
+Status-Updates (`status = 'confirmed'` / `'declined'`) bleiben weiterhin durch Public-Offer-Flow, Stripe-Webhooks und Rechnungserstellung möglich.
 
 ## Dateien
 
-- **Edit:** `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` (~10 Zeilen rund um Zeile 1034-1055)
-- **Edit:** `src/components/admin/refine/InquiryEditor/SendInvoiceDialog.tsx` (Props erweitern um `invoiceExists` + `onInvoiceCreated`-Callback, neuer Inline-Erzeugen-Block im PDF-Tab + Disable-Logik im Footer)
+- **Edit:** `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx`
+- **Delete:** `src/components/admin/refine/InquiryEditor/OfferAcceptanceDrawer.tsx`
 
-~60 LOC, 2 Dateien, keine Migration.
+~80 LOC weg, 0 LOC dazu (Dialog ist fertig).
