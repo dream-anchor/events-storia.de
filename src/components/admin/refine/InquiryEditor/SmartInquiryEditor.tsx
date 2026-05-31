@@ -1031,25 +1031,21 @@ export const SmartInquiryEditor = () => {
             )}
 
             {isOfferSent && (() => {
-              const hasInvoice = !!lexofficeDocId && lexofficeDocType === 'invoice';
               const sentAt = (inquiry as any)?.invoice_email_sent_at;
-              const title = !hasInvoice
-                ? 'Noch keine LexOffice-Rechnung vorhanden — bitte zuerst im Tab „Rechnungen / LexOffice" erstellen (oder via Stripe-Zahlung)'
-                : sentAt
-                  ? `Zuletzt versendet am ${new Date(sentAt).toLocaleString('de-DE')}`
-                  : 'Rechnung per E-Mail an Kunden senden';
+              const title = sentAt
+                ? `Zuletzt versendet am ${new Date(sentAt).toLocaleString('de-DE')} — Vorschau öffnen`
+                : 'Rechnung an Kunden schicken (mit Vorschau)';
               return (
                 <Button
                   variant="outline"
                   size="sm"
                   className="gap-2 px-2 sm:px-3"
-                  onClick={() => hasInvoice && setInvoiceDialogOpen(true)}
-                  disabled={!hasInvoice}
+                  onClick={() => setInvoiceDialogOpen(true)}
                   title={title}
                 >
                   <MailIcon className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    {sentAt ? 'Rechnung erneut senden' : 'Rechnung senden'}
+                    Rechnung schicken
                   </span>
                 </Button>
               );
@@ -1376,6 +1372,7 @@ export const SmartInquiryEditor = () => {
           defaultEmail={inquiry.email || ''}
           defaultLanguage={((inquiry?.customer_language as CustomerLang | null) || 'de')}
           invoiceNumber={(inquiry as any)?.final_lexoffice_invoice_number || (inquiry as any)?.invoice_lexoffice_number || null}
+          hasInvoice={!!lexofficeDocId && lexofficeDocType === 'invoice'}
           onSent={() => { /* Refine refetches via realtime — no-op */ }}
         />
       )}
