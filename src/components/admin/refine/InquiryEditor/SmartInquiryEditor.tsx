@@ -1024,6 +1024,9 @@ export const SmartInquiryEditor = () => {
                   <span className="hidden sm:inline">
                     Rechnung schicken
                   </span>
+                  <span className="hidden sm:inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                    Vorschau
+                  </span>
                 </Button>
               );
             })()}
