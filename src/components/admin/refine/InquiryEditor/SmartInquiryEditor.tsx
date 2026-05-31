@@ -1098,31 +1098,6 @@ export const SmartInquiryEditor = () => {
             }}
           />
         )}
-        {inquiry.status !== "declined" && inquiry.status !== "confirmed" && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs h-8 text-destructive hover:text-destructive"
-            onClick={() => setShowCancelDialog(true)}
-          >
-            <Ban className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Anfrage absagen</span>
-          </Button>
-        )}
-        {isOfferSent &&
-          !(inquiry as any)?.order_confirmed_at &&
-          inquiry.status !== "declined" &&
-          inquiry.status !== "confirmed" && (
-            <Button
-              size="sm"
-              className="gap-1.5 text-xs h-8 bg-foreground text-background hover:bg-foreground/90"
-              onClick={() => setShowAcceptanceDrawer(true)}
-              title="Angebot wurde angenommen — online oder telefonisch"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Angebot annehmen</span>
-            </Button>
-          )}
         {isOfferSent && (
           <Button
             variant="outline"
@@ -1136,29 +1111,6 @@ export const SmartInquiryEditor = () => {
           </Button>
         )}
       </div>
-
-      <CancellationDialog
-        open={showCancelDialog}
-        onOpenChange={setShowCancelDialog}
-        context="inquiry"
-        customerName={inquiry.contact_name || ""}
-        orderNumber={`Anfrage #${(inquiry.id || "").slice(0, 8)}`}
-        eventDate={inquiry.preferred_date || undefined}
-        onConfirm={(msg) => handleCancelInquiry(msg)}
-        title="Anfrage absagen"
-        confirmLabel="Absagen & Nachricht protokollieren"
-      />
-
-      <OfferAcceptanceDrawer
-        open={showAcceptanceDrawer}
-        onClose={() => setShowAcceptanceDrawer(false)}
-        inquiryId={id!}
-        customerName={inquiry.contact_name}
-        preferredDate={inquiry.preferred_date}
-        onConfirmed={() => {
-          inquiryQuery.query.refetch();
-        }}
-      />
 
       {/* Main Content — Tab-Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
