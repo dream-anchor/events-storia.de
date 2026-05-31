@@ -225,10 +225,17 @@ serve(async (req) => {
 
     const { data: inquiry, error: invErr } = await supabase
       .from('v2_events')
-      .select('id, email, contact_name, company_name, customer_language, date, guest_count, amount_total, invoice_lexoffice_id, invoice_lexoffice_number, final_lexoffice_invoice_id, final_lexoffice_invoice_number, is_test')
+      .select('id, customer_id, company_name, customer_language, date, guest_count, amount_total, invoice_lexoffice_id, invoice_lexoffice_number, final_lexoffice_invoice_id, final_lexoffice_invoice_number, is_test, customer:v2_customers!v2_events_customer_id_fkey(email, name, company)')
       .eq('id', body.inquiry_id)
       .single();
-    if (invErr || !inquiry) throw new Error('Anfrage nicht gefunden');
+    if (invErr || !inquiry) {
+      log('inquiry fetch failed', { err: invErr?.message, inquiry_id: body.inquiry_id });
+      throw new Error(`Anfrage nicht gefunden: ${invErr?.message || 'no row'}`);
+    }
+
+    const customer = (inquiry as any).customer || {};
+    const contactName: string | null = customer.name || null;
+    const customerEmail: string | null = customer.email || null;
 
     const lexofficeInvoiceId: string | null =
       (inquiry as any).final_lexoffice_invoice_id || (inquiry as any).invoice_lexoffice_id || null;
@@ -237,7 +244,7 @@ serve(async (req) => {
 
     if (!lexofficeInvoiceId) throw new Error('Keine LexOffice-Rechnung mit dieser Buchung verknüpft');
 
-    const recipient = body.recipient_email?.trim() || (inquiry as any).email;
+    const recipient = body.recipient_email?.trim() || customerEmail;
     if (!recipient) throw new Error('Keine Empfänger-Adresse vorhanden');
 
     const dbLang = await resolveCustomerLanguage(supabase, body.inquiry_id).catch(() => 'de' as CustomerLang);
@@ -249,11 +256,11 @@ serve(async (req) => {
       de: CHROME.de.subject, en: CHROME.en.subject, it: CHROME.it.subject, fr: CHROME.fr.subject,
     });
 
-    const totalCents = (inquiry as any).amount_total as number | null;
-    const totalEuro = typeof totalCents === 'number' ? totalCents / 100 : null;
+    const amountTotal = (inquiry as any).amount_total;
+    const totalEuro = amountTotal != null ? Number(amountTotal) : null;
 
     const html = buildInvoiceEmailHtml(lang, {
-      contactName: (inquiry as any).contact_name || null,
+      contactName,
       invoiceNumber,
       eventDate: (inquiry as any).date || null,
       guestCount: (inquiry as any).guest_count || null,
