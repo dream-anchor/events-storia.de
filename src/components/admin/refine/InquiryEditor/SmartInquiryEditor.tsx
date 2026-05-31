@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2, Ban, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2 } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -35,9 +35,7 @@ import { toast } from "sonner";
 import { useRegisterSaveStatus } from "@/components/admin/shared/SaveStatusContext";
 import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
 import { PrintMenu } from "@/components/admin/refine/print/PrintMenu";
-import { CancellationDialog } from "@/components/admin/shared/CancellationDialog";
 import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
-import { OfferAcceptanceDrawer } from "./OfferAcceptanceDrawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CustomerLang } from "./CustomerLanguageSelector";
 import { LanguageSwitchDialog, type TranslationScope } from "./LanguageSwitchDialog";
@@ -106,8 +104,6 @@ export const SmartInquiryEditor = () => {
   const [selectedOptionInfo, setSelectedOptionInfo] = useState<{ optionLabel: string; packageName: string } | null>(null);
   const [offerTotal, setOfferTotal] = useState<number | null>(null);
   const [sendSuccess, setSendSuccess] = useState<SendSuccessInfo | null>(null);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [showAcceptanceDrawer, setShowAcceptanceDrawer] = useState(false);
   const [customer, setCustomer] = useState<{ id?: string; account_invited_at?: string | null; account_activated_at?: string | null } | null>(null);
 
   const buildPersistableInquiryValues = useCallback((source: Record<string, unknown>) => {
@@ -164,25 +160,6 @@ export const SmartInquiryEditor = () => {
       if (data) setCustomer(data);
     })();
   }, [inquiry?.email]);
-
-  const handleCancelInquiry = async (customerMessage?: string) => {
-    if (!id) return;
-    const { error } = await (supabase as any)
-      .from("events")
-      .update({
-        status: "declined",
-        internal_notes: customerMessage
-          ? `${inquiry?.internal_notes ? inquiry.internal_notes + "\n\n" : ""}— Absage-Nachricht (${new Date().toLocaleString("de-DE")}) —\n${customerMessage}`
-          : inquiry?.internal_notes,
-      })
-      .eq("id", id);
-    if (error) {
-      toast.error("Fehler beim Absagen", { description: error.message });
-      throw error;
-    }
-    toast.success(customerMessage ? "Anfrage abgesagt – Nachricht protokolliert" : "Anfrage abgesagt");
-    inquiryQuery.query.refetch();
-  };
 
   // Reset-Effect: Wenn die URL-ID wechselt (Navigation zu anderer Anfrage),
   // muessen wir erlauben dass der lokale State aus der neuen Inquiry
@@ -1030,7 +1007,7 @@ export const SmartInquiryEditor = () => {
               </Button>
             )}
 
-            {isOfferSent && (() => {
+            {!!inquiry?.email && (() => {
               const sentAt = (inquiry as any)?.invoice_email_sent_at;
               const title = sentAt
                 ? `Zuletzt versendet am ${new Date(sentAt).toLocaleString('de-DE')} — Vorschau öffnen`
@@ -1121,31 +1098,6 @@ export const SmartInquiryEditor = () => {
             }}
           />
         )}
-        {inquiry.status !== "declined" && inquiry.status !== "confirmed" && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs h-8 text-destructive hover:text-destructive"
-            onClick={() => setShowCancelDialog(true)}
-          >
-            <Ban className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Anfrage absagen</span>
-          </Button>
-        )}
-        {isOfferSent &&
-          !(inquiry as any)?.order_confirmed_at &&
-          inquiry.status !== "declined" &&
-          inquiry.status !== "confirmed" && (
-            <Button
-              size="sm"
-              className="gap-1.5 text-xs h-8 bg-foreground text-background hover:bg-foreground/90"
-              onClick={() => setShowAcceptanceDrawer(true)}
-              title="Angebot wurde angenommen — online oder telefonisch"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Angebot annehmen</span>
-            </Button>
-          )}
         {isOfferSent && (
           <Button
             variant="outline"
@@ -1159,29 +1111,6 @@ export const SmartInquiryEditor = () => {
           </Button>
         )}
       </div>
-
-      <CancellationDialog
-        open={showCancelDialog}
-        onOpenChange={setShowCancelDialog}
-        context="inquiry"
-        customerName={inquiry.contact_name || ""}
-        orderNumber={`Anfrage #${(inquiry.id || "").slice(0, 8)}`}
-        eventDate={inquiry.preferred_date || undefined}
-        onConfirm={(msg) => handleCancelInquiry(msg)}
-        title="Anfrage absagen"
-        confirmLabel="Absagen & Nachricht protokollieren"
-      />
-
-      <OfferAcceptanceDrawer
-        open={showAcceptanceDrawer}
-        onClose={() => setShowAcceptanceDrawer(false)}
-        inquiryId={id!}
-        customerName={inquiry.contact_name}
-        preferredDate={inquiry.preferred_date}
-        onConfirmed={() => {
-          inquiryQuery.query.refetch();
-        }}
-      />
 
       {/* Main Content — Tab-Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
