@@ -1,60 +1,33 @@
 ## Ziel
 
-Im Inquiry-Editor einen Button **"Rechnung an Kunden senden"** ergänzen — sobald eine LexOffice-Rechnung existiert (Stripe-Webhook oder manuell). Klick öffnet einen **Vorschau-Dialog** mit PDF-Preview und E-Mail-Entwurf; Versand erst nach Bestätigung.
+Im Inquiry-Editor: Button heißt **„Rechnung schicken"** und ist nie ausgegraut (sofern Angebot angenommen). Klick öffnet immer die **Vorschau** zuerst — auch wenn noch keine LexOffice-Rechnung existiert. Im Dialog kann die Endrechnung dann mit einem Klick erzeugt werden, danach erscheinen PDF-Vorschau und Versand-Button.
 
-## UX-Flow
+## Änderungen
 
-1. Header neben "Rechnung PDF" → neuer Button **"Rechnung senden"** (Mail-Icon, monochrom outline).
-   - Sichtbar wenn `lexoffice_document_type === 'invoice'` und `lexoffice_invoice_id` vorhanden.
-   - Badge "Bereits versendet am …" wenn `invoice_sent_at` gesetzt (sonst trotzdem erneut sendbar).
-2. Klick → `SendInvoiceDialog` (max-w-4xl, scrollbar):
-   - **Linke Spalte:** Empfänger (editierbar), Sprache (DE/EN/IT/FR — default = `customer_language`), Betreff (auto, editierbar), kurze Notiz/Zusatztext (optional, wird in den Body eingefügt).
-   - **Rechte Spalte:** Live-Preview = Tabs `E-Mail` (HTML-Render in iframe via srcDoc) / `Rechnung PDF` (iframe der LexOffice-PDF, Blob via bestehendem `get-lexoffice-document`).
-   - Footer: `Abbrechen` · `Senden an kunde@…` (primary).
-3. Versand → Toast + Eintrag in Email-History + `invoice_sent_at` Timestamp.
+### 1. `SmartInquiryEditor.tsx` (Header-Button)
 
-## E-Mail-Inhalt
+- Bedingung vereinfachen: Button erscheint sobald `isOfferSent` (oder besser: Angebot accepted) — **kein `hasInvoice`-Disabled-Zustand mehr**.
+- Label immer **„Rechnung schicken"** (kein Wechsel auf „erneut senden"; stattdessen Tooltip mit letztem Versanddatum, falls vorhanden).
+- `onClick` öffnet immer `setInvoiceDialogOpen(true)` — keine Vorbedingung mehr.
 
-Bilingual nach bestehendem Standard (DE oben, Separator, EN unten; bei IT/FR primär + EN sekundär). Body:
-- Anrede
-- Kurzer Hinweis: "Anbei die Rechnung zu Ihrer Buchung [Order-Nr] vom [Datum]"
-- Eventdetails-Kompaktblock (Datum, Gäste, Gesamtbetrag aus Maestro 1:1)
-- Optionaler Zusatztext aus Dialog
-- Signatur (dynamisch aus admin_identity, wie bei Angeboten)
-- BCC: info@events-storia.de
-- Attachment: LexOffice-Rechnungs-PDF
+### 2. `SendInvoiceDialog.tsx` (Vorschau-Dialog)
 
-## Technische Umsetzung
+- Neuer State: `invoiceExists` (aus aktueller `lexoffice_invoice_id` + `lexoffice_document_type === 'invoice'`).
+- **Wenn keine Rechnung existiert:**
+  - PDF-Tab zeigt Hinweis-Card: „Noch keine Rechnung in LexOffice vorhanden." + Button **„Endrechnung jetzt erzeugen"**.
+  - Klick ruft Edge Function `create-lexoffice-final-invoice` mit `{ inquiry_id }` auf, zeigt Lade-Spinner, refetcht danach die `inquiry`-Row und lädt PDF via bestehendem `get-lexoffice-document`.
+  - E-Mail-Tab funktioniert unverändert (Preview unabhängig vom PDF).
+  - Footer-Button **„Senden an …"** bleibt disabled, solange keine Rechnung existiert. Tooltip erklärt: „Bitte zuerst Endrechnung erzeugen."
+- **Wenn Rechnung existiert:** unverändertes Verhalten (PDF laden, Versand möglich).
 
-**Neu:**
-- `supabase/functions/send-invoice-email/index.ts` — orientiert sich an `send-payment-email`:
-  - Input: `{ inquiry_id, recipient_email?, language?, extra_note? }`
-  - Lädt LexOffice-PDF via interner Fetch zu `get-lexoffice-document` (mit `documentFileId`-Flow), base64-encoded als Resend-Attachment
-  - Nutzt `_shared/customer-language.ts` + `_shared/email-i18n.ts` für bilingualen Body
-  - Schreibt nach Versand: `event_inquiries.invoice_sent_at = now()` (neue Spalte, Migration unten) + Eintrag in `event_emails`-History
-- `src/components/admin/refine/InquiryEditor/SendInvoiceDialog.tsx` — Dialog mit Vorschau (PDF iframe + HTML srcDoc), nutzt `supabase.functions.invoke('send-invoice-email')`. Preview-HTML wird clientseitig nach demselben Template gerendert (kleine helper-Funktion, Edge-Function ist Source of Truth für Versand).
+### 3. Keine DB-/Migrations-Änderungen
 
-**Geändert:**
-- `SmartInquiryEditor.tsx` — Button neben `Rechnung PDF` (Zeile ~1009-1026), State für Dialog, Anzeige `invoice_sent_at`-Badge.
+- `invoice_email_sent_at` etc. bleiben wie sie sind.
+- `create-lexoffice-final-invoice` existiert bereits — keine neue Edge Function nötig.
 
-**Migration:**
-```sql
-ALTER TABLE public.v2_events
-  ADD COLUMN IF NOT EXISTS invoice_sent_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS invoice_sent_by UUID;
-```
+## Dateien
 
-## Scope-Grenzen
+- **Edit:** `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` (~10 Zeilen rund um Zeile 1034-1055)
+- **Edit:** `src/components/admin/refine/InquiryEditor/SendInvoiceDialog.tsx` (Props erweitern um `invoiceExists` + `onInvoiceCreated`-Callback, neuer Inline-Erzeugen-Block im PDF-Tab + Disable-Logik im Footer)
 
-- Keine Änderung an LexOffice-Erstellung selbst (passiert weiterhin im Stripe-Webhook bzw. via "Manuelle Rechnung").
-- Keine automatische Bilingual-Übersetzung des PDFs (LexOffice-Sprache bleibt wie erstellt — nur die E-Mail-Hülle ist bilingual).
-- Kein Cron/Automatik — nur manueller Versand auf Klick.
-
-## Dateien (Übersicht)
-
-- **Neu:** `supabase/functions/send-invoice-email/index.ts`
-- **Neu:** `src/components/admin/refine/InquiryEditor/SendInvoiceDialog.tsx`
-- **Edit:** `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx`
-- **Migration:** `v2_events.invoice_sent_at` + `invoice_sent_by`
-
-~3 Dateien + 1 Migration, ~350 LOC.
+~60 LOC, 2 Dateien, keine Migration.
