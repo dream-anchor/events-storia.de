@@ -1007,7 +1007,7 @@ export const SmartInquiryEditor = () => {
               </Button>
             )}
 
-            {isOfferSent && (() => {
+            {!!inquiry?.email && (() => {
               const sentAt = (inquiry as any)?.invoice_email_sent_at;
               const title = sentAt
                 ? `Zuletzt versendet am ${new Date(sentAt).toLocaleString('de-DE')} — Vorschau öffnen`
