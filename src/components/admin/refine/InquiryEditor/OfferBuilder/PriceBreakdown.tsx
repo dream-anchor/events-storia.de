@@ -263,10 +263,12 @@ export function PriceBreakdown({
         if (!c.itemId && !c.itemName) return null;
         const menuItem = findBestMenuItem(menuItems, c.itemId, c.itemName);
         const catalogPrice = menuItem?.price ?? null;
-        // overridePrice hat Vorrang, sonst Katalogpreis (voller Preis, ohne Rabatt)
+        // Einzelpreis stammt ausschließlich aus overridePrice — kein Katalog-Fallback.
+        // Leere Zeile = 0 € Beitrag ("inkl."), damit der Angebotspreis auf Löschungen
+        // reagiert (gleiches Verhalten wie im Paket-Modus / Network Aperitivo).
         const unitPrice = c.overridePrice != null && c.overridePrice > 0
           ? c.overridePrice
-          : (catalogPrice && catalogPrice > 0 ? catalogPrice : null);
+          : null;
         const quantity = c.quantity ?? 1;
         const lineTotal = unitPrice != null ? unitPrice * quantity : null;
         // Effektiver Modus pro Zeile: explizit > global-Fallback
