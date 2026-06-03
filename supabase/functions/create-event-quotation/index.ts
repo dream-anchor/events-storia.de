@@ -941,6 +941,10 @@ serve(async (req) => {
       inquiry as Record<string, unknown>,
       firstOpt.menu_selection,
       locationLine,
+      {
+        isInvoiceMode: forceDocumentType === 'invoice',
+        isFinalInvoice: !!isFinalInvoice,
+      },
     );
 
     // 6b. Zahlungs-Konditionen — pro Inquiry, Fallback auf site_settings.default_payment_terms
