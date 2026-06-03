@@ -1335,7 +1335,7 @@ export const SmartInquiryEditor = () => {
           inquiryId={inquiry.id}
           defaultEmail={inquiry.email || ''}
           defaultLanguage={((inquiry?.customer_language as CustomerLang | null) || 'de')}
-          invoiceNumber={(inquiry as any)?.final_lexoffice_invoice_number || (inquiry as any)?.invoice_lexoffice_number || null}
+          invoiceNumber={finalInvoiceMeta.finalInvoiceNumber || (inquiry as any)?.invoice_lexoffice_number || null}
           hasInvoice={!!lexofficeDocId && lexofficeDocType === 'invoice'}
           onSent={() => { /* Refine refetches via realtime — no-op */ }}
         />
