@@ -2,7 +2,26 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 3000;
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function fetchWithRetry(url: string, options: RequestInit, label: string): Promise<Response> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const response = await fetch(url, options);
+    const retryable = response.status === 500 || response.status === 429;
+    if (!retryable || attempt === MAX_RETRIES) {
+      if (retryable) console.error(`[${label}] All ${MAX_RETRIES} attempts failed (${response.status})`);
+      return response;
+    }
+    const ra = response.headers.get('Retry-After');
+    const delay = ra ? Math.min(parseInt(ra, 10) * 1000, 10_000) : RETRY_DELAY_MS * attempt;
+    console.warn(`[${label}] Status ${response.status}, attempt ${attempt}/${MAX_RETRIES} — waiting ${delay}ms`);
+    await sleep(delay);
+  }
+  throw new Error(`[${label}] retry loop exited unexpectedly`);
+}
 
 interface DocumentRequest {
   voucherId: string;
@@ -65,24 +84,58 @@ serve(async (req) => {
     };
     const endpoint = endpointMap[voucherType] || 'invoices';
 
-    // Fetch PDF from LexOffice
-    const lexofficeUrl = `https://api.lexoffice.io/v1/${endpoint}/${voucherId}/document`;
+    // ── 2-Step-Flow: /document (JSON) → documentFileId → /files/{id} (PDF) ──
+    const renderUrl = `https://api.lexoffice.io/v1/${endpoint}/${voucherId}/document`;
+    console.log(`Step 1: Rendering document from: ${renderUrl}`);
 
-    console.log(`Fetching document from: ${lexofficeUrl}`);
+    const docResponse = await fetchWithRetry(
+      renderUrl,
+      {
+        headers: {
+          'Authorization': `Bearer ${lexofficeApiKey}`,
+          'Accept': 'application/json',
+        },
+      },
+      `LexOffice /${endpoint}/document`
+    );
 
-    const pdfResponse = await fetch(lexofficeUrl, {
-      headers: {
-        'Authorization': `Bearer ${lexofficeApiKey}`,
-        'Accept': 'application/pdf'
-      }
-    });
-
-    if (!pdfResponse.ok) {
-      const errorText = await pdfResponse.text();
-      console.error(`LexOffice API error ${pdfResponse.status}:`, errorText);
+    if (!docResponse.ok) {
+      const errorText = await docResponse.text();
+      console.error(`LexOffice /document error ${docResponse.status}:`, errorText);
       return new Response(
         JSON.stringify({ error: 'Document not available from LexOffice' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const docData = await docResponse.json();
+    const documentFileId = docData?.documentFileId;
+    if (!documentFileId) {
+      console.error('No documentFileId received:', JSON.stringify(docData));
+      return new Response(
+        JSON.stringify({ error: 'No documentFileId from LexOffice' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Step 2: Downloading PDF via /files/${documentFileId}`);
+    const pdfResponse = await fetchWithRetry(
+      `https://api.lexoffice.io/v1/files/${documentFileId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${lexofficeApiKey}`,
+          'Accept': 'application/pdf',
+        },
+      },
+      'LexOffice /files'
+    );
+
+    if (!pdfResponse.ok) {
+      const errorText = await pdfResponse.text();
+      console.error(`LexOffice /files error ${pdfResponse.status}:`, errorText);
+      return new Response(
+        JSON.stringify({ error: 'PDF could not be downloaded from LexOffice' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
