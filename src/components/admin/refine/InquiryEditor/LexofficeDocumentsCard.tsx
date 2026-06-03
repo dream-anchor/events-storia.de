@@ -212,6 +212,62 @@ export function LexofficeDocumentsCard({ orderId }: Props) {
                         </Badge>
                       )}
                     </div>
+                    {(() => {
+                      const sends = d.sends ?? [];
+                      if (sends.length === 0) {
+                        return (
+                          <div className="text-[11px] text-muted-foreground/70 mt-1">
+                            Noch nicht versendet
+                          </div>
+                        );
+                      }
+                      const last = sends[0];
+                      const line = (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Send className="h-3 w-3" />
+                          {sends.length === 1 ? "Versendet" : "Zuletzt versendet"} am{" "}
+                          {fmtDateTime(last.sent_at)} an {last.to || "—"}
+                          {sends.length > 1 && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 ml-1"
+                            >
+                              × {sends.length}
+                            </Badge>
+                          )}
+                        </span>
+                      );
+                      if (sends.length === 1) {
+                        return (
+                          <div className="text-[11px] text-muted-foreground mt-1">
+                            {line}
+                          </div>
+                        );
+                      }
+                      return (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="text-[11px] text-muted-foreground mt-1 cursor-help">
+                                {line}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" align="start" className="max-w-xs">
+                              <div className="text-xs font-medium mb-1">
+                                Versand-Historie
+                              </div>
+                              <ul className="space-y-0.5">
+                                {sends.map((s, i) => (
+                                  <li key={i} className="text-[11px] text-muted-foreground">
+                                    {fmtDateTime(s.sent_at)} → {s.to || "—"}
+                                  </li>
+                                ))}
+                              </ul>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     <Button
