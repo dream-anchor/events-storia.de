@@ -968,17 +968,61 @@ serve(async (req) => {
       if (offerValidityDays == null) offerValidityDays = defaults.offer_validity_days ?? 14;
     }
 
-    // For invoice mode (invoice_after), use invoice-specific payment conditions
-    const paymentConditions = isInvoiceMode
-      ? {
-          paymentTermLabel: `Zahlbar innerhalb von ${invoiceDueDays} Tagen nach der Veranstaltung`,
-          paymentTermDuration: invoiceDueDays,
-        }
-      : buildPaymentConditions(depositPercent, depositDueDays, fixedDepositAmount);
+    // For invoice mode: Maestro-Zahlungskonditionen 1:1 abbilden.
+    // Schlussrechnung (isFinalInvoice): Restzahlung nutzt balance_method
+    // (z. B. Stripe-Link „balance_due_days_before_event“ Tage vor Event).
+    // Reguläre Rechnung (kein Final): Zahlungsziel nach invoice_due_days.
+    const balanceMethod = (inq.balance_method as string | null) || null;
+    const balanceDueDaysBeforeEvent =
+      (inq.balance_due_days_before_event as number | null) ?? null;
+    const depositMethod = (inq.deposit_method as string | null) || null;
 
-    const remarkText = isInvoiceMode
-      ? `Vielen Dank für Ihre Buchung. Das Zahlungsziel beträgt ${invoiceDueDays} Tage nach dem Veranstaltungsdatum.`
-      : buildRemarkText(depositPercent, offerValidityDays);
+    const labelForMethod = (m: string | null): string => {
+      switch (m) {
+        case 'stripe':
+        case 'stripe_now':
+        case 'stripe_prepay': return 'per Stripe (Online-Zahlung)';
+        case 'invoice':
+        case 'invoice_before':
+        case 'invoice_after': return 'per Überweisung';
+        case 'onsite':
+        case 'cash':
+        case 'card_onsite': return 'vor Ort (Bar / EC)';
+        default: return '';
+      }
+    };
+
+    let paymentConditions: { paymentTermLabel: string; paymentTermDuration: number };
+    let remarkText: string;
+
+    if (isInvoiceMode && isFinalInvoice) {
+      const dueDays = Math.max(1, balanceDueDaysBeforeEvent ?? invoiceDueDays);
+      const methodLabel = labelForMethod(balanceMethod);
+      paymentConditions = {
+        paymentTermLabel: methodLabel
+          ? `Restzahlung ${methodLabel} — fällig ${dueDays} Tage vor der Veranstaltung`
+          : `Restzahlung fällig ${dueDays} Tage vor der Veranstaltung`,
+        paymentTermDuration: dueDays,
+      };
+      const depLabel = labelForMethod(depositMethod);
+      const depInfo = (fixedDepositAmount && fixedDepositAmount > 0)
+        ? `Anzahlung ${fixedDepositAmount.toFixed(2)} €${depLabel ? ' ' + depLabel : ''}`
+        : (depositPercent && depositPercent > 0
+            ? `Anzahlung ${depositPercent}%${depLabel ? ' ' + depLabel : ''}`
+            : null);
+      remarkText = depInfo
+        ? `${depInfo}, Restbetrag ${paymentConditions.paymentTermLabel.replace(/^Restzahlung /, '')}. Vielen Dank für Ihre Buchung.`
+        : `${paymentConditions.paymentTermLabel}. Vielen Dank für Ihre Buchung.`;
+    } else if (isInvoiceMode) {
+      paymentConditions = {
+        paymentTermLabel: `Zahlbar innerhalb von ${invoiceDueDays} Tagen nach Rechnungseingang`,
+        paymentTermDuration: invoiceDueDays,
+      };
+      remarkText = `Vielen Dank für Ihre Buchung. Das Zahlungsziel beträgt ${invoiceDueDays} Tage nach Rechnungseingang.`;
+    } else {
+      paymentConditions = buildPaymentConditions(depositPercent, depositDueDays, fixedDepositAmount);
+      remarkText = buildRemarkText(depositPercent, offerValidityDays);
+    }
 
     // 7. LexOffice Dokument aufbauen — Empfänger aus resolved billing
     const addressBlock = {
