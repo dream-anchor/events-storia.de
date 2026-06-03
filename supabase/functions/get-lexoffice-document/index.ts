@@ -107,31 +107,49 @@ serve(async (req) => {
         .from('catering_orders')
         .select('id, order_number, lexoffice_invoice_id, lexoffice_document_type, user_id')
         .eq('id', orderId)
-        .single();
+        .maybeSingle();
 
-      if (orderError || !order) {
-        console.error('Order fetch error:', orderError);
-        return new Response(
-          JSON.stringify({ error: 'Order not found' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      let resolvedDocId: string | null = order?.lexoffice_invoice_id ?? null;
+      let resolvedDocType: string | null = order?.lexoffice_document_type ?? null;
+      let resolvedOrderNumber: string | null = order?.order_number ?? null;
+
+      // Fallback: event_inquiries (Maestro-Anfragen tragen LexOffice-IDs ebenfalls dort)
+      if (!resolvedDocId) {
+        const { data: inquiry, error: inquiryError } = await supabase
+          .from('event_inquiries')
+          .select('id, lexoffice_invoice_id, lexoffice_document_type')
+          .eq('id', orderId)
+          .maybeSingle();
+
+        if (inquiryError) {
+          console.error('event_inquiries fetch error:', inquiryError);
+        }
+
+        if (inquiry?.lexoffice_invoice_id) {
+          resolvedDocId = inquiry.lexoffice_invoice_id;
+          resolvedDocType = inquiry.lexoffice_document_type ?? null;
+
+          // booking_number kommt aus v2_events (gleiche ID via source_inquiry_id)
+          const { data: ev } = await supabase
+            .from('v2_events')
+            .select('booking_number')
+            .eq('id', orderId)
+            .maybeSingle();
+          resolvedOrderNumber = ev?.booking_number ?? null;
+        }
       }
 
-      if (order.user_id !== user.id) {
-        console.log(`Access granted via RLS for user ${user.id} on order ${order.id}`);
-      }
-
-      if (!order.lexoffice_invoice_id) {
-        console.log('No LexOffice document ID for this order');
+      if (!resolvedDocId) {
+        console.log('No LexOffice document ID for order/inquiry', orderId);
         return new Response(
           JSON.stringify({ error: 'No document available yet' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      lexofficeDocId = order.lexoffice_invoice_id;
-      docType = order.lexoffice_document_type || 'invoice';
-      orderNumber = order.order_number;
+      lexofficeDocId = resolvedDocId;
+      docType = resolvedDocType || voucherType || 'invoice';
+      orderNumber = resolvedOrderNumber;
     }
 
     // Determine LexOffice API endpoint
