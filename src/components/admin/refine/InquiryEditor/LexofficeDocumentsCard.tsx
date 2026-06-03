@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { FileText, Download, Ban, Loader2, RefreshCw, Maximize2 } from "lucide-react";
+import { FileText, Download, Ban, Loader2, RefreshCw, Maximize2, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +60,20 @@ function fmtDate(iso: string | null): string {
       day: "2-digit",
       month: "2-digit",
       year: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
+function fmtDateTime(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     }).format(new Date(iso));
   } catch {
     return iso;
