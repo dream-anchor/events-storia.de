@@ -1,31 +1,53 @@
-## Ursache
+## Zwei Fixes für die Belege-Karte
 
-Die Edge Function `get-lexoffice-document-by-id` (genutzt von der neuen Belege-Card für Vorschau & Download) ruft LexOffice mit dem alten 1-Schritt-Flow auf:
+### 1. Schlussrechnung: "Event-Angebot" → "Event-Rechnung"
 
-```
-GET /v1/{invoices|quotations}/{id}/document   Accept: application/pdf
-```
+**Problem:** Die Schlussrechnung (RE0026) zeigt im PDF-Body `Event-Angebot für den 17.7.2026` — sollte `Event-Rechnung` bzw. `Event-Schlussrechnung` heißen.
 
-LexOffice antwortet hier seit einiger Zeit mit **500 Internal server error** (Logs bestätigt: mehrere `LexOffice API error 500` für Angebote & Rechnungen). Die Funktion gibt deshalb 404/500 zurück → Frontend zeigt „Edge Function returned a non-2xx status code".
+**Ursache:** `create-lexoffice-final-invoice` ruft `create-event-quotation` mit `forceDocumentType=invoice` + `isFinalInvoice=true` auf. Die Funktion `buildIntroduction()` in `supabase/functions/create-event-quotation/index.ts` (Zeile 649–664) hardcodet aber immer `Event-Angebot für den …`.
 
-Die parallel vorhandene Funktion `get-lexoffice-document` nutzt bereits den korrekten **2-Step-Flow mit Retry** (Memory: „LexOffice Retrievals — 2-step fetch, 3 retries"):
+**Fix:** `buildIntroduction()` bekommt zusätzliche Parameter `isInvoiceMode` und `isFinalInvoice` und wählt den Titel:
+- `isFinalInvoice` → `Event-Schlussrechnung für den …`
+- `isInvoiceMode` (Anzahlung/Standard) → `Event-Rechnung für den …`
+- sonst → `Event-Angebot für den …`
 
-1. `GET /v1/{endpoint}/{id}/document` mit `Accept: application/json` → liefert `documentFileId`
-2. `GET /v1/files/{documentFileId}` mit `Accept: application/pdf` → PDF-Binary
-3. Retry (3×) bei Status 500/429, mit `Retry-After` Berücksichtigung
+Aufruf an Zeile 933 entsprechend anpassen. Englische Varianten bleiben unverändert (Lex-Texte sind ohnehin DE).
 
-## Fix
+Zusätzlich denselben Fix in `supabase/functions/repair-quotation-pricing/index.ts` Zeile 359 nachziehen, damit eine Reparatur denselben Titel wieder herstellt.
 
-`supabase/functions/get-lexoffice-document-by-id/index.ts` an `get-lexoffice-document` angleichen:
+Bestehende RE0026 wird dadurch NICHT rückwirkend repariert (LexOffice-Beleg ist finalisiert) — nur neue Schluss-/Anzahlungsrechnungen erhalten den korrekten Titel.
 
-- `fetchWithRetry`-Helper übernehmen (3 Versuche, 500/429 retryable)
-- 1-Step `/document` mit `Accept: application/pdf` ersetzen durch 2-Step-Flow (JSON → `documentFileId` → `/files/{id}`)
-- `endpointMap` um `creditnote → credit-notes` ergänzen (bereits vorhanden, beibehalten)
-- Auth-Check, Response-Shape (`{ pdf, documentType, filename }`) unverändert lassen — Frontend bleibt kompatibel
-- Bei harten Fehlern weiterhin sauberen JSON-Error mit Status 404/502/500 zurückgeben (kein Throw nach außen)
+### 2. Versand-Historie pro Beleg anzeigen
 
-Keine Frontend-Änderungen nötig. Kein DB-Schema betroffen.
+**Ziel:** In der "Belege"-Karte und im Vorschau-Dialog soll bei jedem Beleg sichtbar sein, ob/wann/an wen er per Mail rausging.
 
-## Verifikation
+**Datenquellen (bereits vorhanden):**
+- **Angebot:** `email_delivery_logs` mit `entity_type='v2_event'`, `metadata->>'email_type'='offer_email'`, `metadata->>'lexoffice_quotation_id'` (matcht `doc.id`)
+- **Rechnung (Anzahlung/Schluss):** `activity_logs` mit `entity_type='v2_event'`, `action='invoice_email_sent'`, `metadata->>'lexoffice_invoice_id'` (matcht `doc.id`); zusätzlich `recipient` und `resend_message_id`
 
-Nach Deploy in der Belege-Card auf „Angebot AG0142" und „Schlussrechnung RE0026" klicken → Vorschau & Download liefern PDFs. Logs sollten `Step 1: Rendering…` / `Step 2: Downloading…` zeigen.
+**Umsetzung:**
+
+1. **Edge Function `list-lexoffice-documents`** erweitern: pro Order zusätzlich alle relevanten Sende-Events laden (in zwei Queries: `email_delivery_logs` für quotations, `activity_logs` für invoices) und pro Dokument ein Feld `sends: { to: string; sent_at: string; message_id?: string }[]` anhängen (chronologisch, neueste zuerst).
+
+2. **`OrderLexDoc`-Typ** in `src/hooks/useLexOfficeVouchers.ts` um `sends?: { to: string; sent_at: string; message_id?: string | null }[]` ergänzen.
+
+3. **`LexofficeDocumentsCard.tsx`** — pro `<li>` unter der Zeile mit Datum/Betrag/Status eine dezente Zeile rendern:
+   - keine Sends: kleiner muted Hinweis `Noch nicht versendet`
+   - 1 Send: `Versendet am 03.06.26 14:22 an info.starke.jonathan@web.de`
+   - >1 Sends: `Zuletzt versendet am … an …` + Badge `× N` mit Tooltip, der alle Sendungen listet
+
+4. **`LexofficeDocumentPreviewDialog.tsx`** — im Header (rechts neben Nummer/Status) eine Mini-Pill `Versendet · 03.06.26` mit Hover-Tooltip (vollständige Liste) ergänzen. Bei "nicht versendet" eine outline-Pill `Nicht versendet`.
+
+Keine DB-Migration nötig, keine Frontend-Routen-Änderung, kein neuer Endpoint — nur Edge-Function-Erweiterung + Render-Logik.
+
+### Verifizierung
+- Belege-Karte für AG0142 / RE0026 prüfen: Sendungen sichtbar inkl. Empfänger/Datum.
+- Neue Schlussrechnung erzeugen (Testkontext) → PDF-Intro lautet `Event-Schlussrechnung für den …`.
+
+### Geänderte Dateien
+- `supabase/functions/create-event-quotation/index.ts` (buildIntroduction-Signatur + Aufruf)
+- `supabase/functions/repair-quotation-pricing/index.ts` (analoger Text-Fix)
+- `supabase/functions/list-lexoffice-documents/index.ts` (Sends pro Doc laden)
+- `src/hooks/useLexOfficeVouchers.ts` (Typ)
+- `src/components/admin/refine/InquiryEditor/LexofficeDocumentsCard.tsx`
+- `src/components/admin/refine/InquiryEditor/LexofficeDocumentPreviewDialog.tsx`

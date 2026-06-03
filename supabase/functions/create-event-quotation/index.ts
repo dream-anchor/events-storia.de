@@ -650,12 +650,19 @@ function buildIntroduction(
   inquiry: Record<string, unknown> | null,
   ms: MenuSelectionDB | null,
   locationLine: string | null,
+  opts?: { isInvoiceMode?: boolean; isFinalInvoice?: boolean },
 ): string {
   // Hinweis: Speisen/Getraenke werden hier NICHT mehr aufgelistet (jetzt Line-Items).
   void ms;
   const rawDate = inquiry?.preferred_date ? String(inquiry.preferred_date) : null;
+  const dateLabel = rawDate ? formatDateDE(rawDate) : 'nach Vereinbarung';
+  const titlePrefix = opts?.isFinalInvoice
+    ? 'Event-Schlussrechnung'
+    : opts?.isInvoiceMode
+      ? 'Event-Rechnung'
+      : 'Event-Angebot';
   const parts = [
-    `Event-Angebot für den ${rawDate ? formatDateDE(rawDate) : 'nach Vereinbarung'}`,
+    `${titlePrefix} für den ${dateLabel}`,
     `Gäste: ${inquiry?.guest_count || '-'} Personen`,
     `Art: ${inquiry?.event_type ? capitalize(String(inquiry.event_type)) : '-'}`,
   ];
@@ -934,6 +941,10 @@ serve(async (req) => {
       inquiry as Record<string, unknown>,
       firstOpt.menu_selection,
       locationLine,
+      {
+        isInvoiceMode: forceDocumentType === 'invoice',
+        isFinalInvoice: !!isFinalInvoice,
+      },
     );
 
     // 6b. Zahlungs-Konditionen — pro Inquiry, Fallback auf site_settings.default_payment_terms

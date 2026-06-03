@@ -159,6 +159,11 @@ export interface OrderLexDoc {
   gross: number | null;
   status: string | null;
   paymentId?: string | null;
+  sends?: Array<{
+    to: string;
+    sent_at: string;
+    message_id?: string | null;
+  }>;
 }
 
 export const useOrderLexofficeDocuments = (orderId?: string | null) => {
