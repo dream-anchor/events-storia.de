@@ -425,9 +425,41 @@ export const SmartInquiryEditor = () => {
   }, []);
 
   // LexOffice document handling
-  const lexofficeDocId = (inquiry as any)?.lexoffice_invoice_id || inquiry?.lexoffice_quotation_id;
-  const lexofficeDocType = (inquiry as any)?.lexoffice_document_type ||
-    (inquiry?.lexoffice_quotation_id ? 'quotation' : null);
+  // v2_events ist Source of Truth — final_lexoffice_invoice_id (Schlussrechnung)
+  // wird im event_inquiries-View nicht abgebildet, daher separat laden.
+  const [finalInvoiceMeta, setFinalInvoiceMeta] = useState<{
+    finalInvoiceId: string | null;
+    finalInvoiceNumber: string | null;
+  }>({ finalInvoiceId: null, finalInvoiceNumber: null });
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    (supabase as any)
+      .from('v2_events')
+      .select('final_lexoffice_invoice_id, final_lexoffice_invoice_number')
+      .eq('id', id)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (cancelled) return;
+        setFinalInvoiceMeta({
+          finalInvoiceId: data?.final_lexoffice_invoice_id ?? null,
+          finalInvoiceNumber: data?.final_lexoffice_invoice_number ?? null,
+        });
+      });
+    return () => { cancelled = true; };
+  }, [id, (inquiry as any)?.updated_at]);
+
+  const lexofficeDocId =
+    finalInvoiceMeta.finalInvoiceId ||
+    (inquiry as any)?.lexoffice_invoice_id ||
+    inquiry?.lexoffice_quotation_id;
+  const lexofficeDocType =
+    finalInvoiceMeta.finalInvoiceId
+      ? 'invoice'
+      : (inquiry as any)?.lexoffice_document_type ||
+        ((inquiry as any)?.lexoffice_invoice_id ? 'invoice' : null) ||
+        (inquiry?.lexoffice_quotation_id ? 'quotation' : null);
 
   const handleDownloadDocument = async () => {
     setIsDownloading(true);
