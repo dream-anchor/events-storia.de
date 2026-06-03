@@ -394,7 +394,7 @@ export function PaymentCard({ inquiryId, preferredDate, offerTotal, isTest = fal
     try {
       const { data, error } = await supabase.functions.invoke(
         'create-lexoffice-final-invoice',
-        { body: { inquiry_id: inquiryId } }
+        { body: { inquiryId } }
       );
       if (error || !data?.success) {
         throw new Error(data?.error || error?.message || 'Schlussrechnung fehlgeschlagen');
