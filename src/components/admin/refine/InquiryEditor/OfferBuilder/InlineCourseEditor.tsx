@@ -376,16 +376,12 @@ function SortableCourseRow({
             }
             onUpdatePrice(idx, parsed);
           }}
-          placeholder={
-            packageMode
-              ? 'inkl.'
-              : (catalogPrice != null && catalogPrice > 0 ? catalogPrice.toFixed(2) : '—')
-          }
+          placeholder={'inkl.'}
           disabled={disabled}
           className={cn(
             "h-10 sm:h-8 rounded-lg pr-6 text-right text-sm tabular-nums",
-            packageMode && !hasOverride && "placeholder:text-muted-foreground/60 placeholder:italic",
-            packageMode && hasOverride && "text-foreground"
+            !hasOverride && "placeholder:text-muted-foreground/60 placeholder:italic",
+            hasOverride && "text-foreground"
           )}
           title={packageMode ? 'Aufpreis (optional)' : 'Einzelpreis'}
         />

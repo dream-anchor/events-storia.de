@@ -80,11 +80,9 @@ export function MobileCourseSheet({
   const catalogPrice = menuItem?.price ?? null;
   const hasOverride = draft.overridePrice != null && draft.overridePrice > 0;
   const quantity = draft.quantity ?? 1;
-  const unitPrice = hasOverride
-    ? draft.overridePrice!
-    : catalogPrice && catalogPrice > 0
-      ? catalogPrice
-      : null;
+  // Einzelpreis ausschließlich aus overridePrice — kein Katalog-Fallback.
+  // Leere Eingabe = 0 € Beitrag ("inkl.").
+  const unitPrice = hasOverride ? draft.overridePrice! : null;
   const lineTotal = unitPrice != null ? unitPrice * quantity : null;
   const fmtEUR = (n: number) =>
     new Intl.NumberFormat("de-DE", {
@@ -216,17 +214,7 @@ export function MobileCourseSheet({
                   inputMode="decimal"
                   step={0.01}
                   min={0}
-                  value={
-                    packageMode
-                      ? hasOverride
-                        ? draft.overridePrice!
-                        : ""
-                      : hasOverride
-                        ? draft.overridePrice!
-                        : catalogPrice && catalogPrice > 0
-                          ? catalogPrice
-                          : ""
-                  }
+                  value={hasOverride ? draft.overridePrice! : ""}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === "") {
@@ -240,13 +228,7 @@ export function MobileCourseSheet({
                     }
                     setDraft((d) => (d ? { ...d, overridePrice: parsed } : d));
                   }}
-                  placeholder={
-                    packageMode
-                      ? "inkl."
-                      : catalogPrice != null && catalogPrice > 0
-                        ? catalogPrice.toFixed(2)
-                        : "—"
-                  }
+                  placeholder="inkl."
                   className="h-12 pr-8 text-base text-right tabular-nums"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">

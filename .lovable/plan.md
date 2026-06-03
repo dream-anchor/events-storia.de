@@ -1,21 +1,42 @@
-## Befund
+## Ziel
 
-Die Rechnung wird nicht erstellt, weil `create-lexoffice-final-invoice` intern `create-event-quotation` aufruft. Diese Funktion ist aktuell mit JWT-Prüfung geschützt (`verify_jwt = true`). Beim internen Server-zu-Server-Aufruf wird aber der Service-Key als Bearer-Token gesendet; das wird vom Function-Gateway mit `401` abgelehnt, bevor die Funktion überhaupt startet. Deshalb gibt es Logs nur bei `create-lexoffice-final-invoice`, nicht bei `create-event-quotation`.
+Wenn der Einzelpreis eines Gerichts (in jedem Modus: Menü, Paket, Network Aperitivo) gelöscht wird:
+1. Input zeigt **"inkl."** als Placeholder.
+2. Die Zeile trägt **0 €** zur Summe bei — keine implizite Katalogpreis-Übernahme.
+3. **Angebotspreis / Person** (bzw. gesamt) passt sich sofort entsprechend an.
 
-## Plan
+## Änderungen
 
-1. **Interne LexOffice-Funktion aufrufbar machen**
-   - In `supabase/config.toml` `create-event-quotation` so konfigurieren, dass der Gateway den internen Aufruf nicht mit `401` blockiert.
-   - Die Funktion bleibt serverseitig abgesichert, weil sie weiterhin den Service-Role-Client für Datenzugriff nutzt und nicht öffentlich Daten freigibt.
+### 1. `PriceBreakdown.tsx` — Katalogpreis-Fallback entfernen
+Zeilen 267–269: `unitPrice` darf nicht mehr auf `catalogPrice` zurückfallen.
 
-2. **Interne Aufrufe vereinheitlichen**
-   - In `create-lexoffice-final-invoice` den internen Aufruf von `create-event-quotation` robust mit `apikey` und `Authorization` setzen.
-   - Den Request-Body korrigiert bei `inquiryId` belassen.
+```ts
+// vorher
+const unitPrice = c.overridePrice != null && c.overridePrice > 0
+  ? c.overridePrice
+  : (catalogPrice && catalogPrice > 0 ? catalogPrice : null);
+// nachher
+const unitPrice = c.overridePrice != null && c.overridePrice > 0
+  ? c.overridePrice
+  : null;
+```
 
-3. **Frontend-Fehler bei PaymentCard korrigieren**
-   - In `PaymentCard.tsx` wird aktuell `{ inquiry_id: inquiryId }` gesendet, die Funktion erwartet aber `{ inquiryId }`.
-   - Das wird auf `inquiryId` vereinheitlicht, damit die Schlussrechnung von allen Stellen funktioniert.
+Damit fließt eine geleerte Zeile mit 0 in `dishAbs`, der Subtotal sinkt, und `netDisplay` (= Errechnet/Person + Placeholder für Angebotspreis) reagiert direkt.
 
-4. **Validieren**
-   - Betroffene Edge Functions deployen/testen.
-   - Den Funktionsaufruf für die konkrete Anfrage `a14872bb-1e40-4fc5-9869-5a6864651062` prüfen, ohne zusätzliche UI-Änderungen.
+### 2. `InlineCourseEditor.tsx` — Placeholder vereinheitlichen
+Zeile 379–383: Placeholder ist immer `'inkl.'`, sobald kein Override gesetzt ist (egal ob `packageMode`). Italic/muted Styling auch im Menü-Modus aktivieren, damit es klar als "inkludiert" erkennbar ist.
+
+### 3. `MobileCourseSheet.tsx` — analoge Korrekturen
+- Zeilen 83–88: `unitPrice` Fallback auf Katalogpreis entfernen.
+- Zeilen 245–247: Placeholder im Preis-Input ebenfalls auf `'inkl.'` setzen.
+- Zeile 260: `lineTotal != null` bleibt — wenn null, keine Zeilen-Total-Anzeige.
+
+### 4. `useOfferBuilder.ts` — Konsistenz prüfen
+Zeile 660–662 berechnet `dishAbs` für die persistierte Gesamtsumme bereits korrekt nur aus `overridePrice` (kein Katalog-Fallback). Keine Änderung nötig — das bestätigt, dass die UI-Anzeige in `PriceBreakdown` der einzige Inkonsistenz-Punkt war.
+
+## Validierung
+
+- Im offenen Inquiry `a14872bb…` ein Gericht leeren: Input zeigt "inkl.", Subtotal/Angebotspreis sinken um den Wert des entfernten Preises × Gäste.
+- Network Aperitivo: Verhalten unverändert (Paket-Modus war bereits korrekt).
+- Mobile Sheet: gleiches Verhalten beim Leeren.
+- Gespeicherter Gesamtbetrag bleibt konsistent mit der UI-Anzeige.
