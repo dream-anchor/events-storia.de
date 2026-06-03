@@ -83,11 +83,17 @@ export const SendInvoiceDialog = ({
         // get-lexoffice-document returns base64 OR direct binary; try to handle both
         if (data instanceof Blob) {
           setPdfUrl(URL.createObjectURL(data));
-        } else if (data && typeof data === "object" && "pdf_base64" in (data as any)) {
-          const bin = atob((data as any).pdf_base64);
-          const arr = new Uint8Array(bin.length);
-          for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-          setPdfUrl(URL.createObjectURL(new Blob([arr], { type: "application/pdf" })));
+        } else if (data && typeof data === "object") {
+          const b64 =
+            (data as any).pdf ??
+            (data as any).pdf_base64 ??
+            null;
+          if (typeof b64 === "string" && b64.length > 0) {
+            const bin = atob(b64);
+            const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            setPdfUrl(URL.createObjectURL(new Blob([arr], { type: "application/pdf" })));
+          }
         }
       } catch (e) {
         console.warn("[SendInvoiceDialog] PDF preview unavailable:", e);
