@@ -148,6 +148,55 @@ export const useDownloadLexOfficeDocument = () => {
 };
 
 /**
+ * Per-order: list ALL LexOffice documents (quotation, deposit invoices, final invoice).
+ */
+export interface OrderLexDoc {
+  id: string;
+  type: 'invoice' | 'quotation';
+  kind: 'final' | 'standard' | 'deposit' | 'quotation';
+  number: string | null;
+  date: string | null;
+  gross: number | null;
+  status: string | null;
+  paymentId?: string | null;
+}
+
+export const useOrderLexofficeDocuments = (orderId?: string | null) => {
+  return useQuery({
+    queryKey: ['order-lex-docs', orderId],
+    enabled: !!orderId,
+    queryFn: async (): Promise<{ docs: OrderLexDoc[]; bookingNumber: string | null }> => {
+      const { data, error } = await supabase.functions.invoke('list-lexoffice-documents', {
+        body: { orderId },
+      });
+      if (error) throw error;
+      return data as { docs: OrderLexDoc[]; bookingNumber: string | null };
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+};
+
+export const useVoidLexofficeInvoice = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, voucherId }: { orderId: string; voucherId: string }) => {
+      const { data, error } = await supabase.functions.invoke('void-lexoffice-invoice', {
+        body: { orderId, voucherId },
+      });
+      if (error) throw error;
+      if (!(data as any)?.success) {
+        throw new Error((data as any)?.error || 'Storno fehlgeschlagen');
+      }
+      return data;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['order-lex-docs', vars.orderId] });
+    },
+  });
+};
+
+/**
  * Get count of open invoices for badge display
  */
 export const useOpenInvoicesCount = () => {
