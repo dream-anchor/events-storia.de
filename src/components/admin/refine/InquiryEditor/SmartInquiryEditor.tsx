@@ -1169,6 +1169,9 @@ export const SmartInquiryEditor = () => {
             onNavigateToDetails={() => setActiveTab('details')}
           />
 
+          {/* LexOffice-Belege — direkt sichtbar oben im Angebot-Tab */}
+          {id && <LexofficeDocumentsCard orderId={id} />}
+
           {/* Multi-Package Offer Section */}
           {inquiryType === 'event' ? (
             <OfferBuilder
@@ -1194,9 +1197,6 @@ export const SmartInquiryEditor = () => {
 
           {/* Versionsverlauf der versendeten Angebote — bleibt für event & catering */}
           {id && <OfferHistoryList inquiryId={id} />}
-
-          {/* LexOffice-Belege — Übersicht aller Angebote & Rechnungen */}
-          <LexofficeDocumentsCard orderId={id!} />
 
         </TabsContent>
 
