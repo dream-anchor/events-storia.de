@@ -6,7 +6,7 @@ import { createPaymentSession } from "@/lib/createPaymentSession";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { pickLang, OFFER_LANGS, OFFER_LANG_LABELS, isValidOfferLang, type OfferLang } from "@/lib/offerLang";
+import { pickLang, isValidOfferLang, type OfferLang } from "@/lib/offerLang";
 import { OrderConfirmationDialog } from "@/pages/public-offer/OrderConfirmationDialog";
 import { RestaurantGallery } from "@/pages/public-offer/RestaurantGallery";
 import { tOffer, dateFnsLocale, currencyLocale } from "@/pages/public-offer/i18n";
@@ -491,12 +491,6 @@ export default function PublicOffer() {
         <HeroSection inquiry={inquiry} phase={renderPhase} lang={lang} />
 
         <RestaurantGallery lang={lang} />
-
-        {/* Sprachumschalter — immer sichtbar (übersetzt UI-Labels + Anschreiben on-demand) */}
-        <OfferLanguageSwitcher
-          lang={lang}
-          onChange={setLang}
-        />
 
         {/* Anschreiben — immer sichtbar wenn vorhanden.
             Im Preview-Modus (Admin-iframe) wird previewBody aus der URL verwendet
