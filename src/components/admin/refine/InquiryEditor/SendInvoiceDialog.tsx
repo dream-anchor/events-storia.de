@@ -149,10 +149,10 @@ export const SendInvoiceDialog = ({
 
   // Re-render email preview when language / note changes
   useEffect(() => {
-    if (!open || !invoiceExists) return;
+    if (!open || !activeInvoiceId) return;
     let cancelled = false;
+    setPreview({ loading: true, html: null, subject: null, error: null });
     const handle = setTimeout(async () => {
-      setPreview((p) => ({ ...p, loading: true, error: null }));
       try {
         const { data, error } = await supabase.functions.invoke("send-invoice-email", {
           body: {
@@ -164,14 +164,22 @@ export const SendInvoiceDialog = ({
         });
         if (cancelled) return;
         if (error) throw error;
-        setPreview({ loading: false, html: (data as any)?.html || null, subject: (data as any)?.subject || null, error: null });
+        const html = (data as any)?.html || null;
+        const subj = (data as any)?.subject || null;
+        const err = (data as any)?.error || null;
+        setPreview({
+          loading: false,
+          html,
+          subject: subj,
+          error: !html ? (err || "Vorschau konnte nicht erzeugt werden") : null,
+        });
       } catch (e: any) {
         if (cancelled) return;
         setPreview({ loading: false, html: null, subject: null, error: e?.message || "Vorschau fehlgeschlagen" });
       }
     }, 250);
     return () => { cancelled = true; clearTimeout(handle); };
-  }, [open, language, extraNote, inquiryId, invoiceExists]);
+  }, [open, language, extraNote, inquiryId, activeInvoiceId]);
 
   const canSend = useMemo(() =>
     !sending && invoiceExists && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
@@ -275,12 +283,24 @@ export const SendInvoiceDialog = ({
 
               <TabsContent value="email" className="flex-1 m-0 mt-3 mx-6 mb-6 min-h-0">
                 <div className="h-full rounded-2xl border border-border/60 bg-white overflow-hidden relative">
+                  {!invoiceExists ? (
+                    <div className="h-full flex flex-col items-center justify-center gap-3 p-8 text-center">
+                      <div className="h-12 w-12 rounded-2xl bg-muted border border-border/60 flex items-center justify-center">
+                        <AlertCircle className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-medium">E-Mail-Vorschau verfügbar, sobald die Rechnung existiert</p>
+                      <p className="text-xs text-muted-foreground max-w-sm">
+                        Wechsle in den Tab „Rechnung PDF“ und erzeuge zuerst die Endrechnung.
+                      </p>
+                    </div>
+                  ) : (
+                  <>
                   {preview.loading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm z-10">
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {preview.error && (
+                  {preview.error && !preview.html && (
                     <div className="p-6 text-sm text-destructive">{preview.error}</div>
                   )}
                   {preview.html && (
@@ -289,6 +309,11 @@ export const SendInvoiceDialog = ({
                       title="E-Mail Vorschau"
                       className="w-full h-full border-0"
                     />
+                  )}
+                  {!preview.loading && !preview.error && !preview.html && (
+                    <div className="p-6 text-sm text-muted-foreground">Vorschau wird vorbereitet…</div>
+                  )}
+                  </>
                   )}
                 </div>
               </TabsContent>
