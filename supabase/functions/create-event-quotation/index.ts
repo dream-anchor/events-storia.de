@@ -761,7 +761,11 @@ serve(async (req) => {
     let workingOptions = options || [];
     if (useSelectedQuantity) {
       workingOptions = workingOptions.filter(
-        (o: { selected_quantity?: number | null }) => (o.selected_quantity ?? 0) > 0,
+        (o: { selected_quantity?: number | null }) =>
+          // NULL/undefined = keine Auswahlmenge nötig (full_menu, email,
+          // Einzeloption) → behalten. 0 = explizit abgewählt im
+          // Paket-Radio-Modus → entfernen.
+          o.selected_quantity == null || o.selected_quantity > 0,
       );
     }
 

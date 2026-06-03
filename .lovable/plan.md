@@ -1,42 +1,42 @@
-## Ziel
+# Fix: Endrechnung kann nicht erzeugt werden
 
-Wenn der Einzelpreis eines Gerichts (in jedem Modus: Menü, Paket, Network Aperitivo) gelöscht wird:
-1. Input zeigt **"inkl."** als Placeholder.
-2. Die Zeile trägt **0 €** zur Summe bei — keine implizite Katalogpreis-Übernahme.
-3. **Angebotspreis / Person** (bzw. gesamt) passt sich sofort entsprechend an.
+## Diagnose
 
-## Änderungen
+Die Anfrage `a14872bb…` hat **eine aktive** Angebots-Option:
+- `offer_mode = 'full_menu'`
+- `is_active = true`, `total_amount = 1135,50 €`, `guest_count = 25`
+- `selected_quantity = NULL` (für eigene Menüs nicht gesetzt — gilt nur im Paket-Radio-Modus)
 
-### 1. `PriceBreakdown.tsx` — Katalogpreis-Fallback entfernen
-Zeilen 267–269: `unitPrice` darf nicht mehr auf `catalogPrice` zurückfallen.
+`create-lexoffice-final-invoice` ruft `create-event-quotation` mit `useSelectedQuantity: true` auf. Dort filtert:
 
 ```ts
-// vorher
-const unitPrice = c.overridePrice != null && c.overridePrice > 0
-  ? c.overridePrice
-  : (catalogPrice && catalogPrice > 0 ? catalogPrice : null);
-// nachher
-const unitPrice = c.overridePrice != null && c.overridePrice > 0
-  ? c.overridePrice
-  : null;
+workingOptions = workingOptions.filter(
+  (o) => (o.selected_quantity ?? 0) > 0,
+);
 ```
 
-Damit fließt eine geleerte Zeile mit 0 in `dishAbs`, der Subtotal sinkt, und `netDisplay` (= Errechnet/Person + Placeholder für Angebotspreis) reagiert direkt.
+Da `selected_quantity` bei `full_menu` (und text-only / Einzel-Optionen) `NULL` ist, wird die einzige Option herausgefiltert → `workingOptions.length === 0` → Fehler **"Keine aktiven Angebots-Optionen gefunden"**.
 
-### 2. `InlineCourseEditor.tsx` — Placeholder vereinheitlichen
-Zeile 379–383: Placeholder ist immer `'inkl.'`, sobald kein Override gesetzt ist (egal ob `packageMode`). Italic/muted Styling auch im Menü-Modus aktivieren, damit es klar als "inkludiert" erkennbar ist.
+`useSelectedQuantity` ist nur für den Paket-Radio-Modus relevant, in dem mehrere Optionen mit unterschiedlichen Stückzahlen koexistieren. Für `full_menu` / `email` / Einzeloptionen muss `NULL` als „voll gewählt" gelten (Menge = `guest_count`).
 
-### 3. `MobileCourseSheet.tsx` — analoge Korrekturen
-- Zeilen 83–88: `unitPrice` Fallback auf Katalogpreis entfernen.
-- Zeilen 245–247: Placeholder im Preis-Input ebenfalls auf `'inkl.'` setzen.
-- Zeile 260: `lineTotal != null` bleibt — wenn null, keine Zeilen-Total-Anzeige.
+## Fix
 
-### 4. `useOfferBuilder.ts` — Konsistenz prüfen
-Zeile 660–662 berechnet `dishAbs` für die persistierte Gesamtsumme bereits korrekt nur aus `overridePrice` (kein Katalog-Fallback). Keine Änderung nötig — das bestätigt, dass die UI-Anzeige in `PriceBreakdown` der einzige Inkonsistenz-Punkt war.
+`supabase/functions/create-event-quotation/index.ts` (Zeilen 762–766) — Filter so anpassen, dass nur explizite `0`-Mengen ausgeschlossen werden, `NULL` aber durchgelassen wird (Single-Option/Menü-Modus):
+
+```ts
+if (useSelectedQuantity) {
+  workingOptions = workingOptions.filter((o) => {
+    // NULL = keine Auswahlmenge nötig (full_menu, email, Einzeloption) → behalten
+    // 0    = explizit abgewählt im Paket-Radio-Modus → entfernen
+    return o.selected_quantity === null || o.selected_quantity === undefined || o.selected_quantity > 0;
+  });
+}
+```
 
 ## Validierung
 
-- Im offenen Inquiry `a14872bb…` ein Gericht leeren: Input zeigt "inkl.", Subtotal/Angebotspreis sinken um den Wert des entfernten Preises × Gäste.
-- Network Aperitivo: Verhalten unverändert (Paket-Modus war bereits korrekt).
-- Mobile Sheet: gleiches Verhalten beim Leeren.
-- Gespeicherter Gesamtbetrag bleibt konsistent mit der UI-Anzeige.
+1. Edge Function neu deployen.
+2. In Anfrage `a14872bb…` „Endrechnung jetzt erzeugen" klicken → Rechnung wird in LexOffice angelegt, Vorschau lädt.
+3. Gegencheck Paket-Radio-Modus: Anfrage mit mehreren Paket-Optionen, eine mit `selected_quantity = 0` → diese Option fließt korrekt **nicht** in die Rechnung ein.
+
+Keine weiteren Dateien betroffen.
