@@ -1,32 +1,71 @@
-## Plan: Rechnung exakt wie Maestro-Angebot erzeugen
+# LexOffice → Maestro Webhook-Sync
 
-1. **Einzelpositionen korrigieren**
-   - In `create-event-quotation` den Modus `full_menu` genauso behandeln wie `menu`.
-   - Bei `pricingMode: per_event` jede Menüzeile mit echter Menge aus Maestro ausgeben:
-     - Menge = z. B. `3`
-     - Einzelpreis = z. B. `52,00 €`
-     - Gesamt = `156,00 €`
-   - Keine künstlichen Zeilen mehr wie „1 Portion 156,00 €“, wenn Maestro eigentlich `3 × 52 €` zeigt.
+Ziel: Wenn eine Rechnung in LexOffice geändert wird (Status, Beträge, Positionen, Zahlung), wird Maestro in Echtzeit aktualisiert. Bei lokal abweichendem Stand: Warnung statt Auto-Overwrite.
 
-2. **Totals unverändert aus Maestro übernehmen**
-   - Die Rechnung nutzt weiterhin die gespeicherten Maestro-Bruttowerte.
-   - Keine Neuberechnung/Umrechnung außer der notwendigen Zeilenabbildung für LexOffice.
+## Zwei Synchronisationswege
 
-3. **Zahlungskonditionen aus Maestro auf Rechnung übernehmen**
-   - Für die gezeigten Einstellungen:
-     - Anzahlung: `20 %`, Methode `Stripe – sofort`, Frist `5 Tage`
-     - Restzahlung: `Stripe – vorab`, Frist `10 Tage vor Event`
-     - Angebotsgültigkeit: `14 Tage`
-   - Die Rechnung/Schlussrechnung bekommt passende LexOffice-Zahlungsbedingungen und einen klaren Bemerkungstext mit diesen Konditionen.
-   - Keine generische Formulierung mehr wie „14 Tage nach Veranstaltung“, wenn Maestro andere Konditionen vorgibt.
+**Weg 1 – Maestro → LexOffice (bereits vorhanden)**
+- Neue Rechnungen werden über `create-lexoffice-*` Funktionen angelegt.
+- Stornierung über `void-lexoffice-invoice`.
+- Bleibt unverändert.
 
-4. **Stornierte/falsche Rechnung neu erzeugbar machen**
-   - Der Fix greift für neu erzeugte Rechnungen.
-   - Bereits erstellte LexOffice-Rechnungen können inhaltlich nicht nachträglich geändert werden; die falsche Schlussrechnung muss storniert und danach neu erzeugt werden.
+**Weg 2 – LexOffice → Maestro (NEU)**
+- LexOffice Event-Subscription ruft Edge-Function-Webhook bei jeder Änderung an.
+- Webhook holt das aktuelle Voucher/Invoice-Objekt aus LexOffice und schreibt es nach Maestro.
 
-## Technische Details
+## Komponenten
 
-- Datei: `supabase/functions/create-event-quotation/index.ts`
-- Wahrscheinliche Ursache: `offer_mode = full_menu` fällt aktuell nicht in den Menü-Zweig und wird dadurch als Paket/Gesamtposition bzw. mit falscher Zeilenlogik behandelt.
-- Zusätzlich wird im `per_event`-Zweig aktuell der Zeilen-Gesamtbetrag als `grossAmount` mit `quantity: 1` übergeben. Das wird auf `quantity` + `unitPrice.grossAmount` geändert.
-- Danach wird die Edge Function neu deployed.
+### 1. Neue Edge Function: `lexoffice-webhook`
+- Öffentlich erreichbar (`verify_jwt = false`), validiert Anfragen über LexOffice-Signatur + geteiltes Secret `LEXOFFICE_WEBHOOK_SECRET`.
+- Akzeptiert Event-Typen: `invoice.changed`, `invoice.status.changed`, `payment.changed`, `voucher.changed`, `voucher.deleted`.
+- Lädt vollständigen LexOffice-Datensatz nach (Status, Beträge, Positionen, Zahlungen).
+- Schreibt nach Maestro (siehe unten).
+
+### 2. Neue Edge Function: `sync-lexoffice-invoice`
+- Manueller Trigger (Admin-UI Button "Aus LexOffice aktualisieren") und vom Webhook intern aufgerufen.
+- Input: `lexoffice_invoice_id`.
+- Vergleicht LexOffice-Stand mit Maestro-Stand → erkennt Konflikte.
+
+### 3. Datenbank-Erweiterungen
+Migration auf `v2_payments`:
+- `lexoffice_last_synced_at TIMESTAMPTZ`
+- `lexoffice_remote_version INT` (LexOffice `version`-Feld)
+- `lexoffice_remote_status TEXT` (open/paid/voided)
+- `lexoffice_remote_total_cents INT`
+- `lexoffice_sync_conflict BOOLEAN DEFAULT FALSE`
+- `lexoffice_conflict_details JSONB` (welche Felder weichen ab)
+
+Neue Tabelle `lexoffice_sync_log`:
+- `id, lexoffice_invoice_id, event_type, payload JSONB, applied BOOLEAN, conflict BOOLEAN, error TEXT, created_at`
+- Audit-Trail aller Webhook-Events.
+
+### 4. Sync-Logik
+Pro Event:
+1. LexOffice-Voucher per `get-lexoffice-document-by-id` abrufen.
+2. Maestro-Zeile (`v2_payments` via `lexoffice_invoice_id`) laden.
+3. Felder vergleichen (Status, `totalAmount`, `lineItems`-Hash, Zahlungen).
+4. Wenn lokal **nichts geändert** seit letztem Sync → Update durchführen (Status, Beträge, `paid_at`, `paid_via`).
+5. Wenn lokal **abweichend** (z. B. Maestro-Stand zeigt anderen Betrag oder neueres `updated_at` als `lexoffice_last_synced_at`) → `lexoffice_sync_conflict = true`, `lexoffice_conflict_details` mit Diff befüllen, KEIN Auto-Overwrite.
+6. PDF-Cache invalidieren (`get-lexoffice-document` zieht beim nächsten Aufruf frisch).
+7. Eintrag in `lexoffice_sync_log` schreiben.
+8. Wenn Status auf `paid` wechselt: Admin-Benachrichtigung via bestehender Notification-Pipeline (E-Mail + WhatsApp).
+
+### 5. Admin-UI
+- **Inquiry-Detail / Rechnungs-Karte**: 
+  - Badge "LexOffice-Stand abweichend" wenn `lexoffice_sync_conflict = true`.
+  - Diff-Dialog: zeigt Maestro vs. LexOffice nebeneinander (Status, Betrag, Positionen).
+  - Buttons: "LexOffice übernehmen" (overwrite Maestro) / "Maestro behalten" (LexOffice neu pushen) / "Konflikt verwerfen".
+  - "Aus LexOffice aktualisieren"-Button (manueller Refresh-Trigger).
+- **Letztes Sync-Datum** unter der Rechnung.
+
+### 6. LexOffice-Setup (Doku für User)
+Da LexOffice keine Self-Service-Webhook-API hat, gibt es zwei Setup-Pfade:
+- **Bevorzugt**: LexOffice "Event-Subscriptions" via API einrichten (per einmaligem Setup-Skript in der Edge Function `lexoffice-webhook-setup`).
+- **Fallback**: Wenn LexOffice-Plan keine Subscriptions zulässt, läuft alternativ ein 5-Minuten-Polling-Cron (`pg_cron` auf `sync-lexoffice-payment-status` erweitert), bis Webhooks aktiv sind.
+
+## Secret
+- Neuer Secret: `LEXOFFICE_WEBHOOK_SECRET` (für Signatur-Validierung).
+
+## Out of Scope
+- Bestehende stornierte/falsche Rechnungen werden nicht rückwirkend repariert.
+- Maestro-seitige Bearbeitung finalisierter Rechnungen bleibt gesperrt (Immutability-Prinzip); Korrekturen geschehen weiterhin in LexOffice und fließen via Webhook zurück.

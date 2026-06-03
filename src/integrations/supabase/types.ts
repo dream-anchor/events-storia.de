@@ -1994,6 +1994,71 @@ export type Database = {
         }
         Relationships: []
       }
+      lexoffice_sync_log: {
+        Row: {
+          applied: boolean
+          conflict: boolean
+          created_at: string
+          error: string | null
+          event_type: string
+          id: string
+          lexoffice_invoice_id: string | null
+          payload: Json | null
+          v2_payment_id: string | null
+        }
+        Insert: {
+          applied?: boolean
+          conflict?: boolean
+          created_at?: string
+          error?: string | null
+          event_type: string
+          id?: string
+          lexoffice_invoice_id?: string | null
+          payload?: Json | null
+          v2_payment_id?: string | null
+        }
+        Update: {
+          applied?: boolean
+          conflict?: boolean
+          created_at?: string
+          error?: string | null
+          event_type?: string
+          id?: string
+          lexoffice_invoice_id?: string | null
+          payload?: Json | null
+          v2_payment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lexoffice_sync_log_v2_payment_id_fkey"
+            columns: ["v2_payment_id"]
+            isOneToOne: false
+            referencedRelation: "event_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lexoffice_sync_log_v2_payment_id_fkey"
+            columns: ["v2_payment_id"]
+            isOneToOne: false
+            referencedRelation: "event_payments_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lexoffice_sync_log_v2_payment_id_fkey"
+            columns: ["v2_payment_id"]
+            isOneToOne: false
+            referencedRelation: "v2_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lexoffice_sync_log_v2_payment_id_fkey"
+            columns: ["v2_payment_id"]
+            isOneToOne: false
+            referencedRelation: "v2_payments_enriched"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           capacity_seated: number | null
@@ -3769,8 +3834,14 @@ export type Database = {
           email_sent_at: string | null
           event_id: string
           id: string
+          lexoffice_conflict_details: Json | null
           lexoffice_invoice_id: string | null
           lexoffice_invoice_number: string | null
+          lexoffice_last_synced_at: string | null
+          lexoffice_remote_status: string | null
+          lexoffice_remote_total_cents: number | null
+          lexoffice_remote_version: number | null
+          lexoffice_sync_conflict: boolean
           notes: string | null
           paid_at: string | null
           paid_via: string | null
@@ -3795,8 +3866,14 @@ export type Database = {
           email_sent_at?: string | null
           event_id: string
           id?: string
+          lexoffice_conflict_details?: Json | null
           lexoffice_invoice_id?: string | null
           lexoffice_invoice_number?: string | null
+          lexoffice_last_synced_at?: string | null
+          lexoffice_remote_status?: string | null
+          lexoffice_remote_total_cents?: number | null
+          lexoffice_remote_version?: number | null
+          lexoffice_sync_conflict?: boolean
           notes?: string | null
           paid_at?: string | null
           paid_via?: string | null
@@ -3821,8 +3898,14 @@ export type Database = {
           email_sent_at?: string | null
           event_id?: string
           id?: string
+          lexoffice_conflict_details?: Json | null
           lexoffice_invoice_id?: string | null
           lexoffice_invoice_number?: string | null
+          lexoffice_last_synced_at?: string | null
+          lexoffice_remote_status?: string | null
+          lexoffice_remote_total_cents?: number | null
+          lexoffice_remote_version?: number | null
+          lexoffice_sync_conflict?: boolean
           notes?: string | null
           paid_at?: string | null
           paid_via?: string | null
