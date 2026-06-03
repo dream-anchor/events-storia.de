@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Plus, GripVertical, Trash2, Pencil, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,14 +130,35 @@ function SortableCourseRow({
   const menuItem = findBestMenuItem(menuItems, course.itemId, course.itemName);
   const catalogPrice = menuItem?.price ?? null;
   const hasOverride = course.overridePrice != null && course.overridePrice > 0;
-  const unitPrice = hasOverride
-    ? course.overridePrice!
-    : (catalogPrice && catalogPrice > 0 ? catalogPrice : null);
+  // Einzelpreis stammt ausschließlich aus overridePrice — keine implizite
+  // Katalogpreis-Übernahme. Leere Zeile = keine Summe (so wie beim Anlegen
+  // eines Menüs, wo einzelne Speisen keinen Preis tragen müssen).
+  const unitPrice = hasOverride ? course.overridePrice! : null;
   const quantity = course.quantity ?? 1;
   const lineTotal = unitPrice != null ? unitPrice * quantity : null;
   const fmtEUR = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
   // Effektiver Modus pro Zeile: explizit > globaler Fallback.
   const effPriceMode: LinePriceMode = (course.priceMode ?? (pricingMode === 'per_event' ? 'flat' : 'per_person')) as LinePriceMode;
+
+  // Lokaler Input-State für den Einzelpreis. Erlaubt explizites Leeren ohne
+  // dass ein Re-Render den Wert aus dem Katalog wieder einsetzt.
+  const [priceInput, setPriceInput] = useState<string>(
+    course.overridePrice != null && course.overridePrice > 0
+      ? String(course.overridePrice)
+      : ''
+  );
+  const lastItemIdRef = useRef<string | null | undefined>(course.itemId);
+  useEffect(() => {
+    // Nur bei Wechsel der Speise neu aus den Props befüllen.
+    if (lastItemIdRef.current !== course.itemId) {
+      lastItemIdRef.current = course.itemId;
+      setPriceInput(
+        course.overridePrice != null && course.overridePrice > 0
+          ? String(course.overridePrice)
+          : ''
+      );
+    }
+  }, [course.itemId, course.overridePrice]);
 
   return (
     <div
@@ -333,27 +354,23 @@ function SortableCourseRow({
         )}
       </div>
 
-      {/* Einzelpreis (immer sichtbar) */}
+      {/* Einzelpreis (immer sichtbar, explizit leerbar) */}
       <div className="relative w-24 shrink-0 order-4 sm:order-none">
         <Input
           type="number"
           step={0.01}
           min={0}
           inputMode="decimal"
-          value={
-            packageMode
-              ? (hasOverride ? course.overridePrice! : '')
-              : (hasOverride ? course.overridePrice! : (catalogPrice && catalogPrice > 0 ? catalogPrice : ''))
-          }
+          value={priceInput}
           onChange={(e) => {
             const val = e.target.value;
+            setPriceInput(val);
             if (val === '') {
               onUpdatePrice(idx, null);
               return;
             }
             const parsed = parseFloat(val);
             if (isNaN(parsed) || parsed <= 0) {
-              // 0/negativ → null normalisieren
               onUpdatePrice(idx, null);
               return;
             }
