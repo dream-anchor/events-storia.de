@@ -123,6 +123,43 @@ export function LexofficeDocumentPreviewDialog({ doc, open, onOpenChange, onRequ
                 {STATUS_LABEL[doc.status] ?? doc.status}
               </Badge>
             )}
+            {doc && (() => {
+              const sends = doc.sends ?? [];
+              if (sends.length === 0) {
+                return (
+                  <Badge variant="outline" className="text-[10px] font-normal">
+                    Nicht versendet
+                  </Badge>
+                );
+              }
+              const last = sends[0];
+              const pill = (
+                <Badge variant="secondary" className="text-[10px] font-normal gap-1">
+                  <Send className="h-2.5 w-2.5" />
+                  Versendet · {fmtDateTime(last.sent_at)}
+                  {sends.length > 1 && <span className="opacity-60">× {sends.length}</span>}
+                </Badge>
+              );
+              return (
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">{pill}</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" align="start" className="max-w-xs">
+                      <div className="text-xs font-medium mb-1">Versand-Historie</div>
+                      <ul className="space-y-0.5">
+                        {sends.map((s, i) => (
+                          <li key={i} className="text-[11px] text-muted-foreground">
+                            {fmtDateTime(s.sent_at)} → {s.to || "—"}
+                          </li>
+                        ))}
+                      </ul>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
           </DialogTitle>
         </DialogHeader>
 
