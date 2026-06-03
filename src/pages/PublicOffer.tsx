@@ -2211,47 +2211,6 @@ function OfferFooter({ lang = 'de' }: { lang?: OfferLang }) {
   return _OfferFooter(lang);
 }
 
-/**
- * Sprachumschalter für übersetzte Menü-/Getränke-Felder.
- * Zeigt sich nur, wenn der Snapshot tatsächlich Übersetzungen enthält
- * (z.B. Reisegruppen-Pakete mit course_label_en/_it/_fr).
- */
-function OfferLanguageSwitcher({
-  lang,
-  onChange,
-}: {
-  lang: OfferLang;
-  onChange: (l: OfferLang) => void;
-}) {
-  return (
-    <div className="container mx-auto px-4 pt-6">
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-muted-foreground/70">
-          {tOffer(lang, 'language')}
-        </span>
-        <div className="inline-flex rounded-full border border-border/40 p-0.5 bg-background/60 backdrop-blur-sm">
-          {OFFER_LANGS.map((l) => (
-            <button
-              key={l}
-              type="button"
-              onClick={() => onChange(l)}
-              className={cn(
-                "px-3 py-1 text-xs font-sans font-semibold rounded-full transition-colors",
-                lang === l
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              aria-pressed={lang === l}
-            >
-              {OFFER_LANG_LABELS[l]}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function _OfferFooter(lang: OfferLang = 'de') {
   return (
     <footer className="bg-foreground text-background">
