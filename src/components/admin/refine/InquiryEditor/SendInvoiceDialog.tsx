@@ -47,6 +47,7 @@ export const SendInvoiceDialog = ({
   const [preview, setPreview] = useState<PreviewState>({ loading: false, html: null, subject: null, error: null });
   const [sending, setSending] = useState(false);
   const [invoiceExists, setInvoiceExists] = useState<boolean>(!!hasInvoiceProp);
+  const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -58,25 +59,38 @@ export const SendInvoiceDialog = ({
       setRecipient(defaultEmail);
       setLanguage(defaultLanguage);
       setExtraNote("");
-      setInvoiceExists(!!hasInvoiceProp);
       setCreateError(null);
+      // Re-check live ob aktive Rechnung verknüpft ist (nach evtl. Storno)
+      (async () => {
+        const { data } = await (supabase as any)
+          .from('v2_events')
+          .select('final_lexoffice_invoice_id, invoice_lexoffice_id')
+          .eq('id', inquiryId)
+          .maybeSingle();
+        const invId: string | null =
+          data?.final_lexoffice_invoice_id || data?.invoice_lexoffice_id || null;
+        setActiveInvoiceId(invId);
+        setInvoiceExists(!!invId);
+      })();
     } else {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
       setPdfUrl(null);
       setPreview({ loading: false, html: null, subject: null, error: null });
+      setActiveInvoiceId(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, inquiryId]);
 
   // Load PDF preview when invoice exists
   useEffect(() => {
-    if (!open || !invoiceExists) return;
+    if (!open || !invoiceExists || !activeInvoiceId) return;
     let cancelled = false;
     (async () => {
       setPdfLoading(true);
       try {
-        const { data, error } = await supabase.functions.invoke("get-lexoffice-document", {
-          body: { orderId: inquiryId, voucherType: "invoice" },
+        // Direkt über aktive Rechnung-ID (kein Quotation-Fallback)
+        const { data, error } = await supabase.functions.invoke("get-lexoffice-document-by-id", {
+          body: { voucherId: activeInvoiceId, voucherType: "invoice" },
         });
         if (cancelled) return;
         if (error) throw error;
@@ -102,7 +116,7 @@ export const SendInvoiceDialog = ({
       }
     })();
     return () => { cancelled = true; };
-  }, [open, inquiryId, invoiceExists]);
+  }, [open, inquiryId, invoiceExists, activeInvoiceId]);
 
   const handleCreateInvoice = async () => {
     setCreatingInvoice(true);
@@ -114,7 +128,16 @@ export const SendInvoiceDialog = ({
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       toast.success("Endrechnung in LexOffice erzeugt");
-      setInvoiceExists(true);
+      // Frisch aus DB nachladen (neue Invoice-ID)
+      const { data: ev } = await (supabase as any)
+        .from('v2_events')
+        .select('final_lexoffice_invoice_id, invoice_lexoffice_id')
+        .eq('id', inquiryId)
+        .maybeSingle();
+      const newId: string | null =
+        ev?.final_lexoffice_invoice_id || ev?.invoice_lexoffice_id || null;
+      setActiveInvoiceId(newId);
+      setInvoiceExists(!!newId);
     } catch (e: any) {
       const msg = e?.message || "Erzeugung fehlgeschlagen";
       setCreateError(msg);
@@ -126,7 +149,7 @@ export const SendInvoiceDialog = ({
 
   // Re-render email preview when language / note changes
   useEffect(() => {
-    if (!open) return;
+    if (!open || !invoiceExists) return;
     let cancelled = false;
     const handle = setTimeout(async () => {
       setPreview((p) => ({ ...p, loading: true, error: null }));
@@ -148,7 +171,7 @@ export const SendInvoiceDialog = ({
       }
     }, 250);
     return () => { cancelled = true; clearTimeout(handle); };
-  }, [open, language, extraNote, inquiryId]);
+  }, [open, language, extraNote, inquiryId, invoiceExists]);
 
   const canSend = useMemo(() =>
     !sending && invoiceExists && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
