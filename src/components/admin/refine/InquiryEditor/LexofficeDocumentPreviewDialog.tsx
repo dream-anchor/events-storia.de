@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Loader2, Download, Ban, ExternalLink } from "lucide-react";
+import { Loader2, Download, Ban, ExternalLink, Send } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   useDownloadLexOfficeDocument,
@@ -32,6 +33,20 @@ const STATUS_LABEL: Record<string, string> = {
   unknown: "Unbekannt",
   error: "Fehler",
 };
+
+function fmtDateTime(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
 
 export function LexofficeDocumentPreviewDialog({ doc, open, onOpenChange, onRequestVoid }: Props) {
   const download = useDownloadLexOfficeDocument();
