@@ -197,6 +197,11 @@ export const useVoidLexofficeInvoice = () => {
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['order-lex-docs', vars.orderId] });
+      // Inquiry/Event-Daten neu laden, damit Header-Buttons und Sende-Dialog
+      // den Storno sofort widerspiegeln.
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['event_inquiries'] });
+      queryClient.invalidateQueries({ queryKey: ['v2_events'] });
     },
   });
 };

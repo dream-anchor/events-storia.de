@@ -128,13 +128,17 @@ serve(async (req) => {
           console.error('v2_events fetch error:', evError);
         }
 
+        // Wenn der Caller explizit eine Rechnung angefragt hat, NIEMALS
+        // auf das Angebot zurückfallen — sonst zeigt der Rechnungs-Dialog
+        // nach Storno weiterhin das alte Angebot als "Rechnung" an.
+        const wantsInvoice = (voucherType ?? '').toLowerCase() === 'invoice';
         if (ev?.final_lexoffice_invoice_id) {
           resolvedDocId = ev.final_lexoffice_invoice_id;
           resolvedDocType = 'invoice';
         } else if (ev?.invoice_lexoffice_id) {
           resolvedDocId = ev.invoice_lexoffice_id;
           resolvedDocType = ev.lexoffice_document_type ?? 'invoice';
-        } else if (ev?.lexoffice_quotation_id) {
+        } else if (!wantsInvoice && ev?.lexoffice_quotation_id) {
           resolvedDocId = ev.lexoffice_quotation_id;
           resolvedDocType = 'quotation';
         }
