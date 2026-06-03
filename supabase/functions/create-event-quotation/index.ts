@@ -656,11 +656,9 @@ function buildIntroduction(
   void ms;
   const rawDate = inquiry?.preferred_date ? String(inquiry.preferred_date) : null;
   const dateLabel = rawDate ? formatDateDE(rawDate) : 'nach Vereinbarung';
-  const titlePrefix = opts?.isFinalInvoice
-    ? 'Event-Schlussrechnung'
-    : opts?.isInvoiceMode
-      ? 'Event-Rechnung'
-      : 'Event-Angebot';
+  const titlePrefix = opts?.isFinalInvoice || opts?.isInvoiceMode
+    ? 'Event-Rechnung'
+    : 'Event-Angebot';
   const parts = [
     `${titlePrefix} für den ${dateLabel}`,
     `Gäste: ${inquiry?.guest_count || '-'} Personen`,
