@@ -25,6 +25,7 @@ import EventMailsTab from "./EventMailsTab";
 import { MailClient } from "@/components/admin/shared/MailClient";
 import { PaymentCard } from "./PaymentCard";
 import { PaymentStatusStrip } from "./PaymentStatusStrip";
+import { LexofficeDocumentsCard } from "./LexofficeDocumentsCard";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { SendSuccessDialog, type SendSuccessInfo } from "./SendSuccessDialog";
 import { InquiryPriority } from "@/types/refine";
@@ -1300,6 +1301,8 @@ export const SmartInquiryEditor = () => {
               isTest={!!inquiry.is_test}
             />
           </div>
+          {/* LexOffice-Belege */}
+          <LexofficeDocumentsCard orderId={id!} />
           {/* Timeline */}
           <Timeline entityType="event_inquiry" entityId={id!} />
         </TabsContent>
