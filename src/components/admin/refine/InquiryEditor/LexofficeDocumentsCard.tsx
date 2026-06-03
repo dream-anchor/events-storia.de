@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Eye, Download, Ban, Loader2, RefreshCw } from "lucide-react";
+import { FileText, Download, Ban, Loader2, RefreshCw, Maximize2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import {
   useDownloadLexOfficeDocument,
   type OrderLexDoc,
 } from "@/hooks/useLexOfficeVouchers";
+import { LexofficeDocumentPreviewDialog } from "./LexofficeDocumentPreviewDialog";
 
 interface Props {
   orderId: string;
@@ -69,10 +70,14 @@ export function LexofficeDocumentsCard({ orderId }: Props) {
   const voidMutation = useVoidLexofficeInvoice();
   const downloadMutation = useDownloadLexOfficeDocument();
   const [confirmVoid, setConfirmVoid] = useState<OrderLexDoc | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<OrderLexDoc | null>(null);
 
   const docs = data?.docs ?? [];
+  const activeDocs = docs.filter((d) => d.status !== "voided");
+  const depositCount = activeDocs.filter((d) => d.kind === "deposit").length;
+  const hasFinal = activeDocs.some((d) => d.kind === "final");
 
-  const openPdf = async (doc: OrderLexDoc, mode: "view" | "download") => {
+  const downloadPdf = async (doc: OrderLexDoc) => {
     try {
       const res: any = await downloadMutation.mutateAsync({
         voucherId: doc.id,
@@ -88,14 +93,10 @@ export function LexofficeDocumentsCard({ orderId }: Props) {
       for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
       const blob = new Blob([arr], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
-      if (mode === "view") {
-        window.open(url, "_blank", "noopener");
-      } else {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = res?.filename || `${KIND_LABEL[doc.kind]}_${doc.number ?? doc.id}.pdf`;
-        a.click();
-      }
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res?.filename || `${KIND_LABEL[doc.kind]}_${doc.number ?? doc.id}.pdf`;
+      a.click();
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Download fehlgeschlagen");
@@ -151,17 +152,28 @@ export function LexofficeDocumentsCard({ orderId }: Props) {
             Noch keine LexOffice-Belege für diesen Auftrag.
           </p>
         ) : (
-          <ul className="divide-y divide-border">
+          <>
+            {(hasFinal && depositCount > 0) || activeDocs.length > 1 ? (
+              <p className="text-xs text-muted-foreground mb-2">
+                {hasFinal && depositCount > 0
+                  ? `Schlussrechnung + ${depositCount} Anzahlung${depositCount > 1 ? "en" : ""}`
+                  : `${activeDocs.length} aktive Belege`}
+              </p>
+            ) : null}
+            <ul className="divide-y divide-border">
             {docs.map((d) => {
               const isVoided = d.status === "voided";
               const canVoid = d.type === "invoice" && !isVoided;
+              const isFinal = d.kind === "final" && !isVoided;
               return (
                 <li
                   key={`${d.type}:${d.id}`}
                   className={cn(
-                    "flex flex-wrap items-center gap-3 py-3",
+                    "flex flex-wrap items-center gap-3 py-3 px-2 -mx-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors",
                     isVoided && "opacity-60",
+                    isFinal && "border-l-2 border-foreground/40 pl-3",
                   )}
+                  onClick={() => setPreviewDoc(d)}
                 >
                   <div className="flex-1 min-w-0">
                     <div className={cn(
@@ -186,20 +198,21 @@ export function LexofficeDocumentsCard({ orderId }: Props) {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => openPdf(d, "view")}
-                      disabled={downloadMutation.isPending}
+                      onClick={() => setPreviewDoc(d)}
+                      title="Großvorschau"
                     >
-                      <Eye className="h-3.5 w-3.5" />
+                      <Maximize2 className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => openPdf(d, "download")}
+                      onClick={() => downloadPdf(d)}
                       disabled={downloadMutation.isPending}
+                      title="Download"
                     >
                       <Download className="h-3.5 w-3.5" />
                     </Button>
@@ -210,6 +223,7 @@ export function LexofficeDocumentsCard({ orderId }: Props) {
                         onClick={() => setConfirmVoid(d)}
                         disabled={voidMutation.isPending}
                         className="text-destructive hover:text-destructive"
+                        title="Stornieren"
                       >
                         <Ban className="h-3.5 w-3.5" />
                       </Button>
@@ -218,9 +232,17 @@ export function LexofficeDocumentsCard({ orderId }: Props) {
                 </li>
               );
             })}
-          </ul>
+            </ul>
+          </>
         )}
       </CardContent>
+
+      <LexofficeDocumentPreviewDialog
+        doc={previewDoc}
+        open={!!previewDoc}
+        onOpenChange={(o) => !o && setPreviewDoc(null)}
+        onRequestVoid={(d) => setConfirmVoid(d)}
+      />
 
       <AlertDialog open={!!confirmVoid} onOpenChange={(o) => !o && setConfirmVoid(null)}>
         <AlertDialogContent>
