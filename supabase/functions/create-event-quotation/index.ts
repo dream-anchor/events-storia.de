@@ -168,125 +168,126 @@ function buildLineItems(
     const FOOD_TAX = FOOD_TAX_RATE;
     const DRINK_TAX = DRINK_TAX_RATE;
 
-    type BruttoEntry = { name: string; description: string; brutto: number; tax: number; unitName: string };
+    // Eintrag mit echter Menge + Einzelpreis (Brutto). Wird unten 1:1 als
+    // LexOffice-Position ausgegeben — damit der Beleg "3 × Vitello 52 € = 156 €"
+    // statt einer Sammelzeile zeigt (entspricht der Maestro-Anzeige).
+    type BruttoEntry = {
+      name: string;
+      description: string;
+      qty: number;
+      unitBrutto: number;
+      tax: number;
+      unitName: string;
+      fixed: boolean; // true = nicht skalieren (Equipment/Staff)
+    };
     const entries: BruttoEntry[] = [];
 
     // --- Speisen: eine Zeile pro Gericht ---
     for (const c of (ms.courses || [])) {
       if (!c.itemName || c.overridePrice == null || c.overridePrice <= 0) continue;
-      const qty = c.quantity ?? 1;
-      const lineBrutto = round2((c.overridePrice || 0) * qty);
-      if (lineBrutto <= 0) continue;
-      // qty im Namen mitteilen damit der Kunde versteht woher die Summe kommt
-      const name = qty > 1 ? `${qty} × ${c.itemName}` : c.itemName;
+      const qty = Math.max(1, c.quantity ?? 1);
+      const unitBrutto = round2(c.overridePrice || 0);
+      if (unitBrutto <= 0) continue;
       entries.push({
-        name,
+        name: c.itemName,
         description: c.itemDescription || '',
-        brutto: lineBrutto,
+        qty,
+        unitBrutto,
         tax: FOOD_TAX,
         unitName: 'Portion',
+        fixed: false,
       });
     }
 
-    // --- Getraenke: je nach drinksMode ---
+    // --- Getränke ---
     const drinkMode = ms.drinksMode ?? 'none';
     if (drinkMode === 'einzeln' && ms.drinksEinzeln) {
       for (const d of ms.drinksEinzeln) {
         if (!d.name || d.pricePerPerson <= 0) continue;
-        const qty = d.quantity ?? 1;
-        const lineBrutto = round2(d.pricePerPerson * qty);
-        if (lineBrutto <= 0) continue;
-        const name = qty > 1 ? `${qty} × ${d.name}` : d.name;
+        const qty = Math.max(1, d.quantity ?? 1);
         entries.push({
-          name,
+          name: d.name,
           description: '',
-          brutto: lineBrutto,
+          qty,
+          unitBrutto: round2(d.pricePerPerson),
           tax: DRINK_TAX,
           unitName: 'Stk',
+          fixed: false,
         });
       }
     } else if (drinkMode === 'pauschale' && ms.drinksPauschalePrice && ms.drinksPauschalePrice > 0) {
       entries.push({
         name: ms.drinksPauschaleDescription || 'Getränkepauschale',
         description: '',
-        brutto: round2(ms.drinksPauschalePrice),
+        qty: 1,
+        unitBrutto: round2(ms.drinksPauschalePrice),
         tax: DRINK_TAX,
-        unitName: 'Stk',
+        unitName: 'Pauschale',
+        fixed: false,
       });
     } else if ((drinkMode === 'weinbegleitung' || drinkMode === 'none') && ms.winePairingPrice && ms.winePairingPrice > 0) {
       entries.push({
         name: 'Weinbegleitung',
         description: '',
-        brutto: round2(ms.winePairingPrice),
+        qty: 1,
+        unitBrutto: round2(ms.winePairingPrice),
         tax: DRINK_TAX,
-        unitName: 'Stk',
+        unitName: 'Pauschale',
+        fixed: false,
       });
     }
 
-    // --- Equipment: 19% MwSt ---
+    // --- Equipment / Personal: Fixkosten ---
     for (const eq of (ms.equipment || [])) {
       if (!eq.name || eq.pricePerUnit <= 0 || eq.quantity <= 0) continue;
-      const lineBrutto = round2(eq.pricePerUnit * eq.quantity);
-      const name = eq.quantity > 1 ? `${eq.quantity} × ${eq.name}` : eq.name;
-      entries.push({ name, description: '', brutto: lineBrutto, tax: DRINK_TAX, unitName: 'Stk' });
+      entries.push({
+        name: eq.name, description: '', qty: eq.quantity,
+        unitBrutto: round2(eq.pricePerUnit), tax: DRINK_TAX, unitName: 'Stk', fixed: true,
+      });
     }
-
-    // --- Personal: 19% MwSt ---
     for (const st of (ms.staff || [])) {
       if (!st.name || st.pricePerUnit <= 0 || st.quantity <= 0) continue;
-      const lineBrutto = round2(st.pricePerUnit * st.quantity);
-      const name = st.quantity > 1 ? `${st.quantity} × ${st.name}` : st.name;
-      entries.push({ name, description: '', brutto: lineBrutto, tax: DRINK_TAX, unitName: 'Stk' });
+      entries.push({
+        name: st.name, description: '', qty: st.quantity,
+        unitBrutto: round2(st.pricePerUnit), tax: DRINK_TAX, unitName: 'Stk', fixed: true,
+      });
     }
 
-    // --- Proportionale Korrektur falls Summe != totalAmount (Override wurde angepasst) ---
-    // Equipment/Staff sind Fixkosten — von proportionaler Korrektur ausnehmen
-    const fixedEntries: BruttoEntry[] = [];
-    const scalableEntries: BruttoEntry[] = [];
-    for (const e of entries) {
-      // Equipment/Staff haben unitName 'Stk' und tax 19 — aber einfacher: prüfe ob name ein Equipment/Staff-Name ist
-      // Besser: tagge sie direkt. Wir nutzen ein einfaches Kriterium: unitName === 'Stk'
-      if (e.unitName === 'Stk') {
-        fixedEntries.push(e);
-      } else {
-        scalableEntries.push(e);
-      }
-    }
-    const fixedSum = round2(fixedEntries.reduce((s, e) => s + e.brutto, 0));
-    const scalableSum = round2(scalableEntries.reduce((s, e) => s + e.brutto, 0));
+    // --- Proportionale Korrektur (nur skalierbare Einträge) ---
+    const scalable = entries.filter(e => !e.fixed);
+    const fixedSum = round2(entries.filter(e => e.fixed).reduce((s, e) => s + e.qty * e.unitBrutto, 0));
+    const scalableSum = round2(scalable.reduce((s, e) => s + e.qty * e.unitBrutto, 0));
     const adjustedTarget = round2(totalAmount - fixedSum);
     if (scalableSum > 0 && adjustedTarget > 0 && Math.abs(scalableSum - adjustedTarget) > 0.01) {
       const factor = adjustedTarget / scalableSum;
-      for (const e of scalableEntries) {
-        e.brutto = round2(e.brutto * factor);
+      for (const e of scalable) {
+        e.unitBrutto = round2(e.unitBrutto * factor);
       }
-      const adjSum = round2(scalableEntries.reduce((s, e) => s + e.brutto, 0));
+      const adjSum = round2(scalable.reduce((s, e) => s + e.qty * e.unitBrutto, 0));
       const diff = round2(adjustedTarget - adjSum);
-      if (Math.abs(diff) > 0 && scalableEntries.length > 0) {
-        scalableEntries[scalableEntries.length - 1].brutto = round2(scalableEntries[scalableEntries.length - 1].brutto + diff);
+      if (Math.abs(diff) > 0.005 && scalable.length > 0) {
+        const last = scalable[scalable.length - 1];
+        // Restdifferenz auf letzte Position als Einzelpreis-Korrektur (über qty verteilt)
+        last.unitBrutto = round2(last.unitBrutto + diff / Math.max(1, last.qty));
       }
     }
-    // Wieder zusammenführen
-    const allEntries = [...scalableEntries, ...fixedEntries];
 
-    // --- Brutto direkt als grossAmount fuer LexOffice ---
-    for (const e of allEntries) {
-      if (e.brutto <= 0) continue;
+    for (const e of entries) {
+      if (e.unitBrutto <= 0 || e.qty <= 0) continue;
       items.push({
         type: 'custom',
         name: e.name,
         description: e.description,
-        quantity: 1,
+        quantity: e.qty,
         unitName: e.unitName,
         unitPrice: {
           currency: 'EUR',
-          grossAmount: e.brutto,
+          grossAmount: e.unitBrutto,
           taxRatePercentage: e.tax,
         },
       });
     }
 
-    // Fallback: keine Positionen erkannt — eine Sammelzeile
     if (items.length === 0) {
       items.push({
         type: 'custom',
