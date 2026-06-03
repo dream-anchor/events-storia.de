@@ -86,3 +86,9 @@ verify_jwt = false
 
 [functions.report-system-error]
 verify_jwt = false
+
+[functions.lexoffice-webhook]
+verify_jwt = false
+
+[functions.sync-lexoffice-invoice]
+verify_jwt = true
