@@ -13,6 +13,12 @@ import { requireAuth, AuthError } from "../_shared/auth.ts";
 type Kind = "final" | "standard" | "deposit" | "quotation";
 type DocType = "invoice" | "quotation";
 
+interface SendEvent {
+  to: string;
+  sent_at: string;
+  message_id?: string | null;
+}
+
 interface LexDoc {
   id: string;
   type: DocType;
@@ -22,6 +28,7 @@ interface LexDoc {
   gross: number | null;
   status: string | null;
   paymentId?: string | null;
+  sends?: SendEvent[];
 }
 
 const KIND_ORDER: Record<Kind, number> = { quotation: 0, deposit: 1, standard: 2, final: 3 };
@@ -162,6 +169,60 @@ serve(async (req) => {
 
     const metas = await Promise.all(tasks.map((t) => t.meta));
     const docs: LexDoc[] = tasks.map((t, i) => ({ ...t.entry, ...metas[i] }));
+
+    // Versand-Historie pro Beleg aus email_delivery_logs (Angebote) + activity_logs (Rechnungen)
+    const quotationIds = docs.filter((d) => d.type === "quotation").map((d) => d.id);
+    const invoiceIds = docs.filter((d) => d.type === "invoice").map((d) => d.id);
+
+    const sendsByDocId = new Map<string, SendEvent[]>();
+
+    if (quotationIds.length > 0) {
+      const { data: offerSends } = await admin
+        .from("email_delivery_logs")
+        .select("recipient_email, sent_at, provider_message_id, metadata")
+        .eq("entity_type", "v2_event")
+        .eq("entity_id", orderId)
+        .eq("status", "sent")
+        .order("sent_at", { ascending: false });
+      for (const row of offerSends ?? []) {
+        const meta = (row.metadata ?? {}) as Record<string, unknown>;
+        const quotId = meta.lexoffice_quotation_id as string | null | undefined;
+        if (!quotId || !quotationIds.includes(quotId)) continue;
+        const list = sendsByDocId.get(quotId) ?? [];
+        list.push({
+          to: row.recipient_email,
+          sent_at: row.sent_at,
+          message_id: row.provider_message_id ?? null,
+        });
+        sendsByDocId.set(quotId, list);
+      }
+    }
+
+    if (invoiceIds.length > 0) {
+      const { data: invoiceSends } = await admin
+        .from("activity_logs")
+        .select("created_at, metadata")
+        .eq("entity_type", "v2_event")
+        .eq("entity_id", orderId)
+        .eq("action", "invoice_email_sent")
+        .order("created_at", { ascending: false });
+      for (const row of invoiceSends ?? []) {
+        const meta = (row.metadata ?? {}) as Record<string, unknown>;
+        const invId = meta.lexoffice_invoice_id as string | null | undefined;
+        if (!invId || !invoiceIds.includes(invId)) continue;
+        const list = sendsByDocId.get(invId) ?? [];
+        list.push({
+          to: (meta.recipient as string) ?? "",
+          sent_at: row.created_at as string,
+          message_id: (meta.resend_message_id as string | null) ?? null,
+        });
+        sendsByDocId.set(invId, list);
+      }
+    }
+
+    for (const d of docs) {
+      d.sends = sendsByDocId.get(d.id) ?? [];
+    }
 
     docs.sort((a, b) => {
       const da = a.date ? Date.parse(a.date) : 0;
