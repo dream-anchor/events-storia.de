@@ -113,30 +113,32 @@ serve(async (req) => {
       let resolvedDocType: string | null = order?.lexoffice_document_type ?? null;
       let resolvedOrderNumber: string | null = order?.order_number ?? null;
 
-      // Fallback: event_inquiries (Maestro-Anfragen tragen LexOffice-IDs ebenfalls dort)
+      // Fallback: v2_events ist die Maestro-Source-of-Truth.
+      // Priorität: final_lexoffice_invoice_id (Schlussrechnung)
+      //          > invoice_lexoffice_id (Anzahlungs-/Standardrechnung)
+      //          > lexoffice_quotation_id (Angebot)
       if (!resolvedDocId) {
-        const { data: inquiry, error: inquiryError } = await supabase
-          .from('event_inquiries')
-          .select('id, lexoffice_invoice_id, lexoffice_document_type')
+        const { data: ev, error: evError } = await supabase
+          .from('v2_events')
+          .select('booking_number, final_lexoffice_invoice_id, invoice_lexoffice_id, lexoffice_quotation_id, lexoffice_document_type')
           .eq('id', orderId)
           .maybeSingle();
 
-        if (inquiryError) {
-          console.error('event_inquiries fetch error:', inquiryError);
+        if (evError) {
+          console.error('v2_events fetch error:', evError);
         }
 
-        if (inquiry?.lexoffice_invoice_id) {
-          resolvedDocId = inquiry.lexoffice_invoice_id;
-          resolvedDocType = inquiry.lexoffice_document_type ?? null;
-
-          // booking_number kommt aus v2_events (gleiche ID via source_inquiry_id)
-          const { data: ev } = await supabase
-            .from('v2_events')
-            .select('booking_number')
-            .eq('id', orderId)
-            .maybeSingle();
-          resolvedOrderNumber = ev?.booking_number ?? null;
+        if (ev?.final_lexoffice_invoice_id) {
+          resolvedDocId = ev.final_lexoffice_invoice_id;
+          resolvedDocType = 'invoice';
+        } else if (ev?.invoice_lexoffice_id) {
+          resolvedDocId = ev.invoice_lexoffice_id;
+          resolvedDocType = ev.lexoffice_document_type ?? 'invoice';
+        } else if (ev?.lexoffice_quotation_id) {
+          resolvedDocId = ev.lexoffice_quotation_id;
+          resolvedDocType = 'quotation';
         }
+        resolvedOrderNumber = resolvedOrderNumber ?? ev?.booking_number ?? null;
       }
 
       if (!resolvedDocId) {
