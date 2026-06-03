@@ -1195,6 +1195,9 @@ export const SmartInquiryEditor = () => {
           {/* Versionsverlauf der versendeten Angebote — bleibt für event & catering */}
           {id && <OfferHistoryList inquiryId={id} />}
 
+          {/* LexOffice-Belege — Übersicht aller Angebote & Rechnungen */}
+          <LexofficeDocumentsCard orderId={id!} />
+
         </TabsContent>
 
         {/* Tab: Nachrichten — Mail-Client-Ansicht (Sidebar + Reading Pane) */}
