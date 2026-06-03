@@ -1,35 +1,24 @@
-## Antwort auf deine Fragen
+## Problem
 
-**1. Rechnung groß anzeigen per Klick?**
-Aktuell gibt es nur kleine Icon-Buttons (Auge = Vorschau im neuen Tab, Pfeil = Download) im neuen "Belege"-Bereich unter der Anfrage. Die ganze Zeile ist nicht klickbar, und es gibt keine Inline-Großvorschau.
+Die neue **Belege-Card** (LexofficeDocumentsCard) ist aktuell nur im Tab **„Details"** eingebunden (`SmartInquiryEditor.tsx:1305`, innerhalb `<TabsContent value="details">`).
 
-**2. Wo sehe ich, ob es mehrere Rechnungen gibt?**
-Im selben "Belege"-Bereich (`LexofficeDocumentsCard`) unterhalb der Zahlungs-Karte im Inquiry-Editor. Dort werden ALLE LexOffice-Dokumente zum Auftrag chronologisch aufgelistet (Angebot, Anzahlungsrechnung, Schlussrechnung, Storno) mit Nummer, Datum, Betrag, Status-Badge und einer Anzahl-Badge im Header (z.B. "Belege 3"). Auf deinem Screenshot ist diese Karte nicht sichtbar, weil der "Rechnung senden"-Dialog offen ist — sie liegt rechts/unten im Editor selbst.
+Du arbeitest aber im Tab **„Angebot"** — dort wird die Karte nicht gerendert, deshalb siehst du die Änderungen nicht.
 
----
+## Lösung
 
-## Plan: UX-Verbesserung
+Die `LexofficeDocumentsCard` zusätzlich im **Angebot**-Tab direkt unter den bestehenden Zahlungs-/Angebotsblock einfügen, damit Belege immer im Hauptarbeitsbereich sichtbar sind.
 
-### A) Ganze Zeile klickbar → große PDF-Vorschau
-- Klick auf die Beleg-Zeile (außer auf die Action-Buttons) öffnet einen **großen Vorschau-Dialog** (statt nur neuer Browser-Tab)
-- Neuer Dialog `LexofficeDocumentPreviewDialog`:
-  - Vollbild-Modal (max-w-5xl, h-[90vh])
-  - Eingebettete PDF-Vorschau via `<iframe src={blobUrl}>` (Browser-PDF-Viewer mit Zoom/Scroll)
-  - Header: Beleg-Typ, Nummer, Status-Badge
-  - Footer: Buttons "Download", "Stornieren" (falls erlaubt), "Schließen"
-  - Bei Klick auf Auge-Icon ebenfalls dieser Dialog (kein neuer Tab mehr)
+### Konkret
+- In `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx`, im Block `<TabsContent value="angebot">` (Zeilen 1165–1198), unterhalb der bestehenden Zahlungssektion folgendes ergänzen:
+  ```tsx
+  <LexofficeDocumentsCard orderId={id!} />
+  ```
+- Im **Details**-Tab bleibt die Karte ebenfalls erhalten (kein Duplikat-Problem, da identische Query gecached wird via React Query Key `['order-lex-docs', orderId]`).
 
-### B) Multi-Beleg-Sichtbarkeit verstärken
-- Im Header der Karte: bei `docs.length > 1` kleiner Hinweis "X Belege" + Tooltip "Mehrere LexOffice-Dokumente vorhanden"
-- Bei `kind='final'` mit gleichzeitig vorhandener `deposit` zusätzliche kleine Info-Zeile "Schlussrechnung + N Anzahlung(en)" zur schnellen Übersicht
-- Sortierung bleibt: Angebot → Anzahlungen → Schlussrechnung → Stornos
+### Optional (falls gewünscht)
+- Stattdessen aus „Details" entfernen, wenn du sie ausschließlich im Angebot-Tab haben willst — sag kurz Bescheid.
 
-### C) Visuelle Hierarchie in der Liste
-- Aktive (nicht stornierte) Belege fett, Stornos ausgegraut + Badge "Storniert"
-- Schlussrechnung mit Akzent-Rand links (subtile Hervorhebung)
+## Hinweis zum Screenshot
+Im Screenshot ist zusätzlich der „Rechnung senden"-Dialog offen, der den Tab überlagert. Nach Schließen wäre die Karte (nach dem Patch) direkt unter dem Zahlungsblock sichtbar.
 
-### Dateien
-- **Neu**: `src/components/admin/refine/InquiryEditor/LexofficeDocumentPreviewDialog.tsx`
-- **Edit**: `src/components/admin/refine/InquiryEditor/LexofficeDocumentsCard.tsx` (Zeile klickbar, Preview-Dialog statt window.open, Multi-Beleg-Hinweis)
-
-Keine Backend-/Edge-Function-Änderungen nötig — die Daten sind bereits da.
+Keine Backend-/Edge-Function-Änderungen nötig.
