@@ -16,7 +16,9 @@ Ziel: Wenn eine Rechnung in LexOffice geändert wird (Status, Beträge, Position
 ## Komponenten
 
 ### 1. Neue Edge Function: `lexoffice-webhook`
-- Öffentlich erreichbar (`verify_jwt = false`), validiert Anfragen über LexOffice-Signatur + geteiltes Secret `LEXOFFICE_WEBHOOK_SECRET`.
+- Öffentlich erreichbar (`verify_jwt = false`).
+- Authentizität: Lexware vergibt kein Shared Secret. Stattdessen prüft die Funktion optional den `X-Lxo-Signature`-Header (RSA-SHA256) gegen Lexwares Public Key (`LEXOFFICE_WEBHOOK_PUBLIC_KEY` in PEM/SPKI-Format).
+- Ist kein Public Key konfiguriert, akzeptiert der Endpoint alle Requests — das ist sicher, weil der Payload nur eine `resourceId` enthält und der Sync die Rechnung mit unserem eigenen `LEXOFFICE_API_KEY` aus Lexware nachlädt. Eine gefälschte Anfrage kann maximal einen Re-Sync einer ohnehin uns gehörenden Rechnung auslösen.
 - Akzeptiert Event-Typen: `invoice.changed`, `invoice.status.changed`, `payment.changed`, `voucher.changed`, `voucher.deleted`.
 - Lädt vollständigen LexOffice-Datensatz nach (Status, Beträge, Positionen, Zahlungen).
 - Schreibt nach Maestro (siehe unten).
@@ -63,8 +65,8 @@ Da LexOffice keine Self-Service-Webhook-API hat, gibt es zwei Setup-Pfade:
 - **Bevorzugt**: LexOffice "Event-Subscriptions" via API einrichten (per einmaligem Setup-Skript in der Edge Function `lexoffice-webhook-setup`).
 - **Fallback**: Wenn LexOffice-Plan keine Subscriptions zulässt, läuft alternativ ein 5-Minuten-Polling-Cron (`pg_cron` auf `sync-lexoffice-payment-status` erweitert), bis Webhooks aktiv sind.
 
-## Secret
-- Neuer Secret: `LEXOFFICE_WEBHOOK_SECRET` (für Signatur-Validierung).
+## Secrets
+- Optional: `LEXOFFICE_WEBHOOK_PUBLIC_KEY` (PEM, SPKI). Wenn gesetzt, wird jeder eingehende Webhook gegen die Signatur geprüft. Lexware veröffentlicht den passenden Public Key in der Event-Subscriptions-Doku.
 
 ## Out of Scope
 - Bestehende stornierte/falsche Rechnungen werden nicht rückwirkend repariert.
