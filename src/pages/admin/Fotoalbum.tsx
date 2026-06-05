@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil, Download, ImageDown } from "lucide-react";
+import { Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -53,7 +53,6 @@ const Fotoalbum = () => {
   const del = useDeletePhoto();
   const [seeding, setSeeding] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
-  const [optimizing, setOptimizing] = useState(false);
 
   const runSeed = async () => {
     if (seeding) return;
@@ -98,48 +97,6 @@ const Fotoalbum = () => {
       toast.error("Reklassifizierung fehlgeschlagen: " + (e as Error).message, { id: toastId });
     } finally {
       setReclassifying(false);
-    }
-  };
-
-  const runOptimize = async () => {
-    if (optimizing) return;
-    if (!confirm(
-      "Alle Fotos zu optimiertem WebP konvertieren?\n\nMax. 1920px Kantenlänge, ~82% Qualität. Bereits optimierte Fotos werden übersprungen. Das kann mehrere Minuten dauern.",
-    )) return;
-    setOptimizing(true);
-    const toastId = toast.loading("Optimiere Bilder zu WebP …");
-    try {
-      // Loop in small batches so the gateway doesn't time out on big WASM jobs.
-      let totalConverted = 0;
-      let totalFailed = 0;
-      const errorSamples: string[] = [];
-      const BATCH = 8;
-      for (let pass = 0; pass < 20; pass++) {
-        const { data, error } = await supabase.functions.invoke("convert-photos-to-webp", {
-          body: { limit: BATCH },
-        });
-        if (error) throw error;
-        const { converted = 0, failed = 0, remaining = 0, errors = [] } = data ?? {};
-        totalConverted += converted;
-        totalFailed += failed;
-        if (Array.isArray(errors)) errorSamples.push(...errors.slice(0, 5));
-        toast.loading(
-          `Optimiere … ${totalConverted} konvertiert, ${totalFailed} Fehler · noch ${remaining}`,
-          { id: toastId },
-        );
-        if (converted === 0 && failed === 0) break;
-        if (remaining === 0) break;
-      }
-      toast.success(
-        `Fertig: ${totalConverted} konvertiert · ${totalFailed} Fehler`,
-        { id: toastId, duration: 8000 },
-      );
-      if (errorSamples.length > 0) console.warn("WebP-Optimierung Fehler:", errorSamples);
-    } catch (e) {
-      console.error(e);
-      toast.error("Optimierung fehlgeschlagen: " + (e as Error).message, { id: toastId });
-    } finally {
-      setOptimizing(false);
     }
   };
 
@@ -190,17 +147,6 @@ const Fotoalbum = () => {
                 ? <Loader2 className="h-3 w-3 mr-2 animate-spin" />
                 : <Sparkles className="h-3 w-3 mr-2" />}
               KI neu klassifizieren
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={runOptimize}
-              disabled={optimizing}
-            >
-              {optimizing
-                ? <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                : <ImageDown className="h-3 w-3 mr-2" />}
-              Bilder optimieren (WebP)
             </Button>
             <Button
               variant="outline"
