@@ -89,6 +89,12 @@ export default defineConfig(({ mode }) => ({
             renderAfterDocumentEvent: 'prerender-ready',
             headless: true,
             navigationOptions: { timeout: 60000 },
+            maxConcurrentRoutes: 2,
+            timeout: 120000,
+            launchOptions: {
+              protocolTimeout: 180000,
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+            },
           },
           postProcess(renderedRoute) {
             // Add prerendered marker for debugging
