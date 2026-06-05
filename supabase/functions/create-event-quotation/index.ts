@@ -711,6 +711,62 @@ function buildRemarkText(depositPercent: number, offerValidityDays: number): str
   return `Restzahlung vor Veranstaltung. Dieses Angebot ist ${offerValidityDays} Tage gültig.`;
 }
 
+// Spiegelt 1:1 die Admin-Zusammenfassung aus PaymentTermsBlock.tsx wider,
+// damit der Satz unter dem Angebots-PDF identisch zum Admin-Angebot ist.
+type DepositMethodKind = 'none' | 'stripe' | 'on_site' | 'invoice';
+type BalanceMethodKind = 'stripe_prepay' | 'on_site' | 'invoice_before' | 'invoice_after';
+
+function legacyMethodPair(pm: string | null | undefined): { deposit: DepositMethodKind; balance: BalanceMethodKind } {
+  switch (pm) {
+    case 'deposit_online':    return { deposit: 'stripe', balance: 'stripe_prepay' };
+    case 'prepayment_online': return { deposit: 'none',   balance: 'stripe_prepay' };
+    case 'on_site':           return { deposit: 'none',   balance: 'on_site' };
+    case 'invoice_after':     return { deposit: 'none',   balance: 'invoice_after' };
+    case 'invoice_before':    return { deposit: 'none',   balance: 'invoice_before' };
+    default:                  return { deposit: 'stripe', balance: 'stripe_prepay' };
+  }
+}
+
+function buildOfferRemark(args: {
+  depositMethod: DepositMethodKind;
+  balanceMethod: BalanceMethodKind;
+  depositPercent: number;
+  depositAmount?: number | null;
+  depositDueDays: number;
+  balanceDueDaysBeforeEvent: number;
+  invoiceDueDays: number;
+  offerValidityDays: number;
+}): string {
+  const {
+    depositMethod: dMethod, balanceMethod: bMethod,
+    depositPercent: dp, depositAmount, depositDueDays: dd,
+    balanceDueDaysBeforeEvent: bDays, invoiceDueDays: invDays,
+    offerValidityDays: ov,
+  } = args;
+
+  const depositMode: 'percent' | 'amount' = (depositAmount != null && depositAmount > 0) ? 'amount' : 'percent';
+  const showDepositFrist = dMethod === 'stripe' || dMethod === 'invoice';
+
+  const depositText = dMethod === 'none' ? null : (() => {
+    const amountStr = depositMode === 'amount'
+      ? `${(depositAmount as number).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+      : `${dp} %`;
+    const channel = dMethod === 'stripe' ? 'per Stripe' : dMethod === 'on_site' ? 'vor Ort' : 'per Rechnung';
+    const frist = showDepositFrist ? ` innerhalb ${dd} Tage` : '';
+    return `Anzahlung ${amountStr} ${channel}${frist}`;
+  })();
+
+  const balanceText = bMethod === 'stripe_prepay'
+    ? `Restzahlung per Stripe (${bDays} Tage vor Event)`
+    : bMethod === 'on_site'
+    ? `Restzahlung vor Ort beim Event`
+    : bMethod === 'invoice_before'
+    ? `Restzahlung per Rechnung vor Event (Zahlung bis ${bDays} Tage vor Event)`
+    : `Restzahlung per Rechnung nach Event (Zahlungsziel ${invDays} Tage)`;
+
+  return `${depositText ? depositText + ', ' : ''}${balanceText}. Angebot ${ov} Tage gültig.`;
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -1021,7 +1077,19 @@ serve(async (req) => {
       remarkText = `Vielen Dank für Ihre Buchung. Das Zahlungsziel beträgt ${invoiceDueDays} Tage nach Rechnungseingang.`;
     } else {
       paymentConditions = buildPaymentConditions(depositPercent, depositDueDays, fixedDepositAmount);
-      remarkText = buildRemarkText(depositPercent, offerValidityDays);
+      const pair = legacyMethodPair(paymentMethod);
+      const dMethodResolved = (depositMethod ?? pair.deposit) as DepositMethodKind;
+      const bMethodResolved = (balanceMethod ?? pair.balance) as BalanceMethodKind;
+      remarkText = buildOfferRemark({
+        depositMethod: dMethodResolved,
+        balanceMethod: bMethodResolved,
+        depositPercent: depositPercent ?? 0,
+        depositAmount: fixedDepositAmount ?? null,
+        depositDueDays: depositDueDays ?? 5,
+        balanceDueDaysBeforeEvent: balanceDueDaysBeforeEvent ?? 10,
+        invoiceDueDays,
+        offerValidityDays: offerValidityDays ?? 14,
+      });
     }
 
     // 7. LexOffice Dokument aufbauen — Empfänger aus resolved billing

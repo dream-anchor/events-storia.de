@@ -1,50 +1,66 @@
-# Public Offer Sync + exakte Beträge am Zahl-Button
+# LexOffice-Angebot: Zahlungs-Satz 1:1 aus dem Admin-Angebot
 
 ## Problem
 
-1. **Anschreiben neu generieren ≠ Public Offer aktuell:**
-   - Beim Regenerieren wird `event_inquiries.email_content` aktualisiert, aber:
-     - der Übersetzungs-Cache in `email_content_translations` (jsonb mit `en/it/fr`) bleibt stehen → Kunde in EN/IT/FR sieht weiter den **alten** übersetzten Text.
-     - Die Menü-/Options-Anzeige liest beim Versand aus dem History-Snapshot (`inquiry_offer_history.options_snapshot`), aber beim reinen Regenerieren ohne neuen Versand wird kein neuer Snapshot erzeugt → falls Menü zwischendurch geändert wurde, sind Anschreiben und Options-Karten auf Public Offer auseinander.
+Auf dem LexOffice-Angebots-PDF erscheint am Ende der hartcodierte Text:
 
-2. **Zahl-Button rundet:**
-   - `formatCurrency()` in `src/pages/public-offer/types.ts` ist auf `minimumFractionDigits: 0, maximumFractionDigits: 0` gesetzt. Dadurch wird z. B. `1.053,99 €` am Bezahl-Button als `1.054 €` dargestellt (Zeile 1012 / 1029 ProposalView).
-   - Zusätzlich rundet `Math.round(totalAmount * depositPercent) / 100` in ProposalView (Zeile 163) und PublicOffer (Zeile 199) Anzahlungen auf Cent — gegen die Maestro-Regel („Preise 1:1 aus Maestro, niemals neu runden").
+> Anzahlung 20% innerhalb von 5 Tagen
+> Restzahlung vor Veranstaltung. Dieses Angebot ist 14 Tage gültig.
+
+Die ausgewählten Zahlungswege (Stripe, vor Ort, Rechnung) und das im Admin sichtbare Detail („… per Stripe …", „… (10 Tage vor Event)") werden ignoriert. Der erwartete Original-Satz aus dem Admin lautet z. B.:
+
+> Anzahlung 20 % per Stripe innerhalb 5 Tage, Restzahlung per Stripe (10 Tage vor Event). Angebot 14 Tage gültig.
+
+Die Quelle der Diskrepanz ist `buildRemarkText()` in `supabase/functions/create-event-quotation/index.ts` (Zeile 706–712) — sie kennt `deposit_method`, `balance_method` und `balance_due_days_before_event` nicht und nutzt sie nicht im Remark.
 
 ## Lösung
 
-### A) Anschreiben-Regenerate synchronisiert Public Offer
+Im Edge Function `create-event-quotation` einen neuen Helper `buildOfferRemark()` einführen, der den Admin-Summary-Text 1:1 nachbaut (siehe `PaymentTermsBlock.tsx` Zeilen 165–180) und vom Quotation-Pfad statt `buildRemarkText()` aufgerufen wird.
 
-In `src/components/admin/refine/InquiryEditor/AIComposer.tsx` (Stelle, an der nach `generate-inquiry-email` der neue `email_content` ankommt und in die Inquiry geschrieben wird) zusätzlich:
+Der Helper bekommt:
+- `depositMethod` (`'none' | 'stripe' | 'on_site' | 'invoice'`)
+- `balanceMethod` (`'stripe_prepay' | 'on_site' | 'invoice_before' | 'invoice_after'`)
+- `depositPercent`, `depositAmount` (fix), `depositDueDays`
+- `balanceDueDaysBeforeEvent`, `invoiceDueDays`
+- `offerValidityDays`
 
-1. `email_content_translations = {}` setzen (Cache leeren) — damit `AnschreibenSection` bei nicht-deutschen Sprachen neu übersetzt.
-2. Aktuellen Options-Snapshot (alle `inquiry_offer_options` mit `is_active = true`) lesen und in den aktuellen `inquiry_offer_history`-Eintrag der laufenden Version schreiben (`update … set email_content = neuer Text, options_snapshot = aktuelle Options where inquiry_id = X and version = current_offer_version`). Falls noch kein History-Eintrag für die laufende Version existiert (Draft-Phase), wird kein History-Update gemacht — `PublicOffer.tsx` fällt dann ohnehin auf die Live-Options aus `inquiry_offer_options` zurück.
-3. Aktivität loggen: `cover_letter_regenerated` mit `{ version, translations_cleared: true }`.
+Logik identisch zum UI:
+- `depositText`:
+  - `none` → kein Anzahlungs-Satz
+  - sonst: Betrag (€ wenn `depositAmount > 0`, sonst `%`), Kanal (`per Stripe` / `vor Ort` / `per Rechnung`), Frist (`innerhalb {Tage} Tage` — nur bei Stripe oder Rechnung).
+- `balanceText`:
+  - `stripe_prepay` → `Restzahlung per Stripe ({bDays} Tage vor Event)`
+  - `on_site` → `Restzahlung vor Ort beim Event`
+  - `invoice_before` → `Restzahlung per Rechnung vor Event (Zahlung bis {bDays} Tage vor Event)`
+  - `invoice_after` → `Restzahlung per Rechnung nach Event (Zahlungsziel {invDays} Tage)`
+- Zusammensetzung: `"${depositText ? depositText + ', ' : ''}${balanceText}. Angebot ${ov} Tage gültig."`
 
-→ Effekt für Kunden: Anschreiben, Menü-Snapshot und Übersetzungen auf Public Offer sind nach Regenerate konsistent.
+Fallback (Legacy-Anfragen ohne `deposit_method`/`balance_method`): aus `payment_method` ableiten (gleiche Mapping-Tabelle wie `legacyToPair()` in `PaymentTermsBlock.tsx`).
 
-### B) Zahl-Button: exakter Betrag, keine Rundung
-
-In `src/pages/public-offer/types.ts`:
-
-- `formatCurrency()` auf `minimumFractionDigits: 2, maximumFractionDigits: 2` umstellen. (Hat dieselbe Darstellung wie `formatCurrencyDecimal` — `formatCurrencyDecimal` bleibt als Alias bestehen, um Re-Exports nicht zu brechen.)
-
-In `src/pages/public-offer/ProposalView.tsx` (Zeile 161–163) und `src/pages/PublicOffer.tsx` (Zeile 186–199 `computeDeposit`):
-
-- Wenn `inquiry.deposit_amount > 0` ist (fester Maestro-Betrag), wird er 1:1 übernommen (auch Stelle in `Math.min`-Pfad nicht runden).
-- Beim prozentualen Pfad statt `Math.round(totalAmount * pct) / 100` ein unverändertes `(totalAmount * pct) / 100` verwenden. Die Anzeige nutzt `formatCurrencyDecimal`, das auf 2 Nachkommastellen korrekt formatiert, ohne den Wert intern zu runden.
-- Hinweis: Stripe wird im Edge-Function-Aufruf (`create-payment-session`) ohnehin in ganzen Cent angegeben — dort bleibt eine unvermeidbare Cent-Konvertierung (`Math.round(x*100)`) bestehen, weil Stripe keine Sub-Cent-Beträge akzeptiert; das ist keine Rundung in der UI.
+`buildPaymentConditions()` bleibt unverändert (liefert `paymentTermLabel` und `paymentTermDuration` für das LexOffice-Pflichtfeld) — nur das `remark` wird durch den neuen Helper ersetzt. Invoice- und Final-Invoice-Pfade (Zeile 998–1021) bleiben unverändert.
 
 ## Technische Details
 
-**Geänderte Dateien:**
-- `src/pages/public-offer/types.ts` — `formatCurrency` auf 2 Nachkommastellen.
-- `src/pages/public-offer/ProposalView.tsx` — `Math.round` aus `depositAmount`-Berechnung entfernen.
-- `src/pages/PublicOffer.tsx` — `computeDeposit` ohne `Math.round`.
-- `src/components/admin/refine/InquiryEditor/AIComposer.tsx` — nach erfolgreichem Regenerate:
-  - `update event_inquiries set email_content = …, email_content_translations = '{}'::jsonb where id = inquiry_id`
-  - `update inquiry_offer_history set email_content = …, options_snapshot = activeOptions where inquiry_id = X and version = current_offer_version` (nur wenn Eintrag existiert).
-  - `logActivity('cover_letter_regenerated', …)`.
+**Datei:** `supabase/functions/create-event-quotation/index.ts`
 
-**Keine** Migration nötig (`email_content_translations` existiert bereits als jsonb).
-**Keine** Backend-/Stripe-Logikänderung — Stripe-Beträge bleiben in Cent korrekt.
+1. Neue Funktion `buildOfferRemark(args)` (~25 Zeilen) nahe `buildRemarkText()`.
+2. Hilfsfunktion `legacyMethodPair(payment_method)` für den Fallback, identisch zu `legacyToPair()` im Frontend.
+3. In Zeile 1024 `remarkText = buildRemarkText(...)` ersetzen durch:
+   ```ts
+   const pair = legacyMethodPair(paymentMethod);
+   const dMethod = (depositMethod ?? pair.deposit) as 'none'|'stripe'|'on_site'|'invoice';
+   const bMethod = (balanceMethod ?? pair.balance) as 'stripe_prepay'|'on_site'|'invoice_before'|'invoice_after';
+   remarkText = buildOfferRemark({
+     depositMethod: dMethod,
+     balanceMethod: bMethod,
+     depositPercent,
+     depositAmount: fixedDepositAmount,
+     depositDueDays,
+     balanceDueDaysBeforeEvent: balanceDueDaysBeforeEvent ?? 10,
+     invoiceDueDays,
+     offerValidityDays,
+   });
+   ```
+4. `create-event-quotation` neu deployen.
+
+Kein Frontend-Change, keine Migration, keine LexOffice-API-Änderung.
