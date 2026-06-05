@@ -413,15 +413,33 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
       optionCount = opts.length;
 
       const multiOpts: MultiOfferOption[] = (optionsWithPkg || []).map(o => {
-        const menuSel = o.menu_selection as (MenuSelection & { pricingMode?: 'per_person' | 'per_event' }) | undefined;
+        const menuSel = o.menu_selection as (MenuSelection & {
+          pricingMode?: 'per_person' | 'per_event';
+          discountPercent?: number;
+          discountAmount?: number;
+        }) | undefined;
+        const discountPercent = Number(menuSel?.discountPercent ?? 0);
+        const discountAmount = Number(menuSel?.discountAmount ?? 0);
+        const total = Number(o.total_amount);
+        // Zwischensumme (vor Rabatt) für die KI rekonstruieren, damit die
+        // Mail einen sauberen Hinweis wie "Zwischensumme X, Rabatt Y, Endpreis Z" liefern kann.
+        let subtotal = total;
+        if (discountAmount > 0) {
+          subtotal = total + discountAmount;
+        } else if (discountPercent > 0 && discountPercent < 100) {
+          subtotal = total / (1 - discountPercent / 100);
+        }
         return {
           label: o.option_label,
           offerMode: o.offer_mode || undefined,
           packageName: (o.offer_mode === 'menu') ? 'Individuell' : (pkgNames[o.package_id] || 'Individuell'),
           guestCount: o.guest_count,
-          totalAmount: Number(o.total_amount),
+          totalAmount: total,
           menuSelection: menuSel,
           pricingMode: menuSel?.pricingMode || 'per_person',
+          discountPercent,
+          discountAmount,
+          subtotalAmount: subtotal,
         };
       });
 
