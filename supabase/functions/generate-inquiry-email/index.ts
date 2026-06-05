@@ -620,7 +620,9 @@ STIL:
 
 ${isProposal ? `STRUKTUR (VORSCHLAG):
 1. Anrede (siehe Regel 1)
-2. Dank für Anfrage mit Datum, Uhrzeit, Gästeanzahl in einem Satz
+2. Einleitung — je nach Revisions-Status (siehe Regel 8):
+   • Erstangebot: "vielen Dank für Ihre Anfrage für den …" mit Datum, Uhrzeit, Gästeanzahl.
+   • Überarbeitete Version: "anbei das überarbeitete Angebot …" / "wie besprochen erhalten Sie hier die überarbeitete Version …" — KEIN "vielen Dank für Ihre Anfrage".
 3. Angebot vorstellen mit Preis pro Person
 4. ALLE Speisen vollständig auflisten (siehe Regel 2)
 5. ALLE Getränke inklusive der Inklusiv-Positionen auflisten (siehe Regel 2)
