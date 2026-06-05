@@ -44,7 +44,7 @@ const Fotoalbum = () => {
   const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [editing, setEditing] = useState<PhotoAlbumEntry | null>(null);
 
-  const { data: photos, isLoading } = usePhotoAlbum({
+  const { data: photos, isLoading, isFetching } = usePhotoAlbum({
     category,
     tags: activeTag ? [activeTag] : undefined,
   });
@@ -172,22 +172,24 @@ const Fotoalbum = () => {
             className="max-w-md"
           />
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             <Badge
               variant={!category ? "default" : "outline"}
-              className="cursor-pointer"
+              className="cursor-pointer gap-1"
               onClick={() => { setCategory(undefined); setActiveTag(undefined); }}
             >
               Alle Kategorien
+              {!category && isFetching && <Loader2 className="h-3 w-3 animate-spin" />}
             </Badge>
             {PHOTO_CATEGORIES.map((c) => (
               <Badge
                 key={c}
                 variant={category === c ? "default" : "outline"}
-                className="cursor-pointer"
+                className="cursor-pointer gap-1"
                 onClick={() => { setCategory(c); setActiveTag(undefined); }}
               >
                 {PHOTO_CATEGORY_LABELS[c]}
+                {category === c && isFetching && <Loader2 className="h-3 w-3 animate-spin" />}
               </Badge>
             ))}
           </div>
@@ -196,10 +198,11 @@ const Fotoalbum = () => {
             {activeTag && (
               <Badge
                 variant="default"
-                className="cursor-pointer"
+                className="cursor-pointer gap-1"
                 onClick={() => setActiveTag(undefined)}
               >
-                #{activeTag} ✕
+                #{activeTag}
+                {isFetching ? <Loader2 className="h-3 w-3 animate-spin" /> : <span>✕</span>}
               </Badge>
             )}
             {!activeTag &&
@@ -214,6 +217,17 @@ const Fotoalbum = () => {
                 </Badge>
               ))}
           </div>
+
+          <div className="flex items-center gap-2 text-xs text-muted-foreground min-h-5">
+            {isFetching && !isLoading ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Lade Fotos …</span>
+              </>
+            ) : (
+              <span>{filtered.length} Foto{filtered.length === 1 ? "" : "s"}</span>
+            )}
+          </div>
         </div>
 
         {/* Gallery */}
@@ -226,6 +240,7 @@ const Fotoalbum = () => {
             Keine Fotos – lade welche hoch.
           </div>
         ) : (
+          <div className={isFetching ? "opacity-60 transition-opacity" : "transition-opacity"}>
           <MasonryPhotoAlbum
             photos={slides}
             columns={(width) => (width < 640 ? 2 : width < 1024 ? 3 : 4)}
@@ -262,6 +277,7 @@ const Fotoalbum = () => {
               },
             }}
           />
+          </div>
         )}
 
         <Lightbox
