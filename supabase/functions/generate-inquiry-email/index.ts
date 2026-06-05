@@ -103,6 +103,10 @@ interface MultiOfferOption {
   menuSelection?: MenuSelection;
   pricingMode?: 'per_person' | 'per_event';
   paymentLinkUrl?: string;
+  // Rabatt-/Brutto-Infos (kommen aus menu_selection.discountPercent/discountAmount)
+  discountPercent?: number;
+  discountAmount?: number;
+  subtotalAmount?: number;
 }
 
 interface MultiOfferRequest {
