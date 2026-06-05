@@ -98,6 +98,83 @@ const FOOD_TAX_RATE = 7;
 const DRINK_TAX_RATE = 19;
 
 /**
+ * Hängt — sofern in `menu_selection` ein Rabatt konfiguriert ist — eine
+ * negative LexOffice-Position pro Steuersatz an, sodass die Summe der
+ * LineItems exakt `targetTotal` (Brutto) ergibt. Die Einzelpreise der
+ * vorhandenen LineItems bleiben dabei unverändert (1:1 wie im Public Offer).
+ *
+ * Verteilung:
+ *   - `discountPercent` hat Vorrang vor `discountAmount`.
+ *   - Der Brutto-Rabatt wird proportional auf die vorhandenen Steuersätze
+ *     (7 % Speisen, 19 % Getränke/Equipment/Staff) verteilt.
+ *   - Restcent-Differenzen aus Rundung landen auf der letzten Rabattzeile,
+ *     damit der Brutto-Gesamtbetrag exakt mit Maestro übereinstimmt.
+ */
+function appendDiscountLines(
+  items: LexOfficeLineItem[],
+  targetTotal: number,
+  discountPercent: number | null,
+  discountAmount: number | null,
+): void {
+  if (items.length === 0) return;
+
+  const grossByRate: Record<number, number> = {};
+  for (const i of items) {
+    const r = i.unitPrice.taxRatePercentage;
+    grossByRate[r] = (grossByRate[r] || 0) + i.unitPrice.grossAmount * i.quantity;
+  }
+  const rawTotal = Object.values(grossByRate).reduce((s, v) => s + v, 0);
+  const targetRounded = Math.round(targetTotal * 100) / 100;
+  const totalDiscount = Math.round((rawTotal - targetRounded) * 100) / 100;
+  if (totalDiscount <= 0.005) return;
+
+  const label = discountPercent != null && discountPercent > 0
+    ? `Rabatt ${Number.isInteger(discountPercent) ? discountPercent : discountPercent.toFixed(1).replace('.', ',')} %`
+    : 'Rabatt';
+
+  // Steuersätze in stabiler Reihenfolge (zuerst Speisen 7 %, dann Getränke 19 %)
+  const rates = Object.keys(grossByRate)
+    .map(Number)
+    .filter(r => (grossByRate[r] || 0) > 0)
+    .sort((a, b) => a - b);
+  if (rates.length === 0) return;
+
+  const totalGross = rates.reduce((s, r) => s + grossByRate[r], 0);
+  const allocations: { rate: number; amount: number }[] = [];
+  let allocated = 0;
+  for (let idx = 0; idx < rates.length; idx++) {
+    const rate = rates[idx];
+    let amount: number;
+    if (idx === rates.length - 1) {
+      // Letzte Position bekommt den Rest, damit Cent-Differenzen aufgehen
+      amount = Math.round((totalDiscount - allocated) * 100) / 100;
+    } else {
+      amount = Math.round((totalDiscount * (grossByRate[rate] / totalGross)) * 100) / 100;
+      allocated += amount;
+    }
+    if (amount > 0) allocations.push({ rate, amount });
+  }
+
+  const rateLabel = (r: number) => r === FOOD_TAX_RATE ? 'Speisen' : (r === DRINK_TAX_RATE ? 'Getränke/Equipment' : `${r} %`);
+  const showSplitLabel = allocations.length > 1;
+
+  for (const a of allocations) {
+    items.push({
+      type: 'custom',
+      name: showSplitLabel ? `${label} (${rateLabel(a.rate)})` : label,
+      description: '',
+      quantity: 1,
+      unitName: 'Pauschale',
+      unitPrice: {
+        currency: 'EUR',
+        grossAmount: -a.amount,
+        taxRatePercentage: a.rate,
+      },
+    });
+  }
+}
+
+/**
  * Sammelt eine Liste aller konfigurierten Getränke einer Option als Strings für
  * die LexOffice-Beschreibung. Deckt sowohl das Legacy-`drinks[]`-Array
  * (Paket-Konfiguration: Wasser, Kaffee, Hauptgetränk …) als auch den neuen
