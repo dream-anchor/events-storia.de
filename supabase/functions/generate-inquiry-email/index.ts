@@ -215,7 +215,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
           }
         }
       } else if (!hasRealDrinks) {
-        parts.push('Getränke: keine konfiguriert — PFLICHT-Standardformulierung als eigener Absatz verwenden, BEIDE Sätze, exakt so:\n  "Wasser wird während der gesamten Veranstaltung für alle auf den Tischen bereitgestellt. Dazu zwei Getränke pro Person zur Wahl (ein Glas Wein, Spritz oder Bier)."');
+        parts.push('Getränke: KEINE im Angebot — im Anschreiben DARF KEIN Getränke-Satz vorkommen. Kein "Wasser wird gestellt", kein "zwei Getränke pro Person", keine erfundenen Wein/Spritz/Bier-Optionen. Thema Getränke komplett auslassen.');
       }
 
       // Einzeln-Getränke (z.B. Softdrinks, Wein nach Flaschen) — werden separat
