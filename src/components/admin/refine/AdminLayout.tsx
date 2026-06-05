@@ -30,6 +30,7 @@ import {
   Inbox,
   ShieldAlert,
   ShoppingCart,
+  Images,
 } from "lucide-react";
 import { useEffect, useState as useStateReact } from "react";
 
@@ -126,6 +127,7 @@ export const AdminLayout = ({
     { name: 'Posteingang', href: '/admin/posteingang', icon: Inbox, key: 'posteingang' },
     { name: 'Angebote', href: '/admin/quotations', icon: FileCheck, key: 'quotations' },
     { name: 'Rechnungen', href: '/admin/invoices', icon: FileText, key: 'invoices' },
+    { name: 'Fotoalbum', href: '/admin/fotos', icon: Images, key: 'fotos' },
     { name: 'System-Health', href: '/admin/system-health', icon: ShieldAlert, key: 'system-health' },
   ];
 
