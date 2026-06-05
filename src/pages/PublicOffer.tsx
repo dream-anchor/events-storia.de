@@ -187,7 +187,8 @@ function computeDeposit(
   if (fixed != null) {
     const amount = Math.min(fixed, totalAmount);
     return {
-      amount: Math.round(amount * 100) / 100,
+      // Maestro-Anzahlung 1:1 übernehmen, niemals runden.
+      amount,
       label: "Anzahlung",
       show: amount > 0 && amount < totalAmount,
     };
@@ -196,7 +197,8 @@ function computeDeposit(
   const fallbackPct = pm === 'deposit_online' ? 20 : 0;
   const pct = inquiry.deposit_percent ?? fallbackPct;
   if (pct <= 0) return { amount: 0, label: "Anzahlung", show: false };
-  const amount = Math.round(totalAmount * pct) / 100;
+  // Keine Cent-Rundung — exakter Betrag wird auf 2 Nachkommastellen formatiert.
+  const amount = (totalAmount * pct) / 100;
   return {
     amount,
     label: `Anzahlung ${pct} %`,
