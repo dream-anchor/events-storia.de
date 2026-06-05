@@ -1,31 +1,17 @@
-## Befund
+## Problem
 
-In `src/components/admin/refine/InquiryEditor/OfferBuilder/PriceBreakdown.tsx` gibt es zwei Render-Zweige:
+`/admin/fotos` rendert eine eigenständige Seite mit eigenem `<header>` und ohne Admin-Navigation. Dadurch fehlt die Sidebar/Topnav/Menü des restlichen Admin-Bereichs.
 
-- **Paket-Modus** (Zeile 551): `{onDiscountChange && (<DiscountInput .../>)}` → Button ist **immer** sichtbar, sobald die Komponente einen Discount-Handler bekommt. ✅
-- **Menü-Modus** (Zeile 361): `{((discountPercentProp ?? 0) > 0 || (discountAmountProp ?? 0) > 0) && (<DiscountInput .../>)}` → Button erscheint **erst nachdem** schon ein Rabatt > 0 gesetzt ist. ❌
+## Lösung
 
-Daher fehlt der Rabatt-Toggle bei allen Menüs (Menü-Komposition) sowie überall dort, wo nur `discountPercent`/`discountAmount` als 0 reinkommt. Bei Paketen, E-Mail-Modus und Optionen erscheint er.
+`src/pages/admin/Fotoalbum.tsx` so umbauen, dass der Inhalt in `AdminLayout` gewrappt wird – analog zu Dashboard und anderen Admin-Seiten.
 
-## Änderung
+### Änderungen in `src/pages/admin/Fotoalbum.tsx`
 
-In `PriceBreakdown.tsx`, Zeile 361, die Sichtbarkeits-Bedingung angleichen an den Paket-Zweig:
+- Import `AdminLayout` aus `@/components/admin/refine/AdminLayout`.
+- Den äußeren `<div className="min-h-screen bg-background">` plus eigener `<header>` entfernen.
+- Den Seiteninhalt (Dropzone, Filter, Gallery, Lightbox) als `children` in `<AdminLayout activeTab="fotos" title="Fotoalbum">` setzen.
+- Subtitle/Hinweistext ("Zentrale Bildbibliothek …") als kleinen Text über der Dropzone behalten.
+- Edit-Dialog bleibt unverändert.
 
-```tsx
-{onDiscountChange && (
-  <div className="flex items-center justify-between text-xs">
-    <DiscountInput ... />
-    {discountAmountTotal > 0 && (
-      <span>−{formatCurrency(discountDisplay)}</span>
-    )}
-  </div>
-)}
-```
-
-Damit wird der Button bei jedem Menü, Paket, E-Mail-Modus und jeder Option sofort sichtbar und klickbar, unabhängig davon, ob bereits ein Rabatt gesetzt ist. Der `−€X`-Text und die "Netto"-Zeile bleiben weiterhin nur sichtbar, wenn `discountAmountTotal > 0`.
-
-## Nicht enthalten
-
-- Keine Logik-/Preisänderung (Maestro bleibt Single Source of Truth).
-- Keine Default-Rabatte.
-- Farbthema (`tone="green"`) bleibt unverändert in diesem Schritt — separat adressierbar, wenn gewünscht.
+Keine Logik-, Daten- oder Routing-Änderungen. Reine UI-Integration in das bestehende Admin-Shell.

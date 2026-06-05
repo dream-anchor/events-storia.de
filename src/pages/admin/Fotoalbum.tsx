@@ -27,6 +27,7 @@ import {
   type PhotoAlbumEntry,
 } from "@/hooks/usePhotoAlbum";
 import { PhotoDropzone } from "@/components/admin/PhotoDropzone";
+import { AdminLayout } from "@/components/admin/refine/AdminLayout";
 import {
   PHOTO_CATEGORIES,
   PHOTO_CATEGORY_LABELS,
@@ -79,20 +80,12 @@ const Fotoalbum = () => {
     : ALL_PHOTO_TAGS;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-serif font-semibold">Fotoalbum</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Zentrale Bildbibliothek. Neue Fotos werden automatisch von der KI in
-              Kategorie + Tags einsortiert.
-            </p>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-6 space-y-6">
+    <AdminLayout activeTab="fotos" title="Fotoalbum">
+      <div className="space-y-6">
+        <p className="text-sm text-muted-foreground">
+          Zentrale Bildbibliothek. Neue Fotos werden automatisch von der KI in
+          Kategorie + Tags einsortiert.
+        </p>
         <PhotoDropzone />
 
         {/* Filters */}
@@ -202,7 +195,7 @@ const Fotoalbum = () => {
           close={() => setLightboxIndex(-1)}
           slides={slides}
         />
-      </main>
+      </div>
 
       {/* Edit dialog */}
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
@@ -237,7 +230,7 @@ const Fotoalbum = () => {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminLayout>
   );
 };
 
