@@ -4,6 +4,33 @@
 // WebP. Admin/staff only.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+// Polyfill ImageData (Deno edge runtime has no DOM). jSquash codecs construct
+// `new ImageData(data, width, height)` internally.
+if (typeof (globalThis as { ImageData?: unknown }).ImageData === "undefined") {
+  class ImageDataPolyfill {
+    data: Uint8ClampedArray;
+    width: number;
+    height: number;
+    colorSpace: "srgb" = "srgb";
+    constructor(data: Uint8ClampedArray | number, width: number, height?: number) {
+      if (typeof data === "number") {
+        // new ImageData(width, height)
+        const w = data;
+        const h = width;
+        this.width = w;
+        this.height = h;
+        this.data = new Uint8ClampedArray(w * h * 4);
+      } else {
+        this.data = data;
+        this.width = width;
+        this.height = height ?? data.length / 4 / width;
+      }
+    }
+  }
+  (globalThis as { ImageData?: unknown }).ImageData = ImageDataPolyfill;
+}
+
 // Google jSquash WASM codecs — only WebP encoder that works reliably on Deno
 // edge runtime. imagescript has no WebP encoder.
 import { decode as decodePng } from "https://esm.sh/@jsquash/png@3.0.1?target=deno";
