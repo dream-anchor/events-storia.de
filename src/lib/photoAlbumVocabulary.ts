@@ -28,17 +28,17 @@ export const PHOTO_CATEGORY_LABELS: Record<string, string> = {
 };
 
 export const PHOTO_TAGS_BY_CATEGORY: Record<string, string[]> = {
-  pizza: ["margherita","marinara","napoletana","pizza-bianca","büffelmozzarella","trüffel","parmaschinken","salami-piccante","meeresfrüchte","lachs","thunfisch","4-formaggi","vegetarisch","calzone","steinofen"],
-  pasta: ["spaghetti","tagliolini","tagliatelle","paccheri","penne","orecchiette","fusilli","gnocchi","ravioli","cavatelli","carbonara","arrabbiata","trüffel","meeresfrüchte","scampi","ragout","hausgemacht"],
+  pizza: ["margherita","marinara","napoletana","pizza-bianca","parmaschinken","salami-piccante","lachs","thunfisch","4-formaggi","calzone","steinofen"],
+  pasta: ["spaghetti","tagliolini","tagliatelle","paccheri","penne","orecchiette","fusilli","gnocchi","ravioli","cavatelli","carbonara","arrabbiata","scampi","ragout"],
   risotto: ["steinpilze","spargel","lachs","safran","kürbis"],
   antipasti: ["caprese","burrata","vitello-tonnato","carpaccio","oktopus","tatar","roastbeef","spargel","rote-bete","hummer"],
   salat: ["insalata-mista","burrata","ziegenkäse","lachs","caesar","roastbeef","avocado"],
   suppe: ["spargelcreme","fischsuppe","brokkoli"],
   fleisch: ["kalb","ossobuco","lamm","rinderfilet","rib-eye","tagliata","dry-aged","lavastein"],
-  fisch: ["dorade","oktopus","thunfisch","wolfsbarsch","pesce-misto","gegrillt","salzkruste"],
+  fisch: ["dorade","oktopus","thunfisch","wolfsbarsch","pesce-misto","salzkruste"],
   dessert: ["tiramisu","schokoladensoufflé","zitronentörtchen","panna-cotta","sorbet","eis"],
   beilage: ["grillgemüse","ofenkartoffeln","kartoffelpüree","frühlingsgemüse"],
-  "getränk": ["wasser","softdrink","saft","crodino","limonade"],
+  "getränk": [],
   cocktail: ["aperol-spritz","negroni","spritz","martini","mojito","caipirinha","gin-tonic","champagner","aperitivo"],
   wein: ["rotwein","weißwein","roséwein","spumante","prosecco","champagner","magnum","flasche","glas"],
   kaffee: ["espresso","cappuccino","latte-macchiato","affogato"],
@@ -46,10 +46,7 @@ export const PHOTO_TAGS_BY_CATEGORY: Record<string, string[]> = {
   team: ["familie-speranza","küche","service"],
 };
 
-export const PHOTO_CROSS_TAGS = [
-  "vegetarisch","scharf","trüffel","meeresfrüchte","büffelmozzarella",
-  "hausgemacht","gegrillt","signature","saisonal","mittagskarte",
-];
+export const PHOTO_CROSS_TAGS: string[] = [];
 
 export const ALL_PHOTO_TAGS = Array.from(
   new Set([...Object.values(PHOTO_TAGS_BY_CATEGORY).flat(), ...PHOTO_CROSS_TAGS])

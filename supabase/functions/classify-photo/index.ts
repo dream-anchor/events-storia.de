@@ -20,17 +20,17 @@ const CATEGORIES = [
 ] as const;
 
 const TAGS_BY_CATEGORY: Record<string, string[]> = {
-  pizza: ["margherita","marinara","napoletana","pizza-bianca","büffelmozzarella","trüffel","parmaschinken","salami-piccante","meeresfrüchte","lachs","thunfisch","4-formaggi","vegetarisch","calzone","steinofen"],
-  pasta: ["spaghetti","tagliolini","tagliatelle","paccheri","penne","orecchiette","fusilli","gnocchi","ravioli","cavatelli","carbonara","arrabbiata","trüffel","meeresfrüchte","scampi","ragout","hausgemacht"],
+  pizza: ["margherita","marinara","napoletana","pizza-bianca","parmaschinken","salami-piccante","lachs","thunfisch","4-formaggi","calzone","steinofen"],
+  pasta: ["spaghetti","tagliolini","tagliatelle","paccheri","penne","orecchiette","fusilli","gnocchi","ravioli","cavatelli","carbonara","arrabbiata","scampi","ragout"],
   risotto: ["steinpilze","spargel","lachs","safran","kürbis"],
   antipasti: ["caprese","burrata","vitello-tonnato","carpaccio","oktopus","tatar","roastbeef","spargel","rote-bete","hummer"],
   salat: ["insalata-mista","burrata","ziegenkäse","lachs","caesar","roastbeef","avocado"],
   suppe: ["spargelcreme","fischsuppe","brokkoli"],
   fleisch: ["kalb","ossobuco","lamm","rinderfilet","rib-eye","tagliata","dry-aged","lavastein"],
-  fisch: ["dorade","oktopus","thunfisch","wolfsbarsch","pesce-misto","gegrillt","salzkruste"],
+  fisch: ["dorade","oktopus","thunfisch","wolfsbarsch","pesce-misto","salzkruste"],
   dessert: ["tiramisu","schokoladensoufflé","zitronentörtchen","panna-cotta","sorbet","eis"],
   beilage: ["grillgemüse","ofenkartoffeln","kartoffelpüree","frühlingsgemüse"],
-  "getränk": ["wasser","softdrink","saft","crodino","limonade"],
+  "getränk": [],
   cocktail: ["aperol-spritz","negroni","spritz","martini","mojito","caipirinha","gin-tonic","champagner","aperitivo"],
   wein: ["rotwein","weißwein","roséwein","spumante","prosecco","champagner","magnum","flasche","glas"],
   kaffee: ["espresso","cappuccino","latte-macchiato","affogato"],
@@ -38,10 +38,7 @@ const TAGS_BY_CATEGORY: Record<string, string[]> = {
   team: ["familie-speranza","küche","service"],
 };
 
-const CROSS_TAGS = [
-  "vegetarisch","scharf","trüffel","meeresfrüchte","büffelmozzarella",
-  "hausgemacht","gegrillt","signature","saisonal","mittagskarte",
-];
+const CROSS_TAGS: string[] = [];
 
 const ALL_TAGS = Array.from(
   new Set([...Object.values(TAGS_BY_CATEGORY).flat(), ...CROSS_TAGS])
@@ -80,7 +77,6 @@ ERKENNUNGSREGELN (hart anwenden, Negativregeln zuerst):
 TAG-REGELN:
 - Nutze NUR Tags aus der erlaubten Liste, niemals eigene erfinden.
 - Bevorzuge spezifische Sorten (z.B. "tagliatelle", "burrata", "aperol-spritz") über generische.
-- Ergänze sinnvolle Querschnitt-Tags ("trüffel", "hausgemacht", "vegetarisch", "meeresfrüchte") wenn sichtbar.
 - Bei Dateiname-Hint mit klarem Begriff (z.B. "aperol-spritz"): nimm ihn ernst, falls er nicht im Widerspruch zum Bild steht.
 
 ERLAUBTE TAGS (nur diese Werte):
