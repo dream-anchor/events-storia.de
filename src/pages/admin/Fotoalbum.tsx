@@ -16,8 +16,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil } from "lucide-react";
+import { Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil, Download } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 import {
   usePhotoAlbum,
@@ -50,6 +51,30 @@ const Fotoalbum = () => {
   const reclassify = useReclassifyPhoto();
   const update = useUpdatePhoto();
   const del = useDeletePhoto();
+  const [seeding, setSeeding] = useState(false);
+
+  const runSeed = async () => {
+    if (seeding) return;
+    if (!confirm(
+      "Bestand aus events-storia.de & ristorantestoria.de importieren?\n\nLäuft nur einmal — Duplikate werden übersprungen.",
+    )) return;
+    setSeeding(true);
+    const toastId = toast.loading("Importiere Bestand …");
+    try {
+      const { data, error } = await supabase.functions.invoke("seed-photo-album", { body: {} });
+      if (error) throw error;
+      const { imported = 0, skipped = 0, failed = 0, collected = 0 } = data ?? {};
+      toast.success(
+        `${imported} importiert · ${skipped} übersprungen · ${failed} Fehler (gefunden: ${collected})`,
+        { id: toastId, duration: 8000 },
+      );
+    } catch (e) {
+      console.error(e);
+      toast.error("Import fehlgeschlagen: " + (e as Error).message, { id: toastId });
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     if (!photos) return [];
@@ -82,10 +107,23 @@ const Fotoalbum = () => {
   return (
     <AdminLayout activeTab="fotos" title="Fotoalbum">
       <div className="space-y-6">
-        <p className="text-sm text-muted-foreground">
-          Zentrale Bildbibliothek. Neue Fotos werden automatisch von der KI in
-          Kategorie + Tags einsortiert.
-        </p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <p className="text-sm text-muted-foreground max-w-xl">
+            Zentrale Bildbibliothek. Neue Fotos werden automatisch von der KI in
+            Kategorie + Tags einsortiert.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={runSeed}
+            disabled={seeding}
+          >
+            {seeding
+              ? <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+              : <Download className="h-3 w-3 mr-2" />}
+            Bestand importieren
+          </Button>
+        </div>
         <PhotoDropzone />
 
         {/* Filters */}

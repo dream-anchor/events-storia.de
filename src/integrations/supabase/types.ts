@@ -2660,6 +2660,8 @@ export type Database = {
           height: number | null
           id: string
           is_archived: boolean
+          source_filename: string | null
+          source_origin: string | null
           storage_path: string
           tags: string[]
           title: string | null
@@ -2681,6 +2683,8 @@ export type Database = {
           height?: number | null
           id?: string
           is_archived?: boolean
+          source_filename?: string | null
+          source_origin?: string | null
           storage_path: string
           tags?: string[]
           title?: string | null
@@ -2702,6 +2706,8 @@ export type Database = {
           height?: number | null
           id?: string
           is_archived?: boolean
+          source_filename?: string | null
+          source_origin?: string | null
           storage_path?: string
           tags?: string[]
           title?: string | null
