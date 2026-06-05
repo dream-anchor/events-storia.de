@@ -512,7 +512,9 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
    • ALLE Menügänge vollständig nennen (Vorspeise, Hauptgang, Dessert)
    • ALLE Getränke nennen — auch die inklusiven! (Wasser, Kaffee-Spezialitäten, Wein/Bier-Pauschale)
    • Inklusiv-Getränke haben in den Daten "inklusive" als Quantität oder stehen als "[Getränk]: inklusive". Die gehören IMMER in den Text.
-   • PFLICHT: Jedes Anschreiben enthält IMMER einen eigenen Getränke-Absatz. Wenn in den Daten "Getränke: keine konfiguriert" steht, schreibe wörtlich diesen Absatz mit BEIDEN Sätzen — keiner darf fehlen, kein Umformulieren:
+   • PFLICHT: Jedes Anschreiben enthält IMMER einen eigenen Getränke-Absatz.
+   • Wenn in den Daten echte Getränke stehen (Block "Getränke:" oder "Weitere Getränke:" mit Inhalten), übernimm AUSSCHLIESSLICH diese Positionen 1:1 mit Mengen und "inklusive"-Markern. Der Standard-Wassersatz ist dann STRENG VERBOTEN.
+   • Nur wenn in den Daten WÖRTLICH "Getränke: keine konfiguriert" steht UND kein Block "Weitere Getränke" existiert, schreibe wörtlich diesen Absatz mit BEIDEN Sätzen — keiner darf fehlen, kein Umformulieren:
      "Wasser wird während der gesamten Veranstaltung für alle auf den Tischen bereitgestellt. Dazu zwei Getränke pro Person zur Wahl (ein Glas Wein, Spritz oder Bier)."
 
 3. RECHTSCHREIBUNG — kein Slang, keine Abkürzungen.
@@ -532,6 +534,8 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
 
  7. RABATT — wenn in den Daten "Rabatt: JA" steht, MUSS er im Anschreiben erwähnt werden.
     • Eigener Satz, vor dem Link-Absatz.
+    • Der im Anschreiben genannte Hauptpreis (Gesamtpreis bzw. Preis pro Person) MUSS IMMER der Endpreis nach Rabatt sein — NIE die Zwischensumme vor Rabatt.
+    • Die Zwischensumme vor Rabatt darf NUR im Rabatt-Hinweissatz erscheinen, NIE als Hauptpreis.
     • Bei Prozent: "Im Endpreis ist bereits ein Rabatt von X % berücksichtigt."
     • Bei festem Betrag: "Im Endpreis ist bereits ein Rabatt von X,XX € berücksichtigt."
     • Falls Zwischensumme + Endpreis bekannt sind, gerne nennen — aber nie selbst rechnen, nur die Zahlen aus den Daten verwenden.
