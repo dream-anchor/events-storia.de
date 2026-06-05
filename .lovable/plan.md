@@ -1,50 +1,107 @@
-## Problem
+## Zwei Bugs auf der Public-Offer-Seite
 
-Wenn im Admin die Zahlungskonditionen (Anzahlung, Restzahlung, Gültigkeit) geändert werden, aber der **Gesamtbetrag gleich bleibt**, behält LexOffice den alten Footer-Satz („Anzahlung 20% innerhalb von 5 Tagen …").
+### 1. „Private" statt Kundenname in der H1
 
-Ursache: Der Freshness-Check in `create-event-quotation/index.ts` (Zeile 845–893) vergleicht **nur den Brutto-Gesamtbetrag**. Stimmt der überein, wird mit `reused: true` abgebrochen — das LexOffice-PDF wird nicht neu erzeugt, obwohl `buildOfferRemark()` jetzt einen anderen Text liefern würde.
+`HeroSection` verwendet `company_name || contact_name`. Im Funnel wird für private Events `company_name = "Private"` gesetzt — dadurch erscheint statt „Jonathan Starke" der Platzhalter „Private".
 
-## Lösung
+**Fix:** `displayName` in `src/pages/public-offer/HeroSection.tsx` so anpassen, dass „Private" (case-insensitive, mit/ohne Whitespace) wie eine leere Firma behandelt wird → Fallback auf `contact_name`.
 
-Den Freshness-Check um einen **Remark-Vergleich** erweitern. Wenn der erwartete Remark-Text (aus den aktuellen Zahlungsfeldern des Inquiry) sich vom `remark` im LexOffice-Dokument unterscheidet, wird das alte Draft-Angebot gelöscht und neu erzeugt — exakt wie heute bei Preis-Drift.
+```ts
+const company = (inquiry.company_name ?? '').trim();
+const isPlaceholderCompany = !company || company.toLowerCase() === 'private';
+const displayName = isPlaceholderCompany ? inquiry.contact_name : company;
+```
 
-### Änderungen in `supabase/functions/create-event-quotation/index.ts`
+Keine DB-Migration, kein Daten-Backfill — der Funnel darf weiterhin „Private" speichern (interne Kategorisierung), aber die öffentliche Hero zeigt den Namen.
 
-1. **Vor dem Freshness-Check** den erwarteten Remark einmal berechnen (gleiche Argumente wie der spätere Aufruf in Zeile 1083 — `depositMethod`, `balanceMethod`, `depositPercent`, `depositAmount`, `depositDueDays`, `balanceDueDaysBeforeEvent`, `invoiceDueDays`, `offerValidityDays`, mit `legacyMethodPair()` als Fallback).
+### 2. Public Offer zeigt alten Anschreiben-Text trotz „Angebot bearbeiten"
 
-2. **Freshness-Bedingung erweitern** (Zeile 859):
-   ```ts
-   const lexRemark = String(doc?.remark ?? '').trim();
-   const expectedRemark = expectedRemarkText.trim();
-   const totalsMatch = lexTotal > 0 && Math.abs(lexTotal - dbTotal) <= 0.01;
-   const remarkMatches = lexRemark === expectedRemark;
-   if (totalsMatch && remarkMatches) {
-     return reused;
-   }
-   ```
+**Root-Cause (verifiziert):**
 
-3. **Activity-Log-Eintrag** um `reason: 'remark_drift_detected'` ergänzen, wenn nur der Remark abweicht (zur Nachvollziehbarkeit).
+Die Public-Offer-RPC `get_public_offer` liefert `email_content` aus:
+```sql
+COALESCE(
+  (SELECT ioh.email_content FROM inquiry_offer_history ioh
+   WHERE ioh.inquiry_id = offer_id ORDER BY version DESC LIMIT 1),
+  ei.email_draft
+)
+```
 
-4. Restliche Logik (Draft löschen, neu erzeugen, `lexoffice_quotation_id` aktualisieren) bleibt unverändert — sie greift automatisch.
+Sie liest also **immer zuerst aus `inquiry_offer_history.email_content`** der höchsten Version. `event_inquiries.email_draft` ist nur Fallback.
 
-### Was passiert dadurch
+Status der Beispiel-Anfrage:
+- `email_draft` enthält den **neuen** Anschreiben-Text (regeneriert via „Angebot bearbeiten").
+- `inquiry_offer_history` v7 enthält den **alten** Text → Public Offer zeigt diesen.
 
-- Admin ändert Anzahlung von 20 % auf 30 % → beim nächsten Öffnen / PDF-Refresh erkennt der Check die Remark-Differenz → altes Draft in LexOffice gelöscht → neues Angebot mit korrektem Footer-Satz, neuer `lexoffice_quotation_id` im Inquiry.
-- Bei finalisierten (nicht-Draft) LexOffice-Angeboten greift wie heute der bestehende Schutz: löschen schlägt fehl, ein neues Dokument wird zusätzlich erzeugt.
-- Reine Kontaktdaten- oder Menü-Änderungen ohne Preis- und Remark-Drift triggern weiterhin **kein** unnötiges Re-Issue.
+Zusätzliches Problem aus dem vorherigen Loop: OfferBuilder und SmartInquiryEditor schreiben auf eine Spalte `email_content` von `event_inquiries`/`v2_events`, die **gar nicht existiert**. Der Update schlägt fehl (Spalte nicht gefunden) und bricht im SmartInquiryEditor-Versand sogar den gesamten Send-Flow ab (Zeile 762–776 → frühzeitiger `return` mit Toast „Phase-Update fehlgeschlagen").
 
-### Trigger-Punkte (bestehen bereits)
+**Fix in drei Schritten:**
 
-- Klick auf „Angebot bearbeiten" / Re-Send aus dem OfferBuilder
-- Aufruf von `create-event-quotation` aus dem CRM-Detail
-- Public-Offer-Refresh-Pfad
+#### A) Bad-Write entfernen (`event_inquiries.email_content` existiert nicht)
 
-Kein Frontend-Change, keine Migration, keine LexOffice-API-Änderung über das bereits genutzte `DELETE /quotations/{id}` hinaus.
+In `src/components/admin/refine/InquiryEditor/OfferBuilder/OfferBuilder.tsx` (Zeile 174–178):
+```diff
+- email_draft: data.email,
+- email_content: data.email,
+- email_content_translations: {},
++ email_draft: data.email,
+```
+und parallel `v2_events.email_content_translations: {}` als zweiten Update lassen (gültige Spalte).
 
-### Datei
+In `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` (Zeile 753–764):
+```diff
+const updatePayload = {
+  current_offer_version: newVersion,
+  offer_sent_at: nowIso,
+  offer_sent_by: user?.email || null,
+  status: 'offer_sent',
+  offer_phase: phaseTarget,
+- email_content: draft,
+- email_content_translations: {},
+};
+```
+Den zugehörigen `email_content_translations`-Reset stattdessen direkt auf `v2_events` schreiben (eigener Update auf gültige Spalte).
 
-- `supabase/functions/create-event-quotation/index.ts` (~15 Zeilen Diff, ein Helper-Aufruf hochgezogen)
+Das behebt zugleich den fehlgeschlagenen Send-Flow.
 
-### Risiko
+#### B) Regenerate-Pfad: aktuelle History-Version aktualisieren
 
-Gering: Die einzige Verhaltensänderung ist, dass bei Remark-Drift ein **bereits vorgesehener** Refresh-Pfad zusätzlich ausgelöst wird. Bestehende Drafts werden über denselben Mechanismus wie bei Preis-Drift sauber ersetzt.
+Im OfferBuilder-Regenerate (`handleGenerateEmail`, nach erfolgreichem AI-Call und `email_draft`-Update):
+
+```ts
+const { data: histRow } = await supabase
+  .from('inquiry_offer_history')
+  .select('id, version')
+  .eq('inquiry_id', inquiry.id)
+  .order('version', { ascending: false })
+  .limit(1)
+  .maybeSingle();
+
+if (histRow?.id) {
+  await supabase
+    .from('inquiry_offer_history')
+    .update({ email_content: data.email })
+    .eq('id', histRow.id);
+}
+
+await supabase
+  .from('v2_events')
+  .update({ email_content_translations: {} })
+  .eq('id', inquiry.id);
+```
+
+Dadurch reflektiert die Public-Offer-Seite den neu generierten Text sofort (RPC liest latest history zuerst) und EN/IT/FR werden neu übersetzt.
+
+Hinweis zur Immutability: „Angebot bearbeiten" erzeugt im Hintergrund bereits eine neue Version (versioniertes Verhalten bleibt erhalten); hier wird genau diese aktuelle Version mit dem zugehörigen Anschreiben in Sync gebracht. Ältere Versionen bleiben unverändert.
+
+#### C) Send-Pfad: bestehender History-Insert ist korrekt
+
+`SmartInquiryEditor` Zeile 786–792 fügt bereits einen neuen `inquiry_offer_history`-Eintrag mit `email_content: draft` ein. Nach Entfernen des falschen `event_inquiries.email_content`-Updates aus (A) läuft der Send wieder durch und legt eine neue History-Version mit aktuellem Text an. Translations werden separat über das neue `v2_events.email_content_translations: {}`-Update geleert.
+
+### Geänderte Dateien
+
+- `src/pages/public-offer/HeroSection.tsx` (Display-Name-Fallback)
+- `src/components/admin/refine/InquiryEditor/OfferBuilder/OfferBuilder.tsx` (Regenerate-Sync: aktuelle History-Version aktualisieren, kein write auf nicht-existente Spalte)
+- `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` (Send-Pfad: kein write auf nicht-existente Spalte; Translations-Reset auf `v2_events` umziehen)
+
+Keine Migration, keine Edge-Function-Änderung, keine RPC-Änderung.

@@ -17,7 +17,10 @@ export function HeroSection({
   phase: OfferPhase;
   lang?: OfferLang;
 }) {
-  const displayName = inquiry.company_name || inquiry.contact_name;
+  const company = (inquiry.company_name ?? '').trim();
+  const isPlaceholderCompany =
+    !company || company.toLowerCase() === 'private';
+  const displayName = isPlaceholderCompany ? inquiry.contact_name : company;
   const locale = LOCALES[lang] ?? de;
 
   const phaseConfig: Partial<Record<OfferPhase, { text: string; color: string }>> = {
