@@ -1,41 +1,33 @@
-## Befund
+# Neue Gerichte aus dem CMS sofort auf der Website zeigen
 
-Die Rechnung RE0027 wurde um **23:18** erzeugt. Der Fix in `create-event-quotation` (per_event-Modus: echte `quantity` × `unitPrice` statt vorformatiertem `"3 × Name"`-Workaround) wurde aber erst um **23:54** committed (`dcd3f313` → `7d6fc37d`).
+## Problem
+Du legst im CMS (Maestro) neue Fingerfood-/Catering-Gerichte mit Fotos an — sie erscheinen aber erst nach einem neuen Deploy auf den Seiten unter `/catering/*`.
 
-→ Das Code-Problem existiert nicht mehr. RE0027 ist nur ein „Altbestand" aus den letzten 36 Minuten vor dem Fix.
+## Ursache
+Die öffentlichen Catering-Seiten lesen über `src/hooks/useCateringMenus.ts`:
+1. Zuerst aus `src/data/static-menus.json` (wird nur beim Build via `scripts/fetch-menu-data.ts` neu erzeugt).
+2. Diese statischen Daten werden React Query als `initialData` übergeben — dadurch gelten sie als „frisch" und es wird **kein** Refetch aus der Datenbank ausgelöst, solange `staleTime` (5 Min.) nicht abgelaufen ist.
 
-Vor dem Fix:
-```
-name: "3 × Vitello Tonnato-Platte", quantity: 1, unitPrice: 156 €
-```
+Ergebnis: Besucher sieht die alten Items aus dem letzten Build, obwohl die neuen längst im CMS / der Datenbank stehen.
 
-Nach dem Fix (per_event-Branch, Lines 167–302):
-```
-name: "Vitello Tonnato-Platte", quantity: 3, unitPrice: 52 €
-```
+## Lösung
+SSG-Vorteil behalten (sofort sichtbarer Inhalt für SEO, kein leerer Screen), aber **direkt beim Mount** frische Daten aus der Datenbank nachladen.
 
-LexOffice-API-Response bestätigt: RE0027 ist noch im alten Format. DB-Daten (`overridePrice: 52`, `quantity: 3`) sind dagegen sauber.
+### Änderung in `src/hooks/useCateringMenus.ts`
+Bei den zwei öffentlichen Hooks `usePublishedCateringMenus` und `useCateringMenuBySlug`:
+- `initialDataUpdatedAt: 0` ergänzen → React Query betrachtet die statischen Daten als veraltet und triggert sofort einen Hintergrund-Refetch.
+- `refetchOnMount: "always"` setzen.
+- `staleTime` auf `0` reduzieren.
 
-## Plan
+Admin-Hooks und Mutationen bleiben unverändert.
 
-Nichts am Code zu ändern — RE0027 muss nur **storniert und neu erzeugt** werden, damit die korrekte Darstellung im PDF landet.
+### Verhalten danach
+1. Seite öffnet → statische JSON wird sofort gerendert (SEO, kein Flicker).
+2. Innerhalb ~300 ms zieht React Query die aktuellen Menü-Items aus der Datenbank.
+3. Neue Gerichte und Fotos erscheinen sofort, ohne Deploy oder Reload.
 
-### Schritte (in der Anfrage `a14872bb-…`)
+## Betroffene Dateien
+- `src/hooks/useCateringMenus.ts`
 
-1. **RE0027 stornieren**
-   Im Beleg-Drawer (siehe Screenshot) auf **„Stornieren"** klicken. Das erzeugt automatisch eine Stornorechnung in LexOffice (`void-lexoffice-invoice`) und setzt `v2_events.final_lexoffice_invoice_id` zurück.
-
-2. **Schlussrechnung neu erzeugen**
-   Über den bestehenden Trigger („Schlussrechnung erzeugen" bzw. den automatischen Flow nach Zahlungseingang) → ruft `create-lexoffice-final-invoice` → `create-event-quotation` (jetzt mit gefixtem per_event-Branch).
-   Ergebnis-PDF zeigt dann **9 Positionen mit korrekter Menge × Einzelpreis = Gesamt**.
-
-3. **Sanity-Check via `lex-inspect`** (optional, automatisch nach Schritt 2):
-   - `quantity = 3`, `unitPrice.grossAmount = 52` für Vitello
-   - Brutto-Gesamtsumme = **1.135,50 €** (= `total_amount` in Maestro, unverändert)
-
-## Technische Details
-
-- **Keine Migration nötig** — DB-Daten sind korrekt.
-- **Kein neuer Code nötig** — Fix steckt in `supabase/functions/create-event-quotation/index.ts` ab Commit `dcd3f313` (heute 23:54).
-- **Anzahlungsrechnungen** (`create-lexoffice-downpayment-invoice`) bleiben bewusst bei `quantity: 1, unitName: "Pauschale"` — Anzahlung ist ein einzelner Brutto-Betrag, nicht aufgegliedert (steuerlich korrekt nach § 14 Abs. 5 UStG).
-- Sollten weitere Schlussrechnungen aus dem Zeitfenster **vor 23:54** existieren, gilt für die exakt dasselbe Vorgehen (Stornieren → Neu erzeugen).
+## Test
+Neues Item in Maestro unter Fingerfood anlegen → `/catering/buffet-fingerfood` öffnen → Item ist nach ~1 Sekunde sichtbar.
