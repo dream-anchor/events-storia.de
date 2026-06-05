@@ -110,8 +110,10 @@ export function formatCurrency(amount: number) {
   return new Intl.NumberFormat("de-DE", {
     style: "currency",
     currency: "EUR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    // Beträge IMMER mit 2 Nachkommastellen anzeigen — niemals auf- oder abrunden.
+    // Maestro liefert exakte Preise (1:1 übernehmen, auch am Zahl-Button).
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 

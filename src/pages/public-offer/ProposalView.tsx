@@ -160,7 +160,8 @@ export function ProposalView({
   const isFixedDeposit = fixedDepositAmount != null && fixedDepositAmount > 0;
   const depositAmount = isFixedDeposit
     ? Math.min(fixedDepositAmount as number, totalAmount)
-    : (depositPercent > 0 ? Math.round(totalAmount * depositPercent) / 100 : 0);
+    // Keine Rundung — exakter Betrag aus Maestro/Total × % anzeigen.
+    : (depositPercent > 0 ? (totalAmount * depositPercent) / 100 : 0);
   const showDeposit = isStripePayment
     && depositAmount > 0
     && depositAmount < totalAmount
