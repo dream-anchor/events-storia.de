@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { convertFileToWebp, toWebpFilename } from "@/lib/convertToWebp";
 
 export interface PhotoAlbumEntry {
   id: string;
@@ -74,34 +75,23 @@ export const usePhotoAlbum = (opts?: {
 
 const PHOTO_BUCKET = "photo-album";
 
-async function getImageDimensions(file: File): Promise<{ width: number; height: number } | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(null);
-    };
-    img.src = url;
-  });
-}
-
 export const useUploadPhoto = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (file: File): Promise<PhotoAlbumEntry> => {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      // Convert to optimized WebP (max 1920px, q0.82) before upload.
+      // Falls back to original if browser cannot encode webp.
+      const converted = await convertFileToWebp(file);
+      const useWebp = converted.isWebp;
+      const ext = useWebp ? "webp" : (file.name.split(".").pop() || "jpg").toLowerCase();
+      const contentType = useWebp ? "image/webp" : file.type;
+      const finalFilename = useWebp ? toWebpFilename(file.name) : file.name;
+
       const now = new Date();
       const path = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${crypto.randomUUID()}.${ext}`;
 
-      const dims = await getImageDimensions(file);
-
-      const { error: upErr } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, {
-        contentType: file.type,
+      const { error: upErr } = await supabase.storage.from(PHOTO_BUCKET).upload(path, converted.blob, {
+        contentType,
         upsert: false,
       });
       if (upErr) throw upErr;
@@ -116,10 +106,10 @@ export const useUploadPhoto = () => {
         .insert({
           storage_path: path,
           url: publicUrl,
-          filename: file.name,
-          width: dims?.width ?? null,
-          height: dims?.height ?? null,
-          file_size: file.size,
+          filename: finalFilename,
+          width: converted.width || null,
+          height: converted.height || null,
+          file_size: converted.blob.size,
           created_by: user.user?.id ?? null,
         } as never)
         .select("*")
