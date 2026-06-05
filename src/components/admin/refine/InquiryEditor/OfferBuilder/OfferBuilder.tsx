@@ -163,13 +163,19 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       if (data?.email) {
         handleEmailDraftChange(data.email);
         // Belt-and-suspenders: direkt in die DB schreiben, falls der
-        // Auto-Save-Cascade aus irgendeinem Grund nicht greift (z.B. Parent
-        // hat onEmailContentChange nicht durchgereicht). So bleibt der
-        // generierte Text auch nach Reload erhalten.
+        // Auto-Save-Cascade aus irgendeinem Grund nicht greift. Zusätzlich
+        // synchronisieren wir auf Public Offer: das gespeicherte
+        // `email_content` wird ebenfalls überschrieben (Kunde sieht den
+        // neuen Text sofort) und der Übersetzungs-Cache wird geleert,
+        // damit EN/IT/FR-Übersetzungen neu erzeugt werden.
         try {
           await supabase
             .from('event_inquiries')
-            .update({ email_draft: data.email } as Record<string, unknown>)
+            .update({
+              email_draft: data.email,
+              email_content: data.email,
+              email_content_translations: {},
+            } as Record<string, unknown>)
             .eq('id', inquiry.id);
         } catch (persistErr) {
           console.warn('[OfferBuilder] direct email_draft persist failed:', persistErr);
