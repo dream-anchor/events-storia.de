@@ -632,6 +632,7 @@ function buildLineItems(
     }
   }
 
+  appendDiscountLines(items, totalAmount, ms?.discountPercent ?? null, ms?.discountAmount ?? null);
   return items;
 }
 
