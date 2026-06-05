@@ -52,6 +52,7 @@ const Fotoalbum = () => {
   const update = useUpdatePhoto();
   const del = useDeletePhoto();
   const [seeding, setSeeding] = useState(false);
+  const [reclassifying, setReclassifying] = useState(false);
 
   const runSeed = async () => {
     if (seeding) return;
@@ -73,6 +74,29 @@ const Fotoalbum = () => {
       toast.error("Import fehlgeschlagen: " + (e as Error).message, { id: toastId });
     } finally {
       setSeeding(false);
+    }
+  };
+
+  const runReclassify = async () => {
+    if (reclassifying) return;
+    if (!confirm(
+      "Alle Fotos neu von der KI klassifizieren?\n\nKategorie & Tags werden zurückgesetzt und neu erkannt. Das kann mehrere Minuten dauern.",
+    )) return;
+    setReclassifying(true);
+    const toastId = toast.loading("KI klassifiziert alle Fotos neu …");
+    try {
+      const { data, error } = await supabase.functions.invoke("reclassify-photos", { body: { mode: "all" } });
+      if (error) throw error;
+      const { processed = 0, ok = 0, failed = 0 } = data ?? {};
+      toast.success(
+        `${ok}/${processed} klassifiziert · ${failed} Fehler`,
+        { id: toastId, duration: 8000 },
+      );
+    } catch (e) {
+      console.error(e);
+      toast.error("Reklassifizierung fehlgeschlagen: " + (e as Error).message, { id: toastId });
+    } finally {
+      setReclassifying(false);
     }
   };
 
@@ -112,17 +136,30 @@ const Fotoalbum = () => {
             Zentrale Bildbibliothek. Neue Fotos werden automatisch von der KI in
             Kategorie + Tags einsortiert.
           </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={runSeed}
-            disabled={seeding}
-          >
-            {seeding
-              ? <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-              : <Download className="h-3 w-3 mr-2" />}
-            Bestand importieren
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={runReclassify}
+              disabled={reclassifying}
+            >
+              {reclassifying
+                ? <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                : <Sparkles className="h-3 w-3 mr-2" />}
+              KI neu klassifizieren
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={runSeed}
+              disabled={seeding}
+            >
+              {seeding
+                ? <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                : <Download className="h-3 w-3 mr-2" />}
+              Bestand importieren
+            </Button>
+          </div>
         </div>
         <PhotoDropzone />
 
