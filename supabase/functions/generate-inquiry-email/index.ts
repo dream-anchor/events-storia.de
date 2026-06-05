@@ -470,6 +470,27 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
       };
       context += `\nZahlungsart: ${pmLabels[paymentMethod] || paymentMethod}`;
       }
+
+      // Revisions-Erkennung: Wurde bereits eine Version dieses Angebots versendet?
+      try {
+        const { data: sentHistory } = await supabaseAdmin
+          .from('inquiry_offer_history')
+          .select('sent_at')
+          .eq('inquiry_id', rawBody.inquiryId)
+          .not('sent_at', 'is', null)
+          .order('sent_at', { ascending: false })
+          .limit(1);
+        if (sentHistory && sentHistory.length > 0) {
+          isRevision = true;
+          lastSentAtISO = (sentHistory[0] as { sent_at: string }).sent_at;
+          const dateStr = lastSentAtISO
+            ? new Date(lastSentAtISO).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            : null;
+          context += `\nRevisions-Status: ÜBERARBEITETE VERSION. Eine frühere Version wurde${dateStr ? ` am ${dateStr}` : ''} bereits an den Kunden versendet. Das Anschreiben muss das ausdrücklich erwähnen (überarbeitetes Angebot / angepasste Version).`;
+        }
+      } catch (revErr) {
+        console.warn('[generate-inquiry-email] Revisions-Check fehlgeschlagen:', revErr);
+      }
     } else if (isMultiOfferRequest(rawBody)) {
       isMultiOption = true;
       optionCount = rawBody.options.length;
