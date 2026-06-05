@@ -8,7 +8,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { LucideIcon, ChevronDown, CalendarDays, Database, LayoutDashboard, CheckCircle2, FileText, Package, UtensilsCrossed, Receipt } from "lucide-react";
+import { LucideIcon, ChevronDown, CalendarDays, Database, LayoutDashboard, CheckCircle2, FileText, Package, UtensilsCrossed, Receipt, Images } from "lucide-react";
 
 interface NavItem {
   name: string;
@@ -64,6 +64,7 @@ const navigationContexts: NavItem[] = [
     children: [
       { name: 'Pakete', href: '/admin/packages', key: 'packages', icon: Package },
       { name: 'Speisen & Getränke', href: '/admin/menu', key: 'menu', icon: UtensilsCrossed },
+      { name: 'Fotoalbum', href: '/admin/fotos', key: 'fotos', icon: Images },
     ]
   },
 ];

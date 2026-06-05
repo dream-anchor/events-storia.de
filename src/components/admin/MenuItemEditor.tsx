@@ -23,13 +23,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, Upload, X, ImageIcon } from "lucide-react";
+import { Pencil, Trash2, Upload, X, ImageIcon, Images } from "lucide-react";
 import { CateringMenuItem } from "@/hooks/useCateringMenus";
 import {
   useUpdateMenuItem,
   useDeleteMenuItem,
   uploadCateringImage,
 } from "@/hooks/useCateringMenuMutations";
+import PhotoPickerDialog from "@/components/admin/PhotoPickerDialog";
 import { toast } from "sonner";
 
 interface MenuItemEditorProps {
@@ -39,6 +40,7 @@ interface MenuItemEditorProps {
 const MenuItemEditor = ({ item }: MenuItemEditorProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -220,6 +222,14 @@ const MenuItemEditor = ({ item }: MenuItemEditorProps) => {
                     <Upload className="h-4 w-4 mr-2" />
                     {uploading ? "Lädt..." : "Bild hochladen"}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setPickerOpen(true)}
+                  >
+                    <Images className="h-4 w-4 mr-2" />
+                    Aus Fotoalbum wählen
+                  </Button>
                   <p className="text-xs text-muted-foreground">
                     Max. 5 MB, JPG/PNG/WebP
                   </p>
@@ -233,6 +243,12 @@ const MenuItemEditor = ({ item }: MenuItemEditorProps) => {
                 </div>
               </div>
             </div>
+
+            <PhotoPickerDialog
+              open={pickerOpen}
+              onOpenChange={setPickerOpen}
+              onSelect={(url) => setFormData((prev) => ({ ...prev, image_url: url }))}
+            />
 
             {/* Name */}
             <div className="grid grid-cols-2 gap-4">
