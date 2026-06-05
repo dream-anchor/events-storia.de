@@ -856,7 +856,44 @@ serve(async (req) => {
               0,
             ),
           );
-          if (lexTotal > 0 && Math.abs(lexTotal - dbTotal) <= 0.01) {
+          // Erwarteten Remark-Text aus aktuellen Inquiry-Zahlungsfeldern berechnen,
+          // damit ein reiner Wechsel der Zahlungskonditionen ohne Preisänderung
+          // (z. B. Anzahlung 20 % → 30 %, Restzahlung-Methode, Gültigkeit) ebenfalls
+          // einen Refresh des LexOffice-Angebots auslöst.
+          const inqEarly = inquiry as Record<string, unknown>;
+          let dpEarly = inqEarly.deposit_percent as number | null | undefined;
+          let ddEarly = inqEarly.deposit_due_days as number | null | undefined;
+          let ovEarly = inqEarly.offer_validity_days as number | null | undefined;
+          if (dpEarly == null || ddEarly == null || ovEarly == null) {
+            const { data: settings } = await supabase
+              .from('site_settings')
+              .select('value')
+              .eq('key', 'default_payment_terms')
+              .maybeSingle();
+            const defaults = (settings?.value || {}) as {
+              deposit_percent?: number; deposit_due_days?: number; offer_validity_days?: number;
+            };
+            if (dpEarly == null) dpEarly = defaults.deposit_percent ?? 20;
+            if (ddEarly == null) ddEarly = defaults.deposit_due_days ?? 5;
+            if (ovEarly == null) ovEarly = defaults.offer_validity_days ?? 14;
+          }
+          const pairEarly = legacyMethodPair(inqEarly.payment_method as string | null);
+          const dMethodEarly = ((inqEarly.deposit_method as string | null) ?? pairEarly.deposit) as DepositMethodKind;
+          const bMethodEarly = ((inqEarly.balance_method as string | null) ?? pairEarly.balance) as BalanceMethodKind;
+          const expectedRemark = buildOfferRemark({
+            depositMethod: dMethodEarly,
+            balanceMethod: bMethodEarly,
+            depositPercent: dpEarly ?? 0,
+            depositAmount: (inqEarly.deposit_amount as number | null) ?? null,
+            depositDueDays: ddEarly ?? 5,
+            balanceDueDaysBeforeEvent: (inqEarly.balance_due_days_before_event as number | null) ?? 10,
+            invoiceDueDays: (inqEarly.invoice_due_days as number | null) ?? 14,
+            offerValidityDays: ovEarly ?? 14,
+          }).trim();
+          const lexRemark = String(doc?.remark ?? '').trim();
+          const totalsMatch = lexTotal > 0 && Math.abs(lexTotal - dbTotal) <= 0.01;
+          const remarkMatches = lexRemark === expectedRemark;
+          if (totalsMatch && remarkMatches) {
             // PDF in LexOffice ist aktuell — nichts neu erzeugen
             return new Response(
               JSON.stringify({ success: true, quotationId: existingQuotationId, documentType: 'quotations', reused: true }),
@@ -876,12 +913,23 @@ serve(async (req) => {
           }
           // Activity Log Eintrag fuer Audit
           try {
+            const driftReason = !totalsMatch && !remarkMatches
+              ? 'price_and_remark_drift_detected'
+              : !totalsMatch
+                ? 'price_drift_detected'
+                : 'remark_drift_detected';
             await supabase.from('activity_logs').insert({
               entity_type: 'event_inquiry',
               entity_id: inquiryId,
               action: 'lexoffice_quotation_refreshed',
-              new_value: { old_total: lexTotal, new_total: dbTotal, old_quotation_id: existingQuotationId },
-              metadata: { reason: 'price_drift_detected' },
+              new_value: {
+                old_total: lexTotal,
+                new_total: dbTotal,
+                old_quotation_id: existingQuotationId,
+                old_remark: lexRemark,
+                new_remark: expectedRemark,
+              },
+              metadata: { reason: driftReason },
             });
           } catch { /* ignore */ }
           // Falls wir es nicht loeschen konnten oder Status finalized: id im Inquiry trotzdem zurueckziehen,
