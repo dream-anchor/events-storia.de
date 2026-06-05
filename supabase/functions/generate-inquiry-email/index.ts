@@ -562,6 +562,12 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     • Falls Zwischensumme + Endpreis bekannt sind, gerne nennen — aber nie selbst rechnen, nur die Zahlen aus den Daten verwenden.
     • Wenn KEIN Rabatt-Block in den Daten steht, KEINEN Rabatt erfinden.
 
+ 8. REVISION — wenn in den Daten "Revisions-Status: ÜBERARBEITETE VERSION" steht, MUSS das Anschreiben das ausdrücklich kommunizieren.
+    • KEIN "vielen Dank für Ihre Anfrage" als Einstieg — das wäre für eine Erstanfrage.
+    • Stattdessen Einleitung wie "anbei das überarbeitete Angebot mit den angepassten Punkten" oder "wie besprochen erhalten Sie hier die überarbeitete Version unseres Angebots".
+    • Datum/Uhrzeit/Gästezahl können kurz bestätigt werden, aber als Folgekommunikation, nicht als Erstkontakt.
+    • Wenn KEIN Revisions-Status in den Daten steht, ganz normal als Erstangebot formulieren ("vielen Dank für Ihre Anfrage …").
+
 4. ABSÄTZE — genau eine Leerzeile zwischen Absätzen.
    • Zwei Newlines (\n\n) zwischen jedem Absatz
    • Jeder Gedankengang ist ein eigener Absatz
