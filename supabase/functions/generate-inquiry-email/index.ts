@@ -811,6 +811,46 @@ ${context}`;
       }
     }
 
+    // Rabatt-Absicherung: Falls Rabattdaten vorhanden, MUSS der Endpreis nach Rabatt
+    // im Text auftauchen. Sonst fügen wir einen freundlichen Rabatt-Satz vor dem Link ein.
+    if (isOfferBuilderRequest(rawBody)) {
+      try {
+        // Wir nutzen die zuletzt gebauten multiOpts via Re-Parse des Kontexts:
+        // einfacher: regex aus context — wir haben Werte schon — aber context ist ein String.
+        // Daher Werte erneut aus DB-Daten ableiten (gleicher Pfad wie oben).
+        const discountMatch = context.match(/Rabatt:\s*JA/);
+        if (discountMatch) {
+          const endpreisMatch = context.match(/Endpreis nach Rabatt[^\n:]*:\s*([0-9.,]+\s*€)/);
+          const subtotalMatch = context.match(/Zwischensumme vor Rabatt:\s*([0-9.,]+\s*€)/);
+          const percentMatch = context.match(/Rabatt:\s*([0-9.,]+)\s*%/);
+          const endpreis = endpreisMatch?.[1]?.trim();
+          const subtotal = subtotalMatch?.[1]?.trim();
+          const percent = percentMatch?.[1]?.trim();
+
+          const endpreisInEmail = endpreis && generatedEmail.includes(endpreis);
+          if (endpreis && !endpreisInEmail) {
+            const rabattTeil = percent
+              ? `Gerne räumen wir Ihnen einen Rabatt von ${percent} % ein.`
+              : `Im Endpreis ist bereits ein Rabatt berücksichtigt.`;
+            const subtotalTeil = subtotal ? ` (Zwischensumme zuvor: ${subtotal})` : '';
+            const rabattSatz = `\n\n${rabattTeil} Der Endpreis nach Rabatt beträgt ${endpreis}${subtotalTeil}.`;
+
+            // Vor dem Link-Satz einfügen (oder vor der Signatur, falls kein Link)
+            const linkIdx = generatedEmail.search(/(Das Angebot mit allen Details|Wählen Sie Ihren Favoriten|Das finale Angebot finden Sie)/);
+            const sigIdx = generatedEmail.indexOf('\n\nViele Grüße');
+            const insertIdx = linkIdx !== -1 ? linkIdx : (sigIdx !== -1 ? sigIdx : generatedEmail.length);
+            generatedEmail =
+              generatedEmail.slice(0, insertIdx).trimEnd() +
+              rabattSatz +
+              '\n\n' +
+              generatedEmail.slice(insertIdx).trimStart();
+          }
+        }
+      } catch (rabattErr) {
+        console.warn('[generate-inquiry-email] Rabatt-Absicherung übersprungen:', rabattErr);
+      }
+    }
+
     // Company Footer aus DB laden und an die E-Mail anhängen
     const footerAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
