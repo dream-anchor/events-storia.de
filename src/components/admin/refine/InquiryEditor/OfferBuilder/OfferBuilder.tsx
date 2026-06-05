@@ -162,23 +162,38 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       if (error) throw error;
       if (data?.email) {
         handleEmailDraftChange(data.email);
-        // Belt-and-suspenders: direkt in die DB schreiben, falls der
-        // Auto-Save-Cascade aus irgendeinem Grund nicht greift. Zusätzlich
-        // synchronisieren wir auf Public Offer: das gespeicherte
-        // `email_content` wird ebenfalls überschrieben (Kunde sieht den
-        // neuen Text sofort) und der Übersetzungs-Cache wird geleert,
-        // damit EN/IT/FR-Übersetzungen neu erzeugt werden.
+        // Belt-and-suspenders: email_draft direkt in die DB schreiben, falls der
+        // Auto-Save-Cascade nicht greift. Zusätzlich Public Offer synchronisieren:
+        //  1) Die aktuelle Version in `inquiry_offer_history` mit dem neuen Anschreiben
+        //     aktualisieren — die public RPC liest IMMER zuerst die latest history version.
+        //  2) Den Übersetzungs-Cache (`v2_events.email_content_translations`) leeren,
+        //     damit EN/IT/FR neu erzeugt werden.
         try {
           await supabase
             .from('event_inquiries')
-            .update({
-              email_draft: data.email,
-              email_content: data.email,
-              email_content_translations: {},
-            } as Record<string, unknown>)
+            .update({ email_draft: data.email })
+            .eq('id', inquiry.id);
+
+          const { data: histRow } = await supabase
+            .from('inquiry_offer_history')
+            .select('id, version')
+            .eq('inquiry_id', inquiry.id)
+            .order('version', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if ((histRow as { id?: string } | null)?.id) {
+            await supabase
+              .from('inquiry_offer_history')
+              .update({ email_content: data.email } as Record<string, unknown>)
+              .eq('id', (histRow as { id: string }).id);
+          }
+
+          await supabase
+            .from('v2_events')
+            .update({ email_content_translations: {} } as Record<string, unknown>)
             .eq('id', inquiry.id);
         } catch (persistErr) {
-          console.warn('[OfferBuilder] direct email_draft persist failed:', persistErr);
+          console.warn('[OfferBuilder] public-offer sync failed:', persistErr);
         }
         toast.success("E-Mail generiert");
       }
