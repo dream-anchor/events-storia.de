@@ -64,7 +64,7 @@ REGELN:
 
 interface ClassifyRequest {
   photoId: string;
-  photoUrl: string;
+  photoUrl?: string;
 }
 
 Deno.serve(async (req) => {
@@ -73,9 +73,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { photoId, photoUrl } = (await req.json()) as ClassifyRequest;
-    if (!photoId || !photoUrl) {
-      return new Response(JSON.stringify({ error: "photoId and photoUrl required" }), {
+    const { photoId } = (await req.json()) as ClassifyRequest;
+    if (!photoId) {
+      return new Response(JSON.stringify({ error: "photoId required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -83,6 +83,29 @@ Deno.serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // Resolve a fresh signed URL from storage_path so Gemini can fetch the
+    // image regardless of whether the bucket is private.
+    const { data: photoRow, error: photoErr } = await sb
+      .from("photo_album")
+      .select("storage_path")
+      .eq("id", photoId)
+      .single();
+    if (photoErr || !photoRow?.storage_path) {
+      throw new Error(`photo not found: ${photoErr?.message ?? photoId}`);
+    }
+    const { data: signed, error: signErr } = await sb.storage
+      .from("photo-album")
+      .createSignedUrl(photoRow.storage_path, 3600);
+    if (signErr || !signed?.signedUrl) {
+      throw new Error(`signed url failed: ${signErr?.message ?? "unknown"}`);
+    }
+    const photoUrl = signed.signedUrl;
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -155,11 +178,6 @@ Deno.serve(async (req) => {
       .filter((t: string) => ALL_TAGS.includes(t))
       .slice(0, 5);
     const confidence = typeof args.confidence === "number" ? args.confidence : null;
-
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     const { error } = await sb
       .from("photo_album")
