@@ -1,34 +1,72 @@
-Die 6 Kategorie-Bilder auf der Startseite (Events im Storia, Fingerfood, Platten & Sharing, Warme Gerichte, Pizza, Desserts) sind aktuell hartcodiert. Sie sollen aus dem Admin (Speisen & Getränke) heraus austauschbar werden — pro Kategorie ein eigenes Foto.
+# Fotoalbum: Bugfix + Modernisierung 2026
 
-Vorgehen:
+## Problem-Analyse
 
-1. Datenbank
-- Neue Spalten in `menu_categories`:
-  - `image_url` (Text) — Pfad zum hochgeladenen Foto
-  - `homepage_slug` (Text, optional) — z. B. `fingerfood`, `platten`, `auflauf`, `pizza`, `desserts` — verbindet eine DB-Kategorie mit einer Karte auf der Startseite
-- Bestehende Kategorien werden einmalig vorbelegt (Fingerfood → `fingerfood`, Platten & Sharing → `platten` usw.), damit die richtige Kachel auf der Startseite jeweils das passende Foto bekommt.
-- Storage-Bucket: bestehender `catering-images` wird wiederverwendet (öffentlich lesbar, Upload nur durch Admin/Staff).
+In `src/pages/admin/Fotoalbum.tsx`:
 
-2. Admin (Speisen & Getränke)
-- Im Kategorie-Bearbeiten-Dialog kommt ein Bild-Bereich oben dazu:
-  - Vorschau des aktuellen Fotos
-  - Button „Bild hochladen / austauschen"
-  - Button „Bild entfernen"
-- Upload geht direkt in den Storage-Bucket; die URL wird auf der Kategorie gespeichert.
-- Bestehende Bearbeiten/Archivieren/Löschen-Icons bleiben unverändert.
+1. **Stift-Bug im Auswahl-Modus (Zeile 384):**
+   ```tsx
+   onClick={(e) => { e.stopPropagation(); if (!selectMode) setEditing(p); }}
+   ```
+   Im Bulk-Auswahl-Modus wird `setEditing` aktiv blockiert → Bearbeiten unmöglich. Das ist unbeabsichtigt, weil der Stift-Button auch in Auswahl gerendert wird.
 
-3. Startseite (CateringGrid)
-- Die 6 Karten bleiben in ihrer fixen Reihenfolge und mit ihrem Routing.
-- Für jede Karte wird zur Laufzeit geprüft: gibt es eine `menu_categories`-Zeile mit passendem `homepage_slug` und gesetztem `image_url`? Dann wird dieses Foto verwendet, sonst Fallback auf das aktuelle Standard-Asset.
-- „Events im Storia" hat keine Menü-Kategorie. Dafür wird eine kleine, separate Einstellung ergänzt: über die Settings-Seite im Admin kann genau dieses eine Bild ausgetauscht werden (gleicher Upload-Mechanismus), oder das Standard-Asset bleibt.
+2. **Versionen unsichtbar:**
+   Das `Layers`-Badge mit Versions-Count (Zeile 373) liegt im Overlay, das `opacity-0` ist und nur bei `hover` oder im Select-Modus erscheint. In der normalen Übersicht sieht man also nie, dass ein Foto mehrere Versionen hat.
 
-4. Nicht enthalten
-- Texte und Reihenfolge der Karten auf der Startseite bleiben wie sie sind (kein Refactor der CateringGrid-Struktur).
-- Mehrsprachiges alt-Tag bleibt aus dem Code; pro Kategorie ergänzen wir später nur bei Bedarf.
+## Plan
 
-Technische Dateien:
-- Migration für `menu_categories` (Spalten + Backfill der `homepage_slug` für bestehende Kategorien).
-- `src/components/admin/CategoryEditor.tsx` (Bild-Upload-Block).
-- Optional ein kleiner Hook/Helper zum Upload in `catering-images`.
-- `src/components/CateringGrid.tsx` (Lookup auf DB-Bilder mit Fallback).
-- Settings-Eintrag für das Events-Karten-Bild (kleines UI in `src/components/admin/refine/Settings.tsx`).
+### 1. Bugfix — Stift funktioniert immer
+- `if (!selectMode) setEditing(p)` → `setEditing(p)` (bedingungslos öffnen).
+- Klick auf Stift im Bulk-Modus öffnet den Edit-Dialog, ohne die Auswahl zu verlieren.
+
+### 2. Versions-Indikator immer sichtbar
+- Das `Layers x N`-Badge aus dem Hover-Overlay herausziehen und als kleine, immer sichtbare Marke oben rechts auf der Kachel rendern (außerhalb des Opacity-Containers).
+- Stil: kompaktes Pill mit Glas-Hintergrund (`bg-card/85 backdrop-blur`), Inter, Schichten-Icon + Zahl, monochrom.
+- Im Hover-Overlay entfällt das doppelte Badge.
+
+### 3. Modernisierung „Fotoalbum 2026"
+
+Premium-Light-Mode, monochrom, ruhig — keine bunten Akzente.
+
+**Header & Filter**
+- Sticky Toolbar oben (rounded-2xl Glaskarte): Suche links, Kategorien als Chip-Reihe mittig, Aktionen (Auswählen / KI neu klassifizieren) rechts.
+- Tags rutschen in eine zweite Zeile, scrollbar mit weichen Rändern (Fade-Mask) statt Umbruch.
+- Aktiver Filter-Status als kleine, neutrale Pill mit „×".
+
+**Galerie**
+- Bleibt Masonry, aber: gleichmäßiger 8px-Gap, leicht abgerundete Ecken (rounded-xl), dezenter Hover-Lift (`translate-y-[-2px]`, weiche Shadow).
+- Persistente Meta-Leiste unten auf jeder Kachel (immer sichtbar, kein Hover-Trick):
+  - links: Kategorie als monochromes Mini-Label
+  - rechts: Versions-Badge falls > 1, „KI klassifiziert…"-Status falls offen
+- Hover-Overlay zeigt nur noch die Aktions-Buttons (Stift, optional Vollbild), nicht mehr Metadaten.
+
+**Auswahl-Modus**
+- Checkbox dezent in der oberen linken Ecke, immer sichtbar im Select-Modus (nicht im Overlay).
+- Ausgewählte Kachel: Ring 2px in `primary`, sanft hervorgehoben.
+- Bulk-Toolbar bleibt unten zentriert, Premium-Glas, gleiche Optik wie bestehend.
+
+**Versions-Viewer-Dialog**
+- Headline + Untertitel „N Versionen", Grid (3 Spalten) mit Vorschaubildern, aktive Version mit Ring markiert. (Falls Komponente schon existiert, nur Padding/Typo angleichen.)
+
+**Edit-Dialog**
+- Zwei-Spalten-Layout (Bild links, Felder rechts) bei `md+`.
+- Felder gruppiert: Titel, Beschreibung, Kategorie, Tags, Versionen.
+- Aktionen unten-links: „Speichern" (primary), daneben „KI neu klassifizieren", „Archivieren", „Löschen" als ghost-Buttons. Keine floating Buttons.
+
+**Empty-State & Loading**
+- Empty: zentriertes neutrales Icon + „Noch keine Fotos. Zieh Dateien in den Bereich oben."
+- Loading: Skeleton-Kacheln in Masonry-Form statt Spinner.
+
+### 4. Nicht enthalten
+- Keine Änderungen an Datenmodell, Hooks (`usePhotoAlbum`, Versions-Logik) oder Storage.
+- Keine neuen Features (z. B. Drag-Sort, Alben, Sammlungen) — nur Visual + zwei Fixes.
+
+## Betroffene Dateien
+- `src/pages/admin/Fotoalbum.tsx` (Bugfix + Layout + persistente Meta-Leiste + Filter-Toolbar + Empty/Loading)
+- ggf. `src/components/admin/PhotoDropzone.tsx` (Stil angleichen, falls auffällig)
+- Versions-Viewer / Edit-Form innerhalb derselben Datei
+
+## Technische Details
+- Versions-Badge wird im `render.extras` außerhalb des opacity-Containers gerendert (eigenes absolut positioniertes Element).
+- Sticky Toolbar via `sticky top-0 z-30` innerhalb des AdminLayout-Scroll-Containers.
+- Keine neuen Dependencies.
