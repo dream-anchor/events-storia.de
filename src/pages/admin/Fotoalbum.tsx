@@ -37,6 +37,25 @@ import {
   ALL_PHOTO_TAGS,
 } from "@/lib/photoAlbumVocabulary";
 
+type ClassificationNotice = {
+  status: "success" | "error";
+  title: string;
+  details: string;
+  timestamp: string;
+};
+
+const CLASSIFICATION_NOTICE_STORAGE_KEY = "fotoalbum:lastClassificationNotice";
+
+const readStoredClassificationNotice = (): ClassificationNotice | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = window.localStorage.getItem(CLASSIFICATION_NOTICE_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
+
 const Fotoalbum = () => {
   const [category, setCategory] = useState<string | undefined>();
   const [activeTag, setActiveTag] = useState<string | undefined>();
@@ -53,6 +72,14 @@ const Fotoalbum = () => {
   const del = useDeletePhoto();
   const [seeding, setSeeding] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
+  const [classificationNotice, setClassificationNotice] = useState<ClassificationNotice | null>(
+    () => readStoredClassificationNotice(),
+  );
+
+  const saveClassificationNotice = (notice: ClassificationNotice) => {
+    setClassificationNotice(notice);
+    window.localStorage.setItem(CLASSIFICATION_NOTICE_STORAGE_KEY, JSON.stringify(notice));
+  };
 
   const runSeed = async () => {
     if (seeding) return;
@@ -88,13 +115,32 @@ const Fotoalbum = () => {
       const { data, error } = await supabase.functions.invoke("reclassify-photos", { body: { mode: "all" } });
       if (error) throw error;
       const { processed = 0, ok = 0, failed = 0 } = data ?? {};
+      saveClassificationNotice({
+        status: failed > 0 ? "error" : "success",
+        title: "KI-Klassifizierung abgeschlossen",
+        details: `${ok}/${processed} klassifiziert · ${failed} Fehler`,
+        timestamp: new Intl.DateTimeFormat("de-DE", {
+          dateStyle: "short",
+          timeStyle: "short",
+        }).format(new Date()),
+      });
       toast.success(
         `${ok}/${processed} klassifiziert · ${failed} Fehler`,
         { id: toastId, duration: 8000 },
       );
     } catch (e) {
       console.error(e);
-      toast.error("Reklassifizierung fehlgeschlagen: " + (e as Error).message, { id: toastId });
+      const message = "Reklassifizierung fehlgeschlagen: " + (e as Error).message;
+      saveClassificationNotice({
+        status: "error",
+        title: "KI-Klassifizierung fehlgeschlagen",
+        details: message,
+        timestamp: new Intl.DateTimeFormat("de-DE", {
+          dateStyle: "short",
+          timeStyle: "short",
+        }).format(new Date()),
+      });
+      toast.error(message, { id: toastId });
     } finally {
       setReclassifying(false);
     }
@@ -161,6 +207,19 @@ const Fotoalbum = () => {
             </Button>
           </div>
         </div>
+        {classificationNotice && (
+          <div className="rounded-2xl border border-border bg-card/80 px-4 py-3 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">{classificationNotice.title}</p>
+                <p className="text-sm text-muted-foreground">{classificationNotice.details}</p>
+              </div>
+              <Badge variant={classificationNotice.status === "success" ? "default" : "destructive"}>
+                {classificationNotice.timestamp}
+              </Badge>
+            </div>
+          </div>
+        )}
         <PhotoDropzone />
 
         {/* Filters */}
