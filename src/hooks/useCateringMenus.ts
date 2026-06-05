@@ -156,8 +156,10 @@ export const usePublishedCateringMenus = () => {
     },
     // Static menu data for SSG - available immediately on first render
     initialData: staticMenus.length > 0 ? staticMenus : undefined,
-    // Keep data fresh but don't refetch too aggressively
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    // Treat static data as stale so a fresh DB fetch runs immediately on mount
+    initialDataUpdatedAt: 0,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 };
 
@@ -219,7 +221,10 @@ export const useCateringMenuBySlug = (slug: string | undefined) => {
     enabled: !!slug,
     // Static menu data for SSG - available immediately on first render
     initialData: staticMenu || undefined,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    // Treat static data as stale so a fresh DB fetch runs immediately on mount
+    initialDataUpdatedAt: 0,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 };
 
