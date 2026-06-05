@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { MasonryPhotoAlbum } from "react-photo-album";
 import "react-photo-album/masonry.css";
 import Lightbox from "yet-another-react-lightbox";
@@ -16,17 +16,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Upload, Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil } from "lucide-react";
+import { Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   usePhotoAlbum,
-  useUploadPhoto,
   useReclassifyPhoto,
   useUpdatePhoto,
   useDeletePhoto,
   type PhotoAlbumEntry,
 } from "@/hooks/usePhotoAlbum";
+import { PhotoDropzone } from "@/components/admin/PhotoDropzone";
 import {
   PHOTO_CATEGORIES,
   PHOTO_CATEGORY_LABELS,
@@ -36,7 +36,6 @@ import {
 } from "@/lib/photoAlbumVocabulary";
 
 const Fotoalbum = () => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState<string | undefined>();
   const [activeTag, setActiveTag] = useState<string | undefined>();
   const [search, setSearch] = useState("");
@@ -47,7 +46,6 @@ const Fotoalbum = () => {
     category,
     tags: activeTag ? [activeTag] : undefined,
   });
-  const upload = useUploadPhoto();
   const reclassify = useReclassifyPhoto();
   const update = useUpdatePhoto();
   const del = useDeletePhoto();
@@ -76,31 +74,6 @@ const Fotoalbum = () => {
     [filtered]
   );
 
-  const handleFiles = useCallback(
-    async (files: FileList | null) => {
-      if (!files || files.length === 0) return;
-      const arr = Array.from(files);
-      for (const file of arr) {
-        if (!file.type.startsWith("image/")) {
-          toast.error(`${file.name}: keine Bilddatei`);
-          continue;
-        }
-        if (file.size > 20 * 1024 * 1024) {
-          toast.error(`${file.name}: über 20 MB`);
-          continue;
-        }
-        try {
-          await upload.mutateAsync(file);
-          toast.success(`${file.name} hochgeladen – KI klassifiziert…`);
-        } catch (e) {
-          console.error(e);
-          toast.error(`${file.name}: Upload-Fehler`);
-        }
-      }
-    },
-    [upload]
-  );
-
   const availableTags = category && PHOTO_TAGS_BY_CATEGORY[category]
     ? [...PHOTO_TAGS_BY_CATEGORY[category], ...PHOTO_CROSS_TAGS]
     : ALL_PHOTO_TAGS;
@@ -109,42 +82,19 @@ const Fotoalbum = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-serif font-semibold">Fotoalbum</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Zentrale Bildbibliothek. Neue Fotos werden automatisch von der KI in
-                Kategorie + Tags einsortiert.
-              </p>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                handleFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={upload.isPending}
-              size="lg"
-            >
-              {upload.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4 mr-2" />
-              )}
-              Fotos hochladen
-            </Button>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-serif font-semibold">Fotoalbum</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Zentrale Bildbibliothek. Neue Fotos werden automatisch von der KI in
+              Kategorie + Tags einsortiert.
+            </p>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
+        <PhotoDropzone />
+
         {/* Filters */}
         <div className="space-y-3">
           <Input
