@@ -177,9 +177,9 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       //   per_event: Gesamtpreis fuer den Anlass (z.B. 5-Tage-Lieferung, Mehrtages-Catering)
       //   per_person (default): Preis pro Person
       if (opt.pricingMode === 'per_event' && opt.totalAmount > 0) {
-        optParts.push(`Gesamtpreis: ${formatEUR(opt.totalAmount)} fuer den gesamten Anlass`);
+        optParts.push(`Gesamtpreis (Endpreis nach Rabatt): ${formatEUR(opt.totalAmount)} fuer den gesamten Anlass`);
       } else if (opt.totalAmount > 0 && opt.guestCount > 0) {
-        optParts.push(`${formatEUR(opt.totalAmount / opt.guestCount)} pro Person`);
+        optParts.push(`${formatEUR(opt.totalAmount / opt.guestCount)} pro Person (Endpreis nach Rabatt)`);
       }
 
       parts.push(`\n--- ${label} ---`);
@@ -197,6 +197,9 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       }
 
       const drinks = opt.menuSelection?.drinks?.filter(d => d.selectedChoice || d.quantityLabel) || [];
+      const drinksEinzeln = ((opt.menuSelection as Record<string, unknown> | undefined)?.drinksEinzeln as Array<{ name?: string; quantity?: number | null; pricePerPerson?: number }> | undefined) || [];
+      const drinksEinzelnFiltered = drinksEinzeln.filter(d => d?.name);
+      const hasRealDrinks = drinks.length > 0 || drinksEinzelnFiltered.length > 0;
       if (drinks.length > 0) {
         parts.push('Getränke:');
         for (const d of drinks) {
@@ -211,15 +214,13 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
             parts.push(`  ${d.drinkLabel}: inklusive`);
           }
         }
-      } else {
+      } else if (!hasRealDrinks) {
         parts.push('Getränke: keine konfiguriert — PFLICHT-Standardformulierung als eigener Absatz verwenden, BEIDE Sätze, exakt so:\n  "Wasser wird während der gesamten Veranstaltung für alle auf den Tischen bereitgestellt. Dazu zwei Getränke pro Person zur Wahl (ein Glas Wein, Spritz oder Bier)."');
       }
 
       // Einzeln-Getränke (z.B. Softdrinks, Wein nach Flaschen) — werden separat
       // in menuSelection.drinksEinzeln gespeichert und müssen auch im Anschreiben
-      // erscheinen, sonst fehlen Positionen wenn der Modus „einzeln“ aktiv ist.
-      const drinksEinzeln = ((opt.menuSelection as Record<string, unknown> | undefined)?.drinksEinzeln as Array<{ name?: string; quantity?: number | null; pricePerPerson?: number }> | undefined) || [];
-      const drinksEinzelnFiltered = drinksEinzeln.filter(d => d?.name);
+      // erscheinen, sonst fehlen Positionen wenn der Modus „einzeln" aktiv ist.
       if (drinksEinzelnFiltered.length > 0) {
         parts.push('Weitere Getränke:');
         for (const d of drinksEinzelnFiltered) {
@@ -251,7 +252,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       const discountAmount = Number(opt.discountAmount ?? 0);
       const subtotal = Number(opt.subtotalAmount ?? 0);
       if (discountAmount > 0 || discountPercent > 0) {
-        parts.push('Rabatt: JA — MUSS im Anschreiben erwähnt werden.');
+        parts.push('Rabatt: JA — MUSS im Anschreiben erwähnt werden. Der oben genannte Gesamtpreis IST der Endpreis nach Rabatt.');
         if (subtotal > 0) {
           parts.push(`  Zwischensumme vor Rabatt: ${formatEUR(subtotal)}`);
         }
@@ -261,7 +262,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
           parts.push(`  Rabatt: ${discountPercent} %`);
         }
         if (opt.totalAmount > 0) {
-          parts.push(`  Endpreis nach Rabatt: ${formatEUR(opt.totalAmount)}`);
+          parts.push(`  Endpreis nach Rabatt (= Hauptpreis im Anschreiben): ${formatEUR(opt.totalAmount)}`);
         }
       }
     }
