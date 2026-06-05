@@ -347,6 +347,8 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     let optionCount = 0;
     let isProposal = false;
     let paymentMethod = 'deposit_online';
+    let isRevision = false;
+    let lastSentAtISO: string | null = null;
 
     // Previous successful emails for few-shot learning
     let previousEmails: string[] = [];
