@@ -26,7 +26,7 @@ const TAGS_BY_CATEGORY: Record<string, string[]> = {
   antipasti: ["caprese","burrata","vitello-tonnato","carpaccio","oktopus","tatar","roastbeef","spargel","rote-bete","hummer"],
   salat: ["insalata-mista","burrata","ziegenkäse","lachs","caesar","roastbeef","avocado"],
   suppe: ["spargelcreme","fischsuppe","brokkoli"],
-  fleisch: ["kalb","ossobuco","lamm","rinderfilet","rib-eye","tagliata","dry-aged","lavastein"],
+  fleisch: [],
   fisch: ["dorade","oktopus","thunfisch","wolfsbarsch","pesce-misto","salzkruste"],
   dessert: ["tiramisu","schokoladensoufflé","zitronentörtchen","panna-cotta","sorbet","eis"],
   beilage: ["grillgemüse","ofenkartoffeln","kartoffelpüree","frühlingsgemüse"],
@@ -63,7 +63,7 @@ ERKENNUNGSREGELN (hart anwenden, Negativregeln zuerst):
 - antipasti = Vorspeisen-Brett / Teller mit Aufschnitt, Käse, Tatar, Carpaccio, Caprese, Burrata, Vitello tonnato.
 - salat = überwiegend Blattsalat / Rohkost sichtbar.
 - suppe = Schüssel mit flüssiger Masse, Löffel typisch.
-- fleisch = großes Fleischstück (Steak, Tagliata, Ossobuco, Lamm) als Hauptkomponente, KEINE Pasta/Pizza darunter.
+- fleisch = großes Fleischstück als Hauptkomponente, KEINE Pasta/Pizza darunter.
 - fisch = Fisch ganz oder filetiert als Hauptkomponente.
 - dessert = Süßspeise: Tiramisu, Panna Cotta, Soufflé, Eis, Sorbet.
 - beilage = nur Gemüse/Kartoffeln als Hauptbild ohne Protein-Hauptkomponente.
