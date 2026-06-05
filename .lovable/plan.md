@@ -1,36 +1,33 @@
-## Problem
-Im LexOffice-PDF erscheinen aktuell zwei Zeilen direkt untereinander:
+## Befund
 
-1. „Anzahlung 20% innerhalb von 5 Tagen" – automatisch generierter Standard-`paymentTermLabel`
-2. „Anzahlung 20 % per Stripe innerhalb 5 Tage, Restzahlung per Stripe (10 Tage vor Event). Angebot 14 Tage gültig." – detaillierter `remark`
+Im Code ist bereits alles korrekt auf Brutto gesetzt:
 
-Beide Zeilen sagen im Kern dasselbe. Der erste Satz soll raus.
+- `supabase/functions/create-event-quotation/index.ts` Zeile 1167: `taxConditions: { taxType: 'gross' }`
+- Alle `lineItems` werden mit `unitPrice.grossAmount` (Brutto) übergeben (Zeilen 283, 298, 325, 347, 366, 379, 396, 415, 430, 443, 465, 473, 483, 491, 533, 547, 560, 638, 1019)
+- Die Werte stimmen rechnerisch: 48,60 × 3 = 145,80 entspricht dem Brutto-Linientotal, Gesamt 1.053,99 € (inkl. 68,95 € USt 7 %)
+
+Die übergebenen Beträge **sind** also bereits Brutto-Einzelpreise. Was im PDF passiert: LexOffice rendert mit dem **Standard-Drucklayout „Nettodarstellung"** trotzdem die Spalte „Einzelpreis" als Netto-Wert (Brutto → Netto rückgerechnet) und weist die USt separat aus.
 
 ## Ursache
-In `supabase/functions/create-event-quotation/index.ts` werden für Angebote (Nicht-Rechnungs-Modus) zwei getrennte Felder an LexOffice gesendet:
 
-- `paymentConditions.paymentTermLabel` aus `buildPaymentConditions()` (Zeile 701) → erzeugt den generischen Satz
-- `remark` aus `buildOfferRemark()` → der ausführliche, korrekt formulierte Satz mit Methode + Restzahlung + Gültigkeit
+Die Brutto-/Netto-**Darstellung im PDF** ist **keine API-Option** der LexOffice-Endpunkte `/v1/quotations` und `/v1/invoices`. Sie wird ausschließlich in den LexOffice-Account-Einstellungen unter
 
-LexOffice rendert beide direkt untereinander im PDF.
+> Einstellungen → Druck & Layout → Drucklayout → **„Bruttodarstellung in Rechnungen/Angeboten"**
 
-## Fix
-Im Quotation-Zweig (`else` ab Zeile 1126) den `paymentTermLabel` durch den bereits korrekten `remarkText` ersetzen, sodass nur noch eine Zeile im PDF erscheint:
+global festgelegt. Es gibt keinen Pro-Vorgang-Schalter (`printLayout`, `displayMode` o. Ä.) im API-Payload.
 
-```ts
-} else {
-  const baseConditions = buildPaymentConditions(depositPercent, depositDueDays, fixedDepositAmount);
-  // ... remarkText wie bisher per buildOfferRemark berechnen ...
-  paymentConditions = {
-    paymentTermLabel: remarkText,             // ersetzt generischen Satz
-    paymentTermDuration: baseConditions.paymentTermDuration,
-  };
-}
-```
+## Lösung (manueller Schritt in LexOffice nötig)
 
-Und im `documentPayload` für Angebote `remark` weglassen (oder leeren), damit der Satz nicht doppelt erscheint. Für Rechnungs-Modi (`isInvoiceMode`) bleibt das Verhalten unverändert.
+1. In LexOffice einloggen → Einstellungen → Druck & Layout → Drucklayout öffnen.
+2. Option **„Bruttodarstellung"** für Angebote (und ggf. Rechnungen) aktivieren.
+3. Vorhandenes Angebot AG0146 erneut als PDF abrufen → Einzelpreise erscheinen jetzt als 52,00 € (Brutto) statt 48,60 € (Netto), Gesamt bleibt 1.053,99 €.
+
+Optional ergänzend im Code: nichts zu tun, da bereits sauber Brutto übergeben wird. Sobald die LexOffice-Einstellung aktiv ist, gilt sie automatisch für alle neu erzeugten Angebote/Rechnungen aus Maestro.
+
+## Falls die Einstellung in LexOffice nicht gewünscht ist
+
+Alternative wäre, die Angebots-PDF nicht mehr von LexOffice rendern zu lassen, sondern in Maestro selbst zu erzeugen (eigenes PDF-Template mit Brutto-Spalten). Das ist deutlich größerer Aufwand und sollte nur erwogen werden, wenn die LexOffice-Einstellung nicht umgestellt werden kann/soll.
 
 ## Betroffene Dateien
-- `supabase/functions/create-event-quotation/index.ts` (nur Quotation-Zweig, ~Zeile 1126–1164)
 
-Keine Migration, keine UI-Änderung. Nach Deploy einmal „Vorschau anzeigen" klicken → PDF neu erzeugt mit nur noch einem Zahlungsbedingungs-Satz.
+Keine Code-Änderungen erforderlich. Die Korrektur erfolgt einmalig im LexOffice-Account.
