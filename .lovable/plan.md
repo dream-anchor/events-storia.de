@@ -1,85 +1,48 @@
-## Ziele
-1. **KI-Klassifizierung deutlich treffsicherer** — kein „Pizza für alles" mehr, korrekte Pasta-/Antipasti-/Ambiente-Erkennung.
-2. **Alle Fotos automatisch als optimiertes WebP** — beim Upload und retroaktiv für den bestehenden Bestand. Klein, scharf, SEO-/GEO-tauglich.
+## Ursache der 29 Fehler
 
----
+Live-Test der Edge Function liefert für **jedes PNG**:
 
-## Teil 1 — KI-Erkennung massiv verbessern
+```
+img.encodeWEBP is not a function
+```
 
-### Diagnose des aktuellen Verhaltens
-- Modell `google/gemini-2.5-flash` — kostengünstig, aber im Vision-Detail zu schwach für Pasta-Sorten, Antipasti-Varianten, Ambiente-Details.
-- Prompt wirft alle ~100 Tags in eine flache Liste → das Modell "rät" Tags ohne harte Bindung ans Bild.
-- Kein Beschreibungs-Schritt vor Klassifizierung — das Modell springt direkt zur Kategorie und kippt in Heuristiken (= „Pizza" als Default für rundes Essen).
-- Sprechende Dateinamen (z. B. `tagliatelle-trueffel.jpg`) werden ignoriert.
-- Niedrige Confidence wird trotzdem als „klassifiziert" persistiert.
+`imagescript` (was wir aktuell nutzen) kann WebP **nicht** encodieren — nur PNG und JPEG. Daher schlägt jede der 29 nicht-WebP-Quelldateien fehl. Die 25 „übersprungen" sind bereits kleine WebPs aus dem Seed.
 
-### Änderungen in `supabase/functions/classify-photo/index.ts`
+## Fix: auf jSquash umstellen (Google WASM-Codecs, Deno-kompatibel)
 
-1. **Modell-Upgrade auf `google/gemini-2.5-pro`**, Fallback auf Flash bei `429`/Rate-Limit. Bei einem Album dieser Größenordnung finanziell vertretbar.
-2. **Zwei-Stufen-Pipeline in einem Tool-Call** (`classify_photo`-Schema erweitern):
-   - `visible_description` (string, Pflicht) — freie Bildbeschreibung: was ist physisch zu sehen (Gericht, Hauptzutaten, Setting, Geschirr).
-   - `category` aus der Whitelist + `tags` (1–5).
-   - `confidence` (0–1).
-   Das Description-First-Pattern reduziert nachweislich Halluzinationen.
-3. **Strukturierter System-Prompt mit Erkennungs-Regeln pro Kategorie** und expliziten Negativ-Regeln gegen den aktuellen „alles Pizza"-Bias, z. B.:
-   - „Pizza = runder Boden mit sichtbarem Käse/Belag aus dem Steinofen. Kein Boden sichtbar → NICHT Pizza."
-   - „Sichtbare Nudeln → pasta. Sichtbarer Reis cremig → risotto. Brett/Teller mit Aufschnitt/Käse/Tatar/Carpaccio → antipasti."
-   - „Innenraum/Tisch/Bar ohne dominantes Gericht → ambiente."
-4. **Filename + bestehende `title`/`description` als Hint** mit in den User-Prompt geben (`"Hinweis aus Dateiname: …"`). Bei klaren Filenames (`aperol-spritz-…`) steigt die Trefferquote drastisch — kostenlos.
-5. **Confidence-Gate**: bei `confidence < 0.45` → `category = "sonstiges"`, `ai_error = "Niedrige Erkennungs-Confidence – bitte manuell prüfen"`. Das macht schwache Treffer in der UI sichtbar statt sie als „klassifiziert" zu tarnen.
-6. **`visible_description` als SEO/GEO-Alt-Text** in `photo_album.description` schreiben, wenn dort noch nichts steht. Nützlich für `<img alt>` und structured data.
-7. **Robustes Bild-Laden**: signed URL (bereits da) bleibt; zusätzlich Fallback, der das Bild fetched und als base64-`data:`-URL an Gemini gibt. Damit fällt der „blind ratende" Fall weg, falls die signed URL nicht direkt vom Modell ladbar ist.
+`@jsquash/webp` + `@jsquash/png` + `@jsquash/jpeg` sind reine WASM-Pakete, laufen zuverlässig im Supabase Edge Runtime und werden auch von Squoosh selbst genutzt. WebP-Encoder bietet echten `quality`-Parameter.
 
-### Effekt
-Erkennung springt von „Pizza für alles" auf produktionsreif. Nach Deploy einmal `reclassify-photos` (`mode: "all"`) anstoßen.
+### Änderungen in `supabase/functions/convert-photos-to-webp/index.ts`
 
----
+1. Imports tauschen:
+   ```ts
+   import { decode as decodePng }  from "https://esm.sh/@jsquash/png@3.0.1?target=deno";
+   import { decode as decodeJpeg } from "https://esm.sh/@jsquash/jpeg@1.5.0?target=deno";
+   import { decode as decodeWebp, encode as encodeWebp } from "https://esm.sh/@jsquash/webp@1.4.0?target=deno";
+   ```
+2. Neue `decodeImage(bytes, contentType, path)`: per Magic-Bytes/Extension auf den passenden Decoder routen → `ImageData { data, width, height }`.
+3. Resize: einfache Nearest-/Bilinear-Resize-Funktion auf `ImageData` (max. Kante 1920). Klein gehalten, kein zusätzliches Package.
+4. Encode: `await encodeWebp(imageData, { quality: 82 })` → `Uint8Array`.
+5. Skip-Logik bleibt: bereits `.webp` + `< 400 KB` + `width ≤ 1920` → überspringen. Zusätzlich: wenn neuer WebP-Bytecount größer als Original → überspringen (kein Downgrade).
+6. Batch-Größe von 3 → **2**, Delay 400 → **600 ms**, um CPU/Memory-Spitzen im Edge Runtime bei großen PNGs (~3 MB → 1920×… RGBA-Buffer) zu glätten.
+7. `console.error` je Fehler loggen, damit die echten Meldungen in den Edge-Function-Logs erscheinen (heute sehen wir Fehler nur im JSON-Response).
+8. Klarer Response-Body unverändert (`processed/converted/skipped/failed/errors`).
 
-## Teil 2 — WebP-Konvertierung (Upload + Bestand)
+### Keine weiteren Änderungen
 
-### Standard für alle Fotos
-- Format: **WebP**, Quality `82`, max. Long-Edge **1920 px**.
-- Storage-Pfad endet auf `.webp`, `contentType: "image/webp"`.
-- `file_size`, `width`, `height` aus dem konvertierten Bild gespeichert.
-- SEO/GEO: signifikant kleinere Files → besserer LCP/CLS auf `RestaurantGallery` & `PhotoAlbumGallery`, schnellere Crawler-Indexierung.
+- DB-Schema, Buckets, RLS, signed-URLs, Upload-Pfad (`src/lib/convertToWebp.ts` clientseitig) bleiben unverändert.
+- UI in `src/pages/admin/Fotoalbum.tsx` bleibt; Toast zeigt automatisch die echten Zahlen.
+- KI-Klassifizierung wird nicht angefasst.
 
-### A) Beim Upload (Client) — `src/hooks/usePhotoAlbum.ts`
-- Neue Util `convertToWebp(file, { maxEdge: 1920, quality: 0.82 })`:
-  - Bild in `Image`, in `OffscreenCanvas` (Fallback: `HTMLCanvasElement`) skaliert rendern.
-  - `canvas.toBlob(blob, "image/webp", 0.82)`.
-  - Fallback wenn Browser kein WebP-Encoding kann (alte Safari): Original hochladen, Server konvertiert es retroaktiv.
-- `useUploadPhoto` ruft `convertToWebp` vor dem Storage-Upload. Filename → `<original-name>.webp`, `storage_path` mit `.webp`, `contentType: "image/webp"`.
-- Dropzone bleibt offen für JPG/PNG/WebP/AVIF/HEIC (HEIC → Server-Fallback).
-- UI-Hinweis bleibt: „KI klassifiziert automatisch · wird als WebP optimiert".
+### Validierung nach Deploy
 
-### B) Retroaktiv für den Bestand (Edge Function) — neu: `supabase/functions/convert-photos-to-webp/index.ts`
-- Admin/Staff-only (gleiches JWT-Pattern wie `reclassify-photos`).
-- Iteriert `photo_album` in Batches (4 parallel, 600 ms Pause).
-- Pro Foto:
-  1. Original-Bytes aus Storage laden.
-  2. Skip, falls schon `image/webp` UND `width ≤ 1920` UND `file_size < 400 KB` (idempotent).
-  3. Konvertierung mit `https://deno.land/x/imagescript@1.2.17/mod.ts` (reines WASM, kein nativer Bin, läuft in Supabase-Edge).
-  4. Neuer `storage_path` = alter Pfad mit `.webp`-Endung.
-  5. `upload(upsert=true)` neue Datei, alten Pfad entfernen, falls Endung sich änderte.
-  6. `photo_album` Update: `storage_path`, `url`, `file_size`, `width`, `height`, `filename`.
-- Response: `{ processed, converted, skipped, failed, errors[] }`.
-- Kann beliebig oft laufen (idempotent).
+1. `deploy convert-photos-to-webp`
+2. Funktion einmal per curl aufrufen → erwartet: `failed: 0`, `converted: 29`, `skipped: 25`.
+3. Stichprobe: eine konvertierte Datei in DB prüfen (`file_size`, `width ≤ 1920`, Pfad endet `.webp`).
+4. Edge-Logs auf neue Fehler kontrollieren.
 
-### C) UI-Button im Admin — `src/pages/admin/Fotoalbum.tsx`
-- Dritter Button **„Bilder optimieren (WebP)"** neben „KI neu klassifizieren" und „Bestand importieren". Confirm-Dialog + Toast-Feedback wie `runReclassify`.
+### Risiken
 
----
-
-## Technische Notizen
-- Keine DB-Migration nötig — alle Spalten existieren (`storage_path`, `url`, `file_size`, `width`, `height`, `description`, `ai_error`, `ai_model`).
-- `supabase/config.toml` braucht keine Änderung (beide Functions admin-aufgerufen mit JWT).
-- Bucket `photo-album` bleibt privat; signed URLs aus `usePhotoAlbum` (bereits implementiert).
-- Reihenfolge nach Deploy:
-  1. Edge Functions deployen.
-  2. **„Bilder optimieren (WebP)"** einmal anstoßen (~1 Min).
-  3. Danach **„KI neu klassifizieren"** — arbeitet auf sauberen, kleinen WebPs mit Pro-Modell.
-
-## Nicht im Scope
-- Mehrfach-Größen / `srcset` (kann als 2. Iteration kommen).
-- Manueller Alt-Text-Editor in der UI (Description wird nur befüllt).
-- Visuelle Änderungen an Public-Galerien — sie profitieren automatisch von kleineren WebPs.
+- jSquash lädt WASM beim ersten Call (~1–2 s Cold Start). Akzeptabel für Admin-Aktion.
+- 1920×1080 PNG → RGBA-Buffer ~8 MB im RAM. Mit Batch 2 unter dem 150 MB Edge-Limit.
+- Falls einzelne Bilder weiterhin fehlschlagen (z.B. CMYK-JPEG): Fehlertext steht jetzt in den Logs und im UI-Toast – kann gezielt nachgezogen werden.
