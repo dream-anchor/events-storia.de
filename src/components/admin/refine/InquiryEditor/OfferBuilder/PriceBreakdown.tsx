@@ -357,8 +357,8 @@ export function PriceBreakdown({
               </div>
             )}
 
-            {/* Rabatt — nur sichtbar wenn > 0 */}
-            {((discountPercentProp ?? 0) > 0 || (discountAmountProp ?? 0) > 0) && (
+            {/* Rabatt — Toggle immer sichtbar wenn Handler vorhanden */}
+            {onDiscountChange && (
               <div className="flex items-center justify-between text-xs">
                 <DiscountInput
                   percent={discountPctVal}

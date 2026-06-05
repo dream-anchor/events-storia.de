@@ -1,34 +1,31 @@
-## Modernes Drag & Drop Upload
+## Befund
 
-### Library
-**`react-dropzone`** – Standard-Library, headless, perfekt mit Tailwind/shadcn kombinierbar.
+In `src/components/admin/refine/InquiryEditor/OfferBuilder/PriceBreakdown.tsx` gibt es zwei Render-Zweige:
 
-### Neue Komponente `src/components/admin/PhotoDropzone.tsx`
-- Vollwertige Dropzone mit Drag & Drop + Klick-Fallback
-- Multi-File, max. 20 MB pro Datei
-- Akzeptiert JPG, PNG, WebP, AVIF
-- **Auto-Upload** sobald Dateien fallen gelassen werden (parallel max. 3 gleichzeitig)
-- **Live-Queue** mit Thumbnail, Dateiname und Status pro Datei (Warteschlange / Lädt hoch / KI klassifiziert / Fehler)
-- Reject-Toasts für zu große/falsche Dateien
-- **Fullscreen-Overlay** wenn der User Dateien irgendwo auf der Seite zieht (Notion/Linear-Style)
-- Erfolgreiche Uploads verschwinden nach 4 s aus der Queue
-- Design: `rounded-2xl`, Dashed Border, Light-Mode/Monochrom, Inter Font, kein Floating Button
+- **Paket-Modus** (Zeile 551): `{onDiscountChange && (<DiscountInput .../>)}` → Button ist **immer** sichtbar, sobald die Komponente einen Discount-Handler bekommt. ✅
+- **Menü-Modus** (Zeile 361): `{((discountPercentProp ?? 0) > 0 || (discountAmountProp ?? 0) > 0) && (<DiscountInput .../>)}` → Button erscheint **erst nachdem** schon ein Rabatt > 0 gesetzt ist. ❌
 
-### Integration in `src/pages/admin/Fotoalbum.tsx`
-- Bestehender „Fotos hochladen"-Button + Hidden-Input entfernt
-- `<PhotoDropzone />` als kompakter Strip oben im Content-Bereich (direkt unter Header)
-- Nutzt bestehenden `useUploadPhoto` Hook → keine API-/DB-Änderungen
-- Realtime-Subscription aktualisiert Galerie automatisch nach Klassifizierung
+Daher fehlt der Rabatt-Toggle bei allen Menüs (Menü-Komposition) sowie überall dort, wo nur `discountPercent`/`discountAmount` als 0 reinkommt. Bei Paketen, E-Mail-Modus und Optionen erscheint er.
 
-### Technik
-```bash
-bun add react-dropzone  # bereits installiert
+## Änderung
+
+In `PriceBreakdown.tsx`, Zeile 361, die Sichtbarkeits-Bedingung angleichen an den Paket-Zweig:
+
+```tsx
+{onDiscountChange && (
+  <div className="flex items-center justify-between text-xs">
+    <DiscountInput ... />
+    {discountAmountTotal > 0 && (
+      <span>−{formatCurrency(discountDisplay)}</span>
+    )}
+  </div>
+)}
 ```
-- Keine Migration, keine Edge Function nötig
-- Object-URLs werden korrekt revoked
-- `ReturnType<typeof setTimeout>` Konvention eingehalten
 
-### Ausgeschlossen
-- Resumable Uploads (Uppy/tus) – Overkill
-- Bild-Crop vor Upload
-- Drag-Reorder in der Galerie
+Damit wird der Button bei jedem Menü, Paket, E-Mail-Modus und jeder Option sofort sichtbar und klickbar, unabhängig davon, ob bereits ein Rabatt gesetzt ist. Der `−€X`-Text und die "Netto"-Zeile bleiben weiterhin nur sichtbar, wenn `discountAmountTotal > 0`.
+
+## Nicht enthalten
+
+- Keine Logik-/Preisänderung (Maestro bleibt Single Source of Truth).
+- Keine Default-Rabatte.
+- Farbthema (`tone="green"`) bleibt unverändert in diesem Schritt — separat adressierbar, wenn gewünscht.
