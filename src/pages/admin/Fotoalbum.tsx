@@ -32,7 +32,6 @@ import {
   usePhotoVersions,
   useSetCurrentVersion,
   usePhotoVersionCounts,
-  useUploadPhoto,
   type PhotoAlbumEntry,
 } from "@/hooks/usePhotoAlbum";
 import { PhotoDropzone } from "@/components/admin/PhotoDropzone";
