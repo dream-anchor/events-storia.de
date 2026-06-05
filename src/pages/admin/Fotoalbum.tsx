@@ -109,13 +109,32 @@ const Fotoalbum = () => {
     setOptimizing(true);
     const toastId = toast.loading("Optimiere Bilder zu WebP …");
     try {
-      const { data, error } = await supabase.functions.invoke("convert-photos-to-webp", { body: {} });
-      if (error) throw error;
-      const { processed = 0, converted = 0, skipped = 0, failed = 0 } = data ?? {};
+      // Loop in small batches so the gateway doesn't time out on big WASM jobs.
+      let totalConverted = 0;
+      let totalFailed = 0;
+      const errorSamples: string[] = [];
+      const BATCH = 8;
+      for (let pass = 0; pass < 20; pass++) {
+        const { data, error } = await supabase.functions.invoke("convert-photos-to-webp", {
+          body: { limit: BATCH },
+        });
+        if (error) throw error;
+        const { converted = 0, failed = 0, remaining = 0, errors = [] } = data ?? {};
+        totalConverted += converted;
+        totalFailed += failed;
+        if (Array.isArray(errors)) errorSamples.push(...errors.slice(0, 5));
+        toast.loading(
+          `Optimiere … ${totalConverted} konvertiert, ${totalFailed} Fehler · noch ${remaining}`,
+          { id: toastId },
+        );
+        if (converted === 0 && failed === 0) break;
+        if (remaining === 0) break;
+      }
       toast.success(
-        `${converted} konvertiert · ${skipped} übersprungen · ${failed} Fehler (von ${processed})`,
+        `Fertig: ${totalConverted} konvertiert · ${totalFailed} Fehler`,
         { id: toastId, duration: 8000 },
       );
+      if (errorSamples.length > 0) console.warn("WebP-Optimierung Fehler:", errorSamples);
     } catch (e) {
       console.error(e);
       toast.error("Optimierung fehlgeschlagen: " + (e as Error).message, { id: toastId });
