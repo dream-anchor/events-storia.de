@@ -21,12 +21,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Upload, ImageOff, Loader2 } from "lucide-react";
 import { CateringCategory } from "@/hooks/useCateringMenus";
 import {
   useUpdateCategory,
   useDeleteCategory,
   useAddMenuItem,
+  uploadCateringImage,
 } from "@/hooks/useCateringMenuMutations";
 import { toast } from "sonner";
 
@@ -36,11 +37,14 @@ interface CategoryEditorProps {
 
 export const CategoryEditor = ({ category }: CategoryEditorProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: category.name,
     name_en: category.name_en || "",
     description: category.description || "",
     description_en: category.description_en || "",
+    image_url: category.image_url || "",
+    homepage_slug: category.homepage_slug || "",
   });
 
   const updateMutation = useUpdateCategory();
@@ -52,6 +56,8 @@ export const CategoryEditor = ({ category }: CategoryEditorProps) => {
       name_en: category.name_en || "",
       description: category.description || "",
       description_en: category.description_en || "",
+      image_url: category.image_url || "",
+      homepage_slug: category.homepage_slug || "",
     });
     setIsOpen(true);
   };
@@ -65,12 +71,31 @@ export const CategoryEditor = ({ category }: CategoryEditorProps) => {
           name_en: formData.name_en || null,
           description: formData.description || null,
           description_en: formData.description_en || null,
+          image_url: formData.image_url || null,
+          homepage_slug: formData.homepage_slug ? formData.homepage_slug.trim() : null,
         },
       });
       toast.success("Kategorie aktualisiert");
       setIsOpen(false);
     } catch (error) {
       toast.error("Fehler beim Speichern");
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploading(true);
+      const url = await uploadCateringImage(file);
+      setFormData((prev) => ({ ...prev, image_url: url }));
+      toast.success("Bild hochgeladen");
+    } catch (err) {
+      console.error(err);
+      toast.error("Upload fehlgeschlagen");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
     }
   };
 
@@ -122,6 +147,68 @@ export const CategoryEditor = ({ category }: CategoryEditorProps) => {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Kategorie-Bild (Startseite)</Label>
+              <div className="flex items-start gap-3">
+                <div className="h-24 w-32 shrink-0 overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
+                  {formData.image_url ? (
+                    <img src={formData.image_url} alt={formData.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageOff className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="inline-flex">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileChange}
+                      disabled={uploading}
+                    />
+                    <Button type="button" variant="outline" size="sm" disabled={uploading} asChild>
+                      <span className="cursor-pointer">
+                        {uploading ? (
+                          <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Lädt hoch…</>
+                        ) : (
+                          <><Upload className="h-4 w-4 mr-1" /> {formData.image_url ? "Bild austauschen" : "Bild hochladen"}</>
+                        )}
+                      </span>
+                    </Button>
+                  </label>
+                  {formData.image_url && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive justify-start"
+                      onClick={() => setFormData((p) => ({ ...p, image_url: "" }))}
+                    >
+                      Bild entfernen
+                    </Button>
+                  )}
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    Wird auf der Startseite als Kachel verwendet, wenn ein Startseiten-Slug gesetzt ist.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cat-homepage-slug">Startseiten-Slug (optional)</Label>
+              <Input
+                id="cat-homepage-slug"
+                value={formData.homepage_slug}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, homepage_slug: e.target.value }))
+                }
+                placeholder="fingerfood, platten, auflauf, pizza, desserts, events"
+              />
+              <p className="text-xs text-muted-foreground">
+                Verknüpft diese Kategorie mit einer Kachel auf der Startseite. Leer lassen, wenn nicht auf der Startseite gezeigt.
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="cat-name">Name (DE) *</Label>
