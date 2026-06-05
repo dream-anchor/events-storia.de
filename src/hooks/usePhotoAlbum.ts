@@ -53,7 +53,21 @@ export const usePhotoAlbum = (opts?: {
       if (opts?.tags && opts.tags.length > 0) q = q.contains("tags", opts.tags);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as unknown as PhotoAlbumEntry[];
+      const rows = (data ?? []) as unknown as PhotoAlbumEntry[];
+
+      // Der Bucket ist privat → signed URLs erzeugen (1h), damit <img> sie laden kann.
+      const paths = rows.map((r) => r.storage_path).filter(Boolean);
+      if (paths.length === 0) return rows;
+
+      const { data: signed } = await supabase.storage
+        .from(PHOTO_BUCKET)
+        .createSignedUrls(paths, 60 * 60);
+
+      const byPath = new Map<string, string>();
+      for (const s of signed ?? []) {
+        if (s.path && s.signedUrl) byPath.set(s.path, s.signedUrl);
+      }
+      return rows.map((r) => ({ ...r, url: byPath.get(r.storage_path) ?? r.url }));
     },
   });
 };
