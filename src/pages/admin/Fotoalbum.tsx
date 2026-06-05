@@ -309,12 +309,18 @@ const Fotoalbum = () => {
 
         {/* Gallery */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-xl bg-muted/60 animate-pulse"
+                style={{ aspectRatio: i % 3 === 0 ? "3/4" : i % 3 === 1 ? "4/3" : "1/1" }}
+              />
+            ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground">
-            Keine Fotos – lade welche hoch.
+          <div className="text-center py-20 text-muted-foreground rounded-2xl border border-dashed border-border">
+            Noch keine Fotos. Zieh Dateien in den Bereich oben.
           </div>
         ) : (
           <div className={isFetching ? "opacity-60 transition-opacity" : "transition-opacity"}>
@@ -341,52 +347,56 @@ const Fotoalbum = () => {
                 const vc = versionCounts?.[stem] ?? 1;
                 const isSelected = selected.has(p.id);
                 return (
-                  <div
-                    className={
-                      "absolute inset-0 flex flex-col justify-between p-2 pointer-events-none transition-opacity " +
-                      (selectMode || isSelected
-                        ? "opacity-100 bg-gradient-to-b from-black/30 via-transparent to-black/50"
-                        : "opacity-0 hover:opacity-100 bg-gradient-to-b from-black/40 via-transparent to-black/60")
-                    }
-                  >
-                    <div className="flex justify-between items-start gap-1 pointer-events-auto">
-                      <div className="flex flex-wrap gap-1">
-                        {selectMode && (
-                          <div
-                            className="h-6 w-6 rounded-md bg-background/95 flex items-center justify-center"
-                            onClick={(e) => { e.stopPropagation(); toggleSelect(p.id); }}
-                          >
-                            <Checkbox checked={isSelected} />
-                          </div>
-                        )}
-                      {p.category && (
-                        <Badge className="text-[10px]">
-                          {PHOTO_CATEGORY_LABELS[p.category] ?? p.category}
-                        </Badge>
+                  <>
+                    {/* Selection ring (always-on when selected) */}
+                    {isSelected && (
+                      <div className="absolute inset-0 rounded-xl ring-2 ring-primary ring-offset-2 ring-offset-background pointer-events-none" />
+                    )}
+
+                    {/* Persistent top-right badges (always visible) */}
+                    <div className="absolute top-2 right-2 flex gap-1 pointer-events-none">
+                      {vc > 1 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-card/85 backdrop-blur-md border border-border px-2 py-0.5 text-[10px] font-medium text-foreground shadow-sm">
+                          <Layers className="h-3 w-3" /> {vc}
+                        </span>
                       )}
                       {!p.ai_classified && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          <Sparkles className="h-3 w-3 mr-1" /> klassifiziert…
-                        </Badge>
-                      )}
-                      </div>
-                      {vc > 1 && (
-                        <Badge variant="secondary" className="text-[10px] gap-1">
-                          <Layers className="h-3 w-3" /> {vc}
-                        </Badge>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-card/85 backdrop-blur-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground shadow-sm">
+                          <Sparkles className="h-3 w-3" /> KI…
+                        </span>
                       )}
                     </div>
-                    <div className="flex justify-end gap-1 pointer-events-auto">
+
+                    {/* Selection checkbox (top-left, only in select mode) */}
+                    {selectMode && (
+                      <div
+                        className="absolute top-2 left-2 h-6 w-6 rounded-md bg-background/95 border border-border flex items-center justify-center pointer-events-auto cursor-pointer shadow-sm"
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(p.id); }}
+                      >
+                        <Checkbox checked={isSelected} />
+                      </div>
+                    )}
+
+                    {/* Persistent bottom meta + actions (category left, pencil right) */}
+                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-2 pointer-events-none bg-gradient-to-t from-black/55 via-black/10 to-transparent rounded-b-xl">
+                      <div className="flex flex-wrap gap-1 pointer-events-none">
+                        {p.category && (
+                          <span className="inline-flex items-center rounded-full bg-card/85 backdrop-blur-md border border-border px-2 py-0.5 text-[10px] font-medium text-foreground shadow-sm">
+                            {PHOTO_CATEGORY_LABELS[p.category] ?? p.category}
+                          </span>
+                        )}
+                      </div>
                       <Button
                         size="icon"
                         variant="secondary"
-                        className="h-8 w-8"
-                        onClick={(e) => { e.stopPropagation(); if (!selectMode) setEditing(p); }}
+                        className="h-8 w-8 pointer-events-auto shadow-sm"
+                        onClick={(e) => { e.stopPropagation(); setEditing(p); }}
+                        aria-label="Foto bearbeiten"
                       >
                         <Pencil className="h-3 w-3" />
                       </Button>
                     </div>
-                  </div>
+                  </>
                 );
               },
             }}
