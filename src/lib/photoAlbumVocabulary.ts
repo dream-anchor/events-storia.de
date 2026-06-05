@@ -34,7 +34,7 @@ export const PHOTO_TAGS_BY_CATEGORY: Record<string, string[]> = {
   antipasti: ["caprese","burrata","vitello-tonnato","carpaccio","oktopus","tatar","roastbeef","spargel","rote-bete","hummer"],
   salat: ["insalata-mista","burrata","ziegenkäse","lachs","caesar","roastbeef","avocado"],
   suppe: ["spargelcreme","fischsuppe","brokkoli"],
-  fleisch: ["kalb","ossobuco","lamm","rinderfilet","rib-eye","tagliata","dry-aged","lavastein"],
+  fleisch: [],
   fisch: ["dorade","oktopus","thunfisch","wolfsbarsch","pesce-misto","salzkruste"],
   dessert: ["tiramisu","schokoladensoufflé","zitronentörtchen","panna-cotta","sorbet","eis"],
   beilage: ["grillgemüse","ofenkartoffeln","kartoffelpüree","frühlingsgemüse"],
