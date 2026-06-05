@@ -524,6 +524,18 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
    • Beispiel: "2.974,80 €" bleibt "2.974,80 €" — NIE "2.975 €", NIE "2.975,- €", NIE "ca. 2.975 €".
    • Format ist immer deutsch: Tausenderpunkt, Komma als Dezimaltrenner, zwei Nachkommastellen, "€" am Ende.
 
+ 6. MENGEN — exakte Mengen aus den Daten übernehmen.
+    • Wenn eine Position als "N × Name" angegeben ist (z.B. "3 × Vitello Tonnato-Platte", "25 × Burratina"), MUSS diese Menge im Anschreiben genannt werden.
+    • Beispiel: "Als Speisen servieren wir 3 × Vitello Tonnato-Platte, 25 × Burratina ..." — NICHT nur "Vitello Tonnato-Platte, Burratina".
+    • Pflicht für ALLE Positionen mit Menge > 1 (Speisen, Getränke, Ausstattung, Personal).
+
+ 7. RABATT — wenn in den Daten "Rabatt: JA" steht, MUSS er im Anschreiben erwähnt werden.
+    • Eigener Satz, vor dem Link-Absatz.
+    • Bei Prozent: "Im Endpreis ist bereits ein Rabatt von X % berücksichtigt."
+    • Bei festem Betrag: "Im Endpreis ist bereits ein Rabatt von X,XX € berücksichtigt."
+    • Falls Zwischensumme + Endpreis bekannt sind, gerne nennen — aber nie selbst rechnen, nur die Zahlen aus den Daten verwenden.
+    • Wenn KEIN Rabatt-Block in den Daten steht, KEINEN Rabatt erfinden.
+
 4. ABSÄTZE — genau eine Leerzeile zwischen Absätzen.
    • Zwei Newlines (\n\n) zwischen jedem Absatz
    • Jeder Gedankengang ist ein eigener Absatz
