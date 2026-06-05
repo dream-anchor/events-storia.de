@@ -510,12 +510,10 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
 
 2. VOLLSTÄNDIGKEIT — ALLES muss rein, NICHTS darf fehlen.
    • ALLE Menügänge vollständig nennen (Vorspeise, Hauptgang, Dessert)
-   • ALLE Getränke nennen — auch die inklusiven! (Wasser, Kaffee-Spezialitäten, Wein/Bier-Pauschale)
-   • Inklusiv-Getränke haben in den Daten "inklusive" als Quantität oder stehen als "[Getränk]: inklusive". Die gehören IMMER in den Text.
-   • PFLICHT: Jedes Anschreiben enthält IMMER einen eigenen Getränke-Absatz.
-   • Wenn in den Daten echte Getränke stehen (Block "Getränke:" oder "Weitere Getränke:" mit Inhalten), übernimm AUSSCHLIESSLICH diese Positionen 1:1 mit Mengen und "inklusive"-Markern. Der Standard-Wassersatz ist dann STRENG VERBOTEN.
-   • Nur wenn in den Daten WÖRTLICH "Getränke: keine konfiguriert" steht UND kein Block "Weitere Getränke" existiert, schreibe wörtlich diesen Absatz mit BEIDEN Sätzen — keiner darf fehlen, kein Umformulieren:
-     "Wasser wird während der gesamten Veranstaltung für alle auf den Tischen bereitgestellt. Dazu zwei Getränke pro Person zur Wahl (ein Glas Wein, Spritz oder Bier)."
+   • ALLE Menügänge vollständig auflisten mit ihren Mengen aus den Daten.
+   • GETRÄNKE — ABSOLUTE REGEL: Getränke dürfen NUR erwähnt werden, wenn sie in den Daten unter dem Block "Getränke:" oder "Weitere Getränke:" tatsächlich aufgelistet sind. Dann werden sie 1:1 mit Mengen und "inklusive"-Markern übernommen.
+   • Steht in den Daten "Getränke: KEINE im Angebot" (oder gibt es schlicht keinen Getränke-Block), dann KOMMT KEIN GETRÄNKE-SATZ ins Anschreiben. STRENG VERBOTEN: "Wasser wird … bereitgestellt", "zwei Getränke pro Person", "ein Glas Wein, Spritz oder Bier", oder ähnliche Standardformulierungen. Auch keine erfundenen Inklusiv-Getränke wie "Wasser und Kaffee inklusive".
+   • Erfinde niemals Getränke. Wenn die Daten schweigen, schweigt auch das Anschreiben zum Thema Getränke.
 
 3. RECHTSCHREIBUNG — kein Slang, keine Abkürzungen.
    • Immer "inklusive" — NIE "inkl."
