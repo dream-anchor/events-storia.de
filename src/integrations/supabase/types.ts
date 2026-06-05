@@ -2111,7 +2111,9 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           description_en: string | null
+          homepage_slug: string | null
           id: string
+          image_url: string | null
           menu_id: string
           name: string
           name_en: string | null
@@ -2123,7 +2125,9 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           description_en?: string | null
+          homepage_slug?: string | null
           id?: string
+          image_url?: string | null
           menu_id: string
           name: string
           name_en?: string | null
@@ -2135,7 +2139,9 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           description_en?: string | null
+          homepage_slug?: string | null
           id?: string
+          image_url?: string | null
           menu_id?: string
           name?: string
           name_en?: string | null
