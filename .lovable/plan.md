@@ -1,34 +1,37 @@
-# Rabatt nur EINMAL im Anschreiben
+# Pizze Napoletane: Items archiviert → Menü leer
 
-## Problem
-Aktuell taucht der Rabatt 2–3× auf:
-1. Im Eröffnungssatz mit Preis ("Im Endpreis ist bereits ein Rabatt … berücksichtigt – statt 1.171,09 € … 1.053,99 €.")
-2. Im dedizierten Rabatt-Satz unten ("Gerne räumen wir Ihnen …")
-3. Ggf. zusätzlich durch die Rabatt-Absicherung im Post-Processing.
+## Diagnose
+Auf `/catering/pizze-napoletane` zeigt die Seite den Empty-State:
+„Das Menü wird derzeit aktualisiert. Bitte schauen Sie später wieder vorbei."
 
-Grund: Regel 7 des System-Prompts lässt zwei freundliche Formulierungen zu und sagt nicht klar, dass der Eröffnungssatz nur den Endpreis ohne Vergleich nennen darf.
+Ursache liegt in den Daten, nicht im Code:
+- Menü `pizze-napoletane` existiert und ist `is_published = true`.
+- Beide Kategorien (`Pizza Pane`, `Pizze Classiche`) sind aktiv.
+- **Alle 25 Pizza-Einträge** in `menu_items` wurden am **2026-06-03 21:44:58 UTC** archiviert (`archived_at IS NOT NULL`).
+- Der Hook `useCateringMenuBySlug` filtert `archived_at IS NULL`, daher kommt eine leere Liste zurück → Empty-State.
 
-## Fix
-Anpassung in `supabase/functions/generate-inquiry-email/index.ts`:
+Das war vermutlich eine versehentliche Bulk-Archivierung im Admin.
 
-### 1. Regel 7 (RABATT) verschärfen
-- Genau **EIN** Rabatt-Satz im gesamten Anschreiben, **direkt vor dem Link-Absatz**.
-- Der Eröffnungs-/Preissatz nennt **nur** den Endpreis als Zahl — **keine** Zwischensumme, **kein** "statt … berücksichtigt", **kein** Prozentsatz.
-- Nur eine einzige zugelassene Formulierung im Rabatt-Satz (die "Gerne räumen wir …"-Variante). Die "Im Endpreis ist bereits …"-Variante streichen, weil sie dazu verleitet, oben erneut Zwischensumme + Endpreis zu nennen.
-- Negativbeispiel ergänzen: „statt 1.171,09 € beträgt Ihr Endpreis 1.053,99 €" im Eröffnungssatz = FALSCH.
-- Positivbeispiel: Eröffnungssatz nennt nur „1.053,99 €", Rabatt-Satz unten erklärt %-Satz + Zwischensumme.
+## Lösung
+Migration, die `archived_at` für die 25 Items beider Pizza-Kategorien zurücksetzt (auf `NULL`). Damit erscheinen alle Pizzen sofort wieder auf der Seite.
 
-### 2. Rabatt-Absicherung (Post-Processing) robuster
-Aktuell fügt sie einen Rabatt-Satz ein, sobald der Endpreis nicht gefunden wird. Anpassung:
-- Nur ergänzen, wenn der Text **noch keinen** Hinweis auf den Rabatt enthält. Match-Heuristik: Treffer auf `Rabatt` (case-insensitive) im Anschreiben.
-- Damit kann sie nicht zusätzlich zur AI-Erwähnung einen dritten Satz produzieren.
-
-### 3. Edge Function deployen
-`generate-inquiry-email` redeployen.
+```sql
+UPDATE public.menu_items
+SET archived_at = NULL
+WHERE category_id IN (
+  'cccc3333-3333-3333-3333-333333333331',
+  'cccc3333-3333-3333-3333-333333333332'
+)
+AND archived_at IS NOT NULL;
+```
 
 ## Nicht enthalten
-- Keine Änderung an Preis-Logik, Daten oder Kontext-Aufbau.
-- Keine UI-Änderungen.
+- Keine Code- oder UI-Änderung. Hook-Logik, Empty-State und Seite bleiben wie sie sind.
+- Keine Schemaänderung.
+- Bilder/Beschreibungen werden nicht angefasst.
 
-## Betroffene Datei
-- `supabase/functions/generate-inquiry-email/index.ts` (Regel 7 + Rabatt-Absicherungs-Check)
+## Betroffen
+- DB: `public.menu_items` (25 Zeilen restauriert).
+
+## Hinweis
+Falls beim Anlegen neuer Pizzen über den Admin künftig die alten Bulk-Archivierungen wieder reinrutschen, müssten wir das im Admin getrennt anschauen — aktuell beheben wir nur das Symptom auf der öffentlichen Seite.
