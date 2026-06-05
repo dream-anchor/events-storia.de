@@ -107,7 +107,8 @@ function FinalOptionCard({
   const isFixedDeposit = fixedDepositAmount != null && fixedDepositAmount > 0;
   const depositAmount = isFixedDeposit
     ? Math.min(fixedDepositAmount as number, totalAmount)
-    : Math.round(totalAmount * depositPercent) / 100;
+    // Keine Rundung — Maestro-Werte 1:1 anzeigen (z. B. 210,80 € statt 211 €).
+    : (totalAmount * depositPercent) / 100;
   // Anzahlungs-Button nur zeigen, wenn explizit konfiguriert und sinnvoll
   const showDeposit = depositAmount > 0 && depositAmount < totalAmount;
 

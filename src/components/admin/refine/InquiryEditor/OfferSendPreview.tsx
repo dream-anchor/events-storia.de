@@ -408,6 +408,10 @@ export function OfferSendPreview({
     if (body && encodeURIComponent(body).length <= 6000) {
       params.set('preview_body', body); // nur wenn Text vorhanden und nicht zu lang
     }
+    // Cache-Bust: jedes Re-Render der Vorschau lädt Public Offer frisch,
+    // damit Anschreiben + Preise nach „Vorschau anzeigen“ ohne manuelles
+    // Reload aktuell sind.
+    params.set('_ts', String(refreshKey) + '-' + String(inquiry.id));
     return `${base}?${params.toString()}`;
   })();
   // "Critical" warnings = solche die einen echten Versand blockieren wuerden

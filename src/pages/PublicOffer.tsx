@@ -154,8 +154,10 @@ function formatCurrency(amount: number, lang: OfferLang = 'de') {
   return new Intl.NumberFormat(currencyLocale(lang), {
     style: "currency",
     currency: "EUR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    // Beträge IMMER mit 2 Nachkommastellen anzeigen — Maestro-Preise
+    // niemals auf volle Euro runden (z. B. 1.053,99 € bleibt 1.053,99 €).
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 
@@ -760,7 +762,10 @@ function HeroSection({
   phase: OfferPhase;
   lang: OfferLang;
 }) {
-  const displayName = inquiry.company_name || inquiry.contact_name;
+  const rawCompany = (inquiry.company_name ?? '').trim();
+  const isPlaceholderCompany =
+    !rawCompany || rawCompany.toLowerCase() === 'private';
+  const displayName = isPlaceholderCompany ? inquiry.contact_name : rawCompany;
 
   const phaseConfig: Partial<Record<OfferPhase, { text: string; color: string }>> = {
     proposal_sent: { text: tOffer(lang, 'phaseProposal'), color: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
