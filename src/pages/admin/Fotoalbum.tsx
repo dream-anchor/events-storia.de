@@ -170,17 +170,6 @@ const Fotoalbum = () => {
                 : <Sparkles className="h-3 w-3 mr-2" />}
               KI neu klassifizieren
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={runSeed}
-              disabled={seeding}
-            >
-              {seeding
-                ? <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                : <Download className="h-3 w-3 mr-2" />}
-              Bestand importieren
-            </Button>
           </div>
         </div>
         {classificationNotice && (
