@@ -27,6 +27,8 @@ export interface CateringCategory {
   description: string | null;
   description_en: string | null;
   sort_order: number;
+  image_url?: string | null;
+  homepage_slug?: string | null;
   items: CateringMenuItem[];
 }
 
