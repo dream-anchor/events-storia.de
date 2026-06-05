@@ -1,72 +1,34 @@
-# Fotoalbum: Bugfix + Modernisierung 2026
+# Rabatt nur EINMAL im Anschreiben
 
-## Problem-Analyse
+## Problem
+Aktuell taucht der Rabatt 2–3× auf:
+1. Im Eröffnungssatz mit Preis ("Im Endpreis ist bereits ein Rabatt … berücksichtigt – statt 1.171,09 € … 1.053,99 €.")
+2. Im dedizierten Rabatt-Satz unten ("Gerne räumen wir Ihnen …")
+3. Ggf. zusätzlich durch die Rabatt-Absicherung im Post-Processing.
 
-In `src/pages/admin/Fotoalbum.tsx`:
+Grund: Regel 7 des System-Prompts lässt zwei freundliche Formulierungen zu und sagt nicht klar, dass der Eröffnungssatz nur den Endpreis ohne Vergleich nennen darf.
 
-1. **Stift-Bug im Auswahl-Modus (Zeile 384):**
-   ```tsx
-   onClick={(e) => { e.stopPropagation(); if (!selectMode) setEditing(p); }}
-   ```
-   Im Bulk-Auswahl-Modus wird `setEditing` aktiv blockiert → Bearbeiten unmöglich. Das ist unbeabsichtigt, weil der Stift-Button auch in Auswahl gerendert wird.
+## Fix
+Anpassung in `supabase/functions/generate-inquiry-email/index.ts`:
 
-2. **Versionen unsichtbar:**
-   Das `Layers`-Badge mit Versions-Count (Zeile 373) liegt im Overlay, das `opacity-0` ist und nur bei `hover` oder im Select-Modus erscheint. In der normalen Übersicht sieht man also nie, dass ein Foto mehrere Versionen hat.
+### 1. Regel 7 (RABATT) verschärfen
+- Genau **EIN** Rabatt-Satz im gesamten Anschreiben, **direkt vor dem Link-Absatz**.
+- Der Eröffnungs-/Preissatz nennt **nur** den Endpreis als Zahl — **keine** Zwischensumme, **kein** "statt … berücksichtigt", **kein** Prozentsatz.
+- Nur eine einzige zugelassene Formulierung im Rabatt-Satz (die "Gerne räumen wir …"-Variante). Die "Im Endpreis ist bereits …"-Variante streichen, weil sie dazu verleitet, oben erneut Zwischensumme + Endpreis zu nennen.
+- Negativbeispiel ergänzen: „statt 1.171,09 € beträgt Ihr Endpreis 1.053,99 €" im Eröffnungssatz = FALSCH.
+- Positivbeispiel: Eröffnungssatz nennt nur „1.053,99 €", Rabatt-Satz unten erklärt %-Satz + Zwischensumme.
 
-## Plan
+### 2. Rabatt-Absicherung (Post-Processing) robuster
+Aktuell fügt sie einen Rabatt-Satz ein, sobald der Endpreis nicht gefunden wird. Anpassung:
+- Nur ergänzen, wenn der Text **noch keinen** Hinweis auf den Rabatt enthält. Match-Heuristik: Treffer auf `Rabatt` (case-insensitive) im Anschreiben.
+- Damit kann sie nicht zusätzlich zur AI-Erwähnung einen dritten Satz produzieren.
 
-### 1. Bugfix — Stift funktioniert immer
-- `if (!selectMode) setEditing(p)` → `setEditing(p)` (bedingungslos öffnen).
-- Klick auf Stift im Bulk-Modus öffnet den Edit-Dialog, ohne die Auswahl zu verlieren.
+### 3. Edge Function deployen
+`generate-inquiry-email` redeployen.
 
-### 2. Versions-Indikator immer sichtbar
-- Das `Layers x N`-Badge aus dem Hover-Overlay herausziehen und als kleine, immer sichtbare Marke oben rechts auf der Kachel rendern (außerhalb des Opacity-Containers).
-- Stil: kompaktes Pill mit Glas-Hintergrund (`bg-card/85 backdrop-blur`), Inter, Schichten-Icon + Zahl, monochrom.
-- Im Hover-Overlay entfällt das doppelte Badge.
+## Nicht enthalten
+- Keine Änderung an Preis-Logik, Daten oder Kontext-Aufbau.
+- Keine UI-Änderungen.
 
-### 3. Modernisierung „Fotoalbum 2026"
-
-Premium-Light-Mode, monochrom, ruhig — keine bunten Akzente.
-
-**Header & Filter**
-- Sticky Toolbar oben (rounded-2xl Glaskarte): Suche links, Kategorien als Chip-Reihe mittig, Aktionen (Auswählen / KI neu klassifizieren) rechts.
-- Tags rutschen in eine zweite Zeile, scrollbar mit weichen Rändern (Fade-Mask) statt Umbruch.
-- Aktiver Filter-Status als kleine, neutrale Pill mit „×".
-
-**Galerie**
-- Bleibt Masonry, aber: gleichmäßiger 8px-Gap, leicht abgerundete Ecken (rounded-xl), dezenter Hover-Lift (`translate-y-[-2px]`, weiche Shadow).
-- Persistente Meta-Leiste unten auf jeder Kachel (immer sichtbar, kein Hover-Trick):
-  - links: Kategorie als monochromes Mini-Label
-  - rechts: Versions-Badge falls > 1, „KI klassifiziert…"-Status falls offen
-- Hover-Overlay zeigt nur noch die Aktions-Buttons (Stift, optional Vollbild), nicht mehr Metadaten.
-
-**Auswahl-Modus**
-- Checkbox dezent in der oberen linken Ecke, immer sichtbar im Select-Modus (nicht im Overlay).
-- Ausgewählte Kachel: Ring 2px in `primary`, sanft hervorgehoben.
-- Bulk-Toolbar bleibt unten zentriert, Premium-Glas, gleiche Optik wie bestehend.
-
-**Versions-Viewer-Dialog**
-- Headline + Untertitel „N Versionen", Grid (3 Spalten) mit Vorschaubildern, aktive Version mit Ring markiert. (Falls Komponente schon existiert, nur Padding/Typo angleichen.)
-
-**Edit-Dialog**
-- Zwei-Spalten-Layout (Bild links, Felder rechts) bei `md+`.
-- Felder gruppiert: Titel, Beschreibung, Kategorie, Tags, Versionen.
-- Aktionen unten-links: „Speichern" (primary), daneben „KI neu klassifizieren", „Archivieren", „Löschen" als ghost-Buttons. Keine floating Buttons.
-
-**Empty-State & Loading**
-- Empty: zentriertes neutrales Icon + „Noch keine Fotos. Zieh Dateien in den Bereich oben."
-- Loading: Skeleton-Kacheln in Masonry-Form statt Spinner.
-
-### 4. Nicht enthalten
-- Keine Änderungen an Datenmodell, Hooks (`usePhotoAlbum`, Versions-Logik) oder Storage.
-- Keine neuen Features (z. B. Drag-Sort, Alben, Sammlungen) — nur Visual + zwei Fixes.
-
-## Betroffene Dateien
-- `src/pages/admin/Fotoalbum.tsx` (Bugfix + Layout + persistente Meta-Leiste + Filter-Toolbar + Empty/Loading)
-- ggf. `src/components/admin/PhotoDropzone.tsx` (Stil angleichen, falls auffällig)
-- Versions-Viewer / Edit-Form innerhalb derselben Datei
-
-## Technische Details
-- Versions-Badge wird im `render.extras` außerhalb des opacity-Containers gerendert (eigenes absolut positioniertes Element).
-- Sticky Toolbar via `sticky top-0 z-30` innerhalb des AdminLayout-Scroll-Containers.
-- Keine neuen Dependencies.
+## Betroffene Datei
+- `supabase/functions/generate-inquiry-email/index.ts` (Regel 7 + Rabatt-Absicherungs-Check)

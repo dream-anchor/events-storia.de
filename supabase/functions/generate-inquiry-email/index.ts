@@ -565,16 +565,19 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     • FALSCH: "Zum Abschluss gibt es 25 × Tiramisù und 4 × Rosmarin Focaccia." (Focaccia ist kein Dessert!)
     • RICHTIG: "Dazu reichen wir 4 × Rosmarin Focaccia für 6-8 Personen. Zum Abschluss 25 × Tiramisù STORIA."
 
- 7. RABATT — wenn in den Daten "Rabatt: JA" steht, MUSS er im Anschreiben erwähnt werden.
-    • Eigener Satz, vor dem Link-Absatz.
-    • Der im Anschreiben genannte Hauptpreis (Gesamtpreis bzw. Preis pro Person) MUSS IMMER der Endpreis nach Rabatt sein — NIE die Zwischensumme vor Rabatt.
-    • Die Zwischensumme vor Rabatt darf NUR im Rabatt-Hinweissatz erscheinen, NIE als Hauptpreis.
-    • Freundliche Formulierung pflichtweise verwenden, z.B.:
-      – "Gerne räumen wir Ihnen einen Rabatt von X % ein. Der Endpreis nach Rabatt beträgt [ENDPREIS] € (Zwischensumme zuvor: [ZWISCHENSUMME] €)."
-      – Oder: "Im Endpreis ist bereits ein Rabatt von X % berücksichtigt — statt [ZWISCHENSUMME] € beträgt Ihr Endpreis [ENDPREIS] €."
-    • Der Endpreis nach Rabatt MUSS wörtlich im Text auftauchen.
-    • Falls Zwischensumme + Endpreis bekannt sind, gerne nennen — aber nie selbst rechnen, nur die Zahlen aus den Daten verwenden.
+ 7. RABATT — wenn in den Daten "Rabatt: JA" steht, MUSS er GENAU EINMAL im Anschreiben erwähnt werden.
+    • GENAU EIN Rabatt-Satz im gesamten Anschreiben — direkt vor dem Link-Absatz.
+    • Im Eröffnungs-/Preissatz NUR den Endpreis als nackte Zahl nennen (z. B. "zum Preis von 1.053,99 €"). KEINE Zwischensumme, KEIN "statt … berücksichtigt", KEIN Prozentsatz, KEIN Rabatt-Hinweis in diesem Satz.
+    • Der Hauptpreis (Gesamtpreis bzw. Preis pro Person) ist IMMER der Endpreis nach Rabatt — NIE die Zwischensumme.
+    • Genau EINE zulässige Formulierung für den Rabatt-Satz (vor dem Link):
+      "Gerne räumen wir Ihnen einen Rabatt von X % ein. Der Endpreis nach Rabatt beträgt [ENDPREIS] € (Zwischensumme zuvor: [ZWISCHENSUMME] €)."
+    • Zwischensumme + Prozentsatz dürfen NUR in diesem einen Rabatt-Satz vorkommen — nirgendwo sonst.
+    • Nie selbst rechnen, immer die Zahlen aus den Daten 1:1 verwenden.
     • Wenn KEIN Rabatt-Block in den Daten steht, KEINEN Rabatt erfinden.
+    • FALSCH (Rabatt im Eröffnungssatz, dann nochmal unten):
+      "… zum Preis von 1.053,99 €. Im Endpreis ist bereits ein Rabatt von 10 % berücksichtigt – statt 1.171,09 € beträgt Ihr Endpreis 1.053,99 €. […] Gerne räumen wir Ihnen einen Rabatt von 10 % ein. Der Endpreis nach Rabatt beträgt 1.053,99 € (Zwischensumme zuvor: 1.171,09 €)."
+    • RICHTIG: Oben nur "zum Preis von 1.053,99 €", und vor dem Link einmal:
+      "Gerne räumen wir Ihnen einen Rabatt von 10 % ein. Der Endpreis nach Rabatt beträgt 1.053,99 € (Zwischensumme zuvor: 1.171,09 €)."
 
  8. REVISION — wenn in den Daten "Revisions-Status: ÜBERARBEITETE VERSION" steht, MUSS das Anschreiben das ausdrücklich kommunizieren.
     • KEIN "vielen Dank für Ihre Anfrage" als Einstieg — das wäre für eine Erstanfrage.
@@ -827,8 +830,12 @@ ${context}`;
           const subtotal = subtotalMatch?.[1]?.trim();
           const percent = percentMatch?.[1]?.trim();
 
+          // Nur einfügen, wenn weder der Endpreis noch ein Rabatt-Hinweis im Text steht.
+          // So vermeidet die Absicherung, dass ein zweiter/dritter Rabatt-Satz entsteht,
+          // wenn die KI den Rabatt bereits korrekt erwähnt hat.
           const endpreisInEmail = endpreis && generatedEmail.includes(endpreis);
-          if (endpreis && !endpreisInEmail) {
+          const rabattAlreadyMentioned = /rabatt/i.test(generatedEmail);
+          if (endpreis && !endpreisInEmail && !rabattAlreadyMentioned) {
             const rabattTeil = percent
               ? `Gerne räumen wir Ihnen einen Rabatt von ${percent} % ein.`
               : `Im Endpreis ist bereits ein Rabatt berücksichtigt.`;
