@@ -189,7 +189,10 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       if (courses.length > 0) {
         parts.push('Menü:');
         for (const c of courses) {
-          parts.push(`  ${c.courseLabel}: ${c.itemName}`);
+          const qty = (c as { quantity?: number | null }).quantity;
+          const hasQty = typeof qty === 'number' && qty > 1;
+          const namePrefix = hasQty ? `${qty} × ` : '';
+          parts.push(`  ${c.courseLabel}: ${namePrefix}${c.itemName}`);
         }
       }
 
@@ -212,6 +215,19 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
         parts.push('Getränke: keine konfiguriert — PFLICHT-Standardformulierung als eigener Absatz verwenden, BEIDE Sätze, exakt so:\n  "Wasser wird während der gesamten Veranstaltung für alle auf den Tischen bereitgestellt. Dazu zwei Getränke pro Person zur Wahl (ein Glas Wein, Spritz oder Bier)."');
       }
 
+      // Einzeln-Getränke (z.B. Softdrinks, Wein nach Flaschen) — werden separat
+      // in menuSelection.drinksEinzeln gespeichert und müssen auch im Anschreiben
+      // erscheinen, sonst fehlen Positionen wenn der Modus „einzeln“ aktiv ist.
+      const drinksEinzeln = ((opt.menuSelection as Record<string, unknown> | undefined)?.drinksEinzeln as Array<{ name?: string; quantity?: number | null; pricePerPerson?: number }> | undefined) || [];
+      const drinksEinzelnFiltered = drinksEinzeln.filter(d => d?.name);
+      if (drinksEinzelnFiltered.length > 0) {
+        parts.push('Weitere Getränke:');
+        for (const d of drinksEinzelnFiltered) {
+          const q = typeof d.quantity === 'number' && d.quantity > 1 ? `${d.quantity} × ` : '';
+          parts.push(`  ${q}${d.name}`);
+        }
+      }
+
       // Equipment & Staff context for AI
       const equipment = (opt.menuSelection as any)?.equipment?.filter((e: any) => e.name && e.pricePerUnit > 0 && e.quantity > 0) || [];
       if (equipment.length > 0) {
@@ -226,6 +242,26 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
         parts.push('Personal:');
         for (const e of staff) {
           parts.push(`  ${e.name}: ${e.quantity}x ${formatEUR(Number(e.pricePerUnit))}`);
+        }
+      }
+
+      // Rabatt-Block: falls Rabatt vorhanden, explizit für die KI ausweisen.
+      // Die KI muss diesen Rabatt im Anschreiben erwähnen (siehe HARTE REGEL Nr. 6).
+      const discountPercent = Number(opt.discountPercent ?? 0);
+      const discountAmount = Number(opt.discountAmount ?? 0);
+      const subtotal = Number(opt.subtotalAmount ?? 0);
+      if (discountAmount > 0 || discountPercent > 0) {
+        parts.push('Rabatt: JA — MUSS im Anschreiben erwähnt werden.');
+        if (subtotal > 0) {
+          parts.push(`  Zwischensumme vor Rabatt: ${formatEUR(subtotal)}`);
+        }
+        if (discountAmount > 0) {
+          parts.push(`  Rabattbetrag: -${formatEUR(discountAmount)}`);
+        } else if (discountPercent > 0) {
+          parts.push(`  Rabatt: ${discountPercent} %`);
+        }
+        if (opt.totalAmount > 0) {
+          parts.push(`  Endpreis nach Rabatt: ${formatEUR(opt.totalAmount)}`);
         }
       }
     }
