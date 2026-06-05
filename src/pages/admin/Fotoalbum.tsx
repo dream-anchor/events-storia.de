@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil, Download } from "lucide-react";
+import { Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
