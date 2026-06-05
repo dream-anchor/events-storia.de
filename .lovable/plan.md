@@ -1,66 +1,50 @@
-# LexOffice-Angebot: Zahlungs-Satz 1:1 aus dem Admin-Angebot
-
 ## Problem
 
-Auf dem LexOffice-Angebots-PDF erscheint am Ende der hartcodierte Text:
+Wenn im Admin die Zahlungskonditionen (Anzahlung, Restzahlung, Gültigkeit) geändert werden, aber der **Gesamtbetrag gleich bleibt**, behält LexOffice den alten Footer-Satz („Anzahlung 20% innerhalb von 5 Tagen …").
 
-> Anzahlung 20% innerhalb von 5 Tagen
-> Restzahlung vor Veranstaltung. Dieses Angebot ist 14 Tage gültig.
-
-Die ausgewählten Zahlungswege (Stripe, vor Ort, Rechnung) und das im Admin sichtbare Detail („… per Stripe …", „… (10 Tage vor Event)") werden ignoriert. Der erwartete Original-Satz aus dem Admin lautet z. B.:
-
-> Anzahlung 20 % per Stripe innerhalb 5 Tage, Restzahlung per Stripe (10 Tage vor Event). Angebot 14 Tage gültig.
-
-Die Quelle der Diskrepanz ist `buildRemarkText()` in `supabase/functions/create-event-quotation/index.ts` (Zeile 706–712) — sie kennt `deposit_method`, `balance_method` und `balance_due_days_before_event` nicht und nutzt sie nicht im Remark.
+Ursache: Der Freshness-Check in `create-event-quotation/index.ts` (Zeile 845–893) vergleicht **nur den Brutto-Gesamtbetrag**. Stimmt der überein, wird mit `reused: true` abgebrochen — das LexOffice-PDF wird nicht neu erzeugt, obwohl `buildOfferRemark()` jetzt einen anderen Text liefern würde.
 
 ## Lösung
 
-Im Edge Function `create-event-quotation` einen neuen Helper `buildOfferRemark()` einführen, der den Admin-Summary-Text 1:1 nachbaut (siehe `PaymentTermsBlock.tsx` Zeilen 165–180) und vom Quotation-Pfad statt `buildRemarkText()` aufgerufen wird.
+Den Freshness-Check um einen **Remark-Vergleich** erweitern. Wenn der erwartete Remark-Text (aus den aktuellen Zahlungsfeldern des Inquiry) sich vom `remark` im LexOffice-Dokument unterscheidet, wird das alte Draft-Angebot gelöscht und neu erzeugt — exakt wie heute bei Preis-Drift.
 
-Der Helper bekommt:
-- `depositMethod` (`'none' | 'stripe' | 'on_site' | 'invoice'`)
-- `balanceMethod` (`'stripe_prepay' | 'on_site' | 'invoice_before' | 'invoice_after'`)
-- `depositPercent`, `depositAmount` (fix), `depositDueDays`
-- `balanceDueDaysBeforeEvent`, `invoiceDueDays`
-- `offerValidityDays`
+### Änderungen in `supabase/functions/create-event-quotation/index.ts`
 
-Logik identisch zum UI:
-- `depositText`:
-  - `none` → kein Anzahlungs-Satz
-  - sonst: Betrag (€ wenn `depositAmount > 0`, sonst `%`), Kanal (`per Stripe` / `vor Ort` / `per Rechnung`), Frist (`innerhalb {Tage} Tage` — nur bei Stripe oder Rechnung).
-- `balanceText`:
-  - `stripe_prepay` → `Restzahlung per Stripe ({bDays} Tage vor Event)`
-  - `on_site` → `Restzahlung vor Ort beim Event`
-  - `invoice_before` → `Restzahlung per Rechnung vor Event (Zahlung bis {bDays} Tage vor Event)`
-  - `invoice_after` → `Restzahlung per Rechnung nach Event (Zahlungsziel {invDays} Tage)`
-- Zusammensetzung: `"${depositText ? depositText + ', ' : ''}${balanceText}. Angebot ${ov} Tage gültig."`
+1. **Vor dem Freshness-Check** den erwarteten Remark einmal berechnen (gleiche Argumente wie der spätere Aufruf in Zeile 1083 — `depositMethod`, `balanceMethod`, `depositPercent`, `depositAmount`, `depositDueDays`, `balanceDueDaysBeforeEvent`, `invoiceDueDays`, `offerValidityDays`, mit `legacyMethodPair()` als Fallback).
 
-Fallback (Legacy-Anfragen ohne `deposit_method`/`balance_method`): aus `payment_method` ableiten (gleiche Mapping-Tabelle wie `legacyToPair()` in `PaymentTermsBlock.tsx`).
-
-`buildPaymentConditions()` bleibt unverändert (liefert `paymentTermLabel` und `paymentTermDuration` für das LexOffice-Pflichtfeld) — nur das `remark` wird durch den neuen Helper ersetzt. Invoice- und Final-Invoice-Pfade (Zeile 998–1021) bleiben unverändert.
-
-## Technische Details
-
-**Datei:** `supabase/functions/create-event-quotation/index.ts`
-
-1. Neue Funktion `buildOfferRemark(args)` (~25 Zeilen) nahe `buildRemarkText()`.
-2. Hilfsfunktion `legacyMethodPair(payment_method)` für den Fallback, identisch zu `legacyToPair()` im Frontend.
-3. In Zeile 1024 `remarkText = buildRemarkText(...)` ersetzen durch:
+2. **Freshness-Bedingung erweitern** (Zeile 859):
    ```ts
-   const pair = legacyMethodPair(paymentMethod);
-   const dMethod = (depositMethod ?? pair.deposit) as 'none'|'stripe'|'on_site'|'invoice';
-   const bMethod = (balanceMethod ?? pair.balance) as 'stripe_prepay'|'on_site'|'invoice_before'|'invoice_after';
-   remarkText = buildOfferRemark({
-     depositMethod: dMethod,
-     balanceMethod: bMethod,
-     depositPercent,
-     depositAmount: fixedDepositAmount,
-     depositDueDays,
-     balanceDueDaysBeforeEvent: balanceDueDaysBeforeEvent ?? 10,
-     invoiceDueDays,
-     offerValidityDays,
-   });
+   const lexRemark = String(doc?.remark ?? '').trim();
+   const expectedRemark = expectedRemarkText.trim();
+   const totalsMatch = lexTotal > 0 && Math.abs(lexTotal - dbTotal) <= 0.01;
+   const remarkMatches = lexRemark === expectedRemark;
+   if (totalsMatch && remarkMatches) {
+     return reused;
+   }
    ```
-4. `create-event-quotation` neu deployen.
 
-Kein Frontend-Change, keine Migration, keine LexOffice-API-Änderung.
+3. **Activity-Log-Eintrag** um `reason: 'remark_drift_detected'` ergänzen, wenn nur der Remark abweicht (zur Nachvollziehbarkeit).
+
+4. Restliche Logik (Draft löschen, neu erzeugen, `lexoffice_quotation_id` aktualisieren) bleibt unverändert — sie greift automatisch.
+
+### Was passiert dadurch
+
+- Admin ändert Anzahlung von 20 % auf 30 % → beim nächsten Öffnen / PDF-Refresh erkennt der Check die Remark-Differenz → altes Draft in LexOffice gelöscht → neues Angebot mit korrektem Footer-Satz, neuer `lexoffice_quotation_id` im Inquiry.
+- Bei finalisierten (nicht-Draft) LexOffice-Angeboten greift wie heute der bestehende Schutz: löschen schlägt fehl, ein neues Dokument wird zusätzlich erzeugt.
+- Reine Kontaktdaten- oder Menü-Änderungen ohne Preis- und Remark-Drift triggern weiterhin **kein** unnötiges Re-Issue.
+
+### Trigger-Punkte (bestehen bereits)
+
+- Klick auf „Angebot bearbeiten" / Re-Send aus dem OfferBuilder
+- Aufruf von `create-event-quotation` aus dem CRM-Detail
+- Public-Offer-Refresh-Pfad
+
+Kein Frontend-Change, keine Migration, keine LexOffice-API-Änderung über das bereits genutzte `DELETE /quotations/{id}` hinaus.
+
+### Datei
+
+- `supabase/functions/create-event-quotation/index.ts` (~15 Zeilen Diff, ein Helper-Aufruf hochgezogen)
+
+### Risiko
+
+Gering: Die einzige Verhaltensänderung ist, dass bei Remark-Drift ein **bereits vorgesehener** Refresh-Pfad zusätzlich ausgelöst wird. Bestehende Drafts werden über denselben Mechanismus wie bei Preis-Drift sauber ersetzt.
