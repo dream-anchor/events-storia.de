@@ -1138,6 +1138,13 @@ serve(async (req) => {
         invoiceDueDays,
         offerValidityDays: offerValidityDays ?? 14,
       });
+      // Avoid duplicate sentences in LexOffice PDF: the generic
+      // "Anzahlung X% innerhalb von N Tagen" paymentTermLabel is replaced by
+      // the detailed remarkText, and the remark itself is suppressed below.
+      paymentConditions = {
+        paymentTermLabel: remarkText,
+        paymentTermDuration: paymentConditions.paymentTermDuration,
+      };
     }
 
     // 7. LexOffice Dokument aufbauen — Empfänger aus resolved billing
@@ -1160,8 +1167,12 @@ serve(async (req) => {
       taxConditions: { taxType: 'gross' },
       paymentConditions,
       introduction,
-      remark: remarkText,
     };
+    // For quotations the remark would duplicate paymentTermLabel; only
+    // include it for invoice modes where remarkText carries extra info.
+    if (isInvoiceMode) {
+      documentPayload.remark = remarkText;
+    }
 
     if (isInvoiceMode) {
       // LexOffice invoices require shippingConditions
