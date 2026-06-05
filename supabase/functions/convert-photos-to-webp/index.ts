@@ -230,6 +230,16 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
+  // Optional body: { limit?: number } — process only N pending photos per call
+  // so the UI can loop until done without hitting the gateway timeout.
+  let limit: number | null = null;
+  try {
+    const body = await req.json();
+    if (body && typeof body.limit === "number" && body.limit > 0) {
+      limit = Math.min(body.limit, 100);
+    }
+  } catch { /* no body */ }
+
   const { data: rows, error: listErr } = await admin
     .from("photo_album")
     .select("id, storage_path, filename, file_size, width")
@@ -240,25 +250,43 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Filter out rows that the quick-skip would discard anyway, so `limit`
+  // actually advances real work.
+  const pending = (rows ?? []).filter((r: { storage_path: string; file_size: number | null; width: number | null }) => {
+    if (
+      r.storage_path.toLowerCase().endsWith(".webp") &&
+      r.file_size !== null && r.file_size < SKIP_IF_WEBP_AND_UNDER_BYTES &&
+      r.width !== null && r.width <= MAX_EDGE
+    ) return false;
+    return true;
+  });
+  const work = limit ? pending.slice(0, limit) : pending;
+
   let converted = 0;
   let skipped = 0;
   let failed = 0;
   const errors: string[] = [];
 
-  for (let i = 0; i < (rows?.length ?? 0); i += BATCH_SIZE) {
-    const batch = rows!.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < work.length; i += BATCH_SIZE) {
+    const batch = work.slice(i, i + BATCH_SIZE);
     const results = await Promise.all(batch.map((r) => processPhoto(admin, r as never)));
     for (const r of results) {
       if (r.status === "converted") converted++;
       else if (r.status === "skipped") skipped++;
       else { failed++; errors.push(`${r.id}: ${r.error}`); }
     }
-    if (i + BATCH_SIZE < rows!.length) await sleep(BATCH_DELAY_MS);
+    if (i + BATCH_SIZE < work.length) await sleep(BATCH_DELAY_MS);
   }
+
+  const totalPending = pending.length;
+  const remaining = Math.max(0, totalPending - work.length - converted - skipped);
 
   return new Response(
     JSON.stringify({
-      processed: rows?.length ?? 0,
+      processed: work.length,
+      total: rows?.length ?? 0,
+      pending_total: totalPending,
+      remaining,
       converted,
       skipped,
       failed,
