@@ -830,8 +830,12 @@ ${context}`;
           const subtotal = subtotalMatch?.[1]?.trim();
           const percent = percentMatch?.[1]?.trim();
 
+          // Nur einfügen, wenn weder der Endpreis noch ein Rabatt-Hinweis im Text steht.
+          // So vermeidet die Absicherung, dass ein zweiter/dritter Rabatt-Satz entsteht,
+          // wenn die KI den Rabatt bereits korrekt erwähnt hat.
           const endpreisInEmail = endpreis && generatedEmail.includes(endpreis);
-          if (endpreis && !endpreisInEmail) {
+          const rabattAlreadyMentioned = /rabatt/i.test(generatedEmail);
+          if (endpreis && !endpreisInEmail && !rabattAlreadyMentioned) {
             const rabattTeil = percent
               ? `Gerne räumen wir Ihnen einen Rabatt von ${percent} % ein.`
               : `Im Endpreis ist bereits ein Rabatt berücksichtigt.`;
