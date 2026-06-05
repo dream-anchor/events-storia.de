@@ -70,7 +70,6 @@ const Fotoalbum = () => {
   const reclassify = useReclassifyPhoto();
   const update = useUpdatePhoto();
   const del = useDeletePhoto();
-  const [seeding, setSeeding] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
   const [classificationNotice, setClassificationNotice] = useState<ClassificationNotice | null>(
     () => readStoredClassificationNotice(),
@@ -79,29 +78,6 @@ const Fotoalbum = () => {
   const saveClassificationNotice = (notice: ClassificationNotice) => {
     setClassificationNotice(notice);
     window.localStorage.setItem(CLASSIFICATION_NOTICE_STORAGE_KEY, JSON.stringify(notice));
-  };
-
-  const runSeed = async () => {
-    if (seeding) return;
-    if (!confirm(
-      "Bestand aus events-storia.de & ristorantestoria.de importieren?\n\nLäuft nur einmal — Duplikate werden übersprungen.",
-    )) return;
-    setSeeding(true);
-    const toastId = toast.loading("Importiere Bestand …");
-    try {
-      const { data, error } = await supabase.functions.invoke("seed-photo-album", { body: {} });
-      if (error) throw error;
-      const { imported = 0, skipped = 0, failed = 0, collected = 0 } = data ?? {};
-      toast.success(
-        `${imported} importiert · ${skipped} übersprungen · ${failed} Fehler (gefunden: ${collected})`,
-        { id: toastId, duration: 8000 },
-      );
-    } catch (e) {
-      console.error(e);
-      toast.error("Import fehlgeschlagen: " + (e as Error).message, { id: toastId });
-    } finally {
-      setSeeding(false);
-    }
   };
 
   const runReclassify = async () => {
