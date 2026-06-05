@@ -553,12 +553,26 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     • Beispiel: "Als Speisen servieren wir 3 × Vitello Tonnato-Platte, 25 × Burratina ..." — NICHT nur "Vitello Tonnato-Platte, Burratina".
     • Pflicht für ALLE Positionen mit Menge > 1 (Speisen, Getränke, Ausstattung, Personal).
 
+ 6b. SPEISEN LOGISCH GRUPPIEREN — niemals 1:1 die Reihenfolge aus den Daten übernehmen.
+    • Sortiere die Speisen gastronomisch sinnvoll in diese Reihenfolge:
+      1) Antipasti / Vorspeisen (z.B. Vitello Tonnato, Burratina, Bruschette, Vitello, Carpaccio)
+      2) Beilagen, Salate, Brot/Focaccia (z.B. Insalata Caprina, Nudelsalat, Rosmarin Focaccia, Gemüse-Platte)
+      3) Hauptgang (z.B. Roastbeef, Dorade, Kalbsrücken, Pasta-Hauptgang)
+      4) Dessert (z.B. Tiramisù, Panna Cotta)
+    • Brot/Focaccia gehört NIE zum Dessert. Salate und Beilagen gehören NIE zum Dessert.
+    • Mengenangaben (z.B. "4 × Rosmarin Focaccia für 6-8 Personen") werden 1:1 übernommen, nur die Reihenfolge wird sortiert.
+    • Formuliere in Absätzen oder Fließtext nach Kategorien — z.B. "Als Vorspeisen ...", "Dazu reichen wir als Beilagen und Brot ...", "Als Hauptgang ...", "Zum Abschluss ...".
+    • FALSCH: "Zum Abschluss gibt es 25 × Tiramisù und 4 × Rosmarin Focaccia." (Focaccia ist kein Dessert!)
+    • RICHTIG: "Dazu reichen wir 4 × Rosmarin Focaccia für 6-8 Personen. Zum Abschluss 25 × Tiramisù STORIA."
+
  7. RABATT — wenn in den Daten "Rabatt: JA" steht, MUSS er im Anschreiben erwähnt werden.
     • Eigener Satz, vor dem Link-Absatz.
     • Der im Anschreiben genannte Hauptpreis (Gesamtpreis bzw. Preis pro Person) MUSS IMMER der Endpreis nach Rabatt sein — NIE die Zwischensumme vor Rabatt.
     • Die Zwischensumme vor Rabatt darf NUR im Rabatt-Hinweissatz erscheinen, NIE als Hauptpreis.
-    • Bei Prozent: "Im Endpreis ist bereits ein Rabatt von X % berücksichtigt."
-    • Bei festem Betrag: "Im Endpreis ist bereits ein Rabatt von X,XX € berücksichtigt."
+    • Freundliche Formulierung pflichtweise verwenden, z.B.:
+      – "Gerne räumen wir Ihnen einen Rabatt von X % ein. Der Endpreis nach Rabatt beträgt [ENDPREIS] € (Zwischensumme zuvor: [ZWISCHENSUMME] €)."
+      – Oder: "Im Endpreis ist bereits ein Rabatt von X % berücksichtigt — statt [ZWISCHENSUMME] € beträgt Ihr Endpreis [ENDPREIS] €."
+    • Der Endpreis nach Rabatt MUSS wörtlich im Text auftauchen.
     • Falls Zwischensumme + Endpreis bekannt sind, gerne nennen — aber nie selbst rechnen, nur die Zahlen aus den Daten verwenden.
     • Wenn KEIN Rabatt-Block in den Daten steht, KEINEN Rabatt erfinden.
 
@@ -794,6 +808,46 @@ ${context}`;
         } else {
           generatedEmail += linkSentence;
         }
+      }
+    }
+
+    // Rabatt-Absicherung: Falls Rabattdaten vorhanden, MUSS der Endpreis nach Rabatt
+    // im Text auftauchen. Sonst fügen wir einen freundlichen Rabatt-Satz vor dem Link ein.
+    if (isOfferBuilderRequest(rawBody)) {
+      try {
+        // Wir nutzen die zuletzt gebauten multiOpts via Re-Parse des Kontexts:
+        // einfacher: regex aus context — wir haben Werte schon — aber context ist ein String.
+        // Daher Werte erneut aus DB-Daten ableiten (gleicher Pfad wie oben).
+        const discountMatch = context.match(/Rabatt:\s*JA/);
+        if (discountMatch) {
+          const endpreisMatch = context.match(/Endpreis nach Rabatt[^\n:]*:\s*([0-9.,]+\s*€)/);
+          const subtotalMatch = context.match(/Zwischensumme vor Rabatt:\s*([0-9.,]+\s*€)/);
+          const percentMatch = context.match(/Rabatt:\s*([0-9.,]+)\s*%/);
+          const endpreis = endpreisMatch?.[1]?.trim();
+          const subtotal = subtotalMatch?.[1]?.trim();
+          const percent = percentMatch?.[1]?.trim();
+
+          const endpreisInEmail = endpreis && generatedEmail.includes(endpreis);
+          if (endpreis && !endpreisInEmail) {
+            const rabattTeil = percent
+              ? `Gerne räumen wir Ihnen einen Rabatt von ${percent} % ein.`
+              : `Im Endpreis ist bereits ein Rabatt berücksichtigt.`;
+            const subtotalTeil = subtotal ? ` (Zwischensumme zuvor: ${subtotal})` : '';
+            const rabattSatz = `\n\n${rabattTeil} Der Endpreis nach Rabatt beträgt ${endpreis}${subtotalTeil}.`;
+
+            // Vor dem Link-Satz einfügen (oder vor der Signatur, falls kein Link)
+            const linkIdx = generatedEmail.search(/(Das Angebot mit allen Details|Wählen Sie Ihren Favoriten|Das finale Angebot finden Sie)/);
+            const sigIdx = generatedEmail.indexOf('\n\nViele Grüße');
+            const insertIdx = linkIdx !== -1 ? linkIdx : (sigIdx !== -1 ? sigIdx : generatedEmail.length);
+            generatedEmail =
+              generatedEmail.slice(0, insertIdx).trimEnd() +
+              rabattSatz +
+              '\n\n' +
+              generatedEmail.slice(insertIdx).trimStart();
+          }
+        }
+      } catch (rabattErr) {
+        console.warn('[generate-inquiry-email] Rabatt-Absicherung übersprungen:', rabattErr);
       }
     }
 
