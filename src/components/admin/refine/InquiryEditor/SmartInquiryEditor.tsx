@@ -756,11 +756,6 @@ export const SmartInquiryEditor = () => {
           offer_sent_by: user?.email || null,
           status: 'offer_sent',
           offer_phase: phaseTarget,
-          // Public Offer synchronisieren: aktuellen Anschreiben-Text
-          // verbindlich speichern + Übersetzungs-Cache leeren, damit
-          // EN/IT/FR auf der Kunden-Seite neu erzeugt werden.
-          email_content: draft,
-          email_content_translations: {},
         };
         console.log('[Send] Step 4 — updating event_inquiries:', updatePayload);
         const { data: updData, error: updErr } = await supabase
@@ -781,6 +776,13 @@ export const SmartInquiryEditor = () => {
           return;
         }
         console.log('[Send] Step 4 OK — DB confirms:', updData[0]);
+
+        // Public-Offer-Übersetzungs-Cache leeren (gültige Spalte auf v2_events) —
+        // EN/IT/FR werden bei nächstem Aufruf neu erzeugt.
+        await supabase
+          .from('v2_events')
+          .update({ email_content_translations: {} } as Record<string, unknown>)
+          .eq('id', inquiry.id);
 
         // 3. History-Eintrag anlegen (snapshot der aktiven Options)
         const { error: histErr } = await supabase.from('inquiry_offer_history').insert([{
