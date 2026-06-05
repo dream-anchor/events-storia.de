@@ -15,27 +15,24 @@ const corsHeaders = {
 
 const CATEGORIES = [
   "pizza", "pasta", "risotto", "antipasti", "salat", "suppe",
-  "fleisch", "fisch", "dessert", "beilage", "getränk", "cocktail",
-  "wein", "kaffee", "ambiente", "team",
+  "fleisch", "fisch", "dessert", "beilage", "getränk",
+  "ambiente", "team",
 ] as const;
 
 const TAGS_BY_CATEGORY: Record<string, string[]> = {
-  pizza: ["margherita","marinara","napoletana","pizza-bianca","parmaschinken","salami-piccante","lachs","thunfisch","4-formaggi","calzone","steinofen"],
-  pasta: ["spaghetti","tagliolini","tagliatelle","paccheri","penne","orecchiette","fusilli","gnocchi","ravioli","cavatelli","carbonara","arrabbiata","scampi","ragout"],
-  risotto: ["steinpilze","spargel","lachs","safran","kürbis"],
-  antipasti: ["caprese","burrata","vitello-tonnato","carpaccio","oktopus","tatar","roastbeef","spargel","rote-bete","hummer"],
-  salat: ["insalata-mista","burrata","ziegenkäse","lachs","caesar","roastbeef","avocado"],
-  suppe: ["spargelcreme","fischsuppe","brokkoli"],
+  pizza: [],
+  pasta: [],
+  risotto: [],
+  antipasti: [],
+  salat: [],
+  suppe: [],
   fleisch: [],
-  fisch: ["dorade","oktopus","thunfisch","wolfsbarsch","pesce-misto","salzkruste"],
-  dessert: ["tiramisu","schokoladensoufflé","zitronentörtchen","panna-cotta","sorbet","eis"],
-  beilage: ["grillgemüse","ofenkartoffeln","kartoffelpüree","frühlingsgemüse"],
+  fisch: [],
+  dessert: [],
+  beilage: [],
   "getränk": [],
-  cocktail: ["aperol-spritz","negroni","spritz","martini","mojito","caipirinha","gin-tonic","champagner","aperitivo"],
-  wein: ["rotwein","weißwein","roséwein","spumante","prosecco","champagner","magnum","flasche","glas"],
-  kaffee: ["espresso","cappuccino","latte-macchiato","affogato"],
-  ambiente: ["innenraum","terrasse","bar","tisch-gedeckt","steinofen","detail"],
-  team: ["familie-speranza","küche","service"],
+  ambiente: [],
+  team: [],
 };
 
 const CROSS_TAGS: string[] = [];
@@ -50,8 +47,7 @@ ARBEITSWEISE — strikt in dieser Reihenfolge:
 1) Beschreibe in 1-2 Sätzen wörtlich, was physisch im Bild zu sehen ist
    (Gericht, Hauptzutaten, Geschirr, Setting). Keine Vermutungen, keine Marketingsprache.
 2) Wähle GENAU 1 Kategorie aus der Liste, basierend NUR auf dem, was du im Schritt 1 beschrieben hast.
-3) Wähle 1-5 Tags aus der erlaubten Tag-Liste.
-4) Gib eine ehrliche Confidence 0-1.
+3) Gib eine ehrliche Confidence 0-1.
 
 ERLAUBTE KATEGORIEN (genau 1, niemals andere Werte):
 ${CATEGORIES.join(", ")} — oder "sonstiges" wenn nichts passt.
@@ -67,20 +63,11 @@ ERKENNUNGSREGELN (hart anwenden, Negativregeln zuerst):
 - fisch = Fisch ganz oder filetiert als Hauptkomponente.
 - dessert = Süßspeise: Tiramisu, Panna Cotta, Soufflé, Eis, Sorbet.
 - beilage = nur Gemüse/Kartoffeln als Hauptbild ohne Protein-Hauptkomponente.
-- getränk = alkoholfreies Getränk (Wasser, Softdrink, Saft, Crodino).
-- cocktail = Cocktail-Glas mit klar erkennbarem Cocktail (Aperol Spritz, Negroni, Martini …).
-- wein = Wein in Flasche oder Glas dominiert das Bild.
-- kaffee = Espresso, Cappuccino, Latte Macchiato, Affogato.
+- getränk = jedes Getränk dominiert das Bild: Wasser, Softdrink, Saft, Bier, Wein (Flasche/Glas), Cocktail (Aperol Spritz, Negroni, Martini …), Kaffee (Espresso, Cappuccino, Latte Macchiato, Affogato).
 - ambiente = Innenraum, Tisch gedeckt, Bar, Terrasse, Steinofen, Detail — KEIN Gericht dominiert.
 - team = Personen (Personal/Familie) sind das Hauptmotiv.
 
-TAG-REGELN:
-- Nutze NUR Tags aus der erlaubten Liste, niemals eigene erfinden.
-- Bevorzuge spezifische Sorten (z.B. "tagliatelle", "burrata", "aperol-spritz") über generische.
-- Bei Dateiname-Hint mit klarem Begriff (z.B. "aperol-spritz"): nimm ihn ernst, falls er nicht im Widerspruch zum Bild steht.
-
-ERLAUBTE TAGS (nur diese Werte):
-${ALL_TAGS.join(", ")}
+TAGS: Gib immer ein leeres Array [] zurück. Tags werden nicht mehr verwendet.
 
 CONFIDENCE:
 - 0.9-1.0 = eindeutig erkennbar
