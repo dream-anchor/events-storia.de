@@ -78,6 +78,37 @@ export const usePhotoAlbum = (opts?: {
   });
 };
 
+/**
+ * Returns a map: stemId -> total version count (>=1) for the supplied current photos.
+ * Used to render the "stack" indicator on grid thumbnails.
+ */
+export const usePhotoVersionCounts = (photos: PhotoAlbumEntry[] | undefined) => {
+  return useQuery({
+    enabled: !!photos && photos.length > 0,
+    queryKey: [
+      "photo-album-version-counts",
+      (photos ?? []).map((p) => p.parent_photo_id ?? p.id).sort().join(","),
+    ],
+    queryFn: async (): Promise<Record<string, number>> => {
+      if (!photos || photos.length === 0) return {};
+      const stems = Array.from(new Set(photos.map((p) => p.parent_photo_id ?? p.id)));
+      const result: Record<string, number> = {};
+      // Query siblings: parent_photo_id in stems OR id in stems
+      const { data } = await supabase
+        .from("photo_album" as never)
+        .select("id, parent_photo_id")
+        .or(`parent_photo_id.in.(${stems.join(",")}),id.in.(${stems.join(",")})`);
+      const rows = (data as unknown as { id: string; parent_photo_id: string | null }[] | null) ?? [];
+      for (const stem of stems) result[stem] = 0;
+      for (const r of rows) {
+        const stem = r.parent_photo_id ?? r.id;
+        if (result[stem] !== undefined) result[stem] += 1;
+      }
+      return result;
+    },
+  });
+};
+
 const PHOTO_BUCKET = "photo-album";
 
 export const useUploadPhoto = () => {
