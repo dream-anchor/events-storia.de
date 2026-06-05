@@ -1077,7 +1077,19 @@ serve(async (req) => {
       remarkText = `Vielen Dank für Ihre Buchung. Das Zahlungsziel beträgt ${invoiceDueDays} Tage nach Rechnungseingang.`;
     } else {
       paymentConditions = buildPaymentConditions(depositPercent, depositDueDays, fixedDepositAmount);
-      remarkText = buildRemarkText(depositPercent, offerValidityDays);
+      const pair = legacyMethodPair(paymentMethod);
+      const dMethodResolved = (depositMethod ?? pair.deposit) as DepositMethodKind;
+      const bMethodResolved = (balanceMethod ?? pair.balance) as BalanceMethodKind;
+      remarkText = buildOfferRemark({
+        depositMethod: dMethodResolved,
+        balanceMethod: bMethodResolved,
+        depositPercent: depositPercent ?? 0,
+        depositAmount: fixedDepositAmount ?? null,
+        depositDueDays: depositDueDays ?? 5,
+        balanceDueDaysBeforeEvent: balanceDueDaysBeforeEvent ?? 10,
+        invoiceDueDays,
+        offerValidityDays: offerValidityDays ?? 14,
+      });
     }
 
     // 7. LexOffice Dokument aufbauen — Empfänger aus resolved billing
