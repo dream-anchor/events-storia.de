@@ -1,68 +1,33 @@
-# Fotoalbum: Löschen, Bulk-Aktionen & Versionierung
-
 ## Ziel
-1. Fotos lassen sich einzeln **und** im Bulk löschen / archivieren.
-2. Beim Hochladen kann manuell ein bestehendes Foto ausgewählt werden → neues Foto wird **Version 2, 3, …** des bestehenden. Älteste Version bleibt sichtbar als „Vorgänger".
-3. Im Grid zeigt ein **Blätter-Icon** an, dass mehrere Versionen existieren. Klick auf das Foto öffnet einen Versions-Viewer (Lightbox mit Vor-/Zurück durch die Versionen + Datum-Label "v3 · aktuell", "v2", "v1").
-4. Keine automatische Duplikat-Bereinigung — bestehende Doppelten werden manuell über Bulk-Auswahl + Versionierung zusammengeführt.
+Der Button **„KI generieren“** soll für alle bestehenden und neuen Kunden immer den aktuell sichtbaren Angebotsstand verwenden: geänderte Positionen, geänderte Mengen, Preise und vorhandene Rabatte müssen im Anschreiben korrekt berücksichtigt werden.
 
-## Datenmodell
+## Plan
+1. **Vor dem KI-Call aktuellen Angebotsstand speichern**
+   - Im Offer Builder wird vor `generate-inquiry-email` ein expliziter Save/Flush ausgelöst.
+   - Dadurch liest die Backend-Funktion nicht mehr veraltete DB-Daten, wenn Positionen/Mengen gerade erst geändert wurden.
 
-Neue Spalten auf `photo_album` (Migration):
-- `parent_photo_id uuid REFERENCES photo_album(id) ON DELETE SET NULL` — verweist auf den Foto-„Stamm" (Version 1).
-- `version int NOT NULL DEFAULT 1` — 1, 2, 3, …
-- `is_current boolean NOT NULL DEFAULT true` — markiert die aktuelle Version pro Stamm.
+2. **Aktuelle Mengen strukturiert an die KI geben**
+   - Die Backend-Funktion `generate-inquiry-email` wird erweitert, damit sie bei Speisen, Getränken, Equipment und Personal die hinterlegten Mengen aus `menu_selection` ausliest.
+   - Beispiel: `3 × Vitello Tonnato-Platte`, `25 × Burratina ...`, `4 × Rosmarin Focaccia ...` statt nur Namen ohne verlässliche Menge.
+   - Alte Daten mit Mengen im Namen bleiben kompatibel.
 
-Regeln (im Code, nicht via CHECK):
-- Eine neue Version setzt `parent_photo_id` auf die ID von Version 1 (oder auf sich selbst nur konzeptuell — wir speichern bei v1 `parent_photo_id = NULL`, alle Nachfolger zeigen auf v1).
-- Beim Anlegen einer neuen Version: alle bisherigen Versionen desselben Stamms → `is_current = false`, neue Version `is_current = true`, `version = max(version)+1`.
-- Standard-Query (Grid) filtert `is_current = true`.
+3. **Rabatte im Kontext und Prompt verbindlich machen**
+   - `discountPercent` und `discountAmount` aus `menu_selection` werden in den KI-Kontext aufgenommen.
+   - Wenn ein Rabatt existiert, bekommt die KI eine harte Regel: Rabatt nennen, z. B. „inklusive 10 % Rabatt“ oder „abzüglich 117,11 € Rabatt“.
+   - Preise bleiben weiterhin 1:1 aus Maestro übernommen, ohne Neuberechnung im Anschreiben.
 
-Index: `(parent_photo_id, version DESC)`.
+4. **Legacy-/Catering-Flows absichern**
+   - Der ältere `AIComposer`/Finalize-Flow wird ebenfalls so angepasst, dass Mengen und ggf. Rabattdaten im Request nicht verloren gehen.
+   - Damit betrifft die Korrektur nicht nur den Screenshot-Fall, sondern bestehende und neue Kunden.
 
-## UI-Änderungen (`src/pages/admin/Fotoalbum.tsx`)
-
-**Bulk-Modus:**
-- Toggle „Auswählen" oben rechts → Checkboxen auf jedem Foto (Overlay top-left).
-- Auswahl-Toolbar (sticky unten): `n ausgewählt · Löschen · Archivieren · Als Version zuordnen…`
-- „Als Version zuordnen…": öffnet Dialog → Ziel-Foto (Stamm) auswählen → alle markierten Fotos werden als neue Versionen daran gehängt (in Reihenfolge der Auswahl, älteste zuerst → höhere Versionen).
-
-**Einzelfoto:**
-- Bestehender Edit-Dialog bekommt zusätzlich:
-  - Knopf „Als neue Version von… zuordnen" (öffnet Such-Picker über andere Fotos).
-  - Wenn das Foto Versionen hat: Liste „Versionen (v3 aktuell, v2, v1)" mit „Als aktuell setzen" / „Version löschen".
-
-**Versions-Indikator im Grid:**
-- Wenn `version_count > 1` für den Stamm → kleines Stack-Icon (z.B. `Layers` aus lucide-react) oben rechts auf dem Thumbnail mit Badge "3".
-- Lightbox: zeigt zusätzlich Versions-Slider unten — alle Versionen des angeklickten Stamms, Label „v3 · aktuell · 5. Juni 2026", Pfeile blättern zwischen Versionen.
-
-## Upload-Flow (`PhotoDropzone` + `useUploadPhoto`)
-
-- `useUploadPhoto.mutate(file, { asVersionOf?: photoId })`
-- Wenn `asVersionOf` gesetzt:
-  1. Foto wie bisher hochladen.
-  2. Stamm = `parent_photo_id ?? id` des Ziel-Fotos.
-  3. Neue Reihe einfügen mit `parent_photo_id = stamm`, `version = max+1`, `is_current = true`.
-  4. Alle anderen Versionen des Stamms → `is_current = false`.
-- Dropzone bekommt optionalen „Als Version von …" Modus (wird vom Edit-Dialog/„Foto ersetzen"-Aktion getriggert).
-
-## Hooks (`src/hooks/usePhotoAlbum.ts`)
-
-- `usePhotoAlbum` per default `.eq('is_current', true)` zusätzlich zu `is_archived = false`.
-- Neuer `usePhotoVersions(stammId)` → alle Versionen sortiert nach `version DESC`.
-- Neue Mutationen: `useBulkDeletePhotos`, `useBulkArchivePhotos`, `useAssignAsVersions({ parentId, photoIds })`, `useSetCurrentVersion(id)`, `useDeleteVersion(id)`.
-
-## Bibliotheken
-- `react-photo-album` + `yet-another-react-lightbox` (bereits installiert) — Lightbox-Plugins `Counter` und `Captions` für Versions-Label.
-- Keine zusätzlichen Libs nötig. Versions-Switcher wird als custom toolbar im Lightbox-Slot eingebaut.
-
-## Nicht im Scope
-- Keine automatische Bild-Ähnlichkeits-Erkennung.
-- Keine KI-Duplikatsuche.
-- Bestehende Duplikate werden ausschließlich manuell zusammengeführt (Bulk-Auswahl → „Als Version zuordnen").
+5. **Validierung**
+   - Nach der Umsetzung prüfe ich gezielt den Codepfad „Position ändern → KI generieren“ und stelle sicher, dass der Generator nicht mehr mit veralteten Daten arbeitet.
 
 ## Technische Details
-- Migration: `ALTER TABLE photo_album ADD COLUMN parent_photo_id uuid, ADD COLUMN version int NOT NULL DEFAULT 1, ADD COLUMN is_current boolean NOT NULL DEFAULT true;` + Index + FK `ON DELETE SET NULL`.
-- Storage-Files werden beim Löschen einer Version mit entfernt (`storage.remove`).
-- Beim Löschen der aktuellen Version eines Stamms mit weiteren Versionen → höchste verbleibende Version wird `is_current = true`.
-- RLS: Bestehende Policies auf `photo_album` gelten weiter (keine neuen Policies nötig).
+- Relevante Dateien:
+  - `src/components/admin/refine/InquiryEditor/OfferBuilder/OfferBuilder.tsx`
+  - `src/components/admin/refine/InquiryEditor/AIComposer.tsx`
+  - `src/components/admin/refine/InquiryEditor/MenuComposer/FinalizePanel.tsx`
+  - `supabase/functions/generate-inquiry-email/index.ts`
+- Keine neue Datenbanktabelle nötig.
+- Keine automatische Rabatt-Neuberechnung: vorhandene Rabattwerte werden nur ausgelesen und erwähnt.
