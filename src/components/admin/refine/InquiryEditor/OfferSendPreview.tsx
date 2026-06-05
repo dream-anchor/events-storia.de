@@ -139,6 +139,47 @@ export function OfferSendPreview({
     }
   }, [inquiry?.id]);
 
+  // Public-Offer-Sync: bei jedem Öffnen der Vorschau den aktuellen
+  // email_draft in die letzte inquiry_offer_history-Version übernehmen
+  // und den Übersetzungs-Cache leeren. Die Public-Offer-RPC liest IMMER
+  // zuerst aus inquiry_offer_history.email_content — ohne diesen Sync
+  // sähe der Kunde weiterhin den alten Anschreiben-Text.
+  // Non-blocking: schlägt der Sync fehl, läuft die Vorschau trotzdem.
+  useEffect(() => {
+    if (!inquiry?.id) return;
+    const draft = (inquiry.email_draft ?? '').trim();
+    if (!draft) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: hist } = await supabase
+          .from('inquiry_offer_history')
+          .select('id, email_content, version')
+          .eq('inquiry_id', inquiry.id)
+          .order('version', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (cancelled) return;
+        const histRow = hist as { id?: string; email_content?: string | null } | null;
+        if (histRow?.id && (histRow.email_content ?? '') !== draft) {
+          await supabase
+            .from('inquiry_offer_history')
+            .update({ email_content: draft } as Record<string, unknown>)
+            .eq('id', histRow.id);
+        }
+        await supabase
+          .from('v2_events')
+          .update({ email_content_translations: {} } as Record<string, unknown>)
+          .eq('id', inquiry.id);
+      } catch (e) {
+        console.warn('[OfferSendPreview] public-offer sync failed (non-blocking):', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inquiry?.id, inquiry?.email_draft]);
+
   // Dry-Run der Edge Function — liefert das exakte Mail-Objekt
   useEffect(() => {
     if (!inquiry) return;

@@ -1,107 +1,60 @@
-## Zwei Bugs auf der Public-Offer-Seite
+## „Vorschau anzeigen" muss alles sofort syncen
 
-### 1. „Private" statt Kundenname in der H1
+### Was passiert beim Klick
+`SendControls.goToPreview` navigiert auf `/admin/inquiries/:id/preview?send=proposal|final` → `OfferSendPreview` mountet.
 
-`HeroSection` verwendet `company_name || contact_name`. Im Funnel wird für private Events `company_name = "Private"` gesetzt — dadurch erscheint statt „Jonathan Starke" der Platzhalter „Private".
+Aktuell wird beim Mount:
+- ✅ `create-event-quotation` aufgerufen (regeneriert LexOffice-Quotation bei Preis-/Remark-Drift, neue PDF) — Drift-Check seit letzter Iteration scharf
+- ❌ Die letzte `inquiry_offer_history.email_content` wird **nicht** mit dem neuen `email_draft` aktualisiert → Public Offer zeigt weiterhin alten Text
+- ❌ `v2_events.email_content_translations` wird **nicht** geleert → EN/IT/FR auf Public Offer bleiben veraltet
+- ✅ „Private"-Fix in `HeroSection` ist bereits live (vorherige Iteration); nach Reload greift er sowohl im Admin-Iframe als auch auf der echten Public-Offer-URL
 
-**Fix:** `displayName` in `src/pages/public-offer/HeroSection.tsx` so anpassen, dass „Private" (case-insensitive, mit/ohne Whitespace) wie eine leere Firma behandelt wird → Fallback auf `contact_name`.
+### Fix
 
-```ts
-const company = (inquiry.company_name ?? '').trim();
-const isPlaceholderCompany = !company || company.toLowerCase() === 'private';
-const displayName = isPlaceholderCompany ? inquiry.contact_name : company;
-```
-
-Keine DB-Migration, kein Daten-Backfill — der Funnel darf weiterhin „Private" speichern (interne Kategorisierung), aber die öffentliche Hero zeigt den Namen.
-
-### 2. Public Offer zeigt alten Anschreiben-Text trotz „Angebot bearbeiten"
-
-**Root-Cause (verifiziert):**
-
-Die Public-Offer-RPC `get_public_offer` liefert `email_content` aus:
-```sql
-COALESCE(
-  (SELECT ioh.email_content FROM inquiry_offer_history ioh
-   WHERE ioh.inquiry_id = offer_id ORDER BY version DESC LIMIT 1),
-  ei.email_draft
-)
-```
-
-Sie liest also **immer zuerst aus `inquiry_offer_history.email_content`** der höchsten Version. `event_inquiries.email_draft` ist nur Fallback.
-
-Status der Beispiel-Anfrage:
-- `email_draft` enthält den **neuen** Anschreiben-Text (regeneriert via „Angebot bearbeiten").
-- `inquiry_offer_history` v7 enthält den **alten** Text → Public Offer zeigt diesen.
-
-Zusätzliches Problem aus dem vorherigen Loop: OfferBuilder und SmartInquiryEditor schreiben auf eine Spalte `email_content` von `event_inquiries`/`v2_events`, die **gar nicht existiert**. Der Update schlägt fehl (Spalte nicht gefunden) und bricht im SmartInquiryEditor-Versand sogar den gesamten Send-Flow ab (Zeile 762–776 → frühzeitiger `return` mit Toast „Phase-Update fehlgeschlagen").
-
-**Fix in drei Schritten:**
-
-#### A) Bad-Write entfernen (`event_inquiries.email_content` existiert nicht)
-
-In `src/components/admin/refine/InquiryEditor/OfferBuilder/OfferBuilder.tsx` (Zeile 174–178):
-```diff
-- email_draft: data.email,
-- email_content: data.email,
-- email_content_translations: {},
-+ email_draft: data.email,
-```
-und parallel `v2_events.email_content_translations: {}` als zweiten Update lassen (gültige Spalte).
-
-In `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` (Zeile 753–764):
-```diff
-const updatePayload = {
-  current_offer_version: newVersion,
-  offer_sent_at: nowIso,
-  offer_sent_by: user?.email || null,
-  status: 'offer_sent',
-  offer_phase: phaseTarget,
-- email_content: draft,
-- email_content_translations: {},
-};
-```
-Den zugehörigen `email_content_translations`-Reset stattdessen direkt auf `v2_events` schreiben (eigener Update auf gültige Spalte).
-
-Das behebt zugleich den fehlgeschlagenen Send-Flow.
-
-#### B) Regenerate-Pfad: aktuelle History-Version aktualisieren
-
-Im OfferBuilder-Regenerate (`handleGenerateEmail`, nach erfolgreichem AI-Call und `email_draft`-Update):
+In `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx` direkt nach dem erfolgreichen Laden des Inquiry (im bestehenden Inquiry-Lade-`useEffect` oder als neuer `useEffect` auf `inquiry?.id` und `inquiry?.email_draft`) einmaligen Sync ausführen:
 
 ```ts
-const { data: histRow } = await supabase
-  .from('inquiry_offer_history')
-  .select('id, version')
-  .eq('inquiry_id', inquiry.id)
-  .order('version', { ascending: false })
-  .limit(1)
-  .maybeSingle();
+useEffect(() => {
+  if (!inquiry?.id) return;
+  const draft = (inquiry.email_draft ?? '').trim();
+  if (!draft) return;
 
-if (histRow?.id) {
-  await supabase
-    .from('inquiry_offer_history')
-    .update({ email_content: data.email })
-    .eq('id', histRow.id);
-}
+  (async () => {
+    try {
+      // 1) Letzte History-Version mit aktuellem Anschreiben in Sync bringen.
+      //    Die Public-Offer-RPC liest IMMER zuerst aus inquiry_offer_history.
+      const { data: hist } = await supabase
+        .from('inquiry_offer_history')
+        .select('id, email_content, version')
+        .eq('inquiry_id', inquiry.id)
+        .order('version', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (hist?.id && (hist.email_content ?? '') !== draft) {
+        await supabase
+          .from('inquiry_offer_history')
+          .update({ email_content: draft } as Record<string, unknown>)
+          .eq('id', hist.id);
+      }
 
-await supabase
-  .from('v2_events')
-  .update({ email_content_translations: {} })
-  .eq('id', inquiry.id);
+      // 2) Übersetzungs-Cache leeren → EN/IT/FR werden neu erzeugt.
+      await supabase
+        .from('v2_events')
+        .update({ email_content_translations: {} } as Record<string, unknown>)
+        .eq('id', inquiry.id);
+    } catch (e) {
+      console.warn('[OfferSendPreview] public-offer sync failed (non-blocking):', e);
+    }
+  })();
+}, [inquiry?.id, inquiry?.email_draft]);
 ```
 
-Dadurch reflektiert die Public-Offer-Seite den neu generierten Text sofort (RPC liest latest history zuerst) und EN/IT/FR werden neu übersetzt.
+- Non-blocking (kein `await` im Render-Pfad) — falls Sync scheitert, läuft die Preview trotzdem.
+- Wird sowohl beim ersten Öffnen als auch nach jedem `refreshKey`-Trigger (via `inquiry`-State, dessen `email_draft` sich beim Reload aktualisieren kann) ausgeführt.
+- LexOffice-Sync läuft bereits über das bestehende `loadLexofficePdf` → `create-event-quotation` mit Drift-Detection.
+- „Private"-Problem ist bereits durch die `HeroSection`-Änderung gelöst; ein Hard-Reload des Browsers macht den Fix sichtbar.
 
-Hinweis zur Immutability: „Angebot bearbeiten" erzeugt im Hintergrund bereits eine neue Version (versioniertes Verhalten bleibt erhalten); hier wird genau diese aktuelle Version mit dem zugehörigen Anschreiben in Sync gebracht. Ältere Versionen bleiben unverändert.
+### Geänderte Datei
+- `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx` (ein neuer `useEffect`, ca. 30 Zeilen)
 
-#### C) Send-Pfad: bestehender History-Insert ist korrekt
-
-`SmartInquiryEditor` Zeile 786–792 fügt bereits einen neuen `inquiry_offer_history`-Eintrag mit `email_content: draft` ein. Nach Entfernen des falschen `event_inquiries.email_content`-Updates aus (A) läuft der Send wieder durch und legt eine neue History-Version mit aktuellem Text an. Translations werden separat über das neue `v2_events.email_content_translations: {}`-Update geleert.
-
-### Geänderte Dateien
-
-- `src/pages/public-offer/HeroSection.tsx` (Display-Name-Fallback)
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/OfferBuilder.tsx` (Regenerate-Sync: aktuelle History-Version aktualisieren, kein write auf nicht-existente Spalte)
-- `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx` (Send-Pfad: kein write auf nicht-existente Spalte; Translations-Reset auf `v2_events` umziehen)
-
-Keine Migration, keine Edge-Function-Änderung, keine RPC-Änderung.
+Keine Migration, keine Edge-Function-Änderung.
