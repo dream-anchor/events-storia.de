@@ -4,8 +4,14 @@
 // WebP. Admin/staff only.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-// Pure-WASM image library, no native binary, runs in Supabase edge runtime.
-import { decode, Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
+// Google jSquash WASM codecs — only WebP encoder that works reliably on Deno
+// edge runtime. imagescript has no WebP encoder.
+import { decode as decodePng } from "https://esm.sh/@jsquash/png@3.0.1?target=deno";
+import { decode as decodeJpeg } from "https://esm.sh/@jsquash/jpeg@1.5.0?target=deno";
+import {
+  decode as decodeWebp,
+  encode as encodeWebp,
+} from "https://esm.sh/@jsquash/webp@1.4.0?target=deno";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,8 +25,8 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BUCKET = "photo-album";
 
 const MAX_EDGE = 1920;
-const BATCH_SIZE = 3;
-const BATCH_DELAY_MS = 400;
+const BATCH_SIZE = 2;
+const BATCH_DELAY_MS = 600;
 const SKIP_IF_WEBP_AND_UNDER_BYTES = 400 * 1024;
 
 function sleep(ms: number) {
@@ -29,6 +35,62 @@ function sleep(ms: number) {
 
 function replaceExt(path: string, ext: string): string {
   return path.replace(/\.[^.\/]+$/, `.${ext}`);
+}
+
+type RGBA = { data: Uint8ClampedArray; width: number; height: number };
+
+function sniffFormat(bytes: Uint8Array, path: string): "png" | "jpeg" | "webp" | "unknown" {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "png";
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "jpeg";
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+  ) return "webp";
+  const p = path.toLowerCase();
+  if (p.endsWith(".png")) return "png";
+  if (p.endsWith(".jpg") || p.endsWith(".jpeg")) return "jpeg";
+  if (p.endsWith(".webp")) return "webp";
+  return "unknown";
+}
+
+async function decodeAny(bytes: Uint8Array, path: string): Promise<RGBA> {
+  const fmt = sniffFormat(bytes, path);
+  if (fmt === "png") return await decodePng(bytes) as RGBA;
+  if (fmt === "jpeg") return await decodeJpeg(bytes) as RGBA;
+  if (fmt === "webp") return await decodeWebp(bytes) as RGBA;
+  throw new Error(`unsupported image format (${fmt})`);
+}
+
+// Bilinear resize of an RGBA buffer.
+function resizeRGBA(src: RGBA, targetW: number, targetH: number): RGBA {
+  const { data: s, width: sw, height: sh } = src;
+  const dst = new Uint8ClampedArray(targetW * targetH * 4);
+  const xRatio = sw / targetW;
+  const yRatio = sh / targetH;
+  for (let y = 0; y < targetH; y++) {
+    const sy = y * yRatio;
+    const y0 = Math.floor(sy);
+    const y1 = Math.min(y0 + 1, sh - 1);
+    const yf = sy - y0;
+    for (let x = 0; x < targetW; x++) {
+      const sx = x * xRatio;
+      const x0 = Math.floor(sx);
+      const x1 = Math.min(x0 + 1, sw - 1);
+      const xf = sx - x0;
+      const i00 = (y0 * sw + x0) * 4;
+      const i01 = (y0 * sw + x1) * 4;
+      const i10 = (y1 * sw + x0) * 4;
+      const i11 = (y1 * sw + x1) * 4;
+      const di = (y * targetW + x) * 4;
+      for (let c = 0; c < 4; c++) {
+        const top = s[i00 + c] * (1 - xf) + s[i01 + c] * xf;
+        const bot = s[i10 + c] * (1 - xf) + s[i11 + c] * xf;
+        dst[di + c] = top * (1 - yf) + bot * yf;
+      }
+    }
+  }
+  return { data: dst, width: targetW, height: targetH };
 }
 
 async function processPhoto(
@@ -53,20 +115,19 @@ async function processPhoto(
     const buf = new Uint8Array(await blob.arrayBuffer());
 
     // Decode + resize
-    const decoded = await decode(buf);
-    if (!(decoded instanceof Image)) {
-      // GIF/animated frames → use first frame
-      throw new Error("unsupported image type (animated/GIF)");
-    }
-    let img: Image = decoded;
+    let img = await decodeAny(buf, row.storage_path);
     const longEdge = Math.max(img.width, img.height);
     if (longEdge > MAX_EDGE) {
       const scale = MAX_EDGE / longEdge;
-      img = img.resize(Math.round(img.width * scale), Math.round(img.height * scale));
+      img = resizeRGBA(img, Math.round(img.width * scale), Math.round(img.height * scale));
     }
 
-    // Encode WebP. imagescript's encodeWEBP takes a "quality" int 0-100.
-    const webpBytes = await img.encodeWEBP(82);
+    // Encode WebP (quality 0-100).
+    const encoded = await encodeWebp(
+      { data: img.data, width: img.width, height: img.height } as ImageData,
+      { quality: 82 },
+    );
+    const webpBytes = new Uint8Array(encoded);
 
     // If new is bigger than old AND already webp, skip (no benefit).
     const oldSize = row.file_size ?? Infinity;
@@ -112,7 +173,9 @@ async function processPhoto(
 
     return { id: row.id, status: "converted", bytes: webpBytes.byteLength };
   } catch (e) {
-    return { id: row.id, status: "failed", error: (e as Error).message };
+    const msg = (e as Error).message;
+    console.error(`convert failed for ${row.id} (${row.storage_path}):`, msg);
+    return { id: row.id, status: "failed", error: msg };
   }
 }
 
