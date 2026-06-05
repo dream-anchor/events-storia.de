@@ -215,7 +215,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
           }
         }
       } else if (!hasRealDrinks) {
-        parts.push('Getränke: keine konfiguriert — PFLICHT-Standardformulierung als eigener Absatz verwenden, BEIDE Sätze, exakt so:\n  "Wasser wird während der gesamten Veranstaltung für alle auf den Tischen bereitgestellt. Dazu zwei Getränke pro Person zur Wahl (ein Glas Wein, Spritz oder Bier)."');
+        parts.push('Getränke: KEINE im Angebot — im Anschreiben DARF KEIN Getränke-Satz vorkommen. Kein "Wasser wird gestellt", kein "zwei Getränke pro Person", keine erfundenen Wein/Spritz/Bier-Optionen. Thema Getränke komplett auslassen.');
       }
 
       // Einzeln-Getränke (z.B. Softdrinks, Wein nach Flaschen) — werden separat
@@ -347,6 +347,8 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     let optionCount = 0;
     let isProposal = false;
     let paymentMethod = 'deposit_online';
+    let isRevision = false;
+    let lastSentAtISO: string | null = null;
 
     // Previous successful emails for few-shot learning
     let previousEmails: string[] = [];
@@ -468,6 +470,27 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
       };
       context += `\nZahlungsart: ${pmLabels[paymentMethod] || paymentMethod}`;
       }
+
+      // Revisions-Erkennung: Wurde bereits eine Version dieses Angebots versendet?
+      try {
+        const { data: sentHistory } = await supabaseAdmin
+          .from('inquiry_offer_history')
+          .select('sent_at')
+          .eq('inquiry_id', rawBody.inquiryId)
+          .not('sent_at', 'is', null)
+          .order('sent_at', { ascending: false })
+          .limit(1);
+        if (sentHistory && sentHistory.length > 0) {
+          isRevision = true;
+          lastSentAtISO = (sentHistory[0] as { sent_at: string }).sent_at;
+          const dateStr = lastSentAtISO
+            ? new Date(lastSentAtISO).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            : null;
+          context += `\nRevisions-Status: ÜBERARBEITETE VERSION. Eine frühere Version wurde${dateStr ? ` am ${dateStr}` : ''} bereits an den Kunden versendet. Das Anschreiben muss das ausdrücklich erwähnen (überarbeitetes Angebot / angepasste Version).`;
+        }
+      } catch (revErr) {
+        console.warn('[generate-inquiry-email] Revisions-Check fehlgeschlagen:', revErr);
+      }
     } else if (isMultiOfferRequest(rawBody)) {
       isMultiOption = true;
       optionCount = rawBody.options.length;
@@ -510,12 +533,10 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
 
 2. VOLLSTÄNDIGKEIT — ALLES muss rein, NICHTS darf fehlen.
    • ALLE Menügänge vollständig nennen (Vorspeise, Hauptgang, Dessert)
-   • ALLE Getränke nennen — auch die inklusiven! (Wasser, Kaffee-Spezialitäten, Wein/Bier-Pauschale)
-   • Inklusiv-Getränke haben in den Daten "inklusive" als Quantität oder stehen als "[Getränk]: inklusive". Die gehören IMMER in den Text.
-   • PFLICHT: Jedes Anschreiben enthält IMMER einen eigenen Getränke-Absatz.
-   • Wenn in den Daten echte Getränke stehen (Block "Getränke:" oder "Weitere Getränke:" mit Inhalten), übernimm AUSSCHLIESSLICH diese Positionen 1:1 mit Mengen und "inklusive"-Markern. Der Standard-Wassersatz ist dann STRENG VERBOTEN.
-   • Nur wenn in den Daten WÖRTLICH "Getränke: keine konfiguriert" steht UND kein Block "Weitere Getränke" existiert, schreibe wörtlich diesen Absatz mit BEIDEN Sätzen — keiner darf fehlen, kein Umformulieren:
-     "Wasser wird während der gesamten Veranstaltung für alle auf den Tischen bereitgestellt. Dazu zwei Getränke pro Person zur Wahl (ein Glas Wein, Spritz oder Bier)."
+   • ALLE Menügänge vollständig auflisten mit ihren Mengen aus den Daten.
+   • GETRÄNKE — ABSOLUTE REGEL: Getränke dürfen NUR erwähnt werden, wenn sie in den Daten unter dem Block "Getränke:" oder "Weitere Getränke:" tatsächlich aufgelistet sind. Dann werden sie 1:1 mit Mengen und "inklusive"-Markern übernommen.
+   • Steht in den Daten "Getränke: KEINE im Angebot" (oder gibt es schlicht keinen Getränke-Block), dann KOMMT KEIN GETRÄNKE-SATZ ins Anschreiben. STRENG VERBOTEN: "Wasser wird … bereitgestellt", "zwei Getränke pro Person", "ein Glas Wein, Spritz oder Bier", oder ähnliche Standardformulierungen. Auch keine erfundenen Inklusiv-Getränke wie "Wasser und Kaffee inklusive".
+   • Erfinde niemals Getränke. Wenn die Daten schweigen, schweigt auch das Anschreiben zum Thema Getränke.
 
 3. RECHTSCHREIBUNG — kein Slang, keine Abkürzungen.
    • Immer "inklusive" — NIE "inkl."
@@ -541,6 +562,12 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     • Falls Zwischensumme + Endpreis bekannt sind, gerne nennen — aber nie selbst rechnen, nur die Zahlen aus den Daten verwenden.
     • Wenn KEIN Rabatt-Block in den Daten steht, KEINEN Rabatt erfinden.
 
+ 8. REVISION — wenn in den Daten "Revisions-Status: ÜBERARBEITETE VERSION" steht, MUSS das Anschreiben das ausdrücklich kommunizieren.
+    • KEIN "vielen Dank für Ihre Anfrage" als Einstieg — das wäre für eine Erstanfrage.
+    • Stattdessen Einleitung wie "anbei das überarbeitete Angebot mit den angepassten Punkten" oder "wie besprochen erhalten Sie hier die überarbeitete Version unseres Angebots".
+    • Datum/Uhrzeit/Gästezahl können kurz bestätigt werden, aber als Folgekommunikation, nicht als Erstkontakt.
+    • Wenn KEIN Revisions-Status in den Daten steht, ganz normal als Erstangebot formulieren ("vielen Dank für Ihre Anfrage …").
+
 4. ABSÄTZE — genau eine Leerzeile zwischen Absätzen.
    • Zwei Newlines (\n\n) zwischen jedem Absatz
    • Jeder Gedankengang ist ein eigener Absatz
@@ -558,7 +585,7 @@ Basierend auf Ihren Angaben haben wir ein Business Dinner — Exclusive zusammen
 
 Als Vorspeise Vitello Tonnato, fein geschnittenes rosa Kalbfleisch mit Thunfischcreme, oder wahlweise Ofenpaprika gefüllt mit Kräuterseitlingen. Als Hauptgang gegrillte Dorade Royal oder zarte Kalbsrückenmedaillons mit sautierten Kräuterseitlingen in Marsalasauce. Zum Abschluss Tiramisu.
 
-Dazu ein Aperitif Spritz und 4 × 0,1 l Wein oder Bier pro Person. Wasser und Kaffee-Spezialitäten sind inklusive.
+Dazu ein Aperitif Spritz und 4 × 0,1 l Wein oder Bier pro Person. Wasser und Kaffee-Spezialitäten sind inklusive. (NUR weil diese Getränke im Datenblock "Getränke:" stehen — sonst weglassen!)
 
 Das Angebot mit allen Details finden Sie hier: [ANGEBOT_LINK]
 
@@ -570,7 +597,7 @@ Domenico"
 BEACHTE am Beispiel:
 • Anrede mit "Liebe Frau [Nachname],"
 • Alle 3 Gänge vollständig beschrieben
-• Alle Getränke genannt, auch die inklusiven (Wasser, Kaffee-Spezialitäten)
+• Getränke nur weil sie im Datenblock stehen — ohne Datenblock KEIN Getränke-Satz
 • Zwischen jedem Absatz eine Leerzeile
 • "inklusive" ausgeschrieben
 • Kein "Packet" und keine abgeschnittenen Sätze
@@ -593,7 +620,9 @@ STIL:
 
 ${isProposal ? `STRUKTUR (VORSCHLAG):
 1. Anrede (siehe Regel 1)
-2. Dank für Anfrage mit Datum, Uhrzeit, Gästeanzahl in einem Satz
+2. Einleitung — je nach Revisions-Status (siehe Regel 8):
+   • Erstangebot: "vielen Dank für Ihre Anfrage für den …" mit Datum, Uhrzeit, Gästeanzahl.
+   • Überarbeitete Version: "anbei das überarbeitete Angebot …" / "wie besprochen erhalten Sie hier die überarbeitete Version …" — KEIN "vielen Dank für Ihre Anfrage".
 3. Angebot vorstellen mit Preis pro Person
 4. ALLE Speisen vollständig auflisten (siehe Regel 2)
 5. ALLE Getränke inklusive der Inklusiv-Positionen auflisten (siehe Regel 2)
