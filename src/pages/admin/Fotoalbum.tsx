@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil, Download } from "lucide-react";
+import { Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil, Download, ImageDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -53,6 +53,7 @@ const Fotoalbum = () => {
   const del = useDeletePhoto();
   const [seeding, setSeeding] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
 
   const runSeed = async () => {
     if (seeding) return;
@@ -97,6 +98,29 @@ const Fotoalbum = () => {
       toast.error("Reklassifizierung fehlgeschlagen: " + (e as Error).message, { id: toastId });
     } finally {
       setReclassifying(false);
+    }
+  };
+
+  const runOptimize = async () => {
+    if (optimizing) return;
+    if (!confirm(
+      "Alle Fotos zu optimiertem WebP konvertieren?\n\nMax. 1920px Kantenlänge, ~82% Qualität. Bereits optimierte Fotos werden übersprungen. Das kann mehrere Minuten dauern.",
+    )) return;
+    setOptimizing(true);
+    const toastId = toast.loading("Optimiere Bilder zu WebP …");
+    try {
+      const { data, error } = await supabase.functions.invoke("convert-photos-to-webp", { body: {} });
+      if (error) throw error;
+      const { processed = 0, converted = 0, skipped = 0, failed = 0 } = data ?? {};
+      toast.success(
+        `${converted} konvertiert · ${skipped} übersprungen · ${failed} Fehler (von ${processed})`,
+        { id: toastId, duration: 8000 },
+      );
+    } catch (e) {
+      console.error(e);
+      toast.error("Optimierung fehlgeschlagen: " + (e as Error).message, { id: toastId });
+    } finally {
+      setOptimizing(false);
     }
   };
 
@@ -147,6 +171,17 @@ const Fotoalbum = () => {
                 ? <Loader2 className="h-3 w-3 mr-2 animate-spin" />
                 : <Sparkles className="h-3 w-3 mr-2" />}
               KI neu klassifizieren
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={runOptimize}
+              disabled={optimizing}
+            >
+              {optimizing
+                ? <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                : <ImageDown className="h-3 w-3 mr-2" />}
+              Bilder optimieren (WebP)
             </Button>
             <Button
               variant="outline"
