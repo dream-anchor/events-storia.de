@@ -49,6 +49,8 @@ export const useUpdateCategory = () => {
         name_en?: string | null;
         description?: string | null;
         description_en?: string | null;
+        image_url?: string | null;
+        homepage_slug?: string | null;
       };
     }) => {
       const { error } = await supabase
