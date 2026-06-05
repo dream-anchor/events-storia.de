@@ -1,6 +1,8 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import type { RouteKey } from "@/config/routes";
+import { usePublishedCateringMenus } from "@/hooks/useCateringMenus";
+import { useMemo } from "react";
 
 // Category images
 import fingerfoodImg from "@/assets/catering/fingerfood/burratina.webp";
@@ -136,6 +138,26 @@ const CateringCard = ({ item, language, index }: { item: CateringItem; language:
 
 const CateringGrid = () => {
   const { language } = useLanguage();
+  const { data: menus } = usePublishedCateringMenus();
+
+  // Build slug -> image_url map from DB so admins can swap homepage card images
+  const slugImageMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const menu of menus || []) {
+      for (const cat of menu.categories || []) {
+        const slug = cat.homepage_slug?.trim();
+        if (slug && cat.image_url) {
+          map[slug] = cat.image_url;
+        }
+      }
+    }
+    return map;
+  }, [menus]);
+
+  const items = cateringItems.map((it) => ({
+    ...it,
+    image: slugImageMap[it.id] || it.image,
+  }));
 
   return (
     <section className="bg-background py-6 md:py-10" aria-labelledby="catering-categories-heading">
@@ -154,7 +176,7 @@ const CateringGrid = () => {
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {cateringItems.map((item, index) => (
+          {items.map((item, index) => (
             <CateringCard key={item.id} item={item} language={language} index={index} />
           ))}
         </div>
