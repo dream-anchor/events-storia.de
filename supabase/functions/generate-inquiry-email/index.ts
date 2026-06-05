@@ -556,7 +556,7 @@ Basierend auf Ihren Angaben haben wir ein Business Dinner — Exclusive zusammen
 
 Als Vorspeise Vitello Tonnato, fein geschnittenes rosa Kalbfleisch mit Thunfischcreme, oder wahlweise Ofenpaprika gefüllt mit Kräuterseitlingen. Als Hauptgang gegrillte Dorade Royal oder zarte Kalbsrückenmedaillons mit sautierten Kräuterseitlingen in Marsalasauce. Zum Abschluss Tiramisu.
 
-Dazu ein Aperitif Spritz und 4 × 0,1 l Wein oder Bier pro Person. Wasser und Kaffee-Spezialitäten sind inklusive.
+Dazu ein Aperitif Spritz und 4 × 0,1 l Wein oder Bier pro Person. Wasser und Kaffee-Spezialitäten sind inklusive. (NUR weil diese Getränke im Datenblock "Getränke:" stehen — sonst weglassen!)
 
 Das Angebot mit allen Details finden Sie hier: [ANGEBOT_LINK]
 
@@ -568,7 +568,7 @@ Domenico"
 BEACHTE am Beispiel:
 • Anrede mit "Liebe Frau [Nachname],"
 • Alle 3 Gänge vollständig beschrieben
-• Alle Getränke genannt, auch die inklusiven (Wasser, Kaffee-Spezialitäten)
+• Getränke nur weil sie im Datenblock stehen — ohne Datenblock KEIN Getränke-Satz
 • Zwischen jedem Absatz eine Leerzeile
 • "inklusive" ausgeschrieben
 • Kein "Packet" und keine abgeschnittenen Sätze
