@@ -138,6 +138,15 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   const handleGenerateEmail = useCallback(async () => {
     setIsGeneratingEmail(true);
     try {
+      // Aktuellen Angebotsstand erzwingen, damit die KI immer mit dem
+      // sichtbaren Stand arbeitet (Mengen, Positionen, Rabatt). Ohne
+      // flush würde die Edge Function aus der DB lesen und ggf. veraltete
+      // Werte erhalten.
+      try {
+        await builder.flushSave();
+      } catch (flushErr) {
+        console.warn('[OfferBuilder] flushSave vor KI-Generierung fehlgeschlagen:', flushErr);
+      }
       const { data, error } = await supabase.functions.invoke(
         "generate-inquiry-email",
         {
@@ -173,7 +182,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     } finally {
       setIsGeneratingEmail(false);
     }
-  }, [inquiry.id, builder.offerPhase, handleEmailDraftChange]);
+  }, [inquiry.id, builder.offerPhase, builder.flushSave, handleEmailDraftChange]);
 
   // --- Neue Version erstellen ---
   const handleUnlock = useCallback(async () => {

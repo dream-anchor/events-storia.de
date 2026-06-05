@@ -103,6 +103,10 @@ interface MultiOfferOption {
   menuSelection?: MenuSelection;
   pricingMode?: 'per_person' | 'per_event';
   paymentLinkUrl?: string;
+  // Rabatt-/Brutto-Infos (kommen aus menu_selection.discountPercent/discountAmount)
+  discountPercent?: number;
+  discountAmount?: number;
+  subtotalAmount?: number;
 }
 
 interface MultiOfferRequest {
@@ -185,7 +189,10 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       if (courses.length > 0) {
         parts.push('Menü:');
         for (const c of courses) {
-          parts.push(`  ${c.courseLabel}: ${c.itemName}`);
+          const qty = (c as { quantity?: number | null }).quantity;
+          const hasQty = typeof qty === 'number' && qty > 1;
+          const namePrefix = hasQty ? `${qty} × ` : '';
+          parts.push(`  ${c.courseLabel}: ${namePrefix}${c.itemName}`);
         }
       }
 
@@ -208,6 +215,19 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
         parts.push('Getränke: keine konfiguriert — PFLICHT-Standardformulierung als eigener Absatz verwenden, BEIDE Sätze, exakt so:\n  "Wasser wird während der gesamten Veranstaltung für alle auf den Tischen bereitgestellt. Dazu zwei Getränke pro Person zur Wahl (ein Glas Wein, Spritz oder Bier)."');
       }
 
+      // Einzeln-Getränke (z.B. Softdrinks, Wein nach Flaschen) — werden separat
+      // in menuSelection.drinksEinzeln gespeichert und müssen auch im Anschreiben
+      // erscheinen, sonst fehlen Positionen wenn der Modus „einzeln“ aktiv ist.
+      const drinksEinzeln = ((opt.menuSelection as Record<string, unknown> | undefined)?.drinksEinzeln as Array<{ name?: string; quantity?: number | null; pricePerPerson?: number }> | undefined) || [];
+      const drinksEinzelnFiltered = drinksEinzeln.filter(d => d?.name);
+      if (drinksEinzelnFiltered.length > 0) {
+        parts.push('Weitere Getränke:');
+        for (const d of drinksEinzelnFiltered) {
+          const q = typeof d.quantity === 'number' && d.quantity > 1 ? `${d.quantity} × ` : '';
+          parts.push(`  ${q}${d.name}`);
+        }
+      }
+
       // Equipment & Staff context for AI
       const equipment = (opt.menuSelection as any)?.equipment?.filter((e: any) => e.name && e.pricePerUnit > 0 && e.quantity > 0) || [];
       if (equipment.length > 0) {
@@ -222,6 +242,26 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
         parts.push('Personal:');
         for (const e of staff) {
           parts.push(`  ${e.name}: ${e.quantity}x ${formatEUR(Number(e.pricePerUnit))}`);
+        }
+      }
+
+      // Rabatt-Block: falls Rabatt vorhanden, explizit für die KI ausweisen.
+      // Die KI muss diesen Rabatt im Anschreiben erwähnen (siehe HARTE REGEL Nr. 6).
+      const discountPercent = Number(opt.discountPercent ?? 0);
+      const discountAmount = Number(opt.discountAmount ?? 0);
+      const subtotal = Number(opt.subtotalAmount ?? 0);
+      if (discountAmount > 0 || discountPercent > 0) {
+        parts.push('Rabatt: JA — MUSS im Anschreiben erwähnt werden.');
+        if (subtotal > 0) {
+          parts.push(`  Zwischensumme vor Rabatt: ${formatEUR(subtotal)}`);
+        }
+        if (discountAmount > 0) {
+          parts.push(`  Rabattbetrag: -${formatEUR(discountAmount)}`);
+        } else if (discountPercent > 0) {
+          parts.push(`  Rabatt: ${discountPercent} %`);
+        }
+        if (opt.totalAmount > 0) {
+          parts.push(`  Endpreis nach Rabatt: ${formatEUR(opt.totalAmount)}`);
         }
       }
     }
@@ -373,15 +413,33 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
       optionCount = opts.length;
 
       const multiOpts: MultiOfferOption[] = (optionsWithPkg || []).map(o => {
-        const menuSel = o.menu_selection as (MenuSelection & { pricingMode?: 'per_person' | 'per_event' }) | undefined;
+        const menuSel = o.menu_selection as (MenuSelection & {
+          pricingMode?: 'per_person' | 'per_event';
+          discountPercent?: number;
+          discountAmount?: number;
+        }) | undefined;
+        const discountPercent = Number(menuSel?.discountPercent ?? 0);
+        const discountAmount = Number(menuSel?.discountAmount ?? 0);
+        const total = Number(o.total_amount);
+        // Zwischensumme (vor Rabatt) für die KI rekonstruieren, damit die
+        // Mail einen sauberen Hinweis wie "Zwischensumme X, Rabatt Y, Endpreis Z" liefern kann.
+        let subtotal = total;
+        if (discountAmount > 0) {
+          subtotal = total + discountAmount;
+        } else if (discountPercent > 0 && discountPercent < 100) {
+          subtotal = total / (1 - discountPercent / 100);
+        }
         return {
           label: o.option_label,
           offerMode: o.offer_mode || undefined,
           packageName: (o.offer_mode === 'menu') ? 'Individuell' : (pkgNames[o.package_id] || 'Individuell'),
           guestCount: o.guest_count,
-          totalAmount: Number(o.total_amount),
+          totalAmount: total,
           menuSelection: menuSel,
           pricingMode: menuSel?.pricingMode || 'per_person',
+          discountPercent,
+          discountAmount,
+          subtotalAmount: subtotal,
         };
       });
 
@@ -465,6 +523,18 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
    • Übernimm Preise EXAKT so wie sie in den Daten stehen, inkl. beider Nachkommastellen.
    • Beispiel: "2.974,80 €" bleibt "2.974,80 €" — NIE "2.975 €", NIE "2.975,- €", NIE "ca. 2.975 €".
    • Format ist immer deutsch: Tausenderpunkt, Komma als Dezimaltrenner, zwei Nachkommastellen, "€" am Ende.
+
+ 6. MENGEN — exakte Mengen aus den Daten übernehmen.
+    • Wenn eine Position als "N × Name" angegeben ist (z.B. "3 × Vitello Tonnato-Platte", "25 × Burratina"), MUSS diese Menge im Anschreiben genannt werden.
+    • Beispiel: "Als Speisen servieren wir 3 × Vitello Tonnato-Platte, 25 × Burratina ..." — NICHT nur "Vitello Tonnato-Platte, Burratina".
+    • Pflicht für ALLE Positionen mit Menge > 1 (Speisen, Getränke, Ausstattung, Personal).
+
+ 7. RABATT — wenn in den Daten "Rabatt: JA" steht, MUSS er im Anschreiben erwähnt werden.
+    • Eigener Satz, vor dem Link-Absatz.
+    • Bei Prozent: "Im Endpreis ist bereits ein Rabatt von X % berücksichtigt."
+    • Bei festem Betrag: "Im Endpreis ist bereits ein Rabatt von X,XX € berücksichtigt."
+    • Falls Zwischensumme + Endpreis bekannt sind, gerne nennen — aber nie selbst rechnen, nur die Zahlen aus den Daten verwenden.
+    • Wenn KEIN Rabatt-Block in den Daten steht, KEINEN Rabatt erfinden.
 
 4. ABSÄTZE — genau eine Leerzeile zwischen Absätzen.
    • Zwei Newlines (\n\n) zwischen jedem Absatz
