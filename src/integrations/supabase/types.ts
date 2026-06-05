@@ -2660,6 +2660,8 @@ export type Database = {
           height: number | null
           id: string
           is_archived: boolean
+          is_current: boolean
+          parent_photo_id: string | null
           source_filename: string | null
           source_origin: string | null
           storage_path: string
@@ -2667,6 +2669,7 @@ export type Database = {
           title: string | null
           updated_at: string
           url: string
+          version: number
           width: number | null
         }
         Insert: {
@@ -2683,6 +2686,8 @@ export type Database = {
           height?: number | null
           id?: string
           is_archived?: boolean
+          is_current?: boolean
+          parent_photo_id?: string | null
           source_filename?: string | null
           source_origin?: string | null
           storage_path: string
@@ -2690,6 +2695,7 @@ export type Database = {
           title?: string | null
           updated_at?: string
           url: string
+          version?: number
           width?: number | null
         }
         Update: {
@@ -2706,6 +2712,8 @@ export type Database = {
           height?: number | null
           id?: string
           is_archived?: boolean
+          is_current?: boolean
+          parent_photo_id?: string | null
           source_filename?: string | null
           source_origin?: string | null
           storage_path?: string
@@ -2713,9 +2721,18 @@ export type Database = {
           title?: string | null
           updated_at?: string
           url?: string
+          version?: number
           width?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "photo_album_parent_photo_id_fkey"
+            columns: ["parent_photo_id"]
+            isOneToOne: false
+            referencedRelation: "photo_album"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       site_settings: {
         Row: {
