@@ -258,23 +258,10 @@ function buildLineItems(
     }
 
     // --- Proportionale Korrektur (nur skalierbare Einträge) ---
-    const scalable = entries.filter(e => !e.fixed);
-    const fixedSum = round2(entries.filter(e => e.fixed).reduce((s, e) => s + e.qty * e.unitBrutto, 0));
-    const scalableSum = round2(scalable.reduce((s, e) => s + e.qty * e.unitBrutto, 0));
-    const adjustedTarget = round2(totalAmount - fixedSum);
-    if (scalableSum > 0 && adjustedTarget > 0 && Math.abs(scalableSum - adjustedTarget) > 0.01) {
-      const factor = adjustedTarget / scalableSum;
-      for (const e of scalable) {
-        e.unitBrutto = round2(e.unitBrutto * factor);
-      }
-      const adjSum = round2(scalable.reduce((s, e) => s + e.qty * e.unitBrutto, 0));
-      const diff = round2(adjustedTarget - adjSum);
-      if (Math.abs(diff) > 0.005 && scalable.length > 0) {
-        const last = scalable[scalable.length - 1];
-        // Restdifferenz auf letzte Position als Einzelpreis-Korrektur (über qty verteilt)
-        last.unitBrutto = round2(last.unitBrutto + diff / Math.max(1, last.qty));
-      }
-    }
+    // Hinweis: Einzelpreise bleiben 1:1 wie in Maestro/Angebot eingetragen
+    // (Brutto). Eine eventuelle Rabatt-Differenz wird unten als eigene
+    // Rabattzeile pro Steuersatz ausgewiesen — der Kunde sieht in LexOffice
+    // exakt die gleichen Einzelpreise wie im Public Offer.
 
     for (const e of entries) {
       if (e.unitBrutto <= 0 || e.qty <= 0) continue;
@@ -302,6 +289,8 @@ function buildLineItems(
         unitPrice: { currency: 'EUR', grossAmount: round2(totalAmount), taxRatePercentage: FOOD_TAX },
       });
     }
+
+    appendDiscountLines(items, totalAmount, ms?.discountPercent ?? null, ms?.discountAmount ?? null);
     return items;
   }
 
