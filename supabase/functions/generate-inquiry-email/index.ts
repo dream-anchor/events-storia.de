@@ -553,12 +553,26 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     • Beispiel: "Als Speisen servieren wir 3 × Vitello Tonnato-Platte, 25 × Burratina ..." — NICHT nur "Vitello Tonnato-Platte, Burratina".
     • Pflicht für ALLE Positionen mit Menge > 1 (Speisen, Getränke, Ausstattung, Personal).
 
+ 6b. SPEISEN LOGISCH GRUPPIEREN — niemals 1:1 die Reihenfolge aus den Daten übernehmen.
+    • Sortiere die Speisen gastronomisch sinnvoll in diese Reihenfolge:
+      1) Antipasti / Vorspeisen (z.B. Vitello Tonnato, Burratina, Bruschette, Vitello, Carpaccio)
+      2) Beilagen, Salate, Brot/Focaccia (z.B. Insalata Caprina, Nudelsalat, Rosmarin Focaccia, Gemüse-Platte)
+      3) Hauptgang (z.B. Roastbeef, Dorade, Kalbsrücken, Pasta-Hauptgang)
+      4) Dessert (z.B. Tiramisù, Panna Cotta)
+    • Brot/Focaccia gehört NIE zum Dessert. Salate und Beilagen gehören NIE zum Dessert.
+    • Mengenangaben (z.B. "4 × Rosmarin Focaccia für 6-8 Personen") werden 1:1 übernommen, nur die Reihenfolge wird sortiert.
+    • Formuliere in Absätzen oder Fließtext nach Kategorien — z.B. "Als Vorspeisen ...", "Dazu reichen wir als Beilagen und Brot ...", "Als Hauptgang ...", "Zum Abschluss ...".
+    • FALSCH: "Zum Abschluss gibt es 25 × Tiramisù und 4 × Rosmarin Focaccia." (Focaccia ist kein Dessert!)
+    • RICHTIG: "Dazu reichen wir 4 × Rosmarin Focaccia für 6-8 Personen. Zum Abschluss 25 × Tiramisù STORIA."
+
  7. RABATT — wenn in den Daten "Rabatt: JA" steht, MUSS er im Anschreiben erwähnt werden.
     • Eigener Satz, vor dem Link-Absatz.
     • Der im Anschreiben genannte Hauptpreis (Gesamtpreis bzw. Preis pro Person) MUSS IMMER der Endpreis nach Rabatt sein — NIE die Zwischensumme vor Rabatt.
     • Die Zwischensumme vor Rabatt darf NUR im Rabatt-Hinweissatz erscheinen, NIE als Hauptpreis.
-    • Bei Prozent: "Im Endpreis ist bereits ein Rabatt von X % berücksichtigt."
-    • Bei festem Betrag: "Im Endpreis ist bereits ein Rabatt von X,XX € berücksichtigt."
+    • Freundliche Formulierung pflichtweise verwenden, z.B.:
+      – "Gerne räumen wir Ihnen einen Rabatt von X % ein. Der Endpreis nach Rabatt beträgt [ENDPREIS] € (Zwischensumme zuvor: [ZWISCHENSUMME] €)."
+      – Oder: "Im Endpreis ist bereits ein Rabatt von X % berücksichtigt — statt [ZWISCHENSUMME] € beträgt Ihr Endpreis [ENDPREIS] €."
+    • Der Endpreis nach Rabatt MUSS wörtlich im Text auftauchen.
     • Falls Zwischensumme + Endpreis bekannt sind, gerne nennen — aber nie selbst rechnen, nur die Zahlen aus den Daten verwenden.
     • Wenn KEIN Rabatt-Block in den Daten steht, KEINEN Rabatt erfinden.
 
