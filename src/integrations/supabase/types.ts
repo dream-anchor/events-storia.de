@@ -2645,6 +2645,72 @@ export type Database = {
         }
         Relationships: []
       }
+      photo_album: {
+        Row: {
+          ai_classified: boolean
+          ai_confidence: number | null
+          ai_error: string | null
+          ai_model: string | null
+          category: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          file_size: number | null
+          filename: string | null
+          height: number | null
+          id: string
+          is_archived: boolean
+          storage_path: string
+          tags: string[]
+          title: string | null
+          updated_at: string
+          url: string
+          width: number | null
+        }
+        Insert: {
+          ai_classified?: boolean
+          ai_confidence?: number | null
+          ai_error?: string | null
+          ai_model?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          file_size?: number | null
+          filename?: string | null
+          height?: number | null
+          id?: string
+          is_archived?: boolean
+          storage_path: string
+          tags?: string[]
+          title?: string | null
+          updated_at?: string
+          url: string
+          width?: number | null
+        }
+        Update: {
+          ai_classified?: boolean
+          ai_confidence?: number | null
+          ai_error?: string | null
+          ai_model?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          file_size?: number | null
+          filename?: string | null
+          height?: number | null
+          id?: string
+          is_archived?: boolean
+          storage_path?: string
+          tags?: string[]
+          title?: string | null
+          updated_at?: string
+          url?: string
+          width?: number | null
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           key: string
