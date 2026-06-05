@@ -57,6 +57,10 @@ interface MenuSelectionDB {
   drinksEinzeln?: DrinkEinzelnItemDB[];
   equipment?: EquipmentItemDB[];
   staff?: EquipmentItemDB[];
+  /** Optionaler Rabatt in Prozent (z. B. 10 = 10 %). */
+  discountPercent?: number | null;
+  /** Optionaler Rabatt als fester Brutto-Eurobetrag. */
+  discountAmount?: number | null;
 }
 
 interface OfferOption {
