@@ -320,6 +320,27 @@ export function PriceBreakdown({
     const equipSum = (equipment || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
     const staffSum = (staff || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
 
+    // MwSt-Ausweis: Maestro-Preise sind Brutto.
+    // Speisen (Kurse) = 7 %, Getränke/Equipment/Personal = 19 %.
+    // Aus den Brutto-Buckets ergibt sich proportional die enthaltene USt
+    // auf dem finalen Brutto-Angebotspreis.
+    const foodGross = dishAbs; // bereits rabattierbar
+    const drinkGross = wineAbs; // rabattierbar
+    const fixedGross19 = equipSum + staffSum; // nicht rabattierbar
+    const rabattRatio = subtotalAbs > 0 ? netAbs / subtotalAbs : 1;
+    const finalBruttoBase = netAbs + fixedGross19;
+    const finalBruttoOverride =
+      pricingMode === 'per_event'
+        ? (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson : null)
+        : (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson * guestsForDiv : null);
+    const finalBrutto = finalBruttoOverride ?? finalBruttoBase;
+    const refBrutto = (foodGross + drinkGross) * rabattRatio + fixedGross19;
+    const scale = refBrutto > 0 ? finalBrutto / refBrutto : 0;
+    const finalFoodGross = foodGross * rabattRatio * scale;
+    const finalDrinkGross = (drinkGross * rabattRatio + fixedGross19) * scale;
+    const ustFood = finalFoodGross > 0 ? finalFoodGross - finalFoodGross / 1.07 : 0;
+    const ustDrink = finalDrinkGross > 0 ? finalDrinkGross - finalDrinkGross / 1.19 : 0;
+
     return (
       <div className="pt-3 border-t border-border/30 space-y-2">
         {/* Pricing-Mode Toggle — nur wenn Handler existiert */}
@@ -377,7 +398,7 @@ export function PriceBreakdown({
             {netAbs > 0 && discountAmountTotal > 0 && (
               <div className="flex items-center justify-between text-xs font-medium">
                 <span className="text-muted-foreground">
-                  {pricingMode === 'per_event' ? 'Netto gesamt' : 'Netto / Person'}
+                  {pricingMode === 'per_event' ? 'Brutto nach Rabatt' : 'Brutto nach Rabatt / Pers.'}
                 </span>
                 <span>{formatCurrency(netDisplay)}</span>
               </div>
@@ -445,6 +466,19 @@ export function PriceBreakdown({
             </span>
           </div>
         </div>
+
+        {/* MwSt-Ausweis: Brutto-Endpreise → enthaltene USt je Steuersatz */}
+        {(ustFood > 0 || ustDrink > 0) && (
+          <div className="pt-1 text-[10px] leading-snug text-muted-foreground text-right space-y-0.5">
+            <div>Alle Preise inkl. gesetzl. MwSt. Im Brutto enthalten:</div>
+            {ustFood > 0 && (
+              <div>USt 7 % (Speisen): {formatCurrency(ustFood)}</div>
+            )}
+            {ustDrink > 0 && (
+              <div>USt 19 % (Getränke/Equipment/Personal): {formatCurrency(ustDrink)}</div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
