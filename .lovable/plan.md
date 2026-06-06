@@ -1,22 +1,29 @@
-## Plan
+Ich werde den Fix an einer Stelle machen: `supabase/functions/create-event-quotation/index.ts`.
 
-1. **Event-Rechnungen/Angebote in `create-event-quotation` auf Netto-Logik umstellen**
-   - `LexOfficeLineItem` so erweitern, dass die Funktion wahlweise `grossAmount` oder `netAmount` senden kann.
-   - Die Maestro-Preise bleiben weiterhin die fachliche Quelle, werden für LexOffice aber technisch von Brutto in Netto umgerechnet, damit LexOffice unten den **Gesamtbetrag netto** und die **MwSt. je Steuersatz** ausweist.
-   - Rabatt- und Anzahlungsabzugszeilen werden ebenfalls korrekt netto berechnet, mit gleichem Steuersatz wie die betroffene Position.
+Plan:
 
-2. **LexOffice-Payload auf Standard-Rechnungsdarstellung setzen**
-   - `taxConditions.taxType` von `gross` auf `net` ändern.
-   - Alle `unitPrice.grossAmount`-Werte vor dem API-Call in `unitPrice.netAmount` umwandeln: `net = brutto / (1 + taxRate / 100)`.
-   - Dadurch zeigt LexOffice in der Positionsliste Nettopreise und unten die MwSt.-Aufschlüsselung – Standard für deutsche Rechnungen.
+1. **Reuse-Logik korrigieren**
+   - Der aktuelle Code verwendet ein vorhandenes LexOffice-Angebot weiter, wenn Gesamtbetrag und Zahlungstext gleich sind.
+   - Genau deshalb sieht man „keine Änderung“: Das alte PDF wird wiederverwendet, obwohl die Preis-/Steuerlogik im Code geändert wurde.
+   - Ich ändere den Freshness-Check so, dass alte Belege mit falscher Steuerdarstellung nicht mehr reused werden.
 
-3. **Summen-Konsistenz sicherstellen**
-   - Vor dem Senden prüfen, dass die aus Netto + MwSt. resultierende Brutto-Gesamtsumme weiterhin exakt dem Maestro-Gesamtbetrag entspricht.
-   - Kleine Cent-Differenzen werden auf die letzte Position mit passendem Steuersatz korrigiert, damit LexOffice und Maestro nicht auseinanderlaufen.
+2. **Alte LexOffice-Angebote zuverlässig als stale markieren**
+   - Zusätzlich zu Gesamtbetrag und Zahlungstext wird geprüft:
+     - `taxConditions.taxType` muss `net` sein.
+     - Positionen müssen zur aktuellen Netto-Logik passen.
+     - Alte rabattierte/skalierte Positionen ohne separate Rabattzeile dürfen nicht wiederverwendet werden.
+   - Wenn das nicht passt, wird das alte Draft/Open-Angebot gelöscht und ein neues erzeugt.
 
-4. **Bestehende Catering-Shop-Rechnungen prüfen**
-   - `create-lexoffice-invoice` nutzt bereits `taxType: 'net'` und `netAmount`; dort ist voraussichtlich keine Änderung nötig.
+3. **Payload unverändert auf deutschen Rechnungsstandard halten**
+   - LexOffice bekommt weiterhin `taxType: 'net'`.
+   - Maestro bleibt die Quelle für Brutto-Endpreise.
+   - Für LexOffice werden daraus Netto-Positionspreise berechnet.
+   - Unten im Beleg stehen dann Netto-Zwischensumme, MwSt. je Satz und Brutto-Gesamtbetrag.
 
-## Ergebnis
+4. **Deploy der Function**
+   - Danach deploye ich `create-event-quotation`, damit neue Klicks im Admin sofort frische PDFs erzeugen.
 
-LexOffice wird die Einzelpositionen netto anzeigen, unten den Nettogesamtbetrag ausweisen und darunter die MwSt. nach 7 % / 19 % sowie den Bruttogesamtbetrag darstellen – wie bei deutschen Standardrechnungen üblich.
+Erwartetes Ergebnis:
+- Das nächste neu generierte Angebot wird nicht mehr das alte PDF wiederverwenden.
+- Die Positionen erscheinen im Netto-Standard.
+- Unten weist LexOffice Netto, MwSt. und Brutto sauber aus.

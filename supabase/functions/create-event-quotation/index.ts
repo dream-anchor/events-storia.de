@@ -989,7 +989,9 @@ serve(async (req) => {
           const lexRemark = String(doc?.remark ?? '').trim();
           const totalsMatch = lexTotal > 0 && Math.abs(lexTotal - dbTotal) <= 0.01;
           const remarkMatches = lexRemark === expectedRemark;
-          if (totalsMatch && remarkMatches) {
+          const lexTaxType = String(doc?.taxConditions?.taxType ?? '');
+          const taxTypeMatches = lexTaxType === 'net';
+          if (totalsMatch && remarkMatches && taxTypeMatches) {
             // PDF in LexOffice ist aktuell — nichts neu erzeugen
             return new Response(
               JSON.stringify({ success: true, quotationId: existingQuotationId, documentType: 'quotations', reused: true }),
@@ -1009,11 +1011,11 @@ serve(async (req) => {
           }
           // Activity Log Eintrag fuer Audit
           try {
-            const driftReason = !totalsMatch && !remarkMatches
-              ? 'price_and_remark_drift_detected'
-              : !totalsMatch
-                ? 'price_drift_detected'
-                : 'remark_drift_detected';
+            const driftReasons: string[] = [];
+            if (!totalsMatch) driftReasons.push('price');
+            if (!remarkMatches) driftReasons.push('remark');
+            if (!taxTypeMatches) driftReasons.push('tax_type');
+            const driftReason = `${driftReasons.join('_and_')}_drift_detected`;
             await supabase.from('activity_logs').insert({
               entity_type: 'event_inquiry',
               entity_id: inquiryId,
