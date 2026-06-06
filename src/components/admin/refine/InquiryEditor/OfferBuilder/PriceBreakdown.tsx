@@ -601,7 +601,7 @@ export function PriceBreakdown({
       {pkgDiscountAmount > 0 && (
         <div className="flex items-center justify-between text-xs font-medium">
           <span className="text-muted-foreground">
-            {pricingMode === 'per_event' ? 'Netto gesamt' : 'Netto / Person'}
+            {pricingMode === 'per_event' ? 'Brutto nach Rabatt' : 'Brutto nach Rabatt / Pers.'}
           </span>
           <span>
             {pricingMode === 'per_event'
@@ -658,6 +658,20 @@ export function PriceBreakdown({
           </span>
         </div>
       </div>
+
+      {/* MwSt-Ausweis (Paket-Modus): Brutto-Endpreis, USt 7 % enthalten */}
+      {(() => {
+        const finalBrutto = (finalPricePerPerson != null && finalPricePerPerson > 0)
+          ? (pricingMode === 'per_event' ? finalPricePerPerson : finalPricePerPerson * guestCount)
+          : pkgNetTotal;
+        const ust = finalBrutto > 0 ? finalBrutto - finalBrutto / 1.07 : 0;
+        if (ust <= 0) return null;
+        return (
+          <div className="pt-1 text-[10px] leading-snug text-muted-foreground text-right">
+            Alle Preise inkl. gesetzl. MwSt. — enthaltene USt 7 %: {formatCurrency(ust)}
+          </div>
+        );
+      })()}
     </div>
   );
 }
