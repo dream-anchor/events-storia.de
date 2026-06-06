@@ -981,7 +981,6 @@ serve(async (req) => {
           // Zahlungsbedingungen stehen im paymentTermLabel.
           const expectedRemark =
             'Wir freuen uns auf Ihre Auftragserteilung und sichern eine einwandfreie Ausführung zu.';
-          void buildOfferRemark; // referenced elsewhere; kept import alive
           const lexRemark = String(doc?.remark ?? '').trim();
           const totalsMatch = lexTotal > 0 && Math.abs(lexTotal - dbTotal) <= 0.01;
           const remarkMatches = lexRemark === expectedRemark;
