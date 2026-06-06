@@ -976,16 +976,12 @@ serve(async (req) => {
           const pairEarly = legacyMethodPair(inqEarly.payment_method as string | null);
           const dMethodEarly = ((inqEarly.deposit_method as string | null) ?? pairEarly.deposit) as DepositMethodKind;
           const bMethodEarly = ((inqEarly.balance_method as string | null) ?? pairEarly.balance) as BalanceMethodKind;
-          const expectedRemark = buildOfferRemark({
-            depositMethod: dMethodEarly,
-            balanceMethod: bMethodEarly,
-            depositPercent: dpEarly ?? 0,
-            depositAmount: (inqEarly.deposit_amount as number | null) ?? null,
-            depositDueDays: ddEarly ?? 5,
-            balanceDueDaysBeforeEvent: (inqEarly.balance_due_days_before_event as number | null) ?? 10,
-            invoiceDueDays: (inqEarly.invoice_due_days as number | null) ?? 14,
-            offerValidityDays: ovEarly ?? 14,
-          }).trim();
+          // Hinweis: Wir senden für Angebote bewusst nur den Schlusssatz als
+          // remark (LexOffice-Default wird sonst angehängt). Die eigentlichen
+          // Zahlungsbedingungen stehen im paymentTermLabel.
+          const expectedRemark =
+            'Wir freuen uns auf Ihre Auftragserteilung und sichern eine einwandfreie Ausführung zu.';
+          void buildOfferRemark; // referenced elsewhere; kept import alive
           const lexRemark = String(doc?.remark ?? '').trim();
           const totalsMatch = lexTotal > 0 && Math.abs(lexTotal - dbTotal) <= 0.01;
           const remarkMatches = lexRemark === expectedRemark;
