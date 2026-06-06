@@ -79,7 +79,8 @@ interface LexOfficeLineItem {
   unitName: string;
   unitPrice: {
     currency: 'EUR';
-    grossAmount: number;
+    grossAmount?: number;
+    netAmount?: number;
     taxRatePercentage: number;
   };
   /** Nur fuer parent-LineItems: Alternativpositionen (Lex-API: alternative=true). */
@@ -842,6 +843,30 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+// Konvertiert intern als Brutto aufgebaute LineItems in Netto-Positionen,
+// damit LexOffice den deutschen Standard-Ausweis erzeugt:
+// Positionsliste mit Netto-Einzelpreisen, unten Zwischensumme netto,
+// MwSt. je Satz (7 % / 19 %) und Gesamtbetrag brutto.
+function convertLineItemsToNet(items: LexOfficeLineItem[]): LexOfficeLineItem[] {
+  return items.map((i) => {
+    const gross = i.unitPrice.grossAmount ?? 0;
+    const rate = i.unitPrice.taxRatePercentage || 0;
+    const net = round2(gross / (1 + rate / 100));
+    const converted: LexOfficeLineItem = {
+      ...i,
+      unitPrice: {
+        currency: 'EUR',
+        netAmount: net,
+        taxRatePercentage: rate,
+      },
+    };
+    if (i.subItems && i.subItems.length > 0) {
+      converted.subItems = convertLineItemsToNet(i.subItems);
+    }
+    return converted;
+  });
+}
+
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 serve(async (req) => {
@@ -1233,9 +1258,9 @@ serve(async (req) => {
     const documentPayload: Record<string, unknown> = {
       voucherDate: new Date().toISOString(),
       address: addressBlock,
-      lineItems,
+      lineItems: convertLineItemsToNet(lineItems),
       totalPrice: { currency: 'EUR' },
-      taxConditions: { taxType: 'gross' },
+      taxConditions: { taxType: 'net' },
       paymentConditions,
       introduction,
     };
