@@ -79,7 +79,8 @@ interface LexOfficeLineItem {
   unitName: string;
   unitPrice: {
     currency: 'EUR';
-    grossAmount: number;
+    grossAmount?: number;
+    netAmount?: number;
     taxRatePercentage: number;
   };
   /** Nur fuer parent-LineItems: Alternativpositionen (Lex-API: alternative=true). */
