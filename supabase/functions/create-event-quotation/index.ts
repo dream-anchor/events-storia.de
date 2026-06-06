@@ -1271,6 +1271,15 @@ serve(async (req) => {
     if (isInvoiceMode) {
       documentPayload.remark = remarkText;
     }
+    else {
+      // WICHTIG: LexOffice zieht sonst die organisationsweiten Standard-
+      // Zahlungsbedingungen (z. B. "Anzahlung 50 % bis 3 Wochen vor der
+      // Veranstaltung") in den remark-Block. Wir überschreiben das hier
+      // explizit, damit auf dem Angebots-PDF nur unsere eigenen
+      // Konditionen + der Schlusssatz erscheinen.
+      documentPayload.remark =
+        'Wir freuen uns auf Ihre Auftragserteilung und sichern eine einwandfreie Ausführung zu.';
+    }
 
     if (isInvoiceMode) {
       // LexOffice invoices require shippingConditions
