@@ -127,7 +127,7 @@ export const SendInvoiceDialog = ({
 
   // Load PDF preview when invoice exists
   useEffect(() => {
-    if (!open || !invoiceExists || !activeInvoiceId) return;
+    if (!open || !invoiceExists || !activeInvoiceId || regenerating) return;
     let cancelled = false;
     (async () => {
       setPdfLoading(true);
@@ -172,7 +172,7 @@ export const SendInvoiceDialog = ({
       }
     })();
     return () => { cancelled = true; };
-  }, [open, inquiryId, invoiceExists, activeInvoiceId]);
+  }, [open, inquiryId, invoiceExists, activeInvoiceId, regenerating]);
 
   const handleCreateInvoice = async (force = false) => {
     setCreatingInvoice(true);
