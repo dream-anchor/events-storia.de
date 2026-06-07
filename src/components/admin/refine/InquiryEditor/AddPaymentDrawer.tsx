@@ -96,6 +96,17 @@ export function AddPaymentDrawer({
     }
   }, [open]);
 
+  // Bei Wechsel auf 'final': Betrag automatisch auf Restbetrag (Gesamt − bezahlte Anzahlungen) vorbelegen.
+  // Maestro single source of truth — verhindert, dass der Kunde im Public Offer den falschen Restbetrag sieht.
+  useEffect(() => {
+    if (!open) return;
+    if (paymentType !== 'final') return;
+    if (offerTotal == null) return;
+    const totalCents = Math.round(offerTotal * 100);
+    const restCents = Math.max(totalCents - paidSoFar, 0);
+    setAmountInput((restCents / 100).toFixed(2).replace('.', ','));
+  }, [open, paymentType, offerTotal, paidSoFar]);
+
   const amountCents = parseCentsFromInput(amountInput);
   const restCents = (offerTotal != null ? offerTotal * 100 : 0) - paidSoFar - amountCents;
 
