@@ -1,38 +1,60 @@
-# Schlussrechnung: „Rechnung schicken · Vorschau" erzeugt immer frisch
+
+# Restzahlung „Vor Ort beim Event" → keine Schlussrechnung über Gesamtbetrag
+
+## Problem
+Bei `balance_method = 'on_site'` wird die Restzahlung vor Ort über das Kassensystem (POS) abgewickelt, das selbst einen Beleg/Rechnung erzeugt. Wenn Maestro zusätzlich eine LexOffice-Schlussrechnung über den **Gesamtbetrag** erstellt, existieren **zwei Rechnungen** für denselben Umsatz → buchhalterisch falsch (Doppel-USt-Ausweis, Doppelumsatz).
 
 ## Regel
+**Wenn `balance_method = 'on_site'` (Bar/EC vor Ort):**
+- **Keine Schlussrechnung** über LexOffice. Nie.
+- Die **Anzahlungsrechnung** wird zur **endgültigen Rechnung von Maestro** für den Anzahlungsbetrag — inkl. klarem Vermerk:
+  - „Bereits bezahlt am TT.MM.JJJJ via Stripe."
+  - „Der Restbetrag in Höhe von **X,XX €** wird vor Ort beim Event direkt im Restaurant beglichen und über unser Kassensystem separat quittiert."
+- Falls keine Anzahlung vereinbart wurde (`deposit = 'none'` + `balance = 'on_site'`): gar keine LexOffice-Rechnung — alles läuft über das POS.
 
-**Button „Rechnung schicken · Vorschau"** → erzeugt **immer eine neue** Schlussrechnung in LexOffice mit den aktuellen Maestro-Werten. Die vorherige bleibt unverändert in der Belege-Liste stehen und kann dort bei Bedarf über das **Ban/Storno-Symbol** storniert werden.
+**Sonst (alle anderen `balance_method`-Werte):** Verhalten bleibt wie aktuell — Schlussrechnung mit Abzug der Anzahlungsrechnungen (§ 14 Abs. 5 UStG).
 
-**Klick auf einen Belegeintrag** (z.B. „Schlussrechnung RE0029") → zeigt **nur** das existierende PDF an. Kein Regenerate (egal ob versendet oder nicht). Bestehende Buttons (Download, Großvorschau, Stornieren) bleiben wie sie sind.
+## Verhalten im UI
 
-## Verhalten im Detail
-
-| Aktion | Wenn noch keine Rechnung | Wenn Rechnung existiert (egal ob versendet) |
+| Szenario | „Rechnung schicken · Vorschau" Button | Belege-Liste |
 |---|---|---|
-| **„Rechnung schicken · Vorschau"** klicken | Erstmalig erzeugen, PDF laden | **Neue Rechnung erzeugen** (`force: true`), PDF laden. Alte bleibt in Liste |
-| Belegeintrag klicken / Maximize | – | Vorhandenes PDF anzeigen, kein Regenerate |
-| Storno-Symbol (Ban) auf altem Beleg | – | Storniert in LexOffice (existiert bereits) |
-
-So entsteht bei jedem Aufruf eine frische Rechnung mit aktuellen Werten (Anzahlungs-%, Restzahlungs-Frist, Methode, Preise), und der Admin entscheidet selbst, welche alte Version er stornieren möchte.
+| `on_site` + Anzahlung vorhanden | **Deaktiviert** mit Hinweis: „Restzahlung erfolgt vor Ort — keine Schlussrechnung nötig. Anzahlungsrechnung RE00XX gilt als finaler Beleg." | Anzahlungsrechnung sichtbar wie bisher |
+| `on_site` + keine Anzahlung | **Deaktiviert** mit Hinweis: „Komplette Zahlung erfolgt vor Ort über das Kassensystem." | Leer (LexOffice-seitig) |
+| Alle anderen | Wie bisher (Auto-Regenerate-Logik aus vorherigem Plan) | Wie bisher |
 
 ## Umsetzung
 
-**`SendInvoiceDialog.tsx`**
-- Beim Dialog-Open: wenn schon eine `final_lexoffice_invoice_id` existiert → vor PDF-Load automatisch `create-lexoffice-final-invoice` mit `force: true` aufrufen → liefert neue `final_lexoffice_invoice_id` → diese als `activeInvoiceId` setzen → PDF von neuer ID laden
-- Wenn noch keine existiert: bestehender Flow („Endrechnung erzeugen"-Tab) bleibt
-- Spinner-Text während Regenerate: „Rechnung wird mit aktuellen Werten neu erzeugt…"
-- Bei Fehler: Toast + Fallback auf alte ID + Hinweis
-- Belege-Liste (`useOrderLexofficeDocuments`) wird nach Regenerate invalidiert, damit die alte Rechnung mit Storno-Symbol in `LexofficeDocumentsCard` sichtbar bleibt
+### 1. `create-lexoffice-final-invoice/index.ts`
+- Nach Idempotenz-Check zusätzlich `inq.balance_method` aus `v2_events` lesen.
+- Wenn `balance_method ∈ {'on_site','onsite','cash','card_onsite'}` → **early return**:
+  ```json
+  { "success": false, "skipped": true, "reason": "balance_on_site",
+    "message": "Restzahlung vor Ort — keine Schlussrechnung erlaubt" }
+  ```
+- Activity-Log-Eintrag `final_invoice_skipped_on_site`.
 
-**`LexofficeDocumentPreviewDialog.tsx` / `LexofficeDocumentsCard.tsx`**
-- **Keine Änderung.** Klick auf Listeneintrag → nur Anzeige. Storno-Symbol existiert bereits für jede Invoice.
+### 2. `create-lexoffice-downpayment-invoice/index.ts`
+- Vor dem Erstellen `balance_method` der zugehörigen Inquiry laden.
+- Wenn `on_site`:
+  - In `lineItem.description` zusätzlich anhängen:
+    > „Der Restbetrag in Höhe von **{remaining} €** wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert. Diese Rechnung gilt als finaler Beleg über die geleistete Anzahlung."
+  - `remark` und Mail-HTML analog ergänzen (DE + EN bilingual gemäß Memory-Regel).
+  - `title`: „Anzahlungsrechnung (Restzahlung vor Ort)".
 
-**`create-lexoffice-final-invoice`**
-- Keine Änderung — `force: true` storniert nicht automatisch die alte, sondern überschreibt nur die `final_lexoffice_invoice_id` in `v2_events`. Die alte LexOffice-Rechnung bleibt erhalten und taucht in der Belege-Liste auf (über die LexOffice-Vouchers-API), wo sie über das Ban-Symbol manuell storniert werden kann. **Genau das vom User gewünschte Verhalten.**
+### 3. `SendInvoiceDialog.tsx`
+- `balance_method` aus Inquiry lesen.
+- Wenn `on_site`:
+  - Regenerate-Effect skippen.
+  - „Rechnung schicken"-Button `disabled` + Tooltip/Info-Banner mit dem oben genannten Hinweistext.
+  - Statt PDF-Vorschau eine Info-Card anzeigen, die auf den Anzahlungsbeleg (oder bei fehlender Anzahlung auf das POS) verweist.
+
+### 4. Auto-Trigger absichern
+- Überall, wo `create-lexoffice-final-invoice` automatisch aufgerufen werden könnte (z. B. Status-Wechsel nach Event, Cron-Job), denselben `on_site`-Guard einsetzen — sicherheitshalber im RPC-Aufrufer **und** in der Edge Function.
 
 ## Edge Cases
+- **Methode wird nach Anzahlungsrechnung geändert** (z. B. von `stripe_prepay` auf `on_site`): Anzahlungsrechnung bleibt unverändert (immutable). Schlussrechnung wird ab dann blockiert. Hinweis im Activity Log.
+- **Methode wird von `on_site` auf andere geändert**: Schlussrechnung wieder erlaubt — normaler Flow greift.
+- **Bereits versendete Schlussrechnung existiert und Methode wird nachträglich auf `on_site` gestellt**: Storno-Symbol bleibt verfügbar; Admin muss manuell stornieren. Banner im Dialog warnt: „Achtung — Schlussrechnung RE00XX existiert, aber Restzahlung läuft jetzt vor Ort. Bitte Rechnung stornieren."
 
-- **Doppelklick** auf „Rechnung schicken": Button disabled während Regenerate läuft
-- **Regenerate scheitert**: alte ID bleibt aktiv, Fehlermeldung anzeigen, Versand bleibt möglich
-- **Listen-Refresh**: nach Regenerate `queryClient.invalidateQueries(['lexoffice-docs', orderId])` damit die neue Rechnung sofort in der Belege-Card erscheint
+## Offene Frage
+Du hattest vorher 3 Punkte offen gelassen (Trigger-Sicherheit, bilinguale Anzahlungs-Mail, Sichtbarkeit). Sollen die mit hier rein in einen Aufschlag, oder separat in einem zweiten Schritt? Empfehlung: **„bilinguale Anzahlungs-Mail" gleich mit erledigen**, da wir die Mail-Templates für den `on_site`-Hinweis ohnehin anfassen.
