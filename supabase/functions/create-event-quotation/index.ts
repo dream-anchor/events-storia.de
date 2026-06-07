@@ -824,20 +824,22 @@ function buildOfferRemark(args: {
       ? `${(depositAmount as number).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
       : `${dp} %`;
     const channel = dMethod === 'stripe' ? 'per Stripe' : dMethod === 'on_site' ? 'vor Ort' : 'per Rechnung';
-    const frist = showDepositFrist ? ` innerhalb ${dd} Tage` : '';
+    const frist = showDepositFrist ? ` innerhalb ${daysLabel(dd)}` : '';
     return `Anzahlung ${amountStr} ${channel}${frist}`;
   })();
 
   const balanceText = bMethod === 'stripe_prepay'
-    ? `Restzahlung per Stripe (${bDays} Tage vor Event)`
+    ? `Restzahlung per Stripe (${daysLabel(bDays)} vor Event)`
     : bMethod === 'on_site'
     ? `Restzahlung vor Ort beim Event`
     : bMethod === 'invoice_before'
-    ? `Restzahlung per Rechnung vor Event (Zahlung bis ${bDays} Tage vor Event)`
-    : `Restzahlung per Rechnung nach Event (Zahlungsziel ${invDays} Tage)`;
+    ? `Restzahlung per Rechnung vor Event (Zahlung bis ${daysLabel(bDays)} vor Event)`
+    : `Restzahlung per Rechnung nach Event (Zahlungsziel ${daysLabel(invDays)})`;
 
-  return `${depositText ? depositText + ', ' : ''}${balanceText}. Angebot ${ov} Tage gültig.`;
+  return `${depositText ? depositText + ', ' : ''}${balanceText}. Angebot ${daysLabel(ov)} gültig.`;
 }
+
+const daysLabel = (n: number): string => (n === 1 ? '1 Tag' : `${n} Tage`);
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
