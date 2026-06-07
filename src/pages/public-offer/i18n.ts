@@ -80,6 +80,7 @@ export const OFFER_UI: Record<OfferLang, Record<string, string>> = {
     paymentsDueBy: 'Fällig bis',
     paymentsReceived: '✓ Eingegangen',
     paymentsTotalPaid: 'Gesamt bezahlt',
+    paymentsDepositDeducted: 'abzgl. Anzahlung',
     paymentsAllPaidThanks: 'Vielen Dank! Alle Zahlungen sind eingegangen. Wir freuen uns auf Ihr Event.',
     paymentsQuestionsContact: 'Bei Fragen zur Zahlung erreichen Sie uns unter',
     paymentsOrText: 'oder',
