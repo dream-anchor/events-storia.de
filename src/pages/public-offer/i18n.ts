@@ -279,6 +279,7 @@ export const OFFER_UI: Record<OfferLang, Record<string, string>> = {
     paymentsDueBy: 'Due by',
     paymentsReceived: '✓ Received',
     paymentsTotalPaid: 'Total paid',
+    paymentsDepositDeducted: 'less deposit',
     paymentsAllPaidThanks: 'Thank you! All payments have been received. We look forward to your event.',
     paymentsQuestionsContact: 'For questions about your payment, reach us at',
     paymentsOrText: 'or',
