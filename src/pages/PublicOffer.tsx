@@ -543,7 +543,15 @@ export default function PublicOffer() {
 
         <PdfDownloadSection inquiryId={inquiry.id} lang={lang} />
 
-        <PublicPaymentSection payments={payments} eventDate={inquiry.preferred_date ?? undefined} lang={lang} />
+        <PublicPaymentSection
+          payments={payments}
+          eventDate={inquiry.preferred_date ?? undefined}
+          lang={lang}
+          totalCents={(() => {
+            const sel = options.find(o => o.id === inquiry.selected_option_id);
+            return sel ? Math.round((sel.total_amount ?? 0) * 100) : 0;
+          })()}
+        />
         <ContactSection lang={lang} />
       </main>
       <OfferFooter lang={lang} />
