@@ -44,6 +44,7 @@ export const SendInvoiceDialog = ({
   const [extraNote, setExtraNote] = useState("");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState>({ loading: false, html: null, subject: null, error: null });
   const [sending, setSending] = useState(false);
   const [invoiceExists, setInvoiceExists] = useState<boolean>(!!hasInvoiceProp);
@@ -75,6 +76,7 @@ export const SendInvoiceDialog = ({
     } else {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
       setPdfUrl(null);
+      setPdfError(null);
       setPreview({ loading: false, html: null, subject: null, error: null });
       setActiveInvoiceId(null);
     }
@@ -87,6 +89,7 @@ export const SendInvoiceDialog = ({
     let cancelled = false;
     (async () => {
       setPdfLoading(true);
+      setPdfError(null);
       try {
         // Direkt über aktive Rechnung-ID (kein Quotation-Fallback)
         const { data, error } = await supabase.functions.invoke("get-lexoffice-document-by-id", {
@@ -98,6 +101,8 @@ export const SendInvoiceDialog = ({
         if (data instanceof Blob) {
           setPdfUrl(URL.createObjectURL(data));
         } else if (data && typeof data === "object") {
+          const errMsg = (data as any).error;
+          if (errMsg) throw new Error(String(errMsg));
           const b64 =
             (data as any).pdf ??
             (data as any).pdf_base64 ??
@@ -107,10 +112,19 @@ export const SendInvoiceDialog = ({
             const arr = new Uint8Array(bin.length);
             for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
             setPdfUrl(URL.createObjectURL(new Blob([arr], { type: "application/pdf" })));
+          } else {
+            throw new Error("Kein PDF in der Antwort");
           }
         }
       } catch (e) {
         console.warn("[SendInvoiceDialog] PDF preview unavailable:", e);
+        const msg = (e as any)?.message || String(e);
+        const stale = /not available|does not exist|not found|404/i.test(msg);
+        setPdfError(
+          stale
+            ? "Diese Rechnung existiert nicht mehr in LexOffice (möglicherweise storniert). Bitte neu erzeugen."
+            : "Rechnungs-PDF konnte nicht geladen werden. Bitte neu erzeugen."
+        );
       } finally {
         if (!cancelled) setPdfLoading(false);
       }
@@ -118,16 +132,16 @@ export const SendInvoiceDialog = ({
     return () => { cancelled = true; };
   }, [open, inquiryId, invoiceExists, activeInvoiceId]);
 
-  const handleCreateInvoice = async () => {
+  const handleCreateInvoice = async (force = false) => {
     setCreatingInvoice(true);
     setCreateError(null);
     try {
       const { data, error } = await supabase.functions.invoke("create-lexoffice-final-invoice", {
-        body: { inquiryId },
+        body: { inquiryId, force },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success("Endrechnung in LexOffice erzeugt");
+      toast.success(force ? "Endrechnung neu erzeugt" : "Endrechnung in LexOffice erzeugt");
       // Frisch aus DB nachladen (neue Invoice-ID)
       const { data: ev } = await (supabase as any)
         .from('v2_events')
@@ -136,6 +150,9 @@ export const SendInvoiceDialog = ({
         .maybeSingle();
       const newId: string | null =
         ev?.final_lexoffice_invoice_id || ev?.invoice_lexoffice_id || null;
+      setPdfError(null);
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+      setPdfUrl(null);
       setActiveInvoiceId(newId);
       setInvoiceExists(!!newId);
     } catch (e: any) {
@@ -149,7 +166,7 @@ export const SendInvoiceDialog = ({
 
   // Re-render email preview when language / note changes
   useEffect(() => {
-    if (!open || !activeInvoiceId) return;
+    if (!open || !activeInvoiceId || pdfError) return;
     let cancelled = false;
     setPreview({ loading: true, html: null, subject: null, error: null });
     const handle = setTimeout(async () => {
@@ -179,11 +196,11 @@ export const SendInvoiceDialog = ({
       }
     }, 250);
     return () => { cancelled = true; clearTimeout(handle); };
-  }, [open, language, extraNote, inquiryId, activeInvoiceId]);
+  }, [open, language, extraNote, inquiryId, activeInvoiceId, pdfError]);
 
   const canSend = useMemo(() =>
-    !sending && invoiceExists && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
-  [sending, invoiceExists, recipient, preview.html]);
+    !sending && invoiceExists && !pdfError && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
+  [sending, invoiceExists, pdfError, recipient, preview.html]);
 
   const handleSend = async () => {
     setSending(true);
@@ -332,7 +349,7 @@ export const SendInvoiceDialog = ({
                         </p>
                       </div>
                       <Button
-                        onClick={handleCreateInvoice}
+                        onClick={() => handleCreateInvoice(false)}
                         disabled={creatingInvoice}
                         className="gap-2"
                       >
@@ -349,6 +366,27 @@ export const SendInvoiceDialog = ({
                     </div>
                   ) : pdfUrl ? (
                     <iframe src={pdfUrl} title="Rechnung PDF" className="w-full h-full border-0" />
+                  ) : pdfError ? (
+                    <div className="h-full flex flex-col items-center justify-center gap-4 p-8 text-center">
+                      <div className="h-12 w-12 rounded-2xl bg-background border border-border/60 flex items-center justify-center">
+                        <AlertCircle className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div className="space-y-1 max-w-md">
+                        <p className="text-sm font-medium">PDF nicht verfügbar</p>
+                        <p className="text-xs text-muted-foreground">{pdfError}</p>
+                      </div>
+                      <Button
+                        onClick={() => handleCreateInvoice(true)}
+                        disabled={creatingInvoice}
+                        className="gap-2"
+                      >
+                        {creatingInvoice ? <Loader2 className="h-4 w-4 animate-spin" /> : <FilePlus2 className="h-4 w-4" />}
+                        {creatingInvoice ? "Erzeuge…" : "Endrechnung neu erzeugen"}
+                      </Button>
+                      {createError && (
+                        <p className="text-xs text-destructive max-w-sm">{createError}</p>
+                      )}
+                    </div>
                   ) : (
                     <div className="p-6 text-sm text-muted-foreground">
                       Rechnungs-PDF konnte nicht geladen werden. Versand ist trotzdem möglich — das PDF wird beim Senden direkt von LexOffice abgerufen.
