@@ -53,6 +53,7 @@ export const SendInvoiceDialog = ({
   const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [balanceOnSite, setBalanceOnSite] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => { setInvoiceExists(!!hasInvoiceProp); }, [hasInvoiceProp]);
@@ -64,6 +65,7 @@ export const SendInvoiceDialog = ({
       setLanguage(defaultLanguage);
       setExtraNote("");
       setCreateError(null);
+      setBalanceOnSite(false);
       // Re-check live ob aktive Rechnung verknüpft ist (nach evtl. Storno).
       // Wenn bereits eine Schlussrechnung existiert, erzeugen wir bei jedem
       // Öffnen automatisch eine NEUE mit den aktuellen Maestro-Werten
@@ -72,11 +74,22 @@ export const SendInvoiceDialog = ({
       (async () => {
         const { data } = await (supabase as any)
           .from('v2_events')
-          .select('final_lexoffice_invoice_id, invoice_lexoffice_id')
+          .select('final_lexoffice_invoice_id, invoice_lexoffice_id, balance_method')
           .eq('id', inquiryId)
           .maybeSingle();
         const existingId: string | null =
           data?.final_lexoffice_invoice_id || data?.invoice_lexoffice_id || null;
+
+        const onSite = ['on_site', 'onsite', 'cash', 'card_onsite']
+          .includes(String(data?.balance_method || ''));
+        setBalanceOnSite(onSite);
+
+        // Bei „Restzahlung vor Ort" KEINE Schlussrechnung erzeugen oder regenerieren.
+        if (onSite) {
+          setActiveInvoiceId(existingId);
+          setInvoiceExists(!!existingId);
+          return;
+        }
 
         if (!existingId) {
           setActiveInvoiceId(null);
