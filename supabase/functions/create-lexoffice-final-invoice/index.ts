@@ -36,9 +36,38 @@ serve(async (req) => {
     // 1. Idempotenz-Check
     const { data: ev } = await supabase
       .from("v2_events")
-      .select("id, final_lexoffice_invoice_id, final_lexoffice_invoice_number")
+      .select("id, final_lexoffice_invoice_id, final_lexoffice_invoice_number, balance_method")
       .eq("id", inquiryId)
       .single();
+
+    // GUARD: Restzahlung „Vor Ort beim Event" → KEINE Schlussrechnung erlauben.
+    // Sonst doppelte Rechnung (LexOffice + POS-Kassensystem vor Ort).
+    const onSiteMethods = new Set(["on_site", "onsite", "cash", "card_onsite"]);
+    if (ev?.balance_method && onSiteMethods.has(String(ev.balance_method))) {
+      log("Skip: balance method is on_site — POS issues the receipt", {
+        balance_method: ev.balance_method,
+      });
+      try {
+        await supabase.from("activity_logs").insert({
+          entity_type: "event_inquiry",
+          entity_id: inquiryId,
+          action: "final_invoice_skipped_on_site",
+          actor_email: "system",
+          metadata: { balance_method: ev.balance_method },
+        });
+      } catch { /* non-fatal */ }
+      return new Response(
+        JSON.stringify({
+          success: false,
+          skipped: true,
+          reason: "balance_on_site",
+          message:
+            "Restzahlung erfolgt vor Ort beim Event — es darf keine Schlussrechnung über den Gesamtbetrag erstellt werden. Der Anzahlungsbeleg ist der finale LexOffice-Beleg; die Restzahlung wird vom Kassensystem vor Ort quittiert.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (ev?.final_lexoffice_invoice_id && !force) {
       log("Final invoice exists — skip (idempotent)", {
         invoiceId: ev.final_lexoffice_invoice_id,

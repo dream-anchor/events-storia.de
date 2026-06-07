@@ -53,6 +53,7 @@ export const SendInvoiceDialog = ({
   const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [balanceOnSite, setBalanceOnSite] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => { setInvoiceExists(!!hasInvoiceProp); }, [hasInvoiceProp]);
@@ -64,6 +65,7 @@ export const SendInvoiceDialog = ({
       setLanguage(defaultLanguage);
       setExtraNote("");
       setCreateError(null);
+      setBalanceOnSite(false);
       // Re-check live ob aktive Rechnung verknüpft ist (nach evtl. Storno).
       // Wenn bereits eine Schlussrechnung existiert, erzeugen wir bei jedem
       // Öffnen automatisch eine NEUE mit den aktuellen Maestro-Werten
@@ -72,11 +74,22 @@ export const SendInvoiceDialog = ({
       (async () => {
         const { data } = await (supabase as any)
           .from('v2_events')
-          .select('final_lexoffice_invoice_id, invoice_lexoffice_id')
+          .select('final_lexoffice_invoice_id, invoice_lexoffice_id, balance_method')
           .eq('id', inquiryId)
           .maybeSingle();
         const existingId: string | null =
           data?.final_lexoffice_invoice_id || data?.invoice_lexoffice_id || null;
+
+        const onSite = ['on_site', 'onsite', 'cash', 'card_onsite']
+          .includes(String(data?.balance_method || ''));
+        setBalanceOnSite(onSite);
+
+        // Bei „Restzahlung vor Ort" KEINE Schlussrechnung erzeugen oder regenerieren.
+        if (onSite) {
+          setActiveInvoiceId(existingId);
+          setInvoiceExists(!!existingId);
+          return;
+        }
 
         if (!existingId) {
           setActiveInvoiceId(null);
@@ -241,8 +254,8 @@ export const SendInvoiceDialog = ({
   }, [open, language, extraNote, inquiryId, activeInvoiceId, pdfError]);
 
   const canSend = useMemo(() =>
-    !sending && !regenerating && invoiceExists && !pdfError && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
-  [sending, regenerating, invoiceExists, pdfError, recipient, preview.html]);
+    !sending && !regenerating && !balanceOnSite && invoiceExists && !pdfError && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
+  [sending, regenerating, balanceOnSite, invoiceExists, pdfError, recipient, preview.html]);
 
   const handleSend = async () => {
     setSending(true);
@@ -379,7 +392,30 @@ export const SendInvoiceDialog = ({
 
               <TabsContent value="pdf" className="flex-1 m-0 mt-3 mx-6 mb-6 min-h-0">
                 <div className="h-full rounded-2xl border border-border/60 bg-muted/30 overflow-hidden relative">
-                  {regenerating ? (
+                  {balanceOnSite ? (
+                    <div className="h-full flex flex-col items-center justify-center gap-4 p-8 text-center">
+                      <div className="h-12 w-12 rounded-2xl bg-background border border-border/60 flex items-center justify-center">
+                        <AlertCircle className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div className="space-y-2 max-w-md">
+                        <p className="text-sm font-medium">Keine Schlussrechnung – Restzahlung erfolgt vor Ort</p>
+                        <p className="text-xs text-muted-foreground">
+                          Die Restzahlung wird vor Ort beim Event über das Kassensystem abgewickelt und dort separat quittiert.
+                          Es darf <strong>keine</strong> zusätzliche LexOffice-Schlussrechnung über den Gesamtbetrag erstellt werden,
+                          um eine doppelte Rechnungsstellung zu vermeiden.
+                        </p>
+                        {invoiceExists ? (
+                          <p className="text-xs text-muted-foreground">
+                            Die bereits ausgestellte <strong>Anzahlungsrechnung</strong> dient als finaler LexOffice-Beleg.
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Es wurde noch keine Anzahlung gebucht — die komplette Zahlung läuft vor Ort über das Kassensystem.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : regenerating ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm z-10">
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">Rechnung wird mit aktuellen Werten neu erzeugt…</p>
@@ -453,7 +489,13 @@ export const SendInvoiceDialog = ({
             onClick={handleSend}
             disabled={!canSend}
             className="gap-2"
-            title={!invoiceExists ? "Bitte zuerst Endrechnung erzeugen" : undefined}
+            title={
+              balanceOnSite
+                ? "Restzahlung erfolgt vor Ort — keine Schlussrechnung erlaubt"
+                : !invoiceExists
+                  ? "Bitte zuerst Endrechnung erzeugen"
+                  : undefined
+            }
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {sending ? "Sende…" : `Senden an ${recipient || "Kunden"}`}
