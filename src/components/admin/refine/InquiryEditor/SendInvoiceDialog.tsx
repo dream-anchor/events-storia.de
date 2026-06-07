@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,8 @@ export const SendInvoiceDialog = ({
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => { setInvoiceExists(!!hasInvoiceProp); }, [hasInvoiceProp]);
 
@@ -61,17 +64,56 @@ export const SendInvoiceDialog = ({
       setLanguage(defaultLanguage);
       setExtraNote("");
       setCreateError(null);
-      // Re-check live ob aktive Rechnung verknüpft ist (nach evtl. Storno)
+      // Re-check live ob aktive Rechnung verknüpft ist (nach evtl. Storno).
+      // Wenn bereits eine Schlussrechnung existiert, erzeugen wir bei jedem
+      // Öffnen automatisch eine NEUE mit den aktuellen Maestro-Werten
+      // (Anzahlung %, Restzahlungs-Frist, Methode, Preise). Die alte Rechnung
+      // bleibt in der Belege-Liste stehen und kann dort manuell storniert werden.
       (async () => {
         const { data } = await (supabase as any)
           .from('v2_events')
           .select('final_lexoffice_invoice_id, invoice_lexoffice_id')
           .eq('id', inquiryId)
           .maybeSingle();
-        const invId: string | null =
+        const existingId: string | null =
           data?.final_lexoffice_invoice_id || data?.invoice_lexoffice_id || null;
-        setActiveInvoiceId(invId);
-        setInvoiceExists(!!invId);
+
+        if (!existingId) {
+          setActiveInvoiceId(null);
+          setInvoiceExists(false);
+          return;
+        }
+
+        // Auto-Regenerate mit aktuellen Werten
+        setRegenerating(true);
+        try {
+          const { data: regen, error } = await supabase.functions.invoke(
+            "create-lexoffice-final-invoice",
+            { body: { inquiryId, force: true } },
+          );
+          if (error) throw error;
+          if ((regen as any)?.error) throw new Error((regen as any).error);
+          // Neue ID aus DB nachladen
+          const { data: ev } = await (supabase as any)
+            .from('v2_events')
+            .select('final_lexoffice_invoice_id, invoice_lexoffice_id')
+            .eq('id', inquiryId)
+            .maybeSingle();
+          const newId: string | null =
+            ev?.final_lexoffice_invoice_id || ev?.invoice_lexoffice_id || existingId;
+          setActiveInvoiceId(newId);
+          setInvoiceExists(true);
+          // Belege-Liste invalidieren, damit alte Rechnung mit Storno-Symbol
+          // weiterhin sichtbar bleibt und die neue erscheint
+          queryClient.invalidateQueries({ queryKey: ['order-lex-docs', inquiryId] });
+        } catch (e: any) {
+          console.warn("[SendInvoiceDialog] Regenerate failed, fallback to existing:", e);
+          toast.error(e?.message || "Neue Rechnung konnte nicht erzeugt werden — vorhandene wird angezeigt");
+          setActiveInvoiceId(existingId);
+          setInvoiceExists(true);
+        } finally {
+          setRegenerating(false);
+        }
       })();
     } else {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
