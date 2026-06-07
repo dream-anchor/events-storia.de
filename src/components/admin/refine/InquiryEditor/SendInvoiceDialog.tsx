@@ -489,7 +489,13 @@ export const SendInvoiceDialog = ({
             onClick={handleSend}
             disabled={!canSend}
             className="gap-2"
-            title={!invoiceExists ? "Bitte zuerst Endrechnung erzeugen" : undefined}
+            title={
+              balanceOnSite
+                ? "Restzahlung erfolgt vor Ort — keine Schlussrechnung erlaubt"
+                : !invoiceExists
+                  ? "Bitte zuerst Endrechnung erzeugen"
+                  : undefined
+            }
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {sending ? "Sende…" : `Senden an ${recipient || "Kunden"}`}
