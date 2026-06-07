@@ -113,9 +113,13 @@ function StatusBadge({ payment }: { payment: EventPayment }) {
 function PaymentRow({
   payment,
   onRefresh,
+  totalCents,
+  paidDepositCents,
 }: {
   payment: EventPayment;
   onRefresh: () => void;
+  totalCents: number;
+  paidDepositCents: number;
 }) {
   const [copied, setCopied] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -219,13 +223,45 @@ function PaymentRow({
   const isDownpayment = payment.payment_type === 'deposit' || payment.payment_type === 'prepayment';
   const hasLexInvoice = !!payment.lexoffice_invoice_id;
 
+  // Netto-Restzahlung = Maestro-Total minus bereits bezahlte Anzahlungen.
+  // Wird im Public Offer gegenüber dem Kunden so dargestellt — Maestro spiegelt das.
+  const isFinal = payment.payment_type === 'final';
+  const hasDeduction = isFinal && totalCents > 0 && paidDepositCents > 0;
+  const netCents = hasDeduction ? Math.max(totalCents - paidDepositCents, 0) : payment.amount_cents;
+  const isMismatch = hasDeduction && payment.amount_cents !== netCents && payment.status !== 'paid';
+
+  const handleCorrectAmount = useCallback(async () => {
+    setActionLoading('correct');
+    try {
+      const { error } = await (supabase as any)
+        .from('event_payments')
+        .update({ amount_cents: netCents, updated_at: new Date().toISOString() })
+        .eq('id', payment.id);
+      if (error) throw error;
+      toast.success('Betrag auf Netto-Restzahlung korrigiert');
+      onRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Korrektur fehlgeschlagen');
+    } finally {
+      setActionLoading(null);
+    }
+  }, [netCents, payment.id, onRefresh]);
+
   return (
     <div className={`rounded-lg border p-3 space-y-2 ${!isActive ? 'opacity-60' : ''} ${status === 'overdue' ? 'border-red-200 bg-red-50/30' : 'border-border/60 bg-white'}`}>
       {/* Header row */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-semibold text-sm tabular-nums">{formatEUR(payment.amount_cents)}</span>
+          <span className="font-semibold text-sm tabular-nums">{formatEUR(hasDeduction ? netCents : payment.amount_cents)}</span>
           <span className="text-xs text-muted-foreground">{typeLabels[payment.payment_type]}</span>
+          {isMismatch && (
+            <span
+              className="text-amber-600"
+              title={`Gespeichert: ${formatEUR(payment.amount_cents)} — wird im Public Offer als ${formatEUR(netCents)} angezeigt`}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <StatusBadge payment={payment} />
@@ -238,6 +274,12 @@ function PaymentRow({
           </button>
         </div>
       </div>
+
+      {hasDeduction && (
+        <p className="text-[11px] text-muted-foreground tabular-nums">
+          {formatEUR(totalCents)} − {formatEUR(paidDepositCents)} abzgl. Anzahlung
+        </p>
+      )}
 
       {/* Meta row */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -272,6 +314,18 @@ function PaymentRow({
       {/* Action buttons */}
       {isActive && (
         <div className="flex flex-wrap gap-1.5 pt-1">
+          {isMismatch && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-50"
+              onClick={handleCorrectAmount}
+              disabled={!!actionLoading}
+            >
+              <RefreshCw className="h-3 w-3" />
+              {actionLoading === 'correct' ? 'Korrigiere…' : 'Auf Netto korrigieren'}
+            </Button>
+          )}
           {status === 'draft' && (
             <Button
               size="sm"
