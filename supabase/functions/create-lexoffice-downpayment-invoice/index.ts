@@ -87,6 +87,17 @@ serve(async (req) => {
       .single();
     if (inqErr || !inquiry) throw new Error(`Inquiry nicht gefunden: ${inqErr?.message}`);
 
+    // Restzahlungs-Methode prüfen: bei „Vor Ort beim Event" wird die
+    // Anzahlungsrechnung zum finalen LexOffice-Beleg, der Restbetrag
+    // wird vor Ort via Kassensystem quittiert.
+    const onSiteMethods = new Set(["on_site", "onsite", "cash", "card_onsite"]);
+    const balanceOnSite = onSiteMethods.has(
+      String((inquiry as { balance_method?: string | null }).balance_method || ""),
+    );
+    const eventTotalGross = Number(
+      (inquiry as { amount_total?: number | string | null }).amount_total || 0,
+    );
+
     // 4. Anzahlungs-Index ermitteln (1. / 2. / 3. ...)
     const { data: priorPayments } = await supabase
       .from("event_payments")
@@ -114,6 +125,9 @@ serve(async (req) => {
 
     // 6. Line item — einzelne Brutto-Position
     const grossAmount = (payment.amount_cents || 0) / 100;
+    const remainingGross = Math.max(0, eventTotalGross - grossAmount);
+    const remainingDE = remainingGross.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+    const remainingEN = remainingGross.toLocaleString("en-GB", { style: "currency", currency: "EUR" });
     const eventDateDE = formatDateDE(payment.preferred_date || payment.event_date);
     const eventLabel = payment.event_type || "Veranstaltung";
     const titlePrefix = index === 1 ? "Anzahlung" : `${index}. Anzahlung`;
@@ -121,11 +135,18 @@ serve(async (req) => {
     const lineItem = {
       type: "custom",
       name: `${titlePrefix} für ${eventLabel}${eventDateDE ? ` am ${eventDateDE}` : ""}`,
-      description: [
-        `Anzahlung gemäß Auftrag${eventDateDE ? ` vom ${eventDateDE}` : ""}.`,
-        "Die zugrunde liegenden Leistungen werden zum Veranstaltungstermin erbracht.",
-        "Eine vollständige Aufstellung erhalten Sie mit der Schlussrechnung.",
-      ].join(" "),
+      description: (balanceOnSite
+        ? [
+            `Anzahlung gemäß Auftrag${eventDateDE ? ` vom ${eventDateDE}` : ""}.`,
+            `Der Restbetrag in Höhe von ${remainingDE} wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert.`,
+            "Diese Rechnung gilt als finaler Beleg über die geleistete Anzahlung — es wird keine weitere Schlussrechnung ausgestellt.",
+          ]
+        : [
+            `Anzahlung gemäß Auftrag${eventDateDE ? ` vom ${eventDateDE}` : ""}.`,
+            "Die zugrunde liegenden Leistungen werden zum Veranstaltungstermin erbracht.",
+            "Eine vollständige Aufstellung erhalten Sie mit der Schlussrechnung.",
+          ]
+      ).join(" "),
       quantity: 1,
       unitName: "Pauschale",
       unitPrice: {
@@ -146,7 +167,9 @@ serve(async (req) => {
     const paidAtDE = formatDateDE(payment.paid_at);
     const remark = [
       `Bereits bezahlt${paidAtDE ? ` am ${paidAtDE}` : ""} via ${payment.paid_via || "Online-Zahlung"}.`,
-      "Die in dieser Anzahlung enthaltene Umsatzsteuer wird in der Schlussrechnung explizit abgezogen (§ 14 Abs. 5 UStG).",
+      balanceOnSite
+        ? `Restbetrag ${remainingDE} wird vor Ort beim Event über das Kassensystem beglichen — keine weitere Rechnung von Maestro/LexOffice.`
+        : "Die in dieser Anzahlung enthaltene Umsatzsteuer wird in der Schlussrechnung explizit abgezogen (§ 14 Abs. 5 UStG).",
       "",
       `Veranstaltungsort: ${[
         inquiry.location_name,
@@ -179,7 +202,11 @@ serve(async (req) => {
       },
       introduction,
       remark,
-      title: index === 1 ? "Anzahlungsrechnung" : `${index}. Anzahlungsrechnung`,
+      title: balanceOnSite
+        ? (index === 1
+            ? "Anzahlungsrechnung (Restzahlung vor Ort)"
+            : `${index}. Anzahlungsrechnung (Restzahlung vor Ort)`)
+        : (index === 1 ? "Anzahlungsrechnung" : `${index}. Anzahlungsrechnung`),
     };
 
     log("Creating LexOffice invoice", {
@@ -267,12 +294,26 @@ serve(async (req) => {
         if (!resendKey) return;
 
         const subject = `Ihre Anzahlungsrechnung${invoiceNumber ? ` ${invoiceNumber}` : ""} | STORIA Events`;
+        const grossDE = grossAmount.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+        const grossEN = grossAmount.toLocaleString("en-GB", { style: "currency", currency: "EUR" });
+        const dePara = balanceOnSite
+          ? `<p>Der Restbetrag in Höhe von <strong>${remainingDE}</strong> wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert. Diese Rechnung gilt als finaler Beleg über Ihre Anzahlung — es wird keine weitere Rechnung von uns ausgestellt.</p>`
+          : `<p>Die in dieser Anzahlung enthaltene Umsatzsteuer wird in Ihrer Schlussrechnung nach der Veranstaltung gemäß § 14 Abs. 5 UStG explizit abgezogen.</p>`;
+        const enPara = balanceOnSite
+          ? `<p>The remaining balance of <strong>${remainingEN}</strong> will be settled on-site at the event directly at the restaurant and receipted separately by our point-of-sale system. This invoice serves as the final document for your down-payment — no further invoice will be issued.</p>`
+          : `<p>The VAT contained in this down-payment will be explicitly deducted in your final invoice after the event in accordance with § 14 (5) German VAT Act.</p>`;
         const html = `<!DOCTYPE html><html lang="de"><body style="font-family:Arial,sans-serif;color:#333;font-size:15px;line-height:1.6;">
 <p>Guten Tag ${payment.customer_name || ""},</p>
 <p>vielen Dank für Ihre Anzahlung${paidAtDE ? ` vom ${paidAtDE}` : ""}.<br/>
-Im Anhang finden Sie Ihre Anzahlungsrechnung${invoiceNumber ? ` Nr. <strong>${invoiceNumber}</strong>` : ""} über <strong>${grossAmount.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</strong>.</p>
-<p>Die in dieser Anzahlung enthaltene Umsatzsteuer wird in Ihrer Schlussrechnung nach der Veranstaltung gemäß § 14 Abs. 5 UStG explizit abgezogen.</p>
+Im Anhang finden Sie Ihre Anzahlungsrechnung${invoiceNumber ? ` Nr. <strong>${invoiceNumber}</strong>` : ""} über <strong>${grossDE}</strong>.</p>
+${dePara}
 <p>Bei Fragen sind wir jederzeit für Sie da.<br/>Herzliche Grüße<br/><strong>Ihr STORIA Events Team</strong></p>
+<hr style="border:none;border-top:1px solid #ddd;margin:24px 0;"/>
+<p>Dear ${payment.customer_name || "Guest"},</p>
+<p>thank you for your down-payment${paidAtDE ? ` on ${paidAtDE}` : ""}.<br/>
+Please find attached your down-payment invoice${invoiceNumber ? ` no. <strong>${invoiceNumber}</strong>` : ""} for <strong>${grossEN}</strong>.</p>
+${enPara}
+<p>We remain at your disposal for any questions.<br/>Kind regards,<br/><strong>The STORIA Events Team</strong></p>
 </body></html>`;
 
         const recipients = [payment.customer_email, "info@events-storia.de"].filter(Boolean);
