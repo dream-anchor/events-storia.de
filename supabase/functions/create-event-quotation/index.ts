@@ -1201,31 +1201,48 @@ serve(async (req) => {
     let remarkText: string;
 
     if (isInvoiceMode && isFinalInvoice) {
-      const dueDays = Math.max(1, balanceDueDaysBeforeEvent ?? invoiceDueDays);
-      const methodLabel = labelForMethod(balanceMethod);
+      const bDays = Math.max(1, balanceDueDaysBeforeEvent ?? invoiceDueDays);
       const balanceOnSite = isOnSite(balanceMethod);
+      const isInvoiceAfter = balanceMethod === 'invoice_after';
+      const isInvoiceBefore = balanceMethod === 'invoice_before';
+      const isStripeBalance = balanceMethod === 'stripe_prepay' || balanceMethod === 'stripe' || balanceMethod === 'stripe_now';
+
+      const balanceLabel = balanceOnSite
+        ? `Restzahlung vor Ort beim Event (Bar / EC)`
+        : isInvoiceAfter
+          ? `Restzahlung per Überweisung — Zahlungsziel ${daysLabel(invoiceDueDays)} nach Rechnungseingang`
+          : isInvoiceBefore
+            ? `Restzahlung per Überweisung — fällig ${daysLabel(bDays)} vor der Veranstaltung`
+            : isStripeBalance
+              ? `Restzahlung per Stripe (Online-Zahlung) — fällig ${daysLabel(bDays)} vor der Veranstaltung`
+              : `Restzahlung fällig ${daysLabel(bDays)} vor der Veranstaltung`;
+
       paymentConditions = {
-        paymentTermLabel: balanceOnSite
-          ? `Restzahlung vor Ort beim Event (Bar / EC)`
-          : methodLabel
-            ? `Restzahlung ${methodLabel} — fällig ${dueDays} Tage vor der Veranstaltung`
-            : `Restzahlung fällig ${dueDays} Tage vor der Veranstaltung`,
-        paymentTermDuration: dueDays,
+        paymentTermLabel: balanceLabel,
+        paymentTermDuration: balanceOnSite ? 1 : (isInvoiceAfter ? invoiceDueDays : bDays),
       };
-      const depLabel = labelForMethod(depositMethod);
+
       const depositOnSite = isOnSite(depositMethod);
-      const depChannel = depositOnSite ? 'vor Ort' : (depLabel ? ' ' + depLabel : '');
-      const depChannelSuffix = depositOnSite ? ' vor Ort' : (depLabel ? ' ' + depLabel : '');
-      const depInfo = (fixedDepositAmount && fixedDepositAmount > 0)
-        ? `Anzahlung ${fixedDepositAmount.toFixed(2)} €${depChannelSuffix}`
-        : (depositPercent && depositPercent > 0
-            ? `Anzahlung ${depositPercent}%${depChannelSuffix}`
-            : null);
-      const balancePhrase = paymentConditions.paymentTermLabel.replace(/^Restzahlung /, '');
+      const isStripeDeposit = depositMethod === 'stripe' || depositMethod === 'stripe_now';
+      const isInvoiceDeposit = depositMethod === 'invoice' || depositMethod === 'invoice_before';
+
+      const depAmountStr = (fixedDepositAmount && fixedDepositAmount > 0)
+        ? `${fixedDepositAmount.toFixed(2)} €`
+        : (depositPercent && depositPercent > 0 ? `${depositPercent}%` : null);
+
+      const depSuffix = depositOnSite
+        ? ' vor Ort'
+        : isStripeDeposit
+          ? ` per Stripe (Online-Zahlung) — innerhalb ${daysLabel(depositDueDays ?? 5)}`
+          : isInvoiceDeposit
+            ? ` per Überweisung — innerhalb ${daysLabel(depositDueDays ?? 5)}`
+            : '';
+
+      const depInfo = depAmountStr ? `Anzahlung ${depAmountStr}${depSuffix}` : null;
+      const balancePhrase = balanceLabel.replace(/^Restzahlung /, '');
       remarkText = depInfo
         ? `${depInfo}, Restbetrag ${balancePhrase}. Vielen Dank für Ihre Buchung.`
-        : `${paymentConditions.paymentTermLabel}. Vielen Dank für Ihre Buchung.`;
-      void depChannel;
+        : `${balanceLabel}. Vielen Dank für Ihre Buchung.`;
     } else if (isInvoiceMode) {
       paymentConditions = {
         paymentTermLabel: `Zahlbar innerhalb von ${invoiceDueDays} Tagen nach Rechnungseingang`,
