@@ -543,7 +543,15 @@ export default function PublicOffer() {
 
         <PdfDownloadSection inquiryId={inquiry.id} lang={lang} />
 
-        <PublicPaymentSection payments={payments} eventDate={inquiry.preferred_date ?? undefined} lang={lang} />
+        <PublicPaymentSection
+          payments={payments}
+          eventDate={inquiry.preferred_date ?? undefined}
+          lang={lang}
+          totalCents={(() => {
+            const sel = options.find(o => o.id === inquiry.selected_option_id);
+            return sel ? Math.round((sel.total_amount ?? 0) * 100) : 0;
+          })()}
+        />
         <ContactSection lang={lang} />
       </main>
       <OfferFooter lang={lang} />
@@ -1924,10 +1932,12 @@ function PublicPaymentSection({
   payments,
   eventDate,
   lang,
+  totalCents,
 }: {
   payments: PublicPayment[];
   eventDate?: string;
   lang: OfferLang;
+  totalCents?: number;
 }) {
   if (!payments.length) return null;
 
@@ -1965,6 +1975,17 @@ function PublicPaymentSection({
   const totalPaid = payments
     .filter((p) => p.status === "paid")
     .reduce((s, p) => s + p.amount_cents, 0);
+
+  // Anzahlung transparent von Restzahlung abziehen (Maestro single source of truth).
+  const paidDepositCents = payments
+    .filter((p) => (p.payment_type === "deposit" || p.payment_type === "prepayment") && p.status === "paid")
+    .reduce((s, p) => s + p.amount_cents, 0);
+  const computeDisplayAmount = (p: PublicPayment): number => {
+    if (p.payment_type === "final" && !!totalCents && totalCents > 0 && paidDepositCents > 0) {
+      return Math.max(totalCents - paidDepositCents, 0);
+    }
+    return p.amount_cents;
+  };
 
   const headerIcon = allPaid ? "✅" : hasOverdue ? "⚠️" : "💰";
   const headerText = allPaid
@@ -2018,7 +2039,12 @@ function PublicPaymentSection({
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-sans font-bold text-sm text-foreground">{fmt(p.amount_cents)}</p>
+                    <p className="font-sans font-bold text-sm text-foreground">{fmt(computeDisplayAmount(p))}</p>
+                    {p.payment_type === "final" && !isPaid && paidDepositCents > 0 && !!totalCents && totalCents > 0 && (
+                      <p className="text-[11px] text-muted-foreground font-sans mt-0.5">
+                        {fmt(totalCents)} − {fmt(paidDepositCents)} {tOffer(lang, 'paymentsDepositDeducted')}
+                      </p>
+                    )}
                     {isPaid && <p className="text-xs text-emerald-600 font-sans">{tOffer(lang, 'paymentsReceived')}</p>}
                   </div>
                 </div>
