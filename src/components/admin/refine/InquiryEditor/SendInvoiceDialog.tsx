@@ -241,8 +241,8 @@ export const SendInvoiceDialog = ({
   }, [open, language, extraNote, inquiryId, activeInvoiceId, pdfError]);
 
   const canSend = useMemo(() =>
-    !sending && invoiceExists && !pdfError && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
-  [sending, invoiceExists, pdfError, recipient, preview.html]);
+    !sending && !regenerating && invoiceExists && !pdfError && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
+  [sending, regenerating, invoiceExists, pdfError, recipient, preview.html]);
 
   const handleSend = async () => {
     setSending(true);
@@ -379,7 +379,12 @@ export const SendInvoiceDialog = ({
 
               <TabsContent value="pdf" className="flex-1 m-0 mt-3 mx-6 mb-6 min-h-0">
                 <div className="h-full rounded-2xl border border-border/60 bg-muted/30 overflow-hidden relative">
-                  {!invoiceExists ? (
+                  {regenerating ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm z-10">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">Rechnung wird mit aktuellen Werten neu erzeugt…</p>
+                    </div>
+                  ) : !invoiceExists ? (
                     <div className="h-full flex flex-col items-center justify-center gap-4 p-8 text-center">
                       <div className="h-12 w-12 rounded-2xl bg-background border border-border/60 flex items-center justify-center">
                         <AlertCircle className="h-6 w-6 text-muted-foreground" />
