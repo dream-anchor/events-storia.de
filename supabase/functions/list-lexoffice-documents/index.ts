@@ -182,7 +182,7 @@ serve(async (req) => {
         .select("recipient_email, sent_at, provider_message_id, metadata")
         .eq("entity_type", "v2_event")
         .eq("entity_id", orderId)
-        .eq("status", "sent")
+        .in("status", ["queued", "sent", "delivered"])
         .order("sent_at", { ascending: false });
       for (const row of offerSends ?? []) {
         const meta = (row.metadata ?? {}) as Record<string, unknown>;
