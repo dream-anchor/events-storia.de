@@ -87,13 +87,46 @@ serve(async (req) => {
       .single();
     if (inqErr || !inquiry) throw new Error(`Inquiry nicht gefunden: ${inqErr?.message}`);
 
-    // Restzahlungs-Methode prüfen: bei „Vor Ort beim Event" wird die
-    // Anzahlungsrechnung zum finalen LexOffice-Beleg, der Restbetrag
-    // wird vor Ort via Kassensystem quittiert.
+    // Restzahlungs-Methode prüfen: bei „Vor Ort beim Event" wird KEINE
+    // LexOffice-Anzahlungsrechnung erstellt. Der Kunde erhält ausschließlich
+    // die Stripe-Quittung / Zahlungsbestätigung. Den finalen Bewirtungsbeleg
+    // inkl. Abzug der Anzahlung erstellt das POS-System vor Ort.
+    // So wird die doppelte Rechnungsstellung (LexOffice + POS) vermieden.
     const onSiteMethods = new Set(["on_site", "onsite", "cash", "card_onsite"]);
     const balanceOnSite = onSiteMethods.has(
       String((inquiry as { balance_method?: string | null }).balance_method || ""),
     );
+
+    if (balanceOnSite) {
+      log("Skip — balance method is on_site (POS handles final receipt)", {
+        payment_id,
+        balance_method: (inquiry as { balance_method?: string | null }).balance_method,
+        amount_cents: payment.amount_cents,
+      });
+      try {
+        await supabase.from("activity_logs").insert({
+          entity_type: "event_inquiry",
+          entity_id: payment.inquiry_id,
+          action: "downpayment_invoice_skipped_on_site",
+          actor_email: "system",
+          metadata: {
+            payment_id,
+            balance_method: (inquiry as { balance_method?: string | null }).balance_method,
+            gross_amount: (payment.amount_cents || 0) / 100,
+          },
+        });
+      } catch { /* non-fatal */ }
+      return new Response(
+        JSON.stringify({
+          skipped: true,
+          reason: "balance_on_site",
+          message:
+            "Restzahlung vor Ort — POS erstellt finalen Bewirtungsbeleg inkl. Anzahlungs-Abzug. Kunde erhält nur Stripe-Quittung.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const eventTotalGross = Number(
       (inquiry as { amount_total?: number | string | null }).amount_total || 0,
     );
