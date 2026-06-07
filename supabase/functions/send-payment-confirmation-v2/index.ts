@@ -185,10 +185,10 @@ serve(async (req) => {
       let balanceText = '';
       if (!isPrepaymentInvite && remStr) {
         const balanceMap = ev.balance_method === 'on_site' ? {
-          de: `Den noch offenen Betrag von <strong>${remStr}</strong> begleichen Sie bitte <strong>vor Ort beim Event</strong> (bar oder Karte).`,
-          en: `Please settle the outstanding amount of <strong>${remStr}</strong> <strong>on site at the event</strong> (cash or card).`,
-          it: `Saldate l'importo residuo di <strong>${remStr}</strong> <strong>sul posto durante l'evento</strong> (contanti o carta).`,
-          fr: `Veuillez régler le solde de <strong>${remStr}</strong> <strong>sur place lors de l'événement</strong> (espèces ou carte).`,
+          de: `Den noch offenen Betrag von <strong>${remStr}</strong> begleichen Sie bitte <strong>vor Ort beim Event</strong> (bar oder Karte). Den finalen Bewirtungsbeleg erhalten Sie direkt im Restaurant — die bereits geleistete Anzahlung wird darauf transparent abgezogen. Eine zusätzliche Rechnung von uns wird daher nicht ausgestellt.`,
+          en: `Please settle the outstanding amount of <strong>${remStr}</strong> <strong>on site at the event</strong> (cash or card). You will receive the final receipt directly at the restaurant — your down-payment will be transparently deducted on it. No additional invoice will be issued by us.`,
+          it: `Saldate l'importo residuo di <strong>${remStr}</strong> <strong>sul posto durante l'evento</strong> (contanti o carta). Riceverete la ricevuta finale direttamente al ristorante — l'acconto già versato verrà detratto in modo trasparente. Nessuna ulteriore fattura verrà emessa da parte nostra.`,
+          fr: `Veuillez régler le solde de <strong>${remStr}</strong> <strong>sur place lors de l'événement</strong> (espèces ou carte). Vous recevrez le reçu final directement au restaurant — l'acompte déjà versé y sera déduit de manière transparente. Aucune facture supplémentaire ne sera émise par nos soins.`,
         } : ev.balance_method === 'invoice_after' ? {
           de: `Den noch offenen Betrag von <strong>${remStr}</strong> stellen wir Ihnen nach der Veranstaltung in Rechnung.`,
           en: `We will invoice the outstanding amount of <strong>${remStr}</strong> after the event.`,

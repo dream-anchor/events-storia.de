@@ -1063,7 +1063,7 @@ export const SmartInquiryEditor = () => {
                     size="sm"
                     className="gap-2 px-2 sm:px-3 opacity-60 cursor-not-allowed"
                     disabled
-                    title="Restzahlung erfolgt vor Ort über das Kassensystem — keine LexOffice-Schlussrechnung erlaubt"
+                    title="Restzahlung vor Ort: keine LexOffice-Rechnung. Anzahlung erhält nur Stripe-Quittung, finalen Bewirtungsbeleg inkl. Abzug der Anzahlung erstellt das POS vor Ort."
                   >
                     <MailIcon className="h-4 w-4" />
                     <span className="hidden sm:inline">
