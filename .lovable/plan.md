@@ -1,52 +1,87 @@
-## Problem
+## Ziel
 
-In Maestro ist gewählt:
-- **Anzahlung:** Vor Ort (Bar / EC)
-- **Restzahlung:** Vor Ort beim Event
+Alle Werte aus dem Maestro-Block „Zahlungs-Konditionen" (Methoden, Prozente, Fristen) müssen 1:1 auf jede LexOffice-Rechnung & jedes Angebot durchschlagen. Wenn Admin „Restzahlung-Frist (vor Event)" auf **1 Tag** ändert, muss auf der Rechnung exakt **„1 Tag vor der Veranstaltung"** stehen — und analog für alle anderen Felder, Methoden und Kunden.
 
-Auf der LexOffice-Rechnung erscheint aber:
-> Anzahlung 20%, Restbetrag fällig 10 Tage vor der Veranstaltung. Vielen Dank für Ihre Buchung.
+## Status Quo (Analyse)
 
-Das ist sachlich falsch — es gibt keine 10-Tage-Frist, die Restzahlung erfolgt vor Ort.
+In `supabase/functions/create-event-quotation/index.ts` werden bereits gelesen:
+- `inq.deposit_method`, `inq.balance_method`
+- `inq.deposit_percent`, `inq.deposit_amount`, `inq.deposit_due_days`
+- `inq.balance_due_days_before_event`
+- `inq.invoice_due_days`, `inq.offer_validity_days`
 
-## Ursache
+Maestro (`PaymentTermsBlock.tsx`) persistiert genau diese Felder direkt auf `v2_events`. Die Datenkette stimmt also bereits — nur der Text-Builder hat Lücken.
 
-In `supabase/functions/create-event-quotation/index.ts` (Block `isInvoiceMode && isFinalInvoice`, Zeilen 1177–1212):
+## Lücken im Rechnungs-Text (Branch `isInvoiceMode && isFinalInvoice`)
 
-1. `labelForMethod()` kennt nur die Werte `cash` / `card_onsite` / `onsite`, aber Maestro speichert `on_site` (mit Unterstrich). Folge: `methodLabel` und `depLabel` sind leer.
-2. Der Satzbau erzwingt unabhängig von der Methode immer `… fällig X Tage vor der Veranstaltung`. Für „Vor Ort"-Restzahlung ist das falsch — es muss `… vor Ort beim Event` heißen.
-3. Analog für die Anzahlung: bei `on_site` darf keine Tages-Frist erscheinen.
+1. **Keine Pluralisierung:** `1 Tage` / `1 Tagen` statt `1 Tag`.
+2. **`invoice_after` (Rechnung nach Event)** fällt durchs Raster: `balance_due_days_before_event` ist null → es wird fälschlich `invoiceDueDays` als „Tage vor der Veranstaltung" formuliert. Korrekt ist „Zahlungsziel **X Tage nach Rechnungseingang**".
+3. **`invoice_before`** wird wie generisch behandelt — Methodentext „per Überweisung" ist OK, aber der Satz sollte „Restzahlung per Rechnung vor Event — fällig X Tag(e) vor der Veranstaltung" lauten (klare Methodentrennung).
+4. **`on_site`** ist bereits korrekt (im letzten Fix erledigt).
+5. **Anzahlung:** Wenn `deposit_method = invoice` → derzeit `vor Ort (Bar / EC)`-Label fehlt korrekt, aber Frist nur sinnvoll bei `stripe`/`invoice` (vor Event). Bei `on_site` keine Frist (bereits erledigt).
 
-## Fix (nur Edge Function, keine DB / kein Frontend)
+Im Angebots-Pfad (`buildOfferRemark`) gilt das gleiche Pluralisierungs-Problem.
+
+## Fix (nur Edge Function)
 
 **Datei:** `supabase/functions/create-event-quotation/index.ts`
 
-1. **`labelForMethod()` erweitern** — `case 'on_site'` ergänzen, gleicher Rückgabewert wie `cash`/`card_onsite` (`'vor Ort (Bar / EC)'`).
+### A. Helper `daysLabel(n)`
+```
+const daysLabel = (n: number) => n === 1 ? '1 Tag' : `${n} Tage`;
+```
+Überall verwenden, wo bisher `${x} Tage` hardcoded ist (sowohl `buildOfferRemark` als auch `isInvoiceMode`-Branch und `buildPaymentConditions`).
 
-2. **Helper `isOnSite(m)`** einführen (`m === 'on_site' || m === 'cash' || m === 'card_onsite' || m === 'onsite'`).
+### B. `isInvoiceMode && isFinalInvoice` — Restzahlungs-Phrase nach Methode auffächern
 
-3. **Branch `isInvoiceMode && isFinalInvoice` (Zeilen 1195–1212) umbauen:**
-   - **Restzahlungs-Teil:**
-     - Wenn `isOnSite(balanceMethod)` → `paymentTermLabel = 'Restzahlung vor Ort beim Event (Bar / EC)'`, keine Tage-Frist anhängen.
-     - Sonst (Stripe / Überweisung / Default): bestehender Satz mit `fällig X Tage vor der Veranstaltung`.
-   - **Anzahlungs-Teil (`depInfo`):**
-     - Wenn `isOnSite(depositMethod)` → `'Anzahlung 20% vor Ort'` (bzw. fixed amount + `vor Ort`), keine Frist.
-     - Sonst unverändert.
-   - **Schluss-Satz:** wie bisher zusammengebaut (`{depInfo}, {Restbetrag-Phrase}. Vielen Dank für Ihre Buchung.`).
-   - **`paymentTermDuration`:** bleibt auf `dueDays` (LexOffice erwartet eine Zahl ≥ 1); wirkt sich aber nicht mehr auf den sichtbaren Text aus, wenn beide Methoden „Vor Ort" sind.
+```text
+balanceMethod === 'on_site' / 'cash' / 'card_onsite' / 'onsite'
+  → "Restzahlung vor Ort beim Event (Bar / EC)"                       (bestehend)
 
-4. **Edge Function deployen.**
+balanceMethod === 'stripe_prepay' / 'stripe' / 'stripe_now'
+  → "Restzahlung per Stripe (Online-Zahlung) — fällig {daysLabel(bDays)} vor der Veranstaltung"
 
-### Beispiele nach dem Fix
+balanceMethod === 'invoice_before'
+  → "Restzahlung per Überweisung — fällig {daysLabel(bDays)} vor der Veranstaltung"
 
-| Anzahlung | Restzahlung | Remark-Text |
-|-----------|-------------|-------------|
-| Vor Ort 20 % | Vor Ort beim Event | `Anzahlung 20% vor Ort, Restbetrag vor Ort beim Event (Bar / EC). Vielen Dank für Ihre Buchung.` |
-| Stripe 20 % | Stripe vorab | `Anzahlung 20% per Stripe (Online-Zahlung), Restbetrag per Stripe (Online-Zahlung) — fällig 10 Tage vor der Veranstaltung. Vielen Dank für Ihre Buchung.` |
-| Keine | Vor Ort beim Event | `Restzahlung vor Ort beim Event (Bar / EC). Vielen Dank für Ihre Buchung.` |
+balanceMethod === 'invoice_after'
+  → "Restzahlung per Überweisung — Zahlungsziel {daysLabel(invoiceDueDays)} nach Rechnungseingang"
+
+Default / null
+  → "Restzahlung fällig {daysLabel(bDays)} vor der Veranstaltung"
+```
+
+`bDays = balance_due_days_before_event ?? invoice_due_days` (bestehend).
+
+### C. Anzahlungs-Phrase (`depInfo`)
+```text
+on_site         → "Anzahlung {betrag} vor Ort"
+stripe          → "Anzahlung {betrag} per Stripe (Online-Zahlung) — innerhalb {daysLabel(dd)}"
+invoice (vorab) → "Anzahlung {betrag} per Überweisung — innerhalb {daysLabel(dd)}"
+none / 0%       → entfällt
+```
+`{betrag}` = `fixedDepositAmount.toFixed(2) €` falls > 0, sonst `depositPercent %`.
+
+### D. `paymentConditions.paymentTermLabel`
+- Wenn `on_site` für Restzahlung → unverändert `"Restzahlung vor Ort beim Event (Bar / EC)"`, `paymentTermDuration = 1` (Pflichtfeld LexOffice).
+- Sonst spiegelt `paymentTermLabel` denselben Phrasenbaukasten wie in B.
+- `paymentTermDuration` = `bDays` (oder `invoiceDueDays` bei `invoice_after`).
+
+### E. `buildOfferRemark` (Angebots-PDF)
+Selbe Behandlung von Pluralisierung über `daysLabel` und gleiche Methodenphrasen für Konsistenz zwischen Angebot und Rechnung.
+
+### F. Edge Function deployen.
+
+## Sanity-Checks (Beispiele nach Fix)
+
+| Maestro-Setup | Resultierender Rechnungs-Remark |
+|---|---|
+| Anzahlung 20 % Stripe / Rest Stripe **1 Tag** | `Anzahlung 20% per Stripe (Online-Zahlung) — innerhalb 5 Tage, Restbetrag per Stripe (Online-Zahlung) — fällig 1 Tag vor der Veranstaltung. Vielen Dank für Ihre Buchung.` |
+| Anzahlung Vor Ort 20 % / Rest Vor Ort beim Event | `Anzahlung 20% vor Ort, Restbetrag vor Ort beim Event (Bar / EC). Vielen Dank für Ihre Buchung.` |
+| Keine Anzahlung / Rechnung nach Event 7 Tage | `Restzahlung per Überweisung — Zahlungsziel 7 Tage nach Rechnungseingang. Vielen Dank für Ihre Buchung.` |
+| Anzahlung 30 % invoice / Rest Rechnung vor Event 14 Tage | `Anzahlung 30% per Überweisung — innerhalb 5 Tage, Restbetrag per Überweisung — fällig 14 Tage vor der Veranstaltung. Vielen Dank für Ihre Buchung.` |
 
 ## Nicht-Ziele
-
-- Keine Änderung an `buildOfferRemark()` (Angebots-Pfad funktioniert bereits korrekt).
-- Keine DB-Migration, kein Frontend-Code, keine anderen Edge Functions.
-- Bestehende Rechnungen werden nicht rückwirkend geändert.
+- Keine DB-Migration, kein Frontend-Code.
+- Bestehende, bereits versendete Rechnungen werden **nicht** rückwirkend geändert.
+- Keine Änderung an site-weiten Defaults — die werden nur gezogen, wenn Maestro selbst nichts gesetzt hat.
