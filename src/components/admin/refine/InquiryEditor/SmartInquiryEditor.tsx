@@ -1049,6 +1049,32 @@ export const SmartInquiryEditor = () => {
 
             {!!inquiry?.email && (() => {
               const sentAt = (inquiry as any)?.invoice_email_sent_at;
+              const balanceOnSite = ['on_site','onsite','cash','card_onsite']
+                .includes(String((inquiry as any)?.balance_method || ''));
+              const hasInvoice = !!(inquiry as any)?.final_lexoffice_invoice_id
+                || !!(inquiry as any)?.invoice_lexoffice_id;
+              // Bei „Restzahlung vor Ort" KEINE Schlussrechnung erlaubt —
+              // außer eine existiert bereits (Altbestand), dann muss sie
+              // bedienbar bleiben (Storno/Re-Send).
+              if (balanceOnSite && !hasInvoice) {
+                return (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 px-2 sm:px-3 opacity-60 cursor-not-allowed"
+                    disabled
+                    title="Restzahlung erfolgt vor Ort über das Kassensystem — keine LexOffice-Schlussrechnung erlaubt"
+                  >
+                    <MailIcon className="h-4 w-4" />
+                    <span className="hidden sm:inline">
+                      Rechnung schicken
+                    </span>
+                    <span className="hidden sm:inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Vor Ort
+                    </span>
+                  </Button>
+                );
+              }
               const title = sentAt
                 ? `Zuletzt versendet am ${new Date(sentAt).toLocaleString('de-DE')} — Vorschau öffnen`
                 : 'Rechnung an Kunden schicken (mit Vorschau)';
