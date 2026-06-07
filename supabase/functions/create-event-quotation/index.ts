@@ -799,6 +799,10 @@ function legacyMethodPair(pm: string | null | undefined): { deposit: DepositMeth
   }
 }
 
+function daysLabel(n: number): string {
+  return n === 1 ? '1 Tag' : `${n} Tage`;
+}
+
 function buildOfferRemark(args: {
   depositMethod: DepositMethodKind;
   balanceMethod: BalanceMethodKind;
@@ -838,8 +842,6 @@ function buildOfferRemark(args: {
 
   return `${depositText ? depositText + ', ' : ''}${balanceText}. Angebot ${daysLabel(ov)} gültig.`;
 }
-
-const daysLabel = (n: number): string => (n === 1 ? '1 Tag' : `${n} Tage`);
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
