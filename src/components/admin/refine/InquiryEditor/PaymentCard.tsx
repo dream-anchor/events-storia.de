@@ -435,10 +435,21 @@ export function PaymentCard({ inquiryId, preferredDate, offerTotal, isTest = fal
   const paidTotal = activePayments
     .filter(p => p.status === 'paid')
     .reduce((sum, p) => sum + p.amount_cents, 0);
+
+  // Maestro single source of truth: Total kommt aus offerTotal, nicht aus Σ Zahlungen.
+  const totalCents = offerTotal != null ? Math.round(offerTotal * 100) : 0;
+  const paidDepositCents = activePayments
+    .filter(p => (p.payment_type === 'deposit' || p.payment_type === 'prepayment') && p.status === 'paid')
+    .reduce((sum, p) => sum + p.amount_cents, 0);
   const openTotal = activePayments
     .filter(p => p.status !== 'paid')
-    .reduce((sum, p) => sum + p.amount_cents, 0);
-  const grandTotal = paidTotal + openTotal;
+    .reduce((sum, p) => {
+      if (p.payment_type === 'final' && totalCents > 0 && paidDepositCents > 0) {
+        return sum + Math.max(totalCents - paidDepositCents, 0);
+      }
+      return sum + p.amount_cents;
+    }, 0);
+  const grandTotal = totalCents > 0 ? totalCents : paidTotal + openTotal;
 
   const allPaid = activePayments.length > 0 && activePayments.every(p => p.status === 'paid');
   const hasFinalInvoice = !!finalInvoiceState.id;
@@ -492,7 +503,13 @@ export function PaymentCard({ inquiryId, preferredDate, offerTotal, isTest = fal
           ) : (
             <>
               {payments.map(p => (
-                <PaymentRow key={p.id} payment={p} onRefresh={loadPayments} />
+                <PaymentRow
+                  key={p.id}
+                  payment={p}
+                  onRefresh={loadPayments}
+                  totalCents={totalCents}
+                  paidDepositCents={paidDepositCents}
+                />
               ))}
 
               {grandTotal > 0 && (
