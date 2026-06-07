@@ -1183,11 +1183,15 @@ serve(async (req) => {
         case 'invoice_before':
         case 'invoice_after': return 'per Überweisung';
         case 'onsite':
+        case 'on_site':
         case 'cash':
         case 'card_onsite': return 'vor Ort (Bar / EC)';
         default: return '';
       }
     };
+
+    const isOnSite = (m: string | null): boolean =>
+      m === 'on_site' || m === 'onsite' || m === 'cash' || m === 'card_onsite';
 
     let paymentConditions: { paymentTermLabel: string; paymentTermDuration: number };
     let remarkText: string;
@@ -1195,21 +1199,29 @@ serve(async (req) => {
     if (isInvoiceMode && isFinalInvoice) {
       const dueDays = Math.max(1, balanceDueDaysBeforeEvent ?? invoiceDueDays);
       const methodLabel = labelForMethod(balanceMethod);
+      const balanceOnSite = isOnSite(balanceMethod);
       paymentConditions = {
-        paymentTermLabel: methodLabel
-          ? `Restzahlung ${methodLabel} — fällig ${dueDays} Tage vor der Veranstaltung`
-          : `Restzahlung fällig ${dueDays} Tage vor der Veranstaltung`,
+        paymentTermLabel: balanceOnSite
+          ? `Restzahlung vor Ort beim Event (Bar / EC)`
+          : methodLabel
+            ? `Restzahlung ${methodLabel} — fällig ${dueDays} Tage vor der Veranstaltung`
+            : `Restzahlung fällig ${dueDays} Tage vor der Veranstaltung`,
         paymentTermDuration: dueDays,
       };
       const depLabel = labelForMethod(depositMethod);
+      const depositOnSite = isOnSite(depositMethod);
+      const depChannel = depositOnSite ? 'vor Ort' : (depLabel ? ' ' + depLabel : '');
+      const depChannelSuffix = depositOnSite ? ' vor Ort' : (depLabel ? ' ' + depLabel : '');
       const depInfo = (fixedDepositAmount && fixedDepositAmount > 0)
-        ? `Anzahlung ${fixedDepositAmount.toFixed(2)} €${depLabel ? ' ' + depLabel : ''}`
+        ? `Anzahlung ${fixedDepositAmount.toFixed(2)} €${depChannelSuffix}`
         : (depositPercent && depositPercent > 0
-            ? `Anzahlung ${depositPercent}%${depLabel ? ' ' + depLabel : ''}`
+            ? `Anzahlung ${depositPercent}%${depChannelSuffix}`
             : null);
+      const balancePhrase = paymentConditions.paymentTermLabel.replace(/^Restzahlung /, '');
       remarkText = depInfo
-        ? `${depInfo}, Restbetrag ${paymentConditions.paymentTermLabel.replace(/^Restzahlung /, '')}. Vielen Dank für Ihre Buchung.`
+        ? `${depInfo}, Restbetrag ${balancePhrase}. Vielen Dank für Ihre Buchung.`
         : `${paymentConditions.paymentTermLabel}. Vielen Dank für Ihre Buchung.`;
+      void depChannel;
     } else if (isInvoiceMode) {
       paymentConditions = {
         paymentTermLabel: `Zahlbar innerhalb von ${invoiceDueDays} Tagen nach Rechnungseingang`,
