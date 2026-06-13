@@ -8,6 +8,7 @@ import { WorklistFilters, type WorklistFiltersValue } from "./WorklistFilters";
 import { WorklistTable } from "./WorklistTable";
 import { DayTimelineSidebar } from "./DayTimelineSidebar";
 import { WeekSparkline } from "./WeekSparkline";
+import { EmailFailureTile } from "./EmailFailureTile";
 
 function greetingFor(hour: number): string {
   if (hour < 5) return "Gute Nacht";
@@ -123,6 +124,7 @@ export function Pinnwand() {
             <WorklistTable tasks={filteredTasks} now={now} />
           </div>
           <div className="space-y-4">
+            <EmailFailureTile />
             <DayTimelineSidebar
               operations={data?.operations || []}
               todayKey={todayKey}
