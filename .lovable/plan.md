@@ -1,58 +1,42 @@
-## Probleme & Ursachen
+## Problem
 
-**1) AI sagt „Endbetrag brutto 0,00 €"**
-`v2_offer_options.amount_total = 0.00` für das Angebot, während `freeformProgram.totalsFromText.gross = 28.460,84 €` und `discount = {mode:'amount', value:3460.84}` (→ effektiv 25.000 €). Edge-Function übergibt `opt.totalAmount` (= 0) als „ENDBETRAG BRUTTO" an die KI.
+Im Public Offer zeigt die Angebotskarte „833 Gäste — 0,00 €" und kein Anzahlungs-/Restzahlungs-Button. Ursache: `option.total_amount = 0` in der DB. Summe und Rabatt stehen in `menu_selection.freeformProgram.totalsFromText.gross` bzw. `freeformProgram.discount` — werden aber für die Kostenkarte nicht herangezogen.
 
-**2) Freitext-Felder nur teilweise editierbar**
-Titel, Zeitraum, Location, Mahlzeit-Label, Personen, Preis, Tax-Breakdown, Totals, Rabatt sind schon editierbar. **Nicht editierbar:** Sections/Headings/Items innerhalb der Mahlzeiten (Gerichte), `scopeOfServices`, `notes`, Tagesdatum.
+Da `totalAmount` als 0 berechnet wird, fallen auch alle abhängigen Anzeigen aus:
+- Gesamtpreis (0,00 €)
+- Anzahlungsbetrag (20 % aus 0)
+- Restzahlungs-Hinweis
+- Stripe-Buttons („Jetzt zahlen" / „Anzahlung")
+- Zahlungs-Konditionen-Block (Fristen Anzahlung/Restzahlung gemäß Screenshot)
 
-**3) Bounce-Notification an info@events-storia.de**
-Email an Natascha.Morgan@dataguard.com (10.06.2026 13:43, status=bounced, log-id `db7c5076-1ac6-4277-a986-6143e208aa98`) hat `metadata.alert_sent_at = null` → Alarm wurde nie versendet. Einmalig nachholen via `notify-email-failure`.
+## Lösung
 
-**4) Rabatt-Anzeige Prozent bei Betrags-Rabatt**
-Public Offer (`FreeformProgramSection.tsx` Z. 151) zeigt Prozent nur wenn `mode==='percent'`. Bei `mode==='amount'` soll zusätzlich die effektive Prozentzahl (2 Nachkommastellen) angezeigt werden.
+Eine zentrale Stelle in `src/pages/public-offer/ProposalView.tsx`: Helper `effectiveTotalFor(opt)`, der für Freeform-Optionen den Bruttobetrag aus dem Programm berechnet, wenn `total_amount` 0 ist.
 
----
-
-## Plan
-
-### A. Edge-Function `generate-inquiry-email` (Endbetrag-Fallback)
-In `index.ts`, freeform-Branch (Z. 215–268):
-- Effektiven Endbetrag berechnen: `effectiveGross = opt.totalAmount > 0 ? opt.totalAmount : (totalsFromText.gross − discountAmount)`.
-- Diesen Wert für „ENDBETRAG BRUTTO" verwenden.
-- Falls beide 0 → Hinweis in Kontext „kein Betrag verfügbar — NICHT erfinden, lasse Preis im Anschreiben weg".
-
-Außerdem im System-Prompt (F4): explizit „falls 0,00 € im Kontext steht und totalsFromText.gross > 0 — niemals 0,00 schreiben".
-
-Anschließend `deploy_edge_functions(['generate-inquiry-email'])`.
-
-### B. Freitext-Editor: Gerichte / Hinweise / Datum editierbar
-`FreeformProgramEditor.tsx`:
-- Pro Mahlzeit: Sections editierbar (Heading-Input + Items als bearbeitbare Zeilen mit „+ Zeile" und „× entfernen"). Neue Section hinzufügen / Section entfernen.
-- Tagesdatum-Label editierbar (Input statt `<span>`), + „Mahlzeit hinzufügen / löschen" und „Tag hinzufügen / löschen".
-- `scopeOfServices` (Leistungsumfang) und `notes` (Hinweise) als editierbare Textareas (eine Zeile = ein Eintrag) ergänzen.
-- MwSt-Sätze (`foodVatRate`, `servicesVatRate`) als Input mit Prozent.
-
-UI behält das bestehende Premium-Light-Layout (rounded-2xl, neutrale Grautöne, keine neuen Farben).
-
-### C. Public Offer: Prozent bei Betrags-Rabatt anzeigen
-`FreeformProgramSection.tsx` Z. 151:
+```text
+effective = opt.total_amount > 0
+  ? opt.total_amount
+  : (freeform ? max(0, totalsFromText.gross − discountAmount) : 0)
 ```
-Rabatt{d?.mode === 'percent' ? ` (${d.value}%)` : ''}
-```
-→ wenn `mode==='amount'` und `totalsFromText.gross > 0`:
-`(${(d.value / totalsFromText.gross * 100).toFixed(2)}%)`.
-Gilt für beide Modi: Prozent immer auf 2 Nachkommastellen.
 
-### D. Bounce-Alarm einmalig nachholen
-`supabase--curl_edge_functions` POST `/notify-email-failure` mit `{ deliveryLogId: "db7c5076-1ac6-4277-a986-6143e208aa98" }`. Setzt `metadata.alert_sent_at` automatisch (idempotent).
+`discountAmount`:
+- `mode==='amount'` → `value`
+- `mode==='percent'` → `gross * value / 100`
 
----
+Anwendung:
+- `perPersonPriceFor(opt)` nutzt `effectiveTotalFor(opt)` statt `opt.total_amount`.
+- `totalAmount` (Zeile 150–152) nutzt `effectiveTotalFor(selectedOption)`.
 
-## Touched files
-- `supabase/functions/generate-inquiry-email/index.ts`
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/FreeformProgramEditor.tsx`
-- `src/pages/public-offer/FreeformProgramSection.tsx`
-- Edge-Call: `notify-email-failure` (kein Code-Change)
+Dadurch greifen automatisch wieder:
+- Anzeige „Gesamtpreis inkl. MwSt." mit korrektem Betrag.
+- `depositAmount` Berechnung (20 % aus echtem Total bzw. fester Anzahlungs-Betrag).
+- `showDeposit` und damit der gesamte Stripe-Block (Anzahlungs-/Vollzahlungs-Buttons).
+- Bestehender Zahlungs-Konditionen-Hinweis (Anzahlung X %, Frist Y Tage, Restzahlung Z Tage vor Event), der bereits `paymentMethod`, `depositPercent`, `depositDueDays`, `invoiceDueDays` aus `inquiry` rendert.
 
-Keine DB-Migrations, keine neuen Routen.
+Falls der Zahlungs-Konditionen-Hinweis (wie im Screenshot) im Public Offer aktuell nicht sichtbar gerendert wird, prüfen wir das im selben Patch und stellen sicher, dass er bei `totalAmount > 0` ausgegeben wird — Wording analog zum Editor-Hinweis: „Anzahlung 20 % per Stripe innerhalb 5 Tage, Restzahlung per Stripe (10 Tage vor Event). Angebot 14 Tage gültig."
+
+## Datei
+
+- `src/pages/public-offer/ProposalView.tsx` (einziger Patch).
+
+Keine DB-Migrationen, keine Edge-Function-Änderungen.
