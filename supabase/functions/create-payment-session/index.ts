@@ -11,6 +11,28 @@ interface CreatePaymentSessionRequest {
   optionQuantities?: Array<{ optionId: string; quantity: number }>;
 }
 
+function effectiveTotalForOption(opt: { total_amount: number; menu_selection: Record<string, unknown> | null }): number {
+  const explicitTotal = Number(opt.total_amount ?? 0);
+  if (explicitTotal > 0) return explicitTotal;
+
+  const ms = opt.menu_selection;
+  const freeform = ms?.freeformProgram as {
+    totalsFromText?: { gross?: number | string | null } | null;
+    discount?: { mode?: 'percent' | 'amount' | null; value?: number | string | null } | null;
+  } | undefined;
+  const gross = Number(freeform?.totalsFromText?.gross ?? 0);
+  if (gross <= 0) return 0;
+
+  const discount = freeform?.discount;
+  let discountAmount = 0;
+  if (discount?.mode === 'amount') discountAmount = Number(discount.value ?? 0) || 0;
+  if (discount?.mode === 'percent') discountAmount = (gross * (Number(discount.value ?? 0) || 0)) / 100;
+  if (!discountAmount && Number(ms?.discountAmount ?? 0) > 0) discountAmount = Number(ms?.discountAmount ?? 0);
+  if (!discountAmount && Number(ms?.discountPercent ?? 0) > 0) discountAmount = (gross * Number(ms?.discountPercent ?? 0)) / 100;
+
+  return Math.max(0, gross - discountAmount);
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
@@ -114,6 +136,7 @@ serve(async (req) => {
         if (!opt) throw new Error(`Option ${oid} nicht gefunden`);
 
         const pricingMode = (opt.menu_selection?.pricingMode as string | undefined) ?? 'per_person';
+        const effectiveTotal = effectiveTotalForOption(opt);
 
         let pricePerUnitEur: number;
         // Equipment & Staff sind Fixkosten — nicht pro Person skalieren
@@ -128,11 +151,11 @@ serve(async (req) => {
             .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0)
         );
 
-        if (pricingMode === 'per_event') {
+        if (pricingMode === 'per_event' || !!opt.menu_selection?.freeformProgram) {
           if (quantity !== 1) {
             throw new Error(`Option "${opt.option_label}": pauschale Preisstellung erlaubt nur Menge 1`);
           }
-          pricePerUnitEur = opt.total_amount; // per_event: totalAmount enthält alles, quantity=1
+          pricePerUnitEur = effectiveTotal; // per_event/freeform: Gesamtbetrag enthält alles, quantity=1
         } else {
           // per_person: Equipment/Staff-Fixkosten vom totalAmount abziehen,
           // nur den Personenanteil pro Gast berechnen, Fixkosten einmalig addieren
@@ -141,14 +164,14 @@ serve(async (req) => {
             pricePerUnitEur = budgetPerPerson;
           } else if (opt.guest_count > 0) {
             // totalAmount minus Fixkosten = skalierbarer Anteil
-            pricePerUnitEur = (opt.total_amount - equipStaffFixed) / opt.guest_count;
+            pricePerUnitEur = (effectiveTotal - equipStaffFixed) / opt.guest_count;
           } else {
             throw new Error(`Option "${opt.option_label}": Preis pro Person nicht ermittelbar`);
           }
         }
 
         // Personenkosten × gewählte Menge + einmalige Fixkosten
-        const lineEur = pricingMode === 'per_event'
+        const lineEur = pricingMode === 'per_event' || !!opt.menu_selection?.freeformProgram
           ? pricePerUnitEur
           : (pricePerUnitEur * quantity) + equipStaffFixed;
         grandTotalEur += lineEur;
@@ -300,7 +323,7 @@ serve(async (req) => {
       packageName = 'Individuelles Menü';
     }
 
-    const totalAmount = opt.total_amount; // already total (not per person)
+    const totalAmount = effectiveTotalForOption(opt); // already total (not per person); freeform falls back to Maestro gross minus discount
     const depositPercent = inq.deposit_percent ?? 20;
     const fixedDeposit = inq.deposit_amount;
     const isFixedDeposit = fixedDeposit != null && fixedDeposit > 0;

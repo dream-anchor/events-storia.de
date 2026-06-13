@@ -209,6 +209,32 @@ function computeDeposit(
   };
 }
 
+function effectiveTotalForOption(option: PublicOfferOption | null | undefined): number {
+  if (!option) return 0;
+  const explicitTotal = Number(option.total_amount ?? 0);
+  if (explicitTotal > 0) return explicitTotal;
+
+  const menu = option.menu_selection as (MenuSelection & {
+    freeformProgram?: {
+      totalsFromText?: { gross?: number | string | null } | null;
+      discount?: { mode?: 'percent' | 'amount' | null; value?: number | string | null } | null;
+    } | null;
+    discountAmount?: number | string | null;
+    discountPercent?: number | string | null;
+  }) | null;
+  const gross = Number(menu?.freeformProgram?.totalsFromText?.gross ?? 0);
+  if (gross <= 0) return 0;
+
+  const discount = menu?.freeformProgram?.discount;
+  let discountAmount = 0;
+  if (discount?.mode === 'amount') discountAmount = Number(discount.value ?? 0) || 0;
+  if (discount?.mode === 'percent') discountAmount = (gross * (Number(discount.value ?? 0) || 0)) / 100;
+  if (!discountAmount && Number(menu?.discountAmount ?? 0) > 0) discountAmount = Number(menu?.discountAmount ?? 0);
+  if (!discountAmount && Number(menu?.discountPercent ?? 0) > 0) discountAmount = (gross * Number(menu?.discountPercent ?? 0)) / 100;
+
+  return Math.max(0, gross - discountAmount);
+}
+
 // =================================================================
 // MAIN COMPONENT
 // =================================================================
@@ -556,7 +582,7 @@ export default function PublicOffer() {
           lang={lang}
           totalCents={(() => {
             const sel = options.find(o => o.id === inquiry.selected_option_id);
-            return sel ? Math.round((sel.total_amount ?? 0) * 100) : 0;
+            return sel ? Math.round(effectiveTotalForOption(sel) * 100) : 0;
           })()}
         />
         <ContactSection lang={lang} />
@@ -878,7 +904,7 @@ function ProposalView({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
-  const totalAmount = selectedOption?.total_amount ?? 0;
+  const totalAmount = effectiveTotalForOption(selectedOption);
   const deposit = computeDeposit(inquiry, totalAmount);
   const depositAmount = deposit.amount;
 
@@ -952,7 +978,7 @@ function ProposalView({
 
       trackEvent("generate_lead", {
         method: "offer_response",
-        value: selectedOption?.total_amount ?? 0,
+        value: effectiveTotalForOption(selectedOption),
         currency: "EUR",
       });
       onSubmitted({
@@ -1254,16 +1280,20 @@ function ProposalOptionCard({
     ? [{ drinkGroup: 'main_drink' as const, drinkLabel: 'Weinbegleitung', selectedChoice: null, customDrink: null, quantityLabel: null }]
     : [];
   const drinks: DrinkSelection[] = _drinksLegacy.length > 0 ? _drinksLegacy : [..._drinksEinzeln, ..._drinksExtra];
+  const isFreeform = !!(menu as any)?.freeformProgram;
   // Pricing-Modus respektieren: bei per_event ist budgetPerPerson der Gesamtpreis
   // fuer den ganzen Anlass (nicht pro Gast). Dann zeigen wir statt "pro Person"
   // den Gesamtbetrag mit Label "Gesamtpreis".
   const isPerEvent = menu?.pricingMode === 'per_event';
+  const effectiveTotal = effectiveTotalForOption(option);
   const pricePerPerson = isPerEvent
     ? 0
+    : isFreeform
+      ? 0
     : option.guest_count > 0
       ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
           ? menu.budgetPerPerson
-          : option.total_amount / option.guest_count)
+          : effectiveTotal / option.guest_count)
       : 0;
 
   return (
@@ -1308,7 +1338,7 @@ function ProposalOptionCard({
           <p className="text-2xl font-serif font-bold text-primary leading-none">
             {pricePerPerson > 0
               ? formatCurrencyDecimal(pricePerPerson, lang)
-              : formatCurrency(option.total_amount, lang)}
+              : formatCurrency(effectiveTotal, lang)}
           </p>
           <p className="text-[11px] text-muted-foreground font-sans mt-1">
             {pricePerPerson > 0 ? tOffer(lang, 'perPersonShort') : tOffer(lang, 'totalPriceLabel')}
@@ -1538,17 +1568,21 @@ function FinalOptionCard({
     ? [{ drinkGroup: 'main_drink' as const, drinkLabel: 'Weinbegleitung', selectedChoice: null, customDrink: null, quantityLabel: null }]
     : [];
   const drinks: DrinkSelection[] = _drinksLegacy.length > 0 ? _drinksLegacy : [..._drinksEinzeln, ..._drinksExtra];
+  const isFreeform = !!(menu as any)?.freeformProgram;
   // Pricing-Modus respektieren (siehe andere OptionCard-Variante)
   const isPerEvent = menu?.pricingMode === 'per_event';
+  const effectiveTotal = effectiveTotalForOption(option);
   const pricePerPerson = isPerEvent
     ? 0
+    : isFreeform
+      ? 0
     : option.guest_count > 0
       ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
           ? menu.budgetPerPerson
-          : option.total_amount / option.guest_count)
+          : effectiveTotal / option.guest_count)
       : 0;
 
-  const totalAmount = option.total_amount;
+  const totalAmount = effectiveTotal;
   const deposit = computeDeposit(inquiry, totalAmount);
   const depositAmount = deposit.amount;
 
@@ -1616,7 +1650,7 @@ function FinalOptionCard({
           <p className="text-2xl font-serif font-bold text-primary leading-none">
             {pricePerPerson > 0
               ? formatCurrencyDecimal(pricePerPerson, lang)
-              : formatCurrency(option.total_amount, lang)}
+              : formatCurrency(effectiveTotal, lang)}
           </p>
           <p className="text-[11px] text-muted-foreground font-sans mt-1">
             {pricePerPerson > 0 ? tOffer(lang, 'perPersonShort') : tOffer(lang, 'totalPriceLabel')}
@@ -1836,12 +1870,16 @@ function ConfirmationView({
 
   // Pricing-Modus respektieren
   const isPerEvent = selectedOption?.menu_selection?.pricingMode === 'per_event';
+  const effectiveTotal = effectiveTotalForOption(selectedOption);
+  const isFreeform = !!(selectedOption?.menu_selection as any)?.freeformProgram;
   const pricePerPerson = isPerEvent
     ? 0
+    : isFreeform
+      ? 0
     : selectedOption && selectedOption.guest_count > 0
       ? (selectedOption.menu_selection?.budgetPerPerson && selectedOption.menu_selection.budgetPerPerson > 0
           ? selectedOption.menu_selection.budgetPerPerson
-          : selectedOption.total_amount / selectedOption.guest_count)
+          : effectiveTotal / selectedOption.guest_count)
       : 0;
 
   return (
@@ -1860,7 +1898,7 @@ function ConfirmationView({
               {" "}{tOffer(lang, 'forGuests').replace('{n}', String(selectedOption.guest_count))} —{" "}
               {pricePerPerson > 0
                 ? `${formatCurrencyDecimal(pricePerPerson, lang)} ${tOffer(lang, 'perPersonSuffix')}`
-                : `${formatCurrency(selectedOption.total_amount, lang)} ${tOffer(lang, 'totalSuffix')}`}
+                : `${formatCurrency(effectiveTotal, lang)} ${tOffer(lang, 'totalSuffix')}`}
             </p>
           )}
           {inquiry.preferred_date && (
