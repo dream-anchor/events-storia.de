@@ -283,6 +283,103 @@ function buildLineItems(
   const totalAmount = opt.total_amount || 0;
   const items: LexOfficeLineItem[] = [];
 
+  // ─── Freeform / AI-Programm: Maestro-Positionen 1:1 als LexOffice-Zeilen ───
+  // Jede Mahlzeit (Lunch, Dinner, BBQ Sommerfest, …) wird als eigene Zeile mit
+  // ihrem Maestro-Bruttobetrag ausgegeben. Programm-Inhalte (Antipasti, Beilagen
+  // etc.) landen in der LexOffice-Beschreibung. Rabatt erscheint als eigene
+  // negative Zeile, damit die Summe exakt der Maestro-Summe entspricht.
+  if (ms?.freeformProgram && Array.isArray(ms.freeformProgram.days)) {
+    const ff = ms.freeformProgram;
+
+    for (const day of (ff.days || [])) {
+      const dateLabel = (day?.dateLabel || '').trim();
+      for (const meal of (day?.meals || [])) {
+        if (!meal?.label) continue;
+        const netto = Number(meal.flatPriceNet || 0);
+        if (netto <= 0) continue;
+        const vat = Number(meal.vatRate ?? FOOD_TAX_RATE) || FOOD_TAX_RATE;
+        const brutto = round2(netto * (1 + vat / 100));
+        if (brutto <= 0) continue;
+
+        const sectionLines: string[] = [];
+        for (const sec of (meal.sections || [])) {
+          if (!sec) continue;
+          if (sec.heading) sectionLines.push(`${sec.heading}:`);
+          for (const item of (sec.items || [])) {
+            if (item) sectionLines.push(`• ${item}`);
+          }
+        }
+        const guestSuffix = meal.guestCount && meal.guestCount > 0
+          ? ` (${meal.guestCount} Personen)`
+          : '';
+        const name = dateLabel
+          ? `${dateLabel} – ${meal.label}${guestSuffix}`
+          : `${meal.label}${guestSuffix}`;
+
+        items.push({
+          type: 'custom',
+          name,
+          description: sectionLines.join('\n'),
+          quantity: 1,
+          unitName: 'Pauschale',
+          unitPrice: {
+            currency: 'EUR',
+            grossAmount: brutto,
+            taxRatePercentage: vat,
+          },
+        });
+      }
+    }
+
+    // Personal / Equipment / Logistik aus taxBreakdown (eine Sammelzeile mit 19 %)
+    const svcNet = Number(ff.taxBreakdown?.servicesNet || 0);
+    if (svcNet > 0) {
+      const vat = Number(ff.taxBreakdown?.servicesVatRate ?? DRINK_TAX_RATE) || DRINK_TAX_RATE;
+      const brutto = round2(svcNet * (1 + vat / 100));
+      if (brutto > 0) {
+        items.push({
+          type: 'custom',
+          name: 'Personal, Equipment & Logistik',
+          description: '',
+          quantity: 1,
+          unitName: 'Pauschale',
+          unitPrice: {
+            currency: 'EUR',
+            grossAmount: brutto,
+            taxRatePercentage: vat,
+          },
+        });
+      }
+    }
+
+    // Rabatt / Korrektur, damit Summe == Maestro total_amount
+    const ffDiscPct = ff.discount?.mode === 'percent' ? Number(ff.discount.value || 0) : null;
+    const ffDiscAmt = ff.discount?.mode === 'amount' ? Number(ff.discount.value || 0) : null;
+    appendDiscountLines(
+      items,
+      totalAmount,
+      ffDiscPct ?? ms.discountPercent ?? null,
+      ffDiscAmt ?? ms.discountAmount ?? null,
+    );
+
+    // Fallback falls keinerlei Zeilen erzeugt wurden
+    if (items.length === 0 && totalAmount > 0) {
+      items.push({
+        type: 'custom',
+        name: packageName || ff.title || 'Veranstaltungsprogramm',
+        description: '',
+        quantity: 1,
+        unitName: 'Pauschale',
+        unitPrice: {
+          currency: 'EUR',
+          grossAmount: round2(totalAmount),
+          taxRatePercentage: FOOD_TAX_RATE,
+        },
+      });
+    }
+    return items;
+  }
+
   // Pricing-Modus per_event: Positionen mit korrektem MwSt-Split.
   // Alle overridePrice-/pricePerPerson-Werte sind BRUTTO. Wir geben sie
   // direkt als grossAmount an LexOffice; LexOffice rechnet enthaltene MwSt
