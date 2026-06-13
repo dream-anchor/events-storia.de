@@ -800,9 +800,12 @@ export const SmartInquiryEditor = () => {
           console.log('[Send] Step 5 — history version', newVersion, 'gespeichert');
         }
 
-        // 4. LexOffice-Quotation (non-blocking) — nur beim Proposal
+        // 4. LexOffice-Quotation (non-blocking) — nur beim Proposal.
+        // Immer aufrufen: die Edge Function prüft selbst, ob ein bestehendes
+        // Angebot noch aktuell ist. Sonst bleiben nach Preis-/Rabattänderungen
+        // alte PDFs ohne Rabatt verknüpft.
         let lexQuotationId: string | null = null;
-        if (sendType === 'proposal' && !inquiry.lexoffice_quotation_id) {
+        if (sendType === 'proposal') {
           try {
             const { data: quotRes } = await supabase.functions.invoke('create-event-quotation', {
               body: { inquiryId: inquiry.id },
