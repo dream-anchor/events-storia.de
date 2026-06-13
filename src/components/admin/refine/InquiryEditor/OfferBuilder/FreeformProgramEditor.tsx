@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Calendar, Users, RefreshCw, ChevronDown, FileText, Trash2, ShieldAlert, X } from "lucide-react";
+import { Calendar, Users, RefreshCw, ChevronDown, FileText, Trash2, ShieldAlert, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import type { FreeformProgram, FreeformProgramMeal, ValidationFinding } from "./types";
+import type { FreeformProgram, FreeformProgramMeal, FreeformProgramDay, FreeformProgramSection, ValidationFinding } from "./types";
 import { LinePriceModeToggle } from "./LinePriceModeToggle";
 
 interface FreeformProgramEditorProps {
@@ -53,6 +54,61 @@ export function FreeformProgramEditor({
             },
       ),
     });
+  };
+
+  const updateDay = (dayId: string, patch: Partial<FreeformProgramDay>) => {
+    onChange({
+      ...program,
+      days: program.days.map((d) => (d.id !== dayId ? d : { ...d, ...patch })),
+    });
+  };
+
+  const addDay = () => {
+    const id = `day-${Date.now()}`;
+    onChange({
+      ...program,
+      days: [...program.days, { id, dateLabel: "Neuer Tag", meals: [] }],
+    });
+    setExpanded((e) => ({ ...e, [id]: true }));
+  };
+  const removeDay = (dayId: string) => {
+    onChange({ ...program, days: program.days.filter((d) => d.id !== dayId) });
+  };
+  const addMeal = (dayId: string) => {
+    const id = `meal-${Date.now()}`;
+    onChange({
+      ...program,
+      days: program.days.map((d) =>
+        d.id !== dayId
+          ? d
+          : {
+              ...d,
+              meals: [
+                ...d.meals,
+                { id, label: "Neue Mahlzeit", guestCount: 0, flatPriceNet: 0, vatRate: 7, sections: [] },
+              ],
+            },
+      ),
+    });
+  };
+  const removeMeal = (dayId: string, mealId: string) => {
+    onChange({
+      ...program,
+      days: program.days.map((d) =>
+        d.id !== dayId ? d : { ...d, meals: d.meals.filter((m) => m.id !== mealId) },
+      ),
+    });
+  };
+  const updateSections = (dayId: string, mealId: string, sections: FreeformProgramSection[]) => {
+    updateMeal(dayId, mealId, { sections });
+  };
+  const setScope = (text: string) => {
+    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    onChange({ ...program, scopeOfServices: lines.length ? lines : null });
+  };
+  const setNotes = (text: string) => {
+    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    onChange({ ...program, notes: lines.length ? lines : null });
   };
 
   const updateTax = (patch: Partial<FreeformProgram["taxBreakdown"]>) => {
