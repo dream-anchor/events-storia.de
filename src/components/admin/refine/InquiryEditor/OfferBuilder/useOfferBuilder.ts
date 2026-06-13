@@ -25,6 +25,7 @@ function mapLegacyMode(dbMode: string | null | undefined): OfferMode {
     case 'menu': return 'menu';
     case 'paket': return 'paket';
     case 'email': return 'email';
+    case 'freeform': return 'freeform';
     case 'fest_menu':
     case 'full_menu':
     case 'teil_menu':

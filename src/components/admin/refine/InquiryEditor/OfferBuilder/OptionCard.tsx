@@ -552,6 +552,7 @@ function ModeSelectorTiles({
     { mode: 'menu', icon: UtensilsCrossed, label: 'Restaurant-Menü', hint: 'Speisekarte laden & anpassen', triggersImport: true },
     { mode: 'menu', icon: ChefHat, label: 'Eigenes Menü', hint: 'Gänge frei zusammenstellen' },
     { mode: 'paket', icon: PackageIcon, label: 'Paket', hint: 'Fertigpaket wählen' },
+    { mode: 'freeform', icon: Sparkles, label: 'Freitext-Import', hint: 'KI parst Text in Angebot' },
     { mode: 'email', icon: Mail, label: 'Nur E-Mail', hint: 'ohne Menükonfiguration' },
   ];
 
@@ -585,6 +586,47 @@ function ModeSelectorTiles({
         ))}
       </div>
     </div>
+  );
+}
+
+// --- Modus: Freitext-Import (KI) ---
+function FreeformContent({
+  option,
+  onUpdate,
+  disabled,
+}: {
+  option: OfferBuilderOption;
+  onUpdate: (u: Partial<OfferBuilderOption>) => void;
+  disabled: boolean;
+}) {
+  const program = option.menuSelection.freeformProgram ?? null;
+
+  const setProgram = (p: FreeformProgram | null) => {
+    onUpdate({
+      menuSelection: { ...option.menuSelection, freeformProgram: p },
+      // totalAmount aus brutto übernehmen (Maestro-Prinzip: 1:1)
+      totalAmount: p?.totalsFromText?.gross ?? 0,
+      packageName: p?.title || option.packageName || 'Catering-Programm',
+    });
+  };
+
+  if (!program) {
+    return <FreeformImportPanel onParsed={setProgram} disabled={disabled} />;
+  }
+
+  return (
+    <FreeformProgramEditor
+      program={program}
+      onChange={(p) =>
+        onUpdate({
+          menuSelection: { ...option.menuSelection, freeformProgram: p },
+          totalAmount: p.totalsFromText?.gross ?? 0,
+          packageName: p.title || option.packageName,
+        })
+      }
+      onClear={() => setProgram(null)}
+      disabled={disabled}
+    />
   );
 }
 
