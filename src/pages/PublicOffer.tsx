@@ -582,7 +582,7 @@ export default function PublicOffer() {
           lang={lang}
           totalCents={(() => {
             const sel = options.find(o => o.id === inquiry.selected_option_id);
-            return sel ? Math.round((sel.total_amount ?? 0) * 100) : 0;
+            return sel ? Math.round(effectiveTotalForOption(sel) * 100) : 0;
           })()}
         />
         <ContactSection lang={lang} />
@@ -904,7 +904,7 @@ function ProposalView({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
-  const totalAmount = selectedOption?.total_amount ?? 0;
+  const totalAmount = effectiveTotalForOption(selectedOption);
   const deposit = computeDeposit(inquiry, totalAmount);
   const depositAmount = deposit.amount;
 
@@ -978,7 +978,7 @@ function ProposalView({
 
       trackEvent("generate_lead", {
         method: "offer_response",
-        value: selectedOption?.total_amount ?? 0,
+        value: effectiveTotalForOption(selectedOption),
         currency: "EUR",
       });
       onSubmitted({
