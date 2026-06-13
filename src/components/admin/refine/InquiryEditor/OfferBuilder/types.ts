@@ -99,6 +99,16 @@ export interface FreeformProgram {
   discount?: { mode: 'percent' | 'amount'; value: number } | null;
 }
 
+/** Red-Team-Validation-Finding (transient, nicht persistiert). */
+export interface ValidationFinding {
+  severity: 'critical' | 'warning';
+  category: 'completeness' | 'pricing' | 'guests_dates' | 'notes';
+  path: string;
+  expected: string;
+  actual: string;
+  message: string;
+}
+
 export type DrinkSectionMode = 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
 
 export interface DrinkEinzelnItem {
