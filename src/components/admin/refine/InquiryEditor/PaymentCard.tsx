@@ -252,7 +252,7 @@ function PaymentRow({
       {/* Header row */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-semibold text-sm tabular-nums">{formatEUR(hasDeduction ? netCents : payment.amount_cents)}</span>
+          <span className="font-semibold text-sm tabular-nums" data-sensitive="money">{formatEUR(hasDeduction ? netCents : payment.amount_cents)}</span>
           <span className="text-xs text-muted-foreground">{typeLabels[payment.payment_type]}</span>
           {isMismatch && (
             <span
@@ -276,7 +276,7 @@ function PaymentRow({
       </div>
 
       {hasDeduction && (
-        <p className="text-[11px] text-muted-foreground tabular-nums">
+        <p className="text-[11px] text-muted-foreground tabular-nums" data-sensitive="money">
           {formatEUR(totalCents)} − {formatEUR(paidDepositCents)} abzgl. Anzahlung
         </p>
       )}
