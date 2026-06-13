@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { CheckCircle2, FileSignature, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -247,11 +247,9 @@ type FormState = {
 function CostAcceptanceForm(
   props: {
     form: FormState;
-    setForm: React.Dispatch<React.SetStateAction<FormState>>;
+    setForm: Dispatch<SetStateAction<FormState>>;
     confirmations: Record<string, boolean>;
-    setConfirmations: React.Dispatch<
-      React.SetStateAction<Record<string, boolean>>
-    >;
+    setConfirmations: Dispatch<SetStateAction<Record<string, boolean>>>;
     isB2C: boolean;
     onSubmit: () => void;
     disabled: boolean;
