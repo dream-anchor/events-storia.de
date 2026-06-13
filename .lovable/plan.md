@@ -1,123 +1,107 @@
 ## Ziel
 
-Nach dem KI-Parse (`parse-freeform-offer`, Gemini 2.5 Pro) läuft automatisch ein zweiter KI-Call gegen ein anderes Modell als "Red Team". Findings (fehlende Tage, falsche Preise, fehlende Mahlzeiten, fehlende Hinweise) lösen einen automatischen Korrektur-Retry aus. Erst wenn das Red Team grünes Licht gibt (oder max. 2 Retries durch sind), wird das Programm an den Editor übergeben.
+Jede Email, die nicht erfolgreich zugestellt wurde (bounced, complained, failed, suppressed, delayed >24h), wird sofort:
+1. mit einer **DRINGEND**-Mail an `info@events-storia.de` gemeldet,
+2. **rot** im jeweiligen Angebot (Inquiry-Detailseite) markiert,
+3. **rot** in der Inquiry-Übersichtsliste (`UnifiedInquiriesList`) markiert,
+4. **rot** im Admin-Dashboard als Tile/Counter angezeigt.
+
+Quelle ist die bestehende Tabelle `email_delivery_logs` (Status: `bounced | complained | failed | delayed | suppressed`). Aktuell ist bereits Logik vorhanden, aber niemand bemerkt Fehler.
 
 ## Architektur
 
 ```text
-Admin pastet Text
-  → parse-freeform-offer  (Gemini 2.5 Pro, Parser)
-  → validate-freeform-offer  (GPT-5, Red Team)
-      ├─ ok=true → ins UI übernehmen
-      └─ ok=false + findings[]
-          → Auto-Retry: parse-freeform-offer mit Korrektur-Hinweis
-              (max. 2 Retries, dann übernehmen + Findings als Warnung im Editor)
+Resend Webhook (bounced/complained/failed)
+  → receive-resend-webhook (update status)
+      → NEU: notify-email-failure (DRINGEND-Mail an info@)
+                + insert system_errors / email_failures Eintrag
+                + cache invalidieren
+
+Inquiry-Detail / Liste / Dashboard
+  → useEmailFailures(entityId | global)
+      → SELECT * FROM email_delivery_logs WHERE status IN (failed, bounced, complained, suppressed)
+      → rotes Badge / Banner
 ```
 
-Beide Edge Functions bleiben getrennt, damit das Red Team unabhängig prüft und nicht denselben Bias erbt.
+Auch der initiale Send-Fehler (z.B. `send-offer-email` wirft Exception, Resend antwortet 4xx/5xx) wird bereits als `status='failed'` geloggt — derselbe UI-/Alert-Pfad greift.
 
-## Red-Team Scope (alle 4)
+## Backend-Änderungen
 
-Validator prüft das geparste JSON gegen den Original-Text:
+### 1. Neue Edge Function `notify-email-failure`
+Datei: `supabase/functions/notify-email-failure/index.ts`
 
-1. **Vollständigkeit** — jeder Tag aus dem Text ist in `days[]`, jede Mahlzeit (Lunch/Dinner/Frühstück/BBQ etc.) ist in `meals[]`, keine Sektion/Speise fehlt.
-2. **Preise & Totals exakt** — jeder `flatPriceNet` stimmt 1:1 mit dem Text überein, `taxBreakdown.foodNet/servicesNet` matcht "KALKULATION", `totalsFromText.net/gross` matcht "GESAMTANGEBOT". Keine Rundung, keine Berechnung.
-3. **Gästezahlen & Datumsangaben** — `guestCount` pro Mahlzeit korrekt, `dateLabel` und `isoDate` korrekt zugeordnet.
-4. **Hinweise & Leistungsumfang** — `notes[]` enthält alle HINWEISE-Punkte, `scopeOfServices` deckt LEISTUNGSUMFANG ab.
+- Input: `{ deliveryLogId: string }`
+- Liest Log-Eintrag (entity_type, entity_id, recipient, subject, status, error_message, provider).
+- Resolviert Inquiry-Titel/Customer-Name aus `event_inquiries` / `group_inquiries` / `catering_inquiries` über entity_type.
+- Sendet via bestehender Infrastruktur (`send-raw-html-email` oder direkt Resend) an `info@events-storia.de`:
+  - **Subject:** `🚨 DRINGEND: Email an {recipient} nicht zugestellt ({status})`
+  - **Body:** Monochrome HTML, deutsch, mit:
+    - Status-Badge rot
+    - Empfänger, Original-Subject, Fehlertext, Provider, Zeitstempel
+    - Direktlink zur Inquiry: `https://events-storia.de/admin/inquiry/{entity_id}`
+    - Hinweis: "Bitte alternativen Kontaktweg (Telefon/WhatsApp) verwenden."
+- BCC: keine.
+- Idempotenz: setzt `metadata.alert_sent_at` auf dem Log-Eintrag und überspringt, wenn schon gesetzt (verhindert Mehrfach-Mails bei Webhook-Retries).
 
-## Neue Edge Function: `validate-freeform-offer`
+### 2. `receive-resend-webhook` erweitern
+Wenn `newStatus IN ('bounced','complained','failed','delayed')` UND `metadata.alert_sent_at` fehlt, invoke `notify-email-failure` async (fire-and-forget, kein Block des Webhook-200).
 
-Datei: `supabase/functions/validate-freeform-offer/index.ts`
+### 3. Bestehende Senders erweitern
+In jedem Send-Function-Catch (`send-offer-email`, `send-payment-email`, `send-invoice-email`, `send-menu-confirmation`, `send-customer-response-copy`, `send-raw-html-email`, `send-cancellation-notification`, `send-payment-confirmation-v2`) — wenn der Provider-Call wirft und ein Log mit `status='failed'` geschrieben wird: zusätzlich `notify-email-failure` invoken. **Implementierung:** zentral via DB-Trigger statt N Code-Stellen.
 
-- Modell: `openai/gpt-5` (bewusst andere Familie als der Parser → echte Cross-Validation)
-- Input: `{ rawText: string, program: FreeformProgram }`
-- System-Prompt: "Du bist ein strenger QA-Validator. Vergleiche das JSON 1:1 mit dem Original-Text. Melde JEDE Abweichung als Finding."
-- Tool-Call `report_findings` mit Schema:
-  ```text
-  {
-    ok: boolean,
-    findings: [{
-      severity: "critical" | "warning",
-      category: "completeness" | "pricing" | "guests_dates" | "notes",
-      path: string,        // z.B. "days[1].meals[0].flatPriceNet"
-      expected: string,    // wörtlich aus Text
-      actual: string,      // aus JSON
-      message: string      // kurze Beschreibung
-    }],
-    summary: string
-  }
-  ```
-- `ok=false` wenn mind. 1 `critical` Finding (Preis/Total/fehlender Tag) ODER ≥3 `warning` Findings.
-- Standard 429/402/500 Error-Handling, CORS, Logs.
-
-## Parser-Erweiterung: `parse-freeform-offer`
-
-Optionaler neuer Input `correctionHints?: string[]`. Wenn gesetzt, wird im System-Prompt ein Block angehängt:
-
-```
-KORREKTUR-HINWEISE AUS VORHERIGEM VERSUCH (BITTE BEHEBEN):
-- {finding.message} (erwartet: {expected}, war: {actual})
-- ...
-```
-
-Sonst keine Änderung am Parser-Verhalten.
-
-## Frontend: `FreeformImportPanel.tsx`
-
-Neuer Flow im `handleParse`:
-
-1. Parse-Call (wie heute).
-2. Validate-Call mit `{ rawText, program }`.
-3. Wenn `ok=true` → `onParsed(program)`, Toast "Importiert + validiert ✓".
-4. Wenn `ok=false`:
-   - Loading-Text auf "Red Team korrigiert..." setzen.
-   - Parser erneut aufrufen mit `correctionHints = findings.map(f => f.message)`.
-   - Validator erneut aufrufen.
-   - Max. 2 Retries. Danach: trotzdem übernehmen, Findings in `program.__validationFindings` mitgeben.
-5. Findings (kritisch + warnings) werden als optionales Prop `validationFindings` an den Editor durchgereicht.
-
-UI-Stages während Loading: "KI parst…" → "Red Team validiert…" → "Red Team korrigiert (Versuch 2)…".
-
-## Editor: `FreeformProgramEditor.tsx`
-
-Wenn `validationFindings.length > 0`, oben im Editor eine Warn-Card (Monochrome, kein Grün/Gelb — neutral grau mit `border-foreground/30 bg-muted/40`):
-
-```
-⚠ Red Team hat {n} mögliche Abweichungen gefunden
-- [Preis] days[1].meals[0]: erwartet "1.200 €", erkannt "1.250 €"
-- [Vollständigkeit] HINWEISE: Punkt "Allergene auf Anfrage" fehlt
-...
-[Trotzdem übernehmen]  [Erneut parsen]
-```
-
-Kein blockierender Dialog — User sieht und entscheidet inline.
-
-## Datentyp-Erweiterungen
-
-`OfferBuilder/types.ts`:
+### 4. Migration: DB-Trigger
 ```text
-ValidationFinding {
-  severity: "critical" | "warning"
-  category: "completeness" | "pricing" | "guests_dates" | "notes"
-  path: string
-  expected: string
-  actual: string
-  message: string
-}
+CREATE TRIGGER email_delivery_failure_notify
+AFTER INSERT OR UPDATE OF status ON email_delivery_logs
+FOR EACH ROW
+WHEN (NEW.status IN ('failed','bounced','complained','suppressed')
+      AND (NEW.metadata->>'alert_sent_at') IS NULL)
+EXECUTE FUNCTION notify_email_failure_trigger();
 ```
+Trigger-Funktion ruft `notify-email-failure` per `pg_net` HTTP-POST mit `deliveryLogId`. Damit greift es egal welcher Sender oder welcher Webhook den fail-Status setzt.
 
-Wird nur im Editor-State gehalten, nicht in `freeformProgram` persistiert (transient).
+## Frontend-Änderungen
+
+### 5. Hook `useEmailFailures.ts`
+Zwei Varianten:
+- `useEmailFailuresForEntity(entityType, entityId)` → Anzahl + jüngste Fehler für eine Inquiry.
+- `useGlobalEmailFailures()` → alle ungelösten Fehler der letzten 30 Tage für Dashboard/Liste; Realtime-Subscribe auf `email_delivery_logs`.
+
+"Ungelöst" = `status IN (failed,bounced,complained,suppressed)` AND `metadata->>'resolved_at' IS NULL`.
+
+### 6. Inquiry-Detail (Angebot)
+Neue Komponente `EmailFailureBanner.tsx` im InquiryEditor oben unter dem Header:
+- Roter `bg-destructive/10 border-destructive` Banner (einzige zulässige rote Akzentfarbe — bewusste Abweichung von Monochrome wegen Alarm-Charakter; passt zu bestehenden Restzahlungs-/Storno-Warnungen).
+- Liste der Fehler: Empfänger, Status, Zeit, Fehlertext.
+- Button "Als erledigt markieren" → setzt `metadata.resolved_at` + `resolved_by`.
+- Button "Erneut senden" (falls Sender bekannt) → ruft passenden Sender erneut auf.
+
+### 7. Inquiry-Liste `UnifiedInquiriesList.tsx`
+- Pro Zeile: roter Punkt links neben dem Titel, wenn `useEmailFailuresForEntity` > 0.
+- Filter-Chip "Email-Fehler" oben — zeigt nur Inquiries mit offenen Email-Fehlern.
+
+### 8. Dashboard
+- Neue Tile "Email-Fehler" zwischen den bestehenden Counter-Tiles. Roter Hintergrund wenn > 0.
+- Klick → öffnet Inquiry-Liste mit Filter "Email-Fehler" aktiv.
+
+### 9. Realtime
+Supabase-Channel `email-failures` auf `email_delivery_logs` (INSERT/UPDATE). Alle drei Surfaces (Detail, Liste, Dashboard) invalidieren ihre Queries.
+
+## Auflösungs-Flow
+
+- "Als erledigt markieren" → `UPDATE email_delivery_logs SET metadata = metadata || jsonb_build_object('resolved_at', now(), 'resolved_by', auth.uid())`.
+- Trigger nicht erneut feuern (WHERE-Klausel im Trigger prüft `resolved_at`).
 
 ## Out of Scope
 
-- Deterministische Regex-Checks (Phase 2, falls KI-Validator zu langsam/teuer wird).
-- Validator-Findings in DB loggen (Phase 2, evtl. für QA-Statistik).
-- Englische Übersetzung (separates Thema).
+- WhatsApp-Alarm für Email-Fehler (separate Iteration, kann via bestehender `send-whatsapp-alert` Function leicht ergänzt werden).
+- Auto-Retry der ursprünglichen Mail.
+- Suppression-Verwaltung (Resend-Dashboard bleibt Quelle).
 
 ## Verifikation
 
-1. Beispieltext mit absichtlich falschem Preis → Validator meldet `critical pricing`, Auto-Retry korrigiert.
-2. Beispieltext mit fehlender HINWEIS-Zeile in der JSON-Antwort → `warning notes`.
-3. Beispieltext sauber → `ok=true` beim ersten Versuch, keine Warn-Card.
-4. Edge Case: 2 Retries laufen voll → Warn-Card im Editor zeigt verbleibende Findings.
-5. 429/402 vom Validator → Toast, Programm wird trotzdem übernommen (Validator ist optional, nicht blockierend).
+1. Test-Mail an `bounce@simulator.amazonses.com` (oder Resend-Test-Adresse) versenden → Status wird `bounced` → DRINGEND-Mail kommt bei info@ an, rotes Banner im Angebot, rote Tile im Dashboard.
+2. `send-offer-email` mit absichtlich invalider Resend-API-Key → `status='failed'` → gleicher Pfad greift.
+3. "Als erledigt markieren" entfernt Banner und Counter.
+4. Zweiter Resend-Webhook-Retry für denselben Log löst keine zweite DRINGEND-Mail aus (Idempotenz via `alert_sent_at`).
+5. Realtime: Status-Change auf einem Tab updated andere offene Tabs ohne Reload.
