@@ -408,6 +408,12 @@ export function useOfferBuilder({
             if (opt.package_id && mode === 'menu') {
               mode = 'paket';
             }
+            // Defensive Hydration: Wenn `menu_selection.freeformProgram` vorliegt,
+            // erzwinge `freeform`-Modus — schützt vor Legacy-Rows ohne sauberen Mode
+            // (z.B. NULL nach Trigger-Bug vor der Migration).
+            if ((opt.menu_selection as Record<string, unknown> | null)?.freeformProgram) {
+              mode = 'freeform';
+            }
             // Paketnamen auflösen: Override aus menu_selection > packages-Prop > leer
             const menuSel = opt.menu_selection as Record<string, unknown> | null;
             const nameOverride = menuSel?.packageNameOverride as string | undefined;
