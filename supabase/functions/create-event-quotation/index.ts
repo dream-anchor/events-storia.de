@@ -1447,6 +1447,51 @@ serve(async (req) => {
     const endpoint = isInvoiceMode ? 'invoices' : 'quotations';
     console.log(`Creating LexOffice ${endpoint}:`, JSON.stringify(documentPayload, null, 2));
 
+    // ─── Hard-Check: LineItem-Summe muss exakt der Maestro-Summe entsprechen ───
+    // Maestro ist Single Source of Truth (siehe Core-Memory). Wenn die Summe der
+    // LexOffice-LineItems vom erwarteten Maestro-Brutto abweicht, brechen wir
+    // ab, statt eine falsche Rechnung/ein falsches Angebot anzulegen.
+    {
+      const lineItemsGross = round2(
+        lineItems.reduce(
+          (s, i) => s + (i.unitPrice.grossAmount * i.quantity)
+            + (i.subItems || [])
+              .filter((si) => !si.alternative) // Alternative zählen nicht zur Summe
+              .reduce((ss, si) => ss + si.unitPrice.grossAmount * si.quantity, 0),
+          0,
+        ),
+      );
+      // Erwartete Maestro-Summe: Bei Alternativen zählt nur die erste Option
+      // (Lex zeigt "OR"-Varianten), sonst Summe aller aktiven Optionen abzüglich
+      // bereits geleisteter Anzahlungen.
+      const expectedFromOptions = useAlternatives
+        ? round2(Number((workingOptions[0] as OfferOption)?.total_amount || 0))
+        : round2(
+            (workingOptions as Array<OfferOption & { selected_quantity?: number | null }>)
+              .reduce((s, o) => s + Number(o.total_amount || 0), 0),
+          );
+      const deductions = Array.isArray(downPaymentDeductions)
+        ? round2(
+            (downPaymentDeductions as Array<{ gross: number }>)
+              .reduce((s, d) => s + Math.abs(Number(d.gross || 0)), 0),
+          )
+        : 0;
+      const expectedGross = round2(expectedFromOptions - deductions);
+      const drift = round2(lineItemsGross - expectedGross);
+      if (Math.abs(drift) > 0.01) {
+        console.error('[create-event-quotation] Summen-Mismatch vor LexOffice', {
+          inquiryId,
+          endpoint,
+          lineItemsGross,
+          expectedGross,
+          drift,
+        });
+        throw new Error(
+          `Summen-Mismatch: LineItems ${lineItemsGross.toFixed(2)} € weichen von Maestro-Summe ${expectedGross.toFixed(2)} € um ${drift.toFixed(2)} € ab. Abbruch — bitte Angebot/Positionen prüfen.`,
+        );
+      }
+    }
+
     // 7. LexOffice API
     const response = await fetch(`https://api.lexoffice.io/v1/${endpoint}?finalize=true`, {
       method: 'POST',
