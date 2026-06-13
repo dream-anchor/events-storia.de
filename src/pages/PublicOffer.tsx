@@ -1350,8 +1350,17 @@ function ProposalOptionCard({
         </div>
       </div>
 
+      {/* Freitext/KI-Programm (mehrtägige Catering-Angebote) */}
+      {isFreeform && (menu as any)?.freeformProgram && (
+        <div className="px-6 pb-6">
+          <div className="border-t border-border/20 pt-5">
+            <FreeformProgramSection program={(menu as any).freeformProgram} />
+          </div>
+        </div>
+      )}
+
       {/* Menü-Details im Speisekarten-Stil — lesbar, wertig */}
-      {(courses.length > 0 || drinks.length > 0) && (
+      {!isFreeform && (courses.length > 0 || drinks.length > 0) && (
         <div className="px-6 pb-6">
           <div className="border-t border-border/20 pt-5">
             {courses.length > 0 && (
