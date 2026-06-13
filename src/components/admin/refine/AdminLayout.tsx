@@ -234,6 +234,22 @@ export const AdminLayout = ({
           </span>
           <span className="text-xs uppercase tracking-wider">{showTestData ? "An" : "Aus"}</span>
         </button>
+        {/* Privacy Mode Toggle (mobile sidebar footer) */}
+        <button
+          onClick={togglePrivacyMode}
+          className={cn(
+            "lg:hidden mb-3 w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+            privacyMode
+              ? "bg-foreground text-background hover:bg-foreground/90"
+              : "text-muted-foreground bg-muted/50 hover:bg-muted"
+          )}
+        >
+          <span className="flex items-center gap-2">
+            {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            Privacy-Modus
+          </span>
+          <span className="text-xs uppercase tracking-wider">{privacyMode ? "An" : "Aus"}</span>
+        </button>
         <div className="flex items-center gap-3 px-2">
           <div className="size-8 rounded-full bg-muted text-foreground flex items-center justify-center font-bold text-sm">
             {userName.charAt(0).toUpperCase()}
