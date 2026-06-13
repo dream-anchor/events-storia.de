@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { buildDrinkRows } from "@/pages/public-offer/types";
+import { CostAcceptanceSection } from "@/pages/public-offer/CostAcceptanceSection";
 
 // --- Types ---
 
@@ -542,6 +543,12 @@ export default function PublicOffer() {
         )}
 
         <PdfDownloadSection inquiryId={inquiry.id} lang={lang} />
+
+        {(renderPhase === "confirmed" ||
+          renderPhase === "final_sent" ||
+          renderPhase === "order_confirmed") && (
+          <CostAcceptanceSection inquiry={inquiry} options={options} />
+        )}
 
         <PublicPaymentSection
           payments={payments}

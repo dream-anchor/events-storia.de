@@ -10,6 +10,7 @@ export type OfferPhase =
   | "final_draft"
   | "final_sent"
   | "confirmed"
+  | "order_confirmed"
   | "paid";
 
 export interface PublicInquiry {
