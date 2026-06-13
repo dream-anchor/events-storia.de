@@ -22,7 +22,6 @@ import { getRecordActionState } from "@/lib/inquiryActionState";
 import { InviteCustomerIconButton } from "@/components/admin/shared/InviteCustomerIconButton";
 import { cn } from "@/lib/utils";
 import { useEntityFailureIndex } from "@/hooks/useEmailFailures";
-import { AlertOctagon } from "lucide-react";
 
 type ViewMode = "table" | "kanban";
 type StatusFilter = LifecycleBucket;
@@ -228,9 +227,10 @@ export const UnifiedInquiriesList = () => {
               {hasFailure && (
                 <span
                   title="Email-Zustellfehler — bitte prüfen"
-                  className="inline-flex items-center justify-center rounded-full bg-destructive/15 text-destructive p-0.5 shrink-0"
+                  aria-label="Zustellfehler"
+                  className="text-base leading-none shrink-0"
                 >
-                  <AlertOctagon className="h-3 w-3" />
+                  🚨
                 </span>
               )}
               <span className="truncate" data-sensitive="customer">{r.companyName || r.customerName}</span>
@@ -413,11 +413,31 @@ export const UnifiedInquiriesList = () => {
             pageSize={25}
             getRowId={(r) => `${r.kind}-${r.id}`}
             defaultSorting={[{ id: "date", desc: false }]}
+          rowClassName={(r) =>
+            failureIds.has(r.id)
+              ? "bg-red-50/60 hover:bg-red-50/80 ring-1 ring-inset ring-red-300/70 border-l-4 border-l-red-500"
+              : undefined
+          }
             mobileCardRender={(r) => (
-              <MobileCardItem
+            <div
+              className={cn(
+                failureIds.has(r.id) &&
+                  "rounded-2xl ring-2 ring-red-400 bg-red-50/40 p-0.5"
+              )}
+            >
+            <MobileCardItem
                 onClick={() => handleRowClick(r)}
                 title={
                   <span className="flex items-center gap-2">
+                  {failureIds.has(r.id) && (
+                    <span
+                      title="Email-Zustellfehler — bitte prüfen"
+                      aria-label="Zustellfehler"
+                      className="text-base leading-none shrink-0"
+                    >
+                      🚨
+                    </span>
+                  )}
                     <ServiceBadge serviceType={r.serviceType} compact />
                     <span className="truncate" data-sensitive="customer">{r.companyName || r.customerName}</span>
                     <LangBadge lang={r.customerLanguage} />
@@ -443,6 +463,7 @@ export const UnifiedInquiriesList = () => {
                   </span>
                 }
               />
+            </div>
             )}
           />
         )}
