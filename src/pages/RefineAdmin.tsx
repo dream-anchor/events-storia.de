@@ -15,6 +15,7 @@ import Posteingang from "@/pages/admin/Posteingang";
 import SystemHealth from "@/pages/admin/SystemHealth";
 import Fotoalbum from "@/pages/admin/Fotoalbum";
 import { TestModeProvider } from "@/contexts/TestModeContext";
+import { PrivacyModeProvider } from "@/contexts/PrivacyModeContext";
 import { SaveStatusProvider } from "@/components/admin/shared/SaveStatusContext";
 import { AdminErrorBoundary } from "@/components/admin/AdminErrorBoundary";
 
@@ -90,6 +91,7 @@ export const RefineAdminApp = () => {
   return (
     <AdminErrorBoundary>
     <TestModeProvider>
+    <PrivacyModeProvider>
     <SaveStatusProvider>
     <Refine
       dataProvider={supabaseDataProvider}
@@ -150,6 +152,7 @@ export const RefineAdminApp = () => {
       </Routes>
     </Refine>
     </SaveStatusProvider>
+    </PrivacyModeProvider>
     </TestModeProvider>
     </AdminErrorBoundary>
   );

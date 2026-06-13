@@ -15,6 +15,7 @@ import { SaveStatusBadge } from "../shared/SaveStatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTestMode } from "@/contexts/TestModeContext";
+import { usePrivacyMode } from "@/contexts/PrivacyModeContext";
 import {
   LayoutDashboard,
   FileText,
@@ -31,6 +32,8 @@ import {
   ShieldAlert,
   ShoppingCart,
   Images,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useEffect, useState as useStateReact } from "react";
 
@@ -73,6 +76,7 @@ export const AdminLayout = ({
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
   const { isAdmin, role } = usePermissions();
   const { showTestData, setShowTestData } = useTestMode();
+  const { privacyMode, togglePrivacyMode } = usePrivacyMode();
 
   // Admin-Theme auf body setzen, damit Radix-Portale (Dialog, Select, etc.)
   // die Maestro CSS-Variablen statt der Website-Variablen erben
@@ -230,6 +234,22 @@ export const AdminLayout = ({
           </span>
           <span className="text-xs uppercase tracking-wider">{showTestData ? "An" : "Aus"}</span>
         </button>
+        {/* Privacy Mode Toggle (mobile sidebar footer) */}
+        <button
+          onClick={togglePrivacyMode}
+          className={cn(
+            "lg:hidden mb-3 w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+            privacyMode
+              ? "bg-foreground text-background hover:bg-foreground/90"
+              : "text-muted-foreground bg-muted/50 hover:bg-muted"
+          )}
+        >
+          <span className="flex items-center gap-2">
+            {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            Privacy-Modus
+          </span>
+          <span className="text-xs uppercase tracking-wider">{privacyMode ? "An" : "Aus"}</span>
+        </button>
         <div className="flex items-center gap-3 px-2">
           <div className="size-8 rounded-full bg-muted text-foreground flex items-center justify-center font-bold text-sm">
             {userName.charAt(0).toUpperCase()}
@@ -330,6 +350,26 @@ export const AdminLayout = ({
             )}
 
             <div className="h-8 w-px bg-border hidden sm:block" />
+
+            {/* Privacy Mode Toggle (Demo-Modus: blurrt Zahlen + Kundendaten) */}
+            <button
+              onClick={togglePrivacyMode}
+              className={cn(
+                "hidden sm:flex items-center justify-center h-9 w-9 rounded-lg transition-colors",
+                privacyMode
+                  ? "bg-foreground text-background hover:bg-foreground/90"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+              title={
+                privacyMode
+                  ? "Privacy-Modus AN – Zahlen & Kundendaten sind verborgen (⌘⇧P)"
+                  : "Privacy-Modus für Demos aktivieren (⌘⇧P)"
+              }
+              aria-pressed={privacyMode}
+              aria-label="Privacy-Modus umschalten"
+            >
+              {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
 
             {/* Test Mode Toggle */}
             <button

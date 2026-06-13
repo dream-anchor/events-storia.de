@@ -221,11 +221,11 @@ export const UnifiedInquiriesList = () => {
         return (
           <div className="flex flex-col min-w-0">
             <span className="font-medium text-sm truncate flex items-center gap-2">
-              <span className="truncate">{r.companyName || r.customerName}</span>
+              <span className="truncate" data-sensitive="customer">{r.companyName || r.customerName}</span>
               <LangBadge lang={r.customerLanguage} />
             </span>
             {r.companyName && (
-              <span className="text-xs text-muted-foreground truncate">
+              <span className="text-xs text-muted-foreground truncate" data-sensitive="customer">
                 {r.customerName}
               </span>
             )}
@@ -239,8 +239,8 @@ export const UnifiedInquiriesList = () => {
       cell: ({ row }) => (
         <div className="flex items-center gap-2 min-w-0">
           <div className="flex flex-col text-xs text-muted-foreground min-w-0">
-            <span className="truncate">{row.original.email}</span>
-            {row.original.phone && <span className="truncate">{row.original.phone}</span>}
+            <span className="truncate" data-sensitive="contact">{row.original.email}</span>
+            {row.original.phone && <span className="truncate" data-sensitive="contact">{row.original.phone}</span>}
           </div>
           {row.original.email && (
             <InviteCustomerIconButton
@@ -276,7 +276,7 @@ export const UnifiedInquiriesList = () => {
       header: sortableHeader<InquiryRecord>("Summe"),
       sortingFn: "basic",
       cell: ({ row }) => (
-        <span className="font-semibold text-sm whitespace-nowrap tabular-nums">
+        <span className="font-semibold text-sm whitespace-nowrap tabular-nums" data-sensitive="money">
           {formatCurrency(row.original.totalAmount)}
         </span>
       ),
@@ -407,12 +407,14 @@ export const UnifiedInquiriesList = () => {
                 title={
                   <span className="flex items-center gap-2">
                     <ServiceBadge serviceType={r.serviceType} compact />
-                    <span className="truncate">{r.companyName || r.customerName}</span>
+                    <span className="truncate" data-sensitive="customer">{r.companyName || r.customerName}</span>
                     <LangBadge lang={r.customerLanguage} />
                   </span>
                 }
                 subtitle={
-                  r.companyName ? <span>{r.customerName}</span> : <span>{r.email}</span>
+                  r.companyName
+                    ? <span data-sensitive="customer">{r.customerName}</span>
+                    : <span data-sensitive="contact">{r.email}</span>
                 }
                 meta={
                   <span className="flex items-center gap-2">
@@ -424,7 +426,7 @@ export const UnifiedInquiriesList = () => {
                   </span>
                 }
                 trailing={
-                  <span className="font-semibold text-sm whitespace-nowrap tabular-nums">
+                  <span className="font-semibold text-sm whitespace-nowrap tabular-nums" data-sensitive="money">
                     {formatCurrency(r.totalAmount)}
                   </span>
                 }
