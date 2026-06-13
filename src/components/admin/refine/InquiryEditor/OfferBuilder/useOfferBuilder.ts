@@ -647,6 +647,12 @@ export function useOfferBuilder({
     setOptions(prev => {
       let changed = false;
       const updated = prev.map(opt => {
+        if (opt.offerMode === 'freeform') {
+          const gross = opt.menuSelection.freeformProgram?.totalsFromText?.gross ?? 0;
+          if (Math.abs(opt.totalAmount - gross) < 0.01) return opt;
+          changed = true;
+          return { ...opt, totalAmount: gross };
+        }
         if (opt.offerMode === 'menu') {
           // Menue-Modus: per-line priceMode bestimmt ob × Gäste oder pauschal
           const guests = Math.max(1, opt.guestCount);
