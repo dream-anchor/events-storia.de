@@ -125,10 +125,42 @@ export function FreeformProgramSection({ program }: { program: PublicFreeformPro
             <span className="text-muted-foreground">Gesamt netto</span>
             <span className="font-semibold tabular-nums">{formatCurrency(program.totalsFromText.net)}</span>
           </div>
-          <div className="flex justify-between text-lg md:text-xl">
-            <span className="font-serif font-semibold">Gesamt brutto</span>
-            <span className="font-bold tabular-nums">{formatCurrency(program.totalsFromText.gross)}</span>
-          </div>
+          {(() => {
+            const d = program.discount;
+            const discountAmount = d
+              ? d.mode === 'percent'
+                ? (program.totalsFromText.gross * (Number(d.value) || 0)) / 100
+                : (Number(d.value) || 0)
+              : 0;
+            const finalGross = Math.max(0, program.totalsFromText.gross - discountAmount);
+            const showDiscount = discountAmount > 0;
+            return (
+              <>
+                <div className={`flex justify-between ${showDiscount ? 'text-sm' : 'text-lg md:text-xl'}`}>
+                  <span className={showDiscount ? 'text-muted-foreground' : 'font-serif font-semibold'}>
+                    {showDiscount ? 'Zwischensumme brutto' : 'Gesamt brutto'}
+                  </span>
+                  <span className={showDiscount ? 'tabular-nums' : 'font-bold tabular-nums'}>
+                    {formatCurrency(program.totalsFromText.gross)}
+                  </span>
+                </div>
+                {showDiscount && (
+                  <>
+                    <div className="flex justify-between text-sm text-primary">
+                      <span>
+                        Rabatt{d?.mode === 'percent' ? ` (${d.value}%)` : ''}
+                      </span>
+                      <span className="tabular-nums">− {formatCurrency(discountAmount)}</span>
+                    </div>
+                    <div className="flex justify-between text-lg md:text-xl pt-2 mt-1 border-t border-border/40">
+                      <span className="font-serif font-semibold">Gesamt brutto</span>
+                      <span className="font-bold tabular-nums">{formatCurrency(finalGross)}</span>
+                    </div>
+                  </>
+                )}
+              </>
+            );
+          })()}
         </div>
       </section>
 

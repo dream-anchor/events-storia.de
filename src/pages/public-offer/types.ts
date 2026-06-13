@@ -102,6 +102,7 @@ export interface PublicFreeformProgram {
   };
   totalsFromText: { net: number; gross: number };
   notes?: string[] | null;
+  discount?: { mode: 'percent' | 'amount'; value: number } | null;
 }
 
 export interface PublicOfferOption {

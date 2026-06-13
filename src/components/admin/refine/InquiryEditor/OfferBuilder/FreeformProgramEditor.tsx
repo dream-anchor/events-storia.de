@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import type { FreeformProgram, FreeformProgramMeal } from "./types";
+import { LinePriceModeToggle } from "./LinePriceModeToggle";
 
 interface FreeformProgramEditorProps {
   program: FreeformProgram;
@@ -52,6 +53,16 @@ export function FreeformProgramEditor({ program, onChange, onClear, disabled }: 
   const updateTotals = (patch: Partial<FreeformProgram["totalsFromText"]>) => {
     onChange({ ...program, totalsFromText: { ...program.totalsFromText, ...patch } });
   };
+
+  const discount = program.discount ?? { mode: 'percent' as const, value: 0 };
+  const updateDiscount = (patch: Partial<NonNullable<FreeformProgram["discount"]>>) => {
+    onChange({ ...program, discount: { ...discount, ...patch } });
+  };
+  const discountAmount =
+    discount.mode === 'percent'
+      ? (program.totalsFromText.gross * (Number(discount.value) || 0)) / 100
+      : (Number(discount.value) || 0);
+  const finalGross = Math.max(0, program.totalsFromText.gross - discountAmount);
 
   const totalMealsNet = program.days.reduce(
     (s, d) => s + d.meals.reduce((sm, m) => sm + (Number(m.flatPriceNet) || 0), 0),
@@ -273,6 +284,65 @@ export function FreeformProgramEditor({ program, onChange, onClear, disabled }: 
               className="h-8 text-sm font-semibold text-right text-primary"
             />
           </div>
+        </div>
+
+        {/* Rabatt */}
+        <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-xs text-muted-foreground font-semibold">Rabatt</label>
+            <div
+              className="inline-flex rounded-md border border-border/50 bg-muted/30 p-0.5 text-[10px] leading-none"
+              title="Rabatt als Prozent oder fester Betrag"
+            >
+              <button
+                type="button"
+                onClick={() => updateDiscount({ mode: 'percent' })}
+                disabled={disabled}
+                className={cn(
+                  "px-1.5 py-0.5 rounded transition-colors",
+                  discount.mode === 'percent'
+                    ? "bg-background shadow-sm font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                %
+              </button>
+              <button
+                type="button"
+                onClick={() => updateDiscount({ mode: 'amount' })}
+                disabled={disabled}
+                className={cn(
+                  "px-1.5 py-0.5 rounded transition-colors",
+                  discount.mode === 'amount'
+                    ? "bg-background shadow-sm font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                € brutto
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs items-center">
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={discount.value}
+              onChange={(e) => updateDiscount({ value: parseFloat(e.target.value) || 0 })}
+              disabled={disabled}
+              className="h-8 text-sm text-right"
+              placeholder={discount.mode === 'percent' ? "0 %" : "0,00 €"}
+            />
+            <div className="text-right text-xs text-muted-foreground tabular-nums">
+              − {fmtEur(discountAmount)} €
+            </div>
+          </div>
+          {discountAmount > 0 && (
+            <div className="flex justify-between items-center pt-2 border-t border-border/30">
+              <span className="text-sm font-semibold">Endbetrag brutto</span>
+              <span className="text-base font-bold text-primary tabular-nums">{fmtEur(finalGross)} €</span>
+            </div>
+          )}
         </div>
       </div>
 
