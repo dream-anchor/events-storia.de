@@ -129,7 +129,7 @@ export function CostAcceptanceCard({
           try {
             const json = JSON.parse(text);
             message = json?.error || text || error.message;
-          } catch (parseError) {
+          } catch {
             message = text || error.message;
           }
           throw new Error(message);
