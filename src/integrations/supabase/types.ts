@@ -5469,6 +5469,7 @@ export type Database = {
         | "full_menu"
         | "package"
         | "email"
+        | "freeform"
       v2_payment_status:
         | "draft"
         | "sent"
@@ -5648,6 +5649,7 @@ export const Constants = {
         "full_menu",
         "package",
         "email",
+        "freeform",
       ],
       v2_payment_status: [
         "draft",

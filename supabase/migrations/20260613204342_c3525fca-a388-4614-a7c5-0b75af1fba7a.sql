@@ -1,0 +1,1 @@
+ALTER TYPE public.v2_offer_mode ADD VALUE IF NOT EXISTS 'freeform';
