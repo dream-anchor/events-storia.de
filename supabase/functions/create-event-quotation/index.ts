@@ -61,6 +61,41 @@ interface MenuSelectionDB {
   discountPercent?: number | null;
   /** Optionaler Rabatt als fester Brutto-Eurobetrag. */
   discountAmount?: number | null;
+  /** Freitext-/AI-Programm (mehrtägig). Maestro-Positionen 1:1 ausgeben. */
+  freeformProgram?: FreeformProgramDB | null;
+}
+
+interface FreeformProgramMealDB {
+  id?: string;
+  label: string;
+  guestCount?: number | null;
+  sections?: Array<{ heading?: string | null; items?: string[] | null } | null> | null;
+  /** Netto-Pauschalpreis dieser Position. */
+  flatPriceNet: number;
+  vatRate?: number | null;
+}
+
+interface FreeformProgramDayDB {
+  id?: string;
+  dateLabel?: string | null;
+  isoDate?: string | null;
+  meals?: FreeformProgramMealDB[] | null;
+}
+
+interface FreeformProgramDB {
+  title?: string | null;
+  location?: string | null;
+  dateRangeLabel?: string | null;
+  scopeOfServices?: string[] | null;
+  days?: FreeformProgramDayDB[] | null;
+  taxBreakdown?: {
+    foodNet?: number | null;
+    foodVatRate?: number | null;
+    servicesNet?: number | null;
+    servicesVatRate?: number | null;
+  } | null;
+  totalsFromText?: { net?: number | null; gross?: number | null } | null;
+  discount?: { mode?: 'percent' | 'amount' | null; value?: number | null } | null;
 }
 
 interface OfferOption {
