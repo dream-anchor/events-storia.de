@@ -335,6 +335,26 @@ export const AdminLayout = ({
 
             <div className="h-8 w-px bg-border hidden sm:block" />
 
+            {/* Privacy Mode Toggle (Demo-Modus: blurrt Zahlen + Kundendaten) */}
+            <button
+              onClick={togglePrivacyMode}
+              className={cn(
+                "hidden sm:flex items-center justify-center h-9 w-9 rounded-lg transition-colors",
+                privacyMode
+                  ? "bg-foreground text-background hover:bg-foreground/90"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+              title={
+                privacyMode
+                  ? "Privacy-Modus AN – Zahlen & Kundendaten sind verborgen (⌘⇧P)"
+                  : "Privacy-Modus für Demos aktivieren (⌘⇧P)"
+              }
+              aria-pressed={privacyMode}
+              aria-label="Privacy-Modus umschalten"
+            >
+              {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+
             {/* Test Mode Toggle */}
             <button
               onClick={() => setShowTestData(!showTestData)}
