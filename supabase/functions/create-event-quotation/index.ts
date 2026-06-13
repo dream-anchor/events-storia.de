@@ -162,11 +162,17 @@ function appendDiscountLines(
   const rawTotal = Object.values(grossByRate).reduce((s, v) => s + v, 0);
   const targetRounded = Math.round(targetTotal * 100) / 100;
   const totalDiscount = Math.round((rawTotal - targetRounded) * 100) / 100;
-  if (totalDiscount <= 0.005) return;
+  if (Math.abs(totalDiscount) <= 0.005) return;
+
+  // Positiver Delta = LineItems-Summe ist HÖHER als Maestro-Ziel → Rabattzeile(n).
+  // Negativer Delta = LineItems-Summe ist NIEDRIGER → Korrekturzeile(n) (positiver Betrag),
+  //                   damit die LexOffice-Summe exakt der Maestro-Summe entspricht.
+  const isCorrectionUp = totalDiscount < 0;
+  const absDelta = Math.abs(totalDiscount);
 
   const label = discountPercent != null && discountPercent > 0
     ? `Rabatt ${Number.isInteger(discountPercent) ? discountPercent : discountPercent.toFixed(1).replace('.', ',')} %`
-    : 'Rabatt';
+    : (isCorrectionUp ? 'Anpassung' : 'Rabatt');
 
   // Steuersätze in stabiler Reihenfolge (zuerst Speisen 7 %, dann Getränke 19 %)
   const rates = Object.keys(grossByRate)
@@ -183,9 +189,9 @@ function appendDiscountLines(
     let amount: number;
     if (idx === rates.length - 1) {
       // Letzte Position bekommt den Rest, damit Cent-Differenzen aufgehen
-      amount = Math.round((totalDiscount - allocated) * 100) / 100;
+      amount = Math.round((absDelta - allocated) * 100) / 100;
     } else {
-      amount = Math.round((totalDiscount * (grossByRate[rate] / totalGross)) * 100) / 100;
+      amount = Math.round((absDelta * (grossByRate[rate] / totalGross)) * 100) / 100;
       allocated += amount;
     }
     if (amount > 0) allocations.push({ rate, amount });
@@ -203,7 +209,7 @@ function appendDiscountLines(
       unitName: 'Pauschale',
       unitPrice: {
         currency: 'EUR',
-        grossAmount: -a.amount,
+        grossAmount: isCorrectionUp ? a.amount : -a.amount,
         taxRatePercentage: a.rate,
       },
     });
