@@ -1,57 +1,50 @@
 ## Problem
 
-Beim Versand eines Freitext-Import-Angebots (KI) erzeugt das Anschreiben unsinnige Sätze:
-
-- "für 833 Gäste" → Summe aller Mahlzeit-Gästezahlen (25+24+24+120+100+120+200+100+120) — es gibt aber pro Tag/Mahlzeit unterschiedliche Gästezahlen.
-- "34,16 € pro Person" → 28.460,84 € / 833 — bei einem Mehrtages-Programm mit unterschiedlichen Personenzahlen pro Mahlzeit gibt es **keinen** sinnvollen Pro-Person-Preis.
-- "noch keine Menüs oder Pakete konfiguriert" → die KI sieht die Programm-Daten gar nicht.
-- Datum nur "29. Juni 2026" statt "29.06.–02.07.2026".
+Beim Freitext-Import-Angebot (DataGuard – Spike Week 2026) generiert die KI immer noch unsinnige Sätze: "833 Gäste", "34,16 € pro Person", nur ein Datum statt Zeitraum, mehrere Tage werden ignoriert.
 
 ## Ursache
 
-`supabase/functions/generate-inquiry-email/index.ts` kennt nur zwei Pfade: `offer_mode === 'menu'` (Menügänge) und Paket. Für `offer_mode === 'freeform'` werden weder `freeformProgram.days/meals/scopeOfServices/notes/totalsFromText` aus `menu_selection` extrahiert noch dedizierte Prompt-Regeln gesetzt — die Option wird wie ein leeres Paket behandelt.
+In der DB ist die Option als `offer_mode = 'menu'` gespeichert, obwohl im `menu_selection` ein vollständiges `freeformProgram` mit 4 Tagen liegt (per psql verifiziert). Der letzte Fix in `generate-inquiry-email/index.ts` aktiviert die Freitext-Logik nur, wenn `offerMode === 'freeform'` — diese Bedingung trifft nie zu, also läuft die Option in den leeren Menü-Pfad und die KI bekommt keine Freitext-Daten. Zusätzlich wurde `guest_count = 833` (Summe aller Mahlzeiten-Gäste) auf die Option geschrieben, woraus die KI „34,16 € pro Person" errechnet.
 
 ## Plan
 
-### 1. Freitext-Daten in den KI-Kontext einspeisen
+### 1. Erkennung umstellen auf „hat freeformProgram"
 
 Datei: `supabase/functions/generate-inquiry-email/index.ts`
 
-- In `buildMultiOfferContext` (bzw. der Mapping-Funktion bei `isOfferBuilderRequest`) erkennen, wenn `offerMode === 'freeform'` und dann statt der Menü/Getränke-/Equipment-Logik einen Freitext-Block ausgeben:
-  - `title`, `dateRangeLabel`, `location` aus `freeformProgram`
-  - `scopeOfServices` als Aufzählung
-  - Pro Tag: Datum + Wochentag, dann je Mahlzeit: Name, Personen, `pricePerEvent` netto, MwSt-Hinweis, alle `items` (mit Section-Headers)
-  - `notes` (Hinweise) 1:1
-  - `taxBreakdown` (Speisen netto/MwSt, Personal/Equipment netto/MwSt), `totalsFromText.net/gross`, Rabatt, **Endbetrag brutto** (1:1 aus Maestro, niemals neu berechnen)
-- Beim Mapping in `multiOpts` ein Flag `isFreeform` und ein Feld `freeformProgram` mitführen.
+- Hilfsfunktion `isFreeform(opt)` einführen: `!!opt.freeformProgram?.days?.length` — unabhängig vom `offer_mode`-String.
+- Alle Stellen umstellen:
+  - `hasFreeform` in `buildMultiOfferContext` (Zeile 191)
+  - Der `if (opt.offerMode === 'freeform' && opt.freeformProgram?.days?.length)`-Branch (Zeile 202)
+  - `hasFreeformContext` im System-Prompt
+- Im Mapping (Zeile 503ff.) `freeformProgram` weiterhin aus `menu_selection.freeformProgram` lesen (bleibt wie ist).
 
-### 2. Pro-Person-/Gästezahl-Falle entschärfen
+### 2. Falschen Pro-Person-Preis und Gesamt-Gästezahl im Kontext neutralisieren
 
-- Bei Freitext **keine** Gesamtgästezahl ableiten und **keinen** Pro-Person-Preis berechnen. Stattdessen die unterschiedlichen Mahlzeit-Gästezahlen so anbieten, wie sie sind.
-- `guestCount` der Option bleibt für die DB (z. B. Anzahl der größten Mahlzeit), wird aber im Kontext explizit als "variabel je Mahlzeit" markiert.
+- Wenn `isFreeform(opt)`, im Multi-Offer-Kontext für diese Option:
+  - **Keinen** `guestCount` der Option in den Kontext schreiben (kein "Gäste: 833").
+  - **Keinen** Pro-Person-Preis ausgeben.
+  - Stattdessen explizit: "Gäste: variabel je Mahlzeit (siehe Tagesübersicht)".
+- Im Inquiry-Header-Block (`buildMultiOfferContext` Zeilen 182–185): wenn alle aktiven Optionen Freitext sind, `guest_count` und `preferred_date` aus `inquiry` weglassen und durch `freeformProgram.dateRangeLabel` der ersten Option ersetzen, damit die KI nicht versehentlich „29. Juni 2026" / „833" greift.
 
-### 3. System-Prompt erweitern
+### 3. System-Prompt-Regeln (F1–F7) auf neue Erkennung umhängen
 
-Neuer Regelblock im `systemPrompt` (nur aktiv, wenn mindestens eine Option Freitext ist):
-
-- "FREITEXT-PROGRAMM: Das Angebot deckt mehrere Tage / Mahlzeiten mit unterschiedlichen Gästezahlen ab."
-- Anschreiben muss enthalten: Anrede → Bezug auf Anlass + **Datumsspanne** + Location → kurze Übersicht "X Tage, Y Mahlzeiten" → pro Tag eine kompakte Aufzählung der Mahlzeiten (Name + Personen + Preis) → Endbetrag brutto (exakt aus Maestro) → Hinweise (Finale Gästezahl bis 7 Tage etc.) → Zahlungsart → Link.
-- Verbot: keinen Pro-Person-Preis erfinden, keine Gesamt-Gästezahl summieren, niemals "noch keine Menüs konfiguriert" schreiben, wenn `freeformProgram.days` existiert.
-- Preise/Endbetrag brutto strikt 1:1 aus Maestro.
+- `hasFreeformContext`-Trigger nutzt jetzt die Markierung "FREITEXT-PROGRAMM, mehrtägig" aus dem überarbeiteten Kontext-Block — bleibt funktionsfähig, sobald Schritt 1 greift.
+- Regel F2 schärfen: „Wenn die Anfrage Freitext-Daten enthält, ist **jede** Erwähnung einer Gesamt-Gästezahl oder eines Pro-Person-Preises ein Fehler — auch wenn im allgemeinen Kontext eine Zahl steht."
 
 ### 4. Verifikation
 
-- Edge Function neu deployen und manuell mit der bestehenden Anfrage (DataGuard – Spike Week 2026) erneut "Anschreiben generieren" auslösen.
-- Erwartetes Ergebnis: Anschreiben nennt 29.06.–02.07.2026, AAHHH Werksviertel, listet die 4 Tage mit ihren Mahlzeiten/Personen, nennt 25.000,00 € als Endbetrag, übernimmt die 5 Hinweise sinngemäß, kein Pro-Person-Preis, keine erfundenen 833 Gäste.
-
-## Technische Details
-
-- Betroffene Datei: nur `supabase/functions/generate-inquiry-email/index.ts` (Mapping + `buildMultiOfferContext` + `systemPrompt`).
-- Datenquelle: `inquiry_offer_options.menu_selection.freeformProgram` (bereits in DB vorhanden, siehe `OptionCard.tsx` Zeile 602/608).
-- Kein DB-Schema-Change, keine Frontend-Änderung nötig.
-- Maestro-Quelle-der-Wahrheit-Regel: Endbetrag brutto = `option.total_amount` (bzw. `freeformProgram.totalsFromText.gross - discount`), niemals aus Mahlzeiten neu summieren.
+- Edge Function neu deployen.
+- Mit Anfrage 6ddaabe0-… „Anschreiben generieren" erneut auslösen.
+- Erwartet: Anschreiben nennt 29.06.–02.07.2026, AAHHH Werksviertel, listet 4 Tage mit Mahlzeiten/Personen, Endbetrag 25.000,00 € (bzw. 28.460,84 € falls so in Maestro), kein „833", kein „34,16 € pro Person".
 
 ## Nicht im Scope
 
-- Übersetzung des Anschreibens (läuft separat über `translate-offer-letter`).
-- Red-Team-Validator für das Anschreiben selbst (nur Parser hat Validator).
+- Nachträgliches Setzen von `offer_mode='freeform'` für bestehende Datensätze (separate Aufräumaktion).
+- Frontend-Änderungen in `OptionCard`/`FreeformImportPanel` — der DB-Inhalt ist ausreichend, sobald die Edge Function ihn liest.
+
+## Technische Details
+
+- Betroffene Datei: nur `supabase/functions/generate-inquiry-email/index.ts`.
+- DB-Datenstand verifiziert per `psql`: `offer_mode='menu'`, `freeformProgram` ist `object` mit 4 `days`, `guest_count=833`, `total_amount=28460.84`.
+- Keine Migration, kein Frontend-Change.
