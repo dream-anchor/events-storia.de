@@ -235,18 +235,18 @@ export function FreeformProgramEditor({
       </div>
 
       {/* Scope of Services */}
-      {program.scopeOfServices && program.scopeOfServices.length > 0 && (
-        <details className="rounded-xl border border-border/40 bg-muted/10 px-4 py-2 text-sm">
-          <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Leistungsumfang ({program.scopeOfServices.length})
-          </summary>
-          <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
-            {program.scopeOfServices.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <details className="rounded-xl border border-border/40 bg-muted/10 px-4 py-2 text-sm" open={!!program.scopeOfServices?.length}>
+        <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          Leistungsumfang ({program.scopeOfServices?.length ?? 0})
+        </summary>
+        <Textarea
+          value={(program.scopeOfServices ?? []).join("\n")}
+          onChange={(e) => setScope(e.target.value)}
+          disabled={disabled}
+          placeholder="Eine Zeile pro Punkt"
+          className="mt-2 text-xs min-h-[80px] font-mono"
+        />
+      </details>
 
       {/* Days */}
       <div className="space-y-3">
