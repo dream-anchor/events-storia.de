@@ -228,14 +228,30 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
   );
 }
 
+type FormState = {
+  event_company: string;
+  event_title: string;
+  event_date: string;
+  onsite_contact: string;
+  guest_count: number;
+  invoice_company: string;
+  invoice_street: string;
+  invoice_zip_city: string;
+  invoice_reference: string;
+  signer_name: string;
+  signer_email: string;
+  signer_mobile: string;
+  signer_company_name: string;
+};
+
 function CostAcceptanceForm(
   props: {
-    form: ReturnType<typeof Object> & Record<string, string | number>;
-    setForm: (fn: (f: Record<string, string | number>) => Record<string, string | number>) => void;
+    form: FormState;
+    setForm: React.Dispatch<React.SetStateAction<FormState>>;
     confirmations: Record<string, boolean>;
-    setConfirmations: (
-      fn: (c: Record<string, boolean>) => Record<string, boolean>,
-    ) => void;
+    setConfirmations: React.Dispatch<
+      React.SetStateAction<Record<string, boolean>>
+    >;
     isB2C: boolean;
     onSubmit: () => void;
     disabled: boolean;
@@ -243,8 +259,8 @@ function CostAcceptanceForm(
   },
 ) {
   const { form, setForm, confirmations, setConfirmations, isB2C } = props;
-  const set = (k: string) => (e: { target: { value: string } }) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof FormState) => (e: { target: { value: string } }) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }) as FormState);
   const check = (k: string) => (v: boolean) =>
     setConfirmations((c) => ({ ...c, [k]: v }));
 
@@ -255,10 +271,10 @@ function CostAcceptanceForm(
           Rechnungsanschrift
         </legend>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Firma" value={form.invoice_company as string} onChange={set("invoice_company")} />
-          <Field label="Straße / Hausnummer" value={form.invoice_street as string} onChange={set("invoice_street")} />
-          <Field label="PLZ / Ort" value={form.invoice_zip_city as string} onChange={set("invoice_zip_city")} />
-          <Field label="Kostenstelle / Referenz (optional)" value={form.invoice_reference as string} onChange={set("invoice_reference")} />
+          <Field label="Firma" value={form.invoice_company} onChange={set("invoice_company")} />
+          <Field label="Straße / Hausnummer" value={form.invoice_street} onChange={set("invoice_street")} />
+          <Field label="PLZ / Ort" value={form.invoice_zip_city} onChange={set("invoice_zip_city")} />
+          <Field label="Kostenstelle / Referenz (optional)" value={form.invoice_reference} onChange={set("invoice_reference")} />
         </div>
       </fieldset>
 
@@ -267,10 +283,10 @@ function CostAcceptanceForm(
           Unterzeichner
         </legend>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Name" value={form.signer_name as string} onChange={set("signer_name")} />
-          <Field label="Firma" value={form.signer_company_name as string} onChange={set("signer_company_name")} />
-          <Field label="E-Mail" type="email" value={form.signer_email as string} onChange={set("signer_email")} />
-          <Field label="Mobilnummer (für SMS-Verifikation)" type="tel" value={form.signer_mobile as string} onChange={set("signer_mobile")} />
+          <Field label="Name" value={form.signer_name} onChange={set("signer_name")} />
+          <Field label="Firma" value={form.signer_company_name} onChange={set("signer_company_name")} />
+          <Field label="E-Mail" type="email" value={form.signer_email} onChange={set("signer_email")} />
+          <Field label="Mobilnummer (für SMS-Verifikation)" type="tel" value={form.signer_mobile} onChange={set("signer_mobile")} />
         </div>
       </fieldset>
 
