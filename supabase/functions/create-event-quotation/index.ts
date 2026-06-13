@@ -847,29 +847,12 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-// Konvertiert intern als Brutto aufgebaute LineItems in Netto-Positionen,
-// damit LexOffice den deutschen Standard-Ausweis erzeugt:
-// Positionsliste mit Netto-Einzelpreisen, unten Zwischensumme netto,
-// MwSt. je Satz (7 % / 19 %) und Gesamtbetrag brutto.
-function convertLineItemsToNet(items: LexOfficeLineItem[]): LexOfficeLineItem[] {
-  return items.map((i) => {
-    const gross = i.unitPrice.grossAmount ?? 0;
-    const rate = i.unitPrice.taxRatePercentage || 0;
-    const net = round2(gross / (1 + rate / 100));
-    const converted: LexOfficeLineItem = {
-      ...i,
-      unitPrice: {
-        currency: 'EUR',
-        netAmount: net,
-        taxRatePercentage: rate,
-      },
-    };
-    if (i.subItems && i.subItems.length > 0) {
-      converted.subItems = convertLineItemsToNet(i.subItems);
-    }
-    return converted;
-  });
-}
+// HINWEIS: Früher wurden Brutto-LineItems hier manuell in Netto umgerechnet
+// (gross / 1.07 → round2 → netAmount) und mit taxType='net' gesendet.
+// Das verursacht Rundungsdrift auf der Brutto-Summe (z. B. 25.000 € →
+// 25.001,25 €) und verletzt die Maestro-Regel „Preise 1:1, niemals
+// konvertieren". Wir senden jetzt `grossAmount` zusammen mit
+// taxType='gross' direkt — LexOffice rechnet intern korrekt zurück.
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
@@ -989,7 +972,7 @@ serve(async (req) => {
           const totalsMatch = lexTotal > 0 && Math.abs(lexTotal - dbTotal) <= 0.01;
           const remarkMatches = lexRemark === expectedRemark;
           const lexTaxType = String(doc?.taxConditions?.taxType ?? '');
-          const taxTypeMatches = lexTaxType === 'net';
+          const taxTypeMatches = lexTaxType === 'gross';
           if (totalsMatch && remarkMatches && taxTypeMatches) {
             // PDF in LexOffice ist aktuell — nichts neu erzeugen
             return new Response(
@@ -1288,9 +1271,9 @@ serve(async (req) => {
     const documentPayload: Record<string, unknown> = {
       voucherDate: new Date().toISOString(),
       address: addressBlock,
-      lineItems: convertLineItemsToNet(lineItems),
+      lineItems: lineItems,
       totalPrice: { currency: 'EUR' },
-      taxConditions: { taxType: 'net' },
+      taxConditions: { taxType: 'gross' },
       paymentConditions,
       introduction,
     };
