@@ -323,7 +323,7 @@ serve(async (req) => {
       packageName = 'Individuelles Menü';
     }
 
-    const totalAmount = opt.total_amount; // already total (not per person)
+    const totalAmount = effectiveTotalForOption(opt); // already total (not per person); freeform falls back to Maestro gross minus discount
     const depositPercent = inq.deposit_percent ?? 20;
     const fixedDeposit = inq.deposit_amount;
     const isFixedDeposit = fixedDeposit != null && fixedDeposit > 0;
