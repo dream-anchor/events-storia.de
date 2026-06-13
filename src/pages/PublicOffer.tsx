@@ -1931,16 +1931,19 @@ function ConfirmationView({
         {/* Menü-Details — auch nach Bestätigung sichtbar */}
         {selectedOption && (() => {
           const menu = selectedOption.menu_selection;
+          const ffProgram = (menu as any)?.freeformProgram;
           const courses = menu?.courses?.filter((c) => c.itemName) || [];
           const drinkRows = buildDrinkRows(menu);
-          if (courses.length === 0 && drinkRows.length === 0) return null;
+          if (!ffProgram && courses.length === 0 && drinkRows.length === 0) return null;
           return (
             <div className="max-w-2xl mt-12">
               <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/60 dark:border-white/20 rounded-2xl px-6 py-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
                 <h3 className="font-serif text-lg font-bold text-foreground mb-5">
                   {tOffer(lang, 'yourSelectedMenu')}
                 </h3>
-                {courses.length > 0 && (
+                {ffProgram ? (
+                  <FreeformProgramSection program={ffProgram} />
+                ) : courses.length > 0 && (
                   <div className="space-y-4">
                     {courses.map((c, i) => (
                       <div key={i} className="flex items-baseline gap-4">
@@ -1961,7 +1964,7 @@ function ConfirmationView({
                     ))}
                   </div>
                 )}
-                {drinkRows.length > 0 && (
+                {!ffProgram && drinkRows.length > 0 && (
                   <div className={cn("space-y-3", courses.length > 0 && "mt-6 pt-5 border-t border-border/15")}>
                     {drinkRows.map((d, i) => (
                       <div key={i} className="flex items-baseline gap-4">
