@@ -78,6 +78,8 @@ interface DataTableProps<TData, TValue> {
   defaultSorting?: SortingState;
   /** Optional renderer to display each row as a card on mobile (< lg). */
   mobileCardRender?: (row: TData) => React.ReactNode;
+  /** Optional per-row className (applied to TableRow on desktop). */
+  rowClassName?: (row: TData) => string | undefined;
 }
 
 export function DataTable<TData, TValue>({
@@ -97,6 +99,7 @@ export function DataTable<TData, TValue>({
   getRowId,
   defaultSorting = [],
   mobileCardRender,
+  rowClassName,
 }: DataTableProps<TData, TValue>) {
   const isMobile = useIsMobile();
   const [sorting, setSorting] = useState<SortingState>(defaultSorting);
@@ -371,7 +374,8 @@ export function DataTable<TData, TValue>({
                   className={cn(
                     "hover:bg-muted/30 dark:hover:bg-gray-800/30 transition-colors border-b border-border/40 last:border-b-0",
                     onRowClick && "cursor-pointer",
-                    row.getIsSelected() && "bg-primary/5"
+                    row.getIsSelected() && "bg-primary/5",
+                    rowClassName?.(row.original)
                   )}
                   onClick={() => onRowClick?.(row.original)}
                 >
