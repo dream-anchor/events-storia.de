@@ -605,6 +605,7 @@ function FreeformContent({
   const setProgram = (p: FreeformProgram | null, newFindings?: import("./types").ValidationFinding[]) => {
     setFindings(newFindings ?? []);
     onUpdate({
+      offerMode: p ? 'freeform' : option.offerMode,
       menuSelection: { ...option.menuSelection, freeformProgram: p },
       // totalAmount aus brutto übernehmen (Maestro-Prinzip: 1:1)
       totalAmount: p?.totalsFromText?.gross ?? 0,
@@ -623,6 +624,7 @@ function FreeformContent({
       onDismissFindings={() => setFindings([])}
       onChange={(p) =>
         onUpdate({
+          offerMode: 'freeform',
           menuSelection: { ...option.menuSelection, freeformProgram: p },
           totalAmount: p.totalsFromText?.gross ?? 0,
           packageName: p.title || option.packageName,
