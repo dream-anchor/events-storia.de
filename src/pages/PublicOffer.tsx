@@ -1659,16 +1659,9 @@ function FinalOptionCard({
       : 0;
 
   const totalAmount = effectiveTotal;
-  const deposit = computeDeposit(inquiry, totalAmount);
-  const depositAmount = deposit.amount;
-
-  const pm = inquiry.payment_method ?? '';
-  const offlineTiming: 'on_site' | 'after_event' | 'transfer_prepay' | null =
-    pm === 'on_site' || pm === 'pay_on_site' ? 'on_site'
-    : pm === 'invoice_after' || pm === 'invoice_after_event' ? 'after_event'
-    : pm === 'invoice_before' || pm === 'invoice_before_event' ? 'after_event'
-    : pm === 'bank_transfer_prepay' ? 'transfer_prepay'
-    : null;
+  const payDisplay = derivePaymentDisplay(inquiry, totalAmount);
+  const depositAmount = payDisplay.depositAmount;
+  const offlineTiming = payDisplay.offlineTiming;
 
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     setIsRedirecting(true);
@@ -1827,7 +1820,7 @@ function FinalOptionCard({
 
       {/* Payment */}
       <div className="px-6 py-4 bg-muted/30 border-t border-border/10">
-        {option.offer_mode === 'paket' ? (
+        {option.offer_mode === 'paket' && payDisplay.showStripeFull ? (
           /* Paket-Modus: nur Gesamtzahlung */
           <Button
             className="w-full h-12 gap-2 rounded-full font-sans font-semibold text-base shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-80 disabled:hover:translate-y-0"
@@ -1846,43 +1839,55 @@ function FinalOptionCard({
               </>
             )}
           </Button>
-        ) : totalAmount > 0 ? (
+        ) : totalAmount > 0 && (payDisplay.showStripeFull || payDisplay.showStripeDeposit) ? (
           /* Menü-Modus: Komplett oder Anzahlung */
           <div className="space-y-3">
             <p className="text-sm font-sans font-medium text-center text-foreground/80">
               {isRedirecting ? tOffer(lang, 'preparingPayment') : tOffer(lang, 'howToPay')}
             </p>
-            <div className={cn("grid gap-3", deposit.show ? "grid-cols-2" : "grid-cols-1")}>
-              <button
-                onClick={() => handlePayment('full')}
-                disabled={isRedirecting}
-                className="p-4 rounded-xl border-2 border-primary text-center hover:bg-primary/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isRedirecting ? (
-                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                ) : (
-                  <>
-                    <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(totalAmount, lang)}</span>
-                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">{tOffer(lang, 'payFullShort')}</span>
-                  </>
-                )}
-              </button>
-              {deposit.show && (
-              <button
-                onClick={() => handlePayment('deposit')}
-                disabled={isRedirecting}
-                className="p-4 rounded-xl border border-border text-center hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isRedirecting ? (
-                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                ) : (
-                  <>
-                    <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(depositAmount, lang)}</span>
-                    <span className="text-xs font-sans text-muted-foreground block mt-0.5">{deposit.label}</span>
-                    <span className="text-[10px] font-sans text-muted-foreground/60 block">{tOffer(lang, 'restBeforeEvent')}</span>
-                  </>
-                )}
-              </button>
+            <div className={cn(
+              "grid gap-3",
+              payDisplay.showStripeFull && payDisplay.showStripeDeposit ? "grid-cols-2" : "grid-cols-1"
+            )}>
+              {payDisplay.showStripeFull && (
+                <button
+                  onClick={() => handlePayment('full')}
+                  disabled={isRedirecting}
+                  className="p-4 rounded-xl border-2 border-primary text-center hover:bg-primary/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isRedirecting ? (
+                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                  ) : (
+                    <>
+                      <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(totalAmount, lang)}</span>
+                      <span className="text-xs font-sans text-muted-foreground block mt-0.5">{tOffer(lang, 'payFullShort')}</span>
+                    </>
+                  )}
+                </button>
+              )}
+              {payDisplay.showStripeDeposit && (
+                <button
+                  onClick={() => handlePayment('deposit')}
+                  disabled={isRedirecting}
+                  className={cn(
+                    "p-4 rounded-xl text-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                    payDisplay.showStripeFull
+                      ? "border border-border hover:bg-muted/50"
+                      : "border-2 border-primary hover:bg-primary/5"
+                  )}
+                >
+                  {isRedirecting ? (
+                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                  ) : (
+                    <>
+                      <span className="font-bold text-sm font-sans block">{formatCurrencyDecimal(depositAmount, lang)}</span>
+                      <span className="text-xs font-sans text-muted-foreground block mt-0.5">{payDisplay.depositLabel}</span>
+                      <span className="text-[10px] font-sans text-muted-foreground/60 block">
+                        {payDisplay.restNote ?? tOffer(lang, 'restBeforeEvent')}
+                      </span>
+                    </>
+                  )}
+                </button>
               )}
             </div>
           </div>
