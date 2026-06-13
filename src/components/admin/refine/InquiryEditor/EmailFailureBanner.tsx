@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertOctagon, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useEmailFailuresForEntity, resolveEmailFailure } from "@/hooks/useEmailFailures";
+import { useEmailFailuresForEntity, resolveEmailFailure, type EmailFailure } from "@/hooks/useEmailFailures";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 
@@ -16,18 +17,31 @@ const STATUS_LABEL: Record<string, string> = {
 export function EmailFailureBanner({ entityId }: { entityId: string | undefined }) {
   const { data, refetch } = useEmailFailuresForEntity(entityId);
   const [resolving, setResolving] = useState<string | null>(null);
+  const qc = useQueryClient();
 
   if (!data || data.length === 0) return null;
 
-  const handleResolve = async (id: string, metadata: Record<string, unknown> | null) => {
-    setResolving(id);
+  const handleResolve = async (f: EmailFailure) => {
+    setResolving(f.id);
     try {
-      await resolveEmailFailure(id, metadata);
+      // Optimistic: sofort aus beiden Caches entfernen, damit Karte/Banner verschwindet.
+      qc.setQueryData<EmailFailure[] | undefined>(
+        ["email-failures", "entity", entityId],
+        (old) => (old ? old.filter((x) => x.id !== f.id) : old),
+      );
+      qc.setQueryData<EmailFailure[] | undefined>(
+        ["email-failures", "global"],
+        (old) => (old ? old.filter((x) => x.id !== f.id) : old),
+      );
+      await resolveEmailFailure(f);
       toast.success("Als erledigt markiert");
       refetch();
+      qc.invalidateQueries({ queryKey: ["email-failures", "global"] });
+      qc.invalidateQueries({ queryKey: ["activity-logs"] });
     } catch (err) {
       toast.error("Konnte nicht aktualisiert werden");
       console.error(err);
+      refetch();
     } finally {
       setResolving(null);
     }
@@ -83,7 +97,7 @@ export function EmailFailureBanner({ entityId }: { entityId: string | undefined 
                   variant="outline"
                   className="rounded-xl shrink-0"
                   disabled={resolving === f.id}
-                  onClick={() => handleResolve(f.id, f.metadata)}
+                  onClick={() => handleResolve(f)}
                 >
                   {resolving === f.id ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
