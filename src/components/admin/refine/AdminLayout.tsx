@@ -15,6 +15,7 @@ import { SaveStatusBadge } from "../shared/SaveStatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTestMode } from "@/contexts/TestModeContext";
+import { usePrivacyMode } from "@/contexts/PrivacyModeContext";
 import {
   LayoutDashboard,
   FileText,
@@ -31,6 +32,8 @@ import {
   ShieldAlert,
   ShoppingCart,
   Images,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useEffect, useState as useStateReact } from "react";
 
@@ -73,6 +76,7 @@ export const AdminLayout = ({
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
   const { isAdmin, role } = usePermissions();
   const { showTestData, setShowTestData } = useTestMode();
+  const { privacyMode, togglePrivacyMode } = usePrivacyMode();
 
   // Admin-Theme auf body setzen, damit Radix-Portale (Dialog, Select, etc.)
   // die Maestro CSS-Variablen statt der Website-Variablen erben
