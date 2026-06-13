@@ -600,7 +600,7 @@ function FreeformContent({
   disabled: boolean;
 }) {
   const program = option.menuSelection.freeformProgram ?? null;
-  const [findings, setFindings] = React.useState<import("./types").ValidationFinding[]>([]);
+  const [findings, setFindings] = useState<import("./types").ValidationFinding[]>([]);
 
   const setProgram = (p: FreeformProgram | null, newFindings?: import("./types").ValidationFinding[]) => {
     setFindings(newFindings ?? []);
