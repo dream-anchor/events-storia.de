@@ -574,3 +574,28 @@ html, body {
   transform: translateZ(0);
   backface-visibility: hidden;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Privacy Mode: hide money + customer data globally for demos
+   Toggle: <body data-privacy="on">. Marked via [data-sensitive].
+   ═══════════════════════════════════════════════════════════════════════════ */
+body[data-privacy="on"] [data-sensitive] {
+  filter: blur(6px);
+  user-select: none;
+  pointer-events: none;
+  transition: filter 120ms ease-out;
+  /* Slight letter-spacing makes blurred text harder to OCR */
+  letter-spacing: 0.5px;
+}
+body[data-privacy="on"] [data-sensitive="customer"],
+body[data-privacy="on"] [data-sensitive="contact"] {
+  filter: blur(5px);
+}
+/* Allow tooltips/buttons inside sensitive blocks to remain interactive
+   only if explicitly opted out via data-sensitive-allow */
+body[data-privacy="on"] [data-sensitive] [data-sensitive-allow] {
+  filter: none;
+  pointer-events: auto;
+  user-select: auto;
+  letter-spacing: normal;
+}
