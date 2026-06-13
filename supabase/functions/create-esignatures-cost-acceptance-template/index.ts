@@ -26,7 +26,14 @@ Deno.serve(async (req) => {
 
     const apiKey = Deno.env.get("ESIGNATURES_API_KEY");
     if (!apiKey) {
-      throw new Error("ESIGNATURES_API_KEY ist nicht konfiguriert.");
+      console.error("ESIGNATURES_API_KEY is missing");
+      return new Response(
+        JSON.stringify({ error: "ESIGNATURES_API_KEY is missing" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const supabase = createClient(
@@ -59,31 +66,65 @@ Deno.serve(async (req) => {
       );
     }
 
-    // create template at eSignatures
-    const res = await fetch(
-      `${ESIGNATURES_API}/templates?token=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: COST_ACCEPTANCE_TEMPLATE_TITLE,
-          labels: ["cost-acceptance", `v${TEMPLATE_VERSION}`],
-          content: COST_ACCEPTANCE_TEMPLATE_MARKDOWN,
-        }),
-      },
-    );
+    console.log("eSignatures template creation details", {
+      titleExists: Boolean(COST_ACCEPTANCE_TEMPLATE_TITLE),
+      markdownLength: COST_ACCEPTANCE_TEMPLATE_MARKDOWN.length,
+      templateVersion: TEMPLATE_VERSION,
+      templateHash: hash,
+      markdownPreview: COST_ACCEPTANCE_TEMPLATE_MARKDOWN.slice(0, 300),
+    });
 
-    const json = await res.json();
-    if (!res.ok || json?.status === "error") {
-      throw new Error(
-        `eSignatures Template-Erstellung fehlgeschlagen: ${
-          JSON.stringify(json)
-        }`,
-      );
+    const res = await fetch(`${ESIGNATURES_API}/templates`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${apiKey}:`)}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title: COST_ACCEPTANCE_TEMPLATE_TITLE,
+        markdown: COST_ACCEPTANCE_TEMPLATE_MARKDOWN,
+      }),
+    });
+
+    const responseText = await res.text();
+    let json: unknown = null;
+    try {
+      json = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      json = responseText;
     }
 
-    const templateId: string = json?.data?.template?.id ?? json?.template?.id;
-    if (!templateId) throw new Error("Keine template_id in Response.");
+    if (!res.ok) {
+      console.error("eSignatures API template creation failed", {
+        status: res.status,
+        statusText: res.statusText,
+        responseBody: responseText,
+      });
+
+      const detail = extractErrorDetail(json, responseText);
+      const message = `eSignatures template creation failed: ${res.status}${
+        res.statusText ? ` ${res.statusText}` : ""
+      }${detail ? ` - ${detail}` : ""}`;
+
+      return new Response(JSON.stringify({ error: message }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const templateId = getTemplateId(json);
+    if (!templateId) {
+      console.error("eSignatures API response missing template_id", json);
+      return new Response(
+        JSON.stringify({
+          error: `eSignatures API response missing template_id. Response: ${JSON.stringify(json)}`,
+        }),
+        {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     await supabase.from("crm_settings").upsert({
       key: "esignatures_cost_acceptance_template",
@@ -113,3 +154,25 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+function getTemplateId(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const data = (payload as { data?: unknown }).data;
+  if (!Array.isArray(data)) return null;
+  const first = data[0];
+  if (!first || typeof first !== "object") return null;
+  const templateId = (first as { template_id?: unknown }).template_id;
+  return typeof templateId === "string" && templateId.length > 0
+    ? templateId
+    : null;
+}
+
+function extractErrorDetail(payload: unknown, fallbackText: string): string {
+  if (payload && typeof payload === "object") {
+    const source = payload as Record<string, unknown>;
+    const detail = source.message ?? source.error ?? source.errors;
+    if (typeof detail === "string") return detail;
+    if (detail) return JSON.stringify(detail);
+  }
+  return fallbackText.length > 500 ? `${fallbackText.slice(0, 500)}…` : fallbackText;
+}
