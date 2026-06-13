@@ -972,7 +972,7 @@ serve(async (req) => {
           const totalsMatch = lexTotal > 0 && Math.abs(lexTotal - dbTotal) <= 0.01;
           const remarkMatches = lexRemark === expectedRemark;
           const lexTaxType = String(doc?.taxConditions?.taxType ?? '');
-          const taxTypeMatches = lexTaxType === 'net';
+          const taxTypeMatches = lexTaxType === 'gross';
           if (totalsMatch && remarkMatches && taxTypeMatches) {
             // PDF in LexOffice ist aktuell — nichts neu erzeugen
             return new Response(
