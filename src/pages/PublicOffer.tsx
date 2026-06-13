@@ -70,6 +70,10 @@ interface PublicInquiry {
   deposit_percent?: number | null;
   deposit_due_days?: number | null;
   payment_method?: string | null;
+  deposit_method?: string | null;
+  balance_method?: string | null;
+  balance_due_days_before_event?: number | null;
+  invoice_due_days?: number | null;
   customer_language?: 'de' | 'en' | 'it' | 'fr' | null;
 }
 
@@ -173,40 +177,94 @@ function formatCurrencyDecimal(amount: number, lang: OfferLang = 'de') {
 }
 
 /**
- * Berechnet die Anzahlung (deposit) auf Basis des Inquiry-Settings:
- *   - deposit_amount > 0  → fixer Eurobetrag (gecappt auf totalAmount)
- *   - sonst Prozentsatz   → totalAmount * deposit_percent / 100
- * Liefert {amount, label, show}. show=false wenn 0 oder ≥ totalAmount.
+ * Leitet aus den Maestro-Zahlungsbedingungen ab, welche Buttons das Public
+ * Offer zeigen darf. Nutzt primär die neuen Felder `deposit_method` und
+ * `balance_method`. Fällt auf Legacy `payment_method` zurück, wenn diese
+ * Felder noch leer sind (alte Anfragen).
  */
-function computeDeposit(
-  inquiry: Pick<PublicInquiry, "deposit_amount" | "deposit_percent" | "payment_method">,
+type DepositMethod = 'none' | 'stripe' | 'on_site' | 'invoice';
+type BalanceMethod = 'stripe_prepay' | 'on_site' | 'invoice_before' | 'invoice_after';
+
+function legacyPmToPair(pm: string | null | undefined): { deposit: DepositMethod; balance: BalanceMethod } {
+  switch ((pm ?? '').toLowerCase()) {
+    case 'deposit_online':    return { deposit: 'stripe', balance: 'stripe_prepay' };
+    case 'prepayment_online': return { deposit: 'none',   balance: 'stripe_prepay' };
+    case 'full_online':       return { deposit: 'none',   balance: 'stripe_prepay' };
+    case 'on_site':
+    case 'pay_on_site':       return { deposit: 'none',   balance: 'on_site' };
+    case 'invoice_after':
+    case 'invoice_after_event': return { deposit: 'none', balance: 'invoice_after' };
+    case 'invoice_before':
+    case 'invoice_before_event':
+    case 'bank_transfer_prepay': return { deposit: 'none', balance: 'invoice_before' };
+    default:                  return { deposit: 'stripe', balance: 'stripe_prepay' };
+  }
+}
+
+export interface PaymentDisplay {
+  depositMethod: DepositMethod;
+  balanceMethod: BalanceMethod;
+  depositAmount: number;
+  depositLabel: string;
+  isFixedDeposit: boolean;
+  /** Stripe-Anzahlungs-Button anzeigen */
+  showStripeDeposit: boolean;
+  /** Stripe-Voll-/Komplettzahlungs-Button anzeigen */
+  showStripeFull: boolean;
+  /** "Verbindlich buchen ohne Online-Zahlung"-Box anzeigen */
+  offlineTiming: 'on_site' | 'after_event' | 'transfer_prepay' | null;
+  /** Hinweistext unter Anzahlungs-Button, wenn Rest offline erfolgt */
+  restNote: string | null;
+}
+
+function derivePaymentDisplay(
+  inquiry: Pick<PublicInquiry, 'deposit_amount' | 'deposit_percent' | 'payment_method' | 'deposit_method' | 'balance_method'>,
   totalAmount: number,
-): { amount: number; label: string; show: boolean } {
-  // Bei Offline-Zahlung (vor Ort / Rechnung) gibt es konzeptionell keine Anzahlung
-  const pm = (inquiry.payment_method ?? '').toLowerCase();
-  if (pm === 'on_site' || pm === 'pay_on_site' || pm === 'invoice_after' || pm === 'invoice_after_event' || pm === 'invoice_before' || pm === 'invoice_before_event') {
-    return { amount: 0, label: 'Anzahlung', show: false };
-  }
+): PaymentDisplay {
+  const legacy = legacyPmToPair(inquiry.payment_method);
+  const depositMethod = ((inquiry.deposit_method ?? legacy.deposit) as DepositMethod);
+  const balanceMethod = ((inquiry.balance_method ?? legacy.balance) as BalanceMethod);
+
+  // Anzahlungs-Betrag aus Maestro
   const fixed = inquiry.deposit_amount && inquiry.deposit_amount > 0 ? inquiry.deposit_amount : null;
-  if (fixed != null) {
-    const amount = Math.min(fixed, totalAmount);
-    return {
-      // Maestro-Anzahlung 1:1 übernehmen, niemals runden.
-      amount,
-      label: "Anzahlung",
-      show: amount > 0 && amount < totalAmount,
-    };
+  let depositAmount = 0;
+  let depositLabel = 'Anzahlung';
+  let isFixedDeposit = false;
+  if (depositMethod !== 'none' && totalAmount > 0) {
+    if (fixed != null) {
+      depositAmount = Math.min(fixed, totalAmount);
+      isFixedDeposit = true;
+    } else {
+      const pct = inquiry.deposit_percent ?? 0;
+      if (pct > 0) {
+        depositAmount = (totalAmount * pct) / 100;
+        depositLabel = `Anzahlung ${pct} %`;
+      }
+    }
   }
-  // Sicherer Default nur, wenn auch wirklich Online-Anzahlungsmodus
-  const fallbackPct = pm === 'deposit_online' ? 20 : 0;
-  const pct = inquiry.deposit_percent ?? fallbackPct;
-  if (pct <= 0) return { amount: 0, label: "Anzahlung", show: false };
-  // Keine Cent-Rundung — exakter Betrag wird auf 2 Nachkommastellen formatiert.
-  const amount = (totalAmount * pct) / 100;
+
+  const showStripeDeposit = depositMethod === 'stripe' && depositAmount > 0 && depositAmount < totalAmount;
+  const showStripeFull = balanceMethod === 'stripe_prepay' && totalAmount > 0;
+
+  // Offline-Buchungs-Box nur, wenn weder Anzahlung noch Restzahlung online erfolgen
+  const offlineTiming: PaymentDisplay['offlineTiming'] = !showStripeDeposit && !showStripeFull
+    ? (balanceMethod === 'on_site' ? 'on_site'
+       : balanceMethod === 'invoice_after' ? 'after_event'
+       : balanceMethod === 'invoice_before' ? 'after_event'
+       : null)
+    : null;
+
+  // Hinweis unter Stripe-Anzahlung, wenn Rest offline läuft
+  const restNote = (showStripeDeposit && !showStripeFull)
+    ? (balanceMethod === 'on_site' ? 'Restzahlung vor Ort beim Event'
+       : balanceMethod === 'invoice_after' ? 'Restzahlung per Rechnung nach dem Event'
+       : balanceMethod === 'invoice_before' ? 'Restzahlung per Rechnung vor dem Event'
+       : null)
+    : null;
+
   return {
-    amount,
-    label: `Anzahlung ${pct} %`,
-    show: amount > 0 && amount < totalAmount,
+    depositMethod, balanceMethod, depositAmount, depositLabel, isFixedDeposit,
+    showStripeDeposit, showStripeFull, offlineTiming, restNote,
   };
 }
 
