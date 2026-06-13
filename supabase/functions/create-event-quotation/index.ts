@@ -1271,9 +1271,9 @@ serve(async (req) => {
     const documentPayload: Record<string, unknown> = {
       voucherDate: new Date().toISOString(),
       address: addressBlock,
-      lineItems: convertLineItemsToNet(lineItems),
+      lineItems: lineItems,
       totalPrice: { currency: 'EUR' },
-      taxConditions: { taxType: 'net' },
+      taxConditions: { taxType: 'gross' },
       paymentConditions,
       introduction,
     };
