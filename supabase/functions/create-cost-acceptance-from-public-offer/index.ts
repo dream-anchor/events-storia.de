@@ -213,7 +213,13 @@ Deno.serve(async (req) => {
     if (rowErr || !row) throw new Error(rowErr?.message ?? "Insert failed");
 
     // 4. Create contract at eSignatures.com
-    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/esignatures-webhook`;
+    const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").trim().replace(/\/+$/, "");
+    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(supabaseUrl)) {
+      throw new Error(
+        "SUPABASE_URL ist nicht konfiguriert — Webhook-URL kann nicht aufgebaut werden.",
+      );
+    }
+    const webhookUrl = `${supabaseUrl}/functions/v1/esignatures-webhook`;
     const contractPayload = {
       template_id: templateConfig.template_id,
       locale: "de",
