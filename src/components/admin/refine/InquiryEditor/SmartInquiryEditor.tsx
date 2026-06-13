@@ -1210,7 +1210,7 @@ export const SmartInquiryEditor = () => {
           {id && (
             <CostAcceptanceCard
               inquiryId={id}
-              publicOfferUrl={`${window.location.origin}/angebot/${id}`}
+              publicOfferUrl={`${window.location.origin}/offer/${id}`}
               offerPhase={(mergedInquiry as any)?.offer_phase}
               lockedAfterSignature={(mergedInquiry as any)?.locked_after_signature}
             />
