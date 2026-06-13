@@ -1284,12 +1284,13 @@ function ProposalOptionCard({
   // fuer den ganzen Anlass (nicht pro Gast). Dann zeigen wir statt "pro Person"
   // den Gesamtbetrag mit Label "Gesamtpreis".
   const isPerEvent = menu?.pricingMode === 'per_event';
+  const effectiveTotal = effectiveTotalForOption(option);
   const pricePerPerson = isPerEvent
     ? 0
     : option.guest_count > 0
       ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
           ? menu.budgetPerPerson
-          : option.total_amount / option.guest_count)
+          : effectiveTotal / option.guest_count)
       : 0;
 
   return (
@@ -1334,7 +1335,7 @@ function ProposalOptionCard({
           <p className="text-2xl font-serif font-bold text-primary leading-none">
             {pricePerPerson > 0
               ? formatCurrencyDecimal(pricePerPerson, lang)
-              : formatCurrency(option.total_amount, lang)}
+              : formatCurrency(effectiveTotal, lang)}
           </p>
           <p className="text-[11px] text-muted-foreground font-sans mt-1">
             {pricePerPerson > 0 ? tOffer(lang, 'perPersonShort') : tOffer(lang, 'totalPriceLabel')}
