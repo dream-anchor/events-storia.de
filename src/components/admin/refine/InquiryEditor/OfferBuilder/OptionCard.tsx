@@ -600,8 +600,10 @@ function FreeformContent({
   disabled: boolean;
 }) {
   const program = option.menuSelection.freeformProgram ?? null;
+  const [findings, setFindings] = React.useState<import("./types").ValidationFinding[]>([]);
 
-  const setProgram = (p: FreeformProgram | null) => {
+  const setProgram = (p: FreeformProgram | null, newFindings?: import("./types").ValidationFinding[]) => {
+    setFindings(newFindings ?? []);
     onUpdate({
       menuSelection: { ...option.menuSelection, freeformProgram: p },
       // totalAmount aus brutto übernehmen (Maestro-Prinzip: 1:1)
@@ -611,12 +613,14 @@ function FreeformContent({
   };
 
   if (!program) {
-    return <FreeformImportPanel onParsed={setProgram} disabled={disabled} />;
+    return <FreeformImportPanel onParsed={(p, f) => setProgram(p, f)} disabled={disabled} />;
   }
 
   return (
     <FreeformProgramEditor
       program={program}
+      validationFindings={findings}
+      onDismissFindings={() => setFindings([])}
       onChange={(p) =>
         onUpdate({
           menuSelection: { ...option.menuSelection, freeformProgram: p },
@@ -624,7 +628,7 @@ function FreeformContent({
           packageName: p.title || option.packageName,
         })
       }
-      onClear={() => setProgram(null)}
+      onClear={() => setProgram(null, [])}
       disabled={disabled}
     />
   );
