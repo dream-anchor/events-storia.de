@@ -1280,6 +1280,7 @@ function ProposalOptionCard({
     ? [{ drinkGroup: 'main_drink' as const, drinkLabel: 'Weinbegleitung', selectedChoice: null, customDrink: null, quantityLabel: null }]
     : [];
   const drinks: DrinkSelection[] = _drinksLegacy.length > 0 ? _drinksLegacy : [..._drinksEinzeln, ..._drinksExtra];
+  const isFreeform = !!(menu as any)?.freeformProgram;
   // Pricing-Modus respektieren: bei per_event ist budgetPerPerson der Gesamtpreis
   // fuer den ganzen Anlass (nicht pro Gast). Dann zeigen wir statt "pro Person"
   // den Gesamtbetrag mit Label "Gesamtpreis".
@@ -1287,6 +1288,8 @@ function ProposalOptionCard({
   const effectiveTotal = effectiveTotalForOption(option);
   const pricePerPerson = isPerEvent
     ? 0
+    : isFreeform
+      ? 0
     : option.guest_count > 0
       ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
           ? menu.budgetPerPerson
@@ -1565,11 +1568,14 @@ function FinalOptionCard({
     ? [{ drinkGroup: 'main_drink' as const, drinkLabel: 'Weinbegleitung', selectedChoice: null, customDrink: null, quantityLabel: null }]
     : [];
   const drinks: DrinkSelection[] = _drinksLegacy.length > 0 ? _drinksLegacy : [..._drinksEinzeln, ..._drinksExtra];
+  const isFreeform = !!(menu as any)?.freeformProgram;
   // Pricing-Modus respektieren (siehe andere OptionCard-Variante)
   const isPerEvent = menu?.pricingMode === 'per_event';
   const effectiveTotal = effectiveTotalForOption(option);
   const pricePerPerson = isPerEvent
     ? 0
+    : isFreeform
+      ? 0
     : option.guest_count > 0
       ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
           ? menu.budgetPerPerson
