@@ -262,7 +262,7 @@ export function CostAcceptanceCard({
                   k="Summe (brutto)"
                   v={
                     row.amount_gross_cents != null ? (
-                      <PrivacyBlur kind="amount">
+                      <PrivacyBlur kind="money">
                         {(row.amount_gross_cents / 100).toLocaleString("de-DE", {
                           style: "currency",
                           currency: row.currency ?? "EUR",

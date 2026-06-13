@@ -49,19 +49,19 @@ export function CostAcceptanceAuditDrawer({
           )}
           {events?.map((evt, idx) => {
             const isOpen = !!showRaw[idx];
-            const payload = (evt.payload ?? {}) as Record<string, unknown>;
-            const data = (payload.data ?? {}) as Record<string, unknown>;
-            const contract = (data.contract ?? {}) as Record<string, unknown>;
-            const signer = ((contract.signers as unknown[])?.[0] ?? {}) as Record<
+            const payload = (evt.payload ?? {}) as Record<string, any>;
+            const data = (payload.data ?? {}) as Record<string, any>;
+            const contract = (data.contract ?? {}) as Record<string, any>;
+            const signer = ((contract.signers as any[])?.[0] ?? {}) as Record<
               string,
-              unknown
+              any
             >;
-            const reason =
-              (signer?.reason_for_decline as string) ??
-              (contract?.reason_for_decline as string) ??
+            const reason: string | null =
+              signer?.reason_for_decline ??
+              contract?.reason_for_decline ??
               null;
-            const sigValid =
-              (signer?.signature_valid as boolean | undefined) ?? null;
+            const sigValid: boolean | null =
+              signer?.signature_valid ?? null;
 
             return (
               <div
@@ -88,9 +88,7 @@ export function CostAcceptanceAuditDrawer({
                   {signer?.name && <div>Signer: {String(signer.name)}</div>}
                   {signer?.email && <div>E-Mail: {String(signer.email)}</div>}
                   {contract?.id && <div>Contract: {String(contract.id)}</div>}
-                  {contract?.title && (
-                    <div>Titel: {String(contract.title)}</div>
-                  )}
+                  {contract?.title && <div>Titel: {String(contract.title)}</div>}
                   {reason && (
                     <div className="text-destructive">Grund: {reason}</div>
                   )}
