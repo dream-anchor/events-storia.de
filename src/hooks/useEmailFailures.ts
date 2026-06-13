@@ -17,8 +17,16 @@ export interface EmailFailure {
   metadata: Record<string, unknown> | null;
 }
 
-function isUnresolved(row: { status: string; metadata: Record<string, unknown> | null }): boolean {
+function isUnresolved(row: {
+  status: string;
+  metadata: Record<string, unknown> | null;
+  provider?: string | null;
+  recipient_email?: string | null;
+}): boolean {
   if (!FAILURE_STATUSES.includes(row.status as typeof FAILURE_STATUSES[number])) return false;
+  // WhatsApp-Logs sind interne Alerts an das Team – nie als Kunden-Zustellfehler anzeigen.
+  if (row.provider === "whatsapp_meta") return false;
+  if (typeof row.recipient_email === "string" && row.recipient_email.startsWith("whatsapp:")) return false;
   const m = row.metadata ?? {};
   return !m.resolved_at;
 }
@@ -55,6 +63,7 @@ export function useEmailFailuresForEntity(entityId: string | undefined) {
         .select("*")
         .eq("entity_id", entityId!)
         .in("status", FAILURE_STATUSES as unknown as string[])
+        .neq("provider", "whatsapp_meta")
         .order("sent_at", { ascending: false });
       if (error) {
         console.error("useEmailFailuresForEntity error", error);
@@ -76,6 +85,7 @@ export function useGlobalEmailFailures() {
         .from("email_delivery_logs")
         .select("*")
         .in("status", FAILURE_STATUSES as unknown as string[])
+        .neq("provider", "whatsapp_meta")
         .gte("sent_at", since)
         .order("sent_at", { ascending: false });
       if (error) {
@@ -95,15 +105,40 @@ export function useEntityFailureIndex(): { ids: Set<string>; count: number; isLo
   return { ids, count: data?.length ?? 0, isLoading };
 }
 
-/** Mark a failure as resolved */
-export async function resolveEmailFailure(id: string, currentMetadata: Record<string, unknown> | null) {
+/** Mark a failure as resolved and persist an entry in activity_logs */
+export async function resolveEmailFailure(
+  failure: Pick<EmailFailure, "id" | "metadata" | "entity_type" | "entity_id" | "recipient_email" | "subject" | "status" | "sent_at">,
+) {
   const merged = {
-    ...(currentMetadata ?? {}),
+    ...(failure.metadata ?? {}),
     resolved_at: new Date().toISOString(),
   };
   const { error } = await supabase
     .from("email_delivery_logs")
     .update({ metadata: merged } as never)
-    .eq("id", id);
+    .eq("id", failure.id);
   if (error) throw error;
+
+  // Activity log entry – best effort
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    await supabase.from("activity_logs").insert([
+      {
+        entity_type: failure.entity_type,
+        entity_id: failure.entity_id,
+        action: "email_failure_resolved",
+        actor_id: userData.user?.id,
+        actor_email: userData.user?.email,
+        metadata: {
+          recipient_email: failure.recipient_email,
+          subject: failure.subject,
+          status: failure.status,
+          sent_at: failure.sent_at,
+          log_id: failure.id,
+        } as never,
+      } as never,
+    ]);
+  } catch (logErr) {
+    console.warn("Could not write activity log for email failure resolve", logErr);
+  }
 }
