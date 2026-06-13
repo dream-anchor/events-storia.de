@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { buildDrinkRows } from "@/pages/public-offer/types";
+import { CostAcceptanceSection } from "@/pages/public-offer/CostAcceptanceSection";
 
 // --- Types ---
 
