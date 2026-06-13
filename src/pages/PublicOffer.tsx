@@ -1673,7 +1673,12 @@ function FinalOptionCard({
 
       {/* Menü — Speisekarten-Stil */}
       <div className="px-6 pb-6">
-        {courses.length > 0 && (
+        {isFreeform && (menu as any)?.freeformProgram && (
+          <div className="border-t border-border/20 pt-5 mb-5">
+            <FreeformProgramSection program={(menu as any).freeformProgram} />
+          </div>
+        )}
+        {!isFreeform && courses.length > 0 && (
           <div className="border-t border-border/20 pt-5 mb-5">
             <div className="flex items-center gap-2 mb-4">
               <UtensilsCrossed className="h-3.5 w-3.5 text-primary/40" />
@@ -1704,7 +1709,7 @@ function FinalOptionCard({
           </div>
         )}
 
-        {drinks.length > 0 && (
+        {!isFreeform && drinks.length > 0 && (
           <div className={cn("border-t border-border/20 pt-5", courses.length === 0 && "mt-0")}>
             <div className="flex items-center gap-2 mb-4">
               <Wine className="h-3.5 w-3.5 text-primary/40" />
@@ -1745,7 +1750,7 @@ function FinalOptionCard({
           </div>
         )}
 
-        {courses.length === 0 && drinks.length === 0 && (
+        {!isFreeform && courses.length === 0 && drinks.length === 0 && (
           <div className="border-t border-border/20 pt-5">
             <p className="text-sm text-muted-foreground font-sans italic">
               {tOffer(lang, 'menuComingSoon')}
