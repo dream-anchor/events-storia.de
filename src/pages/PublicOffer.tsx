@@ -1870,12 +1870,16 @@ function ConfirmationView({
 
   // Pricing-Modus respektieren
   const isPerEvent = selectedOption?.menu_selection?.pricingMode === 'per_event';
+  const effectiveTotal = effectiveTotalForOption(selectedOption);
+  const isFreeform = !!(selectedOption?.menu_selection as any)?.freeformProgram;
   const pricePerPerson = isPerEvent
     ? 0
+    : isFreeform
+      ? 0
     : selectedOption && selectedOption.guest_count > 0
       ? (selectedOption.menu_selection?.budgetPerPerson && selectedOption.menu_selection.budgetPerPerson > 0
           ? selectedOption.menu_selection.budgetPerPerson
-          : selectedOption.total_amount / selectedOption.guest_count)
+          : effectiveTotal / selectedOption.guest_count)
       : 0;
 
   return (
@@ -1894,7 +1898,7 @@ function ConfirmationView({
               {" "}{tOffer(lang, 'forGuests').replace('{n}', String(selectedOption.guest_count))} —{" "}
               {pricePerPerson > 0
                 ? `${formatCurrencyDecimal(pricePerPerson, lang)} ${tOffer(lang, 'perPersonSuffix')}`
-                : `${formatCurrency(selectedOption.total_amount, lang)} ${tOffer(lang, 'totalSuffix')}`}
+                : `${formatCurrency(effectiveTotal, lang)} ${tOffer(lang, 'totalSuffix')}`}
             </p>
           )}
           {inquiry.preferred_date && (
