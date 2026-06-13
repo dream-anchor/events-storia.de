@@ -129,13 +129,33 @@ export function ProposalView({
     });
   }, [options, targetGuests]);
 
+  // Effektiver Gesamtbetrag pro Option.
+  // Bei Freeform-Angeboten ist option.total_amount häufig 0 — dann den Brutto-
+  // Betrag aus dem freeformProgram (totalsFromText.gross minus Rabatt) nutzen,
+  // damit Gesamtpreis, Anzahlung und Stripe-Buttons korrekt erscheinen.
+  const effectiveTotalFor = (opt: PublicOfferOption): number => {
+    if (opt.total_amount && opt.total_amount > 0) return opt.total_amount;
+    const ff: any = (opt.menu_selection as any)?.freeformProgram;
+    const gross = Number(ff?.totalsFromText?.gross) || 0;
+    if (gross <= 0) return 0;
+    const d = ff?.discount;
+    let discountAmount = 0;
+    if (d && typeof d === 'object') {
+      const val = Number(d.value) || 0;
+      if (d.mode === 'amount') discountAmount = val;
+      else if (d.mode === 'percent') discountAmount = (gross * val) / 100;
+    }
+    return Math.max(0, gross - discountAmount);
+  };
+
   // Pro-Person-Preis pro Option (per_event: total_amount als Pauschale)
   const perPersonPriceFor = (opt: PublicOfferOption): number => {
     const ms = opt.menu_selection;
-    if (ms?.pricingMode === 'per_event') return opt.total_amount;
+    const effTotal = effectiveTotalFor(opt);
+    if (ms?.pricingMode === 'per_event') return effTotal;
     const budget = ms?.budgetPerPerson;
     if (budget && budget > 0) return budget;
-    if (opt.guest_count > 0) return opt.total_amount / opt.guest_count;
+    if (opt.guest_count > 0) return effTotal / opt.guest_count;
     return 0;
   };
 
@@ -149,7 +169,7 @@ export function ProposalView({
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
   const totalAmount = hasQuantities
     ? multiOptionsTotal
-    : (selectedOption?.total_amount ?? 0);
+    : (selectedOption ? effectiveTotalFor(selectedOption) : 0);
   // Zahlungs-Konditionen aus Inquiry (RPC liefert Defaults aus site_settings)
   const paymentMethod = (inquiry.payment_method || 'deposit_online') as string;
   // Sicherer Default für deposit_percent NUR bei deposit_online; sonst 0.
