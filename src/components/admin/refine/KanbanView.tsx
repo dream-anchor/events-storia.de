@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { getAdminInitials } from "@/lib/adminDisplayNames";
 import { getInquiryActionState, type ActionState } from "@/lib/inquiryActionState";
+import { useFailedDeliveryInquiries } from "@/hooks/useFailedDeliveryInquiries";
 
 interface KanbanViewProps {
   events: EventInquiry[];
@@ -332,6 +333,7 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
                 key={event.id}
                 event={event}
                 isDragging={draggingId === event.id}
+                hasDeliveryFailure={failedDeliveryIds.has(event.id)}
                 onDragStart={(e) => handleDragStart(e, event.id)}
                 onDragEnd={handleDragEnd}
                 onClick={() => {
