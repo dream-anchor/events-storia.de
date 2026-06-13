@@ -28,7 +28,11 @@ Deno.serve(async (req) => {
       template_id?: string;
       template_version?: string;
     };
-    const url = Deno.env.get("SUPABASE_URL") ?? "";
+    const rawUrl = (Deno.env.get("SUPABASE_URL") ?? "").trim().replace(/\/+$/, "");
+    const isValidUrl = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(rawUrl);
+    const webhookUrl = isValidUrl
+      ? `${rawUrl}/functions/v1/esignatures-webhook`
+      : null;
     return new Response(
       JSON.stringify({
         has_api_key: !!Deno.env.get("ESIGNATURES_API_KEY"),
@@ -36,7 +40,8 @@ Deno.serve(async (req) => {
         template_id: value.template_id ?? null,
         template_version: value.template_version ?? null,
         current_template_version: TEMPLATE_VERSION,
-        webhook_url: `${url}/functions/v1/esignatures-webhook`,
+        webhook_url: webhookUrl,
+        supabase_url_available: isValidUrl,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

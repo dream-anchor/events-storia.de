@@ -73,7 +73,8 @@ interface IntegrationStatus {
   template_id: string | null;
   template_version: string | null;
   current_template_version: string;
-  webhook_url: string;
+  webhook_url: string | null;
+  supabase_url_available?: boolean;
 }
 
 export function CostAcceptanceCard({
@@ -399,7 +400,7 @@ export function CostAcceptanceCard({
                     }
                   />
                 </div>
-                {integration?.webhook_url && (
+                {integration?.webhook_url ? (
                   <div className="text-xs space-y-1">
                     <div className="text-muted-foreground">Webhook URL:</div>
                     <code className="block break-all rounded-md bg-background px-2 py-1.5 text-[11px]">
@@ -410,6 +411,11 @@ export function CostAcceptanceCard({
                       sein, falls nicht pro Contract <code>custom_webhook_url</code>{" "}
                       verwendet wird.
                     </div>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                    SUPABASE_URL nicht verfügbar. Bitte Function-URL aus dem
+                    Supabase Dashboard kopieren und in eSignatures.com hinterlegen.
                   </div>
                 )}
                 <div className="flex flex-wrap gap-2 pt-1">
