@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { buildDrinkRows } from "@/pages/public-offer/types";
 import { CostAcceptanceSection } from "@/pages/public-offer/CostAcceptanceSection";
+import { FreeformProgramSection } from "@/pages/public-offer/FreeformProgramSection";
 
 // --- Types ---
 
