@@ -488,7 +488,7 @@ export function PaymentCard({ inquiryId, preferredDate, offerTotal, isTest = fal
             </CardTitle>
             {grandTotal > 0 && (
               <span className="text-sm font-medium text-muted-foreground">
-                Gesamt: {formatEUR(grandTotal)}
+                Gesamt: <span data-sensitive="money">{formatEUR(grandTotal)}</span>
               </span>
             )}
           </div>
@@ -518,17 +518,17 @@ export function PaymentCard({ inquiryId, preferredDate, offerTotal, isTest = fal
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Bezahlt</span>
-                      <span className="font-medium text-green-700">{formatEUR(paidTotal)}</span>
+                      <span className="font-medium text-green-700" data-sensitive="money">{formatEUR(paidTotal)}</span>
                     </div>
                     {openTotal > 0 && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Offen</span>
-                        <span className="font-medium text-amber-700">{formatEUR(openTotal)}</span>
+                        <span className="font-medium text-amber-700" data-sensitive="money">{formatEUR(openTotal)}</span>
                       </div>
                     )}
                     <div className="flex justify-between font-semibold border-t border-border/40 pt-1">
                       <span>Gesamt</span>
-                      <span>{formatEUR(grandTotal)}</span>
+                      <span data-sensitive="money">{formatEUR(grandTotal)}</span>
                     </div>
                   </div>
                 </>
