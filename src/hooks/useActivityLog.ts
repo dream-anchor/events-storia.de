@@ -119,6 +119,11 @@ export const formatActivityAction = (log: ActivityLog): string => {
       return `Paket "${packageName}" ausgewählt`;
     },
     'menu_updated': () => 'Menüauswahl aktualisiert',
+    'email_failure_resolved': (l) => {
+      const m = (l.metadata || {}) as Record<string, unknown>;
+      const recipient = (m.recipient_email as string) || 'Empfänger';
+      return `Zustellfehler an ${recipient} als erledigt markiert`;
+    },
     'guest_count_changed': (l) => {
       const oldCount = l.old_value?.guest_count || '?';
       const newCount = l.new_value?.guest_count || '?';
@@ -152,6 +157,7 @@ export const getActivityIcon = (action: string): string => {
     'lexoffice_invoice_failed': 'AlertTriangle',
     'created': 'Plus',
     'updated': 'Pencil',
+    'email_failure_resolved': 'CheckCircle2',
   };
   return icons[action] || 'Activity';
 };
