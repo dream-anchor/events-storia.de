@@ -132,7 +132,9 @@ Deno.serve(async (req) => {
         template_id: templateId,
         template_version: TEMPLATE_VERSION,
         hash,
+        template_title: COST_ACCEPTANCE_TEMPLATE_TITLE,
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       },
     });
 
@@ -157,14 +159,24 @@ Deno.serve(async (req) => {
 
 function getTemplateId(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
-  const data = (payload as { data?: unknown }).data;
-  if (!Array.isArray(data)) return null;
-  const first = data[0];
-  if (!first || typeof first !== "object") return null;
-  const templateId = (first as { template_id?: unknown }).template_id;
-  return typeof templateId === "string" && templateId.length > 0
-    ? templateId
-    : null;
+  const root = payload as Record<string, unknown>;
+  const data = root.data;
+  const candidates: unknown[] = [];
+  if (data && typeof data === "object") {
+    if (Array.isArray(data)) {
+      const first = data[0];
+      if (first && typeof first === "object") {
+        candidates.push((first as Record<string, unknown>).template_id);
+      }
+    } else {
+      candidates.push((data as Record<string, unknown>).template_id);
+    }
+  }
+  candidates.push(root.template_id);
+  for (const c of candidates) {
+    if (typeof c === "string" && c.length > 0) return c;
+  }
+  return null;
 }
 
 function extractErrorDetail(payload: unknown, fallbackText: string): string {
