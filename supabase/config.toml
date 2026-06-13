@@ -92,3 +92,21 @@ verify_jwt = false
 
 [functions.sync-lexoffice-invoice]
 verify_jwt = true
+
+[functions.esignatures-webhook]
+verify_jwt = false
+
+[functions.create-esignatures-cost-acceptance-template]
+verify_jwt = true
+
+[functions.sync-esignatures-template]
+verify_jwt = true
+
+[functions.withdraw-cost-acceptance]
+verify_jwt = true
+
+[functions.download-signed-cost-acceptance]
+verify_jwt = true
+
+[functions.esignatures-integration-status]
+verify_jwt = true
