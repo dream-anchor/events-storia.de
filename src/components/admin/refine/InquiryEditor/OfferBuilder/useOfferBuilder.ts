@@ -668,6 +668,13 @@ export function useOfferBuilder({
           return { ...opt, totalAmount: gross };
         }
         if (opt.offerMode === 'menu') {
+          // Safety net: Wenn ein freeformProgram im menuSelection liegt, NIEMALS
+          // den Menu-Recalc anwenden — er würde totalAmount sonst auf 0 ziehen,
+          // weil keine `courses` existieren. Mode wird beim nächsten Save ohnehin
+          // korrigiert (defensive Hydration in der Load-Phase).
+          if (opt.menuSelection?.freeformProgram) {
+            return opt;
+          }
           // Menue-Modus: per-line priceMode bestimmt ob × Gäste oder pauschal
           const guests = Math.max(1, opt.guestCount);
           const globalMode = opt.pricingMode ?? 'per_person';
