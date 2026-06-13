@@ -19,6 +19,7 @@ import type {
   LifecycleBucket,
 } from "@/types/inquiryRecord";
 import { getRecordActionState } from "@/lib/inquiryActionState";
+import { useFailedDeliveryInquiries } from "@/hooks/useFailedDeliveryInquiries";
 
 interface UnifiedKanbanViewProps {
   records: InquiryRecord[];
@@ -124,6 +125,7 @@ export function UnifiedKanbanView({ records, onRefresh, bucket, onOpenGroup }: U
   const navigate = useNavigate();
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const failedDeliveryIds = useFailedDeliveryInquiries();
 
   const columns = BUCKET_COLUMNS[bucket];
 
@@ -281,6 +283,7 @@ export function UnifiedKanbanView({ records, onRefresh, bucket, onOpenGroup }: U
                 key={`${r.kind}-${r.id}`}
                 record={r}
                 isDragging={draggingId === r.id}
+                hasDeliveryFailure={r.kind === "event" && failedDeliveryIds.has(r.id)}
                 onDragStart={(e) => handleDragStart(e, r)}
                 onDragEnd={handleDragEnd}
                 onClick={() =>
@@ -328,13 +331,14 @@ export function UnifiedKanbanView({ records, onRefresh, bucket, onOpenGroup }: U
 interface CardProps {
   record: InquiryRecord;
   isDragging: boolean;
+  hasDeliveryFailure?: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onClick: () => void;
   onArchive: () => void;
 }
 
-function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick, onArchive }: CardProps) {
+function UnifiedKanbanCard({ record, isDragging, hasDeliveryFailure, onDragStart, onDragEnd, onClick, onArchive }: CardProps) {
   const isEvent = record.kind === "event";
   const title =
     record.companyName?.trim() ||
@@ -353,10 +357,20 @@ function UnifiedKanbanCard({ record, isDragging, onDragStart, onDragEnd, onClick
         action.borderClass,
         "hover:shadow-sm hover:border-foreground/30 transition-all",
         isEvent ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
-        isDragging && "opacity-40 scale-[0.98] shadow-md"
+        isDragging && "opacity-40 scale-[0.98] shadow-md",
+        hasDeliveryFailure && "border-red-500 border-2 ring-1 ring-red-200 bg-red-50/40"
       )}
     >
       <div className="flex items-center gap-2 min-w-0">
+        {hasDeliveryFailure && (
+          <span
+            className="text-base leading-none flex-shrink-0"
+            title="Letzte E-Mail an den Kunden konnte nicht zugestellt werden (Bounce / Fehler)"
+            aria-label="Zustellfehler"
+          >
+            🚨
+          </span>
+        )}
         <ServiceBadge serviceType={record.serviceType} />
         <h3 className="font-semibold text-slate-800 text-[13px] truncate flex-1 min-w-0">
           {title}

@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
 import { getAdminInitials } from "@/lib/adminDisplayNames";
 import { getInquiryActionState, type ActionState } from "@/lib/inquiryActionState";
+import { useFailedDeliveryInquiries } from "@/hooks/useFailedDeliveryInquiries";
 
 interface KanbanViewProps {
   events: EventInquiry[];
@@ -119,6 +120,7 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [dragOverColumn, setDragOverColumn] = useState<ColumnId | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const failedDeliveryIds = useFailedDeliveryInquiries();
 
   const columnData = useMemo(() => {
     const data: Record<
@@ -332,6 +334,7 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
                 key={event.id}
                 event={event}
                 isDragging={draggingId === event.id}
+                hasDeliveryFailure={failedDeliveryIds.has(event.id)}
                 onDragStart={(e) => handleDragStart(e, event.id)}
                 onDragEnd={handleDragEnd}
                 onClick={() => {
@@ -404,6 +407,7 @@ function emptyBucket() {
 interface KanbanCardProps {
   event: EventInquiry;
   isDragging: boolean;
+  hasDeliveryFailure?: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onClick: () => void;
@@ -414,6 +418,7 @@ interface KanbanCardProps {
 function KanbanCard({
   event,
   isDragging,
+  hasDeliveryFailure,
   onDragStart,
   onDragEnd,
   onClick,
@@ -451,7 +456,8 @@ function KanbanCard({
         "group relative bg-white p-3 rounded-xl border border-slate-200 border-l-[3px]",
         action.borderClass,
         "hover:shadow-sm hover:border-primary/40 transition-all cursor-grab active:cursor-grabbing",
-        isDragging && "opacity-40 scale-[0.98] shadow-md"
+        isDragging && "opacity-40 scale-[0.98] shadow-md",
+        hasDeliveryFailure && "border-red-500 border-2 ring-1 ring-red-200 bg-red-50/40"
       )}
       title={action.label}
     >
@@ -512,6 +518,15 @@ function KanbanCard({
       {/* Row 1: dot + name + date */}
       <div className="flex items-center gap-2 min-w-0 pr-7">
         <span className={cn("w-2 h-2 rounded-full flex-shrink-0", action.dotClass)} />
+        {hasDeliveryFailure && (
+          <span
+            className="text-base leading-none flex-shrink-0"
+            title="Letzte E-Mail an den Kunden konnte nicht zugestellt werden"
+            aria-label="Zustellfehler"
+          >
+            🚨
+          </span>
+        )}
         {(() => {
           const k = getServiceKind(event);
           return (
