@@ -61,6 +61,41 @@ interface MenuSelectionDB {
   discountPercent?: number | null;
   /** Optionaler Rabatt als fester Brutto-Eurobetrag. */
   discountAmount?: number | null;
+  /** Freitext-/AI-Programm (mehrtägig). Maestro-Positionen 1:1 ausgeben. */
+  freeformProgram?: FreeformProgramDB | null;
+}
+
+interface FreeformProgramMealDB {
+  id?: string;
+  label: string;
+  guestCount?: number | null;
+  sections?: Array<{ heading?: string | null; items?: string[] | null } | null> | null;
+  /** Netto-Pauschalpreis dieser Position. */
+  flatPriceNet: number;
+  vatRate?: number | null;
+}
+
+interface FreeformProgramDayDB {
+  id?: string;
+  dateLabel?: string | null;
+  isoDate?: string | null;
+  meals?: FreeformProgramMealDB[] | null;
+}
+
+interface FreeformProgramDB {
+  title?: string | null;
+  location?: string | null;
+  dateRangeLabel?: string | null;
+  scopeOfServices?: string[] | null;
+  days?: FreeformProgramDayDB[] | null;
+  taxBreakdown?: {
+    foodNet?: number | null;
+    foodVatRate?: number | null;
+    servicesNet?: number | null;
+    servicesVatRate?: number | null;
+  } | null;
+  totalsFromText?: { net?: number | null; gross?: number | null } | null;
+  discount?: { mode?: 'percent' | 'amount' | null; value?: number | null } | null;
 }
 
 interface OfferOption {
@@ -127,11 +162,17 @@ function appendDiscountLines(
   const rawTotal = Object.values(grossByRate).reduce((s, v) => s + v, 0);
   const targetRounded = Math.round(targetTotal * 100) / 100;
   const totalDiscount = Math.round((rawTotal - targetRounded) * 100) / 100;
-  if (totalDiscount <= 0.005) return;
+  if (Math.abs(totalDiscount) <= 0.005) return;
+
+  // Positiver Delta = LineItems-Summe ist HÖHER als Maestro-Ziel → Rabattzeile(n).
+  // Negativer Delta = LineItems-Summe ist NIEDRIGER → Korrekturzeile(n) (positiver Betrag),
+  //                   damit die LexOffice-Summe exakt der Maestro-Summe entspricht.
+  const isCorrectionUp = totalDiscount < 0;
+  const absDelta = Math.abs(totalDiscount);
 
   const label = discountPercent != null && discountPercent > 0
     ? `Rabatt ${Number.isInteger(discountPercent) ? discountPercent : discountPercent.toFixed(1).replace('.', ',')} %`
-    : 'Rabatt';
+    : (isCorrectionUp ? 'Anpassung' : 'Rabatt');
 
   // Steuersätze in stabiler Reihenfolge (zuerst Speisen 7 %, dann Getränke 19 %)
   const rates = Object.keys(grossByRate)
@@ -148,9 +189,9 @@ function appendDiscountLines(
     let amount: number;
     if (idx === rates.length - 1) {
       // Letzte Position bekommt den Rest, damit Cent-Differenzen aufgehen
-      amount = Math.round((totalDiscount - allocated) * 100) / 100;
+      amount = Math.round((absDelta - allocated) * 100) / 100;
     } else {
-      amount = Math.round((totalDiscount * (grossByRate[rate] / totalGross)) * 100) / 100;
+      amount = Math.round((absDelta * (grossByRate[rate] / totalGross)) * 100) / 100;
       allocated += amount;
     }
     if (amount > 0) allocations.push({ rate, amount });
@@ -168,7 +209,7 @@ function appendDiscountLines(
       unitName: 'Pauschale',
       unitPrice: {
         currency: 'EUR',
-        grossAmount: -a.amount,
+        grossAmount: isCorrectionUp ? a.amount : -a.amount,
         taxRatePercentage: a.rate,
       },
     });
@@ -241,6 +282,103 @@ function buildLineItems(
     : (parseInt(String(opt.guest_count)) || 1);
   const totalAmount = opt.total_amount || 0;
   const items: LexOfficeLineItem[] = [];
+
+  // ─── Freeform / AI-Programm: Maestro-Positionen 1:1 als LexOffice-Zeilen ───
+  // Jede Mahlzeit (Lunch, Dinner, BBQ Sommerfest, …) wird als eigene Zeile mit
+  // ihrem Maestro-Bruttobetrag ausgegeben. Programm-Inhalte (Antipasti, Beilagen
+  // etc.) landen in der LexOffice-Beschreibung. Rabatt erscheint als eigene
+  // negative Zeile, damit die Summe exakt der Maestro-Summe entspricht.
+  if (ms?.freeformProgram && Array.isArray(ms.freeformProgram.days)) {
+    const ff = ms.freeformProgram;
+
+    for (const day of (ff.days || [])) {
+      const dateLabel = (day?.dateLabel || '').trim();
+      for (const meal of (day?.meals || [])) {
+        if (!meal?.label) continue;
+        const netto = Number(meal.flatPriceNet || 0);
+        if (netto <= 0) continue;
+        const vat = Number(meal.vatRate ?? FOOD_TAX_RATE) || FOOD_TAX_RATE;
+        const brutto = round2(netto * (1 + vat / 100));
+        if (brutto <= 0) continue;
+
+        const sectionLines: string[] = [];
+        for (const sec of (meal.sections || [])) {
+          if (!sec) continue;
+          if (sec.heading) sectionLines.push(`${sec.heading}:`);
+          for (const item of (sec.items || [])) {
+            if (item) sectionLines.push(`• ${item}`);
+          }
+        }
+        const guestSuffix = meal.guestCount && meal.guestCount > 0
+          ? ` (${meal.guestCount} Personen)`
+          : '';
+        const name = dateLabel
+          ? `${dateLabel} – ${meal.label}${guestSuffix}`
+          : `${meal.label}${guestSuffix}`;
+
+        items.push({
+          type: 'custom',
+          name,
+          description: sectionLines.join('\n'),
+          quantity: 1,
+          unitName: 'Pauschale',
+          unitPrice: {
+            currency: 'EUR',
+            grossAmount: brutto,
+            taxRatePercentage: vat,
+          },
+        });
+      }
+    }
+
+    // Personal / Equipment / Logistik aus taxBreakdown (eine Sammelzeile mit 19 %)
+    const svcNet = Number(ff.taxBreakdown?.servicesNet || 0);
+    if (svcNet > 0) {
+      const vat = Number(ff.taxBreakdown?.servicesVatRate ?? DRINK_TAX_RATE) || DRINK_TAX_RATE;
+      const brutto = round2(svcNet * (1 + vat / 100));
+      if (brutto > 0) {
+        items.push({
+          type: 'custom',
+          name: 'Personal, Equipment & Logistik',
+          description: '',
+          quantity: 1,
+          unitName: 'Pauschale',
+          unitPrice: {
+            currency: 'EUR',
+            grossAmount: brutto,
+            taxRatePercentage: vat,
+          },
+        });
+      }
+    }
+
+    // Rabatt / Korrektur, damit Summe == Maestro total_amount
+    const ffDiscPct = ff.discount?.mode === 'percent' ? Number(ff.discount.value || 0) : null;
+    const ffDiscAmt = ff.discount?.mode === 'amount' ? Number(ff.discount.value || 0) : null;
+    appendDiscountLines(
+      items,
+      totalAmount,
+      ffDiscPct ?? ms.discountPercent ?? null,
+      ffDiscAmt ?? ms.discountAmount ?? null,
+    );
+
+    // Fallback falls keinerlei Zeilen erzeugt wurden
+    if (items.length === 0 && totalAmount > 0) {
+      items.push({
+        type: 'custom',
+        name: packageName || ff.title || 'Veranstaltungsprogramm',
+        description: '',
+        quantity: 1,
+        unitName: 'Pauschale',
+        unitPrice: {
+          currency: 'EUR',
+          grossAmount: round2(totalAmount),
+          taxRatePercentage: FOOD_TAX_RATE,
+        },
+      });
+    }
+    return items;
+  }
 
   // Pricing-Modus per_event: Positionen mit korrektem MwSt-Split.
   // Alle overridePrice-/pricePerPerson-Werte sind BRUTTO. Wir geben sie
