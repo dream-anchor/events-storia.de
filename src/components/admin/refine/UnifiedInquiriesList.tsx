@@ -407,12 +407,14 @@ export const UnifiedInquiriesList = () => {
                 title={
                   <span className="flex items-center gap-2">
                     <ServiceBadge serviceType={r.serviceType} compact />
-                    <span className="truncate">{r.companyName || r.customerName}</span>
+                    <span className="truncate" data-sensitive="customer">{r.companyName || r.customerName}</span>
                     <LangBadge lang={r.customerLanguage} />
                   </span>
                 }
                 subtitle={
-                  r.companyName ? <span>{r.customerName}</span> : <span>{r.email}</span>
+                  r.companyName
+                    ? <span data-sensitive="customer">{r.customerName}</span>
+                    : <span data-sensitive="contact">{r.email}</span>
                 }
                 meta={
                   <span className="flex items-center gap-2">
@@ -424,7 +426,7 @@ export const UnifiedInquiriesList = () => {
                   </span>
                 }
                 trailing={
-                  <span className="font-semibold text-sm whitespace-nowrap tabular-nums">
+                  <span className="font-semibold text-sm whitespace-nowrap tabular-nums" data-sensitive="money">
                     {formatCurrency(r.totalAmount)}
                   </span>
                 }
