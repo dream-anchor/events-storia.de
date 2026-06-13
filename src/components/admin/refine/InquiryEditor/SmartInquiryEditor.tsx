@@ -25,6 +25,7 @@ import EventMailsTab from "./EventMailsTab";
 import { MailClient } from "@/components/admin/shared/MailClient";
 import { PaymentCard } from "./PaymentCard";
 import { PaymentStatusStrip } from "./PaymentStatusStrip";
+import { EmailFailureBanner } from "./EmailFailureBanner";
 import { LexofficeDocumentsCard } from "./LexofficeDocumentsCard";
 import { CostAcceptanceCard } from "./CostAcceptanceCard";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
@@ -1183,6 +1184,7 @@ export const SmartInquiryEditor = () => {
       </div>
 
       {/* Main Content — Tab-Navigation */}
+      <EmailFailureBanner entityId={id} />
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="relative">
         <TabsList className="w-full justify-start bg-muted/30 rounded-xl p-1 h-auto overflow-x-auto scrollbar-hide flex">

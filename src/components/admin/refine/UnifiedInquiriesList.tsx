@@ -21,6 +21,8 @@ import { UnifiedKanbanView, ServiceBadge } from "./UnifiedKanbanView";
 import { getRecordActionState } from "@/lib/inquiryActionState";
 import { InviteCustomerIconButton } from "@/components/admin/shared/InviteCustomerIconButton";
 import { cn } from "@/lib/utils";
+import { useEntityFailureIndex } from "@/hooks/useEmailFailures";
+import { AlertOctagon } from "lucide-react";
 
 type ViewMode = "table" | "kanban";
 type StatusFilter = LifecycleBucket;
@@ -94,6 +96,7 @@ function LangBadge({ lang }: { lang?: string | null }) {
 export const UnifiedInquiriesList = () => {
   const navigate = useNavigate();
   const { records, isLoading, refetch } = useUnifiedInquiries();
+  const { ids: failureIds } = useEntityFailureIndex();
 
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("inbox");
@@ -218,9 +221,18 @@ export const UnifiedInquiriesList = () => {
       accessorFn: (r) => r.companyName || r.customerName,
       cell: ({ row }) => {
         const r = row.original;
+        const hasFailure = failureIds.has(r.id);
         return (
           <div className="flex flex-col min-w-0">
             <span className="font-medium text-sm truncate flex items-center gap-2">
+              {hasFailure && (
+                <span
+                  title="Email-Zustellfehler — bitte prüfen"
+                  className="inline-flex items-center justify-center rounded-full bg-destructive/15 text-destructive p-0.5 shrink-0"
+                >
+                  <AlertOctagon className="h-3 w-3" />
+                </span>
+              )}
               <span className="truncate" data-sensitive="customer">{r.companyName || r.customerName}</span>
               <LangBadge lang={r.customerLanguage} />
             </span>
