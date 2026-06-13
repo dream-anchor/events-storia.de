@@ -177,18 +177,32 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
 
   parts.push(`Kunde: ${inquiry.contact_name || '(kein Name bekannt)'}${inquiry.company_name ? ` (${inquiry.company_name})` : ''}`);
 
+  // Freitext-Erkennung: NICHT vom offer_mode-String abhängig machen — manche
+  // Datensätze haben offer_mode='menu', tragen aber trotzdem ein vollständiges
+  // freeformProgram im menu_selection. Wenn days[] vorhanden ist, ist es Freitext.
+  const isFreeformOpt = (o: MultiOfferOption) => !!o.freeformProgram?.days?.length;
+  const allFreeform = options.length > 0 && options.every(isFreeformOpt);
+
   // Nur tatsächlich vorhandene Daten aufnehmen
   if (inquiry.event_type) parts.push(`Event-Typ (nur Hintergrundinfo, NICHT im Text verwenden!): ${inquiry.event_type}`);
-  if (inquiry.preferred_date) parts.push(`Datum: ${inquiry.preferred_date}`);
-  if (inquiry.time_slot) parts.push(`Uhrzeit: ${inquiry.time_slot} Uhr`);
-  if (inquiry.guest_count) parts.push(`Gäste: ${inquiry.guest_count}`);
+  if (!allFreeform) {
+    // Bei reinen Freitext-Angeboten kommen Datum/Gäste aus freeformProgram.dateRangeLabel
+    // bzw. variieren je Mahlzeit — Inquiry-Werte würden die KI zu „29. Juni 2026" /
+    // „833 Gäste" verleiten.
+    if (inquiry.preferred_date) parts.push(`Datum: ${inquiry.preferred_date}`);
+    if (inquiry.guest_count) parts.push(`Gäste: ${inquiry.guest_count}`);
+  } else {
+    parts.push(`Datum: SIEHE freeformProgram.dateRangeLabel (Mehrtages-Programm — NIEMALS ein Einzeldatum aus anderen Feldern verwenden).`);
+    parts.push(`Gäste: VARIABEL je Mahlzeit — NIEMALS eine Gesamtgästezahl nennen.`);
+  }
+  if (inquiry.time_slot && !allFreeform) parts.push(`Uhrzeit: ${inquiry.time_slot} Uhr`);
   if (inquiry.room_selection) parts.push(`Raum: ${inquiry.room_selection}`);
 
   // Optionen — nur aufnehmen was tatsächlich konfiguriert ist
   const hasOptions = options.length > 0;
   const hasMenu = options.some(o => o.menuSelection?.courses?.some(c => c.itemName));
-  const hasPackage = options.some(o => o.packageName && o.packageName !== 'Individuell' && o.offerMode !== 'menu');
-  const hasFreeform = options.some(o => o.offerMode === 'freeform' && o.freeformProgram?.days?.length);
+  const hasPackage = options.some(o => o.packageName && o.packageName !== 'Individuell' && o.offerMode !== 'menu' && !isFreeformOpt(o));
+  const hasFreeform = options.some(isFreeformOpt);
 
   if (hasOptions) {
     parts.push('');
@@ -199,7 +213,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
       const optParts: string[] = [];
 
       // ============ FREITEXT-PROGRAMM (KI-Import) ============
-      if (opt.offerMode === 'freeform' && opt.freeformProgram?.days?.length) {
+      if (isFreeformOpt(opt)) {
         const prog = opt.freeformProgram;
         parts.push(`\n--- ${label} (FREITEXT-PROGRAMM, mehrtägig) ---`);
         if (prog.title) parts.push(`Titel: ${prog.title}`);
