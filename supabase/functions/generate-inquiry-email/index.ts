@@ -528,6 +528,7 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
           discountPercent,
           discountAmount,
           subtotalAmount: subtotal,
+          freeformProgram: (menuSel as any)?.freeformProgram ?? null,
         };
       });
 
