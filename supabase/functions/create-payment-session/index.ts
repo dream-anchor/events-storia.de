@@ -52,21 +52,49 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // GUARD: Zahlungsart prüfen — bei "Vor Ort" und "Rechnung" keine Stripe-Session erlauben
+    // GUARD: Zahlungsart prüfen — neue Maestro-Felder bevorzugen,
+    // Legacy `payment_method` als Fallback. Erlaubt z.B. Stripe-Anzahlung
+    // + Restzahlung vor Ort (deposit_method=stripe, balance_method=on_site).
     {
       const { data: pmCheck } = await supabase
         .from('event_inquiries')
-        .select('payment_method')
+        .select('payment_method, deposit_method, balance_method')
         .eq('id', inquiryId)
         .single();
-      const pm = (pmCheck as { payment_method: string | null } | null)?.payment_method || 'deposit_online';
-      if (pm === 'on_site' || pm === 'invoice_after' || pm === 'invoice_before') {
-        const label =
-          pm === 'on_site' ? 'Vor Ort'
-          : pm === 'invoice_before' ? 'Rechnung vor Event'
-          : 'Rechnung';
+      const row = (pmCheck as { payment_method: string | null; deposit_method: string | null; balance_method: string | null } | null);
+      const pm = (row?.payment_method || 'deposit_online').toLowerCase();
+      const legacyPair: { deposit: string; balance: string } = (() => {
+        switch (pm) {
+          case 'deposit_online':    return { deposit: 'stripe', balance: 'stripe_prepay' };
+          case 'prepayment_online':
+          case 'full_online':       return { deposit: 'none',   balance: 'stripe_prepay' };
+          case 'on_site':
+          case 'pay_on_site':       return { deposit: 'none',   balance: 'on_site' };
+          case 'invoice_after':
+          case 'invoice_after_event': return { deposit: 'none', balance: 'invoice_after' };
+          case 'invoice_before':
+          case 'invoice_before_event':
+          case 'bank_transfer_prepay': return { deposit: 'none', balance: 'invoice_before' };
+          default: return { deposit: 'stripe', balance: 'stripe_prepay' };
+        }
+      })();
+      const depositMethod = row?.deposit_method || legacyPair.deposit;
+      const balanceMethod = row?.balance_method || legacyPair.balance;
+
+      if (paymentType === 'deposit' && depositMethod !== 'stripe') {
         return new Response(
-          JSON.stringify({ error: `Zahlungsart "${label}" — keine Online-Zahlung vorgesehen.` }),
+          JSON.stringify({ error: 'Für dieses Angebot ist keine Online-Anzahlung vorgesehen.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      if (paymentType === 'full' && balanceMethod !== 'stripe_prepay') {
+        const label =
+          balanceMethod === 'on_site' ? 'Vor Ort'
+          : balanceMethod === 'invoice_before' ? 'Rechnung vor Event'
+          : balanceMethod === 'invoice_after' ? 'Rechnung nach Event'
+          : 'Offline';
+        return new Response(
+          JSON.stringify({ error: `Zahlungsart "${label}" — keine Online-Komplettzahlung vorgesehen.` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }

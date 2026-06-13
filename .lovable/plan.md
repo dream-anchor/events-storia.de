@@ -1,41 +1,54 @@
 ## Ziel
+Public Offer soll die in Maestro gesetzten Zahlungsbedingungen 1:1 anzeigen und verwenden: Anzahlung und Restzahlung getrennt nach Methode, Betrag/Prozent und Fristen. Das gilt für Paket, Menü, KI/Freitext und Mehrfachoptionen.
 
-1. WhatsApp-Einträge erscheinen nie im Zustellfehler-Banner (es gibt keinen WhatsApp-Versand an Kunden – diese Logs sind interne Alerts).
-2. Klick auf „Erledigt" entfernt den Vorfall sofort, beim letzten Vorfall verschwindet das gesamte Banner.
-3. Jede Resolve-Aktion wird dauerhaft im Aktivitäten-Log der Anfrage festgehalten (Wer / Wann / Welche Email).
+## Gefundene Ursache
+- Maestro speichert inzwischen zwei getrennte Felder: `deposit_method` und `balance_method`.
+- Public Offer bekommt diese Felder aktuell nicht aus der Public-Offer-Datenfunktion, sondern nur das alte `payment_method`.
+- Bei „Anzahlung: Stripe“ + „Restzahlung: vor Ort“ wird das alte Feld zu `on_site`. Public Offer denkt deshalb: „alles offline“, blendet Stripe-Anzahlung aus und zeigt nur „verbindlich buchen ohne Online-Zahlung“.
+- Die Zahlungs-Edge-Function blockiert aus demselben Grund aktuell auch Stripe, sobald das alte `payment_method` auf `on_site` steht.
 
-## Änderungen
+## Umsetzung
 
-### 1. WhatsApp aus Failure-Quellen ausschließen
-`src/hooks/useEmailFailures.ts`
-- In `useEmailFailuresForEntity` und `useGlobalEmailFailures` die Query zusätzlich filtern:
-  - `.neq("provider", "whatsapp_meta")` und client-seitig `recipient_email` nicht mit `whatsapp:` beginnen lassen (Defensive für Altdaten).
-- `isUnresolved` zusätzlich `false` zurückgeben bei `provider === 'whatsapp_meta'` oder `recipient_email?.startsWith('whatsapp:')`.
+### 1. Public-Offer-Daten vollständig aus Maestro liefern
+Migration für `get_public_offer` aktualisieren:
+- `deposit_method`
+- `balance_method`
+- `balance_due_days_before_event`
+- weiterhin `deposit_percent`, `deposit_amount`, `deposit_due_days`, `invoice_due_days`, `offer_validity_days`
 
-Damit verschwindet sowohl die rote Umrandung in Kanban/Liste als auch das Banner im Editor für reine WhatsApp-Logs.
+Damit liest Public Offer die tatsächliche Maestro-Aufteilung statt des Legacy-Fallbacks.
 
-### 2. Optimistisches Entfernen + Aktivitäts-Log
-`src/hooks/useEmailFailures.ts`
-- `resolveEmailFailure(id, currentMetadata, ctx)` erweitern: Nach erfolgreichem UPDATE einen Insert in `activity_logs` schreiben:
-  - `entity_type`: aus dem Log-Eintrag (`inquiry` o.ä.)
-  - `entity_id`: `entity_id` des Logs
-  - `action`: `'email_failure_resolved'`
-  - `actor_id` / `actor_email`: aus `supabase.auth.getUser()`
-  - `metadata`: `{ recipient_email, subject, status, sent_at, log_id }`
-- Neuer Hook-Helper / Mutation, die nach Erfolg den React-Query-Cache optimistisch updatet:
-  `qc.setQueryData(["email-failures", "entity", entityId], (old) => old?.filter(x => x.id !== id))` und entsprechend für `["email-failures", "global"]`. Damit verschwindet die Karte sofort, ohne auf Realtime/Refetch zu warten.
+### 2. Frontend-Zahlungsmodell korrigieren
+In `src/pages/PublicOffer.tsx`:
+- PublicInquiry um `deposit_method`, `balance_method`, `balance_due_days_before_event` erweitern.
+- Neue zentrale Hilfslogik für Zahlungsbedingungen einführen:
+  - Anzahlung nur, wenn `deposit_method !== 'none'` und Betrag sinnvoll ist.
+  - Stripe-Anzahlungsbutton nur, wenn `deposit_method === 'stripe'`.
+  - Vollzahlung nur, wenn `balance_method === 'stripe_prepay'` und keine separate Restzahlung vor Ort/Rechnung vorgesehen ist.
+  - Offline-Buchung nur dann als Hauptaktion zeigen, wenn keine Online-Zahlung vorgesehen ist.
+  - Restzahlungstext korrekt nach Maestro anzeigen: vor Ort, Rechnung vor Event, Rechnung nach Event oder Stripe vorab.
+- `computeDeposit` nicht mehr anhand von `payment_method=on_site` abschalten, sondern anhand von `deposit_method`.
 
-`src/components/admin/refine/InquiryEditor/EmailFailureBanner.tsx`
-- Resolve-Aufruf reicht jetzt `entity_type`/`entity_id` mit, nutzt optimistic update. Banner returnt bereits `null` bei leerer Liste – nach Entfernen des letzten Vorfalls verschwindet die gesamte Box automatisch.
+### 3. Proposal- und Final-Ansicht angleichen
+Für alle Angebotsphasen:
+- Bei „Stripe-Anzahlung + Rest vor Ort“: Anzahlung-Button mit 20 % / Betrag anzeigen, darunter Hinweis „Restzahlung vor Ort beim Event“.
+- Bei „Keine Anzahlung + Rest vor Ort/Rechnung“: nur verbindlich buchen ohne Online-Zahlung.
+- Bei „Keine Anzahlung + Stripe vorab“: Vollzahlung / Vorauszahlung online.
+- Bei „Anzahlung Stripe + Rest Stripe vorab“: wie bisher Anzahlung und vollständige Online-Zahlung, aber Beträge aus Maestro.
+- Keine Neuberechnung der Angebotssumme außer bestehendem Fallback für fehlende Legacy-Werte; Maestro-Beträge bleiben maßgeblich.
 
-### 3. Aktivitäten-Anzeige
-Im bestehenden Aktivitäten-/Activity-Feed der Anfrage neuen Action-Typ `email_failure_resolved` rendern (Icon + Text „Zustellfehler an {recipient_email} als erledigt markiert von {actor}"). Falls ein generischer Renderer existiert, reicht ein Label-Mapping; sonst kleine Case-Erweiterung.
+### 4. Stripe-Session-Guard korrigieren
+In `supabase/functions/create-payment-session/index.ts`:
+- Guard auf `deposit_method`/`balance_method` umstellen.
+- `paymentType='deposit'` erlauben, wenn `deposit_method === 'stripe'`, auch wenn `balance_method === 'on_site'` ist.
+- `paymentType='full'` nur erlauben, wenn die Rest-/Vollzahlung tatsächlich online vorgesehen ist (`balance_method === 'stripe_prepay'` oder Legacy-Online-Fallback).
+- Fehlertexte passend machen, falls ein nicht vorgesehener Zahlungstyp aufgerufen wird.
 
-## Verifikation
-- WhatsApp-Eintrag (wie Screenshot 1) ist nicht mehr sichtbar, rote Umrandung verschwindet.
-- Bei Anfrage mit 3 echten Email-Fehlern (Screenshot 2): Erledigt entfernt jeweils einen, beim letzten verschwindet das Banner; Realtime-Update spiegelt das auch in Kanban/Liste.
-- Aktivitäten-Tab zeigt die Resolve-Einträge mit Zeitstempel und Bearbeiter.
-
-## Nicht-Ziele
-- Kein Schema-Change an `email_delivery_logs`.
-- Keine Änderung an Versand-Funktionen außer der bereits vorhandenen WhatsApp-Skip-Logik.
+### 5. Regressionsfälle prüfen
+Nach Umsetzung prüfen:
+- Das gezeigte DataGuard-Angebot zeigt 25.000,00 € brutto, Anzahlung 20 % = 5.000,00 €, Restzahlung vor Ort beim Event.
+- KI/Freitext-Angebote verwenden weiter `total_amount` bzw. `freeformProgram.totalsFromText.gross` als Fallback.
+- Paket-/Menüangebote mit Preis pro Person behalten korrekte Gesamtbeträge.
+- Keine-Anzahlung/offline zeigt keine Stripe-Buttons.
+- Stripe-Vorauszahlung zeigt nur Online-Zahlung.
+- Anzahlung + Restzahlung werden nicht durch Public Offer neu gerundet oder überschrieben.
