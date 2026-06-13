@@ -100,6 +100,24 @@ Deno.serve(async (req) => {
 
     let updates: Record<string, unknown> = { webhook_events: events };
 
+    // Map other event types to status
+    const evtName = (payload.event ?? payload.status ?? "").toString();
+    const evtToStatus: Record<string, string> = {
+      "contract-sent-to-signer": "sent",
+      "contract-sent": "sent",
+      "contract-viewed": "viewed",
+      "signer-viewed": "viewed",
+      "contract-signature-started": "signature_started",
+      "signer-started": "signature_started",
+      "signer-signed": "signer_signed",
+      "contract-declined": "declined",
+      "signer-declined": "declined",
+      "contract-withdrawn": "withdrawn",
+    };
+    if (!isSigned && existing.status !== "signed" && evtToStatus[evtName]) {
+      updates = { ...updates, status: evtToStatus[evtName] };
+    }
+
     if (isSigned && contract.contract_pdf_url) {
       // Download and store PDF
       const pdfRes = await fetch(contract.contract_pdf_url);

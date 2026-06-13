@@ -81,6 +81,46 @@ Deno.serve(async (req) => {
       throw new Error("Angebot ist nach Signatur bereits gesperrt");
     }
 
+    // Idempotenz: bestehende cost_acceptance prüfen
+    const { data: existingRows } = await supabase
+      .from("cost_acceptances")
+      .select(
+        "id, status, sign_page_url, sign_page_url_embedded, esignatures_contract_id",
+      )
+      .eq("inquiry_id", body.inquiry_id)
+      .order("created_at", { ascending: false });
+
+    const signedRow = existingRows?.find((r) => r.status === "signed");
+    if (signedRow) {
+      return new Response(
+        JSON.stringify({
+          cost_acceptance_id: signedRow.id,
+          status: "signed",
+          reused: true,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+    const activeRow = existingRows?.find((r) =>
+      ["pending_signature", "signature_started", "sent", "viewed", "signer_signed"]
+        .includes(r.status as string)
+    );
+    if (activeRow?.sign_page_url) {
+      return new Response(
+        JSON.stringify({
+          cost_acceptance_id: activeRow.id,
+          contract_id: activeRow.esignatures_contract_id,
+          sign_page_url: activeRow.sign_page_url,
+          sign_page_url_embedded: activeRow.sign_page_url_embedded,
+          reused: true,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const { data: option } = body.offer_option_id
       ? await supabase
         .from("v2_offer_options")

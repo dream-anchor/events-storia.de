@@ -26,6 +26,7 @@ import { MailClient } from "@/components/admin/shared/MailClient";
 import { PaymentCard } from "./PaymentCard";
 import { PaymentStatusStrip } from "./PaymentStatusStrip";
 import { LexofficeDocumentsCard } from "./LexofficeDocumentsCard";
+import { CostAcceptanceCard } from "./CostAcceptanceCard";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { SendSuccessDialog, type SendSuccessInfo } from "./SendSuccessDialog";
 import { InquiryPriority } from "@/types/refine";
@@ -1204,6 +1205,16 @@ export const SmartInquiryEditor = () => {
 
           {/* LexOffice-Belege — direkt sichtbar oben im Angebot-Tab */}
           {id && <LexofficeDocumentsCard orderId={id} />}
+
+          {/* Kostenübernahme — digitale Signatur via eSignatures.com */}
+          {id && (
+            <CostAcceptanceCard
+              inquiryId={id}
+              publicOfferUrl={`${window.location.origin}/offer/${id}`}
+              offerPhase={(mergedInquiry as any)?.offer_phase}
+              lockedAfterSignature={(mergedInquiry as any)?.locked_after_signature}
+            />
+          )}
 
           {/* Multi-Package Offer Section */}
           {inquiryType === 'event' ? (
