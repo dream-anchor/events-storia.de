@@ -601,6 +601,7 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     })();
 
     // Build system prompt
+    const hasFreeformContext = context.includes('FREITEXT-PROGRAMM, mehrtägig');
     const systemPrompt = isMultiOption
       ? `Du bist ein professioneller Mitarbeiter von STORIA München.
 
@@ -675,6 +676,47 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
    • Zwei Newlines (\n\n) zwischen jedem Absatz
    • Jeder Gedankengang ist ein eigener Absatz
    • Niemals zwei Absätze ohne Leerzeile aneinanderhängen
+${hasFreeformContext ? `
+╔════════════════════════════════════════════════════════════╗
+║ FREITEXT-PROGRAMM (mehrtägig) — ZUSATZREGELN          ║
+╚════════════════════════════════════════════════════════════╝
+
+F1. ZEITRAUM statt einzelnem Datum.
+    • Nenne immer die volle Datumsspanne aus "Zeitraum:" (z.B. "29.06.–02.07.2026"), niemals nur einen Einzeltag.
+    • Wenn "Location:" angegeben ist, nimm sie in den Eröffnungssatz auf.
+
+F2. KEINE Gesamtgästezahl, KEIN Pro-Person-Preis.
+    • Es gibt unterschiedliche Gästezahlen pro Mahlzeit. STRENG VERBOTEN: eine Summe wie "für 833 Gäste" oder ein Wert wie "X € pro Person".
+    • Erwähne stattdessen knapp: "X Tage mit Y Mahlzeiten und variablen Gästezahlen je Mahlzeit".
+
+F3. PROGRAMM-ÜBERSICHT im Anschreiben.
+    • Nach dem Eröffnungssatz pro Tag eine kompakte Zeile als Fließtext, z.B.:
+      "Montag, 29.06.: Lunch (25 Pers.) und Dinner Live Cooking (24 Pers.)."
+    • Inhalte der Mahlzeiten NICHT komplett zitieren — nur Mahlzeitennamen + Personenzahl. Details stehen im verlinkten Angebot.
+    • Wenn "Leistungsumfang:" gegeben ist, einen einzigen Fließtext-Satz daraus formen ("Inklusive sind …"), keine Aufzählungsliste.
+
+F4. ENDBETRAG BRUTTO 1:1 aus Maestro.
+    • Verwende den Wert hinter "ENDBETRAG BRUTTO" EXAKT — keine Rundung, keine Umrechnung, kein Splitting.
+    • Niemals aus Mahlzeit-Preisen neu summieren.
+
+F5. HINWEISE übernehmen.
+    • Wenn ein "Hinweise:"-Block vorhanden ist, fasse die Punkte sinngemäß in 1–2 kurzen Sätzen zusammen (insb. "Finale Gästezahl bis 7 Tage vor Veranstaltung anpassbar").
+    • Keine zusätzlichen Hinweise erfinden.
+
+F6. STRUKTUR FÜR FREITEXT-ANGEBOTE:
+    1. Anrede.
+    2. Bezug: Anlass-Titel + Zeitraum + Location.
+    3. Kurze Programm-Übersicht (Anzahl Tage, Mahlzeiten, variable Gästezahlen).
+    4. Pro-Tag-Zeilen (kompakt, siehe F3).
+    5. Optional Leistungsumfang als ein Satz.
+    6. Endbetrag brutto exakt nennen.
+    7. Hinweise sinngemäß in 1–2 Sätzen.
+    8. Zahlungshinweis (gemäß paymentInstruction).
+    9. Link-Satz "Das Angebot mit allen Details finden Sie hier: [ANGEBOT_LINK]" als eigener Absatz.
+    10. Schlusssatz + Signatur.
+
+F7. Bei aktivem Freitext-Programm IGNORIERE die Regeln 2/5/6/6b/7 zu Menügängen, Getränken und Rabatt-Standardsatz — die gelten nur für Menü-/Paket-Angebote. Endpreis kommt einfach als nackte Zahl ("zum Endpreis von 25.000,00 € brutto").
+` : ''}
 
 ╔════════════════════════════════════════════════════════════╗
 ║ BEISPIEL (zur Orientierung am Stil)                    ║
