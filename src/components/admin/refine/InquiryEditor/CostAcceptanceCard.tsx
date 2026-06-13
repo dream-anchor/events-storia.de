@@ -121,7 +121,22 @@ export function CostAcceptanceCard({
     setBusy(name);
     try {
       const { data, error } = await supabase.functions.invoke(name, { body });
-      if (error) throw error;
+      if (error) {
+        const context = (error as any)?.context;
+        if (context instanceof Response) {
+          const text = await context.text();
+          try {
+            const json = JSON.parse(text);
+            throw new Error(json?.error || text || error.message);
+          } catch (parseError) {
+            if (parseError instanceof Error && parseError.message !== text) {
+              throw parseError;
+            }
+            throw new Error(text || error.message);
+          }
+        }
+        throw error;
+      }
       return data;
     } finally {
       setBusy(null);
