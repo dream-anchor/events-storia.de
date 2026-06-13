@@ -518,6 +518,15 @@ function KanbanCard({
       {/* Row 1: dot + name + date */}
       <div className="flex items-center gap-2 min-w-0 pr-7">
         <span className={cn("w-2 h-2 rounded-full flex-shrink-0", action.dotClass)} />
+        {hasDeliveryFailure && (
+          <span
+            className="text-base leading-none flex-shrink-0"
+            title="Letzte E-Mail an den Kunden konnte nicht zugestellt werden"
+            aria-label="Zustellfehler"
+          >
+            🚨
+          </span>
+        )}
         {(() => {
           const k = getServiceKind(event);
           return (
