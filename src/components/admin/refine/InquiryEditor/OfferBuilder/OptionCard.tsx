@@ -2,7 +2,7 @@ import { useMemo, useEffect, useRef, useState } from "react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed, RefreshCw, ChefHat, Package as PackageIcon, Mail } from "lucide-react";
+import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed, RefreshCw, ChefHat, Package as PackageIcon, Mail, Sparkles } from "lucide-react";
 import { ChevronDown, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,9 @@ import { InlineDrinkEditor } from "./InlineDrinkEditor";
 import { DrinkSection } from "./DrinkSection";
 import { InlineServiceEditor } from "./InlineServiceEditor";
 import { PriceBreakdown } from "./PriceBreakdown";
+import { FreeformImportPanel } from "./FreeformImportPanel";
+import { FreeformProgramEditor } from "./FreeformProgramEditor";
+import type { FreeformProgram } from "./types";
 import type {
   OfferBuilderOption,
   OfferMode,
@@ -329,6 +332,12 @@ export function OptionCard({
                     <SelectSeparator />
                     <SelectItem value="menu">Eigenes Menü</SelectItem>
                     <SelectItem value="paket">Paket</SelectItem>
+                    <SelectItem value="freeform">
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="h-3 w-3" />
+                        Freitext-Import (KI)
+                      </span>
+                    </SelectItem>
                     <SelectItem value="email">Nur E-Mail</SelectItem>
                   </SelectContent>
                 </Select>
@@ -446,6 +455,10 @@ export function OptionCard({
               onDrinkRemove={handleDrinkRemove}
               disabled={disabled}
             />
+          )}
+
+          {option.offerMode === 'freeform' && (
+            <FreeformContent option={option} onUpdate={onUpdate} disabled={disabled} />
           )}
 
           {/* Equipment & Personal — direkt unter dem Essen, damit sichtbar ist,

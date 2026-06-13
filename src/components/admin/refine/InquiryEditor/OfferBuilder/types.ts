@@ -49,7 +49,7 @@ export type { CombinedMenuItem };
  * - 'paket': Fertigpaket aus DB
  * - 'email': Nur Anschreiben, keine Menükonfiguration
  */
-export type OfferMode = 'unselected' | 'menu' | 'paket' | 'email';
+export type OfferMode = 'unselected' | 'menu' | 'paket' | 'email' | 'freeform';
 
 /**
  * FreeformProgram — KI-importierte mehrtägige Programme (z.B. Catering-Spike-Weeks).
