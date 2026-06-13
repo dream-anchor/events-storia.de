@@ -11,6 +11,28 @@ interface CreatePaymentSessionRequest {
   optionQuantities?: Array<{ optionId: string; quantity: number }>;
 }
 
+function effectiveTotalForOption(opt: { total_amount: number; menu_selection: Record<string, unknown> | null }): number {
+  const explicitTotal = Number(opt.total_amount ?? 0);
+  if (explicitTotal > 0) return explicitTotal;
+
+  const ms = opt.menu_selection;
+  const freeform = ms?.freeformProgram as {
+    totalsFromText?: { gross?: number | string | null } | null;
+    discount?: { mode?: 'percent' | 'amount' | null; value?: number | string | null } | null;
+  } | undefined;
+  const gross = Number(freeform?.totalsFromText?.gross ?? 0);
+  if (gross <= 0) return 0;
+
+  const discount = freeform?.discount;
+  let discountAmount = 0;
+  if (discount?.mode === 'amount') discountAmount = Number(discount.value ?? 0) || 0;
+  if (discount?.mode === 'percent') discountAmount = (gross * (Number(discount.value ?? 0) || 0)) / 100;
+  if (!discountAmount && Number(ms?.discountAmount ?? 0) > 0) discountAmount = Number(ms?.discountAmount ?? 0);
+  if (!discountAmount && Number(ms?.discountPercent ?? 0) > 0) discountAmount = (gross * Number(ms?.discountPercent ?? 0)) / 100;
+
+  return Math.max(0, gross - discountAmount);
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
