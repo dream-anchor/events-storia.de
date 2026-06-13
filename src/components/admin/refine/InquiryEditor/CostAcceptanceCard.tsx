@@ -125,15 +125,14 @@ export function CostAcceptanceCard({
         const context = (error as any)?.context;
         if (context instanceof Response) {
           const text = await context.text();
+          let message = text || error.message;
           try {
             const json = JSON.parse(text);
-            throw new Error(json?.error || text || error.message);
+            message = json?.error || text || error.message;
           } catch (parseError) {
-            if (parseError instanceof Error && parseError.message !== text) {
-              throw parseError;
-            }
-            throw new Error(text || error.message);
+            message = text || error.message;
           }
+          throw new Error(message);
         }
         throw error;
       }
