@@ -107,6 +107,35 @@ interface MultiOfferOption {
   discountPercent?: number;
   discountAmount?: number;
   subtotalAmount?: number;
+  // Freitext-Programm (KI-Import) — wenn vorhanden, ersetzt es Menü/Getränke-Logik.
+  freeformProgram?: {
+    title?: string;
+    location?: string | null;
+    dateRangeLabel?: string | null;
+    scopeOfServices?: string[] | null;
+    days?: Array<{
+      dateLabel: string;
+      isoDate?: string | null;
+      meals?: Array<{
+        label: string;
+        guestCount: number;
+        flatPriceNet: number;
+        vatRate: number;
+        sections?: Array<{ heading?: string | null; items: string[] }>;
+      }>;
+    }>;
+    taxBreakdown?: {
+      foodNet: number;
+      foodVatRate: number;
+      foodVatAmount?: number | null;
+      servicesNet: number;
+      servicesVatRate: number;
+      servicesVatAmount?: number | null;
+    };
+    totalsFromText?: { net: number; gross: number };
+    notes?: string[] | null;
+    discount?: { mode: 'percent' | 'amount'; value: number } | null;
+  } | null;
 }
 
 interface MultiOfferRequest {
@@ -159,6 +188,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
   const hasOptions = options.length > 0;
   const hasMenu = options.some(o => o.menuSelection?.courses?.some(c => c.itemName));
   const hasPackage = options.some(o => o.packageName && o.packageName !== 'Individuell' && o.offerMode !== 'menu');
+  const hasFreeform = options.some(o => o.offerMode === 'freeform' && o.freeformProgram?.days?.length);
 
   if (hasOptions) {
     parts.push('');
@@ -167,6 +197,61 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
     for (const opt of options) {
       const label = options.length > 1 ? `Option ${opt.label}` : 'Angebot';
       const optParts: string[] = [];
+
+      // ============ FREITEXT-PROGRAMM (KI-Import) ============
+      if (opt.offerMode === 'freeform' && opt.freeformProgram?.days?.length) {
+        const prog = opt.freeformProgram;
+        parts.push(`\n--- ${label} (FREITEXT-PROGRAMM, mehrtägig) ---`);
+        if (prog.title) parts.push(`Titel: ${prog.title}`);
+        if (prog.dateRangeLabel) parts.push(`Zeitraum: ${prog.dateRangeLabel}`);
+        if (prog.location) parts.push(`Location: ${prog.location}`);
+
+        parts.push(`Gästezahl: VARIABEL je Mahlzeit — NIEMALS eine Gesamtgästezahl summieren und NIEMALS einen Pro-Person-Preis berechnen.`);
+
+        if (prog.scopeOfServices && prog.scopeOfServices.length > 0) {
+          parts.push('Leistungsumfang:');
+          for (const s of prog.scopeOfServices) parts.push(`  • ${s}`);
+        }
+
+        for (const day of prog.days) {
+          parts.push(`\n${day.dateLabel} (${(day.meals || []).length} Mahlzeit${(day.meals || []).length === 1 ? '' : 'en'}):`);
+          for (const meal of day.meals || []) {
+            const priceTxt = meal.flatPriceNet > 0 ? ` — ${formatEUR(meal.flatPriceNet)} netto (${meal.vatRate}% MwSt)` : '';
+            parts.push(`  ▸ ${meal.label} · ${meal.guestCount} Pers.${priceTxt}`);
+            for (const sec of meal.sections || []) {
+              if (sec.heading) parts.push(`      ${sec.heading}:`);
+              for (const it of sec.items || []) parts.push(`        – ${it}`);
+            }
+          }
+        }
+
+        const tb = prog.taxBreakdown;
+        if (tb) {
+          parts.push('');
+          parts.push('Kalkulation (1:1 aus Maestro, NICHT neu berechnen):');
+          if (tb.foodNet > 0) parts.push(`  Speisen netto: ${formatEUR(tb.foodNet)} (+ ${tb.foodVatRate}% MwSt = ${formatEUR(tb.foodVatAmount ?? 0)})`);
+          if (tb.servicesNet > 0) parts.push(`  Personal/Equipment netto: ${formatEUR(tb.servicesNet)} (+ ${tb.servicesVatRate}% MwSt = ${formatEUR(tb.servicesVatAmount ?? 0)})`);
+        }
+        if (prog.totalsFromText) {
+          parts.push(`  Gesamt netto: ${formatEUR(prog.totalsFromText.net)}`);
+          parts.push(`  Gesamt brutto: ${formatEUR(prog.totalsFromText.gross)}`);
+        }
+        const disc = prog.discount;
+        if (disc && Number(disc.value) > 0) {
+          const discAmt = disc.mode === 'percent'
+            ? (Number(prog.totalsFromText?.gross || 0) * Number(disc.value)) / 100
+            : Number(disc.value);
+          parts.push(`  Rabatt: ${disc.mode === 'percent' ? `${disc.value}% (entspricht ${formatEUR(discAmt)})` : formatEUR(discAmt)}`);
+        }
+        parts.push(`  ENDBETRAG BRUTTO (= Hauptzahl im Anschreiben, EXAKT übernehmen): ${formatEUR(opt.totalAmount)}`);
+
+        if (prog.notes && prog.notes.length > 0) {
+          parts.push('');
+          parts.push('Hinweise (sinngemäß im Anschreiben erwähnen, NICHT erfinden):');
+          for (const n of prog.notes) parts.push(`  • ${n}`);
+        }
+        continue; // Standard-Menü/Getränke/Equipment-Pfad überspringen
+      }
 
       if (opt.packageName && opt.packageName !== 'Individuell' && opt.offerMode !== 'menu') {
         optParts.push(`Paket: ${opt.packageName}`);
@@ -269,7 +354,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
   }
 
   // Inhalts-Status für den Prompt
-  if (!hasMenu && !hasPackage) {
+  if (!hasMenu && !hasPackage && !hasFreeform) {
     parts.push('\nHINWEIS: Es sind noch KEINE Menüs oder Pakete konfiguriert. Schreibe ein einfaches, allgemeines Anschreiben.');
   }
 
@@ -443,6 +528,7 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
           discountPercent,
           discountAmount,
           subtotalAmount: subtotal,
+          freeformProgram: (menuSel as any)?.freeformProgram ?? null,
         };
       });
 
@@ -515,6 +601,7 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
     })();
 
     // Build system prompt
+    const hasFreeformContext = context.includes('FREITEXT-PROGRAMM, mehrtägig');
     const systemPrompt = isMultiOption
       ? `Du bist ein professioneller Mitarbeiter von STORIA München.
 
@@ -589,6 +676,47 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
    • Zwei Newlines (\n\n) zwischen jedem Absatz
    • Jeder Gedankengang ist ein eigener Absatz
    • Niemals zwei Absätze ohne Leerzeile aneinanderhängen
+${hasFreeformContext ? `
+╔════════════════════════════════════════════════════════════╗
+║ FREITEXT-PROGRAMM (mehrtägig) — ZUSATZREGELN          ║
+╚════════════════════════════════════════════════════════════╝
+
+F1. ZEITRAUM statt einzelnem Datum.
+    • Nenne immer die volle Datumsspanne aus "Zeitraum:" (z.B. "29.06.–02.07.2026"), niemals nur einen Einzeltag.
+    • Wenn "Location:" angegeben ist, nimm sie in den Eröffnungssatz auf.
+
+F2. KEINE Gesamtgästezahl, KEIN Pro-Person-Preis.
+    • Es gibt unterschiedliche Gästezahlen pro Mahlzeit. STRENG VERBOTEN: eine Summe wie "für 833 Gäste" oder ein Wert wie "X € pro Person".
+    • Erwähne stattdessen knapp: "X Tage mit Y Mahlzeiten und variablen Gästezahlen je Mahlzeit".
+
+F3. PROGRAMM-ÜBERSICHT im Anschreiben.
+    • Nach dem Eröffnungssatz pro Tag eine kompakte Zeile als Fließtext, z.B.:
+      "Montag, 29.06.: Lunch (25 Pers.) und Dinner Live Cooking (24 Pers.)."
+    • Inhalte der Mahlzeiten NICHT komplett zitieren — nur Mahlzeitennamen + Personenzahl. Details stehen im verlinkten Angebot.
+    • Wenn "Leistungsumfang:" gegeben ist, einen einzigen Fließtext-Satz daraus formen ("Inklusive sind …"), keine Aufzählungsliste.
+
+F4. ENDBETRAG BRUTTO 1:1 aus Maestro.
+    • Verwende den Wert hinter "ENDBETRAG BRUTTO" EXAKT — keine Rundung, keine Umrechnung, kein Splitting.
+    • Niemals aus Mahlzeit-Preisen neu summieren.
+
+F5. HINWEISE übernehmen.
+    • Wenn ein "Hinweise:"-Block vorhanden ist, fasse die Punkte sinngemäß in 1–2 kurzen Sätzen zusammen (insb. "Finale Gästezahl bis 7 Tage vor Veranstaltung anpassbar").
+    • Keine zusätzlichen Hinweise erfinden.
+
+F6. STRUKTUR FÜR FREITEXT-ANGEBOTE:
+    1. Anrede.
+    2. Bezug: Anlass-Titel + Zeitraum + Location.
+    3. Kurze Programm-Übersicht (Anzahl Tage, Mahlzeiten, variable Gästezahlen).
+    4. Pro-Tag-Zeilen (kompakt, siehe F3).
+    5. Optional Leistungsumfang als ein Satz.
+    6. Endbetrag brutto exakt nennen.
+    7. Hinweise sinngemäß in 1–2 Sätzen.
+    8. Zahlungshinweis (gemäß paymentInstruction).
+    9. Link-Satz "Das Angebot mit allen Details finden Sie hier: [ANGEBOT_LINK]" als eigener Absatz.
+    10. Schlusssatz + Signatur.
+
+F7. Bei aktivem Freitext-Programm IGNORIERE die Regeln 2/5/6/6b/7 zu Menügängen, Getränken und Rabatt-Standardsatz — die gelten nur für Menü-/Paket-Angebote. Endpreis kommt einfach als nackte Zahl ("zum Endpreis von 25.000,00 € brutto").
+` : ''}
 
 ╔════════════════════════════════════════════════════════════╗
 ║ BEISPIEL (zur Orientierung am Stil)                    ║
