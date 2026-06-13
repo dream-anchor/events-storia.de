@@ -1208,6 +1208,210 @@ export type Database = {
         }
         Relationships: []
       }
+      cost_acceptances: {
+        Row: {
+          amount_gross_cents: number | null
+          confirmations: Json
+          created_at: string
+          currency: string
+          customer_number: string | null
+          document_markdown_snapshot: string | null
+          esignatures_contract_id: string | null
+          esignatures_template_id: string | null
+          event_company: string | null
+          event_date: string | null
+          event_title: string | null
+          guest_count: number | null
+          id: string
+          inquiry_id: string
+          invoice_company: string | null
+          invoice_reference: string | null
+          invoice_street: string | null
+          invoice_zip_city: string | null
+          mfa_method: string | null
+          offer_date: string | null
+          offer_number: string | null
+          offer_option_id: string | null
+          onsite_contact: string | null
+          reference_pdf_name: string | null
+          reference_pdf_uploaded_at: string | null
+          sign_page_url: string | null
+          sign_page_url_embedded: string | null
+          signed_at: string | null
+          signed_pdf_sha256: string | null
+          signed_pdf_storage_path: string | null
+          signer_company_name: string | null
+          signer_email: string | null
+          signer_mobile: string | null
+          signer_name: string | null
+          status: string
+          template_version: string | null
+          updated_at: string
+          valid_until: string | null
+          webhook_events: Json
+        }
+        Insert: {
+          amount_gross_cents?: number | null
+          confirmations?: Json
+          created_at?: string
+          currency?: string
+          customer_number?: string | null
+          document_markdown_snapshot?: string | null
+          esignatures_contract_id?: string | null
+          esignatures_template_id?: string | null
+          event_company?: string | null
+          event_date?: string | null
+          event_title?: string | null
+          guest_count?: number | null
+          id?: string
+          inquiry_id: string
+          invoice_company?: string | null
+          invoice_reference?: string | null
+          invoice_street?: string | null
+          invoice_zip_city?: string | null
+          mfa_method?: string | null
+          offer_date?: string | null
+          offer_number?: string | null
+          offer_option_id?: string | null
+          onsite_contact?: string | null
+          reference_pdf_name?: string | null
+          reference_pdf_uploaded_at?: string | null
+          sign_page_url?: string | null
+          sign_page_url_embedded?: string | null
+          signed_at?: string | null
+          signed_pdf_sha256?: string | null
+          signed_pdf_storage_path?: string | null
+          signer_company_name?: string | null
+          signer_email?: string | null
+          signer_mobile?: string | null
+          signer_name?: string | null
+          status?: string
+          template_version?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          webhook_events?: Json
+        }
+        Update: {
+          amount_gross_cents?: number | null
+          confirmations?: Json
+          created_at?: string
+          currency?: string
+          customer_number?: string | null
+          document_markdown_snapshot?: string | null
+          esignatures_contract_id?: string | null
+          esignatures_template_id?: string | null
+          event_company?: string | null
+          event_date?: string | null
+          event_title?: string | null
+          guest_count?: number | null
+          id?: string
+          inquiry_id?: string
+          invoice_company?: string | null
+          invoice_reference?: string | null
+          invoice_street?: string | null
+          invoice_zip_city?: string | null
+          mfa_method?: string | null
+          offer_date?: string | null
+          offer_number?: string | null
+          offer_option_id?: string | null
+          onsite_contact?: string | null
+          reference_pdf_name?: string | null
+          reference_pdf_uploaded_at?: string | null
+          sign_page_url?: string | null
+          sign_page_url_embedded?: string | null
+          signed_at?: string | null
+          signed_pdf_sha256?: string | null
+          signed_pdf_storage_path?: string | null
+          signer_company_name?: string | null
+          signer_email?: string | null
+          signer_mobile?: string | null
+          signer_name?: string | null
+          status?: string
+          template_version?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          webhook_events?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_acceptances_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_acceptances_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_acceptances_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_acceptances_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_acceptances_offer_option_id_fkey"
+            columns: ["offer_option_id"]
+            isOneToOne: false
+            referencedRelation: "inquiry_offer_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_acceptances_offer_option_id_fkey"
+            columns: ["offer_option_id"]
+            isOneToOne: false
+            referencedRelation: "offer_customer_responses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_acceptances_offer_option_id_fkey"
+            columns: ["offer_option_id"]
+            isOneToOne: false
+            referencedRelation: "offer_customer_responses"
+            referencedColumns: ["selected_option_id"]
+          },
+          {
+            foreignKeyName: "cost_acceptances_offer_option_id_fkey"
+            columns: ["offer_option_id"]
+            isOneToOne: false
+            referencedRelation: "v2_offer_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_settings: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       daily_audits: {
         Row: {
           audit_date: string
@@ -3406,6 +3610,7 @@ export type Database = {
           company_postal_code: string | null
           company_street: string | null
           confirmation_email_sent_at: string | null
+          cost_acceptance_id: string | null
           created_at: string
           created_by: string | null
           current_offer_version: number | null
@@ -3458,6 +3663,7 @@ export type Database = {
           location_postal_code: string | null
           location_street: string | null
           location_type: string | null
+          locked_after_signature: boolean
           menu_confirmed: boolean | null
           menu_confirmed_at: string | null
           menu_selection: Json | null
@@ -3533,6 +3739,7 @@ export type Database = {
           company_postal_code?: string | null
           company_street?: string | null
           confirmation_email_sent_at?: string | null
+          cost_acceptance_id?: string | null
           created_at?: string
           created_by?: string | null
           current_offer_version?: number | null
@@ -3585,6 +3792,7 @@ export type Database = {
           location_postal_code?: string | null
           location_street?: string | null
           location_type?: string | null
+          locked_after_signature?: boolean
           menu_confirmed?: boolean | null
           menu_confirmed_at?: string | null
           menu_selection?: Json | null
@@ -3660,6 +3868,7 @@ export type Database = {
           company_postal_code?: string | null
           company_street?: string | null
           confirmation_email_sent_at?: string | null
+          cost_acceptance_id?: string | null
           created_at?: string
           created_by?: string | null
           current_offer_version?: number | null
@@ -3712,6 +3921,7 @@ export type Database = {
           location_postal_code?: string | null
           location_street?: string | null
           location_type?: string | null
+          locked_after_signature?: boolean
           menu_confirmed?: boolean | null
           menu_confirmed_at?: string | null
           menu_selection?: Json | null
@@ -3762,6 +3972,13 @@ export type Database = {
           venue?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "v2_events_cost_acceptance_id_fkey"
+            columns: ["cost_acceptance_id"]
+            isOneToOne: false
+            referencedRelation: "cost_acceptances"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "v2_events_customer_id_fkey"
             columns: ["customer_id"]
