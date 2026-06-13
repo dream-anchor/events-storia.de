@@ -17,6 +17,9 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const text: string = typeof body?.text === "string" ? body.text : "";
+    const correctionHints: string[] = Array.isArray(body?.correctionHints)
+      ? body.correctionHints.filter((h: unknown) => typeof h === "string" && h.length > 0)
+      : [];
 
     if (!text || text.trim().length < 50) {
       return new Response(
@@ -33,6 +36,10 @@ serve(async (req) => {
       );
     }
 
+    const correctionBlock = correctionHints.length > 0
+      ? `\n\nKORREKTUR-HINWEISE AUS VORHERIGEM VERSUCH (BITTE BEHEBEN):\n${correctionHints.map((h) => `- ${h}`).join("\n")}\n\nAchte besonders auf die oben genannten Punkte. Übernimm Preise weiterhin 1:1 aus dem Text.`
+      : "";
+
     const systemPrompt = `Du bist ein Parser für Catering-Angebote.
 
 REGELN (NICHT VERHANDELBAR):
@@ -47,7 +54,7 @@ REGELN (NICHT VERHANDELBAR):
 9. Wenn ein Wert fehlt, setze ihn auf 0 oder leeren String — niemals erfinden.
 10. Datumsangaben: dateLabel wörtlich aus Text, isoDate als YYYY-MM-DD wenn ableitbar.
 
-Antworte AUSSCHLIESSLICH per Tool-Call extract_program.`;
+Antworte AUSSCHLIESSLICH per Tool-Call extract_program.${correctionBlock}`;
 
     const tools = [
       {

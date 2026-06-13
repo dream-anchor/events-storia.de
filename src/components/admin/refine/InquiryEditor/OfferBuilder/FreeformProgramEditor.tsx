@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar, Users, RefreshCw, ChevronDown, FileText, Trash2 } from "lucide-react";
+import { Calendar, Users, RefreshCw, ChevronDown, FileText, Trash2, ShieldAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import type { FreeformProgram, FreeformProgramMeal } from "./types";
+import type { FreeformProgram, FreeformProgramMeal, ValidationFinding } from "./types";
 import { LinePriceModeToggle } from "./LinePriceModeToggle";
 
 interface FreeformProgramEditorProps {
@@ -21,12 +21,21 @@ interface FreeformProgramEditorProps {
   onChange: (program: FreeformProgram) => void;
   onClear: () => void;
   disabled?: boolean;
+  validationFindings?: ValidationFinding[];
+  onDismissFindings?: () => void;
 }
 
 const fmtEur = (n: number) =>
   new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
-export function FreeformProgramEditor({ program, onChange, onClear, disabled }: FreeformProgramEditorProps) {
+export function FreeformProgramEditor({
+  program,
+  onChange,
+  onClear,
+  disabled,
+  validationFindings,
+  onDismissFindings,
+}: FreeformProgramEditorProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [confirmClear, setConfirmClear] = useState(false);
 
@@ -71,6 +80,63 @@ export function FreeformProgramEditor({ program, onChange, onClear, disabled }: 
 
   return (
     <div className="space-y-4">
+      {/* Red-Team Findings */}
+      {validationFindings && validationFindings.length > 0 && (
+        <div className="rounded-xl border border-foreground/30 bg-muted/40 px-4 py-3">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex items-start gap-2">
+              <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0 text-foreground" />
+              <div>
+                <div className="text-sm font-semibold">
+                  Red Team: {validationFindings.length} Abweichung
+                  {validationFindings.length !== 1 ? "en" : ""} gefunden
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Auto-Retry hat verbleibende Punkte nicht gelöst. Bitte manuell prüfen.
+                </div>
+              </div>
+            </div>
+            {onDismissFindings && (
+              <button
+                type="button"
+                onClick={onDismissFindings}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Findings ausblenden"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <ul className="space-y-1 text-xs">
+            {validationFindings.map((f, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span
+                  className={cn(
+                    "px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider shrink-0",
+                    f.severity === "critical"
+                      ? "bg-foreground text-background"
+                      : "bg-foreground/15 text-foreground",
+                  )}
+                >
+                  {f.category}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-foreground">{f.message}</div>
+                  {(f.expected || f.actual) && (
+                    <div className="text-[10px] text-muted-foreground font-mono break-all">
+                      {f.path && <span>{f.path}: </span>}
+                      {f.expected && <span>erwartet „{f.expected}"</span>}
+                      {f.expected && f.actual && <span> · </span>}
+                      {f.actual && <span>erkannt „{f.actual}"</span>}
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
         <div className="flex items-start gap-3 min-w-0">

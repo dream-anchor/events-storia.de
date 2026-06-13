@@ -1,106 +1,123 @@
-
 ## Ziel
 
-Im Wizard einen neuen Modus „Freitext-Import" ergänzen, in den der Admin ein vorformuliertes Angebot (z.B. mehrtägige Catering-Programme) einfügt. Eine KI parst den Text in eine strukturierte Option mit mehreren Tages-Blöcken, Mahlzeit-Sektionen, Pauschalpreisen netto und Steuersätzen. Im Public Offer wird das Programm tagestrukturiert mit Pauschalpreis pro Block und Gesamtsumme angezeigt.
+Nach dem KI-Parse (`parse-freeform-offer`, Gemini 2.5 Pro) läuft automatisch ein zweiter KI-Call gegen ein anderes Modell als "Red Team". Findings (fehlende Tage, falsche Preise, fehlende Mahlzeiten, fehlende Hinweise) lösen einen automatischen Korrektur-Retry aus. Erst wenn das Red Team grünes Licht gibt (oder max. 2 Retries durch sind), wird das Programm an den Editor übergeben.
 
-## Datenmodell (additive Erweiterung)
-
-In `MultiOffer/types.ts` neuer optionaler Block auf `OfferOption`:
+## Architektur
 
 ```text
-OfferOption {
-  ...bestehend
-  freeformProgram?: {
-    title: string
-    location?: string
-    dateRangeLabel?: string           // "29.06.2026 – 02.07.2026"
-    days: ProgramDay[]
-    taxBreakdown: {
-      foodNet: number; foodVatRate: number      // 7
-      servicesNet: number; servicesVatRate: number // 19
-    }
-    totalsFromText: { net: number; gross: number }
-    notes: string[]                   // "Hinweise"-Block
-    rawText: string                   // Original für Audit/Re-Parse
+Admin pastet Text
+  → parse-freeform-offer  (Gemini 2.5 Pro, Parser)
+  → validate-freeform-offer  (GPT-5, Red Team)
+      ├─ ok=true → ins UI übernehmen
+      └─ ok=false + findings[]
+          → Auto-Retry: parse-freeform-offer mit Korrektur-Hinweis
+              (max. 2 Retries, dann übernehmen + Findings als Warnung im Editor)
+```
+
+Beide Edge Functions bleiben getrennt, damit das Red Team unabhängig prüft und nicht denselben Bias erbt.
+
+## Red-Team Scope (alle 4)
+
+Validator prüft das geparste JSON gegen den Original-Text:
+
+1. **Vollständigkeit** — jeder Tag aus dem Text ist in `days[]`, jede Mahlzeit (Lunch/Dinner/Frühstück/BBQ etc.) ist in `meals[]`, keine Sektion/Speise fehlt.
+2. **Preise & Totals exakt** — jeder `flatPriceNet` stimmt 1:1 mit dem Text überein, `taxBreakdown.foodNet/servicesNet` matcht "KALKULATION", `totalsFromText.net/gross` matcht "GESAMTANGEBOT". Keine Rundung, keine Berechnung.
+3. **Gästezahlen & Datumsangaben** — `guestCount` pro Mahlzeit korrekt, `dateLabel` und `isoDate` korrekt zugeordnet.
+4. **Hinweise & Leistungsumfang** — `notes[]` enthält alle HINWEISE-Punkte, `scopeOfServices` deckt LEISTUNGSUMFANG ab.
+
+## Neue Edge Function: `validate-freeform-offer`
+
+Datei: `supabase/functions/validate-freeform-offer/index.ts`
+
+- Modell: `openai/gpt-5` (bewusst andere Familie als der Parser → echte Cross-Validation)
+- Input: `{ rawText: string, program: FreeformProgram }`
+- System-Prompt: "Du bist ein strenger QA-Validator. Vergleiche das JSON 1:1 mit dem Original-Text. Melde JEDE Abweichung als Finding."
+- Tool-Call `report_findings` mit Schema:
+  ```text
+  {
+    ok: boolean,
+    findings: [{
+      severity: "critical" | "warning",
+      category: "completeness" | "pricing" | "guests_dates" | "notes",
+      path: string,        // z.B. "days[1].meals[0].flatPriceNet"
+      expected: string,    // wörtlich aus Text
+      actual: string,      // aus JSON
+      message: string      // kurze Beschreibung
+    }],
+    summary: string
   }
-}
+  ```
+- `ok=false` wenn mind. 1 `critical` Finding (Preis/Total/fehlender Tag) ODER ≥3 `warning` Findings.
+- Standard 429/402/500 Error-Handling, CORS, Logs.
 
-ProgramDay {
-  id: string
-  dateLabel: string                   // "MONTAG, 29.06.2026"
-  isoDate?: string
-  meals: ProgramMeal[]
-}
+## Parser-Erweiterung: `parse-freeform-offer`
 
-ProgramMeal {
-  id: string
-  label: string                       // "Lunch", "Dinner Live Cooking"
-  guestCount: number
-  sections: { heading?: string; items: string[] }[]
-  flatPriceNet: number                // Pauschal netto
-  vatRate: number                     // 7
+Optionaler neuer Input `correctionHints?: string[]`. Wenn gesetzt, wird im System-Prompt ein Block angehängt:
+
+```
+KORREKTUR-HINWEISE AUS VORHERIGEM VERSUCH (BITTE BEHEBEN):
+- {finding.message} (erwartet: {expected}, war: {actual})
+- ...
+```
+
+Sonst keine Änderung am Parser-Verhalten.
+
+## Frontend: `FreeformImportPanel.tsx`
+
+Neuer Flow im `handleParse`:
+
+1. Parse-Call (wie heute).
+2. Validate-Call mit `{ rawText, program }`.
+3. Wenn `ok=true` → `onParsed(program)`, Toast "Importiert + validiert ✓".
+4. Wenn `ok=false`:
+   - Loading-Text auf "Red Team korrigiert..." setzen.
+   - Parser erneut aufrufen mit `correctionHints = findings.map(f => f.message)`.
+   - Validator erneut aufrufen.
+   - Max. 2 Retries. Danach: trotzdem übernehmen, Findings in `program.__validationFindings` mitgeben.
+5. Findings (kritisch + warnings) werden als optionales Prop `validationFindings` an den Editor durchgereicht.
+
+UI-Stages während Loading: "KI parst…" → "Red Team validiert…" → "Red Team korrigiert (Versuch 2)…".
+
+## Editor: `FreeformProgramEditor.tsx`
+
+Wenn `validationFindings.length > 0`, oben im Editor eine Warn-Card (Monochrome, kein Grün/Gelb — neutral grau mit `border-foreground/30 bg-muted/40`):
+
+```
+⚠ Red Team hat {n} mögliche Abweichungen gefunden
+- [Preis] days[1].meals[0]: erwartet "1.200 €", erkannt "1.250 €"
+- [Vollständigkeit] HINWEISE: Punkt "Allergene auf Anfrage" fehlt
+...
+[Trotzdem übernehmen]  [Erneut parsen]
+```
+
+Kein blockierender Dialog — User sieht und entscheidet inline.
+
+## Datentyp-Erweiterungen
+
+`OfferBuilder/types.ts`:
+```text
+ValidationFinding {
+  severity: "critical" | "warning"
+  category: "completeness" | "pricing" | "guests_dates" | "notes"
+  path: string
+  expected: string
+  actual: string
+  message: string
 }
 ```
 
-Neuer `offerMode = "freeform"` neben `menu | paket | email`.
+Wird nur im Editor-State gehalten, nicht in `freeformProgram` persistiert (transient).
 
-DB-Migration: neue Spalte `freeform_program JSONB NULL` auf der Tabelle, die `OfferOption` persistiert (Name beim Build per `code--view` verifizieren, vermutlich `offer_options`). Kein Schema-Bruch, alle bestehenden Optionen bleiben.
+## Out of Scope
 
-## UI-Änderungen
-
-1. **`ModeSelector.tsx`** — vierte Kachel „Freitext-Import" (Icon `Sparkles` + `FileText`), Beschreibung „Vollständiges Angebot aus Text generieren".
-2. **Neue Komponente `FreeformImportPanel.tsx`** unter `OfferBuilder/`:
-   - Großes Textarea (min 20 Zeilen)
-   - Button „Mit KI in Angebot umwandeln" → ruft Edge Function
-   - Loading-State, Fehler-Toast (429/402/Parse-Fehler)
-   - Nach Erfolg: Preview des geparsten Programms mit Inline-Editor (Tag-Label, Mahlzeit-Label, Gäste, Preis, Sektionen) bevor übernommen wird.
-3. **Neue Komponente `FreeformProgramEditor.tsx`** — Liste der Tage als Cards, jede Mahlzeit als Sub-Card mit editierbaren Feldern.
-4. **`WizardConfigurator.tsx`** — wenn `option.freeformProgram` gesetzt ist, Steps 2+3 (Gänge/Getränke) überspringen und direkt `FreeformProgramEditor` rendern; Step 4 Zusammenfassung zeigt totals aus `freeformProgram.totalsFromText`.
-5. **`LiveCalculation.tsx`** — wenn freeform-Modus, Summe aus `flatPriceNet`-Aggregat + Service-Netto + MwSt-Aufschläge anzeigen.
-
-## Public Offer Rendering
-
-Neue Komponente `src/pages/public-offer/FreeformProgramView.tsx`:
-- Titel + Location + Datums-Range
-- Pro Tag: Datums-Header, dann pro Mahlzeit eine Card mit Gästezahl-Badge, Sektionen als Listen, Pauschalpreis rechts unten
-- Kalkulations-Box am Ende: Speisen netto + MwSt 7%, Personal/Equipment netto + MwSt 19%, Gesamt netto/brutto
-- „Hinweise"-Block
-- Einbindung in `ProposalView`/`FinalOfferView` wenn `option.freeformProgram` vorhanden ist (alternativ zur bestehenden Menü-Darstellung)
-
-Bilingual: Erste Iteration nur DE (Programm meist hochgradig kulinarisch-italienisch); EN-Rendering in einer Folge-Iteration. Der Container für Customer-Mails bleibt bilingual wie bisher.
-
-## KI-Edge-Function
-
-Neue Function `supabase/functions/parse-freeform-offer/index.ts`:
-- Input: `{ text: string, inquiryId: string }`
-- Modell: `google/gemini-2.5-pro` (komplexe Strukturextraktion, lange Texte)
-- Strukturiertes Output via Tool-Calling mit JSON-Schema, das exakt dem `freeformProgram`-Shape entspricht
-- System-Prompt:
-  - Übernimm Pauschalpreise **netto** 1:1 wie im Text
-  - Speisen → 7% MwSt; Personal/Equipment/Logistik → 19% MwSt
-  - Tagesüberschriften und Mahlzeit-Labels exakt übernehmen
-  - Sektionen mit Heading (z.B. „Antipasti-Auswahl", „Live Pasta Station") strukturieren
-  - Gästezahlen pro Mahlzeit erkennen („| 25 Personen")
-  - „KALKULATION" und „GESAMTANGEBOT" Block extrahieren → `taxBreakdown` + `totalsFromText`
-  - „HINWEISE"-Aufzählung als `notes[]`
-  - **Niemals Preise neu rechnen** — folgt der Maestro-Single-Source-Regel
-- Response: geparstes Objekt + raw text; Frontend übernimmt nach Bestätigung in `option.freeformProgram` und schreibt `totalAmount = totalsFromText.gross`.
-
-## Send-/Email-Pfad
-
-- `EmailComposer`/`SendControls`: wenn freeform-Option, Email-Body verwendet Programm-Zusammenfassung statt Menü-Liste; bestehende bilinguale Struktur bleibt.
-- PDF-Preview (`LivePDFPreview`): zusätzlicher Renderer-Branch für `freeformProgram`.
-
-## Out of Scope (separat)
-
-- Katalog-Matching der Items (Phase 2)
-- Englische Übersetzung des Programms (Phase 2, via bestehender Translation-Function)
-- Stripe-Payment-Link-Auto-Erstellung für freeform — funktioniert automatisch, da `totalAmount` gesetzt wird
+- Deterministische Regex-Checks (Phase 2, falls KI-Validator zu langsam/teuer wird).
+- Validator-Findings in DB loggen (Phase 2, evtl. für QA-Statistik).
+- Englische Übersetzung (separates Thema).
 
 ## Verifikation
 
-1. Beispieltext aus User-Message in das neue Panel einfügen → KI liefert 4 Tage mit korrekten Mahlzeiten und Preisen
-2. Totals: 22.762 € Speisen netto + 1.593,34 € MwSt + 3.450 € Services netto + 655,50 € MwSt = 28.460,84 € brutto, exakt übernommen
-3. Public Offer Vorschau zeigt strukturiertes 4-Tages-Programm
-4. Option in DB persistiert, nach Reload identisch
-5. Sent Offer ist immutable, „Angebot bearbeiten" erzeugt neue Version mit kopiertem `freeformProgram`
+1. Beispieltext mit absichtlich falschem Preis → Validator meldet `critical pricing`, Auto-Retry korrigiert.
+2. Beispieltext mit fehlender HINWEIS-Zeile in der JSON-Antwort → `warning notes`.
+3. Beispieltext sauber → `ok=true` beim ersten Versuch, keine Warn-Card.
+4. Edge Case: 2 Retries laufen voll → Warn-Card im Editor zeigt verbleibende Findings.
+5. 429/402 vom Validator → Toast, Programm wird trotzdem übernommen (Validator ist optional, nicht blockierend).

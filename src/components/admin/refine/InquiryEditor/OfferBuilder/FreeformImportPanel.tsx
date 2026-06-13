@@ -1,24 +1,63 @@
 import { useState } from "react";
-import { Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { Sparkles, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/typed-client";
-import type { FreeformProgram } from "./types";
+import type { FreeformProgram, ValidationFinding } from "./types";
 
 interface FreeformImportPanelProps {
-  onParsed: (program: FreeformProgram) => void;
+  onParsed: (program: FreeformProgram, findings?: ValidationFinding[]) => void;
   disabled?: boolean;
+}
+
+const MAX_RETRIES = 2;
+
+async function invokeFn<T = unknown>(name: string, body: unknown): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(name, { body });
+  if (error) {
+    let detail = error.message;
+    try {
+      const resp = (error as { context?: { response?: Response } }).context?.response;
+      if (resp) {
+        const t = await resp.clone().text();
+        try {
+          const j = JSON.parse(t);
+          detail = j?.error || t || detail;
+        } catch {
+          detail = t || detail;
+        }
+      }
+    } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+  return data as T;
+}
+
+function ensureIds(program: FreeformProgram): FreeformProgram {
+  return {
+    ...program,
+    days: (program.days ?? []).map((d, i) => ({
+      ...d,
+      id: d.id || `day-${i}-${crypto.randomUUID()}`,
+      meals: (d.meals || []).map((m, j) => ({
+        ...m,
+        id: m.id || `meal-${i}-${j}-${crypto.randomUUID()}`,
+      })),
+    })),
+  };
 }
 
 /**
  * Eingabe-Panel für mehrtägige Catering-Angebote als Freitext.
- * Sendet den Text an die Edge Function `parse-freeform-offer`,
- * die per KI ein strukturiertes Programm zurückliefert.
+ * Pipeline: parse-freeform-offer (Gemini) → validate-freeform-offer (GPT-5 Red Team).
+ * Bei Findings: bis zu 2 Auto-Retries mit Korrektur-Hinweisen. Restliche Findings
+ * werden an den Editor durchgereicht.
  */
 export function FreeformImportPanel({ onParsed, disabled }: FreeformImportPanelProps) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const handleParse = async () => {
@@ -28,47 +67,74 @@ export function FreeformImportPanel({ onParsed, disabled }: FreeformImportPanelP
     }
     setBusy(true);
     setError(null);
+    setStage("KI parst Angebot…");
     try {
-      const { data, error: fnError } = await supabase.functions.invoke(
-        "parse-freeform-offer",
-        { body: { text } },
-      );
-      if (fnError) {
-        // Versuche Detailfehler aus context.response auszulesen
-        let detail = fnError.message;
+      let correctionHints: string[] = [];
+      let program: FreeformProgram | null = null;
+      let findings: ValidationFinding[] = [];
+      let attempt = 0;
+
+      while (attempt <= MAX_RETRIES) {
+        setStage(
+          attempt === 0
+            ? "KI parst Angebot…"
+            : `Red Team korrigiert (Versuch ${attempt + 1}/${MAX_RETRIES + 1})…`,
+        );
+        const parseRes = await invokeFn<{ success?: boolean; program?: FreeformProgram; error?: string }>(
+          "parse-freeform-offer",
+          { text, correctionHints },
+        );
+        if (!parseRes?.success || !parseRes.program) {
+          throw new Error(parseRes?.error || "KI-Antwort ohne Programm-Daten.");
+        }
+        program = ensureIds(parseRes.program);
+        if (!program.days || program.days.length === 0) {
+          throw new Error("KI konnte keine Tage erkennen.");
+        }
+
+        setStage("Red Team validiert…");
         try {
-          const resp = (fnError as { context?: { response?: Response } }).context?.response;
-          if (resp) {
-            const t = await resp.clone().text();
-            try {
-              const j = JSON.parse(t);
-              detail = j?.error || t || detail;
-            } catch {
-              detail = t || detail;
-            }
+          const valRes = await invokeFn<{
+            success?: boolean;
+            ok?: boolean;
+            findings?: ValidationFinding[];
+            summary?: string;
+          }>("validate-freeform-offer", {
+            rawText: program.rawText ?? text,
+            program,
+          });
+          findings = Array.isArray(valRes?.findings) ? valRes.findings : [];
+          if (valRes?.ok) {
+            findings = [];
+            break;
           }
-        } catch { /* ignore */ }
-        throw new Error(detail);
+          if (attempt >= MAX_RETRIES) break;
+          // Retry mit Korrektur-Hinweisen
+          correctionHints = findings.slice(0, 12).map((f) => {
+            const exp = f.expected ? ` (erwartet: ${f.expected}` : "";
+            const act = f.actual ? `, war: ${f.actual})` : exp ? ")" : "";
+            return `${f.message}${exp}${act}`;
+          });
+          attempt++;
+        } catch (validatorErr) {
+          // Validator-Ausfall ist nicht blockierend
+          console.warn("Validator failed, übernehme Programm ohne Validierung:", validatorErr);
+          toast.warning("Red Team nicht erreichbar — Programm ohne Validierung übernommen.");
+          findings = [];
+          break;
+        }
       }
-      if (!data?.success || !data?.program) {
-        throw new Error(data?.error || "KI-Antwort ohne Programm-Daten.");
+
+      if (!program) throw new Error("Kein Programm erzeugt.");
+
+      onParsed(program, findings);
+      if (findings.length === 0) {
+        toast.success(`Programm mit ${program.days.length} Tag(en) importiert & validiert ✓`);
+      } else {
+        toast.warning(
+          `Programm importiert — Red Team meldet ${findings.length} Abweichung(en). Bitte prüfen.`,
+        );
       }
-      const program = data.program as FreeformProgram;
-      // Sanity-Check: mindestens 1 Tag
-      if (!Array.isArray(program.days) || program.days.length === 0) {
-        throw new Error("KI konnte keine Tage erkennen.");
-      }
-      // IDs ergänzen
-      program.days = program.days.map((d, i) => ({
-        ...d,
-        id: d.id || `day-${i}-${crypto.randomUUID()}`,
-        meals: (d.meals || []).map((m, j) => ({
-          ...m,
-          id: m.id || `meal-${i}-${j}-${crypto.randomUUID()}`,
-        })),
-      }));
-      onParsed(program);
-      toast.success(`Programm mit ${program.days.length} Tag(en) importiert.`);
       setText("");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unbekannter Fehler";
@@ -76,6 +142,7 @@ export function FreeformImportPanel({ onParsed, disabled }: FreeformImportPanelP
       toast.error(`Import fehlgeschlagen: ${msg}`);
     } finally {
       setBusy(false);
+      setStage("");
     }
   };
 
@@ -114,12 +181,12 @@ export function FreeformImportPanel({ onParsed, disabled }: FreeformImportPanelP
           {busy ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              KI analysiert...
+              {stage || "KI analysiert…"}
             </>
           ) : (
             <>
-              <Sparkles className="h-4 w-4" />
-              Mit KI in Angebot umwandeln
+              <ShieldCheck className="h-4 w-4" />
+              Mit KI umwandeln + Red Team prüfen
             </>
           )}
         </Button>
