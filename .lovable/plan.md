@@ -1,54 +1,45 @@
-## Ziel
-Public Offer soll die in Maestro gesetzten Zahlungsbedingungen 1:1 anzeigen und verwenden: Anzahlung und Restzahlung getrennt nach Methode, Betrag/Prozent und Fristen. Das gilt für Paket, Menü, KI/Freitext und Mehrfachoptionen.
+# LexOffice Brutto-Drift beheben
 
-## Gefundene Ursache
-- Maestro speichert inzwischen zwei getrennte Felder: `deposit_method` und `balance_method`.
-- Public Offer bekommt diese Felder aktuell nicht aus der Public-Offer-Datenfunktion, sondern nur das alte `payment_method`.
-- Bei „Anzahlung: Stripe“ + „Restzahlung: vor Ort“ wird das alte Feld zu `on_site`. Public Offer denkt deshalb: „alles offline“, blendet Stripe-Anzahlung aus und zeigt nur „verbindlich buchen ohne Online-Zahlung“.
-- Die Zahlungs-Edge-Function blockiert aus demselben Grund aktuell auch Stripe, sobald das alte `payment_method` auf `on_site` steht.
+## Ursache (gefunden)
 
-## Umsetzung
+In `supabase/functions/create-event-quotation/index.ts` werden alle Positionen intern korrekt als Brutto (`grossAmount`) aufgebaut. **Vor dem Senden an LexOffice** werden sie aber durch `convertLineItemsToNet()` (Zeile 854) in Netto umgerechnet und mit `taxType: 'net'` (Zeile 1293) übergeben.
 
-### 1. Public-Offer-Daten vollständig aus Maestro liefern
-Migration für `get_public_offer` aktualisieren:
-- `deposit_method`
-- `balance_method`
-- `balance_due_days_before_event`
-- weiterhin `deposit_percent`, `deposit_amount`, `deposit_due_days`, `invoice_due_days`, `offer_validity_days`
+Diese Umrechnung verursacht einen Rundungsdrift:
 
-Damit liest Public Offer die tatsächliche Maestro-Aufteilung statt des Legacy-Fallbacks.
+```
+budgetPerPerson (Brutto) = 30,01 €
+30,01 / 1,07 = 28,0467… → round2 = 28,05 €  (netto pro Person)
+28,05 × 833 Gäste = 23.365,65 €  (netto)
+23.365,65 × 1,07 = 25.001,2455 → 25.001,25 € (brutto)
+```
 
-### 2. Frontend-Zahlungsmodell korrigieren
-In `src/pages/PublicOffer.tsx`:
-- PublicInquiry um `deposit_method`, `balance_method`, `balance_due_days_before_event` erweitern.
-- Neue zentrale Hilfslogik für Zahlungsbedingungen einführen:
-  - Anzahlung nur, wenn `deposit_method !== 'none'` und Betrag sinnvoll ist.
-  - Stripe-Anzahlungsbutton nur, wenn `deposit_method === 'stripe'`.
-  - Vollzahlung nur, wenn `balance_method === 'stripe_prepay'` und keine separate Restzahlung vor Ort/Rechnung vorgesehen ist.
-  - Offline-Buchung nur dann als Hauptaktion zeigen, wenn keine Online-Zahlung vorgesehen ist.
-  - Restzahlungstext korrekt nach Maestro anzeigen: vor Ort, Rechnung vor Event, Rechnung nach Event oder Stripe vorab.
-- `computeDeposit` nicht mehr anhand von `payment_method=on_site` abschalten, sondern anhand von `deposit_method`.
+Soll-Brutto wäre `30,01 × 833 = 25.000,33`, nach Rundung 25.000 € — angezeigt werden aber **25.001,25 €**. Genau das auf dem Screenshot.
 
-### 3. Proposal- und Final-Ansicht angleichen
-Für alle Angebotsphasen:
-- Bei „Stripe-Anzahlung + Rest vor Ort“: Anzahlung-Button mit 20 % / Betrag anzeigen, darunter Hinweis „Restzahlung vor Ort beim Event“.
-- Bei „Keine Anzahlung + Rest vor Ort/Rechnung“: nur verbindlich buchen ohne Online-Zahlung.
-- Bei „Keine Anzahlung + Stripe vorab“: Vollzahlung / Vorauszahlung online.
-- Bei „Anzahlung Stripe + Rest Stripe vorab“: wie bisher Anzahlung und vollständige Online-Zahlung, aber Beträge aus Maestro.
-- Keine Neuberechnung der Angebotssumme außer bestehendem Fallback für fehlende Legacy-Werte; Maestro-Beträge bleiben maßgeblich.
+Das verletzt zusätzlich zwei Memory-Regeln:
+- **„LexOffice Brutto-Preise: taxType='gross' + grossAmount, niemals manuell konvertieren"**
+- **„Maestro ist Single Source of Truth: Preise/Totals 1:1, niemals umrechnen oder runden"**
 
-### 4. Stripe-Session-Guard korrigieren
-In `supabase/functions/create-payment-session/index.ts`:
-- Guard auf `deposit_method`/`balance_method` umstellen.
-- `paymentType='deposit'` erlauben, wenn `deposit_method === 'stripe'`, auch wenn `balance_method === 'on_site'` ist.
-- `paymentType='full'` nur erlauben, wenn die Rest-/Vollzahlung tatsächlich online vorgesehen ist (`balance_method === 'stripe_prepay'` oder Legacy-Online-Fallback).
-- Fehlertexte passend machen, falls ein nicht vorgesehener Zahlungstyp aufgerufen wird.
+Betroffen sind alle Angebote/Rechnungen, die diese Funktion erzeugt — Pakete, Menü-Komposition, Freitext-/KI-Angebote, Anzahlungs- und Schlussrechnungen.
 
-### 5. Regressionsfälle prüfen
-Nach Umsetzung prüfen:
-- Das gezeigte DataGuard-Angebot zeigt 25.000,00 € brutto, Anzahlung 20 % = 5.000,00 €, Restzahlung vor Ort beim Event.
-- KI/Freitext-Angebote verwenden weiter `total_amount` bzw. `freeformProgram.totalsFromText.gross` als Fallback.
-- Paket-/Menüangebote mit Preis pro Person behalten korrekte Gesamtbeträge.
-- Keine-Anzahlung/offline zeigt keine Stripe-Buttons.
-- Stripe-Vorauszahlung zeigt nur Online-Zahlung.
-- Anzahlung + Restzahlung werden nicht durch Public Offer neu gerundet oder überschrieben.
+## Fix
+
+In `supabase/functions/create-event-quotation/index.ts`:
+
+1. **`convertLineItemsToNet()` nicht mehr anwenden** beim `documentPayload`. LineItems werden so an LexOffice gesendet, wie sie intern (brutto) aufgebaut werden.
+2. **`taxConditions: { taxType: 'gross' }`** statt `'net'`.
+3. Die Funktion `convertLineItemsToNet()` selbst entfernen (oder als deprecated markieren), damit sie nicht versehentlich wieder verwendet wird.
+4. **Freshness-Probe anpassen** (Zeile 991–993): `taxTypeMatches = lexTaxType === 'gross'` — sonst werden alle bestehenden „gross"-Belege als „drift" angesehen und neu erzeugt.
+
+Die LexOffice-PDF zeigt dann weiterhin Netto-Spalten, MwSt. und Brutto-Summe — LexOffice rechnet aus dem gesendeten `grossAmount` automatisch korrekt zurück, **ohne Rundungsdrift auf der Brutto-Summe**.
+
+## Validierung
+
+Nach dem Fix:
+- Neues Vorschau-Angebot AG für Inquiry `6ddaabe0-…` öffnen → Gesamtbetrag muss exakt der Maestro-Summe entsprechen (25.000 € bzw. 833 × `budgetPerPerson`).
+- Kurzer Check: `lex-inspect` (existierende Edge-Function) gegen die neu erzeugte Quotation aufrufen, `taxConditions.taxType` und `totalPrice.totalGrossAmount` prüfen.
+
+## Scope / nicht enthalten
+
+- Keine Änderungen an Maestro-Eingabe, PublicOffer oder Stripe-Logik.
+- Keine Migration nötig.
+- Keine nachträgliche Korrektur bereits an Kunden versendeter LexOffice-Belege (das wäre ein separater manueller Schritt; falls gewünscht, in einem Folge-Task).
