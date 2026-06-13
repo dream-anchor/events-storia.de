@@ -136,6 +136,7 @@ serve(async (req) => {
         if (!opt) throw new Error(`Option ${oid} nicht gefunden`);
 
         const pricingMode = (opt.menu_selection?.pricingMode as string | undefined) ?? 'per_person';
+        const effectiveTotal = effectiveTotalForOption(opt);
 
         let pricePerUnitEur: number;
         // Equipment & Staff sind Fixkosten — nicht pro Person skalieren
@@ -150,11 +151,11 @@ serve(async (req) => {
             .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0)
         );
 
-        if (pricingMode === 'per_event') {
+        if (pricingMode === 'per_event' || !!opt.menu_selection?.freeformProgram) {
           if (quantity !== 1) {
             throw new Error(`Option "${opt.option_label}": pauschale Preisstellung erlaubt nur Menge 1`);
           }
-          pricePerUnitEur = opt.total_amount; // per_event: totalAmount enthält alles, quantity=1
+          pricePerUnitEur = effectiveTotal; // per_event/freeform: Gesamtbetrag enthält alles, quantity=1
         } else {
           // per_person: Equipment/Staff-Fixkosten vom totalAmount abziehen,
           // nur den Personenanteil pro Gast berechnen, Fixkosten einmalig addieren
@@ -163,14 +164,14 @@ serve(async (req) => {
             pricePerUnitEur = budgetPerPerson;
           } else if (opt.guest_count > 0) {
             // totalAmount minus Fixkosten = skalierbarer Anteil
-            pricePerUnitEur = (opt.total_amount - equipStaffFixed) / opt.guest_count;
+            pricePerUnitEur = (effectiveTotal - equipStaffFixed) / opt.guest_count;
           } else {
             throw new Error(`Option "${opt.option_label}": Preis pro Person nicht ermittelbar`);
           }
         }
 
         // Personenkosten × gewählte Menge + einmalige Fixkosten
-        const lineEur = pricingMode === 'per_event'
+        const lineEur = pricingMode === 'per_event' || !!opt.menu_selection?.freeformProgram
           ? pricePerUnitEur
           : (pricePerUnitEur * quantity) + equipStaffFixed;
         grandTotalEur += lineEur;
