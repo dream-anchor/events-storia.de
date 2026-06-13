@@ -1,118 +1,106 @@
-# Digitale Kostenübernahme (eSignatures.com)
 
-Aus der Referenz-PDF `KOSTENÜBERNAHME.pdf` (nur inhaltliche Vorlage, niemals als Produktionsdokument verschickt) wird ein versionierbares **Markdown-Template** bei eSignatures.com erzeugt und nahtlos in den Public-Offer-Flow eingebettet.
+## Ziel
 
-## 1. Datenbank (Migration)
+Im Wizard einen neuen Modus „Freitext-Import" ergänzen, in den der Admin ein vorformuliertes Angebot (z.B. mehrtägige Catering-Programme) einfügt. Eine KI parst den Text in eine strukturierte Option mit mehreren Tages-Blöcken, Mahlzeit-Sektionen, Pauschalpreisen netto und Steuersätzen. Im Public Offer wird das Programm tagestrukturiert mit Pauschalpreis pro Block und Gesamtsumme angezeigt.
 
-**Neue Tabelle `cost_acceptances`**
-- `inquiry_id`, `offer_option_id`, `status` (`draft|pending_signature|signed|cancelled|expired`)
-- Signer: `signer_name`, `signer_email`, `signer_mobile`, `signer_company_name`
-- Event/Rechnung: `event_company`, `event_title`, `event_date`, `onsite_contact`, `guest_count`, `invoice_company`, `invoice_street`, `invoice_zip_city`, `invoice_reference`
-- Checkboxen: `confirmations jsonb` (5 Felder)
-- eSignatures: `esignatures_contract_id`, `esignatures_template_id`, `template_version`, `sign_page_url`, `sign_page_url_embedded`, `mfa_method` (`sms|photo_id|none`)
-- Snapshot: `document_markdown_snapshot text`, `reference_pdf_name`, `reference_pdf_uploaded_at`
-- Signiertes PDF: `signed_pdf_storage_path`, `signed_at`, `signed_pdf_sha256`
-- Audit: `webhook_events jsonb[]`, `created_at`, `updated_at`
-- RLS: nur admin/staff full; Public-Read über separate Edge Function (Token-basiert, kein direkter Anon-Read)
+## Datenmodell (additive Erweiterung)
 
-**Neue Tabelle `crm_settings`** (key/value) für `esignatures_cost_acceptance_template_id` + `template_version` (alternativ zu Secret).
-
-**Private Storage Bucket** `cost-acceptances` (RLS: nur service_role + signed URLs für Admins).
-
-**Erweiterung `v2_events`**: `cost_acceptance_id`, `locked_after_signature boolean default false`.
-
-## 2. Markdown-Template (Code-versioniert)
-
-Datei: `supabase/functions/_shared/cost-acceptance-template.ts`
-
-Exportiert konstantes Markdown mit Platzhaltern (`{{offer_number}}`, `{{customer_number}}`, `{{offer_date}}`, `{{valid_until}}`, `{{amount_gross}}`, `{{currency}}`, `{{event_company}}`, `{{event_title}}`, `{{event_date}}`, `{{onsite_contact}}`, `{{guest_count}}`, `{{invoice_company}}`, `{{invoice_street}}`, `{{invoice_zip_city}}`, `{{invoice_reference}}`, `{{signer_name}}`, `{{signer_email}}`, `{{signer_mobile}}`, `{{signer_company_name}}`, `{{signature_date}}`, `{{additional_terms}}`) plus `TEMPLATE_VERSION` SemVer-String.
-
-Struktur 1:1 wie PDF: Headline → Speranza/STORIA-Block → Angebotsbezug → Veranstaltungsangaben → Verbindliche Übernahme + Zahlungsziel 5 Werktage + Kontoverbindung → Zusatzleistungs-Klausel → Rechnungsanschrift → Bestätigungsblock mit Signer-Feldern (keine Leerlinien — alles Datenfelder / Signer-Fields).
-
-## 3. Edge Functions
-
-| Function | Zweck | verify_jwt |
-|---|---|---|
-| `create-esignatures-cost-acceptance-template` | Setup: POST `/api/templates` an eSignatures, speichert `template_id` + `version` in `crm_settings`. Idempotent. | true (Admin) |
-| `sync-esignatures-template` | Vergleicht aktuellen Markdown-Hash mit gespeicherter Version; bei Diff: neues Template + neue `template_version`. | true (Admin) |
-| `create-cost-acceptance-from-public-offer` | Erstellt `cost_acceptances`-Row, rendert Markdown-Snapshot, POST `/api/contracts` mit `template_id`, `locale="de"`, `metadata.cost_acceptance_id`, `custom_webhook_url`, `signature_request_delivery_methods=[]`, `signed_document_delivery_method="email"`, MFA-Regel siehe unten. Speichert `sign_page_url` + Embedded-Variante. | false (Public) |
-| `esignatures-webhook` | HMAC-SHA256 prüfen, Event speichern, bei `contract-signed`: PDF von `contract_pdf_url` laden, in Storage `cost-acceptances/{id}/signed.pdf` ablegen, Status `signed`, Offer `accepted_signed` + lock, Timeline-Log. | false |
-| `download-signed-cost-acceptance` | Admin-Download via signed URL. | true |
-
-**MFA-Regel** (server-seitig, aus Betrag + B2B/B2C):
-- B2C → SMS Pflicht
-- B2B & Betrag ≥ 2.500 € → SMS
-- Betrag ≥ 10.000 € → SMS Pflicht (überschreibt)
-- Hook für künftiges `photo_id`-Flag (Admin manuell)
-
-## 4. Public Offer Integration
-
-Neue Section `CostAcceptanceSection.tsx` unterhalb der bestehenden Auswahl, sichtbar wenn Phase `confirmed`/`final_sent` und kein signiertes Doc existiert:
+In `MultiOffer/types.ts` neuer optionaler Block auf `OfferOption`:
 
 ```text
-┌─ Kostenübernahme verbindlich bestätigen ─┐
-│ Angebot AGxxxx · 24.485,00 € brutto      │
-│ Veranstaltung · Datum · Personen         │
-│ Ansprechpartner vor Ort · Rechnungs-Adr. │
-│ Hinweis: Zusatzleistungen/Mehrverbrauch  │
-│                                          │
-│ [Formular: fehlende Felder ergänzen]     │
-│ [☐] 5 Pflicht-Checkboxen                 │
-│                                          │
-│  Kostenübernahme jetzt digital           │
-│  unterschreiben →                        │
-└──────────────────────────────────────────┘
+OfferOption {
+  ...bestehend
+  freeformProgram?: {
+    title: string
+    location?: string
+    dateRangeLabel?: string           // "29.06.2026 – 02.07.2026"
+    days: ProgramDay[]
+    taxBreakdown: {
+      foodNet: number; foodVatRate: number      // 7
+      servicesNet: number; servicesVatRate: number // 19
+    }
+    totalsFromText: { net: number; gross: number }
+    notes: string[]                   // "Hinweise"-Block
+    rawText: string                   // Original für Audit/Re-Parse
+  }
+}
+
+ProgramDay {
+  id: string
+  dateLabel: string                   // "MONTAG, 29.06.2026"
+  isoDate?: string
+  meals: ProgramMeal[]
+}
+
+ProgramMeal {
+  id: string
+  label: string                       // "Lunch", "Dinner Live Cooking"
+  guestCount: number
+  sections: { heading?: string; items: string[] }[]
+  flatPriceNet: number                // Pauschal netto
+  vatRate: number                     // 7
+}
 ```
 
-Nach Klick:
-1. Ruft `create-cost-acceptance-from-public-offer`
-2. Bekommt `sign_page_url_embedded` zurück
-3. Rendert iframe direkt in der Seite (`<iframe src=sign_page_url_embedded>`)
-4. Auf Webhook-Erfolg (Realtime auf `cost_acceptances` subscribed) → Section wechselt zu Bestätigungs-State mit „Signiertes PDF herunterladen"
+Neuer `offerMode = "freeform"` neben `menu | paket | email`.
 
-Bereits aus Angebot bekannte Werte werden vorausgefüllt; nur fehlende Felder müssen ergänzt werden. Pflicht-Checkboxen werden ins Markdown-Snapshot übernommen (sichtbar im signierten PDF).
+DB-Migration: neue Spalte `freeform_program JSONB NULL` auf der Tabelle, die `OfferOption` persistiert (Name beim Build per `code--view` verifizieren, vermutlich `offer_options`). Kein Schema-Bruch, alle bestehenden Optionen bleiben.
 
-5 Checkboxen wie spezifiziert; Checkbox 5 nur bei B2C (kein `company_name`).
+## UI-Änderungen
 
-## 5. Admin (InquiryEditor)
+1. **`ModeSelector.tsx`** — vierte Kachel „Freitext-Import" (Icon `Sparkles` + `FileText`), Beschreibung „Vollständiges Angebot aus Text generieren".
+2. **Neue Komponente `FreeformImportPanel.tsx`** unter `OfferBuilder/`:
+   - Großes Textarea (min 20 Zeilen)
+   - Button „Mit KI in Angebot umwandeln" → ruft Edge Function
+   - Loading-State, Fehler-Toast (429/402/Parse-Fehler)
+   - Nach Erfolg: Preview des geparsten Programms mit Inline-Editor (Tag-Label, Mahlzeit-Label, Gäste, Preis, Sektionen) bevor übernommen wird.
+3. **Neue Komponente `FreeformProgramEditor.tsx`** — Liste der Tage als Cards, jede Mahlzeit als Sub-Card mit editierbaren Feldern.
+4. **`WizardConfigurator.tsx`** — wenn `option.freeformProgram` gesetzt ist, Steps 2+3 (Gänge/Getränke) überspringen und direkt `FreeformProgramEditor` rendern; Step 4 Zusammenfassung zeigt totals aus `freeformProgram.totalsFromText`.
+5. **`LiveCalculation.tsx`** — wenn freeform-Modus, Summe aus `flatPriceNet`-Aggregat + Service-Netto + MwSt-Aufschläge anzeigen.
 
-Neuer Tab/Card „Kostenübernahme":
-- Status-Badge, Template-Version + Hinweis bei älterer Version
-- Contract-ID, Signer-Daten, Signatur-Zeitpunkt, MFA-Methode
-- Buttons: „Signiertes PDF herunterladen", „Audit-Events anzeigen" (Drawer mit `webhook_events`), „Kostenübernahme zurückziehen" (nur vor `signed`)
-- Interner Hinweis: „Basiert inhaltlich auf Referenzdatei: KOSTENÜBERNAHME.pdf"
-- Referenz-PDF wird im Kundenflow **nicht** angezeigt
+## Public Offer Rendering
 
-## 6. Secrets / Setup
+Neue Komponente `src/pages/public-offer/FreeformProgramView.tsx`:
+- Titel + Location + Datums-Range
+- Pro Tag: Datums-Header, dann pro Mahlzeit eine Card mit Gästezahl-Badge, Sektionen als Listen, Pauschalpreis rechts unten
+- Kalkulations-Box am Ende: Speisen netto + MwSt 7%, Personal/Equipment netto + MwSt 19%, Gesamt netto/brutto
+- „Hinweise"-Block
+- Einbindung in `ProposalView`/`FinalOfferView` wenn `option.freeformProgram` vorhanden ist (alternativ zur bestehenden Menü-Darstellung)
 
-Neuer Secret: `ESIGNATURES_API_KEY`, `ESIGNATURES_WEBHOOK_SECRET`.
-Setup-Reihenfolge nach Approval:
-1. Migration ausführen
-2. Bucket `cost-acceptances` (privat)
-3. Secrets anfragen
-4. `create-esignatures-cost-acceptance-template` einmalig aufrufen → `template_id` in `crm_settings`
+Bilingual: Erste Iteration nur DE (Programm meist hochgradig kulinarisch-italienisch); EN-Rendering in einer Folge-Iteration. Der Container für Customer-Mails bleibt bilingual wie bisher.
 
-## 7. Versionierung & Lock
+## KI-Edge-Function
 
-- Jede Kostenübernahme speichert `esignatures_template_id` + `template_version` + `document_markdown_snapshot` → Audit-fest.
-- Nach `signed`: `v2_events.locked_after_signature = true`. OfferBuilder respektiert Lock (zeigt Banner statt Edit; passt zur bestehenden Immutability-Regel).
-- Bei Template-Update entsteht neue Version; alte Acceptances bleiben verknüpft mit alter Version.
+Neue Function `supabase/functions/parse-freeform-offer/index.ts`:
+- Input: `{ text: string, inquiryId: string }`
+- Modell: `google/gemini-2.5-pro` (komplexe Strukturextraktion, lange Texte)
+- Strukturiertes Output via Tool-Calling mit JSON-Schema, das exakt dem `freeformProgram`-Shape entspricht
+- System-Prompt:
+  - Übernimm Pauschalpreise **netto** 1:1 wie im Text
+  - Speisen → 7% MwSt; Personal/Equipment/Logistik → 19% MwSt
+  - Tagesüberschriften und Mahlzeit-Labels exakt übernehmen
+  - Sektionen mit Heading (z.B. „Antipasti-Auswahl", „Live Pasta Station") strukturieren
+  - Gästezahlen pro Mahlzeit erkennen („| 25 Personen")
+  - „KALKULATION" und „GESAMTANGEBOT" Block extrahieren → `taxBreakdown` + `totalsFromText`
+  - „HINWEISE"-Aufzählung als `notes[]`
+  - **Niemals Preise neu rechnen** — folgt der Maestro-Single-Source-Regel
+- Response: geparstes Objekt + raw text; Frontend übernimmt nach Bestätigung in `option.freeformProgram` und schreibt `totalAmount = totalsFromText.gross`.
 
-## 8. Was NICHT im Scope ist
+## Send-/Email-Pfad
 
-- Manuelles Nachbauen des Templates im eSignatures-Dashboard
-- Direkte Verwendung der Original-PDF als Vertragsdokument
-- Anzeigen der Referenz-PDF gegenüber dem Kunden
-- Photo-ID-MFA-Implementierung (nur Schema-Hook)
+- `EmailComposer`/`SendControls`: wenn freeform-Option, Email-Body verwendet Programm-Zusammenfassung statt Menü-Liste; bestehende bilinguale Struktur bleibt.
+- PDF-Preview (`LivePDFPreview`): zusätzlicher Renderer-Branch für `freeformProgram`.
 
-## Reihenfolge der Umsetzung
+## Out of Scope (separat)
 
-1. Migration + Storage-Bucket (benötigt Approval)
-2. Markdown-Template + Setup-Edge-Function
-3. Secrets anfordern + Template anlegen
-4. Public-Offer-Section + Edge Function `create-cost-acceptance-from-public-offer`
-5. Webhook-Handler + PDF-Archivierung
-6. Admin-UI im InquiryEditor
-7. Lock-Mechanismus + Versionsanzeige
+- Katalog-Matching der Items (Phase 2)
+- Englische Übersetzung des Programms (Phase 2, via bestehender Translation-Function)
+- Stripe-Payment-Link-Auto-Erstellung für freeform — funktioniert automatisch, da `totalAmount` gesetzt wird
 
-Bitte bestätige den Plan, danach starte ich mit Migration + Secret-Anfrage.
+## Verifikation
+
+1. Beispieltext aus User-Message in das neue Panel einfügen → KI liefert 4 Tage mit korrekten Mahlzeiten und Preisen
+2. Totals: 22.762 € Speisen netto + 1.593,34 € MwSt + 3.450 € Services netto + 655,50 € MwSt = 28.460,84 € brutto, exakt übernommen
+3. Public Offer Vorschau zeigt strukturiertes 4-Tages-Programm
+4. Option in DB persistiert, nach Reload identisch
+5. Sent Offer ist immutable, „Angebot bearbeiten" erzeugt neue Version mit kopiertem `freeformProgram`

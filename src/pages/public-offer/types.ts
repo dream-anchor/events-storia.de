@@ -63,6 +63,45 @@ export interface MenuSelection {
   pricingMode?: 'per_person' | 'per_event';
   equipment?: Array<{ id: string; name: string; pricePerUnit: number; quantity: number }>;
   staff?: Array<{ id: string; name: string; pricePerUnit: number; quantity: number }>;
+  freeformProgram?: PublicFreeformProgram | null;
+}
+
+/**
+ * Mehrtägiges Freitext-Programm (KI-importiert). Wird tagestrukturiert
+ * im Public Offer dargestellt — Preise 1:1 aus Maestro/Text.
+ */
+export interface PublicFreeformProgramMeal {
+  id?: string;
+  label: string;
+  guestCount: number;
+  sections: Array<{ heading?: string | null; items: string[] }>;
+  flatPriceNet: number;
+  vatRate: number;
+}
+
+export interface PublicFreeformProgramDay {
+  id?: string;
+  dateLabel: string;
+  isoDate?: string | null;
+  meals: PublicFreeformProgramMeal[];
+}
+
+export interface PublicFreeformProgram {
+  title: string;
+  location?: string | null;
+  dateRangeLabel?: string | null;
+  scopeOfServices?: string[] | null;
+  days: PublicFreeformProgramDay[];
+  taxBreakdown: {
+    foodNet: number;
+    foodVatRate: number;
+    foodVatAmount?: number | null;
+    servicesNet: number;
+    servicesVatRate: number;
+    servicesVatAmount?: number | null;
+  };
+  totalsFromText: { net: number; gross: number };
+  notes?: string[] | null;
 }
 
 export interface PublicOfferOption {

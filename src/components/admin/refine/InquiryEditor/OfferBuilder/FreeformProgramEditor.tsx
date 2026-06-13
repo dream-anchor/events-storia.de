@@ -1,0 +1,317 @@
+import { useState } from "react";
+import { Calendar, Users, RefreshCw, ChevronDown, FileText, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
+import type { FreeformProgram, FreeformProgramMeal } from "./types";
+
+interface FreeformProgramEditorProps {
+  program: FreeformProgram;
+  onChange: (program: FreeformProgram) => void;
+  onClear: () => void;
+  disabled?: boolean;
+}
+
+const fmtEur = (n: number) =>
+  new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+
+export function FreeformProgramEditor({ program, onChange, onClear, disabled }: FreeformProgramEditorProps) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const toggle = (id: string) => setExpanded((e) => ({ ...e, [id]: !e[id] }));
+
+  const updateMeal = (dayId: string, mealId: string, patch: Partial<FreeformProgramMeal>) => {
+    onChange({
+      ...program,
+      days: program.days.map((d) =>
+        d.id !== dayId
+          ? d
+          : {
+              ...d,
+              meals: d.meals.map((m) => (m.id !== mealId ? m : { ...m, ...patch })),
+            },
+      ),
+    });
+  };
+
+  const updateTax = (patch: Partial<FreeformProgram["taxBreakdown"]>) => {
+    onChange({ ...program, taxBreakdown: { ...program.taxBreakdown, ...patch } });
+  };
+
+  const updateTotals = (patch: Partial<FreeformProgram["totalsFromText"]>) => {
+    onChange({ ...program, totalsFromText: { ...program.totalsFromText, ...patch } });
+  };
+
+  const totalMealsNet = program.days.reduce(
+    (s, d) => s + d.meals.reduce((sm, m) => sm + (Number(m.flatPriceNet) || 0), 0),
+    0,
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <FileText className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <Input
+              value={program.title}
+              onChange={(e) => onChange({ ...program, title: e.target.value })}
+              disabled={disabled}
+              className="h-8 text-sm font-semibold bg-background/60 border-primary/20"
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+              <Input
+                value={program.dateRangeLabel ?? ""}
+                onChange={(e) => onChange({ ...program, dateRangeLabel: e.target.value })}
+                disabled={disabled}
+                placeholder="Zeitraum"
+                className="h-7 text-xs"
+              />
+              <Input
+                value={program.location ?? ""}
+                onChange={(e) => onChange({ ...program, location: e.target.value })}
+                disabled={disabled}
+                placeholder="Location"
+                className="h-7 text-xs"
+              />
+            </div>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setConfirmClear(true)}
+          disabled={disabled}
+          className="text-xs text-muted-foreground hover:text-destructive gap-1.5"
+        >
+          <RefreshCw className="h-3 w-3" />
+          Neu importieren
+        </Button>
+      </div>
+
+      {/* Scope of Services */}
+      {program.scopeOfServices && program.scopeOfServices.length > 0 && (
+        <details className="rounded-xl border border-border/40 bg-muted/10 px-4 py-2 text-sm">
+          <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Leistungsumfang ({program.scopeOfServices.length})
+          </summary>
+          <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
+            {program.scopeOfServices.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {/* Days */}
+      <div className="space-y-3">
+        {program.days.map((day) => (
+          <div key={day.id} className="rounded-xl border border-border/40 bg-background overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggle(day.id)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/20 transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm font-semibold truncate">{day.dateLabel}</span>
+                <span className="text-xs text-muted-foreground">
+                  · {day.meals.length} Mahlzeit{day.meals.length !== 1 ? "en" : ""}
+                </span>
+              </div>
+              <ChevronDown
+                className={cn("h-4 w-4 text-muted-foreground transition-transform", expanded[day.id] && "rotate-180")}
+              />
+            </button>
+            {expanded[day.id] && (
+              <div className="border-t border-border/30 divide-y divide-border/30">
+                {day.meals.map((meal) => (
+                  <div key={meal.id} className="px-4 py-3 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Input
+                        value={meal.label}
+                        onChange={(e) => updateMeal(day.id, meal.id, { label: e.target.value })}
+                        disabled={disabled}
+                        className="h-7 text-sm font-medium max-w-xs"
+                      />
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Users className="h-3 w-3" />
+                        <Input
+                          type="number"
+                          min="0"
+                          value={meal.guestCount}
+                          onChange={(e) =>
+                            updateMeal(day.id, meal.id, { guestCount: parseInt(e.target.value) || 0 })
+                          }
+                          disabled={disabled}
+                          className="h-7 w-16 text-xs"
+                        />
+                        Personen
+                      </div>
+                      <div className="flex items-center gap-1 ml-auto">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={meal.flatPriceNet}
+                          onChange={(e) =>
+                            updateMeal(day.id, meal.id, { flatPriceNet: parseFloat(e.target.value) || 0 })
+                          }
+                          disabled={disabled}
+                          className="h-7 w-28 text-xs text-right"
+                        />
+                        <span className="text-xs text-muted-foreground">€ netto</span>
+                        <span className="text-[10px] text-muted-foreground ml-1">
+                          ({meal.vatRate}% MwSt)
+                        </span>
+                      </div>
+                    </div>
+                    {meal.sections.map((sec, i) => (
+                      <div key={i} className="pl-5 text-xs">
+                        {sec.heading && (
+                          <div className="font-semibold text-foreground mb-0.5">{sec.heading}</div>
+                        )}
+                        <ul className="list-disc pl-4 text-muted-foreground space-y-0.5">
+                          {sec.items.map((it, j) => (
+                            <li key={j}>{it}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Kalkulation */}
+      <div className="rounded-xl border border-border/40 bg-muted/10 px-4 py-3">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Kalkulation</h4>
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="text-muted-foreground">Speisen netto</label>
+            <Input
+              type="number"
+              step="0.01"
+              value={program.taxBreakdown.foodNet}
+              onChange={(e) => updateTax({ foodNet: parseFloat(e.target.value) || 0 })}
+              disabled={disabled}
+              className="h-7 text-xs text-right"
+            />
+            <div className="text-[10px] text-muted-foreground">
+              Σ Mahlzeiten netto = {fmtEur(totalMealsNet)} €
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-muted-foreground">+ {program.taxBreakdown.foodVatRate}% MwSt</label>
+            <Input
+              type="number"
+              step="0.01"
+              value={program.taxBreakdown.foodVatAmount ?? 0}
+              onChange={(e) => updateTax({ foodVatAmount: parseFloat(e.target.value) || 0 })}
+              disabled={disabled}
+              className="h-7 text-xs text-right"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-muted-foreground">Personal/Equipment netto</label>
+            <Input
+              type="number"
+              step="0.01"
+              value={program.taxBreakdown.servicesNet}
+              onChange={(e) => updateTax({ servicesNet: parseFloat(e.target.value) || 0 })}
+              disabled={disabled}
+              className="h-7 text-xs text-right"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-muted-foreground">+ {program.taxBreakdown.servicesVatRate}% MwSt</label>
+            <Input
+              type="number"
+              step="0.01"
+              value={program.taxBreakdown.servicesVatAmount ?? 0}
+              onChange={(e) => updateTax({ servicesVatAmount: parseFloat(e.target.value) || 0 })}
+              disabled={disabled}
+              className="h-7 text-xs text-right"
+            />
+          </div>
+        </div>
+        <div className="mt-3 pt-3 border-t border-border/30 grid grid-cols-2 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="text-muted-foreground font-semibold">Gesamt netto</label>
+            <Input
+              type="number"
+              step="0.01"
+              value={program.totalsFromText.net}
+              onChange={(e) => updateTotals({ net: parseFloat(e.target.value) || 0 })}
+              disabled={disabled}
+              className="h-8 text-sm font-semibold text-right"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-muted-foreground font-semibold">Gesamt brutto</label>
+            <Input
+              type="number"
+              step="0.01"
+              value={program.totalsFromText.gross}
+              onChange={(e) => updateTotals({ gross: parseFloat(e.target.value) || 0 })}
+              disabled={disabled}
+              className="h-8 text-sm font-semibold text-right text-primary"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Notes */}
+      {program.notes && program.notes.length > 0 && (
+        <details className="rounded-xl border border-border/40 bg-muted/10 px-4 py-2 text-sm">
+          <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Hinweise ({program.notes.length})
+          </summary>
+          <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
+            {program.notes.map((n, i) => (
+              <li key={i}>{n}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      <AlertDialog open={confirmClear} onOpenChange={setConfirmClear}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Programm verwerfen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Das aktuelle Programm wird gelöscht. Du kannst dann einen neuen Text einfügen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmClear(false);
+                onClear();
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Verwerfen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

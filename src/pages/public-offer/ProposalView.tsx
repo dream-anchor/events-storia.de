@@ -34,6 +34,7 @@ import type {
 } from "./types";
 import { formatCurrency, formatCurrencyDecimal, buildDrinkRows } from "./types";
 import { CancellationTermsAccordion } from "./ContactSection";
+import { FreeformProgramSection } from "./FreeformProgramSection";
 
 export function ProposalView({
   inquiry,
@@ -1089,6 +1090,8 @@ function ProposalOptionCard({
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
   const drinkRows = buildDrinkRows(menu);
+  const freeformProgram = menu?.freeformProgram ?? null;
+  const isFreeform = option.offer_mode === 'freeform' || !!freeformProgram;
   // Pricing-Modus respektieren: bei per_event ist budgetPerPerson der Gesamtpreis
   // fuer den ganzen Anlass (nicht pro Gast). Dann zeigen wir statt "pro Person"
   // den Gesamtbetrag mit Label "Gesamtpreis".
@@ -1182,7 +1185,13 @@ function ProposalOptionCard({
       </div>
 
       {/* Menü-Details im Speisekarten-Stil — lesbar, wertig */}
-      {(courses.length > 0 || drinkRows.length > 0 || (menu?.equipment?.length ?? 0) > 0 || (menu?.staff?.length ?? 0) > 0) && (
+      {isFreeform && freeformProgram ? (
+        <div className="px-6 pb-6">
+          <div className="border-t border-border/20 pt-5">
+            <FreeformProgramSection program={freeformProgram} />
+          </div>
+        </div>
+      ) : (courses.length > 0 || drinkRows.length > 0 || (menu?.equipment?.length ?? 0) > 0 || (menu?.staff?.length ?? 0) > 0) && (
         <div className="px-6 pb-6">
           <div className="border-t border-border/20 pt-5">
             {courses.length > 0 && (

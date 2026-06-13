@@ -49,7 +49,53 @@ export type { CombinedMenuItem };
  * - 'paket': Fertigpaket aus DB
  * - 'email': Nur Anschreiben, keine Menükonfiguration
  */
-export type OfferMode = 'unselected' | 'menu' | 'paket' | 'email';
+export type OfferMode = 'unselected' | 'menu' | 'paket' | 'email' | 'freeform';
+
+/**
+ * FreeformProgram — KI-importierte mehrtägige Programme (z.B. Catering-Spike-Weeks).
+ * Wird in menuSelection.freeformProgram persistiert. Preise sind 1:1 aus Text übernommen.
+ */
+export interface FreeformProgramSection {
+  heading?: string | null;
+  items: string[];
+}
+
+export interface FreeformProgramMeal {
+  id: string;
+  label: string;
+  guestCount: number;
+  sections: FreeformProgramSection[];
+  flatPriceNet: number;
+  vatRate: number;
+}
+
+export interface FreeformProgramDay {
+  id: string;
+  dateLabel: string;
+  isoDate?: string | null;
+  meals: FreeformProgramMeal[];
+}
+
+export interface FreeformProgramTaxBreakdown {
+  foodNet: number;
+  foodVatRate: number;
+  foodVatAmount?: number | null;
+  servicesNet: number;
+  servicesVatRate: number;
+  servicesVatAmount?: number | null;
+}
+
+export interface FreeformProgram {
+  title: string;
+  location?: string | null;
+  dateRangeLabel?: string | null;
+  scopeOfServices?: string[] | null;
+  days: FreeformProgramDay[];
+  taxBreakdown: FreeformProgramTaxBreakdown;
+  totalsFromText: { net: number; gross: number };
+  notes?: string[] | null;
+  rawText?: string | null;
+}
 
 export type DrinkSectionMode = 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
 
@@ -95,6 +141,7 @@ export interface OfferBuilderOption {
     drinksEinzeln?: DrinkEinzelnItem[];
     equipment?: EquipmentItem[];
     staff?: EquipmentItem[];
+    freeformProgram?: FreeformProgram | null;
   };
   totalAmount: number;
   stripePaymentLinkId: string | null;
