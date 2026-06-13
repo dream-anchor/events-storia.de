@@ -95,6 +95,8 @@ export interface FreeformProgram {
   totalsFromText: { net: number; gross: number };
   notes?: string[] | null;
   rawText?: string | null;
+  /** Optionaler Rabatt — wird vom Brutto-Gesamtbetrag abgezogen. */
+  discount?: { mode: 'percent' | 'amount'; value: number } | null;
 }
 
 export type DrinkSectionMode = 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
