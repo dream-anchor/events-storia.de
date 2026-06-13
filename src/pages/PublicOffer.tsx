@@ -209,6 +209,32 @@ function computeDeposit(
   };
 }
 
+function effectiveTotalForOption(option: PublicOfferOption | null | undefined): number {
+  if (!option) return 0;
+  const explicitTotal = Number(option.total_amount ?? 0);
+  if (explicitTotal > 0) return explicitTotal;
+
+  const menu = option.menu_selection as (MenuSelection & {
+    freeformProgram?: {
+      totalsFromText?: { gross?: number | string | null } | null;
+      discount?: { mode?: 'percent' | 'amount' | null; value?: number | string | null } | null;
+    } | null;
+    discountAmount?: number | string | null;
+    discountPercent?: number | string | null;
+  }) | null;
+  const gross = Number(menu?.freeformProgram?.totalsFromText?.gross ?? 0);
+  if (gross <= 0) return 0;
+
+  const discount = menu?.freeformProgram?.discount;
+  let discountAmount = 0;
+  if (discount?.mode === 'amount') discountAmount = Number(discount.value ?? 0) || 0;
+  if (discount?.mode === 'percent') discountAmount = (gross * (Number(discount.value ?? 0) || 0)) / 100;
+  if (!discountAmount && Number(menu?.discountAmount ?? 0) > 0) discountAmount = Number(menu?.discountAmount ?? 0);
+  if (!discountAmount && Number(menu?.discountPercent ?? 0) > 0) discountAmount = (gross * Number(menu?.discountPercent ?? 0)) / 100;
+
+  return Math.max(0, gross - discountAmount);
+}
+
 // =================================================================
 // MAIN COMPONENT
 // =================================================================
