@@ -648,7 +648,15 @@ export function useOfferBuilder({
       let changed = false;
       const updated = prev.map(opt => {
         if (opt.offerMode === 'freeform') {
-          const gross = opt.menuSelection.freeformProgram?.totalsFromText?.gross ?? 0;
+          const prog = opt.menuSelection.freeformProgram;
+          const grossBase = prog?.totalsFromText?.gross ?? 0;
+          const d = prog?.discount;
+          const discountAmount = d
+            ? d.mode === 'percent'
+              ? (grossBase * (Number(d.value) || 0)) / 100
+              : (Number(d.value) || 0)
+            : 0;
+          const gross = Math.max(0, grossBase - discountAmount);
           if (Math.abs(opt.totalAmount - gross) < 0.01) return opt;
           changed = true;
           return { ...opt, totalAmount: gross };
