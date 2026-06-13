@@ -543,6 +543,12 @@ export default function PublicOffer() {
 
         <PdfDownloadSection inquiryId={inquiry.id} lang={lang} />
 
+        {(renderPhase === "confirmed" ||
+          renderPhase === "final_sent" ||
+          renderPhase === "order_confirmed") && (
+          <CostAcceptanceSection inquiry={inquiry} options={options} />
+        )}
+
         <PublicPaymentSection
           payments={payments}
           eventDate={inquiry.preferred_date ?? undefined}
