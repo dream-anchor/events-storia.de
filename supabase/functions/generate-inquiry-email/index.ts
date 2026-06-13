@@ -251,13 +251,23 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
           parts.push(`  Gesamt brutto: ${formatEUR(prog.totalsFromText.gross)}`);
         }
         const disc = prog.discount;
+        let discAmt = 0;
         if (disc && Number(disc.value) > 0) {
-          const discAmt = disc.mode === 'percent'
+          discAmt = disc.mode === 'percent'
             ? (Number(prog.totalsFromText?.gross || 0) * Number(disc.value)) / 100
             : Number(disc.value);
           parts.push(`  Rabatt: ${disc.mode === 'percent' ? `${disc.value}% (entspricht ${formatEUR(discAmt)})` : formatEUR(discAmt)}`);
         }
-        parts.push(`  ENDBETRAG BRUTTO (= Hauptzahl im Anschreiben, EXAKT übernehmen): ${formatEUR(opt.totalAmount)}`);
+        // Effektiver Endbetrag: opt.totalAmount falls > 0, sonst aus totalsFromText.gross − discount.
+        const grossFromText = Number(prog.totalsFromText?.gross || 0);
+        const effectiveGross = Number(opt.totalAmount) > 0
+          ? Number(opt.totalAmount)
+          : Math.max(0, grossFromText - discAmt);
+        if (effectiveGross > 0) {
+          parts.push(`  ENDBETRAG BRUTTO (= Hauptzahl im Anschreiben, EXAKT übernehmen, NIEMALS 0,00 schreiben): ${formatEUR(effectiveGross)}`);
+        } else {
+          parts.push(`  ENDBETRAG BRUTTO: NICHT VERFÜGBAR — lasse die Preisangabe im Anschreiben komplett weg, erfinde keinen Betrag.`);
+        }
 
         if (prog.notes && prog.notes.length > 0) {
           parts.push('');
