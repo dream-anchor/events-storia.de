@@ -148,7 +148,15 @@ export function FreeformProgramSection({ program }: { program: PublicFreeformPro
                   <>
                     <div className="flex justify-between text-sm text-primary">
                       <span>
-                        Rabatt{d?.mode === 'percent' ? ` (${d.value}%)` : ''}
+                        Rabatt{(() => {
+                          if (!d) return '';
+                          const pct = d.mode === 'percent'
+                            ? Number(d.value) || 0
+                            : (program.totalsFromText.gross > 0
+                                ? ((Number(d.value) || 0) / program.totalsFromText.gross) * 100
+                                : 0);
+                          return pct > 0 ? ` (${pct.toFixed(2).replace('.', ',')} %)` : '';
+                        })()}
                       </span>
                       <span className="tabular-nums">− {formatCurrency(discountAmount)}</span>
                     </div>

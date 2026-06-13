@@ -1,50 +1,58 @@
-## Problem
+## Probleme & Ursachen
 
-Beim Freitext-Import-Angebot (DataGuard – Spike Week 2026) generiert die KI immer noch unsinnige Sätze: "833 Gäste", "34,16 € pro Person", nur ein Datum statt Zeitraum, mehrere Tage werden ignoriert.
+**1) AI sagt „Endbetrag brutto 0,00 €"**
+`v2_offer_options.amount_total = 0.00` für das Angebot, während `freeformProgram.totalsFromText.gross = 28.460,84 €` und `discount = {mode:'amount', value:3460.84}` (→ effektiv 25.000 €). Edge-Function übergibt `opt.totalAmount` (= 0) als „ENDBETRAG BRUTTO" an die KI.
 
-## Ursache
+**2) Freitext-Felder nur teilweise editierbar**
+Titel, Zeitraum, Location, Mahlzeit-Label, Personen, Preis, Tax-Breakdown, Totals, Rabatt sind schon editierbar. **Nicht editierbar:** Sections/Headings/Items innerhalb der Mahlzeiten (Gerichte), `scopeOfServices`, `notes`, Tagesdatum.
 
-In der DB ist die Option als `offer_mode = 'menu'` gespeichert, obwohl im `menu_selection` ein vollständiges `freeformProgram` mit 4 Tagen liegt (per psql verifiziert). Der letzte Fix in `generate-inquiry-email/index.ts` aktiviert die Freitext-Logik nur, wenn `offerMode === 'freeform'` — diese Bedingung trifft nie zu, also läuft die Option in den leeren Menü-Pfad und die KI bekommt keine Freitext-Daten. Zusätzlich wurde `guest_count = 833` (Summe aller Mahlzeiten-Gäste) auf die Option geschrieben, woraus die KI „34,16 € pro Person" errechnet.
+**3) Bounce-Notification an info@events-storia.de**
+Email an Natascha.Morgan@dataguard.com (10.06.2026 13:43, status=bounced, log-id `db7c5076-1ac6-4277-a986-6143e208aa98`) hat `metadata.alert_sent_at = null` → Alarm wurde nie versendet. Einmalig nachholen via `notify-email-failure`.
+
+**4) Rabatt-Anzeige Prozent bei Betrags-Rabatt**
+Public Offer (`FreeformProgramSection.tsx` Z. 151) zeigt Prozent nur wenn `mode==='percent'`. Bei `mode==='amount'` soll zusätzlich die effektive Prozentzahl (2 Nachkommastellen) angezeigt werden.
+
+---
 
 ## Plan
 
-### 1. Erkennung umstellen auf „hat freeformProgram"
+### A. Edge-Function `generate-inquiry-email` (Endbetrag-Fallback)
+In `index.ts`, freeform-Branch (Z. 215–268):
+- Effektiven Endbetrag berechnen: `effectiveGross = opt.totalAmount > 0 ? opt.totalAmount : (totalsFromText.gross − discountAmount)`.
+- Diesen Wert für „ENDBETRAG BRUTTO" verwenden.
+- Falls beide 0 → Hinweis in Kontext „kein Betrag verfügbar — NICHT erfinden, lasse Preis im Anschreiben weg".
 
-Datei: `supabase/functions/generate-inquiry-email/index.ts`
+Außerdem im System-Prompt (F4): explizit „falls 0,00 € im Kontext steht und totalsFromText.gross > 0 — niemals 0,00 schreiben".
 
-- Hilfsfunktion `isFreeform(opt)` einführen: `!!opt.freeformProgram?.days?.length` — unabhängig vom `offer_mode`-String.
-- Alle Stellen umstellen:
-  - `hasFreeform` in `buildMultiOfferContext` (Zeile 191)
-  - Der `if (opt.offerMode === 'freeform' && opt.freeformProgram?.days?.length)`-Branch (Zeile 202)
-  - `hasFreeformContext` im System-Prompt
-- Im Mapping (Zeile 503ff.) `freeformProgram` weiterhin aus `menu_selection.freeformProgram` lesen (bleibt wie ist).
+Anschließend `deploy_edge_functions(['generate-inquiry-email'])`.
 
-### 2. Falschen Pro-Person-Preis und Gesamt-Gästezahl im Kontext neutralisieren
+### B. Freitext-Editor: Gerichte / Hinweise / Datum editierbar
+`FreeformProgramEditor.tsx`:
+- Pro Mahlzeit: Sections editierbar (Heading-Input + Items als bearbeitbare Zeilen mit „+ Zeile" und „× entfernen"). Neue Section hinzufügen / Section entfernen.
+- Tagesdatum-Label editierbar (Input statt `<span>`), + „Mahlzeit hinzufügen / löschen" und „Tag hinzufügen / löschen".
+- `scopeOfServices` (Leistungsumfang) und `notes` (Hinweise) als editierbare Textareas (eine Zeile = ein Eintrag) ergänzen.
+- MwSt-Sätze (`foodVatRate`, `servicesVatRate`) als Input mit Prozent.
 
-- Wenn `isFreeform(opt)`, im Multi-Offer-Kontext für diese Option:
-  - **Keinen** `guestCount` der Option in den Kontext schreiben (kein "Gäste: 833").
-  - **Keinen** Pro-Person-Preis ausgeben.
-  - Stattdessen explizit: "Gäste: variabel je Mahlzeit (siehe Tagesübersicht)".
-- Im Inquiry-Header-Block (`buildMultiOfferContext` Zeilen 182–185): wenn alle aktiven Optionen Freitext sind, `guest_count` und `preferred_date` aus `inquiry` weglassen und durch `freeformProgram.dateRangeLabel` der ersten Option ersetzen, damit die KI nicht versehentlich „29. Juni 2026" / „833" greift.
+UI behält das bestehende Premium-Light-Layout (rounded-2xl, neutrale Grautöne, keine neuen Farben).
 
-### 3. System-Prompt-Regeln (F1–F7) auf neue Erkennung umhängen
+### C. Public Offer: Prozent bei Betrags-Rabatt anzeigen
+`FreeformProgramSection.tsx` Z. 151:
+```
+Rabatt{d?.mode === 'percent' ? ` (${d.value}%)` : ''}
+```
+→ wenn `mode==='amount'` und `totalsFromText.gross > 0`:
+`(${(d.value / totalsFromText.gross * 100).toFixed(2)}%)`.
+Gilt für beide Modi: Prozent immer auf 2 Nachkommastellen.
 
-- `hasFreeformContext`-Trigger nutzt jetzt die Markierung "FREITEXT-PROGRAMM, mehrtägig" aus dem überarbeiteten Kontext-Block — bleibt funktionsfähig, sobald Schritt 1 greift.
-- Regel F2 schärfen: „Wenn die Anfrage Freitext-Daten enthält, ist **jede** Erwähnung einer Gesamt-Gästezahl oder eines Pro-Person-Preises ein Fehler — auch wenn im allgemeinen Kontext eine Zahl steht."
+### D. Bounce-Alarm einmalig nachholen
+`supabase--curl_edge_functions` POST `/notify-email-failure` mit `{ deliveryLogId: "db7c5076-1ac6-4277-a986-6143e208aa98" }`. Setzt `metadata.alert_sent_at` automatisch (idempotent).
 
-### 4. Verifikation
+---
 
-- Edge Function neu deployen.
-- Mit Anfrage 6ddaabe0-… „Anschreiben generieren" erneut auslösen.
-- Erwartet: Anschreiben nennt 29.06.–02.07.2026, AAHHH Werksviertel, listet 4 Tage mit Mahlzeiten/Personen, Endbetrag 25.000,00 € (bzw. 28.460,84 € falls so in Maestro), kein „833", kein „34,16 € pro Person".
+## Touched files
+- `supabase/functions/generate-inquiry-email/index.ts`
+- `src/components/admin/refine/InquiryEditor/OfferBuilder/FreeformProgramEditor.tsx`
+- `src/pages/public-offer/FreeformProgramSection.tsx`
+- Edge-Call: `notify-email-failure` (kein Code-Change)
 
-## Nicht im Scope
-
-- Nachträgliches Setzen von `offer_mode='freeform'` für bestehende Datensätze (separate Aufräumaktion).
-- Frontend-Änderungen in `OptionCard`/`FreeformImportPanel` — der DB-Inhalt ist ausreichend, sobald die Edge Function ihn liest.
-
-## Technische Details
-
-- Betroffene Datei: nur `supabase/functions/generate-inquiry-email/index.ts`.
-- DB-Datenstand verifiziert per `psql`: `offer_mode='menu'`, `freeformProgram` ist `object` mit 4 `days`, `guest_count=833`, `total_amount=28460.84`.
-- Keine Migration, kein Frontend-Change.
+Keine DB-Migrations, keine neuen Routen.

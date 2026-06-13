@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Calendar, Users, RefreshCw, ChevronDown, FileText, Trash2, ShieldAlert, X } from "lucide-react";
+import { Calendar, Users, RefreshCw, ChevronDown, FileText, Trash2, ShieldAlert, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import type { FreeformProgram, FreeformProgramMeal, ValidationFinding } from "./types";
+import type { FreeformProgram, FreeformProgramMeal, FreeformProgramDay, FreeformProgramSection, ValidationFinding } from "./types";
 import { LinePriceModeToggle } from "./LinePriceModeToggle";
 
 interface FreeformProgramEditorProps {
@@ -53,6 +54,61 @@ export function FreeformProgramEditor({
             },
       ),
     });
+  };
+
+  const updateDay = (dayId: string, patch: Partial<FreeformProgramDay>) => {
+    onChange({
+      ...program,
+      days: program.days.map((d) => (d.id !== dayId ? d : { ...d, ...patch })),
+    });
+  };
+
+  const addDay = () => {
+    const id = `day-${Date.now()}`;
+    onChange({
+      ...program,
+      days: [...program.days, { id, dateLabel: "Neuer Tag", meals: [] }],
+    });
+    setExpanded((e) => ({ ...e, [id]: true }));
+  };
+  const removeDay = (dayId: string) => {
+    onChange({ ...program, days: program.days.filter((d) => d.id !== dayId) });
+  };
+  const addMeal = (dayId: string) => {
+    const id = `meal-${Date.now()}`;
+    onChange({
+      ...program,
+      days: program.days.map((d) =>
+        d.id !== dayId
+          ? d
+          : {
+              ...d,
+              meals: [
+                ...d.meals,
+                { id, label: "Neue Mahlzeit", guestCount: 0, flatPriceNet: 0, vatRate: 7, sections: [] },
+              ],
+            },
+      ),
+    });
+  };
+  const removeMeal = (dayId: string, mealId: string) => {
+    onChange({
+      ...program,
+      days: program.days.map((d) =>
+        d.id !== dayId ? d : { ...d, meals: d.meals.filter((m) => m.id !== mealId) },
+      ),
+    });
+  };
+  const updateSections = (dayId: string, mealId: string, sections: FreeformProgramSection[]) => {
+    updateMeal(dayId, mealId, { sections });
+  };
+  const setScope = (text: string) => {
+    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    onChange({ ...program, scopeOfServices: lines.length ? lines : null });
+  };
+  const setNotes = (text: string) => {
+    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    onChange({ ...program, notes: lines.length ? lines : null });
   };
 
   const updateTax = (patch: Partial<FreeformProgram["taxBreakdown"]>) => {
@@ -179,39 +235,41 @@ export function FreeformProgramEditor({
       </div>
 
       {/* Scope of Services */}
-      {program.scopeOfServices && program.scopeOfServices.length > 0 && (
-        <details className="rounded-xl border border-border/40 bg-muted/10 px-4 py-2 text-sm">
-          <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Leistungsumfang ({program.scopeOfServices.length})
-          </summary>
-          <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
-            {program.scopeOfServices.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <details className="rounded-xl border border-border/40 bg-muted/10 px-4 py-2 text-sm" open={!!program.scopeOfServices?.length}>
+        <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          Leistungsumfang ({program.scopeOfServices?.length ?? 0})
+        </summary>
+        <Textarea
+          value={(program.scopeOfServices ?? []).join("\n")}
+          onChange={(e) => setScope(e.target.value)}
+          disabled={disabled}
+          placeholder="Eine Zeile pro Punkt"
+          className="mt-2 text-xs min-h-[80px] font-mono"
+        />
+      </details>
 
       {/* Days */}
       <div className="space-y-3">
         {program.days.map((day) => (
           <div key={day.id} className="rounded-xl border border-border/40 bg-background overflow-hidden">
-            <button
-              type="button"
-              onClick={() => toggle(day.id)}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/20 transition-colors"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm font-semibold truncate">{day.dateLabel}</span>
-                <span className="text-xs text-muted-foreground">
-                  · {day.meals.length} Mahlzeit{day.meals.length !== 1 ? "en" : ""}
-                </span>
-              </div>
-              <ChevronDown
-                className={cn("h-4 w-4 text-muted-foreground transition-transform", expanded[day.id] && "rotate-180")}
+            <div className="w-full flex items-center gap-2 px-4 py-2 hover:bg-muted/20 transition-colors">
+              <button type="button" onClick={() => toggle(day.id)} className="flex items-center gap-2 shrink-0">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", expanded[day.id] && "rotate-180")} />
+              </button>
+              <Input
+                value={day.dateLabel}
+                onChange={(e) => updateDay(day.id, { dateLabel: e.target.value })}
+                disabled={disabled}
+                className="h-7 text-sm font-semibold flex-1 min-w-0"
               />
-            </button>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {day.meals.length} Mahlzeit{day.meals.length !== 1 ? "en" : ""}
+              </span>
+              <Button type="button" variant="ghost" size="sm" onClick={() => removeDay(day.id)} disabled={disabled} className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
             {expanded[day.id] && (
               <div className="border-t border-border/30 divide-y divide-border/30">
                 {day.meals.map((meal) => (
@@ -250,29 +308,72 @@ export function FreeformProgramEditor({
                           className="h-7 w-28 text-xs text-right"
                         />
                         <span className="text-xs text-muted-foreground">€ netto</span>
-                        <span className="text-[10px] text-muted-foreground ml-1">
-                          ({meal.vatRate}% MwSt)
-                        </span>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={meal.vatRate}
+                          onChange={(e) => updateMeal(day.id, meal.id, { vatRate: parseFloat(e.target.value) || 0 })}
+                          disabled={disabled}
+                          className="h-7 w-14 text-[10px] text-right ml-1"
+                        />
+                        <span className="text-[10px] text-muted-foreground">% MwSt</span>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeMeal(day.id, meal.id)} disabled={disabled} className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </div>
                     {meal.sections.map((sec, i) => (
-                      <div key={i} className="pl-5 text-xs">
-                        {sec.heading && (
-                          <div className="font-semibold text-foreground mb-0.5">{sec.heading}</div>
-                        )}
-                        <ul className="list-disc pl-4 text-muted-foreground space-y-0.5">
-                          {sec.items.map((it, j) => (
-                            <li key={j}>{it}</li>
-                          ))}
-                        </ul>
+                      <div key={i} className="pl-5 text-xs space-y-1 border-l border-border/30">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={sec.heading ?? ""}
+                            onChange={(e) => {
+                              const sections = meal.sections.map((s, idx) => idx === i ? { ...s, heading: e.target.value || null } : s);
+                              updateSections(day.id, meal.id, sections);
+                            }}
+                            disabled={disabled}
+                            placeholder="Überschrift (optional)"
+                            className="h-6 text-xs font-semibold"
+                          />
+                          <Button type="button" variant="ghost" size="sm" disabled={disabled}
+                            onClick={() => updateSections(day.id, meal.id, meal.sections.filter((_, idx) => idx !== i))}
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <Textarea
+                          value={sec.items.join("\n")}
+                          onChange={(e) => {
+                            const items = e.target.value.split("\n").map(l => l.trim()).filter(Boolean);
+                            const sections = meal.sections.map((s, idx) => idx === i ? { ...s, items } : s);
+                            updateSections(day.id, meal.id, sections);
+                          }}
+                          disabled={disabled}
+                          placeholder="Eine Zeile pro Gericht"
+                          className="text-xs min-h-[60px] font-mono"
+                        />
                       </div>
                     ))}
+                    <Button type="button" variant="ghost" size="sm" disabled={disabled}
+                      onClick={() => updateSections(day.id, meal.id, [...meal.sections, { heading: null, items: [] }])}
+                      className="h-6 text-[11px] text-muted-foreground gap-1">
+                      <Plus className="h-3 w-3" /> Abschnitt hinzufügen
+                    </Button>
                   </div>
                 ))}
+                <div className="px-4 py-2 bg-muted/10">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => addMeal(day.id)} disabled={disabled} className="h-7 text-xs gap-1">
+                    <Plus className="h-3 w-3" /> Mahlzeit hinzufügen
+                  </Button>
+                </div>
               </div>
             )}
           </div>
         ))}
+        <Button type="button" variant="outline" size="sm" onClick={addDay} disabled={disabled} className="gap-1.5 w-full">
+          <Plus className="h-3.5 w-3.5" /> Tag hinzufügen
+        </Button>
       </div>
 
       {/* Kalkulation */}
@@ -401,6 +502,14 @@ export function FreeformProgramEditor({
             />
             <div className="text-right text-xs text-muted-foreground tabular-nums">
               − {fmtEur(discountAmount)} €
+              {discount.mode === 'amount' && program.totalsFromText.gross > 0 && Number(discount.value) > 0 && (
+                <span className="ml-1">
+                  ({((Number(discount.value) / program.totalsFromText.gross) * 100).toFixed(2).replace('.', ',')} %)
+                </span>
+              )}
+              {discount.mode === 'percent' && Number(discount.value) > 0 && (
+                <span className="ml-1">({Number(discount.value).toFixed(2).replace('.', ',')} %)</span>
+              )}
             </div>
           </div>
           {discountAmount > 0 && (
@@ -413,18 +522,18 @@ export function FreeformProgramEditor({
       </div>
 
       {/* Notes */}
-      {program.notes && program.notes.length > 0 && (
-        <details className="rounded-xl border border-border/40 bg-muted/10 px-4 py-2 text-sm">
-          <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Hinweise ({program.notes.length})
-          </summary>
-          <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
-            {program.notes.map((n, i) => (
-              <li key={i}>{n}</li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <details className="rounded-xl border border-border/40 bg-muted/10 px-4 py-2 text-sm" open={!!program.notes?.length}>
+        <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          Hinweise ({program.notes?.length ?? 0})
+        </summary>
+        <Textarea
+          value={(program.notes ?? []).join("\n")}
+          onChange={(e) => setNotes(e.target.value)}
+          disabled={disabled}
+          placeholder="Eine Zeile pro Hinweis"
+          className="mt-2 text-xs min-h-[80px] font-mono"
+        />
+      </details>
 
       <AlertDialog open={confirmClear} onOpenChange={setConfirmClear}>
         <AlertDialogContent>
