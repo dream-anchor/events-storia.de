@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { buildDrinkRows } from "@/pages/public-offer/types";
 import { CostAcceptanceSection } from "@/pages/public-offer/CostAcceptanceSection";
+import { FreeformProgramSection } from "@/pages/public-offer/FreeformProgramSection";
 
 // --- Types ---
 
@@ -1349,8 +1350,17 @@ function ProposalOptionCard({
         </div>
       </div>
 
+      {/* Freitext/KI-Programm (mehrtägige Catering-Angebote) */}
+      {isFreeform && (menu as any)?.freeformProgram && (
+        <div className="px-6 pb-6">
+          <div className="border-t border-border/20 pt-5">
+            <FreeformProgramSection program={(menu as any).freeformProgram} />
+          </div>
+        </div>
+      )}
+
       {/* Menü-Details im Speisekarten-Stil — lesbar, wertig */}
-      {(courses.length > 0 || drinks.length > 0) && (
+      {!isFreeform && (courses.length > 0 || drinks.length > 0) && (
         <div className="px-6 pb-6">
           <div className="border-t border-border/20 pt-5">
             {courses.length > 0 && (
@@ -1663,7 +1673,12 @@ function FinalOptionCard({
 
       {/* Menü — Speisekarten-Stil */}
       <div className="px-6 pb-6">
-        {courses.length > 0 && (
+        {isFreeform && (menu as any)?.freeformProgram && (
+          <div className="border-t border-border/20 pt-5 mb-5">
+            <FreeformProgramSection program={(menu as any).freeformProgram} />
+          </div>
+        )}
+        {!isFreeform && courses.length > 0 && (
           <div className="border-t border-border/20 pt-5 mb-5">
             <div className="flex items-center gap-2 mb-4">
               <UtensilsCrossed className="h-3.5 w-3.5 text-primary/40" />
@@ -1694,7 +1709,7 @@ function FinalOptionCard({
           </div>
         )}
 
-        {drinks.length > 0 && (
+        {!isFreeform && drinks.length > 0 && (
           <div className={cn("border-t border-border/20 pt-5", courses.length === 0 && "mt-0")}>
             <div className="flex items-center gap-2 mb-4">
               <Wine className="h-3.5 w-3.5 text-primary/40" />
@@ -1735,7 +1750,7 @@ function FinalOptionCard({
           </div>
         )}
 
-        {courses.length === 0 && drinks.length === 0 && (
+        {!isFreeform && courses.length === 0 && drinks.length === 0 && (
           <div className="border-t border-border/20 pt-5">
             <p className="text-sm text-muted-foreground font-sans italic">
               {tOffer(lang, 'menuComingSoon')}
@@ -1916,16 +1931,19 @@ function ConfirmationView({
         {/* Menü-Details — auch nach Bestätigung sichtbar */}
         {selectedOption && (() => {
           const menu = selectedOption.menu_selection;
+          const ffProgram = (menu as any)?.freeformProgram;
           const courses = menu?.courses?.filter((c) => c.itemName) || [];
           const drinkRows = buildDrinkRows(menu);
-          if (courses.length === 0 && drinkRows.length === 0) return null;
+          if (!ffProgram && courses.length === 0 && drinkRows.length === 0) return null;
           return (
             <div className="max-w-2xl mt-12">
               <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/60 dark:border-white/20 rounded-2xl px-6 py-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
                 <h3 className="font-serif text-lg font-bold text-foreground mb-5">
                   {tOffer(lang, 'yourSelectedMenu')}
                 </h3>
-                {courses.length > 0 && (
+                {ffProgram ? (
+                  <FreeformProgramSection program={ffProgram} />
+                ) : courses.length > 0 && (
                   <div className="space-y-4">
                     {courses.map((c, i) => (
                       <div key={i} className="flex items-baseline gap-4">
@@ -1946,7 +1964,7 @@ function ConfirmationView({
                     ))}
                   </div>
                 )}
-                {drinkRows.length > 0 && (
+                {!ffProgram && drinkRows.length > 0 && (
                   <div className={cn("space-y-3", courses.length > 0 && "mt-6 pt-5 border-t border-border/15")}>
                     {drinkRows.map((d, i) => (
                       <div key={i} className="flex items-baseline gap-4">

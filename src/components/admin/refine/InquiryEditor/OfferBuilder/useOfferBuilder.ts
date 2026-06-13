@@ -408,6 +408,12 @@ export function useOfferBuilder({
             if (opt.package_id && mode === 'menu') {
               mode = 'paket';
             }
+            // Defensive Hydration: Wenn `menu_selection.freeformProgram` vorliegt,
+            // erzwinge `freeform`-Modus — schützt vor Legacy-Rows ohne sauberen Mode
+            // (z.B. NULL nach Trigger-Bug vor der Migration).
+            if ((opt.menu_selection as Record<string, unknown> | null)?.freeformProgram) {
+              mode = 'freeform';
+            }
             // Paketnamen auflösen: Override aus menu_selection > packages-Prop > leer
             const menuSel = opt.menu_selection as Record<string, unknown> | null;
             const nameOverride = menuSel?.packageNameOverride as string | undefined;
@@ -662,6 +668,13 @@ export function useOfferBuilder({
           return { ...opt, totalAmount: gross };
         }
         if (opt.offerMode === 'menu') {
+          // Safety net: Wenn ein freeformProgram im menuSelection liegt, NIEMALS
+          // den Menu-Recalc anwenden — er würde totalAmount sonst auf 0 ziehen,
+          // weil keine `courses` existieren. Mode wird beim nächsten Save ohnehin
+          // korrigiert (defensive Hydration in der Load-Phase).
+          if (opt.menuSelection?.freeformProgram) {
+            return opt;
+          }
           // Menue-Modus: per-line priceMode bestimmt ob × Gäste oder pauschal
           const guests = Math.max(1, opt.guestCount);
           const globalMode = opt.pricingMode ?? 'per_person';
