@@ -502,6 +502,14 @@ export function FreeformProgramEditor({
             />
             <div className="text-right text-xs text-muted-foreground tabular-nums">
               − {fmtEur(discountAmount)} €
+              {discount.mode === 'amount' && program.totalsFromText.gross > 0 && Number(discount.value) > 0 && (
+                <span className="ml-1">
+                  ({((Number(discount.value) / program.totalsFromText.gross) * 100).toFixed(2).replace('.', ',')} %)
+                </span>
+              )}
+              {discount.mode === 'percent' && Number(discount.value) > 0 && (
+                <span className="ml-1">({Number(discount.value).toFixed(2).replace('.', ',')} %)</span>
+              )}
             </div>
           </div>
           {discountAmount > 0 && (
@@ -514,18 +522,18 @@ export function FreeformProgramEditor({
       </div>
 
       {/* Notes */}
-      {program.notes && program.notes.length > 0 && (
-        <details className="rounded-xl border border-border/40 bg-muted/10 px-4 py-2 text-sm">
-          <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Hinweise ({program.notes.length})
-          </summary>
-          <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
-            {program.notes.map((n, i) => (
-              <li key={i}>{n}</li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <details className="rounded-xl border border-border/40 bg-muted/10 px-4 py-2 text-sm" open={!!program.notes?.length}>
+        <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          Hinweise ({program.notes?.length ?? 0})
+        </summary>
+        <Textarea
+          value={(program.notes ?? []).join("\n")}
+          onChange={(e) => setNotes(e.target.value)}
+          disabled={disabled}
+          placeholder="Eine Zeile pro Hinweis"
+          className="mt-2 text-xs min-h-[80px] font-mono"
+        />
+      </details>
 
       <AlertDialog open={confirmClear} onOpenChange={setConfirmClear}>
         <AlertDialogContent>
