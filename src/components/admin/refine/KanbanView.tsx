@@ -120,6 +120,7 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [dragOverColumn, setDragOverColumn] = useState<ColumnId | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const failedDeliveryIds = useFailedDeliveryInquiries();
 
   const columnData = useMemo(() => {
     const data: Record<
@@ -406,6 +407,7 @@ function emptyBucket() {
 interface KanbanCardProps {
   event: EventInquiry;
   isDragging: boolean;
+  hasDeliveryFailure?: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onClick: () => void;
@@ -416,6 +418,7 @@ interface KanbanCardProps {
 function KanbanCard({
   event,
   isDragging,
+  hasDeliveryFailure,
   onDragStart,
   onDragEnd,
   onClick,
@@ -453,7 +456,8 @@ function KanbanCard({
         "group relative bg-white p-3 rounded-xl border border-slate-200 border-l-[3px]",
         action.borderClass,
         "hover:shadow-sm hover:border-primary/40 transition-all cursor-grab active:cursor-grabbing",
-        isDragging && "opacity-40 scale-[0.98] shadow-md"
+        isDragging && "opacity-40 scale-[0.98] shadow-md",
+        hasDeliveryFailure && "border-red-500 border-2 ring-1 ring-red-200 bg-red-50/40"
       )}
       title={action.label}
     >
