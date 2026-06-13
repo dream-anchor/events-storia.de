@@ -964,8 +964,8 @@ function ProposalView({
 
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
   const totalAmount = effectiveTotalForOption(selectedOption);
-  const deposit = computeDeposit(inquiry, totalAmount);
-  const depositAmount = deposit.amount;
+  const payDisplay = derivePaymentDisplay(inquiry, totalAmount);
+  const depositAmount = payDisplay.depositAmount;
 
   // ACTION: Zahlung — leitet zu Stripe Checkout weiter
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
@@ -1064,14 +1064,8 @@ function ProposalView({
   const isSingle = options.length === 1;
   const busy = isSubmitting || isPaying !== null;
 
-  // Payment-Method bestimmt, ob "verbindlich buchen ohne Online-Zahlung" angeboten wird
-  const pm = inquiry.payment_method ?? '';
-  const offlineTiming: 'on_site' | 'after_event' | 'transfer_prepay' | null =
-    pm === 'on_site' || pm === 'pay_on_site' ? 'on_site'
-    : pm === 'invoice_after' || pm === 'invoice_after_event' ? 'after_event'
-    : pm === 'invoice_before' || pm === 'invoice_before_event' ? 'after_event'
-    : pm === 'bank_transfer_prepay' ? 'transfer_prepay'
-    : null;
+  const offlineTiming = payDisplay.offlineTiming;
+  const showOnlineBox = selectedOption && totalAmount > 0 && (payDisplay.showStripeDeposit || payDisplay.showStripeFull);
 
   return (
     <section className="bg-secondary/30">
@@ -1108,7 +1102,7 @@ function ProposalView({
           </div>
 
           {/* PRIMARY ACTION — Buchen über Stripe (nur wenn Online-Zahlung & Betrag) */}
-          {selectedOption && totalAmount > 0 && !offlineTiming && (
+          {showOnlineBox && (
             <div className="max-w-2xl mb-10">
               <div className="bg-white/70 dark:bg-white/10 backdrop-blur-sm rounded-2xl border-2 border-primary/20 p-6 md:p-8 shadow-[0_8px_30px_rgba(139,0,0,0.08)]">
                 <div className="mb-6">
@@ -1122,41 +1116,55 @@ function ProposalView({
 
                 <div className={cn(
                   "grid grid-cols-1 gap-3",
-                  deposit.show && "md:grid-cols-2"
+                  payDisplay.showStripeDeposit && payDisplay.showStripeFull && "md:grid-cols-2"
                 )}>
-                  {/* Voll bezahlen — Primary/Dominant */}
-                  <Button
-                    onClick={() => handlePayment('full')}
-                    disabled={busy}
-                    className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all"
-                  >
-                    <span className="flex items-center gap-2 w-full justify-between">
-                      <span className="text-sm">{tOffer(lang, 'payFull')}</span>
-                      {isPaying === 'full' && <Loader2 className="h-4 w-4 animate-spin" />}
-                    </span>
-                    <span className="text-lg font-serif font-bold">
-                      {formatCurrency(totalAmount, lang)}
-                    </span>
-                  </Button>
+                  {payDisplay.showStripeFull && (
+                    <Button
+                      onClick={() => handlePayment('full')}
+                      disabled={busy}
+                      className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all"
+                    >
+                      <span className="flex items-center gap-2 w-full justify-between">
+                        <span className="text-sm">{tOffer(lang, 'payFull')}</span>
+                        {isPaying === 'full' && <Loader2 className="h-4 w-4 animate-spin" />}
+                      </span>
+                      <span className="text-lg font-serif font-bold">
+                        {formatCurrency(totalAmount, lang)}
+                      </span>
+                    </Button>
+                  )}
 
-                  {/* Anzahlung — nur wenn vom Admin konfiguriert (0 % < x < 100 %) */}
-                  {deposit.show && (
-                  <Button
-                    onClick={() => handlePayment('deposit')}
-                    disabled={busy}
-                    variant="outline"
-                    className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5 transition-all"
-                  >
-                    <span className="flex items-center gap-2 w-full justify-between">
-                      <span className="text-sm">{deposit.label}</span>
-                      {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
-                    </span>
-                    <span className="text-lg font-serif font-bold text-primary">
-                      {formatCurrencyDecimal(depositAmount, lang)}
-                    </span>
-                  </Button>
+                  {payDisplay.showStripeDeposit && (
+                    <Button
+                      onClick={() => handlePayment('deposit')}
+                      disabled={busy}
+                      variant={payDisplay.showStripeFull ? 'outline' : 'default'}
+                      className={cn(
+                        "h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 transition-all",
+                        payDisplay.showStripeFull
+                          ? "border-2 border-primary/30 text-foreground bg-white/50 hover:bg-white/80 hover:border-primary/50 hover:-translate-y-0.5"
+                          : "shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5"
+                      )}
+                    >
+                      <span className="flex items-center gap-2 w-full justify-between">
+                        <span className="text-sm">{payDisplay.depositLabel}</span>
+                        {isPaying === 'deposit' && <Loader2 className="h-4 w-4 animate-spin" />}
+                      </span>
+                      <span className={cn(
+                        "text-lg font-serif font-bold",
+                        payDisplay.showStripeFull && "text-primary"
+                      )}>
+                        {formatCurrencyDecimal(depositAmount, lang)}
+                      </span>
+                    </Button>
                   )}
                 </div>
+
+                {payDisplay.restNote && (
+                  <p className="mt-3 text-xs text-muted-foreground font-sans">
+                    {payDisplay.restNote}
+                  </p>
+                )}
 
                 {/* Trust-Elemente */}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-5 text-xs text-muted-foreground font-sans">
