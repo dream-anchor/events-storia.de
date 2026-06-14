@@ -26,11 +26,13 @@ interface EmailMessage {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; color: string }> = {
-  queued:    { label: "Zugestellt (wartend)", icon: Clock,         color: "text-amber-600" },
+  queued:    { label: "Zustellung ausstehend", icon: Clock,        color: "text-amber-600" },
   sent:      { label: "Versendet",            icon: CheckCircle2,  color: "text-blue-600" },
   delivered: { label: "Zugestellt",           icon: CheckCircle2,  color: "text-green-600" },
   opened:    { label: "Geöffnet",             icon: CheckCircle2,  color: "text-green-700" },
-  bounced:   { label: "Zurückgekehrt",        icon: AlertCircle,   color: "text-red-600" },
+  bounced:   { label: "Zustellfehler",        icon: AlertCircle,   color: "text-red-600" },
+  complained:{ label: "Spam-Meldung",         icon: AlertCircle,   color: "text-red-600" },
+  delayed:   { label: "Verzögert",            icon: Clock,         color: "text-amber-600" },
   failed:    { label: "Fehlgeschlagen",       icon: AlertCircle,   color: "text-red-600" },
   delivered_inbound: { label: "Eingegangen", icon: CheckCircle2,  color: "text-green-600" },
 };
