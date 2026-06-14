@@ -766,10 +766,16 @@ serve(async (req) => {
             lastEvent === 'suppressed';
           if (!isFailure) return;
 
-          await supabase.from('email_delivery_logs').update({
-            status: lastEvent,
-            error_message: `Resend post-send check: ${lastEvent}`,
-          }).eq('provider_message_id', messageIdForCheck).eq('provider', 'resend');
+          const { data: updatedLogs } = await supabase
+            .from('email_delivery_logs')
+            .update({
+              status: lastEvent,
+              error_message: `Resend post-send check: ${lastEvent}`,
+            })
+            .eq('provider_message_id', messageIdForCheck)
+            .eq('provider', 'resend')
+            .select('id');
+          const resendLogId = updatedLogs?.[0]?.id ?? null;
 
           await supabase.from('activity_logs').insert({
             entity_type: 'v2_event',
@@ -801,6 +807,7 @@ serve(async (req) => {
               body: JSON.stringify({
                 event_email_id: emailRow.id,
                 reason: `Resend post-send check: ${lastEvent}`,
+                resend_log_id: resendLogId,
               }),
             });
           }
