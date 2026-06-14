@@ -180,6 +180,10 @@ export const getActivityIcon = (action: string): string => {
     'created': 'Plus',
     'updated': 'Pencil',
     'email_failure_resolved': 'CheckCircle2',
+    'offer_email_sent': 'Mail',
+    'offer_email_failed': 'AlertTriangle',
+    'email_smtp_fallback_sent': 'Mail',
+    'email_smtp_fallback_failed': 'AlertTriangle',
   };
   return icons[action] || 'Activity';
 };
