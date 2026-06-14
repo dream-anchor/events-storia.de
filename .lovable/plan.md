@@ -1,38 +1,50 @@
-## Was passiert ist
+## Problem
 
-Beim letzten Versand an `Natascha.Morgan@dataguard.com` lief der Flow korrekt:
+Aktivitäten-Timeline (Screenshot 1) zeigt für 02:50/02:51 klar:
+1. Resend `suppressed`
+2. SMTP-Fallback `Versandt ✓`
 
-1. 02:50 — Resend angenommen, Post-Send-Check liefert `suppressed` → roter Log „suppressed"
-2. 02:51 — Zustellfehler-Activity geschrieben
-3. 02:51 — `resend-via-smtp` ausgeführt → IONOS-SMTP-Retry erfolgreich, neuer Log mit Provider `ionos_smtp_retry`
+Die Banner-Komponente (Screenshot 2) listet aber denselben 02:50-Vorfall weiter als DRINGEND · nicht zugestellt. Das ist der Widerspruch.
 
-Die Mail ist also via SMTP rausgegangen. Maestro zeigt aber trotzdem das rote „DRINGEND EMAIL-ZUSTELLFEHLER"-Banner, weil der ursprüngliche `suppressed`-Log nicht als `resolved_at` markiert wird, sobald der Fallback erfolgreich war. Genau das wird gefixt.
+Grund: Das ursprüngliche Resend-Log (`id=7b3666ac…`) hat trotz erfolgreichem SMTP-Retry kein `metadata.resolved_at` bekommen. `useGlobalEmailFailures.isUnresolved()` filtert daher nicht und der Banner bleibt rot.
 
-## Änderungen
+Der 10.06.-Bounce ist ein echter, ungelöster Fall (kein SMTP-Retry) und darf bleiben.
 
-### 1. `supabase/functions/resend-via-smtp/index.ts`
-Nach erfolgreichem SMTP-Versand:
-- Den auslösenden `email_delivery_logs`-Eintrag (Provider `resend`, gleicher `provider_message_id` bzw. übergebene `resend_log_id`) finden.
-- `metadata` mergen mit:
-  ```json
-  {
-    "resolved_at": "<ISO>",
-    "resolved_via": "smtp_fallback",
-    "smtp_retry_message_id": "<neue smtp-id>"
-  }
-  ```
-- Damit greift `isUnresolved()` in `useEmailFailures.ts` und das Banner verschwindet sofort (Realtime-Subscription invalidiert den Cache).
+## Maßnahmen
 
-### 2. `supabase/functions/send-offer-email/index.ts`
-Im Post-Send-Verification-Block, wenn der Fallback-Fetch zu `resend-via-smtp` ausgelöst wird, die `resend_log_id` (UUID des soeben geschriebenen Failure-Logs) mit übergeben, damit `resend-via-smtp` ihn eindeutig findet — auch wenn `provider_message_id` mehrfach existieren sollte.
+### 1) Backfill (Migration)
+Setzt für alle Resend-Failure-Logs `metadata.resolved_at = sent_at_smtp` + `resolved_via = 'smtp_fallback_backfill'`, sobald es ein erfolgreiches `ionos_smtp_retry`-Log gibt mit
+`metadata.original_resend_message_id = resend.provider_message_id`.
 
-### 3. `supabase/functions/receive-resend-webhook/index.ts`
-Analog: Beim Webhook-getriggerten SMTP-Fallback die `resend_log_id` (= `existingLog.id`) mit an `resend-via-smtp` durchreichen.
+Effekt sofort: 02:50-Eintrag verschwindet aus dem Banner. 10.06.-Bounce bleibt sichtbar.
 
-### 4. Einmaliges Aufräumen
-Den aktuell offenen `suppressed`-Log vom 14.06. 02:50 für `Natascha.Morgan@dataguard.com` per Datenupdate auf `resolved_at = now, resolved_via = 'smtp_fallback'` setzen, damit das Banner sofort weg ist (der Bounce-Eintrag vom 10.06. bleibt offen — der ist ein echter alter Vorfall ohne erfolgreichen Fallback und muss manuell auf „Erledigt" geklickt werden).
+### 2) `resend-via-smtp` härten
+Nach `update(metadata=…)` die Anzahl betroffener Zeilen prüfen. Falls 0:
+- zweite Strategie: alle Resend-Logs mit demselben `entity_id` + `recipient_email` + Status ∈ failure innerhalb der letzten 60 Min auflösen.
+- detailliertes `console.log` (request resend_log_id, gefundene Treffer, update-result), sodass künftige Fälle in den Edge-Function-Logs nachvollziehbar sind.
 
-## Was sich NICHT ändert
+### 3) Banner-UX (`EmailFailureBanner.tsx`)
+Pro gelistetem Vorfall:
+- Wenn `metadata.resolved_via === 'smtp_fallback*'`: Eintrag erscheint **nicht** im Banner (Safety-Net, eigentlich schon durch `isUnresolved` gefiltert).
+- Optional kleines Info-Chip "Via SMTP-Fallback zugestellt um HH:MM" für historische Sichtbarkeit in der Inquiry-Detailansicht (separater Block unterhalb Aktivitäten, nicht im DRINGEND-Banner).
 
-- Keine UI-Änderung im Belege-Block (du hast Option „nur auto-resolven" gewählt). Wer es nachvollziehen will, sieht in den Aktivitäten weiterhin die volle Spur: roter `suppressed`-Log → „Zustellfehler" → „SMTP-Fallback ausgeführt" → grüner Versand-Log mit `ionos_smtp_retry`.
-- Kein Eingriff in `email-sender.ts` (der Fallback dort funktioniert synchron bereits korrekt — der Bug betraf nur den asynchronen Post-Send-/Webhook-Pfad bei `send-offer-email`).
+Header-Text dynamisch:
+- Nur noch echte ungelöste Fälle zählen für "X Vorfälle".
+
+### 4) Resend-Dashboard-Hinweis (klein)
+Im suppressed-Resend-Eintrag in der Timeline einen Hinweis ergänzen:
+"Resend.com zeigt diesen Versand weiterhin als *Suppressed*. Tatsächliche Zustellung erfolgte via SMTP-Fallback um 02:51 (siehe Eintrag oben)."
+→ erklärt den scheinbaren Widerspruch zum externen Resend-Dashboard.
+
+## Technische Details
+
+- Migration enthält nur ein UPDATE-Statement, keine Schemaänderung.
+- `resend-via-smtp` bleibt rückwärtskompatibel (Body-Schema unverändert).
+- Banner-Filter ist clientseitig — kein zusätzlicher Query nötig.
+- Keine UI-Änderung im Belege-Block.
+
+## Was unverändert bleibt
+
+- Aktivitäten-Timeline (zeigt bereits korrekt SMTP-Erfolg + Resend-Fehler).
+- Bestehende Resend-Webhook-Logik.
+- 10.06.-Bounce-Eintrag bleibt offen, "Erledigt"-Button funktioniert wie bisher.

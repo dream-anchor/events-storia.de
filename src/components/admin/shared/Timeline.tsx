@@ -453,6 +453,23 @@ const EmailDeliveryEntry = ({ emailLog, isFirst, isLast }: EmailDeliveryEntryPro
               <p className="text-xs text-destructive/80 mt-0.5">{emailLog.error_message}</p>
             </div>
           )}
+
+          {/* Resolved-via-SMTP-Fallback Hinweis (löst den Widerspruch zum Resend-Dashboard auf) */}
+          {(() => {
+            const meta = (emailLog.metadata ?? {}) as Record<string, unknown>;
+            const resolvedVia = meta.resolved_via as string | undefined;
+            const resolvedAt = meta.resolved_at as string | undefined;
+            if (!resolvedVia || !resolvedVia.startsWith('smtp_fallback')) return null;
+            return (
+              <div className="mt-2 p-2 rounded bg-muted/60 border border-border/60">
+                <p className="text-xs text-foreground/80">
+                  ✓ Trotz Resend-Suppression zugestellt — via SMTP-Fallback
+                  {resolvedAt ? ` um ${format(parseISO(resolvedAt), 'HH:mm', { locale: de })}` : ''}.
+                  Resend.com zeigt diesen Versand weiterhin als <em>Suppressed</em>.
+                </p>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
