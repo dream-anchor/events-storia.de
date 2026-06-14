@@ -174,46 +174,33 @@ function appendDiscountLines(
     ? `Rabatt ${Number.isInteger(discountPercent) ? discountPercent : discountPercent.toFixed(1).replace('.', ',')} %`
     : (isCorrectionUp ? 'Anpassung' : 'Rabatt');
 
-  // Steuersätze in stabiler Reihenfolge (zuerst Speisen 7 %, dann Getränke 19 %)
-  const rates = Object.keys(grossByRate)
+  // EXAKT wie in Maestro: EINE Rabatt-Zeile, KEINE Aufsplittung pro Steuersatz
+  // und KEIN Hinweis auf "Speisen" / "Getränke/Equipment". Maestro hinterlegt
+  // den Rabatt als einen einzigen Brutto-Betrag — diesen übernehmen wir 1:1.
+  //
+  // Für die LexOffice-Steuerberechnung verwenden wir den Steuersatz mit dem
+  // größten Brutto-Anteil (i. d. R. 7 % Speisen). Das ist eine pragmatische
+  // Wahl: LexOffice braucht für eine LineItem-Zeile einen einzelnen Satz,
+  // Maestro definiert dafür keinen Satz. Die Endbetrag-Brutto-Summe bleibt
+  // exakt 1:1 mit Maestro (Single Source of Truth).
+  const dominantRate = Object.keys(grossByRate)
     .map(Number)
     .filter(r => (grossByRate[r] || 0) > 0)
-    .sort((a, b) => a - b);
-  if (rates.length === 0) return;
+    .sort((a, b) => (grossByRate[b] || 0) - (grossByRate[a] || 0))[0];
+  if (dominantRate == null) return;
 
-  const totalGross = rates.reduce((s, r) => s + grossByRate[r], 0);
-  const allocations: { rate: number; amount: number }[] = [];
-  let allocated = 0;
-  for (let idx = 0; idx < rates.length; idx++) {
-    const rate = rates[idx];
-    let amount: number;
-    if (idx === rates.length - 1) {
-      // Letzte Position bekommt den Rest, damit Cent-Differenzen aufgehen
-      amount = Math.round((absDelta - allocated) * 100) / 100;
-    } else {
-      amount = Math.round((absDelta * (grossByRate[rate] / totalGross)) * 100) / 100;
-      allocated += amount;
-    }
-    if (amount > 0) allocations.push({ rate, amount });
-  }
-
-  const rateLabel = (r: number) => r === FOOD_TAX_RATE ? 'Speisen' : (r === DRINK_TAX_RATE ? 'Getränke/Equipment' : `${r} %`);
-  const showSplitLabel = allocations.length > 1;
-
-  for (const a of allocations) {
-    items.push({
-      type: 'custom',
-      name: showSplitLabel ? `${label} (${rateLabel(a.rate)})` : label,
-      description: '',
-      quantity: 1,
-      unitName: 'Pauschale',
-      unitPrice: {
-        currency: 'EUR',
-        grossAmount: isCorrectionUp ? a.amount : -a.amount,
-        taxRatePercentage: a.rate,
-      },
-    });
-  }
+  items.push({
+    type: 'custom',
+    name: label,
+    description: '',
+    quantity: 1,
+    unitName: 'Pauschale',
+    unitPrice: {
+      currency: 'EUR',
+      grossAmount: isCorrectionUp ? absDelta : -absDelta,
+      taxRatePercentage: dominantRate,
+    },
+  });
 }
 
 /**
@@ -1013,6 +1000,9 @@ serve(async (req) => {
       // v2_events.final_lexoffice_invoice_id gespeichert (Schlussrechnung)
       // statt in lexoffice_invoice_id (regulärer Beleg).
       isFinalInvoice,
+      // NEU: wenn true, wird der Freshness-Check übersprungen und das
+      // LexOffice-Angebot immer neu erzeugt (für manuelle Reparatur).
+      force,
     } = await req.json();
     if (!inquiryId) throw new Error('inquiryId fehlt');
 
@@ -1063,7 +1053,7 @@ serve(async (req) => {
     // LexOffice loeschen (best effort) und neu erzeugen.
     const isInvoiceModeEarly = forceDocumentType === 'invoice' || forceDocumentType === 'order';
     const existingQuotationId = (inquiry as Record<string, unknown>).lexoffice_quotation_id as string | null;
-    if (!isInvoiceModeEarly && existingQuotationId) {
+    if (!isInvoiceModeEarly && existingQuotationId && !force) {
       try {
         const probe = await fetch(`https://api.lexoffice.io/v1/quotations/${existingQuotationId}`, {
           headers: { Authorization: `Bearer ${lexofficeApiKey}`, Accept: 'application/json' },
