@@ -28,6 +28,7 @@ import {
 import { formatDistanceToNow, format, parseISO, isToday, isYesterday } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -35,12 +36,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useActivityLogs, formatActivityAction } from '@/hooks/useActivityLog';
 import { useEmailDeliveryLogs, formatProvider, formatEmailStatus, type EmailDeliveryLog } from '@/hooks/useEmailDeliveryLogs';
 import { useOfferHistory, type OfferHistoryEntry } from '@/hooks/useOfferHistory';
+import { useCloneOfferVersion } from '@/hooks/useCloneOfferVersion';
 import type { ActivityLog, EntityType } from './types';
 import { getAdminDisplayName, getAdminInitials } from '@/lib/adminDisplayNames';
 import { ExternalRefLinks } from './ExternalRefLinks';
+import { Eye, Copy, Loader2 } from 'lucide-react';
 
 // Combined timeline entry type
 type TimelineItem = 
