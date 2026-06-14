@@ -1353,7 +1353,9 @@ export const SmartInquiryEditor = () => {
           </div>
           {/* LexOffice-Belege */}
           <LexofficeDocumentsCard orderId={id!} />
-          {/* Timeline */}
+        </TabsContent>
+
+        <TabsContent value="aktivitaeten" className="mt-6 space-y-6">
           <Timeline entityType="event_inquiry" entityId={id!} />
         </TabsContent>
 
