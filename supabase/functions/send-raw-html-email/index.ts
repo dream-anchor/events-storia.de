@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { RIGSHOSPITALET_HTML } from './preset-rigshospitalet.ts';
 import { CYIM_ANZAHLUNG_HTML } from './preset-cyim.ts';
+import { sendEmailWithFallback } from '../_shared/email-sender.ts';
 
 const PRESETS: Record<string, { to: string; bcc?: string; subject: string; html: string; entityId?: string }> = {
   'rigshospitalet-restzahlung-v3': {
@@ -63,25 +64,18 @@ serve(async (req) => {
     }
     if (!to || !subject || !html) throw new Error('to, subject, html required');
 
-    const apiKey = Deno.env.get('RESEND_API_KEY');
-    if (!apiKey) throw new Error('RESEND_API_KEY missing');
-
-    const payload: Record<string, unknown> = {
+    const sendResult = await sendEmailWithFallback({
       from,
-      to: Array.isArray(to) ? to : [to],
+      to,
+      bcc,
+      replyTo,
       subject,
       html,
-      reply_to: replyTo,
-    };
-    if (bcc) payload.bcc = Array.isArray(bcc) ? bcc : [bcc];
-
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(`Resend ${res.status}: ${JSON.stringify(data)}`);
+    if (!sendResult.success) {
+      throw new Error(`Versand fehlgeschlagen — Resend: ${sendResult.resendError}; SMTP: ${sendResult.smtpError}`);
+    }
+    const data = { id: sendResult.messageId };
 
     // Auto-resolve entityId via recipient email if not provided
     if (!entityId) {
@@ -111,7 +105,7 @@ serve(async (req) => {
           entity_id: entityId,
           recipient_email: Array.isArray(to) ? to[0] : to,
           subject,
-          provider: 'resend',
+          provider: sendResult.provider,
           provider_message_id: data.id ?? null,
           status: 'sent',
           sent_by: userData.user.email ?? null,
@@ -120,6 +114,7 @@ serve(async (req) => {
             bcc: bcc ?? null,
             preset: preset ?? null,
             type: 'manual_raw_html',
+            resend_error: sendResult.resendError ?? null,
           },
         });
       } catch (logErr) {

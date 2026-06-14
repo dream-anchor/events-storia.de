@@ -9,6 +9,7 @@ import {
 import {
   formatCurrency, formatDate, paymentTypeLabel, t, SEPARATOR_HTML,
 } from '../_shared/email-i18n.ts';
+import { sendEmailWithFallback } from '../_shared/email-sender.ts';
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -58,9 +59,6 @@ serve(async (req) => {
     const effectiveLang: CustomerLang =
       (inquiryLang && ['de', 'en', 'it', 'fr'].includes(inquiryLang)) ? inquiryLang : lang;
     const plan = emailLanguagePlan(effectiveLang);
-
-    const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    if (!resendApiKey) throw new Error('RESEND_API_KEY nicht konfiguriert');
 
     const subjectFor = (lng: CustomerLang) => {
       const typeLbl = paymentTypeLabel(lng, payment.payment_type);
@@ -192,40 +190,31 @@ serve(async (req) => {
 </body></html>`;
 
     const safeSubject = getSafeSubject(subject, isTest);
-    logStep("Sending via Resend", { to: safeEmail, subject: safeSubject, lang: effectiveLang });
+    logStep("Sending (Resend primary, SMTP fallback)", { to: safeEmail, subject: safeSubject, lang: effectiveLang });
 
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-      body: JSON.stringify({
-        from: 'STORIA Events <info@events-storia.de>',
-        to: [safeEmail],
-        bcc: ['info@events-storia.de'],
-        subject: safeSubject,
-        html,
-      }),
+    const sendResult = await sendEmailWithFallback({
+      to: safeEmail,
+      bcc: 'info@events-storia.de',
+      subject: safeSubject,
+      html,
     });
-
-    if (!resendResponse.ok) {
-      const errText = await resendResponse.text();
-      throw new Error(`Resend Fehler (${resendResponse.status}): ${errText}`);
+    if (!sendResult.success) {
+      throw new Error(`Versand fehlgeschlagen — Resend: ${sendResult.resendError}; SMTP: ${sendResult.smtpError}`);
     }
-
-    const resendResult = await resendResponse.json();
-    logStep("Email sent", { messageId: resendResult.id });
+    logStep("Email sent", { messageId: sendResult.messageId, provider: sendResult.provider });
 
     const updateField = is_reminder ? 'reminder_sent_at' : 'email_sent_at';
     await supabase
       .from('event_payments')
       .update({
         [updateField]: new Date().toISOString(),
-        email_resend_id: resendResult.id,
+        email_resend_id: sendResult.messageId,
         updated_at: new Date().toISOString(),
       })
       .eq('id', payment_id);
 
     return new Response(
-      JSON.stringify({ success: true, messageId: resendResult.id, language: effectiveLang }),
+      JSON.stringify({ success: true, messageId: sendResult.messageId, provider: sendResult.provider, language: effectiveLang }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
