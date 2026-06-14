@@ -1000,6 +1000,9 @@ serve(async (req) => {
       // v2_events.final_lexoffice_invoice_id gespeichert (Schlussrechnung)
       // statt in lexoffice_invoice_id (regulärer Beleg).
       isFinalInvoice,
+      // NEU: wenn true, wird der Freshness-Check übersprungen und das
+      // LexOffice-Angebot immer neu erzeugt (für manuelle Reparatur).
+      force,
     } = await req.json();
     if (!inquiryId) throw new Error('inquiryId fehlt');
 
@@ -1050,7 +1053,7 @@ serve(async (req) => {
     // LexOffice loeschen (best effort) und neu erzeugen.
     const isInvoiceModeEarly = forceDocumentType === 'invoice' || forceDocumentType === 'order';
     const existingQuotationId = (inquiry as Record<string, unknown>).lexoffice_quotation_id as string | null;
-    if (!isInvoiceModeEarly && existingQuotationId) {
+    if (!isInvoiceModeEarly && existingQuotationId && !force) {
       try {
         const probe = await fetch(`https://api.lexoffice.io/v1/quotations/${existingQuotationId}`, {
           headers: { Authorization: `Bearer ${lexofficeApiKey}`, Accept: 'application/json' },
