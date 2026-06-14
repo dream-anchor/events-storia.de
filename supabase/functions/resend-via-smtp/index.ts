@@ -134,6 +134,7 @@ serve(async (req) => {
         resolved_via: "smtp_fallback",
         smtp_retry_message_id: smtpRetryMessageId,
       };
+      let resolvedCount = 0;
 
       // 1) Bevorzugt: direkter Treffer per Log-ID (eindeutig)
       if (resend_log_id) {
@@ -143,10 +144,12 @@ serve(async (req) => {
           .eq("id", resend_log_id)
           .maybeSingle();
         if (origLog) {
-          await supabase
+          const { error: updErr } = await supabase
             .from("email_delivery_logs")
             .update({ metadata: { ...((origLog.metadata as Record<string, unknown>) ?? {}), ...resolvedMeta } })
             .eq("id", origLog.id);
+          if (updErr) console.error("[resend-via-smtp] resolve by id failed", updErr);
+          else resolvedCount++;
         }
       }
 
@@ -160,12 +163,44 @@ serve(async (req) => {
         for (const log of matchingLogs ?? []) {
           const meta = (log.metadata as Record<string, unknown>) ?? {};
           if (meta.resolved_at) continue;
-          await supabase
+          const { error: updErr } = await supabase
             .from("email_delivery_logs")
             .update({ metadata: { ...meta, ...resolvedMeta } })
             .eq("id", log.id);
+          if (updErr) console.error("[resend-via-smtp] resolve by message_id failed", updErr);
+          else resolvedCount++;
         }
       }
+
+      // 3) Letzter Fallback: kürzlicher Resend-Failure auf demselben Event/Empfänger (letzte 60 Min)
+      if (resolvedCount === 0) {
+        const sixtyMinAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { data: recentFailures } = await supabase
+          .from("email_delivery_logs")
+          .select("id, metadata")
+          .eq("provider", "resend")
+          .eq("entity_id", row.event_id)
+          .ilike("recipient_email", row.to_email)
+          .in("status", ["failed", "bounced", "complained", "suppressed"])
+          .gte("sent_at", sixtyMinAgo);
+        for (const log of recentFailures ?? []) {
+          const meta = (log.metadata as Record<string, unknown>) ?? {};
+          if (meta.resolved_at) continue;
+          const { error: updErr } = await supabase
+            .from("email_delivery_logs")
+            .update({ metadata: { ...meta, ...resolvedMeta, resolved_via: "smtp_fallback_recent_match" } })
+            .eq("id", log.id);
+          if (updErr) console.error("[resend-via-smtp] resolve by recent-match failed", updErr);
+          else resolvedCount++;
+        }
+      }
+
+      console.log("[resend-via-smtp] resolve summary", {
+        resend_log_id,
+        resend_message_id: row.resend_message_id,
+        smtp_retry_message_id: smtpRetryMessageId,
+        resolvedCount,
+      });
     }
 
     // Activity log entry so the timeline shows the fallback
