@@ -28,6 +28,7 @@ import {
 import { formatDistanceToNow, format, parseISO, isToday, isYesterday } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -35,12 +36,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useActivityLogs, formatActivityAction } from '@/hooks/useActivityLog';
 import { useEmailDeliveryLogs, formatProvider, formatEmailStatus, type EmailDeliveryLog } from '@/hooks/useEmailDeliveryLogs';
 import { useOfferHistory, type OfferHistoryEntry } from '@/hooks/useOfferHistory';
+import { useCloneOfferVersion } from '@/hooks/useCloneOfferVersion';
 import type { ActivityLog, EntityType } from './types';
 import { getAdminDisplayName, getAdminInitials } from '@/lib/adminDisplayNames';
 import { ExternalRefLinks } from './ExternalRefLinks';
+import { Eye, Copy, Loader2 } from 'lucide-react';
 
 // Combined timeline entry type
 type TimelineItem = 
@@ -481,10 +495,15 @@ interface OfferVersionEntryProps {
   entry: OfferHistoryEntry;
   isFirst: boolean;
   isLast: boolean;
+  inquiryId: string;
+  isLatest: boolean;
+  onClone: (version: number) => void;
+  cloneDisabled?: boolean;
 }
 
-const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) => {
+const OfferVersionEntry = ({ entry, isFirst, isLast, inquiryId, isLatest, onClone, cloneDisabled }: OfferVersionEntryProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const navigate = useNavigate();
   const actorName = getAdminDisplayName(entry.sent_by || undefined);
   const initials = entry.sent_by ? getAdminInitials(entry.sent_by) : 'SY';
   const activeOpts = (entry.options_snapshot || []).filter(
@@ -541,9 +560,16 @@ const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) =
                 </TooltipProvider>
               </div>
             </div>
-            <Badge variant="outline" className="text-xs shrink-0 font-semibold text-amber-700 border-amber-300 bg-amber-50">
-              V{entry.version}
-            </Badge>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isLatest && (
+                <Badge className="text-[10px] uppercase tracking-wide bg-primary/10 text-primary border-primary/20">
+                  Aktuell
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-xs font-semibold text-amber-700 border-amber-300 bg-amber-50">
+                V{entry.version}
+              </Badge>
+            </div>
           </div>
 
           <p className="text-sm text-foreground font-medium">
@@ -559,6 +585,33 @@ const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) =
               </span>
             )}
           </p>
+
+          {/* Empfänger-Zeilen */}
+          {(entry.recipient_email || entry.cc_email || entry.bcc_email) && (
+            <div className="mt-2 space-y-0.5">
+              {entry.recipient_email && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Mail className="h-3 w-3" />
+                  <span>An:</span>
+                  <span className="font-mono text-foreground/80 break-all">{entry.recipient_email}</span>
+                </div>
+              )}
+              {entry.cc_email && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Mail className="h-3 w-3 opacity-60" />
+                  <span>CC:</span>
+                  <span className="font-mono text-foreground/80 break-all">{entry.cc_email}</span>
+                </div>
+              )}
+              {entry.bcc_email && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Mail className="h-3 w-3 opacity-60" />
+                  <span>BCC:</span>
+                  <span className="font-mono text-foreground/80 break-all">{entry.bcc_email}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Expandierbarer Menü-Snapshot */}
           {activeOpts.length > 0 && (
@@ -599,6 +652,29 @@ const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) =
               </CollapsibleContent>
             </Collapsible>
           )}
+
+          {/* Aktionen */}
+          <div className="flex items-center gap-2 mt-3 pt-2 border-t border-amber-200/60">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-7 bg-background/60"
+              onClick={() => navigate(`/admin/inquiries/${inquiryId}/archive/${entry.version}`)}
+            >
+              <Eye className="h-3 w-3" />
+              Ansehen
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-xs h-7"
+              onClick={() => onClone(entry.version)}
+              disabled={cloneDisabled}
+            >
+              <Copy className="h-3 w-3" />
+              Als neues kopieren
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -610,14 +686,28 @@ interface TimelineEntryProps {
   item: TimelineItem;
   isFirst: boolean;
   isLast: boolean;
+  inquiryId: string;
+  latestOfferVersion: number | null;
+  onClone: (version: number) => void;
+  cloneDisabled?: boolean;
 }
 
-const TimelineEntry = ({ item, isFirst, isLast }: TimelineEntryProps) => {
+const TimelineEntry = ({ item, isFirst, isLast, inquiryId, latestOfferVersion, onClone, cloneDisabled }: TimelineEntryProps) => {
   if (item.type === 'email') {
     return <EmailDeliveryEntry emailLog={item.data} isFirst={isFirst} isLast={isLast} />;
   }
   if (item.type === 'offer_version') {
-    return <OfferVersionEntry entry={item.data} isFirst={isFirst} isLast={isLast} />;
+    return (
+      <OfferVersionEntry
+        entry={item.data}
+        isFirst={isFirst}
+        isLast={isLast}
+        inquiryId={inquiryId}
+        isLatest={item.data.version === latestOfferVersion}
+        onClone={onClone}
+        cloneDisabled={cloneDisabled}
+      />
+    );
   }
   return <ActivityEntry log={item.data} isFirst={isFirst} isLast={isLast} />;
 };
@@ -641,7 +731,16 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
   
   const { data: offerHistory = [], isLoading: isLoadingHistory } = useOfferHistory(entityId);
   const isLoading = isLoadingActivity || isLoadingEmail || isLoadingHistory;
-  
+
+  type FilterKey = 'all' | 'offers' | 'emails' | 'edits';
+  const [filter, setFilter] = useState<FilterKey>('all');
+  const [confirmCloneVersion, setConfirmCloneVersion] = useState<number | null>(null);
+  const cloneMutation = useCloneOfferVersion(entityId);
+
+  // Action-Klassifizierung für Filter
+  const EMAIL_ACTIONS = new Set(['offer_email_sent', 'email_sent', 'email_received', 'email_reply_sent']);
+  const OFFER_ACTIONS = new Set(['offer_email_sent', 'offer_version_created', 'offer_created', 'offer_sent']);
+
   // Combine and sort all timeline items
   const HIDDEN_ACTIONS = ['offer_updated', 'option_updated'];
   // Filter out WhatsApp delivery logs (not useful for admin, often show errors)
@@ -676,9 +775,56 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
   }, [activityLogs, emailLogs, offerHistory]);
-  
-  const groupedItems = useMemo(() => groupItemsByDate(combinedItems), [combinedItems]);
+
+  const filteredItems = useMemo((): TimelineItem[] => {
+    if (filter === 'all') return combinedItems;
+    return combinedItems.filter(item => {
+      if (filter === 'offers') {
+        if (item.type === 'offer_version') return true;
+        if (item.type === 'activity') return OFFER_ACTIONS.has(item.data.action);
+        return false;
+      }
+      if (filter === 'emails') {
+        if (item.type === 'email') return true;
+        if (item.type === 'activity') return EMAIL_ACTIONS.has(item.data.action);
+        return false;
+      }
+      if (filter === 'edits') {
+        return item.type === 'activity'
+          && !EMAIL_ACTIONS.has(item.data.action)
+          && !OFFER_ACTIONS.has(item.data.action);
+      }
+      return true;
+    });
+  }, [combinedItems, filter]);
+
+  const latestOfferVersion = useMemo(() => {
+    const versions = offerHistory.filter(h => h.sent_at).map(h => h.version);
+    return versions.length > 0 ? Math.max(...versions) : null;
+  }, [offerHistory]);
+
+  const groupedItems = useMemo(() => groupItemsByDate(filteredItems), [filteredItems]);
   const dateKeys = useMemo(() => Array.from(groupedItems.keys()), [groupedItems]);
+
+  const handleClone = async () => {
+    if (confirmCloneVersion == null) return;
+    await cloneMutation.mutateAsync(confirmCloneVersion);
+    setConfirmCloneVersion(null);
+  };
+
+  const FilterBar = (
+    <ToggleGroup
+      type="single"
+      value={filter}
+      onValueChange={(v) => v && setFilter(v as FilterKey)}
+      className="rounded-lg border border-border/60 bg-muted/40 p-0.5"
+    >
+      <ToggleGroupItem value="all" className="h-7 px-3 text-xs rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm">Alle</ToggleGroupItem>
+      <ToggleGroupItem value="offers" className="h-7 px-3 text-xs rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm">Angebote</ToggleGroupItem>
+      <ToggleGroupItem value="emails" className="h-7 px-3 text-xs rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm">E-Mails</ToggleGroupItem>
+      <ToggleGroupItem value="edits" className="h-7 px-3 text-xs rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm">Bearbeitungen</ToggleGroupItem>
+    </ToggleGroup>
+  );
 
   if (isLoading) {
     return (
@@ -733,25 +879,25 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
   return (
     <Card className={className}>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <CardTitle className="text-base flex items-center gap-2">
             <Activity className="h-4 w-4" />
             Aktivitäten
           </CardTitle>
           <div className="flex items-center gap-2">
-            {emailLogs.length > 0 && (
-              <Badge variant="outline" className="font-normal text-xs">
-                <Mail className="h-3 w-3 mr-1" />
-                {emailLogs.length} E-Mail{emailLogs.length !== 1 ? 's' : ''}
-              </Badge>
-            )}
+            {FilterBar}
             <Badge variant="secondary" className="font-normal">
-              {combinedItems.length} {combinedItems.length === 1 ? 'Eintrag' : 'Einträge'}
+              {filteredItems.length} {filteredItems.length === 1 ? 'Eintrag' : 'Einträge'}
             </Badge>
           </div>
         </div>
       </CardHeader>
       <CardContent>
+        {filteredItems.length === 0 ? (
+          <div className="text-center py-8 text-sm text-muted-foreground">
+            Keine Einträge in dieser Kategorie.
+          </div>
+        ) : (
         <div className="space-y-6">
           {dateKeys.map((dateKey, groupIndex) => {
             const groupItems = groupedItems.get(dateKey) || [];
@@ -778,6 +924,10 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
                         item={item}
                         isFirst={itemIndex === 0}
                         isLast={isLastGroup && itemIndex === groupItems.length - 1}
+                        inquiryId={entityId}
+                        latestOfferVersion={latestOfferVersion}
+                        onClone={(v) => setConfirmCloneVersion(v)}
+                        cloneDisabled={cloneMutation.isPending}
                       />
                     );
                   })}
@@ -786,7 +936,37 @@ export const Timeline = ({ entityType, entityId, className }: TimelineProps) => 
             );
           })}
         </div>
+        )}
       </CardContent>
+
+      <AlertDialog
+        open={confirmCloneVersion != null}
+        onOpenChange={(open) => { if (!open) setConfirmCloneVersion(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Neues Angebot auf Basis von v{confirmCloneVersion} erstellen?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Die Optionen aus dieser Version werden als bearbeitbarer Entwurf für die nächste Version übernommen.
+              Die archivierte v{confirmCloneVersion} bleibt unverändert. Aktuelle, noch nicht versendete Optionen
+              werden dabei deaktiviert.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cloneMutation.isPending}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleClone(); }}
+              disabled={cloneMutation.isPending}
+            >
+              {cloneMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" />Kopiere …</>
+              ) : 'Kopieren & bearbeiten'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

@@ -1,50 +1,54 @@
-## Problem
+# Aktivitäten-Timeline konsolidieren
 
-Aktivitäten-Timeline (Screenshot 1) zeigt für 02:50/02:51 klar:
-1. Resend `suppressed`
-2. SMTP-Fallback `Versandt ✓`
+Eine einzige Ansicht in **Details → Aktivitäten**. Die separate Karte „Versendete Angebote" (Kalkulation-Tab) verschwindet vollständig. Die Timeline bekommt Filter-Chips.
 
-Die Banner-Komponente (Screenshot 2) listet aber denselben 02:50-Vorfall weiter als DRINGEND · nicht zugestellt. Das ist der Widerspruch.
+## 1. `OfferHistoryList` entfernen
 
-Grund: Das ursprüngliche Resend-Log (`id=7b3666ac…`) hat trotz erfolgreichem SMTP-Retry kein `metadata.resolved_at` bekommen. `useGlobalEmailFailures.isUnresolved()` filtert daher nicht und der Banner bleibt rot.
+`src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx`
+- Zeile 1247–1248: Block „Versionsverlauf der versendeten Angebote" inkl. `<OfferHistoryList>` löschen.
+- Import in Zeile 18 entfernen.
+- Die Datei `OfferHistoryList.tsx` bleibt vorerst bestehen (kein toter Code-Cleanup im selben PR), wird aber nirgends mehr referenziert. Optional: Datei löschen, wenn keine andere Stelle sie nutzt (Grep ergab nur SmartInquiryEditor).
 
-Der 10.06.-Bounce ist ein echter, ungelöster Fall (kein SMTP-Retry) und darf bleiben.
+## 2. `OfferVersionEntry` erweitern (Timeline.tsx)
 
-## Maßnahmen
+Damit die Timeline-Karte das alte `OfferHistoryList`-Feature ersetzt:
+- **Empfänger-Zeilen** ergänzen (An / CC / BCC), gleicher Stil wie heute in `OfferHistoryList` (Mail-Icon + Mono-Text), aber kompakt in der bestehenden amber Karte.
+- **Aktionen** unten rechts:
+  - `Ansehen` → `navigate(\`/admin/inquiries/${inquiryId}/archive/${entry.version}\`)`
+  - `Als neues kopieren` → öffnet denselben `AlertDialog` wie bisher, ruft `useCloneOfferVersion(inquiryId).mutateAsync(version)`.
+- `inquiryId` als Prop bis zu `OfferVersionEntry` durchreichen (Timeline kennt `entityId`).
+- „Aktuelle Version"-Badge (`AKTUELL`) zusätzlich zum vorhandenen `V{n}`.
+- Die bestehende „Menü-Details anzeigen"-Collapsible bleibt.
 
-### 1) Backfill (Migration)
-Setzt für alle Resend-Failure-Logs `metadata.resolved_at = sent_at_smtp` + `resolved_via = 'smtp_fallback_backfill'`, sobald es ein erfolgreiches `ionos_smtp_retry`-Log gibt mit
-`metadata.original_resend_message_id = resend.provider_message_id`.
+Das deckt **Expandable Card** ab — Klick erweitert Empfänger + Menü, Actions inline.
 
-Effekt sofort: 02:50-Eintrag verschwindet aus dem Banner. 10.06.-Bounce bleibt sichtbar.
+## 3. Filter-Leiste in `Timeline.tsx`
 
-### 2) `resend-via-smtp` härten
-Nach `update(metadata=…)` die Anzahl betroffener Zeilen prüfen. Falls 0:
-- zweite Strategie: alle Resend-Logs mit demselben `entity_id` + `recipient_email` + Status ∈ failure innerhalb der letzten 60 Min auflösen.
-- detailliertes `console.log` (request resend_log_id, gefundene Treffer, update-result), sodass künftige Fälle in den Edge-Function-Logs nachvollziehbar sind.
+Im `CardHeader` neben den Zähl-Badges eine `Tabs`/`ToggleGroup`-Leiste mit 4 Optionen:
 
-### 3) Banner-UX (`EmailFailureBanner.tsx`)
-Pro gelistetem Vorfall:
-- Wenn `metadata.resolved_via === 'smtp_fallback*'`: Eintrag erscheint **nicht** im Banner (Safety-Net, eigentlich schon durch `isUnresolved` gefiltert).
-- Optional kleines Info-Chip "Via SMTP-Fallback zugestellt um HH:MM" für historische Sichtbarkeit in der Inquiry-Detailansicht (separater Block unterhalb Aktivitäten, nicht im DRINGEND-Banner).
+| Filter | Inhalt |
+|---|---|
+| **Alle** *(default)* | Alles (heutiges Verhalten) |
+| **Angebote** | `type === 'offer_version'` + Activity-Actions `offer_email_sent`, `offer_version_created` |
+| **E-Mails** | `type === 'email'` + Activity-Actions `offer_email_sent`, `email_sent`, `email_received` |
+| **Bearbeitungen** | Alle übrigen Activity-Actions (Status-, Preis-, Gäste-, Daten-Änderungen, Notes, Tasks, Assignments) |
 
-Header-Text dynamisch:
-- Nur noch echte ungelöste Fälle zählen für "X Vorfälle".
+Implementierung:
+- Lokaler State `filter: 'all' | 'offers' | 'emails' | 'edits'`, kein Persist (User wünscht Default „Alle").
+- `useMemo`-Filter über `combinedItems` nach o.g. Logik (Mapping-Tabelle der Action-Strings als Konstante oben in der Datei).
+- Empty-State pro Filter: „Keine Einträge in dieser Kategorie".
+- Eintrag-Zähler in der Badge zeigt gefilterte Anzahl.
 
-### 4) Resend-Dashboard-Hinweis (klein)
-Im suppressed-Resend-Eintrag in der Timeline einen Hinweis ergänzen:
-"Resend.com zeigt diesen Versand weiterhin als *Suppressed*. Tatsächliche Zustellung erfolgte via SMTP-Fallback um 02:51 (siehe Eintrag oben)."
-→ erklärt den scheinbaren Widerspruch zum externen Resend-Dashboard.
+UI: monochrome ToggleGroup (border, rounded-lg, neutral). Keine farbigen Akzente außer aktivem State.
+
+## 4. Verifikation
+- Inquiry öffnen → Kalkulation-Tab zeigt keine „Versendete Angebote"-Karte mehr.
+- Details-Tab → Aktivitäten zeigt Angebots-Versionen inkl. An/BCC + Ansehen/Kopieren.
+- Filter „Angebote" zeigt nur Versions-Karten + Send-Activity.
+- Filter „E-Mails" zeigt Delivery-Logs.
+- Filter „Bearbeitungen" zeigt nur Änderungs-Logs.
 
 ## Technische Details
-
-- Migration enthält nur ein UPDATE-Statement, keine Schemaänderung.
-- `resend-via-smtp` bleibt rückwärtskompatibel (Body-Schema unverändert).
-- Banner-Filter ist clientseitig — kein zusätzlicher Query nötig.
-- Keine UI-Änderung im Belege-Block.
-
-## Was unverändert bleibt
-
-- Aktivitäten-Timeline (zeigt bereits korrekt SMTP-Erfolg + Resend-Fehler).
-- Bestehende Resend-Webhook-Logik.
-- 10.06.-Bounce-Eintrag bleibt offen, "Erledigt"-Button funktioniert wie bisher.
+- Action-Strings: aus `activity_logs.action` ableiten — bekannte: `offer_email_sent`, `offer_version_created`, `status_changed`, `assigned_to_changed`, `priority_changed`, `note_added`, `task_created`, plus generische Feldänderungen via `field_changed`. Liste in `EMAIL_ACTIONS` / `OFFER_ACTIONS` / Rest = Edits.
+- `useCloneOfferVersion` ist bereits vorhanden und wird nur in die Timeline-Entry-Komponente verlagert.
+- Keine DB-Änderungen.
