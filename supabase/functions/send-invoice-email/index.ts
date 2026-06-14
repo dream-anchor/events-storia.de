@@ -7,6 +7,7 @@ import {
   type CustomerLang,
 } from '../_shared/customer-language.ts';
 import { SEPARATOR_HTML, t, formatDateLong } from '../_shared/email-i18n.ts';
+import { sendEmailWithFallback } from '../_shared/email-sender.ts';
 
 const log = (step: string, details?: Record<string, unknown>) => {
   const d = details ? ` - ${JSON.stringify(details)}` : '';
@@ -282,42 +283,29 @@ serve(async (req) => {
     const pdf = await fetchInvoicePdf(lexofficeInvoiceId, apiKey);
     if (!pdf) throw new Error('Rechnungs-PDF konnte nicht von LexOffice geladen werden');
 
-    // Resend send
-    const resendKey = Deno.env.get('RESEND_API_KEY');
-    if (!resendKey) throw new Error('RESEND_API_KEY nicht konfiguriert');
-
     const isTest = (inquiry as any).is_test === true;
     const safeRecipient = getSafeRecipientEmail(recipient, isTest);
     const filename = `STORIA_Rechnung_${(invoiceNumber || lexofficeInvoiceId).replace(/[^a-zA-Z0-9_.-]/g, '_')}.pdf`;
     const archiveBcc = 'info@events-storia.de';
-
-    const payload = {
-      from: 'STORIA Events <info@events-storia.de>',
-      to: [safeRecipient],
-      bcc: [archiveBcc],
+    const pdfB64 = pdfToBase64(pdf);
+    const sendResult = await sendEmailWithFallback({
+      to: safeRecipient,
+      bcc: archiveBcc,
       subject,
       html,
-      reply_to: 'info@events-storia.de',
-      attachments: [{ filename, content: pdfToBase64(pdf) }],
-    };
-
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendKey}`,
-        'Content-Type': 'application/json; charset=utf-8',
-      },
-      body: JSON.stringify(payload),
+      attachments: [{ filename, contentBase64: pdfB64, contentType: 'application/pdf' }],
     });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      log('Resend error', { status: res.status, errText });
-      throw new Error(`Versand fehlgeschlagen: ${errText}`);
+    if (!sendResult.success) {
+      log('Both Resend and SMTP failed', {
+        resendError: sendResult.resendError,
+        smtpError: sendResult.smtpError,
+      });
+      throw new Error(
+        `Versand fehlgeschlagen — Resend: ${sendResult.resendError}; SMTP: ${sendResult.smtpError}`,
+      );
     }
-    const sendData = await res.json();
-    const messageId: string | null = sendData?.id || null;
-    log('Email sent', { messageId, recipient: safeRecipient });
+    const messageId: string | null = sendResult.messageId;
+    log('Email sent', { messageId, provider: sendResult.provider, recipient: safeRecipient });
 
     // Mark inquiry
     const { data: { user } } = await supabase.auth.getUser(
@@ -340,7 +328,7 @@ serve(async (req) => {
       body_html: html,
       attachments: [{ filename }],
       resend_message_id: messageId,
-      resend_status: 'queued',
+      resend_status: sendResult.provider === 'resend' ? 'queued' : 'sent_via_smtp_fallback',
       sent_at: new Date().toISOString(),
     } as Record<string, unknown>).then(({ error }) => {
       if (error) console.warn('[send-invoice-email] email archive failed:', error.message);
@@ -358,6 +346,8 @@ serve(async (req) => {
         lexoffice_invoice_id: lexofficeInvoiceId,
         language: lang,
         resend_message_id: messageId,
+        provider: sendResult.provider,
+        resend_error: sendResult.resendError ?? null,
       },
     }).then(({ error }) => {
       if (error) console.warn('[send-invoice-email] activity log failed:', error.message);
@@ -366,6 +356,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       messageId,
+      provider: sendResult.provider,
       recipient: safeRecipient,
       subject,
       invoice_number: invoiceNumber,
