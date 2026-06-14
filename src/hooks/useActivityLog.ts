@@ -124,6 +124,28 @@ export const formatActivityAction = (log: ActivityLog): string => {
       const recipient = (m.recipient_email as string) || 'Empfänger';
       return `Zustellfehler an ${recipient} als erledigt markiert`;
     },
+    'offer_email_failed': (l) => {
+      const m = (l.metadata || {}) as Record<string, unknown>;
+      const recipient = (m.recipient as string) || 'Empfänger';
+      const reason = (m.reason as string) || 'Zustellfehler';
+      return `Zustellfehler an ${recipient} (${reason})`;
+    },
+    'offer_email_sent': (l) => {
+      const m = (l.metadata || {}) as Record<string, unknown>;
+      const recipient = (m.recipient as string) || 'Empfänger';
+      const provider = (m.provider as string) || '';
+      return `Angebot per E-Mail an ${recipient}${provider ? ` (${provider})` : ''}`;
+    },
+    'email_smtp_fallback_sent': (l) => {
+      const m = (l.metadata || {}) as Record<string, unknown>;
+      const recipient = (m.recipient as string) || 'Empfänger';
+      return `SMTP-Fallback an ${recipient} ausgeführt`;
+    },
+    'email_smtp_fallback_failed': (l) => {
+      const m = (l.metadata || {}) as Record<string, unknown>;
+      const recipient = (m.recipient as string) || 'Empfänger';
+      return `SMTP-Fallback an ${recipient} fehlgeschlagen`;
+    },
     'guest_count_changed': (l) => {
       const oldCount = l.old_value?.guest_count || '?';
       const newCount = l.new_value?.guest_count || '?';
@@ -158,6 +180,10 @@ export const getActivityIcon = (action: string): string => {
     'created': 'Plus',
     'updated': 'Pencil',
     'email_failure_resolved': 'CheckCircle2',
+    'offer_email_sent': 'Mail',
+    'offer_email_failed': 'AlertTriangle',
+    'email_smtp_fallback_sent': 'Mail',
+    'email_smtp_fallback_failed': 'AlertTriangle',
   };
   return icons[action] || 'Activity';
 };
