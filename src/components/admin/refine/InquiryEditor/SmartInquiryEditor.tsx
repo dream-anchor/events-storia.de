@@ -1195,6 +1195,7 @@ export const SmartInquiryEditor = () => {
           <TabsTrigger value="mails" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Nachrichten</TabsTrigger>
           <TabsTrigger value="aufgaben" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Aufgaben</TabsTrigger>
           <TabsTrigger value="details" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Details</TabsTrigger>
+          <TabsTrigger value="aktivitaeten" className="rounded-lg text-sm px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Aktivitäten</TabsTrigger>
         </TabsList>
         {/* Mobile scroll hint — gradient fade on right edge */}
         <div className="sm:hidden pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent rounded-r-xl" />
@@ -1352,7 +1353,9 @@ export const SmartInquiryEditor = () => {
           </div>
           {/* LexOffice-Belege */}
           <LexofficeDocumentsCard orderId={id!} />
-          {/* Timeline */}
+        </TabsContent>
+
+        <TabsContent value="aktivitaeten" className="mt-6 space-y-6">
           <Timeline entityType="event_inquiry" entityId={id!} />
         </TabsContent>
 
