@@ -686,14 +686,28 @@ interface TimelineEntryProps {
   item: TimelineItem;
   isFirst: boolean;
   isLast: boolean;
+  inquiryId: string;
+  latestOfferVersion: number | null;
+  onClone: (version: number) => void;
+  cloneDisabled?: boolean;
 }
 
-const TimelineEntry = ({ item, isFirst, isLast }: TimelineEntryProps) => {
+const TimelineEntry = ({ item, isFirst, isLast, inquiryId, latestOfferVersion, onClone, cloneDisabled }: TimelineEntryProps) => {
   if (item.type === 'email') {
     return <EmailDeliveryEntry emailLog={item.data} isFirst={isFirst} isLast={isLast} />;
   }
   if (item.type === 'offer_version') {
-    return <OfferVersionEntry entry={item.data} isFirst={isFirst} isLast={isLast} />;
+    return (
+      <OfferVersionEntry
+        entry={item.data}
+        isFirst={isFirst}
+        isLast={isLast}
+        inquiryId={inquiryId}
+        isLatest={item.data.version === latestOfferVersion}
+        onClone={onClone}
+        cloneDisabled={cloneDisabled}
+      />
+    );
   }
   return <ActivityEntry log={item.data} isFirst={isFirst} isLast={isLast} />;
 };
