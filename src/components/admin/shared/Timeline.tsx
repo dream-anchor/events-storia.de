@@ -495,10 +495,15 @@ interface OfferVersionEntryProps {
   entry: OfferHistoryEntry;
   isFirst: boolean;
   isLast: boolean;
+  inquiryId: string;
+  isLatest: boolean;
+  onClone: (version: number) => void;
+  cloneDisabled?: boolean;
 }
 
-const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) => {
+const OfferVersionEntry = ({ entry, isFirst, isLast, inquiryId, isLatest, onClone, cloneDisabled }: OfferVersionEntryProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const navigate = useNavigate();
   const actorName = getAdminDisplayName(entry.sent_by || undefined);
   const initials = entry.sent_by ? getAdminInitials(entry.sent_by) : 'SY';
   const activeOpts = (entry.options_snapshot || []).filter(
@@ -555,9 +560,16 @@ const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) =
                 </TooltipProvider>
               </div>
             </div>
-            <Badge variant="outline" className="text-xs shrink-0 font-semibold text-amber-700 border-amber-300 bg-amber-50">
-              V{entry.version}
-            </Badge>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isLatest && (
+                <Badge className="text-[10px] uppercase tracking-wide bg-primary/10 text-primary border-primary/20">
+                  Aktuell
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-xs font-semibold text-amber-700 border-amber-300 bg-amber-50">
+                V{entry.version}
+              </Badge>
+            </div>
           </div>
 
           <p className="text-sm text-foreground font-medium">
@@ -573,6 +585,33 @@ const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) =
               </span>
             )}
           </p>
+
+          {/* Empfänger-Zeilen */}
+          {(entry.recipient_email || entry.cc_email || entry.bcc_email) && (
+            <div className="mt-2 space-y-0.5">
+              {entry.recipient_email && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Mail className="h-3 w-3" />
+                  <span>An:</span>
+                  <span className="font-mono text-foreground/80 break-all">{entry.recipient_email}</span>
+                </div>
+              )}
+              {entry.cc_email && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Mail className="h-3 w-3 opacity-60" />
+                  <span>CC:</span>
+                  <span className="font-mono text-foreground/80 break-all">{entry.cc_email}</span>
+                </div>
+              )}
+              {entry.bcc_email && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Mail className="h-3 w-3 opacity-60" />
+                  <span>BCC:</span>
+                  <span className="font-mono text-foreground/80 break-all">{entry.bcc_email}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Expandierbarer Menü-Snapshot */}
           {activeOpts.length > 0 && (
@@ -613,6 +652,29 @@ const OfferVersionEntry = ({ entry, isFirst, isLast }: OfferVersionEntryProps) =
               </CollapsibleContent>
             </Collapsible>
           )}
+
+          {/* Aktionen */}
+          <div className="flex items-center gap-2 mt-3 pt-2 border-t border-amber-200/60">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-7 bg-background/60"
+              onClick={() => navigate(`/admin/inquiries/${inquiryId}/archive/${entry.version}`)}
+            >
+              <Eye className="h-3 w-3" />
+              Ansehen
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-xs h-7"
+              onClick={() => onClone(entry.version)}
+              disabled={cloneDisabled}
+            >
+              <Copy className="h-3 w-3" />
+              Als neues kopieren
+            </Button>
+          </div>
         </div>
       </div>
     </div>
