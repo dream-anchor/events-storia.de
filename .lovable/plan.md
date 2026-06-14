@@ -1,91 +1,54 @@
-## Problem (kurz)
 
-Maestro hat zwei Ebenen:
-1. **Einzelpositionen** (Lunch, Dinner, Personal, Equipment …) — Summe brutto = **28.460,84 €**
-2. **Maestro-Endpreis** (manuell gesetzt) = **25.000,00 €**
+## Ziel
 
-Aktuell schicken wir nur Ebene 1 an LexOffice. Die Differenz von **3.460,84 €** (= verhandelter Rabatt / Endpreis-Anpassung) fehlt → LexOffice zeigt 28.460,84 € statt 25.000 €.
+1. **Resend = Primärversand**, SMTP IONOS = Fallback (Reihenfolge zurückdrehen).
+2. **Maestro-Status darf nicht lügen**: Wenn Resend „Suppressed", „Bounced" oder „Complained" meldet, muss die Aktivität rot als Zustellfehler erscheinen — nicht grün „Zugestellt".
+3. **Automatischer SMTP-Retry**: Sobald Resend eine Mail nach Versand als nicht-zustellbar meldet (Suppressed/Bounced/Failed), versendet Maestro dieselbe Mail automatisch erneut über IONOS-SMTP an `events-storia.de`.
 
-## Lösung
+## Was geändert wird
 
-In `supabase/functions/create-event-quotation/index.ts` (und `repair-quotation-pricing`) eine **Abgleichs-Zeile** an LexOffice anhängen, sobald `Σ(LineItems brutto) ≠ Maestro total_amount`.
+### A) `supabase/functions/send-offer-email/index.ts` (Versand-Funktion)
 
-### Logik
+- Reihenfolge in `sendEmail()` umdrehen:
+  1. **Resend zuerst** (mit PDF-Anhang, CC/BCC, Reply-To, Threading-Headers).
+  2. Nur wenn Resend einen HTTP-Fehler / Exception liefert → **SMTP IONOS** als sofortiger Fallback (gleiche Mail, PDF, Header).
+- `result.provider` wird korrekt gesetzt (`resend` oder `ionos_smtp_fallback`), damit man im Log sieht, welcher Weg verwendet wurde.
+- Initial-Status im `email_delivery_logs` bleibt `queued` bei Resend (Webhook entscheidet später), bei SMTP-Fallback wird direkt `sent` gesetzt (kein Webhook).
 
-```text
-delta = round2( Σ(lineItems.gross) - maestro.total_amount )
+### B) `supabase/functions/receive-resend-webhook/index.ts` (Webhook)
 
-if |delta| < 0,01 €  → nichts tun
-if delta > 0         → Rabatt-Zeile mit -delta (Bezeichnung: "Rabatt / Endpreis-Anpassung")
-if delta < 0         → Aufpreis-Zeile mit +|delta| (Bezeichnung: "Anpassung")
-```
+- Mapping erweitern um `email.failed` → `failed`.
+- Bei Events `bounced`, `complained`, `failed`, sowie wenn Resend uns `email.delivery_delayed` mit `Suppressed`-Reason schickt:
+  1. `email_delivery_logs.status` auf den realen Fehlerstatus setzen + `error_message` befüllen (z. B. „Recipient on suppression list").
+  2. Neue Aktivität in `v2_event_activities` schreiben: „Zustellfehler an <empfänger> (Resend: <reason>)" — damit die grüne „Zugestellt"-Badge ersetzt bzw. ergänzt wird.
+  3. **Automatischer SMTP-Retry**: Mail aus `v2_event_emails` (subject, html, to, cc, bcc, thread headers) laden und über die neue interne Funktion `resend-via-smtp` erneut zustellen. PDF wird nicht erneut angehängt (war im ersten Versand enthalten, kein Bedarf zur Doppelzustellung beim Retry; alternativ Re-Fetch via `lexoffice_quotation_id` aus den Metadaten, falls vorhanden).
+  4. Doppel-Retry-Schutz: Flag `smtp_retry_attempted` in `v2_event_emails.metadata` setzen, damit dasselbe Resend-Event uns nicht mehrfach SMTP-en lässt.
 
-### Steuer-Aufteilung der Anpassung
+### C) Neue Edge Function `supabase/functions/resend-via-smtp/index.ts`
 
-Damit Netto- und Brutto-Summen in LexOffice exakt zu Maestro passen, wird die Anpassung **anteilig pro VAT-Rate** verteilt (gewichtet nach Brutto-Anteil je Steuersatz):
+- Input: `{ event_email_id }` (Zeile aus `v2_event_emails`).
+- Lädt Empfänger/Subject/HTML/Threading aus der DB, optional PDF aus LexOffice (wenn `lexoffice_quotation_id` in `metadata`).
+- Versendet ausschließlich über IONOS-SMTP (`smtp.ionos.de:465`, `SMTP_USER` / `SMTP_PASSWORD`).
+- Loggt Ergebnis in `email_delivery_logs` als `provider: 'ionos_smtp_retry'` und schreibt Aktivität „SMTP-Fallback an <empfänger> ausgeführt".
 
-```text
-für jede vorkommende vatRate r:
-  weight_r = Σ(lineItems[vat=r].gross) / Σ(lineItems.gross)
-  adjustment_r_gross = delta * weight_r
-  adjustment_r_net   = adjustment_r_gross / (1 + r/100)
-  → eine LexOffice-Zeile pro vatRate
-```
+### D) UI-Korrektur in `src/components/admin/shared/ConversationThread.tsx`
 
-Das verhindert, dass die 19%-/7%-Aufteilung in der LexOffice-Rechnung von Maestro abweicht.
+- Mapping ändern: `queued` → Label „Zustellung ausstehend" (gelb), nicht mehr „Zugestellt (wartend)".
+- So entsteht kein falscher „Zugestellt"-Eindruck mehr, solange Resend keine echte Delivery-Bestätigung geschickt hat.
 
-### Wo greift das?
+### E) Deployments
 
-- `buildLineItems()` — am Ende, **nach** allen Maestro-Positionen (Meals, Personal/Equipment).
-- Gilt für alle drei Pfade: `freeformProgram`, `per_event`, klassische Menü-Pakete.
-- Die existierende `appendDiscountLines()` wird auf die obige Logik vereinheitlicht (eine Funktion, alle Pfade).
+Edge Functions deployen: `send-offer-email`, `receive-resend-webhook`, `resend-via-smtp`.
 
-### Quelle des Zielwerts
+## Was bewusst nicht geändert wird
 
-`maestro.total_amount` (brutto, immutable, Single Source of Truth gemäß Core-Memory). **Nie** neu berechnen, nur 1:1 als Zielwert verwenden.
+- Resend bleibt Primärprovider (Wunsch des Nutzers).
+- Andere E-Mail-Funktionen (`send-payment-email`, `send-invoice-email` etc.) bleiben unberührt; falls gewünscht, ziehen wir dieselbe Logik später in eine geteilte Helper-Funktion.
+- Bestehende Suppressed-Adressen in Resend werden nicht automatisch entfernt — das ist ein manueller Schritt (Resend „Removed from suppression list").
 
-### Validierung vor dem Senden
+## Technische Details
 
-Hard-Check direkt vor dem LexOffice-Call:
-
-```text
-assert |Σ(lineItems.gross) - maestro.total_amount| < 0,01 €
-```
-
-Bei Verletzung: Fehler werfen statt falsche Rechnung erzeugen.
-
-## Auswirkung auf AG0175
-
-Vorher:
-```
-Lunch                450,00
-Dinner Live Cooking  796,00
-…
-Personal/Equipment 4.105,50
-                  ---------
-Summe brutto      28.460,84 €   ← in LexOffice
-```
-
-Nachher:
-```
-Lunch                  450,00
-Dinner Live Cooking    796,00
-…
-Personal/Equipment   4.105,50
-Rabatt / Endpreis-Anpassung (19%)  -2.962,xx
-Rabatt / Endpreis-Anpassung (7%)     -498,xx
-                                ----------
-Summe brutto         25.000,00 €   ← matcht Maestro
-```
-
-## Backfill (optional, separat)
-
-Für bereits in LexOffice existierende, abweichende Angebote: `repair-quotation-pricing` einmalig je betroffenem Angebot aufrufen — sie werden neu erzeugt (vorhandene Versionierung bleibt unangetastet, da Maestro-Daten unverändert).
-
-## Was NICHT geändert wird
-
-- Keine DB-Migration.
-- Keine Maestro-Logik.
-- Keine UI-Änderung.
-- Keine Email-Texte.
-- Brutto-Modus in LexOffice (`taxType='gross'`) bleibt — gemäß Memory.
+- Threading-Header (`In-Reply-To`, `References`) werden im SMTP-Retry aus `v2_event_emails.in_reply_to` rekonstruiert.
+- LexOffice-PDF wird beim Retry nur dann erneut geholt, wenn `metadata.lexoffice_quotation_id` vorhanden ist; sonst geht die Mail ohne Anhang raus (Empfänger hat den Anhang i. d. R. ohnehin nie erhalten, weil Resend suppressed hat).
+- Webhook-Sicherheit (Svix-Signatur, 5-Min-Replay-Schutz) bleibt unverändert.
+- Operator-Email-Guard im `send-offer-email` bleibt aktiv und greift auch beim SMTP-Retry, da `resend-via-smtp` denselben Check ausführt.
