@@ -177,8 +177,53 @@ async function sendEmail(
   let messageId: string | null = null;
   let errorMessage: string | null = null;
 
-  // 1) Resend (primär)
-  if (resendApiKey) {
+  const attachmentFilename = `STORIA_Angebot_${(customerName || 'Kunde').replace(/[^a-zA-ZäöüÄÖÜß0-9\s-]/g, '').trim() || 'Kunde'}.pdf`;
+
+  // 1) SMTP events-storia.de / IONOS (primär) — inkl. PDF-Anhang, CC/BCC, Reply-To und Threading
+  if (smtpUser && smtpPassword) {
+    try {
+      const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
+      const client = new SMTPClient({
+        connection: {
+          hostname: Deno.env.get("SMTP_HOST") || "smtp.ionos.de",
+          port: parseInt(Deno.env.get("SMTP_PORT") || "465"),
+          tls: true,
+          auth: { username: smtpUser, password: smtpPassword },
+        },
+      });
+
+      await client.send({
+        from: `${fromName} <${smtpUser}>`,
+        to,
+        cc: cc && cc.length > 0 ? cc : undefined,
+        bcc: bcc && bcc.length > 0 ? bcc : undefined,
+        subject,
+        html,
+        replyTo: replyTo || 'info@events-storia.de',
+        inReplyTo: headers?.['In-Reply-To'],
+        references: headers?.['References'],
+        headers,
+        attachments: pdfBuffer ? [{
+          filename: attachmentFilename,
+          contentType: "application/pdf",
+          encoding: "binary" as const,
+          content: pdfBuffer,
+        }] : undefined,
+      });
+      await client.close();
+      sent = true;
+      provider = "ionos_smtp";
+      messageId = `smtp-${crypto.randomUUID()}`;
+      errorMessage = null;
+      console.log(`Email sent via SMTP to: ${to.join(", ")} (pdf: ${!!pdfBuffer})`);
+    } catch (smtpErr) {
+      errorMessage = smtpErr instanceof Error ? smtpErr.message : "SMTP error";
+      console.error("SMTP primary error:", errorMessage);
+    }
+  }
+
+  // 2) Resend nur noch als Fallback
+  if (!sent && resendApiKey) {
     try {
       const payload: Record<string, unknown> = {
         from: `${fromName} <info@events-storia.de>`,
@@ -193,9 +238,8 @@ async function sendEmail(
 
       if (pdfBuffer) {
         const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
-        const safeName = (customerName || 'Kunde').replace(/[^a-zA-ZäöüÄÖÜß0-9\s-]/g, '').trim();
         payload.attachments = [{
-          filename: `STORIA_Angebot_${safeName}.pdf`,
+          filename: attachmentFilename,
           content: base64Pdf,
         }];
       }
@@ -213,7 +257,7 @@ async function sendEmail(
         sent = true;
         provider = "resend";
         messageId = data.id || null;
-        console.log(`Email sent via Resend to: ${to.join(", ")} (pdf: ${!!pdfBuffer})`);
+        console.log(`Email sent via Resend fallback to: ${to.join(", ")} (pdf: ${!!pdfBuffer})`);
       } else {
         errorMessage = `Resend error: ${await res.text()}`;
         console.error(errorMessage);
@@ -221,30 +265,6 @@ async function sendEmail(
     } catch (err) {
       errorMessage = err instanceof Error ? err.message : "Resend error";
       console.error("Resend exception:", errorMessage);
-    }
-  }
-
-  // 2) IONOS SMTP Fallback (ohne PDF-Anhang)
-  if (!sent && smtpUser && smtpPassword) {
-    try {
-      const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
-      const client = new SMTPClient({
-        connection: {
-          hostname: Deno.env.get("SMTP_HOST") || "smtp.ionos.de",
-          port: parseInt(Deno.env.get("SMTP_PORT") || "465"),
-          tls: true,
-          auth: { username: smtpUser, password: smtpPassword },
-        },
-      });
-      await client.send({ from: `${fromName} <${smtpUser}>`, to, subject, html });
-      await client.close();
-      sent = true;
-      provider = "ionos_smtp";
-      errorMessage = null;
-      console.log(`Email sent via IONOS SMTP (fallback) to: ${to.join(", ")}`);
-    } catch (smtpErr) {
-      errorMessage = smtpErr instanceof Error ? smtpErr.message : "SMTP error";
-      console.error("SMTP fallback error:", errorMessage);
     }
   }
 
