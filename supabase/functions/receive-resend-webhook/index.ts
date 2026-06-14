@@ -2,15 +2,33 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Resend Event-Typ → email_delivery_logs Status
+//
+// WICHTIG: `email.delivered` wird NICHT auf "delivered" gemappt, sondern auf
+// "sent". Grund: Resend feuert `email.delivered` auch, wenn nur einer der
+// Empfänger (z. B. unser BCC info@events-storia.de) tatsächlich zugestellt
+// wurde — der eigentliche Kunde kann gleichzeitig auf der Suppression-List
+// stehen und die Mail NIE bekommen. Dieselbe email_id deckt alle Empfänger
+// ab. Daher zeigt Maestro nur dann grün "Zugestellt", wenn wir es wirklich
+// wissen — ansonsten blau "Versendet".
 const RESEND_STATUS_MAP: Record<string, string> = {
   "email.sent": "sent",
-  "email.delivered": "delivered",
+  "email.delivered": "sent",
   "email.bounced": "bounced",
   "email.complained": "complained",
   "email.delivery_delayed": "delayed",
-  "email.opened": "opened",
+  "email.opened": "sent",
   "email.failed": "failed",
 };
+
+// Statuswerte, die niemals durch ein "weicheres" Success-Event überschrieben
+// werden dürfen. Wenn Resend erst bounced/complained/failed liefert und danach
+// noch ein verspätetes delivered/opened, bleibt der Fehlerzustand erhalten.
+const TERMINAL_FAILURE_STATUSES = new Set([
+  "bounced",
+  "complained",
+  "failed",
+  "suppressed",
+]);
 
 // Events, die einen automatischen SMTP-Fallback auslösen sollen
 const SMTP_FALLBACK_EVENTS = new Set([
@@ -131,16 +149,43 @@ serve(async (req) => {
     ((data as Record<string, unknown>)?.bounce as Record<string, unknown> | undefined)?.message as string | undefined ||
     null;
 
-  const { data: logRow, error } = await supabase
+  // Aktuellen Status lesen, damit wir Failure-Zustände nicht überschreiben.
+  const { data: existingLog } = await supabase
     .from("email_delivery_logs")
-    .update({
-      status: newStatus,
-      error_message: SMTP_FALLBACK_EVENTS.has(type) ? (reason || `Resend ${type}`) : null,
-    })
+    .select("id, status, entity_id, entity_type, recipient_email, subject")
     .eq("provider_message_id", emailId)
     .eq("provider", "resend")
-    .select("entity_id, entity_type, recipient_email, subject")
     .maybeSingle();
+
+  const isFailureEvent = SMTP_FALLBACK_EVENTS.has(type);
+  const wouldDowngrade =
+    !isFailureEvent &&
+    existingLog?.status &&
+    TERMINAL_FAILURE_STATUSES.has(existingLog.status);
+
+  let logRow = existingLog;
+  let error: unknown = null;
+
+  if (existingLog && !wouldDowngrade) {
+    const upd = await supabase
+      .from("email_delivery_logs")
+      .update({
+        status: newStatus,
+        error_message: isFailureEvent ? (reason || `Resend ${type}`) : null,
+      })
+      .eq("id", existingLog.id)
+      .select("entity_id, entity_type, recipient_email, subject")
+      .maybeSingle();
+    logRow = upd.data ?? existingLog;
+    error = upd.error;
+  } else if (wouldDowngrade) {
+    console.log("Skipping status downgrade", {
+      emailId,
+      type,
+      currentStatus: existingLog?.status,
+      newStatus,
+    });
+  }
 
   if (error) {
     console.error("DB-Update fehlgeschlagen:", error, { emailId, type });
@@ -149,7 +194,7 @@ serve(async (req) => {
   }
 
   // Bei Zustellfehlern: Activity-Log + automatischer SMTP-Retry
-  if (SMTP_FALLBACK_EVENTS.has(type) && logRow?.entity_id && logRow?.entity_type === "v2_event") {
+  if (isFailureEvent && logRow?.entity_id && logRow?.entity_type === "v2_event") {
     // Activity-Log-Eintrag, damit Maestro den Fehler statt "Zugestellt" anzeigt
     await supabase.from("activity_logs").insert({
       entity_type: "v2_event",
