@@ -229,6 +229,7 @@ serve(async (req) => {
           body: JSON.stringify({
             event_email_id: emailRow.id,
             reason: reason || `Resend ${type}`,
+            resend_log_id: existingLog?.id ?? null,
           }),
         });
         console.log("SMTP-Fallback ausgelöst:", res.status);
