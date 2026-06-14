@@ -737,6 +737,86 @@ serve(async (req) => {
       },
     });
 
+    // Aktive Nachverifizierung bei Resend (Webhook ist nicht garantiert).
+    // Nach ~12s prüfen wir GET /emails/{id} und reagieren auf Suppressed/Bounced,
+    // selbst wenn kein Webhook-Event eintrifft.
+    if (result.sent && result.provider === 'resend' && result.messageId) {
+      const eventIdForCheck = event.id;
+      const messageIdForCheck = result.messageId;
+      const recipientForCheck = customerEmail;
+      const verifyTask = async () => {
+        try {
+          await new Promise((r) => setTimeout(r, 12000));
+          const resendKey = Deno.env.get('RESEND_API_KEY');
+          if (!resendKey) return;
+          const res = await fetch(`https://api.resend.com/emails/${messageIdForCheck}`, {
+            headers: { Authorization: `Bearer ${resendKey}` },
+          });
+          if (!res.ok) return;
+          const detail = await res.json();
+          const lastEvent: string = String(detail?.last_event ?? '').toLowerCase();
+          // Resend nutzt u. a.: sent, delivered, bounced, complained, opened,
+          // clicked, delivery_delayed. "Suppressed" erscheint typischerweise
+          // als bounced mit bounce.type oder als eigener Status — hier als
+          // generischer Failure-Check umgesetzt.
+          const isFailure =
+            lastEvent === 'bounced' ||
+            lastEvent === 'complained' ||
+            lastEvent === 'failed' ||
+            lastEvent === 'suppressed';
+          if (!isFailure) return;
+
+          await supabase.from('email_delivery_logs').update({
+            status: lastEvent,
+            error_message: `Resend post-send check: ${lastEvent}`,
+          }).eq('provider_message_id', messageIdForCheck).eq('provider', 'resend');
+
+          await supabase.from('activity_logs').insert({
+            entity_type: 'v2_event',
+            entity_id: eventIdForCheck,
+            action: 'offer_email_failed',
+            actor_email: 'system',
+            metadata: {
+              recipient: recipientForCheck,
+              resend_message_id: messageIdForCheck,
+              resend_event: lastEvent,
+              source: 'post_send_verification',
+            },
+          });
+
+          // SMTP-Fallback nachschießen
+          const { data: emailRow } = await supabase
+            .from('v2_event_emails')
+            .select('id')
+            .eq('resend_message_id', messageIdForCheck)
+            .maybeSingle();
+          if (emailRow?.id) {
+            const fnUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/resend-via-smtp`;
+            await fetch(fnUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              },
+              body: JSON.stringify({
+                event_email_id: emailRow.id,
+                reason: `Resend post-send check: ${lastEvent}`,
+              }),
+            });
+          }
+        } catch (e) {
+          console.error('[send-offer-email] post-send verification failed:', e);
+        }
+      };
+      // @ts-ignore — EdgeRuntime ist in Supabase Deno verfügbar
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(verifyTask());
+      } else {
+        verifyTask();
+      }
+    }
+
     const warnings: string[] = [];
     if (lexofficeQuotationId && !hasPdf) {
       warnings.push('PDF nicht verfügbar — Mail ohne Anhang versendet');
