@@ -5,6 +5,8 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 interface Body {
   event_email_id?: string;
   reason?: string;
+  /** Optional: id of the email_delivery_logs row that triggered this retry — will be marked resolved on success */
+  resend_log_id?: string;
 }
 
 /**
@@ -17,7 +19,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { event_email_id, reason } = (await req.json()) as Body;
+    const { event_email_id, reason, resend_log_id } = (await req.json()) as Body;
     if (!event_email_id) {
       return new Response(JSON.stringify({ error: "event_email_id required" }), {
         status: 400,
@@ -104,6 +106,7 @@ serve(async (req) => {
     }
 
     // Log the retry attempt
+    const smtpRetryMessageId = sent ? `smtp-retry-${crypto.randomUUID()}` : null;
     await supabase.from("email_delivery_logs").insert({
       entity_type: "v2_event",
       entity_id: row.event_id,
@@ -111,7 +114,7 @@ serve(async (req) => {
       recipient_name: null,
       subject: row.subject,
       provider: "ionos_smtp_retry",
-      provider_message_id: sent ? `smtp-retry-${crypto.randomUUID()}` : null,
+      provider_message_id: smtpRetryMessageId,
       status: sent ? "sent" : "failed",
       error_message: smtpError,
       metadata: {
@@ -121,6 +124,49 @@ serve(async (req) => {
         reason: reason || null,
       },
     });
+
+    // Bei erfolgreichem Fallback: ursprünglichen Resend-Fehler-Log als erledigt markieren,
+    // damit das "DRINGEND EMAIL-ZUSTELLFEHLER"-Banner in Maestro verschwindet.
+    if (sent) {
+      const resolvedAt = new Date().toISOString();
+      const resolvedMeta = {
+        resolved_at: resolvedAt,
+        resolved_via: "smtp_fallback",
+        smtp_retry_message_id: smtpRetryMessageId,
+      };
+
+      // 1) Bevorzugt: direkter Treffer per Log-ID (eindeutig)
+      if (resend_log_id) {
+        const { data: origLog } = await supabase
+          .from("email_delivery_logs")
+          .select("id, metadata")
+          .eq("id", resend_log_id)
+          .maybeSingle();
+        if (origLog) {
+          await supabase
+            .from("email_delivery_logs")
+            .update({ metadata: { ...((origLog.metadata as Record<string, unknown>) ?? {}), ...resolvedMeta } })
+            .eq("id", origLog.id);
+        }
+      }
+
+      // 2) Fallback: alle Resend-Logs mit derselben provider_message_id resolven
+      if (row.resend_message_id) {
+        const { data: matchingLogs } = await supabase
+          .from("email_delivery_logs")
+          .select("id, metadata")
+          .eq("provider", "resend")
+          .eq("provider_message_id", row.resend_message_id);
+        for (const log of matchingLogs ?? []) {
+          const meta = (log.metadata as Record<string, unknown>) ?? {};
+          if (meta.resolved_at) continue;
+          await supabase
+            .from("email_delivery_logs")
+            .update({ metadata: { ...meta, ...resolvedMeta } })
+            .eq("id", log.id);
+        }
+      }
+    }
 
     // Activity log entry so the timeline shows the fallback
     await supabase.from("activity_logs").insert({
