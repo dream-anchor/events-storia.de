@@ -225,6 +225,9 @@ export function AiIntakeBar({ language }: Props) {
           <Button
             type="submit"
             size="sm"
+            disabled={!draft.trim()}
+            title={!draft.trim() ? t.sendEmptyTooltip : undefined}
+            aria-label={!draft.trim() ? t.sendEmptyTooltip : t.send}
             className="h-10 shrink-0 gap-1.5 rounded-full bg-foreground px-4 text-background hover:bg-foreground/90"
           >
             <span>{t.send}</span>
