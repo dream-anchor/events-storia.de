@@ -144,7 +144,7 @@ export function AiIntakeBar({ language }: Props) {
   } = useAiIntake({ language });
 
   const [draft, setDraft] = useState("");
-  const collapsedRef = useRef<HTMLInputElement>(null);
+  
   const expandedRef = useRef<HTMLTextAreaElement>(null);
 
   const onSubmit = useCallback(() => {
