@@ -30,6 +30,8 @@
         "created_at": "2025-12-05T18:09:47.713531+00:00",
         "deleted_at": null,
         "archived_at": null,
+        "image_url": null,
+        "homepage_slug": "fingerfood",
         "items": [
           {
             "id": "942c7f1d-6057-454a-a507-0fab12dd7899",
@@ -264,6 +266,8 @@
         "created_at": "2026-01-28T18:53:16.921767+00:00",
         "deleted_at": null,
         "archived_at": null,
+        "image_url": null,
+        "homepage_slug": "platten",
         "items": [
           {
             "id": "b8e2beec-87e5-4d4e-aa68-93ce87fdb236",
@@ -542,6 +546,8 @@
         "created_at": "2026-01-28T18:53:16.921767+00:00",
         "deleted_at": null,
         "archived_at": null,
+        "image_url": null,
+        "homepage_slug": "auflauf",
         "items": [
           {
             "id": "00356626-bbe1-449c-87de-b258cf8660e2",
@@ -709,7 +715,9 @@
         "sort_order": 1,
         "created_at": "2026-01-28T18:53:16.921767+00:00",
         "deleted_at": null,
-        "archived_at": "2026-06-03T21:44:58.007444+00:00",
+        "archived_at": null,
+        "image_url": null,
+        "homepage_slug": null,
         "items": [
           {
             "id": "ac026c88-394d-4a6c-a32a-9159b402b4e3",
@@ -731,7 +739,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           }
         ]
       },
@@ -745,7 +753,9 @@
         "sort_order": 2,
         "created_at": "2026-01-28T18:53:16.921767+00:00",
         "deleted_at": null,
-        "archived_at": "2026-06-03T21:44:58.007444+00:00",
+        "archived_at": null,
+        "image_url": null,
+        "homepage_slug": "pizza",
         "items": [
           {
             "id": "908a17b5-20dc-4de7-a40d-7516a8a7b238",
@@ -767,7 +777,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "b4d66610-33c9-4179-93fa-20939e00272a",
@@ -789,7 +799,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "50d353d2-d081-4299-b382-40f5da29febd",
@@ -811,7 +821,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "d549ce55-039c-4723-9ee5-975ca04a453b",
@@ -833,7 +843,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "9f852169-7fa7-4ee3-886c-ab826e2c9e1a",
@@ -855,7 +865,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "5804ffba-bb98-40a1-9687-a28ba034164d",
@@ -877,7 +887,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "95c177da-5976-405b-8277-414e0b96cbdc",
@@ -899,7 +909,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "fa19fc1d-4b72-4169-a001-b56e3d817332",
@@ -921,7 +931,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "e5f25d37-fc01-47d0-bc6f-be1b8edcf85f",
@@ -943,7 +953,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "b6339cd0-ab66-419d-8626-d3211d4b3897",
@@ -965,7 +975,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "53a693ca-6dde-4131-aca6-15747130a2c2",
@@ -987,7 +997,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "c3f26c39-a60c-436e-8f51-92c53799686f",
@@ -1009,7 +1019,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "3c6b4799-2810-4495-86d5-5e231ced034c",
@@ -1031,7 +1041,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "e52310bb-adde-456e-b764-6b47e8816bb1",
@@ -1053,7 +1063,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "b2d2bdb8-32e7-40c9-b8af-03ceedb02d67",
@@ -1075,7 +1085,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "f26fb1ac-36a7-4ec7-ad60-e6eeef09a6bb",
@@ -1097,7 +1107,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "66e50458-4e05-4504-80a0-4db1d7246e8a",
@@ -1119,7 +1129,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "8d99f689-1caf-4fc1-a49b-93a41156366e",
@@ -1141,7 +1151,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "c56e1535-c531-495d-b6a0-b2bf4fe9a7d5",
@@ -1163,7 +1173,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "02642605-6121-4678-be7e-807f8b063f2b",
@@ -1185,7 +1195,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "fa402741-fc04-4d08-af0c-9d40a08cf0f7",
@@ -1207,7 +1217,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "0db4f5cb-1a46-450c-aacc-ddac2e0e2df7",
@@ -1229,7 +1239,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "03336573-bb28-4bed-9ae0-5a1de9fd8e05",
@@ -1251,7 +1261,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           },
           {
             "id": "322d1252-aced-4cfe-b2e8-9deb8d0a8eb7",
@@ -1273,7 +1283,7 @@
             "min_order": null,
             "min_order_en": null,
             "deleted_at": null,
-            "archived_at": "2026-06-03T21:44:58.007444+00:00"
+            "archived_at": null
           }
         ]
       }
@@ -1310,6 +1320,8 @@
         "created_at": "2026-01-28T19:02:46.344532+00:00",
         "deleted_at": null,
         "archived_at": null,
+        "image_url": null,
+        "homepage_slug": "desserts",
         "items": [
           {
             "id": "da853c3b-b783-4d48-abef-6b2c236b9a37",
