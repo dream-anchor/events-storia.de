@@ -255,8 +255,35 @@ export function AiIntakeBar({ language }: Props) {
                 extraction={extraction}
                 missing={missing}
                 language={language}
+                attachmentCount={
+                  attachments.filter((a) => a.status !== "error").length
+                }
               />
             </section>
+
+            {/* Example chips (only on empty conversation) */}
+            {messages.length === 0 ? (
+              <section aria-label={t.examplesLabel} className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  {t.examplesLabel}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {t.examples.map((ex) => (
+                    <button
+                      key={ex}
+                      type="button"
+                      onClick={() => {
+                        sendMessage(ex);
+                      }}
+                      disabled={thinking}
+                      className="rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                    >
+                      {ex}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             {/* Textarea */}
             <div className="rounded-2xl border border-border bg-background p-2 focus-within:ring-2 focus-within:ring-foreground/20">
@@ -310,6 +337,11 @@ export function AiIntakeBar({ language }: Props) {
 
             {/* CTA */}
             <div className="flex flex-col items-start gap-2 border-t border-border pt-4">
+              {!submittedInquiryId && !awaitingConfirmation ? (
+                <p className="text-xs text-muted-foreground">
+                  {t.aiDisclaimer}
+                </p>
+              ) : null}
               {submittedInquiryId ? (
                 <div
                   role="status"
