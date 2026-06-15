@@ -1125,7 +1125,7 @@ async function handleSubmitInquiry(
   // Load conversation
   const { data: conv, error: convErr } = await supabase
     .from("ai_conversations")
-    .select("id, status, inquiry_id")
+    .select("id, status, inquiry_id, metadata")
     .eq("id", conversationId)
     .maybeSingle();
   if (convErr || !conv) {
@@ -1288,6 +1288,49 @@ async function handleSubmitInquiry(
     .update({ inquiry_id: inquiryId })
     .eq("conversation_id", conversationId)
     .is("inquiry_id", null);
+
+  // Mirror AI draft snapshot into v2_events.metadata.ai_draft (best-effort, non-blocking)
+  try {
+    const convMetadata =
+      conv.metadata && typeof conv.metadata === "object"
+        ? (conv.metadata as Record<string, unknown>)
+        : {};
+    const draftData = convMetadata.draft;
+    if (draftData && typeof draftData === "object") {
+      const { data: eventRow } = await supabase
+        .from("v2_events")
+        .select("id, metadata")
+        .eq("id", inquiryId)
+        .maybeSingle();
+      if (eventRow) {
+        const existingMeta =
+          eventRow.metadata && typeof eventRow.metadata === "object"
+            ? (eventRow.metadata as Record<string, unknown>)
+            : {};
+        const snapshot = {
+          version: 1,
+          source: "ai_catering_assistant",
+          conversation_id: conversationId,
+          status: "submitted",
+          draft: draftData,
+          submitted_at: new Date().toISOString(),
+          disclaimer:
+            "Unverbindlicher Entwurf — vorbehaltlich Prüfung und Freigabe durch STORIA.",
+        };
+        const nextMeta = { ...existingMeta, ai_draft: snapshot };
+        const { error: metaErr } = await supabase
+          .from("v2_events")
+          .update({ metadata: nextMeta })
+          .eq("id", inquiryId);
+        if (metaErr) {
+          console.error("ai_draft_mirror_failed", metaErr.message);
+        }
+      }
+    }
+  } catch (e) {
+    // Never block the inquiry submission on the draft mirror.
+    console.error("ai_draft_mirror_exception", (e as Error).message);
+  }
 
   const successReply =
     language === "en"
