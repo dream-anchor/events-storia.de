@@ -490,6 +490,9 @@ serve(async (req) => {
   currentExtraction.attachmentsMentioned =
     currentExtraction.attachmentsMentioned || uploadedFilesCount > 0;
 
+  // 4b. Knowledge lookup (safe sources only)
+  const knowledgeContext = await lookupKnowledge(supabase, message);
+
   // 5. Call AI gateway
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   let reply = "";
@@ -508,6 +511,7 @@ serve(async (req) => {
         chatHistory,
         currentExtraction,
         uploadedFilesCount,
+        knowledgeContext,
       );
       if (aiResult) {
         reply = aiResult.reply || fallbackReply(language, computeMissing(currentExtraction));
