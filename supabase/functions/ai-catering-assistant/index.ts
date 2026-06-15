@@ -627,7 +627,8 @@ void REQUIRED_FIELDS;
  * ============================================================ */
 
 async function upsertConversationDraft(
-  supabase: SupaClient,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   conversationId: string,
   extraction: Extracted,
 ): Promise<void> {
