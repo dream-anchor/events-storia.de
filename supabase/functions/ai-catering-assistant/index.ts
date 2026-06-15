@@ -9,6 +9,21 @@ const MAX_HISTORY_MESSAGES = 30;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const STOPWORDS = new Set([
+  "der","die","das","den","dem","des","ein","eine","einer","einem","einen","und","oder","aber","mit","ohne","für","zu","zum","zur","von","vom","im","in","am","an","auf","aus","über","unter","wir","ihr","sie","es","ich","du","mein","meine","euer","eure",
+  "the","a","an","and","or","for","to","of","in","on","at","with","without","is","are","was","were","be","been","being","that","this","it","i","we","you","they",
+  "ja","nein","bitte","danke","hallo","guten","tag","please","thanks","hello",
+]);
+
+function tokenize(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((t) => t.length >= 4 && !STOPWORDS.has(t))
+    .slice(0, 12);
+}
+
 const REQUIRED_FIELDS = [
   "contactName",
   "email",
