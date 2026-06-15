@@ -327,6 +327,161 @@ const RESPOND_TOOL = {
   },
 } as const;
 
+/* -------- Draft suggestion helpers -------- */
+
+interface RawPackageSuggestion {
+  package_id?: unknown;
+  guests?: unknown;
+  rationale?: unknown;
+}
+interface RawItemSuggestion {
+  menu_item_id?: unknown;
+  qty?: unknown;
+  unit?: unknown;
+  rationale?: unknown;
+}
+interface RawCustomItem {
+  label?: unknown;
+  note?: unknown;
+}
+interface RawDraftSuggestions {
+  suggested_packages?: unknown;
+  suggested_items?: unknown;
+  custom_items?: unknown;
+}
+
+function buildCatalogPromptBlock(catalog: CatalogSnippet): string {
+  const pkgLines = catalog.packages.map((p) => {
+    const base = `id=${p.id} | "${p.name}" | type=${p.package_type ?? "?"} | per_person=${p.price_per_person} | price=${p.price ?? "(tier)"} | pricing_type=${p.pricing_type ?? "flat"} | min_guests=${p.min_guests ?? "-"} | max_guests=${p.max_guests ?? "-"}`;
+    return `- ${base}${p.description ? ` :: ${String(p.description).slice(0, 120)}` : ""}`;
+  });
+  const itemLines = catalog.items.map((i) => {
+    const diet = [
+      i.is_vegan ? "vegan" : null,
+      !i.is_vegan && i.is_vegetarian ? "vegetarisch" : null,
+    ].filter(Boolean).join("/");
+    return `- id=${i.id} | "${i.name}" | price=${i.price} EUR${i.min_order ? ` | min_order=${i.min_order}` : ""}${diet ? ` | ${diet}` : ""}`;
+  });
+  return [
+    "KATALOG (einzige zulässige Quelle für Paket-/Item-IDs in draftSuggestions; Preise sind interne Referenzwerte, NIEMALS verbindlich):",
+    "PAKETE:",
+    pkgLines.length ? pkgLines.join("\n") : "(keine aktiven Pakete)",
+    "MENU_ITEMS:",
+    itemLines.length ? itemLines.join("\n") : "(keine aktiven Items)",
+  ].join("\n");
+}
+
+function resolveDraftFromSuggestions(
+  raw: RawDraftSuggestions | undefined,
+  catalog: CatalogSnippet | null,
+  guestCount: number | null,
+): {
+  suggested_packages: DraftPackageSuggestion[];
+  suggested_items: DraftItemSuggestion[];
+  custom_items: { label: string; note?: string | null }[];
+  extraOpenQuestions: string[];
+} {
+  const out = {
+    suggested_packages: [] as DraftPackageSuggestion[],
+    suggested_items: [] as DraftItemSuggestion[],
+    custom_items: [] as { label: string; note?: string | null }[],
+    extraOpenQuestions: [] as string[],
+  };
+  if (!raw || !catalog) return out;
+
+  const pkgById = new Map<string, CatalogPackage>(
+    catalog.packages.map((p) => [p.id, p]),
+  );
+  const itemById = new Map<string, CatalogItem>(
+    catalog.items.map((i) => [i.id, i]),
+  );
+
+  if (Array.isArray(raw.suggested_packages)) {
+    for (const s of raw.suggested_packages as RawPackageSuggestion[]) {
+      const id = typeof s?.package_id === "string" ? s.package_id : null;
+      if (!id) continue;
+      const pkg = pkgById.get(id);
+      if (!pkg) {
+        out.extraOpenQuestions.push(
+          `Paket-ID ${id} nicht im aktuellen Katalog — bitte durch STORIA prüfen lassen.`,
+        );
+        continue;
+      }
+      const g = typeof s.guests === "number" && Number.isFinite(s.guests)
+        ? Math.max(0, Math.round(s.guests))
+        : guestCount;
+      if (pkg.min_guests != null && g != null && g < pkg.min_guests) {
+        out.extraOpenQuestions.push(
+          `Paket "${pkg.name}" benötigt mindestens ${pkg.min_guests} Personen (aktuell ${g}).`,
+        );
+        continue;
+      }
+      const unitPrice = resolvePackagePrice(pkg, g);
+      const subtotal = computeSubtotal(unitPrice, g, pkg.price_per_person);
+      if (unitPrice == null || subtotal == null) {
+        out.extraOpenQuestions.push(
+          `Preis für Paket "${pkg.name}" kann nicht automatisch berechnet werden — STORIA klärt das individuell.`,
+        );
+      }
+      out.suggested_packages.push({
+        package_id: pkg.id,
+        name: pkg.name,
+        guests: g,
+        unit_price: unitPrice,
+        subtotal,
+        rationale: typeof s.rationale === "string" ? s.rationale : null,
+      });
+    }
+  }
+
+  if (Array.isArray(raw.suggested_items)) {
+    for (const s of raw.suggested_items as RawItemSuggestion[]) {
+      const id = typeof s?.menu_item_id === "string" ? s.menu_item_id : null;
+      if (!id) continue;
+      const it = itemById.get(id);
+      if (!it) {
+        out.extraOpenQuestions.push(
+          `Item-ID ${id} nicht im aktuellen Katalog — bitte durch STORIA prüfen lassen.`,
+        );
+        continue;
+      }
+      const qty = typeof s.qty === "number" && Number.isFinite(s.qty)
+        ? Math.max(0, Math.round(s.qty))
+        : null;
+      const unitPrice = Number.isFinite(it.price) ? Math.round(it.price * 100) / 100 : null;
+      const subtotal = unitPrice != null && qty != null
+        ? Math.round(unitPrice * qty * 100) / 100
+        : null;
+      if (unitPrice == null) {
+        out.extraOpenQuestions.push(
+          `Preis für Item "${it.name}" liegt nicht als Zahl vor — STORIA klärt das individuell.`,
+        );
+      }
+      out.suggested_items.push({
+        menu_item_id: it.id,
+        name: it.name,
+        qty,
+        unit: typeof s.unit === "string" ? s.unit : null,
+        unit_price: unitPrice,
+        subtotal,
+      });
+    }
+  }
+
+  if (Array.isArray(raw.custom_items)) {
+    for (const c of raw.custom_items as RawCustomItem[]) {
+      const label = typeof c?.label === "string" ? c.label.trim() : "";
+      if (!label) continue;
+      out.custom_items.push({
+        label,
+        note: typeof c.note === "string" ? c.note : null,
+      });
+    }
+  }
+
+  return out;
+}
+
 /* -------- AI Gateway call -------- */
 
 async function callAiGateway(
