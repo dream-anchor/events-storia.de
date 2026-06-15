@@ -191,12 +191,9 @@ export function AiIntakeBar({ language }: Props) {
     <div className="mx-auto mt-6 md:mt-8 w-full max-w-[880px] px-2 text-left">
       {/* Collapsed bar */}
       {!expanded ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSubmit();
-          }}
-          className="group flex items-center gap-2 rounded-full border border-border bg-background/95 px-3 py-2 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-shadow hover:shadow-[0_18px_60px_-16px_rgba(0,0,0,0.25)] focus-within:shadow-[0_18px_60px_-16px_rgba(0,0,0,0.28)]"
+        <div
+          onClick={expand}
+          className="group flex items-center gap-2 rounded-full border border-border bg-background/95 px-3 py-2 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-shadow hover:shadow-[0_18px_60px_-16px_rgba(0,0,0,0.25)] cursor-pointer"
           aria-label={t.aiHint}
         >
           <span
@@ -205,35 +202,23 @@ export function AiIntakeBar({ language }: Props) {
           >
             <Sparkles className="h-4 w-4" />
           </span>
-          <label htmlFor="ai-intake-collapsed" className="sr-only">
+          <span className="flex-1 px-1 text-[15px] leading-snug text-muted-foreground/80">
             {t.placeholder}
-          </label>
-          <input
-            id="ai-intake-collapsed"
-            ref={collapsedRef}
-            type="text"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-            onFocus={expand}
-            onClick={expand}
-            placeholder={t.placeholder}
-            aria-expanded={expanded}
-            aria-controls="ai-intake-panel"
-            className="h-11 flex-1 truncate bg-transparent px-1 text-[15px] leading-snug text-foreground placeholder:text-muted-foreground/80 focus:outline-none"
-          />
+          </span>
           <Button
-            type="submit"
+            type="button"
             size="sm"
-            disabled={!draft.trim()}
-            title={!draft.trim() ? t.sendEmptyTooltip : undefined}
-            aria-label={!draft.trim() ? t.sendEmptyTooltip : t.send}
+            onClick={(e) => {
+              e.stopPropagation();
+              expand();
+            }}
+            aria-label={t.send}
             className="h-10 shrink-0 gap-1.5 rounded-full bg-foreground px-3 sm:px-4 text-background hover:bg-foreground/90"
           >
             <span className="hidden sm:inline">{t.send}</span>
             <ArrowUp className="h-3.5 w-3.5" aria-hidden />
           </Button>
-        </form>
+        </div>
       ) : null}
 
       {/* Expanded panel */}
