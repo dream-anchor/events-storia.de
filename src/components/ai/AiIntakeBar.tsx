@@ -28,6 +28,17 @@ const COPY = {
     close: "Panel schließen",
     minimize: "Minimieren",
     aiHint: "KI-Assistenz",
+    confirmTitle: "Bitte prüfen Sie Ihre Anfrage",
+    confirmIntro:
+      "Soll ich diese Anfrage jetzt an STORIA übermitteln?",
+    confirm: "Ja, an STORIA senden",
+    cancel: "Zurück",
+    submitting: "Wird übermittelt …",
+    successTitle: "Vielen Dank.",
+    successBody:
+      "Ihre Anfrage wurde an STORIA übermittelt. Wir melden uns mit einem individuellen Angebot.",
+    successHint: "Ihre Anfrage wurde erfolgreich erfasst.",
+    files: "Hochgeladene Dateien",
   },
   en: {
     placeholder:
@@ -43,6 +54,16 @@ const COPY = {
     close: "Close panel",
     minimize: "Minimize",
     aiHint: "AI assistance",
+    confirmTitle: "Please review your request",
+    confirmIntro: "Shall I submit this request to STORIA now?",
+    confirm: "Yes, send to STORIA",
+    cancel: "Back",
+    submitting: "Submitting …",
+    successTitle: "Thank you.",
+    successBody:
+      "Your request has been submitted to STORIA. We will get back to you with an individual offer.",
+    successHint: "Your request was successfully recorded.",
+    files: "Uploaded files",
   },
 } as const;
 
@@ -60,13 +81,18 @@ export function AiIntakeBar({ language }: Props) {
     notice,
     conversationId,
     errorMessage,
+    awaitingConfirmation,
+    submitting,
+    submittedInquiryId,
     expand,
     collapse,
     sendMessage,
     addFiles,
     removeAttachment,
-    showSubmitMockNotice,
     clearNotice,
+    requestConfirmation,
+    cancelConfirmation,
+    submitInquiry,
   } = useAiIntake({ language });
 
   const [draft, setDraft] = useState("");
@@ -260,25 +286,54 @@ export function AiIntakeBar({ language }: Props) {
 
             {/* CTA */}
             <div className="flex flex-col items-start gap-2 border-t border-border pt-4">
-              <Button
-                type="button"
-                size="lg"
-                disabled={!canSubmit}
-                onClick={showSubmitMockNotice}
-                className={cn(
-                  "h-11 rounded-full px-5",
-                  canSubmit
-                    ? "bg-foreground text-background hover:bg-foreground/90"
-                    : "bg-muted text-muted-foreground",
-                )}
-              >
-                {t.submit}
-              </Button>
-              {!canSubmit ? (
-                <p className="text-xs text-muted-foreground">
-                  {t.submitDisabledHint}
-                </p>
-              ) : null}
+              {submittedInquiryId ? (
+                <div
+                  role="status"
+                  className="w-full rounded-2xl border border-border bg-muted/40 p-4"
+                >
+                  <p className="text-base font-medium text-foreground">
+                    {t.successTitle}
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">{t.successBody}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {t.successHint}
+                  </p>
+                </div>
+              ) : awaitingConfirmation ? (
+                <ConfirmationSummary
+                  t={t}
+                  language={language}
+                  extraction={extraction}
+                  attachmentNames={attachments
+                    .filter((a) => a.status !== "error")
+                    .map((a) => a.file.name)}
+                  submitting={submitting}
+                  onConfirm={() => void submitInquiry()}
+                  onCancel={cancelConfirmation}
+                />
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    size="lg"
+                    disabled={!canSubmit}
+                    onClick={requestConfirmation}
+                    className={cn(
+                      "h-11 rounded-full px-5",
+                      canSubmit
+                        ? "bg-foreground text-background hover:bg-foreground/90"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {t.submit}
+                  </Button>
+                  {!canSubmit ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t.submitDisabledHint}
+                    </p>
+                  ) : null}
+                </>
+              )}
               {errorMessage ? (
                 <p
                   role="alert"
