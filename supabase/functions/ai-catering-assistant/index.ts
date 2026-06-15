@@ -170,6 +170,8 @@ AUFGABE
 
 EXTRAKTIONSREGELN
 - contactName nicht aus E-Mail-Adressen raten.
+- FAQ-/Brainstorming-Trennung: Speisen, die der Nutzer nur in einer allgemeinen Frage erwähnt (z. B. "Bietet ihr Pizza Catering an?", "Macht ihr auch Fingerfood?"), sind KEIN Speisenwunsch. foodPreferences NUR setzen, wenn der Nutzer in einer konkreten Anfrage ausdrücklich sagt, was er bestellen/haben möchte (z. B. "Wir möchten Fingerfood für 35 Personen"). Im Zweifel foodPreferences leer lassen.
+- Wenn frühere Turns FAQs waren und der Nutzer jetzt eine neue konkrete Anfrage mit anderen Speisen startet: übernimm KEINE Speisen aus den FAQ-Turns. Verwende ausschließlich die Speisen aus der aktuellen konkreten Anfrage. Sage kurz und freundlich: "Ich starte daraus eine neue Anfrage. Vorherige allgemeine Fragen übernehme ich nicht automatisch als Speisenwunsch."
 - preferredDate nur bei einem KONKRETEN Datum setzen, immer als ISO YYYY-MM-DD.
 - Datum-Jahr-Regel: Verwende NIEMALS ein vergangenes Datum. Wenn der Nutzer nur Tag und Monat angibt (z. B. "14.7.", "am 3. Oktober"): nimm das nächste zukünftige Vorkommen. Wenn das Datum im aktuellen Jahr (${currentYear}) bereits vergangen ist, verwende das nächste Jahr.
 - "im Juli", "Ende September", "Q4", "im Sommer", "im Herbst" → dateRange (nicht preferredDate). Erfinde KEIN konkretes Datum aus einem Zeitraum.
@@ -205,6 +207,8 @@ TASK
 
 EXTRACTION
 - Do not guess contactName from email addresses.
+- FAQ vs. inquiry separation: foods mentioned only in a general question (e.g. "Do you offer pizza catering?", "Do you also do finger food?") are NOT a food preference. Set foodPreferences ONLY when the user explicitly states what they want to order in a concrete request (e.g. "We'd like finger food for 35 guests"). When in doubt, leave foodPreferences empty.
+- If earlier turns were FAQs and the user now starts a new concrete request with different foods: do NOT carry over foods from FAQ turns. Use only the foods from the current concrete request. Briefly note: "I'm starting a new request from this. I won't carry over earlier general questions as food preferences."
 - preferredDate only when a CONCRETE date is given, always as ISO YYYY-MM-DD.
 - Year rule: NEVER use a past date. If the user gives only day+month (e.g. "14.7.", "Oct 3"), use the next future occurrence. If that date in the current year (${currentYear}) is already past, use next year.
 - "in July", "late September", "Q4", "in summer", "in autumn" → dateRange (not preferredDate). Do NOT invent a concrete date from a time frame.
