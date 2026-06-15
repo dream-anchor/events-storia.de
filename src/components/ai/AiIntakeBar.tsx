@@ -16,55 +16,78 @@ interface Props {
 const COPY = {
   de: {
     placeholder:
-      "Beschreiben Sie Ihre Anforderungen oder kopieren Sie Ihr Briefing hier ein …",
+      "Stellen Sie eine Frage oder beschreiben Sie Ihr Catering — die KI hilft bei der Vorbereitung.",
     send: "Senden",
     expandedPlaceholder:
-      "Beschreiben Sie Anlass, Datum, Personenanzahl, Ort und Speisenwünsche — gerne auch als kompletter Briefing-Text.",
+      "Stellen Sie eine Frage oder beschreiben Sie Anlass, Datum, Personenanzahl und Speisenwünsche.",
     chatLabel: "KI-Hinweise",
     attachmentsLabel: "Anhänge (optional)",
     summaryLabel: "Übersicht",
-    submit: "Anfrage an STORIA senden",
+    submit: "Anfrage an STORIA zur Prüfung senden",
     submitDisabledHint:
-      "Pflichtangaben ergänzen, um die Anfrage senden zu können.",
+      "Bitte ergänzen Sie noch die fehlenden Angaben, damit STORIA Ihre Anfrage prüfen kann.",
     close: "Panel schließen",
     minimize: "Minimieren",
     aiHint: "KI-Assistenz",
+    aiDisclaimer:
+      "Die KI hilft bei der Vorbereitung Ihrer Anfrage. Das finale Angebot wird vom STORIA-Team geprüft und freigegeben.",
     confirmTitle: "Bitte prüfen Sie Ihre Anfrage",
     confirmIntro:
-      "Soll ich diese Anfrage jetzt an STORIA übermitteln?",
-    confirm: "Ja, an STORIA senden",
+      "Soll ich diese Anfrage jetzt zur Prüfung an STORIA übermitteln?",
+    confirm: "Ja, zur Prüfung senden",
     cancel: "Zurück",
     submitting: "Wird übermittelt …",
     successTitle: "Vielen Dank.",
     successBody:
-      "Ihre Anfrage wurde an STORIA übermittelt. Wir melden uns mit einem individuellen Angebot.",
+      "Ihre Anfrage liegt bei STORIA zur Prüfung. Das Team meldet sich mit einem individuellen, verbindlichen Angebot.",
     successHint: "Ihre Anfrage wurde erfolgreich erfasst.",
     files: "Hochgeladene Dateien",
+    examplesLabel: "Beispiele",
+    examples: [
+      "Pizza Catering planen",
+      "Fingerfood für 40 Personen",
+      "Was passt für eine Firmenfeier?",
+      "Ich habe ein Briefing",
+      "Menü zusammenstellen",
+      "Preis grob einschätzen lassen",
+    ],
   },
   en: {
     placeholder:
-      "Describe your catering request or paste your briefing here …",
+      "Ask a question or describe your catering — the AI helps prepare your request.",
     send: "Send",
     expandedPlaceholder:
-      "Describe the occasion, date, guest count, location and menu preferences — full briefings are welcome.",
+      "Ask a question or describe occasion, date, guest count and menu preferences.",
     chatLabel: "AI hints",
     attachmentsLabel: "Attachments (optional)",
     summaryLabel: "Summary",
-    submit: "Send request to STORIA",
-    submitDisabledHint: "Provide the required details to enable submission.",
+    submit: "Send request to STORIA for review",
+    submitDisabledHint:
+      "Please add the missing details so STORIA can review your request.",
     close: "Close panel",
     minimize: "Minimize",
     aiHint: "AI assistance",
+    aiDisclaimer:
+      "The AI helps prepare your request. The final offer is reviewed and approved by the STORIA team.",
     confirmTitle: "Please review your request",
-    confirmIntro: "Shall I submit this request to STORIA now?",
-    confirm: "Yes, send to STORIA",
+    confirmIntro: "Shall I submit this request to STORIA for review now?",
+    confirm: "Yes, send for review",
     cancel: "Back",
     submitting: "Submitting …",
     successTitle: "Thank you.",
     successBody:
-      "Your request has been submitted to STORIA. We will get back to you with an individual offer.",
+      "Your request is with STORIA for review. The team will get back to you with an individual, binding offer.",
     successHint: "Your request was successfully recorded.",
     files: "Uploaded files",
+    examplesLabel: "Examples",
+    examples: [
+      "Plan pizza catering",
+      "Finger food for 40 guests",
+      "What suits a company event?",
+      "I have a briefing",
+      "Compose a menu",
+      "Rough price estimate",
+    ],
   },
 } as const;
 
@@ -232,8 +255,35 @@ export function AiIntakeBar({ language }: Props) {
                 extraction={extraction}
                 missing={missing}
                 language={language}
+                attachmentCount={
+                  attachments.filter((a) => a.status !== "error").length
+                }
               />
             </section>
+
+            {/* Example chips (only on empty conversation) */}
+            {messages.length === 0 ? (
+              <section aria-label={t.examplesLabel} className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  {t.examplesLabel}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {t.examples.map((ex) => (
+                    <button
+                      key={ex}
+                      type="button"
+                      onClick={() => {
+                        sendMessage(ex);
+                      }}
+                      disabled={thinking}
+                      className="rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                    >
+                      {ex}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             {/* Textarea */}
             <div className="rounded-2xl border border-border bg-background p-2 focus-within:ring-2 focus-within:ring-foreground/20">
@@ -287,6 +337,11 @@ export function AiIntakeBar({ language }: Props) {
 
             {/* CTA */}
             <div className="flex flex-col items-start gap-2 border-t border-border pt-4">
+              {!submittedInquiryId && !awaitingConfirmation ? (
+                <p className="text-xs text-muted-foreground">
+                  {t.aiDisclaimer}
+                </p>
+              ) : null}
               {submittedInquiryId ? (
                 <div
                   role="status"
