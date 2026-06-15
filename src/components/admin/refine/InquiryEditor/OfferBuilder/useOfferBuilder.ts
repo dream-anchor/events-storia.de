@@ -1010,6 +1010,8 @@ export function useOfferBuilder({
         ...partial,
         optionLabel: nextLabel,
         isActive: false, // niemals automatisch aktivieren
+        aiOrigin: true,
+        needsManualSave: true,
       };
 
       const next = [...relabeled, newOpt];
