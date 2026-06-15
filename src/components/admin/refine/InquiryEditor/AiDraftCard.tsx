@@ -1,5 +1,6 @@
-import { Sparkles } from "lucide-react";
+import { Sparkles, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -9,10 +10,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useAiDraft } from "@/hooks/useAiDraft";
+import { useAiDraft, type AiDraft } from "@/hooks/useAiDraft";
+import { toast } from "sonner";
+
+export interface AiDraftPrefillResult {
+  ok: boolean;
+  warnings: string[];
+  skippedItems: Array<{ name: string; reason: string }>;
+}
 
 interface Props {
   inquiryId: string;
+  /**
+   * Optionaler Callback. Wenn gesetzt, erscheint der Button
+   * „In OfferBuilder übernehmen". Der Callback befüllt nur den
+   * lokalen OfferBuilder-UI-State und persistiert nichts.
+   */
+  onPrefillFromAiDraft?: (draft: AiDraft) => AiDraftPrefillResult | Promise<AiDraftPrefillResult>;
 }
 
 function isBlank(v: unknown): boolean {
@@ -56,7 +70,7 @@ function formatDateTime(iso: string | null | undefined): string {
   }
 }
 
-export function AiDraftCard({ inquiryId }: Props) {
+export function AiDraftCard({ inquiryId, onPrefillFromAiDraft }: Props) {
   const { data, isLoading } = useAiDraft(inquiryId);
 
   if (isLoading) return null;
@@ -70,6 +84,39 @@ export function AiDraftCard({ inquiryId }: Props) {
 
   const estimate = draft.estimate ?? {};
   const hasEstimate = !isBlank(estimate.low) && !isBlank(estimate.high);
+
+  const canPrefill = packages.length > 0 || items.length > 0;
+
+  const handlePrefill = async () => {
+    if (!onPrefillFromAiDraft) return;
+    try {
+      const result = await onPrefillFromAiDraft(draft);
+      if (!result.ok) {
+        const first = result.warnings[0] ?? "Übernahme nicht möglich.";
+        toast.error(first);
+        return;
+      }
+      toast.success(
+        "KI-Entwurf wurde als Vorschlag in den OfferBuilder geladen. Bitte prüfen, anpassen und manuell speichern.",
+      );
+      if (result.warnings.length > 0 || result.skippedItems.length > 0) {
+        toast.warning(
+          "Einige Positionen konnten nicht automatisch übernommen werden und müssen geprüft werden.",
+          {
+            description: [
+              ...result.warnings,
+              ...result.skippedItems.map((s) => `${s.name}: ${s.reason}`),
+            ]
+              .slice(0, 5)
+              .join("\n"),
+          },
+        );
+      }
+    } catch (err) {
+      console.error("[AiDraftCard] prefill failed:", err);
+      toast.error("Übernahme in OfferBuilder fehlgeschlagen.");
+    }
+  };
 
   return (
     <Card className="border-neutral-200">
@@ -217,6 +264,31 @@ export function AiDraftCard({ inquiryId }: Props) {
               ))}
             </ul>
           </section>
+        )}
+
+        {onPrefillFromAiDraft && (
+          <div className="flex flex-col gap-2 border-t border-neutral-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Übernahme erzeugt nur einen Vorschlag im OfferBuilder. Es wird
+              nichts an den Kunden gesendet, kein Angebot freigegeben.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!canPrefill}
+              onClick={handlePrefill}
+              className="rounded-2xl"
+              title={
+                canPrefill
+                  ? "Vorschlag im OfferBuilder anlegen"
+                  : "Keine übernehmbaren Positionen vorhanden."
+              }
+            >
+              <ArrowRight className="mr-2 h-4 w-4" />
+              In OfferBuilder übernehmen
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>
