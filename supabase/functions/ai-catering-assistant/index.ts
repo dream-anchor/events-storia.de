@@ -278,6 +278,49 @@ const RESPOND_TOOL = {
             summary: { type: "string" },
           },
         },
+        draftSuggestions: {
+          type: "object",
+          description:
+            "Optional unverbindliche Vorschläge für Pakete/Items. Nur IDs aus der bereitgestellten KATALOG-Liste. NIEMALS Preise hier zurückgeben — Preise werden serverseitig berechnet.",
+          properties: {
+            suggested_packages: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  package_id: { type: "string" },
+                  guests: { type: "number" },
+                  rationale: { type: "string" },
+                },
+                required: ["package_id"],
+              },
+            },
+            suggested_items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  menu_item_id: { type: "string" },
+                  qty: { type: "number" },
+                  unit: { type: "string" },
+                  rationale: { type: "string" },
+                },
+                required: ["menu_item_id"],
+              },
+            },
+            custom_items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  label: { type: "string" },
+                  note: { type: "string" },
+                },
+                required: ["label"],
+              },
+            },
+          },
+        },
       },
       required: ["reply", "intent", "extracted"],
     },
