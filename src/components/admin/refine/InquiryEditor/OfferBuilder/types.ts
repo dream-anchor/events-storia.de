@@ -310,6 +310,13 @@ export interface UseOfferBuilderReturn {
   addOption: (mode?: OfferMode, copyFrom?: OfferBuilderOption) => void;
   removeOption: (optionId: string) => void;
   importOptions: (partials: Partial<OfferBuilderOption>[]) => void;
+  /**
+   * Fügt einen AI-Draft-Vorschlag NUR in den lokalen UI-State ein.
+   * Triggert KEINEN Auto-Save (kein Write in `v2_offer_options`).
+   * Erst manuelle Bearbeitung/Speichern persistiert.
+   * Liefert `true` wenn eine Option hinzugefügt wurde.
+   */
+  addAiDraftPreview: (partial: Partial<OfferBuilderOption>) => boolean;
   updateOption: (optionId: string, updates: Partial<OfferBuilderOption>) => void;
   toggleOptionActive: (optionId: string) => void;
 
