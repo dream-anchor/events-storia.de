@@ -3,6 +3,7 @@ import { ArrowUp, Send, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAiIntake } from "@/hooks/useAiIntake";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { AiChatMessages } from "./AiChatMessages";
 import { AiAttachmentUploader } from "./AiAttachmentUploader";
 import { AiSummaryCard } from "./AiSummaryCard";
@@ -17,14 +18,15 @@ const COPY = {
   de: {
     placeholder:
       "Stellen Sie eine Frage oder beschreiben Sie Ihr Catering — die KI hilft bei der Vorbereitung eines unverbindlichen Angebots.",
+    shortIntro: "Stellen Sie eine Frage oder beschreiben Sie Ihr Catering.",
     send: "Frage senden",
     sendEmptyTooltip: "Geben Sie eine Nachricht ein, um weiterzufragen.",
     composerHint:
       "Dieser Button sendet nur eine Chat-Nachricht. Die Anfrage an STORIA senden Sie unten.",
+    composerHintShort: "Angebot unten anfragen.",
     introHint:
       "Sie können Fragen stellen, gemeinsam planen oder direkt ein Angebot bei STORIA anfragen.",
-    expandedPlaceholder:
-      "Stellen Sie eine Frage oder beschreiben Sie Anlass, Datum, Personenanzahl und Speisenwünsche.",
+    expandedPlaceholder: "Nachricht oder Briefing eingeben …",
     chatLabel: "KI-Hinweise",
     attachmentsLabel: "Anhänge (optional)",
     summaryLabel: "Übersicht",
@@ -66,14 +68,15 @@ const COPY = {
   en: {
     placeholder:
       "Ask a question or describe your catering — the AI helps prepare a non-binding offer.",
+    shortIntro: "Ask a question or describe your catering.",
     send: "Send message",
     sendEmptyTooltip: "Enter a message to continue the conversation.",
     composerHint:
       "This button only sends a chat message. Use the button below to send the request to STORIA.",
+    composerHintShort: "Request the offer below.",
     introHint:
       "You can ask questions, plan together, or directly request an offer from STORIA.",
-    expandedPlaceholder:
-      "Ask a question or describe occasion, date, guest count and menu preferences.",
+    expandedPlaceholder: "Type a message or briefing …",
     chatLabel: "AI hints",
     attachmentsLabel: "Attachments (optional)",
     summaryLabel: "Summary",
@@ -116,6 +119,7 @@ const COPY = {
 
 export function AiIntakeBar({ language }: Props) {
   const t = COPY[language];
+  const isMobile = useIsMobile();
   const {
     expanded,
     messages,
