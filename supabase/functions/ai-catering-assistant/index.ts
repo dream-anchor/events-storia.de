@@ -516,7 +516,7 @@ serve(async (req) => {
     conversation_id: conversationId,
     extracted: nextExtraction,
     missing_fields: missingFields,
-    confidence: null,
+    confidence: {},
   });
 
   const desiredStatus = readyToSubmit ? "ready_to_submit" : "active";
