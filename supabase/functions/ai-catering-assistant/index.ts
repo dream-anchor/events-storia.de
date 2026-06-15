@@ -562,3 +562,277 @@ serve(async (req) => {
 
 // Suppress unused-warning for REQUIRED_FIELDS (kept for clarity / future use)
 void REQUIRED_FIELDS;
+
+/* ============================================================
+ * submit_inquiry — server-to-server call to receive-event-inquiry
+ * ============================================================ */
+
+type SupaClient = ReturnType<typeof createClient>;
+
+function buildInquiryMessageText(
+  e: Extracted,
+  messages: { role: string; content: string }[],
+  attachmentNames: string[],
+): string {
+  const lines: string[] = [];
+  lines.push("AI INTAKE ZUSAMMENFASSUNG");
+  lines.push("");
+  if (e.originalUserText) {
+    lines.push("Originaltext des Kunden:");
+    lines.push(e.originalUserText);
+    lines.push("");
+  }
+  lines.push("Erkannte Angaben:");
+  lines.push(`- Name / Ansprechpartner: ${e.contactName ?? "(nicht angegeben)"}`);
+  lines.push(`- E-Mail: ${e.email ?? "(nicht angegeben)"}`);
+  lines.push(`- Telefon: ${e.phone ?? "(nicht angegeben)"}`);
+  lines.push(`- Firma: ${e.companyName ?? "(nicht angegeben)"}`);
+  lines.push(
+    `- Personenanzahl: ${e.guestCount != null ? String(e.guestCount) : "(nicht angegeben)"}`,
+  );
+  const dateText = e.preferredDate
+    ? e.preferredDate
+    : e.dateRange
+      ? `Zeitraum: ${e.dateRange}`
+      : "(nicht angegeben)";
+  lines.push(`- Datum / Zeitraum: ${dateText}`);
+  lines.push(`- Uhrzeit: ${e.timeSlot ?? "(nicht angegeben)"}`);
+  lines.push(`- Anlass: ${e.eventType ?? "(nicht angegeben)"}`);
+  const place = e.locationName || e.deliveryAddress;
+  lines.push(`- Ort / Lieferadresse: ${place ?? "(nicht angegeben)"}`);
+  lines.push(
+    `- Speisenwünsche: ${e.foodPreferences?.length ? e.foodPreferences.join(", ") : "(nicht angegeben)"}`,
+  );
+  lines.push(
+    `- Allergien / besondere Anforderungen: ${e.dietaryRequirements?.length ? e.dietaryRequirements.join(", ") : "(nicht angegeben)"}`,
+  );
+  const serviceEquip = [
+    ...(e.serviceNeeds ?? []),
+    ...(e.equipmentNeeds ?? []),
+  ];
+  lines.push(
+    `- Service / Equipment: ${serviceEquip.length ? serviceEquip.join(", ") : "(nicht angegeben)"}`,
+  );
+  lines.push("");
+  lines.push("Hochgeladene Dateien:");
+  if (attachmentNames.length === 0) {
+    lines.push("- (keine)");
+  } else {
+    for (const n of attachmentNames) lines.push(`- ${n}`);
+  }
+  lines.push("");
+  lines.push("Offene Punkte:");
+  if (e.openQuestions?.length) {
+    for (const q of e.openQuestions) lines.push(`- ${q}`);
+  } else {
+    lines.push("- (keine)");
+  }
+  lines.push("");
+  lines.push("Gesprächsprotokoll:");
+  for (const m of messages) {
+    const who = m.role === "user" ? "Kunde" : m.role === "assistant" ? "KI" : m.role;
+    const content = String(m.content ?? "").trim();
+    if (!content) continue;
+    lines.push(`${who}: ${content}`);
+  }
+  return lines.join("\n");
+}
+
+function isIsoDate(s: string | null | undefined): boolean {
+  return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+async function handleSubmitInquiry(
+  supabase: SupaClient,
+  conversationId: string,
+  language: Lang,
+  cors: Record<string, string>,
+): Promise<Response> {
+  // Load conversation
+  const { data: conv, error: convErr } = await supabase
+    .from("ai_conversations")
+    .select("id, status, inquiry_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (convErr || !conv) {
+    return jsonResponse({ success: false, error: "conversation_not_found" }, 404, cors);
+  }
+  if (conv.status === "submitted" && conv.inquiry_id) {
+    return jsonResponse(
+      {
+        success: true,
+        inquiryId: conv.inquiry_id,
+        reply:
+          language === "en"
+            ? "Your request has already been sent to STORIA."
+            : "Ihre Anfrage wurde bereits an STORIA übermittelt.",
+      },
+      200,
+      cors,
+    );
+  }
+
+  // Load latest extraction
+  const { data: latest } = await supabase
+    .from("ai_extractions")
+    .select("extracted")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let extraction = emptyExtraction();
+  if (latest?.extracted && typeof latest.extracted === "object") {
+    extraction = mergeExtraction(extraction, latest.extracted as Partial<Extracted>);
+  }
+
+  const missingFields = computeMissing(extraction);
+  if (missingFields.length > 0) {
+    const replyDe =
+      "Für die Übermittlung fehlen noch folgende Angaben: " +
+      missingFields.join(", ") +
+      ".";
+    const replyEn =
+      "For submission, the following details are still missing: " +
+      missingFields.join(", ") +
+      ".";
+    return jsonResponse(
+      {
+        success: false,
+        error: "missing_required_fields",
+        missingFields,
+        reply: language === "en" ? replyEn : replyDe,
+      },
+      400,
+      cors,
+    );
+  }
+
+  // Load all messages
+  const { data: msgs } = await supabase
+    .from("ai_messages")
+    .select("role, content")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+
+  // Load attachment filenames
+  const { data: attRows } = await supabase
+    .from("inquiry_attachments")
+    .select("id, original_filename")
+    .eq("conversation_id", conversationId)
+    .is("inquiry_id", null);
+
+  const attachmentNames = (attRows ?? []).map((r) => String(r.original_filename));
+  const messageText = buildInquiryMessageText(extraction, msgs ?? [], attachmentNames);
+
+  const payload: Record<string, unknown> = {
+    contactName: extraction.contactName,
+    email: extraction.email,
+    phone: extraction.phone ?? undefined,
+    companyName: extraction.companyName ?? undefined,
+    guestCount:
+      extraction.guestCount != null ? String(extraction.guestCount) : undefined,
+    eventType: extraction.eventType ?? undefined,
+    preferredDate: isIsoDate(extraction.preferredDate)
+      ? extraction.preferredDate
+      : undefined,
+    timeSlot: extraction.timeSlot ?? undefined,
+    message: messageText,
+    source: "ai_intake_bar",
+  };
+
+  // Server-to-server call to receive-event-inquiry
+  const supaUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  let inquiryId: string | null = null;
+  try {
+    const res = await fetch(`${supaUrl}/functions/v1/receive-event-inquiry`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      console.error("receive_event_inquiry_failed", res.status, txt.slice(0, 300));
+      return jsonResponse(
+        {
+          success: false,
+          error: "submit_failed",
+          reply:
+            language === "en"
+              ? "The request could not be sent right now. Please try again or contact STORIA directly."
+              : "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut oder kontaktieren Sie STORIA direkt.",
+        },
+        502,
+        cors,
+      );
+    }
+    const json = await res.json().catch(() => ({}));
+    inquiryId = typeof json?.inquiryId === "string" ? json.inquiryId : null;
+  } catch (e) {
+    console.error("receive_event_inquiry_call_failed", (e as Error).message);
+    return jsonResponse(
+      {
+        success: false,
+        error: "submit_failed",
+        reply:
+          language === "en"
+            ? "The request could not be sent right now. Please try again or contact STORIA directly."
+            : "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut oder kontaktieren Sie STORIA direkt.",
+      },
+      502,
+      cors,
+    );
+  }
+
+  if (!inquiryId) {
+    return jsonResponse(
+      {
+        success: false,
+        error: "submit_failed",
+        reply:
+          language === "en"
+            ? "The request could not be sent right now. Please try again or contact STORIA directly."
+            : "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut oder kontaktieren Sie STORIA direkt.",
+      },
+      502,
+      cors,
+    );
+  }
+
+  // Update conversation
+  await supabase
+    .from("ai_conversations")
+    .update({ status: "submitted", inquiry_id: inquiryId })
+    .eq("id", conversationId);
+
+  // Link attachments
+  await supabase
+    .from("inquiry_attachments")
+    .update({ inquiry_id: inquiryId })
+    .eq("conversation_id", conversationId)
+    .is("inquiry_id", null);
+
+  const successReply =
+    language === "en"
+      ? "Thank you. Your request has been submitted to STORIA. We will get back to you with an individual offer."
+      : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt. Wir melden uns mit einem individuellen Angebot.";
+
+  // Persist a system-style assistant message so the chat log reflects submission
+  await supabase.from("ai_messages").insert({
+    conversation_id: conversationId,
+    role: "assistant",
+    content: successReply,
+    metadata: { event: "submit_inquiry", inquiryId },
+  });
+
+  return jsonResponse(
+    { success: true, inquiryId, reply: successReply },
+    200,
+    cors,
+  );
+}
