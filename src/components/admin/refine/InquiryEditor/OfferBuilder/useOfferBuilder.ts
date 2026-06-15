@@ -1523,6 +1523,7 @@ export function useOfferBuilder({
     addOption,
     removeOption,
     importOptions,
+    addAiDraftPreview,
     updateOption,
     toggleOptionActive,
 
