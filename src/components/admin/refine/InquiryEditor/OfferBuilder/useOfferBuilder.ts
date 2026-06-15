@@ -971,6 +971,56 @@ export function useOfferBuilder({
     });
   }, [guestCount, currentVersion]);
 
+  /**
+   * AI-Draft-Preview: fügt eine Option NUR in den lokalen UI-State ein,
+   * OHNE Auto-Save zu triggern (kein `isDirtyRef = true`). Damit landet
+   * der Vorschlag nicht automatisch in `v2_offer_options`.
+   *
+   * Erst wenn der Betreiber die Option editiert oder explizit speichert,
+   * läuft der normale Auto-Save / manuelle Save.
+   *
+   * Wichtig:
+   *  - `isActive: false` wird erzwungen (kein versehentlicher Versand).
+   *  - `lastSavedJsonRef` wird mitgezogen, damit der Auto-Save-Diff bei
+   *    der nächsten unverbundenen Re-Render-Welle nicht „zufällig" Save
+   *    triggert.
+   */
+  const addAiDraftPreview = useCallback((partial: Partial<OfferBuilderOption>): boolean => {
+    let didAdd = false;
+    setOptions(prev => {
+      const isEmptyOption = (o: OfferBuilderOption) =>
+        o.offerMode === 'menu' &&
+        o.menuSelection.courses.length === 0 &&
+        !o.packageId &&
+        (!o.totalAmount || o.totalAmount === 0);
+
+      const nonEmpty = prev.filter(o => !isEmptyOption(o));
+      const relabeled = nonEmpty.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
+      const nextLabel = OPTION_LABELS[relabeled.length];
+      if (!nextLabel) {
+        toast.warning('Maximale Anzahl an Optionen erreicht (5)');
+        return prev;
+      }
+
+      const base = createEmptyOption(nextLabel, guestCount, partial.offerMode ?? 'menu');
+      const newOpt: OfferBuilderOption = {
+        ...base,
+        id: crypto.randomUUID(),
+        createdInVersion: currentVersion,
+        ...partial,
+        optionLabel: nextLabel,
+        isActive: false, // niemals automatisch aktivieren
+      };
+
+      const next = [...relabeled, newOpt];
+      // Auto-Save-Diff neu kalibrieren — kein "Dirty" setzen.
+      lastSavedJsonRef.current = JSON.stringify(next);
+      didAdd = true;
+      return next;
+    });
+    return didAdd;
+  }, [guestCount, currentVersion]);
+
   const updateOption = useCallback((optionId: string, updates: Partial<OfferBuilderOption>) => {
     isDirtyRef.current = true;
     dirtySourceRef.current = 'user';
