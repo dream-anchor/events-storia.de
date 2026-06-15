@@ -336,18 +336,31 @@ async function callAiGateway(
   currentExtraction: Extracted,
   uploadedFiles: number,
   knowledgeContext: string,
+  catalog: CatalogSnippet | null,
 ): Promise<{
   reply: string;
   intent: Intent;
   extracted: Partial<Extracted>;
   suggestedNextQuestion?: string;
+  draftSuggestions?: RawDraftSuggestions;
 } | null> {
+  const catalogBlock = catalog ? buildCatalogPromptBlock(catalog) : "";
+  const draftGuardrails =
+    "\n\nDRAFT-REGELN (KI-Entwurf, NICHT verbindliches Angebot):\n" +
+    "- Bei Catering-/Menü-Brainstorming darfst du in draftSuggestions Pakete oder Items aus der KATALOG-Liste vorschlagen. NUR IDs aus dem Katalog. Keine eigenen IDs erfinden.\n" +
+    "- Niemals Preise oder Summen in draftSuggestions zurückgeben. Preise werden serverseitig berechnet.\n" +
+    "- Wenn Preise oder Mindestmengen unklar sind, schreibe einen Hinweis in extracted.openQuestions, statt zu raten.\n" +
+    "- Verboten zu sagen: \"Hier ist Ihr Angebot\", \"Gesamtpreis verbindlich\", \"Sie können jetzt buchen\", \"Zahlung jetzt\", \"Angebot wurde erstellt\".\n" +
+    "- Erlaubt: \"unverbindlicher Entwurf\", \"Preisorientierung\", \"vorbehaltlich Prüfung und Freigabe durch STORIA\", \"STORIA erstellt nach Prüfung das verbindliche Angebot\".\n" +
+    "- Spreche immer von einem Entwurf, niemals von einem fertigen Angebot.";
   const systemMessage = {
     role: "system",
     content:
       systemPrompt(lang) +
+      draftGuardrails +
       `\n\nKONTEXT (aktuelle Extraktion, JSON): ${JSON.stringify(currentExtraction)}\n` +
       `KONTEXT (clientState.uploadedFiles.count): ${uploadedFiles}` +
+      (catalogBlock ? `\n\n${catalogBlock}` : "") +
       (knowledgeContext
         ? `\n\n${knowledgeContext}`
         : "\n\nVERFÜGBARE QUELLEN: (keine passenden öffentlichen Quellen gefunden — bei Sachfragen ausdrücklich auf das STORIA-Team verweisen, niemals Preise/Liefer-/Zahlungs-/AGB-Aussagen erfinden)"),
@@ -390,6 +403,10 @@ async function callAiGateway(
       suggestedNextQuestion:
         typeof args.suggestedNextQuestion === "string"
           ? args.suggestedNextQuestion
+          : undefined,
+      draftSuggestions:
+        args.draftSuggestions && typeof args.draftSuggestions === "object"
+          ? (args.draftSuggestions as RawDraftSuggestions)
           : undefined,
     };
   } catch (e) {
