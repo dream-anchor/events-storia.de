@@ -10,6 +10,7 @@
     "build:dev": "vite build --mode development",
     "sitemap": "npx tsx scripts/generate-sitemap.ts",
     "fetch-menus": "npx tsx scripts/fetch-menu-data.ts",
+    "index:knowledge": "npx tsx scripts/index-knowledge-from-repo.ts",
     "lint": "eslint .",
     "preview": "vite preview"
   },

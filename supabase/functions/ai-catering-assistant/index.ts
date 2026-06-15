@@ -9,6 +9,21 @@ const MAX_HISTORY_MESSAGES = 30;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const STOPWORDS = new Set([
+  "der","die","das","den","dem","des","ein","eine","einer","einem","einen","und","oder","aber","mit","ohne","für","zu","zum","zur","von","vom","im","in","am","an","auf","aus","über","unter","wir","ihr","sie","es","ich","du","mein","meine","euer","eure",
+  "the","a","an","and","or","for","to","of","in","on","at","with","without","is","are","was","were","be","been","being","that","this","it","i","we","you","they",
+  "ja","nein","bitte","danke","hallo","guten","tag","please","thanks","hello",
+]);
+
+function tokenize(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((t) => t.length >= 4 && !STOPWORDS.has(t))
+    .slice(0, 12);
+}
+
 const REQUIRED_FIELDS = [
   "contactName",
   "email",
@@ -242,6 +257,7 @@ async function callAiGateway(
   history: { role: "user" | "assistant"; content: string }[],
   currentExtraction: Extracted,
   uploadedFiles: number,
+  knowledgeContext: string,
 ): Promise<{
   reply: string;
   intent: Intent;
@@ -253,7 +269,10 @@ async function callAiGateway(
     content:
       systemPrompt(lang) +
       `\n\nKONTEXT (aktuelle Extraktion, JSON): ${JSON.stringify(currentExtraction)}\n` +
-      `KONTEXT (clientState.uploadedFiles.count): ${uploadedFiles}`,
+      `KONTEXT (clientState.uploadedFiles.count): ${uploadedFiles}` +
+      (knowledgeContext
+        ? `\n\n${knowledgeContext}`
+        : "\n\nVERFÜGBARE QUELLEN: (keine passenden öffentlichen Quellen gefunden — bei Sachfragen ausdrücklich auf das STORIA-Team verweisen, niemals Preise/Liefer-/Zahlungs-/AGB-Aussagen erfinden)"),
   };
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -471,6 +490,9 @@ serve(async (req) => {
   currentExtraction.attachmentsMentioned =
     currentExtraction.attachmentsMentioned || uploadedFilesCount > 0;
 
+  // 4b. Knowledge lookup (safe sources only)
+  const knowledgeContext = await lookupKnowledge(supabase, message);
+
   // 5. Call AI gateway
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   let reply = "";
@@ -489,6 +511,7 @@ serve(async (req) => {
         chatHistory,
         currentExtraction,
         uploadedFilesCount,
+        knowledgeContext,
       );
       if (aiResult) {
         reply = aiResult.reply || fallbackReply(language, computeMissing(currentExtraction));
@@ -568,6 +591,65 @@ void REQUIRED_FIELDS;
  * ============================================================ */
 
 type SupaClient = ReturnType<typeof createClient>;
+
+/* -------- Knowledge lookup (safe sources only) -------- */
+
+async function lookupKnowledge(
+  supabase: SupaClient,
+  query: string,
+): Promise<string> {
+  const tokens = tokenize(query);
+  if (tokens.length === 0) return "";
+  try {
+    // Pull candidate active chunks via ILIKE on top tokens; rank in-memory.
+    const orExpr = tokens
+      .slice(0, 6)
+      .map((t) => `content.ilike.%${t.replace(/[,()]/g, " ")}%`)
+      .join(",");
+    const { data: chunks } = await supabase
+      .from("knowledge_chunks")
+      .select("content, metadata, document_id, knowledge_documents!inner(status, title, path)")
+      .eq("knowledge_documents.status", "active")
+      .or(orExpr)
+      .limit(20);
+    if (!chunks || chunks.length === 0) return "";
+    type Row = {
+      content: string;
+      metadata: Record<string, unknown> | null;
+      knowledge_documents: { title: string | null; path: string | null; status: string };
+    };
+    const safe = (chunks as unknown as Row[]).filter((c) => {
+      const meta = (c.metadata ?? {}) as Record<string, unknown>;
+      if (meta.requires_manual_review === true) return false;
+      if (meta.status && meta.status !== "active") return false;
+      if (meta.risk && meta.risk !== null) return false;
+      return true;
+    });
+    const scored = safe.map((c) => {
+      const lc = (c.content || "").toLowerCase();
+      let score = 0;
+      for (const t of tokens) {
+        if (lc.includes(t)) score += 1;
+      }
+      return { c, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    const top = scored.filter((x) => x.score > 0).slice(0, 5);
+    if (top.length === 0) return "";
+    const lines: string[] = [
+      "VERFÜGBARE QUELLEN (nur diese als gesicherte Fakten verwenden — wenn die Frage hier nicht beantwortet wird, ausdrücklich auf das STORIA-Team verweisen; KEINE Preise/Liefer-/Zahlungs-/AGB-Aussagen erfinden):",
+    ];
+    top.forEach((x, i) => {
+      const title = x.c.knowledge_documents?.title ?? "Quelle";
+      const text = x.c.content.slice(0, 800);
+      lines.push(`\n[Quelle ${i + 1}: ${title}]\n${text}`);
+    });
+    return lines.join("\n");
+  } catch (e) {
+    console.error("knowledge_lookup_failed", (e as Error).message);
+    return "";
+  }
+}
 
 function buildInquiryMessageText(
   e: Extracted,
