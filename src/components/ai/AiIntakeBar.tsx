@@ -363,7 +363,7 @@ export default AiIntakeBar;
 
 /* -------- Confirmation summary subcomponent -------- */
 
-type CopyDict = (typeof COPY)["de"];
+type CopyDict = (typeof COPY)[keyof typeof COPY];
 
 interface ConfirmationSummaryProps {
   t: CopyDict;
