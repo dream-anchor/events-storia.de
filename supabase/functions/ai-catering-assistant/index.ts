@@ -328,6 +328,7 @@ serve(async (req) => {
     message?: unknown;
     language?: unknown;
     action?: unknown;
+    confirmed?: unknown;
     clientState?: { uploadedFiles?: unknown; currentExtraction?: unknown };
   };
   try {
@@ -336,18 +337,40 @@ serve(async (req) => {
     return jsonResponse({ error: "invalid_json" }, 400, cors);
   }
 
+  const action = typeof body.action === "string" ? body.action : "chat";
+  const incomingConvId =
+    typeof body.conversationId === "string" && UUID_RE.test(body.conversationId)
+      ? body.conversationId
+      : null;
+  const language: Lang = body.language === "en" ? "en" : "de";
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
+  );
+
+  // -------- submit_inquiry branch --------
+  if (action === "submit_inquiry") {
+    if (!incomingConvId) {
+      return jsonResponse({ error: "conversation_required" }, 400, cors);
+    }
+    if (body.confirmed !== true) {
+      return jsonResponse({ error: "confirmation_required" }, 400, cors);
+    }
+    const rateKey = `submit:${incomingConvId}`;
+    if (!checkRate(rateKey)) {
+      return jsonResponse({ error: "rate_limited" }, 429, cors);
+    }
+    return await handleSubmitInquiry(supabase, incomingConvId, language, cors);
+  }
+
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) return jsonResponse({ error: "message_required" }, 400, cors);
   if (message.length > MAX_MESSAGE_LENGTH) {
     return jsonResponse({ error: "message_too_long" }, 400, cors);
   }
 
-  const incomingConvId =
-    typeof body.conversationId === "string" && UUID_RE.test(body.conversationId)
-      ? body.conversationId
-      : null;
-
-  const language: Lang = body.language === "en" ? "en" : "de";
   const uploadedFilesCount = Array.isArray(body.clientState?.uploadedFiles)
     ? (body.clientState!.uploadedFiles as unknown[]).length
     : 0;
@@ -361,12 +384,6 @@ serve(async (req) => {
   if (!checkRate(rateKey)) {
     return jsonResponse({ error: "rate_limited" }, 429, cors);
   }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { persistSession: false } },
-  );
 
   // 1. Resolve / create conversation
   let conversationId = incomingConvId;
