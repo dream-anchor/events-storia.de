@@ -269,28 +269,56 @@ export function AiIntakeBar({ language }: Props) {
           </header>
 
           <div className="space-y-4 p-4 md:p-5">
-            {/* Chat */}
-            <section aria-label={t.chatLabel} className="space-y-2">
-              <AiChatMessages
-                messages={messages}
-                thinking={thinking}
-                language={language}
-              />
-            </section>
+            {/* Short intro (always visible at top) */}
+            <p className="text-sm text-muted-foreground">{t.shortIntro}</p>
 
-            {/* Summary */}
-            <section aria-label={t.summaryLabel}>
-              <AiSummaryCard
-                extraction={extraction}
-                missing={missing}
-                language={language}
-                attachmentCount={
-                  attachments.filter((a) => a.status !== "error").length
-                }
-              />
-            </section>
+            {/* Chat transcript (only when there are messages) */}
+            {messages.length > 0 || thinking ? (
+              <section aria-label={t.chatLabel} className="space-y-2">
+                <AiChatMessages
+                  messages={messages}
+                  thinking={thinking}
+                  language={language}
+                />
+              </section>
+            ) : null}
 
-            {/* Example chips (only on empty conversation) */}
+            {/* Textarea — pulled up so it's the first action visible */}
+            <div className="rounded-2xl border border-border bg-background p-2 focus-within:ring-2 focus-within:ring-foreground/20">
+              <label htmlFor="ai-intake-expanded" className="sr-only">
+                {t.expandedPlaceholder}
+              </label>
+              <textarea
+                id="ai-intake-expanded"
+                ref={expandedRef}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={onKeyDown}
+                rows={isMobile ? 3 : 4}
+                placeholder={t.expandedPlaceholder}
+                className="min-h-[88px] md:min-h-[110px] w-full resize-y bg-transparent px-2 py-1.5 text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground/80 focus:outline-none"
+              />
+              <div className="flex items-center justify-between gap-2 px-1 pt-1">
+                <p className="text-[11px] text-muted-foreground">
+                  <span className="hidden md:inline">{t.composerHint}</span>
+                  <span className="md:hidden">{t.composerHintShort}</span>
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={onSubmit}
+                  disabled={!draft.trim() || thinking}
+                  title={!draft.trim() ? t.sendEmptyTooltip : undefined}
+                  aria-label={!draft.trim() ? t.sendEmptyTooltip : t.send}
+                  className="h-9 gap-1.5 rounded-full bg-foreground px-4 text-background hover:bg-foreground/90"
+                >
+                  <Send className="h-3.5 w-3.5" aria-hidden />
+                  <span>{t.send}</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Example chips (only on empty conversation) — directly below input */}
             {messages.length === 0 ? (
               <section aria-label={t.examplesLabel} className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -314,43 +342,22 @@ export function AiIntakeBar({ language }: Props) {
               </section>
             ) : null}
 
-            {/* Textarea */}
-            <div className="rounded-2xl border border-border bg-background p-2 focus-within:ring-2 focus-within:ring-foreground/20">
-              <label htmlFor="ai-intake-expanded" className="sr-only">
-                {t.expandedPlaceholder}
-              </label>
-              <textarea
-                id="ai-intake-expanded"
-                ref={expandedRef}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={onKeyDown}
-                rows={4}
-                placeholder={t.expandedPlaceholder}
-                className="min-h-[110px] w-full resize-y bg-transparent px-2 py-1.5 text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground/80 focus:outline-none"
+            {/* Summary — compact on mobile, full card on desktop */}
+            <section aria-label={t.summaryLabel}>
+              <AiSummaryCard
+                extraction={extraction}
+                missing={missing}
+                language={language}
+                attachmentCount={
+                  attachments.filter((a) => a.status !== "error").length
+                }
+                compact={isMobile}
               />
-              <div className="flex items-center justify-between gap-2 px-1 pt-1">
-                <p className="text-[11px] text-muted-foreground">
-                  {t.composerHint}
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={onSubmit}
-                  disabled={!draft.trim() || thinking}
-                  title={!draft.trim() ? t.sendEmptyTooltip : undefined}
-                  aria-label={!draft.trim() ? t.sendEmptyTooltip : t.send}
-                  className="h-9 gap-1.5 rounded-full bg-foreground px-4 text-background hover:bg-foreground/90"
-                >
-                  <Send className="h-3.5 w-3.5" aria-hidden />
-                  <span>{t.send}</span>
-                </Button>
-              </div>
-            </div>
+            </section>
 
             {/* Attachments */}
             <section aria-label={t.attachmentsLabel} className="space-y-2">
-              <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground md:block hidden">
                 {t.attachmentsLabel}
               </h3>
               <AiAttachmentUploader
@@ -359,6 +366,7 @@ export function AiIntakeBar({ language }: Props) {
                 language={language}
                 onAdd={(files) => void addFiles(files)}
                 onRemove={removeAttachment}
+                compact={isMobile}
               />
               {!conversationId && attachments.length > 0 ? (
                 <p className="text-xs text-muted-foreground">
