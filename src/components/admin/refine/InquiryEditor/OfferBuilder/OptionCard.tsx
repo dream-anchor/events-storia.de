@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { InlineCourseEditor } from "./InlineCourseEditor";
 import { InlineDrinkEditor } from "./InlineDrinkEditor";
 import { DrinkSection } from "./DrinkSection";
@@ -285,9 +286,38 @@ export function OptionCard({
         className={cn(
           "rounded-2xl border-border/40 shadow-sm overflow-hidden",
           !option.isActive && "opacity-50",
-          isCustomerChoice && "ring-2 ring-foreground/80 border-transparent"
+          isCustomerChoice && "ring-2 ring-foreground/80 border-transparent",
+          option.aiOrigin && "ring-1 ring-neutral-400/60"
         )}
       >
+        {/* KI-Entwurf-Banner — transient, nur solange `needsManualSave` true */}
+        {option.aiOrigin && option.needsManualSave && (
+          <div className="flex flex-col gap-2 border-b border-neutral-200 bg-neutral-50 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-sm text-neutral-700">
+              <Sparkles className="h-4 w-4 text-neutral-500" />
+              <span className="font-medium">KI-Entwurf — prüfen</span>
+              <span className="text-neutral-500">· Dieser Vorschlag ist noch nicht gespeichert.</span>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="rounded-2xl"
+              onClick={() => {
+                // Markiert die Option als „gespeichert" — Update setzt isDirtyRef=true
+                // im Hook → der normale bestehende Auto-Save-Pfad persistiert
+                // ausschließlich diese Options-Liste in v2_offer_options.
+                // Kein Mail/PDF/Stripe/Public-Link/Statuswechsel.
+                onUpdate({ needsManualSave: false });
+                toast.success(
+                  "KI-Vorschlag wurde als Angebotsoption gespeichert. Bitte vor Versand weiter prüfen.",
+                );
+              }}
+            >
+              KI-Vorschlag speichern
+            </Button>
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border/30 bg-muted/20">
           <div className="flex items-center gap-3">
@@ -301,6 +331,15 @@ export function OptionCard({
             </div>
             <div>
               <div className="flex items-center gap-2">
+                {option.aiOrigin && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-700"
+                    title="Diese Option wurde aus dem KI-Entwurf des Kunden übernommen — bitte prüfen."
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    {option.needsManualSave ? 'KI-Entwurf — prüfen' : 'Aus KI-Entwurf'}
+                  </span>
+                )}
                 {isCustomerChoice && (
                   <span
                     className="inline-flex items-center gap-1 rounded-full bg-foreground text-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
