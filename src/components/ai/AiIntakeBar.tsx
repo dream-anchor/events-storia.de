@@ -7,6 +7,7 @@ import { AiChatMessages } from "./AiChatMessages";
 import { AiAttachmentUploader } from "./AiAttachmentUploader";
 import { AiSummaryCard } from "./AiSummaryCard";
 import type { AiIntakeLanguage } from "@/lib/aiIntake/types";
+import type { AiIntakeExtraction } from "@/lib/aiIntake/types";
 
 interface Props {
   language: AiIntakeLanguage;
@@ -28,6 +29,17 @@ const COPY = {
     close: "Panel schließen",
     minimize: "Minimieren",
     aiHint: "KI-Assistenz",
+    confirmTitle: "Bitte prüfen Sie Ihre Anfrage",
+    confirmIntro:
+      "Soll ich diese Anfrage jetzt an STORIA übermitteln?",
+    confirm: "Ja, an STORIA senden",
+    cancel: "Zurück",
+    submitting: "Wird übermittelt …",
+    successTitle: "Vielen Dank.",
+    successBody:
+      "Ihre Anfrage wurde an STORIA übermittelt. Wir melden uns mit einem individuellen Angebot.",
+    successHint: "Ihre Anfrage wurde erfolgreich erfasst.",
+    files: "Hochgeladene Dateien",
   },
   en: {
     placeholder:
@@ -43,6 +55,16 @@ const COPY = {
     close: "Close panel",
     minimize: "Minimize",
     aiHint: "AI assistance",
+    confirmTitle: "Please review your request",
+    confirmIntro: "Shall I submit this request to STORIA now?",
+    confirm: "Yes, send to STORIA",
+    cancel: "Back",
+    submitting: "Submitting …",
+    successTitle: "Thank you.",
+    successBody:
+      "Your request has been submitted to STORIA. We will get back to you with an individual offer.",
+    successHint: "Your request was successfully recorded.",
+    files: "Uploaded files",
   },
 } as const;
 
@@ -60,13 +82,18 @@ export function AiIntakeBar({ language }: Props) {
     notice,
     conversationId,
     errorMessage,
+    awaitingConfirmation,
+    submitting,
+    submittedInquiryId,
     expand,
     collapse,
     sendMessage,
     addFiles,
     removeAttachment,
-    showSubmitMockNotice,
     clearNotice,
+    requestConfirmation,
+    cancelConfirmation,
+    submitInquiry,
   } = useAiIntake({ language });
 
   const [draft, setDraft] = useState("");
@@ -260,25 +287,54 @@ export function AiIntakeBar({ language }: Props) {
 
             {/* CTA */}
             <div className="flex flex-col items-start gap-2 border-t border-border pt-4">
-              <Button
-                type="button"
-                size="lg"
-                disabled={!canSubmit}
-                onClick={showSubmitMockNotice}
-                className={cn(
-                  "h-11 rounded-full px-5",
-                  canSubmit
-                    ? "bg-foreground text-background hover:bg-foreground/90"
-                    : "bg-muted text-muted-foreground",
-                )}
-              >
-                {t.submit}
-              </Button>
-              {!canSubmit ? (
-                <p className="text-xs text-muted-foreground">
-                  {t.submitDisabledHint}
-                </p>
-              ) : null}
+              {submittedInquiryId ? (
+                <div
+                  role="status"
+                  className="w-full rounded-2xl border border-border bg-muted/40 p-4"
+                >
+                  <p className="text-base font-medium text-foreground">
+                    {t.successTitle}
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">{t.successBody}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {t.successHint}
+                  </p>
+                </div>
+              ) : awaitingConfirmation ? (
+                <ConfirmationSummary
+                  t={t}
+                  language={language}
+                  extraction={extraction}
+                  attachmentNames={attachments
+                    .filter((a) => a.status !== "error")
+                    .map((a) => a.file.name)}
+                  submitting={submitting}
+                  onConfirm={() => void submitInquiry()}
+                  onCancel={cancelConfirmation}
+                />
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    size="lg"
+                    disabled={!canSubmit}
+                    onClick={requestConfirmation}
+                    className={cn(
+                      "h-11 rounded-full px-5",
+                      canSubmit
+                        ? "bg-foreground text-background hover:bg-foreground/90"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {t.submit}
+                  </Button>
+                  {!canSubmit ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t.submitDisabledHint}
+                    </p>
+                  ) : null}
+                </>
+              )}
               {errorMessage ? (
                 <p
                   role="alert"
@@ -304,3 +360,114 @@ export function AiIntakeBar({ language }: Props) {
 }
 
 export default AiIntakeBar;
+
+/* -------- Confirmation summary subcomponent -------- */
+
+type CopyDict = (typeof COPY)[keyof typeof COPY];
+
+interface ConfirmationSummaryProps {
+  t: CopyDict;
+  language: AiIntakeLanguage;
+  extraction: AiIntakeExtraction;
+  attachmentNames: string[];
+  submitting: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmationSummary({
+  t,
+  language,
+  extraction,
+  attachmentNames,
+  submitting,
+  onConfirm,
+  onCancel,
+}: ConfirmationSummaryProps) {
+  const fmt = (v: unknown): string => {
+    if (v == null) return language === "de" ? "—" : "—";
+    if (Array.isArray(v)) return v.length ? v.join(", ") : language === "de" ? "—" : "—";
+    return String(v);
+  };
+  const dateLabel =
+    extraction.preferredDate
+      ? fmt(extraction.preferredDate)
+      : extraction.dateRange
+        ? (language === "de" ? `Zeitraum: ${extraction.dateRange}` : `Range: ${extraction.dateRange}`)
+        : "—";
+  const place = extraction.locationName || extraction.deliveryAddress;
+
+  const rows: Array<[string, string]> = [
+    [language === "de" ? "Ansprechpartner" : "Contact", fmt(extraction.contactName)],
+    ["E-Mail", fmt(extraction.email)],
+    [language === "de" ? "Telefon" : "Phone", fmt(extraction.phone)],
+    [language === "de" ? "Firma" : "Company", fmt(extraction.companyName)],
+    [language === "de" ? "Personen" : "Guests", fmt(extraction.guestCount)],
+    [language === "de" ? "Datum / Zeitraum" : "Date / range", dateLabel],
+    [language === "de" ? "Uhrzeit" : "Time", fmt(extraction.timeSlot)],
+    [language === "de" ? "Anlass" : "Occasion", fmt(extraction.eventType)],
+    [language === "de" ? "Ort / Adresse" : "Location / address", fmt(place)],
+    [language === "de" ? "Speisen" : "Food", fmt(extraction.foodPreferences)],
+    [
+      language === "de" ? "Allergien / Anforderungen" : "Allergies / requirements",
+      fmt(extraction.dietaryRequirements),
+    ],
+    [
+      language === "de" ? "Service / Equipment" : "Service / equipment",
+      fmt([
+        ...(extraction.serviceNeeds ?? []),
+        ...(extraction.equipmentNeeds ?? []),
+      ]),
+    ],
+  ];
+
+  return (
+    <div className="w-full rounded-2xl border border-border bg-muted/30 p-4">
+      <p className="text-sm font-medium text-foreground">{t.confirmTitle}</p>
+      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm md:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-baseline gap-2">
+            <dt className="min-w-[140px] text-xs uppercase tracking-wide text-muted-foreground">
+              {label}
+            </dt>
+            <dd className="flex-1 text-foreground">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {attachmentNames.length > 0 ? (
+        <div className="mt-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t.files}
+          </p>
+          <ul className="mt-1 list-disc pl-5 text-sm text-foreground">
+            {attachmentNames.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <p className="mt-4 text-sm text-foreground">{t.confirmIntro}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          disabled={submitting}
+          onClick={onConfirm}
+          className="h-10 rounded-full bg-foreground px-4 text-background hover:bg-foreground/90"
+        >
+          {submitting ? t.submitting : t.confirm}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={submitting}
+          onClick={onCancel}
+          className="h-10 rounded-full px-4"
+        >
+          {t.cancel}
+        </Button>
+      </div>
+    </div>
+  );
+}
