@@ -3953,6 +3953,7 @@ export type Database = {
           menu_confirmed: boolean | null
           menu_confirmed_at: string | null
           menu_selection: Json | null
+          metadata: Json
           minimum_order_surcharge_cents: number | null
           notification_sent: boolean | null
           number: string | null
@@ -4082,6 +4083,7 @@ export type Database = {
           menu_confirmed?: boolean | null
           menu_confirmed_at?: string | null
           menu_selection?: Json | null
+          metadata?: Json
           minimum_order_surcharge_cents?: number | null
           notification_sent?: boolean | null
           number?: string | null
@@ -4211,6 +4213,7 @@ export type Database = {
           menu_confirmed?: boolean | null
           menu_confirmed_at?: string | null
           menu_selection?: Json | null
+          metadata?: Json
           minimum_order_surcharge_cents?: number | null
           notification_sent?: boolean | null
           number?: string | null
