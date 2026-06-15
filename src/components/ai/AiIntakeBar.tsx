@@ -7,6 +7,7 @@ import { AiChatMessages } from "./AiChatMessages";
 import { AiAttachmentUploader } from "./AiAttachmentUploader";
 import { AiSummaryCard } from "./AiSummaryCard";
 import type { AiIntakeLanguage } from "@/lib/aiIntake/types";
+import type { AiIntakeExtraction } from "@/lib/aiIntake/types";
 
 interface Props {
   language: AiIntakeLanguage;
@@ -359,3 +360,114 @@ export function AiIntakeBar({ language }: Props) {
 }
 
 export default AiIntakeBar;
+
+/* -------- Confirmation summary subcomponent -------- */
+
+type CopyDict = (typeof COPY)["de"];
+
+interface ConfirmationSummaryProps {
+  t: CopyDict;
+  language: AiIntakeLanguage;
+  extraction: AiIntakeExtraction;
+  attachmentNames: string[];
+  submitting: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmationSummary({
+  t,
+  language,
+  extraction,
+  attachmentNames,
+  submitting,
+  onConfirm,
+  onCancel,
+}: ConfirmationSummaryProps) {
+  const fmt = (v: unknown): string => {
+    if (v == null) return language === "de" ? "—" : "—";
+    if (Array.isArray(v)) return v.length ? v.join(", ") : language === "de" ? "—" : "—";
+    return String(v);
+  };
+  const dateLabel =
+    extraction.preferredDate
+      ? fmt(extraction.preferredDate)
+      : extraction.dateRange
+        ? (language === "de" ? `Zeitraum: ${extraction.dateRange}` : `Range: ${extraction.dateRange}`)
+        : "—";
+  const place = extraction.locationName || extraction.deliveryAddress;
+
+  const rows: Array<[string, string]> = [
+    [language === "de" ? "Ansprechpartner" : "Contact", fmt(extraction.contactName)],
+    ["E-Mail", fmt(extraction.email)],
+    [language === "de" ? "Telefon" : "Phone", fmt(extraction.phone)],
+    [language === "de" ? "Firma" : "Company", fmt(extraction.companyName)],
+    [language === "de" ? "Personen" : "Guests", fmt(extraction.guestCount)],
+    [language === "de" ? "Datum / Zeitraum" : "Date / range", dateLabel],
+    [language === "de" ? "Uhrzeit" : "Time", fmt(extraction.timeSlot)],
+    [language === "de" ? "Anlass" : "Occasion", fmt(extraction.eventType)],
+    [language === "de" ? "Ort / Adresse" : "Location / address", fmt(place)],
+    [language === "de" ? "Speisen" : "Food", fmt(extraction.foodPreferences)],
+    [
+      language === "de" ? "Allergien / Anforderungen" : "Allergies / requirements",
+      fmt(extraction.dietaryRequirements),
+    ],
+    [
+      language === "de" ? "Service / Equipment" : "Service / equipment",
+      fmt([
+        ...(extraction.serviceNeeds ?? []),
+        ...(extraction.equipmentNeeds ?? []),
+      ]),
+    ],
+  ];
+
+  return (
+    <div className="w-full rounded-2xl border border-border bg-muted/30 p-4">
+      <p className="text-sm font-medium text-foreground">{t.confirmTitle}</p>
+      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm md:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-baseline gap-2">
+            <dt className="min-w-[140px] text-xs uppercase tracking-wide text-muted-foreground">
+              {label}
+            </dt>
+            <dd className="flex-1 text-foreground">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {attachmentNames.length > 0 ? (
+        <div className="mt-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t.files}
+          </p>
+          <ul className="mt-1 list-disc pl-5 text-sm text-foreground">
+            {attachmentNames.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <p className="mt-4 text-sm text-foreground">{t.confirmIntro}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          disabled={submitting}
+          onClick={onConfirm}
+          className="h-10 rounded-full bg-foreground px-4 text-background hover:bg-foreground/90"
+        >
+          {submitting ? t.submitting : t.confirm}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={submitting}
+          onClick={onCancel}
+          className="h-10 rounded-full px-4"
+        >
+          {t.cancel}
+        </Button>
+      </div>
+    </div>
+  );
+}
