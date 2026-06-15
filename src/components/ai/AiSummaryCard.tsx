@@ -11,6 +11,8 @@ interface Props {
   missing: AiRequiredField[];
   language: AiIntakeLanguage;
   attachmentCount?: number;
+  /** Compact rendering for mobile: collapsible summary + single-line missing hint. */
+  compact?: boolean;
 }
 
 // Customer-friendly labels for missing required fields (no technical names).
@@ -46,6 +48,7 @@ export function AiSummaryCard({
   missing,
   language,
   attachmentCount = 0,
+  compact = false,
 }: Props) {
   const e = extraction;
 
@@ -128,6 +131,68 @@ export function AiSummaryCard({
             ? `${attachmentCount} Dateien`
             : `${attachmentCount} files`,
     });
+  }
+
+  if (compact) {
+    const missingLabels = missing
+      .map((m) => MISSING_LABELS[m]?.[language] ?? m)
+      .join(", ");
+    return (
+      <div className="space-y-2">
+        {rows.length > 0 ? (
+          <details className="group rounded-2xl border border-border bg-background px-3 py-2 open:pb-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm">
+              <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                {language === "de" ? "Ihre Anfrage bisher" : "Your request so far"}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {rows.length}{" "}
+                {language === "de"
+                  ? rows.length === 1
+                    ? "Angabe"
+                    : "Angaben"
+                  : rows.length === 1
+                    ? "detail"
+                    : "details"}
+              </span>
+            </summary>
+            <dl className="mt-2 space-y-1">
+              {rows.map((r) => (
+                <div
+                  key={r.label}
+                  className="flex items-baseline justify-between gap-3 text-sm"
+                >
+                  <dt className="shrink-0 text-muted-foreground">{r.label}</dt>
+                  <dd
+                    className="truncate text-right text-foreground"
+                    title={r.value ?? undefined}
+                  >
+                    {r.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+        ) : null}
+        {missing.length > 0 ? (
+          <p className="rounded-2xl border border-foreground/15 bg-muted/40 px-3 py-2 text-xs text-foreground">
+            <span className="font-medium">
+              {language === "de" ? "Für eine Anfrage fehlen noch: " : "Still needed: "}
+            </span>
+            {missingLabels}.
+          </p>
+        ) : (
+          rows.length > 0 ? (
+            <p className="rounded-2xl border border-border bg-background px-3 py-2 text-xs text-foreground">
+              {language === "de"
+                ? "Alle Pflichtangaben liegen vor."
+                : "All required details are present."}
+            </p>
+          ) : null
+        )}
+      </div>
+    );
   }
 
   return (
