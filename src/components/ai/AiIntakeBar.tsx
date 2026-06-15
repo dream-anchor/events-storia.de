@@ -337,12 +337,17 @@ export function AiIntakeBar({ language }: Props) {
                 placeholder={t.expandedPlaceholder}
                 className="min-h-[110px] w-full resize-y bg-transparent px-2 py-1.5 text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground/80 focus:outline-none"
               />
-              <div className="flex items-center justify-end gap-2 px-1 pt-1">
+              <div className="flex items-center justify-between gap-2 px-1 pt-1">
+                <p className="text-[11px] text-muted-foreground">
+                  {t.composerHint}
+                </p>
                 <Button
                   type="button"
                   size="sm"
                   onClick={onSubmit}
                   disabled={!draft.trim() || thinking}
+                  title={!draft.trim() ? t.sendEmptyTooltip : undefined}
+                  aria-label={!draft.trim() ? t.sendEmptyTooltip : t.send}
                   className="h-9 gap-1.5 rounded-full bg-foreground px-4 text-background hover:bg-foreground/90"
                 >
                   <Send className="h-3.5 w-3.5" aria-hidden />
@@ -376,7 +381,7 @@ export function AiIntakeBar({ language }: Props) {
             <div className="flex flex-col items-start gap-2 border-t border-border pt-4">
               {!submittedInquiryId && !awaitingConfirmation ? (
                 <p className="text-xs text-muted-foreground">
-                  {t.aiDisclaimer}
+                  {t.introHint}
                 </p>
               ) : null}
               {submittedInquiryId ? (
@@ -422,9 +427,20 @@ export function AiIntakeBar({ language }: Props) {
                   </Button>
                   {!canSubmit ? (
                     <p className="text-xs text-muted-foreground">
-                      {t.submitDisabledHint}
+                      {t.submitDisabledHintPrefix}{" "}
+                      {missing
+                        .map((m) => t.missingLabels[m] ?? m)
+                        .join(", ")}
+                      .
                     </p>
-                  ) : null}
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {t.submitEnabledHint}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-muted-foreground/80">
+                    {t.aiDisclaimer}
+                  </p>
                 </>
               )}
               {errorMessage ? (
