@@ -16,7 +16,7 @@ interface Props {
 const COPY = {
   de: {
     placeholder:
-      "Stellen Sie eine Frage oder beschreiben Sie Ihr Catering — die KI hilft bei der Vorbereitung.",
+      "Stellen Sie eine Frage oder beschreiben Sie Ihr Catering — die KI hilft bei der Vorbereitung eines unverbindlichen Angebots.",
     send: "Frage senden",
     sendEmptyTooltip: "Geben Sie eine Nachricht ein, um weiterzufragen.",
     composerHint:
@@ -65,7 +65,7 @@ const COPY = {
   },
   en: {
     placeholder:
-      "Ask a question or describe your catering — the AI helps prepare your request.",
+      "Ask a question or describe your catering — the AI helps prepare a non-binding offer.",
     send: "Send message",
     sendEmptyTooltip: "Enter a message to continue the conversation.",
     composerHint:
