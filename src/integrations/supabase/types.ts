@@ -1145,6 +1145,112 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_conversations: {
+        Row: {
+          created_at: string
+          customer_email: string | null
+          id: string
+          inquiry_id: string | null
+          language: string | null
+          metadata: Json
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_email?: string | null
+          id?: string
+          inquiry_id?: string | null
+          language?: string | null
+          metadata?: Json
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_email?: string | null
+          id?: string
+          inquiry_id?: string | null
+          language?: string | null
+          metadata?: Json
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_extractions: {
+        Row: {
+          confidence: Json
+          conversation_id: string
+          created_at: string
+          extracted: Json
+          id: string
+          missing_fields: string[]
+        }
+        Insert: {
+          confidence?: Json
+          conversation_id: string
+          created_at?: string
+          extracted?: Json
+          id?: string
+          missing_fields?: string[]
+        }
+        Update: {
+          confidence?: Json
+          conversation_id?: string
+          created_at?: string
+          extracted?: Json
+          id?: string
+          missing_fields?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_extractions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          metadata: Json
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       balance_payment_links: {
         Row: {
           active: boolean
@@ -2066,6 +2172,186 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      inquiry_attachments: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          inquiry_id: string | null
+          metadata: Json
+          mime_type: string | null
+          original_filename: string
+          size_bytes: number | null
+          source: string
+          storage_bucket: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          inquiry_id?: string | null
+          metadata?: Json
+          mime_type?: string | null
+          original_filename: string
+          size_bytes?: number | null
+          source?: string
+          storage_bucket: string
+          storage_path: string
+          uploaded_by?: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          inquiry_id?: string | null
+          metadata?: Json
+          mime_type?: string | null
+          original_filename?: string
+          size_bytes?: number | null
+          source?: string
+          storage_bucket?: string
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_attachments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          document_id: string
+          embedding: Json | null
+          id: string
+          metadata: Json
+        }
+        Insert: {
+          chunk_index?: number
+          content: string
+          created_at?: string
+          document_id: string
+          embedding?: Json | null
+          id?: string
+          metadata?: Json
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          document_id?: string
+          embedding?: Json | null
+          id?: string
+          metadata?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_documents: {
+        Row: {
+          content: string | null
+          content_hash: string | null
+          created_at: string
+          id: string
+          locale: string | null
+          metadata: Json
+          path: string | null
+          source_id: string | null
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          content_hash?: string | null
+          created_at?: string
+          id?: string
+          locale?: string | null
+          metadata?: Json
+          path?: string | null
+          source_id?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          content_hash?: string | null
+          created_at?: string
+          id?: string
+          locale?: string | null
+          metadata?: Json
+          path?: string | null
+          source_id?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_documents_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_sources: {
+        Row: {
+          created_at: string
+          id: string
+          last_indexed_at: string | null
+          metadata: Json
+          source_ref: string | null
+          source_type: string
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_indexed_at?: string | null
+          metadata?: Json
+          source_ref?: string | null
+          source_type: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_indexed_at?: string | null
+          metadata?: Json
+          source_ref?: string | null
+          source_type?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       lead_notify_failures: {
         Row: {
