@@ -190,7 +190,20 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     () => serverMissing ?? computeMissing(extraction),
     [serverMissing, extraction],
   );
-  const canSubmit = readyFromServer || missing.length === 0;
+  // Client-side safeguard: even when serverMissing/readyFromServer are stale,
+  // accept the request if the extracted fields visibly meet all required criteria.
+  const hasRequiredExtractedFields = useMemo(() => {
+    const email = extraction.email?.trim() ?? "";
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return Boolean(
+      extraction.contactName &&
+        emailValid &&
+        extraction.guestCount &&
+        (extraction.preferredDate || extraction.dateRange),
+    );
+  }, [extraction]);
+  const canSubmit =
+    readyFromServer || missing.length === 0 || hasRequiredExtractedFields;
 
   const expand = useCallback(() => setExpanded(true), []);
   const collapse = useCallback(() => setExpanded(false), []);
