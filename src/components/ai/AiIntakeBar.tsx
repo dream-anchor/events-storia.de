@@ -43,6 +43,7 @@ const COPY = {
     successHint: "Ihre Anfrage wurde erfolgreich erfasst.",
     files: "Hochgeladene Dateien",
     examplesLabel: "Beispiele",
+    newInquiry: "Neue Anfrage starten",
     examples: [
       "Pizza Catering planen",
       "Fingerfood für 40 Personen",
@@ -80,6 +81,7 @@ const COPY = {
     successHint: "Your request was successfully recorded.",
     files: "Uploaded files",
     examplesLabel: "Examples",
+    newInquiry: "Start a new request",
     examples: [
       "Plan pizza catering",
       "Finger food for 40 guests",
@@ -117,6 +119,7 @@ export function AiIntakeBar({ language }: Props) {
     requestConfirmation,
     cancelConfirmation,
     submitInquiry,
+    resetConversation,
   } = useAiIntake({ language });
 
   const [draft, setDraft] = useState("");
@@ -227,16 +230,29 @@ export function AiIntakeBar({ language }: Props) {
               </span>
               <p className="text-sm font-medium text-foreground">{t.aiHint}</p>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full"
-              onClick={collapse}
-              aria-label={t.minimize}
-            >
-              <X className="h-4 w-4" aria-hidden />
-            </Button>
+            <div className="flex items-center gap-1">
+              {(messages.length > 0 || Object.keys(extraction).length > 0 || attachments.length > 0 || submittedInquiryId) ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-full px-3 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={resetConversation}
+                >
+                  {t.newInquiry}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                onClick={collapse}
+                aria-label={t.minimize}
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </Button>
+            </div>
           </header>
 
           <div className="space-y-4 p-4 md:p-5">
