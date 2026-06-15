@@ -8,10 +8,6 @@
 // This module is wiring infrastructure for Step 1 of the AI-Draft build —
 // it is not yet injected into the model prompt.
 
-import type { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-
-type SupaClient = ReturnType<typeof createClient>;
-
 export interface CatalogPackage {
   id: string;
   name: string;
@@ -51,7 +47,8 @@ const PACKAGE_LIMIT = 12;
 const ITEM_LIMIT = 30;
 
 export async function loadCatalogSnippet(
-  supabase: SupaClient,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   opts: { packageLimit?: number; itemLimit?: number } = {},
 ): Promise<CatalogSnippet> {
   const packageLimit = opts.packageLimit ?? PACKAGE_LIMIT;
@@ -80,8 +77,8 @@ export async function loadCatalogSnippet(
   ]);
 
   const packages: CatalogPackage[] = (pkgRows ?? [])
-    .filter((p) => p.price != null || (p.pricing_type === "tiered"))
-    .map((p) => ({
+    .filter((p: Record<string, unknown>) => p.price != null || (p.pricing_type === "tiered"))
+    .map((p: Record<string, unknown>) => ({
       id: String(p.id),
       name: String(p.name ?? ""),
       name_en: (p.name_en as string | null) ?? null,
@@ -100,8 +97,8 @@ export async function loadCatalogSnippet(
     }));
 
   const items: CatalogItem[] = (itemRows ?? [])
-    .filter((i) => i.price != null && Number.isFinite(Number(i.price)))
-    .map((i) => ({
+    .filter((i: Record<string, unknown>) => i.price != null && Number.isFinite(Number(i.price)))
+    .map((i: Record<string, unknown>) => ({
       id: String(i.id),
       category_id: (i.category_id as string | null) ?? null,
       name: String(i.name ?? ""),

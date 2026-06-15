@@ -3,10 +3,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
   type Draft,
+  type DraftItemSuggestion,
+  type DraftPackageSuggestion,
   computeEstimate,
+  computeSubtotal,
   emptyDraft,
   isDraftLike,
+  resolvePackagePrice,
 } from "../_shared/draft-pricing.ts";
+import {
+  type CatalogItem,
+  type CatalogPackage,
+  type CatalogSnippet,
+  loadCatalogSnippet,
+} from "../_shared/catalog-snippet.ts";
 
 const MODEL = "google/gemini-3-flash-preview";
 const MAX_MESSAGE_LENGTH = 8000;
@@ -268,11 +278,209 @@ const RESPOND_TOOL = {
             summary: { type: "string" },
           },
         },
+        draftSuggestions: {
+          type: "object",
+          description:
+            "Optional unverbindliche Vorschläge für Pakete/Items. Nur IDs aus der bereitgestellten KATALOG-Liste. NIEMALS Preise hier zurückgeben — Preise werden serverseitig berechnet.",
+          properties: {
+            suggested_packages: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  package_id: { type: "string" },
+                  guests: { type: "number" },
+                  rationale: { type: "string" },
+                },
+                required: ["package_id"],
+              },
+            },
+            suggested_items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  menu_item_id: { type: "string" },
+                  qty: { type: "number" },
+                  unit: { type: "string" },
+                  rationale: { type: "string" },
+                },
+                required: ["menu_item_id"],
+              },
+            },
+            custom_items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  label: { type: "string" },
+                  note: { type: "string" },
+                },
+                required: ["label"],
+              },
+            },
+          },
+        },
       },
       required: ["reply", "intent", "extracted"],
     },
   },
 } as const;
+
+/* -------- Draft suggestion helpers -------- */
+
+interface RawPackageSuggestion {
+  package_id?: unknown;
+  guests?: unknown;
+  rationale?: unknown;
+}
+interface RawItemSuggestion {
+  menu_item_id?: unknown;
+  qty?: unknown;
+  unit?: unknown;
+  rationale?: unknown;
+}
+interface RawCustomItem {
+  label?: unknown;
+  note?: unknown;
+}
+interface RawDraftSuggestions {
+  suggested_packages?: unknown;
+  suggested_items?: unknown;
+  custom_items?: unknown;
+}
+
+function buildCatalogPromptBlock(catalog: CatalogSnippet): string {
+  const pkgLines = catalog.packages.map((p) => {
+    const base = `id=${p.id} | "${p.name}" | type=${p.package_type ?? "?"} | per_person=${p.price_per_person} | price=${p.price ?? "(tier)"} | pricing_type=${p.pricing_type ?? "flat"} | min_guests=${p.min_guests ?? "-"} | max_guests=${p.max_guests ?? "-"}`;
+    return `- ${base}${p.description ? ` :: ${String(p.description).slice(0, 120)}` : ""}`;
+  });
+  const itemLines = catalog.items.map((i) => {
+    const diet = [
+      i.is_vegan ? "vegan" : null,
+      !i.is_vegan && i.is_vegetarian ? "vegetarisch" : null,
+    ].filter(Boolean).join("/");
+    return `- id=${i.id} | "${i.name}" | price=${i.price} EUR${i.min_order ? ` | min_order=${i.min_order}` : ""}${diet ? ` | ${diet}` : ""}`;
+  });
+  return [
+    "KATALOG (einzige zulässige Quelle für Paket-/Item-IDs in draftSuggestions; Preise sind interne Referenzwerte, NIEMALS verbindlich):",
+    "PAKETE:",
+    pkgLines.length ? pkgLines.join("\n") : "(keine aktiven Pakete)",
+    "MENU_ITEMS:",
+    itemLines.length ? itemLines.join("\n") : "(keine aktiven Items)",
+  ].join("\n");
+}
+
+function resolveDraftFromSuggestions(
+  raw: RawDraftSuggestions | undefined,
+  catalog: CatalogSnippet | null,
+  guestCount: number | null,
+): {
+  suggested_packages: DraftPackageSuggestion[];
+  suggested_items: DraftItemSuggestion[];
+  custom_items: { label: string; note?: string | null }[];
+  extraOpenQuestions: string[];
+} {
+  const out = {
+    suggested_packages: [] as DraftPackageSuggestion[],
+    suggested_items: [] as DraftItemSuggestion[],
+    custom_items: [] as { label: string; note?: string | null }[],
+    extraOpenQuestions: [] as string[],
+  };
+  if (!raw || !catalog) return out;
+
+  const pkgById = new Map<string, CatalogPackage>(
+    catalog.packages.map((p) => [p.id, p]),
+  );
+  const itemById = new Map<string, CatalogItem>(
+    catalog.items.map((i) => [i.id, i]),
+  );
+
+  if (Array.isArray(raw.suggested_packages)) {
+    for (const s of raw.suggested_packages as RawPackageSuggestion[]) {
+      const id = typeof s?.package_id === "string" ? s.package_id : null;
+      if (!id) continue;
+      const pkg = pkgById.get(id);
+      if (!pkg) {
+        out.extraOpenQuestions.push(
+          `Paket-ID ${id} nicht im aktuellen Katalog — bitte durch STORIA prüfen lassen.`,
+        );
+        continue;
+      }
+      const g = typeof s.guests === "number" && Number.isFinite(s.guests)
+        ? Math.max(0, Math.round(s.guests))
+        : guestCount;
+      if (pkg.min_guests != null && g != null && g < pkg.min_guests) {
+        out.extraOpenQuestions.push(
+          `Paket "${pkg.name}" benötigt mindestens ${pkg.min_guests} Personen (aktuell ${g}).`,
+        );
+        continue;
+      }
+      const unitPrice = resolvePackagePrice(pkg, g);
+      const subtotal = computeSubtotal(unitPrice, g, pkg.price_per_person);
+      if (unitPrice == null || subtotal == null) {
+        out.extraOpenQuestions.push(
+          `Preis für Paket "${pkg.name}" kann nicht automatisch berechnet werden — STORIA klärt das individuell.`,
+        );
+      }
+      out.suggested_packages.push({
+        package_id: pkg.id,
+        name: pkg.name,
+        guests: g,
+        unit_price: unitPrice,
+        subtotal,
+        rationale: typeof s.rationale === "string" ? s.rationale : null,
+      });
+    }
+  }
+
+  if (Array.isArray(raw.suggested_items)) {
+    for (const s of raw.suggested_items as RawItemSuggestion[]) {
+      const id = typeof s?.menu_item_id === "string" ? s.menu_item_id : null;
+      if (!id) continue;
+      const it = itemById.get(id);
+      if (!it) {
+        out.extraOpenQuestions.push(
+          `Item-ID ${id} nicht im aktuellen Katalog — bitte durch STORIA prüfen lassen.`,
+        );
+        continue;
+      }
+      const qty = typeof s.qty === "number" && Number.isFinite(s.qty)
+        ? Math.max(0, Math.round(s.qty))
+        : null;
+      const unitPrice = Number.isFinite(it.price) ? Math.round(it.price * 100) / 100 : null;
+      const subtotal = unitPrice != null && qty != null
+        ? Math.round(unitPrice * qty * 100) / 100
+        : null;
+      if (unitPrice == null) {
+        out.extraOpenQuestions.push(
+          `Preis für Item "${it.name}" liegt nicht als Zahl vor — STORIA klärt das individuell.`,
+        );
+      }
+      out.suggested_items.push({
+        menu_item_id: it.id,
+        name: it.name,
+        qty,
+        unit: typeof s.unit === "string" ? s.unit : null,
+        unit_price: unitPrice,
+        subtotal,
+      });
+    }
+  }
+
+  if (Array.isArray(raw.custom_items)) {
+    for (const c of raw.custom_items as RawCustomItem[]) {
+      const label = typeof c?.label === "string" ? c.label.trim() : "";
+      if (!label) continue;
+      out.custom_items.push({
+        label,
+        note: typeof c.note === "string" ? c.note : null,
+      });
+    }
+  }
+
+  return out;
+}
 
 /* -------- AI Gateway call -------- */
 
@@ -283,18 +491,31 @@ async function callAiGateway(
   currentExtraction: Extracted,
   uploadedFiles: number,
   knowledgeContext: string,
+  catalog: CatalogSnippet | null,
 ): Promise<{
   reply: string;
   intent: Intent;
   extracted: Partial<Extracted>;
   suggestedNextQuestion?: string;
+  draftSuggestions?: RawDraftSuggestions;
 } | null> {
+  const catalogBlock = catalog ? buildCatalogPromptBlock(catalog) : "";
+  const draftGuardrails =
+    "\n\nDRAFT-REGELN (KI-Entwurf, NICHT verbindliches Angebot):\n" +
+    "- Bei Catering-/Menü-Brainstorming darfst du in draftSuggestions Pakete oder Items aus der KATALOG-Liste vorschlagen. NUR IDs aus dem Katalog. Keine eigenen IDs erfinden.\n" +
+    "- Niemals Preise oder Summen in draftSuggestions zurückgeben. Preise werden serverseitig berechnet.\n" +
+    "- Wenn Preise oder Mindestmengen unklar sind, schreibe einen Hinweis in extracted.openQuestions, statt zu raten.\n" +
+    "- Verboten zu sagen: \"Hier ist Ihr Angebot\", \"Gesamtpreis verbindlich\", \"Sie können jetzt buchen\", \"Zahlung jetzt\", \"Angebot wurde erstellt\".\n" +
+    "- Erlaubt: \"unverbindlicher Entwurf\", \"Preisorientierung\", \"vorbehaltlich Prüfung und Freigabe durch STORIA\", \"STORIA erstellt nach Prüfung das verbindliche Angebot\".\n" +
+    "- Spreche immer von einem Entwurf, niemals von einem fertigen Angebot.";
   const systemMessage = {
     role: "system",
     content:
       systemPrompt(lang) +
+      draftGuardrails +
       `\n\nKONTEXT (aktuelle Extraktion, JSON): ${JSON.stringify(currentExtraction)}\n` +
       `KONTEXT (clientState.uploadedFiles.count): ${uploadedFiles}` +
+      (catalogBlock ? `\n\n${catalogBlock}` : "") +
       (knowledgeContext
         ? `\n\n${knowledgeContext}`
         : "\n\nVERFÜGBARE QUELLEN: (keine passenden öffentlichen Quellen gefunden — bei Sachfragen ausdrücklich auf das STORIA-Team verweisen, niemals Preise/Liefer-/Zahlungs-/AGB-Aussagen erfinden)"),
@@ -337,6 +558,10 @@ async function callAiGateway(
       suggestedNextQuestion:
         typeof args.suggestedNextQuestion === "string"
           ? args.suggestedNextQuestion
+          : undefined,
+      draftSuggestions:
+        args.draftSuggestions && typeof args.draftSuggestions === "object"
+          ? (args.draftSuggestions as RawDraftSuggestions)
           : undefined,
     };
   } catch (e) {
@@ -518,12 +743,21 @@ serve(async (req) => {
   // 4b. Knowledge lookup (safe sources only)
   const knowledgeContext = await lookupKnowledge(supabase, message);
 
+  // 4c. Catalog snippet (safe Quelle für draftSuggestions; best-effort).
+  let catalog: CatalogSnippet | null = null;
+  try {
+    catalog = await loadCatalogSnippet(supabase);
+  } catch (e) {
+    console.error("catalog_load_failed", (e as Error).message);
+  }
+
   // 5. Call AI gateway
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   let reply = "";
   let intent: Intent = "inquiry";
   let suggestedNextQuestion: string | undefined;
   let nextExtraction = currentExtraction;
+  let rawDraftSuggestions: RawDraftSuggestions | undefined;
 
   if (!apiKey) {
     console.error("missing_lovable_api_key");
@@ -537,6 +771,7 @@ serve(async (req) => {
         currentExtraction,
         uploadedFilesCount,
         knowledgeContext,
+        catalog,
       );
       if (aiResult) {
         reply = aiResult.reply || fallbackReply(language, computeMissing(currentExtraction));
@@ -546,6 +781,7 @@ serve(async (req) => {
         if (!emailLooksValid(extractedClean.email)) extractedClean.email = null;
         extractedClean.originalUserText = message;
         nextExtraction = mergeExtraction(currentExtraction, extractedClean);
+        rawDraftSuggestions = aiResult.draftSuggestions;
       } else {
         reply = fallbackReply(language, computeMissing(currentExtraction));
       }
@@ -593,11 +829,21 @@ serve(async (req) => {
   }
 
   // 7. Persist unverbindlicher KI-Draft (Step 1: backend-only persistence).
-  // Suggested packages/items/custom_items remain empty for now — they will
-  // be filled by the model in a later build step. The draft is NEVER a
-  // binding offer; final approval happens only in Maestro by STORIA staff.
+  // The draft is NEVER a binding offer; final approval happens only in
+  // Maestro by STORIA staff. Pricing is computed deterministically here,
+  // never by the model.
   try {
-    await upsertConversationDraft(supabase, conversationId, nextExtraction);
+    const resolved = resolveDraftFromSuggestions(
+      rawDraftSuggestions,
+      catalog,
+      nextExtraction.guestCount,
+    );
+    await upsertConversationDraft(
+      supabase,
+      conversationId,
+      nextExtraction,
+      resolved,
+    );
   } catch (e) {
     // Never block the chat response on draft persistence.
     console.error("draft_upsert_failed", (e as Error).message);
@@ -631,6 +877,12 @@ async function upsertConversationDraft(
   supabase: any,
   conversationId: string,
   extraction: Extracted,
+  resolved: {
+    suggested_packages: DraftPackageSuggestion[];
+    suggested_items: DraftItemSuggestion[];
+    custom_items: { label: string; note?: string | null }[];
+    extraOpenQuestions: string[];
+  },
 ): Promise<void> {
   const { data: row } = await supabase
     .from("ai_conversations")
@@ -649,27 +901,38 @@ async function upsertConversationDraft(
 
   const base = emptyDraft(MODEL);
 
-  // Step 1 only populates summary/open_questions from extraction.
-  // Suggested arrays are preserved if a later build step has already
-  // written some, otherwise default to empty.
-  const suggested_packages = Array.isArray(prevDraft.suggested_packages)
-    ? prevDraft.suggested_packages
-    : base.suggested_packages;
-  const suggested_items = Array.isArray(prevDraft.suggested_items)
-    ? prevDraft.suggested_items
-    : base.suggested_items;
-  const custom_items = Array.isArray(prevDraft.custom_items)
-    ? prevDraft.custom_items
-    : base.custom_items;
+  // If the model returned suggestions this turn, replace previous ones
+  // (chat is iterative — newest proposal wins). Otherwise keep previous.
+  const suggested_packages =
+    resolved.suggested_packages.length > 0
+      ? resolved.suggested_packages
+      : Array.isArray(prevDraft.suggested_packages)
+        ? prevDraft.suggested_packages
+        : base.suggested_packages;
+  const suggested_items =
+    resolved.suggested_items.length > 0
+      ? resolved.suggested_items
+      : Array.isArray(prevDraft.suggested_items)
+        ? prevDraft.suggested_items
+        : base.suggested_items;
+  const custom_items =
+    resolved.custom_items.length > 0
+      ? resolved.custom_items
+      : Array.isArray(prevDraft.custom_items)
+        ? prevDraft.custom_items
+        : base.custom_items;
 
   const summary =
     typeof extraction.summary === "string" && extraction.summary.trim().length > 0
       ? extraction.summary.trim()
       : (typeof prevDraft.summary === "string" ? prevDraft.summary : "");
 
-  const open_questions = Array.isArray(extraction.openQuestions)
+  const fromExtraction = Array.isArray(extraction.openQuestions)
     ? extraction.openQuestions.filter((q) => typeof q === "string" && q.trim().length > 0)
-    : (Array.isArray(prevDraft.open_questions) ? prevDraft.open_questions : []);
+    : [];
+  const open_questions = Array.from(
+    new Set([...fromExtraction, ...resolved.extraOpenQuestions]),
+  );
 
   const estimate = computeEstimate(suggested_packages, suggested_items);
 
