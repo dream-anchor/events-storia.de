@@ -743,12 +743,21 @@ serve(async (req) => {
   // 4b. Knowledge lookup (safe sources only)
   const knowledgeContext = await lookupKnowledge(supabase, message);
 
+  // 4c. Catalog snippet (safe Quelle für draftSuggestions; best-effort).
+  let catalog: CatalogSnippet | null = null;
+  try {
+    catalog = await loadCatalogSnippet(supabase);
+  } catch (e) {
+    console.error("catalog_load_failed", (e as Error).message);
+  }
+
   // 5. Call AI gateway
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   let reply = "";
   let intent: Intent = "inquiry";
   let suggestedNextQuestion: string | undefined;
   let nextExtraction = currentExtraction;
+  let rawDraftSuggestions: RawDraftSuggestions | undefined;
 
   if (!apiKey) {
     console.error("missing_lovable_api_key");
@@ -762,6 +771,7 @@ serve(async (req) => {
         currentExtraction,
         uploadedFilesCount,
         knowledgeContext,
+        catalog,
       );
       if (aiResult) {
         reply = aiResult.reply || fallbackReply(language, computeMissing(currentExtraction));
@@ -771,6 +781,7 @@ serve(async (req) => {
         if (!emailLooksValid(extractedClean.email)) extractedClean.email = null;
         extractedClean.originalUserText = message;
         nextExtraction = mergeExtraction(currentExtraction, extractedClean);
+        rawDraftSuggestions = aiResult.draftSuggestions;
       } else {
         reply = fallbackReply(language, computeMissing(currentExtraction));
       }
