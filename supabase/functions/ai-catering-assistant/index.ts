@@ -588,6 +588,65 @@ void REQUIRED_FIELDS;
 
 type SupaClient = ReturnType<typeof createClient>;
 
+/* -------- Knowledge lookup (safe sources only) -------- */
+
+async function lookupKnowledge(
+  supabase: SupaClient,
+  query: string,
+): Promise<string> {
+  const tokens = tokenize(query);
+  if (tokens.length === 0) return "";
+  try {
+    // Pull candidate active chunks via ILIKE on top tokens; rank in-memory.
+    const orExpr = tokens
+      .slice(0, 6)
+      .map((t) => `content.ilike.%${t.replace(/[,()]/g, " ")}%`)
+      .join(",");
+    const { data: chunks } = await supabase
+      .from("knowledge_chunks")
+      .select("content, metadata, document_id, knowledge_documents!inner(status, title, path)")
+      .eq("knowledge_documents.status", "active")
+      .or(orExpr)
+      .limit(20);
+    if (!chunks || chunks.length === 0) return "";
+    type Row = {
+      content: string;
+      metadata: Record<string, unknown> | null;
+      knowledge_documents: { title: string | null; path: string | null; status: string };
+    };
+    const safe = (chunks as unknown as Row[]).filter((c) => {
+      const meta = (c.metadata ?? {}) as Record<string, unknown>;
+      if (meta.requires_manual_review === true) return false;
+      if (meta.status && meta.status !== "active") return false;
+      if (meta.risk && meta.risk !== null) return false;
+      return true;
+    });
+    const scored = safe.map((c) => {
+      const lc = (c.content || "").toLowerCase();
+      let score = 0;
+      for (const t of tokens) {
+        if (lc.includes(t)) score += 1;
+      }
+      return { c, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    const top = scored.filter((x) => x.score > 0).slice(0, 5);
+    if (top.length === 0) return "";
+    const lines: string[] = [
+      "VERFÜGBARE QUELLEN (nur diese als gesicherte Fakten verwenden — wenn die Frage hier nicht beantwortet wird, ausdrücklich auf das STORIA-Team verweisen; KEINE Preise/Liefer-/Zahlungs-/AGB-Aussagen erfinden):",
+    ];
+    top.forEach((x, i) => {
+      const title = x.c.knowledge_documents?.title ?? "Quelle";
+      const text = x.c.content.slice(0, 800);
+      lines.push(`\n[Quelle ${i + 1}: ${title}]\n${text}`);
+    });
+    return lines.join("\n");
+  } catch (e) {
+    console.error("knowledge_lookup_failed", (e as Error).message);
+    return "";
+  }
+}
+
 function buildInquiryMessageText(
   e: Extracted,
   messages: { role: string; content: string }[],
