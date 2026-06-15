@@ -28,6 +28,7 @@ import { PaymentStatusStrip } from "./PaymentStatusStrip";
 import { EmailFailureBanner } from "./EmailFailureBanner";
 import { LexofficeDocumentsCard } from "./LexofficeDocumentsCard";
 import { CustomerAttachmentsCard } from "./CustomerAttachmentsCard";
+import { AiDraftCard } from "./AiDraftCard";
 import { CostAcceptanceCard } from "./CostAcceptanceCard";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { SendSuccessDialog, type SendSuccessInfo } from "./SendSuccessDialog";
@@ -1356,6 +1357,8 @@ export const SmartInquiryEditor = () => {
           <LexofficeDocumentsCard orderId={id!} />
           {/* Anhänge des Kunden (AI Intake Bar) */}
           <CustomerAttachmentsCard inquiryId={id!} />
+          {/* KI-Entwurf des Kunden (read-only) */}
+          <AiDraftCard inquiryId={id!} />
         </TabsContent>
 
         <TabsContent value="aktivitaeten" className="mt-6 space-y-6">
