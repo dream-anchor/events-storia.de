@@ -17,79 +17,100 @@ const COPY = {
   de: {
     placeholder:
       "Stellen Sie eine Frage oder beschreiben Sie Ihr Catering — die KI hilft bei der Vorbereitung.",
-    send: "Senden",
+    send: "Frage senden",
+    sendEmptyTooltip: "Geben Sie eine Nachricht ein, um weiterzufragen.",
+    composerHint:
+      "Dieser Button sendet nur eine Chat-Nachricht. Die Anfrage an STORIA senden Sie unten.",
+    introHint:
+      "Sie können Fragen stellen, gemeinsam planen oder direkt ein Angebot bei STORIA anfragen.",
     expandedPlaceholder:
       "Stellen Sie eine Frage oder beschreiben Sie Anlass, Datum, Personenanzahl und Speisenwünsche.",
     chatLabel: "KI-Hinweise",
     attachmentsLabel: "Anhänge (optional)",
     summaryLabel: "Übersicht",
-    submit: "Anfrage an STORIA zur Prüfung senden",
-    submitDisabledHint:
-      "Bitte ergänzen Sie noch die fehlenden Angaben, damit STORIA Ihre Anfrage prüfen kann.",
+    submit: "Angebot bei STORIA anfragen",
+    submitDisabledHintPrefix: "Dafür fehlen noch:",
+    submitEnabledHint:
+      "Die KI bereitet Ihre Anfrage vor. STORIA prüft Details, Verfügbarkeit und finale Preise und sendet Ihnen das verbindliche Angebot.",
     close: "Panel schließen",
     minimize: "Minimieren",
     aiHint: "KI-Assistenz",
     aiDisclaimer:
-      "Die KI hilft bei der Vorbereitung Ihrer Anfrage. Das finale Angebot wird vom STORIA-Team geprüft und freigegeben.",
-    confirmTitle: "Bitte prüfen Sie Ihre Anfrage",
+      "Die KI hilft unverbindlich bei der Vorbereitung. STORIA sendet Ihnen das verbindliche Angebot nach Prüfung.",
+    confirmTitle: "Anfrage zur Prüfung an STORIA senden?",
     confirmIntro:
-      "Soll ich diese Anfrage jetzt zur Prüfung an STORIA übermitteln?",
-    confirm: "Ja, zur Prüfung senden",
-    cancel: "Zurück",
+      "STORIA prüft Ihre Angaben, passt bei Bedarf Menü, Mengen und Preise an und sendet Ihnen anschließend ein verbindliches Angebot.",
+    confirm: "Ja, Anfrage senden",
+    cancel: "Weiter bearbeiten",
     submitting: "Wird übermittelt …",
     successTitle: "Vielen Dank.",
     successBody:
       "Ihre Anfrage liegt bei STORIA zur Prüfung. Das Team meldet sich mit einem individuellen, verbindlichen Angebot.",
     successHint: "Ihre Anfrage wurde erfolgreich erfasst.",
     files: "Hochgeladene Dateien",
-    examplesLabel: "Beispiele",
+    examplesLabel: "Schnellstart",
     newInquiry: "Neue Anfrage starten",
     examples: [
-      "Pizza Catering planen",
-      "Fingerfood für 40 Personen",
-      "Was passt für eine Firmenfeier?",
-      "Ich habe ein Briefing",
-      "Menü zusammenstellen",
-      "Preis grob einschätzen lassen",
+      "Frage stellen",
+      "Angebot einholen",
+      "Menü planen",
+      "Briefing einfügen",
     ],
+    missingLabels: {
+      contactName: "Name",
+      email: "E-Mail",
+      guestCount: "Personenanzahl",
+      preferredDate: "Datum oder Zeitraum",
+    } as Record<string, string>,
   },
   en: {
     placeholder:
       "Ask a question or describe your catering — the AI helps prepare your request.",
-    send: "Send",
+    send: "Send message",
+    sendEmptyTooltip: "Enter a message to continue the conversation.",
+    composerHint:
+      "This button only sends a chat message. Use the button below to send the request to STORIA.",
+    introHint:
+      "You can ask questions, plan together, or directly request an offer from STORIA.",
     expandedPlaceholder:
       "Ask a question or describe occasion, date, guest count and menu preferences.",
     chatLabel: "AI hints",
     attachmentsLabel: "Attachments (optional)",
     summaryLabel: "Summary",
-    submit: "Send request to STORIA for review",
-    submitDisabledHint:
-      "Please add the missing details so STORIA can review your request.",
+    submit: "Request an offer from STORIA",
+    submitDisabledHintPrefix: "Still missing:",
+    submitEnabledHint:
+      "The AI prepares your request. STORIA reviews the details, availability and final pricing and sends you the binding offer.",
     close: "Close panel",
     minimize: "Minimize",
     aiHint: "AI assistance",
     aiDisclaimer:
-      "The AI helps prepare your request. The final offer is reviewed and approved by the STORIA team.",
-    confirmTitle: "Please review your request",
-    confirmIntro: "Shall I submit this request to STORIA for review now?",
-    confirm: "Yes, send for review",
-    cancel: "Back",
+      "The AI helps non-bindingly to prepare your request. STORIA sends the binding offer after review.",
+    confirmTitle: "Send request to STORIA for review?",
+    confirmIntro:
+      "STORIA will review your details, adjust menu, quantities and pricing if needed, and then send you a binding offer.",
+    confirm: "Yes, send request",
+    cancel: "Keep editing",
     submitting: "Submitting …",
     successTitle: "Thank you.",
     successBody:
       "Your request is with STORIA for review. The team will get back to you with an individual, binding offer.",
     successHint: "Your request was successfully recorded.",
     files: "Uploaded files",
-    examplesLabel: "Examples",
+    examplesLabel: "Quick start",
     newInquiry: "Start a new request",
     examples: [
-      "Plan pizza catering",
-      "Finger food for 40 guests",
-      "What suits a company event?",
-      "I have a briefing",
-      "Compose a menu",
-      "Rough price estimate",
+      "Ask a question",
+      "Request an offer",
+      "Plan a menu",
+      "Paste a briefing",
     ],
+    missingLabels: {
+      contactName: "Name",
+      email: "email",
+      guestCount: "guest count",
+      preferredDate: "date or time frame",
+    } as Record<string, string>,
   },
 } as const;
 
