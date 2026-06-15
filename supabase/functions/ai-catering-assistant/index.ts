@@ -739,6 +739,18 @@ function isIsoDate(s: string | null | undefined): boolean {
   return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
 
+/**
+ * Returns the ISO date only if it's today or in the future.
+ * Past dates are dropped (returns null) so we never store a wrong year
+ * in v2_events.date. The original text remains visible in messageText.
+ */
+function safeFutureIso(s: string | null | undefined): string | null {
+  if (!isIsoDate(s)) return null;
+  const today = new Date();
+  const todayIso = today.toISOString().slice(0, 10);
+  return (s as string) >= todayIso ? (s as string) : null;
+}
+
 async function handleSubmitInquiry(
   supabase: SupaClient,
   conversationId: string,
@@ -830,9 +842,7 @@ async function handleSubmitInquiry(
     guestCount:
       extraction.guestCount != null ? String(extraction.guestCount) : undefined,
     eventType: extraction.eventType ?? undefined,
-    preferredDate: isIsoDate(extraction.preferredDate)
-      ? extraction.preferredDate
-      : undefined,
+    preferredDate: safeFutureIso(extraction.preferredDate) ?? undefined,
     timeSlot: extraction.timeSlot ?? undefined,
     message: messageText,
     source: "ai_intake_bar",
