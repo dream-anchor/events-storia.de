@@ -242,6 +242,7 @@ async function callAiGateway(
   history: { role: "user" | "assistant"; content: string }[],
   currentExtraction: Extracted,
   uploadedFiles: number,
+  knowledgeContext: string,
 ): Promise<{
   reply: string;
   intent: Intent;
@@ -253,7 +254,10 @@ async function callAiGateway(
     content:
       systemPrompt(lang) +
       `\n\nKONTEXT (aktuelle Extraktion, JSON): ${JSON.stringify(currentExtraction)}\n` +
-      `KONTEXT (clientState.uploadedFiles.count): ${uploadedFiles}`,
+      `KONTEXT (clientState.uploadedFiles.count): ${uploadedFiles}` +
+      (knowledgeContext
+        ? `\n\n${knowledgeContext}`
+        : "\n\nVERFÜGBARE QUELLEN: (keine passenden öffentlichen Quellen gefunden — bei Sachfragen ausdrücklich auf das STORIA-Team verweisen, niemals Preise/Liefer-/Zahlungs-/AGB-Aussagen erfinden)"),
   };
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
