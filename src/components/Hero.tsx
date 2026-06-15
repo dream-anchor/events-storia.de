@@ -1,6 +1,7 @@
 import storiaLogo from "@/assets/storia-logo.webp";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LocalizedLink } from "@/components/LocalizedLink";
+import { AiIntakeBar } from "@/components/ai/AiIntakeBar";
 
 const Hero = () => {
   const { language } = useLanguage();
@@ -30,7 +31,9 @@ const Hero = () => {
             ? 'Italienisches Catering in München'
             : 'Italian Catering in Munich'}
         </h1>
-        
+
+        <AiIntakeBar language={language === 'de' ? 'de' : 'en'} />
+
       </div>
     </section>
   );
