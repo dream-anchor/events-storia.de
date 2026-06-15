@@ -174,6 +174,9 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
   );
   const [readyFromServer, setReadyFromServer] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submittedInquiryId, setSubmittedInquiryId] = useState<string | null>(null);
   const thinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const extractionRef = useRef<AiIntakeExtraction>({});
   extractionRef.current = extraction;
@@ -419,6 +422,86 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
 
   const clearNotice = useCallback(() => setNotice(null), []);
 
+  const requestConfirmation = useCallback(() => {
+    setErrorMessage(null);
+    setAwaitingConfirmation(true);
+  }, []);
+
+  const cancelConfirmation = useCallback(() => {
+    setAwaitingConfirmation(false);
+  }, []);
+
+  const submitInquiry = useCallback(async () => {
+    if (!conversationId) {
+      setErrorMessage(
+        language === "de"
+          ? "Bitte senden Sie zunächst eine Nachricht, damit die Anfrage vorbereitet werden kann."
+          : "Please send a message first so the request can be prepared.",
+      );
+      return;
+    }
+    if (submittedInquiryId || submitting) return;
+    setSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "ai-catering-assistant",
+        {
+          body: {
+            conversationId,
+            action: "submit_inquiry",
+            confirmed: true,
+          },
+        },
+      );
+      if (error) throw new Error(error.message || "submit_failed");
+      const payload = data as {
+        success?: boolean;
+        inquiryId?: string;
+        reply?: string;
+        error?: string;
+        missingFields?: unknown;
+      };
+      if (!payload?.success || !payload?.inquiryId) {
+        if (payload?.error === "missing_required_fields") {
+          setServerMissing(toRequiredFields(payload.missingFields));
+          setReadyFromServer(false);
+        }
+        const reply =
+          payload?.reply ||
+          (language === "de"
+            ? "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut oder kontaktieren Sie STORIA direkt."
+            : "The request could not be sent right now. Please try again or contact STORIA directly.");
+        setErrorMessage(reply);
+        return;
+      }
+      setSubmittedInquiryId(payload.inquiryId);
+      setAwaitingConfirmation(false);
+      setMessages((m) => [
+        ...m,
+        {
+          id: uid(),
+          role: "assistant",
+          content:
+            payload.reply ||
+            (language === "de"
+              ? "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt. Wir melden uns mit einem individuellen Angebot."
+              : "Thank you. Your request has been submitted to STORIA."),
+          createdAt: Date.now(),
+        },
+      ]);
+    } catch (e) {
+      console.error("submit_inquiry_failed", e);
+      setErrorMessage(
+        language === "de"
+          ? "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut oder kontaktieren Sie STORIA direkt."
+          : "The request could not be sent right now. Please try again or contact STORIA directly.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }, [conversationId, language, submitting, submittedInquiryId]);
+
   return {
     // state
     expanded,
@@ -433,6 +516,9 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     conversationId,
     notice,
     errorMessage,
+    awaitingConfirmation,
+    submitting,
+    submittedInquiryId,
     // setters
     setBriefing,
     setExtraction,
@@ -445,5 +531,8 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     removeAttachment,
     showSubmitMockNotice,
     clearNotice,
+    requestConfirmation,
+    cancelConfirmation,
+    submitInquiry,
   };
 }
