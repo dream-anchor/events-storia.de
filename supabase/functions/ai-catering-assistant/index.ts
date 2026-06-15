@@ -829,11 +829,21 @@ serve(async (req) => {
   }
 
   // 7. Persist unverbindlicher KI-Draft (Step 1: backend-only persistence).
-  // Suggested packages/items/custom_items remain empty for now — they will
-  // be filled by the model in a later build step. The draft is NEVER a
-  // binding offer; final approval happens only in Maestro by STORIA staff.
+  // The draft is NEVER a binding offer; final approval happens only in
+  // Maestro by STORIA staff. Pricing is computed deterministically here,
+  // never by the model.
   try {
-    await upsertConversationDraft(supabase, conversationId, nextExtraction);
+    const resolved = resolveDraftFromSuggestions(
+      rawDraftSuggestions,
+      catalog,
+      nextExtraction.guestCount,
+    );
+    await upsertConversationDraft(
+      supabase,
+      conversationId,
+      nextExtraction,
+      resolved,
+    );
   } catch (e) {
     // Never block the chat response on draft persistence.
     console.error("draft_upsert_failed", (e as Error).message);
@@ -867,6 +877,12 @@ async function upsertConversationDraft(
   supabase: any,
   conversationId: string,
   extraction: Extracted,
+  resolved: {
+    suggested_packages: DraftPackageSuggestion[];
+    suggested_items: DraftItemSuggestion[];
+    custom_items: { label: string; note?: string | null }[];
+    extraOpenQuestions: string[];
+  },
 ): Promise<void> {
   const { data: row } = await supabase
     .from("ai_conversations")
@@ -885,27 +901,38 @@ async function upsertConversationDraft(
 
   const base = emptyDraft(MODEL);
 
-  // Step 1 only populates summary/open_questions from extraction.
-  // Suggested arrays are preserved if a later build step has already
-  // written some, otherwise default to empty.
-  const suggested_packages = Array.isArray(prevDraft.suggested_packages)
-    ? prevDraft.suggested_packages
-    : base.suggested_packages;
-  const suggested_items = Array.isArray(prevDraft.suggested_items)
-    ? prevDraft.suggested_items
-    : base.suggested_items;
-  const custom_items = Array.isArray(prevDraft.custom_items)
-    ? prevDraft.custom_items
-    : base.custom_items;
+  // If the model returned suggestions this turn, replace previous ones
+  // (chat is iterative — newest proposal wins). Otherwise keep previous.
+  const suggested_packages =
+    resolved.suggested_packages.length > 0
+      ? resolved.suggested_packages
+      : Array.isArray(prevDraft.suggested_packages)
+        ? prevDraft.suggested_packages
+        : base.suggested_packages;
+  const suggested_items =
+    resolved.suggested_items.length > 0
+      ? resolved.suggested_items
+      : Array.isArray(prevDraft.suggested_items)
+        ? prevDraft.suggested_items
+        : base.suggested_items;
+  const custom_items =
+    resolved.custom_items.length > 0
+      ? resolved.custom_items
+      : Array.isArray(prevDraft.custom_items)
+        ? prevDraft.custom_items
+        : base.custom_items;
 
   const summary =
     typeof extraction.summary === "string" && extraction.summary.trim().length > 0
       ? extraction.summary.trim()
       : (typeof prevDraft.summary === "string" ? prevDraft.summary : "");
 
-  const open_questions = Array.isArray(extraction.openQuestions)
+  const fromExtraction = Array.isArray(extraction.openQuestions)
     ? extraction.openQuestions.filter((q) => typeof q === "string" && q.trim().length > 0)
-    : (Array.isArray(prevDraft.open_questions) ? prevDraft.open_questions : []);
+    : [];
+  const open_questions = Array.from(
+    new Set([...fromExtraction, ...resolved.extraOpenQuestions]),
+  );
 
   const estimate = computeEstimate(suggested_packages, suggested_items);
 
