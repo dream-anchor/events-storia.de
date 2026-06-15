@@ -11,6 +11,8 @@ interface Props {
   language: AiIntakeLanguage;
   onAdd: (files: FileList | File[]) => void;
   onRemove: (id: string) => void;
+  /** Compact mobile variant: single inline button instead of dropzone. */
+  compact?: boolean;
 }
 
 function formatBytes(n: number): string {
@@ -25,6 +27,7 @@ export function AiAttachmentUploader({
   language,
   onAdd,
   onRemove,
+  compact = false,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
@@ -40,6 +43,39 @@ export function AiAttachmentUploader({
 
   return (
     <div className="space-y-2">
+      {compact ? (
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => inputRef.current?.click()}
+            className="rounded-full"
+          >
+            <Paperclip className="h-3.5 w-3.5" aria-hidden />
+            <span>
+              {language === "de"
+                ? "+ Datei oder Foto hinzufügen"
+                : "+ Add file or photo"}
+            </span>
+          </Button>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            className="sr-only"
+            accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            aria-label={language === "de" ? "Dateien hochladen" : "Upload files"}
+            onChange={(e) => {
+              if (e.target.files?.length) onAdd(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          <span className="text-[11px] text-muted-foreground">
+            {attachments.length}/{AI_MAX_FILES}
+          </span>
+        </div>
+      ) : (
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -90,6 +126,7 @@ export function AiAttachmentUploader({
           />
         </div>
       </div>
+      )}
 
       {attachments.length > 0 ? (
         <ul className="space-y-1.5">
@@ -164,10 +201,16 @@ export function AiAttachmentUploader({
         </ul>
       ) : null}
 
-      <p className="text-right text-xs text-muted-foreground">
-        {attachments.length}/{AI_MAX_FILES} ·{" "}
-        {formatBytes(totalSize)} / {formatBytes(AI_MAX_TOTAL_BYTES)}
-      </p>
+      {!compact ? (
+        <p className="text-right text-xs text-muted-foreground">
+          {attachments.length}/{AI_MAX_FILES} ·{" "}
+          {formatBytes(totalSize)} / {formatBytes(AI_MAX_TOTAL_BYTES)}
+        </p>
+      ) : attachments.length > 0 ? (
+        <p className="text-right text-[11px] text-muted-foreground">
+          {formatBytes(totalSize)} / {formatBytes(AI_MAX_TOTAL_BYTES)}
+        </p>
+      ) : null}
     </div>
   );
 }
