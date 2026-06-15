@@ -243,6 +243,28 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       await builder.sendFinalOffer(emailDraft);
     },
     isReady: () => !builder.isLoading,
+    importFromAiDraft: (draft) => {
+      // Pakete + Menü-Items aus dem bereits hydrierten Hook-Zustand —
+      // keine zusätzliche DB-Round-Trip nötig.
+      const result = mapAiDraftToOption(draft, {
+        guestCount,
+        packages: packages.map((p) => ({
+          id: p.id,
+          name: p.name,
+          // Package hat kein deleted_at/archived_at — `is_active=false` filtern wir vorab raus.
+          ...(p.is_active === false ? { archived_at: new Date().toISOString() } : {}),
+        })),
+        menuItems: builder.menuItems.map((m) => ({
+          id: m.id,
+          name: m.name,
+          category_name: m.category_name,
+        })),
+      });
+      if (result.option) {
+        builder.addAiDraftPreview(result.option);
+      }
+      return result;
+    },
   }));
 
   // --- Loading ---
