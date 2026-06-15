@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import {
+  type Draft,
+  computeEstimate,
+  emptyDraft,
+  isDraftLike,
+} from "../_shared/draft-pricing.ts";
 
 const MODEL = "google/gemini-3-flash-preview";
 const MAX_MESSAGE_LENGTH = 8000;
@@ -586,6 +592,17 @@ serve(async (req) => {
       .eq("id", conversationId);
   }
 
+  // 7. Persist unverbindlicher KI-Draft (Step 1: backend-only persistence).
+  // Suggested packages/items/custom_items remain empty for now — they will
+  // be filled by the model in a later build step. The draft is NEVER a
+  // binding offer; final approval happens only in Maestro by STORIA staff.
+  try {
+    await upsertConversationDraft(supabase, conversationId, nextExtraction);
+  } catch (e) {
+    // Never block the chat response on draft persistence.
+    console.error("draft_upsert_failed", (e as Error).message);
+  }
+
   return jsonResponse(
     {
       conversationId,
@@ -604,6 +621,86 @@ serve(async (req) => {
 
 // Suppress unused-warning for REQUIRED_FIELDS (kept for clarity / future use)
 void REQUIRED_FIELDS;
+
+/* ============================================================
+ * Draft persistence (ai_conversations.metadata.draft)
+ * ============================================================ */
+
+async function upsertConversationDraft(
+  supabase: SupaClient,
+  conversationId: string,
+  extraction: Extracted,
+): Promise<void> {
+  const { data: row } = await supabase
+    .from("ai_conversations")
+    .select("metadata")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  const metadata =
+    row?.metadata && typeof row.metadata === "object"
+      ? ({ ...(row.metadata as Record<string, unknown>) })
+      : ({} as Record<string, unknown>);
+
+  const prevDraft: Partial<Draft> = isDraftLike(metadata.draft)
+    ? (metadata.draft as Partial<Draft>)
+    : {};
+
+  const base = emptyDraft(MODEL);
+
+  // Step 1 only populates summary/open_questions from extraction.
+  // Suggested arrays are preserved if a later build step has already
+  // written some, otherwise default to empty.
+  const suggested_packages = Array.isArray(prevDraft.suggested_packages)
+    ? prevDraft.suggested_packages
+    : base.suggested_packages;
+  const suggested_items = Array.isArray(prevDraft.suggested_items)
+    ? prevDraft.suggested_items
+    : base.suggested_items;
+  const custom_items = Array.isArray(prevDraft.custom_items)
+    ? prevDraft.custom_items
+    : base.custom_items;
+
+  const summary =
+    typeof extraction.summary === "string" && extraction.summary.trim().length > 0
+      ? extraction.summary.trim()
+      : (typeof prevDraft.summary === "string" ? prevDraft.summary : "");
+
+  const open_questions = Array.isArray(extraction.openQuestions)
+    ? extraction.openQuestions.filter((q) => typeof q === "string" && q.trim().length > 0)
+    : (Array.isArray(prevDraft.open_questions) ? prevDraft.open_questions : []);
+
+  const estimate = computeEstimate(suggested_packages, suggested_items);
+
+  // Preserve a non-draft status (submitted/adopted/discarded) once set
+  // upstream — Step 1 does not change status itself.
+  const status =
+    prevDraft.status === "submitted" ||
+    prevDraft.status === "adopted" ||
+    prevDraft.status === "discarded"
+      ? prevDraft.status
+      : base.status;
+
+  const draft: Draft = {
+    ...base,
+    status,
+    summary,
+    open_questions,
+    suggested_packages,
+    suggested_items,
+    custom_items,
+    estimate,
+    generated_at: new Date().toISOString(),
+    model: MODEL,
+  };
+
+  metadata.draft = draft;
+
+  await supabase
+    .from("ai_conversations")
+    .update({ metadata })
+    .eq("id", conversationId);
+}
 
 /* ============================================================
  * submit_inquiry — server-to-server call to receive-event-inquiry
