@@ -16,11 +16,20 @@ const LABELS: Record<string, { de: string; en: string }> = {
   contactName: { de: "Ansprechpartner", en: "Contact" },
   email: { de: "E-Mail", en: "Email" },
   phone: { de: "Telefon", en: "Phone" },
-  eventDate: { de: "Datum", en: "Date" },
-  eventDateRange: { de: "Zeitraum", en: "Time frame" },
+  companyName: { de: "Firma", en: "Company" },
+  preferredDate: { de: "Datum", en: "Date" },
+  dateRange: { de: "Zeitraum", en: "Time frame" },
+  timeSlot: { de: "Uhrzeit", en: "Time" },
   guestCount: { de: "Personen", en: "Guests" },
-  location: { de: "Ort", en: "Location" },
-  foodWish: { de: "Speisenwunsch", en: "Menu" },
+  eventType: { de: "Anlass", en: "Event" },
+  locationName: { de: "Ort", en: "Location" },
+  deliveryAddress: { de: "Lieferadresse", en: "Delivery address" },
+  budget: { de: "Budget", en: "Budget" },
+  foodPreferences: { de: "Speisenwünsche", en: "Menu" },
+  dietaryRequirements: { de: "Ernährung", en: "Dietary" },
+  serviceNeeds: { de: "Service", en: "Service" },
+  equipmentNeeds: { de: "Equipment", en: "Equipment" },
+  summary: { de: "Zusammenfassung", en: "Summary" },
   notes: { de: "Notizen", en: "Notes" },
 };
 
@@ -42,16 +51,27 @@ export function AiSummaryCard({ extraction, missing, language }: Props) {
           </p>
         ) : (
           <dl className="space-y-1">
-            {known.map(([key, value]) => (
-              <div key={key} className="flex items-baseline justify-between gap-3 text-sm">
-                <dt className="shrink-0 text-muted-foreground">
-                  {LABELS[key]?.[language] ?? key}
-                </dt>
-                <dd className="truncate text-right text-foreground" title={String(value)}>
-                  {String(value)}
-                </dd>
-              </div>
-            ))}
+            {known.map(([key, value]) => {
+              const display = Array.isArray(value)
+                ? value.join(", ")
+                : String(value);
+              return (
+                <div
+                  key={key}
+                  className="flex items-baseline justify-between gap-3 text-sm"
+                >
+                  <dt className="shrink-0 text-muted-foreground">
+                    {LABELS[key]?.[language] ?? key}
+                  </dt>
+                  <dd
+                    className="truncate text-right text-foreground"
+                    title={display}
+                  >
+                    {display}
+                  </dd>
+                </div>
+              );
+            })}
           </dl>
         )}
       </div>
