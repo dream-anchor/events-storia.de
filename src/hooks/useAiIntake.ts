@@ -431,6 +431,27 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     setAwaitingConfirmation(false);
   }, []);
 
+  const resetConversation = useCallback(() => {
+    // Revoke any local preview URLs from non-submitted attachments
+    setAttachments((prev) => {
+      prev.forEach((a) => {
+        if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
+      });
+      return [];
+    });
+    setConversationId(null);
+    setMessages([]);
+    setExtraction({});
+    setServerMissing(null);
+    setReadyFromServer(false);
+    setAwaitingConfirmation(false);
+    setSubmittedInquiryId(null);
+    setErrorMessage(null);
+    setNotice(null);
+    setBriefing("");
+    extractionRef.current = {};
+  }, [setConversationId]);
+
   const submitInquiry = useCallback(async () => {
     if (!conversationId) {
       setErrorMessage(
@@ -534,5 +555,6 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     requestConfirmation,
     cancelConfirmation,
     submitInquiry,
+    resetConversation,
   };
 }
