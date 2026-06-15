@@ -3,10 +3,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
   type Draft,
+  type DraftItemSuggestion,
+  type DraftPackageSuggestion,
   computeEstimate,
+  computeSubtotal,
   emptyDraft,
   isDraftLike,
+  resolvePackagePrice,
 } from "../_shared/draft-pricing.ts";
+import {
+  type CatalogItem,
+  type CatalogPackage,
+  type CatalogSnippet,
+  loadCatalogSnippet,
+} from "../_shared/catalog-snippet.ts";
 
 const MODEL = "google/gemini-3-flash-preview";
 const MAX_MESSAGE_LENGTH = 8000;
