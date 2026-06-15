@@ -13,6 +13,28 @@ import {
   type AiRequiredField,
 } from "@/lib/aiIntake/types";
 import { uploadAttachmentWithConversation } from "@/lib/aiIntake/uploadAttachment";
+import { supabase } from "@/integrations/supabase/client";
+
+const CONVERSATION_STORAGE_KEY = "storia.aiIntake.conversationId";
+
+function readStoredConversationId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage.getItem(CONVERSATION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredConversationId(id: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (id) window.sessionStorage.setItem(CONVERSATION_STORAGE_KEY, id);
+    else window.sessionStorage.removeItem(CONVERSATION_STORAGE_KEY);
+  } catch {
+    /* ignore quota / privacy errors */
+  }
+}
 
 function uid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -21,7 +43,7 @@ function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/* -------- Mock NLU (Step 3 – no AI backend yet) -------- */
+/* -------- Local NLU (used only as fallback when the AI backend is unreachable) -------- */
 
 function mockExtract(text: string): AiIntakeExtraction {
   const out: AiIntakeExtraction = {};
@@ -35,10 +57,10 @@ function mockExtract(text: string): AiIntakeExtraction {
   if (guests) out.guestCount = Number(guests[1]);
 
   const date = text.match(/(\d{1,2}\.\s?\d{1,2}\.?(?:\s?\d{2,4})?)|(\d{4}-\d{2}-\d{2})|(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
-  if (date) out.eventDate = (date[0] || "").trim();
+  if (date) out.preferredDate = (date[0] || "").trim();
 
   const city = text.match(/\b(M[üu]nchen|Munich|Berlin|Hamburg|K[öo]ln|Stuttgart|Frankfurt|Augsburg|N[üu]rnberg)\b/i);
-  if (city) out.location = city[0];
+  if (city) out.locationName = city[0];
 
   const foods = [
     "fingerfood",
@@ -56,7 +78,7 @@ function mockExtract(text: string): AiIntakeExtraction {
   ];
   const lc = text.toLowerCase();
   const food = foods.find((f) => lc.includes(f));
-  if (food) out.foodWish = food;
+  if (food) out.foodPreferences = [food];
 
   return out;
 }
@@ -72,7 +94,7 @@ function computeMissing(e: AiIntakeExtraction): AiRequiredField[] {
   const missing: AiRequiredField[] = [];
   if (!e.contactName) missing.push("contactName");
   if (!e.email) missing.push("email");
-  if (!e.eventDate && !e.eventDateRange) missing.push("eventDate");
+  if (!e.preferredDate && !e.dateRange) missing.push("preferredDate");
   if (!e.guestCount) missing.push("guestCount");
   return missing;
 }
@@ -85,16 +107,17 @@ function buildAssistantReply(
   const labelMap: Record<AiRequiredField, { de: string; en: string }> = {
     contactName: { de: "Ihr Name oder ein Ansprechpartner", en: "your name or a contact person" },
     email: { de: "Ihre E-Mail-Adresse", en: "your email address" },
-    eventDate: { de: "ein Datum oder Zeitraum", en: "a date or time frame" },
+    preferredDate: { de: "ein Datum oder Zeitraum", en: "a date or time frame" },
     guestCount: { de: "die ungefähre Personenanzahl", en: "the approximate number of guests" },
   };
 
   const known: string[] = [];
   if (extraction.guestCount) known.push(lang === "de" ? "Personenanzahl" : "guest count");
-  if (extraction.eventDate || extraction.eventDateRange) known.push(lang === "de" ? "Datum" : "date");
+  if (extraction.preferredDate || extraction.dateRange) known.push(lang === "de" ? "Datum" : "date");
   if (extraction.email) known.push("E-Mail");
-  if (extraction.location) known.push(lang === "de" ? "Ort" : "location");
-  if (extraction.foodWish) known.push(lang === "de" ? "Speisenwunsch" : "menu preference");
+  if (extraction.locationName) known.push(lang === "de" ? "Ort" : "location");
+  if (extraction.foodPreferences && extraction.foodPreferences.length > 0)
+    known.push(lang === "de" ? "Speisenwunsch" : "menu preference");
 
   const knownText = known.length
     ? lang === "de"
@@ -116,6 +139,19 @@ function buildAssistantReply(
     : `Thank you. ${knownText} To prepare an offer, STORIA still needs: ${missingText}.`;
 }
 
+function toRequiredFields(input: unknown): AiRequiredField[] {
+  if (!Array.isArray(input)) return [];
+  const allowed: AiRequiredField[] = [
+    "contactName",
+    "email",
+    "preferredDate",
+    "guestCount",
+  ];
+  return input.filter((x): x is AiRequiredField =>
+    allowed.includes(x as AiRequiredField),
+  );
+}
+
 /* -------- Hook -------- */
 
 export interface UseAiIntakeOptions {
@@ -129,18 +165,35 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
   const [extraction, setExtraction] = useState<AiIntakeExtraction>({});
   const [attachments, setAttachments] = useState<AiAttachmentDraft[]>([]);
   const [thinking, setThinking] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationIdState] = useState<string | null>(
+    () => readStoredConversationId(),
+  );
   const [notice, setNotice] = useState<string | null>(null);
+  const [serverMissing, setServerMissing] = useState<AiRequiredField[] | null>(
+    null,
+  );
+  const [readyFromServer, setReadyFromServer] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const thinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const extractionRef = useRef<AiIntakeExtraction>({});
+  extractionRef.current = extraction;
 
-  const missing = useMemo(() => computeMissing(extraction), [extraction]);
-  const canSubmit = missing.length === 0;
+  const setConversationId = useCallback((id: string | null) => {
+    setConversationIdState(id);
+    writeStoredConversationId(id);
+  }, []);
+
+  const missing = useMemo<AiRequiredField[]>(
+    () => serverMissing ?? computeMissing(extraction),
+    [serverMissing, extraction],
+  );
+  const canSubmit = readyFromServer || missing.length === 0;
 
   const expand = useCallback(() => setExpanded(true), []);
   const collapse = useCallback(() => setExpanded(false), []);
 
   const sendMessage = useCallback(
-    (text: string) => {
+    async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
       const userMsg: AiIntakeMessage = {
@@ -149,24 +202,95 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
         content: trimmed,
         createdAt: Date.now(),
       };
-      const nextExtraction = mergeExtraction(extraction, mockExtract(trimmed));
       setMessages((m) => [...m, userMsg]);
-      setExtraction(nextExtraction);
       setExpanded(true);
       setThinking(true);
+      setErrorMessage(null);
 
       if (thinkTimer.current) clearTimeout(thinkTimer.current);
-      thinkTimer.current = setTimeout(() => {
+
+      const uploadedRemote = attachments
+        .filter((a) => a.status === "uploaded" && a.remoteAttachmentId)
+        .map((a) => ({
+          attachmentId: a.remoteAttachmentId,
+          filename: a.file.name,
+          mime: a.mime,
+          size: a.size,
+        }));
+
+      try {
+        const { data, error } = await supabase.functions.invoke(
+          "ai-catering-assistant",
+          {
+            body: {
+              conversationId: conversationId ?? undefined,
+              message: trimmed,
+              language,
+              action: "chat",
+              clientState: {
+                uploadedFiles: uploadedRemote,
+                currentExtraction: extractionRef.current,
+              },
+            },
+          },
+        );
+        if (error) throw new Error(error.message || "ai_unavailable");
+        const payload = data as {
+          conversationId?: string;
+          reply?: string;
+          extracted?: AiIntakeExtraction;
+          missingFields?: unknown;
+          readyToSubmit?: boolean;
+        };
+        if (!payload?.conversationId || !payload?.reply) {
+          throw new Error("invalid_response");
+        }
+        if (payload.conversationId !== conversationId) {
+          setConversationId(payload.conversationId);
+        }
+        if (payload.extracted) setExtraction(payload.extracted);
+        setServerMissing(toRequiredFields(payload.missingFields));
+        setReadyFromServer(Boolean(payload.readyToSubmit));
+        setMessages((m) => [
+          ...m,
+          {
+            id: uid(),
+            role: "assistant",
+            content: payload.reply!,
+            createdAt: Date.now(),
+          },
+        ]);
+      } catch (e) {
+        // Fallback: local NLU + best-effort reply so the UI stays usable.
+        console.error("ai-catering-assistant_failed", e);
+        const nextExtraction = mergeExtraction(
+          extractionRef.current,
+          mockExtract(trimmed),
+        );
+        setExtraction(nextExtraction);
         const nextMissing = computeMissing(nextExtraction);
+        setServerMissing(null);
+        setReadyFromServer(false);
         const reply = buildAssistantReply(language, nextExtraction, nextMissing);
         setMessages((m) => [
           ...m,
-          { id: uid(), role: "assistant", content: reply, createdAt: Date.now() },
+          {
+            id: uid(),
+            role: "assistant",
+            content: reply,
+            createdAt: Date.now(),
+          },
         ]);
+        setErrorMessage(
+          language === "de"
+            ? "Die KI ist aktuell nicht erreichbar. Bitte versuchen Sie es erneut."
+            : "The AI is currently unreachable. Please try again.",
+        );
+      } finally {
         setThinking(false);
-      }, 650);
+      }
     },
-    [extraction, language],
+    [attachments, conversationId, language, setConversationId],
   );
 
   /* -------- Attachments -------- */
@@ -308,6 +432,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     totalSize,
     conversationId,
     notice,
+    errorMessage,
     // setters
     setBriefing,
     setExtraction,

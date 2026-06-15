@@ -11,15 +11,28 @@ export interface AiIntakeExtraction {
   contactName?: string | null;
   email?: string | null;
   phone?: string | null;
-  eventDate?: string | null;
-  eventDateRange?: string | null;
+  companyName?: string | null;
+  preferredDate?: string | null;
+  dateRange?: string | null;
+  timeSlot?: string | null;
   guestCount?: number | null;
-  location?: string | null;
-  foodWish?: string | null;
+  eventType?: string | null;
+  locationName?: string | null;
+  deliveryAddress?: string | null;
+  budget?: string | null;
+  foodPreferences?: string[] | null;
+  dietaryRequirements?: string[] | null;
+  serviceNeeds?: string[] | null;
+  equipmentNeeds?: string[] | null;
+  summary?: string | null;
   notes?: string | null;
 }
 
-export type AiRequiredField = "contactName" | "email" | "eventDate" | "guestCount";
+export type AiRequiredField =
+  | "contactName"
+  | "email"
+  | "preferredDate"
+  | "guestCount";
 
 export interface AiAttachmentDraft {
   id: string;

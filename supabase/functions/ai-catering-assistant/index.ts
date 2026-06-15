@@ -1,0 +1,547 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
+
+const MODEL = "google/gemini-3-flash-preview";
+const MAX_MESSAGE_LENGTH = 8000;
+const MAX_HISTORY_MESSAGES = 30;
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const REQUIRED_FIELDS = [
+  "contactName",
+  "email",
+  "guestCount",
+  "preferredDate", // OR dateRange
+] as const;
+
+type Lang = "de" | "en";
+type Intent = "faq" | "inquiry" | "mixed";
+
+interface Extracted {
+  contactName: string | null;
+  email: string | null;
+  phone: string | null;
+  companyName: string | null;
+  guestCount: number | null;
+  eventType: string | null;
+  preferredDate: string | null;
+  dateRange: string | null;
+  timeSlot: string | null;
+  locationName: string | null;
+  deliveryAddress: string | null;
+  budget: string | null;
+  foodPreferences: string[];
+  dietaryRequirements: string[];
+  serviceNeeds: string[];
+  equipmentNeeds: string[];
+  attachmentsMentioned: boolean;
+  openQuestions: string[];
+  summary: string | null;
+  originalUserText: string | null;
+}
+
+function emptyExtraction(): Extracted {
+  return {
+    contactName: null,
+    email: null,
+    phone: null,
+    companyName: null,
+    guestCount: null,
+    eventType: null,
+    preferredDate: null,
+    dateRange: null,
+    timeSlot: null,
+    locationName: null,
+    deliveryAddress: null,
+    budget: null,
+    foodPreferences: [],
+    dietaryRequirements: [],
+    serviceNeeds: [],
+    equipmentNeeds: [],
+    attachmentsMentioned: false,
+    openQuestions: [],
+    summary: null,
+    originalUserText: null,
+  };
+}
+
+function mergeExtraction(prev: Extracted, next: Partial<Extracted>): Extracted {
+  const out: Extracted = { ...prev };
+  for (const k of Object.keys(next) as (keyof Extracted)[]) {
+    const v = next[k];
+    if (v == null) continue;
+    if (Array.isArray(v)) {
+      if (v.length > 0) {
+        const merged = new Set<string>([
+          ...((prev[k] as string[] | undefined) ?? []),
+          ...v.map((x) => String(x)),
+        ]);
+        (out as Record<string, unknown>)[k] = Array.from(merged);
+      }
+    } else if (typeof v === "string") {
+      if (v.trim().length > 0) (out as Record<string, unknown>)[k] = v.trim();
+    } else {
+      (out as Record<string, unknown>)[k] = v;
+    }
+  }
+  return out;
+}
+
+function emailLooksValid(e: string | null | undefined): boolean {
+  if (!e) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
+
+function computeMissing(e: Extracted): string[] {
+  const missing: string[] = [];
+  if (!e.contactName) missing.push("contactName");
+  if (!emailLooksValid(e.email)) missing.push("email");
+  if (!e.guestCount || e.guestCount <= 0) missing.push("guestCount");
+  if (!e.preferredDate && !e.dateRange) missing.push("preferredDate");
+  return missing;
+}
+
+function jsonResponse(
+  body: unknown,
+  status: number,
+  cors: Record<string, string>,
+) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...cors, "Content-Type": "application/json" },
+  });
+}
+
+/* -------- Rate limit (in-memory; best-effort) -------- */
+const rateMap = new Map<string, { count: number; reset: number }>();
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX = 20;
+function checkRate(key: string): boolean {
+  const now = Date.now();
+  const e = rateMap.get(key);
+  if (!e || e.reset < now) {
+    rateMap.set(key, { count: 1, reset: now + RATE_WINDOW_MS });
+    return true;
+  }
+  if (e.count >= RATE_MAX) return false;
+  e.count += 1;
+  return true;
+}
+
+/* -------- System prompt -------- */
+
+function systemPrompt(lang: Lang): string {
+  const de = `Du bist die KI-Assistenz von STORIA, einem italienischen Catering- und Eventunternehmen in München (offiziell info@events-storia.de).
+
+ROLLE
+- Antworte freundlich, klar, professionell. Auf Deutsch immer formell mit "Sie".
+- Wenn der Nutzer Englisch schreibt: antworte Englisch. Sprache unklar → Deutsch.
+
+AUFGABE
+- Klassifiziere die Nachricht als "faq", "inquiry" oder "mixed".
+- Beantworte FAQs nur mit gesichertem allgemeinen Wissen. Erfinde NIEMALS konkrete Preise, Mindestmengen, Lieferbedingungen, AGB- oder Rechtsaussagen.
+- Wenn unsicher: "Das klärt das STORIA-Team gerne individuell für Ihre Anfrage."
+- Für inquiries/mixed: extrahiere Lead-Daten konservativ und frage gezielt nach den noch fehlenden Pflichtangaben.
+- Pflichtangaben sind: Ansprechpartner (contactName), E-Mail (email), Personenanzahl (guestCount), Datum (preferredDate) ODER Zeitraum (dateRange).
+
+EXTRAKTIONSREGELN
+- contactName nicht aus E-Mail-Adressen raten.
+- preferredDate nur bei konkretem Datum setzen (ISO YYYY-MM-DD wenn möglich, sonst Originaltext).
+- "im Juli", "Ende September", "Q4" → dateRange (nicht preferredDate).
+- guestCount als Zahl. "ca. 35" → 35. Bei Spannen ("30-40") nimm einen sinnvollen Mittelwert oder die kleinere Zahl.
+- email muss formal gültig sein, sonst null.
+- attachmentsMentioned = true, wenn der Nutzer Fotos, Briefing-PDFs, Moodboards o. ä. erwähnt.
+
+UPLOADS
+- Wenn Uploads erwähnt werden: "Sie können Fotos oder Dokumente direkt hier hochladen. Das STORIA-Team sieht diese später in Maestro."
+- Wenn bereits Dateien hochgeladen wurden (clientState.uploadedFiles > 0): "Ich habe die Dateien zur Anfrage hinzugefügt. Das STORIA-Team kann sie später in Maestro einsehen."
+- Behaupte keine Bilddetails — es findet keine Bildanalyse statt.
+
+ANTWORTFORMAT — STRENG
+Antworte AUSSCHLIESSLICH durch Aufruf der Funktion "respond". Kein Fließtext daneben.`;
+
+  const en = `You are the AI assistant of STORIA, an Italian catering and event company in Munich (official: info@events-storia.de).
+
+ROLE
+- Friendly, clear, professional. In German always formal ("Sie").
+- Match the user's language. If unclear, default to German.
+
+TASK
+- Classify the message as "faq", "inquiry" or "mixed".
+- Answer FAQs only with safe general knowledge. NEVER invent concrete prices, minimums, delivery terms or legal statements.
+- If unsure: "The STORIA team will gladly clarify this individually for your request."
+- For inquiries/mixed: extract lead data conservatively and ask gently for the still missing required fields.
+- Required fields: contactName, email, guestCount, preferredDate OR dateRange.
+
+EXTRACTION
+- Do not guess contactName from email addresses.
+- preferredDate only when a concrete date is given (ISO YYYY-MM-DD if possible).
+- "in July", "late September", "Q4" → dateRange.
+- guestCount as a number. Range → median/lower bound.
+- email must look formally valid, otherwise null.
+
+UPLOADS
+- If the user mentions photos/documents: "You can upload photos or documents directly here. The STORIA team will see them later in Maestro."
+- If files were already uploaded (clientState.uploadedFiles > 0): "I've added the files to your request. The STORIA team will see them later in Maestro."
+- Do not claim image details — there is no image analysis.
+
+OUTPUT FORMAT — STRICT
+Respond ONLY by calling the "respond" function. No prose alongside.`;
+
+  return lang === "en" ? en : de;
+}
+
+const RESPOND_TOOL = {
+  type: "function",
+  function: {
+    name: "respond",
+    description: "Assistant reply, intent, structured extraction, missing fields.",
+    parameters: {
+      type: "object",
+      properties: {
+        reply: { type: "string", description: "The user-facing reply text." },
+        intent: { type: "string", enum: ["faq", "inquiry", "mixed"] },
+        suggestedNextQuestion: { type: "string" },
+        extracted: {
+          type: "object",
+          properties: {
+            contactName: { type: "string" },
+            email: { type: "string" },
+            phone: { type: "string" },
+            companyName: { type: "string" },
+            guestCount: { type: "number" },
+            eventType: { type: "string" },
+            preferredDate: { type: "string" },
+            dateRange: { type: "string" },
+            timeSlot: { type: "string" },
+            locationName: { type: "string" },
+            deliveryAddress: { type: "string" },
+            budget: { type: "string" },
+            foodPreferences: { type: "array", items: { type: "string" } },
+            dietaryRequirements: { type: "array", items: { type: "string" } },
+            serviceNeeds: { type: "array", items: { type: "string" } },
+            equipmentNeeds: { type: "array", items: { type: "string" } },
+            attachmentsMentioned: { type: "boolean" },
+            openQuestions: { type: "array", items: { type: "string" } },
+            summary: { type: "string" },
+          },
+        },
+      },
+      required: ["reply", "intent", "extracted"],
+    },
+  },
+} as const;
+
+/* -------- AI Gateway call -------- */
+
+async function callAiGateway(
+  apiKey: string,
+  lang: Lang,
+  history: { role: "user" | "assistant"; content: string }[],
+  currentExtraction: Extracted,
+  uploadedFiles: number,
+): Promise<{
+  reply: string;
+  intent: Intent;
+  extracted: Partial<Extracted>;
+  suggestedNextQuestion?: string;
+} | null> {
+  const systemMessage = {
+    role: "system",
+    content:
+      systemPrompt(lang) +
+      `\n\nKONTEXT (aktuelle Extraktion, JSON): ${JSON.stringify(currentExtraction)}\n` +
+      `KONTEXT (clientState.uploadedFiles.count): ${uploadedFiles}`,
+  };
+
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [systemMessage, ...history],
+      tools: [RESPOND_TOOL],
+      tool_choice: { type: "function", function: { name: "respond" } },
+      temperature: 0.3,
+    }),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("ai_gateway_error", res.status, txt.slice(0, 300));
+    if (res.status === 429) throw new Error("rate_limited_upstream");
+    if (res.status === 402) throw new Error("credits_exhausted");
+    throw new Error(`upstream_${res.status}`);
+  }
+
+  const data = await res.json();
+  const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall || toolCall.function?.name !== "respond") return null;
+  try {
+    const args = JSON.parse(toolCall.function.arguments);
+    return {
+      reply: String(args.reply ?? "").trim(),
+      intent: (args.intent === "faq" || args.intent === "mixed"
+        ? args.intent
+        : "inquiry") as Intent,
+      extracted: (args.extracted ?? {}) as Partial<Extracted>,
+      suggestedNextQuestion:
+        typeof args.suggestedNextQuestion === "string"
+          ? args.suggestedNextQuestion
+          : undefined,
+    };
+  } catch (e) {
+    console.error("tool_args_parse_failed", (e as Error).message);
+    return null;
+  }
+}
+
+function fallbackReply(lang: Lang, missing: string[]): string {
+  if (lang === "en") {
+    if (missing.length === 0) {
+      return "Thank you. I have all required details — you can send the request to STORIA now.";
+    }
+    return "Thank you for your message. To prepare an offer, the STORIA team still needs a few details. Could you provide them?";
+  }
+  if (missing.length === 0) {
+    return "Vielen Dank. Alle Pflichtangaben liegen vor — Sie können die Anfrage jetzt an STORIA senden.";
+  }
+  return "Vielen Dank für Ihre Nachricht. Damit STORIA Ihnen ein passendes Angebot senden kann, fehlen noch einige Angaben. Können Sie diese kurz ergänzen?";
+}
+
+/* -------- Handler -------- */
+
+serve(async (req) => {
+  const cors = getCorsHeaders(req);
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "method_not_allowed" }, 405, cors);
+  }
+
+  let body: {
+    conversationId?: unknown;
+    message?: unknown;
+    language?: unknown;
+    action?: unknown;
+    clientState?: { uploadedFiles?: unknown; currentExtraction?: unknown };
+  };
+  try {
+    body = await req.json();
+  } catch {
+    return jsonResponse({ error: "invalid_json" }, 400, cors);
+  }
+
+  const message = typeof body.message === "string" ? body.message.trim() : "";
+  if (!message) return jsonResponse({ error: "message_required" }, 400, cors);
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return jsonResponse({ error: "message_too_long" }, 400, cors);
+  }
+
+  const incomingConvId =
+    typeof body.conversationId === "string" && UUID_RE.test(body.conversationId)
+      ? body.conversationId
+      : null;
+
+  const language: Lang = body.language === "en" ? "en" : "de";
+  const uploadedFilesCount = Array.isArray(body.clientState?.uploadedFiles)
+    ? (body.clientState!.uploadedFiles as unknown[]).length
+    : 0;
+
+  // Rate limit by conversationId when present, otherwise by client hint
+  const rateKey =
+    incomingConvId ??
+    req.headers.get("x-forwarded-for") ??
+    req.headers.get("cf-connecting-ip") ??
+    "anon";
+  if (!checkRate(rateKey)) {
+    return jsonResponse({ error: "rate_limited" }, 429, cors);
+  }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
+  );
+
+  // 1. Resolve / create conversation
+  let conversationId = incomingConvId;
+  let conversationStatus = "active";
+  if (conversationId) {
+    const { data: existing, error } = await supabase
+      .from("ai_conversations")
+      .select("id, status, language")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (error) {
+      console.error("conv_lookup_failed");
+      return jsonResponse({ error: "lookup_failed" }, 500, cors);
+    }
+    if (!existing) {
+      conversationId = null; // fall through to create
+    } else {
+      conversationStatus = existing.status;
+    }
+  }
+  if (!conversationId) {
+    const { data: created, error } = await supabase
+      .from("ai_conversations")
+      .insert({
+        language,
+        status: "active",
+        source: "ai_intake_bar",
+      })
+      .select("id, status")
+      .single();
+    if (error || !created) {
+      console.error("conv_create_failed");
+      return jsonResponse({ error: "create_failed" }, 500, cors);
+    }
+    conversationId = created.id;
+    conversationStatus = created.status;
+  }
+
+  // 2. Persist user message
+  const { error: userMsgErr } = await supabase.from("ai_messages").insert({
+    conversation_id: conversationId,
+    role: "user",
+    content: message,
+    metadata: { uploadedFilesCount },
+  });
+  if (userMsgErr) console.error("user_msg_insert_failed");
+
+  // 3. Build history from DB (so refresh works)
+  const { data: history } = await supabase
+    .from("ai_messages")
+    .select("role, content")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true })
+    .limit(MAX_HISTORY_MESSAGES);
+
+  const chatHistory = (history ?? [])
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: String(m.content ?? ""),
+    }));
+
+  // 4. Current extraction baseline (latest stored, optionally merged with clientState)
+  const { data: latestExtraction } = await supabase
+    .from("ai_extractions")
+    .select("extracted")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let currentExtraction: Extracted = emptyExtraction();
+  if (latestExtraction?.extracted && typeof latestExtraction.extracted === "object") {
+    currentExtraction = mergeExtraction(
+      currentExtraction,
+      latestExtraction.extracted as Partial<Extracted>,
+    );
+  }
+  if (body.clientState?.currentExtraction && typeof body.clientState.currentExtraction === "object") {
+    currentExtraction = mergeExtraction(
+      currentExtraction,
+      body.clientState.currentExtraction as Partial<Extracted>,
+    );
+  }
+  currentExtraction.attachmentsMentioned =
+    currentExtraction.attachmentsMentioned || uploadedFilesCount > 0;
+
+  // 5. Call AI gateway
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  let reply = "";
+  let intent: Intent = "inquiry";
+  let suggestedNextQuestion: string | undefined;
+  let nextExtraction = currentExtraction;
+
+  if (!apiKey) {
+    console.error("missing_lovable_api_key");
+    reply = fallbackReply(language, computeMissing(currentExtraction));
+  } else {
+    try {
+      const aiResult = await callAiGateway(
+        apiKey,
+        language,
+        chatHistory,
+        currentExtraction,
+        uploadedFilesCount,
+      );
+      if (aiResult) {
+        reply = aiResult.reply || fallbackReply(language, computeMissing(currentExtraction));
+        intent = aiResult.intent;
+        suggestedNextQuestion = aiResult.suggestedNextQuestion;
+        const extractedClean: Partial<Extracted> = { ...aiResult.extracted };
+        if (!emailLooksValid(extractedClean.email)) extractedClean.email = null;
+        extractedClean.originalUserText = message;
+        nextExtraction = mergeExtraction(currentExtraction, extractedClean);
+      } else {
+        reply = fallbackReply(language, computeMissing(currentExtraction));
+      }
+    } catch (e) {
+      const err = (e as Error).message;
+      if (err === "credits_exhausted") {
+        return jsonResponse(
+          { error: "ai_unavailable", reason: "credits" },
+          402,
+          cors,
+        );
+      }
+      if (err === "rate_limited_upstream") {
+        return jsonResponse({ error: "rate_limited" }, 429, cors);
+      }
+      console.error("ai_call_failed", err);
+      reply = fallbackReply(language, computeMissing(currentExtraction));
+    }
+  }
+
+  const missingFields = computeMissing(nextExtraction);
+  const readyToSubmit = missingFields.length === 0;
+
+  // 6. Persist assistant message + extraction + status
+  await supabase.from("ai_messages").insert({
+    conversation_id: conversationId,
+    role: "assistant",
+    content: reply,
+    metadata: { intent, missingFields },
+  });
+
+  await supabase.from("ai_extractions").insert({
+    conversation_id: conversationId,
+    extracted: nextExtraction,
+    missing_fields: missingFields,
+    confidence: {},
+  });
+
+  const desiredStatus = readyToSubmit ? "ready_to_submit" : "active";
+  if (desiredStatus !== conversationStatus) {
+    await supabase
+      .from("ai_conversations")
+      .update({ status: desiredStatus })
+      .eq("id", conversationId);
+  }
+
+  return jsonResponse(
+    {
+      conversationId,
+      reply,
+      intent,
+      extracted: nextExtraction,
+      missingFields,
+      readyToSubmit,
+      requiresConfirmation: false,
+      suggestedNextQuestion,
+    },
+    200,
+    cors,
+  );
+});
+
+// Suppress unused-warning for REQUIRED_FIELDS (kept for clarity / future use)
+void REQUIRED_FIELDS;

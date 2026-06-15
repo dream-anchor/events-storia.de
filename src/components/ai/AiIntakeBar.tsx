@@ -59,6 +59,7 @@ export function AiIntakeBar({ language }: Props) {
     totalSize,
     notice,
     conversationId,
+    errorMessage,
     expand,
     collapse,
     sendMessage,
@@ -276,6 +277,14 @@ export function AiIntakeBar({ language }: Props) {
               {!canSubmit ? (
                 <p className="text-xs text-muted-foreground">
                   {t.submitDisabledHint}
+                </p>
+              ) : null}
+              {errorMessage ? (
+                <p
+                  role="alert"
+                  className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-foreground"
+                >
+                  {errorMessage}
                 </p>
               ) : null}
               {notice ? (
