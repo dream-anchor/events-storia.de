@@ -178,6 +178,17 @@ export interface OfferBuilderOption {
   discountAmount: number;
   attachMenu: boolean;
   tableNote: string | null;
+  /**
+   * TRANSIENT — nicht persistiert (saveOptionsToDb pickt nur bekannte Felder).
+   * Markiert eine Option als „aus KI-Entwurf übernommen" — rein für UI-Badge.
+   */
+  aiOrigin?: boolean;
+  /**
+   * TRANSIENT — nicht persistiert. Wenn true, ist die Option ein KI-Vorschlag,
+   * der vom Betreiber bewusst über „KI-Vorschlag speichern" persistiert werden muss.
+   * Wird beim ersten Save (oder beim Klick auf Save-Button) auf false gesetzt.
+   */
+  needsManualSave?: boolean;
 }
 
 /** Kunden-Antwort aus offer_customer_responses */
