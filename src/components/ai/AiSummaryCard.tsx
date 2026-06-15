@@ -34,9 +34,11 @@ const LABELS: Record<string, { de: string; en: string }> = {
 };
 
 export function AiSummaryCard({ extraction, missing, language }: Props) {
-  const known = Object.entries(extraction).filter(
-    ([, v]) => v != null && v !== "",
-  );
+  const known = Object.entries(extraction).filter(([, v]) => {
+    if (v == null || v === "") return false;
+    if (Array.isArray(v) && v.length === 0) return false;
+    return true;
+  });
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
