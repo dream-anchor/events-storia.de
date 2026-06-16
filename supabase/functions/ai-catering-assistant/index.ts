@@ -388,7 +388,7 @@ EXTRACTION
 - "in July", "late September", "Q4", "in summer", "in autumn" → dateRange (not preferredDate). Do NOT invent a concrete date from a time frame.
 - When in doubt, prefer dateRange (e.g. "July ${currentYear}") over a wrong concrete date.
 - guestCount as a number. Range → median/lower bound.
-- email must look formally valid, otherwise null.
+- email must look formally valid as name@domain.tld (TLD at least 2 chars), otherwise null. NEVER invent or append a top-level domain such as ".com" or ".de". Incomplete addresses like "antoine@monot" are invalid — set email=null and politely ask for the full address (e.g. "The email address seems incomplete. Please enter the full address, e.g. name@domain.com."). Only accept an email that the user typed verbatim.
 
 UPLOADS
 - If the user mentions photos/documents: "You can upload photos or documents directly here. The STORIA team will see them later in Maestro."
