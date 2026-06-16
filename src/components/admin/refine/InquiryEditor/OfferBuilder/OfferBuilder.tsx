@@ -14,7 +14,8 @@ import { OPTION_LABELS, createEmptyOption } from "./types";
 import { PaymentTermsBlock } from "../PaymentTermsBlock";
 import { Skeleton } from "@/components/ui/skeleton";
 import { mapAiDraftToOption, type MapAiDraftResult } from "./aiDraftToOption";
-import type { AiDraft } from "@/hooks/useAiDraft";
+import { useAiDraft, type AiDraft } from "@/hooks/useAiDraft";
+import { Sparkles } from "lucide-react";
 
 export interface OfferBuilderHandle {
   /** Scrollt zum E-Mail-Composer und öffnet ihn; generiert optional KI-Text */
@@ -74,6 +75,55 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
 
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [menuImporterOpen, setMenuImporterOpen] = useState(false);
+
+  // --- AI-Draft Import (zentral; gleicher Mapper wie imperative handle) ---
+  const { data: aiDraftData } = useAiDraft(inquiry.id);
+  const runAiDraftImport = useCallback((draft: AiDraft): MapAiDraftResult => {
+    const result = mapAiDraftToOption(draft, {
+      guestCount,
+      packages: packages.map((p) => ({
+        id: p.id,
+        name: p.name,
+        ...(p.is_active === false ? { archived_at: new Date().toISOString() } : {}),
+      })),
+      menuItems: builder.menuItems.map((m) => ({
+        id: m.id,
+        name: m.name,
+        category_name: m.category_name,
+      })),
+    });
+    if (result.option) {
+      builder.addAiDraftPreview(result.option);
+    }
+    return result;
+  }, [guestCount, packages, builder.menuItems, builder.addAiDraftPreview]);
+
+  const handleAiDraftHintClick = useCallback(() => {
+    if (!aiDraftData?.draft) return;
+    if (builder.isLoading) {
+      toast.error("OfferBuilder lädt noch. Bitte kurz warten und erneut versuchen.");
+      return;
+    }
+    const result = runAiDraftImport(aiDraftData.draft);
+    if (!result.option) {
+      toast.error(result.warnings[0] ?? "Übernahme nicht möglich.");
+      return;
+    }
+    toast.success(
+      "KI-Entwurf wurde als Vorschlag in den OfferBuilder geladen. Bitte prüfen, anpassen und manuell speichern.",
+    );
+    if (result.warnings.length > 0 || result.skippedItems.length > 0) {
+      toast.warning(
+        "Einige Positionen konnten nicht automatisch übernommen werden und müssen geprüft werden.",
+        {
+          description: [
+            ...result.warnings,
+            ...result.skippedItems.map((s) => `${s.name}: ${s.reason}`),
+          ].slice(0, 5).join("\n"),
+        },
+      );
+    }
+  }, [aiDraftData, builder.isLoading, runAiDraftImport]);
 
   // --- Mehrere Restaurant-Menüs als neue Optionen anlegen ---
   const handleImportMultiple = useCallback((partials: Partial<OfferBuilderOption>[]) => {
@@ -243,28 +293,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       await builder.sendFinalOffer(emailDraft);
     },
     isReady: () => !builder.isLoading,
-    importFromAiDraft: (draft) => {
-      // Pakete + Menü-Items aus dem bereits hydrierten Hook-Zustand —
-      // keine zusätzliche DB-Round-Trip nötig.
-      const result = mapAiDraftToOption(draft, {
-        guestCount,
-        packages: packages.map((p) => ({
-          id: p.id,
-          name: p.name,
-          // Package hat kein deleted_at/archived_at — `is_active=false` filtern wir vorab raus.
-          ...(p.is_active === false ? { archived_at: new Date().toISOString() } : {}),
-        })),
-        menuItems: builder.menuItems.map((m) => ({
-          id: m.id,
-          name: m.name,
-          category_name: m.category_name,
-        })),
-      });
-      if (result.option) {
-        builder.addAiDraftPreview(result.option);
-      }
-      return result;
-    },
+    importFromAiDraft: (draft) => runAiDraftImport(draft),
   }));
 
   // --- Loading ---
@@ -329,6 +358,38 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
             {inquiry.offer_sent_at && ` vom ${format(parseISO(inquiry.offer_sent_at), "d. MMM yyyy", { locale: de })}`}
             . Klicke unten auf „Vorschau anzeigen" um die neue Version zu senden.
           </p>
+        </div>
+      )}
+
+      {/* AI-Draft Hinweis — einzige Stelle zur Übernahme des KI-Entwurfs */}
+      {aiDraftData?.draft && (
+        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 space-y-3">
+          <div className="flex items-start gap-3">
+            <Sparkles className="h-5 w-5 text-neutral-500 mt-0.5 shrink-0" />
+            <div className="flex-1 space-y-1">
+              <h3 className="text-sm font-semibold text-neutral-900">KI-Entwurf vorhanden</h3>
+              <p className="text-xs text-neutral-700 leading-relaxed">
+                Der Kunde hat über den KI-Assistenten bereits einen unverbindlichen
+                Catering-Vorschlag erhalten. Du kannst ihn als Vorschlag in den OfferBuilder
+                übernehmen und anschließend prüfen, anpassen und bewusst speichern.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[11px] text-neutral-500">
+              Noch nicht gespeichert · keine automatische Mail · kein PDF · kein Public-Link
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAiDraftHintClick}
+              className="rounded-2xl"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              In OfferBuilder übernehmen
+            </Button>
+          </div>
         </div>
       )}
 
