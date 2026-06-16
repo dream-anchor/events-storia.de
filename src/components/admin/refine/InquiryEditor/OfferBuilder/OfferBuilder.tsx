@@ -49,6 +49,9 @@ interface OfferBuilderProps {
   onEmailContentChange?: (content: string) => void;
   /** Callback um Inquiry-Felder lokal zu ändern (Auto-Save kümmert sich um Persistenz) */
   onFieldChange?: (field: keyof ExtendedInquiry, value: unknown) => void;
+  /** True wenn die zugehörige Kostenübernahme unterschrieben ist (locked_after_signature).
+   *  Sperrt signaturrelevante Bereiche (Optionen, Preise, Menü, Zahlungsbedingungen, Send-Buttons). */
+  isSignatureLocked?: boolean;
 }
 
 export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(function OfferBuilder({
@@ -59,6 +62,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   isCreateMode = false,
   onEmailContentChange,
   onFieldChange,
+  isSignatureLocked = false,
 }: OfferBuilderProps, ref) {
   const guestCount = parseInt(inquiry.guest_count || "1") || 1;
   const selectedPackages = Array.isArray(inquiry.selected_packages)
@@ -376,6 +380,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       </p>
 
       {/* 3. Options-Grid — pro Option wird der Modus innerhalb der Karte gewählt */}
+      <div className={isSignatureLocked ? "pointer-events-none opacity-60" : undefined} aria-disabled={isSignatureLocked || undefined}>
       <OptionCardGrid
         options={builder.options}
         packages={packages}
@@ -387,13 +392,14 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         onToggleActive={builder.toggleOptionActive}
         onAddOption={builder.addOption}
         onImportMultiple={handleImportMultiple}
-        isLocked={false}
+        isLocked={isSignatureLocked}
         currentVersion={builder.currentVersion}
         guestCount={guestCount}
         menuImporterOpen={menuImporterOpen}
         onMenuImporterOpenChange={setMenuImporterOpen}
         customerResponse={builder.offerPhase === "customer_responded" ? builder.customerResponse : null}
       />
+      </div>
 
       {/* 4. Zahlungs-Konditionen — pro Inquiry editierbar */}
       {onFieldChange && (
@@ -408,7 +414,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
           balanceMethod={(inquiry as any).balance_method}
           balanceDueDaysBeforeEvent={(inquiry as any).balance_due_days_before_event}
           onChange={(field, value) => onFieldChange(field, value)}
-          isReadOnly={inquiry.status === 'confirmed'}
+          isReadOnly={inquiry.status === 'confirmed' || isSignatureLocked}
         />
       )}
 
@@ -435,7 +441,14 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       </div>
 
       {/* 5. Send Controls — nicht auf der Create-Seite (eigene Buttons im DraftPanel) */}
-      {!isCreateMode && <SendControls
+      {!isCreateMode && (
+        isSignatureLocked ? (
+          <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+            Nach unterschriebener Kostenübernahme bitte neue Angebotsversion erstellen.
+            Das aktuelle Angebot kann nicht erneut versendet oder verändert werden.
+          </div>
+        ) : (
+        <SendControls
         offerPhase={builder.offerPhase}
         emailDraft={emailDraft}
         activeOptionsCount={builder.activeOptions.length}
@@ -448,7 +461,9 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         inquiryId={inquiry.id}
         recipientName={inquiry.contact_name}
         recipientEmail={inquiry.email}
-      />}
+        />
+        )
+      )}
 
       {/* Versionshistorie entfernt — wird in Timeline & Aktivitäten angezeigt */}
     </div>
