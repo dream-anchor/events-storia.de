@@ -1357,25 +1357,8 @@ export const SmartInquiryEditor = () => {
           <LexofficeDocumentsCard orderId={id!} />
           {/* Anhänge des Kunden (AI Intake Bar) */}
           <CustomerAttachmentsCard inquiryId={id!} />
-          {/* KI-Entwurf des Kunden (read-only) */}
-          <AiDraftCard
-            inquiryId={id!}
-            onPrefillFromAiDraft={(draft) => {
-              const handle = offerBuilderRef.current;
-              if (!handle) {
-                return { ok: false as const, warnings: ['OfferBuilder ist nicht bereit. Bitte kurz warten und erneut versuchen.'], skippedItems: [] };
-              }
-              if (!handle.isReady()) {
-                return { ok: false as const, warnings: ['OfferBuilder lädt noch. Bitte kurz warten und erneut versuchen.'], skippedItems: [] };
-              }
-              const result = handle.importFromAiDraft(draft);
-              return {
-                ok: !!result.option,
-                warnings: result.warnings,
-                skippedItems: result.skippedItems,
-              };
-            }}
-          />
+          {/* KI-Entwurf des Kunden (read-only; Übernahme erfolgt ausschließlich im Tab „Angebot") */}
+          <AiDraftCard inquiryId={id!} />
         </TabsContent>
 
         <TabsContent value="aktivitaeten" className="mt-6 space-y-6">
