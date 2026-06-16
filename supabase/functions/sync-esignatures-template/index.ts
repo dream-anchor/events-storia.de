@@ -14,8 +14,10 @@ import {
   templateContentHash,
 } from "../_shared/cost-acceptance-template.ts";
 import { requireAuth } from "../_shared/auth.ts";
-
-const ESIGNATURES_API = "https://esignatures.com/api";
+import {
+  createEsignaturesTemplate,
+  getEsignaturesApiKey,
+} from "../_shared/esignatures-client.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -24,8 +26,7 @@ Deno.serve(async (req) => {
 
   try {
     await requireAuth(req);
-    const apiKey = Deno.env.get("ESIGNATURES_API_KEY");
-    if (!apiKey) throw new Error("ESIGNATURES_API_KEY fehlt");
+    getEsignaturesApiKey(); // wirft verständlichen Fehler, wenn nicht gesetzt
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -43,6 +44,9 @@ Deno.serve(async (req) => {
       template_id?: string;
       template_version?: string;
       hash?: string;
+      template_title?: string;
+      created_at?: string;
+      updated_at?: string;
       history?: Array<unknown>;
     };
 
@@ -57,23 +61,33 @@ Deno.serve(async (req) => {
       );
     }
 
-    const res = await fetch(
-      `${ESIGNATURES_API}/templates?token=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: `${COST_ACCEPTANCE_TEMPLATE_TITLE} (v${TEMPLATE_VERSION})`,
-          labels: ["cost-acceptance", `v${TEMPLATE_VERSION}`],
-          content: COST_ACCEPTANCE_TEMPLATE_MARKDOWN,
-        }),
-      },
-    );
-    const json = await res.json();
-    if (!res.ok || json?.status === "error") {
-      throw new Error(`Sync fehlgeschlagen: ${JSON.stringify(json)}`);
+    const versionedTitle = `${COST_ACCEPTANCE_TEMPLATE_TITLE} (v${TEMPLATE_VERSION})`;
+
+    let newId: string;
+    try {
+      const result = await createEsignaturesTemplate({
+        title: versionedTitle,
+        markdown: COST_ACCEPTANCE_TEMPLATE_MARKDOWN,
+      });
+      newId = result.template_id;
+    } catch (e) {
+      console.error("eSignatures template sync failed", (e as Error).message);
+      return new Response(
+        JSON.stringify({ error: (e as Error).message }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
-    const newId: string = json?.data?.template?.id ?? json?.template?.id;
+
+    // Schutz: niemals leere/ungültige template_id speichern.
+    if (typeof newId !== "string" || newId.trim().length === 0) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "eSignatures API response missing template_id — bestehende Template-Konfiguration bleibt unverändert.",
+        }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const history = Array.isArray(value.history) ? value.history : [];
     if (value.template_id) {
@@ -85,13 +99,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    const nowIso = new Date().toISOString();
     await supabase.from("crm_settings").upsert({
       key: "esignatures_cost_acceptance_template",
       value: {
         template_id: newId,
         template_version: TEMPLATE_VERSION,
         hash,
-        created_at: new Date().toISOString(),
+        template_title: versionedTitle,
+        created_at: value.created_at ?? nowIso,
+        updated_at: nowIso,
         history,
       },
     });
