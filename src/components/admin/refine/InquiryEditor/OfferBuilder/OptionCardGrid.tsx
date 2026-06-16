@@ -21,6 +21,7 @@ interface OptionCardGridProps {
   packageConfigs: Record<string, { courses: CourseConfig[]; drinks: DrinkConfig[] }>;
   onUpdateOption: (optionId: string, updates: Partial<OfferBuilderOption>) => void;
   onRemoveOption: (optionId: string) => void;
+  onResetOption: (optionId: string) => void;
   onToggleActive: (optionId: string) => void;
   onAddOption: (mode?: OfferMode, copyFrom?: OfferBuilderOption) => void;
   onImportMultiple: (partials: Partial<OfferBuilderOption>[]) => void;
@@ -39,6 +40,7 @@ export function OptionCardGrid({
   packageConfigs,
   onUpdateOption,
   onRemoveOption,
+  onResetOption,
   onToggleActive,
   onAddOption,
   onImportMultiple,
@@ -51,7 +53,9 @@ export function OptionCardGrid({
 }: OptionCardGridProps) {
   const canAdd = options.length < 5 && !isLocked;
   const canDuplicate = options.length < 5;
-  const canDelete = options.length > 1;
+  // Trash ist immer aktiv: bei einer einzelnen Option laesst removeOption
+  // automatisch eine frische leere Option A mit Kachel-Auswahl entstehen.
+  const canDelete = true;
 
   return (
     <div>
@@ -123,6 +127,7 @@ export function OptionCardGrid({
                 drinkConfigs={drinkConfigs}
                 onUpdate={(updates) => onUpdateOption(option.id, updates)}
                 onRemove={() => onRemoveOption(option.id)}
+                onReset={() => onResetOption(option.id)}
                 onDuplicate={() => onAddOption(option.offerMode, option)}
                 onToggleActive={() => onToggleActive(option.id)}
                 isLocked={isLocked && option.createdInVersion !== currentVersion}
