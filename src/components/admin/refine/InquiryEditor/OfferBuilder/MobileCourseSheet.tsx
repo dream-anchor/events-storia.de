@@ -179,11 +179,10 @@ export function MobileCourseSheet({
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            {/* Quantity (only per_event) */}
-            {pricingMode === "per_event" && (
-              <div className="space-y-2">
+            {/* Quantity — immer sichtbar */}
+            <div className="space-y-2">
                 <Label htmlFor="course-qty" className="text-sm font-medium">
-                  Menge
+                  Anzahl
                 </Label>
                 <Input
                   id="course-qty"
@@ -199,11 +198,10 @@ export function MobileCourseSheet({
                   }}
                   className="h-12 text-base text-right tabular-nums"
                 />
-              </div>
-            )}
+            </div>
 
             {/* Price */}
-            <div className={`space-y-2 ${pricingMode === "per_event" ? "" : "col-span-2"}`}>
+            <div className="space-y-2">
               <Label htmlFor="course-price" className="text-sm font-medium">
                 {packageMode ? "Aufpreis (optional)" : "Einzelpreis"}
               </Label>
@@ -239,7 +237,7 @@ export function MobileCourseSheet({
           </div>
 
           {/* Line Total Hint */}
-          {pricingMode === "per_event" && lineTotal != null && quantity > 1 && (
+          {lineTotal != null && quantity > 1 && (
             <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm">
               <span className="text-muted-foreground">
                 {quantity} × {fmtEUR(unitPrice ?? 0)}
