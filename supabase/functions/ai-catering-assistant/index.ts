@@ -1295,7 +1295,20 @@ serve(async (req) => {
         suggestedNextQuestion = aiResult.suggestedNextQuestion;
         aiAwaitingConfirmation = aiResult.requestSubmitConfirmation === true;
         const extractedClean: Partial<Extracted> = { ...aiResult.extracted };
-        if (!emailLooksValid(extractedClean.email)) extractedClean.email = null;
+        // Hard validation: drop invalid emails
+        if (!emailLooksValid(extractedClean.email)) {
+          extractedClean.email = null;
+        } else if (
+          !emailAppearsInUserText(extractedClean.email, chatHistory, message)
+        ) {
+          // Anti-hallucination: the model may not invent or auto-complete
+          // an email that the user never typed (e.g. add ".de" to "x@y").
+          console.warn(
+            "ai_email_dropped_not_in_user_text",
+            String(extractedClean.email),
+          );
+          extractedClean.email = null;
+        }
         extractedClean.originalUserText = message;
         nextExtraction = mergeExtraction(currentExtraction, extractedClean);
         rawDraftSuggestions = aiResult.draftSuggestions;
