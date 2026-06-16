@@ -9,6 +9,7 @@ import {
   Truck,
   ShoppingBag,
   Users,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/typed-client";
@@ -20,6 +21,7 @@ import type {
 } from "@/types/inquiryRecord";
 import { getRecordActionState } from "@/lib/inquiryActionState";
 import { useFailedDeliveryInquiries } from "@/hooks/useFailedDeliveryInquiries";
+import { useAiOriginInquiries } from "@/hooks/useAiOriginInquiries";
 
 interface UnifiedKanbanViewProps {
   records: InquiryRecord[];
@@ -126,6 +128,7 @@ export function UnifiedKanbanView({ records, onRefresh, bucket, onOpenGroup }: U
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const failedDeliveryIds = useFailedDeliveryInquiries();
+  const aiOriginIds = useAiOriginInquiries();
 
   const columns = BUCKET_COLUMNS[bucket];
 
@@ -284,6 +287,7 @@ export function UnifiedKanbanView({ records, onRefresh, bucket, onOpenGroup }: U
                 record={r}
                 isDragging={draggingId === r.id}
                 hasDeliveryFailure={r.kind === "event" && failedDeliveryIds.has(r.id)}
+                hasAiOrigin={r.kind === "event" && aiOriginIds.has(r.id)}
                 onDragStart={(e) => handleDragStart(e, r)}
                 onDragEnd={handleDragEnd}
                 onClick={() =>
@@ -332,13 +336,14 @@ interface CardProps {
   record: InquiryRecord;
   isDragging: boolean;
   hasDeliveryFailure?: boolean;
+  hasAiOrigin?: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onClick: () => void;
   onArchive: () => void;
 }
 
-function UnifiedKanbanCard({ record, isDragging, hasDeliveryFailure, onDragStart, onDragEnd, onClick, onArchive }: CardProps) {
+function UnifiedKanbanCard({ record, isDragging, hasDeliveryFailure, hasAiOrigin, onDragStart, onDragEnd, onClick, onArchive }: CardProps) {
   const isEvent = record.kind === "event";
   const title =
     record.companyName?.trim() ||
@@ -372,6 +377,16 @@ function UnifiedKanbanCard({ record, isDragging, hasDeliveryFailure, onDragStart
           </span>
         )}
         <ServiceBadge serviceType={record.serviceType} />
+        {hasAiOrigin && (
+          <span
+            className="inline-flex items-center gap-0.5 rounded-full bg-foreground/8 text-foreground/70 ring-1 ring-foreground/15 px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap flex-shrink-0"
+            title="Über KI-Bar angefragt"
+            aria-label="Über KI-Bar angefragt"
+          >
+            <Sparkles className="h-3 w-3" aria-hidden />
+            KI
+          </span>
+        )}
         <h3 className="font-semibold text-slate-800 text-[13px] truncate flex-1 min-w-0">
           {title}
         </h3>
