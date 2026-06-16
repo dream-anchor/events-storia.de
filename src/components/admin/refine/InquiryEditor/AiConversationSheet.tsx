@@ -133,10 +133,10 @@ export function AiConversationSheet({ open, onOpenChange, conversationId }: Prop
                       </div>
                       <div
                         className={cn(
-                          "rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
+                          "rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap border",
                           isUser
-                            ? "bg-muted/60 text-foreground border border-border"
-                            : "bg-foreground text-background",
+                            ? "bg-white text-foreground border-slate-200"
+                            : "bg-slate-50 text-slate-900 border-slate-200",
                         )}
                       >
                         {m.content}
