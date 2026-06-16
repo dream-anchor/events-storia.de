@@ -332,7 +332,7 @@ EXTRAKTIONSREGELN
 - "im Juli", "Ende September", "Q4", "im Sommer", "im Herbst" → dateRange (nicht preferredDate). Erfinde KEIN konkretes Datum aus einem Zeitraum.
 - Im Zweifel lieber dateRange (z. B. "Juli ${currentYear}") setzen als ein falsches konkretes Datum.
 - guestCount als Zahl. "ca. 35" → 35. Bei Spannen ("30-40") nimm einen sinnvollen Mittelwert oder die kleinere Zahl.
-- email muss formal gültig sein, sonst null.
+- email muss formal gültig sein nach Muster name@domain.tld (TLD mindestens 2 Zeichen), sonst null. NIEMALS eine Top-Level-Domain wie ".de" oder ".com" ergänzen oder erraten. Unvollständige Adressen wie "antoine@monot" sind ungültig — setze email=null und frage höflich nach der vollständigen Adresse (z. B. "Die E-Mail-Adresse scheint noch unvollständig zu sein. Bitte geben Sie sie vollständig an, z. B. name@domain.de."). Nur eine E-Mail übernehmen, die der Nutzer wortwörtlich genannt hat.
 - attachmentsMentioned = true, wenn der Nutzer Fotos, Briefing-PDFs, Moodboards o. ä. erwähnt.
 
 UPLOADS
