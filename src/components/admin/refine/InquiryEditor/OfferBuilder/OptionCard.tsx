@@ -2,7 +2,7 @@ import { useMemo, useEffect, useRef, useState } from "react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed, RefreshCw, ChefHat, Package as PackageIcon, Mail, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed, RefreshCw, ChefHat, Package as PackageIcon, Mail, Sparkles, Info } from "lucide-react";
 import { ChevronDown, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -498,6 +498,21 @@ export function OptionCard({
 
           {option.offerMode === 'freeform' && (
             <FreeformContent option={option} onUpdate={onUpdate} disabled={disabled} />
+          )}
+
+          {/* Hinweise zur Prüfung — aus KI-Entwurf oder manuell eingetragen */}
+          {option.tableNote && (
+            <div className="p-4 rounded-xl border border-border/40 bg-muted/20 space-y-2">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {option.aiOrigin ? 'Hinweise aus dem KI-Entwurf' : 'Hinweise zur Prüfung'}
+                </span>
+              </div>
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                {option.tableNote}
+              </p>
+            </div>
           )}
 
           {/* Equipment & Personal — direkt unter dem Essen, damit sichtbar ist,
