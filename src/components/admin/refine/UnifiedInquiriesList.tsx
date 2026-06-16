@@ -452,8 +452,18 @@ export const UnifiedInquiriesList = () => {
                       🚨
                     </span>
                   )}
+                    {r.kind === "event" && hasInquiryAiOrigin(r, aiOriginIds) && (
+                      <span
+                        title="Über KI-Bar angefragt"
+                        aria-label="Über KI-Bar angefragt"
+                        className="inline-flex items-center gap-0.5 rounded-full bg-foreground/8 text-foreground/70 ring-1 ring-foreground/15 px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap shrink-0"
+                      >
+                        <Sparkles className="h-3 w-3" aria-hidden />
+                        KI
+                      </span>
+                    )}
                     <ServiceBadge serviceType={r.serviceType} compact />
-                    <span className="truncate" data-sensitive="customer">{r.companyName || r.customerName}</span>
+                    <span className="truncate" data-sensitive="customer">{getInquiryDisplayTitle(r)}</span>
                     <LangBadge lang={r.customerLanguage} />
                   </span>
                 }
