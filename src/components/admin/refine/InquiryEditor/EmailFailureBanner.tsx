@@ -14,6 +14,64 @@ const STATUS_LABEL: Record<string, string> = {
   suppressed: "Empfänger unterdrückt",
 };
 
+/**
+ * Übersetzt typische englische Provider-Fehlermeldungen (Resend, SES, SMTP …)
+ * in eine kurze, klare deutsche Erklärung. Bei unbekannten Texten fällt die
+ * Funktion auf den Originaltext zurück, damit nichts verloren geht.
+ */
+function translateErrorMessage(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const s = raw.trim();
+  const lc = s.toLowerCase();
+
+  // Hard Bounce (Adresse existiert nicht / dauerhaft abgelehnt)
+  if (
+    lc.includes("hard bounce") ||
+    lc.includes("recipient address rejected") ||
+    lc.includes("user unknown") ||
+    lc.includes("no such user") ||
+    lc.includes("mailbox not found") ||
+    lc.includes("does not exist") ||
+    lc.includes("address rejected")
+  ) {
+    return "Harter Bounce: Die Empfänger-Adresse existiert nicht oder wurde dauerhaft abgelehnt. Bitte die Adresse aus dem Verteiler entfernen — weitere Versuche schaden der Absender-Reputation.";
+  }
+  // Soft Bounce
+  if (
+    lc.includes("soft bounce") ||
+    lc.includes("mailbox full") ||
+    lc.includes("over quota") ||
+    lc.includes("quota exceeded") ||
+    lc.includes("temporarily")
+  ) {
+    return "Vorübergehender Bounce: Postfach voll oder Server vorübergehend nicht erreichbar. Später erneut versuchen.";
+  }
+  // Spam / Reputation
+  if (
+    lc.includes("spam") ||
+    lc.includes("blocked") ||
+    lc.includes("blacklist") ||
+    lc.includes("policy") ||
+    lc.includes("reputation")
+  ) {
+    return "Vom Provider als Spam eingestuft oder blockiert. Bitte über einen anderen Kanal (Telefon, WhatsApp) Kontakt aufnehmen.";
+  }
+  // Auth / Verbindung
+  if (
+    lc.includes("authentication") ||
+    lc.includes("auth required") ||
+    lc.includes("relay") ||
+    lc.includes("smtp") && lc.includes("error")
+  ) {
+    return "Versand-Verbindung fehlgeschlagen (SMTP/Auth). Bitte erneut versuchen.";
+  }
+  // Suppression-List
+  if (lc.includes("suppress") || lc.includes("unsubscribed")) {
+    return "Empfänger steht auf der Sperrliste (Suppression). Bitte über einen anderen Kanal Kontakt aufnehmen.";
+  }
+  return s;
+}
+
 export function EmailFailureBanner({ entityId }: { entityId: string | undefined }) {
   const { data, refetch } = useEmailFailuresForEntity(entityId);
   const [resolving, setResolving] = useState<string | null>(null);
@@ -87,8 +145,8 @@ export function EmailFailureBanner({ entityId }: { entityId: string | undefined 
                     Betreff: {f.subject || "—"}
                   </div>
                   {f.error_message ? (
-                    <div className="text-xs font-mono text-destructive/80 mt-1 break-all">
-                      {f.error_message}
+                    <div className="text-xs text-destructive/80 mt-1 break-words">
+                      {translateErrorMessage(f.error_message)}
                     </div>
                   ) : null}
                 </div>
