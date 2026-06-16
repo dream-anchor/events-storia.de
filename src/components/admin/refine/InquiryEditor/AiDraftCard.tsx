@@ -1,4 +1,5 @@
-import { Sparkles, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { Sparkles, ArrowRight, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { useAiDraft, type AiDraft } from "@/hooks/useAiDraft";
 import { toast } from "sonner";
+import { AiConversationSheet } from "./AiConversationSheet";
 
 export interface AiDraftPrefillResult {
   ok: boolean;
@@ -72,6 +74,7 @@ function formatDateTime(iso: string | null | undefined): string {
 
 export function AiDraftCard({ inquiryId, onPrefillFromAiDraft }: Props) {
   const { data, isLoading } = useAiDraft(inquiryId);
+  const [showConversation, setShowConversation] = useState(false);
 
   if (isLoading) return null;
   if (!data || !data.draft) return null;
@@ -117,9 +120,22 @@ export function AiDraftCard({ inquiryId, onPrefillFromAiDraft }: Props) {
             <Sparkles className="h-5 w-5 text-neutral-500" />
             <CardTitle className="text-lg">KI-Entwurf des Kunden</CardTitle>
           </div>
-          <Badge variant="outline" className="border-neutral-300 text-neutral-700">
-            Unverbindlich — Prüfung erforderlich
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="border-neutral-300 text-neutral-700">
+              Unverbindlich — Prüfung erforderlich
+            </Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowConversation(true)}
+              className="rounded-2xl h-8"
+              title="Vollständigen KI-Chat-Verlauf einsehen"
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Konversation anzeigen
+            </Button>
+          </div>
         </div>
         <div className="mt-2 text-xs text-muted-foreground">
           {draft.generated_at && <span>Generiert: {formatDateTime(draft.generated_at)}</span>}
@@ -281,6 +297,11 @@ export function AiDraftCard({ inquiryId, onPrefillFromAiDraft }: Props) {
           </div>
         )}
       </CardContent>
+      <AiConversationSheet
+        open={showConversation}
+        onOpenChange={setShowConversation}
+        conversationId={data.conversationId}
+      />
     </Card>
   );
 }
