@@ -730,6 +730,14 @@ serve(async (req) => {
     return await handleSubmitInquiry(supabase, incomingConvId, language, cors);
   }
 
+  // -------- load_state branch (reload restore) --------
+  if (action === "load_state") {
+    if (!incomingConvId) {
+      return jsonResponse({ error: "conversation_required" }, 400, cors);
+    }
+    return await handleLoadState(supabase, incomingConvId, cors);
+  }
+
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) return jsonResponse({ error: "message_required" }, 400, cors);
   if (message.length > MAX_MESSAGE_LENGTH) {
@@ -785,6 +793,135 @@ serve(async (req) => {
     }
     conversationId = created.id;
     conversationStatus = created.status;
+  }
+
+  // 1a. Already-submitted short circuit. Do NOT call AI, do NOT mutate status,
+  // but persist the user message so the transcript stays accurate.
+  if (conversationStatus === "submitted") {
+    const { data: convRow } = await supabase
+      .from("ai_conversations")
+      .select("inquiry_id")
+      .eq("id", conversationId)
+      .maybeSingle();
+    const inquiryId =
+      convRow && typeof convRow.inquiry_id === "string"
+        ? convRow.inquiry_id
+        : null;
+    await supabase.from("ai_messages").insert({
+      conversation_id: conversationId,
+      role: "user",
+      content: message,
+      metadata: { uploadedFilesCount, post_submit: true },
+    });
+    const replyAlready =
+      language === "en"
+        ? "Your request has already been sent to STORIA. The team will get back to you with a binding offer."
+        : "Diese Anfrage wurde bereits an STORIA übermittelt. Das Team meldet sich mit einem verbindlichen Angebot.";
+    await supabase.from("ai_messages").insert({
+      conversation_id: conversationId,
+      role: "assistant",
+      content: replyAlready,
+      metadata: { event: "already_submitted" },
+    });
+    return jsonResponse(
+      {
+        conversationId,
+        reply: replyAlready,
+        intent: "inquiry",
+        extracted: {},
+        missingFields: [],
+        readyToSubmit: true,
+        awaitingConfirmation: false,
+        alreadySubmitted: true,
+        submittedInquiryId: inquiryId,
+      },
+      200,
+      cors,
+    );
+  }
+
+  // 1b. Chat-side submit trigger: if the conversation is ready, the previous
+  // assistant turn asked for confirmation, and the user clearly agreed, run
+  // the SAME server-side handleSubmitInquiry that the CTA uses.
+  if (conversationStatus === "ready_to_submit") {
+    const { data: lastAssistant } = await supabase
+      .from("ai_messages")
+      .select("metadata, created_at")
+      .eq("conversation_id", conversationId)
+      .eq("role", "assistant")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const awaiting =
+      lastAssistant?.metadata &&
+      typeof lastAssistant.metadata === "object" &&
+      (lastAssistant.metadata as Record<string, unknown>).awaiting_confirmation ===
+        true;
+    if (awaiting) {
+      const intent = detectConfirmationIntent(message);
+      if (intent === "yes") {
+        // Persist the user's confirmation in the transcript.
+        await supabase.from("ai_messages").insert({
+          conversation_id: conversationId,
+          role: "user",
+          content: message,
+          metadata: { uploadedFilesCount, confirmation: "yes" },
+        });
+        const submitRes = await handleSubmitInquiry(
+          supabase,
+          conversationId,
+          language,
+          cors,
+        );
+        // handleSubmitInquiry returns Response with success or submit_failed.
+        // We re-wrap into the chat response shape so the client can reuse the
+        // same handler. Keep the original status code on errors.
+        let submitPayload: Record<string, unknown> = {};
+        try {
+          submitPayload = await submitRes.clone().json();
+        } catch {
+          submitPayload = {};
+        }
+        const ok = submitPayload?.success === true;
+        return jsonResponse(
+          {
+            conversationId,
+            reply:
+              typeof submitPayload?.reply === "string"
+                ? submitPayload.reply
+                : ok
+                  ? language === "en"
+                    ? "Thank you. Your request has been submitted to STORIA."
+                    : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt."
+                  : language === "en"
+                    ? "The request could not be sent right now. Please try again."
+                    : "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut.",
+            intent: "inquiry",
+            extracted: {},
+            missingFields: Array.isArray(submitPayload?.missingFields)
+              ? submitPayload.missingFields
+              : [],
+            readyToSubmit: true,
+            awaitingConfirmation: false,
+            triggeredFromChat: true,
+            submitSuccess: ok,
+            submittedInquiryId:
+              ok && typeof submitPayload?.inquiryId === "string"
+                ? submitPayload.inquiryId
+                : null,
+            submitError:
+              !ok && typeof submitPayload?.error === "string"
+                ? submitPayload.error
+                : null,
+          },
+          ok ? 200 : 502,
+          cors,
+        );
+      }
+      // "no" or "unclear": fall through to normal AI flow. We pass a hint to
+      // the system via an extra message so the model knows confirmation was
+      // declined/unclear and should not re-issue the same question on top.
+    }
   }
 
   // 2. Persist user message
@@ -906,7 +1043,16 @@ serve(async (req) => {
     conversation_id: conversationId,
     role: "assistant",
     content: reply,
-    metadata: { intent, missingFields },
+    metadata: {
+      intent,
+      missingFields,
+      awaiting_confirmation:
+        readyToSubmit === true &&
+        Boolean(
+          // Only trust the model's request when fields are truly complete.
+          aiAwaitingConfirmation,
+        ),
+    },
   });
 
   await supabase.from("ai_extractions").insert({
@@ -954,6 +1100,8 @@ serve(async (req) => {
       missingFields,
       readyToSubmit,
       requiresConfirmation: false,
+      awaitingConfirmation:
+        readyToSubmit === true && Boolean(aiAwaitingConfirmation),
       suggestedNextQuestion,
     },
     200,
