@@ -15,7 +15,6 @@ import {
   type CatalogItem,
   type CatalogPackage,
   type CatalogSnippet,
-  loadCatalogSnippet,
 } from "../_shared/catalog-snippet.ts";
 
 const MODEL = "google/gemini-3-flash-preview";
@@ -23,26 +22,74 @@ const MAX_MESSAGE_LENGTH = 8000;
 const MAX_HISTORY_MESSAGES = 30;
 const AI_GATEWAY_TIMEOUT_MS = 16_000;
 const SUBMIT_FETCH_TIMEOUT_MS = 18_000;
+const DB_STEP_TIMEOUT_MS = 5_000;
+const KNOWLEDGE_TIMEOUT_MS = 2_500;
+const DRAFT_TIMEOUT_MS = 2_500;
 
-type Trace = { id: string; start: number; last: number };
+type Trace = {
+  id: string;
+  action: string;
+  start: number;
+  last: number;
+  timings: Record<string, number>;
+};
 
 function createTrace(action: string): Trace {
   const now = Date.now();
   const trace = {
     id: crypto.randomUUID?.() ?? `${now}-${Math.random().toString(36).slice(2, 8)}`,
+    action,
     start: now,
     last: now,
+    timings: {},
   };
-  console.log(`[ai-catering-assistant] ${trace.id} request received action=${action}`);
+  console.log(JSON.stringify({ event: "request_start", request_id: trace.id, action }));
   return trace;
 }
 
-function traceStep(trace: Trace, step: string, extra = "") {
+function traceStep(trace: Trace, step: string, extra = "", timingKey?: string) {
   const now = Date.now();
+  if (timingKey) trace.timings[timingKey] = now - trace.last;
   console.log(
     `[ai-catering-assistant] ${trace.id} ${step} total_ms=${now - trace.start} delta_ms=${now - trace.last}${extra ? ` ${extra}` : ""}`,
   );
   trace.last = now;
+}
+
+function traceEnd(trace: Trace, extra: Record<string, unknown> = {}) {
+  const totalMs = Date.now() - trace.start;
+  console.log(JSON.stringify({
+    event: "request_end",
+    request_id: trace.id,
+    action: trace.action,
+    conversation_load_ms: trace.timings.conversation_load_ms ?? null,
+    extraction_ms: trace.timings.extraction_ms ?? null,
+    knowledge_lookup_ms: trace.timings.knowledge_lookup_ms ?? null,
+    ai_call_ms: trace.timings.ai_call_ms ?? null,
+    draft_ms: trace.timings.draft_ms ?? null,
+    submit_ms: trace.timings.submit_ms ?? null,
+    receive_event_ms: trace.timings.receive_event_ms ?? null,
+    total_ms: totalMs,
+    ...extra,
+  }));
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutError: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(timeoutError)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 async function fetchWithTimeout(
