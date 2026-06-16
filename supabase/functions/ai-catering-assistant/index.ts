@@ -850,6 +850,44 @@ function dietaryAnswerFromSendTurn(text: string, lang: Lang): string | null {
   return null;
 }
 
+/**
+ * Best-effort extraction of a budget / price expectation from the user's
+ * "please send" turn. Captures both per-guest and total budgets, and the
+ * explicit "no budget" answer (so the customer can opt out without being
+ * blocked). The original phrasing is preserved when possible — Maestro
+ * shows the raw text.
+ */
+function budgetAnswerFromSendTurn(text: string, lang: Lang): string | null {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  // Explicit "no budget" answers — keep the funnel unblocked.
+  if (
+    /\bkein(e|er|en)?\s*budget\b/.test(t) ||
+    /\bkein(e|er|en)?\s*preisvorstellung\b/.test(t) ||
+    /\bno\s*budget\b/.test(t) ||
+    /\bno\s*price\s*(?:idea|expectation)\b/.test(t) ||
+    /\bnoch\s*kein(e|er|en)?\s*budget\b/.test(t)
+  ) {
+    return lang === "en" ? "no information" : "keine Angabe";
+  }
+  // Currency-anchored amount (€ / euro / eur). Captures "ca. 60 Euro pro Gast"
+  // as well as "Gesamtbudget etwa 1.500 Euro".
+  const moneyRe = /([\d][\d.,\s]{0,12})\s*(?:€|euro|eur)\b/i;
+  const m = text.match(moneyRe);
+  if (!m) return null;
+  const isPerGuest = /\b(pro\s*(?:gast|person|kopf|gedeck)|per\s*(?:guest|person|head))\b/i.test(text);
+  const isTotal = /\b(gesamt|total|insgesamt|gesamtbudget|total\s*budget)\b/i.test(text);
+  const amount = m[1].trim();
+  if (lang === "en") {
+    if (isPerGuest) return `~ ${amount} EUR per guest`;
+    if (isTotal) return `total ~ ${amount} EUR`;
+    return `~ ${amount} EUR`;
+  }
+  if (isPerGuest) return `ca. ${amount} EUR pro Gast`;
+  if (isTotal) return `Gesamtbudget ca. ${amount} EUR`;
+  return `ca. ${amount} EUR`;
+}
+
 async function persistDietaryAnswerBeforeSubmit(
   supabase: SupaClient,
   conversationId: string,
@@ -857,7 +895,8 @@ async function persistDietaryAnswerBeforeSubmit(
   lang: Lang,
 ): Promise<void> {
   const dietaryAnswer = dietaryAnswerFromSendTurn(message, lang);
-  if (!dietaryAnswer) return;
+  const budgetAnswer = budgetAnswerFromSendTurn(message, lang);
+  if (!dietaryAnswer && !budgetAnswer) return;
   const { data: latest } = await supabase
     .from("ai_extractions")
     .select("extracted")
@@ -869,10 +908,10 @@ async function persistDietaryAnswerBeforeSubmit(
   if (latest?.extracted && typeof latest.extracted === "object") {
     extraction = mergeExtraction(extraction, latest.extracted as Partial<Extracted>);
   }
-  extraction = mergeExtraction(extraction, {
-    dietaryRequirements: [dietaryAnswer],
-    originalUserText: message,
-  });
+  const patch: Partial<Extracted> = { originalUserText: message };
+  if (dietaryAnswer) patch.dietaryRequirements = [dietaryAnswer];
+  if (budgetAnswer && !extraction.budget) patch.budget = budgetAnswer;
+  extraction = mergeExtraction(extraction, patch);
   await supabase.from("ai_extractions").insert({
     conversation_id: conversationId,
     extracted: extraction,
