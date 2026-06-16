@@ -101,7 +101,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   const handleAiDraftHintClick = useCallback(() => {
     if (!aiDraftData?.draft) return;
     if (builder.isLoading) {
-      toast.error("OfferBuilder lädt noch. Bitte kurz warten und erneut versuchen.");
+      // Sollte nie passieren — Button ist disabled solange isLoading. Silent guard.
       return;
     }
     const result = runAiDraftImport(aiDraftData.draft);
@@ -124,6 +124,40 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       );
     }
   }, [aiDraftData, builder.isLoading, runAiDraftImport]);
+
+  // --- AI-Draft Hint Box — gemeinsam für Loading- und Ready-Branch ---
+  const aiDraftHint = aiDraftData?.draft ? (
+    <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 space-y-3">
+      <div className="flex items-start gap-3">
+        <Sparkles className="h-5 w-5 text-neutral-500 mt-0.5 shrink-0" />
+        <div className="flex-1 space-y-1">
+          <h3 className="text-sm font-semibold text-neutral-900">KI-Entwurf vorhanden</h3>
+          <p className="text-xs text-neutral-700 leading-relaxed">
+            Der Kunde hat über den KI-Assistenten bereits einen unverbindlichen
+            Catering-Vorschlag erhalten. Du kannst ihn als Vorschlag in den OfferBuilder
+            übernehmen und anschließend prüfen, anpassen und bewusst speichern.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[11px] text-neutral-500">
+          Noch nicht gespeichert · keine automatische Mail · kein PDF · kein Public-Link
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleAiDraftHintClick}
+          disabled={builder.isLoading}
+          className="rounded-2xl"
+          title={builder.isLoading ? "OfferBuilder wird geladen …" : "Vorschlag in den OfferBuilder übernehmen"}
+        >
+          <Sparkles className="mr-2 h-4 w-4" />
+          {builder.isLoading ? "OfferBuilder wird geladen …" : "In OfferBuilder übernehmen"}
+        </Button>
+      </div>
+    </div>
+  ) : null;
 
   // --- Mehrere Restaurant-Menüs als neue Optionen anlegen ---
   const handleImportMultiple = useCallback((partials: Partial<OfferBuilderOption>[]) => {
@@ -300,6 +334,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   if (builder.isLoading) {
     return (
       <div className="space-y-6 animate-in fade-in duration-300" aria-busy="true" aria-label="Angebot wird geladen">
+        {aiDraftHint}
         <Skeleton className="h-7 w-56" />
         <Skeleton className="h-3 w-2/3" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
