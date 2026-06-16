@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { AdminLoader } from "@/components/admin/AdminLoader";
 
 interface AdminAuthGuardProps {
   children: React.ReactNode;
@@ -181,19 +181,7 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
   }, []);
 
   if (authState === 'loading') {
-    return (
-      <div className="min-h-screen bg-[#f6f7f8] dark:bg-[#101922] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="bg-primary size-12 rounded-lg flex items-center justify-center text-white">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-          <div className="text-center">
-            <h1 className="text-lg font-bold text-foreground">Maestro</h1>
-            <p className="text-sm text-muted-foreground">Wird geladen...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <AdminLoader />;
   }
 
   if (authState === 'unauthenticated') {
