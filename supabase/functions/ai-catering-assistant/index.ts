@@ -731,6 +731,12 @@ function fallbackReply(lang: Lang, missing: string[]): string {
   return "Vielen Dank für Ihre Nachricht. Damit STORIA Ihnen ein passendes Angebot senden kann, fehlen noch einige Angaben. Können Sie diese kurz ergänzen?";
 }
 
+function timeoutMessageForLanguage(lang: Lang): string {
+  return lang === "en"
+    ? "This is taking too long. Please try again."
+    : "Das dauert gerade zu lange. Bitte versuchen Sie es erneut.";
+}
+
 /* -------- Confirmation intent detection (deterministic) -------- */
 
 type ConfirmIntent = "yes" | "no" | "unclear";
