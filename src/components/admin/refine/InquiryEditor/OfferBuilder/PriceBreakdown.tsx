@@ -338,8 +338,20 @@ export function PriceBreakdown({
     const scale = refBrutto > 0 ? finalBrutto / refBrutto : 0;
     const finalFoodGross = foodGross * rabattRatio * scale;
     const finalDrinkGross = (drinkGross * rabattRatio + fixedGross19) * scale;
-    const ustFood = finalFoodGross > 0 ? finalFoodGross - finalFoodGross / 1.07 : 0;
-    const ustDrink = finalDrinkGross > 0 ? finalDrinkGross - finalDrinkGross / 1.19 : 0;
+    // USt aus Brutto-Buckets (immer absolute Beträge).
+    const ustFoodAbs = finalFoodGross > 0 ? finalFoodGross - finalFoodGross / 1.07 : 0;
+    const ustDrinkAbs = finalDrinkGross > 0 ? finalDrinkGross - finalDrinkGross / 1.19 : 0;
+    // Anzeige in derselben Einheit wie der Angebotspreis (per_event = gesamt, per_person = / Pers.).
+    const ustDivisor = pricingMode === 'per_event' ? 1 : Math.max(1, guestsForDiv);
+    let ustFood = ustFoodAbs / ustDivisor;
+    let ustDrink = ustDrinkAbs / ustDivisor;
+    // Defensive Guard: USt darf niemals groesser sein als der angezeigte Brutto-Endpreis.
+    // Wenn doch (numerische Drift, inkonsistenter State), nicht anzeigen.
+    const displayedBrutto = pricingMode === 'per_event' ? finalBrutto : finalBrutto / guestsForDiv;
+    if (ustFood + ustDrink > displayedBrutto + 0.01) {
+      ustFood = 0;
+      ustDrink = 0;
+    }
 
     return (
       <div className="pt-3 border-t border-border/30 space-y-2">
