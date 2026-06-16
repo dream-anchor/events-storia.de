@@ -208,8 +208,41 @@ function mergeExtraction(prev: Extracted, next: Partial<Extracted>): Extracted {
 }
 
 function emailLooksValid(e: string | null | undefined): boolean {
+  // Strict validation: name@domain.tld with TLD length >= 2, no whitespace,
+  // no trailing dot, total length <= 254. We never accept partial addresses
+  // like "antoine@monot" and never invent a TLD for them.
   if (!e) return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const email = String(e).trim();
+  if (email.length === 0 || email.length > 254) return false;
+  if (/\s/.test(email)) return false;
+  if (!email.includes("@")) return false;
+  const parts = email.split("@");
+  if (parts.length !== 2) return false;
+  const [local, domain] = parts;
+  if (!local || !domain) return false;
+  if (!domain.includes(".")) return false;
+  if (domain.startsWith(".") || domain.endsWith(".")) return false;
+  const tld = domain.split(".").pop();
+  if (!tld || tld.length < 2) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+// Cross-check: an extracted email is only trusted if it actually appears in
+// what the user typed (case-insensitive). Prevents the model from inventing
+// or auto-completing a TLD (e.g. "antoine@monot" -> "antoine@monot.de").
+function emailAppearsInUserText(
+  email: string | null | undefined,
+  history: { role: string; content: string }[],
+  currentMessage: string,
+): boolean {
+  if (!email) return false;
+  const needle = email.trim().toLowerCase();
+  if (!needle) return false;
+  const haystacks: string[] = [currentMessage ?? ""];
+  for (const m of history) {
+    if (m.role === "user") haystacks.push(String(m.content ?? ""));
+  }
+  return haystacks.some((h) => h.toLowerCase().includes(needle));
 }
 
 function computeMissing(e: Extracted): string[] {
