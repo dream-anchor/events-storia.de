@@ -524,6 +524,7 @@ async function callAiGateway(
   intent: Intent;
   extracted: Partial<Extracted>;
   suggestedNextQuestion?: string;
+  requestSubmitConfirmation?: boolean;
   draftSuggestions?: RawDraftSuggestions;
 } | null> {
   const catalogBlock = catalog ? buildCatalogPromptBlock(catalog) : "";
@@ -586,6 +587,8 @@ async function callAiGateway(
         typeof args.suggestedNextQuestion === "string"
           ? args.suggestedNextQuestion
           : undefined,
+      requestSubmitConfirmation:
+        args.requestSubmitConfirmation === true ? true : false,
       draftSuggestions:
         args.draftSuggestions && typeof args.draftSuggestions === "object"
           ? (args.draftSuggestions as RawDraftSuggestions)
