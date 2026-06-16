@@ -1010,7 +1010,11 @@ export function useOfferBuilder({
         createdInVersion: currentVersion,
         ...partial,
         optionLabel: nextLabel,
-        isActive: false, // niemals automatisch aktivieren
+        // Option ist im OfferBuilder normal bearbeitbar (nicht ausgegraut).
+        // „isActive" steuert NUR die Sichtbarkeit/Eingabe im Editor, nicht den
+        // Versand. Versand/Mail/PDF/Public-Link/Stripe sind separate, explizite
+        // Aktionen des Betreibers — der reine Import löst davon nichts aus.
+        isActive: true,
         aiOrigin: true,
       };
 
