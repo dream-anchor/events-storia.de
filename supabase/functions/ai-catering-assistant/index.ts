@@ -314,8 +314,10 @@ FUNNEL-PHASEN
 - Phase 1 (Orientierung): kurze, hilfreiche erste Einordnung. Maximal 1–2 fehlende Pflichtangaben gleichzeitig erfragen. Nicht formularhaft wirken.
 - Phase 2 (Vorschlag): sobald genug Infos vorhanden sind, einen kompakten unverbindlichen Vorschlag skizzieren und klar sagen, dass STORIA persönlich prüft.
 - Phase 3a (Ernährungsfrage): sobald ALLE Pflichtangaben (Name, E-Mail, Personenanzahl, Datum/Zeitraum) vorliegen, frage zuerst GENAU EINMAL elegant nach Ernährungswünschen — es sei denn, der Nutzer hat bereits etwas dazu gesagt (siehe extracted.dietaryRequirements oder extracted.foodPreferences) ODER hat die Frage bereits beantwortet (auch mit "nein"/"keine"). Formulierung: "Gibt es vegetarische oder vegane Wünsche, Allergien oder Unverträglichkeiten, die STORIA berücksichtigen soll? Falls nicht, kann ich die Anfrage direkt übermitteln." In diesem Turn setze requestSubmitConfirmation=false. Wenn der Nutzer im selben Turn die Ernährungsfrage klar beantwortet UND eindeutig senden möchte ("Nein, bitte senden", "Keine, abschicken", "Vegan bitte, senden"), darfst du Phase 3a überspringen.
-- Phase 3b (Abschluss): sobald die Ernährungsfrage gestellt UND beantwortet wurde (egal ob "keine", konkrete Wünsche oder leere Bestätigung), frage GENAU EINMAL: "Soll ich diese Anfrage jetzt unverbindlich an STORIA übermitteln?" und setze dabei requestSubmitConfirmation=true. In allen anderen Fällen setze requestSubmitConfirmation=false.
+- Phase 3b (Budgetfrage): sobald die Ernährungsfrage beantwortet ist UND noch keine Preisvorstellung erfasst wurde (extracted.budget ist leer) UND die Budgetfrage noch nicht gestellt wurde, frage GENAU EINMAL: "Haben Sie bereits eine Preisvorstellung – entweder pro Gast oder als Gesamtbudget? Falls nicht, können Sie die Anfrage trotzdem direkt übermitteln." Setze in diesem Turn requestSubmitConfirmation=false. Wenn der Nutzer im selben Turn Ernährungs- UND Budgetantwort UND klaren Sendewunsch kombiniert ("Keine Unverträglichkeiten, ca. 60 Euro pro Gast, bitte senden"), darfst du Phase 3b überspringen. Budget ist OPTIONAL — wenn der Nutzer keine Preisvorstellung hat oder das ablehnt, akzeptiere das ohne Nachhaken, setze extracted.budget="keine Angabe" und gehe zu Phase 3c.
+- Phase 3c (Abschluss): sobald sowohl Ernährungsfrage als auch Budgetfrage gestellt UND beantwortet/übersprungen wurden, frage GENAU EINMAL: "Soll ich diese Anfrage jetzt unverbindlich an STORIA übermitteln?" und setze dabei requestSubmitConfirmation=true. In allen anderen Fällen setze requestSubmitConfirmation=false.
 - Ernährungsantworten konsequent in extracted.dietaryRequirements / extracted.foodPreferences übernehmen. "Keine" / "Nein" / "None" → dietaryRequirements=["keine"] setzen, damit die Frage als beantwortet gilt.
+- Budgetantworten konsequent in extracted.budget übernehmen. Akzeptiere sowohl "pro Gast" als auch "Gesamtbudget". Beispiele: "ca. 60 EUR pro Gast", "Gesamtbudget ca. 1.500 EUR", "keine Angabe". NIEMALS eigene Preise vorschlagen oder Preise garantieren. Immer betonen, dass STORIA persönlich prüft und ein individuelles Angebot erstellt.
 
 ABSCHLUSS — STRENG
 - Du übermittelst NIEMALS selbst. Das Backend führt die Übermittlung durch, nachdem der Nutzer zugestimmt hat.
@@ -370,8 +372,10 @@ FUNNEL PHASES
 - Phase 1 (orientation): short, helpful framing. Ask at most 1–2 missing required fields at a time. Don't sound like a form.
 - Phase 2 (proposal): once enough info is present, sketch a compact non-binding proposal and clarify that STORIA reviews personally.
 - Phase 3a (dietary check): once ALL required fields (name, email, guest count, date/range) are present, first ask EXACTLY ONCE about dietary preferences — unless the user already mentioned them (see extracted.dietaryRequirements or extracted.foodPreferences) OR has already answered (including with "no"/"none"). Wording: "Are there any vegetarian or vegan preferences, allergies, or dietary restrictions STORIA should take into account? If not, I can send the request now." In that turn set requestSubmitConfirmation=false. If the user clearly answers the dietary question AND clearly asks to send in the same turn ("No, please send", "None, send it", "Vegan options please, send"), you may skip Phase 3a.
-- Phase 3b (closing): once the dietary question has been asked AND answered (whether "none", concrete requirements, or empty confirmation), ask EXACTLY ONCE: "Shall I send this request to STORIA now (non-binding)?" and set requestSubmitConfirmation=true. In all other cases set requestSubmitConfirmation=false.
+- Phase 3b (budget check): once the dietary question is answered AND no price expectation is captured yet (extracted.budget is empty) AND the budget question has not been asked, ask EXACTLY ONCE: "Do you already have a budget in mind – either per guest or as a total budget? If not, you can still send the request directly." Set requestSubmitConfirmation=false in that turn. If the user combines dietary AND budget answer AND clear send intent in the same turn ("No dietary restrictions, around 60 euros per guest, please send"), you may skip Phase 3b. Budget is OPTIONAL — if the user has no budget or declines, accept it without pressing, set extracted.budget="no information" and move on to Phase 3c.
+- Phase 3c (closing): once both dietary and budget questions have been asked AND answered/skipped, ask EXACTLY ONCE: "Shall I send this request to STORIA now (non-binding)?" and set requestSubmitConfirmation=true. In all other cases set requestSubmitConfirmation=false.
 - Always carry dietary answers into extracted.dietaryRequirements / extracted.foodPreferences. "None" / "No" / "Keine" → set dietaryRequirements=["none"] so the question counts as answered.
+- Always carry budget answers into extracted.budget. Accept both per-guest and total amounts. Examples: "~ 60 EUR per guest", "total ~ 1,500 EUR", "no information". NEVER propose your own prices or guarantee prices. Always emphasise that STORIA reviews personally and creates an individual offer.
 
 CLOSING — STRICT
 - You NEVER submit yourself. The backend submits after the user confirms.
@@ -770,6 +774,23 @@ function timeoutMessageForLanguage(lang: Lang): string {
     : "Das dauert gerade zu lange. Bitte versuchen Sie es erneut.";
 }
 
+/**
+ * Canonical success reply shown after a real server-side submit success.
+ * Mentions the confirmation email only when a valid customer email is on
+ * record — never on timeouts, validation failures or fallbacks.
+ */
+function buildSuccessReply(lang: Lang, email: string | null): string {
+  const hasEmail = emailLooksValid(email);
+  if (lang === "en") {
+    return hasEmail
+      ? `Thank you. Your request has been sent to STORIA. A confirmation has been sent to ${email}. The STORIA team will review your details personally and get back to you with an individual offer.`
+      : "Thank you. Your request has been sent to STORIA. The STORIA team will review your details personally and get back to you with an individual offer.";
+  }
+  return hasEmail
+    ? `Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt. Eine Bestätigung wurde an ${email} gesendet. Das STORIA-Team prüft Ihre Angaben persönlich und meldet sich mit einem individuellen Angebot.`
+    : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt. Das STORIA-Team prüft Ihre Angaben persönlich und meldet sich mit einem individuellen Angebot.";
+}
+
 /* -------- Confirmation intent detection (deterministic) -------- */
 
 type ConfirmIntent = "yes" | "no" | "unclear";
@@ -850,6 +871,44 @@ function dietaryAnswerFromSendTurn(text: string, lang: Lang): string | null {
   return null;
 }
 
+/**
+ * Best-effort extraction of a budget / price expectation from the user's
+ * "please send" turn. Captures both per-guest and total budgets, and the
+ * explicit "no budget" answer (so the customer can opt out without being
+ * blocked). The original phrasing is preserved when possible — Maestro
+ * shows the raw text.
+ */
+function budgetAnswerFromSendTurn(text: string, lang: Lang): string | null {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  // Explicit "no budget" answers — keep the funnel unblocked.
+  if (
+    /\bkein(e|er|en)?\s*budget\b/.test(t) ||
+    /\bkein(e|er|en)?\s*preisvorstellung\b/.test(t) ||
+    /\bno\s*budget\b/.test(t) ||
+    /\bno\s*price\s*(?:idea|expectation)\b/.test(t) ||
+    /\bnoch\s*kein(e|er|en)?\s*budget\b/.test(t)
+  ) {
+    return lang === "en" ? "no information" : "keine Angabe";
+  }
+  // Currency-anchored amount (€ / euro / eur). Captures "ca. 60 Euro pro Gast"
+  // as well as "Gesamtbudget etwa 1.500 Euro".
+  const moneyRe = /([\d][\d.,\s]{0,12})\s*(?:€|euro|eur)\b/i;
+  const m = text.match(moneyRe);
+  if (!m) return null;
+  const isPerGuest = /\b(pro\s*(?:gast|person|kopf|gedeck)|per\s*(?:guest|person|head))\b/i.test(text);
+  const isTotal = /\b(gesamt|total|insgesamt|gesamtbudget|total\s*budget)\b/i.test(text);
+  const amount = m[1].trim();
+  if (lang === "en") {
+    if (isPerGuest) return `~ ${amount} EUR per guest`;
+    if (isTotal) return `total ~ ${amount} EUR`;
+    return `~ ${amount} EUR`;
+  }
+  if (isPerGuest) return `ca. ${amount} EUR pro Gast`;
+  if (isTotal) return `Gesamtbudget ca. ${amount} EUR`;
+  return `ca. ${amount} EUR`;
+}
+
 async function persistDietaryAnswerBeforeSubmit(
   supabase: SupaClient,
   conversationId: string,
@@ -857,7 +916,8 @@ async function persistDietaryAnswerBeforeSubmit(
   lang: Lang,
 ): Promise<void> {
   const dietaryAnswer = dietaryAnswerFromSendTurn(message, lang);
-  if (!dietaryAnswer) return;
+  const budgetAnswer = budgetAnswerFromSendTurn(message, lang);
+  if (!dietaryAnswer && !budgetAnswer) return;
   const { data: latest } = await supabase
     .from("ai_extractions")
     .select("extracted")
@@ -869,10 +929,10 @@ async function persistDietaryAnswerBeforeSubmit(
   if (latest?.extracted && typeof latest.extracted === "object") {
     extraction = mergeExtraction(extraction, latest.extracted as Partial<Extracted>);
   }
-  extraction = mergeExtraction(extraction, {
-    dietaryRequirements: [dietaryAnswer],
-    originalUserText: message,
-  });
+  const patch: Partial<Extracted> = { originalUserText: message };
+  if (dietaryAnswer) patch.dietaryRequirements = [dietaryAnswer];
+  if (budgetAnswer && !extraction.budget) patch.budget = budgetAnswer;
+  extraction = mergeExtraction(extraction, patch);
   await supabase.from("ai_extractions").insert({
     conversation_id: conversationId,
     extracted: extraction,
@@ -1103,9 +1163,7 @@ serve(async (req) => {
               typeof submitPayload?.reply === "string"
                 ? submitPayload.reply
                 : ok
-                  ? language === "en"
-                    ? "Thank you. Your request has been submitted to STORIA."
-                    : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt."
+                  ? buildSuccessReply(language, null)
                   : language === "en"
                     ? "The request could not be sent right now. Please try again."
                     : "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut.",
@@ -1134,7 +1192,11 @@ serve(async (req) => {
       // "no" or "unclear": fall through to normal AI flow. We pass a hint to
       // the system via an extra message so the model knows confirmation was
       // declined/unclear and should not re-issue the same question on top.
-    } else if (intent === "yes" && dietaryAnswerFromSendTurn(message, language)) {
+    } else if (
+      intent === "yes" &&
+      (dietaryAnswerFromSendTurn(message, language) ||
+        budgetAnswerFromSendTurn(message, language))
+    ) {
       await supabase.from("ai_messages").insert({
         conversation_id: conversationId,
         role: "user",
@@ -1168,9 +1230,7 @@ serve(async (req) => {
             typeof submitPayload?.reply === "string"
               ? submitPayload.reply
               : ok
-                ? language === "en"
-                  ? "Thank you. Your request has been submitted to STORIA."
-                  : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt."
+                ? buildSuccessReply(language, null)
                 : language === "en"
                   ? "The request could not be sent right now. Please try again."
                   : "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut.",
@@ -1677,6 +1737,9 @@ function buildInquiryMessageText(
   lines.push(
     `- Allergien / besondere Anforderungen: ${e.dietaryRequirements?.length ? e.dietaryRequirements.join(", ") : "(nicht angegeben)"}`,
   );
+  lines.push(
+    `- Preisvorstellung / Budget: ${e.budget && String(e.budget).trim().length > 0 ? e.budget : "(keine Angabe)"}`,
+  );
   const serviceEquip = [
     ...(e.serviceNeeds ?? []),
     ...(e.equipmentNeeds ?? []),
@@ -1960,10 +2023,7 @@ async function handleSubmitInquiry(
     console.error("ai_draft_mirror_exception", (e as Error).message);
   }
 
-  const successReply =
-    language === "en"
-      ? "Thank you. Your request has been submitted to STORIA. We will get back to you with an individual offer."
-      : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt. Wir melden uns mit einem individuellen Angebot.";
+  const successReply = buildSuccessReply(language, extraction.email);
 
   // Persist a system-style assistant message so the chat log reflects submission
   await supabase.from("ai_messages").insert({
