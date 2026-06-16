@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useOne, useUpdate, useList } from "@refinedev/core";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2 } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, Check, ListTodo, ExternalLink, ChevronDown, Plus, Users, Calendar, Euro, Building2, Eye, CreditCard, TestTube2, Lock } from "lucide-react";
 import { AdminLayout } from "../AdminLayout";
 import { useEditorShortcuts } from "../CommandPalette";
 import { Button } from "@/components/ui/button";
@@ -963,6 +963,11 @@ export const SmartInquiryEditor = () => {
 
   const isOfferSent = !!(inquiry as any)?.offer_phase && (inquiry as any).offer_phase !== 'draft';
 
+  // Signatur-Lock: nach unterschriebener Kostenübernahme dürfen signaturrelevante
+  // Felder nicht mehr direkt geändert werden. Bestehende Confirmed-Sperre bleibt erhalten.
+  const isSignatureLocked = Boolean((mergedInquiry as any)?.locked_after_signature);
+  const isReadOnlyLocked = inquiry.status === 'confirmed' || isSignatureLocked;
+
   return (
     <AdminLayout activeTab="events">
       {/* Sticky Header */}
@@ -1224,6 +1229,22 @@ export const SmartInquiryEditor = () => {
             />
           )}
 
+          {/* Signatur-Lock-Banner — sichtbar, wenn Kostenübernahme unterschrieben ist */}
+          {isSignatureLocked && (
+            <div className="rounded-2xl border border-neutral-300 bg-neutral-50 px-4 py-3 flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white">
+                <Lock className="h-4 w-4" />
+              </div>
+              <div className="text-sm text-neutral-800">
+                <div className="font-semibold">Angebot gesperrt durch unterschriebene Kostenübernahme</div>
+                <p className="mt-0.5 text-neutral-700 leading-relaxed">
+                  Änderungen an Preis, Menü, Termin, Gästezahl oder Rechnungsdaten erfordern
+                  eine neue Angebotsversion und eine neue Kostenübernahme.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Multi-Package Offer Section */}
           {inquiryType === 'event' ? (
             <OfferBuilder
@@ -1234,6 +1255,7 @@ export const SmartInquiryEditor = () => {
               onSave={performSave}
               onFieldChange={handleLocalFieldChange}
               onEmailContentChange={setEmailDraft}
+              isSignatureLocked={isSignatureLocked}
             />
           ) : (
             /* Catering inquiries use existing flow */
@@ -1327,7 +1349,7 @@ export const SmartInquiryEditor = () => {
           <EventDNACard
             inquiry={mergedInquiry}
             onFieldChange={handleLocalFieldChange}
-            isReadOnly={inquiry.status === 'confirmed'}
+            isReadOnly={isReadOnlyLocked}
             currentUserEmail={currentUserEmail}
             onAssigneeChange={(email) => handleLocalFieldChange('assigned_to', email)}
             onPriorityChange={(priority) => handleLocalFieldChange('priority', priority)}
@@ -1335,7 +1357,7 @@ export const SmartInquiryEditor = () => {
               <LocationBlock
                 inquiry={mergedInquiry}
                 onFieldChange={handleLocalFieldChange}
-                isReadOnly={inquiry.status === 'confirmed'}
+                isReadOnly={isReadOnlyLocked}
               />
             }
           />
