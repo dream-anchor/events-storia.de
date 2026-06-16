@@ -1334,16 +1334,28 @@ export type Database = {
           invoice_reference: string | null
           invoice_street: string | null
           invoice_zip_city: string | null
+          last_contract_error: string | null
+          last_send_error: string | null
+          last_send_error_at: string | null
+          last_webhook_error: string | null
           mfa_method: string | null
           offer_date: string | null
           offer_number: string | null
           offer_option_id: string | null
           onsite_contact: string | null
+          pdf_download_attempts: number
+          pdf_download_last_error: string | null
           reference_pdf_name: string | null
           reference_pdf_uploaded_at: string | null
+          retry_count: number
+          send_count: number
+          sent_at: string | null
+          sent_message_id: string | null
+          sent_to: string | null
           sign_page_url: string | null
           sign_page_url_embedded: string | null
           signed_at: string | null
+          signed_pdf_pending: boolean
           signed_pdf_sha256: string | null
           signed_pdf_storage_path: string | null
           signer_company_name: string | null
@@ -1375,16 +1387,28 @@ export type Database = {
           invoice_reference?: string | null
           invoice_street?: string | null
           invoice_zip_city?: string | null
+          last_contract_error?: string | null
+          last_send_error?: string | null
+          last_send_error_at?: string | null
+          last_webhook_error?: string | null
           mfa_method?: string | null
           offer_date?: string | null
           offer_number?: string | null
           offer_option_id?: string | null
           onsite_contact?: string | null
+          pdf_download_attempts?: number
+          pdf_download_last_error?: string | null
           reference_pdf_name?: string | null
           reference_pdf_uploaded_at?: string | null
+          retry_count?: number
+          send_count?: number
+          sent_at?: string | null
+          sent_message_id?: string | null
+          sent_to?: string | null
           sign_page_url?: string | null
           sign_page_url_embedded?: string | null
           signed_at?: string | null
+          signed_pdf_pending?: boolean
           signed_pdf_sha256?: string | null
           signed_pdf_storage_path?: string | null
           signer_company_name?: string | null
@@ -1416,16 +1440,28 @@ export type Database = {
           invoice_reference?: string | null
           invoice_street?: string | null
           invoice_zip_city?: string | null
+          last_contract_error?: string | null
+          last_send_error?: string | null
+          last_send_error_at?: string | null
+          last_webhook_error?: string | null
           mfa_method?: string | null
           offer_date?: string | null
           offer_number?: string | null
           offer_option_id?: string | null
           onsite_contact?: string | null
+          pdf_download_attempts?: number
+          pdf_download_last_error?: string | null
           reference_pdf_name?: string | null
           reference_pdf_uploaded_at?: string | null
+          retry_count?: number
+          send_count?: number
+          sent_at?: string | null
+          sent_message_id?: string | null
+          sent_to?: string | null
           sign_page_url?: string | null
           sign_page_url_embedded?: string | null
           signed_at?: string | null
+          signed_pdf_pending?: boolean
           signed_pdf_sha256?: string | null
           signed_pdf_storage_path?: string | null
           signer_company_name?: string | null
