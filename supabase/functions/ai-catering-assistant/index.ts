@@ -1737,6 +1737,9 @@ function buildInquiryMessageText(
   lines.push(
     `- Allergien / besondere Anforderungen: ${e.dietaryRequirements?.length ? e.dietaryRequirements.join(", ") : "(nicht angegeben)"}`,
   );
+  lines.push(
+    `- Preisvorstellung / Budget: ${e.budget && String(e.budget).trim().length > 0 ? e.budget : "(keine Angabe)"}`,
+  );
   const serviceEquip = [
     ...(e.serviceNeeds ?? []),
     ...(e.equipmentNeeds ?? []),
