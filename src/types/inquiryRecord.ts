@@ -196,7 +196,7 @@ export function mapCateringToColumn(
 
 export function mapV2Event(e: V2EventRow): InquiryRecord {
   const cust = e.v2_customers ?? null;
-  const rawCompany = (cust?.company ?? "").trim();
+  const rawCompany = cleanDisplayText(cust?.company) ?? "";
   const isPlaceholderCompany = /^(private|privat)$/i.test(rawCompany);
   const serviceType: ServiceType =
     e.service_type === "catering"
@@ -209,7 +209,7 @@ export function mapV2Event(e: V2EventRow): InquiryRecord {
     kind: "event",
     serviceType,
     number: e.booking_number || e.offer_slug || e.id.slice(0, 8),
-    customerName: cust?.name?.trim() || "—",
+    customerName: cleanDisplayText(cust?.name) || "—",
     companyName: isPlaceholderCompany ? null : rawCompany || null,
     email: cust?.email ?? "",
     phone: cust?.phone ?? null,
@@ -228,6 +228,7 @@ export function mapV2Event(e: V2EventRow): InquiryRecord {
     occasion: e.occasion ?? null,
     dateEnd: e.date_end ?? null,
     customerLanguage: (e.customer_language ?? 'de'),
+    metadata: e.metadata ?? null,
     raw: e,
   };
 }
@@ -238,9 +239,9 @@ export function mapOrder(o: CateringOrder): InquiryRecord {
     kind: "catering",
     serviceType: "catering_order",
     number: o.order_number,
-    customerName: o.customer_name,
-    companyName: o.company_name,
-    email: o.customer_email,
+    customerName: cleanDisplayText(o.customer_name) || "—",
+    companyName: cleanDisplayText(o.company_name),
+    email: cleanDisplayText(o.customer_email) || "",
     phone: o.customer_phone,
     date: o.desired_date ?? null,
     time: o.desired_time ?? null,
@@ -267,9 +268,9 @@ export function mapGroupInquiry(g: GroupInquiryRow): InquiryRecord {
     kind: "event",
     serviceType: "group",
     number: g.external_id ? String(g.external_id).slice(0, 8) : g.id.slice(0, 8),
-    customerName: g.contact_name?.trim() || "—",
-    companyName: g.company_name?.trim() || null,
-    email: g.email ?? "",
+    customerName: cleanDisplayText(g.contact_name) || "—",
+    companyName: cleanDisplayText(g.company_name),
+    email: cleanDisplayText(g.email) || "",
     phone: g.phone ?? null,
     date: g.preferred_date ?? null,
     time: g.arrival_time ?? null,
