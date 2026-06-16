@@ -269,8 +269,7 @@ export function AiDraftCard({ inquiryId, onPrefillFromAiDraft }: Props) {
         {onPrefillFromAiDraft && (
           <div className="flex flex-col gap-2 border-t border-neutral-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
-              Übernahme erzeugt nur einen Vorschlag im OfferBuilder. Es wird
-              nichts an den Kunden gesendet, kein Angebot freigegeben.
+              Noch nicht gespeichert · keine automatische Mail · kein PDF · kein Public-Link
             </p>
             <Button
               type="button"
