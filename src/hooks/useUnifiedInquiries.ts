@@ -20,7 +20,7 @@ export function useUnifiedInquiries() {
       let q = supabase
         .from("v2_events")
         .select(
-          "id, customer_id, number, status, offer_phase, service_type, date, date_end, time_from, time_to, guest_count, occasion, amount_total, is_test, archived, archived_at, offer_slug, booking_number, customer_language, created_at, updated_at, v2_customers ( id, name, company, email, phone )",
+          "id, customer_id, number, company_name, status, offer_phase, service_type, date, date_end, time_from, time_to, guest_count, occasion, amount_total, is_test, archived, archived_at, offer_slug, booking_number, customer_language, metadata, created_at, updated_at, v2_customers ( id, name, company, email, phone )",
         )
         .order("created_at", { ascending: false })
         .limit(500);

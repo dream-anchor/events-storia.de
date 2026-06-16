@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { UpcomingOrdersPrintDialog } from "./print/UpcomingOrdersPrintDialog";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 import { useUnifiedInquiries } from "@/hooks/useUnifiedInquiries";
-import { getLifecycleBucket } from "@/types/inquiryRecord";
+import { getInquiryDisplayTitle, getLifecycleBucket, hasInquiryAiOrigin } from "@/types/inquiryRecord";
 import type {
   InquiryRecord,
   LifecycleBucket,
@@ -219,11 +219,12 @@ export const UnifiedInquiriesList = () => {
     {
       id: "customer",
       header: sortableHeader<InquiryRecord>("Kunde"),
-      accessorFn: (r) => r.companyName || r.customerName,
+      accessorFn: (r) => getInquiryDisplayTitle(r),
       cell: ({ row }) => {
         const r = row.original;
         const hasFailure = failureIds.has(r.id);
-        const hasAi = aiOriginIds.has(r.id);
+        const hasAi = r.kind === "event" && hasInquiryAiOrigin(r, aiOriginIds);
+        const title = getInquiryDisplayTitle(r);
         return (
           <div className="flex flex-col min-w-0">
             <span className="font-medium text-sm truncate flex items-center gap-2">
@@ -246,7 +247,7 @@ export const UnifiedInquiriesList = () => {
                   KI
                 </span>
               )}
-              <span className="truncate" data-sensitive="customer">{r.companyName || r.customerName}</span>
+              <span className="truncate" data-sensitive="customer">{title}</span>
               <LangBadge lang={r.customerLanguage} />
             </span>
             {r.companyName && (
@@ -418,7 +419,7 @@ export const UnifiedInquiriesList = () => {
             columns={columns}
             data={filtered}
             searchPlaceholder="Suche nach Kunde, Nr., E-Mail..."
-            filterPills={filterPills as any}
+            filterPills={filterPills}
             onFilterChange={handleFilterChange}
             onRefresh={refetch}
             onRowClick={handleRowClick}
@@ -451,8 +452,18 @@ export const UnifiedInquiriesList = () => {
                       🚨
                     </span>
                   )}
+                    {r.kind === "event" && hasInquiryAiOrigin(r, aiOriginIds) && (
+                      <span
+                        title="Über KI-Bar angefragt"
+                        aria-label="Über KI-Bar angefragt"
+                        className="inline-flex items-center gap-0.5 rounded-full bg-foreground/8 text-foreground/70 ring-1 ring-foreground/15 px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap shrink-0"
+                      >
+                        <Sparkles className="h-3 w-3" aria-hidden />
+                        KI
+                      </span>
+                    )}
                     <ServiceBadge serviceType={r.serviceType} compact />
-                    <span className="truncate" data-sensitive="customer">{r.companyName || r.customerName}</span>
+                    <span className="truncate" data-sensitive="customer">{getInquiryDisplayTitle(r)}</span>
                     <LangBadge lang={r.customerLanguage} />
                   </span>
                 }

@@ -20,7 +20,11 @@ export function useAiOriginInquiries(): Set<string> {
         .from("ai_conversations")
         .select("inquiry_id")
         .not("inquiry_id", "is", null);
-      if (error || cancelled || !data) return;
+      if (error) {
+        console.error("KI-Badge konnte nicht geladen werden:", error);
+        return;
+      }
+      if (cancelled || !data) return;
       setIds(
         new Set(
           data

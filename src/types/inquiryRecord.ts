@@ -1,5 +1,7 @@
 import type { CateringOrder } from "@/types/refine";
 
+type CateringOrderWithUpdatedAt = CateringOrder & { updated_at?: string | null };
+
 export type InquiryKind = "event" | "catering";
 export type ServiceType = "restaurant" | "catering" | "catering_order" | "group";
 
@@ -15,6 +17,7 @@ export interface V2EventRow {
   id: string;
   customer_id: string | null;
   number: string | null;
+  company_name?: string | null;
   status: string | null;
   offer_phase: string | null;
   service_type: "restaurant" | "catering" | "group" | null;
@@ -31,6 +34,7 @@ export interface V2EventRow {
   offer_slug: string | null;
   booking_number: string | null;
   customer_language?: string | null;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string | null;
   v2_customers?: {
@@ -94,10 +98,63 @@ export interface InquiryRecord {
   roomOrCityShort?: string | null;
   assignedInitials?: string | null;
   customerLanguage?: string | null;
+  metadata?: Record<string, unknown> | null;
   raw: V2EventRow | CateringOrder;
 }
 
 export type InquiryRecordRaw = V2EventRow | CateringOrder;
+
+export function cleanDisplayText(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "null" || normalized === "undefined") return null;
+  return trimmed;
+}
+
+function hasObjectValue(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+export function getInquiryDisplayTitle(record: InquiryRecord): string {
+  const raw = record.raw as Record<string, unknown> | null;
+  return (
+    cleanDisplayText(record.companyName) ||
+    cleanDisplayText(raw?.company_name) ||
+    cleanDisplayText(raw?.contact_name) ||
+    cleanDisplayText(raw?.event_title) ||
+    cleanDisplayText(raw?.customer_name) ||
+    cleanDisplayText(record.customerName) ||
+    cleanDisplayText(record.occasion) ||
+    cleanDisplayText(record.email) ||
+    "Unbenannte Anfrage"
+  );
+}
+
+export function hasInquiryAiOrigin(
+  record: InquiryRecord,
+  aiConversationInquiryIds: Set<string>,
+): boolean {
+  const recordWithOptionalFields = record as InquiryRecord & {
+    originalId?: unknown;
+    ai_draft?: unknown;
+    aiDraft?: unknown;
+  };
+  const raw = record.raw as Record<string, unknown> | null;
+  const rawMetadata = hasObjectValue(raw?.metadata) ? raw.metadata : null;
+  const metadata = hasObjectValue(record.metadata) ? record.metadata : rawMetadata;
+  const originalId = cleanDisplayText(recordWithOptionalFields.originalId ?? raw?.original_id);
+
+  return (
+    aiConversationInquiryIds.has(record.id) ||
+    (originalId ? aiConversationInquiryIds.has(originalId) : false) ||
+    Boolean(metadata?.ai_draft) ||
+    Boolean(recordWithOptionalFields.ai_draft) ||
+    Boolean(recordWithOptionalFields.aiDraft)
+  );
+}
 
 export function mapV2EventToColumn(
   status: string | null | undefined,
@@ -141,7 +198,7 @@ export function mapCateringToColumn(
 
 export function mapV2Event(e: V2EventRow): InquiryRecord {
   const cust = e.v2_customers ?? null;
-  const rawCompany = (cust?.company ?? "").trim();
+  const rawCompany = cleanDisplayText(cust?.company) ?? "";
   const isPlaceholderCompany = /^(private|privat)$/i.test(rawCompany);
   const serviceType: ServiceType =
     e.service_type === "catering"
@@ -154,7 +211,7 @@ export function mapV2Event(e: V2EventRow): InquiryRecord {
     kind: "event",
     serviceType,
     number: e.booking_number || e.offer_slug || e.id.slice(0, 8),
-    customerName: cust?.name?.trim() || "—",
+    customerName: cleanDisplayText(cust?.name) || "—",
     companyName: isPlaceholderCompany ? null : rawCompany || null,
     email: cust?.email ?? "",
     phone: cust?.phone ?? null,
@@ -173,19 +230,21 @@ export function mapV2Event(e: V2EventRow): InquiryRecord {
     occasion: e.occasion ?? null,
     dateEnd: e.date_end ?? null,
     customerLanguage: (e.customer_language ?? 'de'),
+    metadata: e.metadata ?? null,
     raw: e,
   };
 }
 
 export function mapOrder(o: CateringOrder): InquiryRecord {
+  const orderWithUpdatedAt = o as CateringOrderWithUpdatedAt;
   return {
     id: o.id as string,
     kind: "catering",
     serviceType: "catering_order",
     number: o.order_number,
-    customerName: o.customer_name,
-    companyName: o.company_name,
-    email: o.customer_email,
+    customerName: cleanDisplayText(o.customer_name) || "—",
+    companyName: cleanDisplayText(o.company_name),
+    email: cleanDisplayText(o.customer_email) || "",
     phone: o.customer_phone,
     date: o.desired_date ?? null,
     time: o.desired_time ?? null,
@@ -199,7 +258,7 @@ export function mapOrder(o: CateringOrder): InquiryRecord {
     paymentMethod: o.payment_method,
     isPickup: o.is_pickup,
     createdAt: o.created_at,
-    updatedAt: (o as any).updated_at || o.created_at,
+    updatedAt: orderWithUpdatedAt.updated_at || o.created_at,
     archivedAt: null,
     archived: false,
     raw: o,
@@ -212,9 +271,9 @@ export function mapGroupInquiry(g: GroupInquiryRow): InquiryRecord {
     kind: "event",
     serviceType: "group",
     number: g.external_id ? String(g.external_id).slice(0, 8) : g.id.slice(0, 8),
-    customerName: g.contact_name?.trim() || "—",
-    companyName: g.company_name?.trim() || null,
-    email: g.email ?? "",
+    customerName: cleanDisplayText(g.contact_name) || "—",
+    companyName: cleanDisplayText(g.company_name),
+    email: cleanDisplayText(g.email) || "",
     phone: g.phone ?? null,
     date: g.preferred_date ?? null,
     time: g.arrival_time ?? null,
