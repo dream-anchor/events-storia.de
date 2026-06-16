@@ -258,6 +258,12 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
           extracted?: AiIntakeExtraction;
           missingFields?: unknown;
           readyToSubmit?: boolean;
+          awaitingConfirmation?: boolean;
+          alreadySubmitted?: boolean;
+          triggeredFromChat?: boolean;
+          submitSuccess?: boolean;
+          submittedInquiryId?: string | null;
+          submitError?: string | null;
         };
         if (!payload?.conversationId || !payload?.reply) {
           throw new Error("invalid_response");
@@ -268,6 +274,21 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
         if (payload.extracted) setExtraction(payload.extracted);
         setServerMissing(toRequiredFields(payload.missingFields));
         setReadyFromServer(Boolean(payload.readyToSubmit));
+        // The server is the only source of truth for awaiting confirmation.
+        setAwaitingConfirmation(Boolean(payload.awaitingConfirmation));
+        // Reflect server-decided submission outcomes (already submitted, or
+        // chat-triggered submit). The CTA / success block is driven from this.
+        if (payload.alreadySubmitted && payload.submittedInquiryId) {
+          setSubmittedInquiryId(payload.submittedInquiryId);
+        }
+        if (payload.triggeredFromChat) {
+          if (payload.submitSuccess && payload.submittedInquiryId) {
+            setSubmittedInquiryId(payload.submittedInquiryId);
+            setAwaitingConfirmation(false);
+          } else if (payload.submitSuccess === false) {
+            setErrorMessage(payload.reply);
+          }
+        }
         setMessages((m) => [
           ...m,
           {
