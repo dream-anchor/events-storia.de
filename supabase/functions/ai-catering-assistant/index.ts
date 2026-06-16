@@ -744,6 +744,51 @@ function detectConfirmationIntent(text: string): ConfirmIntent {
   return "unclear";
 }
 
+function dietaryAnswerFromSendTurn(text: string, lang: Lang): string | null {
+  const normalized = normalizeConfirmText(text);
+  if (!normalized) return null;
+  const tokens = normalized.split(" ").filter(Boolean);
+  const saysNone = tokens.some((w) =>
+    ["nein", "keine", "keiner", "keinen", "nichts", "no", "none", "nothing"].includes(w),
+  );
+  if (saysNone) return lang === "en" ? "none" : "keine";
+  if (/\b(vegan|vegetarisch|vegetarian|allerg|unvertr|intoler|gluten|laktose|lactose|nuss|nut)\b/i.test(text)) {
+    return text.trim().slice(0, 500);
+  }
+  return null;
+}
+
+async function persistDietaryAnswerBeforeSubmit(
+  supabase: SupaClient,
+  conversationId: string,
+  message: string,
+  lang: Lang,
+): Promise<void> {
+  const dietaryAnswer = dietaryAnswerFromSendTurn(message, lang);
+  if (!dietaryAnswer) return;
+  const { data: latest } = await supabase
+    .from("ai_extractions")
+    .select("extracted")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let extraction = emptyExtraction();
+  if (latest?.extracted && typeof latest.extracted === "object") {
+    extraction = mergeExtraction(extraction, latest.extracted as Partial<Extracted>);
+  }
+  extraction = mergeExtraction(extraction, {
+    dietaryRequirements: [dietaryAnswer],
+    originalUserText: message,
+  });
+  await supabase.from("ai_extractions").insert({
+    conversation_id: conversationId,
+    extracted: extraction,
+    missing_fields: computeMissing(extraction),
+    confidence: {},
+  });
+}
+
 /* -------- Handler -------- */
 
 serve(async (req) => {
