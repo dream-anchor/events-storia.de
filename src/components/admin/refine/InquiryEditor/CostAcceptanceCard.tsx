@@ -27,6 +27,7 @@ import {
   FileSignature,
   History,
   Loader2,
+  Mail,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
@@ -213,6 +214,28 @@ export function CostAcceptanceCard({
   const canWithdraw =
     row?.esignatures_contract_id &&
     !["signed", "withdrawn", "cancelled", "expired"].includes(status);
+  const blocksSend = ["signed", "signed_pending_pdf", "withdrawn", "cancelled", "expired"].includes(status);
+  const canSendEmail = !!row && !!row.sign_page_url && !blocksSend;
+  const sendCount = Number(row?.send_count ?? 0);
+
+  async function onSendEmail() {
+    if (!row?.id) return;
+    const mode = sendCount > 0 ? "resend" : "send";
+    try {
+      await call("send-cost-acceptance-email", {
+        cost_acceptance_id: row.id,
+        mode,
+      });
+      toast.success(
+        mode === "resend"
+          ? "Kostenübernahme erneut per E-Mail versendet."
+          : "Kostenübernahme per E-Mail versendet.",
+      );
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e?.message ?? "E-Mail-Versand fehlgeschlagen");
+    }
+  }
 
   return (
     <Card className="border-border/50">
@@ -316,6 +339,19 @@ export function CostAcceptanceCard({
                   }
                 />
                 <Row
+                  k="Versandt an"
+                  v={<PrivacyBlur kind="contact">{row.sent_to ?? "—"}</PrivacyBlur>}
+                />
+                <Row
+                  k="Versandt am"
+                  v={
+                    row.sent_at
+                      ? new Date(row.sent_at).toLocaleString("de-DE")
+                      : "—"
+                  }
+                />
+                <Row k="Versandanzahl" v={sendCount > 0 ? String(sendCount) : "—"} />
+                <Row
                   k="Unterschrieben"
                   v={
                     row.signed_at
@@ -336,6 +372,16 @@ export function CostAcceptanceCard({
               </p>
             )}
 
+            {row?.last_send_error && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 flex gap-2">
+                <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-medium">Letzter Versandfehler</div>
+                  <div className="text-xs mt-0.5 break-words">{row.last_send_error}</div>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2 pt-2">
               {publicOfferUrl && (
                 <Button
@@ -344,6 +390,21 @@ export function CostAcceptanceCard({
                   onClick={() => window.open(publicOfferUrl, "_blank")}
                 >
                   <ExternalLink className="h-4 w-4 mr-1" /> Public Offer öffnen
+                </Button>
+              )}
+              {canSendEmail && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onSendEmail}
+                  disabled={busy !== null}
+                >
+                  {busy === "send-cost-acceptance-email" ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Mail className="h-4 w-4 mr-1" />
+                  )}
+                  {sendCount > 0 ? "Erneut senden" : "Per E-Mail senden"}
                 </Button>
               )}
               {row && status !== "signed" && (
