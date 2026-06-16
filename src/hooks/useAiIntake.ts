@@ -654,6 +654,8 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     thinking,
     missing,
     canSubmit,
+    ctaState,
+    loadingState,
     totalSize,
     conversationId,
     notice,
