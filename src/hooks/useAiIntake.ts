@@ -368,25 +368,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
         }));
 
       try {
-        const { data, error } = await supabase.functions.invoke(
-          "ai-catering-assistant",
-          {
-            timeout: AI_REQUEST_TIMEOUT_MS,
-            body: {
-              conversationId: conversationId ?? undefined,
-              message: trimmed,
-              language,
-              action: "chat",
-              submitAfterProcessing,
-              clientState: {
-                uploadedFiles: uploadedRemote,
-                currentExtraction: extractionRef.current,
-              },
-            },
-          },
-        );
-        if (error) throw new Error(error.message || "ai_unavailable");
-        const payload = data as {
+        const payload = await invokeAiAssistant<{
           conversationId?: string;
           reply?: string;
           extracted?: AiIntakeExtraction;
@@ -398,7 +380,17 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
           submitSuccess?: boolean;
           submittedInquiryId?: string | null;
           submitError?: string | null;
-        };
+        }>({
+          conversationId: conversationId ?? undefined,
+          message: trimmed,
+          language,
+          action: "chat",
+          submitAfterProcessing,
+          clientState: {
+            uploadedFiles: uploadedRemote,
+            currentExtraction: extractionRef.current,
+          },
+        });
         if (!payload?.conversationId || !payload?.reply) {
           throw new Error("invalid_response");
         }
@@ -643,25 +635,20 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     setSubmitting(true);
     setErrorMessage(null);
     try {
-      const { data, error } = await supabase.functions.invoke(
-        "ai-catering-assistant",
-        {
-          timeout: AI_REQUEST_TIMEOUT_MS,
-          body: {
-            conversationId,
-            action: "submit_inquiry",
-            confirmed: true,
-          },
-        },
-      );
-      if (error) throw new Error(error.message || "submit_failed");
-      const payload = data as {
+      const payload = await invokeAiAssistant<{
         success?: boolean;
         inquiryId?: string;
         reply?: string;
         error?: string;
         missingFields?: unknown;
-      };
+      }>(
+        {
+          conversationId,
+          action: "submit_inquiry",
+          confirmed: true,
+        },
+        { allowErrorJson: true },
+      );
       if (!payload?.success || !payload?.inquiryId) {
         if (payload?.error === "missing_required_fields") {
           setServerMissing(toRequiredFields(payload.missingFields));
