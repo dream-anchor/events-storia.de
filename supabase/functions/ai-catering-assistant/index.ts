@@ -1159,9 +1159,7 @@ serve(async (req) => {
               typeof submitPayload?.reply === "string"
                 ? submitPayload.reply
                 : ok
-                  ? language === "en"
-                    ? "Thank you. Your request has been submitted to STORIA."
-                    : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt."
+                  ? buildSuccessReply(language, null)
                   : language === "en"
                     ? "The request could not be sent right now. Please try again."
                     : "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut.",
@@ -1228,9 +1226,7 @@ serve(async (req) => {
             typeof submitPayload?.reply === "string"
               ? submitPayload.reply
               : ok
-                ? language === "en"
-                  ? "Thank you. Your request has been submitted to STORIA."
-                  : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt."
+                ? buildSuccessReply(language, null)
                 : language === "en"
                   ? "The request could not be sent right now. Please try again."
                   : "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut.",
