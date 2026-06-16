@@ -954,7 +954,7 @@ serve(async (req) => {
     conversationId = created.id;
     conversationStatus = created.status;
   }
-  traceStep(trace, "conversation loaded", `status=${conversationStatus}`);
+  traceStep(trace, "conversation loaded", `status=${conversationStatus}`, "conversation_load_ms");
 
   // 1a. Already-submitted short circuit. Do NOT call AI, do NOT mutate status,
   // but persist the user message so the transcript stays accurate.
@@ -1202,23 +1202,23 @@ serve(async (req) => {
   }
   currentExtraction.attachmentsMentioned =
     currentExtraction.attachmentsMentioned || uploadedFilesCount > 0;
-  traceStep(trace, "extraction end", `missing=${computeMissing(currentExtraction).join("|") || "none"}`);
+  traceStep(trace, "extraction end", `missing=${computeMissing(currentExtraction).join("|") || "none"}`, "extraction_ms");
 
   // 4b. Knowledge lookup (safe sources only)
   traceStep(trace, "knowledge start");
-  const knowledgeContext = await lookupKnowledge(supabase, message);
-  traceStep(trace, "knowledge end", knowledgeContext ? "matched=true" : "matched=false");
+  const knowledgeContext = await withTimeout(
+    lookupKnowledge(supabase, message),
+    KNOWLEDGE_TIMEOUT_MS,
+    "knowledge_lookup_timeout",
+  ).catch((e) => {
+    console.error("knowledge_lookup_timeout_or_failed", (e as Error).message);
+    return "";
+  });
+  traceStep(trace, "knowledge end", knowledgeContext ? "matched=true" : "matched=false", "knowledge_lookup_ms");
 
-  // 4c. Catalog snippet (safe Quelle für draftSuggestions; best-effort).
+  // 4c. Catalog snippet disabled in normal chat fast-path. Draft persistence
+  // is no longer allowed to add a catalog DB read to every message.
   let catalog: CatalogSnippet | null = null;
-  try {
-    traceStep(trace, "catalog start");
-    catalog = await loadCatalogSnippet(supabase);
-    traceStep(trace, "catalog end", `packages=${catalog.packages.length} items=${catalog.items.length}`);
-  } catch (e) {
-    console.error("catalog_load_failed", (e as Error).message);
-    traceStep(trace, "catalog end", "error=true");
-  }
 
   // 5. Call AI gateway
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
@@ -1313,24 +1313,32 @@ serve(async (req) => {
   // The draft is NEVER a binding offer; final approval happens only in
   // Maestro by STORIA staff. Pricing is computed deterministically here,
   // never by the model.
-  try {
-    traceStep(trace, "draft start");
-    const resolved = resolveDraftFromSuggestions(
-      rawDraftSuggestions,
-      catalog,
-      nextExtraction.guestCount,
-    );
-    await upsertConversationDraft(
-      supabase,
-      conversationId,
-      nextExtraction,
-      resolved,
-    );
-    traceStep(trace, "draft end");
-  } catch (e) {
-    // Never block the chat response on draft persistence.
-    console.error("draft_upsert_failed", (e as Error).message);
-    traceStep(trace, "draft end", "error=true");
+  if (readyToSubmit || rawDraftSuggestions) {
+    try {
+      traceStep(trace, "draft start");
+      const resolved = resolveDraftFromSuggestions(
+        rawDraftSuggestions,
+        catalog,
+        nextExtraction.guestCount,
+      );
+      await withTimeout(
+        upsertConversationDraft(
+          supabase,
+          conversationId,
+          nextExtraction,
+          resolved,
+        ),
+        DRAFT_TIMEOUT_MS,
+        "draft_timeout",
+      );
+      traceStep(trace, "draft end", "", "draft_ms");
+    } catch (e) {
+      // Never block the chat response on draft persistence.
+      console.error("draft_upsert_failed", (e as Error).message);
+      traceStep(trace, "draft end", "error=true", "draft_ms");
+    }
+  } else {
+    trace.timings.draft_ms = 0;
   }
 
   // 7b. submitAfterProcessing: if the CTA was clicked while the composer
@@ -1384,8 +1392,7 @@ serve(async (req) => {
     );
   }
 
-  return jsonResponse(
-    {
+  const responseBody = {
       conversationId,
       reply,
       intent,
@@ -1396,10 +1403,9 @@ serve(async (req) => {
       awaitingConfirmation:
         readyToSubmit === true && Boolean(aiAwaitingConfirmation),
       suggestedNextQuestion,
-    },
-    200,
-    cors,
-  );
+    };
+  traceEnd(trace, { readyToSubmit, triggered_submit: false });
+  return jsonResponse(responseBody, 200, cors);
 });
 
 // Suppress unused-warning for REQUIRED_FIELDS (kept for clarity / future use)
