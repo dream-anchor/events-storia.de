@@ -216,6 +216,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
         const { data, error } = await supabase.functions.invoke(
           "ai-catering-assistant",
           {
+            timeout: AI_REQUEST_TIMEOUT_MS,
             body: {
               conversationId,
               action: "load_state",
