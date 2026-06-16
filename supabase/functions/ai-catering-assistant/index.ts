@@ -1597,3 +1597,92 @@ async function handleSubmitInquiry(
     cors,
   );
 }
+
+/* ============================================================
+ * load_state — reload-restore for the AI Intake Bar
+ * ============================================================ */
+
+async function handleLoadState(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  conversationId: string,
+  cors: Record<string, string>,
+): Promise<Response> {
+  const { data: conv, error: convErr } = await supabase
+    .from("ai_conversations")
+    .select("id, status, inquiry_id, language")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (convErr || !conv) {
+    return jsonResponse({ error: "conversation_not_found" }, 404, cors);
+  }
+
+  const { data: msgs } = await supabase
+    .from("ai_messages")
+    .select("id, role, content, created_at, metadata")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true })
+    .limit(MAX_HISTORY_MESSAGES);
+
+  const messages = (msgs ?? [])
+    .filter((m: { role: string }) => m.role === "user" || m.role === "assistant")
+    .map((m: { id: string; role: string; content: string; created_at: string }) => ({
+      id: String(m.id),
+      role: m.role,
+      content: String(m.content ?? ""),
+      createdAt: new Date(m.created_at).getTime(),
+    }));
+
+  // Awaiting confirmation = latest assistant message had the flag set AND
+  // there is no later user message (last message is the assistant question).
+  let awaitingConfirmation = false;
+  if (messages.length > 0) {
+    const last = messages[messages.length - 1];
+    if (last.role === "assistant") {
+      const raw = (msgs ?? []).find(
+        (m: { id: string }) => String(m.id) === last.id,
+      ) as { metadata?: Record<string, unknown> } | undefined;
+      if (
+        raw?.metadata &&
+        typeof raw.metadata === "object" &&
+        (raw.metadata as Record<string, unknown>).awaiting_confirmation === true
+      ) {
+        awaitingConfirmation = true;
+      }
+    }
+  }
+
+  const { data: latest } = await supabase
+    .from("ai_extractions")
+    .select("extracted, missing_fields")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let extracted: Extracted = emptyExtraction();
+  if (latest?.extracted && typeof latest.extracted === "object") {
+    extracted = mergeExtraction(extracted, latest.extracted as Partial<Extracted>);
+  }
+  const missingFields = Array.isArray(latest?.missing_fields)
+    ? (latest!.missing_fields as string[])
+    : computeMissing(extracted);
+  const readyToSubmit = missingFields.length === 0;
+
+  return jsonResponse(
+    {
+      conversationId,
+      status: conv.status,
+      submittedInquiryId:
+        typeof conv.inquiry_id === "string" ? conv.inquiry_id : null,
+      language: conv.language ?? "de",
+      messages,
+      extracted,
+      missingFields,
+      readyToSubmit,
+      awaitingConfirmation: conv.status === "submitted" ? false : awaitingConfirmation,
+    },
+    200,
+    cors,
+  );
+}
