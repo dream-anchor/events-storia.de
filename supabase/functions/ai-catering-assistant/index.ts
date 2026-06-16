@@ -15,7 +15,6 @@ import {
   type CatalogItem,
   type CatalogPackage,
   type CatalogSnippet,
-  loadCatalogSnippet,
 } from "../_shared/catalog-snippet.ts";
 
 const MODEL = "google/gemini-3-flash-preview";
@@ -23,26 +22,73 @@ const MAX_MESSAGE_LENGTH = 8000;
 const MAX_HISTORY_MESSAGES = 30;
 const AI_GATEWAY_TIMEOUT_MS = 16_000;
 const SUBMIT_FETCH_TIMEOUT_MS = 18_000;
+const KNOWLEDGE_TIMEOUT_MS = 2_500;
+const DRAFT_TIMEOUT_MS = 2_500;
 
-type Trace = { id: string; start: number; last: number };
+type Trace = {
+  id: string;
+  action: string;
+  start: number;
+  last: number;
+  timings: Record<string, number>;
+};
 
 function createTrace(action: string): Trace {
   const now = Date.now();
   const trace = {
     id: crypto.randomUUID?.() ?? `${now}-${Math.random().toString(36).slice(2, 8)}`,
+    action,
     start: now,
     last: now,
+    timings: {},
   };
-  console.log(`[ai-catering-assistant] ${trace.id} request received action=${action}`);
+  console.log(JSON.stringify({ event: "request_start", request_id: trace.id, action }));
   return trace;
 }
 
-function traceStep(trace: Trace, step: string, extra = "") {
+function traceStep(trace: Trace, step: string, extra = "", timingKey?: string) {
   const now = Date.now();
+  if (timingKey) trace.timings[timingKey] = now - trace.last;
   console.log(
     `[ai-catering-assistant] ${trace.id} ${step} total_ms=${now - trace.start} delta_ms=${now - trace.last}${extra ? ` ${extra}` : ""}`,
   );
   trace.last = now;
+}
+
+function traceEnd(trace: Trace, extra: Record<string, unknown> = {}) {
+  const totalMs = Date.now() - trace.start;
+  console.log(JSON.stringify({
+    event: "request_end",
+    request_id: trace.id,
+    action: trace.action,
+    conversation_load_ms: trace.timings.conversation_load_ms ?? null,
+    extraction_ms: trace.timings.extraction_ms ?? null,
+    knowledge_lookup_ms: trace.timings.knowledge_lookup_ms ?? null,
+    ai_call_ms: trace.timings.ai_call_ms ?? null,
+    draft_ms: trace.timings.draft_ms ?? null,
+    submit_ms: trace.timings.submit_ms ?? null,
+    receive_event_ms: trace.timings.receive_event_ms ?? null,
+    total_ms: totalMs,
+    ...extra,
+  }));
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutError: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(timeoutError)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 async function fetchWithTimeout(
@@ -434,6 +480,13 @@ interface RawDraftSuggestions {
   custom_items?: unknown;
 }
 
+function hasUsableDraftSuggestions(raw: RawDraftSuggestions | undefined): boolean {
+  if (!raw) return false;
+  return [raw.suggested_packages, raw.suggested_items, raw.custom_items].some(
+    (value) => Array.isArray(value) && value.length > 0,
+  );
+}
+
 function buildCatalogPromptBlock(catalog: CatalogSnippet): string {
   const pkgLines = catalog.packages.map((p) => {
     const base = `id=${p.id} | "${p.name}" | type=${p.package_type ?? "?"} | per_person=${p.price_per_person} | price=${p.price ?? "(tier)"} | pricing_type=${p.pricing_type ?? "flat"} | min_guests=${p.min_guests ?? "-"} | max_guests=${p.max_guests ?? "-"}`;
@@ -627,7 +680,7 @@ async function callAiGateway(
     AI_GATEWAY_TIMEOUT_MS,
     "ai_gateway_timeout",
   );
-  traceStep(trace, "AI call end", `status=${res.status}`);
+  traceStep(trace, "AI call end", `status=${res.status}`, "ai_call_ms");
 
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
@@ -676,6 +729,12 @@ function fallbackReply(lang: Lang, missing: string[]): string {
     return "Vielen Dank. Alle Pflichtangaben liegen vor — Sie können die Anfrage jetzt an STORIA senden.";
   }
   return "Vielen Dank für Ihre Nachricht. Damit STORIA Ihnen ein passendes Angebot senden kann, fehlen noch einige Angaben. Können Sie diese kurz ergänzen?";
+}
+
+function timeoutMessageForLanguage(lang: Lang): string {
+  return lang === "en"
+    ? "This is taking too long. Please try again."
+    : "Das dauert gerade zu lange. Bitte versuchen Sie es erneut.";
 }
 
 /* -------- Confirmation intent detection (deterministic) -------- */
@@ -907,7 +966,7 @@ serve(async (req) => {
     conversationId = created.id;
     conversationStatus = created.status;
   }
-  traceStep(trace, "conversation loaded", `status=${conversationStatus}`);
+  traceStep(trace, "conversation loaded", `status=${conversationStatus}`, "conversation_load_ms");
 
   // 1a. Already-submitted short circuit. Do NOT call AI, do NOT mutate status,
   // but persist the user message so the transcript stays accurate.
@@ -1155,23 +1214,23 @@ serve(async (req) => {
   }
   currentExtraction.attachmentsMentioned =
     currentExtraction.attachmentsMentioned || uploadedFilesCount > 0;
-  traceStep(trace, "extraction end", `missing=${computeMissing(currentExtraction).join("|") || "none"}`);
+  traceStep(trace, "extraction end", `missing=${computeMissing(currentExtraction).join("|") || "none"}`, "extraction_ms");
 
   // 4b. Knowledge lookup (safe sources only)
   traceStep(trace, "knowledge start");
-  const knowledgeContext = await lookupKnowledge(supabase, message);
-  traceStep(trace, "knowledge end", knowledgeContext ? "matched=true" : "matched=false");
+  const knowledgeContext = await withTimeout(
+    lookupKnowledge(supabase, message),
+    KNOWLEDGE_TIMEOUT_MS,
+    "knowledge_lookup_timeout",
+  ).catch((e) => {
+    console.error("knowledge_lookup_timeout_or_failed", (e as Error).message);
+    return "";
+  });
+  traceStep(trace, "knowledge end", knowledgeContext ? "matched=true" : "matched=false", "knowledge_lookup_ms");
 
-  // 4c. Catalog snippet (safe Quelle für draftSuggestions; best-effort).
+  // 4c. Catalog snippet disabled in normal chat fast-path. Draft persistence
+  // is no longer allowed to add a catalog DB read to every message.
   let catalog: CatalogSnippet | null = null;
-  try {
-    traceStep(trace, "catalog start");
-    catalog = await loadCatalogSnippet(supabase);
-    traceStep(trace, "catalog end", `packages=${catalog.packages.length} items=${catalog.items.length}`);
-  } catch (e) {
-    console.error("catalog_load_failed", (e as Error).message);
-    traceStep(trace, "catalog end", "error=true");
-  }
 
   // 5. Call AI gateway
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
@@ -1223,7 +1282,15 @@ serve(async (req) => {
         return jsonResponse({ error: "rate_limited" }, 429, cors);
       }
       console.error("ai_call_failed", err);
-      reply = fallbackReply(language, computeMissing(currentExtraction));
+      traceEnd(trace, { error: err });
+      return jsonResponse(
+        {
+          error: err === "ai_gateway_timeout" ? "ai_timeout" : "ai_unavailable",
+          reply: timeoutMessageForLanguage(language),
+        },
+        err === "ai_gateway_timeout" ? 504 : 502,
+        cors,
+      );
     }
   }
 
@@ -1266,24 +1333,32 @@ serve(async (req) => {
   // The draft is NEVER a binding offer; final approval happens only in
   // Maestro by STORIA staff. Pricing is computed deterministically here,
   // never by the model.
-  try {
-    traceStep(trace, "draft start");
-    const resolved = resolveDraftFromSuggestions(
-      rawDraftSuggestions,
-      catalog,
-      nextExtraction.guestCount,
-    );
-    await upsertConversationDraft(
-      supabase,
-      conversationId,
-      nextExtraction,
-      resolved,
-    );
-    traceStep(trace, "draft end");
-  } catch (e) {
-    // Never block the chat response on draft persistence.
-    console.error("draft_upsert_failed", (e as Error).message);
-    traceStep(trace, "draft end", "error=true");
+  if (readyToSubmit || hasUsableDraftSuggestions(rawDraftSuggestions)) {
+    try {
+      traceStep(trace, "draft start");
+      const resolved = resolveDraftFromSuggestions(
+        rawDraftSuggestions,
+        catalog,
+        nextExtraction.guestCount,
+      );
+      await withTimeout(
+        upsertConversationDraft(
+          supabase,
+          conversationId,
+          nextExtraction,
+          resolved,
+        ),
+        DRAFT_TIMEOUT_MS,
+        "draft_timeout",
+      );
+      traceStep(trace, "draft end", "", "draft_ms");
+    } catch (e) {
+      // Never block the chat response on draft persistence.
+      console.error("draft_upsert_failed", (e as Error).message);
+      traceStep(trace, "draft end", "error=true", "draft_ms");
+    }
+  } else {
+    trace.timings.draft_ms = 0;
   }
 
   // 7b. submitAfterProcessing: if the CTA was clicked while the composer
@@ -1337,8 +1412,7 @@ serve(async (req) => {
     );
   }
 
-  return jsonResponse(
-    {
+  const responseBody = {
       conversationId,
       reply,
       intent,
@@ -1349,10 +1423,9 @@ serve(async (req) => {
       awaitingConfirmation:
         readyToSubmit === true && Boolean(aiAwaitingConfirmation),
       suggestedNextQuestion,
-    },
-    200,
-    cors,
-  );
+    };
+  traceEnd(trace, { readyToSubmit, triggered_submit: false });
+  return jsonResponse(responseBody, 200, cors);
 });
 
 // Suppress unused-warning for REQUIRED_FIELDS (kept for clarity / future use)
@@ -1726,7 +1799,7 @@ async function handleSubmitInquiry(
       SUBMIT_FETCH_TIMEOUT_MS,
       "receive_event_inquiry_timeout",
     );
-    if (trace) traceStep(trace, "submit receive-event end", `status=${res.status}`);
+    if (trace) traceStep(trace, "submit receive-event end", `status=${res.status}`, "receive_event_ms");
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       console.error("receive_event_inquiry_failed", res.status, txt.slice(0, 300));
@@ -1847,7 +1920,11 @@ async function handleSubmitInquiry(
     metadata: { event: "submit_inquiry", inquiryId },
   });
 
-  if (trace) traceStep(trace, "submit end", `inquiryId=${inquiryId}`);
+  if (trace) {
+    trace.timings.submit_ms = Date.now() - trace.last + (trace.timings.receive_event_ms ?? 0);
+    traceStep(trace, "submit end", `inquiryId=${inquiryId}`);
+    traceEnd(trace, { inquiryId, success: true });
+  }
 
   return jsonResponse(
     { success: true, inquiryId, reply: successReply },

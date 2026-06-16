@@ -13,10 +13,43 @@ import {
   type AiRequiredField,
 } from "@/lib/aiIntake/types";
 import { uploadAttachmentWithConversation } from "@/lib/aiIntake/uploadAttachment";
-import { supabase } from "@/integrations/supabase/client";
 
 const CONVERSATION_STORAGE_KEY = "storia.aiIntake.conversationId";
 const AI_REQUEST_TIMEOUT_MS = 30_000;
+
+async function invokeAiAssistant<T>(
+  body: Record<string, unknown>,
+  options: { allowErrorJson?: boolean } = {},
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+  try {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-catering-assistant`;
+    const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${publishableKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const data = (await response.json().catch(() => ({}))) as T;
+    if (!response.ok && !options.allowErrorJson) {
+      const err = new Error(
+        typeof (data as { error?: unknown })?.error === "string"
+          ? String((data as { error?: unknown }).error)
+          : `ai_assistant_${response.status}`,
+      );
+      throw err;
+    }
+    return data;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function timeoutMessage(language: AiIntakeLanguage): string {
   return language === "de"
@@ -27,7 +60,7 @@ function timeoutMessage(language: AiIntakeLanguage): string {
 function isRequestTimeout(error: unknown, startedAt: number): boolean {
   if (Date.now() - startedAt >= AI_REQUEST_TIMEOUT_MS - 250) return true;
   if (!(error instanceof Error)) return false;
-  return /abort|timeout|timed out/i.test(`${error.name} ${error.message}`);
+  return /abort|timeout|timed out|ai_timeout|504/i.test(`${error.name} ${error.message}`);
 }
 
 function readStoredConversationId(): string | null {
@@ -213,23 +246,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     setLoadingState(true);
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke(
-          "ai-catering-assistant",
-          {
-            timeout: AI_REQUEST_TIMEOUT_MS,
-            body: {
-              conversationId,
-              action: "load_state",
-            },
-          },
-        );
-        if (cancelled) return;
-        if (error) {
-          // If the stored conversation no longer exists, drop it silently.
-          setConversationId(null);
-          return;
-        }
-        const payload = data as {
+        const data = await invokeAiAssistant<{
           status?: string;
           submittedInquiryId?: string | null;
           messages?: Array<{
@@ -242,7 +259,12 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
           missingFields?: unknown;
           readyToSubmit?: boolean;
           awaitingConfirmation?: boolean;
-        } | null;
+        } | null>({
+          conversationId,
+          action: "load_state",
+        });
+        if (cancelled) return;
+        const payload = data;
         if (!payload) return;
         if (Array.isArray(payload.messages) && payload.messages.length > 0) {
           setMessages(payload.messages);
@@ -345,25 +367,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
         }));
 
       try {
-        const { data, error } = await supabase.functions.invoke(
-          "ai-catering-assistant",
-          {
-            timeout: AI_REQUEST_TIMEOUT_MS,
-            body: {
-              conversationId: conversationId ?? undefined,
-              message: trimmed,
-              language,
-              action: "chat",
-              submitAfterProcessing,
-              clientState: {
-                uploadedFiles: uploadedRemote,
-                currentExtraction: extractionRef.current,
-              },
-            },
-          },
-        );
-        if (error) throw new Error(error.message || "ai_unavailable");
-        const payload = data as {
+        const payload = await invokeAiAssistant<{
           conversationId?: string;
           reply?: string;
           extracted?: AiIntakeExtraction;
@@ -375,7 +379,17 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
           submitSuccess?: boolean;
           submittedInquiryId?: string | null;
           submitError?: string | null;
-        };
+        }>({
+          conversationId: conversationId ?? undefined,
+          message: trimmed,
+          language,
+          action: "chat",
+          submitAfterProcessing,
+          clientState: {
+            uploadedFiles: uploadedRemote,
+            currentExtraction: extractionRef.current,
+          },
+        });
         if (!payload?.conversationId || !payload?.reply) {
           throw new Error("invalid_response");
         }
@@ -620,25 +634,20 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     setSubmitting(true);
     setErrorMessage(null);
     try {
-      const { data, error } = await supabase.functions.invoke(
-        "ai-catering-assistant",
-        {
-          timeout: AI_REQUEST_TIMEOUT_MS,
-          body: {
-            conversationId,
-            action: "submit_inquiry",
-            confirmed: true,
-          },
-        },
-      );
-      if (error) throw new Error(error.message || "submit_failed");
-      const payload = data as {
+      const payload = await invokeAiAssistant<{
         success?: boolean;
         inquiryId?: string;
         reply?: string;
         error?: string;
         missingFields?: unknown;
-      };
+      }>(
+        {
+          conversationId,
+          action: "submit_inquiry",
+          confirmed: true,
+        },
+        { allowErrorJson: true },
+      );
       if (!payload?.success || !payload?.inquiryId) {
         if (payload?.error === "missing_required_fields") {
           setServerMissing(toRequiredFields(payload.missingFields));
