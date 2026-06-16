@@ -613,6 +613,72 @@ function fallbackReply(lang: Lang, missing: string[]): string {
   return "Vielen Dank für Ihre Nachricht. Damit STORIA Ihnen ein passendes Angebot senden kann, fehlen noch einige Angaben. Können Sie diese kurz ergänzen?";
 }
 
+/* -------- Confirmation intent detection (deterministic) -------- */
+
+type ConfirmIntent = "yes" | "no" | "unclear";
+
+function normalizeConfirmText(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const YES_TOKENS = new Set([
+  "ja", "jo", "jep", "yep", "yes", "yeah", "ok", "okay", "okey", "k",
+  "passt", "geht", "gerne", "klar", "sicher", "los", "send", "sende",
+  "senden", "schick", "schicken", "verschick", "verschicken",
+  "abschicken", "abschick", "absenden", "abgeschickt", "übermitteln",
+  "uebermitteln", "uebermittle", "übermittle", "submit", "go",
+  "confirm", "confirmed", "bestätigen", "bestaetigen", "bestätigt",
+  "bestaetigt", "einverstanden", "alright", "sure",
+]);
+
+const NO_TOKENS = new Set([
+  "nein", "nö", "noe", "no", "nope", "stop", "warte", "wait", "moment",
+  "later", "spaeter", "später", "halt", "noch", "ändern", "aendern",
+  "change", "edit", "bearbeiten", "abbrechen", "cancel", "nicht",
+  "not", "hold",
+]);
+
+const YES_PHRASES = [
+  "ja bitte", "ja gerne", "ja senden", "ja schick", "ja verschick",
+  "ja abschicken", "ja übermitteln", "ja uebermitteln",
+  "bitte senden", "bitte schicken", "bitte verschicken",
+  "bitte abschicken", "bitte übermitteln", "bitte uebermitteln",
+  "kannst du senden", "kannst du schicken", "kannst du abschicken",
+  "los gehts", "los geht's", "passt so", "passt für mich",
+  "yes please", "please send", "go ahead", "send it", "submit it",
+  "fire away", "sounds good",
+];
+
+const NO_PHRASES = [
+  "noch nicht", "nicht jetzt", "warte noch", "moment noch",
+  "ich möchte noch", "ich moechte noch", "ich will noch",
+  "ich möchte ändern", "ich moechte aendern", "noch ändern",
+  "noch aendern", "not yet", "not now", "hold on", "wait a moment",
+  "let me change",
+];
+
+function detectConfirmationIntent(text: string): ConfirmIntent {
+  const t = normalizeConfirmText(text);
+  if (!t) return "unclear";
+  for (const p of NO_PHRASES) if (t.includes(p)) return "no";
+  for (const p of YES_PHRASES) if (t.includes(p)) return "yes";
+  const tokens = t.split(" ").filter(Boolean);
+  if (tokens.length === 0) return "unclear";
+  // Pure short answers like "ja", "ok", "yes", "nein" — first 3 tokens.
+  const head = tokens.slice(0, 3);
+  const hasNo = head.some((w) => NO_TOKENS.has(w));
+  if (hasNo) return "no";
+  const hasYes = head.some((w) => YES_TOKENS.has(w));
+  // Require the message to be reasonably short to count a bare token as yes,
+  // to avoid grabbing "ja" inside a long re-edit.
+  if (hasYes && tokens.length <= 6) return "yes";
+  return "unclear";
+}
+
 /* -------- Handler -------- */
 
 serve(async (req) => {
