@@ -96,7 +96,7 @@ export function AiDraftCard({ inquiryId, onPrefillFromAiDraft }: Props) {
         return;
       }
       toast.success(
-        "KI-Entwurf wurde als Vorschlag in den OfferBuilder geladen. Bitte prüfen, anpassen und bewusst speichern.",
+        "KI-Entwurf wurde in den OfferBuilder übernommen und wird gespeichert. Bitte prüfen und anpassen.",
       );
       if (result.skippedItems.length > 0) {
         toast.warning(

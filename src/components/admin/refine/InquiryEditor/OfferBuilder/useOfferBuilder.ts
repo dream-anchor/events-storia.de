@@ -265,9 +265,10 @@ export function useOfferBuilder({
   // --- Core State (migriert aus useMultiOfferState) ---
   const [options, setOptions] = useState<OfferBuilderOption[]>([]);
   const isDirtyRef = useRef(false);
-  // 'user' = vom Benutzer ausgelöste Änderung (bumpt last_edited_at)
-  // 'auto' = automatische Sync-Änderung beim Öffnen (Gästezahl-Sync, Preis-Recalc) → KEIN Bump
-  const dirtySourceRef = useRef<'user' | 'auto' | null>(null);
+  // 'user'      = vom Benutzer ausgelöste Änderung (bumpt last_edited_at, Auto-Promotion new→contacted)
+  // 'auto'      = automatische Sync-Änderung beim Öffnen (Gästezahl-Sync, Preis-Recalc) → KEIN Bump
+  // 'ai_import' = KI-Entwurf-Übernahme: speichert, aber KEIN Bump, KEINE Status-Promotion
+  const dirtySourceRef = useRef<'user' | 'auto' | 'ai_import' | null>(null);
   const [currentVersion, setCurrentVersion] = useState(1);
   const [history, setHistory] = useState<OfferHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -972,18 +973,18 @@ export function useOfferBuilder({
   }, [guestCount, currentVersion]);
 
   /**
-   * AI-Draft-Preview: fügt eine Option NUR in den lokalen UI-State ein,
-   * OHNE Auto-Save zu triggern (kein `isDirtyRef = true`). Damit landet
-   * der Vorschlag nicht automatisch in `v2_offer_options`.
-   *
-   * Erst wenn der Betreiber die Option editiert oder explizit speichert,
-   * läuft der normale Auto-Save / manuelle Save.
+   * AI-Draft-Import: fügt eine Option in den lokalen UI-State ein und markiert
+   * den Builder als dirty (Quelle `'ai_import'`), sodass der normale Auto-Save
+   * sie nach 800 ms in `v2_offer_options` speichert — genauso wie jede andere
+   * OfferBuilder-Änderung.
    *
    * Wichtig:
    *  - `isActive: false` wird erzwungen (kein versehentlicher Versand).
-   *  - `lastSavedJsonRef` wird mitgezogen, damit der Auto-Save-Diff bei
-   *    der nächsten unverbundenen Re-Render-Welle nicht „zufällig" Save
-   *    triggert.
+   *  - `aiOrigin: true` für UI-Marker (Badge „KI-Entwurf — prüfen").
+   *  - `lastSavedJsonRef` wird NICHT kalibriert — der Auto-Save soll laufen.
+   *  - Quelle `'ai_import'` verhindert Status-Promotion new→contacted und
+   *    last_edited_by/at-Bump.
+   *  - Kein Mail/PDF/Stripe/Public-Link/offer_sent-Trigger.
    */
   const addAiDraftPreview = useCallback((partial: Partial<OfferBuilderOption>): boolean => {
     let didAdd = false;
@@ -1011,15 +1012,16 @@ export function useOfferBuilder({
         optionLabel: nextLabel,
         isActive: false, // niemals automatisch aktivieren
         aiOrigin: true,
-        needsManualSave: true,
       };
 
       const next = [...relabeled, newOpt];
-      // Auto-Save-Diff neu kalibrieren — kein "Dirty" setzen.
-      lastSavedJsonRef.current = JSON.stringify(next);
       didAdd = true;
       return next;
     });
+    if (didAdd) {
+      isDirtyRef.current = true;
+      dirtySourceRef.current = 'ai_import';
+    }
     return didAdd;
   }, [guestCount, currentVersion]);
 
