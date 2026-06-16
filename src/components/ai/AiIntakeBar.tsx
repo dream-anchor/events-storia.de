@@ -22,7 +22,7 @@ const COPY = {
     send: "Frage senden",
     sendEmptyTooltip: "Geben Sie eine Nachricht ein, um weiterzufragen.",
     composerHint:
-      "„Frage senden" stellt nur eine Chat-Frage. „Anfrage an STORIA senden" übermittelt Ihre Anfrage.",
+      "„Frage senden“ stellt nur eine Chat-Frage. „Anfrage an STORIA senden“ übermittelt Ihre Anfrage.",
     composerHintShort: "Frage stellen oder Anfrage übermitteln.",
     introHint:
       "Sie können Fragen stellen, gemeinsam planen oder direkt ein Angebot bei STORIA anfragen.",
