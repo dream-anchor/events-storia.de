@@ -971,8 +971,8 @@ serve(async (req) => {
       typeof lastAssistant.metadata === "object" &&
       (lastAssistant.metadata as Record<string, unknown>).awaiting_confirmation ===
         true;
+    const intent = detectConfirmationIntent(message);
     if (awaiting) {
-      const intent = detectConfirmationIntent(message);
       if (intent === "yes") {
         // Persist the user's confirmation in the transcript.
         await supabase.from("ai_messages").insert({
@@ -1042,6 +1042,67 @@ serve(async (req) => {
       // "no" or "unclear": fall through to normal AI flow. We pass a hint to
       // the system via an extra message so the model knows confirmation was
       // declined/unclear and should not re-issue the same question on top.
+    } else if (intent === "yes" && dietaryAnswerFromSendTurn(message, language)) {
+      await supabase.from("ai_messages").insert({
+        conversation_id: conversationId,
+        role: "user",
+        content: message,
+        metadata: { uploadedFilesCount, confirmation: "yes", dietary_answer: true },
+      });
+      await persistDietaryAnswerBeforeSubmit(
+        supabase,
+        conversationId,
+        message,
+        language,
+      );
+      const submitRes = await handleSubmitInquiry(
+        supabase,
+        conversationId,
+        language,
+        cors,
+        trace,
+      );
+      let submitPayload: Record<string, unknown> = {};
+      try {
+        submitPayload = await submitRes.clone().json();
+      } catch {
+        submitPayload = {};
+      }
+      const ok = submitPayload?.success === true;
+      return jsonResponse(
+        {
+          conversationId,
+          reply:
+            typeof submitPayload?.reply === "string"
+              ? submitPayload.reply
+              : ok
+                ? language === "en"
+                  ? "Thank you. Your request has been submitted to STORIA."
+                  : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt."
+                : language === "en"
+                  ? "The request could not be sent right now. Please try again."
+                  : "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut.",
+          intent: "inquiry",
+          extracted: {},
+          missingFields: Array.isArray(submitPayload?.missingFields)
+            ? submitPayload.missingFields
+            : [],
+          readyToSubmit: true,
+          awaitingConfirmation: false,
+          triggeredFromChat: true,
+          submitSuccess: ok,
+          submittedInquiryId:
+            ok && typeof submitPayload?.inquiryId === "string"
+              ? submitPayload.inquiryId
+              : null,
+          submitError:
+            !ok && typeof submitPayload?.error === "string"
+              ? submitPayload.error
+              : null,
+        },
+        ok ? 200 : 502,
+        cors,
+      );
     }
   }
 
