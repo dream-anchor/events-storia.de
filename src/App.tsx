@@ -12,6 +12,7 @@ import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { AdminAuthGuard } from "./components/admin/AdminAuthGuard";
+import { AdminLoader } from "./components/admin/AdminLoader";
 import FloatingActions from "./components/FloatingActions";
 import GoogleAnalytics from "./components/GoogleAnalytics";
 import CookieBanner from "./components/CookieBanner";
@@ -245,12 +246,24 @@ const App = () => {
                     <Route path="/en/trade-fair-catering-munich" element={<MesseCateringMuenchen />} />
 
                     {/* === Admin (language-neutral) === */}
-                    <Route path="/admin/login" element={<AdminLogin />} />
-                    <Route path="/admin/*" element={
-                      <AdminAuthGuard>
-                        <RefineAdminApp />
-                      </AdminAuthGuard>
-                    } />
+                    <Route
+                      path="/admin/login"
+                      element={
+                        <Suspense fallback={<AdminLoader />}>
+                          <AdminLogin />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/admin/*"
+                      element={
+                        <AdminAuthGuard>
+                          <Suspense fallback={<AdminLoader />}>
+                            <RefineAdminApp />
+                          </Suspense>
+                        </AdminAuthGuard>
+                      }
+                    />
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>
