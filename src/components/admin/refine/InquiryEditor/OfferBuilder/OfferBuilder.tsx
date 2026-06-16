@@ -383,6 +383,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         packageConfigs={builder.packageConfigs}
         onUpdateOption={builder.updateOption}
         onRemoveOption={builder.removeOption}
+        onResetOption={builder.resetOption}
         onToggleActive={builder.toggleOptionActive}
         onAddOption={builder.addOption}
         onImportMultiple={handleImportMultiple}
