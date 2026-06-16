@@ -941,8 +941,39 @@ export function useOfferBuilder({
     dirtySourceRef.current = 'user';
     setOptions(prev => {
       const filtered = prev.filter(o => o.id !== optionId);
+      // Wenn die letzte Option entfernt wurde, sofort eine frische, leere
+      // Option A mit Kachel-Auswahl ('unselected') nachlegen — sonst bliebe
+      // ein kaputter Leerzustand zurueck.
+      if (filtered.length === 0) {
+        return [{
+          ...createEmptyOption(OPTION_LABELS[0], guestCountRef.current, 'unselected'),
+          id: crypto.randomUUID(),
+          createdInVersion: currentVersion,
+        }];
+      }
       return filtered.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
     });
+  }, [currentVersion]);
+
+  /**
+   * Setzt eine Option auf den Initialzustand zurueck (Kachel-Auswahl sichtbar).
+   * Behaelt id, optionLabel, sortOrder, createdInVersion bei und entfernt alle
+   * Inhalte (Kurse, Getraenke, Equipment, Personal, Freeform, KI-Marker).
+   * Triggert den normalen Auto-Save — keine Mail/PDF/Stripe/Public-Link/offer_sent.
+   */
+  const resetOption = useCallback((optionId: string) => {
+    isDirtyRef.current = true;
+    dirtySourceRef.current = 'user';
+    setOptions(prev => prev.map(o => {
+      if (o.id !== optionId) return o;
+      const base = createEmptyOption(o.optionLabel, guestCountRef.current, 'unselected');
+      return {
+        ...base,
+        id: o.id,
+        sortOrder: o.sortOrder,
+        createdInVersion: o.createdInVersion,
+      };
+    }));
   }, []);
 
   const importOptions = useCallback((partials: Partial<OfferBuilderOption>[]) => {
