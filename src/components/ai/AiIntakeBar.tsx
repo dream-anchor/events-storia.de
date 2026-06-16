@@ -192,8 +192,19 @@ export function AiIntakeBar({ language }: Props) {
   })();
   const onCtaClick = useCallback(() => {
     if (ctaState === "submitted" || ctaState === "submitting") return;
+    const pending = draft.trim();
+    if (pending) {
+      // The user typed an addition (e.g. "auch gerne Desserts") and then
+      // clicked the inquiry CTA without sending it first. Send that text as
+      // a normal chat message with submitAfterProcessing=true so the server
+      // updates the extraction/draft and — if all required fields remain —
+      // runs the same submit pipeline in one round-trip.
+      setDraft("");
+      void sendMessage(pending, { submitAfterProcessing: true });
+      return;
+    }
     void submitInquiry();
-  }, [ctaState, submitInquiry]);
+  }, [ctaState, draft, sendMessage, submitInquiry]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
