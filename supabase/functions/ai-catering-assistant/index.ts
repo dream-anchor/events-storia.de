@@ -655,7 +655,7 @@ const NO_TOKENS = new Set([
   "nein", "nö", "noe", "no", "nope", "stop", "warte", "wait", "moment",
   "later", "spaeter", "später", "halt", "noch", "ändern", "aendern",
   "change", "edit", "bearbeiten", "abbrechen", "cancel", "nicht",
-  "not", "hold",
+  "not", "hold", "keine", "keiner", "keinen", "none", "nichts", "nothing",
 ]);
 
 const YES_PHRASES = [
