@@ -92,24 +92,15 @@ export function AiDraftCard({ inquiryId, onPrefillFromAiDraft }: Props) {
     try {
       const result = await onPrefillFromAiDraft(draft);
       if (!result.ok) {
-        const first = result.warnings[0] ?? "Übernahme nicht möglich.";
-        toast.error(first);
+        toast.error("Der KI-Entwurf enthält keine übernehmbaren Positionen.");
         return;
       }
       toast.success(
-        "KI-Entwurf wurde als Vorschlag in den OfferBuilder geladen. Bitte prüfen, anpassen und manuell speichern.",
+        "KI-Entwurf wurde als Vorschlag in den OfferBuilder geladen. Bitte prüfen, anpassen und bewusst speichern.",
       );
-      if (result.warnings.length > 0 || result.skippedItems.length > 0) {
+      if (result.skippedItems.length > 0) {
         toast.warning(
-          "Einige Positionen konnten nicht automatisch übernommen werden und müssen geprüft werden.",
-          {
-            description: [
-              ...result.warnings,
-              ...result.skippedItems.map((s) => `${s.name}: ${s.reason}`),
-            ]
-              .slice(0, 5)
-              .join("\n"),
-          },
+          "Einige Positionen konnten nicht automatisch übernommen werden. Bitte Hinweise in der KI-Option prüfen.",
         );
       }
     } catch (err) {
