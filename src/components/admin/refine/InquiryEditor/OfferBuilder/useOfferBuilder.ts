@@ -19,6 +19,33 @@ import {
 } from "./types";
 import type { ExtendedInquiry, SelectedPackage } from "../types";
 
+/**
+ * Eine Option gilt als "Placeholder" (leere Kachel-Auswahl) wenn der Modus
+ * noch 'unselected' ist. Sobald ein Typ gewaehlt wurde — auch ohne Inhalt —
+ * ist es eine echte Option. So lange der Modus 'unselected' ist, wird KEIN
+ * Save in v2_offer_options ausgeloest (siehe saveOptionsToDb-Filter).
+ */
+function isPlaceholderOption(o: OfferBuilderOption): boolean {
+  return o.offerMode === 'unselected';
+}
+
+/**
+ * Entfernt alle Placeholder-Optionen, wenn mindestens eine echte Option
+ * existiert, und vergibt die Labels A, B, C ... neu. Wenn nur Placeholder
+ * vorhanden sind, bleibt genau einer als A erhalten.
+ */
+function normalizeOptions(opts: OfferBuilderOption[]): OfferBuilderOption[] {
+  const real = opts.filter(o => !isPlaceholderOption(o));
+  const base = real.length > 0
+    ? real
+    : opts.slice(0, 1); // genau ein Placeholder als A
+  return base.map((o, i) => ({
+    ...o,
+    optionLabel: OPTION_LABELS[i],
+    sortOrder: i,
+  }));
+}
+
 /** Alte DB-Werte auf neue 3-Modi-Keys mappen */
 function mapLegacyMode(dbMode: string | null | undefined): OfferMode {
   switch (dbMode) {
@@ -966,7 +993,7 @@ export function useOfferBuilder({
           createdInVersion: currentVersion,
         }];
       }
-      return filtered.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
+      return normalizeOptions(filtered);
     });
   }, [currentVersion]);
 
@@ -979,29 +1006,32 @@ export function useOfferBuilder({
   const resetOption = useCallback((optionId: string) => {
     isDirtyRef.current = true;
     dirtySourceRef.current = 'user';
-    setOptions(prev => prev.map(o => {
-      if (o.id !== optionId) return o;
-      const base = createEmptyOption(o.optionLabel, guestCountRef.current, 'unselected');
-      return {
+    setOptions(prev => {
+      const target = prev.find(o => o.id === optionId);
+      if (!target) return prev;
+      const otherReal = prev.some(o => o.id !== optionId && !isPlaceholderOption(o));
+      // Variante A: existieren noch andere echte Optionen, entfaellt der Placeholder.
+      if (otherReal) {
+        const filtered = prev.filter(o => o.id !== optionId);
+        return normalizeOptions(filtered);
+      }
+      // Sonst: die einzige Option wird Placeholder A mit Kachel-Auswahl.
+      const base = createEmptyOption(target.optionLabel, guestCountRef.current, 'unselected');
+      return [{
         ...base,
-        id: o.id,
-        sortOrder: o.sortOrder,
-        createdInVersion: o.createdInVersion,
-      };
-    }));
+        id: target.id,
+        optionLabel: OPTION_LABELS[0],
+        sortOrder: 0,
+        createdInVersion: target.createdInVersion,
+      }];
+    });
   }, []);
 
   const importOptions = useCallback((partials: Partial<OfferBuilderOption>[]) => {
-    const isEmptyOption = (o: OfferBuilderOption) =>
-      o.offerMode === 'menu' &&
-      o.menuSelection.courses.length === 0 &&
-      !o.packageId &&
-      (!o.totalAmount || o.totalAmount === 0);
-
     isDirtyRef.current = true;
     dirtySourceRef.current = 'user';
     setOptions(prev => {
-      const nonEmpty = prev.filter(o => !isEmptyOption(o));
+      const nonEmpty = prev.filter(o => !isPlaceholderOption(o));
       const relabeled = nonEmpty.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
       const available = OPTION_LABELS.slice(relabeled.length);
       const toAdd = partials.slice(0, available.length);
@@ -1014,7 +1044,7 @@ export function useOfferBuilder({
         optionLabel: available[i],
       }));
 
-      return [...relabeled, ...newOpts];
+      return normalizeOptions([...relabeled, ...newOpts]);
     });
   }, [guestCount, currentVersion]);
 
@@ -1035,13 +1065,7 @@ export function useOfferBuilder({
   const addAiDraftPreview = useCallback((partial: Partial<OfferBuilderOption>): boolean => {
     let didAdd = false;
     setOptions(prev => {
-      const isEmptyOption = (o: OfferBuilderOption) =>
-        o.offerMode === 'menu' &&
-        o.menuSelection.courses.length === 0 &&
-        !o.packageId &&
-        (!o.totalAmount || o.totalAmount === 0);
-
-      const nonEmpty = prev.filter(o => !isEmptyOption(o));
+      const nonEmpty = prev.filter(o => !isPlaceholderOption(o));
       const relabeled = nonEmpty.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
       const nextLabel = OPTION_LABELS[relabeled.length];
       if (!nextLabel) {
@@ -1064,7 +1088,7 @@ export function useOfferBuilder({
         aiOrigin: true,
       };
 
-      const next = [...relabeled, newOpt];
+      const next = normalizeOptions([...relabeled, newOpt]);
       didAdd = true;
       return next;
     });
