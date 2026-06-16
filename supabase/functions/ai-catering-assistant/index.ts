@@ -21,6 +21,47 @@ import {
 const MODEL = "google/gemini-3-flash-preview";
 const MAX_MESSAGE_LENGTH = 8000;
 const MAX_HISTORY_MESSAGES = 30;
+const AI_GATEWAY_TIMEOUT_MS = 16_000;
+const SUBMIT_FETCH_TIMEOUT_MS = 18_000;
+
+type Trace = { id: string; start: number; last: number };
+
+function createTrace(action: string): Trace {
+  const now = Date.now();
+  const trace = {
+    id: crypto.randomUUID?.() ?? `${now}-${Math.random().toString(36).slice(2, 8)}`,
+    start: now,
+    last: now,
+  };
+  console.log(`[ai-catering-assistant] ${trace.id} request received action=${action}`);
+  return trace;
+}
+
+function traceStep(trace: Trace, step: string, extra = "") {
+  const now = Date.now();
+  console.log(
+    `[ai-catering-assistant] ${trace.id} ${step} total_ms=${now - trace.start} delta_ms=${now - trace.last}${extra ? ` ${extra}` : ""}`,
+  );
+  trace.last = now;
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  timeoutError: string,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (e) {
+    if (controller.signal.aborted) throw new Error(timeoutError);
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
