@@ -714,14 +714,27 @@ export function useOfferBuilder({
             discountEur > 0 ? Math.min(discountEur, base) : base * (discountPct / 100);
 
           let newTotal: number;
-          if (opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
-            // Manueller Override: budget × (Gäste oder 1) je nach globalem Modus
+          // WICHTIG: Sobald Zeileninhalt existiert (Kurspreise oder Getraenke),
+          // gewinnt IMMER die zeilenbasierte Berechnung. Ein evtl. vorhandener
+          // budgetPerPerson-Wert ("Angebotspreis / Person"-Override) wird nicht
+          // mehr als stille Hard-Override verwendet — sonst koennen stale Werte
+          // (z.B. 46,73 € aus einem alten State) jede Mengen-/Preisaenderung
+          // ueberschreiben. budgetPerPerson zaehlt nur noch, wenn keinerlei
+          // Zeileninhalt existiert (reiner Pauschal-Override fuer leere Option).
+          const hasLineContent = subtotalAbs > 0;
+          let clearedBudget = false;
+          if (!hasLineContent && opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
             const overrideTotal = globalMode === 'per_event'
               ? opt.budgetPerPerson
               : opt.budgetPerPerson * guests;
             newTotal = overrideTotal - computeDiscount(overrideTotal);
           } else {
             newTotal = subtotalAbs - computeDiscount(subtotalAbs);
+            // Stale Override aufraeumen, damit das Angebotspreis-Input wieder
+            // den berechneten Placeholder anzeigt und nichts mehr "haengt".
+            if (hasLineContent && opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
+              clearedBudget = true;
+            }
           }
 
           // Equipment & Staff: Fixkosten addieren (nicht pro Person)
@@ -733,9 +746,11 @@ export function useOfferBuilder({
             .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
           newTotal += equipTotal + staffTotal;
 
-          if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
+          if (Math.abs(opt.totalAmount - newTotal) < 0.01 && !clearedBudget) return opt;
           changed = true;
-          return { ...opt, totalAmount: newTotal };
+          return clearedBudget
+            ? { ...opt, totalAmount: newTotal, budgetPerPerson: null }
+            : { ...opt, totalAmount: newTotal };
         }
 
         // Paket-Modus: Preis aus Paket-Kalkulation
