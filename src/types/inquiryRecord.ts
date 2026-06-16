@@ -15,6 +15,7 @@ export interface V2EventRow {
   id: string;
   customer_id: string | null;
   number: string | null;
+  company_name?: string | null;
   status: string | null;
   offer_phase: string | null;
   service_type: "restaurant" | "catering" | "group" | null;
@@ -31,6 +32,7 @@ export interface V2EventRow {
   offer_slug: string | null;
   booking_number: string | null;
   customer_language?: string | null;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string | null;
   v2_customers?: {
@@ -94,10 +96,63 @@ export interface InquiryRecord {
   roomOrCityShort?: string | null;
   assignedInitials?: string | null;
   customerLanguage?: string | null;
+  metadata?: Record<string, unknown> | null;
   raw: V2EventRow | CateringOrder;
 }
 
 export type InquiryRecordRaw = V2EventRow | CateringOrder;
+
+export function cleanDisplayText(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "null" || normalized === "undefined") return null;
+  return trimmed;
+}
+
+function hasObjectValue(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+export function getInquiryDisplayTitle(record: InquiryRecord): string {
+  const raw = record.raw as Record<string, unknown> | null;
+  return (
+    cleanDisplayText(record.companyName) ||
+    cleanDisplayText(raw?.company_name) ||
+    cleanDisplayText(raw?.contact_name) ||
+    cleanDisplayText(raw?.event_title) ||
+    cleanDisplayText(raw?.customer_name) ||
+    cleanDisplayText(record.customerName) ||
+    cleanDisplayText(record.occasion) ||
+    cleanDisplayText(record.email) ||
+    "Unbenannte Anfrage"
+  );
+}
+
+export function hasInquiryAiOrigin(
+  record: InquiryRecord,
+  aiConversationInquiryIds: Set<string>,
+): boolean {
+  const recordWithOptionalFields = record as InquiryRecord & {
+    originalId?: unknown;
+    ai_draft?: unknown;
+    aiDraft?: unknown;
+  };
+  const raw = record.raw as Record<string, unknown> | null;
+  const rawMetadata = hasObjectValue(raw?.metadata) ? raw.metadata : null;
+  const metadata = hasObjectValue(record.metadata) ? record.metadata : rawMetadata;
+  const originalId = cleanDisplayText(recordWithOptionalFields.originalId ?? raw?.original_id);
+
+  return (
+    aiConversationInquiryIds.has(record.id) ||
+    (originalId ? aiConversationInquiryIds.has(originalId) : false) ||
+    Boolean(metadata?.ai_draft) ||
+    Boolean(recordWithOptionalFields.ai_draft) ||
+    Boolean(recordWithOptionalFields.aiDraft)
+  );
+}
 
 export function mapV2EventToColumn(
   status: string | null | undefined,
