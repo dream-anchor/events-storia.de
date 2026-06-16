@@ -993,7 +993,7 @@ export function useOfferBuilder({
           createdInVersion: currentVersion,
         }];
       }
-      return filtered.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
+      return normalizeOptions(filtered);
     });
   }, [currentVersion]);
 
@@ -1006,29 +1006,32 @@ export function useOfferBuilder({
   const resetOption = useCallback((optionId: string) => {
     isDirtyRef.current = true;
     dirtySourceRef.current = 'user';
-    setOptions(prev => prev.map(o => {
-      if (o.id !== optionId) return o;
-      const base = createEmptyOption(o.optionLabel, guestCountRef.current, 'unselected');
-      return {
+    setOptions(prev => {
+      const target = prev.find(o => o.id === optionId);
+      if (!target) return prev;
+      const otherReal = prev.some(o => o.id !== optionId && !isPlaceholderOption(o));
+      // Variante A: existieren noch andere echte Optionen, entfaellt der Placeholder.
+      if (otherReal) {
+        const filtered = prev.filter(o => o.id !== optionId);
+        return normalizeOptions(filtered);
+      }
+      // Sonst: die einzige Option wird Placeholder A mit Kachel-Auswahl.
+      const base = createEmptyOption(target.optionLabel, guestCountRef.current, 'unselected');
+      return [{
         ...base,
-        id: o.id,
-        sortOrder: o.sortOrder,
-        createdInVersion: o.createdInVersion,
-      };
-    }));
+        id: target.id,
+        optionLabel: OPTION_LABELS[0],
+        sortOrder: 0,
+        createdInVersion: target.createdInVersion,
+      }];
+    });
   }, []);
 
   const importOptions = useCallback((partials: Partial<OfferBuilderOption>[]) => {
-    const isEmptyOption = (o: OfferBuilderOption) =>
-      o.offerMode === 'menu' &&
-      o.menuSelection.courses.length === 0 &&
-      !o.packageId &&
-      (!o.totalAmount || o.totalAmount === 0);
-
     isDirtyRef.current = true;
     dirtySourceRef.current = 'user';
     setOptions(prev => {
-      const nonEmpty = prev.filter(o => !isEmptyOption(o));
+      const nonEmpty = prev.filter(o => !isPlaceholderOption(o));
       const relabeled = nonEmpty.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
       const available = OPTION_LABELS.slice(relabeled.length);
       const toAdd = partials.slice(0, available.length);
@@ -1041,7 +1044,7 @@ export function useOfferBuilder({
         optionLabel: available[i],
       }));
 
-      return [...relabeled, ...newOpts];
+      return normalizeOptions([...relabeled, ...newOpts]);
     });
   }, [guestCount, currentVersion]);
 
@@ -1062,13 +1065,7 @@ export function useOfferBuilder({
   const addAiDraftPreview = useCallback((partial: Partial<OfferBuilderOption>): boolean => {
     let didAdd = false;
     setOptions(prev => {
-      const isEmptyOption = (o: OfferBuilderOption) =>
-        o.offerMode === 'menu' &&
-        o.menuSelection.courses.length === 0 &&
-        !o.packageId &&
-        (!o.totalAmount || o.totalAmount === 0);
-
-      const nonEmpty = prev.filter(o => !isEmptyOption(o));
+      const nonEmpty = prev.filter(o => !isPlaceholderOption(o));
       const relabeled = nonEmpty.map((o, i) => ({ ...o, optionLabel: OPTION_LABELS[i] }));
       const nextLabel = OPTION_LABELS[relabeled.length];
       if (!nextLabel) {
@@ -1091,7 +1088,7 @@ export function useOfferBuilder({
         aiOrigin: true,
       };
 
-      const next = [...relabeled, newOpt];
+      const next = normalizeOptions([...relabeled, newOpt]);
       didAdd = true;
       return next;
     });
