@@ -22,7 +22,6 @@ const MAX_MESSAGE_LENGTH = 8000;
 const MAX_HISTORY_MESSAGES = 30;
 const AI_GATEWAY_TIMEOUT_MS = 16_000;
 const SUBMIT_FETCH_TIMEOUT_MS = 18_000;
-const DB_STEP_TIMEOUT_MS = 5_000;
 const KNOWLEDGE_TIMEOUT_MS = 2_500;
 const DRAFT_TIMEOUT_MS = 2_500;
 
@@ -479,6 +478,13 @@ interface RawDraftSuggestions {
   suggested_packages?: unknown;
   suggested_items?: unknown;
   custom_items?: unknown;
+}
+
+function hasUsableDraftSuggestions(raw: RawDraftSuggestions | undefined): boolean {
+  if (!raw) return false;
+  return [raw.suggested_packages, raw.suggested_items, raw.custom_items].some(
+    (value) => Array.isArray(value) && value.length > 0,
+  );
 }
 
 function buildCatalogPromptBlock(catalog: CatalogSnippet): string {
@@ -1270,7 +1276,15 @@ serve(async (req) => {
         return jsonResponse({ error: "rate_limited" }, 429, cors);
       }
       console.error("ai_call_failed", err);
-      reply = fallbackReply(language, computeMissing(currentExtraction));
+      traceEnd(trace, { error: err });
+      return jsonResponse(
+        {
+          error: err === "ai_gateway_timeout" ? "ai_timeout" : "ai_unavailable",
+          reply: timeoutMessageForLanguage(language),
+        },
+        err === "ai_gateway_timeout" ? 504 : 502,
+        cors,
+      );
     }
   }
 
@@ -1313,7 +1327,7 @@ serve(async (req) => {
   // The draft is NEVER a binding offer; final approval happens only in
   // Maestro by STORIA staff. Pricing is computed deterministically here,
   // never by the model.
-  if (readyToSubmit || rawDraftSuggestions) {
+  if (readyToSubmit || hasUsableDraftSuggestions(rawDraftSuggestions)) {
     try {
       traceStep(trace, "draft start");
       const resolved = resolveDraftFromSuggestions(
