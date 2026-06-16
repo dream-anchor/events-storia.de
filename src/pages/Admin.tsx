@@ -11,6 +11,7 @@ import EventInquiriesManager from "@/components/admin/EventInquiriesManager";
 import { usePendingOrdersCount } from "@/hooks/useCateringOrders";
 import { useNewInquiriesCount } from "@/hooks/useEventInquiries";
 import { Badge } from "@/components/ui/badge";
+import { AdminLoader } from "@/components/admin/AdminLoader";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -42,11 +43,7 @@ const Admin = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Laden...</div>
-      </div>
-    );
+    return <AdminLoader />;
   }
 
   if (!user || !isAdmin) {
