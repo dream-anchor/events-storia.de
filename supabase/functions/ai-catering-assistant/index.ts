@@ -991,6 +991,7 @@ serve(async (req) => {
   let suggestedNextQuestion: string | undefined;
   let nextExtraction = currentExtraction;
   let rawDraftSuggestions: RawDraftSuggestions | undefined;
+  let aiAwaitingConfirmation = false;
 
   if (!apiKey) {
     console.error("missing_lovable_api_key");
@@ -1010,6 +1011,7 @@ serve(async (req) => {
         reply = aiResult.reply || fallbackReply(language, computeMissing(currentExtraction));
         intent = aiResult.intent;
         suggestedNextQuestion = aiResult.suggestedNextQuestion;
+        aiAwaitingConfirmation = aiResult.requestSubmitConfirmation === true;
         const extractedClean: Partial<Extracted> = { ...aiResult.extracted };
         if (!emailLooksValid(extractedClean.email)) extractedClean.email = null;
         extractedClean.originalUserText = message;
