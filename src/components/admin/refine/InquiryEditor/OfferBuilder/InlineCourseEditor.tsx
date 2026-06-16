@@ -286,9 +286,8 @@ function SortableCourseRow({
         )}
       </div>
 
-      {/* Menge (nur bei per_event) */}
-      {pricingMode === 'per_event' && (
-        <div className="relative w-16 shrink-0 order-2 sm:order-none">
+      {/* Menge — immer sichtbar (gilt fuer pauschal und /Pers.) */}
+      <div className="relative w-16 shrink-0 order-2 sm:order-none">
           <Input
             type="number"
             min={1}
@@ -301,11 +300,10 @@ function SortableCourseRow({
             }}
             disabled={disabled}
             className="h-10 sm:h-8 rounded-lg pr-5 text-right text-sm tabular-nums"
-            title="Menge"
+            title="Anzahl / Menge"
           />
           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">×</span>
-        </div>
-      )}
+      </div>
 
       {/* DishPicker + Inline Name Edit */}
       <div className="flex-1 min-w-0 order-3 sm:order-none w-full sm:w-auto">
@@ -391,8 +389,8 @@ function SortableCourseRow({
         )}
       </div>
 
-      {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
-      {pricingMode === 'per_event' && quantity > 1 && (
+      {/* Zeilen-Total — sobald Menge > 1, unabhaengig vom Modus */}
+      {quantity > 1 && (
         <span className="text-sm font-medium tabular-nums w-24 text-right shrink-0 order-6 sm:order-none">
           {lineTotal != null ? fmtEUR(lineTotal) : ''}
         </span>
