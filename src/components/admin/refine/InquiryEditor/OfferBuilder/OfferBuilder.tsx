@@ -15,7 +15,7 @@ import { PaymentTermsBlock } from "../PaymentTermsBlock";
 import { Skeleton } from "@/components/ui/skeleton";
 import { mapAiDraftToOption, type MapAiDraftResult } from "./aiDraftToOption";
 import { useAiDraft, type AiDraft } from "@/hooks/useAiDraft";
-import { Sparkles } from "lucide-react";
+import { AiDraftCard } from "../AiDraftCard";
 
 export interface OfferBuilderHandle {
   /** Scrollt zum E-Mail-Composer und öffnet ihn; generiert optional KI-Text */
@@ -98,65 +98,23 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     return result;
   }, [guestCount, packages, builder.menuItems, builder.addAiDraftPreview]);
 
-  const handleAiDraftHintClick = useCallback(() => {
-    if (!aiDraftData?.draft) return;
-    if (builder.isLoading) {
-      // Sollte nie passieren — Button ist disabled solange isLoading. Silent guard.
-      return;
-    }
-    const result = runAiDraftImport(aiDraftData.draft);
-    if (!result.option) {
-      toast.error(result.warnings[0] ?? "Übernahme nicht möglich.");
-      return;
-    }
-    toast.success(
-      "KI-Entwurf wurde als Vorschlag in den OfferBuilder geladen. Bitte prüfen, anpassen und manuell speichern.",
-    );
-    if (result.warnings.length > 0 || result.skippedItems.length > 0) {
-      toast.warning(
-        "Einige Positionen konnten nicht automatisch übernommen werden und müssen geprüft werden.",
-        {
-          description: [
-            ...result.warnings,
-            ...result.skippedItems.map((s) => `${s.name}: ${s.reason}`),
-          ].slice(0, 5).join("\n"),
-        },
-      );
-    }
-  }, [aiDraftData, builder.isLoading, runAiDraftImport]);
+  // --- AI-Draft Karte — einzige Stelle zur Übernahme des KI-Entwurfs ---
+  // Wrapper-Callback: konvertiert MapAiDraftResult → AiDraftPrefillResult-Form,
+  // damit AiDraftCard die Toasts/Warnings einheitlich anzeigt.
+  const handlePrefillFromAiDraft = useCallback((draft: AiDraft) => {
+    const result = runAiDraftImport(draft);
+    return {
+      ok: !!result.option,
+      warnings: result.warnings,
+      skippedItems: result.skippedItems,
+    };
+  }, [runAiDraftImport]);
 
-  // --- AI-Draft Hint Box — gemeinsam für Loading- und Ready-Branch ---
-  const aiDraftHint = aiDraftData?.draft ? (
-    <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 space-y-3">
-      <div className="flex items-start gap-3">
-        <Sparkles className="h-5 w-5 text-neutral-500 mt-0.5 shrink-0" />
-        <div className="flex-1 space-y-1">
-          <h3 className="text-sm font-semibold text-neutral-900">KI-Entwurf vorhanden</h3>
-          <p className="text-xs text-neutral-700 leading-relaxed">
-            Der Kunde hat über den KI-Assistenten bereits einen unverbindlichen
-            Catering-Vorschlag erhalten. Du kannst ihn als Vorschlag in den OfferBuilder
-            übernehmen und anschließend prüfen, anpassen und bewusst speichern.
-          </p>
-        </div>
-      </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-[11px] text-neutral-500">
-          Noch nicht gespeichert · keine automatische Mail · kein PDF · kein Public-Link
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleAiDraftHintClick}
-          disabled={builder.isLoading}
-          className="rounded-2xl"
-          title={builder.isLoading ? "OfferBuilder wird geladen …" : "Vorschlag in den OfferBuilder übernehmen"}
-        >
-          <Sparkles className="mr-2 h-4 w-4" />
-          {builder.isLoading ? "OfferBuilder wird geladen …" : "In OfferBuilder übernehmen"}
-        </Button>
-      </div>
-    </div>
+  const aiDraftCard = aiDraftData?.draft && !builder.isLoading ? (
+    <AiDraftCard
+      inquiryId={inquiry.id}
+      onPrefillFromAiDraft={handlePrefillFromAiDraft}
+    />
   ) : null;
 
   // --- Mehrere Restaurant-Menüs als neue Optionen anlegen ---
@@ -334,7 +292,6 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   if (builder.isLoading) {
     return (
       <div className="space-y-6 animate-in fade-in duration-300" aria-busy="true" aria-label="Angebot wird geladen">
-        {aiDraftHint}
         <Skeleton className="h-7 w-56" />
         <Skeleton className="h-3 w-2/3" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -396,8 +353,9 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         </div>
       )}
 
-      {/* AI-Draft Hinweis — einzige Stelle zur Übernahme des KI-Entwurfs */}
-      {aiDraftHint}
+      {/* KI-Entwurf des Kunden — einzige sichtbare Stelle. Übernahme ist rein lokal,
+          keine DB-Writes / Mail / PDF / Stripe vor manuellem Speichern. */}
+      {aiDraftCard}
 
       {/* Header — Save-Fehler nur bei Problemen anzeigen */}
       <div className="flex items-center justify-between">
