@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AI_ALLOWED_EXT,
   AI_ALLOWED_MIME,
@@ -177,6 +177,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submittedInquiryId, setSubmittedInquiryId] = useState<string | null>(null);
+  const [loadingState, setLoadingState] = useState(false);
   const thinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const extractionRef = useRef<AiIntakeExtraction>({});
   extractionRef.current = extraction;
@@ -185,6 +186,70 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     setConversationIdState(id);
     writeStoredConversationId(id);
   }, []);
+
+  // Reload restore: when a conversationId persists from a previous session,
+  // pull status, messages, extraction, and submitted state from the server so
+  // the UI can faithfully reflect an already-submitted inquiry.
+  const didLoadStateRef = useRef(false);
+  useEffect(() => {
+    if (didLoadStateRef.current) return;
+    if (!conversationId) return;
+    didLoadStateRef.current = true;
+    let cancelled = false;
+    setLoadingState(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke(
+          "ai-catering-assistant",
+          {
+            body: {
+              conversationId,
+              action: "load_state",
+            },
+          },
+        );
+        if (cancelled) return;
+        if (error) {
+          // If the stored conversation no longer exists, drop it silently.
+          setConversationId(null);
+          return;
+        }
+        const payload = data as {
+          status?: string;
+          submittedInquiryId?: string | null;
+          messages?: Array<{
+            id: string;
+            role: "user" | "assistant" | "system";
+            content: string;
+            createdAt: number;
+          }>;
+          extracted?: AiIntakeExtraction;
+          missingFields?: unknown;
+          readyToSubmit?: boolean;
+          awaitingConfirmation?: boolean;
+        } | null;
+        if (!payload) return;
+        if (Array.isArray(payload.messages) && payload.messages.length > 0) {
+          setMessages(payload.messages);
+          setExpanded(true);
+        }
+        if (payload.extracted) setExtraction(payload.extracted);
+        setServerMissing(toRequiredFields(payload.missingFields));
+        setReadyFromServer(Boolean(payload.readyToSubmit));
+        setAwaitingConfirmation(Boolean(payload.awaitingConfirmation));
+        if (payload.submittedInquiryId) {
+          setSubmittedInquiryId(payload.submittedInquiryId);
+        }
+      } catch {
+        // Non-blocking: chat UI stays usable; user just won't see history.
+      } finally {
+        if (!cancelled) setLoadingState(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, setConversationId]);
 
   const missing = useMemo<AiRequiredField[]>(
     () => serverMissing ?? computeMissing(extraction),
@@ -204,6 +269,28 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
   }, [extraction]);
   const canSubmit =
     readyFromServer || missing.length === 0 || hasRequiredExtractedFields;
+
+  type CtaState =
+    | "not_ready"
+    | "ready"
+    | "awaiting"
+    | "submitting"
+    | "submitted"
+    | "error";
+  const ctaState: CtaState = useMemo(() => {
+    if (submittedInquiryId) return "submitted";
+    if (submitting) return "submitting";
+    if (errorMessage && canSubmit) return "error";
+    if (awaitingConfirmation && canSubmit) return "awaiting";
+    if (canSubmit) return "ready";
+    return "not_ready";
+  }, [
+    submittedInquiryId,
+    submitting,
+    errorMessage,
+    awaitingConfirmation,
+    canSubmit,
+  ]);
 
   const expand = useCallback(() => setExpanded(true), []);
   const collapse = useCallback(() => setExpanded(false), []);
@@ -257,6 +344,12 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
           extracted?: AiIntakeExtraction;
           missingFields?: unknown;
           readyToSubmit?: boolean;
+          awaitingConfirmation?: boolean;
+          alreadySubmitted?: boolean;
+          triggeredFromChat?: boolean;
+          submitSuccess?: boolean;
+          submittedInquiryId?: string | null;
+          submitError?: string | null;
         };
         if (!payload?.conversationId || !payload?.reply) {
           throw new Error("invalid_response");
@@ -267,6 +360,21 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
         if (payload.extracted) setExtraction(payload.extracted);
         setServerMissing(toRequiredFields(payload.missingFields));
         setReadyFromServer(Boolean(payload.readyToSubmit));
+        // The server is the only source of truth for awaiting confirmation.
+        setAwaitingConfirmation(Boolean(payload.awaitingConfirmation));
+        // Reflect server-decided submission outcomes (already submitted, or
+        // chat-triggered submit). The CTA / success block is driven from this.
+        if (payload.alreadySubmitted && payload.submittedInquiryId) {
+          setSubmittedInquiryId(payload.submittedInquiryId);
+        }
+        if (payload.triggeredFromChat) {
+          if (payload.submitSuccess && payload.submittedInquiryId) {
+            setSubmittedInquiryId(payload.submittedInquiryId);
+            setAwaitingConfirmation(false);
+          } else if (payload.submitSuccess === false) {
+            setErrorMessage(payload.reply);
+          }
+        }
         setMessages((m) => [
           ...m,
           {
@@ -546,6 +654,8 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     thinking,
     missing,
     canSubmit,
+    ctaState,
+    loadingState,
     totalSize,
     conversationId,
     notice,

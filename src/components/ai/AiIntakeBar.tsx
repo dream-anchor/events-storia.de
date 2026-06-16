@@ -22,18 +22,28 @@ const COPY = {
     send: "Frage senden",
     sendEmptyTooltip: "Geben Sie eine Nachricht ein, um weiterzufragen.",
     composerHint:
-      "Dieser Button sendet nur eine Chat-Nachricht. Die Anfrage an STORIA senden Sie unten.",
-    composerHintShort: "Angebot unten anfragen.",
+      "„Frage senden“ stellt nur eine Chat-Frage. „Anfrage an STORIA senden“ übermittelt Ihre Anfrage.",
+    composerHintShort: "Frage stellen oder Anfrage übermitteln.",
     introHint:
       "Sie können Fragen stellen, gemeinsam planen oder direkt ein Angebot bei STORIA anfragen.",
     expandedPlaceholder: "Nachricht oder Briefing eingeben …",
+    submittedPlaceholder:
+      "Diese Anfrage wurde bereits an STORIA übermittelt.",
     chatLabel: "KI-Hinweise",
     attachmentsLabel: "Anhänge (optional)",
     summaryLabel: "Übersicht",
-    submit: "Angebot bei STORIA anfragen",
+    ctaPrepare: "Anfrage vorbereiten",
+    ctaReady: "Anfrage unverbindlich an STORIA senden",
+    ctaAwaiting: "Ja, Anfrage jetzt senden",
+    ctaSubmitting: "Wird übermittelt …",
+    ctaSubmitted: "Anfrage an STORIA übermittelt ✓",
+    ctaRetry: "Erneut senden",
     submitDisabledHintPrefix: "Dafür fehlen noch:",
     submitEnabledHint:
-      "Die KI bereitet Ihre Anfrage vor. STORIA prüft Details, Verfügbarkeit und finale Preise und sendet Ihnen das verbindliche Angebot.",
+      "Kein verbindliches Angebot. STORIA prüft Ihre Anfrage persönlich.",
+    awaitingHint: "Die KI hat um Bestätigung gebeten.",
+    submittedHint:
+      "STORIA prüft Ihre Anfrage persönlich und meldet sich mit einem verbindlichen Angebot.",
     close: "Panel schließen",
     minimize: "Minimieren",
     aiHint: "KI-Assistenz",
@@ -72,18 +82,28 @@ const COPY = {
     send: "Send message",
     sendEmptyTooltip: "Enter a message to continue the conversation.",
     composerHint:
-      "This button only sends a chat message. Use the button below to send the request to STORIA.",
-    composerHintShort: "Request the offer below.",
+      "\"Send message\" only sends a chat question. \"Send request to STORIA\" submits your inquiry.",
+    composerHintShort: "Ask a question or submit a request.",
     introHint:
       "You can ask questions, plan together, or directly request an offer from STORIA.",
     expandedPlaceholder: "Type a message or briefing …",
+    submittedPlaceholder:
+      "This request has already been submitted to STORIA.",
     chatLabel: "AI hints",
     attachmentsLabel: "Attachments (optional)",
     summaryLabel: "Summary",
-    submit: "Request an offer from STORIA",
+    ctaPrepare: "Prepare request",
+    ctaReady: "Send non-binding request to STORIA",
+    ctaAwaiting: "Yes, send request now",
+    ctaSubmitting: "Submitting …",
+    ctaSubmitted: "Request sent to STORIA ✓",
+    ctaRetry: "Try again",
     submitDisabledHintPrefix: "Still missing:",
     submitEnabledHint:
-      "The AI prepares your request. STORIA reviews the details, availability and final pricing and sends you the binding offer.",
+      "Not a binding offer. STORIA will review your request personally.",
+    awaitingHint: "The AI has asked for your confirmation.",
+    submittedHint:
+      "STORIA will review your request personally and follow up with a binding offer.",
     close: "Close panel",
     minimize: "Minimize",
     aiHint: "AI assistance",
@@ -128,6 +148,7 @@ export function AiIntakeBar({ language }: Props) {
     thinking,
     missing,
     canSubmit,
+    ctaState,
     totalSize,
     notice,
     conversationId,
@@ -156,6 +177,23 @@ export function AiIntakeBar({ language }: Props) {
     sendMessage(draft);
     setDraft("");
   }, [draft, sendMessage]);
+
+  const isSubmitted = Boolean(submittedInquiryId);
+  const ctaLabel = (() => {
+    switch (ctaState) {
+      case "submitted": return t.ctaSubmitted;
+      case "submitting": return t.ctaSubmitting;
+      case "error": return t.ctaRetry;
+      case "awaiting": return t.ctaAwaiting;
+      case "ready": return t.ctaReady;
+      case "not_ready":
+      default: return t.ctaPrepare;
+    }
+  })();
+  const onCtaClick = useCallback(() => {
+    if (ctaState === "submitted" || ctaState === "submitting") return;
+    void submitInquiry();
+  }, [ctaState, submitInquiry]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
@@ -284,7 +322,10 @@ export function AiIntakeBar({ language }: Props) {
             ) : null}
 
             {/* Textarea — pulled up so it's the first action visible */}
-            <div className="rounded-2xl border border-border bg-background p-2 focus-within:ring-2 focus-within:ring-foreground/20">
+            <div className={cn(
+              "rounded-2xl border border-border bg-background p-2 focus-within:ring-2 focus-within:ring-foreground/20",
+              isSubmitted && "opacity-70",
+            )}>
               <label htmlFor="ai-intake-expanded" className="sr-only">
                 {t.expandedPlaceholder}
               </label>
@@ -295,27 +336,67 @@ export function AiIntakeBar({ language }: Props) {
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onKeyDown}
                 rows={isMobile ? 3 : 4}
-                placeholder={t.expandedPlaceholder}
-                className="min-h-[88px] md:min-h-[110px] w-full resize-y bg-transparent px-2 py-1.5 text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground/80 focus:outline-none"
+                placeholder={isSubmitted ? t.submittedPlaceholder : t.expandedPlaceholder}
+                disabled={isSubmitted}
+                className="min-h-[88px] md:min-h-[110px] w-full resize-y bg-transparent px-2 py-1.5 text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground/80 focus:outline-none disabled:cursor-not-allowed"
               />
-              <div className="flex items-center justify-between gap-2 px-1 pt-1">
-                <p className="text-[11px] text-muted-foreground">
-                  <span className="hidden md:inline">{t.composerHint}</span>
-                  <span className="md:hidden">{t.composerHintShort}</span>
-                </p>
+              <div className="flex flex-col gap-2 px-1 pt-2 sm:flex-row sm:items-center sm:justify-between">
+                {/* Primary inquiry CTA (left) */}
                 <Button
                   type="button"
                   size="sm"
+                  onClick={onCtaClick}
+                  disabled={
+                    ctaState === "not_ready" ||
+                    ctaState === "submitting" ||
+                    ctaState === "submitted"
+                  }
+                  className={cn(
+                    "h-10 rounded-full px-4 text-sm",
+                    ctaState === "submitted"
+                      ? "bg-muted text-foreground"
+                      : ctaState === "awaiting"
+                        ? "bg-foreground text-background hover:bg-foreground/90"
+                        : ctaState === "ready"
+                          ? "bg-foreground text-background hover:bg-foreground/90"
+                          : ctaState === "error"
+                            ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {ctaLabel}
+                </Button>
+                {/* Secondary chat-send (right) */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={onSubmit}
-                  disabled={!draft.trim() || thinking}
+                  disabled={!draft.trim() || thinking || isSubmitted}
                   title={!draft.trim() ? t.sendEmptyTooltip : undefined}
                   aria-label={!draft.trim() ? t.sendEmptyTooltip : t.send}
-                  className="h-9 gap-1.5 rounded-full bg-foreground px-4 text-background hover:bg-foreground/90"
+                  className="h-9 gap-1.5 rounded-full px-3 text-muted-foreground hover:text-foreground"
                 >
                   <Send className="h-3.5 w-3.5" aria-hidden />
                   <span>{t.send}</span>
                 </Button>
               </div>
+              <p className="px-1 pt-1 text-[11px] text-muted-foreground">
+                {ctaState === "not_ready" ? (
+                  <>
+                    {t.submitDisabledHintPrefix}{" "}
+                    {missing.map((m) => t.missingLabels[m] ?? m).join(", ")}.
+                  </>
+                ) : ctaState === "awaiting" ? (
+                  t.awaitingHint
+                ) : ctaState === "submitted" ? (
+                  t.submittedHint
+                ) : ctaState === "error" ? (
+                  errorMessage ?? t.submitEnabledHint
+                ) : (
+                  t.submitEnabledHint
+                )}
+              </p>
             </div>
 
             {/* Example chips (only on empty conversation) — directly below input */}
@@ -377,13 +458,8 @@ export function AiIntakeBar({ language }: Props) {
               ) : null}
             </section>
 
-            {/* CTA */}
-            <div className="flex flex-col items-start gap-2 border-t border-border pt-4">
-              {!submittedInquiryId && !awaitingConfirmation ? (
-                <p className="text-xs text-muted-foreground">
-                  {t.introHint}
-                </p>
-              ) : null}
+            {/* Success block (after submit) + error message */}
+            <div className="flex flex-col items-start gap-2">
               {submittedInquiryId ? (
                 <div
                   role="status"
@@ -397,53 +473,12 @@ export function AiIntakeBar({ language }: Props) {
                     {t.successHint}
                   </p>
                 </div>
-              ) : awaitingConfirmation ? (
-                <ConfirmationSummary
-                  t={t}
-                  language={language}
-                  extraction={extraction}
-                  attachmentNames={attachments
-                    .filter((a) => a.status !== "error")
-                    .map((a) => a.file.name)}
-                  submitting={submitting}
-                  onConfirm={() => void submitInquiry()}
-                  onCancel={cancelConfirmation}
-                />
               ) : (
-                <>
-                  <Button
-                    type="button"
-                    size="lg"
-                    disabled={!canSubmit}
-                    onClick={requestConfirmation}
-                    className={cn(
-                      "h-11 rounded-full px-5",
-                      canSubmit
-                        ? "bg-foreground text-background hover:bg-foreground/90"
-                        : "bg-muted text-muted-foreground",
-                    )}
-                  >
-                    {t.submit}
-                  </Button>
-                  {!canSubmit ? (
-                    <p className="text-xs text-muted-foreground">
-                      {t.submitDisabledHintPrefix}{" "}
-                      {missing
-                        .map((m) => t.missingLabels[m] ?? m)
-                        .join(", ")}
-                      .
-                    </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      {t.submitEnabledHint}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-muted-foreground/80">
-                    {t.aiDisclaimer}
-                  </p>
-                </>
+                <p className="text-[11px] text-muted-foreground/80">
+                  {t.aiDisclaimer}
+                </p>
               )}
-              {errorMessage ? (
+              {errorMessage && !submittedInquiryId ? (
                 <p
                   role="alert"
                   className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-foreground"

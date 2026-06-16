@@ -184,6 +184,17 @@ AUFGABE
 - Für inquiries/mixed: extrahiere Lead-Daten konservativ und frage gezielt nach den noch fehlenden Pflichtangaben.
 - Pflichtangaben sind: Ansprechpartner (contactName), E-Mail (email), Personenanzahl (guestCount), Datum (preferredDate) ODER Zeitraum (dateRange).
 
+FUNNEL-PHASEN
+- Phase 1 (Orientierung): kurze, hilfreiche erste Einordnung. Maximal 1–2 fehlende Pflichtangaben gleichzeitig erfragen. Nicht formularhaft wirken.
+- Phase 2 (Vorschlag): sobald genug Infos vorhanden sind, einen kompakten unverbindlichen Vorschlag skizzieren und klar sagen, dass STORIA persönlich prüft.
+- Phase 3 (Abschluss): sobald ALLE Pflichtangaben (Name, E-Mail, Personenanzahl, Datum/Zeitraum) vorliegen, frage GENAU EINMAL: "Soll ich diese Anfrage jetzt unverbindlich an STORIA übermitteln?" und setze dabei requestSubmitConfirmation=true. In allen anderen Fällen setze requestSubmitConfirmation=false.
+
+ABSCHLUSS — STRENG
+- Du übermittelst NIEMALS selbst. Das Backend führt die Übermittlung durch, nachdem der Nutzer zugestimmt hat.
+- VERBOTEN sind Aussagen wie: "Ihre Anfrage wurde übermittelt", "Ich habe es verschickt", "submitted", "sent", "Anfrage ist raus". Auch dann nicht, wenn der Nutzer gerade zustimmt — das Backend liefert die Erfolgsbestätigung.
+- VERBOTEN: "jetzt sichern", "nur heute", "sofort buchen", "verbindlich bestellen", drängende Verknappung.
+- Erlaubt: "unverbindlich anfragen", "STORIA prüft persönlich", "Preisorientierung", "Vorschlag vorbereiten", "Anfrage übermitteln".
+
 EXTRAKTIONSREGELN
 - contactName nicht aus E-Mail-Adressen raten.
 - FAQ-/Brainstorming-Trennung: Speisen, die der Nutzer nur in einer allgemeinen Frage erwähnt (z. B. "Bietet ihr Pizza Catering an?", "Macht ihr auch Fingerfood?"), sind KEIN Speisenwunsch. foodPreferences NUR setzen, wenn der Nutzer in einer konkreten Anfrage ausdrücklich sagt, was er bestellen/haben möchte (z. B. "Wir möchten Fingerfood für 35 Personen"). Im Zweifel foodPreferences leer lassen.
@@ -221,6 +232,17 @@ TASK
 - For inquiries/mixed: extract lead data conservatively and ask gently for the still missing required fields.
 - Required fields: contactName, email, guestCount, preferredDate OR dateRange.
 
+FUNNEL PHASES
+- Phase 1 (orientation): short, helpful framing. Ask at most 1–2 missing required fields at a time. Don't sound like a form.
+- Phase 2 (proposal): once enough info is present, sketch a compact non-binding proposal and clarify that STORIA reviews personally.
+- Phase 3 (closing): once ALL required fields (name, email, guest count, date/range) are present, ask EXACTLY ONCE: "Shall I send this request to STORIA now (non-binding)?" and set requestSubmitConfirmation=true. In all other cases set requestSubmitConfirmation=false.
+
+CLOSING — STRICT
+- You NEVER submit yourself. The backend submits after the user confirms.
+- FORBIDDEN: "Your request has been submitted", "I sent it", "submitted", "sent", "request is on its way". Not even when the user just confirms — the backend will produce the success confirmation.
+- FORBIDDEN: "secure it now", "today only", "book now", "binding order", pushy scarcity.
+- Allowed: "non-binding request", "STORIA reviews personally", "price orientation", "prepare a proposal", "submit the request".
+
 EXTRACTION
 - Do not guess contactName from email addresses.
 - FAQ vs. inquiry separation: foods mentioned only in a general question (e.g. "Do you offer pizza catering?", "Do you also do finger food?") are NOT a food preference. Set foodPreferences ONLY when the user explicitly states what they want to order in a concrete request (e.g. "We'd like finger food for 35 guests"). When in doubt, leave foodPreferences empty.
@@ -254,6 +276,11 @@ const RESPOND_TOOL = {
         reply: { type: "string", description: "The user-facing reply text." },
         intent: { type: "string", enum: ["faq", "inquiry", "mixed"] },
         suggestedNextQuestion: { type: "string" },
+        requestSubmitConfirmation: {
+          type: "boolean",
+          description:
+            "True ONLY when all required fields are present AND you are explicitly asking the user to confirm sending the inquiry to STORIA. False in every other case.",
+        },
         extracted: {
           type: "object",
           properties: {
@@ -497,6 +524,7 @@ async function callAiGateway(
   intent: Intent;
   extracted: Partial<Extracted>;
   suggestedNextQuestion?: string;
+  requestSubmitConfirmation?: boolean;
   draftSuggestions?: RawDraftSuggestions;
 } | null> {
   const catalogBlock = catalog ? buildCatalogPromptBlock(catalog) : "";
@@ -559,6 +587,8 @@ async function callAiGateway(
         typeof args.suggestedNextQuestion === "string"
           ? args.suggestedNextQuestion
           : undefined,
+      requestSubmitConfirmation:
+        args.requestSubmitConfirmation === true ? true : false,
       draftSuggestions:
         args.draftSuggestions && typeof args.draftSuggestions === "object"
           ? (args.draftSuggestions as RawDraftSuggestions)
@@ -581,6 +611,72 @@ function fallbackReply(lang: Lang, missing: string[]): string {
     return "Vielen Dank. Alle Pflichtangaben liegen vor — Sie können die Anfrage jetzt an STORIA senden.";
   }
   return "Vielen Dank für Ihre Nachricht. Damit STORIA Ihnen ein passendes Angebot senden kann, fehlen noch einige Angaben. Können Sie diese kurz ergänzen?";
+}
+
+/* -------- Confirmation intent detection (deterministic) -------- */
+
+type ConfirmIntent = "yes" | "no" | "unclear";
+
+function normalizeConfirmText(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const YES_TOKENS = new Set([
+  "ja", "jo", "jep", "yep", "yes", "yeah", "ok", "okay", "okey", "k",
+  "passt", "geht", "gerne", "klar", "sicher", "los", "send", "sende",
+  "senden", "schick", "schicken", "verschick", "verschicken",
+  "abschicken", "abschick", "absenden", "abgeschickt", "übermitteln",
+  "uebermitteln", "uebermittle", "übermittle", "submit", "go",
+  "confirm", "confirmed", "bestätigen", "bestaetigen", "bestätigt",
+  "bestaetigt", "einverstanden", "alright", "sure",
+]);
+
+const NO_TOKENS = new Set([
+  "nein", "nö", "noe", "no", "nope", "stop", "warte", "wait", "moment",
+  "later", "spaeter", "später", "halt", "noch", "ändern", "aendern",
+  "change", "edit", "bearbeiten", "abbrechen", "cancel", "nicht",
+  "not", "hold",
+]);
+
+const YES_PHRASES = [
+  "ja bitte", "ja gerne", "ja senden", "ja schick", "ja verschick",
+  "ja abschicken", "ja übermitteln", "ja uebermitteln",
+  "bitte senden", "bitte schicken", "bitte verschicken",
+  "bitte abschicken", "bitte übermitteln", "bitte uebermitteln",
+  "kannst du senden", "kannst du schicken", "kannst du abschicken",
+  "los gehts", "los geht's", "passt so", "passt für mich",
+  "yes please", "please send", "go ahead", "send it", "submit it",
+  "fire away", "sounds good",
+];
+
+const NO_PHRASES = [
+  "noch nicht", "nicht jetzt", "warte noch", "moment noch",
+  "ich möchte noch", "ich moechte noch", "ich will noch",
+  "ich möchte ändern", "ich moechte aendern", "noch ändern",
+  "noch aendern", "not yet", "not now", "hold on", "wait a moment",
+  "let me change",
+];
+
+function detectConfirmationIntent(text: string): ConfirmIntent {
+  const t = normalizeConfirmText(text);
+  if (!t) return "unclear";
+  for (const p of NO_PHRASES) if (t.includes(p)) return "no";
+  for (const p of YES_PHRASES) if (t.includes(p)) return "yes";
+  const tokens = t.split(" ").filter(Boolean);
+  if (tokens.length === 0) return "unclear";
+  // Pure short answers like "ja", "ok", "yes", "nein" — first 3 tokens.
+  const head = tokens.slice(0, 3);
+  const hasNo = head.some((w) => NO_TOKENS.has(w));
+  if (hasNo) return "no";
+  const hasYes = head.some((w) => YES_TOKENS.has(w));
+  // Require the message to be reasonably short to count a bare token as yes,
+  // to avoid grabbing "ja" inside a long re-edit.
+  if (hasYes && tokens.length <= 6) return "yes";
+  return "unclear";
 }
 
 /* -------- Handler -------- */
@@ -632,6 +728,14 @@ serve(async (req) => {
       return jsonResponse({ error: "rate_limited" }, 429, cors);
     }
     return await handleSubmitInquiry(supabase, incomingConvId, language, cors);
+  }
+
+  // -------- load_state branch (reload restore) --------
+  if (action === "load_state") {
+    if (!incomingConvId) {
+      return jsonResponse({ error: "conversation_required" }, 400, cors);
+    }
+    return await handleLoadState(supabase, incomingConvId, cors);
   }
 
   const message = typeof body.message === "string" ? body.message.trim() : "";
@@ -689,6 +793,135 @@ serve(async (req) => {
     }
     conversationId = created.id;
     conversationStatus = created.status;
+  }
+
+  // 1a. Already-submitted short circuit. Do NOT call AI, do NOT mutate status,
+  // but persist the user message so the transcript stays accurate.
+  if (conversationStatus === "submitted") {
+    const { data: convRow } = await supabase
+      .from("ai_conversations")
+      .select("inquiry_id")
+      .eq("id", conversationId)
+      .maybeSingle();
+    const inquiryId =
+      convRow && typeof convRow.inquiry_id === "string"
+        ? convRow.inquiry_id
+        : null;
+    await supabase.from("ai_messages").insert({
+      conversation_id: conversationId,
+      role: "user",
+      content: message,
+      metadata: { uploadedFilesCount, post_submit: true },
+    });
+    const replyAlready =
+      language === "en"
+        ? "Your request has already been sent to STORIA. The team will get back to you with a binding offer."
+        : "Diese Anfrage wurde bereits an STORIA übermittelt. Das Team meldet sich mit einem verbindlichen Angebot.";
+    await supabase.from("ai_messages").insert({
+      conversation_id: conversationId,
+      role: "assistant",
+      content: replyAlready,
+      metadata: { event: "already_submitted" },
+    });
+    return jsonResponse(
+      {
+        conversationId,
+        reply: replyAlready,
+        intent: "inquiry",
+        extracted: {},
+        missingFields: [],
+        readyToSubmit: true,
+        awaitingConfirmation: false,
+        alreadySubmitted: true,
+        submittedInquiryId: inquiryId,
+      },
+      200,
+      cors,
+    );
+  }
+
+  // 1b. Chat-side submit trigger: if the conversation is ready, the previous
+  // assistant turn asked for confirmation, and the user clearly agreed, run
+  // the SAME server-side handleSubmitInquiry that the CTA uses.
+  if (conversationStatus === "ready_to_submit") {
+    const { data: lastAssistant } = await supabase
+      .from("ai_messages")
+      .select("metadata, created_at")
+      .eq("conversation_id", conversationId)
+      .eq("role", "assistant")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const awaiting =
+      lastAssistant?.metadata &&
+      typeof lastAssistant.metadata === "object" &&
+      (lastAssistant.metadata as Record<string, unknown>).awaiting_confirmation ===
+        true;
+    if (awaiting) {
+      const intent = detectConfirmationIntent(message);
+      if (intent === "yes") {
+        // Persist the user's confirmation in the transcript.
+        await supabase.from("ai_messages").insert({
+          conversation_id: conversationId,
+          role: "user",
+          content: message,
+          metadata: { uploadedFilesCount, confirmation: "yes" },
+        });
+        const submitRes = await handleSubmitInquiry(
+          supabase,
+          conversationId,
+          language,
+          cors,
+        );
+        // handleSubmitInquiry returns Response with success or submit_failed.
+        // We re-wrap into the chat response shape so the client can reuse the
+        // same handler. Keep the original status code on errors.
+        let submitPayload: Record<string, unknown> = {};
+        try {
+          submitPayload = await submitRes.clone().json();
+        } catch {
+          submitPayload = {};
+        }
+        const ok = submitPayload?.success === true;
+        return jsonResponse(
+          {
+            conversationId,
+            reply:
+              typeof submitPayload?.reply === "string"
+                ? submitPayload.reply
+                : ok
+                  ? language === "en"
+                    ? "Thank you. Your request has been submitted to STORIA."
+                    : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt."
+                  : language === "en"
+                    ? "The request could not be sent right now. Please try again."
+                    : "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut.",
+            intent: "inquiry",
+            extracted: {},
+            missingFields: Array.isArray(submitPayload?.missingFields)
+              ? submitPayload.missingFields
+              : [],
+            readyToSubmit: true,
+            awaitingConfirmation: false,
+            triggeredFromChat: true,
+            submitSuccess: ok,
+            submittedInquiryId:
+              ok && typeof submitPayload?.inquiryId === "string"
+                ? submitPayload.inquiryId
+                : null,
+            submitError:
+              !ok && typeof submitPayload?.error === "string"
+                ? submitPayload.error
+                : null,
+          },
+          ok ? 200 : 502,
+          cors,
+        );
+      }
+      // "no" or "unclear": fall through to normal AI flow. We pass a hint to
+      // the system via an extra message so the model knows confirmation was
+      // declined/unclear and should not re-issue the same question on top.
+    }
   }
 
   // 2. Persist user message
@@ -758,6 +991,7 @@ serve(async (req) => {
   let suggestedNextQuestion: string | undefined;
   let nextExtraction = currentExtraction;
   let rawDraftSuggestions: RawDraftSuggestions | undefined;
+  let aiAwaitingConfirmation = false;
 
   if (!apiKey) {
     console.error("missing_lovable_api_key");
@@ -777,6 +1011,7 @@ serve(async (req) => {
         reply = aiResult.reply || fallbackReply(language, computeMissing(currentExtraction));
         intent = aiResult.intent;
         suggestedNextQuestion = aiResult.suggestedNextQuestion;
+        aiAwaitingConfirmation = aiResult.requestSubmitConfirmation === true;
         const extractedClean: Partial<Extracted> = { ...aiResult.extracted };
         if (!emailLooksValid(extractedClean.email)) extractedClean.email = null;
         extractedClean.originalUserText = message;
@@ -810,7 +1045,16 @@ serve(async (req) => {
     conversation_id: conversationId,
     role: "assistant",
     content: reply,
-    metadata: { intent, missingFields },
+    metadata: {
+      intent,
+      missingFields,
+      awaiting_confirmation:
+        readyToSubmit === true &&
+        Boolean(
+          // Only trust the model's request when fields are truly complete.
+          aiAwaitingConfirmation,
+        ),
+    },
   });
 
   await supabase.from("ai_extractions").insert({
@@ -858,6 +1102,8 @@ serve(async (req) => {
       missingFields,
       readyToSubmit,
       requiresConfirmation: false,
+      awaitingConfirmation:
+        readyToSubmit === true && Boolean(aiAwaitingConfirmation),
       suggestedNextQuestion,
     },
     200,
@@ -1347,6 +1593,95 @@ async function handleSubmitInquiry(
 
   return jsonResponse(
     { success: true, inquiryId, reply: successReply },
+    200,
+    cors,
+  );
+}
+
+/* ============================================================
+ * load_state — reload-restore for the AI Intake Bar
+ * ============================================================ */
+
+async function handleLoadState(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  conversationId: string,
+  cors: Record<string, string>,
+): Promise<Response> {
+  const { data: conv, error: convErr } = await supabase
+    .from("ai_conversations")
+    .select("id, status, inquiry_id, language")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (convErr || !conv) {
+    return jsonResponse({ error: "conversation_not_found" }, 404, cors);
+  }
+
+  const { data: msgs } = await supabase
+    .from("ai_messages")
+    .select("id, role, content, created_at, metadata")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true })
+    .limit(MAX_HISTORY_MESSAGES);
+
+  const messages = (msgs ?? [])
+    .filter((m: { role: string }) => m.role === "user" || m.role === "assistant")
+    .map((m: { id: string; role: string; content: string; created_at: string }) => ({
+      id: String(m.id),
+      role: m.role,
+      content: String(m.content ?? ""),
+      createdAt: new Date(m.created_at).getTime(),
+    }));
+
+  // Awaiting confirmation = latest assistant message had the flag set AND
+  // there is no later user message (last message is the assistant question).
+  let awaitingConfirmation = false;
+  if (messages.length > 0) {
+    const last = messages[messages.length - 1];
+    if (last.role === "assistant") {
+      const raw = (msgs ?? []).find(
+        (m: { id: string }) => String(m.id) === last.id,
+      ) as { metadata?: Record<string, unknown> } | undefined;
+      if (
+        raw?.metadata &&
+        typeof raw.metadata === "object" &&
+        (raw.metadata as Record<string, unknown>).awaiting_confirmation === true
+      ) {
+        awaitingConfirmation = true;
+      }
+    }
+  }
+
+  const { data: latest } = await supabase
+    .from("ai_extractions")
+    .select("extracted, missing_fields")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let extracted: Extracted = emptyExtraction();
+  if (latest?.extracted && typeof latest.extracted === "object") {
+    extracted = mergeExtraction(extracted, latest.extracted as Partial<Extracted>);
+  }
+  const missingFields = Array.isArray(latest?.missing_fields)
+    ? (latest!.missing_fields as string[])
+    : computeMissing(extracted);
+  const readyToSubmit = missingFields.length === 0;
+
+  return jsonResponse(
+    {
+      conversationId,
+      status: conv.status,
+      submittedInquiryId:
+        typeof conv.inquiry_id === "string" ? conv.inquiry_id : null,
+      language: conv.language ?? "de",
+      messages,
+      extracted,
+      missingFields,
+      readyToSubmit,
+      awaitingConfirmation: conv.status === "submitted" ? false : awaitingConfirmation,
+    },
     200,
     cors,
   );
