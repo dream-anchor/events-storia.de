@@ -64,13 +64,21 @@ function pickBudget(...sources: unknown[]): string | null {
   for (const s of sources) {
     if (typeof s === "string") {
       const v = s.trim();
+      if (v.length === 0) continue;
+      const lc = v.toLowerCase();
+      if (lc === "null" || lc === "undefined") continue;
+      // Treat explicit opt-outs as "no real budget" so the fallback shows.
       if (
-        v.length > 0 &&
-        v.toLowerCase() !== "null" &&
-        v.toLowerCase() !== "undefined"
+        lc === "keine angabe" ||
+        lc === "keine" ||
+        lc === "no information" ||
+        lc === "none" ||
+        lc === "no budget" ||
+        lc === "kein budget"
       ) {
-        return v;
+        continue;
       }
+      return v;
     }
   }
   return null;
