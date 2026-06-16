@@ -19,6 +19,33 @@ import {
 } from "./types";
 import type { ExtendedInquiry, SelectedPackage } from "../types";
 
+/**
+ * Eine Option gilt als "Placeholder" (leere Kachel-Auswahl) wenn der Modus
+ * noch 'unselected' ist. Sobald ein Typ gewaehlt wurde — auch ohne Inhalt —
+ * ist es eine echte Option. So lange der Modus 'unselected' ist, wird KEIN
+ * Save in v2_offer_options ausgeloest (siehe saveOptionsToDb-Filter).
+ */
+function isPlaceholderOption(o: OfferBuilderOption): boolean {
+  return o.offerMode === 'unselected';
+}
+
+/**
+ * Entfernt alle Placeholder-Optionen, wenn mindestens eine echte Option
+ * existiert, und vergibt die Labels A, B, C ... neu. Wenn nur Placeholder
+ * vorhanden sind, bleibt genau einer als A erhalten.
+ */
+function normalizeOptions(opts: OfferBuilderOption[]): OfferBuilderOption[] {
+  const real = opts.filter(o => !isPlaceholderOption(o));
+  const base = real.length > 0
+    ? real
+    : opts.slice(0, 1); // genau ein Placeholder als A
+  return base.map((o, i) => ({
+    ...o,
+    optionLabel: OPTION_LABELS[i],
+    sortOrder: i,
+  }));
+}
+
 /** Alte DB-Werte auf neue 3-Modi-Keys mappen */
 function mapLegacyMode(dbMode: string | null | undefined): OfferMode {
   switch (dbMode) {
