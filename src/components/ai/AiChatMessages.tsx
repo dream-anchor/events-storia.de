@@ -8,6 +8,31 @@ interface Props {
   language: AiIntakeLanguage;
 }
 
+/**
+ * Defensive Markdown-Sanitizer für KI-Bar-Nachrichten.
+ * Falls das Modell trotz System-Prompt rohes Markdown liefert
+ * (z. B. **Datum**, __Name__, ### Überschrift), entfernen wir die
+ * Marker, damit der Nutzer keinen rohen Markdown-Code sieht.
+ * Es findet KEIN echtes Markdown-Rendering statt — nur Säuberung.
+ */
+function sanitizeAssistantText(input: string): string {
+  if (!input) return input;
+  let out = input;
+  // **bold** / __bold__  -> bold
+  out = out.replace(/\*\*([^\n*]+?)\*\*/g, "$1");
+  out = out.replace(/__([^\n_]+?)__/g, "$1");
+  // *italic* / _italic_  -> italic  (vorsichtig, keine Worte mit _ in URLs)
+  out = out.replace(/(^|[\s(])\*([^\s*][^*\n]*?)\*(?=[\s).,!?:;]|$)/g, "$1$2");
+  out = out.replace(/(^|[\s(])_([^\s_][^_\n]*?)_(?=[\s).,!?:;]|$)/g, "$1$2");
+  // Markdown-Überschriften ### Title -> Title
+  out = out.replace(/^[ \t]{0,3}#{1,6}\s+/gm, "");
+  // Codeblock-Zäune entfernen (Inhalt bleibt)
+  out = out.replace(/```[a-zA-Z0-9]*\n?/g, "").replace(/```/g, "");
+  // Inline-Code `x` -> x
+  out = out.replace(/`([^`\n]+)`/g, "$1");
+  return out;
+}
+
 export function AiChatMessages({ messages, thinking, language }: Props) {
   if (messages.length === 0 && !thinking) {
     return (
@@ -32,7 +57,7 @@ export function AiChatMessages({ messages, thinking, language }: Props) {
                 <Sparkles className="h-3.5 w-3.5" />
               </span>
               <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
-                {m.content}
+                {sanitizeAssistantText(m.content)}
               </p>
             </div>
           ) : (
