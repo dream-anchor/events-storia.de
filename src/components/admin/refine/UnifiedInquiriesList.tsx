@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { UpcomingOrdersPrintDialog } from "./print/UpcomingOrdersPrintDialog";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 import { useUnifiedInquiries } from "@/hooks/useUnifiedInquiries";
-import { getLifecycleBucket } from "@/types/inquiryRecord";
+import { getInquiryDisplayTitle, getLifecycleBucket, hasInquiryAiOrigin } from "@/types/inquiryRecord";
 import type {
   InquiryRecord,
   LifecycleBucket,
@@ -219,11 +219,12 @@ export const UnifiedInquiriesList = () => {
     {
       id: "customer",
       header: sortableHeader<InquiryRecord>("Kunde"),
-      accessorFn: (r) => r.companyName || r.customerName,
+      accessorFn: (r) => getInquiryDisplayTitle(r),
       cell: ({ row }) => {
         const r = row.original;
         const hasFailure = failureIds.has(r.id);
-        const hasAi = aiOriginIds.has(r.id);
+        const hasAi = r.kind === "event" && hasInquiryAiOrigin(r, aiOriginIds);
+        const title = getInquiryDisplayTitle(r);
         return (
           <div className="flex flex-col min-w-0">
             <span className="font-medium text-sm truncate flex items-center gap-2">
@@ -246,7 +247,7 @@ export const UnifiedInquiriesList = () => {
                   KI
                 </span>
               )}
-              <span className="truncate" data-sensitive="customer">{r.companyName || r.customerName}</span>
+              <span className="truncate" data-sensitive="customer">{title}</span>
               <LangBadge lang={r.customerLanguage} />
             </span>
             {r.companyName && (
