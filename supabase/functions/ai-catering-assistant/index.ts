@@ -2020,10 +2020,7 @@ async function handleSubmitInquiry(
     console.error("ai_draft_mirror_exception", (e as Error).message);
   }
 
-  const successReply =
-    language === "en"
-      ? "Thank you. Your request has been submitted to STORIA. We will get back to you with an individual offer."
-      : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt. Wir melden uns mit einem individuellen Angebot.";
+  const successReply = buildSuccessReply(language, extraction.email);
 
   // Persist a system-style assistant message so the chat log reflects submission
   await supabase.from("ai_messages").insert({
