@@ -2,7 +2,7 @@ import { useMemo, useEffect, useRef, useState } from "react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed, RefreshCw, ChefHat, Package as PackageIcon, Mail, Sparkles, Info } from "lucide-react";
+import { Eye, EyeOff, Trash2, Lock, Copy, UtensilsCrossed, RefreshCw, RotateCcw, ChefHat, Package as PackageIcon, Mail, Sparkles, Info } from "lucide-react";
 import { ChevronDown, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,7 @@ interface OptionCardProps {
   drinkConfigs: DrinkConfig[];
   onUpdate: (updates: Partial<OfferBuilderOption>) => void;
   onRemove: () => void;
+  onReset?: () => void;
   onDuplicate: () => void;
   onToggleActive: () => void;
   isLocked: boolean;
@@ -76,6 +77,7 @@ export function OptionCard({
   drinkConfigs,
   onUpdate,
   onRemove,
+  onReset,
   onDuplicate,
   onToggleActive,
   isLocked,
@@ -386,10 +388,20 @@ export function OptionCard({
             <Button
               variant="ghost"
               size="icon"
+              onClick={onReset}
+              className="h-11 w-11 sm:h-7 sm:w-7 rounded-lg text-muted-foreground hover:text-foreground"
+              disabled={isLocked || option.offerMode === 'unselected' || !onReset}
+              title="Option zuruecksetzen — Kachel-Auswahl erscheint wieder"
+            >
+              <RotateCcw className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onRemove}
               className="h-11 w-11 sm:h-7 sm:w-7 rounded-lg text-destructive/60 hover:text-destructive"
               disabled={isLocked || !canDelete}
-              title={!canDelete ? "Mindestens eine Option erforderlich" : "Option entfernen"}
+              title="Option entfernen"
             >
               <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </Button>

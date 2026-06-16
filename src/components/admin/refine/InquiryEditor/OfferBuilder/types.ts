@@ -320,6 +320,12 @@ export interface UseOfferBuilderReturn {
   // Option CRUD
   addOption: (mode?: OfferMode, copyFrom?: OfferBuilderOption) => void;
   removeOption: (optionId: string) => void;
+  /**
+   * Setzt eine Option auf den Initialzustand zurueck — Kachel-Auswahl ('unselected')
+   * erscheint wieder, alle Inhalte (Kurse, Getraenke, Equipment, Personal, Freeform,
+   * KI-Marker) werden entfernt. id/optionLabel/sortOrder bleiben erhalten.
+   */
+  resetOption: (optionId: string) => void;
   importOptions: (partials: Partial<OfferBuilderOption>[]) => void;
   /**
    * Fügt einen AI-Draft-Vorschlag NUR in den lokalen UI-State ein.
