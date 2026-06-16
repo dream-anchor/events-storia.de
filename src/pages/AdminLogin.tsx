@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import storiaLogo from "@/assets/storia-logo.webp";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminLoader } from "@/components/admin/AdminLoader";
 import {
   Dialog,
   DialogContent,
@@ -99,11 +100,7 @@ const AdminLogin = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Laden...</div>
-      </div>
-    );
+    return <AdminLoader />;
   }
 
   return (
