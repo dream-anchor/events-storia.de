@@ -16,6 +16,19 @@ import { uploadAttachmentWithConversation } from "@/lib/aiIntake/uploadAttachmen
 import { supabase } from "@/integrations/supabase/client";
 
 const CONVERSATION_STORAGE_KEY = "storia.aiIntake.conversationId";
+const AI_REQUEST_TIMEOUT_MS = 30_000;
+
+function timeoutMessage(language: AiIntakeLanguage): string {
+  return language === "de"
+    ? "Das dauert gerade zu lange. Bitte versuchen Sie es erneut."
+    : "This is taking too long. Please try again.";
+}
+
+function isRequestTimeout(error: unknown, startedAt: number): boolean {
+  if (Date.now() - startedAt >= AI_REQUEST_TIMEOUT_MS - 250) return true;
+  if (!(error instanceof Error)) return false;
+  return /abort|timeout|timed out/i.test(`${error.name} ${error.message}`);
+}
 
 function readStoredConversationId(): string | null {
   if (typeof window === "undefined") return null;
@@ -179,6 +192,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
   const [submittedInquiryId, setSubmittedInquiryId] = useState<string | null>(null);
   const [loadingState, setLoadingState] = useState(false);
   const thinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestInFlightRef = useRef(false);
   const extractionRef = useRef<AiIntakeExtraction>({});
   extractionRef.current = extraction;
 
@@ -202,6 +216,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
         const { data, error } = await supabase.functions.invoke(
           "ai-catering-assistant",
           {
+            timeout: AI_REQUEST_TIMEOUT_MS,
             body: {
               conversationId,
               action: "load_state",
@@ -302,7 +317,10 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     ) => {
       const trimmed = text.trim();
       if (!trimmed) return;
+      if (requestInFlightRef.current) return;
       const submitAfterProcessing = options?.submitAfterProcessing === true;
+      const requestStartedAt = Date.now();
+      requestInFlightRef.current = true;
       const userMsg: AiIntakeMessage = {
         id: uid(),
         role: "user",
@@ -330,6 +348,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
         const { data, error } = await supabase.functions.invoke(
           "ai-catering-assistant",
           {
+            timeout: AI_REQUEST_TIMEOUT_MS,
             body: {
               conversationId: conversationId ?? undefined,
               message: trimmed,
@@ -391,6 +410,11 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
           },
         ]);
       } catch (e) {
+        if (isRequestTimeout(e, requestStartedAt)) {
+          console.error("ai-catering-assistant_timeout", e);
+          setErrorMessage(timeoutMessage(language));
+          return;
+        }
         // Fallback: local NLU + best-effort reply so the UI stays usable.
         console.error("ai-catering-assistant_failed", e);
         const nextExtraction = mergeExtraction(
@@ -417,6 +441,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
             : "The AI is currently unreachable. Please try again.",
         );
       } finally {
+        requestInFlightRef.current = false;
         setThinking(false);
         if (submitAfterProcessing) setSubmitting(false);
       }
@@ -577,6 +602,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     setErrorMessage(null);
     setNotice(null);
     setBriefing("");
+    requestInFlightRef.current = false;
     extractionRef.current = {};
   }, [setConversationId]);
 
@@ -590,12 +616,14 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
       return;
     }
     if (submittedInquiryId || submitting) return;
+    const requestStartedAt = Date.now();
     setSubmitting(true);
     setErrorMessage(null);
     try {
       const { data, error } = await supabase.functions.invoke(
         "ai-catering-assistant",
         {
+          timeout: AI_REQUEST_TIMEOUT_MS,
           body: {
             conversationId,
             action: "submit_inquiry",
@@ -640,6 +668,11 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
         },
       ]);
     } catch (e) {
+      if (isRequestTimeout(e, requestStartedAt)) {
+        console.error("submit_inquiry_timeout", e);
+        setErrorMessage(timeoutMessage(language));
+        return;
+      }
       console.error("submit_inquiry_failed", e);
       setErrorMessage(
         language === "de"

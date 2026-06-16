@@ -21,6 +21,47 @@ import {
 const MODEL = "google/gemini-3-flash-preview";
 const MAX_MESSAGE_LENGTH = 8000;
 const MAX_HISTORY_MESSAGES = 30;
+const AI_GATEWAY_TIMEOUT_MS = 16_000;
+const SUBMIT_FETCH_TIMEOUT_MS = 18_000;
+
+type Trace = { id: string; start: number; last: number };
+
+function createTrace(action: string): Trace {
+  const now = Date.now();
+  const trace = {
+    id: crypto.randomUUID?.() ?? `${now}-${Math.random().toString(36).slice(2, 8)}`,
+    start: now,
+    last: now,
+  };
+  console.log(`[ai-catering-assistant] ${trace.id} request received action=${action}`);
+  return trace;
+}
+
+function traceStep(trace: Trace, step: string, extra = "") {
+  const now = Date.now();
+  console.log(
+    `[ai-catering-assistant] ${trace.id} ${step} total_ms=${now - trace.start} delta_ms=${now - trace.last}${extra ? ` ${extra}` : ""}`,
+  );
+  trace.last = now;
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  timeoutError: string,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (e) {
+    if (controller.signal.aborted) throw new Error(timeoutError);
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -535,6 +576,7 @@ async function callAiGateway(
   uploadedFiles: number,
   knowledgeContext: string,
   catalog: CatalogSnippet | null,
+  trace: Trace,
 ): Promise<{
   reply: string;
   intent: Intent;
@@ -565,20 +607,27 @@ async function callAiGateway(
         : "\n\nVERFÜGBARE QUELLEN: (keine passenden öffentlichen Quellen gefunden — bei Sachfragen ausdrücklich auf das STORIA-Team verweisen, niemals Preise/Liefer-/Zahlungs-/AGB-Aussagen erfinden)"),
   };
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+  traceStep(trace, "AI call start", `history=${history.length} catalog=${catalog ? "yes" : "no"}`);
+  const res = await fetchWithTimeout(
+    "https://ai.gateway.lovable.dev/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [systemMessage, ...history],
+        tools: [RESPOND_TOOL],
+        tool_choice: { type: "function", function: { name: "respond" } },
+        temperature: 0.3,
+      }),
     },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [systemMessage, ...history],
-      tools: [RESPOND_TOOL],
-      tool_choice: { type: "function", function: { name: "respond" } },
-      temperature: 0.3,
-    }),
-  });
+    AI_GATEWAY_TIMEOUT_MS,
+    "ai_gateway_timeout",
+  );
+  traceStep(trace, "AI call end", `status=${res.status}`);
 
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
@@ -695,6 +744,51 @@ function detectConfirmationIntent(text: string): ConfirmIntent {
   return "unclear";
 }
 
+function dietaryAnswerFromSendTurn(text: string, lang: Lang): string | null {
+  const normalized = normalizeConfirmText(text);
+  if (!normalized) return null;
+  const tokens = normalized.split(" ").filter(Boolean);
+  const saysNone = tokens.some((w) =>
+    ["nein", "keine", "keiner", "keinen", "nichts", "no", "none", "nothing"].includes(w),
+  );
+  if (saysNone) return lang === "en" ? "none" : "keine";
+  if (/\b(vegan|vegetarisch|vegetarian|allerg|unvertr|intoler|gluten|laktose|lactose|nuss|nut)\b/i.test(text)) {
+    return text.trim().slice(0, 500);
+  }
+  return null;
+}
+
+async function persistDietaryAnswerBeforeSubmit(
+  supabase: SupaClient,
+  conversationId: string,
+  message: string,
+  lang: Lang,
+): Promise<void> {
+  const dietaryAnswer = dietaryAnswerFromSendTurn(message, lang);
+  if (!dietaryAnswer) return;
+  const { data: latest } = await supabase
+    .from("ai_extractions")
+    .select("extracted")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let extraction = emptyExtraction();
+  if (latest?.extracted && typeof latest.extracted === "object") {
+    extraction = mergeExtraction(extraction, latest.extracted as Partial<Extracted>);
+  }
+  extraction = mergeExtraction(extraction, {
+    dietaryRequirements: [dietaryAnswer],
+    originalUserText: message,
+  });
+  await supabase.from("ai_extractions").insert({
+    conversation_id: conversationId,
+    extracted: extraction,
+    missing_fields: computeMissing(extraction),
+    confidence: {},
+  });
+}
+
 /* -------- Handler -------- */
 
 serve(async (req) => {
@@ -719,6 +813,7 @@ serve(async (req) => {
   }
 
   const action = typeof body.action === "string" ? body.action : "chat";
+  const trace = createTrace(action);
   const incomingConvId =
     typeof body.conversationId === "string" && UUID_RE.test(body.conversationId)
       ? body.conversationId
@@ -743,7 +838,7 @@ serve(async (req) => {
     if (!checkRate(rateKey)) {
       return jsonResponse({ error: "rate_limited" }, 429, cors);
     }
-    return await handleSubmitInquiry(supabase, incomingConvId, language, cors);
+    return await handleSubmitInquiry(supabase, incomingConvId, language, cors, trace);
   }
 
   // -------- load_state branch (reload restore) --------
@@ -751,6 +846,7 @@ serve(async (req) => {
     if (!incomingConvId) {
       return jsonResponse({ error: "conversation_required" }, 400, cors);
     }
+    traceStep(trace, "conversation loaded", "load_state");
     return await handleLoadState(supabase, incomingConvId, cors);
   }
 
@@ -773,6 +869,7 @@ serve(async (req) => {
   if (!checkRate(rateKey)) {
     return jsonResponse({ error: "rate_limited" }, 429, cors);
   }
+  traceStep(trace, "conversation load start", incomingConvId ? "existing=true" : "existing=false");
 
   // 1. Resolve / create conversation
   let conversationId = incomingConvId;
@@ -810,6 +907,7 @@ serve(async (req) => {
     conversationId = created.id;
     conversationStatus = created.status;
   }
+  traceStep(trace, "conversation loaded", `status=${conversationStatus}`);
 
   // 1a. Already-submitted short circuit. Do NOT call AI, do NOT mutate status,
   // but persist the user message so the transcript stays accurate.
@@ -873,8 +971,8 @@ serve(async (req) => {
       typeof lastAssistant.metadata === "object" &&
       (lastAssistant.metadata as Record<string, unknown>).awaiting_confirmation ===
         true;
+    const intent = detectConfirmationIntent(message);
     if (awaiting) {
-      const intent = detectConfirmationIntent(message);
       if (intent === "yes") {
         // Persist the user's confirmation in the transcript.
         await supabase.from("ai_messages").insert({
@@ -883,11 +981,18 @@ serve(async (req) => {
           content: message,
           metadata: { uploadedFilesCount, confirmation: "yes" },
         });
+        await persistDietaryAnswerBeforeSubmit(
+          supabase,
+          conversationId,
+          message,
+          language,
+        );
         const submitRes = await handleSubmitInquiry(
           supabase,
           conversationId,
           language,
           cors,
+          trace,
         );
         // handleSubmitInquiry returns Response with success or submit_failed.
         // We re-wrap into the chat response shape so the client can reuse the
@@ -937,6 +1042,67 @@ serve(async (req) => {
       // "no" or "unclear": fall through to normal AI flow. We pass a hint to
       // the system via an extra message so the model knows confirmation was
       // declined/unclear and should not re-issue the same question on top.
+    } else if (intent === "yes" && dietaryAnswerFromSendTurn(message, language)) {
+      await supabase.from("ai_messages").insert({
+        conversation_id: conversationId,
+        role: "user",
+        content: message,
+        metadata: { uploadedFilesCount, confirmation: "yes", dietary_answer: true },
+      });
+      await persistDietaryAnswerBeforeSubmit(
+        supabase,
+        conversationId,
+        message,
+        language,
+      );
+      const submitRes = await handleSubmitInquiry(
+        supabase,
+        conversationId,
+        language,
+        cors,
+        trace,
+      );
+      let submitPayload: Record<string, unknown> = {};
+      try {
+        submitPayload = await submitRes.clone().json();
+      } catch {
+        submitPayload = {};
+      }
+      const ok = submitPayload?.success === true;
+      return jsonResponse(
+        {
+          conversationId,
+          reply:
+            typeof submitPayload?.reply === "string"
+              ? submitPayload.reply
+              : ok
+                ? language === "en"
+                  ? "Thank you. Your request has been submitted to STORIA."
+                  : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt."
+                : language === "en"
+                  ? "The request could not be sent right now. Please try again."
+                  : "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut.",
+          intent: "inquiry",
+          extracted: {},
+          missingFields: Array.isArray(submitPayload?.missingFields)
+            ? submitPayload.missingFields
+            : [],
+          readyToSubmit: true,
+          awaitingConfirmation: false,
+          triggeredFromChat: true,
+          submitSuccess: ok,
+          submittedInquiryId:
+            ok && typeof submitPayload?.inquiryId === "string"
+              ? submitPayload.inquiryId
+              : null,
+          submitError:
+            !ok && typeof submitPayload?.error === "string"
+              ? submitPayload.error
+              : null,
+        },
+        ok ? 200 : 502,
+        cors,
+      );
     }
   }
 
@@ -965,6 +1131,7 @@ serve(async (req) => {
     }));
 
   // 4. Current extraction baseline (latest stored, optionally merged with clientState)
+  traceStep(trace, "extraction start");
   const { data: latestExtraction } = await supabase
     .from("ai_extractions")
     .select("extracted")
@@ -988,16 +1155,22 @@ serve(async (req) => {
   }
   currentExtraction.attachmentsMentioned =
     currentExtraction.attachmentsMentioned || uploadedFilesCount > 0;
+  traceStep(trace, "extraction end", `missing=${computeMissing(currentExtraction).join("|") || "none"}`);
 
   // 4b. Knowledge lookup (safe sources only)
+  traceStep(trace, "knowledge start");
   const knowledgeContext = await lookupKnowledge(supabase, message);
+  traceStep(trace, "knowledge end", knowledgeContext ? "matched=true" : "matched=false");
 
   // 4c. Catalog snippet (safe Quelle für draftSuggestions; best-effort).
   let catalog: CatalogSnippet | null = null;
   try {
+    traceStep(trace, "catalog start");
     catalog = await loadCatalogSnippet(supabase);
+    traceStep(trace, "catalog end", `packages=${catalog.packages.length} items=${catalog.items.length}`);
   } catch (e) {
     console.error("catalog_load_failed", (e as Error).message);
+    traceStep(trace, "catalog end", "error=true");
   }
 
   // 5. Call AI gateway
@@ -1022,6 +1195,7 @@ serve(async (req) => {
         uploadedFilesCount,
         knowledgeContext,
         catalog,
+        trace,
       );
       if (aiResult) {
         reply = aiResult.reply || fallbackReply(language, computeMissing(currentExtraction));
@@ -1093,6 +1267,7 @@ serve(async (req) => {
   // Maestro by STORIA staff. Pricing is computed deterministically here,
   // never by the model.
   try {
+    traceStep(trace, "draft start");
     const resolved = resolveDraftFromSuggestions(
       rawDraftSuggestions,
       catalog,
@@ -1104,9 +1279,11 @@ serve(async (req) => {
       nextExtraction,
       resolved,
     );
+    traceStep(trace, "draft end");
   } catch (e) {
     // Never block the chat response on draft persistence.
     console.error("draft_upsert_failed", (e as Error).message);
+    traceStep(trace, "draft end", "error=true");
   }
 
   // 7b. submitAfterProcessing: if the CTA was clicked while the composer
@@ -1121,6 +1298,7 @@ serve(async (req) => {
       conversationId,
       language,
       cors,
+      trace,
     );
     let submitPayload: Record<string, unknown> = {};
     try {
@@ -1433,7 +1611,9 @@ async function handleSubmitInquiry(
   conversationId: string,
   language: Lang,
   cors: Record<string, string>,
+  trace?: Trace,
 ): Promise<Response> {
+  if (trace) traceStep(trace, "submit start");
   // Load conversation
   const { data: conv, error: convErr } = await supabase
     .from("ai_conversations")
@@ -1474,6 +1654,7 @@ async function handleSubmitInquiry(
 
   const missingFields = computeMissing(extraction);
   if (missingFields.length > 0) {
+    if (trace) traceStep(trace, "submit end", `missing=${missingFields.join("|")}`);
     const replyDe =
       "Für die Übermittlung fehlen noch folgende Angaben: " +
       missingFields.join(", ") +
@@ -1530,15 +1711,22 @@ async function handleSubmitInquiry(
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   let inquiryId: string | null = null;
   try {
-    const res = await fetch(`${supaUrl}/functions/v1/receive-event-inquiry`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceKey}`,
-        apikey: serviceKey,
-        "Content-Type": "application/json",
+    if (trace) traceStep(trace, "submit receive-event start");
+    const res = await fetchWithTimeout(
+      `${supaUrl}/functions/v1/receive-event-inquiry`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          apikey: serviceKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    });
+      SUBMIT_FETCH_TIMEOUT_MS,
+      "receive_event_inquiry_timeout",
+    );
+    if (trace) traceStep(trace, "submit receive-event end", `status=${res.status}`);
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       console.error("receive_event_inquiry_failed", res.status, txt.slice(0, 300));
@@ -1559,6 +1747,7 @@ async function handleSubmitInquiry(
     inquiryId = typeof json?.inquiryId === "string" ? json.inquiryId : null;
   } catch (e) {
     console.error("receive_event_inquiry_call_failed", (e as Error).message);
+    if (trace) traceStep(trace, "submit end", `error=${(e as Error).message}`);
     return jsonResponse(
       {
         success: false,
@@ -1574,6 +1763,7 @@ async function handleSubmitInquiry(
   }
 
   if (!inquiryId) {
+    if (trace) traceStep(trace, "submit end", "error=missing_inquiry_id");
     return jsonResponse(
       {
         success: false,
@@ -1656,6 +1846,8 @@ async function handleSubmitInquiry(
     content: successReply,
     metadata: { event: "submit_inquiry", inquiryId },
   });
+
+  if (trace) traceStep(trace, "submit end", `inquiryId=${inquiryId}`);
 
   return jsonResponse(
     { success: true, inquiryId, reply: successReply },
