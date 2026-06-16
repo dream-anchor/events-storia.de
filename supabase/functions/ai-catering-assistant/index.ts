@@ -770,6 +770,23 @@ function timeoutMessageForLanguage(lang: Lang): string {
     : "Das dauert gerade zu lange. Bitte versuchen Sie es erneut.";
 }
 
+/**
+ * Canonical success reply shown after a real server-side submit success.
+ * Mentions the confirmation email only when a valid customer email is on
+ * record — never on timeouts, validation failures or fallbacks.
+ */
+function buildSuccessReply(lang: Lang, email: string | null): string {
+  const hasEmail = emailLooksValid(email);
+  if (lang === "en") {
+    return hasEmail
+      ? `Thank you. Your request has been sent to STORIA. A confirmation has been sent to ${email}. The STORIA team will review your details personally and get back to you with an individual offer.`
+      : "Thank you. Your request has been sent to STORIA. The STORIA team will review your details personally and get back to you with an individual offer.";
+  }
+  return hasEmail
+    ? `Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt. Eine Bestätigung wurde an ${email} gesendet. Das STORIA-Team prüft Ihre Angaben persönlich und meldet sich mit einem individuellen Angebot.`
+    : "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt. Das STORIA-Team prüft Ihre Angaben persönlich und meldet sich mit einem individuellen Angebot.";
+}
+
 /* -------- Confirmation intent detection (deterministic) -------- */
 
 type ConfirmIntent = "yes" | "no" | "unclear";
