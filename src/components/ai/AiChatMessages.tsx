@@ -11,7 +11,7 @@ interface Props {
 export function AiChatMessages({ messages, thinking, language }: Props) {
   if (messages.length === 0 && !thinking) {
     return (
-      <div className="rounded-2xl bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+      <div className="font-sans rounded-2xl bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
         {language === "de"
           ? "Beschreiben Sie Ihre Veranstaltung — die KI erkennt Datum, Personen und Wünsche automatisch."
           : "Describe your event — the AI will detect date, guests and preferences automatically."}
@@ -20,7 +20,7 @@ export function AiChatMessages({ messages, thinking, language }: Props) {
   }
 
   return (
-    <ol className="space-y-2" aria-live="polite">
+    <ol className="font-sans space-y-2" aria-live="polite">
       {messages.map((m) => (
         <li key={m.id} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
           {m.role === "assistant" ? (
