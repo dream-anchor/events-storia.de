@@ -1093,6 +1093,56 @@ serve(async (req) => {
     console.error("draft_upsert_failed", (e as Error).message);
   }
 
+  // 7b. submitAfterProcessing: if the CTA was clicked while the composer
+  // still held additional text, the client sends that text as a normal user
+  // message with this flag set. After the AI has fully processed/extracted
+  // it, if all required fields are present we run the SAME server-side
+  // handleSubmitInquiry that the CTA path uses — so the user only needs one
+  // click and the late addition is never lost.
+  if (body.submitAfterProcessing === true && readyToSubmit) {
+    const submitRes = await handleSubmitInquiry(
+      supabase,
+      conversationId,
+      language,
+      cors,
+    );
+    let submitPayload: Record<string, unknown> = {};
+    try {
+      submitPayload = await submitRes.clone().json();
+    } catch {
+      submitPayload = {};
+    }
+    const ok = submitPayload?.success === true;
+    return jsonResponse(
+      {
+        conversationId,
+        reply:
+          typeof submitPayload?.reply === "string"
+            ? submitPayload.reply
+            : reply,
+        intent,
+        extracted: nextExtraction,
+        missingFields: Array.isArray(submitPayload?.missingFields)
+          ? submitPayload.missingFields
+          : missingFields,
+        readyToSubmit: true,
+        awaitingConfirmation: false,
+        triggeredFromChat: true,
+        submitSuccess: ok,
+        submittedInquiryId:
+          ok && typeof submitPayload?.inquiryId === "string"
+            ? submitPayload.inquiryId
+            : null,
+        submitError:
+          !ok && typeof submitPayload?.error === "string"
+            ? submitPayload.error
+            : null,
+      },
+      ok ? 200 : 502,
+      cors,
+    );
+  }
+
   return jsonResponse(
     {
       conversationId,
