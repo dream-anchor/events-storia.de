@@ -981,6 +981,12 @@ serve(async (req) => {
           content: message,
           metadata: { uploadedFilesCount, confirmation: "yes" },
         });
+        await persistDietaryAnswerBeforeSubmit(
+          supabase,
+          conversationId,
+          message,
+          language,
+        );
         const submitRes = await handleSubmitInquiry(
           supabase,
           conversationId,
