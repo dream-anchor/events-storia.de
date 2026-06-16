@@ -188,6 +188,14 @@ export function mapAiDraftToOption(
     const qty = clampQty(di.qty);
     const unit = nonEmpty(di.unit) ?? nonEmpty(dbItem.unit) ?? DEFAULT_UNIT;
 
+    // WICHTIG: KI-Mengen sind nur Empfehlungen, keine harten Kalkulationsmengen.
+    // Wir setzen quantity immer auf 1 und schreiben die KI-Empfehlung als Notiz.
+    // So entstehen keine versteckten Multiplikatoren, wenn der Operator später
+    // manuell einen Preis einträgt.
+    if (qty > 1) {
+      itemNotes.push(`• ${dbItem.name} — KI-Empfehlung: Menge ${qty} ${unit}`);
+    }
+
     courses.push({
       courseType: courseTypeFromCategory(di.category ?? dbItem.category_name),
       courseLabel: nonEmpty(di.category) ?? nonEmpty(dbItem.category_name) ?? 'Gang',
@@ -198,7 +206,8 @@ export function mapAiDraftToOption(
       isCustom: false,
       // KEIN Preis aus Draft. OfferBuilder berechnet aus DB-Preis × Gäste.
       overridePrice: null,
-      quantity: qty,
+      // KEINE KI-Menge als harte Kalkulationsmenge — siehe itemNotes oben.
+      quantity: 1,
       priceMode: 'per_person',
       // 'unit' ist nicht Teil von CourseSelection — wir hängen sie an die Note,
       // damit der Betreiber sie beim Recalc berücksichtigen kann.
