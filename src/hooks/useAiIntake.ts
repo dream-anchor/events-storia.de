@@ -270,6 +270,28 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
   const canSubmit =
     readyFromServer || missing.length === 0 || hasRequiredExtractedFields;
 
+  type CtaState =
+    | "not_ready"
+    | "ready"
+    | "awaiting"
+    | "submitting"
+    | "submitted"
+    | "error";
+  const ctaState: CtaState = useMemo(() => {
+    if (submittedInquiryId) return "submitted";
+    if (submitting) return "submitting";
+    if (errorMessage && canSubmit) return "error";
+    if (awaitingConfirmation && canSubmit) return "awaiting";
+    if (canSubmit) return "ready";
+    return "not_ready";
+  }, [
+    submittedInquiryId,
+    submitting,
+    errorMessage,
+    awaitingConfirmation,
+    canSubmit,
+  ]);
+
   const expand = useCallback(() => setExpanded(true), []);
   const collapse = useCallback(() => setExpanded(false), []);
 
