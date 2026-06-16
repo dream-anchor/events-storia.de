@@ -36,7 +36,7 @@ export function AiChatMessages({ messages, thinking, language }: Props) {
               </p>
             </div>
           ) : (
-            <p className="max-w-[88%] rounded-2xl bg-foreground text-background px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap">
+            <p className="max-w-[88%] rounded-2xl border border-border bg-muted/60 text-foreground px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap">
               {m.content}
             </p>
           )}
