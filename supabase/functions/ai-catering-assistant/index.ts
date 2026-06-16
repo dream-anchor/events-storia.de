@@ -1499,7 +1499,9 @@ async function handleSubmitInquiry(
   conversationId: string,
   language: Lang,
   cors: Record<string, string>,
+  trace?: Trace,
 ): Promise<Response> {
+  if (trace) traceStep(trace, "submit start");
   // Load conversation
   const { data: conv, error: convErr } = await supabase
     .from("ai_conversations")
@@ -1540,6 +1542,7 @@ async function handleSubmitInquiry(
 
   const missingFields = computeMissing(extraction);
   if (missingFields.length > 0) {
+    if (trace) traceStep(trace, "submit end", `missing=${missingFields.join("|")}`);
     const replyDe =
       "Für die Übermittlung fehlen noch folgende Angaben: " +
       missingFields.join(", ") +
@@ -1596,15 +1599,22 @@ async function handleSubmitInquiry(
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   let inquiryId: string | null = null;
   try {
-    const res = await fetch(`${supaUrl}/functions/v1/receive-event-inquiry`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceKey}`,
-        apikey: serviceKey,
-        "Content-Type": "application/json",
+    if (trace) traceStep(trace, "submit receive-event start");
+    const res = await fetchWithTimeout(
+      `${supaUrl}/functions/v1/receive-event-inquiry`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          apikey: serviceKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    });
+      SUBMIT_FETCH_TIMEOUT_MS,
+      "receive_event_inquiry_timeout",
+    );
+    if (trace) traceStep(trace, "submit receive-event end", `status=${res.status}`);
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       console.error("receive_event_inquiry_failed", res.status, txt.slice(0, 300));
@@ -1625,6 +1635,7 @@ async function handleSubmitInquiry(
     inquiryId = typeof json?.inquiryId === "string" ? json.inquiryId : null;
   } catch (e) {
     console.error("receive_event_inquiry_call_failed", (e as Error).message);
+    if (trace) traceStep(trace, "submit end", `error=${(e as Error).message}`);
     return jsonResponse(
       {
         success: false,
@@ -1640,6 +1651,7 @@ async function handleSubmitInquiry(
   }
 
   if (!inquiryId) {
+    if (trace) traceStep(trace, "submit end", "error=missing_inquiry_id");
     return jsonResponse(
       {
         success: false,
@@ -1722,6 +1734,8 @@ async function handleSubmitInquiry(
     content: successReply,
     metadata: { event: "submit_inquiry", inquiryId },
   });
+
+  if (trace) traceStep(trace, "submit end", `inquiryId=${inquiryId}`);
 
   return jsonResponse(
     { success: true, inquiryId, reply: successReply },
