@@ -113,3 +113,6 @@ verify_jwt = true
 
 [functions.send-cost-acceptance-email]
 verify_jwt = true
+
+[functions.get-public-cost-acceptance-state]
+verify_jwt = false

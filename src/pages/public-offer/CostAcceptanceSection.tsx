@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import { CheckCircle2, FileSignature, Loader2, Lock } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, FileSignature, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -14,15 +14,25 @@ interface Props {
   options: PublicOfferOption[];
 }
 
-type Step = "form" | "signing" | "signed";
+type Step = "loading" | "form" | "signing" | "signed" | "inactive" | "error";
 
 interface AcceptanceRow {
   id: string;
   status: string;
   sign_page_url_embedded: string | null;
+  sign_page_url?: string | null;
   signed_at: string | null;
-  signed_pdf_storage_path: string | null;
+  signed_pdf_storage_path?: string | null;
 }
+
+const SIGNING_STATUSES = new Set([
+  "pending_signature",
+  "sent",
+  "viewed",
+  "signature_started",
+  "signer_signed",
+]);
+const INACTIVE_STATUSES = new Set(["withdrawn", "cancelled", "expired", "declined"]);
 
 const REQUIRED_KEYS = [
   "berechtigt",
@@ -39,9 +49,11 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
   const isB2C = !inquiry.company_name;
   const total = chosenOption?.total_amount ?? 0;
 
-  const [step, setStep] = useState<Step>("form");
+  const [step, setStep] = useState<Step>("loading");
   const [loading, setLoading] = useState(false);
   const [acceptance, setAcceptance] = useState<AcceptanceRow | null>(null);
+  const [pendingPdf, setPendingPdf] = useState(false);
+  const [inactiveStatus, setInactiveStatus] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     event_company: inquiry.company_name ?? inquiry.contact_name,
@@ -81,6 +93,74 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
     form.invoice_street.trim() &&
     form.invoice_zip_city.trim();
 
+  function applyStatus(row: AcceptanceRow | null) {
+    setAcceptance(row);
+    if (!row) {
+      setPendingPdf(false);
+      setInactiveStatus(null);
+      setStep("form");
+      return;
+    }
+    const s = row.status;
+    if (s === "signed") {
+      setPendingPdf(false);
+      setInactiveStatus(null);
+      setStep("signed");
+      return;
+    }
+    if (s === "signed_pending_pdf") {
+      setPendingPdf(true);
+      setInactiveStatus(null);
+      setStep("signed");
+      return;
+    }
+    if (INACTIVE_STATUSES.has(s)) {
+      setInactiveStatus(s);
+      setStep("inactive");
+      return;
+    }
+    if (s === "error") {
+      setStep("error");
+      return;
+    }
+    if (SIGNING_STATUSES.has(s)) {
+      if (row.sign_page_url_embedded) {
+        setStep("signing");
+      } else {
+        setStep("error");
+      }
+      return;
+    }
+    // draft / unknown → Formular
+    setStep("form");
+  }
+
+  // Beim Mount: bestehenden Status laden, damit Reload nicht beim Formular landet
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke(
+          "get-public-cost-acceptance-state",
+          { body: { inquiry_id: inquiry.id } },
+        );
+        if (cancelled) return;
+        if (error) {
+          setStep("form");
+          return;
+        }
+        const row = (data as any)?.acceptance ?? null;
+        applyStatus(row);
+      } catch {
+        if (!cancelled) setStep("form");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inquiry.id]);
+
   // Realtime: wenn Webhook das Doc signed setzt
   useEffect(() => {
     if (!acceptance?.id) return;
@@ -96,8 +176,7 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
         },
         (payload) => {
           const next = payload.new as AcceptanceRow;
-          setAcceptance(next);
-          if (next.status === "signed") setStep("signed");
+          applyStatus(next);
         },
       )
       .subscribe();
@@ -105,6 +184,25 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
       supabase.removeChannel(channel);
     };
   }, [acceptance?.id]);
+
+  // Sanftes Polling während aktive Signatur läuft (Fallback falls Realtime stumm).
+  useEffect(() => {
+    if (step !== "signing") return;
+    const interval: ReturnType<typeof setInterval> = setInterval(async () => {
+      try {
+        const { data } = await supabase.functions.invoke(
+          "get-public-cost-acceptance-state",
+          { body: { inquiry_id: inquiry.id } },
+        );
+        const row = (data as any)?.acceptance ?? null;
+        if (row) applyStatus(row);
+      } catch {
+        /* ignore */
+      }
+    }, 12000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, inquiry.id]);
 
   async function handleSign() {
     if (!allRequiredChecked || !formComplete) {
@@ -144,14 +242,39 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
         },
       );
       if (error) throw error;
-      setAcceptance({
-        id: data.cost_acceptance_id,
-        status: "pending_signature",
-        sign_page_url_embedded: data.sign_page_url_embedded,
-        signed_at: null,
-        signed_pdf_storage_path: null,
-      });
-      setStep("signing");
+      const resp = (data ?? {}) as {
+        cost_acceptance_id?: string;
+        status?: string;
+        sign_page_url_embedded?: string | null;
+        sign_page_url?: string | null;
+        reused?: boolean;
+      };
+      const respStatus = resp.status ?? "pending_signature";
+      if (respStatus === "signed" || respStatus === "signed_pending_pdf") {
+        applyStatus({
+          id: resp.cost_acceptance_id ?? "",
+          status: respStatus,
+          sign_page_url_embedded: resp.sign_page_url_embedded ?? null,
+          sign_page_url: resp.sign_page_url ?? null,
+          signed_at: null,
+        });
+        return;
+      }
+      if (resp.sign_page_url_embedded) {
+        applyStatus({
+          id: resp.cost_acceptance_id ?? "",
+          status: respStatus,
+          sign_page_url_embedded: resp.sign_page_url_embedded,
+          sign_page_url: resp.sign_page_url ?? null,
+          signed_at: null,
+        });
+        return;
+      }
+      // Reused/erfolgreich, aber ohne URL und nicht signed → kein leeres iframe
+      setStep("error");
+      toast.error(
+        "Signaturfenster konnte nicht geladen werden. Bitte kontaktieren Sie STORIA.",
+      );
     } catch (err) {
       toast.error(
         `Konnte Kostenübernahme nicht starten: ${(err as Error).message}`,
@@ -181,6 +304,13 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
             </div>
           </div>
 
+          {step === "loading" && (
+            <div className="flex items-center gap-2 text-sm text-neutral-600 py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Status wird geprüft…
+            </div>
+          )}
+
           {step === "form" && (
             <CostAcceptanceForm
               form={form}
@@ -205,6 +335,21 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
                 src={acceptance.sign_page_url_embedded}
                 className="h-[820px] w-full rounded-xl border border-neutral-200"
               />
+              {acceptance.sign_page_url && (
+                <p className="text-xs text-neutral-600">
+                  Falls das Signaturfenster nicht lädt,{" "}
+                  <a
+                    href={acceptance.sign_page_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 underline text-neutral-900"
+                  >
+                    hier in neuem Tab öffnen
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  .
+                </p>
+              )}
             </div>
           )}
 
@@ -218,6 +363,48 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
                 <p className="mt-1 text-sm text-neutral-700">
                   Du erhältst eine Kopie des unterschriebenen Dokuments per
                   E-Mail. Vielen Dank für Ihr Vertrauen.
+                </p>
+                {pendingPdf && (
+                  <p className="mt-2 text-xs text-neutral-600">
+                    Die Unterschrift ist eingegangen. Das signierte PDF wird noch verarbeitet.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {step === "inactive" && (
+            <div className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-5">
+              <AlertTriangle className="h-6 w-6 text-neutral-900" />
+              <div>
+                <h3 className="font-semibold text-neutral-900">
+                  Diese Kostenübernahme ist nicht mehr aktiv
+                </h3>
+                <p className="mt-1 text-sm text-neutral-700">
+                  Bitte kontaktieren Sie STORIA unter{" "}
+                  <a href="mailto:info@events-storia.de" className="underline">
+                    info@events-storia.de
+                  </a>
+                  {inactiveStatus ? ` (Status: ${inactiveStatus}).` : "."}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {step === "error" && (
+            <div className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-5">
+              <AlertTriangle className="h-6 w-6 text-neutral-900" />
+              <div>
+                <h3 className="font-semibold text-neutral-900">
+                  Signatur derzeit nicht verfügbar
+                </h3>
+                <p className="mt-1 text-sm text-neutral-700">
+                  Es ist ein Problem mit der digitalen Kostenübernahme aufgetreten.
+                  Bitte kontaktieren Sie uns unter{" "}
+                  <a href="mailto:info@events-storia.de" className="underline">
+                    info@events-storia.de
+                  </a>{" "}
+                  — wir kümmern uns umgehend darum.
                 </p>
               </div>
             </div>
