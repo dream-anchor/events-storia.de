@@ -19,6 +19,7 @@ import type {
   ServiceType,
   LifecycleBucket,
 } from "@/types/inquiryRecord";
+import { getInquiryDisplayTitle, hasInquiryAiOrigin } from "@/types/inquiryRecord";
 import { getRecordActionState } from "@/lib/inquiryActionState";
 import { useFailedDeliveryInquiries } from "@/hooks/useFailedDeliveryInquiries";
 import { useAiOriginInquiries } from "@/hooks/useAiOriginInquiries";
@@ -287,7 +288,7 @@ export function UnifiedKanbanView({ records, onRefresh, bucket, onOpenGroup }: U
                 record={r}
                 isDragging={draggingId === r.id}
                 hasDeliveryFailure={r.kind === "event" && failedDeliveryIds.has(r.id)}
-                hasAiOrigin={r.kind === "event" && aiOriginIds.has(r.id)}
+                hasAiOrigin={r.kind === "event" && hasInquiryAiOrigin(r, aiOriginIds)}
                 onDragStart={(e) => handleDragStart(e, r)}
                 onDragEnd={handleDragEnd}
                 onClick={() =>
@@ -345,10 +346,7 @@ interface CardProps {
 
 function UnifiedKanbanCard({ record, isDragging, hasDeliveryFailure, hasAiOrigin, onDragStart, onDragEnd, onClick, onArchive }: CardProps) {
   const isEvent = record.kind === "event";
-  const title =
-    record.companyName?.trim() ||
-    record.customerName?.trim() ||
-    "Unbenannte Anfrage";
+  const title = getInquiryDisplayTitle(record);
   const action = getRecordActionState(record);
   return (
     <div
