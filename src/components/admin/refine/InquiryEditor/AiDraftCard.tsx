@@ -87,6 +87,9 @@ export function AiDraftCard({ inquiryId, onPrefillFromAiDraft }: Props) {
 
   const estimate = draft.estimate ?? {};
   const hasEstimate = !isBlank(estimate.low) && !isBlank(estimate.high);
+  const customerBudget = !isBlank(draft.customer_budget)
+    ? String(draft.customer_budget)
+    : null;
 
   const canPrefill = packages.length > 0 || items.length > 0;
 
@@ -228,10 +231,28 @@ export function AiDraftCard({ inquiryId, onPrefillFromAiDraft }: Props) {
         <section>
           <h4 className="mb-2 text-sm font-semibold text-neutral-900">Preisorientierung</h4>
           {hasEstimate ? (
-            <p className="text-sm text-neutral-800">
-              Unverbindliche Preisorientierung: ca. {formatEUR(estimate.low)}–
-              {formatEUR(estimate.high)}
-            </p>
+            <>
+              <p className="text-sm text-neutral-800">
+                Unverbindliche Preisorientierung: ca. {formatEUR(estimate.low)}–
+                {formatEUR(estimate.high)}
+              </p>
+              {customerBudget && (
+                <p className="mt-2 text-sm text-neutral-700">
+                  <span className="font-medium">Kundenbudget / Preisvorstellung:</span>{" "}
+                  {customerBudget}
+                </p>
+              )}
+            </>
+          ) : customerBudget ? (
+            <>
+              <p className="text-sm font-medium text-neutral-900">
+                Kundenbudget / Preisvorstellung:
+              </p>
+              <p className="text-sm text-neutral-800">{customerBudget}</p>
+              <p className="mt-2 text-sm text-neutral-600">
+                Noch keine STORIA-Kalkulation vorhanden.
+              </p>
+            </>
           ) : (
             <p className="text-sm text-neutral-600">
               Noch keine belastbare Preisorientierung vorhanden.
@@ -240,6 +261,11 @@ export function AiDraftCard({ inquiryId, onPrefillFromAiDraft }: Props) {
           {!isBlank(estimate.disclaimer) && (
             <p className="mt-1 text-xs text-muted-foreground">
               {String(estimate.disclaimer)}
+            </p>
+          )}
+          {!hasEstimate && customerBudget && isBlank(estimate.disclaimer) && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Unverbindlicher Entwurf — vorbehaltlich Prüfung und Freigabe durch STORIA.
             </p>
           )}
         </section>
