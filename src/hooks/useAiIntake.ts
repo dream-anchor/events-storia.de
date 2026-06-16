@@ -177,6 +177,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submittedInquiryId, setSubmittedInquiryId] = useState<string | null>(null);
+  const [loadingState, setLoadingState] = useState(false);
   const thinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const extractionRef = useRef<AiIntakeExtraction>({});
   extractionRef.current = extraction;
