@@ -200,7 +200,7 @@ export function UnifiedKanbanView({ records, onRefresh, bucket, onOpenGroup }: U
         const { error } = await supabase
           .from("v2_events")
           .update({
-            status: target.dropStatus as any,
+            status: target.dropStatus,
             ...(target.dropArchive
               ? {
                   archived: true,
