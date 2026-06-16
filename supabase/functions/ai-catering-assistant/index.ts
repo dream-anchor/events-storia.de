@@ -1771,6 +1771,13 @@ async function handleSubmitInquiry(
     extraction = mergeExtraction(extraction, latest.extracted as Partial<Extracted>);
   }
 
+  // Final defense-in-depth: drop any email that is not strictly valid before
+  // computing missing fields. Never submit an inquiry with an invented or
+  // incomplete email like "antoine@monot".
+  if (!emailLooksValid(extraction.email)) {
+    extraction.email = null;
+  }
+
   const missingFields = computeMissing(extraction);
   if (missingFields.length > 0) {
     if (trace) traceStep(trace, "submit end", `missing=${missingFields.join("|")}`);
