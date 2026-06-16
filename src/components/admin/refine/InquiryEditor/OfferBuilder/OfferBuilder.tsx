@@ -49,6 +49,9 @@ interface OfferBuilderProps {
   onEmailContentChange?: (content: string) => void;
   /** Callback um Inquiry-Felder lokal zu ändern (Auto-Save kümmert sich um Persistenz) */
   onFieldChange?: (field: keyof ExtendedInquiry, value: unknown) => void;
+  /** True wenn die zugehörige Kostenübernahme unterschrieben ist (locked_after_signature).
+   *  Sperrt signaturrelevante Bereiche (Optionen, Preise, Menü, Zahlungsbedingungen, Send-Buttons). */
+  isSignatureLocked?: boolean;
 }
 
 export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(function OfferBuilder({
@@ -59,6 +62,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
   isCreateMode = false,
   onEmailContentChange,
   onFieldChange,
+  isSignatureLocked = false,
 }: OfferBuilderProps, ref) {
   const guestCount = parseInt(inquiry.guest_count || "1") || 1;
   const selectedPackages = Array.isArray(inquiry.selected_packages)
