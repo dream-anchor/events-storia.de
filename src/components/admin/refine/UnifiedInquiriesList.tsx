@@ -419,7 +419,7 @@ export const UnifiedInquiriesList = () => {
             columns={columns}
             data={filtered}
             searchPlaceholder="Suche nach Kunde, Nr., E-Mail..."
-            filterPills={filterPills as any}
+            filterPills={filterPills}
             onFilterChange={handleFilterChange}
             onRefresh={refetch}
             onRowClick={handleRowClick}
