@@ -187,6 +187,70 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     writeStoredConversationId(id);
   }, []);
 
+  // Reload restore: when a conversationId persists from a previous session,
+  // pull status, messages, extraction, and submitted state from the server so
+  // the UI can faithfully reflect an already-submitted inquiry.
+  const didLoadStateRef = useRef(false);
+  useEffect(() => {
+    if (didLoadStateRef.current) return;
+    if (!conversationId) return;
+    didLoadStateRef.current = true;
+    let cancelled = false;
+    setLoadingState(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke(
+          "ai-catering-assistant",
+          {
+            body: {
+              conversationId,
+              action: "load_state",
+            },
+          },
+        );
+        if (cancelled) return;
+        if (error) {
+          // If the stored conversation no longer exists, drop it silently.
+          setConversationId(null);
+          return;
+        }
+        const payload = data as {
+          status?: string;
+          submittedInquiryId?: string | null;
+          messages?: Array<{
+            id: string;
+            role: "user" | "assistant" | "system";
+            content: string;
+            createdAt: number;
+          }>;
+          extracted?: AiIntakeExtraction;
+          missingFields?: unknown;
+          readyToSubmit?: boolean;
+          awaitingConfirmation?: boolean;
+        } | null;
+        if (!payload) return;
+        if (Array.isArray(payload.messages) && payload.messages.length > 0) {
+          setMessages(payload.messages);
+          setExpanded(true);
+        }
+        if (payload.extracted) setExtraction(payload.extracted);
+        setServerMissing(toRequiredFields(payload.missingFields));
+        setReadyFromServer(Boolean(payload.readyToSubmit));
+        setAwaitingConfirmation(Boolean(payload.awaitingConfirmation));
+        if (payload.submittedInquiryId) {
+          setSubmittedInquiryId(payload.submittedInquiryId);
+        }
+      } catch {
+        // Non-blocking: chat UI stays usable; user just won't see history.
+      } finally {
+        if (!cancelled) setLoadingState(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, setConversationId]);
+
   const missing = useMemo<AiRequiredField[]>(
     () => serverMissing ?? computeMissing(extraction),
     [serverMissing, extraction],
