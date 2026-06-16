@@ -110,3 +110,6 @@ verify_jwt = true
 
 [functions.esignatures-integration-status]
 verify_jwt = true
+
+[functions.send-cost-acceptance-email]
+verify_jwt = true
