@@ -576,6 +576,7 @@ async function callAiGateway(
   uploadedFiles: number,
   knowledgeContext: string,
   catalog: CatalogSnippet | null,
+  trace: Trace,
 ): Promise<{
   reply: string;
   intent: Intent;
@@ -606,20 +607,27 @@ async function callAiGateway(
         : "\n\nVERFÜGBARE QUELLEN: (keine passenden öffentlichen Quellen gefunden — bei Sachfragen ausdrücklich auf das STORIA-Team verweisen, niemals Preise/Liefer-/Zahlungs-/AGB-Aussagen erfinden)"),
   };
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+  traceStep(trace, "AI call start", `history=${history.length} catalog=${catalog ? "yes" : "no"}`);
+  const res = await fetchWithTimeout(
+    "https://ai.gateway.lovable.dev/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [systemMessage, ...history],
+        tools: [RESPOND_TOOL],
+        tool_choice: { type: "function", function: { name: "respond" } },
+        temperature: 0.3,
+      }),
     },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [systemMessage, ...history],
-      tools: [RESPOND_TOOL],
-      tool_choice: { type: "function", function: { name: "respond" } },
-      temperature: 0.3,
-    }),
-  });
+    AI_GATEWAY_TIMEOUT_MS,
+    "ai_gateway_timeout",
+  );
+  traceStep(trace, "AI call end", `status=${res.status}`);
 
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
