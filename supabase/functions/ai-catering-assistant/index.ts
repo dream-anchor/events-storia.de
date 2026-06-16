@@ -1019,6 +1019,7 @@ serve(async (req) => {
     }));
 
   // 4. Current extraction baseline (latest stored, optionally merged with clientState)
+  traceStep(trace, "extraction start");
   const { data: latestExtraction } = await supabase
     .from("ai_extractions")
     .select("extracted")
@@ -1042,16 +1043,22 @@ serve(async (req) => {
   }
   currentExtraction.attachmentsMentioned =
     currentExtraction.attachmentsMentioned || uploadedFilesCount > 0;
+  traceStep(trace, "extraction end", `missing=${computeMissing(currentExtraction).join("|") || "none"}`);
 
   // 4b. Knowledge lookup (safe sources only)
+  traceStep(trace, "knowledge start");
   const knowledgeContext = await lookupKnowledge(supabase, message);
+  traceStep(trace, "knowledge end", knowledgeContext ? "matched=true" : "matched=false");
 
   // 4c. Catalog snippet (safe Quelle für draftSuggestions; best-effort).
   let catalog: CatalogSnippet | null = null;
   try {
+    traceStep(trace, "catalog start");
     catalog = await loadCatalogSnippet(supabase);
+    traceStep(trace, "catalog end", `packages=${catalog.packages.length} items=${catalog.items.length}`);
   } catch (e) {
     console.error("catalog_load_failed", (e as Error).message);
+    traceStep(trace, "catalog end", "error=true");
   }
 
   // 5. Call AI gateway
@@ -1076,6 +1083,7 @@ serve(async (req) => {
         uploadedFilesCount,
         knowledgeContext,
         catalog,
+        trace,
       );
       if (aiResult) {
         reply = aiResult.reply || fallbackReply(language, computeMissing(currentExtraction));
@@ -1147,6 +1155,7 @@ serve(async (req) => {
   // Maestro by STORIA staff. Pricing is computed deterministically here,
   // never by the model.
   try {
+    traceStep(trace, "draft start");
     const resolved = resolveDraftFromSuggestions(
       rawDraftSuggestions,
       catalog,
@@ -1158,9 +1167,11 @@ serve(async (req) => {
       nextExtraction,
       resolved,
     );
+    traceStep(trace, "draft end");
   } catch (e) {
     // Never block the chat response on draft persistence.
     console.error("draft_upsert_failed", (e as Error).message);
+    traceStep(trace, "draft end", "error=true");
   }
 
   // 7b. submitAfterProcessing: if the CTA was clicked while the composer
@@ -1175,6 +1186,7 @@ serve(async (req) => {
       conversationId,
       language,
       cors,
+      trace,
     );
     let submitPayload: Record<string, unknown> = {};
     try {
