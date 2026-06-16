@@ -768,6 +768,7 @@ serve(async (req) => {
   }
 
   const action = typeof body.action === "string" ? body.action : "chat";
+  const trace = createTrace(action);
   const incomingConvId =
     typeof body.conversationId === "string" && UUID_RE.test(body.conversationId)
       ? body.conversationId
@@ -792,7 +793,7 @@ serve(async (req) => {
     if (!checkRate(rateKey)) {
       return jsonResponse({ error: "rate_limited" }, 429, cors);
     }
-    return await handleSubmitInquiry(supabase, incomingConvId, language, cors);
+    return await handleSubmitInquiry(supabase, incomingConvId, language, cors, trace);
   }
 
   // -------- load_state branch (reload restore) --------
@@ -800,6 +801,7 @@ serve(async (req) => {
     if (!incomingConvId) {
       return jsonResponse({ error: "conversation_required" }, 400, cors);
     }
+    traceStep(trace, "conversation loaded", "load_state");
     return await handleLoadState(supabase, incomingConvId, cors);
   }
 
@@ -822,6 +824,7 @@ serve(async (req) => {
   if (!checkRate(rateKey)) {
     return jsonResponse({ error: "rate_limited" }, 429, cors);
   }
+  traceStep(trace, "conversation load start", incomingConvId ? "existing=true" : "existing=false");
 
   // 1. Resolve / create conversation
   let conversationId = incomingConvId;
@@ -859,6 +862,7 @@ serve(async (req) => {
     conversationId = created.id;
     conversationStatus = created.status;
   }
+  traceStep(trace, "conversation loaded", `status=${conversationStatus}`);
 
   // 1a. Already-submitted short circuit. Do NOT call AI, do NOT mutate status,
   // but persist the user message so the transcript stays accurate.
@@ -937,6 +941,7 @@ serve(async (req) => {
           conversationId,
           language,
           cors,
+          trace,
         );
         // handleSubmitInquiry returns Response with success or submit_failed.
         // We re-wrap into the chat response shape so the client can reuse the
