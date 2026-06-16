@@ -1779,7 +1779,7 @@ async function handleSubmitInquiry(
       SUBMIT_FETCH_TIMEOUT_MS,
       "receive_event_inquiry_timeout",
     );
-    if (trace) traceStep(trace, "submit receive-event end", `status=${res.status}`);
+    if (trace) traceStep(trace, "submit receive-event end", `status=${res.status}`, "receive_event_ms");
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       console.error("receive_event_inquiry_failed", res.status, txt.slice(0, 300));
@@ -1900,7 +1900,11 @@ async function handleSubmitInquiry(
     metadata: { event: "submit_inquiry", inquiryId },
   });
 
-  if (trace) traceStep(trace, "submit end", `inquiryId=${inquiryId}`);
+  if (trace) {
+    trace.timings.submit_ms = Date.now() - trace.last + (trace.timings.receive_event_ms ?? 0);
+    traceStep(trace, "submit end", `inquiryId=${inquiryId}`);
+    traceEnd(trace, { inquiryId, success: true });
+  }
 
   return jsonResponse(
     { success: true, inquiryId, reply: successReply },
