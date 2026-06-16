@@ -1,5 +1,7 @@
 import type { CateringOrder } from "@/types/refine";
 
+type CateringOrderWithUpdatedAt = CateringOrder & { updated_at?: string | null };
+
 export type InquiryKind = "event" | "catering";
 export type ServiceType = "restaurant" | "catering" | "catering_order" | "group";
 
@@ -234,6 +236,7 @@ export function mapV2Event(e: V2EventRow): InquiryRecord {
 }
 
 export function mapOrder(o: CateringOrder): InquiryRecord {
+  const orderWithUpdatedAt = o as CateringOrderWithUpdatedAt;
   return {
     id: o.id as string,
     kind: "catering",
@@ -255,7 +258,7 @@ export function mapOrder(o: CateringOrder): InquiryRecord {
     paymentMethod: o.payment_method,
     isPickup: o.is_pickup,
     createdAt: o.created_at,
-    updatedAt: (o as any).updated_at || o.created_at,
+    updatedAt: orderWithUpdatedAt.updated_at || o.created_at,
     archivedAt: null,
     archived: false,
     raw: o,
