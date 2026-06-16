@@ -1561,6 +1561,7 @@ export function useOfferBuilder({
     flushSave,
     addOption,
     removeOption,
+    resetOption,
     importOptions,
     addAiDraftPreview,
     updateOption,
