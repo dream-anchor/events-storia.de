@@ -3,7 +3,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { LayoutGrid, Table2, Calendar, Printer } from "lucide-react";
+import { LayoutGrid, Table2, Calendar, Printer, Sparkles } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable, sortableHeader } from "./DataTable";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -22,6 +22,7 @@ import { getRecordActionState } from "@/lib/inquiryActionState";
 import { InviteCustomerIconButton } from "@/components/admin/shared/InviteCustomerIconButton";
 import { cn } from "@/lib/utils";
 import { useEntityFailureIndex } from "@/hooks/useEmailFailures";
+import { useAiOriginInquiries } from "@/hooks/useAiOriginInquiries";
 
 type ViewMode = "table" | "kanban";
 type StatusFilter = LifecycleBucket;
@@ -96,6 +97,7 @@ export const UnifiedInquiriesList = () => {
   const navigate = useNavigate();
   const { records, isLoading, refetch } = useUnifiedInquiries();
   const { ids: failureIds } = useEntityFailureIndex();
+  const aiOriginIds = useAiOriginInquiries();
 
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("inbox");
@@ -221,6 +223,7 @@ export const UnifiedInquiriesList = () => {
       cell: ({ row }) => {
         const r = row.original;
         const hasFailure = failureIds.has(r.id);
+        const hasAi = aiOriginIds.has(r.id);
         return (
           <div className="flex flex-col min-w-0">
             <span className="font-medium text-sm truncate flex items-center gap-2">
@@ -231,6 +234,16 @@ export const UnifiedInquiriesList = () => {
                   className="text-base leading-none shrink-0"
                 >
                   🚨
+                </span>
+              )}
+              {hasAi && (
+                <span
+                  title="Über KI-Bar angefragt"
+                  aria-label="Über KI-Bar angefragt"
+                  className="inline-flex items-center gap-0.5 rounded-full bg-foreground/8 text-foreground/70 ring-1 ring-foreground/15 px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap shrink-0"
+                >
+                  <Sparkles className="h-3 w-3" aria-hidden />
+                  KI
                 </span>
               )}
               <span className="truncate" data-sensitive="customer">{r.companyName || r.customerName}</span>
