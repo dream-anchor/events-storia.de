@@ -13,7 +13,6 @@ import {
   type AiRequiredField,
 } from "@/lib/aiIntake/types";
 import { uploadAttachmentWithConversation } from "@/lib/aiIntake/uploadAttachment";
-import { supabase } from "@/integrations/supabase/client";
 
 const CONVERSATION_STORAGE_KEY = "storia.aiIntake.conversationId";
 const AI_REQUEST_TIMEOUT_MS = 30_000;
