@@ -148,6 +148,7 @@ export function AiIntakeBar({ language }: Props) {
     thinking,
     missing,
     canSubmit,
+    ctaState,
     totalSize,
     notice,
     conversationId,
@@ -176,6 +177,23 @@ export function AiIntakeBar({ language }: Props) {
     sendMessage(draft);
     setDraft("");
   }, [draft, sendMessage]);
+
+  const isSubmitted = Boolean(submittedInquiryId);
+  const ctaLabel = (() => {
+    switch (ctaState) {
+      case "submitted": return t.ctaSubmitted;
+      case "submitting": return t.ctaSubmitting;
+      case "error": return t.ctaRetry;
+      case "awaiting": return t.ctaAwaiting;
+      case "ready": return t.ctaReady;
+      case "not_ready":
+      default: return t.ctaPrepare;
+    }
+  })();
+  const onCtaClick = useCallback(() => {
+    if (ctaState === "submitted" || ctaState === "submitting") return;
+    void submitInquiry();
+  }, [ctaState, submitInquiry]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
