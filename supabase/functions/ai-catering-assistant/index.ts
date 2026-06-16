@@ -208,8 +208,41 @@ function mergeExtraction(prev: Extracted, next: Partial<Extracted>): Extracted {
 }
 
 function emailLooksValid(e: string | null | undefined): boolean {
+  // Strict validation: name@domain.tld with TLD length >= 2, no whitespace,
+  // no trailing dot, total length <= 254. We never accept partial addresses
+  // like "antoine@monot" and never invent a TLD for them.
   if (!e) return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const email = String(e).trim();
+  if (email.length === 0 || email.length > 254) return false;
+  if (/\s/.test(email)) return false;
+  if (!email.includes("@")) return false;
+  const parts = email.split("@");
+  if (parts.length !== 2) return false;
+  const [local, domain] = parts;
+  if (!local || !domain) return false;
+  if (!domain.includes(".")) return false;
+  if (domain.startsWith(".") || domain.endsWith(".")) return false;
+  const tld = domain.split(".").pop();
+  if (!tld || tld.length < 2) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+// Cross-check: an extracted email is only trusted if it actually appears in
+// what the user typed (case-insensitive). Prevents the model from inventing
+// or auto-completing a TLD (e.g. "antoine@monot" -> "antoine@monot.de").
+function emailAppearsInUserText(
+  email: string | null | undefined,
+  history: { role: string; content: string }[],
+  currentMessage: string,
+): boolean {
+  if (!email) return false;
+  const needle = email.trim().toLowerCase();
+  if (!needle) return false;
+  const haystacks: string[] = [currentMessage ?? ""];
+  for (const m of history) {
+    if (m.role === "user") haystacks.push(String(m.content ?? ""));
+  }
+  return haystacks.some((h) => h.toLowerCase().includes(needle));
 }
 
 function computeMissing(e: Extracted): string[] {
@@ -299,7 +332,7 @@ EXTRAKTIONSREGELN
 - "im Juli", "Ende September", "Q4", "im Sommer", "im Herbst" → dateRange (nicht preferredDate). Erfinde KEIN konkretes Datum aus einem Zeitraum.
 - Im Zweifel lieber dateRange (z. B. "Juli ${currentYear}") setzen als ein falsches konkretes Datum.
 - guestCount als Zahl. "ca. 35" → 35. Bei Spannen ("30-40") nimm einen sinnvollen Mittelwert oder die kleinere Zahl.
-- email muss formal gültig sein, sonst null.
+- email muss formal gültig sein nach Muster name@domain.tld (TLD mindestens 2 Zeichen), sonst null. NIEMALS eine Top-Level-Domain wie ".de" oder ".com" ergänzen oder erraten. Unvollständige Adressen wie "antoine@monot" sind ungültig — setze email=null und frage höflich nach der vollständigen Adresse (z. B. "Die E-Mail-Adresse scheint noch unvollständig zu sein. Bitte geben Sie sie vollständig an, z. B. name@domain.de."). Nur eine E-Mail übernehmen, die der Nutzer wortwörtlich genannt hat.
 - attachmentsMentioned = true, wenn der Nutzer Fotos, Briefing-PDFs, Moodboards o. ä. erwähnt.
 
 UPLOADS
@@ -355,7 +388,7 @@ EXTRACTION
 - "in July", "late September", "Q4", "in summer", "in autumn" → dateRange (not preferredDate). Do NOT invent a concrete date from a time frame.
 - When in doubt, prefer dateRange (e.g. "July ${currentYear}") over a wrong concrete date.
 - guestCount as a number. Range → median/lower bound.
-- email must look formally valid, otherwise null.
+- email must look formally valid as name@domain.tld (TLD at least 2 chars), otherwise null. NEVER invent or append a top-level domain such as ".com" or ".de". Incomplete addresses like "antoine@monot" are invalid — set email=null and politely ask for the full address (e.g. "The email address seems incomplete. Please enter the full address, e.g. name@domain.com."). Only accept an email that the user typed verbatim.
 
 UPLOADS
 - If the user mentions photos/documents: "You can upload photos or documents directly here. The STORIA team will see them later in Maestro."
@@ -1262,7 +1295,20 @@ serve(async (req) => {
         suggestedNextQuestion = aiResult.suggestedNextQuestion;
         aiAwaitingConfirmation = aiResult.requestSubmitConfirmation === true;
         const extractedClean: Partial<Extracted> = { ...aiResult.extracted };
-        if (!emailLooksValid(extractedClean.email)) extractedClean.email = null;
+        // Hard validation: drop invalid emails
+        if (!emailLooksValid(extractedClean.email)) {
+          extractedClean.email = null;
+        } else if (
+          !emailAppearsInUserText(extractedClean.email, chatHistory, message)
+        ) {
+          // Anti-hallucination: the model may not invent or auto-complete
+          // an email that the user never typed (e.g. add ".de" to "x@y").
+          console.warn(
+            "ai_email_dropped_not_in_user_text",
+            String(extractedClean.email),
+          );
+          extractedClean.email = null;
+        }
         extractedClean.originalUserText = message;
         nextExtraction = mergeExtraction(currentExtraction, extractedClean);
         rawDraftSuggestions = aiResult.draftSuggestions;
@@ -1723,6 +1769,13 @@ async function handleSubmitInquiry(
   let extraction = emptyExtraction();
   if (latest?.extracted && typeof latest.extracted === "object") {
     extraction = mergeExtraction(extraction, latest.extracted as Partial<Extracted>);
+  }
+
+  // Final defense-in-depth: drop any email that is not strictly valid before
+  // computing missing fields. Never submit an inquiry with an invented or
+  // incomplete email like "antoine@monot".
+  if (!emailLooksValid(extraction.email)) {
+    extraction.email = null;
   }
 
   const missingFields = computeMissing(extraction);
