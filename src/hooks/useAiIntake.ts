@@ -296,9 +296,13 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
   const collapse = useCallback(() => setExpanded(false), []);
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (
+      text: string,
+      options?: { submitAfterProcessing?: boolean },
+    ) => {
       const trimmed = text.trim();
       if (!trimmed) return;
+      const submitAfterProcessing = options?.submitAfterProcessing === true;
       const userMsg: AiIntakeMessage = {
         id: uid(),
         role: "user",
@@ -309,6 +313,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
       setExpanded(true);
       setThinking(true);
       setErrorMessage(null);
+      if (submitAfterProcessing) setSubmitting(true);
 
       if (thinkTimer.current) clearTimeout(thinkTimer.current);
 
@@ -330,6 +335,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
               message: trimmed,
               language,
               action: "chat",
+              submitAfterProcessing,
               clientState: {
                 uploadedFiles: uploadedRemote,
                 currentExtraction: extractionRef.current,
@@ -412,6 +418,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
         );
       } finally {
         setThinking(false);
+        if (submitAfterProcessing) setSubmitting(false);
       }
     },
     [attachments, conversationId, language, setConversationId],
