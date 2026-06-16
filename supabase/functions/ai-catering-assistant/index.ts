@@ -1173,7 +1173,11 @@ serve(async (req) => {
       // "no" or "unclear": fall through to normal AI flow. We pass a hint to
       // the system via an extra message so the model knows confirmation was
       // declined/unclear and should not re-issue the same question on top.
-    } else if (intent === "yes" && dietaryAnswerFromSendTurn(message, language)) {
+    } else if (
+      intent === "yes" &&
+      (dietaryAnswerFromSendTurn(message, language) ||
+        budgetAnswerFromSendTurn(message, language))
+    ) {
       await supabase.from("ai_messages").insert({
         conversation_id: conversationId,
         role: "user",
