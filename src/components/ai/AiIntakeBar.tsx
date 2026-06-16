@@ -192,7 +192,7 @@ export function AiIntakeBar({ language }: Props) {
   }, [notice, clearNotice]);
 
   return (
-    <div className="mx-auto mt-6 md:mt-8 w-full max-w-[880px] px-2 text-left">
+    <div className="font-sans mx-auto mt-6 md:mt-8 w-full max-w-[880px] px-2 text-left">
       {/* Collapsed bar */}
       {!expanded ? (
         <div
