@@ -37,7 +37,16 @@ Deno.serve(async (req) => {
     const secret = Deno.env.get("ESIGNATURES_WEBHOOK_SECRET");
     const sig = req.headers.get("x-esignatures-signature") ??
       req.headers.get("x-webhook-signature") ?? "";
-    if (secret && sig) {
+    if (secret) {
+      if (!sig) {
+        return new Response(
+          JSON.stringify({ error: "Missing signature" }),
+          {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
       const ok = await verifyHmac(secret, raw, sig);
       if (!ok) {
         return new Response(JSON.stringify({ error: "Bad signature" }), {
@@ -98,6 +107,8 @@ Deno.serve(async (req) => {
       payload.event === "contract-signed" ||
       contract.status === "signed";
 
+    const alreadyFinalSigned = existing.status === "signed";
+    const alreadyPendingPdf = existing.status === "signed_pending_pdf";
     let updates: Record<string, unknown> = { webhook_events: events };
 
     // Map other event types to status
@@ -114,36 +125,14 @@ Deno.serve(async (req) => {
       "signer-declined": "declined",
       "contract-withdrawn": "withdrawn",
     };
-    if (!isSigned && existing.status !== "signed" && evtToStatus[evtName]) {
+    if (
+      !isSigned && !alreadyFinalSigned && !alreadyPendingPdf &&
+      evtToStatus[evtName]
+    ) {
       updates = { ...updates, status: evtToStatus[evtName] };
     }
 
-    if (isSigned && contract.contract_pdf_url) {
-      // Download and store PDF
-      const pdfRes = await fetch(contract.contract_pdf_url);
-      const pdfBuf = new Uint8Array(await pdfRes.arrayBuffer());
-      const storagePath = `${acceptanceId}/signed.pdf`;
-      const { error: upErr } = await supabase.storage
-        .from("cost-acceptances")
-        .upload(storagePath, pdfBuf, {
-          contentType: "application/pdf",
-          upsert: true,
-        });
-      if (upErr) throw upErr;
-
-      const hash = await crypto.subtle.digest("SHA-256", pdfBuf);
-      const sha256 = Array.from(new Uint8Array(hash))
-        .map((b) => b.toString(16).padStart(2, "0")).join("");
-
-      updates = {
-        ...updates,
-        status: "signed",
-        signed_at: new Date().toISOString(),
-        signed_pdf_storage_path: storagePath,
-        signed_pdf_sha256: sha256,
-      };
-
-      // Lock the offer + set phase
+    const lockOffer = async () => {
       await supabase
         .from("v2_events")
         .update({
@@ -152,17 +141,103 @@ Deno.serve(async (req) => {
           offer_phase: "confirmed",
         })
         .eq("id", existing.inquiry_id);
+    };
 
-      // Activity log
-      await supabase.from("activity_logs").insert({
-        entity_type: "event_inquiry",
-        entity_id: existing.inquiry_id,
-        action: "cost_acceptance_signed",
-        metadata: {
-          cost_acceptance_id: acceptanceId,
-          contract_id: contract.id,
-        },
-      });
+    const truncateErr = (e: unknown) =>
+      String((e as Error)?.message ?? e ?? "unknown").slice(0, 500);
+
+    if (isSigned) {
+      const nowIso = new Date().toISOString();
+      // Always lock the offer once signature is fachlich erkannt.
+      await lockOffer();
+
+      if (!contract.contract_pdf_url) {
+        // Signed event without PDF link
+        if (!alreadyFinalSigned) {
+          updates = {
+            ...updates,
+            status: "signed_pending_pdf",
+            signed_pdf_pending: true,
+            signed_at: nowIso,
+            last_webhook_error:
+              "Signed event received without contract_pdf_url",
+          };
+        }
+      } else {
+        // Try to download + store PDF
+        try {
+          const pdfRes = await fetch(contract.contract_pdf_url);
+          if (!pdfRes.ok) {
+            throw new Error(`PDF fetch failed: HTTP ${pdfRes.status}`);
+          }
+          const pdfBuf = new Uint8Array(await pdfRes.arrayBuffer());
+          const storagePath = `${acceptanceId}/signed.pdf`;
+          const { error: upErr } = await supabase.storage
+            .from("cost-acceptances")
+            .upload(storagePath, pdfBuf, {
+              contentType: "application/pdf",
+              upsert: true,
+            });
+          if (upErr) throw upErr;
+
+          const hash = await crypto.subtle.digest("SHA-256", pdfBuf);
+          const sha256 = Array.from(new Uint8Array(hash))
+            .map((b) => b.toString(16).padStart(2, "0")).join("");
+
+          updates = {
+            ...updates,
+            status: "signed",
+            signed_pdf_pending: false,
+            signed_at: alreadyFinalSigned ? undefined : nowIso,
+            signed_pdf_storage_path: storagePath,
+            signed_pdf_sha256: sha256,
+            pdf_download_last_error: null,
+            last_webhook_error: null,
+          };
+          // Strip undefined
+          if ((updates as any).signed_at === undefined) {
+            delete (updates as any).signed_at;
+          }
+
+          if (!alreadyFinalSigned) {
+            await supabase.from("activity_logs").insert({
+              entity_type: "event_inquiry",
+              entity_id: existing.inquiry_id,
+              action: "cost_acceptance_signed",
+              metadata: {
+                cost_acceptance_id: acceptanceId,
+                contract_id: contract.id,
+              },
+            });
+          }
+        } catch (pdfErr) {
+          const safeMsg = truncateErr(pdfErr);
+          console.error("[esignatures-webhook] pdf download/store failed");
+          // Fetch current attempts to increment
+          const { data: row } = await supabase
+            .from("cost_acceptances")
+            .select("pdf_download_attempts")
+            .eq("id", acceptanceId)
+            .maybeSingle();
+          const attempts =
+            (row?.pdf_download_attempts as number | null ?? 0) + 1;
+
+          if (!alreadyFinalSigned) {
+            updates = {
+              ...updates,
+              status: "signed_pending_pdf",
+              signed_pdf_pending: true,
+              signed_at: nowIso,
+            };
+          }
+          updates = {
+            ...updates,
+            pdf_download_attempts: attempts,
+            pdf_download_last_error: safeMsg,
+            last_webhook_error: safeMsg,
+          };
+        }
+      }
     }
 
     await supabase.from("cost_acceptances").update(updates).eq(
@@ -174,7 +249,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("[esignatures-webhook]", err);
+    console.error(
+      "[esignatures-webhook] fatal:",
+      String((err as Error)?.message ?? "unknown").slice(0, 300),
+    );
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
       {
