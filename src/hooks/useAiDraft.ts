@@ -44,12 +44,36 @@ export interface AiDraft {
   estimate?: AiDraftEstimate;
   generated_at?: string | null;
   model?: string | null;
+  /**
+   * Optional: vom Kunden geäußerte Preisvorstellung / Budget.
+   * Wird nicht von der KI berechnet, sondern aus dem Chat extrahiert
+   * (z. B. "ca. 35 EUR pro Person", "Gesamtbudget ca. 1.500 EUR",
+   * "keine Angabe"). Wird im Hook aus mehreren möglichen Quellen
+   * zusammengeführt (draft.budget, extraction.budget, metadata.ai_draft …).
+   */
+  customer_budget?: string | null;
 }
 
 export interface AiDraftResult {
   conversationId: string;
   updatedAt: string | null;
   draft: AiDraft;
+}
+
+function pickBudget(...sources: unknown[]): string | null {
+  for (const s of sources) {
+    if (typeof s === "string") {
+      const v = s.trim();
+      if (
+        v.length > 0 &&
+        v.toLowerCase() !== "null" &&
+        v.toLowerCase() !== "undefined"
+      ) {
+        return v;
+      }
+    }
+  }
+  return null;
 }
 
 export function useAiDraft(inquiryId: string | null | undefined) {
@@ -71,11 +95,54 @@ export function useAiDraft(inquiryId: string | null | undefined) {
         return !!d && typeof d === "object";
       });
       if (!row) return null;
-      const md = row.metadata as { draft?: AiDraft };
+      const md = row.metadata as Record<string, unknown> & {
+        draft?: AiDraft & Record<string, unknown>;
+        ai_draft?: Record<string, unknown>;
+        extraction?: Record<string, unknown>;
+        extracted?: Record<string, unknown>;
+      };
+      const draft = { ...(md.draft as AiDraft) } as AiDraft;
+
+      // Latest extraction for this conversation — primary source for the
+      // customer-provided budget answer.
+      const { data: extRow } = await supabase
+        .from("ai_extractions")
+        .select("extracted")
+        .eq("conversation_id", row.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const extracted =
+        extRow && typeof extRow.extracted === "object" && extRow.extracted
+          ? (extRow.extracted as Record<string, unknown>)
+          : null;
+
+      const aiDraftMirror =
+        md.ai_draft && typeof md.ai_draft === "object"
+          ? (md.ai_draft as Record<string, unknown>)
+          : null;
+      const aiDraftExtraction =
+        aiDraftMirror?.extraction && typeof aiDraftMirror.extraction === "object"
+          ? (aiDraftMirror.extraction as Record<string, unknown>)
+          : null;
+      const draftExtraction =
+        (draft as unknown as { extraction?: Record<string, unknown> })
+          .extraction ?? null;
+
+      draft.customer_budget = pickBudget(
+        (draft as Record<string, unknown>).budget,
+        draftExtraction?.budget,
+        extracted?.budget,
+        aiDraftMirror?.budget,
+        aiDraftExtraction?.budget,
+        (md.extraction as Record<string, unknown> | undefined)?.budget,
+        (md.extracted as Record<string, unknown> | undefined)?.budget,
+      );
+
       return {
         conversationId: row.id,
         updatedAt: row.updated_at ?? row.created_at ?? null,
-        draft: md.draft as AiDraft,
+        draft,
       };
     },
   });
