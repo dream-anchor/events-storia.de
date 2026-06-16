@@ -60,7 +60,7 @@ function timeoutMessage(language: AiIntakeLanguage): string {
 function isRequestTimeout(error: unknown, startedAt: number): boolean {
   if (Date.now() - startedAt >= AI_REQUEST_TIMEOUT_MS - 250) return true;
   if (!(error instanceof Error)) return false;
-  return /abort|timeout|timed out/i.test(`${error.name} ${error.message}`);
+  return /abort|timeout|timed out|ai_timeout|504/i.test(`${error.name} ${error.message}`);
 }
 
 function readStoredConversationId(): string | null {
