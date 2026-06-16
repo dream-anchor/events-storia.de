@@ -674,7 +674,7 @@ async function callAiGateway(
     AI_GATEWAY_TIMEOUT_MS,
     "ai_gateway_timeout",
   );
-  traceStep(trace, "AI call end", `status=${res.status}`);
+  traceStep(trace, "AI call end", `status=${res.status}`, "ai_call_ms");
 
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
