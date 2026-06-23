@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { CostAcceptanceAuditDrawer } from "./CostAcceptanceAuditDrawer";
 import { PrivacyBlur } from "@/components/admin/PrivacyBlur";
+import { evaluateCostAcceptanceRequirement } from "@/lib/costAcceptanceRequirement";
 
 type Status =
   | "draft"
@@ -83,11 +84,15 @@ export function CostAcceptanceCard({
   publicOfferUrl,
   offerPhase,
   lockedAfterSignature,
+  depositMethod,
+  balanceMethod,
 }: {
   inquiryId: string;
   publicOfferUrl?: string | null;
   offerPhase?: string | null;
   lockedAfterSignature?: boolean | null;
+  depositMethod?: string | null;
+  balanceMethod?: string | null;
 }) {
   const { isAdmin } = usePermissions();
   const [loading, setLoading] = useState(true);
