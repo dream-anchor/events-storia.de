@@ -34,13 +34,6 @@ function formatAmount(cents: number | null | undefined, currency: string | null 
   }
 }
 
-function formatDate(d: string | null | undefined): string | null {
-  if (!d) return null;
-  const dt = new Date(d);
-  if (Number.isNaN(dt.getTime())) return null;
-  return dt.toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" });
-}
-
 function formatDateForLang(d: string | null | undefined, lang: CustomerLang): string | null {
   if (!d) return null;
   const dt = new Date(d);
