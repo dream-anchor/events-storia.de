@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     // append event
     const { data: existing } = await supabase
       .from("cost_acceptances")
-      .select("id, inquiry_id, webhook_events, status")
+      .select("id, inquiry_id, webhook_events, status, signed_at")
       .eq("id", acceptanceId)
       .maybeSingle();
     if (!existing) {
@@ -148,6 +148,11 @@ Deno.serve(async (req) => {
 
     if (isSigned) {
       const nowIso = new Date().toISOString();
+      // signed_at darf nur EINMAL gesetzt werden — wenn ein zweites Signed-Event
+      // (z. B. mit nachgeliefertem PDF) eintrifft, bleibt der ursprüngliche
+      // Zeitstempel erhalten.
+      const signedAtToPersist =
+        (existing.signed_at as string | null) ?? nowIso;
       // Always lock the offer once signature is fachlich erkannt.
       await lockOffer();
 
@@ -158,7 +163,7 @@ Deno.serve(async (req) => {
             ...updates,
             status: "signed_pending_pdf",
             signed_pdf_pending: true,
-            signed_at: nowIso,
+            signed_at: signedAtToPersist,
             last_webhook_error:
               "Signed event received without contract_pdf_url",
           };
@@ -188,7 +193,7 @@ Deno.serve(async (req) => {
             ...updates,
             status: "signed",
             signed_pdf_pending: false,
-            signed_at: alreadyFinalSigned ? undefined : nowIso,
+            signed_at: alreadyFinalSigned ? undefined : signedAtToPersist,
             signed_pdf_storage_path: storagePath,
             signed_pdf_sha256: sha256,
             pdf_download_last_error: null,
@@ -227,7 +232,7 @@ Deno.serve(async (req) => {
               ...updates,
               status: "signed_pending_pdf",
               signed_pdf_pending: true,
-              signed_at: nowIso,
+              signed_at: signedAtToPersist,
             };
           }
           updates = {
