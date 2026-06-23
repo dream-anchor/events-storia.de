@@ -4856,6 +4856,7 @@ export type Database = {
           company_street: string | null
           contact_name: string | null
           converted_to_booking_id: string | null
+          cost_acceptance_id: string | null
           created_at: string | null
           current_offer_version: number | null
           customer_language: string | null
@@ -4887,6 +4888,7 @@ export type Database = {
           location_postal_code: string | null
           location_street: string | null
           location_type: string | null
+          locked_after_signature: boolean | null
           menu_selection: Json | null
           message: string | null
           notification_sent: boolean | null
@@ -4923,7 +4925,15 @@ export type Database = {
           updated_at: string | null
           venue: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "v2_events_cost_acceptance_id_fkey"
+            columns: ["cost_acceptance_id"]
+            isOneToOne: false
+            referencedRelation: "cost_acceptances"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_payments: {
         Row: {

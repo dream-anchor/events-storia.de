@@ -3,6 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireAuth, AuthError } from "../_shared/auth.ts";
 import { sendEmailWithFallback } from "../_shared/email-sender.ts";
+import {
+  bilingualSubject,
+  BILINGUAL_SEPARATOR_HTML,
+  emailLanguagePlan,
+  resolveCustomerLanguage,
+  type CustomerLang,
+} from "../_shared/customer-language.ts";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -27,73 +34,160 @@ function formatAmount(cents: number | null | undefined, currency: string | null 
   }
 }
 
-function formatDate(d: string | null | undefined): string | null {
+function formatDateForLang(d: string | null | undefined, lang: CustomerLang): string | null {
   if (!d) return null;
   const dt = new Date(d);
   if (Number.isNaN(dt.getTime())) return null;
-  return dt.toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" });
+  const locale =
+    lang === "de" ? "de-DE" : lang === "it" ? "it-IT" : lang === "fr" ? "fr-FR" : "en-GB";
+  return dt.toLocaleDateString(locale, { day: "2-digit", month: "long", year: "numeric" });
 }
 
-function buildHtml(opts: {
+interface BlockCopy {
+  greetingWith: (name: string) => string;
+  greetingFallback: string;
+  intro: string;
+  labels: { offer: string; event: string; date: string; amount: string };
+  cta: string;
+  linkNote: string;
+  contact: string;
+  closing: string;
+  brand: string;
+}
+
+const BLOCK_COPY: Record<CustomerLang, BlockCopy> = {
+  de: {
+    greetingWith: (n) => `Sehr geehrte/r ${n},`,
+    greetingFallback: "Sehr geehrte Damen und Herren,",
+    intro:
+      "für Ihre Veranstaltung steht die digitale Kostenübernahme zur Unterschrift bereit. Sie können sie bequem online prüfen und mit wenigen Klicks rechtssicher unterzeichnen.",
+    labels: { offer: "Angebotsnummer", event: "Veranstaltung", date: "Datum", amount: "Bruttobetrag" },
+    cta: "Kostenübernahme digital unterschreiben",
+    linkNote: "Dieser Link ist personenbezogen und sollte nicht weitergeleitet werden.",
+    contact: "Bei Fragen erreichen Sie uns jederzeit unter",
+    closing: "Herzliche Grüße<br/>Ihr Team von STORIA Catering &amp; Events",
+    brand: "Catering &amp; Events — München",
+  },
+  en: {
+    greetingWith: (n) => `Dear ${n},`,
+    greetingFallback: "Dear Sir or Madam,",
+    intro:
+      "the digital cost acceptance for your event is ready to sign. You can review and sign it securely online in just a few clicks.",
+    labels: { offer: "Offer number", event: "Event", date: "Date", amount: "Gross amount" },
+    cta: "Sign cost acceptance online",
+    linkNote: "This link is personal — please do not forward it.",
+    contact: "If you have any questions, simply reply or write us at",
+    closing: "Warm regards,<br/>Your STORIA Catering &amp; Events team",
+    brand: "Catering &amp; Events — Munich",
+  },
+  it: {
+    greetingWith: (n) => `Gentile ${n},`,
+    greetingFallback: "Gentili Signore e Signori,",
+    intro:
+      "la dichiarazione digitale di assunzione costi per il vostro evento è pronta per la firma. Potete consultarla e firmarla online in modo semplice e sicuro.",
+    labels: { offer: "Numero offerta", event: "Evento", date: "Data", amount: "Importo lordo" },
+    cta: "Firma online la dichiarazione",
+    linkNote: "Questo link è personale — si prega di non inoltrarlo.",
+    contact: "Per qualsiasi domanda potete contattarci a",
+    closing: "Cordiali saluti,<br/>Il team STORIA Catering &amp; Events",
+    brand: "Catering &amp; Events — Monaco",
+  },
+  fr: {
+    greetingWith: (n) => `Bonjour ${n},`,
+    greetingFallback: "Madame, Monsieur,",
+    intro:
+      "la prise en charge des coûts au format numérique est prête à être signée pour votre événement. Vous pouvez la consulter et la signer en ligne en quelques clics.",
+    labels: { offer: "Numéro d'offre", event: "Événement", date: "Date", amount: "Montant TTC" },
+    cta: "Signer la prise en charge en ligne",
+    linkNote: "Ce lien est personnel — merci de ne pas le transférer.",
+    contact: "Pour toute question, vous pouvez nous écrire à",
+    closing: "Cordialement,<br/>L'équipe STORIA Catering &amp; Events",
+    brand: "Catering &amp; Events — Munich",
+  },
+};
+
+function buildBlockHtml(opts: {
   signerName: string | null;
   signUrl: string;
   offerNumber: string | null;
   eventTitle: string | null;
-  eventDate: string | null;
+  eventDateRaw: string | null;
   amountFormatted: string | null;
+  lang: CustomerLang;
 }): string {
+  const copy = BLOCK_COPY[opts.lang];
   const greeting = opts.signerName
-    ? `Sehr geehrte/r ${escapeHtml(opts.signerName)},`
-    : "Sehr geehrte Damen und Herren,";
+    ? copy.greetingWith(escapeHtml(opts.signerName))
+    : copy.greetingFallback;
+  const dateFormatted = formatDateForLang(opts.eventDateRaw, opts.lang);
 
   const detailsRows: string[] = [];
   if (opts.offerNumber)
-    detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">Angebotsnummer</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(opts.offerNumber)}</td></tr>`);
+    detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">${copy.labels.offer}</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(opts.offerNumber)}</td></tr>`);
   if (opts.eventTitle)
-    detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">Veranstaltung</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(opts.eventTitle)}</td></tr>`);
-  if (opts.eventDate)
-    detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">Datum</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(opts.eventDate)}</td></tr>`);
+    detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">${copy.labels.event}</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(opts.eventTitle)}</td></tr>`);
+  if (dateFormatted)
+    detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">${copy.labels.date}</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(dateFormatted)}</td></tr>`);
   if (opts.amountFormatted)
-    detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">Bruttobetrag</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(opts.amountFormatted)}</td></tr>`);
+    detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">${copy.labels.amount}</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(opts.amountFormatted)}</td></tr>`);
 
   const detailsTable = detailsRows.length
     ? `<table style="border-collapse:collapse;margin:18px 0;font-size:15px;color:#333;">${detailsRows.join("")}</table>`
     : "";
 
-  return `<!DOCTYPE html>
-<html lang="de">
-<head><meta charset="UTF-8" /></head>
-<body style="margin:0;padding:0;background:#f6f6f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#333;">
-  <div style="max-width:600px;margin:0 auto;background:#ffffff;padding:40px 32px;">
+  return `
     <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">${greeting}</p>
-    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">
-      für Ihre Veranstaltung steht die digitale Kostenübernahme zur Unterschrift bereit.
-      Sie können sie bequem online prüfen und mit wenigen Klicks rechtssicher unterzeichnen.
-    </p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">${copy.intro}</p>
     ${detailsTable}
     <div style="text-align:center;margin:28px 0;">
       <a href="${escapeHtml(opts.signUrl)}"
          style="display:inline-block;background:#111;color:#fff;text-decoration:none;
                 padding:14px 28px;border-radius:12px;font-weight:600;font-size:15px;">
-        Kostenübernahme digital unterschreiben
+        ${copy.cta}
       </a>
     </div>
-    <p style="font-size:13px;line-height:1.6;color:#666;margin:18px 0 0;">
-      Dieser Link ist personenbezogen und sollte nicht weitergeleitet werden.
-    </p>
+    <p style="font-size:13px;line-height:1.6;color:#666;margin:18px 0 0;">${copy.linkNote}</p>
     <p style="font-size:13px;line-height:1.6;color:#666;margin:24px 0 0;">
-      Bei Fragen erreichen Sie uns jederzeit unter
+      ${copy.contact}
       <a href="mailto:info@events-storia.de" style="color:#333;">info@events-storia.de</a>.
     </p>
-    <hr style="border:none;border-top:1px solid #eee;margin:32px 0 16px;" />
-    <p style="font-size:13px;line-height:1.5;color:#333;margin:0;">
-      Herzliche Grüße<br/>
-      Ihr Team von STORIA Catering &amp; Events
-    </p>
-    <p style="margin:6px 0 0;font-size:11px;color:#999;letter-spacing:0.18em;text-transform:uppercase;">
-      Catering &amp; Events — München
-    </p>
-  </div>
+    <p style="font-size:13px;line-height:1.5;color:#333;margin:18px 0 0;">${copy.closing}</p>
+  `;
+}
+
+function buildBilingualHtml(opts: {
+  lang: CustomerLang;
+  signerName: string | null;
+  signUrl: string;
+  offerNumber: string | null;
+  eventTitle: string | null;
+  eventDateRaw: string | null;
+  amountFormatted: string | null;
+}): string {
+  const plan = emailLanguagePlan(opts.lang);
+  const primaryBlock = buildBlockHtml({ ...opts, lang: plan.primary });
+  const secondaryBlock = plan.secondary
+    ? `${BILINGUAL_SEPARATOR_HTML}<tr><td style="padding:0 32px 40px;">${buildBlockHtml({ ...opts, lang: plan.secondary })}</td></tr>`
+    : "";
+  const headLang = plan.primary;
+  return `<!DOCTYPE html>
+<html lang="${headLang}">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f6f6f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#333;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f6f6;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;margin:0 auto;">
+        <tr><td style="padding:40px 32px ${plan.secondary ? '24px' : '40px'};">${primaryBlock}</td></tr>
+        ${secondaryBlock}
+        <tr><td style="padding:0 32px 24px;">
+          <hr style="border:none;border-top:1px solid #eee;margin:0 0 12px;" />
+          <p style="margin:0;font-size:11px;color:#999;letter-spacing:0.18em;text-transform:uppercase;text-align:center;">
+            ${BLOCK_COPY[plan.primary].brand}
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
 </body></html>`;
 }
 
@@ -153,13 +247,20 @@ serve(async (req) => {
       return json(400, { error: "Signer E-Mail-Adresse fehlt oder ist ungültig." });
     }
 
-    const subject = "Kostenübernahme digital unterschreiben – STORIA Catering & Events";
-    const html = buildHtml({
+    const customerLang = await resolveCustomerLanguage(supabase, row.inquiry_id);
+    const subject = bilingualSubject(customerLang, {
+      de: "Kostenübernahme digital unterschreiben – STORIA Catering & Events",
+      en: "Sign your cost acceptance online – STORIA Catering & Events",
+      it: "Firma online la dichiarazione di assunzione costi – STORIA Catering & Events",
+      fr: "Signer la prise en charge en ligne – STORIA Catering & Events",
+    });
+    const html = buildBilingualHtml({
+      lang: customerLang,
       signerName: row.signer_name ?? null,
       signUrl,
       offerNumber: row.offer_number ?? null,
       eventTitle: row.event_title ?? null,
-      eventDate: formatDate(row.event_date as any),
+      eventDateRaw: (row.event_date as string | null) ?? null,
       amountFormatted: formatAmount(row.amount_gross_cents as any, row.currency as any),
     });
 
@@ -229,7 +330,7 @@ serve(async (req) => {
     try {
       if (row.inquiry_id) {
         await supabase.from("activity_logs").insert({
-          entity_type: "inquiry",
+          entity_type: "event_inquiry",
           entity_id: row.inquiry_id,
           action: "cost_acceptance_email_sent",
           actor_email: auth.email,
