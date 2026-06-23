@@ -99,6 +99,9 @@ serve(async (req) => {
       } else if (metadata.kind === 'prepayment_per_person' && metadata.event_id) {
         // ━━━ PREPAYMENT mit anpassbarer Personenzahl ━━━
         await handlePrepaymentPerPerson(supabase, stripe, session, metadata);
+      } else if (metadata.order_type === 'voucher' && metadata.voucher_id) {
+        // ━━━ GUTSCHEIN-KAUF ━━━
+        await handleVoucherPayment(supabase, session, metadata);
       } else {
         logStep("Unknown payment type, no matching metadata", { metadata });
       }
