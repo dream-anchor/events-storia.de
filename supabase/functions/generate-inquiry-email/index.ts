@@ -201,8 +201,21 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
   // Optionen — nur aufnehmen was tatsächlich konfiguriert ist
   const hasOptions = options.length > 0;
   const hasMenu = options.some(o => o.menuSelection?.courses?.some(c => c.itemName));
-  const hasPackage = options.some(o => o.packageName && o.packageName !== 'Individuell' && o.offerMode !== 'menu' && !isFreeformOpt(o));
+  // Paket-Erkennung NICHT vom aufgelösten packageName abhängig machen —
+  // package_id kann fehlen (Custom-Paket) und der Name landet dann in
+  // menu_selection.packageNameOverride. offer_mode='paket' oder 'full_menu'
+  // signalisiert klar: hier wurde etwas konfiguriert, kein Leerangebot.
+  const isPackageOpt = (o: MultiOfferOption) =>
+    !isFreeformOpt(o) && (
+      o.offerMode === 'paket' ||
+      o.offerMode === 'full_menu' ||
+      (o.offerMode !== 'menu' && o.offerMode !== 'email'
+        && !!o.packageName && o.packageName !== 'Individuell')
+    );
+  const hasPackage = options.some(isPackageOpt);
   const hasFreeform = options.some(isFreeformOpt);
+  // Nur reine Email-Optionen → wirklich keine Konfiguration
+  const allEmailOnly = hasOptions && options.every(o => o.offerMode === 'email' && !isPackageOpt(o) && !isFreeformOpt(o) && !(o.menuSelection?.courses?.some(c => c.itemName)));
 
   if (hasOptions) {
     parts.push('');
@@ -277,7 +290,7 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
         continue; // Standard-Menü/Getränke/Equipment-Pfad überspringen
       }
 
-      if (opt.packageName && opt.packageName !== 'Individuell' && opt.offerMode !== 'menu') {
+      if (isPackageOpt(opt) && opt.packageName) {
         optParts.push(`Paket: ${opt.packageName}`);
       }
       if (opt.guestCount > 0) optParts.push(`${opt.guestCount} Gäste`);
@@ -377,9 +390,13 @@ function buildMultiOfferContext(inquiry: MultiOfferInquiry, options: MultiOfferO
     }
   }
 
-  // Inhalts-Status für den Prompt
+  // Inhalts-Status für den Prompt — Fallback NUR wenn wirklich nichts konfiguriert ist.
+  // Wenn mindestens eine Option ein Paket, Menü oder Freitext trägt, ist die
+  // Formulierung "noch keine Menü-/Paketkonfiguration" verboten.
   if (!hasMenu && !hasPackage && !hasFreeform) {
     parts.push('\nHINWEIS: Es sind noch KEINE Menüs oder Pakete konfiguriert. Schreibe ein einfaches, allgemeines Anschreiben.');
+  } else {
+    parts.push('\nHARTE REGEL: Mindestens eine Option enthält ein Paket, Menü oder Programm. Die Formulierungen "noch keine Menü- oder Paketkonfiguration", "Aktuell liegt uns noch keine ... vor" oder Ähnliches sind STRENG VERBOTEN. Beziehe dich konkret auf das/die konfigurierten Pakete/Menüs.');
   }
 
   if (inquiry.message) {
@@ -541,10 +558,14 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
         } else if (discountPercent > 0 && discountPercent < 100) {
           subtotal = total / (1 - discountPercent / 100);
         }
+        const pkgNameOverride = (menuSel as any)?.packageNameOverride as string | undefined;
+        const resolvedPkgName = (o.offer_mode === 'menu')
+          ? 'Individuell'
+          : (pkgNames[o.package_id] || pkgNameOverride || (o.offer_mode === 'paket' || o.offer_mode === 'full_menu' ? 'Paket' : 'Individuell'));
         return {
           label: o.option_label,
           offerMode: o.offer_mode || undefined,
-          packageName: (o.offer_mode === 'menu') ? 'Individuell' : (pkgNames[o.package_id] || 'Individuell'),
+          packageName: resolvedPkgName,
           guestCount: o.guest_count,
           totalAmount: total,
           menuSelection: menuSel,

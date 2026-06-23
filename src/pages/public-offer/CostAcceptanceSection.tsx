@@ -8,10 +8,19 @@ import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "./types";
 import type { PublicInquiry, PublicOfferOption } from "./types";
+import {
+  evaluateCostAcceptanceRequirement,
+  type DepositMethod,
+  type BalanceMethod,
+} from "@/lib/costAcceptanceRequirement";
 
 interface Props {
   inquiry: PublicInquiry;
   options: PublicOfferOption[];
+  /** Wenn true: Block ist Pflicht für verbindlichen Vertragsschluss. */
+  required?: boolean;
+  /** Spätester Termin für die Unterschrift (ISO YYYY-MM-DD) oder null. */
+  deadlineIso?: string | null;
 }
 
 type Step = "loading" | "form" | "signing" | "signed" | "inactive" | "error";
@@ -41,10 +50,25 @@ const REQUIRED_KEYS = [
   "rechnungsanschrift",
 ] as const;
 
-export function CostAcceptanceSection({ inquiry, options }: Props) {
+export function CostAcceptanceSection({ inquiry, options, required, deadlineIso }: Props) {
   const chosenOption =
     options.find((o) => o.id === inquiry.selected_option_id) ??
     options[0];
+
+  // Fallback: wenn der Aufrufer kein `required` mitgibt, leiten wir es aus den
+  // Zahlungs-Konditionen ab. So funktioniert die Section auch standalone.
+  const requirement = useMemo(
+    () =>
+      evaluateCostAcceptanceRequirement({
+        depositMethod: (inquiry as unknown as { deposit_method?: DepositMethod | null }).deposit_method ?? null,
+        balanceMethod: (inquiry as unknown as { balance_method?: BalanceMethod | null }).balance_method ?? null,
+      }),
+    [inquiry],
+  );
+  const isRequired = required ?? requirement.required;
+  const deadlineLabel = deadlineIso
+    ? new Date(deadlineIso).toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" })
+    : null;
 
   const isB2C = !inquiry.company_name;
   const total = chosenOption?.total_amount ?? 0;
@@ -294,14 +318,34 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
               <FileSignature className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-neutral-900">
-                Kostenübernahme verbindlich bestätigen
-              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-semibold text-neutral-900">
+                  Kostenübernahme verbindlich bestätigen
+                </h2>
+                {isRequired ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900">
+                    <AlertTriangle className="h-3 w-3" />
+                    Verbindlich vor dem Event erforderlich
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-700">
+                    Optional
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-sm text-neutral-600">
                 Bezugnehmend auf Angebot{" "}
                 <strong>{chosenOption?.option_label ?? "–"}</strong> über{" "}
                 <strong>{formatCurrency(total)}</strong> brutto.
               </p>
+              {isRequired && (
+                <p className="mt-2 text-sm text-amber-900">
+                  {requirement.reasonDe}
+                  {deadlineLabel && (
+                    <> Bitte spätestens bis <strong>{deadlineLabel}</strong> unterschreiben.</>
+                  )}
+                </p>
+              )}
             </div>
           </div>
 

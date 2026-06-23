@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { CostAcceptanceAuditDrawer } from "./CostAcceptanceAuditDrawer";
 import { PrivacyBlur } from "@/components/admin/PrivacyBlur";
+import { evaluateCostAcceptanceRequirement } from "@/lib/costAcceptanceRequirement";
 
 type Status =
   | "draft"
@@ -83,11 +84,15 @@ export function CostAcceptanceCard({
   publicOfferUrl,
   offerPhase,
   lockedAfterSignature,
+  depositMethod,
+  balanceMethod,
 }: {
   inquiryId: string;
   publicOfferUrl?: string | null;
   offerPhase?: string | null;
   lockedAfterSignature?: boolean | null;
+  depositMethod?: string | null;
+  balanceMethod?: string | null;
 }) {
   const { isAdmin } = usePermissions();
   const [loading, setLoading] = useState(true);
@@ -96,6 +101,10 @@ export function CostAcceptanceCard({
   const [integration, setIntegration] = useState<IntegrationStatus | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const requirement = evaluateCostAcceptanceRequirement({
+    depositMethod: (depositMethod ?? null) as never,
+    balanceMethod: (balanceMethod ?? null) as never,
+  });
 
   async function loadAll() {
     setLoading(true);
@@ -259,6 +268,18 @@ export function CostAcceptanceCard({
                 Offer: {offerPhase}
               </Badge>
             )}
+            <Badge
+              variant="outline"
+              className={
+                "text-xs " +
+                (requirement.required
+                  ? "border-amber-300 bg-amber-50 text-amber-900"
+                  : "border-neutral-200 bg-neutral-50 text-neutral-700")
+              }
+              title={requirement.reasonDe}
+            >
+              {requirement.required ? "Pflicht" : "Optional"}
+            </Badge>
           </div>
         </div>
       </CardHeader>
@@ -270,6 +291,15 @@ export function CostAcceptanceCard({
           </div>
         ) : (
           <>
+            {requirement.required && row?.status !== "signed" && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 flex gap-2">
+                <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-semibold">Pflicht für Vertragsschluss</div>
+                  <div className="text-xs mt-0.5">{requirement.reasonDe}</div>
+                </div>
+              </div>
+            )}
             {lockedAfterSignature && (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 flex gap-2">
                 <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" />

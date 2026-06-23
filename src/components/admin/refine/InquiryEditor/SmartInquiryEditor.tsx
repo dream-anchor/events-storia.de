@@ -30,6 +30,7 @@ import { LexofficeDocumentsCard } from "./LexofficeDocumentsCard";
 import { CustomerAttachmentsCard } from "./CustomerAttachmentsCard";
 // AiDraftCard wird ausschließlich im Angebot-Tab (OfferBuilder) angezeigt.
 import { CostAcceptanceCard } from "./CostAcceptanceCard";
+import { buildAdminPublicOfferUrl } from "@/lib/adminPublicOfferUrl";
 import { useDownloadLexOfficeDocument } from "@/hooks/useLexOfficeVouchers";
 import { SendSuccessDialog, type SendSuccessInfo } from "./SendSuccessDialog";
 import { InquiryPriority } from "@/types/refine";
@@ -1184,7 +1185,7 @@ export const SmartInquiryEditor = () => {
             variant="outline"
             size="sm"
             className="gap-1.5 text-xs h-8"
-            onClick={() => window.open(`/offer/${id}`, '_blank')}
+            onClick={() => window.open(buildAdminPublicOfferUrl(id!, { phase: 'final', emailDraft: emailDraft || inquiry?.email_draft }), '_blank')}
             title="Öffnet das Angebot in der Kunden-Ansicht (neuer Tab)"
           >
             <Eye className="h-3.5 w-3.5" />
@@ -1223,9 +1224,11 @@ export const SmartInquiryEditor = () => {
           {id && (
             <CostAcceptanceCard
               inquiryId={id}
-              publicOfferUrl={`${window.location.origin}/offer/${id}`}
+              publicOfferUrl={buildAdminPublicOfferUrl(id, { phase: 'final', emailDraft: emailDraft || inquiry?.email_draft, absolute: true })}
               offerPhase={(mergedInquiry as any)?.offer_phase}
               lockedAfterSignature={(mergedInquiry as any)?.locked_after_signature}
+              depositMethod={(mergedInquiry as any)?.deposit_method}
+              balanceMethod={(mergedInquiry as any)?.balance_method}
             />
           )}
 
@@ -1393,7 +1396,7 @@ export const SmartInquiryEditor = () => {
         info={sendSuccess}
         onClose={() => setSendSuccess(null)}
         onGoToList={() => { setSendSuccess(null); navigate('/admin/inquiries'); }}
-        onGoToOffer={() => { setSendSuccess(null); if (inquiry?.id) window.open(`/offer/${inquiry.id}`, '_blank', 'noopener,noreferrer'); }}
+        onGoToOffer={() => { setSendSuccess(null); if (inquiry?.id) window.open(buildAdminPublicOfferUrl(inquiry.id, { phase: 'final', emailDraft: emailDraft || inquiry?.email_draft }), '_blank', 'noopener,noreferrer'); }}
       />
 
       <LanguageSwitchDialog
