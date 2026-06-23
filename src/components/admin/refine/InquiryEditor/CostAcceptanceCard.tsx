@@ -101,6 +101,10 @@ export function CostAcceptanceCard({
   const [integration, setIntegration] = useState<IntegrationStatus | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const requirement = evaluateCostAcceptanceRequirement({
+    depositMethod: (depositMethod ?? null) as never,
+    balanceMethod: (balanceMethod ?? null) as never,
+  });
 
   async function loadAll() {
     setLoading(true);
