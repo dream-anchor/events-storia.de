@@ -1399,12 +1399,10 @@ async function handleVoucherPayment(
     .eq('id', voucherId);
   if (updErr) logStep('Voucher update failed', { updErr });
 
-  // Base64 für Mail-Anhang
-  const pdfBase64 = pdfBytes
-    ? btoa(String.fromCharCode(...pdfBytes))
-    : null;
+  // Base64 für Mail-Anhang (chunked, damit große Arrays nicht den Stack sprengen)
+  const pdfBase64 = pdfBytes ? bytesToBase64(pdfBytes) : null;
   const pdfAttachment = pdfBase64
-    ? [{ filename: `STORIA-Gutschein-${finalCode}.pdf`, content: pdfBase64 }]
+    ? [{ filename: `STORIA-Gutschein-${finalCode}.pdf`, contentBase64: pdfBase64, contentType: 'application/pdf' }]
     : undefined;
 
   // E-Mail an Käufer (bilingual: DE zuerst, dann EN)
