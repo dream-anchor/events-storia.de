@@ -3,6 +3,8 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
+import { sendEmailWithFallback } from '../_shared/email-sender.ts';
+import { buildVoucherPdf, generateVoucherCode } from '../_shared/voucher-pdf.ts';
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
