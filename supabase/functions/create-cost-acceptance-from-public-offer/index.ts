@@ -26,6 +26,7 @@ import {
 
 interface Body {
   inquiry_id: string;
+  offer_slug?: string | null;
   offer_option_id?: string | null;
   signer: {
     name: string;
@@ -35,10 +36,10 @@ interface Body {
   };
   event: {
     company: string;
-    title: string;
-    date: string;
+    title?: string;
+    date?: string;
     onsite_contact: string;
-    guest_count: number;
+    guest_count?: number;
   };
   invoice: {
     company: string;
@@ -90,6 +91,9 @@ function validateBody(body: Partial<Body>): FieldErrors {
   if (!body.inquiry_id || typeof body.inquiry_id !== "string") {
     errors.inquiry_id = "inquiry_id fehlt";
   }
+  if (!body.offer_slug || typeof body.offer_slug !== "string") {
+    errors.offer_slug = "offer_slug fehlt";
+  }
 
   const signer = (body.signer ?? {}) as Partial<Body["signer"]>;
   const name = (signer.name ?? "").trim();
@@ -105,20 +109,8 @@ function validateBody(body: Partial<Body>): FieldErrors {
   if (!(invoice.zip_city ?? "").trim()) errors.invoice_zip_city = "PLZ / Ort fehlt";
 
   const ev = (body.event ?? {}) as Partial<Body["event"]>;
-  if (ev.title !== undefined && !(ev.title ?? "").trim()) {
-    errors.event_title = "Veranstaltungstitel fehlt";
-  }
-  if (ev.date !== undefined && !(ev.date ?? "").trim()) {
-    errors.event_date = "Veranstaltungsdatum fehlt";
-  }
   if (ev.onsite_contact !== undefined && !(ev.onsite_contact ?? "").trim()) {
     errors.event_onsite_contact = "Ansprechpartner vor Ort fehlt";
-  }
-  if (ev.guest_count !== undefined) {
-    const n = Number(ev.guest_count);
-    if (!Number.isFinite(n) || n <= 0 || n > 100000) {
-      errors.event_guest_count = "Gästezahl ist ungültig";
-    }
   }
 
   const c = body.confirmations ?? {};
@@ -171,12 +163,17 @@ Deno.serve(async (req) => {
     const { data: event, error: evErr } = await supabase
       .from("v2_events")
       .select(
-        "id, amount_total, occasion, date, guest_count, customer_id, locked_after_signature, offer_phase, status",
+        "id, amount_total, occasion, date, event_end_date, guest_count, customer_id, locked_after_signature, offer_phase, status, offer_slug",
       )
       .eq("id", body.inquiry_id)
       .maybeSingle();
     if (evErr || !event) {
       return jsonResponse(404, { error: "Anfrage nicht gefunden" });
+    }
+
+    // 1b. Slug muss zur Anfrage passen — schützt vor reiner UUID-Erratung.
+    if (!event.offer_slug || event.offer_slug !== body.offer_slug) {
+      return jsonResponse(403, { error: "Zugriff verweigert." });
     }
 
     // 2. Idempotenz prüfen
@@ -286,6 +283,35 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 4b. Vertragsdaten serverseitig aus v2_events ableiten — niemals aus dem
+    //     Body übernehmen, damit der Vertragsinhalt nicht clientseitig manipuliert
+    //     werden kann. Onsite-Kontakt + Rechnungsdaten dürfen vom Kunden kommen.
+    const serverEventTitle =
+      (event.occasion ?? "").toString().trim() || "Veranstaltung";
+    const serverEventDateIso = event.date
+      ? new Date(event.date as string).toISOString().slice(0, 10)
+      : null;
+    if (!serverEventDateIso) {
+      return jsonResponse(409, {
+        error:
+          "Veranstaltungsdatum fehlt in Maestro — Kostenübernahme nicht möglich.",
+      });
+    }
+    const serverGuestCount = Number(event.guest_count);
+    if (!Number.isFinite(serverGuestCount) || serverGuestCount <= 0) {
+      return jsonResponse(409, {
+        error:
+          "Gästezahl fehlt in Maestro — bitte zuerst pflegen.",
+      });
+    }
+    const serverEventDateLabel = (() => {
+      try {
+        return new Date(serverEventDateIso).toLocaleDateString("de-DE", {
+          day: "2-digit", month: "long", year: "numeric",
+        });
+      } catch { return serverEventDateIso; }
+    })();
+
     // 5. Template-Konfig
     const { data: tplSetting } = await supabase
       .from("crm_settings")
@@ -313,10 +339,10 @@ Deno.serve(async (req) => {
       amount_gross: eur(amountCents),
       currency: "EUR",
       event_company: body.event.company,
-      event_title: body.event.title,
-      event_date: body.event.date,
+      event_title: serverEventTitle,
+      event_date: serverEventDateLabel,
       onsite_contact: body.event.onsite_contact,
-      guest_count: String(body.event.guest_count),
+      guest_count: String(serverGuestCount),
       invoice_company: body.invoice.company,
       invoice_street: body.invoice.street,
       invoice_zip_city: body.invoice.zip_city,
@@ -344,10 +370,10 @@ Deno.serve(async (req) => {
         signer_mobile: body.signer.mobile,
         signer_company_name: body.signer.company_name ?? null,
         event_company: body.event.company,
-        event_title: body.event.title,
-        event_date: body.event.date,
+        event_title: serverEventTitle,
+        event_date: serverEventDateIso,
         onsite_contact: body.event.onsite_contact,
-        guest_count: body.event.guest_count,
+        guest_count: serverGuestCount,
         invoice_company: body.invoice.company,
         invoice_street: body.invoice.street,
         invoice_zip_city: body.invoice.zip_city,
