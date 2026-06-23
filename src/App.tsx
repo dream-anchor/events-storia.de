@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 import { AdminAuthGuard } from "./components/admin/AdminAuthGuard";
 import { AdminLoader } from "./components/admin/AdminLoader";
 import FloatingActions from "./components/FloatingActions";
+import MobileStickyActionBar from "./components/MobileStickyActionBar";
 import GoogleAnalytics from "./components/GoogleAnalytics";
 import CookieBanner from "./components/CookieBanner";
 import CookieSettingsButton from "./components/CookieSettingsButton";
@@ -83,6 +84,7 @@ const FrontendGlobals = () => {
     <>
       <GoogleAnalytics />
       <FloatingActions />
+      <MobileStickyActionBar />
       <CartButton />
       <StickyCartPanel />
       <CartSheet />
