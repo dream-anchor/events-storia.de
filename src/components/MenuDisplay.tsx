@@ -1,13 +1,16 @@
 import { useMenu, useMenuById, MenuType } from "@/hooks/useMenu";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { ReactNode } from "react";
 
 interface MenuDisplayProps {
   menuType: MenuType;
   menuId?: string; // Optional: for fetching specific menu by ID (used for special occasions)
+  /** Optional render-prop injected after each category block (e.g. for inline CTAs). */
+  renderAfterCategory?: (category: { id: string; name: string }, index: number, total: number) => ReactNode;
 }
 
-const MenuDisplay = ({ menuType, menuId }: MenuDisplayProps) => {
+const MenuDisplay = ({ menuType, menuId, renderAfterCategory }: MenuDisplayProps) => {
   // Use menuId if provided (for special menus), otherwise fetch by type
   const menuByType = useMenu(menuType);
   const menuById = useMenuById(menuId);
@@ -74,7 +77,7 @@ const MenuDisplay = ({ menuType, menuId }: MenuDisplayProps) => {
 
       {/* Categories */}
       <div className="space-y-12">
-        {menu.categories.map((category) => {
+        {menu.categories.map((category, index) => {
           const categoryName = language === 'en' && category.name_en ? category.name_en : category.name;
           const categoryDescription = language === 'en' && category.description_en ? category.description_en : category.description;
 
@@ -121,6 +124,11 @@ const MenuDisplay = ({ menuType, menuId }: MenuDisplayProps) => {
                   );
                 })}
               </div>
+              {renderAfterCategory?.(
+                { id: category.id, name: categoryName },
+                index,
+                menu.categories.length
+              )}
             </div>
           );
         })}
