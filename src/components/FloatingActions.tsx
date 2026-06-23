@@ -47,6 +47,11 @@ const FloatingActions = () => {
   if (location.pathname === '/checkout') return null;
   if (location.pathname.startsWith('/offer/')) return null;
 
+  // Mobile: Floating-Buttons sind ausgeblendet — die globale
+  // MobileStickyActionBar übernimmt dort die dauerpräsenten CTAs.
+  // Desktop-Verhalten bleibt unverändert.
+  if (isMobile) return null;
+
   if (!isVisible) return null;
 
   const buttonClasses = "bg-white hover:bg-gray-50 text-primary border-2 border-primary/20 rounded-2xl px-5 py-3 shadow-xl transition-all hover:scale-105 flex flex-col items-center gap-1";
