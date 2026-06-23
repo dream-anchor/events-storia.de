@@ -142,7 +142,7 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
       try {
         const { data, error } = await supabase.functions.invoke(
           "get-public-cost-acceptance-state",
-          { body: { inquiry_id: inquiry.id } },
+          { body: { inquiry_id: inquiry.id, offer_slug: inquiry.offer_slug ?? null } },
         );
         if (cancelled) return;
         if (error) {
@@ -192,7 +192,7 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
       try {
         const { data } = await supabase.functions.invoke(
           "get-public-cost-acceptance-state",
-          { body: { inquiry_id: inquiry.id } },
+          { body: { inquiry_id: inquiry.id, offer_slug: inquiry.offer_slug ?? null } },
         );
         const row = (data as any)?.acceptance ?? null;
         if (row) applyStatus(row);
@@ -216,6 +216,7 @@ export function CostAcceptanceSection({ inquiry, options }: Props) {
         {
           body: {
             inquiry_id: inquiry.id,
+            offer_slug: inquiry.offer_slug ?? null,
             offer_option_id: chosenOption?.id,
             is_b2b: !isB2C,
             signer: {
