@@ -1325,3 +1325,272 @@ async function handlePrepaymentPerPerson(
 
   logStep("prepayment_per_person processing complete", { paymentId, finalGuests, amountCents });
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// VOUCHER PAYMENT: Code generieren, PDF bauen, E-Mails versenden, LexOffice-Rechnung anlegen
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function formatEuroDE(n: number): string {
+  return n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
+async function handleVoucherPayment(
+  supabase: ReturnType<typeof createClient>,
+  session: Stripe.Checkout.Session,
+  metadata: Record<string, string>,
+) {
+  const voucherId = metadata.voucher_id;
+  const language = metadata.language === 'en' ? 'en' : 'de';
+  logStep('Processing voucher payment', { voucherId, sessionId: session.id });
+
+  // Idempotenz: Wenn bereits 'paid', abbrechen
+  const { data: existing, error: fetchErr } = await supabase
+    .from('vouchers')
+    .select('*')
+    .eq('id', voucherId)
+    .single();
+
+  if (fetchErr || !existing) {
+    logStep('Voucher not found', { voucherId, fetchErr });
+    return;
+  }
+  if (existing.status === 'paid') {
+    logStep('Voucher already paid, skipping', { voucherId });
+    return;
+  }
+
+  // Eindeutigen Code generieren (3 Versuche)
+  let finalCode = '';
+  for (let i = 0; i < 3; i++) {
+    const candidate = generateVoucherCode();
+    const { data: clash } = await supabase
+      .from('vouchers').select('id').eq('code', candidate).maybeSingle();
+    if (!clash) { finalCode = candidate; break; }
+  }
+  if (!finalCode) finalCode = generateVoucherCode() + '-' + Date.now().toString(36).slice(-3).toUpperCase();
+
+  const validUntilDate = new Date(existing.valid_until + 'T00:00:00Z');
+  const amountEuros = existing.amount_cents / 100;
+
+  // PDF bauen
+  let pdfBytes: Uint8Array | null = null;
+  try {
+    pdfBytes = await buildVoucherPdf({
+      code: finalCode,
+      amountEuros,
+      validUntilDate,
+      recipientName: existing.recipient_name,
+      purchaserName: existing.purchaser_name,
+      message: existing.message,
+    });
+    logStep('PDF built', { bytes: pdfBytes.length });
+  } catch (e) {
+    logStep('PDF build failed', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  // Status auf 'paid' setzen + Code speichern
+  const { error: updErr } = await supabase
+    .from('vouchers')
+    .update({
+      code: finalCode,
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+    })
+    .eq('id', voucherId);
+  if (updErr) logStep('Voucher update failed', { updErr });
+
+  // Base64 für Mail-Anhang
+  const pdfBase64 = pdfBytes
+    ? btoa(String.fromCharCode(...pdfBytes))
+    : null;
+  const pdfAttachment = pdfBase64
+    ? [{ filename: `STORIA-Gutschein-${finalCode}.pdf`, content: pdfBase64 }]
+    : undefined;
+
+  // E-Mail an Käufer (bilingual: DE zuerst, dann EN)
+  try {
+    const purchaserHtml = buildVoucherEmailHtml({
+      code: finalCode,
+      amountEuros,
+      validUntilDate,
+      recipientName: existing.recipient_name,
+      purchaserName: existing.purchaser_name,
+      message: existing.message,
+      isPurchaser: true,
+    });
+    const purchaserSubject = 'Ihr STORIA-Gutschein / Your STORIA voucher';
+    const r1 = await sendEmailWithFallback({
+      from: 'STORIA <info@events-storia.de>',
+      to: existing.purchaser_email,
+      bcc: 'info@events-storia.de',
+      replyTo: 'info@events-storia.de',
+      subject: purchaserSubject,
+      html: purchaserHtml,
+      attachments: pdfAttachment,
+    });
+    logStep('Purchaser email', { success: r1.success, messageId: r1.messageId });
+  } catch (e) {
+    logStep('Purchaser email failed', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  // Optional: E-Mail an Empfänger
+  if (existing.recipient_email && existing.recipient_email !== existing.purchaser_email) {
+    try {
+      const recipientHtml = buildVoucherEmailHtml({
+        code: finalCode,
+        amountEuros,
+        validUntilDate,
+        recipientName: existing.recipient_name,
+        purchaserName: existing.purchaser_name,
+        message: existing.message,
+        isPurchaser: false,
+      });
+      const r2 = await sendEmailWithFallback({
+        from: 'STORIA <info@events-storia.de>',
+        to: existing.recipient_email,
+        replyTo: 'info@events-storia.de',
+        subject: 'Sie haben einen STORIA-Gutschein erhalten / You received a STORIA voucher',
+        html: recipientHtml,
+        attachments: pdfAttachment,
+      });
+      logStep('Recipient email', { success: r2.success, messageId: r2.messageId });
+    } catch (e) {
+      logStep('Recipient email failed', { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  // LexOffice-Rechnung (best effort)
+  try {
+    const lexofficeKey = Deno.env.get('LEXOFFICE_API_KEY');
+    if (lexofficeKey) {
+      const invoiceBody = {
+        voucherDate: new Date().toISOString(),
+        address: {
+          name: existing.purchaser_name || existing.purchaser_email,
+          countryCode: 'DE',
+        },
+        lineItems: [{
+          type: 'custom',
+          name: `STORIA Restaurant-Gutschein Nr. ${finalCode}`,
+          quantity: 1,
+          unitName: 'Stück',
+          unitPrice: {
+            currency: 'EUR',
+            grossAmount: amountEuros,
+            taxRatePercentage: 19,
+          },
+          discountPercentage: 0,
+        }],
+        totalPrice: { currency: 'EUR' },
+        taxConditions: { taxType: 'gross' },
+        shippingConditions: {
+          shippingDate: new Date().toISOString(),
+          shippingType: 'service',
+        },
+        title: 'Rechnung',
+        introduction: `Vielen Dank für Ihren Kauf des STORIA-Gutscheins ${finalCode}.`,
+        remark: `Gutscheincode: ${finalCode} · Gültig bis ${existing.valid_until} · Einlösung vor Ort im STORIA München.`,
+      };
+      const lexResp = await fetch('https://api.lexoffice.io/v1/invoices?finalize=true', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lexofficeKey}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(invoiceBody),
+      });
+      if (lexResp.ok) {
+        const lexData = await lexResp.json();
+        await supabase.from('vouchers').update({ lexoffice_invoice_id: lexData.id }).eq('id', voucherId);
+        logStep('LexOffice invoice created', { invoiceId: lexData.id });
+      } else {
+        const errText = await lexResp.text();
+        logStep('LexOffice failed', { status: lexResp.status, errText: errText.slice(0, 300) });
+      }
+    } else {
+      logStep('LEXOFFICE_API_KEY missing, skipping invoice');
+    }
+  } catch (e) {
+    logStep('LexOffice exception', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  logStep('Voucher processing complete', { voucherId, code: finalCode });
+}
+
+function buildVoucherEmailHtml(args: {
+  code: string;
+  amountEuros: number;
+  validUntilDate: Date;
+  recipientName?: string | null;
+  purchaserName?: string | null;
+  message?: string | null;
+  isPurchaser: boolean;
+}): string {
+  const { code, amountEuros, validUntilDate, recipientName, purchaserName, message, isPurchaser } = args;
+  const validDE = validUntilDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const validEN = validUntilDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const amountStr = formatEuroDE(amountEuros);
+
+  const greetingDE = isPurchaser
+    ? 'vielen Dank für Ihren Gutschein-Kauf bei STORIA.'
+    : `Sie haben einen STORIA-Gutschein${purchaserName ? ` von ${esc(purchaserName)}` : ''} erhalten.`;
+  const greetingEN = isPurchaser
+    ? 'thank you for your STORIA voucher purchase.'
+    : `you received a STORIA voucher${purchaserName ? ` from ${esc(purchaserName)}` : ''}.`;
+
+  const personalDE = message ? `<p style="font-style:italic;color:#555;border-left:3px solid #8B2020;padding:8px 14px;margin:16px 0;">„${esc(message)}"</p>` : '';
+  const personalEN = personalDE;
+  const invoiceLineDE = isPurchaser
+    ? '<p style="color:#555;font-size:14px;">Die Rechnung erhalten Sie separat per E-Mail.</p>' : '';
+  const invoiceLineEN = isPurchaser
+    ? '<p style="color:#555;font-size:14px;">You will receive the invoice in a separate email.</p>' : '';
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#fafafa;font-family:Helvetica,Arial,sans-serif;color:#222;">
+  <div style="max-width:600px;margin:0 auto;padding:24px;background:#ffffff;">
+    <div style="text-align:center;padding-bottom:16px;border-bottom:1px solid #eee;">
+      <div style="font-size:24px;font-weight:bold;color:#8B2020;letter-spacing:2px;">STORIA</div>
+      <div style="font-size:12px;color:#888;">Ristorante · Maxvorstadt München</div>
+    </div>
+
+    <!-- DEUTSCH -->
+    <h2 style="font-size:18px;margin:24px 0 8px;">Hallo${recipientName && !isPurchaser ? ' ' + esc(recipientName) : ''},</h2>
+    <p style="font-size:15px;line-height:1.5;">${greetingDE}</p>
+    ${personalDE}
+    <div style="background:#fafafa;border:1.5px solid #8B2020;border-radius:8px;padding:18px;margin:20px 0;text-align:center;">
+      <div style="font-size:12px;color:#888;text-transform:uppercase;letter-spacing:1px;">Gutscheinwert</div>
+      <div style="font-size:32px;font-weight:bold;color:#8B2020;margin:4px 0;">${esc(amountStr)}</div>
+      <div style="font-size:12px;color:#888;margin-top:8px;">Gutscheincode</div>
+      <div style="font-size:20px;font-weight:bold;letter-spacing:2px;margin-top:4px;">${esc(code)}</div>
+      <div style="font-size:12px;color:#888;margin-top:10px;">Gültig bis <strong>${esc(validDE)}</strong></div>
+    </div>
+    <p style="font-size:14px;color:#555;">Den Gutschein können Sie bequem ausgedruckt oder digital im Restaurant STORIA in der Karlstraße 47a, 80333 München, vorzeigen. Eine Einlösung ist ausschließlich vor Ort möglich.</p>
+    ${invoiceLineDE}
+
+    <hr style="border:none;border-top:1px solid #eee;margin:32px 0;">
+
+    <!-- ENGLISH -->
+    <h2 style="font-size:18px;margin:8px 0;">Hello${recipientName && !isPurchaser ? ' ' + esc(recipientName) : ''},</h2>
+    <p style="font-size:15px;line-height:1.5;">${greetingEN}</p>
+    ${personalEN}
+    <div style="background:#fafafa;border:1.5px solid #8B2020;border-radius:8px;padding:18px;margin:20px 0;text-align:center;">
+      <div style="font-size:12px;color:#888;text-transform:uppercase;letter-spacing:1px;">Voucher value</div>
+      <div style="font-size:32px;font-weight:bold;color:#8B2020;margin:4px 0;">${esc(amountStr)}</div>
+      <div style="font-size:12px;color:#888;margin-top:8px;">Voucher code</div>
+      <div style="font-size:20px;font-weight:bold;letter-spacing:2px;margin-top:4px;">${esc(code)}</div>
+      <div style="font-size:12px;color:#888;margin-top:10px;">Valid until <strong>${esc(validEN)}</strong></div>
+    </div>
+    <p style="font-size:14px;color:#555;">Show the voucher (printed or on your phone) at STORIA, Karlstraße 47a, 80333 Munich. Redemption is only possible in person at the restaurant.</p>
+    ${invoiceLineEN}
+
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:12px;color:#888;text-align:center;">
+      STORIA · Karlstraße 47a · 80333 München · +49 163 6033912 · info@events-storia.de
+    </div>
+  </div>
+</body></html>`;
+}
+
+function esc(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
