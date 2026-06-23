@@ -1227,6 +1227,8 @@ export const SmartInquiryEditor = () => {
               publicOfferUrl={buildAdminPublicOfferUrl(id, { phase: 'final', emailDraft: emailDraft || inquiry?.email_draft, absolute: true })}
               offerPhase={(mergedInquiry as any)?.offer_phase}
               lockedAfterSignature={(mergedInquiry as any)?.locked_after_signature}
+              depositMethod={(mergedInquiry as any)?.deposit_method}
+              balanceMethod={(mergedInquiry as any)?.balance_method}
             />
           )}
 
