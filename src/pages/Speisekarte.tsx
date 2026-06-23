@@ -135,42 +135,6 @@ const Speisekarte = () => {
           </section>
         </main>
 
-        {/* Sticky Reservierungs-Leiste — auf allen Geräten sichtbar */}
-        <div
-          className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]"
-          role="region"
-          aria-label={isDE ? "Tischreservierung" : "Table reservation"}
-        >
-          <div
-            className="container mx-auto flex items-center justify-between gap-3 px-4 py-3"
-            style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
-          >
-            <div className="hidden sm:flex flex-col leading-tight">
-              <span className="text-sm font-semibold text-foreground">
-                {isDE ? "Lust auf einen Abend bei uns?" : "Fancy an evening with us?"}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {isDE
-                  ? "Reserviere deinen Tisch in wenigen Sekunden."
-                  : "Book your table in seconds."}
-              </span>
-            </div>
-            <Button
-              asChild
-              size="lg"
-              className="min-h-11 w-full sm:w-auto sm:ml-auto font-semibold"
-            >
-              <LocalizedLink
-                to="/reservierung"
-                onClick={() => trackReservationClick("sticky_bar")}
-              >
-                <CalendarHeart className="mr-2 h-5 w-5" aria-hidden="true" />
-                {isDE ? "Tisch reservieren" : "Reserve a table"}
-              </LocalizedLink>
-            </Button>
-          </div>
-        </div>
-
         <Footer />
       </div>
     </>
