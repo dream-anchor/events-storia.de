@@ -4588,6 +4588,72 @@ export type Database = {
           },
         ]
       }
+      vouchers: {
+        Row: {
+          amount_cents: number
+          code: string
+          created_at: string
+          currency: string
+          id: string
+          lexoffice_invoice_id: string | null
+          message: string | null
+          notes: string | null
+          paid_at: string | null
+          pdf_url: string | null
+          purchaser_email: string
+          purchaser_name: string | null
+          recipient_email: string | null
+          recipient_name: string | null
+          redeemed_at: string | null
+          redeemed_by_admin: string | null
+          status: string
+          stripe_session_id: string | null
+          valid_until: string
+        }
+        Insert: {
+          amount_cents: number
+          code: string
+          created_at?: string
+          currency?: string
+          id?: string
+          lexoffice_invoice_id?: string | null
+          message?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          pdf_url?: string | null
+          purchaser_email: string
+          purchaser_name?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          redeemed_at?: string | null
+          redeemed_by_admin?: string | null
+          status?: string
+          stripe_session_id?: string | null
+          valid_until: string
+        }
+        Update: {
+          amount_cents?: number
+          code?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          lexoffice_invoice_id?: string | null
+          message?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          pdf_url?: string | null
+          purchaser_email?: string
+          purchaser_name?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          redeemed_at?: string | null
+          redeemed_by_admin?: string | null
+          status?: string
+          stripe_session_id?: string | null
+          valid_until?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       catering_orders: {
