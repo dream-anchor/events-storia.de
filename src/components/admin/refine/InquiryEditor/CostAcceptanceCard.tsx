@@ -268,6 +268,18 @@ export function CostAcceptanceCard({
                 Offer: {offerPhase}
               </Badge>
             )}
+            <Badge
+              variant="outline"
+              className={
+                "text-xs " +
+                (requirement.required
+                  ? "border-amber-300 bg-amber-50 text-amber-900"
+                  : "border-neutral-200 bg-neutral-50 text-neutral-700")
+              }
+              title={requirement.reasonDe}
+            >
+              {requirement.required ? "Pflicht" : "Optional"}
+            </Badge>
           </div>
         </div>
       </CardHeader>
@@ -279,6 +291,15 @@ export function CostAcceptanceCard({
           </div>
         ) : (
           <>
+            {requirement.required && row?.status !== "signed" && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 flex gap-2">
+                <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-semibold">Pflicht für Vertragsschluss</div>
+                  <div className="text-xs mt-0.5">{requirement.reasonDe}</div>
+                </div>
+              </div>
+            )}
             {lockedAfterSignature && (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 flex gap-2">
                 <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" />
