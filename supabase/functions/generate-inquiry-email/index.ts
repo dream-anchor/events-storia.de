@@ -558,10 +558,14 @@ ${senderInfo.firstName}${senderInfo.mobile ? `\n${senderInfo.mobile}` : ''}`;
         } else if (discountPercent > 0 && discountPercent < 100) {
           subtotal = total / (1 - discountPercent / 100);
         }
+        const pkgNameOverride = (menuSel as any)?.packageNameOverride as string | undefined;
+        const resolvedPkgName = (o.offer_mode === 'menu')
+          ? 'Individuell'
+          : (pkgNames[o.package_id] || pkgNameOverride || (o.offer_mode === 'paket' || o.offer_mode === 'full_menu' ? 'Paket' : 'Individuell'));
         return {
           label: o.option_label,
           offerMode: o.offer_mode || undefined,
-          packageName: (o.offer_mode === 'menu') ? 'Individuell' : (pkgNames[o.package_id] || 'Individuell'),
+          packageName: resolvedPkgName,
           guestCount: o.guest_count,
           totalAmount: total,
           menuSelection: menuSel,
