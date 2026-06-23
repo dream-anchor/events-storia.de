@@ -599,3 +599,16 @@ body[data-privacy="on"] [data-sensitive] [data-sensitive-allow] {
   user-select: auto;
   letter-spacing: normal;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Mobile Sticky Action Bar — globales Body-Padding, damit der untere
+   Seiteninhalt nicht von der fixierten Leiste verdeckt wird. Wird nur
+   aktiviert, wenn die Bar tatsächlich gerendert ist (Klasse setzt
+   MobileStickyActionBar beim Mount). Wirkt nur < md, da die Bar ohnehin
+   md:hidden ist.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  body.has-mobile-action-bar {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+}
