@@ -37,6 +37,8 @@ const FAQ = lazy(() => import("./pages/FAQ"));
 const Kontakt = lazy(() => import("./pages/Kontakt"));
 const Anfrage = lazy(() => import("./pages/Anfrage"));
 const Restzahlung = lazy(() => import("./pages/Restzahlung"));
+const Gutschein = lazy(() => import("./pages/Gutschein"));
+const GutscheinDanke = lazy(() => import("./pages/GutscheinDanke"));
 
 // Legal Pages (lazy)
 const Impressum = lazy(() => import("./pages/Impressum"));
@@ -168,6 +170,12 @@ const App = () => {
                     {/* Balance Payment */}
                     <Route path="/restzahlung/:slug" element={<Restzahlung />} />
                     <Route path="/en/balance-payment/:slug" element={<Restzahlung />} />
+
+                    {/* Gutschein / Voucher */}
+                    <Route path="/gutschein" element={<Gutschein />} />
+                    <Route path="/gutschein/danke" element={<GutscheinDanke />} />
+                    <Route path="/en/voucher" element={<Gutschein />} />
+                    <Route path="/en/voucher/thanks" element={<GutscheinDanke />} />
 
                     {/* Legal */}
                     <Route path="/impressum" element={<Impressum />} />
