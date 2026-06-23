@@ -651,7 +651,7 @@ export default function PublicOffer() {
           let deadlineIso: string | null = null;
           if (eventDateRaw) {
             const evDate = new Date(eventDateRaw);
-            const offsetDays = ((inquiry as any).balance_due_days as number | null) ?? 3;
+            const offsetDays = (inquiry.balance_due_days_before_event as number | null) ?? 3;
             const safeOffset = Math.max(1, offsetDays);
             evDate.setDate(evDate.getDate() - safeOffset);
             deadlineIso = evDate.toISOString().slice(0, 10);
