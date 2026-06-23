@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { buildDrinkRows } from "@/pages/public-offer/types";
 import { CostAcceptanceSection } from "@/pages/public-offer/CostAcceptanceSection";
+import { evaluateCostAcceptanceRequirement } from "@/lib/costAcceptanceRequirement";
 import { FreeformProgramSection } from "@/pages/public-offer/FreeformProgramSection";
 
 // --- Types ---
@@ -629,11 +630,41 @@ export default function PublicOffer() {
 
         <PdfDownloadSection inquiryId={inquiry.id} lang={lang} />
 
-        {(renderPhase === "confirmed" ||
-          renderPhase === "final_sent" ||
-          renderPhase === "order_confirmed") && (
-          <CostAcceptanceSection inquiry={inquiry} options={options} />
-        )}
+        {(() => {
+          // Kostenübernahme-Sichtbarkeit: alle Phasen ab `proposal_sent`,
+          // damit der Kunde den verbindlichen Vertragsweg sofort sieht. In
+          // `draft` bleibt der Block verborgen (Angebot noch nicht final).
+          const showPhase =
+            renderPhase === "proposal_sent" ||
+            renderPhase === "final_sent" ||
+            renderPhase === "final_draft" ||
+            renderPhase === "confirmed" ||
+            renderPhase === "order_confirmed";
+          if (!showPhase) return null;
+          const req = evaluateCostAcceptanceRequirement({
+            depositMethod: (inquiry.deposit_method ?? null) as never,
+            balanceMethod: (inquiry.balance_method ?? null) as never,
+          });
+          // Frist = Event-Datum minus Restzahlungs-Frist (oder Anzahlungs-Frist,
+          // wenn Restzahlung after_event ist). Fallback: 3 Tage vor Event.
+          const eventDateRaw = inquiry.preferred_date;
+          let deadlineIso: string | null = null;
+          if (eventDateRaw) {
+            const evDate = new Date(eventDateRaw);
+            const offsetDays = ((inquiry as any).balance_due_days as number | null) ?? 3;
+            const safeOffset = Math.max(1, offsetDays);
+            evDate.setDate(evDate.getDate() - safeOffset);
+            deadlineIso = evDate.toISOString().slice(0, 10);
+          }
+          return (
+            <CostAcceptanceSection
+              inquiry={inquiry}
+              options={options}
+              required={req.required}
+              deadlineIso={deadlineIso}
+            />
+          );
+        })()}
 
         <PublicPaymentSection
           payments={payments}
