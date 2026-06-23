@@ -18,12 +18,28 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({} as any));
     const inquiryId = String(body?.inquiry_id ?? "").trim();
+    const offerSlug = String(body?.offer_slug ?? "").trim();
     if (!inquiryId) return json(400, { error: "inquiry_id fehlt." });
+    if (!offerSlug) return json(400, { error: "offer_slug fehlt." });
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Slug muss exakt zur Anfrage passen — sonst kein Zugriff.
+    const { data: ev, error: evErr } = await supabase
+      .from("v2_events")
+      .select("id, offer_slug")
+      .eq("id", inquiryId)
+      .maybeSingle();
+    if (evErr) {
+      console.error("[get-public-cost-acceptance-state] event load error:", evErr.message);
+      return json(500, { error: "Status konnte nicht geladen werden." });
+    }
+    if (!ev || !ev.offer_slug || ev.offer_slug !== offerSlug) {
+      return json(403, { error: "Zugriff verweigert." });
+    }
 
     const { data, error } = await supabase
       .from("cost_acceptances")
