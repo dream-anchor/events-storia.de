@@ -5756,6 +5756,35 @@ export type Database = {
         Returns: Json
       }
       generate_booking_number: { Args: never; Returns: string }
+      get_balance_payment_link_by_slug: {
+        Args: { p_slug: string }
+        Returns: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          customer_email: string
+          customer_name: string | null
+          default_guests: number
+          deposit_paid_cents: number
+          event_date: string | null
+          event_id: string | null
+          event_label: string
+          event_label_en: string | null
+          id: string
+          max_guests: number
+          min_guests: number
+          notes: string | null
+          price_per_person_cents: number
+          slug: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "balance_payment_links"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_event_emails: {
         Args: { p_event_id: string; p_include_hidden?: boolean }
         Returns: {
