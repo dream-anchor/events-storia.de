@@ -97,7 +97,22 @@ export const useAdminAuth = () => {
       return { error: new Error('Anmeldung konnte nicht bestätigt werden') };
     }
 
+    // Kurz warten, damit der Supabase-Client das neue JWT an PostgREST bindet,
+    // bevor wir die Rolle abfragen. Verhindert Race mit onAuthStateChange.
+    await new Promise<void>((resolve) => {
+      const t: ReturnType<typeof setTimeout> = setTimeout(resolve, 150);
+      const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          clearTimeout(t);
+          sub.subscription.unsubscribe();
+          resolve();
+        }
+      });
+    });
+
+    console.info('[adminAuth] signIn: loading role');
     const role = await loadAdminRole(data.user.id);
+    console.info('[adminAuth] signIn: role =', role);
     if (!role) {
       await supabase.auth.signOut();
       clearCachedAdmin();

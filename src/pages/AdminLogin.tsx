@@ -32,11 +32,14 @@ const AdminLogin = () => {
   const [resetEmail, setResetEmail] = useState("");
   const [isResetting, setIsResetting] = useState(false);
 
+  // Kein automatischer useEffect-Redirect: handleSubmit navigiert nach erfolgreichem Login.
+  // Falls beim Mount bereits eine gültige Admin-Session existiert, einmalig weiterleiten.
   useEffect(() => {
     if (!loading && user && isAdmin) {
       navigate("/admin", { replace: true });
     }
-  }, [user, isAdmin, loading, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

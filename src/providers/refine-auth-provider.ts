@@ -58,21 +58,23 @@ export const supabaseAuthProvider: AuthProvider = {
 
   check: async () => {
     try {
+      // Cache-first: Wenn Rolle bereits gecached ist, sofort durchlassen.
+      // Session-Refresh läuft asynchron im Hintergrund.
+      const cachedFirst = getCachedAuth();
+      if (cachedFirst) {
+        void supabase.auth.getSession().then(({ data }) => {
+          if (!data?.session) clearCachedAdmin();
+        });
+        return { authenticated: true };
+      }
+
       const { data } = await supabase.auth.getSession();
 
       if (!data?.session) {
-        // Bei Netzwerk-Hiccup: wenn Cache noch da ist, NICHT sofort umleiten.
-        const cached = getCachedAuth();
-        if (cached) return { authenticated: true };
         return { authenticated: false, redirectTo: "/admin/login" };
       }
 
       const userId = data.session.user.id;
-
-      const cached = getCachedAuth();
-      if (cached?.userId === userId) {
-        return { authenticated: true };
-      }
 
       const role = await loadAdminRole(userId);
       if (role) return { authenticated: true };
