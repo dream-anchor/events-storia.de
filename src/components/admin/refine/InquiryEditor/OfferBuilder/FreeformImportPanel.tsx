@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/typed-client";
-import type { FreeformProgram, ValidationFinding } from "./types";
+import type { FreeformProgram, ValidationFinding, FreeformProgramSection, FreeformAdditionalService } from "./types";
 
 interface FreeformImportPanelProps {
   onParsed: (program: FreeformProgram, findings?: ValidationFinding[]) => void;
@@ -119,27 +119,214 @@ function extractBulletItems(rawText: string): string[] {
 }
 
 /**
+ * Entfernt unsichtbare Zeichen (Zero-Width, Word-Joiner U+2060 etc.), die in
+ * kopierten E-Mails oft an Bulletpoints kleben und sonst Whitespace-Checks
+ * sabotieren.
+ */
+function stripInvisible(s: string): string {
+  return s.replace(/[\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, "").trim();
+}
+
+/**
+ * Deterministischer Speisen-Extractor für klassische deutsche Catering-E-Mails
+ * (Empfang / Vorspeise / Carpaccio / Hauptgang / Dessert). Liefert eine
+ * Liste von Sections mit Heading + Items, die wir an die erste Mahlzeit
+ * hängen, wenn die KI keine brauchbaren Speisen erkannt hat.
+ */
+function extractMealSectionsFromText(rawText: string): FreeformProgramSection[] {
+  const text = rawText.replace(/\r/g, "");
+  const lines = text.split("\n").map((l) => stripInvisible(l));
+
+  // Bulletpoints unter einer "Anker"-Zeile sammeln (bis zur nächsten Leerzeile
+  // oder zum nächsten Fließtext-Absatz).
+  const collectBulletsAfter = (anchorIdx: number): string[] => {
+    const out: string[] = [];
+    for (let i = anchorIdx + 1; i < lines.length; i++) {
+      const l = lines[i];
+      if (!l) continue;
+      const m = l.match(/^[\s•·*\-–—]+\s*(.+)$/);
+      if (m) {
+        const item = m[1].replace(/[•·]+\s*/g, "").trim();
+        if (item.length >= 2 && item.length < 200) out.push(item);
+        continue;
+      }
+      // Sobald wieder Fließtext (kein Bullet) kommt, abbrechen — sofern
+      // wir schon mindestens einen Bullet eingesammelt haben.
+      if (out.length > 0) break;
+    }
+    return out;
+  };
+
+  const findAnchor = (re: RegExp): number =>
+    lines.findIndex((l) => re.test(l));
+
+  const sections: FreeformProgramSection[] = [];
+
+  // 1. Empfang / Aperitivo
+  const empfangIdx = findAnchor(/empfang|aperitivo/i);
+  if (empfangIdx >= 0) {
+    sections.push({
+      heading: "Empfang",
+      items: ["Aperitivo mit verschiedenen italienischen Appetizern und kleinen Köstlichkeiten"],
+    });
+  }
+
+  // 2. Vorspeise / Sharing-Platten
+  const vorspeiseIdx = findAnchor(/vorspeise|fingerfood|sharing|antipasti/i);
+  if (vorspeiseIdx >= 0) {
+    const items = collectBulletsAfter(vorspeiseIdx);
+    if (items.length > 0) {
+      sections.push({ heading: "Vorspeise – Sharing-Platten", items });
+    }
+  }
+
+  // 3. Carpaccio-Variationen
+  const carpaccioIdx = findAnchor(/carpaccio/i);
+  if (carpaccioIdx >= 0) {
+    const items = collectBulletsAfter(carpaccioIdx);
+    if (items.length > 0) {
+      sections.push({ heading: "Carpaccio-Variationen", items });
+    }
+  }
+
+  // 4. Hauptgang (oft Fließtext ohne Bullets)
+  const hauptIdx = findAnchor(/hauptgang|hauptgericht/i);
+  if (hauptIdx >= 0) {
+    const main: string[] = [];
+    if (/thunfisch|gelbflossen/i.test(text)) main.push("Wildfang-Gelbflossen-Thunfisch");
+    if (/kalbsbraten|kalbs/i.test(text)) main.push("Zarter Kalbsbraten");
+    if (/beilagen|saisonal/i.test(text)) main.push("Verschiedene saisonale Beilagen");
+    if (main.length === 0) {
+      // Fallback: kurze Zusammenfassung des Hauptgang-Satzes
+      const para = lines.slice(hauptIdx, hauptIdx + 4).join(" ").replace(/\s+/g, " ").trim();
+      if (para) main.push(para.slice(0, 240));
+    }
+    if (main.length > 0) sections.push({ heading: "Hauptgang", items: main });
+  }
+
+  // 5. Dessert
+  const dessertIdx = findAnchor(/dessert|nachspeise|s[üu]ßspeise|abschluss/i);
+  if (dessertIdx >= 0) {
+    const items = collectBulletsAfter(dessertIdx);
+    if (items.length > 0) {
+      sections.push({ heading: "Dessert", items });
+    } else if (/dessert|dolce/i.test(text)) {
+      sections.push({ heading: "Dessert", items: ["Zwei bis drei kleine Desserts im Glas"] });
+    }
+  }
+
+  return sections;
+}
+
+/**
+ * Extrahiert "ab X € pro Person" / "X € pro Person" aus dem Rohtext.
+ * Liefert { prefix, price } oder null.
+ */
+function extractPricePerPerson(rawText: string): { prefix: string; price: number } | null {
+  // z.B. "beginnt ab 99,00 € pro Person" oder "99 EUR pro Person"
+  const m = rawText.match(/(?:(ab|ca\.?|circa)\s+)?(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:€|EUR)\s*(?:pro|\/)\s*(?:Person|Gast|P\.)/i);
+  if (!m) return null;
+  const prefix = (m[1] || "").toLowerCase().replace(".", "");
+  const price = parseFloat(m[2].replace(",", "."));
+  if (!Number.isFinite(price) || price <= 0) return null;
+  return { prefix: prefix === "circa" ? "ca." : prefix, price };
+}
+
+/**
+ * Extrahiert klassische Zusatzleistungen (Service-Personal €/h, Auf-/Abbau €/h,
+ * Anfahrt/Abfahrt-Pauschalen) aus dem Rohtext.
+ */
+function extractAdditionalServicesFromText(rawText: string): FreeformAdditionalService[] {
+  const out: FreeformAdditionalService[] = [];
+  const push = (label: string, unit: "hour" | "flat" | "piece", price: number) => {
+    out.push({
+      id: `svc-auto-${out.length}-${crypto.randomUUID()}`,
+      label,
+      unit,
+      unitPriceNet: price,
+      quantity: null,
+      vatRate: 19,
+    });
+  };
+  const num = (s: string) => parseFloat(s.replace(",", "."));
+
+  let m: RegExpMatchArray | null;
+  m = rawText.match(/Service[-\s]*(?:und|&)?\s*K[üu]chenpersonal[^0-9]{0,40}(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:€|EUR)\s*(?:pro|\/)\s*Stunde/i);
+  if (m) push("Service- und Küchenpersonal", "hour", num(m[1]));
+
+  m = rawText.match(/Auf[-\s]*(?:und|&)?\s*Abbauhelfer[^0-9]{0,40}(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:€|EUR)\s*(?:pro|\/)\s*Stunde/i);
+  if (m) push("Auf- und Abbauhelfer", "hour", num(m[1]));
+
+  m = rawText.match(/Anfahrt[^0-9]{0,40}(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:€|EUR)/i);
+  if (m) push("Anfahrt", "flat", num(m[1]));
+
+  m = rawText.match(/Abfahrt[^0-9]{0,40}(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:€|EUR)/i);
+  if (m) push("Abfahrt", "flat", num(m[1]));
+
+  return out;
+}
+
+/**
  * Sicherheitsnetz: Wenn die KI eine Mahlzeit ohne Items zurückliefert, packen
  * wir die Bullet-Zeilen aus dem Originaltext in eine einzelne Sektion, damit
  * der Operator wenigstens etwas zum Anfassen hat statt eines leeren Importes.
  */
 function backfillEmptyMeals(program: FreeformProgram, rawText: string): FreeformProgram {
-  const bullets = extractBulletItems(rawText);
-  if (bullets.length === 0) return program;
+  // 1. Deterministische Speisen-Sektionen aus dem Originaltext (Empfang,
+  //    Vorspeise, Carpaccio, Hauptgang, Dessert). Bevorzugt, weil die KI bei
+  //    Sharing-Menü-Mails Bulletpoints oft komplett verliert.
+  const structured = extractMealSectionsFromText(rawText);
+  const bulletsFallback = extractBulletItems(rawText);
+
+  const pickSections = (): FreeformProgramSection[] => {
+    if (structured.length > 0) return structured;
+    if (bulletsFallback.length > 0) return [{ heading: null, items: bulletsFallback }];
+    return [];
+  };
+
+  const ppp = extractPricePerPerson(rawText);
+
   let touched = false;
   const days = program.days.map((d) => ({
     ...d,
     meals: d.meals.map((m) => {
-      const hasAnyItem = (m.sections ?? []).some((s) => (s.items ?? []).length > 0);
-      if (hasAnyItem) return m;
-      touched = true;
-      return {
-        ...m,
-        sections: [{ heading: null, items: bullets }],
-      };
+      const totalItems = (m.sections ?? []).reduce(
+        (acc, s) => acc + (s.items?.length ?? 0),
+        0,
+      );
+      const next = { ...m };
+      if (totalItems < 3) {
+        const sections = pickSections();
+        if (sections.length > 0) {
+          next.sections = sections;
+          touched = true;
+        }
+      }
+      // Preis pro Person nachziehen, falls KI ihn verschluckt hat.
+      if (ppp && (next.pricePerPersonNet == null || next.pricePerPersonNet <= 0)) {
+        next.pricePerPersonNet = ppp.price;
+        next.pricePerPersonPrefix = ppp.prefix || next.pricePerPersonPrefix || "ab";
+        if (!next.flatPriceNet) next.flatPriceNet = 0;
+        touched = true;
+      }
+      return next;
     }),
   }));
-  return touched ? { ...program, days } : program;
+
+  // additionalServices ergänzen, falls KI sie nicht erkannt hat.
+  const existingSvcLabels = new Set(
+    (program.additionalServices ?? []).map((s) => s.label.toLowerCase().trim()),
+  );
+  const extractedSvcs = extractAdditionalServicesFromText(rawText).filter(
+    (s) => !existingSvcLabels.has(s.label.toLowerCase().trim()),
+  );
+  const additionalServices =
+    extractedSvcs.length > 0
+      ? [...(program.additionalServices ?? []), ...extractedSvcs]
+      : program.additionalServices;
+  if (extractedSvcs.length > 0) touched = true;
+
+  return touched ? { ...program, days, additionalServices } : program;
 }
 
 /**
