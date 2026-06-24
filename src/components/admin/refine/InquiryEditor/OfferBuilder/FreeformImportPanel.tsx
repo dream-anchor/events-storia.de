@@ -99,6 +99,50 @@ function syntheticSingleDay(program: FreeformProgram, rawText: string): Freeform
 }
 
 /**
+ * Extrahiert Bulletpoints aus dem Originaltext (Zeilen, die mit •, -, *, ⁠, oder
+ * fettem Bullet-Zeichen beginnen). Wird nur als Safety-Net verwendet, falls die
+ * KI eine Mahlzeit ohne Speisen-Items liefert.
+ */
+function extractBulletItems(rawText: string): string[] {
+  const lines = rawText.split("\n");
+  const items: string[] = [];
+  for (const raw of lines) {
+    const l = raw.trim();
+    if (!l) continue;
+    // Bullet-Marker am Zeilenanfang abfangen
+    const m = l.match(/^[\s•·*\-–—⁠]+\s*(.+)$/);
+    if (m && m[1].length >= 2 && m[1].length < 200) {
+      items.push(m[1].trim().replace(/[•·]+\s*/g, "").trim());
+    }
+  }
+  return items;
+}
+
+/**
+ * Sicherheitsnetz: Wenn die KI eine Mahlzeit ohne Items zurückliefert, packen
+ * wir die Bullet-Zeilen aus dem Originaltext in eine einzelne Sektion, damit
+ * der Operator wenigstens etwas zum Anfassen hat statt eines leeren Importes.
+ */
+function backfillEmptyMeals(program: FreeformProgram, rawText: string): FreeformProgram {
+  const bullets = extractBulletItems(rawText);
+  if (bullets.length === 0) return program;
+  let touched = false;
+  const days = program.days.map((d) => ({
+    ...d,
+    meals: d.meals.map((m) => {
+      const hasAnyItem = (m.sections ?? []).some((s) => (s.items ?? []).length > 0);
+      if (hasAnyItem) return m;
+      touched = true;
+      return {
+        ...m,
+        sections: [{ heading: null, items: bullets }],
+      };
+    }),
+  }));
+  return touched ? { ...program, days } : program;
+}
+
+/**
  * Eingabe-Panel für mehrtägige Catering-Angebote als Freitext.
  * Pipeline: parse-freeform-offer (Gemini) → validate-freeform-offer (GPT-5 Red Team).
  * Bei Findings: bis zu 2 Auto-Retries mit Korrektur-Hinweisen. Restliche Findings
@@ -142,6 +186,8 @@ export function FreeformImportPanel({ onParsed, disabled }: FreeformImportPanelP
           // Einfaches Angebot ohne Tagesstruktur → synthetischen 1-Tages-Container bauen.
           program = syntheticSingleDay(program, text);
         }
+        // Safety-Net: leere Mahlzeiten aus dem Rohtext mit Bulletpoints füllen.
+        program = backfillEmptyMeals(program, text);
 
         setStage("Red Team validiert…");
         try {
