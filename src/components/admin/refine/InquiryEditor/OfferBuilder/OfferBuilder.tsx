@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { mapAiDraftToOption, type MapAiDraftResult } from "./aiDraftToOption";
 import { useAiDraft, type AiDraft } from "@/hooks/useAiDraft";
 import { AiDraftCard } from "../AiDraftCard";
+import { RequestContextBanner } from "./RequestContextBanner";
 
 export interface OfferBuilderHandle {
   /** Scrollt zum E-Mail-Composer und öffnet ihn; generiert optional KI-Text */
