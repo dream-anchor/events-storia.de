@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       .insert({
         customer_id: customerId,
         status: "inquiry",
-        source: "email_forward",
+        source: "manual",
         occasion: subjectStr,
         customer_notes: customerNotes,
         created_by: "email_forward",
