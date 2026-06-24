@@ -1,28 +1,16 @@
 import { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/typed-client";
 import { AdminLayout } from "./AdminLayout";
-import {
-  useConversionData, type ConversionRange, type FunnelStage,
-  LOSS_REASON_LABELS,
-} from "@/hooks/useConversionData";
+import { useConversionData, type ConversionRange, type FunnelStage } from "@/hooks/useConversionData";
+import { DiagnosticsSection } from "./diagnostics/DiagnosticsSection";
 import { Card } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
+import { formatEur } from "@/lib/utils";
 import {
   TrendingUp, TrendingDown, Clock, Euro, Inbox, CheckCircle2,
   AlertTriangle, Eye,
 } from "lucide-react";
-
-const LOST_STATUS_LABELS: Record<string, string> = {
-  cancelled: "Storniert",
-  offer_declined: "Abgelehnt",
-  no_response: "Keine Antwort",
-  payment_failed: "Zahlung fehlgeschlagen",
-};
 
 type RangeKey = "30d" | "90d" | "12m" | "ytd" | "all";
 
@@ -56,12 +44,6 @@ function computeRange(key: RangeKey): ConversionRange {
     default:
       return { from: null, to: null };
   }
-}
-
-function eur(cents: number): string {
-  return (cents / 100).toLocaleString("de-DE", {
-    style: "currency", currency: "EUR", maximumFractionDigits: 0,
-  });
 }
 
 function KpiCard({
@@ -125,29 +107,15 @@ export function ConversionDashboard() {
   const [rangeKey, setRangeKey] = useState<RangeKey>("90d");
   const range = useMemo(() => computeRange(rangeKey), [rangeKey]);
   const { data, isLoading } = useConversionData(range);
-  const queryClient = useQueryClient();
-
-  const setLossReason = async (id: string, reason: string) => {
-    const { error } = await supabase
-      .from("v2_events")
-      .update({ loss_reason: reason })
-      .eq("id", id);
-    if (error) {
-      toast.error("Konnte Grund nicht speichern");
-      return;
-    }
-    toast.success("Grund gespeichert");
-    queryClient.invalidateQueries({ queryKey: ["conversion-data"] });
-  };
 
   return (
     <AdminLayout activeTab="auswertung" title="Auswertung">
-      <div className="space-y-6 max-w-6xl">
+      <div className="space-y-8 max-w-6xl">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">Conversion</h1>
+            <h1 className="text-2xl font-semibold">Warum nicht gebucht?</h1>
             <p className="text-sm text-muted-foreground">
-              Von der Anfrage zur fixen Buchung — wo der Funnel leckt.
+              Wo Anfragen verloren gehen — mit konkreten Hinweisen, was zu tun ist.
             </p>
           </div>
           <Select value={rangeKey} onValueChange={(v) => setRangeKey(v as RangeKey)}>
@@ -162,18 +130,14 @@ export function ConversionDashboard() {
           </Select>
         </div>
 
-        {isLoading || !data ? (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-2xl" />
-            ))}
-          </div>
-        ) : data.totals.inquiries === 0 ? (
-          <Card className="p-8 rounded-2xl text-center text-muted-foreground">
-            Keine Anfragen im gewählten Zeitraum.
-          </Card>
-        ) : (
-          <>
+        {/* Diagnose — warum konvertiert nicht? */}
+        <DiagnosticsSection range={range} />
+
+        {/* Zahlen im Detail */}
+        {!isLoading && data && data.totals.inquiries > 0 && (
+          <div className="space-y-6 pt-2 border-t border-border/40">
+            <h2 className="text-base font-medium pt-4">Zahlen im Detail</h2>
+
             {/* KPI-Reihe */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <KpiCard
@@ -199,8 +163,8 @@ export function ConversionDashboard() {
               <KpiCard
                 icon={<TrendingUp className="h-3.5 w-3.5" />}
                 label="Umsatz (fix)"
-                value={eur(data.revenue.paidCents)}
-                sub={data.revenue.avgOrderCents != null ? `Ø ${eur(data.revenue.avgOrderCents)} / Auftrag` : undefined}
+                value={formatEur(data.revenue.paidCents)}
+                sub={data.revenue.avgOrderCents != null ? `Ø ${formatEur(data.revenue.avgOrderCents)} / Auftrag` : undefined}
               />
               <KpiCard
                 icon={<Clock className="h-3.5 w-3.5" />}
@@ -214,7 +178,7 @@ export function ConversionDashboard() {
             {/* Funnel */}
             <Card className="p-5 rounded-2xl">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-medium">Funnel</h2>
+                <h3 className="text-lg font-medium">Funnel</h3>
                 <div className="text-xs text-muted-foreground flex items-center gap-3">
                   <span className="flex items-center gap-1">
                     <Eye className="h-3.5 w-3.5" /> Öffnungsrate {data.rates.openRate} %
@@ -234,9 +198,9 @@ export function ConversionDashboard() {
             {/* Verloren + Kanäle */}
             <div className="grid md:grid-cols-2 gap-4">
               <Card className="p-5 rounded-2xl">
-                <h2 className="text-lg font-medium mb-1 flex items-center gap-2">
+                <h3 className="text-lg font-medium mb-1 flex items-center gap-2">
                   <TrendingDown className="h-4 w-4 text-red-500" /> Verloren
-                </h2>
+                </h3>
                 <p className="text-sm text-muted-foreground mb-3">
                   {data.lost.total} verloren · {data.lost.cancelled} storniert · {data.lost.declined} abgelehnt · {data.lost.noResponse} ohne Antwort
                 </p>
@@ -265,7 +229,7 @@ export function ConversionDashboard() {
               </Card>
 
               <Card className="p-5 rounded-2xl">
-                <h2 className="text-lg font-medium mb-3">Conversion nach Kanal</h2>
+                <h3 className="text-lg font-medium mb-3">Conversion nach Kanal</h3>
                 <BreakdownTable rows={data.bySource} />
               </Card>
             </div>
@@ -273,41 +237,11 @@ export function ConversionDashboard() {
             {/* Team */}
             {data.byStaff.some((s) => s.key !== "__none__") && (
               <Card className="p-5 rounded-2xl">
-                <h2 className="text-lg font-medium mb-3">Conversion nach Mitarbeiter</h2>
+                <h3 className="text-lg font-medium mb-3">Conversion nach Mitarbeiter</h3>
                 <BreakdownTable rows={data.byStaff} />
               </Card>
             )}
-
-            {/* Verlust-Gründe nachtragen */}
-            {data.lossInbox.length > 0 && (
-              <Card className="p-5 rounded-2xl">
-                <h2 className="text-lg font-medium mb-1">Verlust-Gründe nachtragen</h2>
-                <p className="text-sm text-muted-foreground mb-3">
-                  {data.lossInbox.length} verlorene Anfragen ohne Grund. Je vollständiger, desto klarer wird sichtbar, warum gebucht wird — und warum nicht.
-                </p>
-                <div className="space-y-2">
-                  {data.lossInbox.map((row) => (
-                    <div key={row.id} className="flex items-center gap-3 text-sm">
-                      <span className="flex-1 truncate">{row.label}</span>
-                      <span className="text-xs text-muted-foreground shrink-0 w-28">
-                        {LOST_STATUS_LABELS[row.status] || row.status}
-                      </span>
-                      <Select onValueChange={(v) => setLossReason(row.id, v)}>
-                        <SelectTrigger className="w-44 h-8 rounded-lg shrink-0">
-                          <SelectValue placeholder="Grund wählen…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(LOSS_REASON_LABELS).map(([k, label]) => (
-                            <SelectItem key={k} value={k}>{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
-          </>
+          </div>
         )}
       </div>
     </AdminLayout>
@@ -342,7 +276,7 @@ function BreakdownTable({
               <td className="py-2 text-right tabular-nums">{r.inquiries}</td>
               <td className="py-2 text-right tabular-nums">{r.bookedRate} %</td>
               <td className="py-2 text-right tabular-nums">{r.paidRate} %</td>
-              <td className="py-2 text-right tabular-nums">{eur(r.revenueCents)}</td>
+              <td className="py-2 text-right tabular-nums">{formatEur(r.revenueCents)}</td>
             </tr>
           ))}
         </tbody>

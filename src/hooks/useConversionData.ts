@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTestMode } from "@/contexts/TestModeContext";
+import { isTestEventRow } from "@/lib/testRecords";
 
 // =====================================================================
 // Conversion-Auswertung: Anfrage -> Buchung
@@ -121,7 +122,7 @@ interface EventRow {
   offer_view_count: number | null;
   loss_reason: string | null;
   is_test: boolean | null;
-  v2_customers?: { name: string | null; company: string | null } | null;
+  v2_customers?: { name: string | null; company: string | null; email: string | null } | null;
 }
 
 function pct(part: number, whole: number): number {
@@ -149,15 +150,16 @@ export function useConversionData(range: ConversionRange) {
       let q = supabase
         .from("v2_events")
         .select(
-          "id, status, source, assigned_to, amount_total, guest_count, created_at, status_changed_at, offer_sent_at, offer_first_viewed_at, offer_view_count, loss_reason, is_test, v2_customers ( name, company )"
+          "id, status, source, assigned_to, amount_total, guest_count, created_at, status_changed_at, offer_sent_at, offer_first_viewed_at, offer_view_count, loss_reason, is_test, v2_customers ( name, company, email )"
         );
       if (range.from) q = q.gte("created_at", range.from);
       if (range.to) q = q.lt("created_at", range.to);
-      if (!showTestData) q = q.neq("is_test", true);
 
       const { data, error } = await q;
       if (error) throw error;
-      const rows = ((data || []) as unknown as EventRow[]);
+      let rows = ((data || []) as unknown as EventRow[]);
+      // Zentraler Test-Filter (is_test + interne E-Mail/Namen), siehe lib/testRecords.
+      if (!showTestData) rows = rows.filter((r) => !isTestEventRow(r));
 
       const inquiries = rows.length;
       const rankOf = (s: string) => STAGE_RANK[s] ?? -1;

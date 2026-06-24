@@ -6,6 +6,18 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Format an amount given in CENTS as a German EUR string (no decimals).
+ * @example formatEur(455000) -> "4.550 €"
+ */
+export function formatEur(cents: number): string {
+  return (cents / 100).toLocaleString("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  });
+}
+
+/**
  * Format date as DD.MM.YYYY (German standard)
  * @param dateStr - ISO date string (yyyy-MM-dd) or Date object
  * @returns Formatted date string (DD.MM.YYYY)
