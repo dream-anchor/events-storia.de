@@ -100,7 +100,7 @@ const AdminLogin = () => {
   };
 
   if (loading) {
-    return <AdminLoader />;
+    return <AdminLoader timeoutMs={0} />;
   }
 
   return (
