@@ -80,13 +80,13 @@ export const useAdminAuth = () => {
     };
   }, []);
 
-  const checkAdminRole = async (userId: string) => {
+  const checkAdminRole = async (userId: string): Promise<boolean> => {
     try {
       const cached = getCachedAuth();
       if (cached?.userId === userId) {
         setIsAdmin(true);
         setLoading(false);
-        return;
+        return true;
       }
 
       const { data, error } = await withTimeout(
@@ -103,6 +103,7 @@ export const useAdminAuth = () => {
       if (error) {
         clearCachedAdmin();
         setIsAdmin(false);
+        return false;
       } else {
         if (data?.role) {
           setCachedAuth(userId, data.role as AppRole);
@@ -110,21 +111,36 @@ export const useAdminAuth = () => {
           clearCachedAdmin();
         }
         setIsAdmin(!!data);
+        return !!data;
       }
     } catch (err) {
       console.error('Error checking admin role:', err);
       clearCachedAdmin();
       setIsAdmin(false);
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
+    if (error) return { error };
+
+    if (!data.user) {
+      return { error: new Error('Anmeldung konnte nicht bestätigt werden') };
+    }
+
+    const hasAdminAccess = await checkAdminRole(data.user.id);
+    if (!hasAdminAccess) {
+      await supabase.auth.signOut();
+      return { error: new Error('Keine Admin-Berechtigung für dieses Konto') };
+    }
+
     return { error };
   };
 
