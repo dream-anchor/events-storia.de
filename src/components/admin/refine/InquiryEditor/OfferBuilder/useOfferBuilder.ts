@@ -910,7 +910,7 @@ export function useOfferBuilder({
           const updates: Partial<typeof course> = {};
 
           // Fix Name+Beschreibung → nur Name
-          if (menuItem.name !== course.itemName) {
+          if (menuItem.name && menuItem.name !== course.itemName) {
             updates.itemName = menuItem.name;
             updates.itemDescription = menuItem.description;
           }
