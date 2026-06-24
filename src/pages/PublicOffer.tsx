@@ -682,15 +682,17 @@ export default function PublicOffer() {
           );
         })()}
 
-        <PublicPaymentSection
-          payments={payments}
-          eventDate={inquiry.preferred_date ?? undefined}
-          lang={lang}
-          totalCents={(() => {
-            const sel = options.find(o => o.id === inquiry.selected_option_id);
-            return sel ? Math.round(effectiveTotalForOption(sel) * 100) : 0;
-          })()}
-        />
+        {!(options.length > 0 && options.every(o => o.offer_mode === 'email')) && (
+          <PublicPaymentSection
+            payments={payments}
+            eventDate={inquiry.preferred_date ?? undefined}
+            lang={lang}
+            totalCents={(() => {
+              const sel = options.find(o => o.id === inquiry.selected_option_id);
+              return sel ? Math.round(effectiveTotalForOption(sel) * 100) : 0;
+            })()}
+          />
+        )}
         <ContactSection lang={lang} />
       </main>
       <OfferFooter lang={lang} />
