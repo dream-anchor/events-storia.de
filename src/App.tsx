@@ -259,7 +259,7 @@ const App = () => {
                     <Route
                       path="/admin/login"
                       element={
-                        <Suspense fallback={<AdminLoader />}>
+                        <Suspense fallback={<AdminLoader timeoutMs={0} />}>
                           <AdminLogin />
                         </Suspense>
                       }
