@@ -22,7 +22,8 @@ interface PackageLite {
   id: string;
   name: string;
   description: string | null;
-  price_per_person: number | null;
+  price: number | null;
+  price_per_person: boolean | null;
   min_guests: number | null;
   max_guests: number | null;
 }
@@ -82,7 +83,9 @@ function buildContext(
     parts.push("(keine aktiven Pakete)");
   } else {
     for (const p of packages) {
-      const price = p.price_per_person ? `${p.price_per_person} €/Person` : "Preis n/a";
+      const price = p.price != null
+        ? `${p.price} €${p.price_per_person ? "/Person" : " pauschal"}`
+        : "Preis n/a";
       const range = p.min_guests || p.max_guests
         ? ` (${p.min_guests ?? "?"}–${p.max_guests ?? "?"} Pers.)`
         : "";
@@ -131,9 +134,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // 1) Inquiry laden
+    // 1) Anfrage laden — der Admin-OfferBuilder arbeitet über die
+    // Kompatibilitäts-View `event_inquiries` (Resource "events").
+    // Wichtig: nicht `v2_events` verwenden; dort existieren ältere/andere
+    // Spaltennamen und viele Angebots-IDs aus dem Wizard werden nicht gefunden.
     const { data: inquiry, error: invErr } = await supabase
-      .from("v2_events")
+      .from("event_inquiries")
       .select("event_type, guest_count, preferred_date, time_slot, room_selection, message, contact_name, company_name, source, selected_packages")
       .eq("id", body.inquiryId)
       .maybeSingle();
@@ -147,14 +153,15 @@ serve(async (req) => {
     // 2) Aktive Pakete
     const { data: packagesRaw } = await supabase
       .from("packages")
-      .select("id, name, description, price_per_person, min_guests, max_guests, is_active")
+      .select("id, name, description, price, price_per_person, min_guests, max_guests, is_active")
       .eq("is_active", true)
-      .order("price_per_person", { ascending: true });
+      .order("price", { ascending: true });
     const packages: PackageLite[] = (packagesRaw ?? []).map((p: Record<string, unknown>) => ({
       id: String(p.id),
       name: String(p.name ?? ""),
       description: (p.description as string | null) ?? null,
-      price_per_person: (p.price_per_person as number | null) ?? null,
+      price: (p.price as number | null) ?? null,
+      price_per_person: (p.price_per_person as boolean | null) ?? null,
       min_guests: (p.min_guests as number | null) ?? null,
       max_guests: (p.max_guests as number | null) ?? null,
     }));
@@ -324,7 +331,7 @@ serve(async (req) => {
             estimatedPricePerPerson: typeof v.estimatedPricePerPerson === "number" ? v.estimatedPricePerPerson : null,
             packageId: pkg.id,
             packageName: pkg.name,
-            packagePricePerPerson: pkg.price_per_person,
+            packagePricePerPerson: pkg.price,
           };
         }
 
