@@ -84,14 +84,7 @@ export function OptionCardGrid({
         </div>
       </div>
 
-      <div
-        className={cn(
-          "grid gap-5",
-          options.length <= 1 && "grid-cols-1",
-          options.length === 2 && "grid-cols-1 xl:grid-cols-2",
-          options.length >= 3 && "grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3"
-        )}
-      >
+      <div className={cn("flex flex-col gap-6")}>
         <AnimatePresence mode="popLayout">
           {options.map((option) => {
             // Menü-Modus: Default-Configs (kein Paket). Paket-Modus: Configs aus Paket.
