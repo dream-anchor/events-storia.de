@@ -1,0 +1,1 @@
+ALTER TYPE public.v2_event_source ADD VALUE IF NOT EXISTS 'email_forward';
