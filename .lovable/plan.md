@@ -1,66 +1,44 @@
+# Plan: KI-Menüvorschlag mit 3 Varianten (Low / Medium / High)
 
-## Ziel
-Unter dem RequestContextBanner einen Button **„Menü mit KI vorschlagen"** ergänzen, der aus Anfrage-Kontext (Anlass, Nachricht, Budget-Hinweise, Ortsbezug wie „Harlaching") + Storia-Pool (Menu-Items + Pakete) einen passenden Vorschlag generiert und in die **nächste freie Option (A–E)** schreibt.
+## Was sich ändert (gegenüber dem aktuellen Stand)
 
-## Was wird gebaut
+Der bereits gebaute Button "Menü mit KI vorschlagen" generiert aktuell **eine** Variante. Er wird umgebaut auf **drei Varianten in einem Durchgang**, die in die drei nächsten freien Optionen geschrieben werden.
 
-### 1. Neue Edge Function `generate-menu-suggestion`
-`supabase/functions/generate-menu-suggestion/index.ts`, `verify_jwt = false` (gleicher Pattern wie `generate-inquiry-email`).
+## Verhalten
 
-**Input:** `{ inquiryId }`
+1. Klick auf "Menü mit KI vorschlagen" im `RequestContextBanner`.
+2. Edge Function liest die Anfrage (event_type, message, guest_count, location, source, evtl. selected_packages, evtl. genanntes Budget) sowie alle aktiven `packages` und `menu_items`.
+3. KI (Gemini 2.5 Pro) "spürt" aus dem Kontext eine sinnvolle Basis-Preislage (Ort, Anlass, Tonfall, Branche) und legt **drei Varianten** darum herum:
+   - **Low** – schlanker, pragmatisch, untere Spanne
+   - **Medium** – Empfehlung, mittig
+   - **High** – gehoben, obere Spanne
+   Jede Variante darf eigenständig entweder ein **Paket** oder ein **Mehrgang-/Buffet-Menü aus menu_items** sein – die KI wählt pro Variante das Passendste.
+4. Die drei Varianten landen in den **drei nächsten freien Optionen** (z. B. ist A belegt → B, C, D). Sind weniger als 3 frei, werden fehlende Optionen via `builder.addOption()` ergänzt (bis Maximum E; was darüber hinaus ginge, wird verworfen mit Toast-Hinweis).
+5. Jede Option bekommt im Titel/Notiz-Feld ein Label `KI · Low`, `KI · Medium`, `KI · High` plus die kurze Begründung der KI, damit der Betreiber sofort sieht, was wo ist.
+6. Erfolgs-Toast zeigt die übergeordnete KI-Begründung (Wahrnehmung der Anfrage).
 
-**Server lädt:**
-- `v2_events` (event_type, message, guest_count, source, selected_packages, budget-Felder falls vorhanden, location/Adresse aus Nachricht)
-- Alle aktiven `packages` (+ Beschreibung, Preis, Personen)
-- Alle aktiven `menu_items` (id, name, category_name, description, price)
+## Preis-Logik (kontextuell, keine fixen Bänder)
 
-**Prompt-Strategie (Gemini 2.5 Pro):**
-System-Prompt erklärt der KI:
-- Sie ist Maître des Storia (italienisches Restaurant in München).
-- **Preis-Fingerspitzengefühl:** Falls Kunde explizites Budget nennt → einhalten. Sonst aus Anlass + Ortsbezug + Sprachstil der Nachricht ableiten (z. B. „Harlaching/Bogenhausen/Grünwald" = gehoben; „Studenten-WG/locker" = einfach; Firmenfeier ohne Hinweis = mittel; Hochzeit = gehoben).
-- **Modus-Entscheidung:** Hochzeit/Geburtstag/Jubiläum → Mehrgang-Menü. Firmenfeier/Empfang/Casual → Buffet/Fingerfood. Fallback: Mehrgang.
-- **Quelle:** Entweder ein passendes Paket als Basis vorschlagen ODER Items aus `menu_items` zu Courses kombinieren.
+Die KI bekommt im System-Prompt nur Leitplanken, keine festen Prozentsätze:
+- Lies Ort, Anlass, Sprache/Tonfall, Branche, evtl. Budget aus der Anfrage.
+- Bilde innerlich ein Bauchgefühl für die "Mitte" (Medium).
+- Low/High = bewusst niedriger / gehobener als Medium, aber im Rahmen dessen, was bei diesem Kunden glaubwürdig wirkt – nicht mechanisch ±X %.
+- Wenn der Kunde ein Budget nennt, ankert Medium dort; Low/High passen sich an.
 
-**Output (structured via AI SDK `Output.object`):**
-```ts
-{
-  mode: "paket" | "menu",
-  reasoning: string,        // 1-2 Sätze für Toast
-  packageId?: string,       // wenn mode=paket
-  courses?: Array<{         // wenn mode=menu
-    courseName: string,     // "Antipasti", "Primo", "Secondo", "Dolce"
-    itemIds: string[]
-  }>,
-  estimatedPricePerPerson: number
-}
-```
+## Technische Umsetzung
 
-### 2. RequestContextBanner erweitern
-Neuer Button **„Menü mit KI vorschlagen"** (Sparkles-Icon, `secondaryElevated`) unter der bestehenden Action-Zeile. Disabled wenn `isSignatureLocked` oder keine freie Option mehr (A–E voll).
+**Edge Function** `generate-menu-suggestion` (bereits vorhanden, wird angepasst):
+- Response-Schema neu: `{ overallReasoning: string, variants: [{ tier: "low" | "medium" | "high", reasoning: string, mode: "paket" | "menu", packageId?: string, courses?: [{ courseName, itemIds }], estimatedPricePerPerson: number }] }`
+- System-Prompt um Variantenlogik + Kontext-Sensitivität erweitert (keine Hardcode-Bänder, keine Hardcode-Ortsnamen).
+- Validiert: genau 3 Varianten, Tiers eindeutig, IDs existieren.
 
-Neue Prop: `onGenerateMenuSuggestion?: () => Promise<void>` + `isGenerating: boolean`.
+**`OfferBuilder.tsx`**:
+- `handleGenerateMenuSuggestion` iteriert über die 3 Varianten, sucht je nächste freie Option oder ruft `builder.addOption()`, schreibt Paket oder `menuSelection` analog zum bestehenden Mapping.
+- Bei jeder Variante: `optionName`/Notiz mit Tier-Label + Kurzbegründung.
+- Ein gesammelter Toast am Ende mit `overallReasoning` und Liste der befüllten Optionen.
 
-### 3. OfferBuilder-Verdrahtung
-In `OfferBuilder.tsx`:
-- Neuer State `isGeneratingMenu`.
-- Handler ruft Edge Function, findet **erste leere Option** (`!packageId && offerMode !== "paket" && courses.length === 0`).
-- Falls keine leere vorhanden → `builder.addOption()` und dann füllen.
-- Mappt Response:
-  - `mode=paket` → `updateOption({ offerMode: "paket", packageId, packageName })`
-  - `mode=menu` → `updateOption({ offerMode: "menu", menuSelection: { courses: [...] } })` (gleiches Schema wie Menü-Wizard)
-- Toast zeigt `reasoning` der KI als Begründung.
+**`RequestContextBanner.tsx`**:
+- Button-Label bleibt "Menü mit KI vorschlagen", Tooltip wird zu „Erzeugt 3 Varianten (Low/Medium/High) in den nächsten freien Optionen".
+- Disabled-Logik: deaktiviert, wenn weniger als 1 Option frei **und** Maximum E erreicht ist.
 
-### 4. config.toml
-`[functions.generate-menu-suggestion] verify_jwt = false`
-
-## Was NICHT angefasst wird
-- Keine DB-Migration.
-- `useOfferBuilder`, `OptionCardGrid`, `EmailComposer` bleiben unverändert (nur `updateOption`/`addOption` werden genutzt).
-- `generate-inquiry-email` bleibt unverändert.
-- Bestehender Paket-Übernahme-Button bleibt.
-
-## Akzeptanzkriterien
-- Klick auf Button bei Maximilian Walter (Harlaching, Anlass X) → erzeugt Vorschlag im gehobenen Segment.
-- Vorschlag landet in nächster freier Option, andere Optionen unberührt.
-- Toast zeigt KI-Begründung („Gewähltes Premium-Menü passend zu Harlaching/Hochzeit").
-- Bei vollen Optionen A–E: neue Option F? Nein — Toast „Keine freie Option, bitte erst eine leeren".
+**Nicht angefasst**: `useOfferBuilder`, Schemata in der DB, `EmailComposer`, `generate-inquiry-email`, Paket-Transfer-Button, `config.toml` (keine neue Function, kein verify_jwt-Eintrag nötig).
