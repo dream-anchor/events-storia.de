@@ -42,13 +42,24 @@ Melde JEDE Abweichung als Finding via Tool-Call report_findings.
 
 PRÜFKRITERIEN:
 1. completeness — Jeder Tag und jede Mahlzeit aus dem Text muss im JSON erscheinen. Keine Sektion / Speise darf fehlen.
-2. pricing — Jeder flatPriceNet, taxBreakdown.foodNet/servicesNet und totalsFromText.net/gross muss EXAKT mit den Zahlen im Text übereinstimmen (1:1, keine Rundung, keine Berechnung).
+2. pricing — Wenn der Text einen Preis nennt, muss er EXAKT (1:1) im passenden Feld stehen:
+     • Pauschale "X € netto" → meal.flatPriceNet
+     • "ab/ca. X € pro Person" → meal.pricePerPersonNet (NICHT flatPriceNet)
+     • Stundensatz "X € pro Stunde" / Pauschale "Anfahrt X €" → additionalServices[] (KEIN taxBreakdown.servicesNet, solange keine Stunden/Mengen im Text)
+     • Kalkulationsblock-Zahlen → taxBreakdown / totalsFromText
+   WICHTIG: 0 im JSON bedeutet "im Text nicht genannt" und ist NIE ein Finding.
+   Flag NUR, wenn der Text eine konkrete Zahl nennt UND das JSON eine ANDERE Nicht-Null-Zahl trägt, oder wenn eine im Text genannte Zahl komplett fehlt (weder im erwarteten Feld noch in additionalServices).
+   Wenn meal.pricePerPersonNet > 0 ist, darf meal.flatPriceNet = 0 sein — KEIN Finding.
+   Wenn der Text KEINE Gesamtsumme nennt, darf totalsFromText.net/gross = 0 sein — KEIN Finding.
+   Wenn der Text KEINE Kalkulations-Sub-Summen nennt, darf taxBreakdown.foodNet/servicesNet = 0 sein — KEIN Finding.
 3. guests_dates — guestCount pro Mahlzeit, dateLabel und isoDate müssen korrekt zugeordnet sein.
+   Wenn der Text keine Gästezahl nennt, ist guestCount=0 KEIN Finding.
 4. notes — Alle HINWEISE-Punkte müssen in notes[] erscheinen; LEISTUNGSUMFANG in scopeOfServices[].
+5. additionalServices — Jede Zeile aus dem Text mit Stunden-/Pauschal-/Stück-Preis (Service-Personal, Auf-/Abbau, Anfahrt, Abfahrt, Equipment) muss als Eintrag in additionalServices[] erscheinen.
 
 REGELN:
-- severity="critical" bei: falscher/fehlender Preis, falsches Total, komplett fehlender Tag oder fehlende Mahlzeit.
-- severity="warning" bei: fehlende Sektion, fehlende Speise, fehlende Hinweis-Zeile, fehlender Scope-Punkt, falsche Gästezahl.
+- severity="critical" bei: Preis-Mismatch (Text-Zahl ≠ JSON-Zahl), komplett fehlender Tag oder fehlende Mahlzeit, im Text genannte Pauschale komplett fehlt.
+- severity="warning" bei: fehlende Sektion, fehlende Speise, fehlende Hinweis-Zeile, fehlender Scope-Punkt, fehlende additionalServices-Zeile, falsche Gästezahl.
 - ok=true NUR wenn ALLE Prüfkriterien erfüllt sind (keine Findings).
 - ok=false wenn mindestens 1 critical Finding ODER ≥3 warnings.
 - path: dot/bracket-Notation, z.B. "days[1].meals[0].flatPriceNet".

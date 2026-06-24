@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import type { FreeformProgram, FreeformProgramMeal, FreeformProgramDay, FreeformProgramSection, ValidationFinding } from "./types";
+import type { FreeformProgram, FreeformProgramMeal, FreeformProgramDay, FreeformProgramSection, FreeformAdditionalService, ValidationFinding } from "./types";
 import { LinePriceModeToggle } from "./LinePriceModeToggle";
 
 interface FreeformProgramEditorProps {
@@ -118,6 +118,26 @@ export function FreeformProgramEditor({
   const updateTotals = (patch: Partial<FreeformProgram["totalsFromText"]>) => {
     onChange({ ...program, totalsFromText: { ...program.totalsFromText, ...patch } });
   };
+
+  // Zusatzleistungen
+  const services: FreeformAdditionalService[] = program.additionalServices ?? [];
+  const setServices = (next: FreeformAdditionalService[]) => {
+    onChange({ ...program, additionalServices: next.length ? next : null });
+  };
+  const addService = () => {
+    setServices([
+      ...services,
+      { id: `svc-${Date.now()}`, label: "", unitPriceNet: 0, unit: "hour", quantity: null, vatRate: 19 },
+    ]);
+  };
+  const updateService = (id: string, patch: Partial<FreeformAdditionalService>) => {
+    setServices(services.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  };
+  const removeService = (id: string) => {
+    setServices(services.filter((s) => s.id !== id));
+  };
+  const unitLabel = (u: FreeformAdditionalService["unit"]) =>
+    u === "hour" ? "€ / Stunde" : u === "piece" ? "€ / Stück" : "€ Pauschal";
 
   const discount = program.discount ?? { mode: 'percent' as const, value: 0 };
   const updateDiscount = (patch: Partial<NonNullable<FreeformProgram["discount"]>>) => {
@@ -306,8 +326,33 @@ export function FreeformProgramEditor({
                           }
                           disabled={disabled}
                           className="h-7 w-28 text-xs text-right"
+                          placeholder="Pauschal"
                         />
-                        <span className="text-xs text-muted-foreground">€ netto</span>
+                        <span className="text-xs text-muted-foreground">€ pausch.</span>
+                        <Input
+                          value={meal.pricePerPersonPrefix ?? ""}
+                          onChange={(e) =>
+                            updateMeal(day.id, meal.id, { pricePerPersonPrefix: e.target.value || null })
+                          }
+                          disabled={disabled}
+                          placeholder="ab"
+                          className="h-7 w-10 text-[10px] text-center ml-1"
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={meal.pricePerPersonNet ?? ""}
+                          onChange={(e) =>
+                            updateMeal(day.id, meal.id, {
+                              pricePerPersonNet: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          disabled={disabled}
+                          className="h-7 w-20 text-xs text-right"
+                          placeholder="0,00"
+                        />
+                        <span className="text-[10px] text-muted-foreground">€/Pers.</span>
                         <Input
                           type="number"
                           step="0.1"
@@ -374,6 +419,96 @@ export function FreeformProgramEditor({
         <Button type="button" variant="outline" size="sm" onClick={addDay} disabled={disabled} className="gap-1.5 w-full">
           <Plus className="h-3.5 w-3.5" /> Tag hinzufügen
         </Button>
+      </div>
+
+      {/* Zusätzliche Leistungen (Stunden / Pauschal / Stück) */}
+      <div className="rounded-xl border border-border/40 bg-muted/10 px-4 py-3">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Zusätzliche Leistungen ({services.length})
+          </h4>
+          <Button type="button" variant="ghost" size="sm" onClick={addService} disabled={disabled} className="h-7 text-xs gap-1">
+            <Plus className="h-3 w-3" /> Leistung
+          </Button>
+        </div>
+        {services.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">
+            z.B. Service-Personal 59 €/h, Anfahrt 50 € pauschal, Equipment-Stückpreise.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {services.map((svc) => (
+              <div key={svc.id} className="flex items-center gap-2 flex-wrap">
+                <Input
+                  value={svc.label}
+                  onChange={(e) => updateService(svc.id, { label: e.target.value })}
+                  disabled={disabled}
+                  placeholder="Bezeichnung (z.B. Service-Personal)"
+                  className="h-7 text-xs flex-1 min-w-[160px]"
+                />
+                <select
+                  value={svc.unit}
+                  onChange={(e) => updateService(svc.id, { unit: e.target.value as FreeformAdditionalService["unit"] })}
+                  disabled={disabled}
+                  className="h-7 text-xs rounded-md border border-input bg-background px-2"
+                >
+                  <option value="hour">€ / Stunde</option>
+                  <option value="flat">€ Pauschal</option>
+                  <option value="piece">€ / Stück</option>
+                </select>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={svc.unitPriceNet}
+                  onChange={(e) => updateService(svc.id, { unitPriceNet: parseFloat(e.target.value) || 0 })}
+                  disabled={disabled}
+                  className="h-7 w-24 text-xs text-right"
+                />
+                <span className="text-[10px] text-muted-foreground">{unitLabel(svc.unit)}</span>
+                {svc.unit !== "flat" && (
+                  <>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      value={svc.quantity ?? ""}
+                      onChange={(e) =>
+                        updateService(svc.id, {
+                          quantity: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      disabled={disabled}
+                      placeholder="Menge"
+                      className="h-7 w-16 text-xs text-right"
+                    />
+                    <span className="text-[10px] text-muted-foreground">{svc.unit === "hour" ? "h" : "Stk"}</span>
+                  </>
+                )}
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={svc.vatRate}
+                  onChange={(e) => updateService(svc.id, { vatRate: parseFloat(e.target.value) || 0 })}
+                  disabled={disabled}
+                  className="h-7 w-14 text-[10px] text-right"
+                />
+                <span className="text-[10px] text-muted-foreground">% MwSt</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeService(svc.id)}
+                  disabled={disabled}
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Kalkulation */}

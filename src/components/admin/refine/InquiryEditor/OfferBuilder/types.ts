@@ -67,6 +67,10 @@ export interface FreeformProgramMeal {
   sections: FreeformProgramSection[];
   flatPriceNet: number;
   vatRate: number;
+  /** Optional: Preis pro Person (netto). Wird gesetzt, wenn der Text "X € pro Person" nennt. */
+  pricePerPersonNet?: number | null;
+  /** Optional: Präfix wörtlich aus dem Text, z.B. "ab", "ca.". Nur Anzeige. */
+  pricePerPersonPrefix?: string | null;
 }
 
 export interface FreeformProgramDay {
@@ -97,6 +101,22 @@ export interface FreeformProgram {
   rawText?: string | null;
   /** Optionaler Rabatt — wird vom Brutto-Gesamtbetrag abgezogen. */
   discount?: { mode: 'percent' | 'amount'; value: number } | null;
+  /** Zusätzliche Leistungen wie Service-Personal (€/h), Anfahrt (Pauschal) etc. */
+  additionalServices?: FreeformAdditionalService[] | null;
+}
+
+/** Zusatzleistung (Personal nach Stunden, Anfahrt-Pauschale, Equipment-Stück etc.). */
+export interface FreeformAdditionalService {
+  id: string;
+  label: string;
+  /** Einzelpreis netto pro Einheit (Stunde/Pauschal/Stück). */
+  unitPriceNet: number;
+  /** Einheit. 'hour' = €/h, 'flat' = Pauschale, 'piece' = €/Stück. */
+  unit: 'hour' | 'flat' | 'piece';
+  /** Menge (Stunden / Stücke). Bei 'flat' optional, sonst Default 1. */
+  quantity?: number | null;
+  /** MwSt-Satz (Default 19 für Dienstleistungen). */
+  vatRate: number;
 }
 
 /** Red-Team-Validation-Finding (transient, nicht persistiert). */
