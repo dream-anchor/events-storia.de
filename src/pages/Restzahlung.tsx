@@ -36,10 +36,7 @@ export default function Restzahlung() {
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
-        .from("balance_payment_links")
-        .select("*")
-        .eq("slug", slug)
-        .eq("active", true)
+        .rpc("get_balance_payment_link_by_slug", { p_slug: slug })
         .maybeSingle();
       if (cancelled) return;
       if (error || !data) {
