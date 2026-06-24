@@ -1,25 +1,7 @@
 import { useState, useEffect } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { clearCachedAdmin, getCachedAuth, setCachedAuth, type AppRole } from "@/components/admin/AdminAuthGuard";
-
-const SESSION_TIMEOUT_MS = 6000;
-const ROLE_TIMEOUT_MS = 8000;
-
-const withTimeout = async <T,>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> => {
-  const wrappedPromise = Promise.resolve(promise);
-
-  return Promise.race([
-    wrappedPromise,
-    new Promise<never>((_, reject) => {
-      const t: ReturnType<typeof setTimeout> = setTimeout(
-        () => reject(new Error(`${label} timeout`)),
-        timeoutMs
-      );
-      wrappedPromise.finally(() => clearTimeout(t));
-    }),
-  ]);
-};
+import { clearCachedAdmin, getCachedAuth, loadAdminRole } from "@/lib/adminAuth";
 
 export const useAdminAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -30,47 +12,70 @@ export const useAdminAuth = () => {
   useEffect(() => {
     let mounted = true;
 
-    // Set up auth state listener FIRST
+    const checkRole = async (userId: string) => {
+      const cached = getCachedAuth();
+      if (cached?.userId === userId) {
+        if (mounted) {
+          setIsAdmin(true);
+          setLoading(false);
+        }
+        return;
+      }
+      const role = await loadAdminRole(userId);
+      if (!mounted) return;
+      if (role) {
+        setIsAdmin(true);
+      } else {
+        clearCachedAdmin();
+        setIsAdmin(false);
+      }
+      setLoading(false);
+    };
+
+    // Auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
-        
-        // Defer role check to avoid deadlock
+
         if (session?.user) {
-          setLoading(true);
           setTimeout(() => {
-            if (mounted) checkAdminRole(session.user.id);
+            if (mounted) checkRole(session.user.id);
           }, 0);
-        } else {
-          clearCachedAdmin();
-          setIsAdmin(false);
-          setLoading(false);
+        } else if (event === 'SIGNED_OUT') {
+          // Race-Schutz: nur loggen, wenn wirklich keine Session
+          setTimeout(async () => {
+            if (!mounted) return;
+            const { data } = await supabase.auth.getSession();
+            if (!mounted) return;
+            if (!data?.session?.user) {
+              clearCachedAdmin();
+              setIsAdmin(false);
+              setLoading(false);
+            }
+          }, 0);
         }
       }
     );
 
-    // THEN check for existing session
-    withTimeout(supabase.auth.getSession(), SESSION_TIMEOUT_MS, 'getSession')
+    supabase.auth.getSession()
       .then(({ data: { session } }) => {
         if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
-          checkAdminRole(session.user.id);
+          checkRole(session.user.id);
         } else {
           clearCachedAdmin();
+          setIsAdmin(false);
           setLoading(false);
         }
       })
       .catch((err) => {
         console.error('Error loading admin session:', err);
         if (!mounted) return;
-        setSession(null);
-        setUser(null);
-        setIsAdmin(false);
         setLoading(false);
       });
 
@@ -79,49 +84,6 @@ export const useAdminAuth = () => {
       subscription.unsubscribe();
     };
   }, []);
-
-  const checkAdminRole = async (userId: string): Promise<boolean> => {
-    try {
-      const cached = getCachedAuth();
-      if (cached?.userId === userId) {
-        setIsAdmin(true);
-        setLoading(false);
-        return true;
-      }
-
-      const { data, error } = await withTimeout(
-        supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .in('role', ['admin', 'staff'])
-        .maybeSingle(),
-        ROLE_TIMEOUT_MS,
-        'admin role check'
-      );
-
-      if (error) {
-        clearCachedAdmin();
-        setIsAdmin(false);
-        return false;
-      } else {
-        if (data?.role) {
-          setCachedAuth(userId, data.role as AppRole);
-        } else {
-          clearCachedAdmin();
-        }
-        setIsAdmin(!!data);
-        return !!data;
-      }
-    } catch (err) {
-      console.error('Error checking admin role:', err);
-      clearCachedAdmin();
-      setIsAdmin(false);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -135,11 +97,17 @@ export const useAdminAuth = () => {
       return { error: new Error('Anmeldung konnte nicht bestätigt werden') };
     }
 
-    const hasAdminAccess = await checkAdminRole(data.user.id);
-    if (!hasAdminAccess) {
+    const role = await loadAdminRole(data.user.id);
+    if (!role) {
       await supabase.auth.signOut();
+      clearCachedAdmin();
       return { error: new Error('Keine Admin-Berechtigung für dieses Konto') };
     }
+    // Optimistisch State setzen, damit Guards sofort durchlassen
+    setUser(data.user);
+    setSession(data.session);
+    setIsAdmin(true);
+    setLoading(false);
 
     return { error };
   };

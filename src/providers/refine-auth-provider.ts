@@ -1,7 +1,7 @@
 import { AuthProvider } from "@refinedev/core";
 import { supabase } from "@/integrations/supabase/client";
 import { getAdminDisplayName } from "@/lib/adminDisplayNames";
-import { getCachedAuth, setCachedAuth, clearCachedAdmin, type AppRole } from "@/components/admin/AdminAuthGuard";
+import { getCachedAuth, clearCachedAdmin, loadAdminRole } from "@/lib/adminAuth";
 
 export const supabaseAuthProvider: AuthProvider = {
   login: async ({ email, password }) => {
@@ -61,32 +61,26 @@ export const supabaseAuthProvider: AuthProvider = {
       const { data } = await supabase.auth.getSession();
 
       if (!data?.session) {
+        // Bei Netzwerk-Hiccup: wenn Cache noch da ist, NICHT sofort umleiten.
+        const cached = getCachedAuth();
+        if (cached) return { authenticated: true };
         return { authenticated: false, redirectTo: "/admin/login" };
       }
 
       const userId = data.session.user.id;
 
-      // Use shared cache — AdminAuthGuard already verified this
       const cached = getCachedAuth();
       if (cached?.userId === userId) {
         return { authenticated: true };
       }
 
-      // Fallback: query DB (should rarely happen since AdminAuthGuard runs first)
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .in('role', ['admin', 'staff']);
-
-      if (roles && roles.length > 0) {
-        // Speichere höchste Rolle (admin > staff)
-        const role: AppRole = roles.some(r => r.role === 'admin') ? 'admin' : 'staff';
-        setCachedAuth(userId, role);
-        return { authenticated: true };
-      }
+      const role = await loadAdminRole(userId);
+      if (role) return { authenticated: true };
     } catch (err) {
       console.error('Refine auth check error:', err);
+      // Bei Fehler nicht hart auf Login schicken, wenn Cache vorhanden ist.
+      const cached = getCachedAuth();
+      if (cached) return { authenticated: true };
     }
 
     return { authenticated: false, redirectTo: "/admin/login" };
@@ -119,17 +113,12 @@ export const supabaseAuthProvider: AuthProvider = {
 
     const userId = data.session.user.id;
 
-    // Check cache first
     const cached = getCachedAuth();
     if (cached?.userId === userId) {
       return [cached.role];
     }
 
-    const { data: roles } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId);
-
-    return roles?.map(r => r.role) || [];
+    const role = await loadAdminRole(userId);
+    return role ? [role] : [];
   },
 };

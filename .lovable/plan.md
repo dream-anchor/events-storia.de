@@ -1,67 +1,49 @@
 ## Ziel
-Automatischer „Google-Bewertung erbitten"-E-Mail-Versand **2 Werktage nach durchgeführtem Catering**, im Admin global deaktivierbar (Default: aktiv). Look & Copy exakt wie im hochgeladenen Mockup (Bordeaux #6b1f2a / Creme #f8f1e4, Playfair-Heading, „Grazie für Ihr Vertrauen", CTA „Auf Google bewerten", Signatur Domenico Speranza).
+Den Admin-Login so umbauen, dass eine erfolgreiche Anmeldung nicht mehr zurück auf `/admin/login` springt und keine konkurrierenden Auth-Prüfungen den Zustand überschreiben.
 
-## Scope der Auslöser
-Ein einziger Job, der zwei Quellen prüft:
-1. `v2_events` mit Status `completed` (Events mit Catering — alle anderen ausgeschlossen)
-2. `catering_orders` mit Status `delivered`/`completed`
+## Feststellung
+- Die Anmeldung im Backend funktioniert: der Benutzer `info@ristorantestoria.de` hat die Rolle `admin`.
+- Die `user_roles`-Policies erlauben dem Benutzer, die eigene Rolle zu lesen.
+- Das Problem sitzt im Frontend-Auth-Flow: `AdminLogin`, `useAdminAuth`, `AdminAuthGuard` und Refine `authProvider.check()` prüfen parallel Session/Rolle und können kurzzeitig `unauthenticated` liefern. Refine leitet dann wieder auf `/admin/login` um.
 
-Bedingungen pro Datensatz:
-- Eventdatum / Lieferdatum liegt **exakt 2 Werktage** (Mo–Fr, DE-Feiertage Bayern ignoriert in V1 — nur Wochenenden ausgenommen) zurück
-- Kunden-E-Mail vorhanden, nicht in `suppressed_emails`
-- Noch keine Review-Mail für diesen Datensatz versendet (Idempotenz)
-- Kunde nicht via Footer-Link „Keine weiteren Nachrichten" abgemeldet
+## Umsetzungsplan
+1. **Eine zentrale Admin-Auth-Utility einführen**
+   - Gemeinsame Funktionen für Session lesen, Rollen laden, Cache setzen/löschen und Timeouts.
+   - Kein doppelter Rollen-Code mehr in Guard, Hook und Refine-Provider.
 
-## Admin-Toggle
-- Globaler Schalter in **Admin → Einstellungen → Benachrichtigungen**: „Google-Bewertungsanfrage 2 Werktage nach Catering versenden" (Default: **an**)
-- Live aus DB lesbar, sofort wirksam (kein Deploy nötig)
-- Anzeige: letzter Lauf, Anzahl heute versendet, Link zu Log
+2. **Login-Flow atomar machen**
+   - Nach `signInWithPassword` die zurückgegebene Session/User-ID direkt verwenden.
+   - Rolle direkt danach prüfen und cachen.
+   - Erst nach erfolgreicher Rollenprüfung nach `/admin` navigieren.
+   - Wenn keine Admin-/Staff-Rolle vorhanden ist: sauber abmelden und deutsche Fehlermeldung zeigen.
 
-## Technische Umsetzung
+3. **AdminAuthGuard robust machen**
+   - Beim ersten Laden zuerst lokalen Session-Zustand abwarten.
+   - Während der Rollenprüfung niemals auf `unauthenticated` springen, solange eine Session vorhanden ist.
+   - `SIGNED_OUT` nur dann als Logout behandeln, wenn danach wirklich keine Session mehr vorhanden ist, um Refresh-Races abzufangen.
 
-### DB-Migration
-- Neue Zeile in vorhandener Settings-Tabelle (oder neue `app_settings`-Row): Key `review_request_enabled` boolean default true, `review_request_delay_business_days` int default 2, `review_google_url` text
-- Neue Tabelle `review_request_log` (event_id nullable, order_id nullable, recipient_email, sent_at, message_id, status) — RLS admin-only, GRANT staff read, service_role all
-- Neue Tabelle `review_request_unsubscribes` (email pk, unsubscribed_at) — pflegt Footer-Link
-- Eindeutiger Index auf (event_id) und (order_id) verhindert Doppelversand
+4. **Refine AuthProvider entschärfen**
+   - `check()` verwendet dieselbe zentrale Prüfung.
+   - Bei temporären Timeout-/Netzwerkproblemen nicht sofort hart auf Login umleiten, wenn eine gecachte Admin-Rolle zur aktuellen Session passt.
+   - `getPermissions()` und `getIdentity()` verwenden denselben Cache/Session-Pfad.
 
-### Edge Function `send-review-requests`
-- Liest Settings; bei `enabled=false` → exit
-- Berechnet Stichtag: heute minus 2 Werktage
-- Selektiert Kandidaten aus beiden Tabellen, joint Kundendaten (Anrede, Nachname, E-Mail, bevorzugte Sprache)
-- Rendert HTML aus Template (DE Default; EN-Block analog bestehender bilingualer Mails, falls `customer_language='en'`)
-- Versendet via `sendEmailWithFallback` (Resend → IONOS), schreibt Log
-- Footer enthält Unsubscribe-Link → Edge Function `review-unsubscribe` schreibt in `review_request_unsubscribes`
+5. **Login-Seite vereinfachen**
+   - Keine zweite konkurrierende Auto-Weiterleitung aus `useEffect`, die gegen Guard/Refine laufen kann.
+   - Nach erfolgreichem Login `navigate('/admin', { replace: true })`, damit der Login nicht in der History bleibt.
 
-### Template
-- Inline-HTML im Stil des Mockups, mobile-first, MSO-Reset
-- Variablen: `{{Anrede}}`, `{{Nachname}}`, Google-URL aus Settings
-- Klein gehaltener Plaintext-Alt-Body
-- BCC an `info@events-storia.de` (analog Offer-Archive-BCC-Regel)
-- Mehrsprachig: DE oben, EN unten falls customer_language!=de (Bilingual-Standard)
+6. **Verifikation**
+   - TypeScript-Check ausführen.
+   - Per Browser-Test mit vorhandener Preview-Session `/admin/login → Login → /admin` und Reload auf `/admin` prüfen.
+   - Falls weiterhin ein Redirect passiert, gezielte Debug-Logs nur für Admin-Auth ergänzen und anhand der Live-Konsole finalisieren.
 
-### Cron
-- `pg_cron` Job täglich **10:00 Europe/Berlin**, ruft `send-review-requests` mit Service-Role-Header
-- Manueller „Jetzt ausführen (Dry-Run)"-Button im Admin
+## Betroffene Dateien
+- `src/lib/adminAuth.ts` neu
+- `src/components/admin/AdminAuthGuard.tsx`
+- `src/hooks/useAdminAuth.ts`
+- `src/providers/refine-auth-provider.ts`
+- `src/pages/AdminLogin.tsx`
 
-### Admin-UI
-- In `Settings.tsx` neuer Block „Bewertungsanfragen":
-  - Switch (aktiv/inaktiv)
-  - Input Google-Bewertungs-URL
-  - Read-only: letzter Lauf, Versandzahl 7 Tage
-  - Button „Vorschau senden an mich"
-
-## Offen / zu bestätigen
-1. Google-Bewertungs-URL (Place-ID-Link) — bitte 1× liefern, wird in Settings persistiert
-2. Werktage: Wochenende ausschließen reicht, oder bayerische Feiertage auch berücksichtigen?
-3. Auch für reine **Restaurant-/Inhouse-Events ohne Catering-Lieferung** versenden, wenn `v2_events.status=completed`? (Mockup spricht von „Catering" — Standard: nur wenn Event-Typ Catering/Delivery enthält)
-4. Versand-Uhrzeit (Vorschlag: 10:00 Europe/Berlin)
-5. Anrede-Fallback wenn `{{Anrede}}` leer (Vorschlag: „Guten Tag {{Vorname}} {{Nachname}}")
-
-## Was NICHT Teil dieses Builds ist
-- Keine Änderung an bestehenden Reminder-Functions
-- Kein Trigger für Restaurant-Tisch-Reservierungen
-- Keine Mehrfachversände/Re-Reminder
-- Keine Sentiment-Weiche (positive vs. negative Reviews)
-
-Nach Freigabe + Antworten auf die 5 Punkte: Build via Migration + Edge Function + Settings-UI + Cron-Aktivierung in einem Schritt.
+## Nicht Teil des Fixes
+- Keine Datenbankmigration.
+- Keine Änderungen an Rollen/Policies.
+- Keine Änderungen an Customer-Login oder öffentlichen Seiten.
