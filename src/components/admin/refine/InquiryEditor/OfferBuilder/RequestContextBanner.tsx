@@ -174,7 +174,8 @@ export function RequestContextBanner({
       {showSuggestButton && (
         <div className="pt-3 border-t border-neutral-200/70 flex items-center justify-between gap-3">
           <p className="text-xs text-neutral-500 leading-snug">
-            Die KI liest Anlass, Nachricht und Ortsbezug — und schlägt passendes Menü oder Paket in der nächsten freien Option vor.
+            Die KI liest Anlass, Nachricht, Tonfall und Ortsbezug — und legt
+            <strong className="font-medium text-neutral-700"> 3 Varianten</strong> (Low · Medium · High) in die nächsten freien Optionen.
           </p>
           <Button
             type="button"
@@ -192,7 +193,7 @@ export function RequestContextBanner({
             ) : (
               <>
                 <Sparkles className="h-3.5 w-3.5" />
-                Menü mit KI vorschlagen
+                3 Menü-Varianten mit KI
               </>
             )}
           </Button>
