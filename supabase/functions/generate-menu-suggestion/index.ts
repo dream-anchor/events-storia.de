@@ -5,6 +5,7 @@ import { requireAuth, AuthError } from "../_shared/auth.ts";
 
 interface ReqBody {
   inquiryId: string;
+  target?: "event" | "catering";
 }
 
 interface MenuItemLite {
@@ -123,6 +124,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const target: "event" | "catering" = body.target === "catering" ? "catering" : "event";
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -252,7 +254,14 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-pro",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "system",
+            content:
+              target === "catering"
+                ? SYSTEM_PROMPT +
+                  `\n\nMODUS: CATERING-CART\n- Liefere GENAU EINE Variante (tier="medium", mode="menu").\n- Pakete sind in diesem Modus NICHT erlaubt.\n- Wähle 6–12 passende Catering-Items aus menu_items (Antipasti / Pasta / Mains / Dessert / Fingerfood je nach Anlass).\n- Wähle Mengen/Items so, dass der Cart eine kompletteCatering-Lieferung für die angefragte Gästezahl darstellt.`
+                : SYSTEM_PROMPT,
+          },
           { role: "user", content: context },
         ],
         tools: [tool],
@@ -371,7 +380,13 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ overallReasoning, variants }), {
+    // Im catering-Modus auf 1 Variante normalisieren (Medium-Tier bevorzugt, sonst erste).
+    const finalVariants =
+      target === "catering"
+        ? [variants.find((v) => v.tier === "medium") ?? variants[0]].filter(Boolean)
+        : variants;
+
+    return new Response(JSON.stringify({ overallReasoning, variants: finalVariants }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

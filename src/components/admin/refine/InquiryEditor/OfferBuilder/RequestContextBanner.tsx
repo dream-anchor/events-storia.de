@@ -20,6 +20,12 @@ interface RequestContextBannerProps {
   onGenerateMenuSuggestion?: () => void | Promise<void>;
   /** True während die KI generiert — sperrt den Button und zeigt Loader. */
   isGeneratingSuggestion?: boolean;
+  /**
+   * Steuert Button-Label und Hilfstext.
+   * - "event" (default): 3 Varianten in nächste freie Optionen A–E
+   * - "catering": 1 Vorschlag direkt in den Cart
+   */
+  mode?: "event" | "catering";
 }
 
 const MESSAGE_TEASER_LENGTH = 180;
@@ -31,6 +37,7 @@ export function RequestContextBanner({
   disabled = false,
   onGenerateMenuSuggestion,
   isGeneratingSuggestion = false,
+  mode = "event",
 }: RequestContextBannerProps) {
   const [messageExpanded, setMessageExpanded] = useState(false);
 
@@ -64,16 +71,23 @@ export function RequestContextBanner({
     Boolean(requestedPackageName) ||
     Boolean(inquiry.event_type) ||
     message.length > 0;
-
-  if (!hasAnyContext) return null;
+  // Banner wird IMMER angezeigt — damit der KI-Button auch bei leeren Anfragen
+  // erreichbar ist. Bei leerer Anfrage zeigen wir einen Platzhalter.
 
   const showApplyButton =
+    mode === "event" &&
     !disabled &&
     !inquiry.offer_sent_at &&
     Boolean(requestedPackageId) &&
     Boolean(onApplyPackageToOptionA);
 
   const showSuggestButton = !disabled && Boolean(onGenerateMenuSuggestion);
+
+  const suggestButtonLabel = mode === "catering" ? "Cart mit KI befüllen" : "3 Menü-Varianten mit KI";
+  const suggestHelpText =
+    mode === "catering"
+      ? "Die KI liest Anlass, Nachricht, Tonfall und Ortsbezug — und befüllt den Cart mit einer passenden Menü-Auswahl."
+      : "Die KI liest Anlass, Nachricht, Tonfall und Ortsbezug — und legt 3 Varianten (Low · Medium · High) in die nächsten freien Optionen.";
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-neutral-50/80 p-4 space-y-3">
@@ -133,6 +147,13 @@ export function RequestContextBanner({
         )}
       </dl>
 
+      {!hasAnyContext && (
+        <p className="text-sm italic text-neutral-500">
+          Keine Vor-Information aus der Anfrage — du kannst die KI trotzdem einen Vorschlag generieren lassen
+          (auf Basis Gästezahl, Datum und allgemeinem Stil).
+        </p>
+      )}
+
       <div className="pt-2 border-t border-neutral-200/70">
         <div className="flex items-start gap-2">
           <MessageSquare className="h-4 w-4 text-neutral-500 mt-0.5 shrink-0" />
@@ -173,10 +194,7 @@ export function RequestContextBanner({
 
       {showSuggestButton && (
         <div className="pt-3 border-t border-neutral-200/70 flex items-center justify-between gap-3">
-          <p className="text-xs text-neutral-500 leading-snug">
-            Die KI liest Anlass, Nachricht, Tonfall und Ortsbezug — und legt
-            <strong className="font-medium text-neutral-700"> 3 Varianten</strong> (Low · Medium · High) in die nächsten freien Optionen.
-          </p>
+          <p className="text-xs text-neutral-500 leading-snug">{suggestHelpText}</p>
           <Button
             type="button"
             variant="secondaryElevated"
@@ -193,7 +211,7 @@ export function RequestContextBanner({
             ) : (
               <>
                 <Sparkles className="h-3.5 w-3.5" />
-                3 Menü-Varianten mit KI
+                {suggestButtonLabel}
               </>
             )}
           </Button>
