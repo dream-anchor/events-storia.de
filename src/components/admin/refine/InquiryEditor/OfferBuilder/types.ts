@@ -318,7 +318,7 @@ export interface UseOfferBuilderReturn {
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
 
   // Option CRUD
-  addOption: (mode?: OfferMode, copyFrom?: OfferBuilderOption) => void;
+  addOption: (mode?: OfferMode, copyFrom?: OfferBuilderOption) => string | undefined;
   removeOption: (optionId: string) => void;
   /**
    * Setzt eine Option auf den Initialzustand zurueck — Kachel-Auswahl ('unselected')
