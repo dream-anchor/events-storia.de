@@ -1,5 +1,8 @@
 project_id = "sovlfqncotxcjqseeawp"
 
+[functions.purge-retention]
+verify_jwt = true
+
 [functions.imap-sync]
 verify_jwt = false
 

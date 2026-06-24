@@ -1214,6 +1214,13 @@ export type Database = {
             referencedRelation: "ai_conversations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_extractions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_ai_conversations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ai_messages: {
@@ -1247,6 +1254,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_ai_conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -1500,6 +1514,13 @@ export type Database = {
             foreignKeyName: "cost_acceptances_inquiry_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cost_acceptances_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -1581,6 +1602,116 @@ export type Database = {
           project?: Database["public"]["Enums"]["project_key"]
           severity_score?: number
           summary?: Json
+        }
+        Relationships: []
+      }
+      data_purge_audit: {
+        Row: {
+          affected_count: number
+          candidate_count: number
+          candidate_ids: Json | null
+          created_at: string
+          details: Json | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          mode: string
+          policy_id: string | null
+          scope: string
+          started_at: string
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          affected_count?: number
+          candidate_count?: number
+          candidate_ids?: Json | null
+          created_at?: string
+          details?: Json | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          mode: string
+          policy_id?: string | null
+          scope: string
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          affected_count?: number
+          candidate_count?: number
+          candidate_ids?: Json | null
+          created_at?: string
+          details?: Json | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          policy_id?: string | null
+          scope?: string
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_purge_audit_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "data_retention_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_retention_policies: {
+        Row: {
+          batch_limit: number
+          created_at: string
+          description: string
+          dry_run: boolean
+          enabled: boolean
+          hard_delete_after_days: number | null
+          id: string
+          last_run_at: string | null
+          last_run_candidate_count: number | null
+          last_run_mode: string | null
+          notes: string | null
+          scope: string
+          soft_delete_after_days: number | null
+          updated_at: string
+        }
+        Insert: {
+          batch_limit?: number
+          created_at?: string
+          description: string
+          dry_run?: boolean
+          enabled?: boolean
+          hard_delete_after_days?: number | null
+          id?: string
+          last_run_at?: string | null
+          last_run_candidate_count?: number | null
+          last_run_mode?: string | null
+          notes?: string | null
+          scope: string
+          soft_delete_after_days?: number | null
+          updated_at?: string
+        }
+        Update: {
+          batch_limit?: number
+          created_at?: string
+          description?: string
+          dry_run?: boolean
+          enabled?: boolean
+          hard_delete_after_days?: number | null
+          id?: string
+          last_run_at?: string | null
+          last_run_candidate_count?: number | null
+          last_run_mode?: string | null
+          notes?: string | null
+          scope?: string
+          soft_delete_after_days?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1899,6 +2030,13 @@ export type Database = {
             foreignKeyName: "event_email_filters_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "event_email_filters_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -1976,6 +2114,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_inquiries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "event_email_links_event_id_fkey"
@@ -2176,6 +2321,13 @@ export type Database = {
             foreignKeyName: "inbox_emails_suggested_event_id_fkey"
             columns: ["suggested_event_id"]
             isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "inbox_emails_suggested_event_id_fkey"
+            columns: ["suggested_event_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -2199,6 +2351,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_inquiries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_emails_suggestion_actual_event_id_fkey"
+            columns: ["suggestion_actual_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "inbox_emails_suggestion_actual_event_id_fkey"
@@ -2261,6 +2420,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiry_attachments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_ai_conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -3578,6 +3744,13 @@ export type Database = {
             foreignKeyName: "v2_event_changelog_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "v2_event_changelog_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -3635,6 +3808,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_inquiries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "v2_event_comments_event_id_fkey"
@@ -3746,6 +3926,13 @@ export type Database = {
             foreignKeyName: "v2_event_emails_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "v2_event_emails_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -3812,6 +3999,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_inquiries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_offer_history_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "v2_event_offer_history_event_id_fkey"
@@ -3895,6 +4089,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_inquiries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_tasks_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "v2_event_tasks_event_id_fkey"
@@ -4448,6 +4649,13 @@ export type Database = {
             foreignKeyName: "v2_offer_options_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -4578,6 +4786,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_inquiries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "v2_payments_event_id_fkey"
@@ -4849,6 +5064,13 @@ export type Database = {
             foreignKeyName: "v2_event_emails_event_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "v2_event_emails_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -5097,6 +5319,13 @@ export type Database = {
             foreignKeyName: "v2_payments_event_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -5161,6 +5390,13 @@ export type Database = {
             foreignKeyName: "v2_payments_event_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -5215,6 +5451,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_inquiries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_comments_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "v2_event_comments_event_id_fkey"
@@ -5297,6 +5540,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_inquiries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_offer_history_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "v2_event_offer_history_event_id_fkey"
@@ -5391,6 +5641,13 @@ export type Database = {
             foreignKeyName: "v2_offer_options_event_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -5478,6 +5735,13 @@ export type Database = {
             foreignKeyName: "v2_event_tasks_event_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "v2_event_tasks_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
@@ -5535,6 +5799,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_inquiries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_offer_options_event_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "v2_offer_options_event_id_fkey"
@@ -5641,6 +5912,129 @@ export type Database = {
         }
         Relationships: []
       }
+      v_purge_candidates_ai_conversations: {
+        Row: {
+          age_days: number | null
+          created_at: string | null
+          customer_email: string | null
+          id: string | null
+          inquiry_id: string | null
+        }
+        Insert: {
+          age_days?: never
+          created_at?: string | null
+          customer_email?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+        }
+        Update: {
+          age_days?: never
+          created_at?: string | null
+          customer_email?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+        }
+        Relationships: []
+      }
+      v_purge_candidates_attachments: {
+        Row: {
+          age_days: number | null
+          created_at: string | null
+          id: string | null
+          inquiry_id: string | null
+          storage_bucket: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          age_days?: never
+          created_at?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          age_days?: never
+          created_at?: string | null
+          id?: string | null
+          inquiry_id?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+        }
+        Relationships: []
+      }
+      v_purge_candidates_email_logs: {
+        Row: {
+          age_days: number | null
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string | null
+        }
+        Insert: {
+          age_days?: never
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string | null
+        }
+        Update: {
+          age_days?: never
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string | null
+        }
+        Relationships: []
+      }
+      v_purge_candidates_inquiry: {
+        Row: {
+          age_days: number | null
+          created_at: string | null
+          customer_id: string | null
+          event_id: string | null
+          service_type: Database["public"]["Enums"]["v2_event_service"] | null
+          source: Database["public"]["Enums"]["v2_event_source"] | null
+          status: Database["public"]["Enums"]["v2_event_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          age_days?: never
+          created_at?: string | null
+          customer_id?: string | null
+          event_id?: string | null
+          service_type?: Database["public"]["Enums"]["v2_event_service"] | null
+          source?: Database["public"]["Enums"]["v2_event_source"] | null
+          status?: Database["public"]["Enums"]["v2_event_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          age_days?: never
+          created_at?: string | null
+          customer_id?: string | null
+          event_id?: string | null
+          service_type?: Database["public"]["Enums"]["v2_event_service"] | null
+          source?: Database["public"]["Enums"]["v2_event_source"] | null
+          status?: Database["public"]["Enums"]["v2_event_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v2_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v2_payments_enriched: {
         Row: {
           amount_cents: number | null
@@ -5697,6 +6091,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_inquiries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "v2_payments_event_id_fkey"
