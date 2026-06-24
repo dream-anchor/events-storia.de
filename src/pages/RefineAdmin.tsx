@@ -5,6 +5,7 @@ import { supabaseDataProvider } from "@/providers/refine-data-provider";
 import { supabaseAuthProvider } from "@/providers/refine-auth-provider";
 import { Dashboard, EventsList, OrdersList, MenuItemsList, PackagesList, PackageEdit, LocationEdit, EventBookingsList, EventBookingEditor, Settings } from "@/components/admin/refine";
 import { LexOfficeInvoicesList } from "@/components/admin/refine/LexOfficeInvoicesList";
+import { VouchersList } from "@/components/admin/refine/VouchersList";
 import { CateringOrderEditor } from "@/components/admin/refine/CateringOrderEditor";
 import { SmartInquiryEditor } from "@/components/admin/refine/InquiryEditor";
 import { OfferSendPreview } from "@/components/admin/refine/InquiryEditor/OfferSendPreview";
@@ -132,6 +133,9 @@ export const RefineAdminApp = () => {
         </Route>
         <Route path="invoices">
           <Route index element={<LexOfficeInvoicesList mode="invoices" />} />
+        </Route>
+        <Route path="gutscheine">
+          <Route index element={<VouchersList />} />
         </Route>
         <Route path="menu">
           <Route index element={<MenuItemsList />} />
