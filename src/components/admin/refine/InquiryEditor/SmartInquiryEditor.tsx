@@ -17,6 +17,7 @@ import { OfferBuilder } from "./OfferBuilder";
 import type { OfferBuilderHandle } from "./OfferBuilder";
 // OfferHistoryList wurde in die Aktivitäten-Timeline (Details-Tab) integriert.
 import { CateringModules } from "./CateringModules";
+import { RequestContextBanner } from "./OfferBuilder/RequestContextBanner";
 import { ClientPreview } from "./ClientPreview";
 import { StaffNote } from "./StaffNote";
 import { TaskManager } from "@/components/admin/shared/TaskManager";
@@ -372,6 +373,60 @@ export const SmartInquiryEditor = () => {
   const handleItemRemove = useCallback((itemId: string) => {
     setQuoteItems(prev => prev.filter(i => i.id !== itemId));
   }, []);
+
+  // --- KI-Cart-Befüllung für Catering-Anfragen ---
+  const [isGeneratingCateringSuggestion, setIsGeneratingCateringSuggestion] = useState(false);
+  const handleGenerateCateringSuggestion = useCallback(async () => {
+    if (!id) return;
+    setIsGeneratingCateringSuggestion(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "generate-menu-suggestion",
+        { body: { inquiryId: id, target: "catering" } },
+      );
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      const variants = (data?.variants as Array<{
+        mode: "paket" | "menu";
+        courses?: Array<{
+          items: Array<{ id: string; rawId: string; name: string; description: string | null; price: number | null }>;
+        }>;
+      }> | undefined) ?? [];
+      const overallReasoning = (data?.overallReasoning as string | undefined) ?? "";
+      const variant = variants[0];
+      if (!variant || variant.mode !== "menu" || !Array.isArray(variant.courses)) {
+        toast.error("KI lieferte keinen Catering-Vorschlag");
+        return;
+      }
+      let added = 0;
+      for (const course of variant.courses) {
+        for (const it of course.items) {
+          handleItemAdd({
+            // Catering-Cart erwartet die rohe menu_items.id (ohne `catering_`-Prefix)
+            id: it.rawId,
+            name: it.name,
+            description: it.description,
+            price: it.price,
+          });
+          added += 1;
+        }
+      }
+      if (added === 0) {
+        toast.error("KI-Vorschlag enthielt keine Items");
+        return;
+      }
+      const headline = overallReasoning || "KI-Vorschlag in den Cart übernommen";
+      toast.success(`${headline}\n${added} Items hinzugefügt`, { duration: 8000 });
+    } catch (err) {
+      console.error("[CateringSuggestion] failed:", err);
+      toast.error("KI-Vorschlag fehlgeschlagen");
+    } finally {
+      setIsGeneratingCateringSuggestion(false);
+    }
+  }, [id, handleItemAdd]);
 
   // Get current user email for assignee feature
   useEffect(() => {
@@ -1262,14 +1317,23 @@ export const SmartInquiryEditor = () => {
             />
           ) : (
             /* Catering inquiries use existing flow */
-            <CateringModules
-              inquiry={mergedInquiry}
-              selectedItems={quoteItems}
-              onItemAdd={handleItemAdd}
-              onItemQuantityChange={handleItemQuantityChange}
-              onItemRemove={handleItemRemove}
-              onDeliveryChange={(field, value) => handleLocalFieldChange(field, value)}
-            />
+            <div className="space-y-6">
+              <RequestContextBanner
+                inquiry={mergedInquiry}
+                packages={packages}
+                mode="catering"
+                onGenerateMenuSuggestion={handleGenerateCateringSuggestion}
+                isGeneratingSuggestion={isGeneratingCateringSuggestion}
+              />
+              <CateringModules
+                inquiry={mergedInquiry}
+                selectedItems={quoteItems}
+                onItemAdd={handleItemAdd}
+                onItemQuantityChange={handleItemQuantityChange}
+                onItemRemove={handleItemRemove}
+                onDeliveryChange={(field, value) => handleLocalFieldChange(field, value)}
+              />
+            </div>
           )}
 
         </TabsContent>
