@@ -654,6 +654,9 @@ export default function PublicOffer() {
             renderPhase === "confirmed" ||
             renderPhase === "order_confirmed";
           if (!showPhase) return null;
+          // Bei reinen E-Mail-Angeboten (keine Option mit Preis/Stripe) ist
+          // keine verbindliche Kostenübernahme nötig — Block ausblenden.
+          if (options.length > 0 && options.every(o => o.offer_mode === 'email')) return null;
           const req = evaluateCostAcceptanceRequirement({
             depositMethod: (inquiry.deposit_method ?? null) as never,
             balanceMethod: (inquiry.balance_method ?? null) as never,
