@@ -326,8 +326,33 @@ export function FreeformProgramEditor({
                           }
                           disabled={disabled}
                           className="h-7 w-28 text-xs text-right"
+                          placeholder="Pauschal"
                         />
-                        <span className="text-xs text-muted-foreground">€ netto</span>
+                        <span className="text-xs text-muted-foreground">€ pausch.</span>
+                        <Input
+                          value={meal.pricePerPersonPrefix ?? ""}
+                          onChange={(e) =>
+                            updateMeal(day.id, meal.id, { pricePerPersonPrefix: e.target.value || null })
+                          }
+                          disabled={disabled}
+                          placeholder="ab"
+                          className="h-7 w-10 text-[10px] text-center ml-1"
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={meal.pricePerPersonNet ?? ""}
+                          onChange={(e) =>
+                            updateMeal(day.id, meal.id, {
+                              pricePerPersonNet: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          disabled={disabled}
+                          className="h-7 w-20 text-xs text-right"
+                          placeholder="0,00"
+                        />
+                        <span className="text-[10px] text-muted-foreground">€/Pers.</span>
                         <Input
                           type="number"
                           step="0.1"
