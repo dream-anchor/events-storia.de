@@ -158,7 +158,10 @@ export function FreeformProgramEditor({
   // ausblenden und Mahlzeiten direkt rendern. Bei 2+ Tagen oder benanntem
   // Datum bleibt die bisherige Tages-Ansicht.
   const isSingleUnlabeledDay =
-    program.days.length === 1 && !(program.days[0]?.dateLabel ?? "").trim();
+    program.days.length === 1 &&
+    !(program.days[0]?.dateLabel ?? "")
+      .replace(/[\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, "")
+      .trim();
 
   return (
     <div className="space-y-4">
