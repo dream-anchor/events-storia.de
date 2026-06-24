@@ -17,3 +17,4 @@ export { ContextBar } from './ContextBar';
 export { EventBookingsList } from './EventBookingsList';
 export { EventBookingEditor } from './EventBookingEditor';
 export { Settings } from './Settings';
+export { ConversionDashboard } from './ConversionDashboard';

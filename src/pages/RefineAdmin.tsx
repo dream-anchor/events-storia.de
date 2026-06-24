@@ -3,7 +3,7 @@ import routerProvider from "@refinedev/react-router";
 import { Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 import { supabaseDataProvider } from "@/providers/refine-data-provider";
 import { supabaseAuthProvider } from "@/providers/refine-auth-provider";
-import { Dashboard, EventsList, OrdersList, MenuItemsList, PackagesList, PackageEdit, LocationEdit, EventBookingsList, EventBookingEditor, Settings } from "@/components/admin/refine";
+import { Dashboard, EventsList, OrdersList, MenuItemsList, PackagesList, PackageEdit, LocationEdit, EventBookingsList, EventBookingEditor, Settings, ConversionDashboard } from "@/components/admin/refine";
 import { LexOfficeInvoicesList } from "@/components/admin/refine/LexOfficeInvoicesList";
 import { VouchersList } from "@/components/admin/refine/VouchersList";
 import { CateringOrderEditor } from "@/components/admin/refine/CateringOrderEditor";
@@ -149,6 +149,7 @@ export const RefineAdminApp = () => {
           <Route path="create" element={<LocationEdit />} />
           <Route path=":id/edit" element={<LocationEdit />} />
         </Route>
+        <Route path="auswertung" element={<ConversionDashboard />} />
         <Route path="settings" element={<Settings />} />
         <Route path="system-health" element={<SystemHealth />} />
         <Route path="fotos" element={<Fotoalbum />} />

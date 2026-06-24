@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useLocation, useSearchParams } from "react-router-dom";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { supabase } from "@/integrations/supabase/client";
@@ -355,6 +355,19 @@ export default function PublicOffer() {
   const archiveVersionRaw = searchParams.get('archive_version');
   const archiveVersion = archiveVersionRaw ? parseInt(archiveVersionRaw, 10) : null;
   const isArchive = archiveVersion != null && !Number.isNaN(archiveVersion);
+
+  // Conversion-Tracking: Aufruf der öffentlichen Angebotsseite zählen.
+  // Nur echte Kunden-Views über die Slug-Route, nicht Archiv-Snapshots
+  // oder die interne UUID-/Preview-Route. Einmal pro Slug pro Mount.
+  const trackedSlugRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!slug || isArchive || !isSlugRoute) return;
+    if (trackedSlugRef.current === slug) return;
+    trackedSlugRef.current = slug;
+    supabase.rpc("track_offer_view" as never, { p_slug: slug } as never).then(({ error }) => {
+      if (error) console.warn("[PublicOffer] track_offer_view fehlgeschlagen:", error.message);
+    });
+  }, [slug, isArchive, isSlugRoute]);
 
   useEffect(() => {
     if (!lookupValue) return;
