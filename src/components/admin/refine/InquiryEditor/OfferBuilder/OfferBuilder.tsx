@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { mapAiDraftToOption, type MapAiDraftResult } from "./aiDraftToOption";
 import { useAiDraft, type AiDraft } from "@/hooks/useAiDraft";
 import { AiDraftCard } from "../AiDraftCard";
+import { RequestContextBanner } from "./RequestContextBanner";
 
 export interface OfferBuilderHandle {
   /** Scrollt zum E-Mail-Composer und öffnet ihn; generiert optional KI-Text */
@@ -378,6 +379,32 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         Erstelle bis zu fünf Varianten (A–E) für deinen Kunden. Jede Option kann unabhängig
         ein Restaurant-Menü, Eigenes Menü, Paket oder nur eine E-Mail sein.
       </p>
+
+      {/* Anfrage-Kontext — zeigt Quelle, angefragtes Paket und Originalnachricht direkt
+          über dem Optionen-Grid. Erlaubt 1-Klick-Übernahme des angefragten Pakets in Option A. */}
+      <RequestContextBanner
+        inquiry={inquiry}
+        packages={packages}
+        disabled={isSignatureLocked}
+        onApplyPackageToOptionA={(packageId, packageName) => {
+          const optionA = builder.options.find((o) => o.optionLabel === "A");
+          if (!optionA) return;
+          const isEmptyA =
+            !optionA.packageId &&
+            optionA.offerMode !== "paket" &&
+            (optionA.menuSelection?.courses?.length ?? 0) === 0;
+          if (!isEmptyA) {
+            toast.info("Option A enthält bereits Inhalte — bitte manuell anpassen.");
+            return;
+          }
+          builder.updateOption(optionA.id, {
+            offerMode: "paket",
+            packageId,
+            packageName,
+          });
+          toast.success(`Paket „${packageName}" in Option A übernommen.`);
+        }}
+      />
 
       {/* 3. Options-Grid — pro Option wird der Modus innerhalb der Karte gewählt */}
       <div className={isSignatureLocked ? "pointer-events-none opacity-60" : undefined} aria-disabled={isSignatureLocked || undefined}>
