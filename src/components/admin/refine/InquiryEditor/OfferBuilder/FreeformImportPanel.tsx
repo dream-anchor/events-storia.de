@@ -48,8 +48,21 @@ function ensureIds(program: FreeformProgram): FreeformProgram {
         flatPriceNet: typeof m.flatPriceNet === "number" ? m.flatPriceNet : 0,
         vatRate: typeof m.vatRate === "number" ? m.vatRate : 7,
         sections: Array.isArray(m.sections) ? m.sections : [],
+        pricePerPersonNet: typeof m.pricePerPersonNet === "number" ? m.pricePerPersonNet : null,
+        pricePerPersonPrefix: typeof m.pricePerPersonPrefix === "string" ? m.pricePerPersonPrefix : null,
       })),
     })),
+    additionalServices: Array.isArray(program.additionalServices)
+      ? program.additionalServices.map((s, k) => ({
+          ...s,
+          id: s.id || `svc-${k}-${crypto.randomUUID()}`,
+          unit: s.unit === "hour" || s.unit === "flat" || s.unit === "piece" ? s.unit : "flat",
+          unitPriceNet: typeof s.unitPriceNet === "number" ? s.unitPriceNet : 0,
+          quantity: typeof s.quantity === "number" ? s.quantity : null,
+          vatRate: typeof s.vatRate === "number" ? s.vatRate : 19,
+          label: typeof s.label === "string" ? s.label : "",
+        }))
+      : (program.additionalServices ?? null),
   };
 }
 
