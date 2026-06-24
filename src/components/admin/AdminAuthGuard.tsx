@@ -37,7 +37,9 @@ export function setCachedAdminUserId(userId: string) {
  *   (verhindert false-positive Redirects beim Token-Refresh).
  */
 export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
-  const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
+  const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated'>(
+    () => (getCachedAuth() ? 'authenticated' : 'loading'),
+  );
   const location = useLocation();
 
   useEffect(() => {
@@ -51,7 +53,9 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
         return;
       }
 
+      console.info('[adminAuth] guard: loading role for', userId);
       const role = await loadAdminRole(userId);
+      console.info('[adminAuth] guard: role =', role);
       if (!mounted) return;
 
       if (role) {
@@ -68,7 +72,8 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
         if (!mounted) return;
 
         if (!session?.user) {
-          setAuthState('unauthenticated');
+          // Wenn Cache vorhanden ist, gib der Session-Hydration noch eine Chance.
+          if (!getCachedAuth()) setAuthState('unauthenticated');
           return;
         }
 
@@ -82,7 +87,14 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
       }
     };
 
-    checkAuth();
+    // Cache-first: Wenn Cache vorhanden, läuft die Verifikation nur im Hintergrund
+    // und blockiert nicht das Rendern des Dashboards.
+    const cachedAtMount = getCachedAuth();
+    if (cachedAtMount) {
+      void verifyRole(cachedAtMount.userId);
+    } else {
+      checkAuth();
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -102,6 +114,12 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
         }
         if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
           if (!session?.user) return;
+          // Wenn die Rolle für diesen User schon im Cache ist, nichts zu tun.
+          const cached = getCachedAuth();
+          if (cached?.userId === session.user.id) {
+            if (authState !== 'authenticated') setAuthState('authenticated');
+            return;
+          }
           setTimeout(() => {
             if (mounted) {
               verifyRole(session.user.id).catch((err) => {
