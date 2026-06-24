@@ -6,15 +6,17 @@ import { clearCachedAdmin, getCachedAuth, setCachedAuth, type AppRole } from "@/
 const SESSION_TIMEOUT_MS = 6000;
 const ROLE_TIMEOUT_MS = 8000;
 
-const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
+const withTimeout = async <T,>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> => {
+  const wrappedPromise = Promise.resolve(promise);
+
   return Promise.race([
-    promise,
+    wrappedPromise,
     new Promise<never>((_, reject) => {
       const t: ReturnType<typeof setTimeout> = setTimeout(
         () => reject(new Error(`${label} timeout`)),
         timeoutMs
       );
-      promise.finally(() => clearTimeout(t));
+      wrappedPromise.finally(() => clearTimeout(t));
     }),
   ]);
 };
