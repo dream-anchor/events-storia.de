@@ -40,12 +40,49 @@ function ensureIds(program: FreeformProgram): FreeformProgram {
     days: (program.days ?? []).map((d, i) => ({
       ...d,
       id: d.id || `day-${i}-${crypto.randomUUID()}`,
+      dateLabel: d.dateLabel ?? "",
       meals: (d.meals || []).map((m, j) => ({
         ...m,
         id: m.id || `meal-${i}-${j}-${crypto.randomUUID()}`,
+        guestCount: typeof m.guestCount === "number" ? m.guestCount : 0,
+        flatPriceNet: typeof m.flatPriceNet === "number" ? m.flatPriceNet : 0,
+        vatRate: typeof m.vatRate === "number" ? m.vatRate : 7,
+        sections: Array.isArray(m.sections) ? m.sections : [],
       })),
     })),
   };
+}
+
+/**
+ * Fallback: KI hat keine Tage erkannt. Wir bauen einen synthetischen 1-Tages-Container
+ * mit einer Mahlzeit "Leistungen" und packen den Rohtext als Items hinein, damit der
+ * Operator manuell weiterarbeiten kann statt einen harten Fehler zu sehen.
+ */
+function syntheticSingleDay(program: FreeformProgram, rawText: string): FreeformProgram {
+  const items = rawText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .slice(0, 200);
+  return ensureIds({
+    ...program,
+    days: [
+      {
+        id: "",
+        dateLabel: "",
+        meals: [
+          {
+            id: "",
+            label: "Leistungen",
+            guestCount: 0,
+            flatPriceNet: 0,
+            vatRate: 7,
+            sections: [{ heading: null, items }],
+          },
+        ],
+      },
+    ],
+  });
 }
 
 /**
@@ -89,7 +126,8 @@ export function FreeformImportPanel({ onParsed, disabled }: FreeformImportPanelP
         }
         program = ensureIds(parseRes.program);
         if (!program.days || program.days.length === 0) {
-          throw new Error("KI konnte keine Tage erkennen.");
+          // Einfaches Angebot ohne Tagesstruktur → synthetischen 1-Tages-Container bauen.
+          program = syntheticSingleDay(program, text);
         }
 
         setStage("Red Team validiert…");
@@ -128,12 +166,17 @@ export function FreeformImportPanel({ onParsed, disabled }: FreeformImportPanelP
       if (!program) throw new Error("Kein Programm erzeugt.");
 
       onParsed(program, findings);
+      const dayCount = program.days.length;
+      const successMsg =
+        dayCount === 1 ? "Angebot importiert & validiert ✓" : `Programm mit ${dayCount} Tagen importiert & validiert ✓`;
+      const warnMsg =
+        dayCount === 1
+          ? `Angebot importiert — Red Team meldet ${findings.length} Abweichung(en). Bitte prüfen.`
+          : `Programm importiert — Red Team meldet ${findings.length} Abweichung(en). Bitte prüfen.`;
       if (findings.length === 0) {
-        toast.success(`Programm mit ${program.days.length} Tag(en) importiert & validiert ✓`);
+        toast.success(successMsg);
       } else {
-        toast.warning(
-          `Programm importiert — Red Team meldet ${findings.length} Abweichung(en). Bitte prüfen.`,
-        );
+        toast.warning(warnMsg);
       }
       setText("");
     } catch (e) {

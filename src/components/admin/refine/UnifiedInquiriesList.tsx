@@ -3,7 +3,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { LayoutGrid, Table2, Calendar, Printer, Sparkles } from "lucide-react";
+import { LayoutGrid, Table2, Calendar, Printer, Sparkles, AlertCircle, RefreshCw } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { DataTable, sortableHeader } from "./DataTable";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -95,7 +95,7 @@ function LangBadge({ lang }: { lang?: string | null }) {
 
 export const UnifiedInquiriesList = () => {
   const navigate = useNavigate();
-  const { records, isLoading, refetch } = useUnifiedInquiries();
+  const { records, isLoading, isError, error, refetch } = useUnifiedInquiries();
   const { ids: failureIds } = useEntityFailureIndex();
   const aiOriginIds = useAiOriginInquiries();
 
@@ -312,6 +312,22 @@ export const UnifiedInquiriesList = () => {
   return (
     <AdminLayout activeTab="inquiries" title="Anfragen">
       <div className="space-y-6">
+        {isError && (
+          <div className="flex items-start justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" />
+              <div className="text-sm">
+                <div className="font-semibold text-destructive">Anfragen konnten nicht geladen werden</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {error?.message || "Verbindung zur Datenbank fehlgeschlagen. Bitte erneut versuchen."}
+                </div>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-xl gap-1.5 shrink-0">
+              <RefreshCw className="h-3.5 w-3.5" /> Erneut laden
+            </Button>
+          </div>
+        )}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Anfragen</h1>
