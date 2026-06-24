@@ -89,7 +89,7 @@ export async function buildVoucherPdf(input: VoucherPdfInput): Promise<Uint8Arra
 
   // Code
   let y = boxY - 50;
-  page.drawText("Gutscheincode / Voucher code", {
+  page.drawText("Seriennummer · Gutscheincode / Serial number · Voucher code", {
     x: 50, y, size: 11, font: fontRegular, color: muted,
   });
   y -= 28;
