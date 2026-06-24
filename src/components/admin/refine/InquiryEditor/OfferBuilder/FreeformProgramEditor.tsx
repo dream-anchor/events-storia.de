@@ -154,6 +154,12 @@ export function FreeformProgramEditor({
     0,
   );
 
+  // Single-Day-Modus: ein einziger Tag ohne benanntes dateLabel → Tag-Header
+  // ausblenden und Mahlzeiten direkt rendern. Bei 2+ Tagen oder benanntem
+  // Datum bleibt die bisherige Tages-Ansicht.
+  const isSingleUnlabeledDay =
+    program.days.length === 1 && !(program.days[0]?.dateLabel ?? "").trim();
+
   return (
     <div className="space-y-4">
       {/* Red-Team Findings */}
@@ -272,6 +278,7 @@ export function FreeformProgramEditor({
       <div className="space-y-3">
         {program.days.map((day) => (
           <div key={day.id} className="rounded-xl border border-border/40 bg-background overflow-hidden">
+            {!isSingleUnlabeledDay && (
             <div className="w-full flex items-center gap-2 px-4 py-2 hover:bg-muted/20 transition-colors">
               <button type="button" onClick={() => toggle(day.id)} className="flex items-center gap-2 shrink-0">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -290,8 +297,9 @@ export function FreeformProgramEditor({
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {expanded[day.id] && (
-              <div className="border-t border-border/30 divide-y divide-border/30">
+            )}
+            {(isSingleUnlabeledDay || expanded[day.id]) && (
+              <div className={cn("divide-y divide-border/30", !isSingleUnlabeledDay && "border-t border-border/30")}>
                 {day.meals.map((meal) => (
                   <div key={meal.id} className="px-4 py-3 space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
