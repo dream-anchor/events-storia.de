@@ -29,6 +29,9 @@ export function findBestMenuItem(
   if (itemName) {
     for (const m of items) {
       if (candidates.includes(m)) continue;
+      // Items ohne Name dürfen niemals matchen — sonst wuerde startsWith("")
+      // jeden Kurs treffen und alle Zeilen kollabieren auf dieselbe leere Speise.
+      if (!m.name) continue;
       if (
         m.name === itemName ||
         itemName.startsWith(m.name) ||

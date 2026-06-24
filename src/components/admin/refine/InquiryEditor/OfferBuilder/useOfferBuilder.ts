@@ -870,6 +870,9 @@ export function useOfferBuilder({
     if (itemName) {
       for (const m of menuItems) {
         if (candidates.includes(m)) continue;
+        // Items ohne Name niemals matchen — startsWith("") matched sonst alles
+        // und die Auto-Repair wuerde alle Kurse auf eine leere Speise kollabieren.
+        if (!m.name) continue;
         if (m.name === itemName || itemName.startsWith(m.name) || m.name.startsWith(itemName)) {
           candidates.push(m);
         }
@@ -907,7 +910,7 @@ export function useOfferBuilder({
           const updates: Partial<typeof course> = {};
 
           // Fix Name+Beschreibung → nur Name
-          if (menuItem.name !== course.itemName) {
+          if (menuItem.name && menuItem.name !== course.itemName) {
             updates.itemName = menuItem.name;
             updates.itemDescription = menuItem.description;
           }
