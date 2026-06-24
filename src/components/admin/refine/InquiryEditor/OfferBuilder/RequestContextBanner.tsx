@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Inbox, Package as PackageIcon, MessageSquare, Tag, ChevronDown, ChevronUp } from "lucide-react";
+import { Inbox, Package as PackageIcon, MessageSquare, Tag, ChevronDown, ChevronUp, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { parseInquirySource } from "@/lib/inquirySource";
@@ -16,6 +16,10 @@ interface RequestContextBannerProps {
   onApplyPackageToOptionA?: (packageId: string, packageName: string) => void;
   /** Sperrt den „Übernehmen"-Button (z. B. nach unterschriebener Kostenübernahme). */
   disabled?: boolean;
+  /** Optional: Triggert KI-Menüvorschlag, der in die nächste freie Option (A–E) geschrieben wird. */
+  onGenerateMenuSuggestion?: () => void | Promise<void>;
+  /** True während die KI generiert — sperrt den Button und zeigt Loader. */
+  isGeneratingSuggestion?: boolean;
 }
 
 const MESSAGE_TEASER_LENGTH = 180;
@@ -25,6 +29,8 @@ export function RequestContextBanner({
   packages,
   onApplyPackageToOptionA,
   disabled = false,
+  onGenerateMenuSuggestion,
+  isGeneratingSuggestion = false,
 }: RequestContextBannerProps) {
   const [messageExpanded, setMessageExpanded] = useState(false);
 
@@ -66,6 +72,8 @@ export function RequestContextBanner({
     !inquiry.offer_sent_at &&
     Boolean(requestedPackageId) &&
     Boolean(onApplyPackageToOptionA);
+
+  const showSuggestButton = !disabled && Boolean(onGenerateMenuSuggestion);
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-neutral-50/80 p-4 space-y-3">
@@ -162,6 +170,34 @@ export function RequestContextBanner({
           </div>
         </div>
       </div>
+
+      {showSuggestButton && (
+        <div className="pt-3 border-t border-neutral-200/70 flex items-center justify-between gap-3">
+          <p className="text-xs text-neutral-500 leading-snug">
+            Die KI liest Anlass, Nachricht und Ortsbezug — und schlägt passendes Menü oder Paket in der nächsten freien Option vor.
+          </p>
+          <Button
+            type="button"
+            variant="secondaryElevated"
+            size="sm"
+            className="shrink-0 h-9 rounded-xl text-xs"
+            disabled={isGeneratingSuggestion}
+            onClick={() => onGenerateMenuSuggestion?.()}
+          >
+            {isGeneratingSuggestion ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                KI denkt nach…
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5" />
+                Menü mit KI vorschlagen
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
