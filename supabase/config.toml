@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.inbound-maestro-email]
 verify_jwt = false
+
+[functions.generate-menu-suggestion]
+verify_jwt = true
