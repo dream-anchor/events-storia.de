@@ -1,49 +1,66 @@
-## Symptom
-Nach erfolgreichem Login bleibt unter `/admin` dauerhaft der Maestro-Spinner stehen (`AdminLoader`), statt das Dashboard zu zeigen.
+# Plan: Freitext-Import, Mail-zu-Angebot, leere Anfragenliste
 
-## Was bereits geprüft ist
-- Mit injizierter Session lädt `/admin` im Headless-Browser sofort das Dashboard — Guard, Cache, Rolle und `RefineAdminApp` funktionieren grundsätzlich.
-- Der Spinner kommt also nicht vom Dashboard selbst, sondern entsteht im engen Zeitfenster direkt nach `signInWithPassword`.
+Drei Themen aus deiner Nachricht. Ich schlage vor, in dieser Reihenfolge zu fixen (1 ist blockierend, dann 2, dann 3).
 
-## Wahrscheinliche Ursache
-Race zwischen drei parallelen Auth-Pfaden, die alle nach dem Login feuern und sich gegenseitig blockieren:
+---
 
-1. `useAdminAuth.signIn` ruft direkt nach `signInWithPassword` `loadAdminRole(user.id)` auf — bevor der Supabase-Client das neue Token an die PostgREST-Requests bindet. Resultat kann `null` sein → `signOut()` → Cache leer → Spinner / Bounce.
-2. Parallel feuert `onAuthStateChange('SIGNED_IN')` in `useAdminAuth` UND in `AdminAuthGuard`. Beide setzen je einen `setTimeout(checkRole, 0)`, die `user_roles` zeitgleich abfragen.
-3. `AdminAuthGuard.checkAuth()` startet zusätzlich beim Mount ein eigenes `getSession() + loadAdminRole`. Wenn `withTimeout` (8 s) auf eine dieser parallelen Queries trifft, bleibt `authState='loading'` → Spinner.
+## 1) "Keine Inhalte" in `/admin/inquiries` (BLOCKIEREND)
 
-Der Netzwerk-Mitschnitt zeigt passend dazu eine Burst-Sequenz an `/auth/v1/user` direkt nach dem Login.
+**Diagnose:** Die DB enthält **142 aktive Nicht-Test-Events**, aber die Liste zeigt 0. In den Browser-Logs stapeln sich `TypeError: Failed to fetch` aus `SupabaseAuthClient._refreshAccessToken`. Das bedeutet: der Token-Refresh kollidiert mit den Daten-Queries (Race), die Queries laufen ohne gültigen JWT durch RLS-Filter und liefern leeres Ergebnis — Fehler werden im Hook aber **stillschweigend** als "isLoading=false, records=[]" behandelt.
 
-## Fix-Plan (klein, gezielt)
+**Fix:**
+- `useUnifiedInquiries`: `isError`/`error` exponieren, in `UnifiedInquiriesList` als sichtbarer Banner mit "Erneut laden"-Button zeigen — **statt** stilles "0 Anfragen".
+- `eventsQuery`: `retry: 2` + `retryDelay` mit Exponential Backoff hinzufügen, damit ein erster Failed-Fetch nach Token-Refresh automatisch erneut versucht wird.
+- `AdminAuthGuard`/`useAdminAuth`: beim `TOKEN_REFRESHED`-Event `queryClient.invalidateQueries({ queryKey: ["unified-v2-events"] })` und `["unified-orders"]` triggern, damit nach erfolgreichem Refresh frische Daten geladen werden.
+- Optional: globaler `QueryCache.onError`-Handler, der bei `Failed to fetch` einmalig nach 1 s alle Queries invalidiert.
 
-1. **`src/hooks/useAdminAuth.ts` — `signIn` deterministisch machen**
-   - Nach `signInWithPassword` einmalig auf `INITIAL_SESSION`/`SIGNED_IN` warten (kurzer `Promise` mit Timeout-Fallback 500 ms), erst dann `loadAdminRole` aufrufen. Damit ist das JWT garantiert an PostgREST gebunden.
-   - Bei erfolgreicher Rollenprüfung: Cache schreiben, `user/session/isAdmin` setzen, `loading=false`, return ohne Error.
-   - Bei fehlender Rolle: explizit `clearCachedAdmin()` + `signOut()` + sprechender Fehler.
+---
 
-2. **`src/components/admin/AdminAuthGuard.tsx` — Cache zuerst, Netzwerk nur fallback**
-   - Initial-Render: Wenn `getCachedAuth()` einen User hat, sofort `authState='authenticated'` (kein `loading`-State) und `verifyRole` nur im Hintergrund refreshen.
-   - `checkAuth()` nur ausführen, wenn KEIN Cache vorhanden ist.
-   - `onAuthStateChange`-Handler: `verifyRole` nur dispatchen, wenn `session.user.id` ≠ aktueller Cache-User.
+## 2) Freitext-Import auch für 1-Tages-/einfache Angebote
 
-3. **`src/providers/refine-auth-provider.ts` — Cache respektieren**
-   - `check()`: Wenn Cache vorhanden ist, sofort `authenticated:true` zurückgeben und Session-Refresh nur asynchron prüfen (kein blockierender `getSession` mehr im Hot-Path).
+**Aktuelles Verhalten:** `parse-freeform-offer` zwingt das Tool-Schema in `days[].meals[]` und `FreeformImportPanel` wirft den Fehler `"KI konnte keine Tage erkennen"`, wenn keine Tagesüberschrift erkannt wurde. Dadurch funktioniert der Import nur für mehrtägige Programme.
 
-4. **`src/pages/AdminLogin.tsx` — keine doppelte Navigation**
-   - `useEffect`-Redirect entfernen, nur manueller `navigate('/admin', { replace:true })` in `handleSubmit` nach erfolgreichem `signIn`.
-   - `AdminLoader` auf der Login-Seite mit `timeoutMs={0}` belassen.
+**Fix:**
+- `parse-freeform-offer/index.ts`:
+  - System-Prompt umschreiben: "Falls **kein** Datum/Mehrtages-Struktur erkennbar ist, erzeuge **genau einen** Tag mit `dateLabel=''`, `isoDate=''` und packe alle Mahlzeiten/Positionen dort hinein. Falls auch keine Mahlzeitsstruktur, lege **eine** Sektion `Leistungen` mit allen Items an."
+  - `meals[].guestCount`, `meals[].flatPriceNet`, `meals[].vatRate` von `required` auf optional setzen (Default 0 / 7).
+  - `days[].dateLabel` ebenfalls optional.
+- `FreeformImportPanel.tsx`:
+  - Hard-Check `days.length === 0` entfernen — stattdessen wenn leer: einen synthetischen Tag mit einer Sektion `"Leistungen"` aus `rawText` füllen.
+  - Toast-Text "Programm mit X Tag(en)" → für 1 Tag "Programm importiert" ohne Zähler.
+- `FreeformProgramEditor`: prüfen, dass UI auch sauber rendert, wenn nur 1 Tag / 1 Mahlzeit ohne Datum existiert (Header "Tag 1" statt leeres Datum-Label).
+- `validate-freeform-offer`: Regel "Mehrtages-Konsistenz" überspringen, wenn `days.length === 1`.
 
-5. **Diagnose-Logs (temporär, eine Iteration)**
-   - In `AdminAuthGuard`, `useAdminAuth.signIn` und `loadAdminRole` je ein `console.info('[adminAuth] …')` mit Schritt + Dauer, damit beim nächsten Reproduzieren klar wird, an welcher Stelle der Spinner hängt. Nach erfolgreicher Verifikation wieder entfernen.
+---
 
-## Verifikation
-- TypeScript-Check.
-- Playwright-Skript: `/admin/login` → echtes `signInWithPassword` (Test-Credentials, falls vorhanden) → Screenshot nach 1 s und 4 s → erwarten: Dashboard sichtbar, keine `unauthenticated`-Navigation, Cache in `sessionStorage` gesetzt.
-- Manueller Test durch dich im Browser.
+## 3) Mail-Weiterleitung → automatisches Angebot via Freitext-Import
 
-## Nicht angefasst
-- DB, RLS, Edge Functions, Customer-Auth, Backend-Migrationen.
-- Kein Touch an `src/integrations/supabase/client.ts`, `types.ts`, `.env`.
+**Was schon existiert:**
+- `receive-inbound-email` (Resend Inbound) ordnet Antworten bestehenden Anfragen zu.
+- `create-inquiry-from-inbox-email` legt aus einer Posteingang-Mail eine neue Anfrage an.
+- `parse-inquiry-text` extrahiert Strukturdaten (Name, Datum, Gäste) aus Freitext.
 
-## Offene Frage
-Hast du beim Spinner mal in DevTools → Console nachgesehen, ob ein Fehler erscheint (z. B. `admin role check timeout`)? Falls ja, bitte den genauen Text — dann kann Schritt 5 entfallen.
+**Was fehlt für deinen Wunsch:** eine dedizierte Weiterleitungs-Adresse (z. B. `angebot@events-storia.de` oder `lead+auto@…`), die eingehende Kunden-Mails (z. B. von Plattformen oder via manueller Forward) **automatisch** in eine neue Anfrage **plus erstes Angebots-Draft** umwandelt und den Freitext-Import-Pfad nutzt.
+
+**Fix:**
+1. `receive-inbound-email`:
+   - Neue Routing-Regel: wenn `to`-Adresse mit `lead@` / `auto@` / `angebot@events-storia.de` beginnt und **kein** `reply+{uuid}` Match → "Auto-Lead-Pfad".
+   - Auto-Lead-Pfad ruft intern `parse-inquiry-text` (für Kontaktdaten) + `parse-freeform-offer` (für Programm/Preise) auf.
+   - Erstellt `v2_events`-Datensatz mit `source='email_forward'`, `offer_phase='draft'`, hängt das geparste Programm als Draft-Angebot an, speichert Original-Mail in `email_messages`.
+   - WhatsApp/Email-Alarm an `info@events-storia.de` ("Neue Auto-Anfrage von …, Angebots-Draft erstellt → Öffnen").
+2. Im Admin (`UnifiedInquiriesList`): Badge "📩 Auto-Import" für Anfragen mit `source='email_forward'`, plus Hinweis im Editor "Angebot wurde aus weitergeleiteter Mail generiert — bitte Preise und Daten prüfen".
+3. Doku-Snippet (`docs/MAESTRO-CX-ROADMAP.md`): Resend Inbound-Routing-Regel für die neue Adresse dokumentieren.
+
+**Hinweis zu Resend-Setup:** Die MX-Routing-Regel für die neue Adresse muss in Resend selbst eingerichtet werden (UI). Code-Seite ist hier komplett.
+
+---
+
+## Reihenfolge & Risiko
+
+1. **#1 zuerst** — sonst sind alle anderen Tests blind.
+2. **#2** — kleiner, lokaler Schema-/Prompt-Patch, kein DB-Touch.
+3. **#3** — größter Block, eigene Edge-Function-Logik + UI-Badge, kein Schema-Change nötig (nutzt vorhandene Felder `source`, `offer_phase`).
+
+## Offene Frage (nur bei #3)
+
+Soll die Auto-Import-Adresse `lead@events-storia.de` heißen — oder bevorzugst du etwas anderes (z. B. `auto@…`, `angebot@…`)?
