@@ -46,13 +46,19 @@ REGELN (NICHT VERHANDELBAR):
 1. Übernimm ALLE Preise EXAKT wie im Text — niemals rechnen, runden, splitten oder konvertieren.
 2. Pauschalpreise sind NETTO (so wie im Text "Pauschal: X € netto" angegeben).
 3. Speisen → MwSt 7%, Personal/Equipment/Logistik → MwSt 19%.
-4. Übernimm Tagesüberschriften ("MONTAG, 29.06.2026"), Mahlzeit-Labels ("Lunch", "Dinner Live Cooking", "Frühstück", "BBQ Sommerfest" etc.) und Gästezahlen ("| 25 Personen") wörtlich.
+4. Übernimm Tagesüberschriften ("MONTAG, 29.06.2026"), Mahlzeit-Labels ("Lunch", "Dinner Live Cooking", "Frühstück", "BBQ Sommerfest" etc.) und Gästezahlen ("| 25 Personen") wörtlich — sofern im Text vorhanden.
 5. Strukturiere jede Mahlzeit in Sektionen (heading optional, z.B. "Antipasti-Auswahl", "Live Pasta Station", "Dessert"). Items als einfache Strings ohne Bullets.
 6. Extrahiere den Block KALKULATION → taxBreakdown (foodNet, foodVatRate=7, servicesNet, servicesVatRate=19).
 7. Extrahiere GESAMTANGEBOT → totalsFromText (net, gross).
 8. HINWEISE-Aufzählung → notes[].
 9. Wenn ein Wert fehlt, setze ihn auf 0 oder leeren String — niemals erfinden.
 10. Datumsangaben: dateLabel wörtlich aus Text, isoDate als YYYY-MM-DD wenn ableitbar.
+11. EINFACHE ANGEBOTE (kein Mehrtages-Programm, nur eine Mahlzeit oder reine Positionsliste):
+    Erzeuge GENAU EINEN Tag mit dateLabel="" und isoDate="" und packe alle
+    Mahlzeiten/Positionen dort hinein. Wenn keine Mahlzeitsstruktur erkennbar
+    ist, lege EINE Mahlzeit mit label="Leistungen", guestCount=0,
+    flatPriceNet=0, vatRate=7 und einer einzigen Sektion {heading: null, items: […alle Positionen…]} an.
+    Es ist absolut OK, wenn days nur einen einzigen Eintrag enthält.
 
 Antworte AUSSCHLIESSLICH per Tool-Call extract_program.${correctionBlock}`;
 
@@ -101,11 +107,11 @@ Antworte AUSSCHLIESSLICH per Tool-Call extract_program.${correctionBlock}`;
                           flatPriceNet: { type: "number" },
                           vatRate: { type: "number" },
                         },
-                        required: ["label", "guestCount", "sections", "flatPriceNet", "vatRate"],
+                        required: ["label", "sections"],
                       },
                     },
                   },
-                  required: ["dateLabel", "meals"],
+                  required: ["meals"],
                 },
               },
               taxBreakdown: {
