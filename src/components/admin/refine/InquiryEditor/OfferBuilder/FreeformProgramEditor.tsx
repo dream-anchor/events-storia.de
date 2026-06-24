@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import type { FreeformProgram, FreeformProgramMeal, FreeformProgramDay, FreeformProgramSection, ValidationFinding } from "./types";
+import type { FreeformProgram, FreeformProgramMeal, FreeformProgramDay, FreeformProgramSection, FreeformAdditionalService, ValidationFinding } from "./types";
 import { LinePriceModeToggle } from "./LinePriceModeToggle";
 
 interface FreeformProgramEditorProps {
@@ -118,6 +118,26 @@ export function FreeformProgramEditor({
   const updateTotals = (patch: Partial<FreeformProgram["totalsFromText"]>) => {
     onChange({ ...program, totalsFromText: { ...program.totalsFromText, ...patch } });
   };
+
+  // Zusatzleistungen
+  const services: FreeformAdditionalService[] = program.additionalServices ?? [];
+  const setServices = (next: FreeformAdditionalService[]) => {
+    onChange({ ...program, additionalServices: next.length ? next : null });
+  };
+  const addService = () => {
+    setServices([
+      ...services,
+      { id: `svc-${Date.now()}`, label: "", unitPriceNet: 0, unit: "hour", quantity: null, vatRate: 19 },
+    ]);
+  };
+  const updateService = (id: string, patch: Partial<FreeformAdditionalService>) => {
+    setServices(services.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  };
+  const removeService = (id: string) => {
+    setServices(services.filter((s) => s.id !== id));
+  };
+  const unitLabel = (u: FreeformAdditionalService["unit"]) =>
+    u === "hour" ? "€ / Stunde" : u === "piece" ? "€ / Stück" : "€ Pauschal";
 
   const discount = program.discount ?? { mode: 'percent' as const, value: 0 };
   const updateDiscount = (patch: Partial<NonNullable<FreeformProgram["discount"]>>) => {
