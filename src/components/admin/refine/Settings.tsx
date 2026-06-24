@@ -1140,6 +1140,9 @@ export const Settings = () => {
 
             {/* E-Mail-Signatur */}
             <SignatureEditor />
+
+            {/* Google-Bewertungsanfragen */}
+            <ReviewRequestsCard />
           </TabsContent>
 
           {/* Speisen Tab */}
