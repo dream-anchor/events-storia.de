@@ -21,6 +21,24 @@ interface CachedAuth {
   role: AppRole;
 }
 
+const SESSION_TIMEOUT_MS = 6000;
+const ROLE_TIMEOUT_MS = 8000;
+
+const withTimeout = async <T,>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> => {
+  const wrappedPromise = Promise.resolve(promise);
+
+  return Promise.race([
+    wrappedPromise,
+    new Promise<never>((_, reject) => {
+      const t: ReturnType<typeof setTimeout> = setTimeout(
+        () => reject(new Error(`${label} timeout`)),
+        timeoutMs
+      );
+      wrappedPromise.finally(() => clearTimeout(t));
+    }),
+  ]);
+};
+
 export function getCachedAuth(): CachedAuth | null {
   try {
     const raw = sessionStorage.getItem(ADMIN_CACHE_KEY);
@@ -71,16 +89,50 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
   useEffect(() => {
     let mounted = true;
 
+    const verifyRole = async (userId: string) => {
+      const cached = getCachedAuth();
+      if (cached?.userId === userId) {
+        setAuthState('authenticated');
+        return;
+      }
+
+      const { data: roleData, error } = await withTimeout(
+        supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .in('role', ['admin', 'staff'])
+          .maybeSingle(),
+        ROLE_TIMEOUT_MS,
+        'admin role check'
+      );
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error('AdminAuthGuard: role check failed', error);
+        setAuthState('unauthenticated');
+        return;
+      }
+
+      if (roleData) {
+        setCachedAuth(userId, roleData.role as AppRole);
+        setAuthState('authenticated');
+      } else {
+        clearCachedAdmin();
+        setAuthState('unauthenticated');
+      }
+    };
+
     const checkAuth = async () => {
       try {
         // Step 1: getSession() — reads from localStorage, no network call.
         // Timeout als Fallback falls Supabase nicht antwortet.
-        const sessionResult = await Promise.race([
+        const sessionResult = await withTimeout(
           supabase.auth.getSession(),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('getSession timeout')), 6000)
-          ),
-        ]);
+          SESSION_TIMEOUT_MS,
+          'getSession'
+        );
         const { data: { session } } = sessionResult;
 
         if (!mounted) return;
@@ -90,44 +142,7 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
           return;
         }
 
-        const userId = session.user.id;
-
-        // Step 2: Check sessionStorage cache
-        const cached = getCachedAuth();
-        if (cached?.userId === userId) {
-          setAuthState('authenticated');
-          return;
-        }
-
-        // Step 3: Single DB query for admin or staff role — with timeout
-        const roleCheck = supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', userId)
-          .in('role', ['admin', 'staff'])
-          .maybeSingle();
-
-        const timeout = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Auth check timeout')), 8000)
-        );
-
-        const { data: roleData, error } = await Promise.race([roleCheck, timeout]);
-
-        if (!mounted) return;
-
-        if (error) {
-          console.error('AdminAuthGuard: role check failed', error);
-          setAuthState('unauthenticated');
-          return;
-        }
-
-        if (roleData) {
-          setCachedAuth(userId, roleData.role as AppRole);
-          setAuthState('authenticated');
-        } else {
-          clearCachedAdmin();
-          setAuthState('unauthenticated');
-        }
+        await verifyRole(session.user.id);
       } catch (err) {
         console.error('AdminAuthGuard: unexpected error', err);
         if (mounted) {
@@ -142,34 +157,22 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
     // iOS-Hinweis: Bei Token-Refresh feuert Supabase manchmal SIGNED_OUT gefolgt von
     // TOKEN_REFRESHED/SIGNED_IN. Deshalb bei diesen Events neu verifizieren statt blind auszuloggen.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mounted) return;
         if (event === 'SIGNED_OUT') {
           clearCachedAdmin();
           setAuthState('unauthenticated');
         } else if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
           if (!session?.user) return;
-          const userId = session.user.id;
-          const cached = getCachedAuth();
-          if (cached?.userId === userId) return; // Bereits verifiziert
-          try {
-            const { data: roleData } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', userId)
-              .in('role', ['admin', 'staff'])
-              .maybeSingle();
-            if (!mounted) return;
-            if (roleData) {
-              setCachedAuth(userId, roleData.role as AppRole);
-              setAuthState('authenticated');
-            } else {
-              clearCachedAdmin();
-              setAuthState('unauthenticated');
+          // Never run Supabase calls directly inside onAuthStateChange.
+          // supabase-js can deadlock and make the following getSession()/query hang.
+          setTimeout(() => {
+            if (mounted) {
+              verifyRole(session.user.id).catch((err) => {
+                console.error('AdminAuthGuard: deferred role check failed', err);
+              });
             }
-          } catch {
-            // Bei Netzwerkfehler: bestehenden Zustand beibehalten
-          }
+          }, 0);
         }
       }
     );

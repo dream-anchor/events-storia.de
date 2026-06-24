@@ -96,6 +96,21 @@ const FrontendGlobals = () => {
   );
 };
 
+/**
+ * Customer auth is only needed on public/customer pages.
+ * Keeping it away from /admin prevents competing auth session checks during
+ * Maestro login and avoids Supabase auth-client deadlocks on redirects.
+ */
+const CustomerAuthScope = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
+
+  if (location.pathname.startsWith('/admin')) {
+    return <>{children}</>;
+  }
+
+  return <CustomerAuthProvider>{children}</CustomerAuthProvider>;
+};
+
 // Catering Pages (lazy)
 const BuffetFingerfood = lazy(() => import("./pages/catering/BuffetFingerfood"));
 const BuffetPlatten = lazy(() => import("./pages/catering/BuffetPlatten"));
@@ -130,15 +145,15 @@ const App = () => {
     <TooltipProvider>
       <PriceDisplayProvider>
         <CookieConsentProvider>
-          <CustomerAuthProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
               <LanguageProvider>
                 <CartProvider>
-                  <ScrollToTop />
-                  <FrontendGlobals />
-                  <Suspense fallback={<div className="min-h-screen" />}>
+                  <CustomerAuthScope>
+                    <ScrollToTop />
+                    <FrontendGlobals />
+                    <Suspense fallback={<div className="min-h-screen" />}>
                   <Routes>
                     {/* === German Routes (no prefix) === */}
                     <Route path="/" element={<Index />} />
@@ -277,11 +292,11 @@ const App = () => {
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>
-                  </Suspense>
+                    </Suspense>
+                  </CustomerAuthScope>
                 </CartProvider>
               </LanguageProvider>
             </BrowserRouter>
-          </CustomerAuthProvider>
         </CookieConsentProvider>
       </PriceDisplayProvider>
     </TooltipProvider>
