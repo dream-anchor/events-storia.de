@@ -371,9 +371,32 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
       // ---------------------------------------------------------------
       const placed: string[] = [];
 
+      // Equipment & Personal aus der ersten Option mit Eintraegen als
+      // gemeinsame Basis übernehmen — Kundenwunsch (Geschirr, Personal etc.)
+      // muss in allen KI-Varianten konsistent gespiegelt werden.
+      const sharedEquipment =
+        builder.options
+          .map((o) => o.menuSelection?.equipment ?? [])
+          .find((arr) => arr && arr.length > 0) ?? [];
+      const sharedStaff =
+        builder.options
+          .map((o) => o.menuSelection?.staff ?? [])
+          .find((arr) => arr && arr.length > 0) ?? [];
+      const cloneList = <T,>(arr: T[]): T[] => arr.map((e) => ({ ...e }));
+
       for (const t of targets) {
         const v = t.variant;
         const tableNote = `KI · ${tierLabel[v.tier]} — ${v.reasoning ?? ""}`.trim();
+
+        const existing = builder.options.find((o) => o.id === t.id);
+        const mergedEquipment =
+          existing?.menuSelection?.equipment && existing.menuSelection.equipment.length > 0
+            ? existing.menuSelection.equipment
+            : cloneList(sharedEquipment);
+        const mergedStaff =
+          existing?.menuSelection?.staff && existing.menuSelection.staff.length > 0
+            ? existing.menuSelection.staff
+            : cloneList(sharedStaff);
 
         if (v.mode === "paket" && v.packageId) {
           builder.updateOption(t.id, {
@@ -382,6 +405,11 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
             packageName: v.packageName ?? "",
             budgetPerPerson: v.packagePricePerPerson ?? v.estimatedPricePerPerson ?? null,
             tableNote,
+            menuSelection: {
+              ...(existing?.menuSelection ?? { courses: [], drinks: [] }),
+              equipment: mergedEquipment,
+              staff: mergedStaff,
+            },
           });
         } else if (v.mode === "menu" && Array.isArray(v.courses)) {
           const courses = v.courses.flatMap((c) =>
@@ -407,7 +435,6 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
               priceMode: "per_person" as const,
             })),
           );
-          const existing = builder.options.find((o) => o.id === t.id);
           builder.updateOption(t.id, {
             offerMode: "menu",
             packageId: null,
@@ -418,6 +445,8 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
               ...(existing?.menuSelection ?? {}),
               courses,
               drinks: existing?.menuSelection?.drinks ?? [],
+              equipment: mergedEquipment,
+              staff: mergedStaff,
             },
           });
         } else {
