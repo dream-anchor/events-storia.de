@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -101,7 +101,7 @@ const FrontendGlobals = () => {
  * Keeping it away from /admin prevents competing auth session checks during
  * Maestro login and avoids Supabase auth-client deadlocks on redirects.
  */
-const CustomerAuthScope = ({ children }: { children: React.ReactNode }) => {
+const CustomerAuthScope = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
 
   if (location.pathname.startsWith('/admin')) {
