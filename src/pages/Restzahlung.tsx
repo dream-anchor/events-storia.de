@@ -35,11 +35,8 @@ export default function Restzahlung() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("balance_payment_links")
-        .select("*")
-        .eq("slug", slug)
-        .eq("active", true)
+      const { data, error } = await (supabase as any)
+        .rpc("get_balance_payment_link_by_slug", { p_slug: slug })
         .maybeSingle();
       if (cancelled) return;
       if (error || !data) {
