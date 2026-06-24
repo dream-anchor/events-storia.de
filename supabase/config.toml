@@ -125,3 +125,6 @@ verify_jwt = false
 
 [functions.review-unsubscribe]
 verify_jwt = false
+
+[functions.inbound-maestro-email]
+verify_jwt = false
