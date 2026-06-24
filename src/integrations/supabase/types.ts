@@ -4334,6 +4334,8 @@ export type Database = {
           location_street: string | null
           location_type: string | null
           locked_after_signature: boolean
+          loss_reason: string | null
+          loss_reason_note: string | null
           menu_confirmed: boolean | null
           menu_confirmed_at: string | null
           menu_selection: Json | null
@@ -4342,11 +4344,14 @@ export type Database = {
           notification_sent: boolean | null
           number: string | null
           occasion: string | null
+          offer_first_viewed_at: string | null
+          offer_last_viewed_at: string | null
           offer_phase: string | null
           offer_sent_at: string | null
           offer_sent_by: string | null
           offer_slug: string | null
           offer_validity_days: number | null
+          offer_view_count: number
           order_confirmation_terms_version: string | null
           order_confirmed_admin_email: string | null
           order_confirmed_admin_id: string | null
@@ -4464,6 +4469,8 @@ export type Database = {
           location_street?: string | null
           location_type?: string | null
           locked_after_signature?: boolean
+          loss_reason?: string | null
+          loss_reason_note?: string | null
           menu_confirmed?: boolean | null
           menu_confirmed_at?: string | null
           menu_selection?: Json | null
@@ -4472,11 +4479,14 @@ export type Database = {
           notification_sent?: boolean | null
           number?: string | null
           occasion?: string | null
+          offer_first_viewed_at?: string | null
+          offer_last_viewed_at?: string | null
           offer_phase?: string | null
           offer_sent_at?: string | null
           offer_sent_by?: string | null
           offer_slug?: string | null
           offer_validity_days?: number | null
+          offer_view_count?: number
           order_confirmation_terms_version?: string | null
           order_confirmed_admin_email?: string | null
           order_confirmed_admin_id?: string | null
@@ -4594,6 +4604,8 @@ export type Database = {
           location_street?: string | null
           location_type?: string | null
           locked_after_signature?: boolean
+          loss_reason?: string | null
+          loss_reason_note?: string | null
           menu_confirmed?: boolean | null
           menu_confirmed_at?: string | null
           menu_selection?: Json | null
@@ -4602,11 +4614,14 @@ export type Database = {
           notification_sent?: boolean | null
           number?: string | null
           occasion?: string | null
+          offer_first_viewed_at?: string | null
+          offer_last_viewed_at?: string | null
           offer_phase?: string | null
           offer_sent_at?: string | null
           offer_sent_by?: string | null
           offer_slug?: string | null
           offer_validity_days?: number | null
+          offer_view_count?: number
           order_confirmation_terms_version?: string | null
           order_confirmed_admin_email?: string | null
           order_confirmed_admin_id?: string | null
@@ -6406,6 +6421,7 @@ export type Database = {
         }
         Returns: Json
       }
+      track_offer_view: { Args: { p_slug: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "staff"
