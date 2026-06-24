@@ -254,7 +254,7 @@ function SortableCourseRow({
             disabled={disabled}
             onClick={() => { setTempLabel(course.courseLabel); setEditingLabel(true); }}
             className={cn(
-              "text-sm font-medium sm:font-normal text-foreground sm:text-muted-foreground sm:w-20 shrink-0 sm:truncate flex-1 sm:flex-initial text-left rounded px-1 -mx-1",
+              "text-sm font-medium sm:font-normal text-foreground sm:text-muted-foreground sm:min-w-[7rem] sm:max-w-[10rem] shrink-0 sm:whitespace-normal sm:break-words leading-tight flex-1 sm:flex-initial text-left rounded px-1 -mx-1",
               !disabled && "hover:bg-muted/40 cursor-text"
             )}
             title={!disabled ? "Bezeichnung aendern" : undefined}
