@@ -51,7 +51,7 @@ REGELN (NICHT VERHANDELBAR):
 6. Extrahiere den Block KALKULATION → taxBreakdown (foodNet, foodVatRate=7, servicesNet, servicesVatRate=19).
 7. Extrahiere GESAMTANGEBOT → totalsFromText (net, gross).
 8. HINWEISE-Aufzählung → notes[].
-9. Wenn ein Wert fehlt, setze ihn auf 0 oder leeren String — niemals erfinden.
+9. Wenn ein Wert im Text FEHLT, setze ihn auf 0 (Zahlen) oder leeren String. NIEMALS erfinden. 0 bedeutet "nicht im Text genannt" — der Validator wertet das nicht als Fehler.
 10. Datumsangaben: dateLabel wörtlich aus Text, isoDate als YYYY-MM-DD wenn ableitbar.
 11. EINFACHE ANGEBOTE (kein Mehrtages-Programm, nur eine Mahlzeit oder reine Positionsliste):
     Erzeuge GENAU EINEN Tag mit dateLabel="" und isoDate="" und packe alle
@@ -59,6 +59,14 @@ REGELN (NICHT VERHANDELBAR):
     ist, lege EINE Mahlzeit mit label="Leistungen", guestCount=0,
     flatPriceNet=0, vatRate=7 und einer einzigen Sektion {heading: null, items: […alle Positionen…]} an.
     Es ist absolut OK, wenn days nur einen einzigen Eintrag enthält.
+12. PRO-PERSON-PREISE: Wenn im Text "X € pro Person" oder "ab X € pro Person" steht, setze
+    auf der Mahlzeit pricePerPersonNet=X und pricePerPersonPrefix wörtlich ("ab", "ca.", ""),
+    und lasse flatPriceNet=0. NIEMALS hochrechnen (kein guestCount × pricePerPersonNet).
+13. ZUSATZLEISTUNGEN (Service-Personal €/h, Auf-/Abbau €/h, Anfahrt/Abfahrt-Pauschalen,
+    Equipment-Stückpreise, etc.) gehören in das TOP-LEVEL Array additionalServices[].
+    Pro Eintrag: label (wörtlich), unitPriceNet (Zahl), unit ('hour'|'flat'|'piece'),
+    quantity=null (nicht im Text bekannt) und vatRate=19. Diese Posten gehören NICHT
+    in taxBreakdown.servicesNet, solange im Text keine Stunden/Mengen genannt sind.
 
 Antworte AUSSCHLIESSLICH per Tool-Call extract_program.${correctionBlock}`;
 
@@ -106,6 +114,8 @@ Antworte AUSSCHLIESSLICH per Tool-Call extract_program.${correctionBlock}`;
                           },
                           flatPriceNet: { type: "number" },
                           vatRate: { type: "number" },
+                          pricePerPersonNet: { type: "number" },
+                          pricePerPersonPrefix: { type: "string" },
                         },
                         required: ["label", "sections"],
                       },
@@ -135,6 +145,21 @@ Antworte AUSSCHLIESSLICH per Tool-Call extract_program.${correctionBlock}`;
                 required: ["net", "gross"],
               },
               notes: { type: "array", items: { type: "string" } },
+              additionalServices: {
+                type: "array",
+                description: "Stunden-/Pauschal-/Stück-Posten (Personal, Logistik, Equipment)",
+                items: {
+                  type: "object",
+                  properties: {
+                    label: { type: "string" },
+                    unitPriceNet: { type: "number" },
+                    unit: { type: "string", enum: ["hour", "flat", "piece"] },
+                    quantity: { type: "number" },
+                    vatRate: { type: "number" },
+                  },
+                  required: ["label", "unitPriceNet", "unit", "vatRate"],
+                },
+              },
             },
             required: ["title", "days", "taxBreakdown", "totalsFromText"],
           },
