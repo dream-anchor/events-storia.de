@@ -268,7 +268,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     setIsUnlocking(false);
   }, [builder.unlockForNewVersion]);
 
-  // --- KI-Menüvorschlag (in nächste freie Option A–E) ---
+  // --- KI-Menüvorschlag (3 Varianten Low/Medium/High in nächste freie Optionen) ---
   const handleGenerateMenuSuggestion = useCallback(async () => {
     setIsGeneratingMenu(true);
     try {
@@ -281,110 +281,146 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         toast.error(data.error);
         return;
       }
-      const suggestion = data?.suggestion as
-        | {
-            mode: "paket" | "menu";
-            reasoning?: string;
-            packageId?: string;
-            packageName?: string;
-            packagePricePerPerson?: number;
-            estimatedPricePerPerson?: number;
-            courses?: Array<{
-              courseType: string;
-              courseLabel: string;
-              items: Array<{
-                id: string;
-                rawId: string;
-                name: string;
-                description: string | null;
-                price: number | null;
-              }>;
-            }>;
-          }
-        | undefined;
-      if (!suggestion) {
-        toast.error("KI lieferte keinen Vorschlag");
+
+      type Variant = {
+        tier: "low" | "medium" | "high";
+        mode: "paket" | "menu";
+        reasoning?: string;
+        estimatedPricePerPerson?: number | null;
+        packageId?: string;
+        packageName?: string;
+        packagePricePerPerson?: number | null;
+        courses?: Array<{
+          courseType: string;
+          courseLabel: string;
+          items: Array<{
+            id: string;
+            rawId: string;
+            name: string;
+            description: string | null;
+            price: number | null;
+          }>;
+        }>;
+      };
+
+      const variants = (data?.variants as Variant[] | undefined) ?? [];
+      const overallReasoning = (data?.overallReasoning as string | undefined) ?? "";
+
+      if (variants.length === 0) {
+        toast.error("KI lieferte keine Varianten");
         return;
       }
 
-      // Erste leere Option finden (offerMode unselected ODER inhaltsleer)
-      const findEmpty = () =>
-        builder.options.find(
-          (o) =>
-            o.offerMode === "unselected" ||
-            (!o.packageId &&
-              o.offerMode !== "paket" &&
-              (o.menuSelection?.courses?.length ?? 0) === 0 &&
-              (o.menuSelection?.drinks?.length ?? 0) === 0),
-        );
+      const tierLabel: Record<Variant["tier"], string> = {
+        low: "Low",
+        medium: "Medium",
+        high: "High",
+      };
 
-      let target = findEmpty();
-      if (!target) {
-        if (builder.options.length >= 5) {
-          toast.warning("Alle 5 Optionen sind belegt — bitte erst eine leeren.");
-          return;
-        }
-        builder.addOption(suggestion.mode === "paket" ? "paket" : "menu");
-        // addOption ist async (setState); nächste Tick warten
-        await new Promise((r) => setTimeout(r, 50));
-        target = builder.options[builder.options.length - 1];
+      // Snapshot der bereits "belegten" IDs — wir tracken lokal, weil setState
+      // im selben Tick noch nicht im builder.options reflektiert ist.
+      const reservedIds = new Set<string>();
+      const isEmpty = (o: typeof builder.options[number]) =>
+        !reservedIds.has(o.id) &&
+        (o.offerMode === "unselected" ||
+          (!o.packageId &&
+            o.offerMode !== "paket" &&
+            (o.menuSelection?.courses?.length ?? 0) === 0 &&
+            (o.menuSelection?.drinks?.length ?? 0) === 0));
+
+      const placed: string[] = [];
+      const skipped: Variant["tier"][] = [];
+
+      for (const v of variants) {
+        let target = builder.options.find(isEmpty);
+
         if (!target) {
-          toast.error("Konnte keine Option anlegen");
-          return;
+          if (builder.options.length + 1 > 5) {
+            skipped.push(v.tier);
+            continue;
+          }
+          builder.addOption(v.mode === "paket" ? "paket" : "menu");
+          // setState ist async — kurze Pause + Re-Lookup
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => setTimeout(r, 60));
+          target = builder.options[builder.options.length - 1];
+          if (!target) {
+            skipped.push(v.tier);
+            continue;
+          }
         }
+
+        reservedIds.add(target.id);
+
+        const tableNote = `KI · ${tierLabel[v.tier]} — ${v.reasoning ?? ""}`.trim();
+
+        if (v.mode === "paket" && v.packageId) {
+          builder.updateOption(target.id, {
+            offerMode: "paket",
+            packageId: v.packageId,
+            packageName: v.packageName ?? "",
+            budgetPerPerson: v.packagePricePerPerson ?? v.estimatedPricePerPerson ?? null,
+            tableNote,
+          });
+        } else if (v.mode === "menu" && Array.isArray(v.courses)) {
+          const courses = v.courses.flatMap((c) =>
+            c.items.map((it) => ({
+              courseType: c.courseType as
+                | "starter"
+                | "pasta"
+                | "main"
+                | "main_fish"
+                | "main_meat"
+                | "dessert"
+                | "fingerfood"
+                | "vegetarisch"
+                | "vegan",
+              courseLabel: c.courseLabel,
+              itemId: it.id,
+              itemName: it.name,
+              itemDescription: it.description,
+              itemSource: "catering" as const,
+              isCustom: false,
+              overridePrice: it.price ?? null,
+              quantity: 1,
+              priceMode: "per_person" as const,
+            })),
+          );
+          builder.updateOption(target.id, {
+            offerMode: "menu",
+            packageId: null,
+            packageName: "",
+            budgetPerPerson: v.estimatedPricePerPerson ?? null,
+            tableNote,
+            menuSelection: {
+              ...target.menuSelection,
+              courses,
+              drinks: target.menuSelection?.drinks ?? [],
+            },
+          });
+        } else {
+          skipped.push(v.tier);
+          continue;
+        }
+
+        placed.push(`${target.optionLabel}: ${tierLabel[v.tier]}`);
       }
 
-      if (suggestion.mode === "paket" && suggestion.packageId) {
-        builder.updateOption(target.id, {
-          offerMode: "paket",
-          packageId: suggestion.packageId,
-          packageName: suggestion.packageName ?? "",
-          budgetPerPerson: suggestion.packagePricePerPerson ?? suggestion.estimatedPricePerPerson ?? null,
-        });
-      } else if (suggestion.mode === "menu" && Array.isArray(suggestion.courses)) {
-        const courses = suggestion.courses.flatMap((c) =>
-          c.items.map((it) => ({
-            courseType: c.courseType as
-              | "starter"
-              | "pasta"
-              | "main"
-              | "main_fish"
-              | "main_meat"
-              | "dessert"
-              | "fingerfood"
-              | "vegetarisch"
-              | "vegan",
-            courseLabel: c.courseLabel,
-            itemId: it.id, // prefixed: "catering_<uuid>"
-            itemName: it.name,
-            itemDescription: it.description,
-            itemSource: "catering" as const,
-            isCustom: false,
-            overridePrice: it.price ?? null,
-            quantity: 1,
-            priceMode: "per_person" as const,
-          })),
-        );
-        builder.updateOption(target.id, {
-          offerMode: "menu",
-          packageId: null,
-          packageName: "",
-          budgetPerPerson: suggestion.estimatedPricePerPerson ?? null,
-          menuSelection: {
-            ...target.menuSelection,
-            courses,
-            drinks: target.menuSelection?.drinks ?? [],
-          },
-        });
-      } else {
-        toast.error("KI-Vorschlag war leer oder unvollständig");
+      if (placed.length === 0) {
+        toast.error("Keine Variante konnte übernommen werden");
         return;
       }
 
-      toast.success(
-        suggestion.reasoning ?? `KI-Vorschlag in Option ${target.optionLabel} übernommen`,
-        { duration: 6000 },
-      );
+      const headline = overallReasoning || "KI-Varianten übernommen";
+      const details = placed.join(" · ");
+      toast.success(`${headline}\n${details}`, { duration: 8000 });
+
+      if (skipped.length > 0) {
+        toast.warning(
+          `${skipped.length} Variante(n) übersprungen — alle 5 Optionen sind belegt.`,
+          { duration: 6000 },
+        );
+      }
     } catch (err) {
       console.error("[OfferBuilder] KI-Menüvorschlag fehlgeschlagen:", err);
       toast.error("KI-Menüvorschlag fehlgeschlagen");

@@ -27,27 +27,24 @@ interface PackageLite {
 }
 
 const SYSTEM_PROMPT = `Du bist Maître des Storia — eines italienischen Restaurants mit Catering in München (Karlstraße 47a, Maxvorstadt).
-Deine Aufgabe: aus einer Kundenanfrage ein passendes Menü oder Paket vorschlagen.
+Deine Aufgabe: aus einer Kundenanfrage **drei Varianten** vorschlagen: Low, Medium, High.
 
-WICHTIG — Preis-Fingerspitzengefühl:
-- Wenn der Kunde ein konkretes Budget nennt (z.B. "ca. 60€ pro Person"), halte dich daran (±15%).
-- Wenn kein Budget genannt ist, leite das Preissegment aus Kontext ab:
-  • Wohnviertel/Ortsbezug: Harlaching, Bogenhausen, Grünwald, Solln, Nymphenburg, Lehel, Schwabing-West (Nähe Englischer Garten) → gehoben/premium
-  • Sprachstil: gehoben/formell ("würde mich sehr freuen", "exklusiv", "feierlich") → gehoben
-  • Sprachstil: locker/jung ("Bock auf", "wäre cool", "WG", "Studenten") → einfach/mittel
-  • Anlass: Hochzeit, runder Geburtstag (50/60/70), Jubiläum, Geschäftsessen → gehoben
-  • Anlass: Firmenfeier (ohne weitere Hinweise) → mittel
-  • Anlass: Standard-Geburtstag, Casual Get-together → mittel
-- Spüre den Kunden. Lieber einen Tick zu gehoben als zu billig — der Kunde kann immer noch abwählen.
+WICHTIG — Kontextuelles Preis-Fingerspitzengefühl (KEINE fixen Bänder, KEINE Hardcodes):
+- Lies die gesamte Anfrage als Mensch: Anlass, Tonfall/Sprachstil, evtl. genannter Ort/Stadtteil, evtl. Firma/Branche, evtl. genannte Wünsche, evtl. genanntes Budget.
+- Bilde innerlich ein Bauchgefühl für die "Mitte" (Medium) — was würdest du diesem konkreten Kunden ehrlich anbieten, ohne ihn zu unter- oder überfordern?
+- Setze Low bewusst schlanker/pragmatischer als Medium, und High bewusst gehobener als Medium — aber alle drei müssen für DIESEN Kunden glaubwürdig wirken. Keine mechanischen ±X %.
+- Wenn der Kunde ein konkretes Budget nennt, ankert Medium dort; Low/High passen sich darum herum an (Low etwas darunter, High mit dezentem Upsell).
+- Spüre Signale (z. B. Stadtteil/Adresse, formeller Tonfall, Anlass-Größe, Branche) — aber leite daraus immer individuell ab. Erfinde keine festen Listen.
 
-Modus-Entscheidung:
-- Hochzeit / Jubiläum / runder Geburtstag / Geschäftsessen → strukturiertes Mehrgang-Menü (Antipasto → Primo → Secondo → Dolce)
-- Firmenfeier / Empfang / Get-together / Casual → Buffet/Fingerfood-Auswahl (mehrere Antipasti + Fingerfood, optional Pasta + Dessert)
-- Default → Mehrgang
+Modus-Entscheidung pro Variante (Mehrgang vs. Buffet/Fingerfood):
+- Strukturiertes Mehrgang-Menü (Antipasto → Primo → Secondo → Dolce) wenn der Anlass ein gesetztes Essen verlangt (Hochzeit, Jubiläum, runder Geburtstag, Geschäftsessen, festliches Dinner).
+- Buffet / Fingerfood-Auswahl wenn der Anlass eher Steh-/Mingle-Charakter hat (Firmenfeier, Empfang, Get-together, Vernissage, Casual).
+- Du DARFST den Modus pro Variante unterschiedlich wählen, wenn es zum Tier passt (z. B. Low = Fingerfood, High = Mehrgang) — solange es zum Anlass plausibel ist.
 
-Quellen-Wahl:
-- Wenn ein verfügbares Paket genau passt (Größe, Stil, Preissegment) → mode="paket" + packageId.
+Quellen-Wahl pro Variante:
+- Wenn ein verfügbares Paket für ein Tier wirklich passt (Größe, Stil, Preissegment) → mode="paket" + packageId.
 - Sonst aus menu_items kombinieren → mode="menu" + courses[].
+- Jede der drei Varianten wird unabhängig entschieden — Low/Medium/High können beliebig Paket oder Menü sein.
 
 Bei mode="menu":
 - Wähle Items mit echten IDs aus der bereitgestellten menu_items-Liste. KEINE erfundenen Items.
@@ -55,7 +52,10 @@ Bei mode="menu":
 - courseType einer von: starter, pasta, main, main_fish, main_meat, dessert, fingerfood, vegetarisch, vegan.
 - courseLabel passend auf Deutsch (z.B. "Antipasto", "Primo", "Hauptgang", "Dolce").
 
-reasoning: 1–2 Sätze in der ersten Person Plural ("Wir schlagen ... vor, weil ..."), die dem Betreiber zeigt, warum genau dieser Vorschlag passt (Anlass + Ortsbezug/Stil + Preissegment).`;
+Output:
+- Liefere GENAU 3 Varianten in der Reihenfolge low → medium → high.
+- Pro Variante: 1 kurzer Satz "reasoning" in der ersten Person Plural ("Wir schlagen … vor, weil …"), der das Preissegment und die Logik erklärt.
+- Zusätzlich: 1 kurzer "overallReasoning"-Satz, der die Wahrnehmung der Anfrage zusammenfasst (was hast du aus der Anfrage gespürt).`;
 
 function buildContext(
   inquiry: Record<string, unknown>,
@@ -180,46 +180,65 @@ serve(async (req) => {
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableApiKey) throw new Error("LOVABLE_API_KEY fehlt");
 
+    const variantSchema = {
+      type: "object",
+      properties: {
+        tier: { type: "string", enum: ["low", "medium", "high"] },
+        reasoning: { type: "string", description: "1 Satz: warum diese Variante für diesen Kunden glaubwürdig ist." },
+        mode: { type: "string", enum: ["paket", "menu"] },
+        estimatedPricePerPerson: { type: "number" },
+        packageId: { type: "string", description: "Nur wenn mode='paket'. Muss eine id aus der Paket-Liste sein." },
+        courses: {
+          type: "array",
+          description: "Nur wenn mode='menu'.",
+          items: {
+            type: "object",
+            properties: {
+              courseType: {
+                type: "string",
+                enum: ["starter", "pasta", "main", "main_fish", "main_meat", "dessert", "fingerfood", "vegetarisch", "vegan"],
+              },
+              courseLabel: { type: "string" },
+              items: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", description: "Muss eine id aus menu_items sein." },
+                    name: { type: "string" },
+                  },
+                  required: ["id", "name"],
+                },
+              },
+            },
+            required: ["courseType", "courseLabel", "items"],
+          },
+        },
+      },
+      required: ["tier", "reasoning", "mode", "estimatedPricePerPerson"],
+    };
+
     const tool = {
       type: "function" as const,
       function: {
-        name: "propose_menu",
-        description: "Schlägt entweder ein passendes Paket oder ein zusammengestelltes Menü vor.",
+        name: "propose_menu_variants",
+        description: "Schlägt genau drei Varianten (Low, Medium, High) vor — je Variante Paket oder Menü.",
         parameters: {
           type: "object",
           properties: {
-            mode: { type: "string", enum: ["paket", "menu"] },
-            reasoning: { type: "string", description: "1–2 Sätze, warum dieser Vorschlag passt." },
-            estimatedPricePerPerson: { type: "number" },
-            packageId: { type: "string", description: "Nur wenn mode='paket'. Muss eine id aus der Paket-Liste sein." },
-            courses: {
+            overallReasoning: {
+              type: "string",
+              description: "1 Satz: wie hast du die Anfrage wahrgenommen (Anlass, Ton, Ortsbezug, Budget-Signale).",
+            },
+            variants: {
               type: "array",
-              description: "Nur wenn mode='menu'.",
-              items: {
-                type: "object",
-                properties: {
-                  courseType: {
-                    type: "string",
-                    enum: ["starter", "pasta", "main", "main_fish", "main_meat", "dessert", "fingerfood", "vegetarisch", "vegan"],
-                  },
-                  courseLabel: { type: "string" },
-                  items: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        id: { type: "string", description: "Muss eine id aus menu_items sein." },
-                        name: { type: "string" },
-                      },
-                      required: ["id", "name"],
-                    },
-                  },
-                },
-                required: ["courseType", "courseLabel", "items"],
-              },
+              minItems: 3,
+              maxItems: 3,
+              description: "Genau 3 Varianten in der Reihenfolge low, medium, high.",
+              items: variantSchema,
             },
           },
-          required: ["mode", "reasoning", "estimatedPricePerPerson"],
+          required: ["overallReasoning", "variants"],
         },
       },
     };
@@ -237,8 +256,8 @@ serve(async (req) => {
           { role: "user", content: context },
         ],
         tools: [tool],
-        tool_choice: { type: "function", function: { name: "propose_menu" } },
-        temperature: 0.5,
+        tool_choice: { type: "function", function: { name: "propose_menu_variants" } },
+        temperature: 0.6,
       }),
     });
 
@@ -264,9 +283,9 @@ serve(async (req) => {
       });
     }
 
-    let suggestion: Record<string, unknown>;
+    let parsed: Record<string, unknown>;
     try {
-      suggestion = JSON.parse(call.function.arguments);
+      parsed = JSON.parse(call.function.arguments);
     } catch {
       return new Response(JSON.stringify({ error: "KI-Antwort konnte nicht geparst werden" }), {
         status: 200,
@@ -274,44 +293,85 @@ serve(async (req) => {
       });
     }
 
-    // Validation: prefixe IDs auf catering_ für den OfferBuilder
-    if (suggestion.mode === "menu" && Array.isArray(suggestion.courses)) {
-      const validIds = new Set(menuItems.map((m) => m.id));
-      const itemMap = new Map(menuItems.map((m) => [m.id, m]));
-      suggestion.courses = (suggestion.courses as Array<Record<string, unknown>>)
-        .map((c) => {
-          const items = (c.items as Array<{ id: string; name: string }> | undefined) ?? [];
-          const filtered = items
-            .filter((it) => validIds.has(it.id))
-            .map((it) => {
-              const src = itemMap.get(it.id)!;
-              return {
-                id: `catering_${src.id}`,
-                rawId: src.id,
-                name: src.name,
-                description: src.description,
-                price: src.price,
-              };
-            });
-          return { ...c, items: filtered };
-        })
-        .filter((c) => Array.isArray((c as { items: unknown[] }).items) && (c as { items: unknown[] }).items.length > 0);
+    const overallReasoning = typeof parsed.overallReasoning === "string" ? parsed.overallReasoning : "";
+    const rawVariants = Array.isArray(parsed.variants) ? (parsed.variants as Array<Record<string, unknown>>) : [];
+
+    const validIds = new Set(menuItems.map((m) => m.id));
+    const itemMap = new Map(menuItems.map((m) => [m.id, m]));
+
+    const cleanedVariants = rawVariants
+      .map((v) => {
+        const tier = v.tier as "low" | "medium" | "high" | undefined;
+        const mode = v.mode as "paket" | "menu" | undefined;
+        if (!tier || !mode) return null;
+
+        if (mode === "paket") {
+          const pkg = packages.find((p) => p.id === v.packageId);
+          if (!pkg) return null;
+          return {
+            tier,
+            mode,
+            reasoning: typeof v.reasoning === "string" ? v.reasoning : "",
+            estimatedPricePerPerson: typeof v.estimatedPricePerPerson === "number" ? v.estimatedPricePerPerson : null,
+            packageId: pkg.id,
+            packageName: pkg.name,
+            packagePricePerPerson: pkg.price_per_person,
+          };
+        }
+
+        // mode === "menu"
+        const rawCourses = Array.isArray(v.courses) ? (v.courses as Array<Record<string, unknown>>) : [];
+        const courses = rawCourses
+          .map((c) => {
+            const items = (c.items as Array<{ id: string; name: string }> | undefined) ?? [];
+            const filtered = items
+              .filter((it) => validIds.has(it.id))
+              .map((it) => {
+                const src = itemMap.get(it.id)!;
+                return {
+                  id: `catering_${src.id}`,
+                  rawId: src.id,
+                  name: src.name,
+                  description: src.description,
+                  price: src.price,
+                };
+              });
+            return { ...c, items: filtered };
+          })
+          .filter((c) => Array.isArray((c as { items: unknown[] }).items) && (c as { items: unknown[] }).items.length > 0);
+
+        if (courses.length === 0) return null;
+
+        return {
+          tier,
+          mode,
+          reasoning: typeof v.reasoning === "string" ? v.reasoning : "",
+          estimatedPricePerPerson: typeof v.estimatedPricePerPerson === "number" ? v.estimatedPricePerPerson : null,
+          courses,
+        };
+      })
+      .filter((v): v is Record<string, unknown> => v !== null);
+
+    // Tiers eindeutig + Reihenfolge low/medium/high
+    const seen = new Set<string>();
+    const tierOrder: Record<string, number> = { low: 0, medium: 1, high: 2 };
+    const variants = cleanedVariants
+      .filter((v) => {
+        const t = v.tier as string;
+        if (seen.has(t)) return false;
+        seen.add(t);
+        return true;
+      })
+      .sort((a, b) => (tierOrder[a.tier as string] ?? 99) - (tierOrder[b.tier as string] ?? 99));
+
+    if (variants.length === 0) {
+      return new Response(JSON.stringify({ error: "KI lieferte keine gültigen Varianten" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    if (suggestion.mode === "paket" && suggestion.packageId) {
-      const pkg = packages.find((p) => p.id === suggestion.packageId);
-      if (!pkg) {
-        // KI hat falsche ID erfunden — fallback auf menu wenn nichts passt
-        return new Response(JSON.stringify({ error: "KI wählte ein ungültiges Paket" }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      suggestion.packageName = pkg.name;
-      suggestion.packagePricePerPerson = pkg.price_per_person;
-    }
-
-    return new Response(JSON.stringify({ suggestion }), {
+    return new Response(JSON.stringify({ overallReasoning, variants }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
