@@ -418,9 +418,11 @@ export function ProposalView({
               {isSingle ? "Ihr Angebot" : "Ihre Auswahl"}
             </h2>
             <p className="text-muted-foreground font-sans text-sm md:text-base max-w-xl">
-              {isSingle
-                ? "Buchen Sie direkt über den sicheren Zahlungslink — oder schreiben Sie uns bei Fragen und Änderungen."
-                : "Wir haben mehrere Varianten für Sie zusammengestellt — entscheiden Sie sich für eine oder kombinieren Sie mehrere mit unterschiedlichen Mengen."}
+              {options.every(o => o.offer_mode === 'email')
+                ? "Wir haben Ihnen vorab eine Nachricht zusammengestellt — antworten Sie direkt unten oder per Mail."
+                : isSingle
+                  ? "Buchen Sie direkt über den sicheren Zahlungslink — oder schreiben Sie uns bei Fragen und Änderungen."
+                  : "Wir haben mehrere Varianten für Sie zusammengestellt — entscheiden Sie sich für eine oder kombinieren Sie mehrere mit unterschiedlichen Mengen."}
             </p>
           </div>
 
