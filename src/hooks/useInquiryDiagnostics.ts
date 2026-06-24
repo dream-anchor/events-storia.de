@@ -267,6 +267,7 @@ export function useInquiryDiagnostics(range: ConversionRange) {
   return useQuery<DiagnosticsData>({
     queryKey: ["inquiry-diagnostics", range.from, range.to, showTestData],
     refetchInterval: 120_000,
+    retry: 1,
     queryFn: async () => {
       let q = supabase
         .from("v2_events")

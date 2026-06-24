@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, ShieldCheck, TrendingDown } from "lucide-react";
+import { Sparkles, ShieldCheck, TrendingDown, AlertTriangle } from "lucide-react";
 import {
   useInquiryDiagnostics, type DiagnosticsData,
 } from "@/hooks/useInquiryDiagnostics";
@@ -46,7 +46,7 @@ function composeBefund(d: DiagnosticsData): string {
 }
 
 export function DiagnosticsSection({ range }: { range: ConversionRange }) {
-  const { data, isLoading } = useInquiryDiagnostics(range);
+  const { data, isLoading, error: queryError } = useInquiryDiagnostics(range);
   const queryClient = useQueryClient();
   const [showAll, setShowAll] = useState(false);
 
@@ -64,13 +64,25 @@ export function DiagnosticsSection({ range }: { range: ConversionRange }) {
     queryClient.invalidateQueries({ queryKey: ["conversion-data"] });
   };
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-24 rounded-2xl" />
         <Skeleton className="h-32 rounded-2xl" />
         <Skeleton className="h-32 rounded-2xl" />
       </div>
+    );
+  }
+
+  if (queryError || !data) {
+    const msg = queryError instanceof Error ? queryError.message : String(queryError ?? "Unbekannter Fehler");
+    return (
+      <Card className="p-5 rounded-2xl border-red-500/30 bg-red-500/5">
+        <h2 className="text-base font-medium mb-2 flex items-center gap-2 text-red-600">
+          <AlertTriangle className="h-4 w-4" /> Auswertung konnte nicht geladen werden
+        </h2>
+        <pre className="text-sm text-red-600 bg-red-500/10 p-3 rounded-lg overflow-auto whitespace-pre-wrap">{msg}</pre>
+      </Card>
     );
   }
 
