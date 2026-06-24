@@ -29,6 +29,10 @@ export function useUnifiedInquiries() {
       if (error) throw error;
       return (data ?? []) as unknown as V2EventRow[];
     },
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
   });
 
   const ordersQuery = useList<CateringOrder>({
@@ -62,10 +66,15 @@ export function useUnifiedInquiries() {
     eventsQuery.isLoading ||
     ordersQuery.query.isLoading;
 
+  const isError =
+    Boolean(eventsQuery.error) ||
+    Boolean(ordersQuery.query.error);
+  const error = (eventsQuery.error as Error | null) || (ordersQuery.query.error as Error | null) || null;
+
   const refetch = () => {
     eventsQuery.refetch();
     ordersQuery.query.refetch();
   };
 
-  return { records, isLoading, refetch };
+  return { records, isLoading, isError, error, refetch };
 }
