@@ -1,56 +1,67 @@
-## Bestandsaufnahme (read-only, keine Änderungen)
+## Ziel
+Automatischer „Google-Bewertung erbitten"-E-Mail-Versand **2 Werktage nach durchgeführtem Catering**, im Admin global deaktivierbar (Default: aktiv). Look & Copy exakt wie im hochgeladenen Mockup (Bordeaux #6b1f2a / Creme #f8f1e4, Playfair-Heading, „Grazie für Ihr Vertrauen", CTA „Auf Google bewerten", Signatur Domenico Speranza).
 
-### 1. Edge Function `receive-group-inquiry` — **OK**
-- **Existiert & deployed:** `supabase/functions/receive-group-inquiry/index.ts` (plus separate Variante `receive-group-inquiry-webhook` mit `x-webhook-secret` für M2M-Aufrufe).
-- **CORS:** Whitelist enthält `ristorantestoria.de` (+ www) und `events-storia.de` (+ www) → Anfrage-Payload von ristorantestoria.de wird akzeptiert.
-- **Validierung:** Pflichtfelder `contactName`, `email`, `groupSize`; E-Mail-Regex; Rate-Limit 5 Anfragen / 60 min pro E-Mail.
-- **Wohin landen die Daten:**
-  - **DB:** `v2_customers` (find-or-create per E-Mail) und `v2_events` (`service_type='group'`, `source='reisegruppen'`, `status='inquiry'`, Felder: `guest_count`, `date`, `arrival_time`, `preferred_menu`, `customer_notes`, `language`, `preferred_date_flexible`, optional `travel_plan_url`).
-  - **E-Mails:** Bestätigung an Kundin + Benachrichtigung an `info@events-storia.de` (Resend primary, IONOS-SMTP Fallback); jeder Versand in `email_delivery_logs` protokolliert.
-  - **WhatsApp:** fire-and-forget Aufruf von `send-whatsapp-alert`.
-  - **Anhänge (Webhook-Variante):** Base64-PDF → Storage-Bucket `group-inquiry-uploads`.
+## Scope der Auslöser
+Ein einziger Job, der zwei Quellen prüft:
+1. `v2_events` mit Status `completed` (Events mit Catering — alle anderen ausgeschlossen)
+2. `catering_orders` mit Status `delivered`/`completed`
 
-### 2. Supabase-Region — **OK (EU)**
-- Pooler-Host: `aws-1-eu-west-1.pooler.supabase.com` → **AWS eu-west-1 (Irland)**. DSGVO-konformer Standort.
+Bedingungen pro Datensatz:
+- Eventdatum / Lieferdatum liegt **exakt 2 Werktage** (Mo–Fr, DE-Feiertage Bayern ignoriert in V1 — nur Wochenenden ausgenommen) zurück
+- Kunden-E-Mail vorhanden, nicht in `suppressed_emails`
+- Noch keine Review-Mail für diesen Datensatz versendet (Idempotenz)
+- Kunde nicht via Footer-Link „Keine weiteren Nachrichten" abgemeldet
 
-### 3. RLS auf Anfrage-/Buchungstabellen — **OK**
-Curl-Test mit anon-Key gegen REST-API:
-| Tabelle | HTTP | Ergebnis |
-|---|---|---|
-| `v2_events` | 200 | `[]` (RLS filtert alle Zeilen weg) |
-| `v2_customers` | 200 | `[]` (dito) |
-| `v2_payments` | 401 | kein anon-Grant |
-| `balance_payment_links` | 401 | kein anon-Grant |
-| `_legacy_event_bookings` | 401 | kein anon-Grant |
-| `_legacy_event_payments` | 401 | kein anon-Grant |
-| `_legacy_group_inquiries` | 401 | kein anon-Grant |
+## Admin-Toggle
+- Globaler Schalter in **Admin → Einstellungen → Benachrichtigungen**: „Google-Bewertungsanfrage 2 Werktage nach Catering versenden" (Default: **an**)
+- Live aus DB lesbar, sofort wirksam (kein Deploy nötig)
+- Anzeige: letzter Lauf, Anzahl heute versendet, Link zu Log
 
-- **Keine** `USING (true)`-Policies mehr; alle SELECT/UPDATE/DELETE laufen über `has_role(auth.uid(),'admin'|'staff')`.
-- **anon** darf ausschließlich `INSERT` (Formulare): `_legacy_event_inquiries`, `_legacy_group_inquiries`, `v2_events`.
-- **Stripe-/Zahlungs-URLs** (`v2_payments.payment_url`, `balance_payment_links.slug`, `_legacy_event_payments.stripe_payment_url`) sind für anon nicht lesbar (401). Kundenzugriff auf Restzahlung läuft serverseitig über Security-Definer-Funktion (in der letzten Migration 24.06. eingeführt).
+## Technische Umsetzung
 
-### 4. Legacy-Muster & Realtime — **OK / kontrolliert**
-- `_legacy_*`-Tabellen existieren (Bookings, Payments, Inquiries, Group-Inquiries, Customer-Profiles, Email-Messages, Comments, Tasks, Offer-History/Options, Customer-Responses, Catering-Orders) — **alle mit RLS + Rollen-Policies**, kein offener SELECT.
-- `v2_payments`: nur admin/staff (`authenticated`).
-- **RLS überall aktiviert:** keine einzige `public.*`-Tabelle ohne RLS.
-- **Realtime-Publication** (`supabase_realtime`) enthält: `activity_logs`, `admin_presence`, `daily_audits`, `email_delivery_logs`, `photo_album`, `system_errors`. Alle haben RLS — Realtime erzwingt Policies, anon-Subscriber bekommen nichts ausgeliefert. **Keine PII-Tabelle** (v2_events, v2_payments, balance_payment_links, _legacy_*) ist im Realtime-Publish. → kein „Realtime ohne RLS"-Muster.
+### DB-Migration
+- Neue Zeile in vorhandener Settings-Tabelle (oder neue `app_settings`-Row): Key `review_request_enabled` boolean default true, `review_request_delay_business_days` int default 2, `review_google_url` text
+- Neue Tabelle `review_request_log` (event_id nullable, order_id nullable, recipient_email, sent_at, message_id, status) — RLS admin-only, GRANT staff read, service_role all
+- Neue Tabelle `review_request_unsubscribes` (email pk, unsubscribed_at) — pflegt Footer-Link
+- Eindeutiger Index auf (event_id) und (order_id) verhindert Doppelversand
 
-### 5. Speicherdauer / Löschroutine eingehender Anfragen — **fehlt**
-- **Keine** automatische Löschung / kein TTL-Job für `v2_events` (service_type='group'/Anfragen), `v2_customers`, `email_delivery_logs`, `inquiry_attachments`, Storage-Bucket `group-inquiry-uploads` gefunden.
-- Vorhandene Lifecycle-Regeln betreffen nur:
-  - Menüdaten: 60-Tage Soft-Delete-Purge (Memory `menu-data-lifecycle`).
-  - Supabase-Logs: ~10 min Retention (Plattform-Default, nicht steuerbar ohne Pro-Plan).
-- DSGVO-relevant: Löschkonzept / Aufbewahrungsfristen für Anfragedaten, E-Mail-Logs und Anhänge ist **nicht** im Code/Schema verankert. Praktisch werden Daten unbegrenzt vorgehalten, bis ein Mensch sie löscht.
+### Edge Function `send-review-requests`
+- Liest Settings; bei `enabled=false` → exit
+- Berechnet Stichtag: heute minus 2 Werktage
+- Selektiert Kandidaten aus beiden Tabellen, joint Kundendaten (Anrede, Nachname, E-Mail, bevorzugte Sprache)
+- Rendert HTML aus Template (DE Default; EN-Block analog bestehender bilingualer Mails, falls `customer_language='en'`)
+- Versendet via `sendEmailWithFallback` (Resend → IONOS), schreibt Log
+- Footer enthält Unsubscribe-Link → Edge Function `review-unsubscribe` schreibt in `review_request_unsubscribes`
 
----
+### Template
+- Inline-HTML im Stil des Mockups, mobile-first, MSO-Reset
+- Variablen: `{{Anrede}}`, `{{Nachname}}`, Google-URL aus Settings
+- Klein gehaltener Plaintext-Alt-Body
+- BCC an `info@events-storia.de` (analog Offer-Archive-BCC-Regel)
+- Mehrsprachig: DE oben, EN unten falls customer_language!=de (Bilingual-Standard)
 
-### Zusammenfassung
-| # | Punkt | Stand |
-|---|---|---|
-| 1 | Edge Function + Daten-Senke | OK |
-| 2 | Region EU (eu-west-1) | OK |
-| 3 | RLS Anfragen/Buchungen, Stripe-URLs | OK (anon 401 / leeres Array) |
-| 4 | Legacy / Realtime Muster | OK (alles geschlossen) |
-| 5 | Speicherdauer / Löschroutine | **fehlt** — Handlungsbedarf für DSGVO-Löschkonzept |
+### Cron
+- `pg_cron` Job täglich **10:00 Europe/Berlin**, ruft `send-review-requests` mit Service-Role-Header
+- Manueller „Jetzt ausführen (Dry-Run)"-Button im Admin
 
-**Empfehlung (zur Diskussion, nicht umgesetzt):** Punkt 5 als Folgeauftrag — Aufbewahrungsfristen definieren (z. B. 24 Monate für nicht konvertierte Anfragen, X Jahre für Buchungen wg. § 147 AO / Art. 17 DSGVO) und einen scheduled Cron-Function-Purge plus Storage-Cleanup einrichten.
+### Admin-UI
+- In `Settings.tsx` neuer Block „Bewertungsanfragen":
+  - Switch (aktiv/inaktiv)
+  - Input Google-Bewertungs-URL
+  - Read-only: letzter Lauf, Versandzahl 7 Tage
+  - Button „Vorschau senden an mich"
+
+## Offen / zu bestätigen
+1. Google-Bewertungs-URL (Place-ID-Link) — bitte 1× liefern, wird in Settings persistiert
+2. Werktage: Wochenende ausschließen reicht, oder bayerische Feiertage auch berücksichtigen?
+3. Auch für reine **Restaurant-/Inhouse-Events ohne Catering-Lieferung** versenden, wenn `v2_events.status=completed`? (Mockup spricht von „Catering" — Standard: nur wenn Event-Typ Catering/Delivery enthält)
+4. Versand-Uhrzeit (Vorschlag: 10:00 Europe/Berlin)
+5. Anrede-Fallback wenn `{{Anrede}}` leer (Vorschlag: „Guten Tag {{Vorname}} {{Nachname}}")
+
+## Was NICHT Teil dieses Builds ist
+- Keine Änderung an bestehenden Reminder-Functions
+- Kein Trigger für Restaurant-Tisch-Reservierungen
+- Keine Mehrfachversände/Re-Reminder
+- Keine Sentiment-Weiche (positive vs. negative Reviews)
+
+Nach Freigabe + Antworten auf die 5 Punkte: Build via Migration + Edge Function + Settings-UI + Cron-Aktivierung in einem Schritt.
