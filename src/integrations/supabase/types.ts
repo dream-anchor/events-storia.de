@@ -6446,6 +6446,7 @@ export type Database = {
         | "phone"
         | "catering_form"
         | "reisegruppen"
+        | "email_forward"
       v2_event_status:
         | "inquiry"
         | "offer_draft"
@@ -6624,6 +6625,7 @@ export const Constants = {
         "phone",
         "catering_form",
         "reisegruppen",
+        "email_forward",
       ],
       v2_event_status: [
         "inquiry",
