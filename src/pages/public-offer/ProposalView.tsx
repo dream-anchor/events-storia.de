@@ -1188,20 +1188,22 @@ function ProposalOptionCard({
           </div>
         </div>
 
-        {/* Preis */}
-        <div className="text-right shrink-0">
-          <p className="text-2xl font-serif font-bold text-primary leading-none">
-            {pricePerPerson > 0
-              ? formatCurrencyDecimal(pricePerPerson)
-              : formatCurrency(option.total_amount)}
-          </p>
-          <p className="text-[11px] text-muted-foreground font-sans mt-1">
-            {pricePerPerson > 0 ? 'pro Person' : 'Gesamtpreis'}
-          </p>
-          <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
-            inkl. gesetzl. MwSt.
-          </p>
-        </div>
+        {/* Preis — bei reinen E-Mail-Angeboten ausblenden (kein Preis, kein Stripe-Link) */}
+        {option.offer_mode !== 'email' && (
+          <div className="text-right shrink-0">
+            <p className="text-2xl font-serif font-bold text-primary leading-none">
+              {pricePerPerson > 0
+                ? formatCurrencyDecimal(pricePerPerson)
+                : formatCurrency(option.total_amount)}
+            </p>
+            <p className="text-[11px] text-muted-foreground font-sans mt-1">
+              {pricePerPerson > 0 ? 'pro Person' : 'Gesamtpreis'}
+            </p>
+            <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
+              inkl. gesetzl. MwSt.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Menü-Details im Speisekarten-Stil — lesbar, wertig */}
