@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLoader } from "@/components/admin/AdminLoader";
 import {
@@ -41,6 +42,7 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
     () => (getCachedAuth() ? 'authenticated' : 'loading'),
   );
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     let mounted = true;
@@ -114,6 +116,10 @@ export const AdminAuthGuard = ({ children }: AdminAuthGuardProps) => {
         }
         if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
           if (!session?.user) return;
+          // Frische Daten nach Token-Refresh holen — sonst zeigen Hooks
+          // ein leeres Ergebnis, weil der vorherige Fetch mit altem JWT
+          // (TypeError: Failed to fetch) abgebrochen wurde.
+          queryClient.invalidateQueries();
           // Wenn die Rolle für diesen User schon im Cache ist, nichts zu tun.
           const cached = getCachedAuth();
           if (cached?.userId === session.user.id) {
