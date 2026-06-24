@@ -56,8 +56,14 @@ export default {
         })),
       };
 
-      // 3. POST an Supabase Edge Function
-      const endpoint = `${env.SUPABASE_URL}/functions/v1/receive-inbound-email`;
+      // 3. Routing: maestro@... → Auto-Import, alles andere → Reply-Handler
+      const toAddress = String(message.to || "").toLowerCase();
+      const isMaestroForward =
+        toAddress.startsWith("maestro@") || toAddress.includes("<maestro@");
+      const targetFunction = isMaestroForward
+        ? "inbound-maestro-email"
+        : "receive-inbound-email";
+      const endpoint = `${env.SUPABASE_URL}/functions/v1/${targetFunction}`;
       const res = await fetch(endpoint, {
         method: "POST",
         headers: {
@@ -70,12 +76,12 @@ export default {
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error(`Supabase Edge returned ${res.status}: ${errText}`);
+        console.error(`Supabase Edge (${targetFunction}) returned ${res.status}: ${errText}`);
         // Email NICHT rejecten — besser als Dropping, Nachricht bleibt im CF-Log
         return;
       }
 
-      console.log(`Forwarded mail from ${payload.from} to Supabase (${res.status})`);
+      console.log(`Forwarded mail from ${payload.from} → ${targetFunction} (${res.status})`);
     } catch (err) {
       console.error("Email handler error:", err);
       // Kein throw — Cloudflare würde sonst die Mail bouncen,
