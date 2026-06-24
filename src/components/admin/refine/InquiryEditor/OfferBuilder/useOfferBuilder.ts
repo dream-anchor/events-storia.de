@@ -938,13 +938,13 @@ export function useOfferBuilder({
   // =================================================================
   // OPTION CRUD (migriert aus useMultiOfferState)
   // =================================================================
-  const addOption = useCallback((mode?: OfferMode, copyFrom?: OfferBuilderOption) => {
+  const addOption = useCallback((mode?: OfferMode, copyFrom?: OfferBuilderOption): string | undefined => {
     const usedLabels = options.map(o => o.optionLabel);
     const nextLabel = OPTION_LABELS.find(l => !usedLabels.includes(l));
 
     if (!nextLabel) {
       toast.warning("Maximale Anzahl an Optionen erreicht (5)");
-      return;
+      return undefined;
     }
 
     const base = copyFrom
@@ -970,12 +970,14 @@ export function useOfferBuilder({
 
     isDirtyRef.current = true;
     dirtySourceRef.current = 'user';
+    const newId = crypto.randomUUID();
     setOptions(prev => [...prev, {
-      id: crypto.randomUUID(),
+      id: newId,
       ...base,
       optionLabel: nextLabel,
       createdInVersion: currentVersion,
     }]);
+    return newId;
   }, [options, guestCount, currentVersion]);
 
   const removeOption = useCallback((optionId: string) => {

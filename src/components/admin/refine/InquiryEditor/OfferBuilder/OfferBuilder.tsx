@@ -270,12 +270,15 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
 
   // --- KI-Menüvorschlag (3 Varianten Low/Medium/High in nächste freie Optionen) ---
   const handleGenerateMenuSuggestion = useCallback(async () => {
+    console.log("[OfferBuilder] KI-Menüvorschlag: Klick erhalten", { inquiryId: inquiry.id });
     setIsGeneratingMenu(true);
     try {
+      console.log("[OfferBuilder] KI-Menüvorschlag: invoke generate-menu-suggestion …");
       const { data, error } = await supabase.functions.invoke(
         "generate-menu-suggestion",
         { body: { inquiryId: inquiry.id } },
       );
+      console.log("[OfferBuilder] KI-Menüvorschlag: Antwort", { hasError: Boolean(error), variantsCount: (data?.variants as unknown[] | undefined)?.length });
       if (error) throw error;
       if (data?.error) {
         toast.error(data.error);
@@ -317,45 +320,63 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         high: "High",
       };
 
-      // Snapshot der bereits "belegten" IDs — wir tracken lokal, weil setState
-      // im selben Tick noch nicht im builder.options reflektiert ist.
-      const reservedIds = new Set<string>();
+      // ---------------------------------------------------------------
+      // 1) Ziel-Options ermitteln (stabile IDs, kein stale-Closure-Risk)
+      // ---------------------------------------------------------------
       const isEmpty = (o: typeof builder.options[number]) =>
-        !reservedIds.has(o.id) &&
-        (o.offerMode === "unselected" ||
-          (!o.packageId &&
-            o.offerMode !== "paket" &&
-            (o.menuSelection?.courses?.length ?? 0) === 0 &&
-            (o.menuSelection?.drinks?.length ?? 0) === 0));
+        o.offerMode === "unselected" ||
+        (!o.packageId &&
+          o.offerMode !== "paket" &&
+          (o.menuSelection?.courses?.length ?? 0) === 0 &&
+          (o.menuSelection?.drinks?.length ?? 0) === 0);
 
-      const placed: string[] = [];
+      const freeExisting = builder.options.filter(isEmpty);
+      const targets: Array<{ id: string; label: string; tier: Variant["tier"]; variant: Variant }> = [];
       const skipped: Variant["tier"][] = [];
+      let currentCount = builder.options.length;
 
-      for (const v of variants) {
-        let target = builder.options.find(isEmpty);
-
-        if (!target) {
-          if (builder.options.length + 1 > 5) {
-            skipped.push(v.tier);
-            continue;
-          }
-          builder.addOption(v.mode === "paket" ? "paket" : "menu");
-          // setState ist async — kurze Pause + Re-Lookup
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise((r) => setTimeout(r, 60));
-          target = builder.options[builder.options.length - 1];
-          if (!target) {
-            skipped.push(v.tier);
-            continue;
-          }
+      for (let i = 0; i < variants.length; i++) {
+        const v = variants[i];
+        const existing = freeExisting[i];
+        if (existing) {
+          targets.push({ id: existing.id, label: existing.optionLabel, tier: v.tier, variant: v });
+          continue;
         }
+        if (currentCount >= 5) {
+          skipped.push(v.tier);
+          continue;
+        }
+        const newId = builder.addOption(v.mode === "paket" ? "paket" : "menu");
+        if (!newId) {
+          skipped.push(v.tier);
+          continue;
+        }
+        currentCount += 1;
+        // Label des neu erzeugten Slots: erste freie Position nach den existierenden
+        const usedLabels = new Set([
+          ...builder.options.map((o) => o.optionLabel),
+          ...targets.map((t) => t.label),
+        ]);
+        const nextLabel = ["A", "B", "C", "D", "E"].find((l) => !usedLabels.has(l)) ?? "?";
+        targets.push({ id: newId, label: nextLabel, tier: v.tier, variant: v });
+      }
 
-        reservedIds.add(target.id);
+      console.log("[OfferBuilder] KI-Menüvorschlag: Ziele bestimmt", {
+        targets: targets.map((t) => ({ id: t.id, label: t.label, tier: t.tier })),
+        skipped,
+      });
 
+      // ---------------------------------------------------------------
+      // 2) Inhalte schreiben — alle IDs sind jetzt stabil bekannt
+      // ---------------------------------------------------------------
+      const placed: string[] = [];
+
+      for (const t of targets) {
+        const v = t.variant;
         const tableNote = `KI · ${tierLabel[v.tier]} — ${v.reasoning ?? ""}`.trim();
 
         if (v.mode === "paket" && v.packageId) {
-          builder.updateOption(target.id, {
+          builder.updateOption(t.id, {
             offerMode: "paket",
             packageId: v.packageId,
             packageName: v.packageName ?? "",
@@ -386,16 +407,17 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
               priceMode: "per_person" as const,
             })),
           );
-          builder.updateOption(target.id, {
+          const existing = builder.options.find((o) => o.id === t.id);
+          builder.updateOption(t.id, {
             offerMode: "menu",
             packageId: null,
             packageName: "",
             budgetPerPerson: v.estimatedPricePerPerson ?? null,
             tableNote,
             menuSelection: {
-              ...target.menuSelection,
+              ...(existing?.menuSelection ?? {}),
               courses,
-              drinks: target.menuSelection?.drinks ?? [],
+              drinks: existing?.menuSelection?.drinks ?? [],
             },
           });
         } else {
@@ -403,7 +425,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
           continue;
         }
 
-        placed.push(`${target.optionLabel}: ${tierLabel[v.tier]}`);
+        placed.push(`${t.label}: ${tierLabel[v.tier]}`);
       }
 
       if (placed.length === 0) {
