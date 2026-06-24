@@ -224,6 +224,9 @@ export const UnifiedInquiriesList = () => {
         const r = row.original;
         const hasFailure = failureIds.has(r.id);
         const hasAi = r.kind === "event" && hasInquiryAiOrigin(r, aiOriginIds);
+        const isAutoImport =
+          r.kind === "event" &&
+          Boolean((r.metadata as Record<string, unknown> | null)?.auto_import);
         const title = getInquiryDisplayTitle(r);
         return (
           <div className="flex flex-col min-w-0">
@@ -245,6 +248,15 @@ export const UnifiedInquiriesList = () => {
                 >
                   <Sparkles className="h-3 w-3" aria-hidden />
                   KI
+                </span>
+              )}
+              {isAutoImport && (
+                <span
+                  title="Per E-Mail-Weiterleitung an maestro@ automatisch importiert"
+                  aria-label="Auto-Import via maestro@"
+                  className="inline-flex items-center gap-0.5 rounded-full bg-foreground/8 text-foreground/70 ring-1 ring-foreground/15 px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap shrink-0"
+                >
+                  📥 Auto
                 </span>
               )}
               <span className="truncate" data-sensitive="customer">{title}</span>
