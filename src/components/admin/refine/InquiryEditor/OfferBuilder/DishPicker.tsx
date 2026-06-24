@@ -162,6 +162,8 @@ export function DishPicker({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
+          data-debug-itemid={value?.id ?? ''}
+          data-debug-itemname={value?.name ?? ''}
           className={cn(
             "justify-between font-normal h-9 rounded-xl w-full",
             !value && "text-muted-foreground"
