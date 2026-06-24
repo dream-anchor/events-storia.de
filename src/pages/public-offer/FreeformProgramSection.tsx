@@ -7,6 +7,8 @@ import type { PublicFreeformProgram } from "./types";
  * Preise werden 1:1 aus Maestro/KI-Import übernommen (niemals neu gerechnet).
  */
 export function FreeformProgramSection({ program }: { program: PublicFreeformProgram }) {
+  const isSingleUnlabeledDay =
+    program.days.length === 1 && !(program.days[0]?.dateLabel ?? "").trim();
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -42,10 +44,12 @@ export function FreeformProgramSection({ program }: { program: PublicFreeformPro
       <div className="space-y-8">
         {program.days.map((day) => (
           <section key={day.id || day.dateLabel} className="space-y-4">
-            <div className="flex items-center gap-2 pb-2 border-b border-border/40">
-              <Calendar className="h-4 w-4 text-primary/70" />
-              <h4 className="font-serif text-lg md:text-xl font-bold">{day.dateLabel}</h4>
-            </div>
+            {!isSingleUnlabeledDay && (
+              <div className="flex items-center gap-2 pb-2 border-b border-border/40">
+                <Calendar className="h-4 w-4 text-primary/70" />
+                <h4 className="font-serif text-lg md:text-xl font-bold">{day.dateLabel}</h4>
+              </div>
+            )}
 
             <div className="space-y-3">
               {day.meals.map((meal) => (

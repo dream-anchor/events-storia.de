@@ -1,28 +1,31 @@
-## Problem
+## Plan: Freitext-Import reparieren
 
-Bei „Nur E-Mail"-Angeboten (offer_mode = `email`, kein Preis, kein Stripe-Link) zeigt die Public-Offer-Seite trotzdem:
+### 1. Parser absichern (`parse-freeform-offer`)
+- Prompt verschärfen: bei einfachen Mail-Angeboten muss IMMER mindestens eine Mahlzeit mit Speisen-Sektionen entstehen.
+- Bulletpoints (Roastbeef, Vitello Tonnato, mediterranes Gemüse …) müssen als `sections[].items[]` landen — niemals leer oder nur in Hinweisen.
+- Typische Sektionen für so eine Mail:
+  - Empfang / Aperitivo
+  - Vorspeise (Sharing-Platten)
+  - Carpaccio-Variationen
+  - Hauptgang
+  - Dessert
+- "99,00 € pro Person" → `pricePerPersonNet=99`, `pricePerPersonPrefix="ab"`. Keine Hochrechnung.
+- Zusatzleistungen (Personal €/h, Anfahrt/Abfahrt, Equipment) bleiben unverändert in `additionalServices`.
 
-- die Preis-Spalte „0,00 € · Gesamtpreis · inkl. gesetzl. MwSt." in der Angebots-Karte
-- die Sub-Headline „Buchen Sie direkt über den sicheren Zahlungslink …"
-- den kompletten Kostenübernahme-Block („Bezugnehmend auf Angebot A über 0,00 € brutto …")
+### 2. Client-Safety-Net (`FreeformImportPanel`)
+- Wenn die KI trotzdem keine Speisen liefert (Mahlzeit ohne Items), aus dem Originaltext deterministisch Bullet-Zeilen extrahieren und als Sektion einsetzen, damit der Operator nie ein leeres Ergebnis sieht.
 
-Das ist verwirrend — eine reine Mail-Anfrage hat weder Preis noch verbindliche Kostenübernahme.
+### 3. Single-Day-Modus in der UI (`FreeformProgramEditor`)
+- Wenn das Programm nur einen einzigen Tag enthält und dieser Tag kein/leeres `dateLabel` hat:
+  - Tages-Header (Calendar-Zeile, Datum-Input, "X Mahlzeiten", Lösch-Button, Aufklapp-Pfeil) wird ausgeblendet.
+  - Mahlzeiten werden direkt angezeigt, ohne Tag-Wrapper.
+  - "Tag hinzufügen" bleibt sichtbar als kleiner Sekundär-Link — erst beim Klick erscheint die Tagesstruktur.
+- Bei zwei oder mehr Tagen (oder einem benannten Tag wie "MONTAG, 29.06.") wird die bisherige Tages-Ansicht unverändert genutzt.
 
-## Änderungen (nur UI / Sichtbarkeit, keine Datenänderung)
+### 4. Public Offer Anzeige (`FreeformProgramSection`)
+- Spiegelung der Single-Day-Logik: bei einem unbenannten Einzeltag wird die `Calendar + dateLabel`-Zeile übersprungen und nur Mahlzeiten gerendert.
 
-### 1. `src/pages/public-offer/ProposalView.tsx`
-- In `ProposalOptionCard`: wenn `option.offer_mode === 'email'`, die rechte Preis-Spalte (`text-2xl … Gesamtpreis … inkl. gesetzl. MwSt.`) komplett weglassen. Die linke Spalte (Paketname, Gäste, Beschreibung, Includes) bleibt.
-- Im Section-Header: wenn **alle** Options `offer_mode === 'email'` sind, Sub-Text durch eine neutrale Variante ersetzen, z.B. „Wir haben Ihnen vorab eine Nachricht zusammengestellt — antworten Sie direkt unten oder per Mail." (kein „Zahlungslink"-Wording).
-
-### 2. `src/pages/PublicOffer.tsx`
-- Vor dem Render von `<CostAcceptanceSection …>`: wenn **alle** Options `offer_mode === 'email'` sind, gar nicht rendern. (Selected-Option-only-Check reicht nicht, weil bei Single-Option-E-Mail nichts ausgewählt ist; bei Multi-Option mit gemischten Modi bleibt der Block, sobald mindestens eine zahlende Option existiert.)
-- Analog: `<PublicPaymentSection>` schon vorhanden — bei email-only sollte `totalCents=0` bleiben; falls dort eine 0-€-Karte erscheint, ebenfalls ausblenden. (Wird beim Test geprüft, ggf. nachgezogen.)
-
-### 3. Nicht angefasst
-- Datenmodell, Maestro-Speicherung, E-Mail-Versand.
-- `ConfirmationView` / `FinalOfferView` — separater Pfad, dort taucht bei email-only normalerweise gar nichts auf.
-
-## Akzeptanz
-
-- Single-Option-Anfrage mit `offer_mode='email'`: Karte zeigt nur Inhalt + Gästezahl, **keine** 0,00 €-Spalte, **kein** Kostenübernahme-Block.
-- Multi-Option mit gemischten Modi: Mail-Karte ohne Preisspalte, andere Karten unverändert, Kostenübernahme bleibt sichtbar.
+### 5. Keine Seiteneffekte
+- Keine Migration.
+- Nur `parse-freeform-offer` als Edge Function angefasst.
+- Keine Änderungen an Payment-, Versand- oder Maestro-Logik.

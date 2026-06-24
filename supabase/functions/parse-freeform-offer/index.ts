@@ -55,10 +55,18 @@ REGELN (NICHT VERHANDELBAR):
 10. Datumsangaben: dateLabel wörtlich aus Text, isoDate als YYYY-MM-DD wenn ableitbar.
 11. EINFACHE ANGEBOTE (kein Mehrtages-Programm, nur eine Mahlzeit oder reine Positionsliste):
     Erzeuge GENAU EINEN Tag mit dateLabel="" und isoDate="" und packe alle
-    Mahlzeiten/Positionen dort hinein. Wenn keine Mahlzeitsstruktur erkennbar
-    ist, lege EINE Mahlzeit mit label="Leistungen", guestCount=0,
-    flatPriceNet=0, vatRate=7 und einer einzigen Sektion {heading: null, items: […alle Positionen…]} an.
-    Es ist absolut OK, wenn days nur einen einzigen Eintrag enthält.
+    Mahlzeiten/Positionen dort hinein. Es ist absolut OK, wenn days nur einen
+    einzigen Eintrag enthält. Die UI blendet den Tag-Header dann automatisch aus.
+    Lege MINDESTENS EINE Mahlzeit mit aussagekräftigem label an (z.B.
+    "Sommerliches Sharing-Menü", "Catering-Vorschlag", "Buffet"). Wenn der Text
+    Gänge/Komponenten beschreibt (Empfang/Aperitivo, Vorspeise/Antipasti,
+    Carpaccio, Hauptgang, Dessert etc.), erstelle für JEDEN Gang eine eigene
+    Sektion mit heading (z.B. "Empfang", "Vorspeise – Sharing-Platten",
+    "Carpaccio-Variationen", "Hauptgang", "Dessert") und packe die Bulletpoints
+    (z.B. "Roastbeef", "Vitello Tonnato", "mediterranes Gemüse",
+    "Oktopussalat") als items[] hinein. Items sind reine Strings ohne Bullets,
+    ohne "•", ohne führende Bindestriche. NIEMALS Speisen-Bulletpoints in
+    notes[] oder scopeOfServices[] verschieben — die gehören in sections[].items[].
 12. PRO-PERSON-PREISE: Wenn im Text "X € pro Person" oder "ab X € pro Person" steht, setze
     auf der Mahlzeit pricePerPersonNet=X und pricePerPersonPrefix wörtlich ("ab", "ca.", ""),
     und lasse flatPriceNet=0. NIEMALS hochrechnen (kein guestCount × pricePerPersonNet).
