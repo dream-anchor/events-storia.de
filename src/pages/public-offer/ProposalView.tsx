@@ -418,9 +418,11 @@ export function ProposalView({
               {isSingle ? "Ihr Angebot" : "Ihre Auswahl"}
             </h2>
             <p className="text-muted-foreground font-sans text-sm md:text-base max-w-xl">
-              {isSingle
-                ? "Buchen Sie direkt über den sicheren Zahlungslink — oder schreiben Sie uns bei Fragen und Änderungen."
-                : "Wir haben mehrere Varianten für Sie zusammengestellt — entscheiden Sie sich für eine oder kombinieren Sie mehrere mit unterschiedlichen Mengen."}
+              {options.every(o => o.offer_mode === 'email')
+                ? "Wir haben Ihnen vorab eine Nachricht zusammengestellt — antworten Sie direkt unten oder per Mail."
+                : isSingle
+                  ? "Buchen Sie direkt über den sicheren Zahlungslink — oder schreiben Sie uns bei Fragen und Änderungen."
+                  : "Wir haben mehrere Varianten für Sie zusammengestellt — entscheiden Sie sich für eine oder kombinieren Sie mehrere mit unterschiedlichen Mengen."}
             </p>
           </div>
 
@@ -1188,20 +1190,22 @@ function ProposalOptionCard({
           </div>
         </div>
 
-        {/* Preis */}
-        <div className="text-right shrink-0">
-          <p className="text-2xl font-serif font-bold text-primary leading-none">
-            {pricePerPerson > 0
-              ? formatCurrencyDecimal(pricePerPerson)
-              : formatCurrency(option.total_amount)}
-          </p>
-          <p className="text-[11px] text-muted-foreground font-sans mt-1">
-            {pricePerPerson > 0 ? 'pro Person' : 'Gesamtpreis'}
-          </p>
-          <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
-            inkl. gesetzl. MwSt.
-          </p>
-        </div>
+        {/* Preis — bei reinen E-Mail-Angeboten ausblenden (kein Preis, kein Stripe-Link) */}
+        {option.offer_mode !== 'email' && (
+          <div className="text-right shrink-0">
+            <p className="text-2xl font-serif font-bold text-primary leading-none">
+              {pricePerPerson > 0
+                ? formatCurrencyDecimal(pricePerPerson)
+                : formatCurrency(option.total_amount)}
+            </p>
+            <p className="text-[11px] text-muted-foreground font-sans mt-1">
+              {pricePerPerson > 0 ? 'pro Person' : 'Gesamtpreis'}
+            </p>
+            <p className="text-[10px] text-muted-foreground/60 font-sans mt-0.5">
+              inkl. gesetzl. MwSt.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Menü-Details im Speisekarten-Stil — lesbar, wertig */}
