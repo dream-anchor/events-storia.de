@@ -80,6 +80,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
 
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [menuImporterOpen, setMenuImporterOpen] = useState(false);
+  const [isGeneratingMenu, setIsGeneratingMenu] = useState(false);
 
   // --- AI-Draft Import (zentral; gleicher Mapper wie imperative handle) ---
   const { data: aiDraftData } = useAiDraft(inquiry.id);
@@ -267,6 +268,131 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
     setIsUnlocking(false);
   }, [builder.unlockForNewVersion]);
 
+  // --- KI-Menüvorschlag (in nächste freie Option A–E) ---
+  const handleGenerateMenuSuggestion = useCallback(async () => {
+    setIsGeneratingMenu(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "generate-menu-suggestion",
+        { body: { inquiryId: inquiry.id } },
+      );
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      const suggestion = data?.suggestion as
+        | {
+            mode: "paket" | "menu";
+            reasoning?: string;
+            packageId?: string;
+            packageName?: string;
+            packagePricePerPerson?: number;
+            estimatedPricePerPerson?: number;
+            courses?: Array<{
+              courseType: string;
+              courseLabel: string;
+              items: Array<{
+                id: string;
+                rawId: string;
+                name: string;
+                description: string | null;
+                price: number | null;
+              }>;
+            }>;
+          }
+        | undefined;
+      if (!suggestion) {
+        toast.error("KI lieferte keinen Vorschlag");
+        return;
+      }
+
+      // Erste leere Option finden (offerMode unselected ODER inhaltsleer)
+      const findEmpty = () =>
+        builder.options.find(
+          (o) =>
+            o.offerMode === "unselected" ||
+            (!o.packageId &&
+              o.offerMode !== "paket" &&
+              (o.menuSelection?.courses?.length ?? 0) === 0 &&
+              (o.menuSelection?.drinks?.length ?? 0) === 0),
+        );
+
+      let target = findEmpty();
+      if (!target) {
+        if (builder.options.length >= 5) {
+          toast.warning("Alle 5 Optionen sind belegt — bitte erst eine leeren.");
+          return;
+        }
+        builder.addOption(suggestion.mode === "paket" ? "paket" : "menu");
+        // addOption ist async (setState); nächste Tick warten
+        await new Promise((r) => setTimeout(r, 50));
+        target = builder.options[builder.options.length - 1];
+        if (!target) {
+          toast.error("Konnte keine Option anlegen");
+          return;
+        }
+      }
+
+      if (suggestion.mode === "paket" && suggestion.packageId) {
+        builder.updateOption(target.id, {
+          offerMode: "paket",
+          packageId: suggestion.packageId,
+          packageName: suggestion.packageName ?? "",
+          budgetPerPerson: suggestion.packagePricePerPerson ?? suggestion.estimatedPricePerPerson ?? null,
+        });
+      } else if (suggestion.mode === "menu" && Array.isArray(suggestion.courses)) {
+        const courses = suggestion.courses.flatMap((c) =>
+          c.items.map((it) => ({
+            courseType: c.courseType as
+              | "starter"
+              | "pasta"
+              | "main"
+              | "main_fish"
+              | "main_meat"
+              | "dessert"
+              | "fingerfood"
+              | "vegetarisch"
+              | "vegan",
+            courseLabel: c.courseLabel,
+            itemId: it.id, // prefixed: "catering_<uuid>"
+            itemName: it.name,
+            itemDescription: it.description,
+            itemSource: "catering" as const,
+            isCustom: false,
+            overridePrice: it.price ?? null,
+            quantity: 1,
+            priceMode: "per_person" as const,
+          })),
+        );
+        builder.updateOption(target.id, {
+          offerMode: "menu",
+          packageId: null,
+          packageName: "",
+          budgetPerPerson: suggestion.estimatedPricePerPerson ?? null,
+          menuSelection: {
+            ...target.menuSelection,
+            courses,
+            drinks: target.menuSelection?.drinks ?? [],
+          },
+        });
+      } else {
+        toast.error("KI-Vorschlag war leer oder unvollständig");
+        return;
+      }
+
+      toast.success(
+        suggestion.reasoning ?? `KI-Vorschlag in Option ${target.optionLabel} übernommen`,
+        { duration: 6000 },
+      );
+    } catch (err) {
+      console.error("[OfferBuilder] KI-Menüvorschlag fehlgeschlagen:", err);
+      toast.error("KI-Menüvorschlag fehlgeschlagen");
+    } finally {
+      setIsGeneratingMenu(false);
+    }
+  }, [inquiry.id, builder.options, builder.addOption, builder.updateOption]);
+
   // --- Exponierten Handle für Parent (SmartInquiryEditor) ---
   useImperativeHandle(ref, () => ({
     scrollToEmail: (withGeneration = true) => {
@@ -386,6 +512,8 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
         inquiry={inquiry}
         packages={packages}
         disabled={isSignatureLocked}
+        onGenerateMenuSuggestion={handleGenerateMenuSuggestion}
+        isGeneratingSuggestion={isGeneratingMenu}
         onApplyPackageToOptionA={(packageId, packageName) => {
           const optionA = builder.options.find((o) => o.optionLabel === "A");
           if (!optionA) return;
