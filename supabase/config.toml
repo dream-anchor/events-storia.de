@@ -119,3 +119,9 @@ verify_jwt = true
 
 [functions.get-public-cost-acceptance-state]
 verify_jwt = false
+
+[functions.send-review-requests]
+verify_jwt = false
+
+[functions.review-unsubscribe]
+verify_jwt = false

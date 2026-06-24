@@ -3432,6 +3432,153 @@ export type Database = {
           },
         ]
       }
+      review_request_log: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_id: string | null
+          id: string
+          language: string | null
+          message_id: string | null
+          provider: string | null
+          recipient_email: string
+          recipient_name: string | null
+          sent_at: string
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_id?: string | null
+          id?: string
+          language?: string | null
+          message_id?: string | null
+          provider?: string | null
+          recipient_email: string
+          recipient_name?: string | null
+          sent_at?: string
+          source: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_id?: string | null
+          id?: string
+          language?: string | null
+          message_id?: string | null
+          provider?: string | null
+          recipient_email?: string
+          recipient_name?: string | null
+          sent_at?: string
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_request_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_request_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_request_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_request_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "review_request_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_request_settings: {
+        Row: {
+          bcc_email: string
+          delay_business_days: number
+          enabled: boolean
+          google_review_url: string
+          id: boolean
+          last_run_at: string | null
+          last_run_error: string | null
+          last_run_sent_count: number | null
+          last_run_skipped_count: number | null
+          scope_events: boolean
+          scope_orders: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bcc_email?: string
+          delay_business_days?: number
+          enabled?: boolean
+          google_review_url?: string
+          id?: boolean
+          last_run_at?: string | null
+          last_run_error?: string | null
+          last_run_sent_count?: number | null
+          last_run_skipped_count?: number | null
+          scope_events?: boolean
+          scope_orders?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bcc_email?: string
+          delay_business_days?: number
+          enabled?: boolean
+          google_review_url?: string
+          id?: boolean
+          last_run_at?: string | null
+          last_run_error?: string | null
+          last_run_sent_count?: number | null
+          last_run_skipped_count?: number | null
+          scope_events?: boolean
+          scope_orders?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      review_request_unsubscribes: {
+        Row: {
+          email: string
+          source: string | null
+          unsubscribed_at: string
+        }
+        Insert: {
+          email: string
+          source?: string | null
+          unsubscribed_at?: string
+        }
+        Update: {
+          email?: string
+          source?: string | null
+          unsubscribed_at?: string
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           key: string
