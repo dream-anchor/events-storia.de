@@ -146,6 +146,32 @@ function buildContext(
   }
   parts.push("");
 
+  // Preis-Anker aus p.P.-Paketen ableiten (linien-übergreifend, dient als Anker für beide Linien)
+  const ppPrices = packages
+    .filter((p) => p.price != null && p.price_per_person)
+    .map((p) => p.price as number)
+    .sort((a, b) => a - b);
+  parts.push("# PREIS-ANKER (verbindlich, ±15 % Toleranz) — p.P. brutto");
+  if (ppPrices.length >= 3) {
+    const low = ppPrices[0];
+    const high = ppPrices[ppPrices.length - 1];
+    const mid = ppPrices[Math.floor(ppPrices.length / 2)];
+    parts.push(`- low ≈ ${low} € p.P.`);
+    parts.push(`- medium ≈ ${mid} € p.P.`);
+    parts.push(`- high ≈ ${high} € p.P.`);
+  } else if (ppPrices.length > 0) {
+    const min = ppPrices[0];
+    const max = ppPrices[ppPrices.length - 1];
+    const mid = Math.round((min + max) / 2);
+    parts.push(`- low ≈ ${min} € p.P.`);
+    parts.push(`- medium ≈ ${mid} € p.P.`);
+    parts.push(`- high ≈ ${max} € p.P.`);
+  } else {
+    parts.push("- low ≈ 35 € p.P. · medium ≈ 65 € p.P. · high ≈ 95 € p.P. (Defaults)");
+  }
+  parts.push("Halte estimatedPricePerPerson jeder Variante innerhalb ±15 % des jeweiligen Ankers. Liegst du darüber, tausche teure Items gegen günstigere oder reduziere die Gangzahl.");
+  parts.push("");
+
   parts.push("# VERFÜGBARE MENU-ITEMS");
   // Gruppe: Source → Kategorie → Items
   const bySource: Record<Source, Map<string, MenuItemLite[]>> = {
