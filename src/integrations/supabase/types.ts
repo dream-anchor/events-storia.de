@@ -58,6 +58,7 @@ export type Database = {
           reminder_sent_at: string | null
           status: string | null
           stripe_payment_intent_id: string | null
+          tenant_id: string | null
           total_amount: number | null
           user_id: string | null
         }
@@ -104,6 +105,7 @@ export type Database = {
           reminder_sent_at?: string | null
           status?: string | null
           stripe_payment_intent_id?: string | null
+          tenant_id?: string | null
           total_amount?: number | null
           user_id?: string | null
         }
@@ -150,10 +152,19 @@ export type Database = {
           reminder_sent_at?: string | null
           status?: string | null
           stripe_payment_intent_id?: string | null
+          tenant_id?: string | null
           total_amount?: number | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "_legacy_catering_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       _legacy_customer_profiles: {
         Row: {
@@ -174,6 +185,7 @@ export type Database = {
           id: string
           name: string | null
           phone: string | null
+          tenant_id: string | null
           updated_at: string | null
           user_id: string
         }
@@ -195,6 +207,7 @@ export type Database = {
           id?: string
           name?: string | null
           phone?: string | null
+          tenant_id?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -216,10 +229,19 @@ export type Database = {
           id?: string
           name?: string | null
           phone?: string | null
+          tenant_id?: string | null
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "_legacy_customer_profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       _legacy_email_messages: {
         Row: {
@@ -235,6 +257,7 @@ export type Database = {
           resend_message_id: string | null
           resend_status: string | null
           subject: string | null
+          tenant_id: string | null
           to_email: string
         }
         Insert: {
@@ -250,6 +273,7 @@ export type Database = {
           resend_message_id?: string | null
           resend_status?: string | null
           subject?: string | null
+          tenant_id?: string | null
           to_email: string
         }
         Update: {
@@ -265,9 +289,17 @@ export type Database = {
           resend_message_id?: string | null
           resend_status?: string | null
           subject?: string | null
+          tenant_id?: string | null
           to_email?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "_legacy_email_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "email_messages_inquiry_id_fkey"
             columns: ["inquiry_id"]
@@ -303,6 +335,7 @@ export type Database = {
           status: string | null
           stripe_payment_intent_id: string | null
           stripe_payment_link_id: string | null
+          tenant_id: string | null
           total_amount: number | null
           updated_at: string | null
         }
@@ -331,6 +364,7 @@ export type Database = {
           status?: string | null
           stripe_payment_intent_id?: string | null
           stripe_payment_link_id?: string | null
+          tenant_id?: string | null
           total_amount?: number | null
           updated_at?: string | null
         }
@@ -359,10 +393,18 @@ export type Database = {
           status?: string | null
           stripe_payment_intent_id?: string | null
           stripe_payment_link_id?: string | null
+          tenant_id?: string | null
           total_amount?: number | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "_legacy_event_bookings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_bookings_location_id_fkey"
             columns: ["location_id"]
@@ -466,6 +508,7 @@ export type Database = {
           selected_packages: Json | null
           source: string | null
           status: string | null
+          tenant_id: string | null
           time_slot: string | null
           updated_at: string | null
           venue: string | null
@@ -542,6 +585,7 @@ export type Database = {
           selected_packages?: Json | null
           source?: string | null
           status?: string | null
+          tenant_id?: string | null
           time_slot?: string | null
           updated_at?: string | null
           venue?: string | null
@@ -618,11 +662,19 @@ export type Database = {
           selected_packages?: Json | null
           source?: string | null
           status?: string | null
+          tenant_id?: string | null
           time_slot?: string | null
           updated_at?: string | null
           venue?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "_legacy_event_inquiries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_inquiries_converted_to_booking_id_fkey"
             columns: ["converted_to_booking_id"]
@@ -654,6 +706,7 @@ export type Database = {
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
           stripe_payment_link_url: string | null
+          tenant_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -677,6 +730,7 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_payment_link_url?: string | null
+          tenant_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -700,9 +754,17 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_payment_link_url?: string | null
+          tenant_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "_legacy_event_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_payments_inquiry_id_fkey"
             columns: ["inquiry_id"]
@@ -733,6 +795,7 @@ export type Database = {
           responded_at: string | null
           source: string | null
           status: string
+          tenant_id: string | null
           travel_plan_filename: string | null
           travel_plan_url: string | null
           updated_at: string | null
@@ -762,6 +825,7 @@ export type Database = {
           responded_at?: string | null
           source?: string | null
           status?: string
+          tenant_id?: string | null
           travel_plan_filename?: string | null
           travel_plan_url?: string | null
           updated_at?: string | null
@@ -791,6 +855,7 @@ export type Database = {
           responded_at?: string | null
           source?: string | null
           status?: string
+          tenant_id?: string | null
           travel_plan_filename?: string | null
           travel_plan_url?: string | null
           updated_at?: string | null
@@ -800,7 +865,15 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "_legacy_group_inquiries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       _legacy_inquiry_comments: {
         Row: {
@@ -810,6 +883,7 @@ export type Database = {
           id: string
           inquiry_id: string
           parent_id: string | null
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -819,6 +893,7 @@ export type Database = {
           id?: string
           inquiry_id: string
           parent_id?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -828,9 +903,17 @@ export type Database = {
           id?: string
           inquiry_id?: string
           parent_id?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "_legacy_inquiry_comments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inquiry_comments_inquiry_id_fkey"
             columns: ["inquiry_id"]
@@ -857,6 +940,7 @@ export type Database = {
           pdf_url: string | null
           sent_at: string
           sent_by: string | null
+          tenant_id: string | null
           version: number
         }
         Insert: {
@@ -868,6 +952,7 @@ export type Database = {
           pdf_url?: string | null
           sent_at?: string
           sent_by?: string | null
+          tenant_id?: string | null
           version: number
         }
         Update: {
@@ -879,9 +964,17 @@ export type Database = {
           pdf_url?: string | null
           sent_at?: string
           sent_by?: string | null
+          tenant_id?: string | null
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "_legacy_inquiry_offer_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inquiry_offer_history_inquiry_id_fkey"
             columns: ["inquiry_id"]
@@ -908,6 +1001,7 @@ export type Database = {
           sort_order: number | null
           stripe_payment_link_id: string | null
           stripe_payment_link_url: string | null
+          tenant_id: string | null
           total_amount: number
           updated_at: string | null
         }
@@ -927,6 +1021,7 @@ export type Database = {
           sort_order?: number | null
           stripe_payment_link_id?: string | null
           stripe_payment_link_url?: string | null
+          tenant_id?: string | null
           total_amount: number
           updated_at?: string | null
         }
@@ -946,10 +1041,18 @@ export type Database = {
           sort_order?: number | null
           stripe_payment_link_id?: string | null
           stripe_payment_link_url?: string | null
+          tenant_id?: string | null
           total_amount?: number
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "_legacy_inquiry_offer_options_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inquiry_offer_options_inquiry_id_fkey"
             columns: ["inquiry_id"]
@@ -980,6 +1083,7 @@ export type Database = {
           priority: string
           reminder_sent: boolean | null
           status: string
+          tenant_id: string | null
           title: string
           updated_at: string
         }
@@ -996,6 +1100,7 @@ export type Database = {
           priority?: string
           reminder_sent?: boolean | null
           status?: string
+          tenant_id?: string | null
           title: string
           updated_at?: string
         }
@@ -1012,10 +1117,18 @@ export type Database = {
           priority?: string
           reminder_sent?: boolean | null
           status?: string
+          tenant_id?: string | null
           title?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "_legacy_inquiry_tasks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inquiry_tasks_inquiry_id_fkey"
             columns: ["inquiry_id"]
@@ -1034,6 +1147,7 @@ export type Database = {
           ip_address: string | null
           responded_at: string | null
           selected_option_id: string | null
+          tenant_id: string | null
           user_agent: string | null
         }
         Insert: {
@@ -1044,6 +1158,7 @@ export type Database = {
           ip_address?: string | null
           responded_at?: string | null
           selected_option_id?: string | null
+          tenant_id?: string | null
           user_agent?: string | null
         }
         Update: {
@@ -1054,9 +1169,17 @@ export type Database = {
           ip_address?: string | null
           responded_at?: string | null
           selected_option_id?: string | null
+          tenant_id?: string | null
           user_agent?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "_legacy_offer_customer_responses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "offer_customer_responses_inquiry_id_fkey"
             columns: ["inquiry_id"]
