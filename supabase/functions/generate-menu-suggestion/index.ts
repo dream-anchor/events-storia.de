@@ -56,6 +56,15 @@ Bei mode="menu":
 - courseType einer von: starter, pasta, main, main_fish, main_meat, dessert, fingerfood, vegetarisch, vegan.
 - courseLabel passend auf Deutsch (z.B. "Antipasto", "Primo", "Hauptgang", "Dolce").
 
+WICHTIG — Platten vs. Pro-Person-Preise (Reichweite beachten):
+- Jedes menu_item hat ein Feld "serving_info" als Freitext. Lies es pro Item und entscheide:
+  • Enthält es "pro Person" / "pro Glas pro Person" / "Mini-... pro Person" → "price" ist BEREITS pro Person. 1× nehmen.
+  • Enthält es "für X Personen" / "Ideal für X-Y Personen" → Platte für X (bzw. Mittelwert von X-Y) Personen. Anzahl Platten = ceil(gaeste / X). Effektive p.P. = (anzahl × price) / gaeste.
+  • Enthält es "Platte aus N Spießen/Stück" / "Auswahl an N ..." → Platte mit N Portionen. Anzahl Platten = ceil(gaeste / N). Effektive p.P. = (anzahl × price) / gaeste.
+  • Fehlt serving_info oder ist unklar → konservativ als pro-Person-Preis behandeln, aber nicht doppelt.
+- "min_order" (z.B. "Ab 4 Personen bestellbar") ist nur eine Mindestbestellmenge — wenn gaeste < min_order, Item meiden.
+- Die Summe der effektiven p.P.-Preise aller gewählten Items ergibt deinen "estimatedPricePerPerson". Rechne sauber, damit Platten nicht versehentlich als 49 €/Person verbucht werden.
+
 Output:
 - Liefere GENAU 3 Varianten in der Reihenfolge low → medium → high.
 - Pro Variante: 1 kurzer Satz "reasoning" in der ersten Person Plural ("Wir schlagen … vor, weil …"), der das Preissegment und die Logik erklärt.
