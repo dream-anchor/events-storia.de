@@ -548,25 +548,24 @@ export function FreeformProgramEditor({
                   className="h-7 w-24 text-xs text-right"
                 />
                 <span className="text-[10px] text-muted-foreground">{unitLabel(svc.unit)}</span>
-                {svc.unit !== "flat" && (
-                  <>
-                    <Input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      value={svc.quantity ?? ""}
-                      onChange={(e) =>
-                        updateService(svc.id, {
-                          quantity: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      disabled={disabled}
-                      placeholder="Menge"
-                      className="h-7 w-16 text-xs text-right"
-                    />
-                    <span className="text-[10px] text-muted-foreground">{svc.unit === "hour" ? "h" : "Stk"}</span>
-                  </>
-                )}
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={svc.quantity ?? ""}
+                  onChange={(e) =>
+                    updateService(svc.id, {
+                      quantity: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  disabled={disabled}
+                  placeholder="Menge"
+                  className="h-7 w-16 text-xs text-right"
+                  title="Pauschalen ohne Menge werden NICHT eingerechnet ('bei Bedarf')"
+                />
+                <span className="text-[10px] text-muted-foreground">
+                  {svc.unit === "hour" ? "h" : svc.unit === "piece" ? "Stk" : "×"}
+                </span>
                 <Input
                   type="number"
                   step="0.1"
