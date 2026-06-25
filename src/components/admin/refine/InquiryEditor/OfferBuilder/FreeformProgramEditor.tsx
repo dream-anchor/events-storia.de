@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Calendar, Users, RefreshCw, ChevronDown, FileText, Trash2, ShieldAlert, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,44 @@ interface FreeformProgramEditorProps {
 const fmtEur = (n: number) =>
   new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
+/**
+ * Auto-Kalkulation aus den Zeilen:
+ * - Speisen netto = Σ Mahlzeiten (pricePerPersonNet × guestCount + flatPriceNet)
+ * - Service netto = Σ Zusatzleistungen mit quantity > 0 (unitPriceNet × quantity)
+ *   → Pauschalen ohne Menge werden bewusst NICHT eingerechnet ("bei Bedarf").
+ */
+function computeTotals(program: FreeformProgram) {
+  let foodNet = 0;
+  for (const day of program.days ?? []) {
+    for (const m of day.meals ?? []) {
+      const ppp = Number(m.pricePerPersonNet) || 0;
+      const guests = Number(m.guestCount) || 0;
+      const flat = Number(m.flatPriceNet) || 0;
+      foodNet += ppp * guests + flat;
+    }
+  }
+  let servicesNet = 0;
+  for (const s of program.additionalServices ?? []) {
+    const qty = Number(s.quantity) || 0;
+    if (qty <= 0) continue;
+    servicesNet += (Number(s.unitPriceNet) || 0) * qty;
+  }
+  const foodVatRate = Number(program.taxBreakdown?.foodVatRate) || 7;
+  const servicesVatRate = Number(program.taxBreakdown?.servicesVatRate) || 19;
+  const foodVatAmount = Math.round(foodNet * foodVatRate) / 100;
+  const servicesVatAmount = Math.round(servicesNet * servicesVatRate) / 100;
+  const net = foodNet + servicesNet;
+  const gross = net + foodVatAmount + servicesVatAmount;
+  return {
+    foodNet: Math.round(foodNet * 100) / 100,
+    foodVatAmount,
+    servicesNet: Math.round(servicesNet * 100) / 100,
+    servicesVatAmount,
+    net: Math.round(net * 100) / 100,
+    gross: Math.round(gross * 100) / 100,
+  };
+}
+
 export function FreeformProgramEditor({
   program,
   onChange,
@@ -39,6 +77,39 @@ export function FreeformProgramEditor({
 }: FreeformProgramEditorProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [confirmClear, setConfirmClear] = useState(false);
+
+  // Auto-Kalkulation aus Zeilen → Summenfelder reaktiv synchronisieren.
+  const computed = useMemo(() => computeTotals(program), [program]);
+  useEffect(() => {
+    const cur = program.totalsFromText ?? { net: 0, gross: 0 };
+    const curTax = program.taxBreakdown ?? {
+      foodNet: 0, foodVatRate: 7, foodVatAmount: 0,
+      servicesNet: 0, servicesVatRate: 19, servicesVatAmount: 0,
+    };
+    const close = (a: number, b: number) => Math.abs((a || 0) - (b || 0)) < 0.005;
+    if (
+      close(cur.net, computed.net) &&
+      close(cur.gross, computed.gross) &&
+      close(curTax.foodNet, computed.foodNet) &&
+      close(curTax.foodVatAmount ?? 0, computed.foodVatAmount) &&
+      close(curTax.servicesNet, computed.servicesNet) &&
+      close(curTax.servicesVatAmount ?? 0, computed.servicesVatAmount)
+    ) {
+      return;
+    }
+    onChange({
+      ...program,
+      totalsFromText: { net: computed.net, gross: computed.gross },
+      taxBreakdown: {
+        ...curTax,
+        foodNet: computed.foodNet,
+        foodVatAmount: computed.foodVatAmount,
+        servicesNet: computed.servicesNet,
+        servicesVatAmount: computed.servicesVatAmount,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computed.net, computed.gross, computed.foodNet, computed.foodVatAmount, computed.servicesNet, computed.servicesVatAmount]);
 
   const toggle = (id: string) => setExpanded((e) => ({ ...e, [id]: !e[id] }));
 
@@ -477,25 +548,24 @@ export function FreeformProgramEditor({
                   className="h-7 w-24 text-xs text-right"
                 />
                 <span className="text-[10px] text-muted-foreground">{unitLabel(svc.unit)}</span>
-                {svc.unit !== "flat" && (
-                  <>
-                    <Input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      value={svc.quantity ?? ""}
-                      onChange={(e) =>
-                        updateService(svc.id, {
-                          quantity: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      disabled={disabled}
-                      placeholder="Menge"
-                      className="h-7 w-16 text-xs text-right"
-                    />
-                    <span className="text-[10px] text-muted-foreground">{svc.unit === "hour" ? "h" : "Stk"}</span>
-                  </>
-                )}
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={svc.quantity ?? ""}
+                  onChange={(e) =>
+                    updateService(svc.id, {
+                      quantity: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  disabled={disabled}
+                  placeholder="Menge"
+                  className="h-7 w-16 text-xs text-right"
+                  title="Pauschalen ohne Menge werden NICHT eingerechnet ('bei Bedarf')"
+                />
+                <span className="text-[10px] text-muted-foreground">
+                  {svc.unit === "hour" ? "h" : svc.unit === "piece" ? "Stk" : "×"}
+                </span>
                 <Input
                   type="number"
                   step="0.1"
