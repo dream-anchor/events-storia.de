@@ -164,6 +164,42 @@ function formatEUR(amount: number): string {
   }).format(truncated);
 }
 
+/**
+ * Entfernt sämtliche Markdown-Formatierungen aus dem KI-Output.
+ * Anschreiben gehen als Plain-Text raus — KEIN **fett**, KEIN ## H1,
+ * KEINE Listen, KEINE Backticks, KEINE Links in [text](url)-Syntax.
+ */
+function stripMarkdown(input: string): string {
+  if (!input) return input;
+  let s = input;
+  // Code-Fences und Inline-Code
+  s = s.replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, '').trim());
+  s = s.replace(/`([^`]+)`/g, '$1');
+  // Bold/Italic: ***x***, **x**, __x__, *x*, _x_
+  s = s.replace(/\*\*\*([^*]+)\*\*\*/g, '$1');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '$1');
+  s = s.replace(/__([^_]+)__/g, '$1');
+  s = s.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s.,;:!?)]|$)/g, '$1$2');
+  s = s.replace(/(^|[\s(])_([^_\n]+)_(?=[\s.,;:!?)]|$)/g, '$1$2');
+  // Überschriften (# ... am Zeilenanfang)
+  s = s.replace(/^\s{0,3}#{1,6}\s+/gm, '');
+  // Blockquotes
+  s = s.replace(/^\s{0,3}>\s?/gm, '');
+  // Listen-Bullets am Zeilenanfang (-, *, +, oder "1. ")
+  s = s.replace(/^\s{0,3}[-*+]\s+/gm, '');
+  s = s.replace(/^\s{0,3}\d+\.\s+/gm, '');
+  // Markdown-Links [text](url) -> "text (url)" bzw. nur Text wenn URL leer
+  s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '$1: $2');
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]*)\)/g, '$1');
+  // Horizontale Linien
+  s = s.replace(/^\s*[-*_]{3,}\s*$/gm, '');
+  // Übrig gebliebene einzelne Sternchen am Zeilenrand
+  s = s.replace(/\*+/g, '');
+  // Mehrfach-Leerzeilen normalisieren
+  s = s.replace(/\n{3,}/g, '\n\n');
+  return s.trim();
+}
+
 function isOfferBuilderRequest(body: RequestBody): body is OfferBuilderRequest {
   return 'inquiryId' in body && 'phase' in body && !('isMultiOption' in body);
 }
@@ -1037,6 +1073,10 @@ ${context}`;
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
     const companyFooter = await loadCompanyFooter(footerAdmin);
+    // HARTE SICHERUNG: Markdown-Reste IMMER strippen, egal was die KI ausgibt.
+    // Anschreiben darf nirgendwo **fett**, __unter__, ## Überschriften, > Zitate
+    // oder Listen mit "- "/"* " enthalten.
+    generatedEmail = stripMarkdown(generatedEmail);
     const emailWithFooter = `${generatedEmail}\n\n${companyFooter}`;
 
     console.log('Email generated successfully, length:', emailWithFooter.length);
