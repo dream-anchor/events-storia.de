@@ -17,6 +17,17 @@ import { useRegisterSaveStatus, type SaveStatus } from "@/components/admin/share
 // ─── Email Safety ──────────────────────────────────────────────────────────────
 const TEST_REDIRECT_EMAIL = "antoine@monot.com";
 
+// ─── Date Sanitizer ───────────────────────────────────────────────────────────
+// KI/Parser können Strings wie "Nicht angegeben" oder "TBD" zurückgeben, die
+// Postgres' date-Spalte mit "invalid input syntax for type date" ablehnen.
+// Nur echte ISO YYYY-MM-DD durchlassen, sonst null.
+const sanitizeDate = (v: string | null | undefined): string | null => {
+  if (!v) return null;
+  const s = String(v).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  return s;
+};
+
 // ─── Steps ────────────────────────────────────────────────────────────────────
 // Wizard ist auf 2 Schritte reduziert: Eingang + Kontakt/Event-Details.
 // Angebotskonfiguration, E-Mail-Entwurf, Zahlungsbedingungen, Versand laufen
@@ -307,10 +318,10 @@ export const AdminOfferCreate = () => {
         company_name: formData.company_name || null,
         email: formData.email,
         phone: formData.phone || null,
-        preferred_date: formData.preferred_date || null,
+        preferred_date: sanitizeDate(formData.preferred_date),
         // B2-Fix: event_end_date war im Auto-Save vergessen — bei mehrtägigen
         // Events ging das End-Datum verloren wenn der User vor Step 2 schließt.
-        event_end_date: formData.event_end_date || null,
+        event_end_date: sanitizeDate(formData.event_end_date),
         time_slot: formData.preferred_time || null,
         guest_count: formData.guest_count || null,
         event_type: formData.event_type || null,
@@ -379,8 +390,8 @@ export const AdminOfferCreate = () => {
         company_name: parsed.company_name || prev.company_name,
         email: parsed.email || prev.email,
         phone: parsed.phone || prev.phone,
-        preferred_date: parsed.preferred_date || prev.preferred_date,
-        event_end_date: parsed.event_end_date || prev.event_end_date,
+        preferred_date: sanitizeDate(parsed.preferred_date) ?? prev.preferred_date,
+        event_end_date: sanitizeDate(parsed.event_end_date) ?? prev.event_end_date,
         preferred_time: parsed.preferred_time || prev.preferred_time,
         guest_count: parsed.guest_count || prev.guest_count,
         event_type: parsed.event_type?.toLowerCase().replace(/\s+/g, '-') || prev.event_type,
@@ -431,8 +442,8 @@ export const AdminOfferCreate = () => {
           company_name: formData.company_name || null,
           email: formData.email,
           phone: formData.phone || null,
-          preferred_date: formData.preferred_date || null,
-          event_end_date: formData.event_end_date || null,
+          preferred_date: sanitizeDate(formData.preferred_date),
+          event_end_date: sanitizeDate(formData.event_end_date),
           time_slot: formData.preferred_time || null,
           guest_count: formData.guest_count || null,
           event_type: formData.event_type || null,
