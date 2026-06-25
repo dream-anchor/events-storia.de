@@ -6900,6 +6900,8 @@ export type Database = {
         Args: { p_inquiry_id: string; p_option_quantities: Json }
         Returns: Json
       }
+      current_tenant_id: { Args: never; Returns: string }
+      custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       generate_booking_number: { Args: never; Returns: string }
       get_balance_payment_link_by_slug: {
         Args: { p_slug: string }
@@ -6964,6 +6966,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_role_in_tenant: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _tenant_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_current_tenant: { Args: { _tenant_id: string }; Returns: boolean }
       purge_deleted_menu_items: { Args: never; Returns: undefined }
       report_frontend_error: {
         Args: {
