@@ -75,9 +75,11 @@ QUELLE WÄHLEN — PAKET ODER MENÜ
 - mode='menu': Der Wunsch ist individuell oder es ist eine Catering-Anfrage. Stelle die Gänge aus den vorhandenen Speisen der passenden Linie/Kategorien zusammen.
 
 DREI STUFEN (low / medium / high)
-Kein festes Preisband. Nutze die p.P.-Preise der Pakete als Orientierungsraster (linien-übergreifend, siehe oben).
-- low: schlanke, preisbewusste Variante.
-- medium: empfohlene Variante mit bestem Verhältnis. Nennt der Kunde ein Budget, ankert medium daran.
+Verbindliche Preis-Anker: der Kontext-Block „# PREIS-ANKER" nennt drei konkrete p.P.-Zielpreise (low / medium / high), abgeleitet aus den p.P.-Paketen. Diese Anker sind BINDEND, nicht nur Orientierung.
+- estimatedPricePerPerson jeder Variante MUSS innerhalb von ±15 % ihres Ankers liegen.
+- Liegt deine Summe darüber, TAUSCHE teure Items gegen günstigere Alternativen aus derselben Kategorie/Linie oder REDUZIERE die Gangzahl, bis du im Zielband liegst. Premium-Komponenten (Trüffel, Hummer, Lamm, dry-aged Rind, Degustationsmenüs) sind im low/medium-Band TABU; sie gehören in die high-Variante.
+- low: schlanke, preisbewusste Variante — wenige Gänge, einfache Antipasti/Pasta/Pizza.
+- medium: empfohlene Variante mit bestem Verhältnis. Nennt der Kunde ein Budget, ankert medium am Budget statt am Preis-Anker.
 - high: gehobene Variante — mehr Gänge, Premium-Komponenten oder exklusivere Nutzung.
 Die drei Varianten müssen sich spürbar in Umfang und Niveau unterscheiden, nicht nur im Preis. Halte dich an die vom Kunden beschriebene Struktur, wenn er eine vorgibt (z. B. Vorspeisen-Platten, warmer Hauptgang, Dessert im Glas).
 
