@@ -1037,6 +1037,10 @@ ${context}`;
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
     const companyFooter = await loadCompanyFooter(footerAdmin);
+    // HARTE SICHERUNG: Markdown-Reste IMMER strippen, egal was die KI ausgibt.
+    // Anschreiben darf nirgendwo **fett**, __unter__, ## Überschriften, > Zitate
+    // oder Listen mit "- "/"* " enthalten.
+    generatedEmail = stripMarkdown(generatedEmail);
     const emailWithFooter = `${generatedEmail}\n\n${companyFooter}`;
 
     console.log('Email generated successfully, length:', emailWithFooter.length);
