@@ -1726,6 +1726,7 @@ export type Database = {
           mime_type: string | null
           size_bytes: number | null
           storage_path: string
+          tenant_id: string | null
         }
         Insert: {
           content_id?: string | null
@@ -1737,6 +1738,7 @@ export type Database = {
           mime_type?: string | null
           size_bytes?: number | null
           storage_path: string
+          tenant_id?: string | null
         }
         Update: {
           content_id?: string | null
@@ -1748,6 +1750,7 @@ export type Database = {
           mime_type?: string | null
           size_bytes?: number | null
           storage_path?: string
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -1762,6 +1765,13 @@ export type Database = {
             columns: ["email_id"]
             isOneToOne: false
             referencedRelation: "unassigned_inbox_emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_attachments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1778,6 +1788,7 @@ export type Database = {
           subject: string | null
           suggested_category: string | null
           suggested_event_id: string | null
+          tenant_id: string | null
           was_correct: boolean | null
         }
         Insert: {
@@ -1791,6 +1802,7 @@ export type Database = {
           subject?: string | null
           suggested_category?: string | null
           suggested_event_id?: string | null
+          tenant_id?: string | null
           was_correct?: boolean | null
         }
         Update: {
@@ -1804,6 +1816,7 @@ export type Database = {
           subject?: string | null
           suggested_category?: string | null
           suggested_event_id?: string | null
+          tenant_id?: string | null
           was_correct?: boolean | null
         }
         Relationships: [
@@ -1819,6 +1832,13 @@ export type Database = {
             columns: ["email_id"]
             isOneToOne: false
             referencedRelation: "unassigned_inbox_emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_classification_feedback_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1983,6 +2003,7 @@ export type Database = {
           id: string
           is_active: boolean
           label: string | null
+          tenant_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1993,6 +2014,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string | null
+          tenant_id?: string | null
         }
         Update: {
           created_at?: string
@@ -2003,6 +2025,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string | null
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -2040,6 +2063,13 @@ export type Database = {
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_email_filters_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       event_email_links: {
@@ -2054,6 +2084,7 @@ export type Database = {
           is_excluded: boolean
           link_source: string
           matched_filter_id: string | null
+          tenant_id: string | null
         }
         Insert: {
           created_at?: string
@@ -2066,6 +2097,7 @@ export type Database = {
           is_excluded?: boolean
           link_source: string
           matched_filter_id?: string | null
+          tenant_id?: string | null
         }
         Update: {
           created_at?: string
@@ -2078,6 +2110,7 @@ export type Database = {
           is_excluded?: boolean
           link_source?: string
           matched_filter_id?: string | null
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -2134,6 +2167,13 @@ export type Database = {
             columns: ["matched_filter_id"]
             isOneToOne: false
             referencedRelation: "event_email_filters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -2208,6 +2248,7 @@ export type Database = {
           suggestion_method: string | null
           suggestion_overridden_at: string | null
           suggestion_reasoning: string | null
+          tenant_id: string | null
           to_emails: string[]
           updated_at: string
         }
@@ -2250,6 +2291,7 @@ export type Database = {
           suggestion_method?: string | null
           suggestion_overridden_at?: string | null
           suggestion_reasoning?: string | null
+          tenant_id?: string | null
           to_emails?: string[]
           updated_at?: string
         }
@@ -2292,6 +2334,7 @@ export type Database = {
           suggestion_method?: string | null
           suggestion_overridden_at?: string | null
           suggestion_reasoning?: string | null
+          tenant_id?: string | null
           to_emails?: string[]
           updated_at?: string
         }
@@ -2364,6 +2407,13 @@ export type Database = {
             columns: ["suggestion_actual_event_id"]
             isOneToOne: false
             referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_emails_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
