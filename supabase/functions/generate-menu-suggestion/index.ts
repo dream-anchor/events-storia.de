@@ -8,8 +8,12 @@ interface ReqBody {
   target?: "event" | "catering";
 }
 
+type Source = "catering" | "restaurant";
+
 interface MenuItemLite {
-  id: string;
+  id: string; // präfixierte ID (catering_… / ristorante_…)
+  rawId: string;
+  source: Source;
   name: string;
   description: string | null;
   price: number | null;
@@ -28,52 +32,83 @@ interface PackageLite {
   price_per_person: boolean | null;
   min_guests: number | null;
   max_guests: number | null;
+  package_type: string | null;
+  includes: string[] | null;
 }
 
-const SYSTEM_PROMPT = `Du bist Maître des Storia — eines italienischen Restaurants mit Catering in München (Karlstraße 47a, Maxvorstadt).
-Deine Aufgabe: aus einer Kundenanfrage **drei Varianten** vorschlagen: Low, Medium, High.
+interface EquipmentLite {
+  id: string;
+  name: string;
+  price_per_unit: number | null;
+  unit: string | null;
+}
 
-WICHTIG — Kontextuelles Preis-Fingerspitzengefühl (KEINE fixen Bänder, KEINE Hardcodes):
-- Lies die gesamte Anfrage als Mensch: Anlass, Tonfall/Sprachstil, evtl. genannter Ort/Stadtteil, evtl. Firma/Branche, evtl. genannte Wünsche, evtl. genanntes Budget.
-- Bilde innerlich ein Bauchgefühl für die "Mitte" (Medium) — was würdest du diesem konkreten Kunden ehrlich anbieten, ohne ihn zu unter- oder überfordern?
-- Setze Low bewusst schlanker/pragmatischer als Medium, und High bewusst gehobener als Medium — aber alle drei müssen für DIESEN Kunden glaubwürdig wirken. Keine mechanischen ±X %.
-- Wenn der Kunde ein konkretes Budget nennt, ankert Medium dort; Low/High passen sich darum herum an (Low etwas darunter, High mit dezentem Upsell).
-- Spüre Signale (z. B. Stadtteil/Adresse, formeller Tonfall, Anlass-Größe, Branche) — aber leite daraus immer individuell ab. Erfinde keine festen Listen.
+const SYSTEM_PROMPT = `Du bist der Maître des Storia — Gastgeber, Küchenchef und Angebots-Experte in einer Person. STORIA betreibt zwei Linien: das Ristorante Storia (Events IM Haus) und STORIA Catering (außer Haus). Aus einer Kundenanfrage erstellst du genau drei Menü-Varianten (low, medium, high), aus denen das Team im Angebots-Builder auswählt.
 
-Modus-Entscheidung pro Variante (Mehrgang vs. Buffet/Fingerfood):
-- Strukturiertes Mehrgang-Menü (Antipasto → Primo → Secondo → Dolce) wenn der Anlass ein gesetztes Essen verlangt (Hochzeit, Jubiläum, runder Geburtstag, Geschäftsessen, festliches Dinner).
-- Buffet / Fingerfood-Auswahl wenn der Anlass eher Steh-/Mingle-Charakter hat (Firmenfeier, Empfang, Get-together, Vernissage, Casual).
-- Du DARFST den Modus pro Variante unterschiedlich wählen, wenn es zum Tier passt (z. B. Low = Fingerfood, High = Mehrgang) — solange es zum Anlass plausibel ist.
+ZUERST: GESCHÄFTSLINIE BESTIMMEN
+Entscheide aus dem Inhalt der Anfrage, ob das Event IM HAUS (Restaurant) oder AUSSER HAUS (Catering) stattfindet:
+- Catering / außer Haus: Feier beim Kunden, zu Hause, in fremder Location; „zu mir", „bei mir zu Hause", eigene Adresse, „liefern", Kunde stellt Tische/Deko/Geschirr selbst, Platten- oder Familienservice ohne Restauranträume.
+- Restaurant / im Haus: Veranstaltung bei STORIA; Räume (Private Room, Gesamte Location), Tischreservierung, „bei euch", „im Restaurant".
+Im Zweifel entscheiden Standort und Logistik. In der Regel teilen alle drei Varianten dieselbe businessLine. Liegt am Vorgang ein location_type vor, halte dich daran; sonst leite die Linie aus dem Inhalt ab.
 
-Quellen-Wahl pro Variante:
-- Wenn ein verfügbares Paket für ein Tier wirklich passt (Größe, Stil, Preissegment) → mode="paket" + packageId.
-- Sonst aus menu_items kombinieren → mode="menu" + courses[].
-- Jede der drei Varianten wird unabhängig entschieden — Low/Medium/High können beliebig Paket oder Menü sein.
+ITEMS NACH LINIE TRENNEN
+Jede Speise ist mit Quelle markiert: [Catering] (ID-Präfix catering_…) oder [Restaurant] (ID-Präfix ristorante_…). Catering-Anfrage → ausschließlich [Catering]-Speisen; Restaurant-Anfrage → ausschließlich [Restaurant]-Speisen. Mische die Linien nie. Übernimm die ID immer vollständig inklusive Präfix.
 
-Bei mode="menu":
-- Wähle Items mit echten IDs aus der bereitgestellten menu_items-Liste. KEINE erfundenen Items.
-- Pro Gang 1–3 Items (mehrere = "zur Auswahl" oder Buffet-Vielfalt).
-- courseType einer von: starter, pasta, main, main_fish, main_meat, dessert, fingerfood, vegetarisch, vegan.
-- courseLabel passend auf Deutsch (z.B. "Antipasto", "Primo", "Hauptgang", "Dolce").
+PAKETE & PREIS-ORIENTIERUNG (wichtig)
+Pakete sind im Kontext mit [Restaurant] oder [Gruppenreisen] getaggt — beide gehören zur Restaurant-/Haus-Linie. Es gibt KEINE catering-spezifischen Pakete. Behandle [Gruppenreisen]-Pakete genauso wie [Restaurant]-Pakete: mode='paket' ist nur bei businessLine='restaurant' zulässig.
+Die p.P.-Preise dieser Pakete dienen ABER beiden Linien als Preis-Orientierung/Anker für estimatedPricePerPerson. Die strikte Linien-Trennung gilt nur für die Auswahl konkreter Speisen in courses[] und für die Wahl von mode='paket', NICHT für die Preis-Orientierung.
 
-WICHTIG — Platten vs. Pro-Person-Preise (Reichweite beachten):
-- Jedes menu_item hat ein Feld "serving_info" als Freitext. Lies es pro Item und entscheide:
-  • Enthält es "pro Person" / "pro Glas pro Person" / "Mini-... pro Person" → "price" ist BEREITS pro Person. 1× nehmen.
-  • Enthält es "für X Personen" / "Ideal für X-Y Personen" → Platte für X (bzw. Mittelwert von X-Y) Personen. Anzahl Platten = ceil(gaeste / X). Effektive p.P. = (anzahl × price) / gaeste.
-  • Enthält es "Platte aus N Spießen/Stück" / "Auswahl an N ..." → Platte mit N Portionen. Anzahl Platten = ceil(gaeste / N). Effektive p.P. = (anzahl × price) / gaeste.
-  • Fehlt serving_info oder ist unklar → konservativ als pro-Person-Preis behandeln, aber nicht doppelt.
-- "min_order" (z.B. "Ab 4 Personen bestellbar") ist nur eine Mindestbestellmenge — wenn gaeste < min_order, Item meiden.
-- Die Summe der effektiven p.P.-Preise aller gewählten Items ergibt deinen "estimatedPricePerPerson". Rechne sauber, damit Platten nicht versehentlich als 49 €/Person verbucht werden.
+KATEGORIEN GEZIELT NUTZEN
+Die Speisen sind im Kontext nach Kategorie gruppiert. Bestimme aus der Anfrage, welche Gänge gewünscht sind, und ziehe für jeden Gang NUR aus den thematisch passenden Kategorien — du musst nicht alle durchsuchen. Orientierung (Kategorienamen können leicht abweichen, gehe nach Bedeutung):
+- Restaurant: Suppen/Antipasti/Salate → starter; Risotto/Pasta (Cilento & Gragnano)/Hausgemachte Pasta → pasta; Secondi di Pesce → main_fish; Secondi di Carne → main_meat; Beilagen → als zusätzliche items im jeweiligen Hauptgang; Pizzen (alle Pizza-Kategorien) → main (courseLabel „Pizza"); Desserts → dessert; Degustationsmenüs → fertige Mehrgänge mit Pro-Person-Festpreis, eignen sich besonders für die high-Variante.
+- Catering: Fingerfood & Mini-Gerichte → fingerfood; Platten & Sharing → starter (kalte Sharing-Platten, courseLabel z. B. „Platten zum Teilen"); Warme Gerichte & Aufläufe → main bzw. main_meat/main_fish je nach Protein des Gerichts; Pizza Napoletana → main (courseLabel „Pizza"); Desserts → dessert. „Events im Storia" ist eine Verlinkung zur Restaurant-Linie, keine bestellbare Catering-Kategorie.
+courseType vegetarisch/vegan nur, wenn der Kunde ausdrücklich ein vegetarisches/veganes Menü wünscht; sonst die normalen Gang-Typen verwenden und vegane/vegetarische Items dort einsetzen.
 
-Output:
-- Liefere GENAU 3 Varianten in der Reihenfolge low → medium → high.
-- Pro Variante: 1 kurzer Satz "reasoning" in der ersten Person Plural ("Wir schlagen … vor, weil …"), der das Preissegment und die Logik erklärt.
-- Zusätzlich: 1 kurzer "overallReasoning"-Satz, der die Wahrnehmung der Anfrage zusammenfasst (was hast du aus der Anfrage gespürt).`;
+GANG UND PROTEIN ERKENNEN
+Bestimme Protein und Gang aus Kategorie und Gerichtsname mit deinem kulinarischen Wissen (meist italienische Gerichte): „Secondi di Carne", „Tagliata di Manzo", „Ossobuco" = Fleisch; „Secondi di Pesce", „Branzino", „Salmone", „Dorade" = Fisch. Eine Pasta oder Vorspeise mit Fleisch-/Fischanteil ist KEIN vollwertiger Fleisch- oder Fisch-Hauptgang — ordne sie als pasta bzw. starter ein. Wünscht der Kunde Fleisch UND Fisch, nimm beide als getrennte Hauptgänge auf (main_meat und main_fish).
+
+NUR VORHANDENE SPEISEN
+Verwende ausschließlich Gerichte aus der Liste mit korrekter, vollständiger ID (inkl. Präfix). Erfinde niemals Gerichte oder IDs. Fehlt für einen gewünschten Gang ein passendes Gericht in der richtigen Kategorie/Linie, wähle das nächstliegende vorhandene und vermerke das knapp im reasoning.
+
+QUELLE WÄHLEN — PAKET ODER MENÜ
+- mode='paket' (nur bei businessLine='restaurant'): Ein vorhandenes Paket deckt den Wunsch im Wesentlichen ab. packageId angeben. Schlage ein Paket nur vor, wenn die Gästezahl zu min/max passt oder unbekannt ist. Standort-/Location-Pakete (z. B. „Gesamte Location") nur im Haus.
+- mode='menu': Der Wunsch ist individuell oder es ist eine Catering-Anfrage. Stelle die Gänge aus den vorhandenen Speisen der passenden Linie/Kategorien zusammen.
+
+DREI STUFEN (low / medium / high)
+Kein festes Preisband. Nutze die p.P.-Preise der Pakete als Orientierungsraster (linien-übergreifend, siehe oben).
+- low: schlanke, preisbewusste Variante.
+- medium: empfohlene Variante mit bestem Verhältnis. Nennt der Kunde ein Budget, ankert medium daran.
+- high: gehobene Variante — mehr Gänge, Premium-Komponenten oder exklusivere Nutzung.
+Die drei Varianten müssen sich spürbar in Umfang und Niveau unterscheiden, nicht nur im Preis. Halte dich an die vom Kunden beschriebene Struktur, wenn er eine vorgibt (z. B. Vorspeisen-Platten, warmer Hauptgang, Dessert im Glas).
+
+PREISE — serving_info AUSWERTEN
+estimatedPricePerPerson ist ein realistischer Brutto-Preis pro Person; Schätzung, finale Preise kommen aus Maestro. Keine Rabatte, keine erfundenen Summen.
+Lies pro Item das Feld serving_info und entscheide die Preiseinheit:
+- Enthält serving_info „pro Person" (z. B. „Eine Fingerfood-Schale pro Person") oder fehlt es bei Restaurant-à-la-carte → price ist bereits der Pro-Person-Preis. Summiere je ein Gericht pro Gang.
+- Enthält serving_info eine Personen- oder Stückzahl (z. B. „Ideal für 6-8 Personen", „Platte aus 12 Spießen", „Auswahl an 16 Bruschette") → Platten-/Buffet-Posten. Setze serves = die genannte Zahl (bei Bereichen die OBERE Zahl, um nicht zu überteuern; Stück-/Spieß-Angaben als Portionsanzahl, 1 Portion ≈ 1 Stück). Rechne: benötigte Menge = aufgerundet(Gäste / serves); Beitrag p.P. = (Menge × price) / Gäste. Ist die Gästezahl unbekannt, schätze konservativ und vermerke die Annahme im reasoning.
+- Fixpreis-Pakete (Pauschale für die ganze Location): bei bekannter Gästezahl p.P. = Pauschale / Gäste; sonst passendstes p.P.-Paket als Anker, Annahme vermerken.
+- Fehlt serving_info ganz und kein Stückpreis-Kontext ist erkennbar („servierfertig geliefert" o. ä.) → als Pauschale behandeln, Annahme im reasoning vermerken; NIE als 1 €/Person verbuchen.
+Beachte min_order (z. B. „Ab 4 Personen bestellbar") als Mindestmenge — schlage keine Position unterhalb ihrer Mindestmenge vor. Summiere alle Pro-Person-Beiträge der gewählten Gänge zu estimatedPricePerPerson.
+
+EQUIPMENT (nur Catering / außer Haus)
+Schlage je Variante passendes Equipment aus dem EQUIPMENT-KATALOG vor (Feld equipment), abgestimmt auf Gästezahl und Service-Art: Stehtische bei stehenden Fingerfood-/Aperitivo-Events; Gedecke/Geschirr/Besteck/Gläser ungefähr pro Gast; Warmhalte-/Chafing-Lösungen bei warm serviertem oder im Ofen geschmortem Essen; Servierplatten/Schalen beim Familienservice. Nutze vorhandene Katalog-Einträge mit ID (catalogId), sonst catalogId=null und sprechenden Namen. Equipment fließt NICHT in estimatedPricePerPerson ein. Bei businessLine='restaurant' kein Equipment.
+
+BEGRÜNDUNG (Deutsch, knapp, muttersprachlich)
+- overallReasoning: erkannte Geschäftslinie + kurze Begründung, Kern-Wunsch des Kunden, wodurch sich low/medium/high unterscheiden.
+- reasoning je Variante: warum diese Stufe passt, was enthalten ist, warum der Preis (inkl. Annahmen bei Platten/Pauschalen).
+
+AUSGABE
+Antworte ausschließlich über den Funktionsaufruf propose_menu_variants — kein Freitext. Standard sind genau drei Varianten (low, medium, high). Erzwingt die User-Nachricht eine abweichende Vorgabe (z. B. Warenkorb-Modus: genau eine Variante, tier=medium, mode=menu, nur Catering-Items, keine Pakete), befolge diese Vorgabe.`;
+
+function packageLineTag(p: PackageLite): string {
+  return p.package_type === "gruppenreisen" ? "[Gruppenreisen]" : "[Restaurant]";
+}
 
 function buildContext(
   inquiry: Record<string, unknown>,
   packages: PackageLite[],
-  menuItems: MenuItemLite[]
+  menuItems: MenuItemLite[],
+  equipment: EquipmentLite[],
 ): string {
   const parts: string[] = [];
   parts.push("# KUNDENANFRAGE");
@@ -89,7 +124,7 @@ function buildContext(
   parts.push(String(inquiry.message ?? "(keine Nachricht)"));
   parts.push("");
 
-  parts.push("# VERFÜGBARE PAKETE");
+  parts.push("# VERFÜGBARE PAKETE (Restaurant-/Haus-Linie — auch [Gruppenreisen] zählt zur Restaurant-Linie)");
   if (packages.length === 0) {
     parts.push("(keine aktiven Pakete)");
   } else {
@@ -100,30 +135,102 @@ function buildContext(
       const range = p.min_guests || p.max_guests
         ? ` (${p.min_guests ?? "?"}–${p.max_guests ?? "?"} Pers.)`
         : "";
-      parts.push(`- id="${p.id}" | ${p.name} | ${price}${range}`);
+      parts.push(`- ${packageLineTag(p)} id="${p.id}" | ${p.name} | ${price}${range}`);
       if (p.description) parts.push(`  ${p.description.slice(0, 200)}`);
+      if (Array.isArray(p.includes) && p.includes.length > 0) {
+        parts.push(`  Inklusiv: ${p.includes.join(" · ").slice(0, 200)}`);
+      }
     }
   }
   parts.push("");
 
-  parts.push("# VERFÜGBARE MENU-ITEMS (Catering-Karte)");
-  const byCat = new Map<string, MenuItemLite[]>();
+  parts.push("# VERFÜGBARE MENU-ITEMS");
+  // Gruppe: Source → Kategorie → Items
+  const bySource: Record<Source, Map<string, MenuItemLite[]>> = {
+    restaurant: new Map(),
+    catering: new Map(),
+  };
   for (const it of menuItems) {
-    if (!byCat.has(it.category)) byCat.set(it.category, []);
-    byCat.get(it.category)!.push(it);
+    const m = bySource[it.source];
+    if (!m.has(it.category)) m.set(it.category, []);
+    m.get(it.category)!.push(it);
   }
-  for (const [cat, items] of byCat) {
-    parts.push(`\n## ${cat}`);
-    for (const it of items) {
-      const price = it.price ? `${it.price} €` : "—";
-      const tags = [it.is_vegan ? "vegan" : it.is_vegetarian ? "vegetarisch" : null].filter(Boolean).join(", ");
-      const serving = it.serving_info ? ` | reicht: ${it.serving_info}` : "";
-      const minOrder = it.min_order ? ` | ${it.min_order}` : "";
-      parts.push(`- id="${it.id}" | ${it.name} | ${price}${serving}${minOrder}${tags ? ` [${tags}]` : ""}`);
+  const renderSource = (label: string, m: Map<string, MenuItemLite[]>) => {
+    if (m.size === 0) {
+      parts.push(`\n## ${label} (keine Items geladen)`);
+      return;
+    }
+    for (const [cat, items] of m) {
+      parts.push(`\n## ${label} ${cat}`);
+      for (const it of items) {
+        const price = it.price ? `${it.price} €` : "—";
+        const tags = [it.is_vegan ? "vegan" : it.is_vegetarian ? "vegetarisch" : null].filter(Boolean).join(", ");
+        const serving = it.serving_info ? ` | reicht: ${it.serving_info}` : "";
+        const minOrder = it.min_order ? ` | ${it.min_order}` : "";
+        parts.push(`- id="${it.id}" | ${it.name} | ${price}${serving}${minOrder}${tags ? ` [${tags}]` : ""}`);
+      }
+    }
+  };
+  renderSource("[Restaurant]", bySource.restaurant);
+  renderSource("[Catering]", bySource.catering);
+
+  parts.push("");
+  parts.push("# EQUIPMENT-KATALOG (nur für Catering relevant)");
+  if (equipment.length === 0) {
+    parts.push("(noch keine Einträge gepflegt — du darfst Equipment mit catalogId=null vorschlagen)");
+  } else {
+    for (const e of equipment) {
+      const price = e.price_per_unit != null ? `${e.price_per_unit} €` : "Preis n/a";
+      const unit = e.unit ? `/${e.unit}` : "";
+      parts.push(`- id="${e.id}" | ${e.name} | ${price}${unit}`);
     }
   }
 
   return parts.join("\n");
+}
+
+/**
+ * Restaurant-Items aus dem externen Ristorante-Projekt laden (über die
+ * vorhandene Edge Function fetch-ristorante-menus). Bei Fehler/Timeout
+ * leere Liste — der KI-Flow läuft mit Catering-only weiter.
+ */
+async function loadRistoranteItems(supabaseUrl: string, serviceKey: string): Promise<MenuItemLite[]> {
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/fetch-ristorante-menus`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ menuTypes: ["food", "lunch"] }),
+    });
+    if (!res.ok) {
+      console.warn("[generate-menu-suggestion] fetch-ristorante-menus failed:", res.status);
+      return [];
+    }
+    const json = await res.json();
+    const items = Array.isArray(json?.items) ? json.items : [];
+    return items.slice(0, 250).map((it: Record<string, unknown>): MenuItemLite => {
+      const rawId = String(it.id);
+      return {
+        id: `ristorante_${rawId}`,
+        rawId,
+        source: "restaurant",
+        name: String(it.name ?? ""),
+        description: (it.description as string | null) ?? null,
+        price: (it.price as number | null) ?? null,
+        category: ((it.category_name as string | null) ?? "Sonstiges"),
+        is_vegetarian: (it.is_vegetarian as boolean | null) ?? null,
+        is_vegan: (it.is_vegan as boolean | null) ?? null,
+        serving_info: (it.serving_info as string | null) ?? null,
+        min_order: null,
+      };
+    });
+  } catch (err) {
+    console.warn("[generate-menu-suggestion] Restaurant-Quelle nicht erreichbar:", err);
+    return [];
+  }
 }
 
 serve(async (req) => {
@@ -163,10 +270,10 @@ serve(async (req) => {
       });
     }
 
-    // 2) Aktive Pakete
+    // 2) Aktive Pakete (alle Restaurant-/Gruppen-Linie — keine catering-spezifischen Pakete)
     const { data: packagesRaw } = await supabase
       .from("packages")
-      .select("id, name, description, price, price_per_person, min_guests, max_guests, is_active")
+      .select("id, name, description, price, price_per_person, min_guests, max_guests, is_active, package_type, includes")
       .eq("is_active", true)
       .order("price", { ascending: true });
     const packages: PackageLite[] = (packagesRaw ?? []).map((p: Record<string, unknown>) => ({
@@ -177,28 +284,61 @@ serve(async (req) => {
       price_per_person: (p.price_per_person as boolean | null) ?? null,
       min_guests: (p.min_guests as number | null) ?? null,
       max_guests: (p.max_guests as number | null) ?? null,
+      package_type: (p.package_type as string | null) ?? null,
+      includes: Array.isArray(p.includes) ? (p.includes as string[]) : null,
     }));
 
-    // 3) Catering Menu-Items
-    const { data: itemsRaw } = await supabase
-      .from("menu_items")
-      .select("id, name, description, price, is_vegetarian, is_vegan, serving_info, min_order, menu_categories!inner(name)")
-      .is("deleted_at", null)
-      .is("archived_at", null)
-      .limit(400);
-    const menuItems: MenuItemLite[] = (itemsRaw ?? []).map((r: Record<string, unknown>) => ({
-      id: String(r.id),
-      name: String(r.name ?? ""),
-      description: (r.description as string | null) ?? null,
-      price: (r.price as number | null) ?? null,
-      category: ((r.menu_categories as { name?: string } | null)?.name) ?? "Sonstiges",
-      is_vegetarian: (r.is_vegetarian as boolean | null) ?? null,
-      is_vegan: (r.is_vegan as boolean | null) ?? null,
-      serving_info: (r.serving_info as string | null) ?? null,
-      min_order: (r.min_order as string | null) ?? null,
+    // 3) Catering-Items + Restaurant-Items (beide Linien, präfixierte IDs)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const [{ data: cateringRaw }, ristoranteItems, { data: equipmentRaw }] = await Promise.all([
+      supabase
+        .from("menu_items")
+        .select("id, name, description, price, is_vegetarian, is_vegan, serving_info, min_order, menu_categories!inner(name)")
+        .is("deleted_at", null)
+        .is("archived_at", null)
+        .limit(250),
+      loadRistoranteItems(supabaseUrl, serviceKey),
+      supabase
+        .from("equipment_catalog")
+        .select("id, name, price_per_unit, unit")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true }),
+    ]);
+
+    const cateringItems: MenuItemLite[] = (cateringRaw ?? []).map((r: Record<string, unknown>) => {
+      const rawId = String(r.id);
+      return {
+        id: `catering_${rawId}`,
+        rawId,
+        source: "catering",
+        name: String(r.name ?? ""),
+        description: (r.description as string | null) ?? null,
+        price: (r.price as number | null) ?? null,
+        category: ((r.menu_categories as { name?: string } | null)?.name) ?? "Sonstiges",
+        is_vegetarian: (r.is_vegetarian as boolean | null) ?? null,
+        is_vegan: (r.is_vegan as boolean | null) ?? null,
+        serving_info: (r.serving_info as string | null) ?? null,
+        min_order: (r.min_order as string | null) ?? null,
+      };
+    });
+
+    const menuItems: MenuItemLite[] = [...cateringItems, ...ristoranteItems];
+
+    const equipment: EquipmentLite[] = (equipmentRaw ?? []).map((e: Record<string, unknown>) => ({
+      id: String(e.id),
+      name: String(e.name ?? ""),
+      price_per_unit: (e.price_per_unit as number | null) ?? null,
+      unit: (e.unit as string | null) ?? null,
     }));
 
-    const context = buildContext(inquiry as Record<string, unknown>, packages, menuItems);
+    const context = buildContext(inquiry as Record<string, unknown>, packages, menuItems, equipment);
+    console.log(
+      `[generate-menu-suggestion] context built: catering=${cateringItems.length}, restaurant=${ristoranteItems.length}, packages=${packages.length}, equipment=${equipment.length}, chars=${context.length}`,
+    );
+    // Vollen Kontext loggen (zum Verifizieren der Etappe 1 — kann später entfernt werden)
+    console.log(`[generate-menu-suggestion] CONTEXT >>>\n${context}\n<<< END CONTEXT`);
 
     // 4) AI-Call mit JSON-Schema (function calling)
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
@@ -208,10 +348,15 @@ serve(async (req) => {
       type: "object",
       properties: {
         tier: { type: "string", enum: ["low", "medium", "high"] },
+        businessLine: {
+          type: "string",
+          enum: ["restaurant", "catering"],
+          description: "Geschäftslinie der Variante. catering = außer Haus, restaurant = im Haus.",
+        },
         reasoning: { type: "string", description: "1 Satz: warum diese Variante für diesen Kunden glaubwürdig ist." },
         mode: { type: "string", enum: ["paket", "menu"] },
         estimatedPricePerPerson: { type: "number" },
-        packageId: { type: "string", description: "Nur wenn mode='paket'. Muss eine id aus der Paket-Liste sein." },
+        packageId: { type: "string", description: "Nur wenn mode='paket'. Muss eine id aus der Paket-Liste sein. mode='paket' nur bei businessLine='restaurant'." },
         courses: {
           type: "array",
           description: "Nur wenn mode='menu'.",
@@ -228,7 +373,7 @@ serve(async (req) => {
                 items: {
                   type: "object",
                   properties: {
-                    id: { type: "string", description: "Muss eine id aus menu_items sein." },
+                    id: { type: "string", description: "Vollständige ID inkl. Präfix 'catering_…' oder 'ristorante_…'." },
                     name: { type: "string" },
                   },
                   required: ["id", "name"],
@@ -238,8 +383,21 @@ serve(async (req) => {
             required: ["courseType", "courseLabel", "items"],
           },
         },
+        equipment: {
+          type: "array",
+          description: "Optional, nur wenn businessLine='catering'. Vorgeschlagenes Equipment für die Variante.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              quantity: { type: "number" },
+              catalogId: { type: ["string", "null"], description: "id aus EQUIPMENT-KATALOG falls passend, sonst null." },
+            },
+            required: ["name", "quantity"],
+          },
+        },
       },
-      required: ["tier", "reasoning", "mode", "estimatedPricePerPerson"],
+      required: ["tier", "businessLine", "reasoning", "mode", "estimatedPricePerPerson"],
     };
 
     const tool = {
@@ -327,61 +485,138 @@ serve(async (req) => {
     const overallReasoning = typeof parsed.overallReasoning === "string" ? parsed.overallReasoning : "";
     const rawVariants = Array.isArray(parsed.variants) ? (parsed.variants as Array<Record<string, unknown>>) : [];
 
-    const validIds = new Set(menuItems.map((m) => m.id));
     const itemMap = new Map(menuItems.map((m) => [m.id, m]));
+    const equipmentIds = new Set(equipment.map((e) => e.id));
+    const packageById = new Map(packages.map((p) => [p.id, p]));
 
-    const cleanedVariants = rawVariants
-      .map((v) => {
-        const tier = v.tier as "low" | "medium" | "high" | undefined;
-        const mode = v.mode as "paket" | "menu" | undefined;
-        if (!tier || !mode) return null;
+    type Variant = {
+      tier: "low" | "medium" | "high";
+      businessLine: "restaurant" | "catering";
+      mode: "paket" | "menu";
+      reasoning: string;
+      estimatedPricePerPerson: number | null;
+      packageId?: string;
+      packageName?: string;
+      packagePricePerPerson?: number | null;
+      courses?: Array<{
+        courseType: string;
+        courseLabel: string;
+        items: Array<{ id: string; rawId: string; source: Source; name: string; description: string | null; price: number | null }>;
+      }>;
+      equipment?: Array<{ name: string; quantity: number; catalogId: string | null }>;
+    };
 
-        if (mode === "paket") {
-          const pkg = packages.find((p) => p.id === v.packageId);
-          if (!pkg) return null;
-          return {
-            tier,
-            mode,
-            reasoning: typeof v.reasoning === "string" ? v.reasoning : "",
-            estimatedPricePerPerson: typeof v.estimatedPricePerPerson === "number" ? v.estimatedPricePerPerson : null,
-            packageId: pkg.id,
-            packageName: pkg.name,
-            packagePricePerPerson: pkg.price,
-          };
+    const cleanedVariants: Variant[] = [];
+    for (const v of rawVariants) {
+      const tier = v.tier as "low" | "medium" | "high" | undefined;
+      const mode = v.mode as "paket" | "menu" | undefined;
+      if (!tier || !mode) continue;
+
+      // businessLine bestimmen (Pflicht laut Schema; sonst Fallback)
+      let businessLine = (v.businessLine as "restaurant" | "catering" | undefined) ?? undefined;
+
+      if (mode === "paket") {
+        const pkg = packageById.get(String(v.packageId ?? ""));
+        if (!pkg) {
+          console.warn(`[generate-menu-suggestion] Variante ${tier}: ungültige packageId, verworfen`);
+          continue;
         }
-
-        // mode === "menu"
-        const rawCourses = Array.isArray(v.courses) ? (v.courses as Array<Record<string, unknown>>) : [];
-        const courses = rawCourses
-          .map((c) => {
-            const items = (c.items as Array<{ id: string; name: string }> | undefined) ?? [];
-            const filtered = items
-              .filter((it) => validIds.has(it.id))
-              .map((it) => {
-                const src = itemMap.get(it.id)!;
-                return {
-                  id: `catering_${src.id}`,
-                  rawId: src.id,
-                  name: src.name,
-                  description: src.description,
-                  price: src.price,
-                };
-              });
-            return { ...c, items: filtered };
-          })
-          .filter((c) => Array.isArray((c as { items: unknown[] }).items) && (c as { items: unknown[] }).items.length > 0);
-
-        if (courses.length === 0) return null;
-
-        return {
+        // Pakete sind immer Restaurant-Linie
+        businessLine = "restaurant";
+        cleanedVariants.push({
           tier,
+          businessLine,
           mode,
           reasoning: typeof v.reasoning === "string" ? v.reasoning : "",
           estimatedPricePerPerson: typeof v.estimatedPricePerPerson === "number" ? v.estimatedPricePerPerson : null,
-          courses,
+          packageId: pkg.id,
+          packageName: pkg.name,
+          packagePricePerPerson: pkg.price,
+        });
+        continue;
+      }
+
+      // mode === "menu"
+      const rawCourses = Array.isArray(v.courses) ? (v.courses as Array<Record<string, unknown>>) : [];
+
+      // Items zunächst nur auf Existenz prüfen (Mapping)
+      type MappedItem = { id: string; rawId: string; source: Source; name: string; description: string | null; price: number | null };
+      const mappedCourses = rawCourses.map((c) => {
+        const rawItems = (c.items as Array<{ id: string; name?: string }> | undefined) ?? [];
+        const mapped: MappedItem[] = [];
+        for (const it of rawItems) {
+          const src = itemMap.get(String(it.id));
+          if (!src) {
+            console.warn(`[generate-menu-suggestion] Variante ${tier}: ID '${it.id}' nicht im Katalog, gestrippt`);
+            continue;
+          }
+          mapped.push({
+            id: src.id,
+            rawId: src.rawId,
+            source: src.source,
+            name: src.name,
+            description: src.description,
+            price: src.price,
+          });
+        }
+        return {
+          courseType: String(c.courseType ?? ""),
+          courseLabel: String(c.courseLabel ?? ""),
+          items: mapped,
         };
-      })
-      .filter((v): v is Record<string, unknown> => v !== null);
+      });
+
+      // businessLine bestimmen, wenn nicht gesetzt → Mehrheit der Item-Quellen
+      if (businessLine !== "restaurant" && businessLine !== "catering") {
+        let catCount = 0;
+        let restCount = 0;
+        for (const c of mappedCourses) for (const i of c.items) (i.source === "catering" ? catCount++ : restCount++);
+        businessLine = catCount >= restCount ? "catering" : "restaurant";
+      }
+
+      // Mixed-Source: fehlplatzierte Items strippen (statt Variante verwerfen)
+      const lineKey: Source = businessLine === "catering" ? "catering" : "restaurant";
+      const finalCourses = mappedCourses
+        .map((c) => {
+          const before = c.items.length;
+          const filtered = c.items.filter((i) => i.source === lineKey);
+          if (filtered.length < before) {
+            console.warn(`[generate-menu-suggestion] Variante ${tier}/${businessLine}: ${before - filtered.length} fremde Items in '${c.courseLabel}' gestrippt`);
+          }
+          return { ...c, items: filtered };
+        })
+        .filter((c) => c.items.length > 0);
+
+      if (finalCourses.length === 0) {
+        console.warn(`[generate-menu-suggestion] Variante ${tier}: keine gültigen Gänge übrig, verworfen`);
+        continue;
+      }
+
+      // Equipment durchreichen (nur catering)
+      let equipmentOut: Variant["equipment"];
+      if (businessLine === "catering" && Array.isArray(v.equipment)) {
+        equipmentOut = (v.equipment as Array<Record<string, unknown>>)
+          .map((e) => {
+            const name = typeof e.name === "string" ? e.name : "";
+            const quantity = typeof e.quantity === "number" ? e.quantity : Number(e.quantity);
+            if (!name || !Number.isFinite(quantity) || quantity <= 0) return null;
+            const catalogId = typeof e.catalogId === "string" && equipmentIds.has(e.catalogId) ? e.catalogId : null;
+            return { name, quantity, catalogId };
+          })
+          .filter((e): e is { name: string; quantity: number; catalogId: string | null } => e !== null);
+        if (equipmentOut.length === 0) equipmentOut = undefined;
+      }
+
+      cleanedVariants.push({
+        tier,
+        businessLine,
+        mode,
+        reasoning: typeof v.reasoning === "string" ? v.reasoning : "",
+        estimatedPricePerPerson: typeof v.estimatedPricePerPerson === "number" ? v.estimatedPricePerPerson : null,
+        courses: finalCourses,
+        ...(equipmentOut ? { equipment: equipmentOut } : {}),
+      });
+    }
 
     // Tiers eindeutig + Reihenfolge low/medium/high
     const seen = new Set<string>();
