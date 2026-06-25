@@ -3735,6 +3735,116 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_users: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_users_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          address_city: string | null
+          address_street: string | null
+          address_zip: string | null
+          brand_name: string | null
+          contact_email: string | null
+          created_at: string
+          from_email: string | null
+          id: string
+          is_default: boolean
+          legal_name: string | null
+          lexoffice_api_key_ref: string | null
+          logo_url: string | null
+          name: string
+          phone: string | null
+          primary_color: string | null
+          registration_number: string | null
+          reply_to_email: string | null
+          slug: string
+          status: string
+          stripe_account_id: string | null
+          updated_at: string
+          vat_id: string | null
+          website: string | null
+        }
+        Insert: {
+          address_city?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          brand_name?: string | null
+          contact_email?: string | null
+          created_at?: string
+          from_email?: string | null
+          id?: string
+          is_default?: boolean
+          legal_name?: string | null
+          lexoffice_api_key_ref?: string | null
+          logo_url?: string | null
+          name: string
+          phone?: string | null
+          primary_color?: string | null
+          registration_number?: string | null
+          reply_to_email?: string | null
+          slug: string
+          status?: string
+          stripe_account_id?: string | null
+          updated_at?: string
+          vat_id?: string | null
+          website?: string | null
+        }
+        Update: {
+          address_city?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          brand_name?: string | null
+          contact_email?: string | null
+          created_at?: string
+          from_email?: string | null
+          id?: string
+          is_default?: boolean
+          legal_name?: string | null
+          lexoffice_api_key_ref?: string | null
+          logo_url?: string | null
+          name?: string
+          phone?: string | null
+          primary_color?: string | null
+          registration_number?: string | null
+          reply_to_email?: string | null
+          slug?: string
+          status?: string
+          stripe_account_id?: string | null
+          updated_at?: string
+          vat_id?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -3774,6 +3884,7 @@ export type Database = {
           merged_into_id: string | null
           name: string
           phone: string | null
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -3793,6 +3904,7 @@ export type Database = {
           merged_into_id?: string | null
           name: string
           phone?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -3812,6 +3924,7 @@ export type Database = {
           merged_into_id?: string | null
           name?: string
           phone?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3827,6 +3940,13 @@ export type Database = {
             columns: ["merged_into_id"]
             isOneToOne: false
             referencedRelation: "v2_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4382,6 +4502,7 @@ export type Database = {
           source_inquiry_id: string | null
           status: Database["public"]["Enums"]["v2_event_status"]
           status_changed_at: string | null
+          tenant_id: string | null
           time_from: string | null
           time_to: string | null
           travel_plan_filename: string | null
@@ -4517,6 +4638,7 @@ export type Database = {
           source_inquiry_id?: string | null
           status?: Database["public"]["Enums"]["v2_event_status"]
           status_changed_at?: string | null
+          tenant_id?: string | null
           time_from?: string | null
           time_to?: string | null
           travel_plan_filename?: string | null
@@ -4652,6 +4774,7 @@ export type Database = {
           source_inquiry_id?: string | null
           status?: Database["public"]["Enums"]["v2_event_status"]
           status_changed_at?: string | null
+          tenant_id?: string | null
           time_from?: string | null
           time_to?: string | null
           travel_plan_filename?: string | null
@@ -4693,6 +4816,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
