@@ -17,6 +17,17 @@ import { useRegisterSaveStatus, type SaveStatus } from "@/components/admin/share
 // ─── Email Safety ──────────────────────────────────────────────────────────────
 const TEST_REDIRECT_EMAIL = "antoine@monot.com";
 
+// ─── Date Sanitizer ───────────────────────────────────────────────────────────
+// KI/Parser können Strings wie "Nicht angegeben" oder "TBD" zurückgeben, die
+// Postgres' date-Spalte mit "invalid input syntax for type date" ablehnen.
+// Nur echte ISO YYYY-MM-DD durchlassen, sonst null.
+const sanitizeDate = (v: string | null | undefined): string | null => {
+  if (!v) return null;
+  const s = String(v).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  return s;
+};
+
 // ─── Steps ────────────────────────────────────────────────────────────────────
 // Wizard ist auf 2 Schritte reduziert: Eingang + Kontakt/Event-Details.
 // Angebotskonfiguration, E-Mail-Entwurf, Zahlungsbedingungen, Versand laufen
