@@ -485,61 +485,138 @@ serve(async (req) => {
     const overallReasoning = typeof parsed.overallReasoning === "string" ? parsed.overallReasoning : "";
     const rawVariants = Array.isArray(parsed.variants) ? (parsed.variants as Array<Record<string, unknown>>) : [];
 
-    const validIds = new Set(menuItems.map((m) => m.id));
     const itemMap = new Map(menuItems.map((m) => [m.id, m]));
+    const equipmentIds = new Set(equipment.map((e) => e.id));
+    const packageById = new Map(packages.map((p) => [p.id, p]));
 
-    const cleanedVariants = rawVariants
-      .map((v) => {
-        const tier = v.tier as "low" | "medium" | "high" | undefined;
-        const mode = v.mode as "paket" | "menu" | undefined;
-        if (!tier || !mode) return null;
+    type Variant = {
+      tier: "low" | "medium" | "high";
+      businessLine: "restaurant" | "catering";
+      mode: "paket" | "menu";
+      reasoning: string;
+      estimatedPricePerPerson: number | null;
+      packageId?: string;
+      packageName?: string;
+      packagePricePerPerson?: number | null;
+      courses?: Array<{
+        courseType: string;
+        courseLabel: string;
+        items: Array<{ id: string; rawId: string; source: Source; name: string; description: string | null; price: number | null }>;
+      }>;
+      equipment?: Array<{ name: string; quantity: number; catalogId: string | null }>;
+    };
 
-        if (mode === "paket") {
-          const pkg = packages.find((p) => p.id === v.packageId);
-          if (!pkg) return null;
-          return {
-            tier,
-            mode,
-            reasoning: typeof v.reasoning === "string" ? v.reasoning : "",
-            estimatedPricePerPerson: typeof v.estimatedPricePerPerson === "number" ? v.estimatedPricePerPerson : null,
-            packageId: pkg.id,
-            packageName: pkg.name,
-            packagePricePerPerson: pkg.price,
-          };
+    const cleanedVariants: Variant[] = [];
+    for (const v of rawVariants) {
+      const tier = v.tier as "low" | "medium" | "high" | undefined;
+      const mode = v.mode as "paket" | "menu" | undefined;
+      if (!tier || !mode) continue;
+
+      // businessLine bestimmen (Pflicht laut Schema; sonst Fallback)
+      let businessLine = (v.businessLine as "restaurant" | "catering" | undefined) ?? undefined;
+
+      if (mode === "paket") {
+        const pkg = packageById.get(String(v.packageId ?? ""));
+        if (!pkg) {
+          console.warn(`[generate-menu-suggestion] Variante ${tier}: ungültige packageId, verworfen`);
+          continue;
         }
-
-        // mode === "menu"
-        const rawCourses = Array.isArray(v.courses) ? (v.courses as Array<Record<string, unknown>>) : [];
-        const courses = rawCourses
-          .map((c) => {
-            const items = (c.items as Array<{ id: string; name: string }> | undefined) ?? [];
-            const filtered = items
-              .filter((it) => validIds.has(it.id))
-              .map((it) => {
-                const src = itemMap.get(it.id)!;
-                return {
-                  id: `catering_${src.id}`,
-                  rawId: src.id,
-                  name: src.name,
-                  description: src.description,
-                  price: src.price,
-                };
-              });
-            return { ...c, items: filtered };
-          })
-          .filter((c) => Array.isArray((c as { items: unknown[] }).items) && (c as { items: unknown[] }).items.length > 0);
-
-        if (courses.length === 0) return null;
-
-        return {
+        // Pakete sind immer Restaurant-Linie
+        businessLine = "restaurant";
+        cleanedVariants.push({
           tier,
+          businessLine,
           mode,
           reasoning: typeof v.reasoning === "string" ? v.reasoning : "",
           estimatedPricePerPerson: typeof v.estimatedPricePerPerson === "number" ? v.estimatedPricePerPerson : null,
-          courses,
+          packageId: pkg.id,
+          packageName: pkg.name,
+          packagePricePerPerson: pkg.price,
+        });
+        continue;
+      }
+
+      // mode === "menu"
+      const rawCourses = Array.isArray(v.courses) ? (v.courses as Array<Record<string, unknown>>) : [];
+
+      // Items zunächst nur auf Existenz prüfen (Mapping)
+      type MappedItem = { id: string; rawId: string; source: Source; name: string; description: string | null; price: number | null };
+      const mappedCourses = rawCourses.map((c) => {
+        const rawItems = (c.items as Array<{ id: string; name?: string }> | undefined) ?? [];
+        const mapped: MappedItem[] = [];
+        for (const it of rawItems) {
+          const src = itemMap.get(String(it.id));
+          if (!src) {
+            console.warn(`[generate-menu-suggestion] Variante ${tier}: ID '${it.id}' nicht im Katalog, gestrippt`);
+            continue;
+          }
+          mapped.push({
+            id: src.id,
+            rawId: src.rawId,
+            source: src.source,
+            name: src.name,
+            description: src.description,
+            price: src.price,
+          });
+        }
+        return {
+          courseType: String(c.courseType ?? ""),
+          courseLabel: String(c.courseLabel ?? ""),
+          items: mapped,
         };
-      })
-      .filter((v): v is Record<string, unknown> => v !== null);
+      });
+
+      // businessLine bestimmen, wenn nicht gesetzt → Mehrheit der Item-Quellen
+      if (businessLine !== "restaurant" && businessLine !== "catering") {
+        let catCount = 0;
+        let restCount = 0;
+        for (const c of mappedCourses) for (const i of c.items) (i.source === "catering" ? catCount++ : restCount++);
+        businessLine = catCount >= restCount ? "catering" : "restaurant";
+      }
+
+      // Mixed-Source: fehlplatzierte Items strippen (statt Variante verwerfen)
+      const lineKey: Source = businessLine === "catering" ? "catering" : "restaurant";
+      const finalCourses = mappedCourses
+        .map((c) => {
+          const before = c.items.length;
+          const filtered = c.items.filter((i) => i.source === lineKey);
+          if (filtered.length < before) {
+            console.warn(`[generate-menu-suggestion] Variante ${tier}/${businessLine}: ${before - filtered.length} fremde Items in '${c.courseLabel}' gestrippt`);
+          }
+          return { ...c, items: filtered };
+        })
+        .filter((c) => c.items.length > 0);
+
+      if (finalCourses.length === 0) {
+        console.warn(`[generate-menu-suggestion] Variante ${tier}: keine gültigen Gänge übrig, verworfen`);
+        continue;
+      }
+
+      // Equipment durchreichen (nur catering)
+      let equipmentOut: Variant["equipment"];
+      if (businessLine === "catering" && Array.isArray(v.equipment)) {
+        equipmentOut = (v.equipment as Array<Record<string, unknown>>)
+          .map((e) => {
+            const name = typeof e.name === "string" ? e.name : "";
+            const quantity = typeof e.quantity === "number" ? e.quantity : Number(e.quantity);
+            if (!name || !Number.isFinite(quantity) || quantity <= 0) return null;
+            const catalogId = typeof e.catalogId === "string" && equipmentIds.has(e.catalogId) ? e.catalogId : null;
+            return { name, quantity, catalogId };
+          })
+          .filter((e): e is { name: string; quantity: number; catalogId: string | null } => e !== null);
+        if (equipmentOut.length === 0) equipmentOut = undefined;
+      }
+
+      cleanedVariants.push({
+        tier,
+        businessLine,
+        mode,
+        reasoning: typeof v.reasoning === "string" ? v.reasoning : "",
+        estimatedPricePerPerson: typeof v.estimatedPricePerPerson === "number" ? v.estimatedPricePerPerson : null,
+        courses: finalCourses,
+        ...(equipmentOut ? { equipment: equipmentOut } : {}),
+      });
+    }
 
     // Tiers eindeutig + Reihenfolge low/medium/high
     const seen = new Set<string>();
