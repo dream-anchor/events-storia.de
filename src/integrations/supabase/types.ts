@@ -1599,22 +1599,33 @@ export type Database = {
         Row: {
           created_at: string
           key: string
+          tenant_id: string | null
           updated_at: string
           value: Json
         }
         Insert: {
           created_at?: string
           key: string
+          tenant_id?: string | null
           updated_at?: string
           value?: Json
         }
         Update: {
           created_at?: string
           key?: string
+          tenant_id?: string | null
           updated_at?: string
           value?: Json
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "crm_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       daily_audits: {
         Row: {
@@ -1967,6 +1978,7 @@ export type Database = {
           name: string
           sort_order: number | null
           subject: string
+          tenant_id: string | null
           variables: string[] | null
         }
         Insert: {
@@ -1979,6 +1991,7 @@ export type Database = {
           name: string
           sort_order?: number | null
           subject: string
+          tenant_id?: string | null
           variables?: string[] | null
         }
         Update: {
@@ -1991,9 +2004,18 @@ export type Database = {
           name?: string
           sort_order?: number | null
           subject?: string
+          tenant_id?: string | null
           variables?: string[] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       equipment_catalog: {
         Row: {
@@ -2876,6 +2898,7 @@ export type Database = {
           name: string
           name_en: string | null
           sort_order: number | null
+          tenant_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2890,6 +2913,7 @@ export type Database = {
           name: string
           name_en?: string | null
           sort_order?: number | null
+          tenant_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2904,9 +2928,18 @@ export type Database = {
           name?: string
           name_en?: string | null
           sort_order?: number | null
+          tenant_id?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "locations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       menu_categories: {
         Row: {
@@ -2922,6 +2955,7 @@ export type Database = {
           name: string
           name_en: string | null
           sort_order: number | null
+          tenant_id: string | null
         }
         Insert: {
           archived_at?: string | null
@@ -2936,6 +2970,7 @@ export type Database = {
           name: string
           name_en?: string | null
           sort_order?: number | null
+          tenant_id?: string | null
         }
         Update: {
           archived_at?: string | null
@@ -2950,6 +2985,7 @@ export type Database = {
           name?: string
           name_en?: string | null
           sort_order?: number | null
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -2957,6 +2993,13 @@ export type Database = {
             columns: ["menu_id"]
             isOneToOne: false
             referencedRelation: "menus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -2983,6 +3026,7 @@ export type Database = {
           serving_info: string | null
           serving_info_en: string | null
           sort_order: number | null
+          tenant_id: string | null
         }
         Insert: {
           allergens?: string | null
@@ -3005,6 +3049,7 @@ export type Database = {
           serving_info?: string | null
           serving_info_en?: string | null
           sort_order?: number | null
+          tenant_id?: string | null
         }
         Update: {
           allergens?: string | null
@@ -3027,6 +3072,7 @@ export type Database = {
           serving_info?: string | null
           serving_info_en?: string | null
           sort_order?: number | null
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -3034,6 +3080,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "menu_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -3055,6 +3108,7 @@ export type Database = {
           sort_order: number | null
           subtitle: string | null
           subtitle_en: string | null
+          tenant_id: string | null
           title: string | null
           title_en: string | null
           updated_at: string | null
@@ -3075,6 +3129,7 @@ export type Database = {
           sort_order?: number | null
           subtitle?: string | null
           subtitle_en?: string | null
+          tenant_id?: string | null
           title?: string | null
           title_en?: string | null
           updated_at?: string | null
@@ -3095,11 +3150,20 @@ export type Database = {
           sort_order?: number | null
           subtitle?: string | null
           subtitle_en?: string | null
+          tenant_id?: string | null
           title?: string | null
           title_en?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "menus_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_number_sequences: {
         Row: {
@@ -3151,6 +3215,7 @@ export type Database = {
           is_required: boolean | null
           package_id: string
           sort_order: number | null
+          tenant_id: string | null
         }
         Insert: {
           allowed_categories?: string[] | null
@@ -3174,6 +3239,7 @@ export type Database = {
           is_required?: boolean | null
           package_id: string
           sort_order?: number | null
+          tenant_id?: string | null
         }
         Update: {
           allowed_categories?: string[] | null
@@ -3197,6 +3263,7 @@ export type Database = {
           is_required?: boolean | null
           package_id?: string
           sort_order?: number | null
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -3204,6 +3271,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_course_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -3228,6 +3302,7 @@ export type Database = {
           quantity_label_it: string | null
           quantity_per_person: string | null
           sort_order: number | null
+          tenant_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -3248,6 +3323,7 @@ export type Database = {
           quantity_label_it?: string | null
           quantity_per_person?: string | null
           sort_order?: number | null
+          tenant_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -3268,6 +3344,7 @@ export type Database = {
           quantity_label_it?: string | null
           quantity_per_person?: string | null
           sort_order?: number | null
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -3275,6 +3352,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_drink_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -3285,18 +3369,21 @@ export type Database = {
           id: string
           location_id: string
           package_id: string
+          tenant_id: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
           location_id: string
           package_id: string
+          tenant_id?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
           location_id?: string
           package_id?: string
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -3313,6 +3400,13 @@ export type Database = {
             referencedRelation: "packages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "package_locations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       package_menu_items: {
@@ -3327,6 +3421,7 @@ export type Database = {
           package_id: string
           quantity: number
           sort_order: number | null
+          tenant_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -3340,6 +3435,7 @@ export type Database = {
           package_id: string
           quantity?: number
           sort_order?: number | null
+          tenant_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -3353,6 +3449,7 @@ export type Database = {
           package_id?: string
           quantity?: number
           sort_order?: number | null
+          tenant_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -3361,6 +3458,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_menu_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -3391,6 +3495,7 @@ export type Database = {
           sort_order: number | null
           subtitle: string | null
           target_groups: Json | null
+          tenant_id: string | null
           updated_at: string | null
           visible_on_website: boolean | null
           website_menu_key: string | null
@@ -3420,6 +3525,7 @@ export type Database = {
           sort_order?: number | null
           subtitle?: string | null
           target_groups?: Json | null
+          tenant_id?: string | null
           updated_at?: string | null
           visible_on_website?: boolean | null
           website_menu_key?: string | null
@@ -3449,11 +3555,20 @@ export type Database = {
           sort_order?: number | null
           subtitle?: string | null
           target_groups?: Json | null
+          tenant_id?: string | null
           updated_at?: string | null
           visible_on_website?: boolean | null
           website_menu_key?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "packages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       photo_album: {
         Row: {
@@ -3704,23 +3819,34 @@ export type Database = {
       site_settings: {
         Row: {
           key: string
+          tenant_id: string | null
           updated_at: string
           updated_by: string | null
           value: Json
         }
         Insert: {
           key: string
+          tenant_id?: string | null
           updated_at?: string
           updated_by?: string | null
           value?: Json
         }
         Update: {
           key?: string
+          tenant_id?: string | null
           updated_at?: string
           updated_by?: string | null
           value?: Json
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "site_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_catalog: {
         Row: {
