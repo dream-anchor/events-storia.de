@@ -1155,6 +1155,7 @@ export type Database = {
           metadata: Json
           source: string
           status: string
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1166,6 +1167,7 @@ export type Database = {
           metadata?: Json
           source?: string
           status?: string
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1177,9 +1179,18 @@ export type Database = {
           metadata?: Json
           source?: string
           status?: string
+          tenant_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_extractions: {
         Row: {
@@ -1189,6 +1200,7 @@ export type Database = {
           extracted: Json
           id: string
           missing_fields: string[]
+          tenant_id: string | null
         }
         Insert: {
           confidence?: Json
@@ -1197,6 +1209,7 @@ export type Database = {
           extracted?: Json
           id?: string
           missing_fields?: string[]
+          tenant_id?: string | null
         }
         Update: {
           confidence?: Json
@@ -1205,6 +1218,7 @@ export type Database = {
           extracted?: Json
           id?: string
           missing_fields?: string[]
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -1219,6 +1233,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "v_purge_candidates_ai_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_extractions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1231,6 +1252,7 @@ export type Database = {
           id: string
           metadata: Json
           role: string
+          tenant_id: string | null
         }
         Insert: {
           content: string
@@ -1239,6 +1261,7 @@ export type Database = {
           id?: string
           metadata?: Json
           role: string
+          tenant_id?: string | null
         }
         Update: {
           content?: string
@@ -1247,6 +1270,7 @@ export type Database = {
           id?: string
           metadata?: Json
           role?: string
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -1261,6 +1285,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "v_purge_candidates_ai_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1378,6 +1409,7 @@ export type Database = {
           signer_name: string | null
           status: string
           template_version: string | null
+          tenant_id: string | null
           updated_at: string
           valid_until: string | null
           webhook_events: Json
@@ -1431,6 +1463,7 @@ export type Database = {
           signer_name?: string | null
           status?: string
           template_version?: string | null
+          tenant_id?: string | null
           updated_at?: string
           valid_until?: string | null
           webhook_events?: Json
@@ -1484,6 +1517,7 @@ export type Database = {
           signer_name?: string | null
           status?: string
           template_version?: string | null
+          tenant_id?: string | null
           updated_at?: string
           valid_until?: string | null
           webhook_events?: Json
@@ -1550,6 +1584,13 @@ export type Database = {
             columns: ["offer_option_id"]
             isOneToOne: false
             referencedRelation: "v2_offer_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_acceptances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -2613,6 +2654,7 @@ export type Database = {
           lead_id: string
           resolved_at: string | null
           step: string
+          tenant_id: string | null
         }
         Insert: {
           attempted_at?: string
@@ -2621,6 +2663,7 @@ export type Database = {
           lead_id: string
           resolved_at?: string | null
           step: string
+          tenant_id?: string | null
         }
         Update: {
           attempted_at?: string
@@ -2629,6 +2672,7 @@ export type Database = {
           lead_id?: string
           resolved_at?: string | null
           step?: string
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -2636,6 +2680,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads_funnel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_notify_failures_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -2665,6 +2716,7 @@ export type Database = {
           phone: string | null
           source_url: string | null
           status: string
+          tenant_id: string | null
           updated_at: string
           utm_campaign: string | null
           utm_content: string | null
@@ -2696,6 +2748,7 @@ export type Database = {
           phone?: string | null
           source_url?: string | null
           status?: string
+          tenant_id?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_content?: string | null
@@ -2727,6 +2780,7 @@ export type Database = {
           phone?: string | null
           source_url?: string | null
           status?: string
+          tenant_id?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_content?: string | null
@@ -2734,7 +2788,15 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_funnel_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lexoffice_sync_log: {
         Row: {
@@ -3496,6 +3558,7 @@ export type Database = {
           sent_at: string
           source: string
           status: string
+          tenant_id: string | null
         }
         Insert: {
           created_at?: string
@@ -3510,6 +3573,7 @@ export type Database = {
           sent_at?: string
           source: string
           status?: string
+          tenant_id?: string | null
         }
         Update: {
           created_at?: string
@@ -3524,6 +3588,7 @@ export type Database = {
           sent_at?: string
           source?: string
           status?: string
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -3559,6 +3624,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_request_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -5235,6 +5307,7 @@ export type Database = {
           redeemed_by_admin: string | null
           status: string
           stripe_session_id: string | null
+          tenant_id: string | null
           valid_until: string
         }
         Insert: {
@@ -5256,6 +5329,7 @@ export type Database = {
           redeemed_by_admin?: string | null
           status?: string
           stripe_session_id?: string | null
+          tenant_id?: string | null
           valid_until: string
         }
         Update: {
@@ -5277,9 +5351,18 @@ export type Database = {
           redeemed_by_admin?: string | null
           status?: string
           stripe_session_id?: string | null
+          tenant_id?: string | null
           valid_until?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vouchers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
