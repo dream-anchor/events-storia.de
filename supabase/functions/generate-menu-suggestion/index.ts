@@ -270,10 +270,10 @@ serve(async (req) => {
       });
     }
 
-    // 2) Aktive Pakete
+    // 2) Aktive Pakete (alle Restaurant-/Gruppen-Linie — keine catering-spezifischen Pakete)
     const { data: packagesRaw } = await supabase
       .from("packages")
-      .select("id, name, description, price, price_per_person, min_guests, max_guests, is_active")
+      .select("id, name, description, price, price_per_person, min_guests, max_guests, is_active, package_type, includes")
       .eq("is_active", true)
       .order("price", { ascending: true });
     const packages: PackageLite[] = (packagesRaw ?? []).map((p: Record<string, unknown>) => ({
@@ -284,28 +284,61 @@ serve(async (req) => {
       price_per_person: (p.price_per_person as boolean | null) ?? null,
       min_guests: (p.min_guests as number | null) ?? null,
       max_guests: (p.max_guests as number | null) ?? null,
+      package_type: (p.package_type as string | null) ?? null,
+      includes: Array.isArray(p.includes) ? (p.includes as string[]) : null,
     }));
 
-    // 3) Catering Menu-Items
-    const { data: itemsRaw } = await supabase
-      .from("menu_items")
-      .select("id, name, description, price, is_vegetarian, is_vegan, serving_info, min_order, menu_categories!inner(name)")
-      .is("deleted_at", null)
-      .is("archived_at", null)
-      .limit(400);
-    const menuItems: MenuItemLite[] = (itemsRaw ?? []).map((r: Record<string, unknown>) => ({
-      id: String(r.id),
-      name: String(r.name ?? ""),
-      description: (r.description as string | null) ?? null,
-      price: (r.price as number | null) ?? null,
-      category: ((r.menu_categories as { name?: string } | null)?.name) ?? "Sonstiges",
-      is_vegetarian: (r.is_vegetarian as boolean | null) ?? null,
-      is_vegan: (r.is_vegan as boolean | null) ?? null,
-      serving_info: (r.serving_info as string | null) ?? null,
-      min_order: (r.min_order as string | null) ?? null,
+    // 3) Catering-Items + Restaurant-Items (beide Linien, präfixierte IDs)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const [{ data: cateringRaw }, ristoranteItems, { data: equipmentRaw }] = await Promise.all([
+      supabase
+        .from("menu_items")
+        .select("id, name, description, price, is_vegetarian, is_vegan, serving_info, min_order, menu_categories!inner(name)")
+        .is("deleted_at", null)
+        .is("archived_at", null)
+        .limit(250),
+      loadRistoranteItems(supabaseUrl, serviceKey),
+      supabase
+        .from("equipment_catalog")
+        .select("id, name, price_per_unit, unit")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true }),
+    ]);
+
+    const cateringItems: MenuItemLite[] = (cateringRaw ?? []).map((r: Record<string, unknown>) => {
+      const rawId = String(r.id);
+      return {
+        id: `catering_${rawId}`,
+        rawId,
+        source: "catering",
+        name: String(r.name ?? ""),
+        description: (r.description as string | null) ?? null,
+        price: (r.price as number | null) ?? null,
+        category: ((r.menu_categories as { name?: string } | null)?.name) ?? "Sonstiges",
+        is_vegetarian: (r.is_vegetarian as boolean | null) ?? null,
+        is_vegan: (r.is_vegan as boolean | null) ?? null,
+        serving_info: (r.serving_info as string | null) ?? null,
+        min_order: (r.min_order as string | null) ?? null,
+      };
+    });
+
+    const menuItems: MenuItemLite[] = [...cateringItems, ...ristoranteItems];
+
+    const equipment: EquipmentLite[] = (equipmentRaw ?? []).map((e: Record<string, unknown>) => ({
+      id: String(e.id),
+      name: String(e.name ?? ""),
+      price_per_unit: (e.price_per_unit as number | null) ?? null,
+      unit: (e.unit as string | null) ?? null,
     }));
 
-    const context = buildContext(inquiry as Record<string, unknown>, packages, menuItems);
+    const context = buildContext(inquiry as Record<string, unknown>, packages, menuItems, equipment);
+    console.log(
+      `[generate-menu-suggestion] context built: catering=${cateringItems.length}, restaurant=${ristoranteItems.length}, packages=${packages.length}, equipment=${equipment.length}, chars=${context.length}`,
+    );
+    // Vollen Kontext loggen (zum Verifizieren der Etappe 1 — kann später entfernt werden)
+    console.log(`[generate-menu-suggestion] CONTEXT >>>\n${context}\n<<< END CONTEXT`);
 
     // 4) AI-Call mit JSON-Schema (function calling)
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
