@@ -16,6 +16,8 @@ interface MenuItemLite {
   category: string;
   is_vegetarian: boolean | null;
   is_vegan: boolean | null;
+  serving_info: string | null;
+  min_order: string | null;
 }
 
 interface PackageLite {
