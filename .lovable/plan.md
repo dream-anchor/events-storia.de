@@ -1,65 +1,22 @@
-## Ziel
-Der eingefügte E-Mail-Text muss zuverlässig als ein Angebot mit Speisen erkannt werden — unabhängig davon, ob die KI die Bulletpoints korrekt strukturiert.
+## Plan: Freitext-Import berechnet Preise automatisch
 
-## Plan
-1. **Deterministischen Speisen-Extractor ergänzen**
-   - Nicht nur auf die KI verlassen.
-   - Aus dem Originaltext werden Abschnitte anhand der Formulierungen erkannt:
-     - Empfang / Aperitivo
-     - Vorspeise / Fingerfood / Platten
-     - Carpaccio-Variationen
-     - Hauptgang
-     - Dessert
-   - Die Bulletpoints darunter werden als echte `sections[].items[]` gespeichert:
-     - Roastbeef
-     - Vitello Tonnato
-     - verschiedenes mediterranes Gemüse
-     - hausgemachter Oktopussalat
-     - hausgemachter Meeresfrüchtesalat
-     - Rinderfilet-Carpaccio
-     - Pulpo-Carpaccio
-     - Battuta di Tonno mit Bottarga auf Avocado-Tatar
-   - Zusätzlich werden Fließtext-Speisen ohne Bullet als Items erkannt:
-     - verschiedene italienische Appetizer und kleine Köstlichkeiten
-     - sommerlicher Wildfang-Gelbflossen-Thunfisch
-     - zarter Kalbsbraten
-     - verschiedene saisonale Beilagen
-     - zwei bis drei kleine Desserts im Glas
+1. **Kalkulationsbasis aus importierten Zeilen ableiten**
+   - Für Mahlzeiten: `pricePerPersonNet × guestCount` plus `flatPriceNet`.
+   - Für Zusatzleistungen: `unitPriceNet × Menge`; falls Menge fehlt, bleiben diese bewusst nicht im Gesamtbetrag, weil im Text „bei Bedarf“ steht.
+   - Pauschalen wie Anfahrt/Abfahrt können bei Menge leer als nicht eingerechnet bleiben, damit „bei Bedarf“ nicht automatisch verrechnet wird.
 
-2. **Fallback verschärfen**
-   - Aktuell greift das Safety-Net nur, wenn eine Mahlzeit komplett keine Items hat.
-   - Neu: Wenn die KI bei diesem Text keine brauchbaren Speisen liefert oder Bulletpoints fälschlich in Hinweise/Zusatzleistungen landen, überschreibt/ergänzt der Import die Mahlzeit mit den deterministisch extrahierten Speisen-Sektionen.
-   - Ergebnis: Der Editor zeigt direkt Speisen statt leerem Tag/leerem Menü.
+2. **Import-Fallback ergänzen**
+   - Wenn der Text „99,00 € pro Person“ und die Anfrage/Option 20 Gäste hat, soll der Import `foodNet = 99 × 20 = 1.980` setzen.
+   - Daraus `foodVatAmount` und `totalsFromText.gross` berechnen.
+   - Wenn kein Gesamtbetrag im Text steht, wird der Gesamtbetrag aus den importierten Maestro-Zeilen gebildet, nicht aus KI-Schätzung.
 
-3. **Preis korrekt übernehmen**
-   - `Der Preis beginnt ab 99,00 € pro Person` wird auf der Mahlzeit gespeichert als:
-     - `pricePerPersonNet = 99`
-     - `pricePerPersonPrefix = "ab"`
-     - `flatPriceNet = 0`
-   - Keine Hochrechnung, kein Runden, kein Gesamtbetrag erfinden.
+3. **Editor live synchronisieren**
+   - Wenn der Nutzer im Freitext-Editor Gäste, Preis pro Person, Pauschalpreis, MwSt oder Service-Mengen ändert, aktualisieren sich Speisen netto, MwSt, Gesamt netto und Gesamt brutto sofort.
+   - Manuelle Eingaben in den Summen bleiben weiterhin möglich, aber die Zeilenpreise dürfen nicht mehr sichtbar 0 ergeben, wenn Preis × Personen vorhanden ist.
 
-4. **Zusatzleistungen getrennt lassen**
-   - Diese Positionen bleiben in `additionalServices[]`:
-     - Service- und Küchenpersonal: 59 €/Stunde
-     - Auf- und Abbauhelfer: 46 €/Stunde
-     - Anfahrt: 50 € pauschal
-     - Abfahrt: 50 € pauschal
-   - `Equipment nach Aufwand` bleibt als Hinweis, weil kein Betrag genannt ist.
+4. **Speichern/Public Offer absichern**
+   - `totalAmount` der Angebotsoption übernimmt den berechneten Brutto-Gesamtbetrag aus `freeformProgram.totalsFromText.gross`, damit Zahlungs-/Angebotsansicht nicht 0 bleibt.
 
-5. **Single-Day-Anzeige reparieren**
-   - Ein einzelner unbenannter Tag darf keine Rolle spielen.
-   - Unsichtbare Unicode-Zeichen aus KI/Text werden beim Prüfen entfernt, damit ein leer aussehender Tag nicht als benannter Tag behandelt wird.
-   - Bei genau einem unbenannten Tag werden die Mahlzeiten sofort offen angezeigt.
-
-6. **Validator toleranter für deterministische Korrektur**
-   - Der Validator soll nicht mehr verhindern, dass ein korrekt repariertes Programm übernommen wird.
-   - Fehlende Gesamtsummen bleiben erlaubt, wenn im Text keine Gesamtsumme steht.
-
-## Technische Umsetzung
-- Änderungen in:
-  - `src/components/admin/refine/InquiryEditor/OfferBuilder/FreeformImportPanel.tsx`
-  - `src/components/admin/refine/InquiryEditor/OfferBuilder/FreeformProgramEditor.tsx`
-  - `src/pages/public-offer/FreeformProgramSection.tsx`
-  - optional ergänzend `supabase/functions/parse-freeform-offer/index.ts` für bessere KI-Vorgaben
-- Keine Migration.
-- Keine Änderung an Public-Offer-Preisbuttons/Kostenübernahme außerhalb dieses Import-Fixes.
+5. **Validierung**
+   - Test mit dem konkreten David-Text: 20 Personen × 99 €/Person → Speisen netto 1.980,00 €, +7% MwSt 138,60 €, Gesamt brutto 2.118,60 €.
+   - Zusatzleistungen werden erkannt, aber nur eingerechnet, wenn eine Menge gesetzt ist.
