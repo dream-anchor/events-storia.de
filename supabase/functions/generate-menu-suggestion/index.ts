@@ -117,7 +117,9 @@ function buildContext(
     for (const it of items) {
       const price = it.price ? `${it.price} €` : "—";
       const tags = [it.is_vegan ? "vegan" : it.is_vegetarian ? "vegetarisch" : null].filter(Boolean).join(", ");
-      parts.push(`- id="${it.id}" | ${it.name} | ${price}${tags ? ` [${tags}]` : ""}`);
+      const serving = it.serving_info ? ` | reicht: ${it.serving_info}` : "";
+      const minOrder = it.min_order ? ` | ${it.min_order}` : "";
+      parts.push(`- id="${it.id}" | ${it.name} | ${price}${serving}${minOrder}${tags ? ` [${tags}]` : ""}`);
     }
   }
 
@@ -180,7 +182,7 @@ serve(async (req) => {
     // 3) Catering Menu-Items
     const { data: itemsRaw } = await supabase
       .from("menu_items")
-      .select("id, name, description, price, is_vegetarian, is_vegan, menu_categories!inner(name)")
+      .select("id, name, description, price, is_vegetarian, is_vegan, serving_info, min_order, menu_categories!inner(name)")
       .is("deleted_at", null)
       .is("archived_at", null)
       .limit(400);
@@ -192,6 +194,8 @@ serve(async (req) => {
       category: ((r.menu_categories as { name?: string } | null)?.name) ?? "Sonstiges",
       is_vegetarian: (r.is_vegetarian as boolean | null) ?? null,
       is_vegan: (r.is_vegan as boolean | null) ?? null,
+      serving_info: (r.serving_info as string | null) ?? null,
+      min_order: (r.min_order as string | null) ?? null,
     }));
 
     const context = buildContext(inquiry as Record<string, unknown>, packages, menuItems);
