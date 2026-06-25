@@ -75,9 +75,11 @@ QUELLE WÄHLEN — PAKET ODER MENÜ
 - mode='menu': Der Wunsch ist individuell oder es ist eine Catering-Anfrage. Stelle die Gänge aus den vorhandenen Speisen der passenden Linie/Kategorien zusammen.
 
 DREI STUFEN (low / medium / high)
-Kein festes Preisband. Nutze die p.P.-Preise der Pakete als Orientierungsraster (linien-übergreifend, siehe oben).
-- low: schlanke, preisbewusste Variante.
-- medium: empfohlene Variante mit bestem Verhältnis. Nennt der Kunde ein Budget, ankert medium daran.
+Verbindliche Preis-Anker: der Kontext-Block „# PREIS-ANKER" nennt drei konkrete p.P.-Zielpreise (low / medium / high), abgeleitet aus den p.P.-Paketen. Diese Anker sind BINDEND, nicht nur Orientierung.
+- estimatedPricePerPerson jeder Variante MUSS innerhalb von ±15 % ihres Ankers liegen.
+- Liegt deine Summe darüber, TAUSCHE teure Items gegen günstigere Alternativen aus derselben Kategorie/Linie oder REDUZIERE die Gangzahl, bis du im Zielband liegst. Premium-Komponenten (Trüffel, Hummer, Lamm, dry-aged Rind, Degustationsmenüs) sind im low/medium-Band TABU; sie gehören in die high-Variante.
+- low: schlanke, preisbewusste Variante — wenige Gänge, einfache Antipasti/Pasta/Pizza.
+- medium: empfohlene Variante mit bestem Verhältnis. Nennt der Kunde ein Budget, ankert medium am Budget statt am Preis-Anker.
 - high: gehobene Variante — mehr Gänge, Premium-Komponenten oder exklusivere Nutzung.
 Die drei Varianten müssen sich spürbar in Umfang und Niveau unterscheiden, nicht nur im Preis. Halte dich an die vom Kunden beschriebene Struktur, wenn er eine vorgibt (z. B. Vorspeisen-Platten, warmer Hauptgang, Dessert im Glas).
 
@@ -142,6 +144,32 @@ function buildContext(
       }
     }
   }
+  parts.push("");
+
+  // Preis-Anker aus p.P.-Paketen ableiten (linien-übergreifend, dient als Anker für beide Linien)
+  const ppPrices = packages
+    .filter((p) => p.price != null && p.price_per_person)
+    .map((p) => p.price as number)
+    .sort((a, b) => a - b);
+  parts.push("# PREIS-ANKER (verbindlich, ±15 % Toleranz) — p.P. brutto");
+  if (ppPrices.length >= 3) {
+    const low = ppPrices[0];
+    const high = ppPrices[ppPrices.length - 1];
+    const mid = ppPrices[Math.floor(ppPrices.length / 2)];
+    parts.push(`- low ≈ ${low} € p.P.`);
+    parts.push(`- medium ≈ ${mid} € p.P.`);
+    parts.push(`- high ≈ ${high} € p.P.`);
+  } else if (ppPrices.length > 0) {
+    const min = ppPrices[0];
+    const max = ppPrices[ppPrices.length - 1];
+    const mid = Math.round((min + max) / 2);
+    parts.push(`- low ≈ ${min} € p.P.`);
+    parts.push(`- medium ≈ ${mid} € p.P.`);
+    parts.push(`- high ≈ ${max} € p.P.`);
+  } else {
+    parts.push("- low ≈ 35 € p.P. · medium ≈ 65 € p.P. · high ≈ 95 € p.P. (Defaults)");
+  }
+  parts.push("Halte estimatedPricePerPerson jeder Variante innerhalb ±15 % des jeweiligen Ankers. Liegst du darüber, tausche teure Items gegen günstigere oder reduziere die Gangzahl.");
   parts.push("");
 
   parts.push("# VERFÜGBARE MENU-ITEMS");
