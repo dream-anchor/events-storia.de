@@ -3962,6 +3962,7 @@ export type Database = {
           old_value: string | null
           reason: string | null
           source: string | null
+          tenant_id: string | null
         }
         Insert: {
           changed_at?: string
@@ -3973,6 +3974,7 @@ export type Database = {
           old_value?: string | null
           reason?: string | null
           source?: string | null
+          tenant_id?: string | null
         }
         Update: {
           changed_at?: string
@@ -3984,6 +3986,7 @@ export type Database = {
           old_value?: string | null
           reason?: string | null
           source?: string | null
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -4021,6 +4024,13 @@ export type Database = {
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "v2_event_changelog_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v2_event_comments: {
@@ -4032,6 +4042,7 @@ export type Database = {
           id: string
           parent_id: string | null
           source_comment_id: string | null
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -4042,6 +4053,7 @@ export type Database = {
           id?: string
           parent_id?: string | null
           source_comment_id?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -4052,6 +4064,7 @@ export type Database = {
           id?: string
           parent_id?: string | null
           source_comment_id?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -4104,6 +4117,13 @@ export type Database = {
             referencedRelation: "v2_event_comments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "v2_event_comments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v2_event_emails: {
@@ -4125,6 +4145,7 @@ export type Database = {
           sent_at: string | null
           source_message_id: string | null
           subject: string | null
+          tenant_id: string | null
           to_email: string
         }
         Insert: {
@@ -4145,6 +4166,7 @@ export type Database = {
           sent_at?: string | null
           source_message_id?: string | null
           subject?: string | null
+          tenant_id?: string | null
           to_email: string
         }
         Update: {
@@ -4165,6 +4187,7 @@ export type Database = {
           sent_at?: string | null
           source_message_id?: string | null
           subject?: string | null
+          tenant_id?: string | null
           to_email?: string
         }
         Relationships: [
@@ -4203,6 +4226,13 @@ export type Database = {
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "v2_event_emails_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v2_event_offer_history: {
@@ -4217,6 +4247,7 @@ export type Database = {
           sent_at: string
           sent_by: string | null
           source_history_id: string | null
+          tenant_id: string | null
           version: number
         }
         Insert: {
@@ -4230,6 +4261,7 @@ export type Database = {
           sent_at?: string
           sent_by?: string | null
           source_history_id?: string | null
+          tenant_id?: string | null
           version: number
         }
         Update: {
@@ -4243,6 +4275,7 @@ export type Database = {
           sent_at?: string
           sent_by?: string | null
           source_history_id?: string | null
+          tenant_id?: string | null
           version?: number
         }
         Relationships: [
@@ -4281,6 +4314,13 @@ export type Database = {
             referencedRelation: "v2_events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "v2_event_offer_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v2_event_tasks: {
@@ -4298,6 +4338,7 @@ export type Database = {
           reminder_sent: boolean | null
           source_task_id: string | null
           status: Database["public"]["Enums"]["v2_task_status"]
+          tenant_id: string | null
           title: string
           updated_at: string
         }
@@ -4315,6 +4356,7 @@ export type Database = {
           reminder_sent?: boolean | null
           source_task_id?: string | null
           status?: Database["public"]["Enums"]["v2_task_status"]
+          tenant_id?: string | null
           title: string
           updated_at?: string
         }
@@ -4332,6 +4374,7 @@ export type Database = {
           reminder_sent?: boolean | null
           source_task_id?: string | null
           status?: Database["public"]["Enums"]["v2_task_status"]
+          tenant_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -4369,6 +4412,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_event_tasks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4854,6 +4904,7 @@ export type Database = {
           source_option_id: string | null
           stripe_payment_link_id: string | null
           stripe_payment_link_url: string | null
+          tenant_id: string | null
           updated_at: string
           version: number | null
         }
@@ -4883,6 +4934,7 @@ export type Database = {
           source_option_id?: string | null
           stripe_payment_link_id?: string | null
           stripe_payment_link_url?: string | null
+          tenant_id?: string | null
           updated_at?: string
           version?: number | null
         }
@@ -4912,6 +4964,7 @@ export type Database = {
           source_option_id?: string | null
           stripe_payment_link_id?: string | null
           stripe_payment_link_url?: string | null
+          tenant_id?: string | null
           updated_at?: string
           version?: number | null
         }
@@ -4958,6 +5011,13 @@ export type Database = {
             referencedRelation: "packages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "v2_offer_options_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v2_payments: {
@@ -4991,6 +5051,7 @@ export type Database = {
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
           stripe_payment_link_url: string | null
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -5023,6 +5084,7 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_payment_link_url?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -5055,6 +5117,7 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_payment_link_url?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5091,6 +5154,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
