@@ -348,10 +348,15 @@ serve(async (req) => {
       type: "object",
       properties: {
         tier: { type: "string", enum: ["low", "medium", "high"] },
+        businessLine: {
+          type: "string",
+          enum: ["restaurant", "catering"],
+          description: "Geschäftslinie der Variante. catering = außer Haus, restaurant = im Haus.",
+        },
         reasoning: { type: "string", description: "1 Satz: warum diese Variante für diesen Kunden glaubwürdig ist." },
         mode: { type: "string", enum: ["paket", "menu"] },
         estimatedPricePerPerson: { type: "number" },
-        packageId: { type: "string", description: "Nur wenn mode='paket'. Muss eine id aus der Paket-Liste sein." },
+        packageId: { type: "string", description: "Nur wenn mode='paket'. Muss eine id aus der Paket-Liste sein. mode='paket' nur bei businessLine='restaurant'." },
         courses: {
           type: "array",
           description: "Nur wenn mode='menu'.",
@@ -368,7 +373,7 @@ serve(async (req) => {
                 items: {
                   type: "object",
                   properties: {
-                    id: { type: "string", description: "Muss eine id aus menu_items sein." },
+                    id: { type: "string", description: "Vollständige ID inkl. Präfix 'catering_…' oder 'ristorante_…'." },
                     name: { type: "string" },
                   },
                   required: ["id", "name"],
@@ -378,8 +383,21 @@ serve(async (req) => {
             required: ["courseType", "courseLabel", "items"],
           },
         },
+        equipment: {
+          type: "array",
+          description: "Optional, nur wenn businessLine='catering'. Vorgeschlagenes Equipment für die Variante.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              quantity: { type: "number" },
+              catalogId: { type: ["string", "null"], description: "id aus EQUIPMENT-KATALOG falls passend, sonst null." },
+            },
+            required: ["name", "quantity"],
+          },
+        },
       },
-      required: ["tier", "reasoning", "mode", "estimatedPricePerPerson"],
+      required: ["tier", "businessLine", "reasoning", "mode", "estimatedPricePerPerson"],
     };
 
     const tool = {
