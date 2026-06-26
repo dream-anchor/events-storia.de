@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireAuth, AuthError } from "../_shared/auth.ts";
 import { sendEmailWithFallback } from "../_shared/email-sender.ts";
+import { getTenantConfig, tenantSender, resolveTenantFromEntity } from "../_shared/tenant.ts";
 import {
   bilingualSubject,
   BILINGUAL_SEPARATOR_HTML,
@@ -114,6 +115,7 @@ function buildBlockHtml(opts: {
   eventDateRaw: string | null;
   amountFormatted: string | null;
   lang: CustomerLang;
+  contactEmail: string;
 }): string {
   const copy = BLOCK_COPY[opts.lang];
   const greeting = opts.signerName
@@ -149,7 +151,7 @@ function buildBlockHtml(opts: {
     <p style="font-size:13px;line-height:1.6;color:#666;margin:18px 0 0;">${copy.linkNote}</p>
     <p style="font-size:13px;line-height:1.6;color:#666;margin:24px 0 0;">
       ${copy.contact}
-      <a href="mailto:info@events-storia.de" style="color:#333;">info@events-storia.de</a>.
+      <a href="mailto:${escapeHtml(opts.contactEmail)}" style="color:#333;">${escapeHtml(opts.contactEmail)}</a>.
     </p>
     <p style="font-size:13px;line-height:1.5;color:#333;margin:18px 0 0;">${copy.closing}</p>
   `;
@@ -163,6 +165,7 @@ function buildBilingualHtml(opts: {
   eventTitle: string | null;
   eventDateRaw: string | null;
   amountFormatted: string | null;
+  contactEmail: string;
 }): string {
   const plan = emailLanguagePlan(opts.lang);
   const primaryBlock = buildBlockHtml({ ...opts, lang: plan.primary });
@@ -247,6 +250,14 @@ serve(async (req) => {
       return json(400, { error: "Signer E-Mail-Adresse fehlt oder ist ungültig." });
     }
 
+    // Mandant über das Event auflösen (Phase 4b) + Cross-Tenant-Schutz.
+    const eventTenantId = await resolveTenantFromEntity(supabase, "v2_events", row.inquiry_id);
+    if (eventTenantId !== auth.tenantId) {
+      return json(403, { error: "Kostenübernahme gehört nicht zu Ihrem Mandanten." });
+    }
+    const tenantCfg = await getTenantConfig(supabase, eventTenantId);
+    const sender = tenantSender(tenantCfg);
+
     const customerLang = await resolveCustomerLanguage(supabase, row.inquiry_id);
     const subject = bilingualSubject(customerLang, {
       de: "Kostenübernahme digital unterschreiben – STORIA Catering & Events",
@@ -262,13 +273,15 @@ serve(async (req) => {
       eventTitle: row.event_title ?? null,
       eventDateRaw: (row.event_date as string | null) ?? null,
       amountFormatted: formatAmount(row.amount_gross_cents as any, row.currency as any),
+      contactEmail: tenantCfg.fromEmail,
     });
 
     const result = await sendEmailWithFallback({
+      from: sender.from,
       to: signerEmail,
       subject,
       html,
-      replyTo: "info@events-storia.de",
+      replyTo: sender.replyTo,
     });
 
     const nowIso = new Date().toISOString();
@@ -339,6 +352,7 @@ serve(async (req) => {
             mode,
             provider: result.provider,
             message_id: result.messageId,
+            tenant_id: eventTenantId,
           },
         });
       }

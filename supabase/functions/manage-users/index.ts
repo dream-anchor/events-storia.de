@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { DEFAULT_TENANT_ID } from '../_shared/tenant.ts';
 
 
 
@@ -49,20 +50,46 @@ serve(async (req) => {
       });
     }
 
+    // Mandant des einladenden Admins ermitteln (Phase 4b).
+    // Heute genau eine Mitgliedschaft (Storia); Fallback: Default-Tenant.
+    const { data: callerTenant } = await adminClient
+      .from('tenant_users')
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const tenantId = callerTenant?.tenant_id ?? DEFAULT_TENANT_ID;
+
+    // Stellt sicher, dass ein Ziel-User zum Mandanten des Admins gehört.
+    // Verhindert Cross-Tenant-Verwaltung (deactivate/activate/resetPassword).
+    const assertSameTenant = async (targetUserId: string) => {
+      const { data: member } = await adminClient
+        .from('tenant_users')
+        .select('id')
+        .eq('user_id', targetUserId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      if (!member) {
+        throw new Error('Nutzer gehört nicht zu Ihrem Mandanten');
+      }
+    };
+
     const { action, ...params } = await req.json();
 
     switch (action) {
       case 'list': {
-        // Liste aller Nutzer mit Rollen
+        // Liste aller Nutzer DES EIGENEN MANDANTEN mit Rollen
         const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers();
         if (listError) throw listError;
 
-        const { data: roles } = await adminClient
-          .from('user_roles')
-          .select('user_id, role');
+        const { data: members } = await adminClient
+          .from('tenant_users')
+          .select('user_id, role')
+          .eq('tenant_id', tenantId);
 
         const roleMap = new Map<string, string>();
-        roles?.forEach(r => roleMap.set(r.user_id, r.role));
+        members?.forEach(m => roleMap.set(m.user_id, m.role));
 
         const result = users.map(u => ({
           id: u.id,
@@ -72,7 +99,7 @@ serve(async (req) => {
           created_at: u.created_at,
           last_sign_in_at: u.last_sign_in_at,
           is_active: !u.banned_until,
-        })).filter(u => roleMap.has(u.id)); // Nur Nutzer mit Rolle anzeigen
+        })).filter(u => roleMap.has(u.id)); // Nur Mandanten-Mitglieder anzeigen
 
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -93,8 +120,16 @@ serve(async (req) => {
         });
         if (createError) throw createError;
 
-        // Rolle zuweisen
+        // Rolle zuweisen (Legacy-Tabelle, rückwärtskompatibel)
         await adminClient.from('user_roles').insert({
+          user_id: newUser.user.id,
+          role: role,
+        });
+
+        // Mandanten-Mitgliedschaft anlegen (Phase 4b) — neuer User gehört
+        // zum Mandanten des einladenden Admins.
+        await adminClient.from('tenant_users').insert({
+          tenant_id: tenantId,
           user_id: newUser.user.id,
           role: role,
         });
@@ -124,7 +159,10 @@ serve(async (req) => {
           throw new Error('Sie können Ihre eigene Rolle nicht ändern');
         }
 
-        // Bestehende Rolle aktualisieren oder einfügen
+        // Nur Nutzer des eigenen Mandanten dürfen geändert werden
+        await assertSameTenant(userId);
+
+        // Bestehende Rolle aktualisieren oder einfügen (Legacy user_roles)
         const { data: existing } = await adminClient
           .from('user_roles')
           .select('id')
@@ -142,6 +180,26 @@ serve(async (req) => {
             .insert({ user_id: userId, role });
         }
 
+        // Rolle auch in tenant_users (für diesen Mandanten) pflegen
+        const { data: existingMember } = await adminClient
+          .from('tenant_users')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+
+        if (existingMember) {
+          await adminClient
+            .from('tenant_users')
+            .update({ role })
+            .eq('user_id', userId)
+            .eq('tenant_id', tenantId);
+        } else {
+          await adminClient
+            .from('tenant_users')
+            .insert({ tenant_id: tenantId, user_id: userId, role });
+        }
+
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -154,6 +212,9 @@ serve(async (req) => {
         if (userId === user.id) {
           throw new Error('Sie können sich nicht selbst deaktivieren');
         }
+
+        // Nur Nutzer des eigenen Mandanten
+        await assertSameTenant(userId);
 
         // Nutzer bannen (Supabase ban)
         await adminClient.auth.admin.updateUserById(userId, {
@@ -168,6 +229,9 @@ serve(async (req) => {
       case 'activate': {
         const { userId } = params;
         if (!userId) throw new Error('userId ist erforderlich');
+
+        // Nur Nutzer des eigenen Mandanten
+        await assertSameTenant(userId);
 
         await adminClient.auth.admin.updateUserById(userId, {
           ban_duration: 'none',
@@ -186,6 +250,9 @@ serve(async (req) => {
         const { data: { users: foundUsers } } = await adminClient.auth.admin.listUsers();
         const targetUser = foundUsers.find(u => u.email === email);
         if (!targetUser) throw new Error('Nutzer nicht gefunden');
+
+        // Nur Nutzer des eigenen Mandanten
+        await assertSameTenant(targetUser.id);
 
         // Set new password directly
         const { error: updateError } = await adminClient.auth.admin.updateUserById(targetUser.id, {

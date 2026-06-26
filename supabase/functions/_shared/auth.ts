@@ -3,6 +3,7 @@
  * Gibt { user, role } zurück oder wirft einen Fehler.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { DEFAULT_TENANT_ID } from './tenant.ts';
 
 export type AppRole = 'admin' | 'staff';
 
@@ -10,6 +11,8 @@ interface AuthResult {
   userId: string;
   email: string;
   role: AppRole;
+  /** Mandant des Aufrufers (Phase 4a). Fallback: Default-Tenant (Storia). */
+  tenantId: string;
 }
 
 /**
@@ -49,10 +52,21 @@ export async function requireAuth(req: Request): Promise<AuthResult> {
     throw new AuthError('Keine Berechtigung', 403);
   }
 
+  // Mandant des Users ermitteln (Phase 4a, additiv).
+  // Heute genau eine Mitgliedschaft (Storia); Fallback: Default-Tenant.
+  const { data: tenantRow } = await adminClient
+    .from('tenant_users')
+    .select('tenant_id')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
   return {
     userId: user.id,
     email: user.email ?? '',
     role: roleData.role as AppRole,
+    tenantId: tenantRow?.tenant_id ?? DEFAULT_TENANT_ID,
   };
 }
 

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { DEFAULT_TENANT_ID } from '../_shared/tenant.ts';
 
 
 
@@ -77,6 +78,18 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Mandant des Admins (Phase 4b) — eigene Mitgliedschaft (RLS erlaubt self-read).
+    // HINWEIS: Eigener LexOffice-Account pro Mandant + harter Cross-Tenant-Invoice-
+    // Guard folgen in Phase 8 (heute ein gemeinsamer LEXOFFICE_API_KEY = Storia).
+    const { data: callerTenant } = await supabase
+      .from('tenant_users')
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const tenantId = callerTenant?.tenant_id ?? DEFAULT_TENANT_ID;
 
     // Parse request
     const body: ManualInvoiceRequest = await req.json();
@@ -286,7 +299,8 @@ serve(async (req) => {
           action: `${body.documentType}_created`,
           metadata: {
             lexoffice_invoice_id: documentId,
-            document_type: body.documentType
+            document_type: body.documentType,
+            tenant_id: tenantId
           },
           actor_email: user.email
         });

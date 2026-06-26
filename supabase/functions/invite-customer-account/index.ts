@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { DEFAULT_TENANT_ID } from "../_shared/tenant.ts";
 
 interface Body {
   customerEmail: string;
@@ -27,9 +28,37 @@ serve(async (req) => {
       .from("user_roles").select("role").eq("user_id", ud.user.id).eq("role", "admin").single();
     if (!role) throw new Error("Admin role required");
 
+    // Mandant des einladenden Admins (Phase 4b). Heute Storia; Fallback Default.
+    const { data: callerTenant } = await supabase
+      .from("tenant_users")
+      .select("tenant_id")
+      .eq("user_id", ud.user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const tenantId = callerTenant?.tenant_id ?? DEFAULT_TENANT_ID;
+
     const body: Body = await req.json();
     const email = (body.customerEmail || "").trim().toLowerCase();
     if (!email) throw new Error("customerEmail required");
+
+    // Kunde ZUERST auflösen + Mandanten-Zugehörigkeit prüfen (vor dem Invite).
+    // Verhindert, dass ein Admin einen Kunden eines anderen Mandanten einlädt.
+    let customerId = body.customerId ?? null;
+    let customerRow: { id: string; tenant_id: string | null } | null = null;
+    if (customerId) {
+      const { data: c } = await supabase.from("v2_customers")
+        .select("id, tenant_id").eq("id", customerId).maybeSingle();
+      customerRow = c;
+    } else {
+      const { data: c } = await supabase.from("v2_customers")
+        .select("id, tenant_id").ilike("email", email).maybeSingle();
+      customerRow = c;
+      customerId = c?.id ?? null;
+    }
+    if (customerRow && customerRow.tenant_id && customerRow.tenant_id !== tenantId) {
+      throw new Error("Kunde gehört nicht zu Ihrem Mandanten");
+    }
 
     const origin = req.headers.get("origin") || "https://events-storia.de";
 
@@ -52,12 +81,6 @@ serve(async (req) => {
     }
 
     // v2_customers updaten
-    let customerId = body.customerId ?? null;
-    if (!customerId) {
-      const { data: c } = await supabase.from("v2_customers")
-        .select("id").ilike("email", email).maybeSingle();
-      customerId = c?.id ?? null;
-    }
     if (customerId) {
       await supabase.from("v2_customers").update({
         account_invited_at: new Date().toISOString(),
@@ -66,13 +89,13 @@ serve(async (req) => {
       }).eq("id", customerId);
     }
 
-    // Activity Log
+    // Activity Log (tenant_id im metadata bis activity_logs eine eigene Spalte hat)
     await supabase.from("activity_logs").insert({
       entity_type: "customer",
       entity_id: customerId,
       action: "account_invitation_sent",
       actor_email: ud.user.email,
-      metadata: { email, auth_user_id: invite.user?.id ?? null },
+      metadata: { email, auth_user_id: invite.user?.id ?? null, tenant_id: tenantId },
     });
 
     return new Response(JSON.stringify({ success: true, userId: invite.user?.id ?? null }), {

@@ -8,6 +8,7 @@ import {
 } from '../_shared/customer-language.ts';
 import { SEPARATOR_HTML, t, formatDateLong } from '../_shared/email-i18n.ts';
 import { sendEmailWithFallback } from '../_shared/email-sender.ts';
+import { getTenantConfig, tenantSender } from '../_shared/tenant.ts';
 
 const log = (step: string, details?: Record<string, unknown>) => {
   const d = details ? ` - ${JSON.stringify(details)}` : '';
@@ -147,6 +148,23 @@ function renderBlock(lang: CustomerLang, args: {
   `;
 }
 
+export interface EmailSenderInfo {
+  name: string;
+  addressLine: string;
+  email: string;
+  websiteUrl: string;
+  websiteLabel: string;
+}
+
+/** Storia-Default — identisch mit dem bisherigen Hardcode (NON-BREAKING). */
+const STORIA_SENDER: EmailSenderInfo = {
+  name: 'STORIA Events',
+  addressLine: 'Karlstraße 47a, 80333 München',
+  email: 'info@events-storia.de',
+  websiteUrl: 'https://events-storia.de',
+  websiteLabel: 'events-storia.de',
+};
+
 export function buildInvoiceEmailHtml(
   lang: CustomerLang,
   args: {
@@ -157,15 +175,16 @@ export function buildInvoiceEmailHtml(
     totalEuro: number | null;
     extraNote: string | null;
   },
+  sender: EmailSenderInfo = STORIA_SENDER,
 ): string {
   const plan = emailLanguagePlan(lang);
   const primary = renderBlock(plan.primary, args);
   const secondary = plan.secondary ? renderBlock(plan.secondary, args) : '';
   const sig = `
     <div style="margin-top:24px;padding-top:18px;border-top:1px solid #ececec;font-size:13px;color:#777;line-height:1.5;">
-      STORIA Events &middot; Karlstraße 47a, 80333 München<br/>
-      <a href="mailto:info@events-storia.de" style="color:#777;">info@events-storia.de</a> &middot;
-      <a href="https://events-storia.de" style="color:#777;">events-storia.de</a>
+      ${escapeHtml(sender.name)} &middot; ${escapeHtml(sender.addressLine)}<br/>
+      <a href="mailto:${escapeHtml(sender.email)}" style="color:#777;">${escapeHtml(sender.email)}</a> &middot;
+      <a href="${escapeHtml(sender.websiteUrl)}" style="color:#777;">${escapeHtml(sender.websiteLabel)}</a>
     </div>`;
   return `<!doctype html><html><body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;">
     <div style="max-width:640px;margin:0 auto;padding:32px 28px;">
@@ -226,7 +245,7 @@ serve(async (req) => {
 
     const { data: inquiry, error: invErr } = await supabase
       .from('v2_events')
-      .select('id, customer_id, company_name, customer_language, date, guest_count, amount_total, invoice_lexoffice_id, invoice_lexoffice_number, final_lexoffice_invoice_id, final_lexoffice_invoice_number, is_test, customer:v2_customers!v2_events_customer_id_fkey(email, name, company)')
+      .select('id, tenant_id, customer_id, company_name, customer_language, date, guest_count, amount_total, invoice_lexoffice_id, invoice_lexoffice_number, final_lexoffice_invoice_id, final_lexoffice_invoice_number, is_test, customer:v2_customers!v2_events_customer_id_fkey(email, name, company)')
       .eq('id', body.inquiry_id)
       .single();
     if (invErr || !inquiry) {
@@ -260,6 +279,21 @@ serve(async (req) => {
     const amountTotal = (inquiry as any).amount_total;
     const totalEuro = amountTotal != null ? Number(amountTotal) : null;
 
+    // Mandanten-Konfiguration (Phase 4b) — Absender/Signatur/NAP aus tenants.
+    // Fallback: Storia → für den Default-Tenant byte-identisch zum Hardcode.
+    const tenantCfg = await getTenantConfig(supabase, (inquiry as any).tenant_id);
+    const sender = tenantSender(tenantCfg);
+    const senderInfo = {
+      name: tenantCfg.emailFromName,
+      addressLine: [
+        tenantCfg.addressStreet,
+        [tenantCfg.addressZip, tenantCfg.addressCity].filter(Boolean).join(' '),
+      ].filter(Boolean).join(', '),
+      email: tenantCfg.fromEmail,
+      websiteUrl: tenantCfg.website ?? 'https://events-storia.de',
+      websiteLabel: (tenantCfg.website ?? 'https://events-storia.de').replace(/^https?:\/\//, ''),
+    };
+
     const html = buildInvoiceEmailHtml(lang, {
       contactName,
       invoiceNumber,
@@ -267,7 +301,7 @@ serve(async (req) => {
       guestCount: (inquiry as any).guest_count || null,
       totalEuro,
       extraNote: body.extra_note || null,
-    });
+    }, senderInfo);
 
     if (body.dry_run) {
       return new Response(JSON.stringify({
@@ -286,9 +320,11 @@ serve(async (req) => {
     const isTest = (inquiry as any).is_test === true;
     const safeRecipient = getSafeRecipientEmail(recipient, isTest);
     const filename = `STORIA_Rechnung_${(invoiceNumber || lexofficeInvoiceId).replace(/[^a-zA-Z0-9_.-]/g, '_')}.pdf`;
-    const archiveBcc = 'info@events-storia.de';
+    const archiveBcc = tenantCfg.fromEmail;
     const pdfB64 = pdfToBase64(pdf);
     const sendResult = await sendEmailWithFallback({
+      from: sender.from,
+      replyTo: sender.replyTo,
       to: safeRecipient,
       bcc: archiveBcc,
       subject,
@@ -321,7 +357,7 @@ serve(async (req) => {
     await supabase.from('v2_event_emails').insert({
       event_id: body.inquiry_id,
       direction: 'outbound',
-      from_email: 'info@events-storia.de',
+      from_email: tenantCfg.fromEmail,
       to_email: safeRecipient,
       bcc_email: archiveBcc,
       subject,
