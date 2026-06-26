@@ -4146,6 +4146,7 @@ export type Database = {
           brand_name: string | null
           contact_email: string | null
           created_at: string
+          email_from_name: string | null
           from_email: string | null
           id: string
           is_default: boolean
@@ -4171,6 +4172,7 @@ export type Database = {
           brand_name?: string | null
           contact_email?: string | null
           created_at?: string
+          email_from_name?: string | null
           from_email?: string | null
           id?: string
           is_default?: boolean
@@ -4196,6 +4198,7 @@ export type Database = {
           brand_name?: string | null
           contact_email?: string | null
           created_at?: string
+          email_from_name?: string | null
           from_email?: string | null
           id?: string
           is_default?: boolean
