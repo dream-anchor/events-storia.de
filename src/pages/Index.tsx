@@ -172,6 +172,8 @@ const Index = () => {
                       : "STORIA Catering Delivery Service Munich – Delivery truck and Vespa at Marienplatz"
                   }
                   className="w-full rounded-xl shadow-lg"
+                  width="1500"
+                  height="792"
                   loading="lazy"
                   decoding="async"
                 />

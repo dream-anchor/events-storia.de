@@ -97,9 +97,10 @@ const Navigation = () => {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label={language === 'de' ? 'Menü öffnen' : 'Open menu'}
                 className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
               >
-                <Menu className="h-6 w-6" />
+                <Menu className="h-6 w-6" aria-hidden="true" />
               </Button>
             </SheetTrigger>
             <SheetContent

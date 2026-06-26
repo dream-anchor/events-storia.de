@@ -15,37 +15,44 @@ const Header = () => {
             STORIA
           </LocalizedLink>
           <div className="flex items-center gap-2 md:gap-6 text-base text-foreground/80 font-medium">
-            <a 
-              href="tel:+498951519696" 
+            <a
+              href="tel:+498951519696"
+              aria-label={language === 'de' ? 'STORIA anrufen: +49 89 51519696' : 'Call STORIA: +49 89 51519696'}
               className="flex items-center justify-center min-h-[44px] min-w-[44px] gap-2 hover:text-foreground transition-colors touch-manipulation"
             >
-              <Phone className="h-5 w-5" />
+              <Phone className="h-5 w-5" aria-hidden="true" />
               <span className="hidden sm:inline">+49 89 51519696</span>
             </a>
-            <a 
-              href="mailto:info@events-storia.de" 
+            <a
+              href="mailto:info@events-storia.de"
+              aria-label={language === 'de' ? 'E-Mail an info@events-storia.de' : 'Email info@events-storia.de'}
               className="flex items-center justify-center min-h-[44px] min-w-[44px] gap-2 hover:text-foreground transition-colors touch-manipulation"
             >
-              <Mail className="h-5 w-5" />
+              <Mail className="h-5 w-5" aria-hidden="true" />
               <span className="hidden sm:inline">info@events-storia.de</span>
             </a>
             <a 
-              href="https://www.instagram.com/ristorante_storia/" 
-              target="_blank" 
+              href="https://www.instagram.com/ristorante_storia/"
+              target="_blank"
               rel="noopener noreferrer"
+              aria-label={language === 'de' ? 'STORIA auf Instagram (öffnet in neuem Tab)' : 'STORIA on Instagram (opens in new tab)'}
               className="flex items-center justify-center min-h-[44px] min-w-[44px] gap-2 hover:text-foreground transition-colors touch-manipulation"
             >
-              <Instagram className="h-5 w-5" />
+              <Instagram className="h-5 w-5" aria-hidden="true" />
             </a>
             <LocalizedLink
               to={user ? "account" : "login"}
+              aria-label={user
+                ? (language === 'de' ? 'Mein Konto' : 'My Account')
+                : (language === 'de' ? 'Anmelden' : 'Login')
+              }
               className="flex items-center justify-center min-h-[44px] min-w-[44px] gap-2 hover:text-foreground transition-colors touch-manipulation"
               title={user
                 ? (language === 'de' ? 'Mein Konto' : 'My Account')
                 : (language === 'de' ? 'Anmelden' : 'Login')
               }
             >
-              <User className="h-5 w-5" />
+              <User className="h-5 w-5" aria-hidden="true" />
               <span className="hidden lg:inline">
                 {user
                   ? (language === 'de' ? 'Mein Konto' : 'My Account')

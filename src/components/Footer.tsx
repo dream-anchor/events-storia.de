@@ -64,7 +64,7 @@ const Footer = () => {
             {/* Kontakt */}
             <div className="text-center md:text-left">
               <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-4 text-primary-foreground/90">{t.footer.contact}</h3>
-              <div className="space-y-1 text-base font-sans text-primary-foreground/60">
+              <div className="space-y-1 text-base font-sans text-primary-foreground/80">
                 <a 
                   href="tel:+498951519696" 
                   className="flex items-center justify-center md:justify-start gap-2.5 min-h-[44px] md:min-h-0 py-2 hover:text-primary-foreground transition-colors touch-manipulation"
@@ -109,7 +109,7 @@ const Footer = () => {
               <h3 className="font-serif font-medium text-base tracking-[0.2em] uppercase mb-4 text-primary-foreground/90">
                 {language === 'de' ? 'Lieferzeiten' : 'Delivery Hours'}
               </h3>
-              <div className="space-y-1 text-base font-sans text-primary-foreground/60">
+              <div className="space-y-1 text-base font-sans text-primary-foreground/80">
                 <div className="flex items-center justify-center md:justify-end gap-2.5 min-h-[44px] md:min-h-0 py-2">
                   <Clock className="h-4 w-4" />
                   <span>{language === 'de' ? 'Mo - Fr' : 'Mon - Fri'}: 09:00 – 01:00</span>
@@ -129,12 +129,12 @@ const Footer = () => {
 
         {/* Copyright & Legal */}
         <div className="border-t border-primary-foreground/5 mt-14 pt-10 text-center">
-          <p className="text-sm font-sans text-primary-foreground/40">
+          <p className="text-sm font-sans text-primary-foreground/75">
             © {new Date().getFullYear()} {t.footer.copyright}
           </p>
 
           {/* Service Links */}
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-6 text-sm font-sans text-primary-foreground/60">
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-6 text-sm font-sans text-primary-foreground/80">
             <LocalizedLink to="faq" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'FAQ Catering & Events' : 'Catering & Events FAQ'}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
             <LocalizedLink to="contact" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{t.footer.contact}</LocalizedLink>
@@ -149,7 +149,7 @@ const Footer = () => {
           </div>
 
           {/* Legal Links */}
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-4 text-sm font-sans text-primary-foreground/40">
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-4 text-sm font-sans text-primary-foreground/75">
             <LocalizedLink to="legal.imprint" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.imprint}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
             <LocalizedLink to="legal.privacy" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.footer.privacy}</LocalizedLink>

@@ -7,8 +7,7 @@
 # Sitemaps
 Sitemap: https://www.events-storia.de/sitemap.xml
 
-# LLMs.txt
-LLMs-Txt: https://www.events-storia.de/llms.txt
+# LLMs.txt: https://www.events-storia.de/llms.txt
 
 # =====================================================
 # LLM-OPTIMIERTE SEITEN

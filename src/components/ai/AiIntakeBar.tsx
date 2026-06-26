@@ -255,7 +255,7 @@ export function AiIntakeBar({ language }: Props) {
           >
             <Sparkles className="h-4 w-4" />
           </span>
-          <span className="flex-1 px-1 text-[15px] leading-snug text-muted-foreground/80">
+          <span className="flex-1 px-1 text-[15px] leading-snug text-muted-foreground">
             {t.placeholder}
           </span>
           <Button
