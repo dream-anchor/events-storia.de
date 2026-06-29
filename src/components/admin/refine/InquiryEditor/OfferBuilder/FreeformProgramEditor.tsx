@@ -14,8 +14,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import type { FreeformProgram, FreeformProgramMeal, FreeformProgramDay, FreeformProgramSection, FreeformAdditionalService, ValidationFinding } from "./types";
+import type { FreeformProgram, FreeformProgramMeal, FreeformProgramDay, FreeformProgramSection, FreeformProgramSectionItem, FreeformAdditionalService, ValidationFinding } from "./types";
 import { LinePriceModeToggle } from "./LinePriceModeToggle";
+import { normalizeFreeformItems } from "./FreeformImportPanel";
 
 interface FreeformProgramEditorProps {
   program: FreeformProgram;
@@ -42,7 +43,15 @@ function computeTotals(program: FreeformProgram) {
       const ppp = Number(m.pricePerPersonNet) || 0;
       const guests = Number(m.guestCount) || 0;
       const flat = Number(m.flatPriceNet) || 0;
-      foodNet += ppp * guests + flat;
+      let itemsSum = 0;
+      for (const sec of m.sections ?? []) {
+        for (const it of sec.items ?? []) {
+          const q = Number((it as FreeformProgramSectionItem)?.quantity) || 0;
+          const u = Number((it as FreeformProgramSectionItem)?.unitPriceNet) || 0;
+          itemsSum += q * u;
+        }
+      }
+      foodNet += ppp * guests + flat + itemsSum;
     }
   }
   let servicesNet = 0;
@@ -77,6 +86,17 @@ export function FreeformProgramEditor({
 }: FreeformProgramEditorProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [confirmClear, setConfirmClear] = useState(false);
+
+  // Legacy-Hydration: alte `string[]`-Items beim Mount migrieren.
+  useEffect(() => {
+    const hasLegacy = (program.days ?? []).some((d) =>
+      (d.meals ?? []).some((m) =>
+        (m.sections ?? []).some((s) => (s.items ?? []).some((it) => typeof it === "string")),
+      ),
+    );
+    if (hasLegacy) onChange(normalizeFreeformItems(program));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-Kalkulation aus Zeilen → Summenfelder reaktiv synchronisieren.
   const computed = useMemo(() => computeTotals(program), [program]);
@@ -469,17 +489,67 @@ export function FreeformProgramEditor({
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
-                        <Textarea
-                          value={sec.items.join("\n")}
-                          onChange={(e) => {
-                            const items = e.target.value.split("\n").map(l => l.trim()).filter(Boolean);
-                            const sections = meal.sections.map((s, idx) => idx === i ? { ...s, items } : s);
-                            updateSections(day.id, meal.id, sections);
-                          }}
-                          disabled={disabled}
-                          placeholder="Eine Zeile pro Gericht"
-                          className="text-xs min-h-[60px] font-mono"
-                        />
+                        <div className="space-y-1">
+                          {sec.items.map((it, j) => {
+                            const item = it as FreeformProgramSectionItem;
+                            const patchItem = (patch: Partial<FreeformProgramSectionItem>) => {
+                              const items = sec.items.map((x, k) => k === j ? { ...item, ...patch } : x);
+                              const sections = meal.sections.map((s, idx) => idx === i ? { ...s, items } : s);
+                              updateSections(day.id, meal.id, sections);
+                            };
+                            const removeItem = () => {
+                              const items = sec.items.filter((_, k) => k !== j);
+                              const sections = meal.sections.map((s, idx) => idx === i ? { ...s, items } : s);
+                              updateSections(day.id, meal.id, sections);
+                            };
+                            return (
+                              <div key={j} className="flex items-center gap-1.5">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={item.quantity}
+                                  onChange={(e) => patchItem({ quantity: parseInt(e.target.value) || 0 })}
+                                  disabled={disabled}
+                                  className="h-7 w-14 text-xs text-right"
+                                />
+                                <span className="text-[10px] text-muted-foreground">×</span>
+                                <Input
+                                  value={item.name}
+                                  onChange={(e) => patchItem({ name: e.target.value })}
+                                  disabled={disabled}
+                                  placeholder="Bezeichnung"
+                                  className="h-7 text-xs flex-1 min-w-0"
+                                />
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={item.unitPriceNet}
+                                  onChange={(e) => patchItem({ unitPriceNet: parseFloat(e.target.value) || 0 })}
+                                  disabled={disabled}
+                                  className="h-7 w-20 text-xs text-right"
+                                  placeholder="0,00"
+                                />
+                                <span className="text-[10px] text-muted-foreground">€/Stk</span>
+                                <Button type="button" variant="ghost" size="sm" disabled={disabled}
+                                  onClick={removeItem}
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                          <Button type="button" variant="ghost" size="sm" disabled={disabled}
+                            onClick={() => {
+                              const items: FreeformProgramSectionItem[] = [...sec.items, { quantity: 1, name: "", unitPriceNet: 0 }];
+                              const sections = meal.sections.map((s, idx) => idx === i ? { ...s, items } : s);
+                              updateSections(day.id, meal.id, sections);
+                            }}
+                            className="h-6 text-[11px] text-muted-foreground gap-1">
+                            <Plus className="h-3 w-3" /> Position hinzufügen
+                          </Button>
+                        </div>
                       </div>
                     ))}
                     <Button type="button" variant="ghost" size="sm" disabled={disabled}
