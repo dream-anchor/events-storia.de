@@ -1,56 +1,47 @@
-## Ziel
+## Problem
+Kategorien lassen sich nicht mehr per Drag & Drop verschieben. Das Grip-Icon ist sichtbar, aber dnd-kit erhält den PointerDown nicht zuverlässig, weil der Handle-Button **innerhalb** von `<CollapsibleTrigger asChild>` sitzt. Radix Slot legt eigene Pointer-Handler auf das Trigger-Element, und der verschachtelte Button stört die Sensor-Aktivierung (auch trotz `stopPropagation`).
 
-Im Admin sollen alle Listen per Drag & Drop sortierbar sein:
+Speisen innerhalb einer Kategorie funktionieren weiterhin, weil dort kein CollapsibleTrigger drumherum liegt.
 
-- `/admin/menu` — Catering: Kategorien untereinander sortieren + Speisen innerhalb einer Kategorie sortieren
-- `/admin/menu` — Ristorante: gleiche Logik (Kategorien + Items)
-- `/admin/packages` — Pakete-Reihenfolge + Locations-Reihenfolge
+## Lösung
+Den Drag-Handle aus dem `CollapsibleTrigger` herausziehen und als Schwester-Element neben den Collapsible-Header rendern.
 
-Die Reihenfolge wird in der bereits existierenden Spalte `sort_order` persistiert (vorhanden auf `menu_categories`, `menu_items`, `packages`, `locations`). Sie wirkt damit automatisch auch im Frontend (Speisekarte, Event-Pakete), das nach `sort_order` sortiert lädt.
+### Änderung in `src/components/admin/refine/MenuItemsList.tsx` – Komponente `CategorySection`
 
-## Umsetzung
-
-### 1. Library
-`@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` sind bereits im Projekt (verwendet in `QuoteBuilder.tsx`) — keine neue Dependency.
-
-### 2. Neue Wiederverwendbare Komponente
-`src/components/admin/shared/SortableList.tsx` — dünner Wrapper um `DndContext` + `SortableContext` (vertical strategy), mit:
-- Drag-Handle (GripVertical-Icon links)
-- Optimistic Reorder im lokalen State
-- onReorder-Callback liefert neue Reihenfolge der IDs
-
-### 3. Menü-Liste (`MenuItemsList.tsx`)
-- Kategorien-Ebene: `CategorySection`-Karten in eine `SortableList` packen (Handle im Header, links neben dem Chevron).
-- Item-Ebene: Items innerhalb der `CollapsibleContent` einer Kategorie in eine `SortableList` packen (Handle ganz links pro Zeile).
-- Bei Drop: bulk-Update von `sort_order` per `supabase.from('menu_categories' | 'menu_items').upsert([{id, sort_order}, …])`.
-- React-Query invalidieren (`useCateringMenus`, `useRistoranteMenus`).
-
-### 4. Ristorante-Tab
-Gleiche Behandlung im `RistoranteTab` (analoge Struktur, Items via `menu_items`-Tabelle).
-
-### 5. Pakete & Locations (`PackagesList.tsx`)
-- Paket-Karten-Grid wird zur sortierbaren Liste. Damit Drag in einem 3-spaltigen Grid funktioniert, nutzen wir `rectSortingStrategy` statt vertical. Handle = kleines GripVertical-Badge oben links auf der Karte.
-- Locations-Grid analog.
-- Update `sort_order` auf `packages` bzw. `locations` per upsert, Refine `useList` refetchen.
-
-### 6. Persistenz-Helper
-Eine kleine Util `persistSortOrder(table, orderedIds)` die ein `upsert` mit `{ id, sort_order: index }` macht und Fehler toastet.
-
-### Technisches
+Neue Header-Struktur:
 
 ```text
-SortableList<T>
-  ├── DndContext (PointerSensor, distance:8)
-  └── SortableContext(items=ids, strategy)
-        └── SortableItem (useSortable) — rendert children + Handle via renderProp
+<Card>
+  <div className="flex items-stretch">           ← neuer äußerer Flex-Container
+    {dragHandle}                                 ← Handle SEPARAT, nicht im Trigger
+    <Collapsible className="flex-1">
+      <CollapsibleTrigger asChild>
+        <div className="...header...">           ← ohne {dragHandle}
+          {chevron}
+          {title/badge/desc}
+          {action buttons (Edit/Archive/Trash)}
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent>... items ...</CollapsibleContent>
+    </Collapsible>
+  </div>
+</Card>
 ```
 
-- Keine Schema-Änderungen nötig.
-- Filter/Suche aktiv → Drag wird deaktiviert (Reordering nur bei voller Liste sinnvoll), Hinweis-Toast falls versucht.
-- Bestehende Frontend-Queries sortieren bereits nach `sort_order` — Änderungen wirken sofort live.
+- Handle bekommt einen kleinen vertikalen Padding-Wrapper, damit er optisch auf Header-Höhe sitzt (`flex items-center px-2 bg-muted/20`).
+- `{dragHandle}` wird aus dem inneren Header-`<div>` (Zeile ~520) entfernt.
+- Die existierende `SortableItem` / `SortableList`-Struktur bleibt unverändert.
+- Keine Änderungen an `SortableList.tsx`, an Persistenz, oder an der Speisen-Sortierung.
 
-### Nicht im Scope
+### Was unverändert bleibt
+- Speisen-Sortierung innerhalb Kategorien.
+- Pakete- und Locations-Sortierung.
+- `sortingDisabled` während aktiver Suche.
+- Kategorie-Edit-Dialog inkl. Bild-Upload und Homepage-Slug.
 
-- Sortierung der Top-Level-Tabs (Catering/Ristorante/Archiv/Papierkorb).
-- Sortierung innerhalb Archiv/Papierkorb.
-- Drag zwischen Kategorien (Items in andere Kategorie verschieben) — kann später nachgezogen werden, falls gewünscht.
+## Verifikation
+1. `/admin/menu` öffnen, Catering-Tab.
+2. Eine Kategorie am Grip-Icon greifen und nach unten/oben verschieben → Reihenfolge ändert sich sofort, Toast „Reihenfolge gespeichert", Reload bewahrt neue Reihenfolge.
+3. Klick auf Header (nicht Handle) klappt Kategorie weiterhin auf/zu.
+4. Edit/Archiv/Delete-Buttons im Header funktionieren weiterhin.
+5. Speisen-Sortierung innerhalb Kategorie unverändert funktionsfähig.
