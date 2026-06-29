@@ -4,6 +4,8 @@ import {
   closestCenter,
   DragEndEvent,
   PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -40,7 +42,8 @@ export function SortableList({
   className,
 }: SortableListProps) {
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } })
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
