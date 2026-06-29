@@ -39,12 +39,12 @@ export const usePhotoFolders = () => {
     queryKey: ["photo-folders"],
     queryFn: async (): Promise<PhotoFolder[]> => {
       const { data, error } = await supabase
-        .from("photo_folders" as never)
+        .from("photo_folders")
         .select("id, name, color, sort_order, created_at")
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as unknown as PhotoFolder[];
+      return (data ?? []) as PhotoFolder[];
     },
   });
 };
@@ -74,10 +74,10 @@ export const usePhotoFolderItems = () => {
     queryKey: ["photo-folder-items"],
     queryFn: async (): Promise<PhotoFolderItem[]> => {
       const { data, error } = await supabase
-        .from("photo_folder_items" as never)
+        .from("photo_folder_items")
         .select("folder_id, photo_id");
       if (error) throw error;
-      return (data ?? []) as unknown as PhotoFolderItem[];
+      return (data ?? []) as PhotoFolderItem[];
     },
   });
 
@@ -105,12 +105,12 @@ export const useCreateFolder = () => {
     mutationFn: async ({ name, color }: { name: string; color?: string | null }): Promise<PhotoFolder> => {
       const { data: user } = await supabase.auth.getUser();
       const { data, error } = await supabase
-        .from("photo_folders" as never)
-        .insert({ name: name.trim(), color: color ?? null, created_by: user.user?.id ?? null } as never)
+        .from("photo_folders")
+        .insert({ name: name.trim(), color: color ?? null, created_by: user.user?.id ?? null })
         .select("id, name, color, sort_order, created_at")
         .single();
       if (error) throw error;
-      return data as unknown as PhotoFolder;
+      return data as PhotoFolder;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["photo-folders"] }),
   });
@@ -120,10 +120,10 @@ export const useUpdateFolder = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, name, color }: { id: string; name?: string; color?: string | null }) => {
-      const patch: Record<string, unknown> = {};
+      const patch: { name?: string; color?: string | null } = {};
       if (name !== undefined) patch.name = name.trim();
       if (color !== undefined) patch.color = color;
-      const { error } = await supabase.from("photo_folders" as never).update(patch as never).eq("id", id);
+      const { error } = await supabase.from("photo_folders").update(patch).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["photo-folders"] }),
@@ -135,7 +135,7 @@ export const useDeleteFolder = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       // Zuordnungen werden per ON DELETE CASCADE mitgelöscht (Fotos bleiben erhalten).
-      const { error } = await supabase.from("photo_folders" as never).delete().eq("id", id);
+      const { error } = await supabase.from("photo_folders").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -153,8 +153,8 @@ export const useAddPhotosToFolder = () => {
       if (photoIds.length === 0) return;
       const rows = photoIds.map((photo_id) => ({ folder_id: folderId, photo_id }));
       const { error } = await supabase
-        .from("photo_folder_items" as never)
-        .upsert(rows as never, { onConflict: "folder_id,photo_id", ignoreDuplicates: true });
+        .from("photo_folder_items")
+        .upsert(rows, { onConflict: "folder_id,photo_id", ignoreDuplicates: true });
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["photo-folder-items"] }),
@@ -167,7 +167,7 @@ export const useRemovePhotoFromFolder = () => {
   return useMutation({
     mutationFn: async ({ folderId, photoId }: { folderId: string; photoId: string }) => {
       const { error } = await supabase
-        .from("photo_folder_items" as never)
+        .from("photo_folder_items")
         .delete()
         .eq("folder_id", folderId)
         .eq("photo_id", photoId);
@@ -183,11 +183,11 @@ export const useSetPhotoFolders = () => {
   return useMutation({
     mutationFn: async ({ photoId, folderIds }: { photoId: string; folderIds: string[] }) => {
       const { data: existing, error: selErr } = await supabase
-        .from("photo_folder_items" as never)
+        .from("photo_folder_items")
         .select("folder_id")
         .eq("photo_id", photoId);
       if (selErr) throw selErr;
-      const current = new Set(((existing ?? []) as unknown as { folder_id: string }[]).map((r) => r.folder_id));
+      const current = new Set((existing ?? []).map((r) => r.folder_id));
       const next = new Set(folderIds);
 
       const toAdd = folderIds.filter((id) => !current.has(id));
@@ -196,13 +196,13 @@ export const useSetPhotoFolders = () => {
       if (toAdd.length > 0) {
         const rows = toAdd.map((folder_id) => ({ folder_id, photo_id: photoId }));
         const { error } = await supabase
-          .from("photo_folder_items" as never)
-          .upsert(rows as never, { onConflict: "folder_id,photo_id", ignoreDuplicates: true });
+          .from("photo_folder_items")
+          .upsert(rows, { onConflict: "folder_id,photo_id", ignoreDuplicates: true });
         if (error) throw error;
       }
       if (toRemove.length > 0) {
         const { error } = await supabase
-          .from("photo_folder_items" as never)
+          .from("photo_folder_items")
           .delete()
           .eq("photo_id", photoId)
           .in("folder_id", toRemove);
