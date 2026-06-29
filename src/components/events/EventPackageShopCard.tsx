@@ -17,7 +17,7 @@ import {
   LOCATION_BASE_GUESTS 
 } from "@/lib/eventPricing";
 
-// Package images from STORIA website
+// Echte STORIA-Fotos (keine KI-/Stock-Bilder)
 import sommerfest from "@/assets/events/sommerfest-firmenfeier-catering-muenchen.webp";
 import ravioliDinner from "@/assets/events/ravioli-dinner.webp";
 import firmenfeier from "@/assets/events/firmenfeier-catering-muenchen-storia.webp";
@@ -25,36 +25,34 @@ import geburtstagsfeier from "@/assets/events/geburtstagsfeier-catering-muenchen
 import weihnachtsfeier from "@/assets/events/weihnachtsfeier-catering-muenchen-storia.webp";
 import cocktailsAperitivo from "@/assets/events/cocktails-aperitivo.webp";
 import locationAussen from "@/assets/events/location-aussen.webp";
-import packagePremium from "@/assets/events/package-premium.webp";
-import packageExklusiv from "@/assets/events/package-exklusiv.webp";
-import packageEssenz from "@/assets/events/package-essenz.webp";
 
-// Bild je Paket per Namens-Muster. Reihenfolge wichtig: zuerst die Paket-STUFE
-// (Classico/Premium/Deluxe), damit gleiche Anlässe in verschiedenen Stufen auch
-// verschiedene Bilder bekommen; danach Anlass, dann Speisen.
+// Bild je Paket per Namens-Muster — ausschließlich echte STORIA-Fotos.
+// Reihenfolge wichtig: zuerst die Paket-STUFE (Classico/Premium/Deluxe), damit die
+// drei Geburtstags-Pakete drei verschiedene Bilder bekommen; danach Anlass, dann Speisen.
 const getPackageImage = (name: string): string => {
   const n = name.toLowerCase();
 
-  // Stufe (verhindert 3x dasselbe Bild bei den Geburtstags-Paketen)
-  if (n.includes("deluxe") || n.includes("exklusiv")) return packageExklusiv;
-  if (n.includes("premium")) return packagePremium;
-  if (n.includes("classico") || n.includes("classic") || n.includes("essenz")) return packageEssenz;
+  // Stufe → 3 verschiedene echte Fotos für Classico / Premium / Deluxe
+  if (n.includes("deluxe") || n.includes("exklusiv")) return sommerfest;        // gehobener Empfang/Service
+  if (n.includes("premium")) return firmenfeier;                                // elegant gedeckte Tische
+  if (n.includes("classico") || n.includes("classic") || n.includes("essenz")) return geburtstagsfeier;
 
   // Anlass
   if (n.includes("geburtstag")) return geburtstagsfeier;
   if (n.includes("weihnacht") || n.includes("christmas")) return weihnachtsfeier;
   if (n.includes("network") || n.includes("aperitivo") || n.includes("aperitif")) return cocktailsAperitivo;
   if (n.includes("location") || n.includes("gesamte")) return locationAussen;
-  if (n.includes("firmen") || n.includes("business") || n.includes("corporate")) return firmenfeier;
+  if (n.includes("firmen") || n.includes("corporate")) return firmenfeier;
+  if (n.includes("business") || n.includes("dinner")) return ravioliDinner;     // Business Dinner → Gericht
   if (n.includes("sommerfest")) return sommerfest;
   if (n.includes("benvenuti")) return firmenfeier;
 
   // Speisen
-  if (n.includes("pizza") || n.includes("pasta") || n.includes("tradizione") || n.includes("dinner")) {
+  if (n.includes("pizza") || n.includes("pasta") || n.includes("tradizione")) {
     return ravioliDinner;
   }
 
-  return ravioliDinner; // Fallback
+  return ravioliDinner; // Fallback (echtes STORIA-Gericht)
 };
 
 interface EventPackageShopCardProps {
