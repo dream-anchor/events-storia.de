@@ -69,6 +69,12 @@ export interface FreeformProgramSectionItem {
   quantity: number;
   name: string;
   unitPriceNet: number;
+  /**
+   * Wie der Preis in die Mahlzeit-/Gesamtsumme einfließt:
+   * - 'per_person' (Default): unitPriceNet × quantity
+   * - 'flat': unitPriceNet als Pauschale (1×), unabhängig von quantity
+   */
+  priceMode?: 'per_person' | 'flat';
 }
 
 export interface FreeformProgramMeal {

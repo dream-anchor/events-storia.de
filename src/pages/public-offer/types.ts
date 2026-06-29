@@ -85,6 +85,7 @@ export interface PublicFreeformProgramSectionItem {
   quantity: number;
   name: string;
   unitPriceNet: number;
+  priceMode?: 'per_person' | 'flat';
 }
 
 export interface PublicFreeformProgramDay {
