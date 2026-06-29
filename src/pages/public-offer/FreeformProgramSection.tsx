@@ -23,6 +23,7 @@ function normalizeItem(it: unknown): PublicFreeformProgramSectionItem {
     quantity: Number(o.quantity) || 1,
     name: typeof o.name === "string" ? o.name : "",
     unitPriceNet: Number(o.unitPriceNet) || 0,
+    priceMode: o.priceMode === "flat" ? "flat" : "per_person",
   };
 }
 
@@ -119,7 +120,11 @@ export function FreeformProgramSection({ program }: { program: PublicFreeformPro
                               </span>
                               {it.unitPriceNet > 0 && (
                                 <span className="tabular-nums text-foreground/85">
-                                  {formatCurrency(it.quantity * it.unitPriceNet)}
+                                  {formatCurrency(
+                                    it.priceMode === "flat"
+                                      ? it.unitPriceNet
+                                      : it.quantity * it.unitPriceNet,
+                                  )}
                                 </span>
                               )}
                             </li>
