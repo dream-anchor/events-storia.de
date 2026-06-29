@@ -271,6 +271,8 @@ export const MenuItemsList = () => {
       name_en: cat.name_en || '',
       description: cat.description || '',
       description_en: cat.description_en || '',
+      image_url: (cat as any).image_url || '',
+      homepage_slug: (cat as any).homepage_slug || '',
     };
   }
 
@@ -281,6 +283,8 @@ export const MenuItemsList = () => {
       menuId,
       name: '', name_en: '',
       description: '', description_en: '',
+      image_url: '',
+      homepage_slug: '',
     };
   }
 };
