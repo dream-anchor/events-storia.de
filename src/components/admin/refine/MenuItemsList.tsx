@@ -1105,6 +1105,65 @@ function CategoryEditDialog({
               <Textarea rows={2} value={form.description_en} onChange={(e) => setForm(prev => prev ? { ...prev, description_en: e.target.value } : prev)} />
             </div>
           </div>
+
+          {/* Kategorie-Bild */}
+          <div className="space-y-2">
+            <Label>Kategorie-Bild</Label>
+            <div className="flex items-start gap-4">
+              {form.image_url ? (
+                <div className="relative w-24 h-24 rounded-xl overflow-hidden border">
+                  <img src={form.image_url} alt={form.name} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setForm(prev => prev ? { ...prev, image_url: '' } : prev)}
+                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border bg-muted/50" />
+              )}
+              <div className="space-y-2 flex-1">
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploading ? "Lädt..." : "Hochladen"}
+                </Button>
+                <Input
+                  placeholder="Oder Bild-URL"
+                  value={form.image_url}
+                  onChange={(e) => setForm(prev => prev ? { ...prev, image_url: e.target.value } : prev)}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Homepage-Slug (für Startseiten-Karten) */}
+          <div className="space-y-1">
+            <Label className="text-xs">Homepage-Karte (optional)</Label>
+            <Select
+              value={form.homepage_slug || "__none__"}
+              onValueChange={(v) => setForm(prev => prev ? { ...prev, homepage_slug: v === "__none__" ? "" : v } : prev)}
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="Keine" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— Keine —</SelectItem>
+                <SelectItem value="events">Events im Storia</SelectItem>
+                <SelectItem value="fingerfood">Fingerfood</SelectItem>
+                <SelectItem value="platten">Platten & Sharing</SelectItem>
+                <SelectItem value="auflauf">Warme Gerichte / Aufläufe</SelectItem>
+                <SelectItem value="pizza">Pizza Napoletana</SelectItem>
+                <SelectItem value="desserts">Desserts</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Wenn gesetzt, wird das Kategorie-Bild als Karte auf der Startseite verwendet.
+            </p>
+          </div>
         </div>
 
         <DialogFooter>
