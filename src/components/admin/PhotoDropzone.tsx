@@ -4,6 +4,7 @@ import { Upload, Loader2, CheckCircle2, AlertCircle, X, Sparkles } from "lucide-
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUploadPhoto } from "@/hooks/usePhotoAlbum";
+import { useAddPhotosToFolder } from "@/hooks/usePhotoFolders";
 
 type ItemStatus = "queued" | "uploading" | "done" | "error";
 
@@ -20,10 +21,13 @@ const MAX_PARALLEL = 3;
 
 interface PhotoDropzoneProps {
   className?: string;
+  /** Wenn gesetzt, werden hochgeladene Fotos direkt diesem Ordner zugeordnet. */
+  targetFolderId?: string | null;
 }
 
-export const PhotoDropzone = ({ className }: PhotoDropzoneProps) => {
+export const PhotoDropzone = ({ className, targetFolderId }: PhotoDropzoneProps) => {
   const upload = useUploadPhoto();
+  const addToFolder = useAddPhotosToFolder();
   const [items, setItems] = useState<QueueItem[]>([]);
   const [globalDrag, setGlobalDrag] = useState(false);
 
@@ -69,7 +73,10 @@ export const PhotoDropzone = ({ className }: PhotoDropzoneProps) => {
           if (!item) break;
           setItems((prev) => prev.map((p) => (p.id === item.id ? { ...p, status: "uploading" } : p)));
           try {
-            await upload.mutateAsync(item.file);
+            const entry = await upload.mutateAsync(item.file);
+            if (targetFolderId) {
+              await addToFolder.mutateAsync({ folderId: targetFolderId, photoIds: [entry.id] });
+            }
             setItems((prev) => prev.map((p) => (p.id === item.id ? { ...p, status: "done" } : p)));
           } catch (e) {
             const msg = e instanceof Error ? e.message : "Fehler";
@@ -88,7 +95,7 @@ export const PhotoDropzone = ({ className }: PhotoDropzoneProps) => {
       }, 4000);
       return () => clearTimeout(timer);
     },
-    [upload]
+    [upload, addToFolder, targetFolderId]
   );
 
   const onDrop = useCallback(

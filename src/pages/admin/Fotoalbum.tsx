@@ -227,30 +227,42 @@ const Fotoalbum = () => {
     if (!folderId) return;
     const f = (folders ?? []).find((x) => x.id === folderId);
     if (!confirm(`Ordner "${f?.name ?? ""}" löschen? Die Fotos bleiben erhalten.`)) return;
-    await deleteFolder.mutateAsync(folderId);
-    toast.success("Ordner gelöscht");
-    setFolderId(undefined);
+    try {
+      await deleteFolder.mutateAsync(folderId);
+      toast.success("Ordner gelöscht");
+      setFolderId(undefined);
+    } catch (e) {
+      toast.error("Ordner löschen fehlgeschlagen: " + (e as Error).message);
+    }
   };
 
   const submitFolderDialog = async (name: string) => {
     if (!name.trim()) return;
-    if (folderDialog?.mode === "rename" && folderDialog.id) {
-      await updateFolder.mutateAsync({ id: folderDialog.id, name });
-      toast.success("Ordner umbenannt");
-    } else {
-      const created = await createFolder.mutateAsync({ name });
-      toast.success("Ordner erstellt");
-      setFolderId(created.id);
+    try {
+      if (folderDialog?.mode === "rename" && folderDialog.id) {
+        await updateFolder.mutateAsync({ id: folderDialog.id, name });
+        toast.success("Ordner umbenannt");
+      } else {
+        const created = await createFolder.mutateAsync({ name });
+        toast.success("Ordner erstellt");
+        setFolderId(created.id);
+      }
+      setFolderDialog(null);
+    } catch (e) {
+      toast.error("Ordner speichern fehlgeschlagen: " + (e as Error).message);
     }
-    setFolderDialog(null);
   };
 
   const handleAddSelectedToFolder = async (fid: string) => {
     if (selected.size === 0) return;
-    await addPhotosToFolder.mutateAsync({ folderId: fid, photoIds: Array.from(selected) });
-    toast.success(`${selected.size} zu Ordner hinzugefügt`);
-    setAddToFolderOpen(false);
-    exitSelectMode();
+    try {
+      await addPhotosToFolder.mutateAsync({ folderId: fid, photoIds: Array.from(selected) });
+      toast.success(`${selected.size} zu Ordner hinzugefügt`);
+      setAddToFolderOpen(false);
+      exitSelectMode();
+    } catch (e) {
+      toast.error("Zu Ordner hinzufügen fehlgeschlagen: " + (e as Error).message);
+    }
   };
 
   return (
@@ -296,7 +308,18 @@ const Fotoalbum = () => {
             </div>
           </div>
         )}
-        <PhotoDropzone />
+        {folderId && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground -mb-2">
+            <Folder className="h-3.5 w-3.5" />
+            <span>
+              Uploads landen automatisch im Ordner{" "}
+              <strong className="text-foreground">
+                {(folders ?? []).find((f) => f.id === folderId)?.name ?? ""}
+              </strong>
+            </span>
+          </div>
+        )}
+        <PhotoDropzone targetFolderId={folderId} />
 
         {/* Filters */}
         <div className="space-y-3">
@@ -621,8 +644,12 @@ const Fotoalbum = () => {
         count={selected.size}
         onPick={handleAddSelectedToFolder}
         onCreate={async (name) => {
-          const created = await createFolder.mutateAsync({ name });
-          await handleAddSelectedToFolder(created.id);
+          try {
+            const created = await createFolder.mutateAsync({ name });
+            await handleAddSelectedToFolder(created.id);
+          } catch (e) {
+            toast.error("Ordner anlegen fehlgeschlagen: " + (e as Error).message);
+          }
         }}
       />
     </AdminLayout>
