@@ -513,12 +513,15 @@ function CategorySection({
 
   return (
     <Card className="rounded-2xl border-border/40 shadow-sm overflow-hidden">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger asChild>
-          <div className="flex items-center justify-between px-5 py-3 bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
-            <div className="flex items-center gap-3">
-              {dragHandle}
-              {open ? (
+      <div className="flex items-stretch">
+        {dragHandle && (
+          <div className="flex items-center px-2 bg-muted/20">{dragHandle}</div>
+        )}
+        <Collapsible open={open} onOpenChange={setOpen} className="flex-1 min-w-0">
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between px-5 py-3 bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
+              <div className="flex items-center gap-3">
+                {open ? (
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               ) : (
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -547,9 +550,9 @@ function CategorySection({
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
-          </div>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
           <SortableList
             ids={category.items.map(i => i.id)}
             disabled={sortingDisabled || !onReorderItems}
