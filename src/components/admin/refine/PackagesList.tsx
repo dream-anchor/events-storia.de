@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { SortableList, SortableItem, persistSortOrder } from "@/components/admin/shared/SortableList";
 
 // Determine dietary info for a single include item
 const getDietaryInfo = (item: string): { hasMultiple: boolean; options: string[]; label: string | null } => {
@@ -175,6 +176,24 @@ export const PackagesList = () => {
     loc.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const sortingDisabled = !!searchTerm.trim();
+
+  const handleReorderPackages = async (newIds: string[]) => {
+    const ok = await persistSortOrder("packages", newIds);
+    if (ok) {
+      toast.success("Reihenfolge gespeichert");
+      packagesQuery.refetch();
+    }
+  };
+
+  const handleReorderLocations = async (newIds: string[]) => {
+    const ok = await persistSortOrder("locations", newIds);
+    if (ok) {
+      toast.success("Reihenfolge gespeichert");
+      locationsQuery.refetch();
+    }
+  };
+
   const handleDelete = () => {
     if (!deleteId) return;
     
@@ -280,12 +299,23 @@ export const PackagesList = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-6 lg:grid-cols-3">
+              <SortableList
+                ids={filteredPackages.map(p => p.id)}
+                strategy="grid"
+                disabled={sortingDisabled}
+                onReorder={handleReorderPackages}
+                className="grid gap-6 lg:grid-cols-3"
+              >
                 {filteredPackages.map((pkg) => (
+                  <SortableItem key={pkg.id} id={pkg.id} disabled={sortingDisabled} asGridItem>
+                    {(handle) => (
                   <Card
-                    key={pkg.id}
-                    className={`group relative overflow-hidden transition-all rounded-xl border border-border/60 bg-white dark:bg-gray-900 hover:shadow-md hover:border-primary/40 flex flex-col ${!pkg.is_active ? 'opacity-60' : ''}`}
+                    className={`group relative overflow-hidden transition-all rounded-xl border border-border/60 bg-white dark:bg-gray-900 hover:shadow-md hover:border-primary/40 flex flex-col h-full ${!pkg.is_active ? 'opacity-60' : ''}`}
                   >
+                    {/* Drag handle */}
+                    {handle && (
+                      <div className="absolute top-3 left-3 z-10">{handle}</div>
+                    )}
                     {/* Price Badge */}
                     <div className="absolute top-4 right-4 z-10">
                       <Badge className="text-base font-semibold px-3 py-1.5 bg-primary text-primary-foreground">
@@ -402,8 +432,10 @@ export const PackagesList = () => {
                       </div>
                     </CardContent>
                   </Card>
+                    )}
+                  </SortableItem>
                 ))}
-              </div>
+              </SortableList>
             )}
           </TabsContent>
 
@@ -434,12 +466,22 @@ export const PackagesList = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-6 md:grid-cols-2">
+              <SortableList
+                ids={filteredLocations.map(l => l.id)}
+                strategy="grid"
+                disabled={sortingDisabled}
+                onReorder={handleReorderLocations}
+                className="grid gap-6 md:grid-cols-2"
+              >
                 {filteredLocations.map((loc) => (
+                  <SortableItem key={loc.id} id={loc.id} disabled={sortingDisabled} asGridItem>
+                    {(handle) => (
                   <Card
-                    key={loc.id}
-                    className={`group transition-all rounded-xl border border-border/60 bg-white dark:bg-gray-900 hover:shadow-md hover:border-primary/40 ${!loc.is_active ? 'opacity-60' : ''}`}
+                    className={`group relative transition-all rounded-xl border border-border/60 bg-white dark:bg-gray-900 hover:shadow-md hover:border-primary/40 h-full ${!loc.is_active ? 'opacity-60' : ''}`}
                   >
+                    {handle && (
+                      <div className="absolute top-3 left-3 z-10">{handle}</div>
+                    )}
                     <CardHeader className="pb-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="space-y-2">
@@ -524,8 +566,10 @@ export const PackagesList = () => {
                       </div>
                     </CardContent>
                   </Card>
+                    )}
+                  </SortableItem>
                 ))}
-              </div>
+              </SortableList>
             )}
           </TabsContent>
         </Tabs>

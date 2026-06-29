@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useCallback } from "react";
+import { useMemo, useState, useRef, useCallback, type ReactNode } from "react";
 import {
   ChefHat, Utensils, Plus, Edit, Trash2, Undo2, X, ArrowLeft,
   ChevronDown, ChevronRight, Upload, Search, Sparkles,
@@ -44,6 +44,8 @@ import {
 import { useTranslateMenuText } from "@/hooks/useTranslateMenuText";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { SortableList, SortableItem, persistSortOrder } from "@/components/admin/shared/SortableList";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ─── Main Component ───────────────────────────────────────────────
 export const MenuItemsList = () => {
@@ -348,6 +350,8 @@ function CateringTab({
 }) {
   const archiveItemMutation = useArchiveMenuItem();
   const archiveCategoryMutation = useArchiveCategory();
+  const queryClient = useQueryClient();
+  const sortingDisabled = !!searchQuery.trim();
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -358,6 +362,30 @@ function CateringTab({
   }
 
   const defaultMenuId = menus[0]?.id || '';
+
+  // Group categories by their menu so reordering stays within a menu.
+  const categoriesByMenu = new Map<string, typeof categories>();
+  for (const cat of categories) {
+    const list = categoriesByMenu.get(cat.menuId) || [];
+    list.push(cat);
+    categoriesByMenu.set(cat.menuId, list);
+  }
+
+  const handleReorderCategories = async (menuId: string, newIds: string[]) => {
+    const ok = await persistSortOrder("menu_categories", newIds);
+    if (ok) {
+      toast.success("Reihenfolge gespeichert");
+      queryClient.invalidateQueries({ queryKey: ["catering-menus"] });
+    }
+  };
+
+  const handleReorderItems = async (newIds: string[]) => {
+    const ok = await persistSortOrder("menu_items", newIds);
+    if (ok) {
+      toast.success("Reihenfolge gespeichert");
+      queryClient.invalidateQueries({ queryKey: ["catering-menus"] });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -385,6 +413,11 @@ function CateringTab({
           Neue Speise
         </Button>
       </div>
+      {sortingDisabled && (
+        <p className="text-xs text-muted-foreground italic">
+          Drag &amp; Drop deaktiviert, solange ein Suchfilter aktiv ist.
+        </p>
+      )}
 
       {/* Category Sections */}
       {categories.length === 0 ? (
@@ -397,29 +430,48 @@ function CateringTab({
           </Button>
         </Card>
       ) : (
-        categories.map(category => (
-          <CategorySection
-            key={category.id}
-            category={category}
-            onEditItem={(item) => onEditItem({ ...item, categoryId: category.id })}
-            onDeleteItem={onDeleteItem}
-            onArchiveItem={async (id, name) => {
-              try {
-                await archiveItemMutation.mutateAsync(id);
-                toast.success(`"${name}" archiviert`);
-              } catch { toast.error("Fehler beim Archivieren"); }
-            }}
-            onArchiveCategory={async () => {
-              try {
-                await archiveCategoryMutation.mutateAsync(category.id);
-                toast.success(`"${category.name}" archiviert`);
-              } catch { toast.error("Fehler beim Archivieren"); }
-            }}
-            onEditCategory={() => onEditCategory({ ...category, menuId: category.menuId })}
-            onDeleteCategory={() => onDeleteCategory(category.id, category.name)}
-            onAddItem={() => onAddItem(category.id)}
-          />
-        ))
+        Array.from(categoriesByMenu.entries()).map(([menuId, menuCats]) => {
+          const ids = menuCats.map(c => c.id);
+          return (
+            <SortableList
+              key={menuId}
+              ids={ids}
+              disabled={sortingDisabled}
+              onReorder={(newIds) => handleReorderCategories(menuId, newIds)}
+              className="space-y-4"
+            >
+              {menuCats.map(category => (
+                <SortableItem key={category.id} id={category.id} disabled={sortingDisabled}>
+                  {(handle) => (
+                    <CategorySection
+                      category={category}
+                      dragHandle={handle}
+                      sortingDisabled={sortingDisabled}
+                      onReorderItems={handleReorderItems}
+                      onEditItem={(item) => onEditItem({ ...item, categoryId: category.id })}
+                      onDeleteItem={onDeleteItem}
+                      onArchiveItem={async (id, name) => {
+                        try {
+                          await archiveItemMutation.mutateAsync(id);
+                          toast.success(`"${name}" archiviert`);
+                        } catch { toast.error("Fehler beim Archivieren"); }
+                      }}
+                      onArchiveCategory={async () => {
+                        try {
+                          await archiveCategoryMutation.mutateAsync(category.id);
+                          toast.success(`"${category.name}" archiviert`);
+                        } catch { toast.error("Fehler beim Archivieren"); }
+                      }}
+                      onEditCategory={() => onEditCategory({ ...category, menuId: category.menuId })}
+                      onDeleteCategory={() => onDeleteCategory(category.id, category.name)}
+                      onAddItem={() => onAddItem(category.id)}
+                    />
+                  )}
+                </SortableItem>
+              ))}
+            </SortableList>
+          );
+        })
       )}
     </div>
   );
@@ -435,6 +487,9 @@ function CategorySection({
   onEditCategory,
   onDeleteCategory,
   onAddItem,
+  dragHandle,
+  sortingDisabled,
+  onReorderItems,
 }: {
   category: CateringCategory & { menuTitle?: string | null };
   onEditItem: (item: CateringMenuItem) => void;
@@ -444,6 +499,9 @@ function CategorySection({
   onEditCategory: () => void;
   onDeleteCategory: () => void;
   onAddItem: () => void;
+  dragHandle?: ReactNode;
+  sortingDisabled?: boolean;
+  onReorderItems?: (newIds: string[]) => void;
 }) {
   const [open, setOpen] = useState(true);
 
@@ -453,6 +511,7 @@ function CategorySection({
         <CollapsibleTrigger asChild>
           <div className="flex items-center justify-between px-5 py-3 bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
             <div className="flex items-center gap-3">
+              {dragHandle}
               {open ? (
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               ) : (
@@ -485,17 +544,26 @@ function CategorySection({
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="divide-y divide-border/30">
+          <SortableList
+            ids={category.items.map(i => i.id)}
+            disabled={sortingDisabled || !onReorderItems}
+            onReorder={(newIds) => onReorderItems?.(newIds)}
+            className="divide-y divide-border/30"
+          >
             {category.items.map(item => (
-              <MenuItemRow
-                key={item.id}
-                item={item}
-                onEdit={() => onEditItem(item)}
-                onDelete={() => onDeleteItem(item.id, item.name)}
-                onArchive={() => onArchiveItem(item.id, item.name)}
-              />
+              <SortableItem key={item.id} id={item.id} disabled={sortingDisabled || !onReorderItems}>
+                {(handle) => (
+                  <MenuItemRow
+                    item={item}
+                    dragHandle={handle}
+                    onEdit={() => onEditItem(item)}
+                    onDelete={() => onDeleteItem(item.id, item.name)}
+                    onArchive={() => onArchiveItem(item.id, item.name)}
+                  />
+                )}
+              </SortableItem>
             ))}
-          </div>
+          </SortableList>
           <div className="px-5 py-2 border-t border-border/20">
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1" onClick={onAddItem}>
               <Plus className="h-3.5 w-3.5" />
@@ -514,15 +582,18 @@ function MenuItemRow({
   onEdit,
   onDelete,
   onArchive,
+  dragHandle,
 }: {
   item: CateringMenuItem;
   onEdit: () => void;
   onDelete: () => void;
   onArchive?: () => void;
+  dragHandle?: ReactNode;
 }) {
   return (
     <div className="flex items-center justify-between px-5 py-3 hover:bg-muted/10 transition-colors group">
       <div className="flex items-center gap-3 flex-1 min-w-0">
+        {dragHandle}
         {/* Image */}
         {item.image_url ? (
           <img src={item.image_url} alt={item.name} className="h-10 w-10 rounded-lg object-cover shrink-0" />

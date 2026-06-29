@@ -1,22 +1,56 @@
-## Plan: Freitext-Import berechnet Preise automatisch
+## Ziel
 
-1. **Kalkulationsbasis aus importierten Zeilen ableiten**
-   - Für Mahlzeiten: `pricePerPersonNet × guestCount` plus `flatPriceNet`.
-   - Für Zusatzleistungen: `unitPriceNet × Menge`; falls Menge fehlt, bleiben diese bewusst nicht im Gesamtbetrag, weil im Text „bei Bedarf“ steht.
-   - Pauschalen wie Anfahrt/Abfahrt können bei Menge leer als nicht eingerechnet bleiben, damit „bei Bedarf“ nicht automatisch verrechnet wird.
+Im Admin sollen alle Listen per Drag & Drop sortierbar sein:
 
-2. **Import-Fallback ergänzen**
-   - Wenn der Text „99,00 € pro Person“ und die Anfrage/Option 20 Gäste hat, soll der Import `foodNet = 99 × 20 = 1.980` setzen.
-   - Daraus `foodVatAmount` und `totalsFromText.gross` berechnen.
-   - Wenn kein Gesamtbetrag im Text steht, wird der Gesamtbetrag aus den importierten Maestro-Zeilen gebildet, nicht aus KI-Schätzung.
+- `/admin/menu` — Catering: Kategorien untereinander sortieren + Speisen innerhalb einer Kategorie sortieren
+- `/admin/menu` — Ristorante: gleiche Logik (Kategorien + Items)
+- `/admin/packages` — Pakete-Reihenfolge + Locations-Reihenfolge
 
-3. **Editor live synchronisieren**
-   - Wenn der Nutzer im Freitext-Editor Gäste, Preis pro Person, Pauschalpreis, MwSt oder Service-Mengen ändert, aktualisieren sich Speisen netto, MwSt, Gesamt netto und Gesamt brutto sofort.
-   - Manuelle Eingaben in den Summen bleiben weiterhin möglich, aber die Zeilenpreise dürfen nicht mehr sichtbar 0 ergeben, wenn Preis × Personen vorhanden ist.
+Die Reihenfolge wird in der bereits existierenden Spalte `sort_order` persistiert (vorhanden auf `menu_categories`, `menu_items`, `packages`, `locations`). Sie wirkt damit automatisch auch im Frontend (Speisekarte, Event-Pakete), das nach `sort_order` sortiert lädt.
 
-4. **Speichern/Public Offer absichern**
-   - `totalAmount` der Angebotsoption übernimmt den berechneten Brutto-Gesamtbetrag aus `freeformProgram.totalsFromText.gross`, damit Zahlungs-/Angebotsansicht nicht 0 bleibt.
+## Umsetzung
 
-5. **Validierung**
-   - Test mit dem konkreten David-Text: 20 Personen × 99 €/Person → Speisen netto 1.980,00 €, +7% MwSt 138,60 €, Gesamt brutto 2.118,60 €.
-   - Zusatzleistungen werden erkannt, aber nur eingerechnet, wenn eine Menge gesetzt ist.
+### 1. Library
+`@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` sind bereits im Projekt (verwendet in `QuoteBuilder.tsx`) — keine neue Dependency.
+
+### 2. Neue Wiederverwendbare Komponente
+`src/components/admin/shared/SortableList.tsx` — dünner Wrapper um `DndContext` + `SortableContext` (vertical strategy), mit:
+- Drag-Handle (GripVertical-Icon links)
+- Optimistic Reorder im lokalen State
+- onReorder-Callback liefert neue Reihenfolge der IDs
+
+### 3. Menü-Liste (`MenuItemsList.tsx`)
+- Kategorien-Ebene: `CategorySection`-Karten in eine `SortableList` packen (Handle im Header, links neben dem Chevron).
+- Item-Ebene: Items innerhalb der `CollapsibleContent` einer Kategorie in eine `SortableList` packen (Handle ganz links pro Zeile).
+- Bei Drop: bulk-Update von `sort_order` per `supabase.from('menu_categories' | 'menu_items').upsert([{id, sort_order}, …])`.
+- React-Query invalidieren (`useCateringMenus`, `useRistoranteMenus`).
+
+### 4. Ristorante-Tab
+Gleiche Behandlung im `RistoranteTab` (analoge Struktur, Items via `menu_items`-Tabelle).
+
+### 5. Pakete & Locations (`PackagesList.tsx`)
+- Paket-Karten-Grid wird zur sortierbaren Liste. Damit Drag in einem 3-spaltigen Grid funktioniert, nutzen wir `rectSortingStrategy` statt vertical. Handle = kleines GripVertical-Badge oben links auf der Karte.
+- Locations-Grid analog.
+- Update `sort_order` auf `packages` bzw. `locations` per upsert, Refine `useList` refetchen.
+
+### 6. Persistenz-Helper
+Eine kleine Util `persistSortOrder(table, orderedIds)` die ein `upsert` mit `{ id, sort_order: index }` macht und Fehler toastet.
+
+### Technisches
+
+```text
+SortableList<T>
+  ├── DndContext (PointerSensor, distance:8)
+  └── SortableContext(items=ids, strategy)
+        └── SortableItem (useSortable) — rendert children + Handle via renderProp
+```
+
+- Keine Schema-Änderungen nötig.
+- Filter/Suche aktiv → Drag wird deaktiviert (Reordering nur bei voller Liste sinnvoll), Hinweis-Toast falls versucht.
+- Bestehende Frontend-Queries sortieren bereits nach `sort_order` — Änderungen wirken sofort live.
+
+### Nicht im Scope
+
+- Sortierung der Top-Level-Tabs (Catering/Ristorante/Archiv/Papierkorb).
+- Sortierung innerhalb Archiv/Papierkorb.
+- Drag zwischen Kategorien (Items in andere Kategorie verschieben) — kann später nachgezogen werden, falls gewünscht.
