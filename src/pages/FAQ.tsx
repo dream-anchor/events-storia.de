@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import InternalLinks from "@/components/InternalLinks";
@@ -295,12 +294,12 @@ const FAQ = () => {
                 Unser Team berät Sie gerne persönlich zu Ihrem Event.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link
-                  to="/kontakt"
+                <LocalizedLink
+                  to="contact"
                   className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
                 >
                   Kontakt aufnehmen
-                </Link>
+                </LocalizedLink>
                 <a
                   href="tel:+498951519696"
                   className="inline-flex items-center justify-center px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"

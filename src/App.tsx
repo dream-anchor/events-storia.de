@@ -35,7 +35,6 @@ const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
 const PasswordReset = lazy(() => import("./pages/PasswordReset"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const Kontakt = lazy(() => import("./pages/Kontakt"));
-const Anfrage = lazy(() => import("./pages/Anfrage"));
 const Restzahlung = lazy(() => import("./pages/Restzahlung"));
 const Gutschein = lazy(() => import("./pages/Gutschein"));
 const GutscheinDanke = lazy(() => import("./pages/GutscheinDanke"));
@@ -158,7 +157,6 @@ const App = () => {
                     {/* === German Routes (no prefix) === */}
                     <Route path="/" element={<Index />} />
                     <Route path="/kontakt" element={<Kontakt />} />
-                    <Route path="/anfrage" element={<Anfrage />} />
 
                     {/* Catering */}
                     <Route path="/catering/buffet-fingerfood" element={<BuffetFingerfood />} />

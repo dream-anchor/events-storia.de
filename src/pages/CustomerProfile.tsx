@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { LocalizedLink } from '@/components/LocalizedLink';
 import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import Header from '@/components/Header';
@@ -245,13 +245,13 @@ const CustomerProfile = () => {
       <main className="flex-1 container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-8">
-            <Link 
-              to="/" 
+            <LocalizedLink
+              to="home"
               className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
               {language === 'de' ? 'Zurück' : 'Back'}
-            </Link>
+            </LocalizedLink>
             <Button variant="outline" onClick={handleLogout} className="gap-2">
               <LogOut className="h-4 w-4" />
               {language === 'de' ? 'Abmelden' : 'Logout'}
@@ -442,9 +442,9 @@ const CustomerProfile = () => {
                       <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
                       <p>{language === 'de' ? 'Noch keine Bestellungen' : 'No orders yet'}</p>
                       <Button asChild variant="outline" className="mt-4">
-                        <Link to="/catering">
+                        <LocalizedLink to="home">
                           {language === 'de' ? 'Jetzt bestellen' : 'Order now'}
-                        </Link>
+                        </LocalizedLink>
                       </Button>
                     </div>
                   ) : (
