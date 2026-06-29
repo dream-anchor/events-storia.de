@@ -320,6 +320,8 @@ interface CategoryFormData {
   name_en: string;
   description: string;
   description_en: string;
+  image_url: string;
+  homepage_slug: string;
 }
 
 // ─── Catering Tab ─────────────────────────────────────────────────
