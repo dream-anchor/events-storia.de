@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { SortableList, SortableItem, persistSortOrder } from "@/components/admin/shared/SortableList";
 
 // Determine dietary info for a single include item
 const getDietaryInfo = (item: string): { hasMultiple: boolean; options: string[]; label: string | null } => {
@@ -174,6 +175,24 @@ export const PackagesList = () => {
     loc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     loc.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const sortingDisabled = !!searchTerm.trim();
+
+  const handleReorderPackages = async (newIds: string[]) => {
+    const ok = await persistSortOrder("packages", newIds);
+    if (ok) {
+      toast.success("Reihenfolge gespeichert");
+      packagesQuery.refetch();
+    }
+  };
+
+  const handleReorderLocations = async (newIds: string[]) => {
+    const ok = await persistSortOrder("locations", newIds);
+    if (ok) {
+      toast.success("Reihenfolge gespeichert");
+      locationsQuery.refetch();
+    }
+  };
 
   const handleDelete = () => {
     if (!deleteId) return;
