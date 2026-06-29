@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Calendar, Users, RefreshCw, ChevronDown, FileText, Trash2, ShieldAlert, X, Plus } from "lucide-react";
+import { Calendar, Users, RefreshCw, ChevronDown, FileText, Trash2, ShieldAlert, X, Plus, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,7 +48,8 @@ function computeTotals(program: FreeformProgram) {
         for (const it of sec.items ?? []) {
           const q = Number((it as FreeformProgramSectionItem)?.quantity) || 0;
           const u = Number((it as FreeformProgramSectionItem)?.unitPriceNet) || 0;
-          itemsSum += q * u;
+          const mode = (it as FreeformProgramSectionItem)?.priceMode ?? "per_person";
+          itemsSum += mode === "flat" ? u : q * u;
         }
       }
       foodNet += ppp * guests + flat + itemsSum;
