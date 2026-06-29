@@ -504,23 +504,32 @@ export function FreeformProgramEditor({
                               updateSections(day.id, meal.id, sections);
                             };
                             return (
-                              <div key={j} className="flex items-center gap-1.5">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  value={item.quantity}
-                                  onChange={(e) => patchItem({ quantity: parseInt(e.target.value) || 0 })}
-                                  disabled={disabled}
-                                  className="h-7 w-14 text-xs text-right"
-                                />
-                                <span className="text-[10px] text-muted-foreground">×</span>
+                              <div key={j} className="flex items-center gap-2">
+                                <span
+                                  className="text-muted-foreground/60 shrink-0 cursor-grab touch-none"
+                                  aria-hidden="true"
+                                  title="Position"
+                                >
+                                  <GripVertical className="h-4 w-4" />
+                                </span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={item.quantity}
+                                    onChange={(e) => patchItem({ quantity: parseInt(e.target.value) || 0 })}
+                                    disabled={disabled}
+                                    className="h-9 w-14 text-sm text-right"
+                                  />
+                                  <span className="text-[10px] text-muted-foreground">×</span>
+                                </div>
                                 <Input
                                   value={item.name}
                                   onChange={(e) => patchItem({ name: e.target.value })}
                                   disabled={disabled}
                                   placeholder="Bezeichnung"
-                                  className="h-7 text-xs flex-1 min-w-0"
+                                  className="h-9 text-sm flex-1 min-w-0"
                                 />
                                 <Input
                                   type="number"
@@ -529,21 +538,26 @@ export function FreeformProgramEditor({
                                   value={item.unitPriceNet}
                                   onChange={(e) => patchItem({ unitPriceNet: parseFloat(e.target.value) || 0 })}
                                   disabled={disabled}
-                                  className="h-7 w-20 text-xs text-right"
+                                  className="h-9 w-20 text-sm text-right"
                                   placeholder="0,00"
                                 />
-                                <span className="text-[10px] text-muted-foreground">€/Stk</span>
+                                <span className="text-[10px] text-muted-foreground shrink-0">€</span>
+                                <LinePriceModeToggle
+                                  value={item.priceMode ?? "per_person"}
+                                  onChange={(mode) => patchItem({ priceMode: mode })}
+                                  disabled={disabled}
+                                />
                                 <Button type="button" variant="ghost" size="sm" disabled={disabled}
                                   onClick={removeItem}
-                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
-                                  <X className="h-3 w-3" />
+                                  className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive shrink-0">
+                                  <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
                             );
                           })}
                           <Button type="button" variant="ghost" size="sm" disabled={disabled}
                             onClick={() => {
-                              const items: FreeformProgramSectionItem[] = [...sec.items, { quantity: 1, name: "", unitPriceNet: 0 }];
+                              const items: FreeformProgramSectionItem[] = [...sec.items, { quantity: 1, name: "", unitPriceNet: 0, priceMode: "per_person" }];
                               const sections = meal.sections.map((s, idx) => idx === i ? { ...s, items } : s);
                               updateSections(day.id, meal.id, sections);
                             }}
