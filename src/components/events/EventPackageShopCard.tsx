@@ -21,29 +21,40 @@ import {
 import sommerfest from "@/assets/events/sommerfest-firmenfeier-catering-muenchen.webp";
 import ravioliDinner from "@/assets/events/ravioli-dinner.webp";
 import firmenfeier from "@/assets/events/firmenfeier-catering-muenchen-storia.webp";
+import geburtstagsfeier from "@/assets/events/geburtstagsfeier-catering-muenchen-storia.webp";
+import weihnachtsfeier from "@/assets/events/weihnachtsfeier-catering-muenchen-storia.webp";
+import cocktailsAperitivo from "@/assets/events/cocktails-aperitivo.webp";
+import locationAussen from "@/assets/events/location-aussen.webp";
+import packagePremium from "@/assets/events/package-premium.webp";
+import packageExklusiv from "@/assets/events/package-exklusiv.webp";
+import packageEssenz from "@/assets/events/package-essenz.webp";
 
-// Get image for package by matching name patterns
+// Bild je Paket per Namens-Muster. Reihenfolge wichtig: zuerst die Paket-STUFE
+// (Classico/Premium/Deluxe), damit gleiche Anlässe in verschiedenen Stufen auch
+// verschiedene Bilder bekommen; danach Anlass, dann Speisen.
 const getPackageImage = (name: string): string => {
-  const nameLower = name.toLowerCase();
-  if (nameLower.includes("pizza") || nameLower.includes("pasta")) {
+  const n = name.toLowerCase();
+
+  // Stufe (verhindert 3x dasselbe Bild bei den Geburtstags-Paketen)
+  if (n.includes("deluxe") || n.includes("exklusiv")) return packageExklusiv;
+  if (n.includes("premium")) return packagePremium;
+  if (n.includes("classico") || n.includes("classic") || n.includes("essenz")) return packageEssenz;
+
+  // Anlass
+  if (n.includes("geburtstag")) return geburtstagsfeier;
+  if (n.includes("weihnacht") || n.includes("christmas")) return weihnachtsfeier;
+  if (n.includes("network") || n.includes("aperitivo") || n.includes("aperitif")) return cocktailsAperitivo;
+  if (n.includes("location") || n.includes("gesamte")) return locationAussen;
+  if (n.includes("firmen") || n.includes("business") || n.includes("corporate")) return firmenfeier;
+  if (n.includes("sommerfest")) return sommerfest;
+  if (n.includes("benvenuti")) return firmenfeier;
+
+  // Speisen
+  if (n.includes("pizza") || n.includes("pasta") || n.includes("tradizione") || n.includes("dinner")) {
     return ravioliDinner;
   }
-  if (nameLower.includes("benvenuti")) {
-    return firmenfeier;
-  }
-  if (nameLower.includes("tradizione")) {
-    return ravioliDinner;
-  }
-  if (nameLower.includes("business") || nameLower.includes("dinner")) {
-    return ravioliDinner; // High-quality pasta for dinner
-  }
-  if (nameLower.includes("network") || nameLower.includes("aperitivo")) {
-    return sommerfest; // Elegant aperitivo atmosphere
-  }
-  if (nameLower.includes("location") || nameLower.includes("gesamte")) {
-    return firmenfeier; // Elegant event atmosphere
-  }
-  return ravioliDinner; // Default fallback
+
+  return ravioliDinner; // Fallback
 };
 
 interface EventPackageShopCardProps {
