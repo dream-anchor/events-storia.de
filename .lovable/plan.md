@@ -1,47 +1,38 @@
 ## Problem
-Kategorien lassen sich nicht mehr per Drag & Drop verschieben. Das Grip-Icon ist sichtbar, aber dnd-kit erhält den PointerDown nicht zuverlässig, weil der Handle-Button **innerhalb** von `<CollapsibleTrigger asChild>` sitzt. Radix Slot legt eigene Pointer-Handler auf das Trigger-Element, und der verschachtelte Button stört die Sensor-Aktivierung (auch trotz `stopPropagation`).
+Nach dem letzten Umbau lassen sich weder Kategorien noch Speisen per Drag verschieben. Das Grip-Icon ist sichtbar, reagiert aber nicht. Aus Statik allein nicht eindeutig erkennbar, ob (a) PointerDown gar nicht ankommt, (b) `onDragEnd` läuft aber Persistenz schlägt fehl, oder (c) die `ids`-Array-Identität die `SortableContext`-Tracker zurücksetzt.
 
-Speisen innerhalb einer Kategorie funktionieren weiterhin, weil dort kein CollapsibleTrigger drumherum liegt.
+## Vorgehen
 
-## Lösung
-Den Drag-Handle aus dem `CollapsibleTrigger` herausziehen und als Schwester-Element neben den Collapsible-Header rendern.
+### 1. Diagnose im laufenden Admin (Playwright, headless)
+- `/admin/menu` öffnen, Catering-Tab.
+- Console-Listener + Drag-Simulation per `mouse.down/move/up` auf ein Grip-Icon (Kategorie + Speise).
+- Loggen: `pointerdown`-Events auf dem Handle, `dnd-kit` Warnungen, `persistSortOrder`-Errors, Netzwerk-Update auf `menu_categories` / `menu_items`.
+- Screenshot vor/nach Drag.
 
-### Änderung in `src/components/admin/refine/MenuItemsList.tsx` – Komponente `CategorySection`
+### 2. Fix anhand der Diagnose – wahrscheinlichste Ursachen und Maßnahmen
 
-Neue Header-Struktur:
+a) **`ids`-Array neu pro Render** → `SortableContext` verliert Tracking.
+   - In `MenuItemsList.tsx` die `ids`-Arrays via `useMemo` stabilisieren (Kategorien je Menü, Items je Kategorie).
 
-```text
-<Card>
-  <div className="flex items-stretch">           ← neuer äußerer Flex-Container
-    {dragHandle}                                 ← Handle SEPARAT, nicht im Trigger
-    <Collapsible className="flex-1">
-      <CollapsibleTrigger asChild>
-        <div className="...header...">           ← ohne {dragHandle}
-          {chevron}
-          {title/badge/desc}
-          {action buttons (Edit/Archive/Trash)}
-        </div>
-      </CollapsibleTrigger>
-      <CollapsibleContent>... items ...</CollapsibleContent>
-    </Collapsible>
-  </div>
-</Card>
-```
+b) **`PointerSensor`-Aktivierung blockiert durch `touch-action`/Overlay.**
+   - In `SortableList.tsx`: am Handle bereits `touch-none` — zusätzlich am `setNodeRef`-Container `style.touchAction = "manipulation"` setzen und die `activationConstraint` von `{distance: 6}` auf `{distance: 4}` reduzieren.
 
-- Handle bekommt einen kleinen vertikalen Padding-Wrapper, damit er optisch auf Header-Höhe sitzt (`flex items-center px-2 bg-muted/20`).
-- `{dragHandle}` wird aus dem inneren Header-`<div>` (Zeile ~520) entfernt.
-- Die existierende `SortableItem` / `SortableList`-Struktur bleibt unverändert.
-- Keine Änderungen an `SortableList.tsx`, an Persistenz, oder an der Speisen-Sortierung.
+c) **Verschachtelte `DndContext` (Kategorie-Liste enthält Item-Liste) fängt PointerDown der äußeren ab.**
+   - Outer SortableList und inner SortableList behalten — aber äußere Sensoren mit `{distance: 8}`, innere mit `{distance: 4}`, damit Events sauber getrennt aktivieren.
+   - Falls die Playwright-Diagnose zeigt, dass die innere `DndContext` das äußere `pointerdown` schluckt: am inneren `DndContext`-Wrapper-Div `onPointerDown` nur dann an dnd-kit weiterreichen, wenn das Ziel innerhalb des Item-Bereichs liegt (Wrapper-Div mit Ref + Target-Check). Praktisch: SortableList akzeptiert optionales `scopeRef` und delegiert.
 
-### Was unverändert bleibt
-- Speisen-Sortierung innerhalb Kategorien.
-- Pakete- und Locations-Sortierung.
-- `sortingDisabled` während aktiver Suche.
-- Kategorie-Edit-Dialog inkl. Bild-Upload und Homepage-Slug.
+d) **Persistenz schlägt still fehl** (z. B. RLS-Update auf `menu_categories.sort_order`).
+   - Bestätigung über Netzwerk-Tab. Falls 401/403: `persistSortOrder` Fehler bereits `toast`-en — zusätzlich `console.error` mit Tabelle + IDs ergänzen, damit der Toast „Reihenfolge konnte nicht gespeichert werden" eindeutig zuzuordnen ist.
 
-## Verifikation
-1. `/admin/menu` öffnen, Catering-Tab.
-2. Eine Kategorie am Grip-Icon greifen und nach unten/oben verschieben → Reihenfolge ändert sich sofort, Toast „Reihenfolge gespeichert", Reload bewahrt neue Reihenfolge.
-3. Klick auf Header (nicht Handle) klappt Kategorie weiterhin auf/zu.
-4. Edit/Archiv/Delete-Buttons im Header funktionieren weiterhin.
-5. Speisen-Sortierung innerhalb Kategorie unverändert funktionsfähig.
+### 3. Verifikation
+- Playwright-Replay: Kategorie 1 → Position 3, Reload, Reihenfolge persistent.
+- Speise innerhalb Kategorie verschoben, Reload, Reihenfolge persistent.
+- Collapse/Expand per Header-Klick weiter funktionsfähig.
+- Edit/Archiv/Delete-Buttons unverändert.
+- Pakete- und Locations-Sortierung (gleiches `SortableList`) unverändert.
+
+## Betroffene Dateien (voraussichtlich)
+- `src/components/admin/shared/SortableList.tsx` (Sensor-Constraints, optional Scope-Ref, `touchAction`)
+- `src/components/admin/refine/MenuItemsList.tsx` (memoisierte `ids`-Arrays)
+
+Keine Schema-/Migrations-Änderungen, keine UI-Restrukturierung über das hinaus, was die Diagnose erfordert.
