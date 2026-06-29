@@ -44,6 +44,8 @@ import {
 import { useTranslateMenuText } from "@/hooks/useTranslateMenuText";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { SortableList, SortableItem, persistSortOrder } from "@/components/admin/shared/SortableList";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ─── Main Component ───────────────────────────────────────────────
 export const MenuItemsList = () => {
