@@ -4,8 +4,6 @@ import {
   closestCenter,
   DragEndEvent,
   PointerSensor,
-  MouseSensor,
-  TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -42,8 +40,7 @@ export function SortableList({
   className,
 }: SortableListProps) {
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -113,8 +110,6 @@ export function SortableItem({ id, disabled, children, asGridItem }: SortableIte
       title="Ziehen zum Sortieren"
       className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground/60 hover:text-foreground p-1 rounded-md hover:bg-muted/50 transition-colors"
       onClick={(e) => e.stopPropagation()}
-      onPointerDown={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
     >
       <GripVertical className="h-4 w-4" />
     </button>
