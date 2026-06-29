@@ -350,6 +350,8 @@ function CateringTab({
 }) {
   const archiveItemMutation = useArchiveMenuItem();
   const archiveCategoryMutation = useArchiveCategory();
+  const queryClient = useQueryClient();
+  const sortingDisabled = !!searchQuery.trim();
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -360,6 +362,30 @@ function CateringTab({
   }
 
   const defaultMenuId = menus[0]?.id || '';
+
+  // Group categories by their menu so reordering stays within a menu.
+  const categoriesByMenu = new Map<string, typeof categories>();
+  for (const cat of categories) {
+    const list = categoriesByMenu.get(cat.menuId) || [];
+    list.push(cat);
+    categoriesByMenu.set(cat.menuId, list);
+  }
+
+  const handleReorderCategories = async (menuId: string, newIds: string[]) => {
+    const ok = await persistSortOrder("menu_categories", newIds);
+    if (ok) {
+      toast.success("Reihenfolge gespeichert");
+      queryClient.invalidateQueries({ queryKey: ["catering-menus"] });
+    }
+  };
+
+  const handleReorderItems = async (newIds: string[]) => {
+    const ok = await persistSortOrder("menu_items", newIds);
+    if (ok) {
+      toast.success("Reihenfolge gespeichert");
+      queryClient.invalidateQueries({ queryKey: ["catering-menus"] });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -387,6 +413,11 @@ function CateringTab({
           Neue Speise
         </Button>
       </div>
+      {sortingDisabled && (
+        <p className="text-xs text-muted-foreground italic">
+          Drag &amp; Drop deaktiviert, solange ein Suchfilter aktiv ist.
+        </p>
+      )}
 
       {/* Category Sections */}
       {categories.length === 0 ? (
@@ -399,29 +430,48 @@ function CateringTab({
           </Button>
         </Card>
       ) : (
-        categories.map(category => (
-          <CategorySection
-            key={category.id}
-            category={category}
-            onEditItem={(item) => onEditItem({ ...item, categoryId: category.id })}
-            onDeleteItem={onDeleteItem}
-            onArchiveItem={async (id, name) => {
-              try {
-                await archiveItemMutation.mutateAsync(id);
-                toast.success(`"${name}" archiviert`);
-              } catch { toast.error("Fehler beim Archivieren"); }
-            }}
-            onArchiveCategory={async () => {
-              try {
-                await archiveCategoryMutation.mutateAsync(category.id);
-                toast.success(`"${category.name}" archiviert`);
-              } catch { toast.error("Fehler beim Archivieren"); }
-            }}
-            onEditCategory={() => onEditCategory({ ...category, menuId: category.menuId })}
-            onDeleteCategory={() => onDeleteCategory(category.id, category.name)}
-            onAddItem={() => onAddItem(category.id)}
-          />
-        ))
+        Array.from(categoriesByMenu.entries()).map(([menuId, menuCats]) => {
+          const ids = menuCats.map(c => c.id);
+          return (
+            <SortableList
+              key={menuId}
+              ids={ids}
+              disabled={sortingDisabled}
+              onReorder={(newIds) => handleReorderCategories(menuId, newIds)}
+              className="space-y-4"
+            >
+              {menuCats.map(category => (
+                <SortableItem key={category.id} id={category.id} disabled={sortingDisabled}>
+                  {(handle) => (
+                    <CategorySection
+                      category={category}
+                      dragHandle={handle}
+                      sortingDisabled={sortingDisabled}
+                      onReorderItems={handleReorderItems}
+                      onEditItem={(item) => onEditItem({ ...item, categoryId: category.id })}
+                      onDeleteItem={onDeleteItem}
+                      onArchiveItem={async (id, name) => {
+                        try {
+                          await archiveItemMutation.mutateAsync(id);
+                          toast.success(`"${name}" archiviert`);
+                        } catch { toast.error("Fehler beim Archivieren"); }
+                      }}
+                      onArchiveCategory={async () => {
+                        try {
+                          await archiveCategoryMutation.mutateAsync(category.id);
+                          toast.success(`"${category.name}" archiviert`);
+                        } catch { toast.error("Fehler beim Archivieren"); }
+                      }}
+                      onEditCategory={() => onEditCategory({ ...category, menuId: category.menuId })}
+                      onDeleteCategory={() => onDeleteCategory(category.id, category.name)}
+                      onAddItem={() => onAddItem(category.id)}
+                    />
+                  )}
+                </SortableItem>
+              ))}
+            </SortableList>
+          );
+        })
       )}
     </div>
   );
