@@ -248,6 +248,13 @@ Antworte AUSSCHLIESSLICH per Tool-Call extract_program.${correctionBlock}`;
     // Raw text mitliefern für Audit/Re-Parse
     parsed.rawText = text;
 
+    // Menu-Lookup: Original-Bezeichnung + Preis aus DB übernehmen, wenn Match gefunden.
+    try {
+      await enrichItemsFromMenu(parsed);
+    } catch (e) {
+      console.error("Menu-Lookup-Fehler (ignoriert):", e);
+    }
+
     return new Response(
       JSON.stringify({ success: true, program: parsed }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -260,3 +267,139 @@ Antworte AUSSCHLIESSLICH per Tool-Call extract_program.${correctionBlock}`;
     );
   }
 });
+
+// ---------- Menu-Lookup ----------
+
+interface MenuEntry { name: string; price: number | null; source: 'ristorante' | 'catering'; norm: string; tokens: Set<string> }
+
+let menuCache: { items: MenuEntry[]; ts: number } | null = null;
+const CACHE_MS = 60_000;
+
+function parsePriceDisplay(s: string | null | undefined): number | null {
+  if (!s) return null;
+  const n = parseFloat(String(s).replace(/[€\s]/g, '').replace(',', '.'));
+  return isNaN(n) ? null : n;
+}
+
+function normalize(s: string): string {
+  return s.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tokenize(s: string): Set<string> {
+  const stop = new Set(['mit','und','von','der','die','das','dem','den','im','in','al','alla','con','di','la','le','il','e','a','of']);
+  return new Set(normalize(s).split(' ').filter(t => t.length >= 3 && !stop.has(t)));
+}
+
+async function loadMenu(): Promise<MenuEntry[]> {
+  if (menuCache && Date.now() - menuCache.ts < CACHE_MS) return menuCache.items;
+  const items: MenuEntry[] = [];
+
+  // Lokale Catering-Items
+  try {
+    const url = Deno.env.get('SUPABASE_URL');
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (url && key) {
+      const r = await fetch(`${url}/rest/v1/menu_items?select=name,price&deleted_at=is.null&archived_at=is.null&limit=2000`, {
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+      });
+      if (r.ok) {
+        const rows = await r.json();
+        for (const row of rows) {
+          if (!row?.name) continue;
+          items.push({ name: row.name, price: typeof row.price === 'number' ? row.price : null, source: 'catering', norm: normalize(row.name), tokens: tokenize(row.name) });
+        }
+      }
+    }
+  } catch (e) { console.error('catering fetch', e); }
+
+  // Ristorante (externe DB)
+  try {
+    const rUrl = Deno.env.get('RISTORANTE_SUPABASE_URL');
+    const rKey = Deno.env.get('RISTORANTE_SUPABASE_ANON_KEY');
+    if (rUrl && rKey) {
+      const r = await fetch(`${rUrl}/rest/v1/menu_items?select=name,price,price_display&limit=2000`, {
+        headers: { apikey: rKey, Authorization: `Bearer ${rKey}` },
+      });
+      if (r.ok) {
+        const rows = await r.json();
+        for (const row of rows) {
+          if (!row?.name) continue;
+          const price = typeof row.price === 'number' ? row.price : parsePriceDisplay(row.price_display);
+          items.push({ name: row.name, price, source: 'ristorante', norm: normalize(row.name), tokens: tokenize(row.name) });
+        }
+      }
+    }
+  } catch (e) { console.error('ristorante fetch', e); }
+
+  menuCache = { items, ts: Date.now() };
+  return items;
+}
+
+function findMatch(name: string, menu: MenuEntry[]): MenuEntry | null {
+  const n = normalize(name);
+  if (!n) return null;
+  const candidates: MenuEntry[] = [];
+
+  // Exakt
+  for (const m of menu) if (m.norm === n) candidates.push(m);
+  // startsWith bidirektional
+  if (candidates.length === 0) {
+    for (const m of menu) if (m.norm && (m.norm.startsWith(n) || n.startsWith(m.norm))) candidates.push(m);
+  }
+  // Token-Überlappung ≥ 80%
+  if (candidates.length === 0) {
+    const queryTokens = tokenize(name);
+    if (queryTokens.size > 0) {
+      for (const m of menu) {
+        if (m.tokens.size === 0) continue;
+        let overlap = 0;
+        for (const t of queryTokens) if (m.tokens.has(t)) overlap++;
+        const ratio = overlap / Math.max(queryTokens.size, m.tokens.size);
+        if (ratio >= 0.8) candidates.push(m);
+      }
+    }
+  }
+
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => {
+    const ap = a.price && a.price > 0 ? 1 : 0;
+    const bp = b.price && b.price > 0 ? 1 : 0;
+    if (ap !== bp) return bp - ap;
+    if (a.source === 'ristorante' && b.source !== 'ristorante') return -1;
+    if (b.source === 'ristorante' && a.source !== 'ristorante') return 1;
+    return 0;
+  });
+  return candidates[0];
+}
+
+async function enrichItemsFromMenu(parsed: Record<string, unknown>): Promise<void> {
+  const days = (parsed?.days as Array<Record<string, unknown>>) || [];
+  if (!Array.isArray(days) || days.length === 0) return;
+  const menu = await loadMenu();
+  if (menu.length === 0) return;
+
+  for (const day of days) {
+    const meals = (day?.meals as Array<Record<string, unknown>>) || [];
+    for (const meal of meals) {
+      const sections = (meal?.sections as Array<Record<string, unknown>>) || [];
+      for (const section of sections) {
+        const items = (section?.items as Array<Record<string, unknown>>) || [];
+        for (const item of items) {
+          const name = typeof item.name === 'string' ? item.name : '';
+          if (!name) continue;
+          const match = findMatch(name, menu);
+          if (match) {
+            item.name = match.name;
+            item.unitPriceNet = match.price ?? 0;
+          }
+          // kein Match → Name + Preis bleiben wie geparst
+        }
+      }
+    }
+  }
+}
