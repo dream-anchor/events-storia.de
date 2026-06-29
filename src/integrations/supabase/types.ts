@@ -3782,6 +3782,69 @@ export type Database = {
           },
         ]
       }
+      photo_folder_items: {
+        Row: {
+          created_at: string
+          folder_id: string
+          photo_id: string
+        }
+        Insert: {
+          created_at?: string
+          folder_id: string
+          photo_id: string
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string
+          photo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_folder_items_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "photo_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_folder_items_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "photo_album"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photo_folders: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       review_request_log: {
         Row: {
           created_at: string
