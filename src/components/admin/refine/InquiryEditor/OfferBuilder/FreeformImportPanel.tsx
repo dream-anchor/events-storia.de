@@ -42,16 +42,26 @@ function normalizeSectionItems(items: unknown): FreeformProgramSectionItem[] {
   if (!Array.isArray(items)) return [];
   return items
     .map((it): FreeformProgramSectionItem | null => {
-      if (typeof it === "string") return parseSectionLine(it);
+      if (typeof it === "string") {
+        // Legacy-Daten: irgendwann wurde ein Objekt mit String() in eine Textarea
+        // gerendert und so persistiert. Diese Geister-Zeilen weglassen statt
+        // als "Bezeichnung" zu importieren.
+        if (it.includes("[object Object]")) return null;
+        const parsed = parseSectionLine(it);
+        if (!parsed.name) return null;
+        return parsed;
+      }
       if (it && typeof it === "object") {
         const o = it as Record<string, unknown>;
         if (typeof o.name === "string") {
           const q = Number(o.quantity);
           const p = Number(o.unitPriceNet);
+          const mode = o.priceMode === "flat" ? "flat" : "per_person";
           return {
             quantity: Number.isFinite(q) && q > 0 ? q : 1,
             name: o.name,
             unitPriceNet: Number.isFinite(p) && p >= 0 ? p : 0,
+            priceMode: mode,
           };
         }
       }
