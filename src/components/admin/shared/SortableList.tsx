@@ -110,6 +110,8 @@ export function SortableItem({ id, disabled, children, asGridItem }: SortableIte
       title="Ziehen zum Sortieren"
       className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground/60 hover:text-foreground p-1 rounded-md hover:bg-muted/50 transition-colors"
       onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <GripVertical className="h-4 w-4" />
     </button>

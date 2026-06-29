@@ -271,6 +271,8 @@ export const MenuItemsList = () => {
       name_en: cat.name_en || '',
       description: cat.description || '',
       description_en: cat.description_en || '',
+      image_url: (cat as any).image_url || '',
+      homepage_slug: (cat as any).homepage_slug || '',
     };
   }
 
@@ -281,6 +283,8 @@ export const MenuItemsList = () => {
       menuId,
       name: '', name_en: '',
       description: '', description_en: '',
+      image_url: '',
+      homepage_slug: '',
     };
   }
 };
@@ -320,6 +324,8 @@ interface CategoryFormData {
   name_en: string;
   description: string;
   description_en: string;
+  image_url: string;
+  homepage_slug: string;
 }
 
 // ─── Catering Tab ─────────────────────────────────────────────────
@@ -964,6 +970,8 @@ function CategoryEditDialog({
   menus: CateringMenu[];
 }) {
   const [form, setForm] = useState<CategoryFormData | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addMutation = useAddCategory();
   const updateMutation = useUpdateCategory();
@@ -1002,6 +1010,8 @@ function CategoryEditDialog({
             name_en: form.name_en || null,
             description: form.description || null,
             description_en: form.description_en || null,
+            image_url: form.image_url || null,
+            homepage_slug: form.homepage_slug || null,
           },
         });
         toast.success("Kategorie aktualisiert");
@@ -1009,6 +1019,23 @@ function CategoryEditDialog({
       handleOpenChange(false);
     } catch {
       toast.error("Fehler beim Speichern");
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !form) return;
+    if (!file.type.startsWith("image/")) { toast.error("Nur Bilddateien"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Max. 5 MB"); return; }
+    setUploading(true);
+    try {
+      const url = await uploadCateringImage(file);
+      setForm(prev => prev ? { ...prev, image_url: url } : prev);
+      toast.success("Bild hochgeladen");
+    } catch {
+      toast.error("Fehler beim Hochladen");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -1077,6 +1104,65 @@ function CategoryEditDialog({
               <Label className="text-xs">Beschreibung (EN)</Label>
               <Textarea rows={2} value={form.description_en} onChange={(e) => setForm(prev => prev ? { ...prev, description_en: e.target.value } : prev)} />
             </div>
+          </div>
+
+          {/* Kategorie-Bild */}
+          <div className="space-y-2">
+            <Label>Kategorie-Bild</Label>
+            <div className="flex items-start gap-4">
+              {form.image_url ? (
+                <div className="relative w-24 h-24 rounded-xl overflow-hidden border">
+                  <img src={form.image_url} alt={form.name} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setForm(prev => prev ? { ...prev, image_url: '' } : prev)}
+                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border bg-muted/50" />
+              )}
+              <div className="space-y-2 flex-1">
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploading ? "Lädt..." : "Hochladen"}
+                </Button>
+                <Input
+                  placeholder="Oder Bild-URL"
+                  value={form.image_url}
+                  onChange={(e) => setForm(prev => prev ? { ...prev, image_url: e.target.value } : prev)}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Homepage-Slug (für Startseiten-Karten) */}
+          <div className="space-y-1">
+            <Label className="text-xs">Homepage-Karte (optional)</Label>
+            <Select
+              value={form.homepage_slug || "__none__"}
+              onValueChange={(v) => setForm(prev => prev ? { ...prev, homepage_slug: v === "__none__" ? "" : v } : prev)}
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="Keine" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— Keine —</SelectItem>
+                <SelectItem value="events">Events im Storia</SelectItem>
+                <SelectItem value="fingerfood">Fingerfood</SelectItem>
+                <SelectItem value="platten">Platten & Sharing</SelectItem>
+                <SelectItem value="auflauf">Warme Gerichte / Aufläufe</SelectItem>
+                <SelectItem value="pizza">Pizza Napoletana</SelectItem>
+                <SelectItem value="desserts">Desserts</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Wenn gesetzt, wird das Kategorie-Bild als Karte auf der Startseite verwendet.
+            </p>
           </div>
         </div>
 
