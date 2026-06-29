@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/typed-client";
-import type { FreeformProgram, ValidationFinding, FreeformProgramSection, FreeformAdditionalService } from "./types";
+import type { FreeformProgram, ValidationFinding, FreeformProgramSection, FreeformProgramSectionItem, FreeformAdditionalService } from "./types";
 
 interface FreeformImportPanelProps {
   onParsed: (program: FreeformProgram, findings?: ValidationFinding[]) => void;
@@ -12,6 +12,69 @@ interface FreeformImportPanelProps {
 }
 
 const MAX_RETRIES = 2;
+
+/**
+ * Parst Legacy-Plain-Text-Zeilen ("2 × Pizza Margherita 12 €") in das neue
+ * {quantity, name, unitPriceNet}-Format. Wird sowohl beim Import (KI gibt teils
+ * weiterhin Strings zurück) als auch bei Hydration alter Anfragen verwendet.
+ */
+export function parseSectionLine(raw: string): FreeformProgramSectionItem {
+  const line = (raw || "").trim();
+  if (!line) return { quantity: 1, name: "", unitPriceNet: 0 };
+  // Optionaler Bullet-Marker
+  const cleaned = line.replace(/^[\s•·*\-–—]+\s*/, "");
+  // "2 × Pizza Margherita 12,50 €" oder "2× Salat à 8 €" oder "Pizza 9 €"
+  const m = cleaned.match(/^(?:(\d{1,4})\s*[×x*]\s*)?(.+?)(?:\s+(?:à|a)\s+|\s+)([\d]+(?:[.,]\d{1,2})?)\s*(?:€|EUR)\s*$/i);
+  if (m) {
+    const qty = m[1] ? parseInt(m[1], 10) : 1;
+    const name = m[2].trim();
+    const price = parseFloat(m[3].replace(",", "."));
+    return { quantity: Number.isFinite(qty) && qty > 0 ? qty : 1, name, unitPriceNet: Number.isFinite(price) ? price : 0 };
+  }
+  const qm = cleaned.match(/^(\d{1,4})\s*[×x*]\s*(.+)$/);
+  if (qm) {
+    return { quantity: parseInt(qm[1], 10) || 1, name: qm[2].trim(), unitPriceNet: 0 };
+  }
+  return { quantity: 1, name: cleaned, unitPriceNet: 0 };
+}
+
+function normalizeSectionItems(items: unknown): FreeformProgramSectionItem[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((it): FreeformProgramSectionItem | null => {
+      if (typeof it === "string") return parseSectionLine(it);
+      if (it && typeof it === "object") {
+        const o = it as Record<string, unknown>;
+        if (typeof o.name === "string") {
+          const q = Number(o.quantity);
+          const p = Number(o.unitPriceNet);
+          return {
+            quantity: Number.isFinite(q) && q > 0 ? q : 1,
+            name: o.name,
+            unitPriceNet: Number.isFinite(p) && p >= 0 ? p : 0,
+          };
+        }
+      }
+      return null;
+    })
+    .filter((x): x is FreeformProgramSectionItem => x !== null);
+}
+
+export function normalizeFreeformItems(program: FreeformProgram): FreeformProgram {
+  return {
+    ...program,
+    days: (program.days ?? []).map((d) => ({
+      ...d,
+      meals: (d.meals ?? []).map((m) => ({
+        ...m,
+        sections: (m.sections ?? []).map((s) => ({
+          heading: s?.heading ?? null,
+          items: normalizeSectionItems(s?.items),
+        })),
+      })),
+    })),
+  };
+}
 
 async function invokeFn<T = unknown>(name: string, body: unknown): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body });
