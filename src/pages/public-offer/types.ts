@@ -76,9 +76,15 @@ export interface PublicFreeformProgramMeal {
   id?: string;
   label: string;
   guestCount: number;
-  sections: Array<{ heading?: string | null; items: string[] }>;
+  sections: Array<{ heading?: string | null; items: PublicFreeformProgramSectionItem[] }>;
   flatPriceNet: number;
   vatRate: number;
+}
+
+export interface PublicFreeformProgramSectionItem {
+  quantity: number;
+  name: string;
+  unitPriceNet: number;
 }
 
 export interface PublicFreeformProgramDay {

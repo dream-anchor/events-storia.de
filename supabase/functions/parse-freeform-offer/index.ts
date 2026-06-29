@@ -47,7 +47,7 @@ REGELN (NICHT VERHANDELBAR):
 2. Pauschalpreise sind NETTO (so wie im Text "Pauschal: X € netto" angegeben).
 3. Speisen → MwSt 7%, Personal/Equipment/Logistik → MwSt 19%.
 4. Übernimm Tagesüberschriften ("MONTAG, 29.06.2026"), Mahlzeit-Labels ("Lunch", "Dinner Live Cooking", "Frühstück", "BBQ Sommerfest" etc.) und Gästezahlen ("| 25 Personen") wörtlich — sofern im Text vorhanden.
-5. Strukturiere jede Mahlzeit in Sektionen (heading optional, z.B. "Antipasti-Auswahl", "Live Pasta Station", "Dessert"). Items als einfache Strings ohne Bullets.
+5. Strukturiere jede Mahlzeit in Sektionen (heading optional, z.B. "Antipasti-Auswahl", "Live Pasta Station", "Dessert"). Jedes Item ist ein Objekt { quantity (Stk, default 1), name (wörtlich, ohne Bullet), unitPriceNet (Netto-€ pro Stück, default 0 wenn nicht im Text genannt) }.
 6. Extrahiere den Block KALKULATION → taxBreakdown (foodNet, foodVatRate=7, servicesNet, servicesVatRate=19).
 7. Extrahiere GESAMTANGEBOT → totalsFromText (net, gross).
 8. HINWEISE-Aufzählung → notes[].
@@ -115,7 +115,18 @@ Antworte AUSSCHLIESSLICH per Tool-Call extract_program.${correctionBlock}`;
                               type: "object",
                               properties: {
                                 heading: { type: "string" },
-                                items: { type: "array", items: { type: "string" } },
+                                items: {
+                                  type: "array",
+                                  items: {
+                                    type: "object",
+                                    properties: {
+                                      quantity: { type: "number" },
+                                      name: { type: "string" },
+                                      unitPriceNet: { type: "number" },
+                                    },
+                                    required: ["name"],
+                                  },
+                                },
                               },
                               required: ["items"],
                             },

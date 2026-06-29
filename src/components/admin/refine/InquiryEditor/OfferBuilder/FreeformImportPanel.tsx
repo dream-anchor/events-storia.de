@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/typed-client";
-import type { FreeformProgram, ValidationFinding, FreeformProgramSection, FreeformAdditionalService } from "./types";
+import type { FreeformProgram, ValidationFinding, FreeformProgramSection, FreeformProgramSectionItem, FreeformAdditionalService } from "./types";
 
 interface FreeformImportPanelProps {
   onParsed: (program: FreeformProgram, findings?: ValidationFinding[]) => void;
@@ -12,6 +12,69 @@ interface FreeformImportPanelProps {
 }
 
 const MAX_RETRIES = 2;
+
+/**
+ * Parst Legacy-Plain-Text-Zeilen ("2 × Pizza Margherita 12 €") in das neue
+ * {quantity, name, unitPriceNet}-Format. Wird sowohl beim Import (KI gibt teils
+ * weiterhin Strings zurück) als auch bei Hydration alter Anfragen verwendet.
+ */
+export function parseSectionLine(raw: string): FreeformProgramSectionItem {
+  const line = (raw || "").trim();
+  if (!line) return { quantity: 1, name: "", unitPriceNet: 0 };
+  // Optionaler Bullet-Marker
+  const cleaned = line.replace(/^[\s•·*\-–—]+\s*/, "");
+  // "2 × Pizza Margherita 12,50 €" oder "2× Salat à 8 €" oder "Pizza 9 €"
+  const m = cleaned.match(/^(?:(\d{1,4})\s*[×x*]\s*)?(.+?)(?:\s+(?:à|a)\s+|\s+)([\d]+(?:[.,]\d{1,2})?)\s*(?:€|EUR)\s*$/i);
+  if (m) {
+    const qty = m[1] ? parseInt(m[1], 10) : 1;
+    const name = m[2].trim();
+    const price = parseFloat(m[3].replace(",", "."));
+    return { quantity: Number.isFinite(qty) && qty > 0 ? qty : 1, name, unitPriceNet: Number.isFinite(price) ? price : 0 };
+  }
+  const qm = cleaned.match(/^(\d{1,4})\s*[×x*]\s*(.+)$/);
+  if (qm) {
+    return { quantity: parseInt(qm[1], 10) || 1, name: qm[2].trim(), unitPriceNet: 0 };
+  }
+  return { quantity: 1, name: cleaned, unitPriceNet: 0 };
+}
+
+function normalizeSectionItems(items: unknown): FreeformProgramSectionItem[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((it): FreeformProgramSectionItem | null => {
+      if (typeof it === "string") return parseSectionLine(it);
+      if (it && typeof it === "object") {
+        const o = it as Record<string, unknown>;
+        if (typeof o.name === "string") {
+          const q = Number(o.quantity);
+          const p = Number(o.unitPriceNet);
+          return {
+            quantity: Number.isFinite(q) && q > 0 ? q : 1,
+            name: o.name,
+            unitPriceNet: Number.isFinite(p) && p >= 0 ? p : 0,
+          };
+        }
+      }
+      return null;
+    })
+    .filter((x): x is FreeformProgramSectionItem => x !== null);
+}
+
+export function normalizeFreeformItems(program: FreeformProgram): FreeformProgram {
+  return {
+    ...program,
+    days: (program.days ?? []).map((d) => ({
+      ...d,
+      meals: (d.meals ?? []).map((m) => ({
+        ...m,
+        sections: (m.sections ?? []).map((s) => ({
+          heading: s?.heading ?? null,
+          items: normalizeSectionItems(s?.items),
+        })),
+      })),
+    })),
+  };
+}
 
 async function invokeFn<T = unknown>(name: string, body: unknown): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body });
@@ -90,7 +153,7 @@ function syntheticSingleDay(program: FreeformProgram, rawText: string): Freeform
             guestCount: 0,
             flatPriceNet: 0,
             vatRate: 7,
-            sections: [{ heading: null, items }],
+            sections: [{ heading: null, items: items.map(parseSectionLine) }],
           },
         ],
       },
@@ -167,7 +230,7 @@ function extractMealSectionsFromText(rawText: string): FreeformProgramSection[] 
   if (empfangIdx >= 0) {
     sections.push({
       heading: "Empfang",
-      items: ["Aperitivo mit verschiedenen italienischen Appetizern und kleinen Köstlichkeiten"],
+      items: [parseSectionLine("Aperitivo mit verschiedenen italienischen Appetizern und kleinen Köstlichkeiten")],
     });
   }
 
@@ -176,7 +239,7 @@ function extractMealSectionsFromText(rawText: string): FreeformProgramSection[] 
   if (vorspeiseIdx >= 0) {
     const items = collectBulletsAfter(vorspeiseIdx);
     if (items.length > 0) {
-      sections.push({ heading: "Vorspeise – Sharing-Platten", items });
+      sections.push({ heading: "Vorspeise – Sharing-Platten", items: items.map(parseSectionLine) });
     }
   }
 
@@ -185,7 +248,7 @@ function extractMealSectionsFromText(rawText: string): FreeformProgramSection[] 
   if (carpaccioIdx >= 0) {
     const items = collectBulletsAfter(carpaccioIdx);
     if (items.length > 0) {
-      sections.push({ heading: "Carpaccio-Variationen", items });
+      sections.push({ heading: "Carpaccio-Variationen", items: items.map(parseSectionLine) });
     }
   }
 
@@ -201,7 +264,7 @@ function extractMealSectionsFromText(rawText: string): FreeformProgramSection[] 
       const para = lines.slice(hauptIdx, hauptIdx + 4).join(" ").replace(/\s+/g, " ").trim();
       if (para) main.push(para.slice(0, 240));
     }
-    if (main.length > 0) sections.push({ heading: "Hauptgang", items: main });
+    if (main.length > 0) sections.push({ heading: "Hauptgang", items: main.map(parseSectionLine) });
   }
 
   // 5. Dessert
@@ -209,9 +272,9 @@ function extractMealSectionsFromText(rawText: string): FreeformProgramSection[] 
   if (dessertIdx >= 0) {
     const items = collectBulletsAfter(dessertIdx);
     if (items.length > 0) {
-      sections.push({ heading: "Dessert", items });
+      sections.push({ heading: "Dessert", items: items.map(parseSectionLine) });
     } else if (/dessert|dolce/i.test(text)) {
-      sections.push({ heading: "Dessert", items: ["Zwei bis drei kleine Desserts im Glas"] });
+      sections.push({ heading: "Dessert", items: [parseSectionLine("Zwei bis drei kleine Desserts im Glas")] });
     }
   }
 
@@ -280,7 +343,7 @@ function backfillEmptyMeals(program: FreeformProgram, rawText: string): Freeform
 
   const pickSections = (): FreeformProgramSection[] => {
     if (structured.length > 0) return structured;
-    if (bulletsFallback.length > 0) return [{ heading: null, items: bulletsFallback }];
+    if (bulletsFallback.length > 0) return [{ heading: null, items: bulletsFallback.map(parseSectionLine) }];
     return [];
   };
 
@@ -369,6 +432,8 @@ export function FreeformImportPanel({ onParsed, disabled }: FreeformImportPanelP
           throw new Error(parseRes?.error || "KI-Antwort ohne Programm-Daten.");
         }
         program = ensureIds(parseRes.program);
+        // Items (sec.items) auf neues {quantity, name, unitPriceNet}-Schema normalisieren.
+        program = normalizeFreeformItems(program);
         if (!program.days || program.days.length === 0) {
           // Einfaches Angebot ohne Tagesstruktur → synthetischen 1-Tages-Container bauen.
           program = syntheticSingleDay(program, text);

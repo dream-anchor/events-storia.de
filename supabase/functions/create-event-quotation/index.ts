@@ -69,7 +69,7 @@ interface FreeformProgramMealDB {
   id?: string;
   label: string;
   guestCount?: number | null;
-  sections?: Array<{ heading?: string | null; items?: string[] | null } | null> | null;
+  sections?: Array<{ heading?: string | null; items?: Array<string | { quantity?: number; name?: string; unitPriceNet?: number } | null> | null } | null> | null;
   /** Netto-Pauschalpreis dieser Position. */
   flatPriceNet: number;
   vatRate?: number | null;
@@ -293,7 +293,15 @@ function buildLineItems(
           if (!sec) continue;
           if (sec.heading) sectionLines.push(`${sec.heading}:`);
           for (const item of (sec.items || [])) {
-            if (item) sectionLines.push(`• ${item}`);
+            if (!item) continue;
+            if (typeof item === "string") {
+              sectionLines.push(`• ${item}`);
+            } else if (typeof item === "object") {
+              const qty = Number(item.quantity) || 1;
+              const name = String(item.name || "").trim();
+              if (!name) continue;
+              sectionLines.push(qty > 1 ? `• ${qty} × ${name}` : `• ${name}`);
+            }
           }
         }
         const guestSuffix = meal.guestCount && meal.guestCount > 0

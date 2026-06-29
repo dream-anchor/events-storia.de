@@ -1,6 +1,30 @@
 import { Calendar, Users, Info } from "lucide-react";
 import { formatCurrency } from "./types";
-import type { PublicFreeformProgram } from "./types";
+import type { PublicFreeformProgram, PublicFreeformProgramSectionItem } from "./types";
+
+// Defensive: alte string[]-Items im DB-Datensatz ins neue Objekt-Schema heben.
+function normalizeItem(it: unknown): PublicFreeformProgramSectionItem {
+  if (typeof it === "string") {
+    const cleaned = it.trim().replace(/^[\s•·*\-–—]+\s*/, "");
+    const m = cleaned.match(/^(?:(\d{1,4})\s*[×x*]\s*)?(.+?)(?:\s+(?:à|a)\s+|\s+)([\d]+(?:[.,]\d{1,2})?)\s*(?:€|EUR)\s*$/i);
+    if (m) {
+      return {
+        quantity: m[1] ? parseInt(m[1], 10) || 1 : 1,
+        name: m[2].trim(),
+        unitPriceNet: parseFloat(m[3].replace(",", ".")) || 0,
+      };
+    }
+    const qm = cleaned.match(/^(\d{1,4})\s*[×x*]\s*(.+)$/);
+    if (qm) return { quantity: parseInt(qm[1], 10) || 1, name: qm[2].trim(), unitPriceNet: 0 };
+    return { quantity: 1, name: cleaned, unitPriceNet: 0 };
+  }
+  const o = (it as Record<string, unknown>) ?? {};
+  return {
+    quantity: Number(o.quantity) || 1,
+    name: typeof o.name === "string" ? o.name : "",
+    unitPriceNet: Number(o.unitPriceNet) || 0,
+  };
+}
 
 /**
  * Strukturierte Darstellung eines mehrtägigen Catering-Programms im Public Offer.
@@ -84,12 +108,23 @@ export function FreeformProgramSection({ program }: { program: PublicFreeformPro
                         <div className="text-xs font-semibold text-foreground/85 mb-1">{sec.heading}</div>
                       )}
                       <ul className="text-sm text-muted-foreground space-y-0.5">
-                        {sec.items.map((it, j) => (
-                          <li key={j} className="flex gap-2">
-                            <span className="text-primary/40">·</span>
-                            <span>{it}</span>
-                          </li>
-                        ))}
+                        {sec.items.map((raw, j) => {
+                          const it = normalizeItem(raw);
+                          return (
+                            <li key={j} className="flex items-baseline gap-2">
+                              <span className="text-primary/40">·</span>
+                              <span className="flex-1">
+                                {it.quantity > 1 ? `${it.quantity} × ` : ""}
+                                {it.name}
+                              </span>
+                              {it.unitPriceNet > 0 && (
+                                <span className="tabular-nums text-foreground/85">
+                                  {formatCurrency(it.quantity * it.unitPriceNet)}
+                                </span>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   ))}
