@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useCallback } from "react";
+import { useMemo, useState, useRef, useCallback, type ReactNode } from "react";
 import {
   ChefHat, Utensils, Plus, Edit, Trash2, Undo2, X, ArrowLeft,
   ChevronDown, ChevronRight, Upload, Search, Sparkles,
