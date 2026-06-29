@@ -970,6 +970,8 @@ function CategoryEditDialog({
   menus: CateringMenu[];
 }) {
   const [form, setForm] = useState<CategoryFormData | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addMutation = useAddCategory();
   const updateMutation = useUpdateCategory();
@@ -1008,6 +1010,8 @@ function CategoryEditDialog({
             name_en: form.name_en || null,
             description: form.description || null,
             description_en: form.description_en || null,
+            image_url: form.image_url || null,
+            homepage_slug: form.homepage_slug || null,
           },
         });
         toast.success("Kategorie aktualisiert");
@@ -1015,6 +1019,23 @@ function CategoryEditDialog({
       handleOpenChange(false);
     } catch {
       toast.error("Fehler beim Speichern");
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !form) return;
+    if (!file.type.startsWith("image/")) { toast.error("Nur Bilddateien"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Max. 5 MB"); return; }
+    setUploading(true);
+    try {
+      const url = await uploadCateringImage(file);
+      setForm(prev => prev ? { ...prev, image_url: url } : prev);
+      toast.success("Bild hochgeladen");
+    } catch {
+      toast.error("Fehler beim Hochladen");
+    } finally {
+      setUploading(false);
     }
   };
 
