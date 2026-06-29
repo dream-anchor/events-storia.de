@@ -487,6 +487,9 @@ function CategorySection({
   onEditCategory,
   onDeleteCategory,
   onAddItem,
+  dragHandle,
+  sortingDisabled,
+  onReorderItems,
 }: {
   category: CateringCategory & { menuTitle?: string | null };
   onEditItem: (item: CateringMenuItem) => void;
@@ -496,6 +499,9 @@ function CategorySection({
   onEditCategory: () => void;
   onDeleteCategory: () => void;
   onAddItem: () => void;
+  dragHandle?: ReactNode;
+  sortingDisabled?: boolean;
+  onReorderItems?: (newIds: string[]) => void;
 }) {
   const [open, setOpen] = useState(true);
 
@@ -505,6 +511,7 @@ function CategorySection({
         <CollapsibleTrigger asChild>
           <div className="flex items-center justify-between px-5 py-3 bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
             <div className="flex items-center gap-3">
+              {dragHandle}
               {open ? (
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               ) : (
@@ -537,17 +544,26 @@ function CategorySection({
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="divide-y divide-border/30">
+          <SortableList
+            ids={category.items.map(i => i.id)}
+            disabled={sortingDisabled || !onReorderItems}
+            onReorder={(newIds) => onReorderItems?.(newIds)}
+            className="divide-y divide-border/30"
+          >
             {category.items.map(item => (
-              <MenuItemRow
-                key={item.id}
-                item={item}
-                onEdit={() => onEditItem(item)}
-                onDelete={() => onDeleteItem(item.id, item.name)}
-                onArchive={() => onArchiveItem(item.id, item.name)}
-              />
+              <SortableItem key={item.id} id={item.id} disabled={sortingDisabled || !onReorderItems}>
+                {(handle) => (
+                  <MenuItemRow
+                    item={item}
+                    dragHandle={handle}
+                    onEdit={() => onEditItem(item)}
+                    onDelete={() => onDeleteItem(item.id, item.name)}
+                    onArchive={() => onArchiveItem(item.id, item.name)}
+                  />
+                )}
+              </SortableItem>
             ))}
-          </div>
+          </SortableList>
           <div className="px-5 py-2 border-t border-border/20">
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1" onClick={onAddItem}>
               <Plus className="h-3.5 w-3.5" />
@@ -566,15 +582,18 @@ function MenuItemRow({
   onEdit,
   onDelete,
   onArchive,
+  dragHandle,
 }: {
   item: CateringMenuItem;
   onEdit: () => void;
   onDelete: () => void;
   onArchive?: () => void;
+  dragHandle?: ReactNode;
 }) {
   return (
     <div className="flex items-center justify-between px-5 py-3 hover:bg-muted/10 transition-colors group">
       <div className="flex items-center gap-3 flex-1 min-w-0">
+        {dragHandle}
         {/* Image */}
         {item.image_url ? (
           <img src={item.image_url} alt={item.name} className="h-10 w-10 rounded-lg object-cover shrink-0" />
