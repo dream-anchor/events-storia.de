@@ -299,12 +299,23 @@ export const PackagesList = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-6 lg:grid-cols-3">
+              <SortableList
+                ids={filteredPackages.map(p => p.id)}
+                strategy="grid"
+                disabled={sortingDisabled}
+                onReorder={handleReorderPackages}
+                className="grid gap-6 lg:grid-cols-3"
+              >
                 {filteredPackages.map((pkg) => (
+                  <SortableItem key={pkg.id} id={pkg.id} disabled={sortingDisabled} asGridItem>
+                    {(handle) => (
                   <Card
-                    key={pkg.id}
-                    className={`group relative overflow-hidden transition-all rounded-xl border border-border/60 bg-white dark:bg-gray-900 hover:shadow-md hover:border-primary/40 flex flex-col ${!pkg.is_active ? 'opacity-60' : ''}`}
+                    className={`group relative overflow-hidden transition-all rounded-xl border border-border/60 bg-white dark:bg-gray-900 hover:shadow-md hover:border-primary/40 flex flex-col h-full ${!pkg.is_active ? 'opacity-60' : ''}`}
                   >
+                    {/* Drag handle */}
+                    {handle && (
+                      <div className="absolute top-3 left-3 z-10">{handle}</div>
+                    )}
                     {/* Price Badge */}
                     <div className="absolute top-4 right-4 z-10">
                       <Badge className="text-base font-semibold px-3 py-1.5 bg-primary text-primary-foreground">
@@ -421,8 +432,10 @@ export const PackagesList = () => {
                       </div>
                     </CardContent>
                   </Card>
+                    )}
+                  </SortableItem>
                 ))}
-              </div>
+              </SortableList>
             )}
           </TabsContent>
 
