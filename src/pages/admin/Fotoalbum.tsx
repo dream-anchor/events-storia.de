@@ -17,7 +17,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil, Layers, CheckSquare, X, Link2 } from "lucide-react";
+import { Loader2, Sparkles, Trash2, Archive, RefreshCw, Pencil, Layers, CheckSquare, X, Link2, Folder, FolderPlus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,6 +34,16 @@ import {
   usePhotoVersionCounts,
   type PhotoAlbumEntry,
 } from "@/hooks/usePhotoAlbum";
+import {
+  usePhotoFolders,
+  usePhotoFolderItems,
+  useCreateFolder,
+  useUpdateFolder,
+  useDeleteFolder,
+  useAddPhotosToFolder,
+  useSetPhotoFolders,
+  type PhotoFolder,
+} from "@/hooks/usePhotoFolders";
 import { PhotoDropzone } from "@/components/admin/PhotoDropzone";
 import { AdminLayout } from "@/components/admin/refine/AdminLayout";
 import {
@@ -73,6 +83,17 @@ const Fotoalbum = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [versionViewerStem, setVersionViewerStem] = useState<PhotoAlbumEntry | null>(null);
+  const [folderId, setFolderId] = useState<string | undefined>();
+  const [folderDialog, setFolderDialog] = useState<{ mode: "create" | "rename"; id?: string; name?: string } | null>(null);
+  const [addToFolderOpen, setAddToFolderOpen] = useState(false);
+
+  const { data: folders } = usePhotoFolders();
+  const folderItems = usePhotoFolderItems();
+  const createFolder = useCreateFolder();
+  const updateFolder = useUpdateFolder();
+  const deleteFolder = useDeleteFolder();
+  const addPhotosToFolder = useAddPhotosToFolder();
+  const setPhotoFoldersMut = useSetPhotoFolders();
 
   const { data: photos, isLoading, isFetching } = usePhotoAlbum({
     category,
@@ -138,16 +159,23 @@ const Fotoalbum = () => {
 
   const filtered = useMemo(() => {
     if (!photos) return [];
-    if (!search) return photos;
-    const s = search.toLowerCase();
-    return photos.filter(
-      (p) =>
-        p.filename?.toLowerCase().includes(s) ||
-        p.title?.toLowerCase().includes(s) ||
-        p.description?.toLowerCase().includes(s) ||
-        p.tags.some((t) => t.toLowerCase().includes(s))
-    );
-  }, [photos, search]);
+    let list = photos;
+    if (folderId) {
+      const ids = folderItems.photosByFolder.get(folderId);
+      list = ids ? list.filter((p) => ids.has(p.id)) : [];
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.filename?.toLowerCase().includes(s) ||
+          p.title?.toLowerCase().includes(s) ||
+          p.description?.toLowerCase().includes(s) ||
+          p.tags.some((t) => t.toLowerCase().includes(s))
+      );
+    }
+    return list;
+  }, [photos, search, folderId, folderItems.photosByFolder]);
 
   const { data: versionCounts } = usePhotoVersionCounts(filtered);
 
@@ -192,6 +220,36 @@ const Fotoalbum = () => {
     if (selected.size === 0) return;
     await bulkArch.mutateAsync(Array.from(selected));
     toast.success(`${selected.size} archiviert`);
+    exitSelectMode();
+  };
+
+  const handleDeleteFolder = async () => {
+    if (!folderId) return;
+    const f = (folders ?? []).find((x) => x.id === folderId);
+    if (!confirm(`Ordner "${f?.name ?? ""}" löschen? Die Fotos bleiben erhalten.`)) return;
+    await deleteFolder.mutateAsync(folderId);
+    toast.success("Ordner gelöscht");
+    setFolderId(undefined);
+  };
+
+  const submitFolderDialog = async (name: string) => {
+    if (!name.trim()) return;
+    if (folderDialog?.mode === "rename" && folderDialog.id) {
+      await updateFolder.mutateAsync({ id: folderDialog.id, name });
+      toast.success("Ordner umbenannt");
+    } else {
+      const created = await createFolder.mutateAsync({ name });
+      toast.success("Ordner erstellt");
+      setFolderId(created.id);
+    }
+    setFolderDialog(null);
+  };
+
+  const handleAddSelectedToFolder = async (fid: string) => {
+    if (selected.size === 0) return;
+    await addPhotosToFolder.mutateAsync({ folderId: fid, photoIds: Array.from(selected) });
+    toast.success(`${selected.size} zu Ordner hinzugefügt`);
+    setAddToFolderOpen(false);
     exitSelectMode();
   };
 
@@ -248,6 +306,62 @@ const Fotoalbum = () => {
             onChange={(e) => setSearch(e.target.value)}
             className="max-w-md"
           />
+
+          {/* Ordner (manuelle Ebene neben den KI-Kategorien) */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-medium text-muted-foreground mr-1 inline-flex items-center gap-1">
+              <Folder className="h-3.5 w-3.5" /> Ordner:
+            </span>
+            <Badge
+              variant={!folderId ? "default" : "outline"}
+              className="cursor-pointer"
+              onClick={() => setFolderId(undefined)}
+            >
+              Alle
+            </Badge>
+            {(folders ?? []).map((f) => (
+              <Badge
+                key={f.id}
+                variant={folderId === f.id ? "default" : "outline"}
+                className="cursor-pointer gap-1"
+                onClick={() => setFolderId(folderId === f.id ? undefined : f.id)}
+              >
+                {f.name}
+                <span className="opacity-60">{folderItems.countByFolder.get(f.id) ?? 0}</span>
+              </Badge>
+            ))}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-xs"
+              onClick={() => setFolderDialog({ mode: "create" })}
+            >
+              <FolderPlus className="h-3 w-3 mr-1" /> Neuer Ordner
+            </Button>
+            {folderId && (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => {
+                    const f = (folders ?? []).find((x) => x.id === folderId);
+                    setFolderDialog({ mode: "rename", id: folderId, name: f?.name });
+                  }}
+                >
+                  Umbenennen
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs text-destructive"
+                  onClick={handleDeleteFolder}
+                >
+                  Löschen
+                </Button>
+              </>
+            )}
+          </div>
 
           <div className="flex flex-wrap gap-2 items-center">
             <Badge
@@ -422,6 +536,9 @@ const Fotoalbum = () => {
           <Button size="sm" variant="outline" disabled={selected.size === 0} onClick={handleBulkArchive}>
             <Archive className="h-3 w-3 mr-2" /> Archivieren
           </Button>
+          <Button size="sm" variant="outline" disabled={selected.size === 0} onClick={() => setAddToFolderOpen(true)}>
+            <Folder className="h-3 w-3 mr-2" /> Zu Ordner
+          </Button>
           <Button size="sm" variant="outline" disabled={selected.size < 2} onClick={() => setAssignDialogOpen(true)}>
             <Link2 className="h-3 w-3 mr-2" /> Als Versionen zuordnen
           </Button>
@@ -461,8 +578,11 @@ const Fotoalbum = () => {
             <EditForm
               photo={editing}
               allPhotos={filtered}
-              onSave={async (patch) => {
+              folders={folders ?? []}
+              initialFolderIds={[...(folderItems.foldersByPhoto.get(editing.id) ?? [])]}
+              onSave={async (patch, folderIds) => {
                 await update.mutateAsync({ id: editing.id, patch });
+                await setPhotoFoldersMut.mutateAsync({ photoId: editing.id, folderIds });
                 toast.success("Gespeichert");
                 setEditing(null);
               }}
@@ -485,24 +605,153 @@ const Fotoalbum = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Ordner anlegen / umbenennen */}
+      <FolderNameDialog
+        state={folderDialog}
+        onClose={() => setFolderDialog(null)}
+        onSubmit={submitFolderDialog}
+      />
+
+      {/* Auswahl zu Ordner hinzufügen */}
+      <AddToFolderDialog
+        open={addToFolderOpen}
+        onOpenChange={setAddToFolderOpen}
+        folders={folders ?? []}
+        count={selected.size}
+        onPick={handleAddSelectedToFolder}
+        onCreate={async (name) => {
+          const created = await createFolder.mutateAsync({ name });
+          await handleAddSelectedToFolder(created.id);
+        }}
+      />
     </AdminLayout>
+  );
+};
+
+// ---------- Ordner-Name-Dialog (anlegen/umbenennen) ----------
+const FolderNameDialog = ({
+  state,
+  onClose,
+  onSubmit,
+}: {
+  state: { mode: "create" | "rename"; id?: string; name?: string } | null;
+  onClose: () => void;
+  onSubmit: (name: string) => Promise<void>;
+}) => {
+  const [name, setName] = useState("");
+  useEffect(() => {
+    setName(state?.name ?? "");
+  }, [state]);
+
+  const submit = async () => {
+    if (!name.trim()) return;
+    await onSubmit(name);
+  };
+
+  return (
+    <Dialog open={!!state} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{state?.mode === "rename" ? "Ordner umbenennen" : "Neuer Ordner"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label>Name</Label>
+          <Input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+            placeholder="z.B. Webseite-Hero, Firmenevent 2024"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Abbrechen</Button>
+          <Button onClick={submit} disabled={!name.trim()}>
+            {state?.mode === "rename" ? "Speichern" : "Erstellen"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ---------- Auswahl zu Ordner hinzufügen ----------
+const AddToFolderDialog = ({
+  open,
+  onOpenChange,
+  folders,
+  count,
+  onPick,
+  onCreate,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  folders: PhotoFolder[];
+  count: number;
+  onPick: (folderId: string) => Promise<void>;
+  onCreate: (name: string) => Promise<void>;
+}) => {
+  const [newName, setNewName] = useState("");
+  useEffect(() => { if (!open) setNewName(""); }, [open]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{count} Foto{count === 1 ? "" : "s"} zu Ordner hinzufügen</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {folders.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {folders.map((f) => (
+                <Badge
+                  key={f.id}
+                  variant="outline"
+                  className="cursor-pointer gap-1"
+                  onClick={() => onPick(f.id)}
+                >
+                  <Folder className="h-3 w-3" /> {f.name}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Noch keine Ordner. Lege unten einen an.</p>
+          )}
+          <div className="flex items-center gap-2 pt-2 border-t border-border">
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) onCreate(newName); }}
+              placeholder="Neuen Ordner anlegen…"
+            />
+            <Button size="sm" disabled={!newName.trim()} onClick={() => onCreate(newName)}>
+              <FolderPlus className="h-3 w-3 mr-1" /> Anlegen
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
 interface EditFormProps {
   photo: PhotoAlbumEntry;
   allPhotos: PhotoAlbumEntry[];
-  onSave: (patch: Partial<PhotoAlbumEntry>) => Promise<void>;
+  folders: PhotoFolder[];
+  initialFolderIds: string[];
+  onSave: (patch: Partial<PhotoAlbumEntry>, folderIds: string[]) => Promise<void>;
   onReclassify: () => Promise<void>;
   onArchive: () => Promise<void>;
   onDelete: () => Promise<void>;
 }
 
-const EditForm = ({ photo, allPhotos, onSave, onReclassify, onArchive, onDelete }: EditFormProps) => {
+const EditForm = ({ photo, allPhotos, folders, initialFolderIds, onSave, onReclassify, onArchive, onDelete }: EditFormProps) => {
   const [category, setCategory] = useState(photo.category ?? "");
   const [tags, setTags] = useState<string[]>(photo.tags);
   const [title, setTitle] = useState(photo.title ?? "");
   const [description, setDescription] = useState(photo.description ?? "");
+  const [folderIds, setFolderIds] = useState<string[]>(initialFolderIds);
   const [showVersions, setShowVersions] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const { data: versions } = usePhotoVersions(photo);
@@ -554,6 +803,35 @@ const EditForm = ({ photo, allPhotos, onSave, onReclassify, onArchive, onDelete 
             );
           })}
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="flex items-center gap-1"><Folder className="h-3.5 w-3.5" /> Ordner</Label>
+        {folders.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {folders.map((f) => {
+              const active = folderIds.includes(f.id);
+              return (
+                <Badge
+                  key={f.id}
+                  variant={active ? "default" : "outline"}
+                  className="cursor-pointer gap-1"
+                  onClick={() =>
+                    setFolderIds((prev) =>
+                      prev.includes(f.id) ? prev.filter((x) => x !== f.id) : [...prev, f.id]
+                    )
+                  }
+                >
+                  {f.name}
+                </Badge>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Noch keine Ordner angelegt. Lege oben in der Bibliothek einen Ordner an.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -651,7 +929,7 @@ const EditForm = ({ photo, allPhotos, onSave, onReclassify, onArchive, onDelete 
             <Trash2 className="h-3 w-3 mr-1" /> Löschen
           </Button>
         </div>
-        <Button onClick={() => onSave({ category: category || null, tags, title: title || null, description: description || null })}>
+        <Button onClick={() => onSave({ category: category || null, tags, title: title || null, description: description || null }, folderIds)}>
           Speichern
         </Button>
       </DialogFooter>
