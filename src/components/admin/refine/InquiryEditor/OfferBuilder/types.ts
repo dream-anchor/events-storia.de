@@ -57,7 +57,18 @@ export type OfferMode = 'unselected' | 'menu' | 'paket' | 'email' | 'freeform';
  */
 export interface FreeformProgramSection {
   heading?: string | null;
-  items: string[];
+  items: FreeformProgramSectionItem[];
+}
+
+/**
+ * Einzelne Position innerhalb einer Section (z.B. "2 × Pizza Margherita à 12 €").
+ * Wird im Freitext-Import als Zeile mit Menge/Name/Preis bearbeitet — analog zum
+ * Eigenes-Menü-Wizard. Preise sind NETTO.
+ */
+export interface FreeformProgramSectionItem {
+  quantity: number;
+  name: string;
+  unitPriceNet: number;
 }
 
 export interface FreeformProgramMeal {
