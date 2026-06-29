@@ -580,7 +580,8 @@ function CategorySection({
             </Button>
           </div>
         </CollapsibleContent>
-      </Collapsible>
+        </Collapsible>
+      </div>
     </Card>
   );
 }
