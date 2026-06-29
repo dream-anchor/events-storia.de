@@ -432,6 +432,8 @@ export function FreeformImportPanel({ onParsed, disabled }: FreeformImportPanelP
           throw new Error(parseRes?.error || "KI-Antwort ohne Programm-Daten.");
         }
         program = ensureIds(parseRes.program);
+        // Items (sec.items) auf neues {quantity, name, unitPriceNet}-Schema normalisieren.
+        program = normalizeFreeformItems(program);
         if (!program.days || program.days.length === 0) {
           // Einfaches Angebot ohne Tagesstruktur → synthetischen 1-Tages-Container bauen.
           program = syntheticSingleDay(program, text);
