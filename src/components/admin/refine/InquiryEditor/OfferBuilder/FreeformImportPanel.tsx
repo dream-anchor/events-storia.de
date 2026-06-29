@@ -153,7 +153,7 @@ function syntheticSingleDay(program: FreeformProgram, rawText: string): Freeform
             guestCount: 0,
             flatPriceNet: 0,
             vatRate: 7,
-            sections: [{ heading: null, items }],
+            sections: [{ heading: null, items: items.map(parseSectionLine) }],
           },
         ],
       },
@@ -230,7 +230,7 @@ function extractMealSectionsFromText(rawText: string): FreeformProgramSection[] 
   if (empfangIdx >= 0) {
     sections.push({
       heading: "Empfang",
-      items: ["Aperitivo mit verschiedenen italienischen Appetizern und kleinen Köstlichkeiten"],
+      items: [parseSectionLine("Aperitivo mit verschiedenen italienischen Appetizern und kleinen Köstlichkeiten")],
     });
   }
 
@@ -239,7 +239,7 @@ function extractMealSectionsFromText(rawText: string): FreeformProgramSection[] 
   if (vorspeiseIdx >= 0) {
     const items = collectBulletsAfter(vorspeiseIdx);
     if (items.length > 0) {
-      sections.push({ heading: "Vorspeise – Sharing-Platten", items });
+      sections.push({ heading: "Vorspeise – Sharing-Platten", items: items.map(parseSectionLine) });
     }
   }
 
@@ -248,7 +248,7 @@ function extractMealSectionsFromText(rawText: string): FreeformProgramSection[] 
   if (carpaccioIdx >= 0) {
     const items = collectBulletsAfter(carpaccioIdx);
     if (items.length > 0) {
-      sections.push({ heading: "Carpaccio-Variationen", items });
+      sections.push({ heading: "Carpaccio-Variationen", items: items.map(parseSectionLine) });
     }
   }
 
@@ -264,7 +264,7 @@ function extractMealSectionsFromText(rawText: string): FreeformProgramSection[] 
       const para = lines.slice(hauptIdx, hauptIdx + 4).join(" ").replace(/\s+/g, " ").trim();
       if (para) main.push(para.slice(0, 240));
     }
-    if (main.length > 0) sections.push({ heading: "Hauptgang", items: main });
+    if (main.length > 0) sections.push({ heading: "Hauptgang", items: main.map(parseSectionLine) });
   }
 
   // 5. Dessert
@@ -272,9 +272,9 @@ function extractMealSectionsFromText(rawText: string): FreeformProgramSection[] 
   if (dessertIdx >= 0) {
     const items = collectBulletsAfter(dessertIdx);
     if (items.length > 0) {
-      sections.push({ heading: "Dessert", items });
+      sections.push({ heading: "Dessert", items: items.map(parseSectionLine) });
     } else if (/dessert|dolce/i.test(text)) {
-      sections.push({ heading: "Dessert", items: ["Zwei bis drei kleine Desserts im Glas"] });
+      sections.push({ heading: "Dessert", items: [parseSectionLine("Zwei bis drei kleine Desserts im Glas")] });
     }
   }
 
@@ -343,7 +343,7 @@ function backfillEmptyMeals(program: FreeformProgram, rawText: string): Freeform
 
   const pickSections = (): FreeformProgramSection[] => {
     if (structured.length > 0) return structured;
-    if (bulletsFallback.length > 0) return [{ heading: null, items: bulletsFallback }];
+    if (bulletsFallback.length > 0) return [{ heading: null, items: bulletsFallback.map(parseSectionLine) }];
     return [];
   };
 
