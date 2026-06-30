@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useOne, useUpdate, useCreate, useList } from "@refinedev/core";
 import { AdminLayout } from "./AdminLayout";
@@ -16,16 +16,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, X, Loader2, MapPin, Languages } from "lucide-react";
+import { ArrowLeft, Save, Plus, X, Loader2, MapPin, Languages, Upload, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PackageMenuItemsEditor } from "./PackageMenuItemsEditor";
+import { uploadCateringImage } from "@/hooks/useCateringMenuMutations";
 
 interface PackageFormData {
   name: string;
   name_en: string;
   description: string;
   description_en: string;
+  image_url: string;
   price: number;
   price_per_person: boolean;
   min_guests: number;
@@ -60,6 +62,7 @@ const defaultFormData: PackageFormData = {
   name_en: "",
   description: "",
   description_en: "",
+  image_url: "",
   price: 0,
   price_per_person: true,
   min_guests: 0,
@@ -89,6 +92,8 @@ export const PackageEdit = () => {
   const [formData, setFormData] = useState<PackageFormData>(defaultFormData);
   const [newIncludeItem, setNewIncludeItem] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { query: packageQuery, result: packageData } = useOne({
     resource: "packages",
@@ -159,6 +164,7 @@ export const PackageEdit = () => {
         name_en: pkg.name_en || "",
         description: pkg.description || "",
         description_en: pkg.description_en || "",
+        image_url: pkg.image_url || "",
         price: pkg.price || 0,
         price_per_person: pkg.price_per_person ?? true,
         min_guests: pkg.min_guests || 0,
@@ -183,6 +189,29 @@ export const PackageEdit = () => {
 
   const handleChange = (field: keyof PackageFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Bitte nur Bilddateien hochladen");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Bild darf maximal 5 MB groß sein");
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const url = await uploadCateringImage(file);
+      setFormData((prev) => ({ ...prev, image_url: url }));
+      toast.success("Bild hochgeladen");
+    } catch (err) {
+      toast.error("Fehler beim Hochladen: " + (err as Error).message);
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const toggleLocation = (locationId: string) => {
@@ -364,6 +393,56 @@ export const PackageEdit = () => {
                 placeholder="Describe the package..."
                 rows={4}
               />
+            </div>
+
+            {/* Paket-Bild */}
+            <div className="space-y-2">
+              <Label>Bild</Label>
+              <div className="flex items-start gap-4">
+                {formData.image_url ? (
+                  <div className="relative w-32 h-32 rounded-lg overflow-hidden border shrink-0">
+                    <img src={formData.image_url} alt={formData.name} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => handleChange("image_url", "")}
+                      className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1"
+                      aria-label="Bild entfernen"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-32 h-32 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/50 shrink-0">
+                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1 space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                    {uploadingImage ? "Lädt..." : "Bild hochladen"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Max. 5 MB, JPG/PNG/WebP. Leer = automatisches Standardbild.
+                  </p>
+                  <Input
+                    placeholder="Oder Bild-URL eingeben"
+                    value={formData.image_url}
+                    onChange={(e) => handleChange("image_url", e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

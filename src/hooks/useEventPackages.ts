@@ -15,6 +15,7 @@ export interface EventPackage {
   package_type: string;
   is_active: boolean | null;
   sort_order: number | null;
+  image_url: string | null;
 }
 
 export interface EventLocation {

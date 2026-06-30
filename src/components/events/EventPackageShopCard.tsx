@@ -74,7 +74,8 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const name = language === 'de' ? pkg.name : (pkg.name_en || pkg.name);
   const description = language === 'de' ? pkg.description : (pkg.description_en || pkg.description);
   const includes = pkg.includes || [];
-  const image = getPackageImage(pkg.name);
+  // Eigenes Bild aus dem Admin (image_url) hat Vorrang; sonst namensbasiertes Default.
+  const image = pkg.image_url || getPackageImage(pkg.name);
 
   const minGuests = pkg.min_guests || 1;
   const maxGuests = pkg.max_guests || 200;
