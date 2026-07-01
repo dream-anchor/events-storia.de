@@ -627,6 +627,7 @@ export const AdminOfferCreate = () => {
               suggestedItems={suggestedItems}
               hasExtracted={hasExtracted}
               aiSummary={aiSummary}
+              freeformDetected={freeformDetected}
             />
           )}
         </div>
