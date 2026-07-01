@@ -36,7 +36,7 @@ const createStep1Schema = (minGuests: number) => z.object({
 });
 
 const step2Schema = z.object({
-  company: z.string().min(2, "Firmenname erforderlich").max(100),
+  company: z.string().trim().max(100).optional().or(z.literal("")),
   name: z.string().min(2, "Name erforderlich").max(100),
   email: z.string().email("Ungültige E-Mail").max(255),
   phone: z.string().max(30).optional().or(z.literal("")),
@@ -388,14 +388,14 @@ const EventPackageInquiryDialog = ({
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
-                  {language === "de" ? "Firma *" : "Company *"}
+                  {language === "de" ? "Firma (optional)" : "Company (optional)"}
                 </Label>
                 <Input
                   name="company"
                   value={formData.company}
                   onChange={handleInputChange}
                   className={cn(errors.company && "border-destructive")}
-                  placeholder={language === "de" ? "Firmenname" : "Company name"}
+                  placeholder={language === "de" ? "Firmenname – oder leer für Privat" : "Company – leave empty for private"}
                 />
                 {errors.company && (
                   <p className="text-xs text-destructive">{errors.company}</p>

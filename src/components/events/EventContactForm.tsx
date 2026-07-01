@@ -32,7 +32,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const formSchema = z.object({
-  company: z.string().min(2, "Firmenname erforderlich"),
+  company: z.string().trim().max(120).optional(),
   name: z.string().min(2, "Name erforderlich"),
   email: z.string().email("Ungültige E-Mail-Adresse"),
   phone: z.string().optional(),
@@ -178,9 +178,12 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
                   name="company"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{language === 'de' ? 'Firma *' : 'Company *'}</FormLabel>
+                      <FormLabel>{language === 'de' ? 'Firma (optional)' : 'Company (optional)'}</FormLabel>
                       <FormControl>
-                        <Input placeholder={language === 'de' ? 'Ihre Firma' : 'Your Company'} {...field} />
+                        <Input
+                          placeholder={language === 'de' ? 'Ihre Firma – oder leer lassen für Privat' : 'Your company – leave empty for private'}
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -191,7 +194,7 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{language === 'de' ? 'Ansprechpartner *' : 'Contact Person *'}</FormLabel>
+                      <FormLabel>{language === 'de' ? 'Name *' : 'Name *'}</FormLabel>
                       <FormControl>
                         <Input placeholder={language === 'de' ? 'Ihr Name' : 'Your Name'} {...field} />
                       </FormControl>
