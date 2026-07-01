@@ -10,8 +10,7 @@ import { supabase } from "@/integrations/supabase/typed-client";
 import { AdminLayout } from "../AdminLayout";
 import { ContactDataCard } from "./ContactDataCard";
 import { EventDetailsCard } from "./EventDetailsCard";
-import { AISuggestionsCard } from "./AISuggestionsCard";
-import { DraftFormData, ParsedInquiry, SuggestedPackage, SuggestedItem } from "./types";
+import { DraftFormData, ParsedInquiry } from "./types";
 import { useRegisterSaveStatus, type SaveStatus } from "@/components/admin/shared/SaveStatusContext";
 import type { FreeformProgram } from "../InquiryEditor/OfferBuilder/types";
 
@@ -20,21 +19,37 @@ import type { FreeformProgram } from "../InquiryEditor/OfferBuilder/types";
 // gelesen und danach entfernt.
 const pendingFreeformStorageKey = (inquiryId: string) =>
   `pending_freeform_program:${inquiryId}`;
+// Fallback-Key: wenn parse-freeform-offer im Intake nichts Verwertbares
+// zurückgibt, wird der Rohtext hier abgelegt und der Editor versucht ein
+// zweites Mal serverseitig zu parsen.
+const pendingFreeformTextStorageKey = (inquiryId: string) =>
+  `pending_freeform_text:${inquiryId}`;
 
-/** Programm hat mindestens EIN Item mit Preis ODER Pauschale ODER pricePerPerson. */
+/**
+ * Programm ist "übergabewürdig", sobald der Parser irgendetwas Konkretes
+ * erkannt hat: Items, Pauschale, pricePerPerson, mealLabel/guestCount,
+ * Zusatzleistungen, Leistungsumfang oder Notes.
+ */
 function isNonTrivialFreeformProgram(p: FreeformProgram | null | undefined): boolean {
-  if (!p || !Array.isArray(p.days) || p.days.length === 0) return false;
-  return p.days.some((d) =>
-    Array.isArray(d.meals) &&
-    d.meals.some((m) => {
+  if (!p) return false;
+  const hasServices = Array.isArray(p.additionalServices) && p.additionalServices.length > 0;
+  const hasScope = Array.isArray(p.scopeOfServices) && p.scopeOfServices.length > 0;
+  const hasNotes = Array.isArray(p.notes) && p.notes.length > 0;
+  if (hasServices || hasScope || hasNotes) return true;
+  if (!Array.isArray(p.days) || p.days.length === 0) return false;
+  return p.days.some((d) => {
+    if (!Array.isArray(d.meals) || d.meals.length === 0) return false;
+    return d.meals.some((m) => {
       const hasItems =
         Array.isArray(m.sections) &&
         m.sections.some((s) => Array.isArray(s.items) && s.items.length > 0);
       const hasFlat = Number(m.flatPriceNet) > 0;
       const hasPpp = Number(m.pricePerPersonNet) > 0;
-      return hasItems || hasFlat || hasPpp;
-    }),
-  );
+      const hasLabel = typeof m.label === 'string' && m.label.trim().length > 0;
+      const hasGuests = typeof m.guestCount === 'number' && m.guestCount > 0;
+      return hasItems || hasFlat || hasPpp || hasLabel || hasGuests;
+    });
+  });
 }
 
 // ─── Email Safety ──────────────────────────────────────────────────────────────
@@ -191,16 +206,12 @@ unser Firmenjubiläum bei Ihnen feiern..."`}
 interface Step2Props {
   formData: DraftFormData;
   onFormChange: (updates: Partial<DraftFormData>) => void;
-  suggestions: SuggestedPackage[];
-  suggestedItems: SuggestedItem[];
   hasExtracted: boolean;
   aiSummary: string;
   freeformDetected: boolean;
 }
 
-const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems, hasExtracted, aiSummary, freeformDetected }: Step2Props) => {
-  const addedPackageNames = formData.selected_packages.map(p => p.name);
-
+const Step2KontaktEvent = ({ formData, onFormChange, hasExtracted, aiSummary, freeformDetected }: Step2Props) => {
   return (
     <div className="space-y-4">
       {hasExtracted && aiSummary && (
@@ -246,25 +257,6 @@ const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems
         onGuestCountChange={(v) => onFormChange({ guest_count: v })}
         onEventTypeChange={(v) => onFormChange({ event_type: v })}
       />
-
-      {hasExtracted && (
-        <AISuggestionsCard
-          suggestions={suggestions}
-          suggestedItems={suggestedItems}
-          addedPackages={addedPackageNames}
-          onAddPackage={(name) => {
-            if (!addedPackageNames.includes(name)) {
-              onFormChange({
-                selected_packages: [
-                  ...formData.selected_packages,
-                  { id: `suggested-${Date.now()}`, name, price: 0 }
-                ]
-              });
-            }
-          }}
-          onSearch={() => {}}
-        />
-      )}
     </div>
   );
 };
@@ -276,8 +268,6 @@ export const AdminOfferCreate = () => {
   const [step, setStep] = useState(1);
   const [rawText, setRawText] = useState("");
   const [formData, setFormData] = useState<DraftFormData>(initialFormData);
-  const [suggestions, setSuggestions] = useState<SuggestedPackage[]>([]);
-  const [suggestedItems, setSuggestedItems] = useState<SuggestedItem[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isHandingOff, setIsHandingOff] = useState(false);
   const [hasExtracted, setHasExtracted] = useState(false);
@@ -462,13 +452,6 @@ export const AdminOfferCreate = () => {
         message: parsed.original_message_summary || prev.message,
       }));
 
-      setSuggestions(
-        (parsed.suggested_packages || []).map(p => ({
-          ...p,
-          matched_keywords: p.matched_keywords || [],
-        }))
-      );
-      setSuggestedItems(parsed.suggested_items || []);
       setAiSummary(parsed.original_message_summary || "");
       setHasExtracted(true);
       if (detectedProgram) {
@@ -481,12 +464,32 @@ export const AdminOfferCreate = () => {
               pendingFreeformStorageKey(id),
               JSON.stringify(detectedProgram),
             );
+            // Falls das Programm später doch Lücken hat, kann der Editor
+            // aus dem Rohtext noch einmal parsen — Fallback räumt sich
+            // nach Konsum selbst auf.
+            sessionStorage.setItem(
+              pendingFreeformTextStorageKey(id),
+              rawText,
+            );
           } catch (storageErr) {
             console.warn('[OfferCreate] sessionStorage set fehlgeschlagen:', storageErr);
           }
         }
         toast.success('Daten extrahiert — Menü-Programm als KI-Entwurf bereit');
       } else {
+        // Kein verwertbares Programm im Intake — Rohtext trotzdem für
+        // einen Editor-Retry hinterlegen.
+        const id = await ensureDraft();
+        if (id) {
+          try {
+            sessionStorage.setItem(
+              pendingFreeformTextStorageKey(id),
+              rawText,
+            );
+          } catch (storageErr) {
+            console.warn('[OfferCreate] sessionStorage text set fehlgeschlagen:', storageErr);
+          }
+        }
         toast.success('Daten extrahiert!');
       }
 
@@ -623,8 +626,6 @@ export const AdminOfferCreate = () => {
             <Step2KontaktEvent
               formData={formData}
               onFormChange={handleFormChange}
-              suggestions={suggestions}
-              suggestedItems={suggestedItems}
               hasExtracted={hasExtracted}
               aiSummary={aiSummary}
               freeformDetected={freeformDetected}

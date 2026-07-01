@@ -23,6 +23,39 @@ const readPendingFreeformProgram = (inquiryId: string | null): FreeformProgram |
     return null;
   }
 };
+
+/**
+ * Fallback aus dem Intake: wenn parse-freeform-offer dort nichts Verwertbares
+ * geliefert hat, wird der Rohtext gespeichert. Wir konsumieren ihn hier einmal
+ * und versuchen serverseitig erneut zu parsen.
+ */
+const readPendingFreeformText = (inquiryId: string | null): string | null => {
+  if (!inquiryId || typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(`pending_freeform_text:${inquiryId}`);
+    if (!raw) return null;
+    window.sessionStorage.removeItem(`pending_freeform_text:${inquiryId}`);
+    return raw.trim().length > 0 ? raw : null;
+  } catch (e) {
+    console.warn('[useOfferBuilder] pending freeform text konnte nicht gelesen werden:', e);
+    return null;
+  }
+};
+
+const retryParseFreeformFromText = async (text: string): Promise<FreeformProgram | null> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('parse-freeform-offer', {
+      body: { text },
+    });
+    if (error) return null;
+    const prog = (data as { success?: boolean; program?: FreeformProgram } | null)?.program ?? null;
+    if (!prog || !Array.isArray(prog.days) || prog.days.length === 0) return null;
+    return prog;
+  } catch (e) {
+    console.warn('[useOfferBuilder] Retry parse-freeform-offer fehlgeschlagen:', e);
+    return null;
+  }
+};
 import { toast } from "sonner";
 import { calculateEventPackagePrice } from "@/lib/eventPricing";
 import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
@@ -558,7 +591,13 @@ export function useOfferBuilder({
           // erkannt, wird es hier als KI-Preview-Option A vorgezeigt. Auto-Save
           // persistiert sie wie jede normale Option — Operator sieht sie mit
           // aiOrigin-Badge und kann editieren oder verwerfen.
-          const pending = readPendingFreeformProgram(inquiryId);
+          let pending = readPendingFreeformProgram(inquiryId);
+          // Immer Text-Fallback lesen (auch wenn `pending` bereits gesetzt ist),
+          // damit der Key nicht als Leiche stehen bleibt.
+          const pendingText = readPendingFreeformText(inquiryId);
+          if (!pending && pendingText) {
+            pending = await retryParseFreeformFromText(pendingText);
+          }
           if (pending) {
             try {
               const mapped = freeformToMenuDays(pending);

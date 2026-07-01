@@ -1,60 +1,45 @@
 ## Ziel
-Beim Anlegen einer neuen Anfrage in Schritt 1 („Kunden-E-Mail einfügen") wird der eingegebene Text nicht nur durch den Kontakt-/Event-Parser geschickt, sondern parallel auch durch den Freitext-Offer-Parser. Erkennt dieser eine Menü-/Tagesstruktur, wird beim Übergang in den Editor automatisch eine Option A als KI-Vorschlag vorbereitet (aiOrigin, needsManualSave) — mit `menuSelection.days[]`, so wie ein handgemachtes Menü mit Tages-Tabs aussieht.
 
-## Verhalten
+Zwei Korrekturen im „Neue Anfrage"-Flow:
 
-### Schritt 1: Text-Analyse
-- „Mit KI analysieren"-Button startet WEITERHIN nur einen sichtbaren Ladezustand, aber im Hintergrund laufen **beide** Edge-Functions parallel:
-  - `parse-inquiry-text` (heute) → Kontakt, Datum, Gäste, Paket-Suggestions
-  - `parse-freeform-offer` (neu im Intake) → FreeformProgram JSON, falls Menü/Preise erkennbar
-- Ergebnis von `parse-freeform-offer` wird **nicht** blockierend — schlägt der Parse fehl, wird still weiter navigiert. `parse-inquiry-text` bleibt der harte Erfolgs-Pfad.
-- Findings des Red-Team-Validators werden hier NICHT ausgeführt (schnellerer Intake). Validierung kann der Operator im Editor über den regulären Freitext-Import erneut anstoßen.
+1. **Keine KI-Paketvorschläge mehr in Schritt 2.** Die Karte „KI-Vorschläge" (Business Dinner Exclusive / Network Aperitivo mit „Hinzufügen"-Buttons) verschwindet komplett — inklusive der erkannten Item-Chips.
+2. **Das im Freitext erkannte Menü landet zuverlässig als Option A im Wizard** — genau so, als hätte man den Text im „Freitext-Import" eingegeben. Aktuell bleibt Option A leer und zeigt die Typ-Auswahl-Kacheln.
 
-### Draft-Persistenz
-- Wenn `parse-freeform-offer` ein sinnvolles Programm liefert (mind. 1 Tag mit ≥1 Item ODER Pauschale > 0), wird es zusammen mit dem Draft in einer neuen Spalte `event_inquiries.pending_freeform_program jsonb` persistiert.
-- Kein sinnvolles Programm → Spalte bleibt NULL.
-- Migration liefert die Spalte + Kommentar; keine Indizes nötig.
+## Änderungen
 
-### Hand-off in den Editor
-- Beim Übergang zum Editor prüft `useOfferBuilder` beim ersten Load nach Options-Daten: wenn keine Options existieren (frische Anfrage) UND `inquiry.pending_freeform_program` gesetzt ist, wird eine Option A als KI-Preview eingefügt:
-  - `applyFreeformAsMenu` (aus Session 2) baut `menuSelection.days[]`
-  - `offerMode='menu'`, `aiOrigin=true`, `needsManualSave=true`
-  - Kein Auto-Save → Operator muss aktiv „KI-Vorschlag speichern" klicken (bestehender Flow)
-- Nach dem ersten Save wird `pending_freeform_program` in derselben Row auf NULL gesetzt (idempotent).
+### 1. `src/components/admin/refine/OfferCreate/index.tsx`
 
-### UI-Feedback in Schritt 1
-- Wenn Freitext-Parse erfolgreich war, zeigt Schritt 2 einen dezenten Hinweis-Badge: „KI hat auch ein Menü-Programm erkannt — als Vorschlag im Editor bereit". Kein Modal, kein Blocker.
-- Wenn der Parse fehlgeschlagen ist, kein UI-Feedback (still).
+- `AISuggestionsCard`-Import und -Verwendung in `Step2KontaktEvent` entfernen. Props `suggestions` und `suggestedItems` aus `Step2Props` streichen, im Parent nicht mehr durchreichen.
+- State `suggestions` / `suggestedItems` und deren Setter komplett entfernen (werden nirgends sonst gebraucht).
+- Extraktion weiter laufen lassen (`parse-inquiry-text` liefert weiterhin Kontakt/Datum/Gästezahl), nur die Suggestions-Felder werden verworfen.
+- Der grüne „Menü-Programm erkannt"-Badge (`freeformDetected`) bleibt — kleine Info reicht.
+- `isNonTrivialFreeformProgram` lockern: `true`, wenn eines zutrifft:
+  - ≥1 Day mit Meal-Items ODER `flatPriceNet>0` ODER `pricePerPersonNet>0` (heutige Logik), **oder**
+  - ≥1 Day mit gesetztem `mealLabel` / `guestCount`, **oder**
+  - `program.additionalServices.length > 0`, **oder**
+  - `program.scopeOfServices.length > 0` / `program.notes.length > 0`.
+  
+  Rationale: Ein knapper Text („3 Abendessengänge, 3 Gläser Wein, Aperitif, 90 € p.P.") liefert vom Parser oft nur strukturierte Tages-Skelette + Notes ohne einzelne Items — soll trotzdem als KI-Preview in den Wizard.
+- Zusätzlich: Wenn `parse-freeform-offer` weder Fehler noch ein non-trivial-Programm liefert, den **Rohtext** unter `sessionStorage['pending_freeform_text:<inquiryId>']` ablegen. Das ermöglicht dem Editor einen einmaligen Retry serverseitig, falls die erste Parse-Runde zu leer war.
 
-## Technische Details
+### 2. `src/components/admin/refine/InquiryEditor/OfferBuilder/useOfferBuilder.ts`
 
-### Neue Migration
-- `alter table event_inquiries add column pending_freeform_program jsonb;`
-- Kommentar erklärt Nutzung + Auto-Cleanup-Regel.
-- Keine RLS-Änderung nötig (bestehende Policies decken Spalte ab).
+- Beim initialen Load-Zweig „keine Options in DB": Wenn kein `pending_freeform_program` da ist, aber `pending_freeform_text` vorhanden ist, **einmal** `parse-freeform-offer` erneut aufrufen (best effort, im `try/catch`). Ergebnis wird wie das direkt übergebene Programm behandelt (Option A mit `offerMode='menu'`, `aiOrigin=true`, Auto-Save via `isDirtyRef=true` / `dirtySourceRef='ai_import'`).
+- SessionStorage-Keys werden nach Konsum entfernt (bereits vorhanden für `_program`; für `_text` analog).
+- Kein Fallback-Loop: schlägt der Retry fehl / bleibt leer, wird Option A wie heute im Modus `unselected` angezeigt.
 
-### Änderungen in `OfferCreate/index.tsx`
-- `handleExtract` startet beide Invokes via `Promise.allSettled`.
-- Extractor-Ergebnis wie heute (harte Fehlerbehandlung).
-- Freitext-Ergebnis: bei Erfolg + Non-Trivial-Programm → in Draft-Auto-Save mit übergeben (`pending_freeform_program`).
-- Neues State-Flag `freeformDetected: boolean` für den Badge in Schritt 2.
+### 3. Aufräumen
 
-### Änderungen in `useOfferBuilder.ts`
-- Load-Pfad: wenn `optionsData.length === 0` UND `inquiry.pending_freeform_program` gesetzt → statt „leere Option A anlegen" wird eine Preview-Option via `applyFreeformAsMenu` erstellt, mit `aiOrigin=true`, `needsManualSave=true`. Analog zum bestehenden `addAiDraftPreview`-Pfad.
-- In `saveOptions` (oder direkt beim manuellen „Vorschlag speichern"): nach erfolgreichem ersten Save der Preview-Option auch `event_inquiries.pending_freeform_program = null` schreiben.
+- `AISuggestionsCard.tsx` bleibt vorerst im Repo (nicht löschen), damit kein toter Import zurückbleibt — nur nicht mehr verwendet. Falls du löschen willst: sag Bescheid, dann streiche ich sie inkl. `SuggestedPackage`/`SuggestedItem`-Typen.
 
-### Kosten & Rate-Limit
-- Zwei parallele AI-Calls pro Intake statt einem. `parse-freeform-offer` ist der teurere Call (Gemini + optionaler Validator). Validator läuft hier NICHT (nur Parser) → +1 Call, keine Verdopplung.
-- 402/429-Fehler beim Freitext-Parse werden geschluckt (nur Logging).
+## Kosten & Risiken
 
-## Nicht-Ziele
-- Kein Red-Team-Validator im Intake (Zeit- und Kosten-Grund).
-- Keine automatische Persistierung der Option (Operator entscheidet immer bewusst).
-- Kein Retry-Loop im Intake — der Editor-Freitext-Import behält die volle Pipeline inkl. Retry.
-- Kein neues Modal / kein Wizard-Extra-Schritt.
+- Zweite `parse-freeform-offer`-Runde im Editor nur wenn Intake-Runde leer war → typischerweise 1 Extra-AI-Call pro Anfrage im Worst Case, ansonsten 0.
+- Keine Änderungen an DB-Schema, Auth, RLS, Public-Offer oder Send-Flow.
+- Kein Auto-Send, kein Auto-Persist der KI-Preview außerhalb des bestehenden Auto-Save-Pfads.
 
-## Dateien (voraussichtlich)
-- `supabase/migrations/YYYYMMDDHHMMSS_add_pending_freeform_program.sql` (neu)
-- `src/components/admin/refine/OfferCreate/index.tsx` (parallel invoke + Draft-Feld + Badge)
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/useOfferBuilder.ts` (Preview-Injection + Cleanup)
-- optional: `src/pages/public-offer/types.ts` / Refine-Types falls `pending_freeform_program` typisiert werden soll
+## Testfall (der aus deinem Screenshot)
+
+Text mit „Firmendinner … 19 Personen … 90 € p.P. … 3 Abendessengänge, 3 Gläser Wein, Aperitif":
+- Schritt 2 zeigt **nur** Kontakt + Event-Details + kleinen „KI-Entwurf bereit"-Badge (keine Paket-Kacheln mehr).
+- Nach „Zur Angebotskonfiguration": Option A ist im `menu`-Modus, Tages-Tabs sichtbar, „Aperitif / Vorspeise / Hauptgang / Dessert / Weinbegleitung" als bearbeitbare Zeilen mit Preisen aus dem Text, `aiOrigin`-Badge.
