@@ -475,7 +475,6 @@ export function useOfferBuilder({
             let hydratedPackageName = pkgName;
             if (legacyFreeform && !hydratedSelection?.days) {
               try {
-                const { freeformToMenuDays } = await import('./freeformToMenuDays');
                 const mapped = freeformToMenuDays(legacyFreeform);
                 hydratedSelection = {
                   ...hydratedSelection,
