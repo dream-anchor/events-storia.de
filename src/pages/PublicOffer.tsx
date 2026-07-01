@@ -379,7 +379,7 @@ export default function PublicOffer() {
           const [histRes, inqRes] = await Promise.all([
             supabase
               .from('inquiry_offer_history' as never)
-              .select('options_snapshot, email_content')
+              .select('options_snapshot, email_content, inquiry_snapshot, address_snapshot, payment_terms_snapshot')
               .eq('inquiry_id', id)
               .eq('version', archiveVersion!)
               .maybeSingle(),
@@ -389,12 +389,25 @@ export default function PublicOffer() {
               .eq('id', id)
               .maybeSingle(),
           ]);
-          const hist = (histRes.data as unknown) as { options_snapshot: unknown; email_content: string | null } | null;
+          const hist = (histRes.data as unknown) as {
+            options_snapshot: unknown;
+            email_content: string | null;
+            inquiry_snapshot: Record<string, unknown> | null;
+            address_snapshot: Record<string, unknown> | null;
+            payment_terms_snapshot: Record<string, unknown> | null;
+          } | null;
           const inq = (inqRes.data as unknown) as Record<string, unknown> | null;
           if (!hist || !inq) {
             setError(true);
             return;
           }
+          // Snapshot-first: bei versionierten Feldern die eingefrorenen
+          // Werte bevorzugen; Fallback auf Live-Inquiry für Alt-Versionen.
+          const iSnap = hist.inquiry_snapshot ?? {};
+          const aSnap = hist.address_snapshot ?? {};
+          const pSnap = hist.payment_terms_snapshot ?? {};
+          const pref = <T,>(snap: Record<string, unknown>, key: string, fallback: T): T =>
+            (snap[key] !== undefined && snap[key] !== null ? (snap[key] as T) : fallback);
           const snapOptions = Array.isArray(hist.options_snapshot)
             ? (hist.options_snapshot as Array<Record<string, unknown>>)
             : [];
@@ -449,13 +462,13 @@ export default function PublicOffer() {
           const archiveData: PublicOfferData = {
             inquiry: {
               id: String(inq.id),
-              company_name: (inq.company_name as string | null) ?? null,
-              contact_name: String(inq.contact_name ?? ''),
-              email: (inq.email as string | null) ?? null,
-              event_type: (inq.event_type as string | null) ?? null,
-              preferred_date: (inq.preferred_date as string | null) ?? null,
-              event_end_date: (inq.event_end_date as string | null) ?? null,
-              guest_count: (inq.guest_count as string | null) ?? null,
+              company_name: pref(iSnap, 'company_name', (inq.company_name as string | null) ?? null),
+              contact_name: String(pref(iSnap, 'contact_name', inq.contact_name ?? '')),
+              email: pref(iSnap, 'email', (inq.email as string | null) ?? null),
+              event_type: pref(iSnap, 'event_type', (inq.event_type as string | null) ?? null),
+              preferred_date: pref(iSnap, 'preferred_date', (inq.preferred_date as string | null) ?? null),
+              event_end_date: pref(iSnap, 'event_end_date', (inq.event_end_date as string | null) ?? null),
+              guest_count: pref(iSnap, 'guest_count', (inq.guest_count as string | null) ?? null),
               status: 'offer_sent',
               // Archiv → immer ProposalView mit Menü + 2 Zahlbuttons
               offer_phase: 'proposal_sent',
@@ -463,14 +476,17 @@ export default function PublicOffer() {
               email_content: hist.email_content ?? null,
               lexoffice_quotation_id: (inq.lexoffice_quotation_id as string | null) ?? null,
               lexoffice_invoice_id: (inq.lexoffice_invoice_id as string | null) ?? null,
-              deposit_amount: (inq.deposit_amount as number | null) ?? null,
-              deposit_percent: (inq.deposit_percent as number | null) ?? null,
-              deposit_due_days: (inq.deposit_due_days as number | null) ?? null,
-              payment_method: (inq.payment_method as string | null) ?? null,
+              deposit_amount: pref(pSnap, 'deposit_amount', (inq.deposit_amount as number | null) ?? null),
+              deposit_percent: pref(pSnap, 'deposit_percent', (inq.deposit_percent as number | null) ?? null),
+              deposit_due_days: pref(pSnap, 'deposit_due_days', (inq.deposit_due_days as number | null) ?? null),
+              payment_method: pref(pSnap, 'payment_method', (inq.payment_method as string | null) ?? null),
             },
             options,
             customer_response: null,
           };
+          // aSnap wird derzeit im PublicOfferData-Typ nicht abgebildet; die
+          // ProposalView liest Adressen ohnehin aus dem Inquiry-Kontext.
+          void aSnap;
           setData(archiveData);
           return;
         }

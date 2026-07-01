@@ -48,7 +48,7 @@ export const useEventPackages = () => {
       return (data || []).map(pkg => ({
         ...pkg,
         includes: Array.isArray(pkg.includes) ? pkg.includes : []
-      })) as EventPackage[];
+      })) as unknown as EventPackage[];
     },
   });
 };
@@ -70,7 +70,7 @@ export const useReisegruppenPackages = () => {
       return (data || []).map(pkg => ({
         ...pkg,
         includes: Array.isArray(pkg.includes) ? pkg.includes : []
-      })) as EventPackage[];
+      })) as unknown as EventPackage[];
     },
   });
 };

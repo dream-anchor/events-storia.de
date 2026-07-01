@@ -84,13 +84,25 @@ export function useCloneOfferVersion(inquiryId: string) {
       //    current_offer_version BLEIBT bei der zuletzt gesendeten Version stehen
       //    (nicht die geplante Draft-Nummer) — das ist die offizielle, an den Kunden
       //    kommunizierte Versionsnummer. Beim nächsten Versand inkrementiert sie.
+      // Snapshot-Restore: archivierte Adressen, Zahlungsbedingungen und
+      // Kontakt-/Event-Basics zurück in die Live-Inquiry schreiben, damit
+      // der geklonte Draft im Editor mit exakt diesem Stand startet.
+      const entryAny = entry as unknown as {
+        inquiry_snapshot?: Record<string, unknown> | null;
+        address_snapshot?: Record<string, unknown> | null;
+        payment_terms_snapshot?: Record<string, unknown> | null;
+      };
+      const restore: Record<string, unknown> = {
+        offer_phase: "draft",
+        email_draft: entry.email_content || "",
+        last_edited_at: new Date().toISOString(),
+        ...(entryAny.inquiry_snapshot ?? {}),
+        ...(entryAny.address_snapshot ?? {}),
+        ...(entryAny.payment_terms_snapshot ?? {}),
+      };
       const { error: updErr } = await supabase
         .from("event_inquiries")
-        .update({
-          offer_phase: "draft",
-          email_draft: entry.email_content || "",
-          last_edited_at: new Date().toISOString(),
-        })
+        .update(restore as never)
         .eq("id", inquiryId);
       if (updErr) throw updErr;
 

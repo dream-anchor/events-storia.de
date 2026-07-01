@@ -39,6 +39,12 @@ export interface OfferHistoryEntry {
   email_html: string | null;
   pdf_url: string | null;
   options_snapshot: OfferOptionSnapshot[];
+  /** Snapshot Kontakt- & Event-Basisdaten zum Sendezeitpunkt. Null bei Alt-Versionen. */
+  inquiry_snapshot?: Record<string, unknown> | null;
+  /** Snapshot Adressen (Location/Firma/Rechnung) zum Sendezeitpunkt. Null bei Alt-Versionen. */
+  address_snapshot?: Record<string, unknown> | null;
+  /** Snapshot Zahlungsbedingungen zum Sendezeitpunkt. Null bei Alt-Versionen. */
+  payment_terms_snapshot?: Record<string, unknown> | null;
   /** E-Mail-Adresse, an die diese Version verschickt wurde.
    *  Wird über das nächstgelegene outbound-Mail-Log (±5 min) ermittelt. */
   recipient_email?: string | null;
