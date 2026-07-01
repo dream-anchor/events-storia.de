@@ -70,7 +70,11 @@ export function CostAcceptanceSection({ inquiry, options, required, deadlineIso 
     ? new Date(deadlineIso).toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" })
     : null;
 
-  const isB2C = !inquiry.company_name;
+  // B2C-Erkennung: echte Firma vorhanden? Der frühere Check
+  // `!inquiry.company_name` behandelte den String "null" fälschlich als B2B.
+  const companyClean = cleanDisplayText(inquiry.company_name);
+  const contactClean = cleanDisplayText(inquiry.contact_name);
+  const isB2C = companyClean === null;
   const total = chosenOption?.total_amount ?? 0;
 
   const [step, setStep] = useState<Step>("loading");
@@ -80,19 +84,19 @@ export function CostAcceptanceSection({ inquiry, options, required, deadlineIso 
   const [inactiveStatus, setInactiveStatus] = useState<string | null>(null);
 
   const [form, setForm] = useState({
-    event_company: inquiry.company_name ?? inquiry.contact_name,
+    event_company: companyClean ?? contactClean ?? "",
     event_title: inquiry.event_type ?? "",
     event_date: inquiry.preferred_date ?? "",
-    onsite_contact: inquiry.contact_name,
+    onsite_contact: contactClean ?? "",
     guest_count: Number(inquiry.guest_count ?? "0") || 0,
-    invoice_company: inquiry.company_name ?? inquiry.contact_name,
+    invoice_company: companyClean ?? contactClean ?? "",
     invoice_street: "",
     invoice_zip_city: "",
     invoice_reference: "",
-    signer_name: inquiry.contact_name,
+    signer_name: contactClean ?? "",
     signer_email: inquiry.email ?? "",
     signer_mobile: "",
-    signer_company_name: inquiry.company_name ?? "",
+    signer_company_name: companyClean ?? "",
   });
 
   const [confirmations, setConfirmations] = useState<Record<string, boolean>>({
