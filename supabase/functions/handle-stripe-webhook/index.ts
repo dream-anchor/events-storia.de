@@ -27,7 +27,7 @@ serve(async (req) => {
       throw new Error("Missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET");
     }
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+    const stripe = new Stripe(stripeKey, { apiVersion: '2025-08-27.basil' });
     const signature = req.headers.get("stripe-signature");
     if (!signature) {
       logStep("ERROR: Missing stripe-signature header");

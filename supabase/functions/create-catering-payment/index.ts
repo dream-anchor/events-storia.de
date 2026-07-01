@@ -164,7 +164,7 @@ serve(async (req) => {
     }
 
     const stripe = new Stripe(stripeKey, {
-      apiVersion: "2024-06-20",
+      apiVersion: '2025-08-27.basil',
     });
 
     // Check for existing customer

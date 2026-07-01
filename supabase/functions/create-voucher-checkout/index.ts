@@ -50,7 +50,7 @@ serve(async (req) => {
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY missing");
-    const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+    const stripe = new Stripe(stripeKey, { apiVersion: '2025-08-27.basil' });
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
