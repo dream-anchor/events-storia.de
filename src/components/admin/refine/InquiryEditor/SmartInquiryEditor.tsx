@@ -1020,9 +1020,11 @@ export const SmartInquiryEditor = () => {
   const isOfferSent = !!(inquiry as any)?.offer_phase && (inquiry as any).offer_phase !== 'draft';
 
   // Signatur-Lock: nach unterschriebener Kostenübernahme dürfen signaturrelevante
-  // Felder nicht mehr direkt geändert werden. Bestehende Confirmed-Sperre bleibt erhalten.
+  // Felder nicht mehr direkt geändert werden.
+  // "Bestätigt" alleine sperrt nichts — Änderungen erzeugen beim nächsten Versand
+  // automatisch eine neue Angebotsversion (Snapshot-Versionierung).
   const isSignatureLocked = Boolean((mergedInquiry as any)?.locked_after_signature);
-  const isReadOnlyLocked = inquiry.status === 'confirmed' || isSignatureLocked;
+  const isReadOnlyLocked = isSignatureLocked;
 
   return (
     <AdminLayout activeTab="events">
