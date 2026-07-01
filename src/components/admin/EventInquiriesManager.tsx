@@ -380,10 +380,18 @@ const EventInquiriesManager = () => {
                           Kontakt
                         </h4>
                         <div className="space-y-1 text-sm">
-                          <p className="font-medium">{inquiry.contact_name}</p>
-                          {inquiry.company_name && (
-                            <p className="text-muted-foreground">{inquiry.company_name}</p>
-                          )}
+                          {(() => {
+                            const contact = cleanDisplayText(inquiry.contact_name);
+                            const company = cleanDisplayText(inquiry.company_name);
+                            return (
+                              <>
+                                <p className="font-medium">{contact ?? company ?? '—'}</p>
+                                {contact && company && (
+                                  <p className="text-muted-foreground">{company}</p>
+                                )}
+                              </>
+                            );
+                          })()}
                           <p className="flex items-center gap-2">
                             <Mail className="h-3 w-3" />
                             <a href={`mailto:${inquiry.email}`} className="text-primary hover:underline">

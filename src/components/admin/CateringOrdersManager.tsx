@@ -249,8 +249,8 @@ const CateringOrdersManager = () => {
             
             <div class="section">
               <h2>Kunde</h2>
-              <div class="value">${order.customer_name}</div>
-              ${order.company_name ? `<div class="value">${order.company_name}</div>` : ""}
+              <div class="value">${cleanDisplayText(order.customer_name) ?? cleanDisplayText(order.company_name) ?? '—'}</div>
+              ${(() => { const c = cleanDisplayText(order.company_name); const p = cleanDisplayText(order.customer_name); return c && p ? `<div class="value">${c}</div>` : ''; })()}
               <div class="value">${order.customer_email}</div>
               <div class="value">${order.customer_phone}</div>
             </div>
@@ -563,16 +563,18 @@ const CateringOrdersManager = () => {
                       </div>
                       
                       {/* Customer */}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm truncate">
-                          {order.customer_name}
-                        </div>
-                        {order.company_name && (
-                          <div className="text-xs text-muted-foreground truncate">
-                            {order.company_name}
+                      {(() => {
+                        const cust = cleanDisplayText(order.customer_name);
+                        const comp = cleanDisplayText(order.company_name);
+                        return (
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">{cust ?? comp ?? '—'}</div>
+                            {cust && comp && (
+                              <div className="text-xs text-muted-foreground truncate">{comp}</div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        );
+                      })()}
                       
                       {/* Delivery Type */}
                       <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -656,12 +658,12 @@ const CateringOrdersManager = () => {
                               {order.customer_phone}
                             </a>
                           </div>
-                          {order.company_name && (
+                          {(() => { const c = cleanDisplayText(order.company_name); return c ? (
                             <div className="flex items-center gap-2">
                               <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                              {order.company_name}
+                              {c}
                             </div>
-                          )}
+                          ) : null; })()}
                         </div>
                         
                         {!order.is_pickup && order.delivery_street && (

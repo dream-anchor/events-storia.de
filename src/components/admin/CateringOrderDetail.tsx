@@ -239,13 +239,21 @@ const CateringOrderDetail = ({ order, open, onOpenChange }: CateringOrderDetailP
               Kundendaten
             </h3>
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-              <p className="font-medium text-lg">{order.customer_name}</p>
-              {order.company_name && (
-                <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Building2 className="h-4 w-4" />
-                  {order.company_name}
-                </p>
-              )}
+              {(() => {
+                const cust = cleanDisplayText(order.customer_name);
+                const comp = cleanDisplayText(order.company_name);
+                return (
+                  <>
+                    <p className="font-medium text-lg">{cust ?? comp ?? '—'}</p>
+                    {comp && cust && (
+                      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Building2 className="h-4 w-4" />
+                        {comp}
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
               <a href={`mailto:${order.customer_email}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
                 <Mail className="h-4 w-4" />
                 {order.customer_email}

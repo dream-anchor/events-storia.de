@@ -1082,7 +1082,7 @@ export const SmartInquiryEditor = () => {
                   </Select>
                 </div>
                 <p className="text-xs text-muted-foreground hidden sm:block truncate">
-                  {inquiry.company_name && <><Building2 className="h-3 w-3 inline mr-1" />{inquiry.company_name} · </>}
+                  {(() => { const c = cleanDisplayText(inquiry.company_name); return c ? <><Building2 className="h-3 w-3 inline mr-1" />{c} · </> : null; })()}
                   {inquiry.preferred_date && <><Calendar className="h-3 w-3 inline mr-1" />{(() => { try { return format(parseISO(inquiry.preferred_date), 'dd.MM.yyyy', { locale: de }); } catch { return inquiry.preferred_date; } })()} · </>}
                   {inquiry.guest_count && <><Users className="h-3 w-3 inline mr-1" />{inquiry.guest_count} Gäste</>}
                 </p>
@@ -1172,11 +1172,11 @@ export const SmartInquiryEditor = () => {
 
         {/* Mobile meta chips row */}
         <div className="sm:hidden mt-2 flex gap-2 overflow-x-auto scrollbar-hide -mx-3 px-3 text-[11px] text-muted-foreground">
-          {inquiry.company_name && (
+          {(() => { const c = cleanDisplayText(inquiry.company_name); return c ? (
             <span className="inline-flex items-center gap-1 whitespace-nowrap bg-muted/60 rounded-full px-2 py-1">
-              <Building2 className="h-3 w-3" />{inquiry.company_name}
+              <Building2 className="h-3 w-3" />{c}
             </span>
-          )}
+          ) : null; })()}
           {inquiry.preferred_date && (
             <span className="inline-flex items-center gap-1 whitespace-nowrap bg-muted/60 rounded-full px-2 py-1">
               <Calendar className="h-3 w-3" />{(() => { try { return format(parseISO(inquiry.preferred_date), 'dd.MM.yyyy', { locale: de }); } catch { return inquiry.preferred_date; } })()}

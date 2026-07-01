@@ -305,12 +305,18 @@ function OrderKanbanCard({
       </div>
 
       {/* Kunde */}
-      <p className="mt-1.5 truncate text-[13px] font-semibold text-slate-800">
-        {order.customer_name}
-        {order.company_name && (
-          <span className="font-normal text-slate-500"> · {order.company_name}</span>
-        )}
-      </p>
+      {(() => {
+        const cust = cleanDisplayText(order.customer_name);
+        const comp = cleanDisplayText(order.company_name);
+        return (
+          <p className="mt-1.5 truncate text-[13px] font-semibold text-slate-800">
+            {cust ?? comp ?? '—'}
+            {cust && comp && (
+              <span className="font-normal text-slate-500"> · {comp}</span>
+            )}
+          </p>
+        );
+      })()}
 
       {/* Footer: Lieferung/Abholung + Datum-Detail + Summe */}
       <div className="mt-1.5 flex items-center gap-2 text-[11px] text-slate-500">

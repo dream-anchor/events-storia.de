@@ -266,14 +266,18 @@ export const OrdersList = () => {
       id: "customer",
       accessorFn: (row) => (row.company_name || row.customer_name || "").toLowerCase(),
       header: sortableHeader<CateringOrder>("Kunde"),
-      cell: ({ row }) => (
-        <div className="min-w-[140px]">
-          <p className="font-medium text-sm">{row.original.customer_name}</p>
-          {row.original.company_name && (
-            <p className="text-xs text-muted-foreground">{row.original.company_name}</p>
-          )}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const cust = cleanDisplayText(row.original.customer_name);
+        const comp = cleanDisplayText(row.original.company_name);
+        return (
+          <div className="min-w-[140px]">
+            <p className="font-medium text-sm">{cust ?? comp ?? '—'}</p>
+            {cust && comp && (
+              <p className="text-xs text-muted-foreground">{comp}</p>
+            )}
+          </div>
+        );
+      },
     },
 
     // Spalte 6: Kontakt (Mail + Telefon)
@@ -469,11 +473,15 @@ export const OrdersList = () => {
                     <span className="font-mono">{o.order_number}</span>
                   </span>
                 }
-                subtitle={
-                  <span>
-                    {o.customer_name}{o.company_name ? ` · ${o.company_name}` : ""}
-                  </span>
-                }
+                subtitle={(() => {
+                  const cust = cleanDisplayText(o.customer_name);
+                  const comp = cleanDisplayText(o.company_name);
+                  return (
+                    <span>
+                      {cust ?? comp ?? '—'}{cust && comp ? ` · ${comp}` : ''}
+                    </span>
+                  );
+                })()}
                 meta={
                   <span className="flex items-center gap-2">
                     <Calendar className="h-3 w-3" />
