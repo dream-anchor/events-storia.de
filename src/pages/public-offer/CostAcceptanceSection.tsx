@@ -13,6 +13,7 @@ import {
   type DepositMethod,
   type BalanceMethod,
 } from "@/lib/costAcceptanceRequirement";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 interface Props {
   inquiry: PublicInquiry;
