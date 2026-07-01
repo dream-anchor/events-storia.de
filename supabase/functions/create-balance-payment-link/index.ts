@@ -148,16 +148,46 @@ serve(async (req) => {
     const paymentUrl = `${PUBLIC_BASE_URL}/restzahlung/${slug}`;
     log("dynamic balance link prepared", { slug, url: paymentUrl, pricePerPersonCents, depositPaidCents, guestCount });
 
-    // Payment-Record (sent) anlegen, damit die Timeline ihn sofort sieht
-    const { data: paymentRow } = await supabaseAdmin.from("v2_payments").insert({
-      event_id: body.eventId,
-      amount_cents: Math.round(body.amountEur * 100),
-      payment_type: "balance",
-      status: "sent",
-      stripe_payment_link_url: paymentUrl,
-      notes: body.description || "Restzahlung via Maestro",
-      created_by: userData.user.email ?? null,
-    }).select("id").single();
+    // Payment-Record (sent) — Dedup: bereits offener Balance-Eintrag wird
+    // wiederverwendet, damit Re-Sends keine Duplikate in der Timeline erzeugen.
+    const { data: existingBalance } = await supabaseAdmin
+      .from("v2_payments")
+      .select("id")
+      .eq("event_id", body.eventId)
+      .eq("payment_type", "balance")
+      .in("status", ["sent", "overdue"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let paymentRow: { id: string } | null = null;
+    if (existingBalance?.id) {
+      const { data: updated } = await supabaseAdmin
+        .from("v2_payments")
+        .update({
+          amount_cents: Math.round(body.amountEur * 100),
+          stripe_payment_link_url: paymentUrl,
+          notes: body.description || "Restzahlung via Maestro",
+          status: "sent",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingBalance.id)
+        .select("id")
+        .single();
+      paymentRow = updated as { id: string } | null;
+      log("balance payment reused (dedup)", { paymentId: existingBalance.id });
+    } else {
+      const { data: inserted } = await supabaseAdmin.from("v2_payments").insert({
+        event_id: body.eventId,
+        amount_cents: Math.round(body.amountEur * 100),
+        payment_type: "balance",
+        status: "sent",
+        stripe_payment_link_url: paymentUrl,
+        notes: body.description || "Restzahlung via Maestro",
+        created_by: userData.user.email ?? null,
+      }).select("id").single();
+      paymentRow = inserted as { id: string } | null;
+    }
 
     // Optional: E-Mail mit dem Link via send-payment-email
     if (body.sendEmail !== false && paymentRow?.id) {

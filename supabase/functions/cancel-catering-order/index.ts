@@ -93,7 +93,7 @@ serve(async (req) => {
         throw new Error("Stripe not configured");
       }
 
-      const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+      const stripe = new Stripe(stripeKey, { apiVersion: '2025-08-27.basil' });
 
       // Find payment intent by searching for customer email
       const paymentIntents = await stripe.paymentIntents.search({
