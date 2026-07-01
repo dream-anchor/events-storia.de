@@ -461,6 +461,9 @@ export function OfferSendPreview({
           )}
         </div>
 
+        {/* Diff: was ändert sich gegenüber letzter versendeter Version */}
+        <DraftDiffPanel inquiryId={inquiry.id} refreshKey={refreshKey} />
+
         {/* Block 1: E-Mail-Vorschau (read-only WYSIWYG via Edge-Function-Dry-Run) */}
         <section className="rounded-xl border bg-card overflow-hidden">
           {isOperatorRecipient && (
