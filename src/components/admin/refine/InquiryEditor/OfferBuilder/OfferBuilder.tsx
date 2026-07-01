@@ -656,7 +656,7 @@ export const OfferBuilder = forwardRef<OfferBuilderHandle, OfferBuilderProps>(fu
           balanceMethod={(inquiry as any).balance_method}
           balanceDueDaysBeforeEvent={(inquiry as any).balance_due_days_before_event}
           onChange={(field, value) => onFieldChange(field, value)}
-          isReadOnly={inquiry.status === 'confirmed' || isSignatureLocked}
+          isReadOnly={isSignatureLocked}
         />
       )}
 
