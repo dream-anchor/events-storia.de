@@ -1,92 +1,79 @@
-# Plan: "Vorschau anzeigen" regeneriert komplettes Angebotspaket
-
 ## Ziel
-Beim Klick auf "Vorschau anzeigen" wird **alles neu erzeugt**, was der Kunde später sieht: E-Mail, PDF, Public-Offer-Seite und LexOffice-Rechnung. Bisherige Vorschau bleibt optisch gleich (Mail-Tab + PDF-Tab + Public-Seite-Link) — die Änderung liegt darunter: echte Neu-Generierung statt nur Anzeige.
+Systematisch alle geschäftskritischen Flows von StoriaMaestro auf Fehler prüfen — nicht "alles auf einmal", sondern in klar priorisierter Reihenfolge mit reproduzierbarem Ergebnis pro Flow (✅ / ⚠️ / ❌ + Fundstellen).
 
-## Verhalten heute vs. neu
-
-| Bereich | Heute | Neu |
-|---|---|---|
-| Mail-Vorschau | Dry-Run (regeneriert) | unverändert |
-| PDF-Vorschau | Dry-Run (regeneriert) | unverändert |
-| Public-Offer-Seite | Liest live aus `event_inquiries` → Draft-Änderungen sofort für Kunden sichtbar | Liest vom letzten **Snapshot** (Version N); Draft nur mit Admin-Preview-Token sichtbar |
-| LexOffice-Rechnung | Wird nur bei echtem Versand neu erstellt | Beim Preview wird alte Rechnung **storniert** und neue Draft-Rechnung erzeugt |
-| Diff-Anzeige | keine | Kompakte Liste der geänderten Felder ("Rechnungsadresse geändert, Menü geändert, Zahlungsbedingungen geändert") |
-
-## Ablauf beim Klick auf "Vorschau anzeigen"
+## Warum nicht "alles auf einmal"
+Ein pauschaler "prüfe alles"-Durchlauf produziert entweder oberflächliche Checks oder eine unlesbare 200-Punkte-Liste. Wir gehen deshalb in **drei Ebenen**:
 
 ```text
-Admin klickt "Vorschau anzeigen (Version 2)"
-        │
-        ▼
-Preview-Screen öffnet sich
-        │
-        ├─► Tab 1: E-Mail-Vorschau (regeneriert, wie bisher)
-        ├─► Tab 2: PDF-Vorschau (regeneriert, wie bisher)
-        ├─► Tab 3: Public-Seite-Link "Kundenansicht Version 2 öffnen"
-        │           → öffnet /offer/:id?preview_draft=<token>
-        │           → nur Admin sieht Draft, Kunde sieht weiter Version 1
-        ├─► Diff-Panel: "Was ändert sich in Version 2"
-        │           z.B. "Rechnungsadresse geändert · Menü geändert · Zahlungsbedingungen geändert"
-        └─► LexOffice: alte Rechnung wird als "veraltet" markiert,
-                       neue Draft-Rechnung entsteht
-        │
-        ▼
-Admin prüft alles → klickt "Version 2 an Kunde senden"
-        │
-        ▼
-- Snapshot v2 wird in offer_history gespeichert
-- alte LexOffice-Rechnung wird storniert
-- neue Rechnung wird finalisiert
-- Kunde bekommt Mail mit Link zur Public-Seite v2
+Ebene 1  Statische Analyse       (findet Kategorien von Bugs — 30 Min)
+Ebene 2  Kritische Happy Paths    (findet echte Prod-Bugs — priorisiert)
+Ebene 3  Edge Cases pro Flow      (nur für Flows, die Ebene 2 überleben)
 ```
 
-## Was der Kunde sieht
+## Ebene 1 — Statische Analyse (Basis-Hygiene)
+Läuft ohne Klick durchs UI. Ergebnis: eine Liste "verdächtiger Stellen":
+- TypeScript-Build (`tsgo`) — echte Typfehler
+- ESLint auf `src/` — tote Referenzen, ungenutzte States, falsche Hook-Deps
+- `supabase--linter` — RLS/Grants/Security-Warnungen der DB
+- Grep-Sweeps für bekannte Fehlerklassen:
+  - `console.error`/`toast.error`-Aufrufe → welche Fehler werden dem User aktuell wirklich gezeigt
+  - `TODO` / `FIXME` / `HACK` / `@ts-ignore` / `as any`
+  - Direkte Feldzugriffe ohne Null-Check auf `company_name`, `contact_name`, `amount_total`, `preferred_date` (Klassiker für "null"-Anzeige)
+- Edge-Function-Logs der letzten 7 Tage — welche Functions haben Fehlerrate > 0
 
-- **Vor Versand v2:** Kunde sieht weiter Version 1 (Snapshot). Keine unbeabsichtigten Draft-Änderungen sichtbar.
-- **Nach Versand v2:** Kundenlink zeigt Version 2. Version 1 ist im Archiv, aber nicht mehr über den Kundenlink erreichbar.
-- **Alte LexOffice-Rechnung:** automatisch storniert. Kunde sieht nur die aktuelle gültige Rechnung.
+## Ebene 2 — Priorisierte Flow-Checks
+Wir definieren **die kritischen Flows** und arbeiten sie in dieser Reihenfolge ab. Jeder Flow wird per Playwright im Sandbox-Browser end-to-end durchgeklickt, mit Screenshot + Console-/Network-Log-Auswertung. Ergebnis pro Flow: **eine Zeile** — funktioniert / kaputt / kaputt in Detail X.
 
-## Diff-Panel (kompakt)
+**Priorität P0 (Umsatz-relevant, jede Störung = Geldverlust):**
+1. Anfrage kommt rein (Kontaktformular → `event_inquiries` → Benachrichtigung Admin + WhatsApp)
+2. Angebot erstellen (OfferBuilder: Menu/Paket/Freitext) → Speichern → Versand
+3. Public-Offer-Seite (Kunde sieht Angebot, wählt Option, akzeptiert)
+4. Zahlung (Stripe-Session → Webhook → Status → LexOffice-Rechnung)
+5. Restzahlung / Balance-Payment-Link
+6. Gutschein-Verkauf & Einlösung
 
-Vergleicht Draft mit letztem Snapshot. Zeigt nur Feldnamen, keine alten/neuen Werte:
+**Priorität P1 (Admin-Alltag, Störung blockiert Team):**
+7. Kanban-Board & Filter (Kartentitel, Drag&Drop, Archivieren)
+8. E-Mail-Kommunikation (Posteingang, Antworten, Anhänge, Bilingual-Template)
+9. Rechnungen-Liste + LexOffice-Sync
+10. Bestellungen (Catering-Orders)
+11. Reisegruppen-Anfragen
+12. Cost-Acceptance / Kostenübernahme
+
+**Priorität P2 (wichtig, aber selten):**
+13. Fotoalbum + Menü-Verwaltung
+14. Auth (Login, Password-Reset, User-Rollen)
+15. System-Health-Dashboard
+16. Cookie-Consent / Analytics-Loading
+
+## Ebene 3 — Edge Cases (nur wo Ebene 2 hält)
+Pro Flow gezielt: leere Felder, sehr lange Texte, gelöschte Referenzen, abgelaufene Sessions, Netz-Timeouts, mehrsprachig, Test-Mode-Flag.
+
+## Reporting-Format
+Ich lege pro Prüfrunde eine Markdown-Datei unter `docs/audit/YYYY-MM-DD-audit.md` an:
 
 ```text
-Änderungen für Version 2
-· Rechnungsadresse
-· Menü & Preise
-· Zahlungsbedingungen
+## P0-1  Anfrage → Admin-Notification
+Status: ⚠️  Teil-defekt
+Fund:   WhatsApp-Alarm feuert, aber E-Mail-Bestätigung an Kunde
+        fehlt bei event_type = "catering" (siehe supabase Function
+        `send-lead-notify`, Zeile 142 — company_name null)
+Repro:  Playwright-Script docs/audit/p0-1-repro.py
+Fix:    (leer, wird in Build-Mode angegangen)
 ```
 
-## Technische Umsetzung
+Das ist der einzige Ort, wo alle Findings zentral landen — nicht in 50 einzelnen Chat-Nachrichten.
 
-**1. Public-Offer-Seite auf Snapshot umstellen**
-- `PublicOffer.tsx`: Default = neuester Eintrag aus `inquiry_offer_history` (Menü + Preise + Adresse + Zahlungsbedingungen + Kontakt).
-- Fallback auf `event_inquiries` nur wenn noch keine Version existiert.
-- Preview-Modus: Query-Param `?preview_draft=<signed_token>` → liest aus `event_inquiries` (Draft). Token ist kurzlebig (15 min), admin-signiert, nicht ratbar.
+## Was ich in dieser Session tue (wenn du "OK" sagst)
+1. Ebene 1 komplett ausführen (statische Analyse + Lint + Grep-Sweeps + Edge-Function-Log-Auswertung 7 Tage). Ergebnis: erste `docs/audit/…-audit.md` mit den auffälligen Kategorien.
+2. Aus Ebene 1 die **Top 10 konkret verdächtigen Stellen** ableiten und dir zeigen.
+3. Danach entscheidest du: entweder wir starten sofort mit P0-1 (Playwright-Runs) oder du willst zuerst die Top 10 aus Ebene 1 fixen.
 
-**2. Preview-Screen erweitern (`OfferSendPreview.tsx`)**
-- Bestehende Mail- und PDF-Tabs bleiben.
-- Neuer Button "Kundenansicht Version N+1 öffnen" → generiert Preview-Token, öffnet `/offer/:id?preview_draft=…` in neuem Tab.
-- Neues Diff-Panel: berechnet clientseitig, welche Snapshot-Felder sich vom Draft unterscheiden (Menü/Preise, Adresse, Zahlungsbedingungen, Kontakt/Event). Zeigt Feldnamen-Liste.
+## Was ich in dieser Session **nicht** tue
+- Keine Fixes (das ist Build-Mode).
+- Keine 100-Punkte-Bug-Liste ohne Priorisierung.
+- Keine Aussage "läuft" ohne Screenshot-/Log-Beleg.
 
-**3. LexOffice-Regenerierung**
-- `create-event-quotation` Edge Function: bekommt Flag `force_recreate: true`.
-- Ruft im Preview-Modus mit `force_recreate=true` auf → alte Quotation wird per LexOffice-API storniert, neue Draft-Quotation entsteht.
-- Beim echten Versand wird die neue Quotation finalisiert.
-
-**4. Preview-Token**
-- Neue Edge Function `create-preview-token` (SECURITY DEFINER, admin-only): erzeugt kurzlebiges signiertes Token, das `PublicOffer.tsx` gegen Serverzeit validiert.
-
-## Betroffene Dateien
-- `src/pages/PublicOffer.tsx` — Snapshot-Read + Preview-Token-Support
-- `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx` — Public-Vorschau-Button + Diff-Panel
-- `src/lib/adminPublicOfferUrl.ts` — Preview-Token-URL-Builder
-- `supabase/functions/create-event-quotation/index.ts` — `force_recreate`-Flag
-- `supabase/functions/create-preview-token/index.ts` — neu
-- Migration: keine neuen Tabellen; ggf. Index auf `inquiry_offer_history(inquiry_id, version)`
-
-## Nicht Teil dieses Plans
-- Kein Umbau von Versionierungs-Logik selbst (bleibt wie beschlossen: Snapshot nur beim Versand).
-- Kein Diff mit alten/neuen Werten — nur Feldnamen (auf deinen Wunsch).
-- Keine Änderung an "Vorschau anzeigen"-Button-Beschriftung über das hinaus, was bereits existiert.
+## Offene Frage vor Start
+- **Scope**: Soll ich mich strikt auf das **Admin-Panel + Public-Offer + Zahlungen** konzentrieren (dort steckt der Umsatz), oder auch die öffentliche Website (SEO-Seiten, Katering-Seiten, Reservierung) mitprüfen?
+- **Test-Daten**: Darf ich in P0-Flows echte Aktionen auslösen (z.B. Test-Anfrage anlegen, Test-Angebot versenden im Test-Mode)? Ohne echtes Auslösen kann ich Webhooks & LexOffice-Sync nicht validieren.
